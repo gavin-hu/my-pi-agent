@@ -1,21 +1,21 @@
 /**
  * Session-scoped state and tool gating for plan mode.
  *
- * Enabling plan mode removes the file-writing tools from the active set and
- * activates `exit_plan_mode`. Disabling restores them. The enabled flag is
- * persisted as a custom session entry so `/resume` and `/tree` follow the
- * branch, and it is also mirrored into the footer status.
+ * Enabling plan mode removes every tool the policy does not consider read-only
+ * from the active set and activates `exit_plan_mode`. Disabling restores
+ * exactly what it hid. The enabled flag is persisted as a custom session entry
+ * so `/resume` and `/tree` follow the branch, and it is also mirrored into the
+ * footer status.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ReadOnlyPolicy } from "../_shared/policy.ts";
 import type { PlanModeEntry } from "./types.ts";
 
 /** Tool the model calls to leave plan mode after approval. */
 export const EXIT_TOOL = "exit_plan_mode";
 /** Tool the model calls to ask to enter plan mode. */
 export const ENTER_TOOL = "enter_plan_mode";
-/** Built-in tools removed while planning. */
-export const RESTRICTED_TOOLS = ["write", "edit"] as const;
 /** Custom-entry type used for persistence. */
 export const STATE_TYPE = "plan-mode";
 
@@ -40,7 +40,7 @@ function readPersistedEnabled(ctx: ExtensionContext): boolean | undefined {
 	return enabled;
 }
 
-export function createPlanRuntime(pi: ExtensionAPI): PlanRuntime {
+export function createPlanRuntime(pi: ExtensionAPI, policy: ReadOnlyPolicy): PlanRuntime {
 	let enabled = false;
 	// Tools plan mode deactivated, so disabling restores exactly those and does
 	// not re-activate a tool another extension intentionally hid.
@@ -49,8 +49,9 @@ export function createPlanRuntime(pi: ExtensionAPI): PlanRuntime {
 	const applyTools = (): void => {
 		const active = pi.getActiveTools();
 		if (enabled) {
-			const hidden = new Set<string>([...RESTRICTED_TOOLS, ENTER_TOOL]);
-			pi.setActiveTools([...new Set([...active.filter((name) => !hidden.has(name)), EXIT_TOOL])]);
+			// Keep only tools the policy considers safe to expose while read-only
+			// (structured readers and the plan/goal trackers) plus the approval tool.
+			pi.setActiveTools([...new Set([...active.filter((name) => policy.isAllowed(name)), EXIT_TOOL])]);
 		} else {
 			pi.setActiveTools([...new Set([...active.filter((name) => name !== EXIT_TOOL), ...removedForPlan])]);
 			removedForPlan = [];
@@ -67,8 +68,7 @@ export function createPlanRuntime(pi: ExtensionAPI): PlanRuntime {
 		// example a `session_tree` restore while already enabled) must not recompute
 		// this from the already-filtered active set, or disabling would lose them.
 		if (changed && next) {
-			const hidden = new Set<string>([...RESTRICTED_TOOLS, ENTER_TOOL]);
-			removedForPlan = [...new Set(pi.getActiveTools().filter((name) => hidden.has(name)))];
+			removedForPlan = [...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name)))];
 		}
 		enabled = next;
 		applyTools();

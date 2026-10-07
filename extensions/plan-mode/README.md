@@ -12,8 +12,16 @@ pi --plan                                 # start in plan mode
 
 ## What it does
 
-- **Read-only gating.** `write` and `edit` are removed from the active tool set,
-  and `bash` is limited to an allowlist of read-only commands.
+- **Read-only gating.** Tools that are not read-only are removed from the
+  active set or blocked. `write` and `edit` are hidden, raw shell (`bash`,
+  `powershell`) is disabled, and other tools that mutate (`subagent`,
+  worktree mutations, MCP tools) are blocked until you exit plan mode. Classification
+  defaults to *deny* and is driven by the shared
+  [`_shared/policy.ts`](../_shared/policy.ts), so unknown tools are safe by
+  default and the MCP `readOnlyHint` is the only thing that opens one up — but a
+  hinted tool that takes a file path is still refused unless it is a known
+  reader (`_shared/path-guard.ts`). The exact allow and deny lists live in
+  `policy.ts`.
 - **Model entry point.** The model can call `enter_plan_mode` to ask for plan
   mode before a non-trivial task; the user confirms.
 - **Reviewable plan.** The model writes the plan in its reply, then calls
@@ -79,39 +87,32 @@ opens a menu below the editor:
 - **Refine the plan** — type the change you want; it is sent back to the model,
   which revises the plan and calls `exit_plan_mode` again.
 
-## The bash allowlist
+## No raw shell
 
-`analyzeCommand` splits the command line into segments (`;`, `&&`, `||`, `|`,
-`&`, newlines, quote-aware) and requires every segment's first word to be on a
-read-only allowlist. It also rejects argument-level escape hatches.
+Plan mode does not run `bash` or `powershell`. Investigation uses the structured
+`read`, `grep`, `find`, `ls`, and read-only `git` tools, plus the other
+read-only tools you already have (`web_search`, `web_fetch`, `ask_user_question`,
+`todo`, `goal`).
 
-Allowed: `cat`, `head`, `tail`, the search tools (`grep`, `rg`, `find`, `fd`),
-`ls`, `wc`, `sort`, `diff`, `jq`, `sed -n`, read-only `git` (`status`, `log`,
-`diff`, `show`, `branch` (listing only), `remote`, `config --get`,
-`worktree list`, …), read-only `npm`/`yarn`/`pnpm`/`bun` subcommands,
-interpreters with `--version`, `curl` GETs to stdout, `wget -O -` (stdout), and
-more.
+The earlier segment-based command allowlist was removed: a string parser can
+never be the boundary (it modelled one shell dialect and the flags of a handful
+of tools), so capability gating replaced it. If you need a shell during a plan,
+exit plan mode first or wait for approval.
 
-Rejected: `rm`, `mv`, `chmod`, `sudo`, command substitution (`$(…)`,
-backticks), process substitution (`<(…)`, `>(…)`), `> file` redirection (except
-`/dev/null`, `2>&1`, and `&>` to `/dev/null`), `find -exec`/`-delete`,
-`sed -i` and `sed`'s `w` command, `git commit`/`push`/`add`,
-`git branch <name>` (creation), `npm install`, `curl -X POST`,
-`curl -o`/`-O` (file writes), a bare `wget` (it downloads to the working
-directory; use `-O -`), `xargs`, `bash -c`, and wrapper commands such as
-`env … <cmd>`.
-
-> This is a guard rail, not a sandbox. Extensions run with Pi's OS permissions;
-> the allowlist prevents accidental writes while planning, not a hostile command.
+> This is a guard rail, not a sandbox: extensions run with Pi's OS permissions,
+> so it prevents accidental writes while planning, not a hostile command. See the
+> [design](DESIGN.md#direction) for the reasoning.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Wiring: tools, command, flag, shortcut, events, bash guard, context injection. |
+| `index.ts` | Wiring: tools, command, flag, shortcut, events, context injection. |
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `ExitPlanModeDetails`. |
-| `safety.ts` | `analyzeCommand` / `isSafeCommand` / `splitSegments` (pure). |
+| `policy.ts` | Plan mode's read-only policy and shared prompt summary. |
 | `steps.ts` | `extractPlanSteps` (pure). |
 | `runtime.ts` | Enabled state, tool gating, persistence, footer status. |
 | `tools.ts` | `enter_plan_mode` and `exit_plan_mode`. |
 | `commands.ts` | `/plan`. |
+| `../_shared/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
+| `../_shared/path-guard.ts` | Path-argument detection for the read-only backstop. |

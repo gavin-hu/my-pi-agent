@@ -9,7 +9,7 @@ export interface FakePi {
 	commands: Map<string, any>;
 	shortcuts: Map<string, any>;
 	flags: Map<string, any>;
-	entries: Array<{ customType: string; data?: unknown }>;
+	entries: Array<{ type: string; customType: string; data?: unknown }>;
 	handlers: Map<string, AnyHandler[]>;
 	sentMessages: Array<{ content: unknown; options: unknown }>;
 	activeTools(): string[];
@@ -22,17 +22,13 @@ export function makeFakePi(options: { active?: string[]; planFlag?: boolean } = 
 	fake.pi.registerFlag = (name: string, opts: any) => {
 		fake.flags.set(name, { ...opts, default: name === "plan" && options.planFlag ? true : opts.default });
 	};
-	// Plan-mode's persisted entries historically carried no `type` field.
-	fake.pi.appendEntry = (customType: string, data?: unknown) => {
-		fake.entries.push({ customType, data } as any);
-	};
 	return {
 		pi: fake.pi,
 		tools: fake.tools,
 		commands: fake.commands,
 		shortcuts: fake.shortcuts,
 		flags: fake.flags,
-		entries: fake.entries as Array<{ customType: string; data?: unknown }>,
+		entries: fake.entries,
 		handlers: fake.handlers,
 		sentMessages: fake.sentMessages,
 		activeTools: fake.activeTools,

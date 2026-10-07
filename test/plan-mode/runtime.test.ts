@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createPlanPolicy } from "../../extensions/plan-mode/policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, STATE_TYPE } from "../../extensions/plan-mode/runtime.ts";
 import { fakeCtx, makeFakePi, stateEntry } from "./helpers.ts";
 
@@ -8,7 +9,7 @@ function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknow
 		planFlag: options.planFlag,
 	});
 	if (options.planFlag) fake.flags.set("plan", { default: true });
-	const runtime = createPlanRuntime(fake.pi);
+	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
 	const { ctx, statusCalls } = fakeCtx({ branch: options.branch });
 	return { ...fake, runtime, ctx, statusCalls };
 }
@@ -21,6 +22,7 @@ describe("plan runtime — tool gating", () => {
 		expect(active).not.toContain("write");
 		expect(active).not.toContain("edit");
 		expect(active).not.toContain(ENTER_TOOL);
+		expect(active).not.toContain("bash");
 		expect(active).toContain(EXIT_TOOL);
 		expect(active).toContain("todo");
 	});
@@ -36,13 +38,46 @@ describe("plan runtime — tool gating", () => {
 		expect(active).not.toContain(EXIT_TOOL);
 	});
 
-	test("preserves unrelated tools across a toggle", () => {
-		const { runtime, ctx, activeTools } = setup({ active: ["read", "todo", "ask_user_question"] });
+	test("keeps the read-only git tool while planning", () => {
+		const { runtime, ctx, activeTools } = setup({ active: ["read", "git", "bash"] });
+		runtime.enable(ctx);
+		expect(activeTools()).toContain("git");
+		expect(activeTools()).not.toContain("bash");
+	});
+
+	test("preserves read-only tools across a toggle", () => {
+		const { runtime, ctx, activeTools } = setup({ active: ["read", "todo"] });
 		runtime.toggle(ctx);
 		expect(activeTools()).toContain("todo");
-		expect(activeTools()).toContain("ask_user_question");
+		expect(activeTools()).toContain("read");
 		runtime.toggle(ctx);
 		expect(activeTools()).toContain("todo");
+	});
+
+	test("hides every tool the policy does not consider read-only", () => {
+		const { runtime, ctx, activeTools } = setup({
+			active: ["read", "bash", "write", "subagent", "powershell", "mcp_tool"],
+		});
+		runtime.enable(ctx);
+		expect(activeTools()).toContain("read");
+		expect(activeTools()).not.toContain("bash");
+		expect(activeTools()).not.toContain("write");
+		expect(activeTools()).not.toContain("subagent");
+		expect(activeTools()).not.toContain("powershell");
+		expect(activeTools()).not.toContain("mcp_tool");
+		runtime.disable(ctx);
+		expect(activeTools()).toContain("bash");
+		expect(activeTools()).toContain("subagent");
+		expect(activeTools()).toContain("powershell");
+		expect(activeTools()).toContain("mcp_tool");
+	});
+
+	test("keeps a tool that carries the read-only hint", () => {
+		const fake = makeFakePi({ active: ["read", "web_search"] });
+		fake.pi.allTools = [{ name: "web_search", annotations: { readOnlyHint: true } }];
+		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
+		runtime.enable(fakeCtx().ctx);
+		expect(fake.activeTools()).toContain("web_search");
 	});
 
 	test("disable does not activate tools that were not active", () => {
@@ -70,10 +105,10 @@ describe("plan runtime — persistence and status", () => {
 		const { runtime, ctx, entries } = setup();
 		runtime.enable(ctx);
 		runtime.enable(ctx);
-		expect(entries).toEqual([{ customType: STATE_TYPE, data: { enabled: true } }]);
+		expect(entries).toEqual([{ type: "custom", customType: STATE_TYPE, data: { enabled: true } }]);
 		runtime.disable(ctx);
 		expect(entries).toHaveLength(2);
-		expect(entries[1]).toEqual({ customType: STATE_TYPE, data: { enabled: false } });
+		expect(entries[1]).toEqual({ type: "custom", customType: STATE_TYPE, data: { enabled: false } });
 	});
 
 	test("toggles the footer status", () => {

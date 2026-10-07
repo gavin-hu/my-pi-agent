@@ -12,8 +12,8 @@ leans on the other two rather than duplicating them.
 
 ## Non-goals
 
-- **Not a sandbox.** Extensions share Pi's OS permissions. The bash allowlist
-  and tool gating are guard rails against accidental writes, stated as such.
+- **Not a sandbox.** Extensions share Pi's OS permissions. The tool gating is a
+  guard rail against accidental writes, stated as such.
 - **No plan files.** The plan lives in the conversation and the session, not in
   `~/.claude/plans/`; the todo list is the durable copy of the steps.
 - **No progress tracker.** Plan mode does not own completion state; `todo` does.
@@ -57,14 +57,15 @@ list items become steps; a leading `- [ ]`/`- [x]` checkbox or `[DONE:n]`
 marker sets the seeded status, and the approval result lists the steps so the
 user can see what was recorded.
 
-**Segment-based bash allowlist.** The Pi example tests the whole command string
-with allow/deny regexes, which is easily bypassed. Splitting on shell operators
-(`;`, `&&`, `||`, `|`, `&`, newlines, quote-aware) and validating every
-segment's first word closes the obvious holes (`ls; rm -rf x`, `ls & rm x`,
-`curl … | sh`). Argument-level checks cover the rest (`find -exec`, `sed -i`
-and `sed w`, redirects, command and process substitution, `curl -o`, a bare
-`wget`). It is deliberately conservative and documented as a guard, not
-containment.
+**No raw shell.** The Pi example restricted `bash` with allow/deny regexes; this
+version went further with a segment-based allowlist, but a string parser can
+never be the boundary — the first review found both bypasses (`find -fprintf`,
+`>& file`, `python3 -c … --version`) and a platform hole (`powershell` was never
+guarded). Plan mode now disables raw shell entirely: `bash` and `powershell` are
+denied, and exploration uses the structured `read`/`grep`/`find`/`ls` tools plus
+a read-only `git` tool (`status`/`diff`/`log`/`show`/`branch`) so losing the shell
+does not cost git visibility. The old analyzer is gone rather than left as dead
+code.
 
 **State as a custom entry.** `{ enabled }` is persisted with
 `pi.appendEntry("plan-mode", …)` — excluded from model context, reconstructed
@@ -79,10 +80,11 @@ a later disable survives tree navigation and `/resume`.
 | `enter_plan_mode` | none | normal mode | `defaultActive` true; `ctx.ui.confirm` before entering |
 | `exit_plan_mode` | `plan: string` | plan mode | `defaultActive` false; `select` → approve / keep / refine |
 
-Tool gating is symmetric and stateless: enabling removes `write`, `edit`, and
-`enter_plan_mode` and adds `exit_plan_mode`; disabling reverses exactly that.
-The `tool_call` handler re-blocks writes and non-read-only bash as a second
-layer, so a tool already declared in the in-flight request cannot slip through.
+Tool gating is symmetric and stateless: enabling removes every active tool the
+policy does not consider read-only and adds `exit_plan_mode`; disabling restores
+exactly what it hid. The `tool_call` handler re-checks every call through the
+same policy as a second layer, so a tool already declared in the in-flight
+request cannot slip through.
 
 ## Prompt and context
 
@@ -91,3 +93,44 @@ layer, so a tool already declared in the in-flight request cannot slip through.
   `exit_plan_mode`; it may use `ask_user_question` to resolve approaches.
 - `context` drops stale plan-mode messages when disabled, so `/resume` from a
   planning session does not carry the read-only instruction into later turns.
+
+## Direction
+
+Plan mode is a read-only guarantee. Reaching it took replacing the string
+parser that used to gate `bash`: it modelled one shell dialect, the flags of a
+handful of tools, and a hardcoded list of mutators, which is why the first
+review found both bypasses (`find -fprintf`, `>& file`, `python3 -c … --version`)
+and a platform hole (the built-in `powershell` tool was never guarded). The
+result is capability gating at the tool boundary, with raw shell removed.
+
+1. **Capability policy, not a mutator list (implemented).** A shared
+   [`_shared/policy.ts`](../_shared/policy.ts) classifies every tool call as
+   read-only or mutating. It defaults to *deny*: a tool is allowed only when it
+   is a known structured reader or carries the MCP `readOnlyHint`. That makes
+   the policy correct for tools it has never seen — `bash`, MCP servers, future
+   extension tools — instead of relying on `write`/`edit` being the only
+   mutators. Plan mode blocks mutating tools and filters them out of the active
+   set, restoring exactly what it hid on exit.
+2. **Read-only is inherited, not local (resolved by blocking).** A read-only
+   session must not escalate through delegation. Plan mode default-denies
+   `subagent`, so a read-only turn cannot spawn write-capable work at all;
+   there is nothing to inherit. Letting a read-only session delegate to a
+   read-only agent is a possible future enhancement, not a safety gap.
+3. **Constrain the shell instead of parsing it (implemented).** Plan mode no
+   longer runs raw shell: `bash`/`powershell` are denied, and exploration uses
+   the structured `read`/`grep`/`find`/`ls` tools plus the read-only `git` tool
+   (`extensions/git`). A future read-only mode that needs a shell should
+   delegate it to an isolated backend (Gondolin, or a read-only mounted
+   container) rather than re-introducing a parser.
+4. **Path-level backstop (implemented).** A shared
+   [`_shared/path-guard.ts`](../_shared/path-guard.ts) spots path-like arguments
+   in a tool call. A `readOnlyHint` is only a claim, so while planning a tool
+   that takes a file path is blocked unless it is a known plan-safe reader — an
+   unclassified or mislabeled mutating tool cannot write through a path
+   argument.
+
+The boundary is now: (1) capability gating, (3) no raw shell, and (4) a path
+check on top, so (2) holds because delegation is blocked. The one-line rule:
+**enforce capabilities at the tool boundary; do not parse commands to decide
+what is safe.** The remaining idea — read-only delegation — is a feature, not a
+hole.

@@ -6,8 +6,10 @@
  * markdown into a bounded, de-duplicated list of steps, each with a status.
  *
  * Only top-level list items become steps: nested sub-bullets are notes, not
- * steps. A `- [ ]` / `- [x]` checkbox or a `[DONE:n]` marker sets the status,
- * so a plan written as a checklist seeds a todo list that reflects it.
+ * steps, and the shallowest list level is treated as the plan. List items
+ * inside fenced code blocks are ignored. A `- [ ]` / `- [x]` checkbox or a
+ * `[DONE:n]` marker sets the status, so a plan written as a checklist seeds a
+ * todo list that reflects it.
  */
 
 /** Most steps seeded from one plan. */
@@ -23,6 +25,8 @@ export interface PlanStep {
 /** A top-level numbered or bulleted list item, capturing its indentation. */
 const LIST_ITEM = /^([ \t]*)(?:\d+[.)]|[-*+])\s+(.*\S)\s*$/;
 const CHECKBOX = /^\[([ xX])\]\s*(.*)$/;
+/** A markdown code-fence opener or closer (backticks or tildes). */
+const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 
 function cleanStep(text: string): string {
 	return text
@@ -52,21 +56,34 @@ function parseStep(raw: string): { content: string; status: "pending" | "complet
 
 /** Top-level steps from a plan, in order. */
 export function extractPlanSteps(plan: string): PlanStep[] {
-	const steps: PlanStep[] = [];
-	const seen = new Set<string>();
-	// The first list item sets the top level; deeper items are nested notes.
-	let baseIndent: number | undefined;
+	const items: Array<{ indent: number; step: PlanStep }> = [];
+	// Fences hide example lists (`- name: foo` in a YAML block) from extraction.
+	let fence: string | undefined;
 
 	for (const line of plan.split("\n")) {
+		const fenceMatch = line.match(FENCE);
+		if (fenceMatch) {
+			if (fence === undefined) fence = fenceMatch[1][0];
+			else if (fence === fenceMatch[1][0]) fence = undefined;
+			continue;
+		}
+		if (fence !== undefined) continue;
+
 		const match = line.match(LIST_ITEM);
 		if (!match) continue;
-		const indent = match[1].length;
-		if (baseIndent === undefined) baseIndent = indent;
-		if (indent !== baseIndent) continue;
-
 		const step = parseStep(match[2]);
 		if (!step.content) continue;
+		items.push({ indent: match[1].length, step });
+	}
 
+	// The shallowest list is the plan; deeper items are nested notes.
+	let baseIndent = Number.POSITIVE_INFINITY;
+	for (const item of items) baseIndent = Math.min(baseIndent, item.indent);
+
+	const steps: PlanStep[] = [];
+	const seen = new Set<string>();
+	for (const { indent, step } of items) {
+		if (indent !== baseIndent) continue;
 		const key = step.content.toLowerCase();
 		if (seen.has(key)) continue;
 		seen.add(key);

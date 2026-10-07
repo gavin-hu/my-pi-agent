@@ -13,31 +13,31 @@ import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-codi
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 import { ENTER_TOOL, EXIT_TOOL, type PlanRuntime } from "./runtime.ts";
+import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails } from "./types.ts";
 
 /** Tool that records the seeded steps; plan-mode only calls it if it exists. */
 const TODO_TOOL = "todo";
 
-export const ExitPlanModeParams = Type.Object({
+const ExitPlanModeParams = Type.Object({
 	plan: Type.String({
 		description: "The complete plan to execute, as markdown. Include every step so the user can judge it.",
 	}),
 });
 
-export type ExitPlanModeArgs = Static<typeof ExitPlanModeParams>;
+type ExitPlanModeArgs = Static<typeof ExitPlanModeParams>;
 
 /** Lines of plan shown in an unexpanded result. */
 const PREVIEW_LINES = 8;
 
 const ENTER_CONFIRM =
-	"Plan mode is read-only exploration: write and edit are disabled and bash is limited to read-only commands. " +
+	`Plan mode is read-only exploration: ${READ_ONLY_SUMMARY}. ` +
 	"Enter plan mode to investigate and propose an approach before making changes?";
 
 const ENTERED_TEXT =
 	"You are now in plan mode. Explore read-only, write the full plan in your reply, then call exit_plan_mode and wait " +
-	"for the user to approve, keep planning, or ask for a refinement. Write and edit are disabled and bash is limited " +
-	"to read-only commands.";
+	`for the user to approve, keep planning, or ask for a refinement. While planning, ${READ_ONLY_SUMMARY}.`;
 
 function preview(plan: string): string {
 	const lines = plan.split("\n");

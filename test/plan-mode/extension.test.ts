@@ -60,18 +60,65 @@ describe("plan-mode bash and write guard", () => {
 		expect(edit.block).toBe(true);
 	});
 
-	test("blocks non-read-only bash while enabled", async () => {
+	test("blocks raw shell while enabled, read-only or not", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
-		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "bash", input: { command: "rm -rf x" } }, ctx);
-		expect(result.block).toBe(true);
-		expect(result.reason).toContain("command blocked");
+		for (const command of ["git status", "rm -rf x"]) {
+			const [result] = await emit(fakePi.pi, "tool_call", { toolName: "bash", input: { command } }, ctx);
+			expect(result.block).toBe(true);
+			expect(result.reason).toContain("not read-only");
+		}
 	});
 
-	test("allows read-only bash while enabled", async () => {
+	test("blocks every tool the policy does not consider read-only", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
-		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "bash", input: { command: "git status" } }, ctx);
+
+		// powershell is the cross-platform hole: it had no guard because the old
+		// handler only inspected `bash` and the write/edit names.
+		const [powershell] = await emit(
+			fakePi.pi,
+			"tool_call",
+			{ toolName: "powershell", input: { command: "Remove-Item -Recurse x" } },
+			ctx,
+		);
+		const [subagent] = await emit(fakePi.pi, "tool_call", { toolName: "subagent", input: {} }, ctx);
+
+		expect(powershell.block).toBe(true);
+		expect(powershell.reason).toContain("not read-only");
+		expect(subagent.block).toBe(true);
+	});
+
+	test("allows structured readers and the plan tracker", async () => {
+		const { fakePi } = await enabledPi();
+		const { ctx } = fakeCtx();
+		for (const toolName of ["read", "grep", "find", "ls", "todo", "goal"]) {
+			const [result] = await emit(fakePi.pi, "tool_call", { toolName, input: {} }, ctx);
+			expect(result).toBeUndefined();
+		}
+	});
+
+	test("allows a tool that carries the read-only hint", async () => {
+		const { fakePi } = await enabledPi();
+		fakePi.pi.allTools = [{ name: "web_search", annotations: { readOnlyHint: true } }];
+		const { ctx } = fakeCtx();
+		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "web_search", input: { query: "x" } }, ctx);
+		expect(result).toBeUndefined();
+	});
+
+	test("blocks a read-only-hinted tool that takes a file path", async () => {
+		const { fakePi } = await enabledPi();
+		fakePi.pi.allTools = [{ name: "mcp_fs", annotations: { readOnlyHint: true } }];
+		const { ctx } = fakeCtx();
+		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "mcp_fs", input: { path: "secrets.txt" } }, ctx);
+		expect(result.block).toBe(true);
+		expect(result.reason).toContain("takes a file path");
+	});
+
+	test("allows a known reader that takes a file path", async () => {
+		const { fakePi } = await enabledPi();
+		const { ctx } = fakeCtx();
+		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "read", input: { path: "src/index.ts" } }, ctx);
 		expect(result).toBeUndefined();
 	});
 

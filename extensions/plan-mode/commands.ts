@@ -3,9 +3,10 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { READ_ONLY_SUMMARY } from "./policy.ts";
 import type { PlanRuntime } from "./runtime.ts";
 
-const ENABLED_NOTICE = "Plan mode enabled — write/edit disabled, bash limited to read-only commands.";
+const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 
 export function registerCommands(pi: ExtensionAPI, runtime: PlanRuntime): void {
 	pi.registerCommand("plan", {

@@ -47,6 +47,34 @@ describe("extractPlanSteps", () => {
 		expect(extractPlanSteps(plan)).toEqual([pending("One"), pending("Two")]);
 	});
 
+	test("ignores list items inside fenced code blocks", () => {
+		const plan = [
+			"Plan:",
+			"```yaml",
+			"- name: foo",
+			"  1. nested example",
+			"```",
+			"1. Real step one",
+			"2. Real step two",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Real step one"), pending("Real step two")]);
+	});
+
+	test("ignores list items inside tilde fences", () => {
+		const plan = ["~~~", "- not a step", "~~~", "- Real step"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Real step")]);
+	});
+
+	test("treats an unclosed fence as hiding the rest", () => {
+		const plan = ["1. Before fence", "```", "- inside"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Before fence")]);
+	});
+
+	test("uses the shallowest list as the top level regardless of order", () => {
+		const plan = ["  - nested first", "- top level", "  - another nested", "- second top"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("top level"), pending("second top")]);
+	});
+
 	test("skips prose and blank lines", () => {
 		const plan = ["Here is the plan.", "", "1. Only real step", "Done."].join("\n");
 		expect(extractPlanSteps(plan)).toEqual([pending("Only real step")]);

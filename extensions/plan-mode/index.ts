@@ -1,9 +1,11 @@
 /**
  * plan-mode — a read-only planning mode for Pi.
  *
- * While plan mode is on, the file-writing tools are removed from the active
- * set and bash is limited to read-only commands. The model investigates,
- * produces a plan, and calls `exit_plan_mode` to ask the user for approval.
+ * While plan mode is on, tools that are not read-only are removed from the
+ * active set or blocked: write and edit are hidden, raw shell (bash and
+ * powershell) is disabled, and everything else that mutates (subagent,
+ * worktree, MCP tools) is blocked. The model investigates, produces a plan,
+ * and calls `exit_plan_mode` to ask the user for approval.
  *
  * Toggle with `/plan`, `Ctrl+Alt+P`, or start with `--plan`. The state is
  * persisted as a custom session entry, so it follows the active branch.
@@ -14,21 +16,19 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
+import { hasPathInput } from "../_shared/path-guard.ts";
 import { registerCommands } from "./commands.ts";
-import { createPlanRuntime, RESTRICTED_TOOLS } from "./runtime.ts";
-import { analyzeCommand } from "./safety.ts";
+import { createPlanPolicy, BLOCKED_GUIDANCE, PLAN_SAFE_TOOLS, READ_ONLY_SUMMARY } from "./policy.ts";
+import { createPlanRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
 /** Marker embedded in the injected prompt and used to filter stale context. */
 export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
 
-/** Set form of `RESTRICTED_TOOLS`, built once instead of per tool call. */
-const RESTRICTED_TOOL_NAMES = new Set<string>(RESTRICTED_TOOLS);
-
-export const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
+const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
 You are in plan mode: a read-only exploration mode for safe code analysis.
 
-- The write and edit tools are disabled, and bash is limited to read-only commands.
+- While planning, ${READ_ONLY_SUMMARY}.
 - Investigate the code and design a concrete plan; do not modify anything yet.
 - Write the full plan in your reply, then call exit_plan_mode so the user can read it and approve, keep planning, or ask for a refinement.
 - If you need to choose between approaches, use ask_user_question before finalizing the plan.
@@ -49,7 +49,8 @@ function isPlanModeContext(message: AgentMessage): boolean {
 }
 
 export default function planMode(pi: ExtensionAPI): void {
-	const runtime = createPlanRuntime(pi);
+	const policy = createPlanPolicy(pi);
+	const runtime = createPlanRuntime(pi, policy);
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
@@ -69,27 +70,28 @@ export default function planMode(pi: ExtensionAPI): void {
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus("plan-mode", undefined));
 
-	// Block file writes and non-read-only bash while planning.
-	pi.on("tool_call", (event) => {
-		if (!runtime.isEnabled()) return undefined;
-
-		if (RESTRICTED_TOOL_NAMES.has(event.toolName)) {
-			return {
-				block: true,
-				reason: `Plan mode: ${event.toolName} is disabled. Call exit_plan_mode and get approval first.`,
-			};
-		}
-		if (event.toolName !== "bash") return undefined;
-
-		const command = typeof event.input.command === "string" ? event.input.command : "";
-		const verdict = analyzeCommand(command);
-		if (!verdict.safe) {
-			return {
-				block: true,
-				reason: `Plan mode: command blocked (${verdict.reason}). Use /plan to disable plan mode first.\nCommand: ${command}`,
-			};
+	/**
+	 * Why a tool call is blocked while planning, or undefined when it may
+	 * proceed. Two layers: the policy (readers, `readOnlyHint`, deny list), then
+	 * the path backstop (a hint on a path-carrying tool is only a claim).
+	 */
+	const blockedReason = (toolName: string, input: unknown): string | undefined => {
+		const blocked = policy.check(toolName);
+		if (blocked) return `Plan mode: ${blocked.reason}`;
+		if (hasPathInput(input) && !PLAN_SAFE_TOOLS.includes(toolName)) {
+			return `Plan mode: "${toolName}" takes a file path and is not a known reader. ${BLOCKED_GUIDANCE}`;
 		}
 		return undefined;
+	};
+
+	// Block anything that is not read-only while planning. The active-set gating
+	// above hides most of these; this is the second layer for tools already
+	// declared in an in-flight request, and the guard for tools we did not know
+	// about when the extension loaded (MCP servers, future extensions).
+	pi.on("tool_call", (event) => {
+		if (!runtime.isEnabled()) return undefined;
+		const reason = blockedReason(event.toolName, event.input);
+		return reason ? { block: true, reason } : undefined;
 	});
 
 	// Tell the model it is planning.

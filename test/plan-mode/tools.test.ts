@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { createPlanPolicy } from "../../extensions/plan-mode/policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL } from "../../extensions/plan-mode/runtime.ts";
 import { registerTools } from "../../extensions/plan-mode/tools.ts";
 import { fakeCtx, makeFakePi } from "./helpers.ts";
 
 function setup() {
 	const fake = makeFakePi({ active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"] });
-	const runtime = createPlanRuntime(fake.pi);
+	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
 	registerTools(fake.pi, runtime);
 	return { ...fake, runtime, enter: fake.tools.get(ENTER_TOOL), exit: fake.tools.get(EXIT_TOOL) };
 }
