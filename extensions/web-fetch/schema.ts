@@ -84,8 +84,6 @@ export const WebFetchOutput = Type.Object({
 	pages: Type.Array(PageSchema),
 });
 
-export type WebFetchStructured = Static<typeof WebFetchOutput>;
-
 export interface FetchRequest {
 	urls: string[];
 	startIndex: number;

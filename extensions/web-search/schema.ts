@@ -51,8 +51,6 @@ export const WebSearchOutput = Type.Object({
 	fetchedAt: Type.String(),
 });
 
-export type WebSearchStructured = Static<typeof WebSearchOutput>;
-
 /**
  * Merge tool arguments with config defaults. `maxResults` is clamped to
  * `[1, config.maxResults]`, so a per-call override can only ask for fewer.
