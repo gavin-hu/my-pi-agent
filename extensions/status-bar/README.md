@@ -21,14 +21,14 @@ Two lines, each with a left and right zone:
 
 ```
  ~/repo/my-pi-agent                                                    ⎇ main · ⧉ smoke
- ▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k W0 CH 87% │ ⏸ plan    opus-4.5 · high
+ ▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87% │ ⏸ plan    opus-4.5 · high
 ```
 
 With no plan mode there is no mode slot, so the `│` is omitted:
 
 ```
  ~/repo/my-pi-agent                                                    ⎇ main · ⧉ smoke
- ▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k W0 CH 87%             opus-4.5 · high
+ ▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
 
 As the terminal narrows, segments shrink and drop by priority rather than

@@ -55,7 +55,9 @@ function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 		forms: [
 			theme.fg(color, `${icon} ${snapshot.branch}`),
 			theme.fg(color, `${CONFIG.icons.branch} ${snapshot.branch}`),
-			theme.fg(color, CONFIG.icons.branch),
+			// The floor keeps the detached warning glyph instead of falling back
+			// to a plain branch icon, which would hide the detached state.
+			theme.fg(color, icon),
 		],
 	};
 }
@@ -147,19 +149,24 @@ function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { input, output } = snapshot.usage;
 	if (input === 0 && output === 0) return null;
+	const parts: string[] = [];
+	if (input > 0) parts.push(`↑${formatTokens(input)}`);
+	if (output > 0) parts.push(`↓${formatTokens(output)}`);
 	return {
 		id: "tokens",
 		weight: 4,
 		droppable: true,
 		separator: dim(theme, CONFIG.separators.item),
-		forms: [dim(theme, `↑${formatTokens(input)} ↓${formatTokens(output)}`)],
+		forms: [dim(theme, parts.join(" "))],
 	};
 }
 
 function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { cacheRead, cacheWrite } = snapshot.usage;
 	if (cacheRead === 0 && cacheWrite === 0 && snapshot.cacheHitRate === null) return null;
-	const parts = [`R${formatTokens(cacheRead)}`, `W${formatTokens(cacheWrite)}`];
+	const parts: string[] = [];
+	if (cacheRead > 0) parts.push(`R${formatTokens(cacheRead)}`);
+	if (cacheWrite > 0) parts.push(`W${formatTokens(cacheWrite)}`);
 	if (snapshot.cacheHitRate !== null) parts.push(`CH ${Math.round(snapshot.cacheHitRate)}%`);
 	return {
 		id: "cache",

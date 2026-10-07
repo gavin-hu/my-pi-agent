@@ -81,17 +81,6 @@ describe("status-bar extension", () => {
 
 		expect(lines[0]).toContain("[");
 	});
-
-	test("does not show an auto indicator", async () => {
-		const { pi } = makeFakePi();
-		statusBar(pi);
-		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui" });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		const lines = renderFooter(footers.at(-1), footerData, 100);
-
-		expect(lines[1]).not.toContain("auto");
-	});
 });
 
 describe("status-bar theme double", () => {

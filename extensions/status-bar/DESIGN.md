@@ -79,5 +79,5 @@ nothing.
 `test/status-bar/` covers the pure formatters (`format`), the usage scan and
 snapshot assembly (`snapshot`), zone/priority assignment (`lines`), the
 reduction, separator collapse, and right-zone folding across a width sweep from
-6 to 120 plus wide characters (`layout`), and the install/skip/restore/toggle
-lifecycle (`extension`).
+6 to 120 plus wide characters (`layout`), exact golden output at fixed widths
+(`render`), and the install/skip/restore/toggle lifecycle (`extension`).

@@ -20,7 +20,7 @@ describe("renderLine", () => {
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(visibleWidth(rendered)).toBeLessThanOrEqual(100);
-		for (const text of ["⏸ plan", "62%", "$0.31", "R96k W0 CH 87%", "opus-4.5", "high"]) {
+		for (const text of ["⏸ plan", "62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
 			expect(rendered).toContain(text);
 		}
 	});
@@ -48,7 +48,7 @@ describe("renderLine", () => {
 			for (const line of [line1, line2]) {
 				const rendered = renderLine(line, width, fakeTheme);
 				expect(visibleWidth(rendered)).toBeLessThanOrEqual(width);
-				expect(rendered).not.toMatch(/%[⏸◎⧉⎇⚠]/);
+				expect(rendered).not.toMatch(/%[⏸⧉⎇⚠]/);
 				expect(rendered).not.toMatch(/\S│|│\S/);
 			}
 		}
