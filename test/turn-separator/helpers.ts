@@ -1,0 +1,60 @@
+export type AnyHandler = (...args: any[]) => any;
+
+export interface FakePi {
+	pi: any;
+	handlers: Map<string, AnyHandler[]>;
+	renderers: Map<string, any>;
+	appended: Array<{ customType: string; data?: unknown }>;
+}
+
+/** Minimal `ExtensionAPI` double covering what the turn-separator extension uses. */
+export function makeFakePi(): FakePi {
+	const handlers = new Map<string, AnyHandler[]>();
+	const renderers = new Map<string, any>();
+	const appended: Array<{ customType: string; data?: unknown }> = [];
+
+	const pi: any = {
+		handlers,
+		registerEntryRenderer: (customType: string, renderer: any) => renderers.set(customType, renderer),
+		on: (event: string, handler: AnyHandler) => {
+			const list = handlers.get(event) ?? [];
+			list.push(handler);
+			handlers.set(event, list);
+			return () => {};
+		},
+		appendEntry: (customType: string, data?: unknown) => {
+			appended.push({ customType, data });
+		},
+	};
+
+	return { pi, handlers, renderers, appended };
+}
+
+export async function emit(pi: any, event: string, payload: unknown, ctx: any): Promise<void> {
+	for (const handler of pi.handlers.get(event) ?? []) await handler(payload, ctx);
+}
+
+/** Theme double whose `fg` is the identity, so text stays assertable. */
+export const fakeTheme: any = {
+	fg: (_color: string, text: string) => text,
+};
+
+export interface FakeCtxOptions {
+	mode?: string;
+	entries?: unknown[];
+}
+
+/** Minimal `ExtensionContext` double for the settle handler. */
+export function fakeCtx(options: FakeCtxOptions = {}): any {
+	return {
+		mode: options.mode ?? "tui",
+		sessionManager: {
+			getBranch: () => options.entries ?? [],
+		},
+	};
+}
+
+/** A separator entry as the store would return it. */
+export function separatorEntry(turn: number): unknown {
+	return { type: "custom", customType: "turn-separator", data: { turn } };
+}

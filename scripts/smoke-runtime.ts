@@ -21,6 +21,7 @@ const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
+const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
 const guardExtensionPath = join(repo, "extensions", "guard", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
@@ -37,7 +38,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, guardExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath, guardExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -141,6 +142,19 @@ check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
 // status-bar loads headlessly and registers its toggle command; it installs no
 // tools and only paints the footer in interactive mode.
 check("status-bar command registered", !!runner.getCommand("status-bar"));
+
+// turn-separator loads headlessly and registers its entry renderer; separators
+// are only appended in interactive sessions.
+const separatorRenderer = runner.getEntryRenderer("turn-separator") as
+	| ((entry: unknown, options: unknown, theme: unknown) => { render(width: number): string[] } | undefined)
+	| undefined;
+check("turn-separator renderer registered", typeof separatorRenderer === "function");
+const separatorLine = separatorRenderer?.(
+	{ type: "custom", customType: "turn-separator", data: { turn: 3 } },
+	{ expanded: false },
+	{ fg: (_color: string, text: string) => text },
+)?.render(40)[0];
+check("turn-separator renders a labeled line", !!separatorLine?.includes("turn 3"));
 
 // guard loads last and blocks a protected write through the real tool_call
 // path (the extension runner dispatches the same handlers the model triggers).
