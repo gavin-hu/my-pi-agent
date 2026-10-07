@@ -14,7 +14,7 @@ import { loadConfig, type CheckpointConfig } from "./config.ts";
 import { gitDir, repoRoot, type RunGit, type RunGitOptions } from "./git.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
 import { createCheckpoint } from "./snapshot.ts";
-import { deleteCheckpoints, getCheckpoint, listCheckpoints, pruneCheckpoints } from "./store.ts";
+import { clearCheckpoints, getCheckpoint, listCheckpoints, pruneCheckpoints } from "./store.ts";
 import type { Checkpoint, CheckpointReason, RestoreSummary } from "./types.ts";
 
 const STATUS_KEY = "checkpoint";
@@ -23,8 +23,7 @@ const SNAPSHOT_TIMEOUT_MS = 30_000;
 export interface SnapshotOptions {
 	reason: CheckpointReason;
 	label?: string;
-	tool?: string;
-	turn?: number;
+	prompt?: string;
 }
 
 export interface CheckpointRuntime {
@@ -137,8 +136,7 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 					namespace: config.refNamespace,
 					reason: options.reason,
 					label: options.label,
-					tool: options.tool,
-					turn: options.turn,
+					prompt: options.prompt,
 					includeUntracked: config.includeUntracked,
 				},
 			);
@@ -170,7 +168,6 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 						indexFile,
 						namespace: config.refNamespace,
 						reason: "pre-restore",
-						tool: "checkpoint",
 						includeUntracked: config.includeUntracked,
 					},
 				);
@@ -180,11 +177,8 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 			return { ...summary, safety };
 		});
 
-	const clear = async (root: string, all: boolean): Promise<number> => {
-		const config = configFor(root);
-		const checkpoints = await listCheckpoints(runGit, root, config.refNamespace, all ? {} : { root });
-		return deleteCheckpoints(runGit, root, checkpoints);
-	};
+	const clear = (root: string, all: boolean): Promise<number> =>
+		clearCheckpoints(runGit, root, configFor(root).refNamespace, all ? {} : { root });
 
 	const setStatus = async (ctx: ExtensionContext): Promise<void> => {
 		try {

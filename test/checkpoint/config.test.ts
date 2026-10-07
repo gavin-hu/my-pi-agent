@@ -16,16 +16,16 @@ function tempDir(prefix: string): string {
 }
 
 describe("normalizeConfig", () => {
-	test("keeps the base for an unknown mode and out-of-range max", () => {
-		expect(normalizeConfig({ mode: "sometimes", max: 99999 }, DEFAULT_CONFIG)).toEqual({
+	test("keeps the base for a non-boolean autoSnapshots and out-of-range max", () => {
+		expect(normalizeConfig({ autoSnapshots: "sometimes", max: 99999 }, DEFAULT_CONFIG)).toEqual({
 			...DEFAULT_CONFIG,
 			max: 1000,
 		});
 	});
 
-	test("accepts each known mode and clamps max", () => {
-		expect(normalizeConfig({ mode: "call" }, DEFAULT_CONFIG).mode).toBe("call");
-		expect(normalizeConfig({ mode: "off" }, DEFAULT_CONFIG).mode).toBe("off");
+	test("accepts a boolean autoSnapshots and clamps max", () => {
+		expect(normalizeConfig({ autoSnapshots: false }, DEFAULT_CONFIG).autoSnapshots).toBe(false);
+		expect(normalizeConfig({ autoSnapshots: true }, DEFAULT_CONFIG).autoSnapshots).toBe(true);
 		expect(normalizeConfig({ max: -5 }, DEFAULT_CONFIG).max).toBe(0);
 	});
 
@@ -46,13 +46,13 @@ describe("loadConfig", () => {
 		const globalDir = tempDir("checkpoint-global-");
 		const repo = tempDir("checkpoint-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(globalDir, "checkpoint.json"), JSON.stringify({ mode: "call", max: 5 }));
-		writeFileSync(join(repo, ".pi", "checkpoint.json"), JSON.stringify({ mode: "off" }));
+		writeFileSync(join(globalDir, "checkpoint.json"), JSON.stringify({ autoSnapshots: false, max: 5 }));
+		writeFileSync(join(repo, ".pi", "checkpoint.json"), JSON.stringify({ max: 9 }));
 		process.env.PI_CODING_AGENT_DIR = globalDir;
 
 		const config = loadConfig(repo);
-		expect(config.mode).toBe("off");
-		expect(config.max).toBe(5);
+		expect(config.autoSnapshots).toBe(false);
+		expect(config.max).toBe(9);
 	});
 
 	test("ignores malformed files", () => {

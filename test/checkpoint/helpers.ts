@@ -33,22 +33,36 @@ export function makeFakePi(): FakePi {
 export interface FakeCtxOptions {
 	cwd: string;
 	hasUI?: boolean;
+	mode?: string;
 	confirm?: boolean;
 	select?: string;
+	input?: string;
 }
 
 /** A minimal `ExtensionContext` for tool and event handlers. */
 export function makeCtx(pi: FakePi, options: FakeCtxOptions) {
 	const statuses = new Map<string, string | undefined>();
 	const notices: Array<{ message: string; kind?: string }> = [];
+	const selects: string[][] = [];
+	const customCalls: any[] = [];
 	const hasUI = options.hasUI ?? false;
+	const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
 	const ctx: any = {
 		cwd: options.cwd,
 		hasUI,
-		mode: hasUI ? "tui" : "print",
+		mode: options.mode ?? (hasUI ? "tui" : "print"),
 		ui: {
 			confirm: async () => options.confirm ?? true,
-			select: async () => options.select ?? undefined,
+			select: async (_title: string, labels: string[]) => {
+				selects.push(labels);
+				return options.select ?? undefined;
+			},
+			input: async () => options.input ?? undefined,
+			custom: async (factory: any) => {
+				customCalls.push(factory);
+				factory({ requestRender: () => {}, terminal: { rows: 40 } }, theme, {}, () => {});
+				return undefined;
+			},
 			notify: (message: string, kind?: string) => {
 				notices.push({ message, kind });
 			},
@@ -56,7 +70,7 @@ export function makeCtx(pi: FakePi, options: FakeCtxOptions) {
 				if (value === undefined) statuses.delete(key);
 				else statuses.set(key, value);
 			},
-			theme: { fg: (_c: string, t: string) => t, bold: (t: string) => t },
+			theme,
 		},
 		sessionManager: {
 			getSessionId: () => "test-session",
@@ -64,6 +78,8 @@ export function makeCtx(pi: FakePi, options: FakeCtxOptions) {
 		},
 		notices,
 		statuses,
+		selects,
+		customCalls,
 	};
 	return ctx;
 }

@@ -160,31 +160,19 @@ const gitTool = session.getAllTools().find((t) => t.name === "git");
 check("git tool registered", !!gitTool);
 check("git tool is read-only", gitTool?.annotations?.readOnlyHint === true);
 
-// checkpoint loads alongside the others: saving works headlessly, while a
-// restore without a UI refuses instead of overwriting the working tree.
+// checkpoint loads alongside the others and exposes a save-only tool; the
+// working tree is checkpointed automatically per prompt and the user restores
+// from the /checkpoint menu.
 const checkpointTool = session.getAllTools().find((t) => t.name === "checkpoint");
 check("checkpoint registered", !!checkpointTool);
 check("checkpoint is active by default", session.getActiveToolNames().includes("checkpoint"));
-check("checkpoint is destructive", checkpointTool?.annotations?.destructiveHint === true);
+check("checkpoint is not destructive", checkpointTool?.annotations?.destructiveHint === false);
 check("checkpoint command registered", !!runner.getCommand("checkpoint"));
-const savedCheckpoint = await call("checkpoint", { action: "save", label: "smoke" });
-const savedCheckpointDetails = savedCheckpoint.details as {
-	action: string;
-	checkpoint?: { id?: string; label?: string };
-};
+const savedCheckpoint = await call("checkpoint", { label: "smoke" });
+const savedCheckpointDetails = savedCheckpoint.details as { checkpoint?: { label?: string; reason?: string } };
 check(
 	"checkpoint save records a snapshot",
-	savedCheckpointDetails.action === "save" && savedCheckpointDetails.checkpoint?.label === "smoke",
-);
-const listedCheckpoints = await call("checkpoint", { action: "list" });
-check(
-	"checkpoint list returns the snapshot",
-	((listedCheckpoints.details as { checkpoints?: unknown[] }).checkpoints?.length ?? 0) >= 1,
-);
-const refusedRestore = await call("checkpoint", { action: "restore", id: "last" });
-check(
-	"checkpoint restore refuses without a UI",
-	refusedRestore.isError === true && /interactive UI/.test((refusedRestore.content[0] as { text: string }).text),
+	savedCheckpointDetails.checkpoint?.label === "smoke" && savedCheckpointDetails.checkpoint?.reason === "manual",
 );
 
 // plan-mode loads; the read-only entry tool is active, the exit tool is not, and

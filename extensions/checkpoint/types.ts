@@ -2,24 +2,16 @@
  * Shared types for the checkpoint extension.
  *
  * A checkpoint is a git commit object that captures the working tree (tracked
- * files plus, by default, untracked non-ignored files). It is kept alive by a
- * ref under `refs/pi/checkpoints/<id>`, and its metadata is stored as JSON in
- * the commit body, so checkpoints survive across sessions and worktrees without
- * any external index file.
+ * files plus, by default, untracked non-ignored files) at the start of a task.
+ * It is kept alive by a ref under `refs/pi/checkpoints/<id>`, and its metadata
+ * is stored as JSON in the commit body, so checkpoints survive across sessions
+ * and worktrees without any external index file.
  */
-
-/** When automatic snapshots are taken. */
-export const CHECKPOINT_MODES = ["turn", "call", "off"] as const;
-export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
-
-/** Actions the `checkpoint` tool accepts. */
-export const CHECKPOINT_ACTIONS = ["save", "list", "diff", "restore", "clear"] as const;
-export type CheckpointAction = (typeof CHECKPOINT_ACTIONS)[number];
 
 /** Why a checkpoint was created. */
 export type CheckpointReason = "auto" | "manual" | "pre-restore";
 
-/** A stored snapshot. */
+/** A stored task checkpoint. */
 export interface Checkpoint {
 	/** Short id; also the final path segment of {@link ref}. */
 	id: string;
@@ -27,15 +19,11 @@ export interface Checkpoint {
 	ref: string;
 	/** Commit the ref points at. */
 	commit: string;
-	/** Tree the commit records. */
-	tree: string;
 	reason: CheckpointReason;
 	/** User-supplied label from a manual save. */
 	label?: string;
-	/** Tool that triggered an automatic checkpoint. */
-	tool?: string;
-	/** Turn index at creation, when known. */
-	turn?: number;
+	/** Short summary of the user prompt that started the task, for display. */
+	prompt?: string;
 	/** Creation time, epoch milliseconds. */
 	timestamp: number;
 	/** Absolute repository (or worktree) root the snapshot was taken from. */
@@ -63,22 +51,10 @@ export interface RestoreSummary {
 	safety?: string;
 }
 
-/** Structured result carried in the tool's `details`. */
+/** Structured result carried in the `save` tool's `details`. */
 export interface CheckpointDetails {
-	action: CheckpointAction;
-	/** Present after `list`. */
-	checkpoints?: Checkpoint[];
-	/** Present after `save` and `restore` (the snapshot used). */
+	/** The snapshot that was created. */
 	checkpoint?: Checkpoint;
-	/** Present after `restore`. */
-	restored?: RestoreSummary;
-	/** Present after `diff`. */
-	diff?: string;
-	/**
-	 * Present after `clear`: how many refs were removed. `0` means there was
-	 * nothing to clear; `undefined` means the user cancelled.
-	 */
-	cleared?: number;
 	/** Model-readable failure message when the call was rejected. */
 	error?: string;
 }

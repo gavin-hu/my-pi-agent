@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { commitTree, revParse, updateRef } from "../../extensions/checkpoint/git.ts";
+import { commitTree, listRefs, revParse, updateRef } from "../../extensions/checkpoint/git.ts";
 import { createCheckpoint } from "../../extensions/checkpoint/snapshot.ts";
 import {
+	clearCheckpoints,
 	deleteCheckpoints,
 	encodeMessage,
 	getCheckpoint,
@@ -21,8 +22,8 @@ const NS = "refs/pi/checkpoints";
 
 function meta(overrides: Partial<CheckpointMeta> = {}): CheckpointMeta {
 	return {
+		v: 2,
 		id: "x",
-		tree: "t",
 		reason: "manual",
 		timestamp: 1000,
 		root: "/repo",
@@ -41,9 +42,10 @@ describe("metadata encoding", () => {
 	});
 
 	test("encode/parse round-trip", () => {
-		const parsed = parseMessage(encodeMessage(meta({ label: "prep" })));
+		const parsed = parseMessage(encodeMessage(meta({ label: "prep", prompt: "fix the list" })));
 		expect(parsed?.id).toBe("x");
 		expect(parsed?.label).toBe("prep");
+		expect(parsed?.prompt).toBe("fix the list");
 	});
 
 	test("keeps braces in a label from breaking the JSON scan", () => {
@@ -56,6 +58,12 @@ describe("metadata encoding", () => {
 		expect(parseMessage("pi-checkpoint: { not json")).toBeUndefined();
 		expect(parseMessage(`pi-checkpoint: ${JSON.stringify({ id: "x" })}`)).toBeUndefined();
 		expect(parseMessage(`pi-checkpoint: ${JSON.stringify(meta({ reason: "bogus" as never }))}`)).toBeUndefined();
+		expect(parseMessage(`pi-checkpoint: ${JSON.stringify(meta({ prompt: 5 as never }))}`)).toBeUndefined();
+	});
+
+	test("rejects pre-redesign (v1) metadata", () => {
+		const { v: _v, ...v1 } = meta();
+		expect(parseMessage(`pi-checkpoint: ${JSON.stringify(v1)}`)).toBeUndefined();
 	});
 });
 
@@ -84,7 +92,7 @@ describe("ref-backed storage", () => {
 			repo,
 			tree,
 			head,
-			encodeMessage(meta({ id: "foreign", root: "/elsewhere", head, tree, timestamp: 3000 })),
+			encodeMessage(meta({ id: "foreign", root: "/elsewhere", head, timestamp: 3000 })),
 		);
 		await updateRef(runGit, repo, refFor(NS, "foreign"), foreign);
 
@@ -126,5 +134,36 @@ describe("ref-backed storage", () => {
 		const removed = await deleteCheckpoints(runGit, repo, checkpoints);
 		expect(removed).toBeGreaterThan(0);
 		expect(await listCheckpoints(runGit, repo, NS)).toEqual([]);
+	});
+
+	test("clearCheckpoints sweeps orphans but keeps other roots", async () => {
+		const fresh = await makeRepo("pi-cp-clear-");
+		cleanups.push(fresh);
+		await createCheckpoint(
+			{ runGit, now: () => 1000, idFactory: () => "mine" },
+			{ root: fresh, indexFile: indexFileFor(fresh), namespace: NS, reason: "manual", includeUntracked: true },
+		);
+
+		const head = (await revParse(runGit, fresh, "HEAD")) as string;
+		const tree = (await revParse(runGit, fresh, "HEAD^{tree}")) as string;
+		const foreign = await commitTree(
+			runGit,
+			fresh,
+			tree,
+			head,
+			encodeMessage(meta({ id: "foreign2", root: "/elsewhere", head, timestamp: 2000 })),
+		);
+		await updateRef(runGit, fresh, refFor(NS, "foreign2"), foreign);
+
+		// A legacy (pre-redesign) ref has no `v`, so the list skips it but clear sweeps it.
+		const { v: _v, ...legacy } = meta({ id: "legacy", root: fresh, head, timestamp: 500 });
+		const orphan = await commitTree(runGit, fresh, tree, head, encodeMessage(legacy as CheckpointMeta));
+		await updateRef(runGit, fresh, refFor(NS, "legacy"), orphan);
+
+		expect(await clearCheckpoints(runGit, fresh, NS, { root: fresh })).toBe(2);
+		expect([...(await listRefs(runGit, fresh, NS)).keys()]).toEqual([refFor(NS, "foreign2")]);
+
+		expect(await clearCheckpoints(runGit, fresh, NS)).toBe(1);
+		expect((await listRefs(runGit, fresh, NS)).size).toBe(0);
 	});
 });

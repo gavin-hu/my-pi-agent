@@ -12,6 +12,9 @@ import type { Checkpoint, CheckpointReason } from "./types.ts";
 /** Prefix of the metadata line in a checkpoint commit body. */
 export const META_MARKER = "pi-checkpoint: ";
 
+/** Metadata schema version; refs written by other versions are ignored. */
+export const META_VERSION = 2;
+
 const REASONS: readonly CheckpointReason[] = ["auto", "manual", "pre-restore"];
 
 /** Full ref name for a checkpoint id. */
@@ -26,7 +29,7 @@ export function idFromRef(namespace: string, ref: string): string | undefined {
 }
 
 /** The metadata stored in the commit body (everything except derived ref/commit). */
-export type CheckpointMeta = Omit<Checkpoint, "ref" | "commit">;
+export type CheckpointMeta = Omit<Checkpoint, "ref" | "commit"> & { v: number };
 
 /** Commit message for a checkpoint: a short subject plus the metadata line. */
 export function encodeMessage(checkpoint: CheckpointMeta): string {
@@ -50,14 +53,15 @@ function isMeta(value: unknown): value is CheckpointMeta {
 	if (!value || typeof value !== "object") return false;
 	const meta = value as Partial<CheckpointMeta>;
 	return (
+		meta.v === META_VERSION &&
 		typeof meta.id === "string" &&
 		meta.id.length > 0 &&
-		typeof meta.tree === "string" &&
 		typeof meta.head === "string" &&
 		typeof meta.root === "string" &&
 		typeof meta.timestamp === "number" &&
 		typeof meta.clean === "boolean" &&
 		typeof meta.includeUntracked === "boolean" &&
+		(meta.prompt === undefined || typeof meta.prompt === "string") &&
 		REASONS.includes(meta.reason as CheckpointReason)
 	);
 }
@@ -121,6 +125,41 @@ export async function deleteCheckpoints(
 	for (const checkpoint of checkpoints) {
 		try {
 			await deleteRef(runGit, cwd, checkpoint.ref);
+			removed += 1;
+		} catch {
+			// A ref deleted by a concurrent session is fine to ignore.
+		}
+	}
+	return removed;
+}
+
+/**
+ * Delete refs under `namespace`. When `root` is given, checkpoints that parse
+ * and belong to another root are kept; unparseable refs (a foreign or older
+ * schema) are always removed, so a redesign cannot strand invisible orphans.
+ */
+export async function clearCheckpoints(
+	runGit: RunGit,
+	cwd: string,
+	namespace: string,
+	options: ListOptions = {},
+): Promise<number> {
+	const refs = await listRefs(runGit, cwd, namespace);
+	if (refs.size === 0) return 0;
+
+	const entries = [...refs.entries()].map(([ref, commit]) => ({ ref, commit }));
+	const messages = await commitMessages(
+		runGit,
+		cwd,
+		entries.map((entry) => entry.commit),
+	);
+
+	let removed = 0;
+	for (const entry of entries) {
+		const meta = parseMessage(messages.get(entry.commit) ?? "");
+		if (options.root !== undefined && meta && meta.root !== options.root) continue;
+		try {
+			await deleteRef(runGit, cwd, entry.ref);
 			removed += 1;
 		} catch {
 			// A ref deleted by a concurrent session is fine to ignore.

@@ -46,9 +46,9 @@ describe("createCheckpoint", () => {
 
 		expect(checkpoint.clean).toBe(true);
 		// Git reuses the identical tree object; only a small commit is added.
-		expect((await runGit(["rev-parse", `${checkpoint.commit}^{tree}`], { cwd: repo })).stdout.trim()).toBe(
-			checkpoint.tree,
-		);
+		const tree = (await runGit(["rev-parse", `${checkpoint.commit}^{tree}`], { cwd: repo })).stdout.trim();
+		const headTree = (await runGit(["rev-parse", "HEAD^{tree}"], { cwd: repo })).stdout.trim();
+		expect(tree).toBe(headTree);
 		expect(checkpoint.commit).not.toBe(checkpoint.head);
 	});
 
@@ -77,6 +77,22 @@ describe("createCheckpoint", () => {
 
 		expect((await runGit(["diff", "--cached", "--name-only"], { cwd: repo })).stdout).toBe(stagedBefore.stdout);
 		expect((await runGit(["rev-parse", "HEAD"], { cwd: repo })).stdout).toBe(headBefore.stdout);
+	});
+
+	test("records the user prompt summary", async () => {
+		const checkpoint = await createCheckpoint(
+			{ runGit, now: () => 5000, idFactory: () => "t-prompt" },
+			{
+				root: repo,
+				indexFile: indexFileFor(repo),
+				namespace: NS,
+				reason: "auto",
+				prompt: "fix the list",
+				includeUntracked: true,
+			},
+		);
+
+		expect(checkpoint.prompt).toBe("fix the list");
 	});
 
 	test("refuses a repository with no commits", async () => {

@@ -1,9 +1,9 @@
-# checkpoint — working-tree snapshots and rewind for Pi
+# checkpoint — prompt-anchored working-tree snapshots for Pi
 
-Snapshot the working tree before risky changes and rewind to an earlier
-snapshot. A checkpoint is a git commit kept under `refs/pi/checkpoints/<id>`;
-restoring one rewrites the working tree and index **without moving HEAD**, so
-commits, branches, and the reflog are untouched.
+Snapshot the working tree at the start of each task and rewind to an earlier
+snapshot from a menu. A checkpoint is a git commit kept under
+`refs/pi/checkpoints/<id>`; restoring one rewrites the working tree and index
+**without moving HEAD**, so commits, branches, and the reflog are untouched.
 
 ```
 pi --extension ./extensions/checkpoint   # load just this extension
@@ -13,11 +13,12 @@ pi install ./                            # install the package
 
 ## What it does
 
-- Registers one model-callable tool, `checkpoint`, with five actions:
-  `save`, `list`, `diff`, `restore`, `clear`.
-- Takes an **automatic** snapshot before the first mutating tool call of each
-  turn (configurable to per-call or off), so a bad edit can be undone with
-  `restore`.
+- Takes **one automatic snapshot per user prompt**, before the prompt's first
+  mutating tool call. A read-only prompt snapshots nothing.
+- Labels each snapshot with a short summary of the prompt, so the list reads as
+  a task timeline instead of a wall of tool names.
+- `/checkpoint` opens a selectable menu: `Enter` restores (with a confirm and a
+  diff preview), `d` shows the diff, `Esc` closes.
 - Restoring is undoable: by default it first saves a `pre-restore` checkpoint of
   the current state.
 - Shows a `⟲N` status chip with the number of checkpoints for the current
@@ -29,34 +30,35 @@ Snapshots include tracked files plus (by default) untracked, non-ignored files.
 `.gitignore`d files are never captured. Because refs live in the shared git
 directory, a checkpoint taken inside a
 [worktree](../worktree/) is visible from the main checkout; `list`/`restore`
-filter to the current root by default, and restoring a snapshot from another
-worktree is refused unless you ask for it.
+filter to the current root by default.
 
 ## Tool
 
 | Field | Value |
 |---|---|
 | `name` | `checkpoint` |
-| `action` | `save`, `list`, `diff`, `restore`, or `clear`. |
-| `label` | Optional label for `save` (at most 120 characters). |
-| `id` | Checkpoint id for `diff`/`restore`; defaults to the newest (`"last"`). |
-| `all` | For `list`/`clear`, include every worktree's checkpoints. |
+| `label` | Optional label for the saved snapshot (at most 120 characters). |
 
-Validation (a violation returns an error result without running git): a known
-`action`, a label within the limit, and an id matching `[A-Za-z0-9][A-Za-z0-9._-]*`.
-
-`restore` requires an interactive UI to confirm; headless it refuses rather than
-overwriting the working tree silently.
+The only model action is `save`: mark a labeled point mid-task. The working tree
+is already checkpointed automatically at the start of each prompt, and the user
+restores checkpoints from the `/checkpoint` menu, so a rewind is always
+user-confirmed.
 
 ## Command
 
 | Command | What it does |
 |---|---|
-| `/checkpoint` | List checkpoints for the current worktree. |
+| `/checkpoint` | Open the selectable menu (prints the list in non-interactive modes). |
 | `/checkpoint save [label]` | Save a snapshot now. |
 | `/checkpoint diff [id]` | Show what changed since a snapshot. |
-| `/checkpoint restore [id]` | Rewind; picks from a list when no id is given. |
-| `/checkpoint clear` | Delete this worktree's checkpoint refs. |
+| `/checkpoint restore [id]` | Rewind; picks from the menu when no id is given. |
+| `/checkpoint clear` | Delete this worktree's checkpoint refs, including orphaned refs. |
+
+The menu is keyboard-driven: `↑`/`↓` or `j`/`k` move, `PgUp`/`PgDn`/`Home`/`End`
+jump, `Enter` restores the focused checkpoint, `d` shows its diff, `s` saves a
+new checkpoint (prompting for an optional label), `c` clears them, `Esc` closes.
+Diff, save, and clear keep the menu open; the focused row loads its change stats
+lazily.
 
 ## Configuration
 
@@ -65,8 +67,7 @@ Merged from `~/.pi/agent/checkpoint.json` (global) and `<root>/.pi/checkpoint.js
 
 ```json
 {
-  "enabled": true,
-  "mode": "turn",
+  "autoSnapshots": true,
   "max": 20,
   "includeUntracked": true,
   "safetyCheckpoint": true,
@@ -80,8 +81,7 @@ Merged from `~/.pi/agent/checkpoint.json` (global) and `<root>/.pi/checkpoint.js
 
 | Key | Meaning |
 |---|---|
-| `enabled` | Take automatic snapshots at all. Default `true`. |
-| `mode` | `"turn"` (first mutating call each turn), `"call"` (every mutating call), or `"off"`. |
+| `autoSnapshots` | Take one automatic snapshot per prompt. Default `true`. |
 | `max` | Checkpoint refs kept per root before the oldest are pruned on save. |
 | `includeUntracked` | Capture untracked, non-ignored files. |
 | `safetyCheckpoint` | Save the current state before a restore. |
@@ -95,25 +95,30 @@ Merged from `~/.pi/agent/checkpoint.json` (global) and `<root>/.pi/checkpoint.js
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: wire the runtime, tool, command, and turn/auto-snapshot events. |
-| `types.ts` | `Checkpoint`, `CheckpointDetails`, `RestoreSummary`, modes/actions. |
-| `schema.ts` | TypeBox parameters and pure validation/normalization. |
+| `index.ts` | Factory: wire the runtime, tool, command, and per-prompt snapshot events. |
+| `types.ts` | `Checkpoint`, `CheckpointDetails`, `RestoreSummary`. |
+| `schema.ts` | TypeBox parameters and pure label validation for the save tool. |
 | `config.ts` | Config defaults and merge/normalize over `_shared/config.ts`. |
 | `git.ts` | Git plumbing behind an injectable `RunGit`. |
 | `snapshot.ts` | Create a checkpoint (tree from a temporary index → commit → ref). |
 | `restore.ts` | Plan and apply a rewind. |
-| `store.ts` | Metadata encoding and ref-backed listing/pruning. |
+| `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `policy.ts` | Which tool calls are worth a snapshot. |
 | `runtime.ts` | Root/config caches, serialized runner, temp index, status chip. |
-| `tools.ts` | `checkpoint` tool registration and rendering. |
-| `commands.ts` | `/checkpoint`. |
+| `tools.ts` | The save-only `checkpoint` tool. |
+| `commands.ts` | `/checkpoint` and its subcommands. |
+| `tui.ts` | The selectable, width-safe menu component. |
 | `format.ts` | Model-facing and transcript text (pure). |
 
 ## How snapshots are stored
 
 Each snapshot is a commit under `refs/pi/checkpoints/<id>` whose body carries a
-`pi-checkpoint: {json}` metadata line. A clean working tree still records a
-commit (so the metadata always travels with the snapshot); git reuses the
-identical tree object, so the only cost is a small commit. These refs are not
-branches and are not touched by `git push --all`; remove them with
-`/checkpoint clear` or `git update-ref -d <ref>`.
+`pi-checkpoint: {json}` metadata line at **schema version 2**. The metadata
+records the id, reason, label, prompt summary, timestamp, root, branch, HEAD,
+clean state, and the untracked flag. A ref written by another schema version is
+ignored, so older refs are not misread; remove them with
+`git update-ref -d` if desired.
+
+A clean working tree still records a commit (so the metadata always travels with
+the snapshot); git reuses the identical tree object, so the only cost is a small
+commit. These refs are not branches and are not touched by `git push --all`.

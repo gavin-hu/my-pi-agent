@@ -1,17 +1,19 @@
 /**
- * checkpoint — working-tree snapshots and rewind for Pi.
+ * checkpoint — working-tree snapshots for Pi.
  *
- * Registers the `checkpoint` tool and `/checkpoint` command, and (by default)
- * snapshots the working tree before the first mutating tool call of each turn.
- * A snapshot is a git commit kept under `refs/pi/checkpoints/<id>`; restoring it
- * rewrites the working tree and index without moving HEAD, so branches, commits,
- * and the reflog are untouched.
+ * Registers the `checkpoint` save tool and the `/checkpoint` menu, and (by
+ * default) takes one automatic snapshot per user prompt: the working tree is
+ * captured before the prompt's first mutating tool call, so a bad task can be
+ * undone. A snapshot is a git commit kept under `refs/pi/checkpoints/<id>`; a
+ * restore rewrites the working tree and index without moving HEAD, so branches,
+ * commits, and the reflog are untouched.
  *
  * Load with:  pi --extension ./extensions/checkpoint
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { registerCommands } from "./commands.ts";
+import { summarizePrompt } from "./format.ts";
 import { createSnapshotPolicy, type SnapshotPolicy } from "./policy.ts";
 import { createRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
@@ -23,10 +25,11 @@ export default function checkpoint(pi: ExtensionAPI): void {
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
 
-	// Automatic snapshot bookkeeping. The flag is set synchronously before the
-	// first await so parallel tool calls in one turn cannot double-snapshot.
-	let snapshotTakenThisTurn = false;
-	let turnIndex = 0;
+	// One automatic snapshot per user prompt. The prompt summary is captured
+	// when the run starts; the flag flips on the first mutating call and resets
+	// on the next prompt, so a read-only prompt snapshots nothing.
+	let snapshotTakenForRun = false;
+	let pendingPrompt: string | undefined;
 	let warned = false;
 
 	const policyFor = (root: string): SnapshotPolicy => {
@@ -45,7 +48,8 @@ export default function checkpoint(pi: ExtensionAPI): void {
 	};
 
 	pi.on("session_start", async (_event, ctx) => {
-		snapshotTakenThisTurn = false;
+		snapshotTakenForRun = false;
+		pendingPrompt = undefined;
 		warned = false;
 		await refresh(ctx);
 	});
@@ -55,13 +59,16 @@ export default function checkpoint(pi: ExtensionAPI): void {
 		await runtime.setStatus(ctx);
 	});
 
-	pi.on("turn_start", (event) => {
-		turnIndex = event.turnIndex;
-		snapshotTakenThisTurn = false;
+	// A new prompt begins a task: remember its summary and let the next mutating
+	// call take the run's single snapshot.
+	pi.on("before_agent_start", (event) => {
+		pendingPrompt = summarizePrompt(event.prompt);
+		snapshotTakenForRun = false;
 		warned = false;
 	});
 
 	pi.on("session_shutdown", (_event, ctx) => {
+		pendingPrompt = undefined;
 		runtime.clearStatus(ctx);
 	});
 
@@ -71,12 +78,12 @@ export default function checkpoint(pi: ExtensionAPI): void {
 			const root = await runtime.rootFor(ctx);
 			if (!root) return;
 			const config = runtime.configFor(root);
-			if (!config.enabled || config.mode === "off") return;
+			if (!config.autoSnapshots) return;
+			if (snapshotTakenForRun) return;
 			if (!policyFor(root).shouldSnapshot(event.toolName)) return;
-			if (config.mode === "turn" && snapshotTakenThisTurn) return;
 
-			snapshotTakenThisTurn = true;
-			await runtime.snapshot(ctx, { reason: "auto", tool: event.toolName, turn: turnIndex });
+			snapshotTakenForRun = true;
+			await runtime.snapshot(ctx, { reason: "auto", prompt: pendingPrompt });
 			await runtime.setStatus(ctx);
 		} catch (error) {
 			if (warned) return;

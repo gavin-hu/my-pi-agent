@@ -9,7 +9,7 @@
  */
 
 import { commitTree, currentBranch, revParse, treeFromWorkingTree, updateRef, GitError, type RunGit } from "./git.ts";
-import { encodeMessage, refFor, type CheckpointMeta } from "./store.ts";
+import { encodeMessage, refFor, META_VERSION, type CheckpointMeta } from "./store.ts";
 import type { Checkpoint, CheckpointReason } from "./types.ts";
 
 export interface SnapshotDeps {
@@ -29,8 +29,7 @@ export interface SnapshotInput {
 	namespace: string;
 	reason: CheckpointReason;
 	label?: string;
-	tool?: string;
-	turn?: number;
+	prompt?: string;
 	includeUntracked: boolean;
 }
 
@@ -54,12 +53,11 @@ export async function createCheckpoint(deps: SnapshotDeps, input: SnapshotInput)
 	const branch = await currentBranch(runGit, input.root);
 
 	const meta: CheckpointMeta = {
+		v: META_VERSION,
 		id,
-		tree,
 		reason: input.reason,
 		label: input.label,
-		tool: input.tool,
-		turn: input.turn,
+		prompt: input.prompt,
 		timestamp: now,
 		root: input.root,
 		branch,

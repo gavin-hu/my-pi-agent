@@ -7,13 +7,10 @@
  */
 
 import { clampInteger, cleanString, loadConfigFile } from "../_shared/config.ts";
-import { CHECKPOINT_MODES, type CheckpointMode } from "./types.ts";
 
 export interface CheckpointConfig {
-	/** Take automatic snapshots at all. Default: true. */
-	enabled: boolean;
-	/** Automatic snapshot granularity: one per turn, per mutating call, or off. */
-	mode: CheckpointMode;
+	/** Take one automatic snapshot per user prompt. Default: true. */
+	autoSnapshots: boolean;
 	/** Ref count kept per root before the oldest are pruned on save. */
 	max: number;
 	/** Include untracked, non-ignored files in a snapshot. Default: true. */
@@ -22,7 +19,7 @@ export interface CheckpointConfig {
 	safetyCheckpoint: boolean;
 	/** Prune oldest refs beyond `max` after saving. */
 	autoPrune: boolean;
-	/** Show a `⧉ N` status chip while the session runs. */
+	/** Show a `⟲N` status chip while the session runs. */
 	showStatus: boolean;
 	/** Extra tool names to treat as mutating for automatic snapshots. */
 	watch: string[];
@@ -33,8 +30,7 @@ export interface CheckpointConfig {
 }
 
 export const DEFAULT_CONFIG: CheckpointConfig = {
-	enabled: true,
-	mode: "turn",
+	autoSnapshots: true,
 	max: 20,
 	includeUntracked: true,
 	safetyCheckpoint: true,
@@ -54,10 +50,8 @@ function stringList(value: unknown, fallback: string[]): string[] {
 /** Normalize one merged config object over the running base. */
 export function normalizeConfig(raw: Record<string, unknown> | undefined, base: CheckpointConfig): CheckpointConfig {
 	if (!raw) return base;
-	const mode = cleanString(raw.mode, base.mode);
 	return {
-		enabled: typeof raw.enabled === "boolean" ? raw.enabled : base.enabled,
-		mode: (CHECKPOINT_MODES as readonly string[]).includes(mode) ? (mode as CheckpointMode) : base.mode,
+		autoSnapshots: typeof raw.autoSnapshots === "boolean" ? raw.autoSnapshots : base.autoSnapshots,
 		max: clampInteger(raw.max, base.max, 0, 1000),
 		includeUntracked: typeof raw.includeUntracked === "boolean" ? raw.includeUntracked : base.includeUntracked,
 		safetyCheckpoint: typeof raw.safetyCheckpoint === "boolean" ? raw.safetyCheckpoint : base.safetyCheckpoint,
