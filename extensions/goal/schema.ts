@@ -31,8 +31,8 @@ export type GoalArgs = Static<typeof GoalParams>;
  *
  * Control characters (including ESC) become spaces so they cannot move the
  * cursor or inject styling, and any whitespace run (newlines, tabs, repeated
- * spaces) collapses to a single space. The widget and status chip both assume a
- * single logical line and wrap it themselves.
+ * spaces) collapses to a single space. The widget assumes a single logical
+ * line and wraps it itself.
  */
 function sanitizeObjective(raw: string): string {
 	return raw
@@ -42,8 +42,9 @@ function sanitizeObjective(raw: string): string {
 }
 
 function normalizeStatus(raw: unknown): GoalStatus {
-	const value = typeof raw === "string" ? raw.trim().toLowerCase() : "active";
-	if ((GOAL_STATUSES as readonly string[]).includes(value)) return value as GoalStatus;
+	if (raw === undefined) return "active";
+	const value = typeof raw === "string" ? raw.trim().toLowerCase() : undefined;
+	if (value && (GOAL_STATUSES as readonly string[]).includes(value)) return value as GoalStatus;
 	throw new Error(`status must be one of ${GOAL_STATUSES.join(", ")}.`);
 }
 
@@ -63,4 +64,22 @@ export function normalizeGoal(raw: unknown): Goal | null {
 		throw new Error(`objective is longer than ${MAX_OBJECTIVE} characters.`);
 	}
 	return { objective, status: normalizeStatus(args.status) };
+}
+
+/**
+ * Validate a goal read back from a session branch.
+ *
+ * Unlike `normalizeGoal`, this never throws and returns `null` for anything it
+ * cannot render safely. The stored objective is re-sanitized and re-checked
+ * against `MAX_OBJECTIVE`, so tampered or migrated session data cannot feed raw
+ * escape sequences or unbounded text into the widget or transcript.
+ */
+export function normalizeStoredGoal(value: unknown): Goal | null {
+	if (!value || typeof value !== "object") return null;
+	const goal = value as Partial<Goal>;
+	if (typeof goal.objective !== "string") return null;
+	if (goal.status !== "active" && goal.status !== "achieved") return null;
+	const objective = sanitizeObjective(goal.objective);
+	if (!objective || objective.length > MAX_OBJECTIVE) return null;
+	return { objective, status: goal.status };
 }

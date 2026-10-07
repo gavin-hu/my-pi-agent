@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_OBJECTIVE, normalizeGoal } from "../../extensions/goal/schema.ts";
+import { MAX_OBJECTIVE, normalizeGoal, normalizeStoredGoal } from "../../extensions/goal/schema.ts";
 
 describe("normalizeGoal", () => {
 	test("treats a missing or blank objective as a clear", () => {
@@ -46,6 +46,10 @@ describe("normalizeGoal", () => {
 		expect(() => normalizeGoal({ objective: "Ship it", status: "blocked" })).toThrow("status must be one of");
 	});
 
+	test("rejects a non-string status", () => {
+		expect(() => normalizeGoal({ objective: "Ship it", status: 42 })).toThrow("status must be one of");
+	});
+
 	test("rejects an over-long objective", () => {
 		expect(() => normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE + 1) })).toThrow(
 			`longer than ${MAX_OBJECTIVE}`,
@@ -54,5 +58,18 @@ describe("normalizeGoal", () => {
 
 	test("accepts an objective at the length limit", () => {
 		expect(normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE) })?.objective).toHaveLength(MAX_OBJECTIVE);
+	});
+});
+
+describe("normalizeStoredGoal", () => {
+	test("re-sanitizes, bounds length, and rejects bad shapes", () => {
+		expect(normalizeStoredGoal({ objective: "a\u001b[31mb", status: "active" })).toEqual({
+			objective: "a [31mb",
+			status: "active",
+		});
+		expect(normalizeStoredGoal({ objective: "x".repeat(MAX_OBJECTIVE + 1), status: "active" })).toBeNull();
+		expect(normalizeStoredGoal({ objective: "ok", status: "nope" })).toBeNull();
+		expect(normalizeStoredGoal({ objective: 42, status: "active" })).toBeNull();
+		expect(normalizeStoredGoal(null)).toBeNull();
 	});
 });

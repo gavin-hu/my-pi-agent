@@ -60,6 +60,35 @@ describe("reconstructGoal", () => {
 		result!.objective = "mutated";
 		expect(stored.objective).toBe("original");
 	});
+
+	test("re-sanitizes a stored objective and ignores an over-long one", () => {
+		expect(reconstructGoal([resultEntry({ objective: "safe\u001b[31mRED", status: "active" })])).toEqual(
+			active("safe [31mRED"),
+		);
+		expect(
+			reconstructGoal([resultEntry(active("kept")), resultEntry({ objective: "x".repeat(5000), status: "active" })]),
+		).toEqual(active("kept"));
+	});
+
+	test("ignores a malformed tool-result goal instead of wiping state", () => {
+		const malformed = {
+			type: "message",
+			message: { role: "toolResult", toolName: "goal", details: { goal: { objective: 42 }, action: "set" } },
+		};
+		expect(reconstructGoal([resultEntry(active("kept")), malformed])).toEqual(active("kept"));
+	});
+
+	test("does not replay a rejected call as a state write", () => {
+		const rejected = {
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolName: "goal",
+				details: { goal: null, action: "clear", error: "objective is too long" },
+			},
+		};
+		expect(reconstructGoal([resultEntry(active("kept")), rejected])).toEqual(active("kept"));
+	});
 });
 
 describe("isActiveGoal", () => {

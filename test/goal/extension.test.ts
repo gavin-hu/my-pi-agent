@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import goal, { GOAL_CONTEXT_MARKER } from "../../extensions/goal/index.ts";
-import { STATUS_KEY } from "../../extensions/goal/runtime.ts";
 import { TOOL_NAME } from "../../extensions/goal/tools.ts";
 import { WIDGET_KEY } from "../../extensions/goal/tui.ts";
 import type { Goal } from "../../extensions/goal/types.ts";
@@ -56,35 +55,32 @@ describe("goal extension", () => {
 		expect(notifications.at(-1)).toBe("Goal (active): from command");
 	});
 
-	test("sets the widget and status on session start in interactive mode", async () => {
+	test("sets the widget on session start in interactive mode", async () => {
 		const { pi } = makeFakePi();
 		goal(pi);
-		const { ctx, widgetCalls, statusCalls } = fakeCtx({ mode: "tui", branch: [resultEntry(active("one"))] });
+		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: [resultEntry(active("one"))] });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
 		expect(widgetCalls.at(-1)?.key).toBe(WIDGET_KEY);
 		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
-		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEY, text: "| ◎ goal" });
 	});
 
-	test("does not touch the widget in a non-TUI session but still sets the status", async () => {
+	test("does not touch the widget in a non-TUI session", async () => {
 		const { pi } = makeFakePi();
 		goal(pi);
-		const { ctx, widgetCalls, statusCalls } = fakeCtx({ mode: "print", branch: [resultEntry(active("one"))] });
+		const { ctx, widgetCalls } = fakeCtx({ mode: "print", branch: [resultEntry(active("one"))] });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		expect(widgetCalls).toHaveLength(0);
-		expect(statusCalls.at(-1)?.text).toBe("| ◎ goal");
 	});
 
-	test("clears the widget and status on shutdown", async () => {
+	test("clears the widget on shutdown", async () => {
 		const { pi } = makeFakePi();
 		goal(pi);
-		const { ctx, widgetCalls, statusCalls } = fakeCtx({ mode: "tui", branch: [resultEntry(active("one"))] });
+		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: [resultEntry(active("one"))] });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await emit(pi, "session_shutdown", {}, ctx);
 		expect(widgetCalls.at(-1)).toEqual({ key: WIDGET_KEY, content: undefined });
-		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEY, text: undefined });
 	});
 });
 
@@ -141,6 +137,17 @@ describe("goal reminder", () => {
 		const newest = goalContextMessage("newest");
 		const [result] = await emit(pi, "context", { messages: [goalContextMessage(), otherMessage(), newest] }, ctx);
 		expect(result.messages).toEqual([otherMessage(), newest]);
+	});
+
+	test("does not strip a user message that contains the marker", async () => {
+		const { pi } = makeFakePi();
+		goal(pi);
+		const { ctx } = fakeCtx({ branch: [resultEntry(null)] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		const user = { role: "user", content: "Why does my prompt show [SESSION GOAL] at the top?" };
+		const [result] = await emit(pi, "context", { messages: [goalContextMessage(), user] }, ctx);
+		expect(result.messages).toEqual([user]);
 	});
 });
 

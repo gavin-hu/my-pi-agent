@@ -16,8 +16,7 @@ pi install ./                       # install the package
   it.
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done.
-- Shows a persistent quoted block above the editor (and a status chip in the
-  [status bar](../status-bar/)) whenever a goal exists:
+- Shows a persistent quoted block above the editor whenever a goal exists:
 
   ```
   | ◎ Goal
@@ -49,8 +48,7 @@ a known `status`, and an objective of at most 2000 characters.
 Before those checks, the objective is normalized to a single terminal-safe
 line: control characters (including `ESC`) become spaces and any whitespace run
 (newlines, tabs, repeated spaces) collapses to one space. This keeps the widget
-and status chip to one logical line and stops model text from injecting
-terminal sequences.
+to one logical line and stops model text from injecting terminal sequences.
 
 ## Command
 
@@ -64,9 +62,9 @@ terminal sequences.
 ## Behaviour by mode
 
 The tool works in every mode. The persistent widget requires interactive
-(`tui`) mode; the status chip, the reminder, and the `/goal` command work
-everywhere. Achieved goals keep their place in the transcript and the widget
-but are no longer restated to the model.
+(`tui`) mode; the reminder and the `/goal` command work everywhere. Achieved
+goals keep their place in the transcript and the widget but are no longer
+restated to the model.
 
 ## Files
 
@@ -76,8 +74,8 @@ but are no longer restated to the model.
 | `types.ts` | `Goal`, `GoalStatus`, `GoalDetails`. |
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
 | `state.ts` | Branch reconstruction (pure). |
-| `format.ts` | Model-facing, widget, and chip text plus the `| ◎` / `| ✓` symbols (pure). |
-| `tui.ts` | The persistent goal widget. |
-| `runtime.ts` | Session-scoped state and widget/status synchronization. |
+| `format.ts` | Model-facing and terminal text plus the `| ◎` / `| ✓` symbols (pure). |
+| `tui.ts` | The persistent goal widget and the transcript result block. |
+| `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `goal` tool registration and rendering. |
 | `commands.ts` | `/goal`. |

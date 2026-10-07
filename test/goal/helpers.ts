@@ -1,4 +1,5 @@
 import type { Goal } from "../../extensions/goal/types.ts";
+import { GOAL_CONTEXT_TYPE } from "../../extensions/goal/index.ts";
 import { createFakePi, type AnyHandler } from "../helpers/fakes.ts";
 
 export { emitCollect as emit } from "../helpers/fakes.ts";
@@ -27,14 +28,12 @@ export function makeFakePi(): FakePi {
 export interface FakeCtx {
 	ctx: any;
 	widgetCalls: Array<{ key: string; content: unknown }>;
-	statusCalls: Array<{ key: string; text: unknown }>;
 	notifications: string[];
 }
 
 /** Minimal `ExtensionContext` double; `branch` is what `getBranch()` returns. */
 export function fakeCtx(options: { mode?: string; hasUI?: boolean; branch?: unknown[] } = {}): FakeCtx {
 	const widgetCalls: Array<{ key: string; content: unknown }> = [];
-	const statusCalls: Array<{ key: string; text: unknown }> = [];
 	const notifications: string[] = [];
 	const ctx: any = {
 		mode: options.mode ?? "tui",
@@ -43,12 +42,11 @@ export function fakeCtx(options: { mode?: string; hasUI?: boolean; branch?: unkn
 		ui: {
 			theme: { fg: (_color: string, text: string) => text, bold: (text: string) => text },
 			setWidget: (key: string, content: unknown) => widgetCalls.push({ key, content }),
-			setStatus: (key: string, text: unknown) => statusCalls.push({ key, text }),
 			notify: (message: string) => notifications.push(message),
 			custom: async () => undefined,
 		},
 	};
-	return { ctx, widgetCalls, statusCalls, notifications };
+	return { ctx, widgetCalls, notifications };
 }
 
 /** A stored `goal` tool-result entry, as it appears on a session branch. */
@@ -62,9 +60,14 @@ export function lastWidget(calls: Array<{ key: string; content: unknown }>): unk
 	return calls.at(-1)?.content;
 }
 
-/** A user message carrying the goal marker. */
+/** The injected goal context message, as it appears in `context` messages. */
 export function goalContextMessage(objective = "ship it"): unknown {
-	return { role: "user", content: `[SESSION GOAL]\nThe user set this session goal: ${objective}` };
+	return {
+		role: "custom",
+		customType: GOAL_CONTEXT_TYPE,
+		content: `The user set this session goal: ${objective}`,
+		display: false,
+	};
 }
 
 export function otherMessage(): unknown {

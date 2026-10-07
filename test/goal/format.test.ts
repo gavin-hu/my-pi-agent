@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import {
 	ACTIVE_SYMBOL,
 	ACHIEVED_SYMBOL,
 	formatCallText,
 	formatGoalNotice,
 	formatGoalText,
-	goalChip,
 	goalHeader,
 	goalObjective,
 	previewObjective,
@@ -18,7 +18,7 @@ const theme: any = { fg: (_color: string, text: string) => text, bold: (text: st
 const active: Goal = { objective: "Ship the parser", status: "active" };
 const achieved: Goal = { objective: "Ship the parser", status: "achieved" };
 
-describe("headers and chips", () => {
+describe("headers", () => {
 	test("active header carries the bar, the glyph, and the label", () => {
 		const header = goalHeader(active, theme);
 		expect(header).toStartWith(ROW_PREFIX);
@@ -42,16 +42,6 @@ describe("headers and chips", () => {
 		const tagged: any = { fg: (color: string, text: string) => `[${color}]${text}` };
 		expect(goalObjective(active, tagged)).toBe("[text]Ship the parser");
 		expect(goalObjective(achieved, tagged)).toBe("[dim]Ship the parser");
-	});
-
-	test("status chip names the goal for both states", () => {
-		expect(goalChip(active, theme)).toBe("| ◎ goal");
-		expect(goalChip(achieved, theme)).toBe("| ✓ goal");
-	});
-
-	test("status chip falls back to plain text without a theme", () => {
-		expect(goalChip(active)).toBe("| ◎ goal");
-		expect(goalChip(achieved)).toBe("| ✓ goal");
 	});
 });
 
@@ -90,6 +80,10 @@ describe("transcript call text", () => {
 		expect(formatCallText("Ship the parser", true)).toBe("goal → set: Ship the parser");
 	});
 
+	test("an achieved call reads as achieve", () => {
+		expect(formatCallText("Ship the parser", true, "achieved")).toBe("goal → achieve: Ship the parser");
+	});
+
 	test("a long objective is truncated", () => {
 		const text = formatCallText("x".repeat(200), true);
 		expect(text).toEndWith("…");
@@ -101,5 +95,11 @@ describe("previewObjective", () => {
 		expect(previewObjective("short", 20)).toBe("short");
 		expect(previewObjective("x".repeat(30), 10)).toHaveLength(10);
 		expect(previewObjective("x".repeat(30), 10)).toEndWith("…");
+	});
+
+	test("counts wide characters when truncating", () => {
+		const text = previewObjective("a".repeat(8) + "重".repeat(5), 10);
+		expect(visibleWidth(text)).toBeLessThanOrEqual(10);
+		expect(text).toEndWith("…");
 	});
 });

@@ -2,7 +2,7 @@
  * goal — a persistent session objective for Pi.
  *
  * Registers a single `goal` tool that records the high-level objective for the
- * session, plus a `/goal` command, a widget, and a status chip that mirror it.
+ * session, plus a `/goal` command and a widget that mirror it.
  * While the goal is active it is re-injected before each turn so the model
  * stays on task; once achieved it stays visible but stops being restated. The
  * goal is stored in tool-result `details`, so it follows the active session
@@ -18,7 +18,7 @@ import { createGoalRuntime } from "./runtime.ts";
 import type { Goal } from "./types.ts";
 import { registerTools } from "./tools.ts";
 
-/** Marker embedded in the injected prompt and used to filter stale context. */
+/** Marker embedded in the injected prompt, so it is recognizable in the transcript. */
 export const GOAL_CONTEXT_MARKER = "[SESSION GOAL]";
 
 /** Custom-entry type used for the injected context message. */
@@ -32,16 +32,9 @@ Keep this objective in mind as you work and let it guide your priorities. Use th
 }
 
 function isGoalContext(message: AgentMessage): boolean {
-	const candidate = message as AgentMessage & { customType?: string };
-	if (candidate.customType === GOAL_CONTEXT_TYPE) return true;
-	if (candidate.role !== "user") return false;
-
-	const content = candidate.content;
-	if (typeof content === "string") return content.includes(GOAL_CONTEXT_MARKER);
-	if (Array.isArray(content)) {
-		return content.some((block) => block.type === "text" && (block as { text?: string }).text?.includes(GOAL_CONTEXT_MARKER));
-	}
-	return false;
+	// Only the injected message carries this custom type. Matching on the marker
+	// text would also capture (and drop) a real user message that contains it.
+	return (message as AgentMessage & { customType?: string }).customType === GOAL_CONTEXT_TYPE;
 }
 
 export default function goal(pi: ExtensionAPI): void {

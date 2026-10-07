@@ -3,13 +3,13 @@
  *
  * The active goal is drawn as a quoted block: a dim `| ` bar prefixes every
  * row, then the status glyph, then the objective. `| ◎` marks an active goal
- * and `| ✓` an achieved one. The symbols and prefix live here so the widget,
- * the status chip, and the transcript renderer all agree.
+ * and `| ✓` an achieved one. The symbols and prefix live here so the widget
+ * and the transcript renderer agree.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
-import type { Goal } from "./types.ts";
+import type { Goal, GoalStatus } from "./types.ts";
 
 /** Left bar that makes the goal read as a quoted block. */
 export const ROW_PREFIX = "| ";
@@ -43,20 +43,6 @@ export function goalObjective(goal: Goal, theme: Theme): string {
 	return goal.status === "achieved" ? theme.fg("dim", goal.objective) : theme.fg("text", goal.objective);
 }
 
-/** Short status chip shown by the status bar, e.g. `| ◎ goal`.
- *
- * `theme` is optional because a headless run has no initialized theme; the
- * chip then falls back to plain text rather than throwing. */
-export function goalChip(goal: Goal, theme?: Theme): string {
-	const prefix = theme ? theme.fg("dim", ROW_PREFIX) : ROW_PREFIX;
-	if (goal.status === "achieved") {
-		const label = `${ACHIEVED_SYMBOL} goal`;
-		return `${prefix}${theme ? theme.fg("success", label) : label}`;
-	}
-	const label = `${ACTIVE_SYMBOL} goal`;
-	return `${prefix}${theme ? theme.fg("accent", label) : label}`;
-}
-
 /** Model-facing result text. */
 export function formatGoalText(goal: Goal | null): string {
 	if (goal === null) return "Goal cleared.";
@@ -71,7 +57,9 @@ export function formatGoalNotice(goal: Goal): string {
 
 /** Truncate an objective to `max` display columns, appending `…` when cut. */
 export function previewObjective(objective: string, max = CALL_PREVIEW_WIDTH): string {
-	return visibleWidth(objective) > max ? `${sliceByColumn(objective, 0, max - 1)}…` : objective;
+	// `strict` drops a wide grapheme that would cross the boundary, so the
+	// slice plus ellipsis never exceeds `max` columns.
+	return visibleWidth(objective) > max ? `${sliceByColumn(objective, 0, max - 1, true)}…` : objective;
 }
 
 /**
@@ -81,9 +69,10 @@ export function previewObjective(objective: string, max = CALL_PREVIEW_WIDTH): s
  * which is distinct from an empty objective (a real clear). `argsComplete`
  * disambiguates the tail end of the stream.
  */
-export function formatCallText(objective: string | undefined, argsComplete = true): string {
+export function formatCallText(objective: string | undefined, argsComplete = true, status?: GoalStatus): string {
 	if (objective === undefined) return argsComplete ? "goal → clear" : "goal → …";
 	const text = objective.trim();
 	if (!text) return "goal → clear";
-	return `goal → set: ${previewObjective(text)}`;
+	const verb = status === "achieved" ? "achieve" : "set";
+	return `goal → ${verb}: ${previewObjective(text)}`;
 }

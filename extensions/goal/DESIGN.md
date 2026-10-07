@@ -6,7 +6,7 @@ Status: **implemented** (see [`README.md`](./README.md)).
 
 Give the model a single, persistent objective for the session: a north star it
 restates before every turn so it stays on task across many tool calls, and a
-visible marker the user can see above the editor and in the status bar. It is
+visible marker the user can see above the editor. It is
 the high-level companion to `todo`: the goal is *what*, the todo list is *how*.
 
 ## Decisions
@@ -39,18 +39,16 @@ repeated instructions never accumulate and stale ones never survive a
 `/resume`. This is the mechanism `plan-mode` uses for its own context.
 
 **Visibility is derived, never authoritative.** `runtime.setGoal` mirrors the
-goal into `ctx.ui.setWidget()` and `ctx.ui.setStatus()`. The widget exists only
-in `tui` mode; the status chip and the tool work in every mode. The widget is a
-quoted block — a dim `| ` bar prefixes every row, then `◎` (active) or `✓`
-(achieved) — and is capped at three rows so it cannot crowd the editor. Making
-the bar a literal character (rather than a padded panel) keeps it legible in
-the main screen without a layout engine.
+goal into `ctx.ui.setWidget()`. The widget exists only in `tui` mode; the tool
+works in every mode. The widget is a quoted block — a dim `| ` bar prefixes
+every row, then `◎` (active) or `✓` (achieved) — and is capped at three rows so
+it cannot crowd the editor. Making the bar a literal character (rather than a
+padded panel) keeps it legible in the main screen without a layout engine.
 
 **Sanitize at the boundary.** `normalizeGoal` replaces control characters
 (including `ESC`) with spaces and collapses whitespace runs, so an embedded
-newline cannot corrupt the widget or the status line and raw escapes cannot
-restyle the terminal. Both the widget and the chip assume one logical line and
-wrap it themselves.
+newline cannot corrupt the widget and raw escapes cannot
+restyle the terminal. The widget assumes one logical line and wraps it itself.
 
 **Available while planning.** `plan-mode` keeps its `PLAN_SAFE_TOOLS` — the
 structured readers plus the plan and goal trackers — so the model can record or

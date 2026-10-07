@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createGoalRuntime, STATUS_KEY } from "../../extensions/goal/runtime.ts";
+import { createGoalRuntime } from "../../extensions/goal/runtime.ts";
 import { TOOL_NAME, registerTools } from "../../extensions/goal/tools.ts";
 import { WIDGET_KEY } from "../../extensions/goal/tui.ts";
 import { fakeCtx, lastWidget, makeFakePi } from "./helpers.ts";
@@ -52,19 +52,18 @@ describe("goal tool", () => {
 		expect(runtime.getGoal()).toEqual({ objective: "Ship the parser", status: "achieved" });
 	});
 
-	test("updates the widget and the status chip on a TUI session", async () => {
+	test("updates the widget on a TUI session", async () => {
 		const { tool } = setup();
-		const { ctx, widgetCalls, statusCalls } = fakeCtx({ mode: "tui" });
+		const { ctx, widgetCalls } = fakeCtx({ mode: "tui" });
 		await call(tool, { objective: "Ship the parser" }, ctx);
 
 		expect(widgetCalls.at(-1)?.key).toBe(WIDGET_KEY);
 		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
-		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEY, text: "| ◎ goal" });
 	});
 
-	test("clearing removes the goal, the widget, and the status chip", async () => {
+	test("clearing removes the goal and the widget", async () => {
 		const { tool, runtime } = setup();
-		const { ctx, widgetCalls, statusCalls } = fakeCtx({ mode: "tui" });
+		const { ctx, widgetCalls } = fakeCtx({ mode: "tui" });
 		await call(tool, { objective: "Ship the parser" }, ctx);
 		const result = await call(tool, { objective: "" }, ctx);
 
@@ -73,7 +72,6 @@ describe("goal tool", () => {
 		expect(result.content[0].text).toBe("Goal cleared.");
 		expect(runtime.getGoal()).toBeNull();
 		expect(lastWidget(widgetCalls)).toBeUndefined();
-		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEY, text: undefined });
 	});
 
 	test("rejects an over-long objective without changing the goal", async () => {
@@ -132,6 +130,64 @@ describe("goal tool", () => {
 		expect(expanded).not.toContain("…");
 	});
 
+	test("dims an achieved objective in the collapsed transcript result", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		const tagged: any = { fg: (color: string, text: string) => `[${color}]${text}`, bold: (text: string) => text };
+
+		const achieved = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		const collapsed = tool
+			.renderResult(achieved, { expanded: false, isPartial: false }, tagged, { argsComplete: true })
+			.render(200)
+			.join("\n");
+		expect(collapsed).toContain("[dim]Ship the parser");
+
+		const active = await call(tool, { objective: "Ship the parser" }, ctx);
+		const activeText = tool
+			.renderResult(active, { expanded: false, isPartial: false }, tagged, { argsComplete: true })
+			.render(200)
+			.join("\n");
+		expect(activeText).toContain("[text]Ship the parser");
+	});
+
+	test("keeps the quote bar on every wrapped transcript row", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		const objective =
+			"Refactor the parser to support streaming input and ship it with tests, then update the docs and changelog";
+		const result = await call(tool, { objective, status: "achieved" }, ctx);
+
+		const lines = tool
+			.renderResult(result, { expanded: true, isPartial: false }, theme, { argsComplete: true })
+			.render(40);
+
+		expect(lines.length).toBeGreaterThan(2);
+		expect(lines.every((line: string) => line.startsWith("| "))).toBe(true);
+	});
+
+	test("renders a clear with a neutral marker, not the achieved check", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await call(tool, { objective: "" }, ctx);
+
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Cleared the goal");
+		expect(text).not.toContain("✓");
+	});
+
+	test("labels an achieve call as achieve", () => {
+		const { tool } = setup();
+		const text = tool
+			.renderCall({ objective: "Ship the parser", status: "achieved" }, theme, { argsComplete: true })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("goal → achieve:");
+	});
+
 	test("a rejected achieve reports the attempted action", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
@@ -148,21 +204,5 @@ describe("goal tool", () => {
 		const result = await call(tool, { objective: "Headless" }, undefined);
 		expect(result.isError).toBeUndefined();
 		expect(runtime.getGoal()).toEqual({ objective: "Headless", status: "active" });
-	});
-
-	test("does not fail when the theme is not initialized", async () => {
-		const { tool, runtime } = setup();
-		const { ctx, statusCalls } = fakeCtx({ mode: "print" });
-		ctx.ui.theme = {
-			fg: () => {
-				throw new Error("Theme not initialized. Call initTheme() first.");
-			},
-		};
-
-		const result = await call(tool, { objective: "Headless" }, ctx);
-
-		expect(result.isError).toBeUndefined();
-		expect(runtime.getGoal()).toEqual({ objective: "Headless", status: "active" });
-		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEY, text: "| ◎ goal" });
 	});
 });

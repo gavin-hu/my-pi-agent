@@ -9,9 +9,10 @@
 
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { formatCallText, formatGoalText, goalHeader, goalObjective, previewObjective, ROW_PREFIX } from "./format.ts";
+import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { GoalParams, normalizeGoal, type GoalArgs } from "./schema.ts";
+import { GoalResult } from "./tui.ts";
 import type { GoalAction, GoalDetails } from "./types.ts";
 
 export const TOOL_NAME = "goal";
@@ -25,9 +26,12 @@ function attemptedAction(args: Partial<GoalArgs>): GoalAction {
 	return args.status === "achieved" ? "achieve" : "set";
 }
 
-function resultText(goal: NonNullable<GoalDetails["goal"]>, expanded: boolean, theme: Theme): string {
-	const body = expanded ? goalObjective(goal, theme) : previewObjective(goal.objective, RESULT_PREVIEW_WIDTH);
-	return `${goalHeader(goal, theme, true)}\n${theme.fg("dim", ROW_PREFIX)}${body}`;
+/** Themed body for the transcript result: the collapsed preview or the full objective. */
+function resultBody(goal: NonNullable<GoalDetails["goal"]>, expanded: boolean, theme: Theme): string {
+	const text = expanded ? goal.objective : previewObjective(goal.objective, RESULT_PREVIEW_WIDTH);
+	// Route both states through `goalObjective`, so an achieved goal is dimmed
+	// whether it is collapsed or expanded.
+	return goalObjective({ objective: text, status: goal.status }, theme);
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
@@ -72,7 +76,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		renderCall(args, theme, context) {
 			return new Text(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
-					theme.fg("muted", formatCallText(args.objective, context.argsComplete)),
+					theme.fg("muted", formatCallText(args.objective, context.argsComplete, args.status)),
 				0,
 				0,
 			);
@@ -86,9 +90,10 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 			}
 			if (details.error) return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
 			if (!details.goal) {
-				return new Text(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared the goal"), 0, 0);
+				// A neutral marker, deliberately not the achieved `✓`.
+				return new Text(theme.fg("dim", "⊘ ") + theme.fg("muted", "Cleared the goal"), 0, 0);
 			}
-			return new Text(resultText(details.goal, expanded, theme), 0, 0);
+			return new GoalResult(details.goal, resultBody(details.goal, expanded, theme), theme);
 		},
 	});
 }

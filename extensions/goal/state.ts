@@ -3,10 +3,13 @@
  *
  * The goal lives in each `goal` tool result's `details`, and the `/goal`
  * command additionally appends a `goal` custom entry. `reconstructGoal` replays
- * a branch in order and returns the last written goal, so navigating or
- * branching the session reproduces the goal that was correct at that point.
+ * a branch in order and returns the last valid goal, so navigating or branching
+ * the session reproduces the goal that was correct at that point. Stored values
+ * are re-validated and re-sanitized so corrupt or tampered branch data cannot
+ * inject escapes or wipe the goal.
  */
 
+import { normalizeStoredGoal } from "./schema.ts";
 import { GOAL_ENTRY_TYPE, type Goal, type GoalDetails } from "./types.ts";
 
 /** Minimal shape of a session entry, used for runtime narrowing. */
@@ -21,15 +24,14 @@ interface BranchEntryLike {
 	};
 }
 
-/** Whether an untrusted value is a well-formed goal. */
-function isGoal(value: unknown): value is Goal {
-	if (!value || typeof value !== "object") return false;
-	const goal = value as Partial<Goal>;
-	return typeof goal.objective === "string" && (goal.status === "active" || goal.status === "achieved");
-}
-
-function cloneGoal(goal: Goal): Goal {
-	return { objective: goal.objective, status: goal.status };
+/**
+ * Apply a stored goal to the running value. `null` is an explicit clear; any
+ * other value that fails validation is ignored so a malformed entry cannot wipe
+ * a valid goal.
+ */
+function applyStoredGoal(current: Goal | null, value: unknown): Goal | null {
+	if (value === null) return null;
+	return normalizeStoredGoal(value) ?? current;
 }
 
 /** The last goal written on the branch, or `null`. */
@@ -42,10 +44,8 @@ export function reconstructGoal(entries: Iterable<unknown>): Goal | null {
 		// tool result below. Both replay in branch order, so the last one wins.
 		if (entry?.type === "custom" && entry.customType === GOAL_ENTRY_TYPE) {
 			const data = entry.data as { goal?: unknown } | null | undefined;
-			// A malformed entry (non-object `data`, or no `goal` field) is ignored so
-			// it cannot wipe a valid goal during reconstruction.
 			if (data && typeof data === "object" && "goal" in data && data.goal !== undefined) {
-				goal = isGoal(data.goal) ? cloneGoal(data.goal) : null;
+				goal = applyStoredGoal(goal, data.goal);
 			}
 			continue;
 		}
@@ -55,7 +55,10 @@ export function reconstructGoal(entries: Iterable<unknown>): Goal | null {
 		if (message?.role !== "toolResult" || message.toolName !== "goal") continue;
 		const details = message.details as GoalDetails | undefined;
 		if (!details || details.goal === undefined) continue;
-		goal = isGoal(details.goal) ? cloneGoal(details.goal) : null;
+		// A rejected call carries the unchanged goal for the model to read; it is
+		// not a state write and must not be replayed as one.
+		if (details.error) continue;
+		goal = applyStoredGoal(goal, details.goal);
 	}
 	return goal;
 }
