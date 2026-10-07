@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	branchExists,
@@ -29,6 +30,16 @@ import { cleanup, execP, makeFakePi, makeRepo, makeRepoWithRemote, testConfig } 
 
 const pi = makeFakePi();
 const cleanups: string[] = [];
+
+/** A `pi` whose `exec` answers from a route table, for metadata-failure paths. */
+function stubPi(route: (args: string[]) => { stdout?: string; stderr?: string; code?: number } | undefined): any {
+	return {
+		exec: async (_command: string, args: string[]) => {
+			const result = route(args) ?? { code: 1 };
+			return { stdout: result.stdout ?? "", stderr: result.stderr ?? "", code: result.code ?? 0 };
+		},
+	};
+}
 
 afterAll(() => cleanup(...cleanups));
 
@@ -123,6 +134,43 @@ describe("git helpers", () => {
 
 	test("submoduleChanges reports known with no submodules", async () => {
 		expect(await submoduleChanges(pi, repo)).toEqual({ known: true, count: 0 });
+	});
+
+	test("checkCheckout reports unverified when git metadata cannot be read", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-wt-unverified-"));
+		cleanups.push(dir);
+		const stub = stubPi((args) =>
+			args.includes("--show-toplevel")
+				? { stdout: "/elsewhere/wt\n", code: 0 }
+				: args.includes("--git-common-dir")
+					? { code: 1, stderr: "fatal: not a git repository" }
+					: undefined,
+		);
+		const check = await checkCheckout(stub, dir, join(dir, "main"));
+		expect(check.ok).toBe(false);
+		expect(check.ok ? undefined : check.reason).toBe("unverified");
+	});
+
+	test("submoduleChanges reports unknown when the submodule listing fails", async () => {
+		const stub = stubPi((args) => (args[0] === "submodule" && args[1] === "status" ? { code: 1 } : undefined));
+		expect(await submoduleChanges(stub, "/repo")).toEqual({ known: false, count: 0 });
+	});
+
+	test("submoduleChanges counts porcelain lines and ignores Entering banners", async () => {
+		const stub = stubPi((args) => {
+			if (args[0] !== "submodule") return undefined;
+			if (args[1] === "status") return { stdout: " abc sub\ndef sub2\n", code: 0 };
+			return { stdout: "Entering 'sub'\n M a.txt\nEntering 'sub2'\n", code: 0 };
+		});
+		expect(await submoduleChanges(stub, "/repo")).toEqual({ known: true, count: 1 });
+	});
+
+	test("submoduleChanges reports unknown when the foreach inspection fails", async () => {
+		const stub = stubPi((args) => {
+			if (args[0] !== "submodule") return undefined;
+			return args[1] === "status" ? { stdout: " abc sub\n", code: 0 } : { code: 1 };
+		});
+		expect(await submoduleChanges(stub, "/repo")).toEqual({ known: false, count: 0 });
 	});
 
 	test("isProcessAlive", () => {

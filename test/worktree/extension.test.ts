@@ -361,3 +361,85 @@ describe("prune", () => {
 		await removeWorktree(repo, newDir, "worktree-new");
 	});
 });
+
+describe("prune edge cases", () => {
+	function age(dir: string, days = 30): void {
+		const past = new Date(Date.now() - days * 86_400_000);
+		utimesSync(dir, past, past);
+	}
+
+	async function prune(pi: any, ctx: any): Promise<string> {
+		const result = await pi.tools.get("worktree_prune").execute("p", {}, undefined, undefined, ctx);
+		return result.content[0].text;
+	}
+
+	test("keeps the current worktree", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-cur-");
+		cleanups.push(repo, remote);
+		const { pi, ctx } = await boot(repo);
+		await enter(pi, ctx, { name: "cur" });
+		const dir = wtPath(repo, "cur");
+
+		expect(await prune(pi, ctx)).toContain(`${dir} (current)`);
+		expect(existsSync(dir)).toBe(true);
+	});
+
+	test("keeps a worktree locked by a live process", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-live-");
+		cleanups.push(repo, remote);
+		const first = await boot(repo);
+		await enter(first.pi, first.ctx, { name: "live" });
+		await exit(first.pi, first.ctx, { remove: false });
+		const dir = wtPath(repo, "live");
+		await execP("git", ["worktree", "lock", "--reason", `pi:${process.pid}:sess`, dir], { cwd: repo });
+		age(dir);
+
+		const { pi, ctx } = await boot(repo);
+		expect(await prune(pi, ctx)).toContain(`${dir} (locked)`);
+		expect(existsSync(dir)).toBe(true);
+	});
+
+	test("unlocks and prunes a worktree locked by a dead process", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-dead-");
+		cleanups.push(repo, remote);
+		const first = await boot(repo);
+		await enter(first.pi, first.ctx, { name: "dead" });
+		await exit(first.pi, first.ctx, { remove: false });
+		const dir = wtPath(repo, "dead");
+		await execP("git", ["worktree", "lock", "--reason", "pi:999999:sess", dir], { cwd: repo });
+		age(dir);
+
+		const { pi, ctx } = await boot(repo);
+		expect(await prune(pi, ctx)).toContain(`Removed ${dir}`);
+		expect(existsSync(dir)).toBe(false);
+	});
+
+	test("keeps a worktree that contains work", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-work-");
+		cleanups.push(repo, remote);
+		const first = await boot(repo);
+		await enter(first.pi, first.ctx, { name: "work" });
+		await exit(first.pi, first.ctx, { remove: false });
+		const dir = wtPath(repo, "work");
+		writeFileSync(join(dir, "dirty.txt"), "x");
+		age(dir);
+
+		const { pi, ctx } = await boot(repo);
+		expect(await prune(pi, ctx)).toContain(`${dir} (has work)`);
+		expect(existsSync(dir)).toBe(true);
+	});
+
+	test("keeps a worktree when the default branch is unknown", async () => {
+		const repo = await makeRepo("pi-wt-prune-nodef-");
+		cleanups.push(repo);
+		const first = await boot(repo);
+		await enter(first.pi, first.ctx, { name: "nodef" });
+		await exit(first.pi, first.ctx, { remove: false });
+		const dir = wtPath(repo, "nodef");
+		age(dir);
+
+		const { pi, ctx } = await boot(repo);
+		expect(await prune(pi, ctx)).toContain(`${dir} (no default branch)`);
+		expect(existsSync(dir)).toBe(true);
+	});
+});

@@ -21,6 +21,15 @@ async function git(pi: ExtensionAPI, args: string[], cwd: string, timeout?: numb
 	return { stdout: result.stdout, stderr: result.stderr, code: result.code };
 }
 
+type GitOutcome = { ok: true; stdout: string } | { ok: false; code: number; error: string };
+
+/** Run git and classify the outcome, deriving `error` from stderr/stdout. */
+async function gitOutcome(pi: ExtensionAPI, args: string[], cwd: string): Promise<GitOutcome> {
+	const result = await git(pi, args, cwd);
+	if (result.code === 0) return { ok: true, stdout: result.stdout };
+	return { ok: false, code: result.code, error: (result.stderr || result.stdout).trim() };
+}
+
 /**
  * Run a network git operation with terminal prompting disabled, so a fetch that
  * would ask for credentials fails fast instead of hanging until its timeout.
@@ -210,10 +219,9 @@ export async function worktreeAdd(
 	const args = createBranch
 		? ["worktree", "add", "-b", branch, dir, base]
 		: ["worktree", "add", dir, branch];
-	const result = await git(pi, args, repoRoot);
-	if (result.code === 0) return { ok: true };
-	const detail = (result.stderr || result.stdout).trim();
-	return { ok: false, error: detail || `git worktree add exited with code ${result.code}` };
+	const outcome = await gitOutcome(pi, args, repoRoot);
+	if (outcome.ok) return { ok: true };
+	return { ok: false, error: outcome.error || `git worktree add exited with code ${outcome.code}` };
 }
 
 export async function worktreeRemove(
@@ -225,9 +233,9 @@ export async function worktreeRemove(
 	const args = ["worktree", "remove"];
 	if (force) args.push("--force");
 	args.push(dir);
-	const result = await git(pi, args, repoRoot);
-	if (result.code === 0) return { ok: true };
-	return { ok: false, error: (result.stderr || result.stdout).trim() || "git worktree remove failed" };
+	const outcome = await gitOutcome(pi, args, repoRoot);
+	if (outcome.ok) return { ok: true };
+	return { ok: false, error: outcome.error || "git worktree remove failed" };
 }
 
 export async function deleteBranch(
@@ -236,9 +244,9 @@ export async function deleteBranch(
 	branch: string,
 	force: boolean,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	const result = await git(pi, ["branch", force ? "-D" : "-d", branch], repoRoot);
-	if (result.code === 0) return { ok: true };
-	return { ok: false, error: (result.stderr || result.stdout).trim() || `Could not delete branch ${branch}` };
+	const outcome = await gitOutcome(pi, ["branch", force ? "-D" : "-d", branch], repoRoot);
+	if (outcome.ok) return { ok: true };
+	return { ok: false, error: outcome.error || `Could not delete branch ${branch}` };
 }
 
 /** Porcelain status lines for a working tree; empty when clean. */
