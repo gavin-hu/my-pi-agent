@@ -26,7 +26,8 @@
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
     "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js",
-    "check": "bun run typecheck && bun run transpile && bun test"
+    "smoke": "bun run scripts/smoke-runtime.ts",
+    "check": "bun run typecheck && bun run transpile && bun test && bun run smoke"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",

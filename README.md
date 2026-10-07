@@ -28,7 +28,8 @@ directories and listed in the `pi` manifest.
 bun install
 bun test          # unit + git-integration tests
 bun run typecheck # tsc --noEmit
-bun run check     # typecheck + transpile check + tests
+bun run smoke     # real-runtime load + enter/status/exit (no model call)
+bun run check     # typecheck + transpile + tests + smoke
 ```
 
 Extensions are plain TypeScript loaded by Pi through `jiti`, so there is no

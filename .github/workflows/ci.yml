@@ -26,3 +26,6 @@ jobs:
 
       - name: Tests
         run: bun test
+
+      - name: Runtime smoke test
+        run: bun run smoke

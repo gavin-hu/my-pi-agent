@@ -153,7 +153,8 @@ owning process is gone first, and any failure keeps the worktree with a reason.
 
 ```bash
 bun test          # unit + git-integration tests
-bun run check     # typecheck + transpile + tests
+bun run smoke     # real-runtime load + enter/status/exit via the Pi SDK
+bun run check     # typecheck + transpile + tests + smoke
 bun run test:watch
 ```
 
