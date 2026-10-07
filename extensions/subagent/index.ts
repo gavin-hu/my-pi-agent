@@ -25,7 +25,7 @@ import type { DispatchDefaults, SingleResult, SubagentDetails } from "./types.ts
 export const TOOL_NAME = "subagent";
 
 /** Overridable runner, so tests can drive the three modes without spawning. */
-export interface SubagentDeps {
+interface SubagentDeps {
 	run?: (options: RunOptions) => Promise<SingleResult>;
 }
 
@@ -77,6 +77,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 			}
 
 			const mode = resolution.mode;
+			const requestedTotal = args.chain?.length ?? args.tasks?.length ?? 1;
 			const context: ModeContext = {
 				run,
 				args,
@@ -84,7 +85,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 				defaultCwd: ctx.cwd,
 				signal,
 				onUpdate,
-				makeDetails: (results: SingleResult[]): SubagentDetails => ({ mode, results }),
+				makeDetails: (results: SingleResult[]): SubagentDetails => ({ mode, results, total: requestedTotal }),
 			};
 
 			if (mode === "chain" && args.chain) return runChainMode(context);

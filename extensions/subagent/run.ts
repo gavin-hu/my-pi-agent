@@ -13,7 +13,7 @@ import * as path from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { getAgent, formatAgentList } from "./agents.ts";
 import { buildAgentArgs, getPiInvocation } from "./invocation.ts";
-import { applyEvent, emptyUsage, parseJsonLine } from "./stream.ts";
+import { applyEvent, createResult, parseJsonLine } from "./stream.ts";
 import type { DispatchDefaults, OnUpdateCallback, SingleResult, SpawnFn, SubagentDetails } from "./types.ts";
 
 export interface RunOptions {
@@ -129,18 +129,7 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 	const spawn = options.spawn ?? nodeSpawn;
 	const agent = getAgent(options.agentName);
 
-	const result: SingleResult = {
-		agent: options.agentName,
-		task: options.task,
-		// `-1` is the running sentinel the renderers and `orchestrate.ts` use; the
-		// real exit code is only known once the process closes.
-		exitCode: -1,
-		messages: [],
-		stderr: "",
-		usage: emptyUsage(),
-		step: options.step,
-		startedAt: Date.now(),
-	};
+	const result = createResult(options.agentName, options.task, { step: options.step, startedAt: Date.now() });
 
 	if (!agent) {
 		result.exitCode = 1;

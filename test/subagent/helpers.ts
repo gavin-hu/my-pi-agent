@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import type { Message } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { SpawnFn, SubagentMode } from "../../extensions/subagent/types.ts";
+import type { SpawnFn } from "../../extensions/subagent/types.ts";
 import { createFakePi, fakeTheme as sharedFakeTheme } from "../helpers/fakes.ts";
 
 /** A scriptable stand-in for a spawned `pi` process. */
@@ -135,21 +135,3 @@ export function fakeToolCtx(overrides: { cwd?: string; model?: { provider: strin
 export function fakeTheme(): any {
 	return sharedFakeTheme;
 }
-
-/** Convenience: a fully-zeroed `SingleResult` fragment. */
-export function emptyResult(agent: string, task: string): {
-	agent: string;
-	task: string;
-	exitCode: number;
-	messages: Message[];
-	stderr: string;
-	usage: ReturnType<typeof zeroUsage>;
-} {
-	return { agent, task, exitCode: 0, messages: [], stderr: "", usage: zeroUsage() };
-}
-
-function zeroUsage() {
-	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 };
-}
-
-export type { SubagentMode };

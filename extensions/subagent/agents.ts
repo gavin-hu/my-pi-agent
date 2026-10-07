@@ -21,7 +21,7 @@ export interface BuiltinAgent {
 	model?: string;
 }
 
-export const BUILTIN_AGENTS: BuiltinAgent[] = [
+export const BUILTIN_AGENTS: readonly BuiltinAgent[] = [
 	{
 		name: "explorer",
 		description: "Fast codebase recon that returns compressed context for handoff to other agents",
@@ -169,7 +169,7 @@ export function getAgent(name: string): BuiltinAgent | undefined {
 
 /** All built-in agents, in display order. */
 export function listAgents(): BuiltinAgent[] {
-	return BUILTIN_AGENTS;
+	return [...BUILTIN_AGENTS];
 }
 
 /** `name (tools): description; ...`, or `"none"`, for error messages. */

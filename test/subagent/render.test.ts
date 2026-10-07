@@ -173,7 +173,7 @@ describe("renderSubagentResult", () => {
 		const streaming = single({ agent: "explorer", exitCode: -1, messages: [assistantMessage("working")] });
 		const details: SubagentDetails = { mode: "parallel", results: [streaming, single({ agent: "planner" })] };
 		const text = render(renderSubagentResult(toolResult(details), { expanded: false, isPartial: true }, theme));
-		expect(text).toContain("explorer ⏳");
+		expect(text).toContain("1. explorer");
 		expect(text).not.toContain("✗");
 		expect(text).toContain("1/2 tasks done, 1 running");
 	});
@@ -191,5 +191,105 @@ describe("renderSubagentResult", () => {
 		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
 		expect(text).toContain("chain ·");
 		expect(text).toContain("Step 1: explorer");
+	});
+
+	test("offers to expand when a single message is line-truncated", () => {
+		const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] }), { expanded: false }, theme),
+		);
+		expect(text).toContain("Ctrl+O to expand");
+	});
+
+	test("expanded keeps output order when the last message has no text", () => {
+		const messages = [
+			assistantMessage("EARLY ANSWER"),
+			{ role: "assistant", content: [{ type: "toolCall", name: "bash", arguments: { command: "ls" } }] },
+		] as any;
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [single({ messages })] }), { expanded: true }, theme),
+		);
+		expect(text.indexOf("EARLY ANSWER")).toBeLessThan(text.indexOf("ls"));
+	});
+
+	test("clips long error detail in the collapsed view", () => {
+		const stderr = Array.from({ length: 30 }, (_, i) => `stderr line ${i}`).join("\n");
+		const failed = single({ exitCode: 1, stopReason: "error", stderr });
+		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		expect(text).toContain("Error: stderr line 0");
+		expect(text).toContain("...");
+		expect(text).not.toContain("stderr line 29");
+	});
+
+	test("a stopped chain counts the requested steps", () => {
+		const failed = single({ agent: "planner", exitCode: 1, stopReason: "error", errorMessage: "boom", step: 1 });
+		const details: SubagentDetails = { mode: "chain", results: [failed], total: 3 };
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		expect(text).toContain("0/3 steps (1 failed)");
+	});
+
+	test("collapsed parallel labels each task by index and task text", () => {
+		const details: SubagentDetails = {
+			mode: "parallel",
+			results: [single({ agent: "explorer", task: "map auth" }), single({ agent: "explorer", task: "map billing" })],
+		};
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		expect(text).toContain("1. explorer map auth");
+		expect(text).toContain("2. explorer map billing");
+	});
+
+	test("a running header still reports an already-failed task", () => {
+		const details: SubagentDetails = {
+			mode: "parallel",
+			results: [
+				single({ agent: "planner", exitCode: 1, stopReason: "error", errorMessage: "boom" }),
+				single({ agent: "worker", exitCode: -1 }),
+			],
+		};
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false, isPartial: true }, theme));
+		expect(text).toContain("running (1 failed)");
+	});
+
+	test("offers to expand when a single error is truncated", () => {
+		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "x".repeat(1000) });
+		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		expect(text).toContain("Ctrl+O to expand");
+	});
+
+	test("offers to expand when a multi error is truncated", () => {
+		const failed = single({ agent: "planner", exitCode: 1, stopReason: "error", stderr: "e".repeat(1000) });
+		const details: SubagentDetails = { mode: "parallel", results: [failed, single({ agent: "worker" })] };
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		expect(text).toContain("Ctrl+O to expand");
+	});
+
+	test("expanded blank output falls back to (no output)", () => {
+		const blank = single({
+			messages: [{ role: "assistant", content: [{ type: "text", text: "   " }] }] as any,
+		});
+		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [blank] }), { expanded: true }, theme));
+		expect(text).toContain("Output");
+		expect(text).toContain("(no output)");
+	});
+
+	test("surfaces a tool-error count in the usage line", () => {
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [single({ toolErrors: 2 })] }), { expanded: false }, theme),
+		);
+		expect(text).toContain("2 tool errors");
+		const one = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [single({ toolErrors: 1 })] }), { expanded: false }, theme),
+		);
+		expect(one).toContain("1 tool error");
+	});
+
+	test("multi Total sums tool errors across results", () => {
+		const details: SubagentDetails = {
+			mode: "parallel",
+			results: [single({ toolErrors: 1 }), single({ toolErrors: 2 })],
+		};
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		expect(text).toContain("Total:");
+		expect(text).toContain("3 tool errors");
 	});
 });

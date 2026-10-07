@@ -17,6 +17,10 @@ export const MAX_CONCURRENCY = 4;
 export const PER_TASK_OUTPUT_CAP = 50 * 1024;
 /** Display items shown per result before collapsing. */
 export const COLLAPSED_ITEM_COUNT = 10;
+/** Text lines shown per item in a collapsed result. */
+export const COLLAPSED_TEXT_LINES = 3;
+/** Max characters of error detail shown in a collapsed result. */
+export const COLLAPSED_ERROR_MAX = 300;
 
 const TaskItem = Type.Object({
 	agent: Type.String({ description: "Name of the built-in agent to invoke" }),
@@ -51,7 +55,7 @@ export const SubagentParams = Type.Object({
 
 export type SubagentArgs = Static<typeof SubagentParams>;
 
-export type ModeResolution = { mode: SubagentMode } | { error: string };
+type ModeResolution = { mode: SubagentMode } | { error: string };
 
 /**
  * Return the single requested mode, or an error describing what is wrong.
@@ -60,8 +64,10 @@ export type ModeResolution = { mode: SubagentMode } | { error: string };
  * `maxItems` is not enforced for programmatic callers such as `codemode`.
  */
 export function resolveMode(params: SubagentArgs): ModeResolution {
-	const hasChain = (params.chain?.length ?? 0) > 0;
-	const hasTasks = (params.tasks?.length ?? 0) > 0;
+	const chainCount = params.chain?.length ?? 0;
+	const taskCount = params.tasks?.length ?? 0;
+	const hasChain = chainCount > 0;
+	const hasTasks = taskCount > 0;
 	const hasSingle = Boolean(params.agent && params.task);
 
 	if (hasChain && hasTasks) return { error: "Provide either `chain` or `tasks`, not both." };
@@ -70,8 +76,8 @@ export function resolveMode(params: SubagentArgs): ModeResolution {
 	if (!hasChain && !hasTasks && !hasSingle) {
 		return { error: "Provide one mode: `agent`+`task`, `tasks`, or `chain`." };
 	}
-	if (hasTasks && (params.tasks?.length ?? 0) > MAX_PARALLEL_TASKS) {
-		return { error: `Too many parallel tasks (${params.tasks?.length}). Max is ${MAX_PARALLEL_TASKS}.` };
+	if (hasTasks && taskCount > MAX_PARALLEL_TASKS) {
+		return { error: `Too many parallel tasks (${taskCount}). Max is ${MAX_PARALLEL_TASKS}.` };
 	}
 
 	return { mode: hasChain ? "chain" : hasTasks ? "parallel" : "single" };

@@ -1,16 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { aggregateUsage, formatTokens, formatToolCall, formatUsageStats, shortenPath } from "../../extensions/subagent/format.ts";
+import { aggregateUsage, clip, clipPath, formatToolCall, formatUsageStats, shortenPath } from "../../extensions/subagent/format.ts";
 import { fakeTheme } from "./helpers.ts";
-
-describe("formatTokens", () => {
-	test("scales at each boundary", () => {
-		expect(formatTokens(0)).toBe("0");
-		expect(formatTokens(950)).toBe("950");
-		expect(formatTokens(1500)).toBe("1.5k");
-		expect(formatTokens(34000)).toBe("34k");
-		expect(formatTokens(2500000)).toBe("2.5M");
-	});
-});
 
 describe("formatUsageStats", () => {
 	test("omits zero fields and appends the model", () => {
@@ -48,6 +38,40 @@ describe("shortenPath", () => {
 		expect(shortenPath(`${home}/projects/x`)).toBe("~/projects/x");
 		expect(shortenPath("/tmp/x")).toBe("/tmp/x");
 	});
+
+	test("does not shorten a sibling path sharing the prefix", () => {
+		const home = process.env.HOME ?? "";
+		if (!home) return;
+		expect(shortenPath(`${home}x/y`)).toBe(`${home}x/y`);
+		expect(shortenPath(home)).toBe("~");
+	});
+});
+
+describe("clip", () => {
+	test("keeps surrogate pairs intact", () => {
+		const out = clip(`${"a".repeat(59)}😀tail`, 60);
+		expect(out.endsWith("...")).toBe(true);
+		expect(out).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+		expect(out).not.toMatch(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
+	});
+
+	test("accounts for wide characters by display width", () => {
+		const out = clip("界".repeat(40), 20);
+		expect(out.endsWith("...")).toBe(true);
+		expect([...out].length).toBeLessThanOrEqual(12);
+	});
+});
+
+describe("clipPath", () => {
+	test("preserves the basename when eliding the middle", () => {
+		const out = clipPath("/Users/gavin/Repositories/company/project/src/deeply/nested/module/file.ts", 40);
+		expect(out.endsWith("file.ts")).toBe(true);
+		expect(out).toContain("...");
+	});
+
+	test("returns a short path unchanged", () => {
+		expect(clipPath("/tmp/a.ts", 40)).toBe("/tmp/a.ts");
+	});
 });
 
 describe("formatToolCall", () => {
@@ -63,6 +87,20 @@ describe("formatToolCall", () => {
 
 	test("collapses newlines so a tool call stays on one preview line", () => {
 		expect(formatToolCall("bash", { command: "echo a\necho b" }, theme, true)).toBe("$ echo a echo b");
+	});
+
+	test("clips an overlong path in the preview", () => {
+		const out = formatToolCall("read", { file_path: `/tmp/${"a".repeat(200)}` }, theme, true);
+		expect(out.length).toBeLessThan(90);
+		expect(out).toContain("...");
+	});
+
+	test("does not throw on malformed arguments", () => {
+		for (const args of [undefined, null]) {
+			for (const name of ["bash", "read", "grep", "write", "ls", "find", "edit", "custom"]) {
+				expect(() => formatToolCall(name, args as never, theme, true)).not.toThrow();
+			}
+		}
 	});
 
 	test("falls back to a JSON preview for unknown tools", () => {

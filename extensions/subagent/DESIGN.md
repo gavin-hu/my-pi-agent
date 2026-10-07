@@ -50,8 +50,9 @@ tool results arrive as ordinary `message_end` messages and failures as
 stop reason) and counts `tool_execution_end` errors; a tool error does not by
 itself fail the run, because the agent may recover.
 
-**Pure logic split from IO.** `stream.ts`, `format.ts`, and `render.ts` are pure
-and `run.ts` takes an injectable `SpawnFn`. Tests drive a scripted child process
+**Pure logic split from IO.** `stream.ts` and `format.ts` are pure, `render.ts`
+is pure except for an optional elapsed-time repaint driven by the render
+context, and `run.ts` takes an injectable `SpawnFn`. Tests drive a scripted child process
 and assert on parsed results, usage sums, abort behavior, and temp-file cleanup
 without launching `pi` or spending tokens.
 
@@ -84,6 +85,7 @@ validation.
 ```
 SubagentDetails {
   mode: "single" | "parallel" | "chain"
+  total?: number            // requested steps/tasks; may exceed results.length
   results: SingleResult[]   // agent, task, exitCode, messages, stderr,
                             // usage, model, stopReason, errorMessage, step,
                             // toolErrors, startedAt, finishedAt

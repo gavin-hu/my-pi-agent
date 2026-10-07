@@ -95,7 +95,8 @@ with a total.
 A failed or aborted result always shows its `errorMessage`, falling back to the
 subprocess `stderr`, in both the collapsed and expanded views, in every mode.
 Parallel and chain headers state the failure count (`1/2 tasks (1 failed)`) and
-running tasks show an elapsed-time label.
+running tasks show an elapsed-time label. A result that hit tool errors appends
+`N tool errors` to its usage line (and to the multi `Total:`).
 
 ## Security
 
@@ -109,7 +110,8 @@ there is no repository-controlled agent injection.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Registers the `subagent` tool and orchestrates the three modes. |
+| `index.ts` | Registers the `subagent` tool and assembles the mode context. |
+| `orchestrate.ts` | The `single`/`parallel`/`chain` mode runners. |
 | `agents.ts` | Built-in agent definitions and lookup. |
 | `schema.ts` | TypeBox params, limits, and `resolveMode`. |
 | `invocation.ts` | `pi` subprocess invocation and argument construction. |

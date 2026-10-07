@@ -8,7 +8,7 @@ import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { RunOptions } from "./run.ts";
 import { MAX_CONCURRENCY, PER_TASK_OUTPUT_CAP, type SubagentArgs } from "./schema.ts";
 import {
-	emptyUsage,
+	createResult,
 	getFinalOutput,
 	getResultOutput,
 	isFailedResult,
@@ -42,7 +42,7 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 		const chainUpdate: OnUpdateCallback | undefined = onUpdate
 			? (partial) => {
 					const current = partial.details?.results[0];
-					if (current) onUpdate({ content: partial.content, details: makeDetails([...results, current]) });
+					if (current) onUpdate({ content: [], details: makeDetails([...results, current]) });
 				}
 			: undefined;
 
@@ -85,14 +85,7 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult<SubagentDetails>> {
 	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails } = ctx;
 	const tasks = args.tasks ?? [];
-	const allResults: SingleResult[] = tasks.map((task) => ({
-		agent: task.agent,
-		task: task.task,
-		exitCode: -1,
-		messages: [],
-		stderr: "",
-		usage: emptyUsage(),
-	}));
+	const allResults: SingleResult[] = tasks.map((task) => createResult(task.agent, task.task));
 
 	const emitParallel = () => {
 		if (!onUpdate) return;

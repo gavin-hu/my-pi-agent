@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	applyEvent,
+	createResult,
 	emptyUsage,
 	getFinalOutput,
 	getResultOutput,
@@ -15,6 +16,17 @@ import { assistantMessage } from "./helpers.ts";
 function result(): SingleResult {
 	return { agent: "explorer", task: "t", exitCode: 0, messages: [], stderr: "", usage: emptyUsage() };
 }
+
+describe("createResult", () => {
+	test("starts in the running-sentinel state", () => {
+		const result = createResult("explorer", "t", { step: 2 });
+		expect(result.exitCode).toBe(-1);
+		expect(result.messages).toEqual([]);
+		expect(result.stderr).toBe("");
+		expect(result.usage.turns).toBe(0);
+		expect(result.step).toBe(2);
+	});
+});
 
 describe("parseJsonLine", () => {
 	test("parses objects and ignores blanks and garbage", () => {

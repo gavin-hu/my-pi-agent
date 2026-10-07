@@ -13,6 +13,11 @@ export function emptyUsage(): UsageStats {
 	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 };
 }
 
+/** A fresh result for one subagent run; `exitCode: -1` marks it still running. */
+export function createResult(agent: string, task: string, extra: Partial<SingleResult> = {}): SingleResult {
+	return { agent, task, exitCode: -1, messages: [], stderr: "", usage: emptyUsage(), ...extra };
+}
+
 /** Parse one stdout line; returns undefined for blank or malformed lines. */
 export function parseJsonLine(line: string): Record<string, unknown> | undefined {
 	if (!line.trim()) return undefined;
@@ -34,7 +39,7 @@ export function parseJsonLine(line: string): Record<string, unknown> | undefined
  */
 export function applyEvent(result: SingleResult, event: unknown): boolean {
 	if (!event || typeof event !== "object") return false;
-	const record = event as Record<string, any>;
+	const record = event as Record<string, unknown>;
 
 	if (record.type === "message_end" && record.message) {
 		const message = record.message as Message;
@@ -134,6 +139,6 @@ export async function mapWithConcurrencyLimit<TIn, TOut>(
 		}
 	};
 
-	await Promise.all(new Array(limit).fill(null).map(() => worker()));
+	await Promise.all(Array.from({ length: limit }, () => worker()));
 	return results;
 }

@@ -27,6 +27,7 @@ export interface UsageStats {
 export interface SingleResult {
 	agent: string;
 	task: string;
+	/** Process exit code; `-1` means the subprocess is still running. */
 	exitCode: number;
 	messages: Message[];
 	stderr: string;
@@ -48,6 +49,11 @@ export interface SingleResult {
 export interface SubagentDetails {
 	mode: SubagentMode;
 	results: SingleResult[];
+	/**
+	 * Total steps/tasks requested, which can exceed `results.length` when a chain
+	 * stops early. Defaults to `results.length` when absent.
+	 */
+	total?: number;
 }
 
 /** Model/thinking configuration a subprocess inherits when the agent sets none. */
