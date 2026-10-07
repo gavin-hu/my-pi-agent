@@ -76,11 +76,17 @@ Merged from `~/.pi/agent/worktree.json` and `<repo>/.pi/worktree.json`
 }
 ```
 
-In `bash`, redirect paths are expanded before the containment check: `~`,
-`$VAR`, and `${VAR}` are resolved, and a value that cannot be resolved
-statically (an unknown variable, `~user`, a backtick) is treated as escaping.
-Redirect options are only recognized in real argument position, so
+In `bash`, file redirection targets (`>`, `>>`, `>|`, `<`, `<>`), `git`
+redirect options, and `cd`/`pushd`/`popd` targets are checked; `~`, `$VAR`, and
+`${VAR}` are expanded first, and a value that cannot be resolved statically (an
+unknown variable, `~user`, a backtick) is treated as escaping. File-descriptor
+duplications (`2>&1`), heredocs, and here-strings are not treated as paths, and
+options are only recognized in real argument position, so
 `git log --grep='--git-dir=/tmp/x'` and `git log -C` are not false positives.
+
+This guard is best-effort: it covers the built-in file tools and these common
+shell forms. It cannot contain a program that computes and writes an absolute
+path itself (for example a script or an inlined interpreter).
 
 `skipOverrides` matters when another extension owns one of the same built-in
 tool names: Pi refuses to load two extensions that register the same tool, so
@@ -141,8 +147,9 @@ It fetches `pull/<n>/head` (GitHub) or `merge-requests/<n>/head` (GitLab) from
 
 ## Subagents and parallel sessions
 
-While isolated, the extension exports `PI_WORKTREE_ROOT` (and
-`PI_WORKTREE_BRANCH`) into the process environment. A child `pi` process — a
+While isolated, the extension exports `PI_WORKTREE_ROOT`, `PI_WORKTREE_BRANCH`,
+and `PI_WORKTREE_MAIN` (the main checkout) into the process environment. A child
+`pi` process — a
 subagent spawned by an extension, or any `pi` you start from a tool — inherits
 it and binds to the same worktree instead of the main checkout. The child is
 read-only with respect to lifecycle: `worktree_enter` and `worktree_exit` refuse,

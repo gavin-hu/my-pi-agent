@@ -16,6 +16,8 @@ const STATUS_KEY = "worktree";
 /** Environment variables a parent session passes to child processes (subagents). */
 export const ENV_ROOT = "PI_WORKTREE_ROOT";
 export const ENV_BRANCH = "PI_WORKTREE_BRANCH";
+/** Main checkout a borrowed worktree forked from, so a child knows its `repoRoot`. */
+export const ENV_MAIN = "PI_WORKTREE_MAIN";
 
 /** Cross-extension notification channel. */
 export const WORKTREE_EVENT_CHANNEL = "worktree:changed";
@@ -118,6 +120,7 @@ export function publishWorktree(pi: ExtensionAPI, state: WorktreeState | null): 
 export function applyWorktreeEnv(state: WorktreeState | null): void {
 	if (state && !state.borrowed) {
 		process.env[ENV_ROOT] = state.path;
+		process.env[ENV_MAIN] = state.repoRoot;
 		if (state.branch) process.env[ENV_BRANCH] = state.branch;
 		else delete process.env[ENV_BRANCH];
 		return;
@@ -125,5 +128,6 @@ export function applyWorktreeEnv(state: WorktreeState | null): void {
 	if (!state) {
 		delete process.env[ENV_ROOT];
 		delete process.env[ENV_BRANCH];
+		delete process.env[ENV_MAIN];
 	}
 }

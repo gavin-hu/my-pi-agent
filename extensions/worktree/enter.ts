@@ -206,7 +206,12 @@ export async function enterWorktree(
 				baseCommit = await mergeBase(pi, target, base.ref);
 			}
 		} else {
-			baseCommit = await resolveCommit(pi, target, baseRef);
+			// A pre-existing or non-reset worktree keeps its own history. Record
+			// where it forked from the main checkout so exit can see its commits;
+			// using the worktree's own HEAD here would make every commit look
+			// pre-existing and let exit force-delete the branch.
+			const mainHead = await resolveCommit(pi, root, "HEAD");
+			baseCommit = mainHead ? await mergeBase(pi, target, mainHead) : undefined;
 		}
 	}
 

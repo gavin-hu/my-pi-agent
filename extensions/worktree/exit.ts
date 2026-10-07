@@ -59,12 +59,18 @@ export async function exitWorktree(
 		remove = true;
 	} else if (config.onExit === "keep") {
 		remove = false;
-	} else if (!hasWork && !unverifiable) {
-		// Claude Code parity: a clean worktree is removed automatically.
+	} else if (!hasWork && !unverifiable && state.createdByUs) {
+		// Claude Code parity: a clean worktree we created is removed
+		// automatically. A worktree the user pointed us at is never removed
+		// without confirmation.
 		remove = true;
 	} else if (ctx.hasUI) {
+		const why =
+			hasWork || unverifiable
+				? `has work that removal would delete: ${workSummary}`
+				: "was entered by path and is not managed by this session";
 		const choice = await ctx.ui.select(
-			`Worktree "${worktreeLabel(state)}" has work that removal would delete: ${workSummary}.`,
+			`Worktree "${worktreeLabel(state)}" ${why}.`,
 			["Keep it for later", "Remove it and its branch", "Cancel"],
 		);
 		if (choice === undefined || choice.startsWith("Cancel")) throw new Error("Worktree exit cancelled.");

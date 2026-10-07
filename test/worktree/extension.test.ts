@@ -58,6 +58,7 @@ interface BootOptions {
 	select?: string;
 	envRoot?: string;
 	envBranch?: string;
+	envMain?: string;
 	allTools?: any[];
 }
 
@@ -66,6 +67,8 @@ async function boot(repo: string, options: BootOptions = {}) {
 	else delete process.env.PI_WORKTREE_ROOT;
 	if (options.envBranch) process.env.PI_WORKTREE_BRANCH = options.envBranch;
 	else delete process.env.PI_WORKTREE_BRANCH;
+	if (options.envMain) process.env.PI_WORKTREE_MAIN = options.envMain;
+	else delete process.env.PI_WORKTREE_MAIN;
 
 	const pi = makeFakePi();
 	pi.allTools = options.allTools ?? [];
@@ -267,6 +270,30 @@ describe("extension enter / exit", () => {
 		await execP("git", ["branch", "-D", "worktree-commits"], { cwd: repo });
 	});
 
+	test("keeps commits made in a worktree entered by path", async () => {
+		const repo = await makeRepo("pi-wt-ext-");
+		cleanups.push(repo);
+		const { pi, ctx } = await boot(repo);
+
+		// Create a managed worktree, keep it, then re-enter it by path.
+		await enter(pi, ctx, { name: "bypath" });
+		const dir = wtPath(repo, "bypath");
+		await exit(pi, ctx, { remove: false });
+
+		// A commit inside the pre-existing worktree must be seen as work.
+		writeFileSync(join(dir, "new.txt"), "x");
+		await execP("git", ["add", "."], { cwd: dir });
+		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
+
+		await enter(pi, ctx, { path: dir });
+		const exited = await exit(pi, ctx, { remove: true });
+		expect(exited.content[0].text).toContain("Removed worktree");
+		expect(exited.content[0].text).toMatch(/Kept branch worktree-bypath/);
+		const branches = await execP("git", ["branch"], { cwd: repo });
+		expect(branches.stdout).toContain("worktree-bypath");
+		await execP("git", ["branch", "-D", "worktree-bypath"], { cwd: repo });
+	});
+
 	test("keeps a dirty worktree's branch when the user chooses remove", async () => {
 		const repo = await makeRepo("pi-wt-ext-");
 		cleanups.push(repo);
@@ -316,8 +343,12 @@ describe("borrowed worktree (subagent)", () => {
 		const dir = wtPath(repo, "borrow");
 		expect(existsSync(dir)).toBe(true);
 
-		const { pi, ctx } = await boot(repo, { envRoot: dir, envBranch: "worktree-borrow" });
+		const { pi, ctx } = await boot(repo, { envRoot: dir, envBranch: "worktree-borrow", envMain: repo });
 		expect(ctx.statuses.get("worktree")).toContain("borrow");
+
+		// The child records the main checkout as repoRoot, not the worktree.
+		const status = await pi.tools.get("worktree_status").execute("s", {}, undefined, undefined, ctx);
+		expect(status.content[0].text).toContain(`main:   ${canonicalize(repo)}`);
 
 		await expect(enter(pi, ctx, { name: "x" })).rejects.toThrow(/inherited/i);
 		await expect(exit(pi, ctx, {})).rejects.toThrow(/inherited|parent/i);

@@ -170,9 +170,36 @@ describe("analyzeBashCommand", () => {
 		expect(analyzeBashCommand("git log -C /main/file", ROOT, config())).toBeUndefined();
 	});
 
-	test("blocks redirects behind command prefixes and separators", () => {
+	test("expands git redirects behind command prefixes and separators", () => {
 		expect(analyzeBashCommand("sudo git --git-dir /main/.git status", ROOT, config())?.block).toBe(true);
 		expect(analyzeBashCommand("cd /main && ls", ROOT, config())?.block).toBe(true);
+	});
+
+	test("blocks output redirections that leave the worktree", () => {
+		expect(analyzeBashCommand("echo x > /main/f", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("echo x >> /main/f", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("echo x >/main/f", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("echo x > ../outside/f", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("echo x > $HOME/f", ROOT, config())?.block).toBe(true);
+	});
+
+	test("allows in-worktree redirections and ignores fd dups and heredocs", () => {
+		expect(analyzeBashCommand("echo x > out.txt", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("echo x 2>&1", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cmd >&2", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cat <<EOF", ROOT, config())).toBeUndefined();
+	});
+
+	test("gates input redirections behind blockReadEscapes", () => {
+		expect(analyzeBashCommand("cat < /main/f", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cat < /main/f", ROOT, config({ blockReadEscapes: true }))?.block).toBe(true);
+	});
+
+	test("blocks directory changes hidden in subshells and groups", () => {
+		expect(analyzeBashCommand("(cd /main && ls)", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("{ cd /main; }", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("pushd /main", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("popd", ROOT, config())?.block).toBe(true);
 	});
 });
 

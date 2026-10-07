@@ -234,6 +234,121 @@ function looksUnparsable(command: string): boolean {
 	return /\$\(|`|\$\{!|\beval\b/.test(command);
 }
 
+// ---------------------------------------------------------------------------
+// Shell redirections (check 1b)
+// ---------------------------------------------------------------------------
+
+interface Redirect {
+	target: string;
+	/** True for output/read-write redirections; false for input-only. */
+	write: boolean;
+}
+
+/** Read a shell word starting at `start`, skipping leading blanks, unquoting the result. */
+function readShellWord(text: string, start: number): { raw: string; end: number } {
+	let i = start;
+	while (i < text.length && (text[i] === " " || text[i] === "\t")) i++;
+	let raw = "";
+	let quote: string | null = null;
+	while (i < text.length) {
+		const ch = text[i];
+		if (quote) {
+			if (ch === "\\" && quote === '"' && i + 1 < text.length) {
+				raw += text[i + 1];
+				i += 2;
+				continue;
+			}
+			if (ch === quote) {
+				quote = null;
+				i++;
+				continue;
+			}
+			raw += ch;
+			i++;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			i++;
+			continue;
+		}
+		if (ch === "\\" && i + 1 < text.length) {
+			raw += text[i + 1];
+			i += 2;
+			continue;
+		}
+		if (ch === " " || ch === "\t") break;
+		raw += ch;
+		i++;
+	}
+	return { raw, end: i };
+}
+
+/**
+ * File redirection targets in one shell segment. File-descriptor duplications
+ * (`2>&1`), heredocs (`<<EOF`), and here-strings (`<<<x`) are skipped because
+ * their operand is not a path.
+ */
+function redirectionTargets(segment: string): Redirect[] {
+	const redirects: Redirect[] = [];
+	let quote: string | null = null;
+	for (let i = 0; i < segment.length; i++) {
+		const ch = segment[i];
+		if (quote) {
+			if (ch === "\\" && quote === '"' && i + 1 < segment.length) {
+				i++;
+				continue;
+			}
+			if (ch === quote) quote = null;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			continue;
+		}
+		if (ch === "\\") {
+			i++;
+			continue;
+		}
+		if (ch !== ">" && ch !== "<") continue;
+
+		const two = segment.slice(i, i + 2);
+		const three = segment.slice(i, i + 3);
+		if (three === "<<<") {
+			i += 2;
+			continue;
+		}
+		if (two === "<<" || two === ">&" || two === "<&") {
+			// Heredoc delimiter or file-descriptor duplication: not a path.
+			i += 1;
+			continue;
+		}
+		// `>`, `>>`, `>|`, `<`, `<>`: the next word is a path.
+		const write = ch === ">" || two === "<>";
+		if (two === ">>" || two === ">|") i += 1;
+		const word = readShellWord(segment, i + 1);
+		if (word.raw) redirects.push({ target: word.raw, write });
+		i = word.end - 1;
+	}
+	return redirects;
+}
+
+/** Refuse an output/input redirection whose target leaves the worktree. */
+function redirectionEscapes(root: string, command: string, config: WorktreeConfig): string | undefined {
+	const checkWrites = config.guard.blockFileEscapes;
+	const checkReads = config.guard.blockReadEscapes;
+	if (!checkWrites && !checkReads) return undefined;
+	for (const segment of splitSegments(command)) {
+		for (const redirect of redirectionTargets(segment)) {
+			if (redirect.write ? !checkWrites : !checkReads) continue;
+			if (pathEscapes(root, redirect.target)) {
+				return `${redirect.write ? "Output" : "Input"} redirection to \"${redirect.target}\" leaves the active worktree.`;
+			}
+		}
+	}
+	return undefined;
+}
+
 /** A leading `GIT_DIR=`/`GIT_WORK_TREE=` assignment that points outside. */
 function envGitRedirect(root: string, words: ShellWord[]): string | undefined {
 	for (const word of words) {
@@ -297,16 +412,35 @@ function gitRedirect(root: string, words: ShellWord[]): string | undefined {
 	return undefined;
 }
 
-/** A `cd` (or `cd` under `command`/`builtin`/`exec`) that leaves the worktree. */
+const CD_LIKE = new Set(["cd", "pushd", "popd"]);
+
+/**
+ * A directory change that leaves the worktree. Handles `cd`/`pushd`/`popd`
+ * under `command`/`builtin`/`exec`, a leading `!`, and opening `(`/`{` group
+ * punctuation, so `(cd /main)` and `{ cd /main; }` are caught too.
+ */
 function cdRedirect(root: string, words: ShellWord[]): string | undefined {
 	let i = 0;
-	while (i < words.length && (words[i].text === "command" || words[i].text === "builtin" || words[i].text === "exec")) i++;
-	if (words[i]?.text !== "cd") return undefined;
+	while (i < words.length) {
+		const text = words[i].text.replace(/^[({!]+/, "");
+		if (text === "" || text === "command" || text === "builtin" || text === "exec") {
+			i++;
+			continue;
+		}
+		break;
+	}
+	const command = words[i]?.text.replace(/^[({]+/, "").replace(/\)+$/, "");
+	if (!command || !CD_LIKE.has(command)) return undefined;
 
-	const target = words[i + 1];
-	if (!target) return "cd with no target goes to $HOME, outside the worktree.";
-	if (target.text === "-") return "cd - goes to the previous directory, outside the worktree.";
-	if (pathEscapes(root, target.text)) return `cd ${target.text} leaves the active worktree.`;
+	const target = words[i + 1]?.text.replace(/\)+$/, "");
+	if (command === "popd") return "popd returns to a directory that may be outside the worktree.";
+	if (!target) {
+		return command === "pushd"
+			? "pushd with no target swaps directories without telling the guard where."
+			: "cd with no target goes to $HOME, outside the worktree.";
+	}
+	if (target === "-") return `${command} - goes to a previous directory, outside the worktree.`;
+	if (pathEscapes(root, target)) return `${command} ${target} leaves the active worktree.`;
 	return undefined;
 }
 
@@ -324,6 +458,11 @@ export function analyzeBashCommand(
 				return { block: true, reason: `${reason} Exit the worktree to operate on the main checkout.` };
 			}
 		}
+	}
+
+	const redirect = redirectionEscapes(root, command, config);
+	if (redirect) {
+		return { block: true, reason: `${redirect} Exit the worktree to operate on the main checkout.` };
 	}
 
 	if (config.guard.blockUnparsableCommands && looksUnparsable(command)) {

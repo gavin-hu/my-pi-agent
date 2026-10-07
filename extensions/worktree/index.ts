@@ -31,6 +31,7 @@ import { loadState, persistState, type WorktreeState } from "./state.ts";
 import { registerTools } from "./tools.ts";
 import {
 	ENV_BRANCH,
+	ENV_MAIN,
 	ENV_ROOT,
 	clearConfigCache,
 	configFor,
@@ -80,12 +81,13 @@ export default function (pi: ExtensionAPI) {
 		if (envRoot) {
 			const borrowedPath = canonicalize(envRoot);
 			if (existsSync(borrowedPath) && (await repoRoot(pi, borrowedPath))) {
+				const borrowedMain = process.env[ENV_MAIN] ? canonicalize(process.env[ENV_MAIN]) : borrowedPath;
 				const borrowed: WorktreeState = {
 					active: true,
 					borrowed: true,
 					path: borrowedPath,
 					branch: process.env[ENV_BRANCH],
-					repoRoot: borrowedPath,
+					repoRoot: borrowedMain,
 					baseRef: "HEAD",
 					baseRefMode: "head",
 					createdByUs: false,
@@ -97,6 +99,7 @@ export default function (pi: ExtensionAPI) {
 			} else {
 				delete process.env[ENV_ROOT];
 				delete process.env[ENV_BRANCH];
+				delete process.env[ENV_MAIN];
 			}
 		}
 
@@ -108,7 +111,11 @@ export default function (pi: ExtensionAPI) {
 				setStatus(ctx, `⧉ ${worktreeLabel(recorded)}`);
 				ctx.ui.notify(`Restored worktree ${worktreeLabel(recorded)}`, "info");
 			} else {
-				persistState((customType, data) => pi.appendEntry(customType, data), { ...recorded, active: false });
+				// "unverified" keeps the recorded binding so a later resume can
+				// retry; the others clear it because the worktree is gone/unsafe.
+				if (check.reason !== "unverified") {
+					persistState((customType, data) => pi.appendEntry(customType, data), { ...recorded, active: false });
+				}
 				setStatus(ctx, undefined);
 				ctx.ui.notify(refusalMessage(check, recorded.path, ctx.cwd), "warning");
 			}
