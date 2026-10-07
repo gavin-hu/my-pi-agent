@@ -18,6 +18,7 @@ const extensionPath = join(repo, "extensions", "worktree", "index.ts");
 const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
+const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
@@ -37,7 +38,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, subagentExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -120,6 +121,18 @@ const enterResult = await call("enter_plan_mode", {});
 check(
 	"enter_plan_mode refuses without a UI",
 	enterResult.isError === true && /No interactive UI/.test((enterResult.content[0] as { text: string }).text),
+);
+
+// subagent loads headlessly and registers an active, direct tool. It is not
+// executed here: the process spawning is covered by unit tests with a fake spawn.
+const subagentTool = session.getAllTools().find((t) => t.name === "subagent");
+check("subagent registered", !!subagentTool);
+check("subagent is direct", subagentTool?.exposure === "direct");
+check("subagent active by default", session.getActiveToolNames().includes("subagent"));
+check("subagent is callable", !!session.getToolDefinition("subagent"));
+check(
+	"subagent advertises its built-in agents",
+	["explorer", "planner", "reviewer", "worker"].every((name) => subagentTool?.description?.includes(name)),
 );
 
 // web-search loads and registers an active, direct tool. It is not executed

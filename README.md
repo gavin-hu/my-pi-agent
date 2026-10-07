@@ -21,6 +21,7 @@ pi -e .                  # try it for a single run, no settings change
 | Extension | [`extensions/ask-user-question/`](./extensions/ask-user-question/) | `ask_user_question`: ask the user one or more structured questions (labelled options + free-form “Other”) and wait for the answer. |
 | Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent widget and `/todos`. |
 | Extension | [`extensions/plan-mode/`](./extensions/plan-mode/) | `plan-mode`: read-only `enter_plan_mode` / `exit_plan_mode` planning (write/edit disabled, bash allowlist, approve-then-execute) with `/plan [prompt]` and `Ctrl+Alt+P`. |
+| Extension | [`extensions/subagent/`](./extensions/subagent/) | `subagent`: delegate a task to a built-in specialized agent (`explorer`, `planner`, `reviewer`, `worker`) running in its own `pi` process — single, parallel (max 8/4), or chained via `{previous}`. |
 | Extension | [`extensions/web-search/`](./extensions/web-search/) | `web_search`: keyless, fetch-only lookup — DuckDuckGo Instant Answers with a Wikipedia fallback (no general web results). |
 | Extension | [`extensions/web-fetch/`](./extensions/web-fetch/) | `web_fetch`: fetch a URL and return readable text (HTML→text, paging, SSRF guard); native `fetch`, no dependencies. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + git branch + worktree, then statuses + context gauge + usage + model; width-adaptive, `/status-bar` toggles it. |
@@ -46,6 +47,13 @@ bun run test      # unit + git-integration tests (bun test --isolate)
 bun run typecheck # tsc --noEmit
 bun run smoke     # real-runtime load + enter/status/exit (no model call)
 bun run check     # typecheck + transpile + tests + smoke
+```
+
+There is also one live end-to-end test for the `subagent` extension. It makes a
+real model call and is skipped unless explicitly enabled:
+
+```bash
+PI_SUBAGENT_E2E=1 bun test test/subagent/live.integration.test.ts
 ```
 
 Extensions are plain TypeScript loaded by Pi through `jiti`, so there is no
