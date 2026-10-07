@@ -1,8 +1,8 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.1.0",
-  "description": "Personal Pi customizations, packaged as a Pi package: pi-worktree, ask-user-question, and todo.",
-  "keywords": ["pi-package", "pi", "git", "worktree", "todo"],
+  "description": "Personal Pi customizations, packaged as a Pi package: pi-worktree, ask-user-question, todo, and plan-mode.",
+  "keywords": ["pi-package", "pi", "git", "worktree", "todo", "plan"],
   "type": "module",
   "license": "MIT",
   "author": "Gavin Hu",
@@ -17,7 +17,8 @@
     "extensions": [
       "./extensions/worktree/index.ts",
       "./extensions/ask-user-question/index.ts",
-      "./extensions/todo/index.ts"
+      "./extensions/todo/index.ts",
+      "./extensions/plan-mode/index.ts"
     ]
   },
   "files": [
@@ -29,7 +30,7 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
-    "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js && bun build extensions/ask-user-question/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-ask-user-question-index.js && bun build extensions/todo/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-todo-index.js",
+    "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js && bun build extensions/ask-user-question/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-ask-user-question-index.js && bun build extensions/todo/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-todo-index.js && bun build extensions/plan-mode/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-plan-mode-index.js",
     "smoke": "bun run scripts/smoke-runtime.ts",
     "check": "bun run typecheck && bun run transpile && bun test && bun run smoke"
   },
