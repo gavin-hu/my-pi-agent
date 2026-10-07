@@ -80,7 +80,7 @@ export function clearConfigCache(): void {
 
 export function getSkipOverrides(): string[] {
 	try {
-		return loadConfig(active?.repoRoot ?? baseCwd).skipOverrides;
+		return configFor(active?.repoRoot ?? baseCwd).skipOverrides;
 	} catch {
 		return [];
 	}

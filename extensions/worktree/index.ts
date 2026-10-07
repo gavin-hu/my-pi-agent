@@ -32,6 +32,7 @@ import { registerTools } from "./tools.ts";
 import {
 	ENV_BRANCH,
 	ENV_ROOT,
+	clearConfigCache,
 	configFor,
 	getActive,
 	getInactiveOverrides,
@@ -69,6 +70,7 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (event, ctx) => {
 		setBaseCwd(ctx.cwd);
 		setActive(null);
+		clearConfigCache();
 
 		// A child `pi` process (subagent) inherits an active worktree. Bind to
 		// it without creating, locking, or persisting anything; the parent owns

@@ -318,6 +318,30 @@ export async function submoduleChanges(
 	return { known: true, count };
 }
 
+export interface WorkInspection {
+	dirty: string[];
+	ahead: number;
+	sub: { known: boolean; count: number };
+	/** Any uncommitted change, commit ahead of `base`, or submodule change. */
+	hasWork: boolean;
+	/** Submodules could not be inspected, so "clean" is unverified. */
+	unverifiable: boolean;
+}
+
+/** Inspect a worktree for work relative to `base` (commits reachable from HEAD but not it). */
+export async function inspectWork(pi: ExtensionAPI, dir: string, base?: string): Promise<WorkInspection> {
+	const dirty = await statusEntries(pi, dir);
+	const ahead = base ? await commitsAhead(pi, dir, base) : 0;
+	const sub = await submoduleChanges(pi, dir);
+	return {
+		dirty,
+		ahead,
+		sub,
+		unverifiable: !sub.known,
+		hasWork: dirty.length > 0 || ahead > 0 || sub.count > 0,
+	};
+}
+
 export interface ManagedWorktree {
 	path: string;
 	branch?: string;
