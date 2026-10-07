@@ -17,8 +17,9 @@ pi install ./                       # install the package
 - Each item has `content`, a `status` (`pending` | `in_progress` |
   `completed`), and an optional `activeForm` ("Running tests") shown while the
   item is in progress.
-- Shows a persistent widget above the editor whenever the list is non-empty,
-  and a full-screen `/todos` view on demand.
+- Shows a persistent widget above the editor while the list has unfinished
+  work (hidden when empty or fully completed), and a full-screen `/todos` view
+  on demand.
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list.

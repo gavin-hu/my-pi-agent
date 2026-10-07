@@ -3,12 +3,12 @@
  *
  * The list is reconstructed from the active branch on session start and tree
  * navigation, and the persistent widget mirrors it whenever it changes. Only
- * interactive (`tui`) sessions get a widget; the tool and `/todos` command work
- * in every mode.
+ * interactive (`tui`) sessions get a widget, and only while at least one item
+ * is unfinished; the tool and `/todos` command work in every mode.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { reconstructTodos } from "./state.ts";
+import { hasOpenTodos, reconstructTodos } from "./state.ts";
 import { TodoWidget, WIDGET_KEY } from "./tui.ts";
 import type { Todo } from "./types.ts";
 
@@ -28,7 +28,9 @@ export function createTodoRuntime(): TodoRuntime {
 
 	const syncWidget = (ctx?: ExtensionContext): void => {
 		if (!ctx || ctx.mode !== "tui") return;
-		if (todos.length === 0) {
+		// Hide when there is nothing left to track: an empty list or a fully
+		// completed one. `hasOpenTodos([])` is already false, so this covers both.
+		if (!hasOpenTodos(todos)) {
 			ctx.ui.setWidget(WIDGET_KEY, undefined);
 			return;
 		}

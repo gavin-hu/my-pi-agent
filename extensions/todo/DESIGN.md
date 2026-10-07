@@ -33,7 +33,9 @@ silently coerced, so the model learns it from the error.
 
 **The widget is derived, not authoritative.** `runtime.setTodos` mirrors state
 into `ctx.ui.setWidget()`; the widget only exists in `tui` mode and only while
-the list is non-empty, so it never becomes the only copy of anything.
+the list has an unfinished item — an empty or fully completed list hides it, so
+a finished plan stops crowding the editor while `/todos` still shows it. It
+never becomes the only copy of anything.
 
 ## Non-goals
 

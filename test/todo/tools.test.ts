@@ -70,6 +70,16 @@ describe("todo tool", () => {
 		expect(lastWidget(widgetCalls)).toBeUndefined();
 	});
 
+	test("removes the widget once every item is completed", async () => {
+		const { tool } = setup();
+		const { ctx, widgetCalls } = fakeCtx({ mode: "tui" });
+		await call(tool, { todos: [{ content: "One", status: "in_progress" }] }, ctx);
+		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
+
+		await call(tool, { todos: [{ content: "One", status: "completed" }] }, ctx);
+		expect(lastWidget(widgetCalls)).toBeUndefined();
+	});
+
 	test("rejects two in_progress items without changing the list", async () => {
 		const { tool, runtime } = setup();
 		const { ctx } = fakeCtx();
