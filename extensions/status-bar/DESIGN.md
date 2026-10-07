@@ -44,9 +44,11 @@ from the visible text, not the styled string, because keeping the first token of
 a themed status keeps its opening SGR code but not its reset — the color would
 bleed into the rest of the line.
 
-**Separators are the last thing to go.** Once every segment is at its floor
-the layout drops separator strings before falling back to `truncateToWidth`, so
-the ellipsis never replaces a `│` that has nothing after it.
+**Separators shrink to a single space.** Once every segment is at its floor
+the layout collapses padded separators (` · `, ` │ `) to one space before
+falling back to `truncateToWidth`. Separators are never removed entirely, so
+adjacent segments never collide and the ellipsis never replaces a `│` that has
+nothing after it.
 
 **Neutral by default; color means something.** Only the context gauge carries
 status color (`success`/`warning`/`error`); cost is `muted`, and
@@ -76,6 +78,6 @@ nothing.
 
 `test/status-bar/` covers the pure formatters (`format`), the usage scan and
 snapshot assembly (`snapshot`), zone/priority assignment (`lines`), the
-reduction and right-zone folding at widths 100/64/44/24/8 plus wide characters
-(`layout`), and the install/skip/restore/toggle lifecycle
-(`extension`).
+reduction, separator collapse, and right-zone folding across a width sweep from
+6 to 120 plus wide characters (`layout`), and the install/skip/restore/toggle
+lifecycle (`extension`).

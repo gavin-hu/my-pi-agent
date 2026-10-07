@@ -20,20 +20,29 @@ interface State {
 	zone: Zone;
 	form: number;
 	dropped: boolean;
-	/** Rendered before the segment; dropped as a last resort to avoid a dangling separator. */
+	/** Rendered before the segment; shrinks to a single space as a last resort. */
 	separator: string;
+	/** True once the separator has been collapsed to a single space. */
+	separatorCompact: boolean;
 	order: number;
 }
 
 function makeStates(spec: LineSpec): State[] {
 	const states: State[] = [];
 	let order = 0;
-	for (const segment of spec.left) {
-		states.push({ segment, zone: "left", form: 0, dropped: false, separator: segment.separator, order: order++ });
-	}
-	for (const segment of spec.right) {
-		states.push({ segment, zone: "right", form: 0, dropped: false, separator: segment.separator, order: order++ });
-	}
+	const push = (segment: Segment, zone: Zone): void => {
+		states.push({
+			segment,
+			zone,
+			form: 0,
+			dropped: false,
+			separator: segment.separator,
+			separatorCompact: false,
+			order: order++,
+		});
+	};
+	for (const segment of spec.left) push(segment, "left");
+	for (const segment of spec.right) push(segment, "right");
 	return states;
 }
 
@@ -54,7 +63,7 @@ function assemble(states: State[], width: number): string {
 	const left = composeZone(states, "left");
 	const right = composeZone(states, "right");
 	if (!right) return left;
-	if (!left) return right;
+	if (!left) return " ".repeat(Math.max(0, width - visibleWidth(right))) + right;
 
 	const leftWidth = visibleWidth(left);
 	const rightWidth = visibleWidth(right);
@@ -86,14 +95,15 @@ function reduceOnce(states: State[]): boolean {
 	return true;
 }
 
-/** Drop the lowest-priority separator that still renders, as a last resort.
- *  The first visible segment in each zone has no separator to drop. */
-function dropSeparator(states: State[]): boolean {
+/** Collapse the lowest-priority padded separator to a single space, as a last
+ *  resort. A single space is kept so adjacent segments never collide; the
+ *  first visible segment in each zone has no separator to collapse. */
+function collapseSeparator(states: State[]): boolean {
 	const firstLeft = states.find((state) => state.zone === "left" && !state.dropped);
 	const firstRight = states.find((state) => state.zone === "right" && !state.dropped);
 	let best: State | null = null;
 	for (const state of states) {
-		if (state.dropped || !state.separator) continue;
+		if (state.dropped || !state.separator || state.separatorCompact) continue;
 		if (state === firstLeft || state === firstRight) continue;
 		if (
 			!best ||
@@ -104,7 +114,8 @@ function dropSeparator(states: State[]): boolean {
 		}
 	}
 	if (!best) return false;
-	best.separator = "";
+	best.separator = " ";
+	best.separatorCompact = true;
 	return true;
 }
 
@@ -117,10 +128,11 @@ export function renderLine(spec: LineSpec, width: number, theme: Theme): string 
 	while (visibleWidth(assemble(states, target)) > target && guard++ < states.length * 8 + 16) {
 		if (!reduceOnce(states)) break;
 	}
-	// Only once every segment is at its floor do we give up separators, so the
-	// truncation ellipsis never replaces a separator's content.
+	// Only once every segment is at its floor do we shrink separators, so the
+	// truncation ellipsis never replaces a separator's content and adjacent
+	// segments always keep at least one column of padding between them.
 	while (visibleWidth(assemble(states, target)) > target) {
-		if (!dropSeparator(states)) break;
+		if (!collapseSeparator(states)) break;
 	}
 
 	return truncateToWidth(assemble(states, target), target, theme.fg("dim", "…"));

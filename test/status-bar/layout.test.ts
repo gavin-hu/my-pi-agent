@@ -40,6 +40,32 @@ describe("renderLine", () => {
 		expect(visibleWidth(renderLine(line2, 8, fakeTheme))).toBeLessThanOrEqual(8);
 	});
 
+	test("never glues adjacent segments together as the width shrinks", () => {
+		// A dropped separator collapses to a single space, not to nothing, so a
+		// segment boundary must always keep at least one column of padding.
+		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		for (let width = 6; width <= 120; width++) {
+			for (const line of [line1, line2]) {
+				const rendered = renderLine(line, width, fakeTheme);
+				expect(visibleWidth(rendered)).toBeLessThanOrEqual(width);
+				expect(rendered).not.toMatch(/%[⏸◎⧉⎇⚠]/);
+				expect(rendered).not.toMatch(/\S│|│\S/);
+			}
+		}
+	});
+
+	test("right-aligns a right-only line", () => {
+		const spec = {
+			left: [],
+			right: [{ id: "model", weight: 1, droppable: false, separator: "", forms: ["opus-4.5"] }],
+		};
+		const rendered = renderLine(spec as any, 20, fakeTheme);
+
+		expect(visibleWidth(rendered)).toBe(20);
+		expect(rendered.endsWith("opus-4.5")).toBe(true);
+		expect(rendered.startsWith(" ")).toBe(true);
+	});
+
 	test("trails the mode slot after the group separator", () => {
 		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
 		const rendered = renderLine(line2, 100, fakeTheme);
