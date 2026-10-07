@@ -9,7 +9,7 @@ package. Everything is discovered through the `pi` manifest in
 ```bash
 pi install ./            # personal, from this checkout
 pi install ./ -l         # project-local (.pi/settings.json)
-pi install git:github.com/gavin-hu/my-pi-agent   # from git (once pushed)
+pi install git:github.com/gavin-hu/my-pi-agent   # from git
 pi -e .                  # try it for a single run, no settings change
 ```
 
