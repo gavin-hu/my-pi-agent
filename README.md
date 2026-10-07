@@ -21,7 +21,8 @@ pi -e .                  # try it for a single run, no settings change
 | Extension | [`extensions/ask-user-question/`](./extensions/ask-user-question/) | `ask_user_question`: ask the user one or more structured questions (labelled options + free-form “Other”) and wait for the answer. |
 | Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent widget and `/todos`. |
 | Extension | [`extensions/plan-mode/`](./extensions/plan-mode/) | `plan-mode`: read-only `enter_plan_mode` / `exit_plan_mode` planning (write/edit disabled, bash allowlist, approve-then-execute) with `/plan [prompt]` and `Ctrl+Alt+P`. |
-| Extension | [`extensions/web-search/`](./extensions/web-search/) | `web_search`: keyless DuckDuckGo search (Chinese + English) returning titles, URLs, and snippets; JSON config, no dependencies. |
+| Extension | [`extensions/web-search/`](./extensions/web-search/) | `web_search`: keyless, fetch-only lookup — DuckDuckGo Instant Answers with a Wikipedia fallback (no general web results). |
+| Extension | [`extensions/web-fetch/`](./extensions/web-fetch/) | `web_fetch`: fetch a URL and return readable text (HTML→text, paging, SSRF guard); native `fetch`, no dependencies. |
 
 More extensions, skills, prompts, and themes can be added under the conventional
 directories and listed in the `pi` manifest.

@@ -19,6 +19,7 @@ const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
+const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Scratch git repo with one commit.
@@ -34,7 +35,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -126,6 +127,14 @@ check("web_search registered", !!webSearchTool);
 check("web_search is direct", webSearchTool?.exposure === "direct");
 check("web_search active by default", session.getActiveToolNames().includes("web_search"));
 check("web_search is callable", !!session.getToolDefinition("web_search"));
+
+// web-fetch loads and registers an active, direct tool. It is likewise not
+// executed here: the network is covered by unit tests with an injected runner.
+const webFetchTool = session.getAllTools().find((t) => t.name === "web_fetch");
+check("web_fetch registered", !!webFetchTool);
+check("web_fetch is direct", webFetchTool?.exposure === "direct");
+check("web_fetch active by default", session.getActiveToolNames().includes("web_fetch"));
+check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
 
 const exited = await call("worktree_exit", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;
