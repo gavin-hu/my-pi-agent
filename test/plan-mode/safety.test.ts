@@ -19,6 +19,40 @@ describe("splitSegments", () => {
 	});
 });
 
+describe("analyzeCommand — quoted strings", () => {
+	const safe = [
+		"grep '$(' file",
+		"grep '$()' file",
+		"echo '$(whoami)'",
+		"echo '`whoami`'",
+		"grep 'find -delete' file",
+		"grep 'find -exec' file",
+		"grep sudo file",
+		"grep 'sed -i' file",
+		"grep 'sort -o' file",
+		"grep 'curl -o' file",
+		"grep 'date -s' file",
+		"echo 'a > b'",
+	];
+	for (const command of safe) {
+		test(`allows literal quotes: ${command}`, () => {
+			expect(isSafeCommand(command)).toBe(true);
+		});
+	}
+
+	const unsafe: Array<[string, string]> = [
+		['echo "$(whoami)"', "command substitution in double quotes"],
+		['grep "`whoami`" file', "backticks in double quotes"],
+		['echo "${x:-$(whoami)}"', "nested substitution in double quotes"],
+		["cat <(echo hi)", "process substitution"],
+	];
+	for (const [command, label] of unsafe) {
+		test(`rejects (${label}): ${command}`, () => {
+			expect(analyzeCommand(command).safe).toBe(false);
+		});
+	}
+});
+
 describe("analyzeCommand — safe", () => {
 	const safe = [
 		"ls -la",

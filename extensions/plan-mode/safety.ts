@@ -8,147 +8,26 @@
  * allowlist, and rejects argument-level escape hatches (command substitution,
  * `find -exec`, `sed -i`, output redirection to a file, mutating git/package
  * subcommands).
+ *
+ * The rule tables live in `./safety-rules.ts`.
  */
+
+import {
+	ALLOWED,
+	BRANCH_LIST_FLAGS,
+	COMMAND_ARG_DENY,
+	GIT_CONFIG_READ,
+	GIT_READ,
+	PACKAGE_READ,
+	SHELL_DENY,
+	VERSION_ONLY,
+} from "./safety-rules.ts";
 
 export interface CommandAssessment {
 	safe: boolean;
 	/** Why the command was rejected, when `safe` is false. */
 	reason?: string;
 }
-
-/** First words allowed in plan mode. */
-const ALLOWED = new Set([
-	"cat",
-	"head",
-	"tail",
-	"less",
-	"more",
-	"grep",
-	"rg",
-	"find",
-	"fd",
-	"ls",
-	"pwd",
-	"echo",
-	"printf",
-	"wc",
-	"sort",
-	"uniq",
-	"comm",
-	"cut",
-	"tr",
-	"column",
-	"diff",
-	"file",
-	"stat",
-	"du",
-	"df",
-	"tree",
-	"basename",
-	"dirname",
-	"realpath",
-	"readlink",
-	"which",
-	"whereis",
-	"type",
-	"printenv",
-	"uname",
-	"hostname",
-	"whoami",
-	"id",
-	"date",
-	"cal",
-	"uptime",
-	"ps",
-	"top",
-	"htop",
-	"free",
-	"nproc",
-	"jq",
-	"sed",
-	"xxd",
-	"od",
-	"strings",
-	"hexdump",
-	"md5sum",
-	"shasum",
-	"sha256sum",
-	"git",
-	"npm",
-	"yarn",
-	"pnpm",
-	"bun",
-	"node",
-	"python",
-	"python3",
-	"curl",
-	"wget",
-	"test",
-]);
-
-/** Read-only git subcommands. */
-const GIT_READ = new Set([
-	"status",
-	"log",
-	"diff",
-	"show",
-	"branch",
-	"remote",
-	"config",
-	"ls-files",
-	"ls-tree",
-	"ls-remote",
-	"describe",
-	"rev-parse",
-	"rev-list",
-	"show-ref",
-	"symbolic-ref",
-	"for-each-ref",
-	"cat-file",
-	"grep",
-	"blame",
-	"shortlog",
-	"whatchanged",
-	"diff-tree",
-	"diff-files",
-	"diff-index",
-	"name-rev",
-	"count-objects",
-	"check-ignore",
-	"worktree",
-]);
-
-/** Flags that make `git config` a read. */
-const GIT_CONFIG_READ = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l", "--show-origin"]);
-
-/** Read-only subcommands per package manager. */
-const PACKAGE_READ: Record<string, Set<string>> = {
-	npm: new Set(["list", "ls", "view", "info", "search", "outdated", "audit", "explain", "why", "ping", "root", "bin", "prefix"]),
-	yarn: new Set(["list", "info", "why", "audit", "versions"]),
-	pnpm: new Set(["list", "ls", "why", "audit", "outdated", "licenses", "root"]),
-	bun: new Set(["pm"]),
-};
-
-/** Interpreters only allowed to print their version. */
-const VERSION_ONLY = new Set(["node", "python", "python3"]);
-
-/** Argument-level escape hatches, checked against the whole command line. */
-const DENY_ARGUMENTS: Array<{ pattern: RegExp; reason: string }> = [
-	{ pattern: /\$\(|`/, reason: "command substitution is not allowed" },
-	{ pattern: /[<>]\(/, reason: "process substitution is not allowed" },
-	{ pattern: /\bsudo\b|\bsu\b/, reason: "privilege escalation is not allowed" },
-	{ pattern: /\bfind\b[^|;]*\s-(exec|execdir|ok|okdir|delete|fprint|fprint0|fls)\b/, reason: "find may not execute or delete" },
-	{ pattern: /\b(?:sed|perl)\b[^|;]*\s(?:-i|--in-place)\b/, reason: "in-place editing is not allowed" },
-	{ pattern: /\bsed\b[^|;]*['"]\s*w\s+[^\s;'"]/, reason: "sed may not write a file" },
-	{ pattern: /\bsed\b[^|;]*\bs\/[^/;]*\/[^/;]*\/[a-z]*w[a-z]*\s+[^\s;'"]/, reason: "sed may not write a file" },
-	{ pattern: /\bsort\b[^|;]*\s(?:-o|--output)\b/, reason: "sort may not write a file" },
-	{ pattern: /\btree\b[^|;]*\s-o\b/, reason: "tree may not write a file" },
-	{ pattern: /\bdate\b[^|;]*\s(?:-s|--set)\b/, reason: "the clock may not be set" },
-	{ pattern: /\bcurl\b[^|;]*\s-[a-zA-Z]*[oO]\b/, reason: "curl may not write a file" },
-	{ pattern: /\bcurl\b[^|;]*\s--(?:output|remote-name)\b/, reason: "curl may not write a file" },
-	{ pattern: /\bcurl\b[^|;]*\s(?:-X\s*(?:POST|PUT|PATCH|DELETE)|--data\S*|-d\b|-F\b|-T\b|--upload-file)/i, reason: "curl may not mutate remote state" },
-	{ pattern: /\bwget\b[^|;]*\s(?:--post-data|--post-file|--method)/i, reason: "wget may not mutate remote state" },
-];
 
 /**
  * Split a command line into segments on `;`, `&&`, `||`, `|`, and newlines,
@@ -213,6 +92,51 @@ export function splitSegments(command: string): string[] {
 	return segments.map((segment) => segment.trim()).filter(Boolean);
 }
 
+/**
+ * Blank out single-quoted spans so shell-level rules only see text the shell
+ * actually expands. Double-quoted content is kept, because `$(...)` and
+ * backticks are still live there.
+ */
+function codeOnly(command: string): string {
+	let out = "";
+	let quote: "'" | '"' | null = null;
+	for (let i = 0; i < command.length; i++) {
+		const ch = command[i];
+		if (quote === "'") {
+			out += " ";
+			if (ch === "'") quote = null;
+			continue;
+		}
+		if (quote === '"') {
+			if (ch === "\\") {
+				out += ch + (command[i + 1] ?? "");
+				i++;
+				continue;
+			}
+			out += ch;
+			if (ch === '"') quote = null;
+			continue;
+		}
+		if (ch === "'") {
+			quote = "'";
+			out += " ";
+			continue;
+		}
+		if (ch === '"') {
+			quote = '"';
+			out += ch;
+			continue;
+		}
+		if (ch === "\\") {
+			out += ch + (command[i + 1] ?? "");
+			i++;
+			continue;
+		}
+		out += ch;
+	}
+	return out;
+}
+
 /** Reject output redirection, except to `/dev/null` and fd duplication. */
 function findWriteRedirect(command: string): string | undefined {
 	let quote: string | null = null;
@@ -243,72 +167,67 @@ function findWriteRedirect(command: string): string | undefined {
 	return undefined;
 }
 
-/** Reason an allowed command's arguments are unsafe, if any. */
-function unsafeArguments(command: string, args: string[]): string | undefined {
-	if (command === "git") {
-		const sub = args[0];
-		if (!sub) return undefined;
-		if (!GIT_READ.has(sub)) return `"git ${sub}" is not a read-only git command`;
-		if (sub === "config" && !args.some((arg) => GIT_CONFIG_READ.has(arg))) {
-			return '"git config" is only allowed with a read flag';
-		}
-		if (sub === "branch") {
-			const rest = args.slice(1);
-			// Only listing flags are allowed; a bare positional argument names a
-			// branch to create, rename, or delete.
-			const VALUE_FLAGS = new Set([
-				"-l",
-				"--list",
-				"--contains",
-				"--no-contains",
-				"--merged",
-				"--no-merged",
-				"--points-at",
-				"--format",
-				"--sort",
-				"-t",
-				"--track",
-			]);
-			for (let i = 0; i < rest.length; i++) {
-				const arg = rest[i];
-				if (arg.startsWith("-")) {
-					if (VALUE_FLAGS.has(arg)) i++;
-					continue;
-				}
-				return '"git branch" may only list branches';
+/** Reason a `git` invocation is unsafe, if any. */
+function validateGit(_command: string, args: string[]): string | undefined {
+	const sub = args[0];
+	if (!sub) return undefined;
+	if (!GIT_READ.has(sub)) return `"git ${sub}" is not a read-only git command`;
+	if (sub === "config" && !args.some((arg) => GIT_CONFIG_READ.has(arg))) {
+		return '"git config" is only allowed with a read flag';
+	}
+	if (sub === "branch") {
+		const rest = args.slice(1);
+		// Only listing flags are allowed; a bare positional argument names a
+		// branch to create, rename, or delete.
+		for (let i = 0; i < rest.length; i++) {
+			const arg = rest[i];
+			if (arg.startsWith("-")) {
+				if (BRANCH_LIST_FLAGS.has(arg)) i++;
+				continue;
 			}
+			return '"git branch" may only list branches';
 		}
-		if (sub === "remote" && args.some((arg) => ["add", "remove", "rm", "set-url", "rename", "set-head", "prune"].includes(arg))) {
-			return '"git remote" may not be modified';
-		}
-		if (sub === "worktree" && args.some((arg) => ["add", "remove", "prune", "move", "repair", "lock", "unlock"].includes(arg))) {
-			return '"git worktree" may only be listed';
-		}
-		return undefined;
 	}
-
-	if (command in PACKAGE_READ) {
-		const sub = args[0];
-		if (!sub) return undefined;
-		if (!PACKAGE_READ[command].has(sub)) return `"${command} ${sub}" is not a read-only ${command} command`;
-		return undefined;
+	if (sub === "remote" && args.some((arg) => ["add", "remove", "rm", "set-url", "rename", "set-head", "prune"].includes(arg))) {
+		return '"git remote" may not be modified';
 	}
-
-	if (VERSION_ONLY.has(command)) {
-		if (!args.some((arg) => arg === "--version" || arg === "-V")) return `"${command}" is only allowed with --version`;
-		return undefined;
-	}
-
-	if (command === "find" && args.some((arg) => ["-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprint"].includes(arg))) {
-		return "find may not execute or delete";
-	}
-
-	if (command === "wget") {
-		if (!wgetWritesToStdout(args)) return '"wget" must write to stdout with -O - in plan mode';
-		return undefined;
+	if (sub === "worktree" && args.some((arg) => ["add", "remove", "prune", "move", "repair", "lock", "unlock"].includes(arg))) {
+		return '"git worktree" may only be listed';
 	}
 	return undefined;
 }
+
+/** Reason a package-manager invocation is unsafe, if any. */
+function validatePackage(command: string, args: string[]): string | undefined {
+	const sub = args[0];
+	if (!sub) return undefined;
+	if (!PACKAGE_READ[command].has(sub)) return `"${command} ${sub}" is not a read-only ${command} command`;
+	return undefined;
+}
+
+/** Reason an interpreter invocation is unsafe, if any. */
+function validateVersionOnly(command: string, args: string[]): string | undefined {
+	if (!args.some((arg) => arg === "--version" || arg === "-V")) return `"${command}" is only allowed with --version`;
+	return undefined;
+}
+
+/** Reason a `wget` invocation is unsafe, if any (must print to stdout). */
+function validateWget(_command: string, args: string[]): string | undefined {
+	if (!wgetWritesToStdout(args)) return '"wget" must write to stdout with -O - in plan mode';
+	return undefined;
+}
+
+type Validator = (command: string, args: string[]) => string | undefined;
+
+const VALIDATORS: Record<string, Validator> = {
+	git: validateGit,
+	npm: validatePackage,
+	yarn: validatePackage,
+	pnpm: validatePackage,
+	bun: validatePackage,
+	wget: validateWget,
+};
+for (const name of VERSION_ONLY) VALIDATORS[name] = validateVersionOnly;
 
 /** Whether a `wget` invocation sends its download to stdout (`-O -`). */
 function wgetWritesToStdout(args: string[]): boolean {
@@ -337,7 +256,17 @@ function assessSegment(segment: string): string | undefined {
 	const command = tokens[i];
 	if (!command) return undefined;
 	if (!ALLOWED.has(command)) return `"${command}" is not on the read-only allowlist`;
-	return unsafeArguments(command, tokens.slice(i + 1));
+
+	const args = tokens.slice(i + 1);
+	const validator = VALIDATORS[command];
+	if (validator) {
+		const reason = validator(command, args);
+		if (reason) return reason;
+	}
+	for (const { pattern, reason } of COMMAND_ARG_DENY[command] ?? []) {
+		if (pattern.test(segment)) return reason;
+	}
+	return undefined;
 }
 
 /** Assess a full command line for safe, read-only use in plan mode. */
@@ -348,8 +277,10 @@ export function analyzeCommand(command: string): CommandAssessment {
 	const redirect = findWriteRedirect(trimmed);
 	if (redirect) return { safe: false, reason: redirect };
 
-	for (const { pattern, reason } of DENY_ARGUMENTS) {
-		if (pattern.test(trimmed)) return { safe: false, reason };
+	// Shell-level expansion is only live outside single quotes.
+	const code = codeOnly(trimmed);
+	for (const { pattern, reason } of SHELL_DENY) {
+		if (pattern.test(code)) return { safe: false, reason };
 	}
 
 	for (const segment of splitSegments(trimmed)) {
