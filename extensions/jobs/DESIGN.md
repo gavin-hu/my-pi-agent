@@ -1,0 +1,145 @@
+# `jobs` — Design
+
+Status: **implemented** (see [`README.md`](./README.md)).
+
+## Goal
+
+Let the agent start a long-running shell command and keep working: launch it in
+the background, check on it, tail its output, wait for it, or stop it. Pi's
+built-in shell tool resolves only when the command finishes, and the `subagent`
+guidelines explicitly leave "recurring background or long-running work" to the
+normal tools — which is exactly the gap this extension fills.
+
+## Non-goals
+
+- **No cron/scheduling.** Jobs run when started, not on a timer.
+- **No durable task queue.** Persisted work items are `todo`'s domain; a job is
+  an OS process, and mixing the two would blur both.
+- **No subagent-job wrapping.** Subagents already have a purpose-built result
+  pipeline; a job wrapper adds surface for little gain.
+- **No stdin to running jobs.** Jobs are fire-and-observe; interactive programs
+  (a REPL, a debugger prompt) are out of scope.
+- **No log rotation.** Logs are append-only files; `logs` reads a bounded tail.
+- **Windows is best-effort.** Tree-kill uses `taskkill /T`; POSIX uses process
+  groups.
+
+## Decisions
+
+**Shell commands only, one action-based tool.** A single `job` tool with seven
+actions mirrors `checkpoint` and keeps the model surface small. Validation is
+pure and runs before any side effect, so `codemode` callers that bypass the
+TypeBox schema cannot start a process with missing arguments.
+
+**`child_process.spawn`, not `pi.exec`.** `pi.exec` resolves on exit, which is
+the opposite of a background job. Jobs are spawned with a shell in their own
+process group (`detached: true` on POSIX) and their output piped to files.
+Signals go to the whole group (`process.kill(-pid, …)`) so a shell and its
+descendants die together; Windows uses `taskkill /pid <pid> /T`.
+
+**Durable registry under the agent dir.** A job outlives a tool call and, when
+detached, a session. `~/.pi/agent/jobs/<projectKey>/registry.json` records every
+job (pid, status, timestamps, log path, flags, `seen`, cached `lastLine`), and
+log files sit beside it. `projectKey` hashes the effective cwd (honoring
+`PI_WORKTREE_ROOT`), so each project has its own table. Writes are atomic
+(tmp + rename) and best-effort: a job still works in-process if the registry is
+unwritable.
+
+**Reconcile on load; kill by default.** At session start no process is owned by
+the new runtime, so each running record is checked with `process.kill(pid, 0)`:
+a dead pid becomes `unknown`; a live detached job is reattached; a live
+non-detached job is an orphan and is killed. This means an abandoned build
+cannot keep running unnoticed, while a dev server started `detached` survives.
+Session-owned jobs are likewise killed in `session_shutdown`, with a SIGTERM →
+grace → SIGKILL escalation.
+
+**Notify by default, wake opt-in.** Finished jobs are drained by
+`takePending()` and injected as a hidden `job-context` message at the next
+`before_agent_start`, deduplicated like `goal`'s context. A job started with
+`wake: true` (or `wakeOnFinish`) additionally triggers one turn with
+`pi.sendMessage(..., { triggerTurn: true })` when the agent is idle. Auto-wake
+is not the default because it is the easiest way to loop and burn tokens; the
+explicit `wait` action covers "I must have the result now" deterministically.
+
+**Pid reuse is guarded by a start-time token.** Liveness alone cannot tell a
+reattached job from an unrelated process that reused its pid. Each job stores a
+best-effort start token (`ps -o lstart=`); before signalling an unowned pid —
+reaping an orphan on load or killing a reattached job — the token is re-checked
+and a mismatch is treated as gone (`unknown`) instead of a signal. Where the
+platform cannot produce a token (Windows, or a gone process), the check
+degrades to liveness.
+
+**Reattached jobs are polled.** A reattached detached job has no child handle,
+so its `close` event never fires. The repaint clock polls unowned running jobs
+and transitions them to `unknown` when their pid disappears, so the widget,
+chip, and `wait` stay honest.
+
+**Pure logic split from IO.** `format.ts` and the reconciliation in
+`registry.ts` are pure; `process.ts` and the runtime take injectable
+spawn/liveness/kill/clock functions. Tests drive a scripted `FakeChild` and a
+temp registry, so the whole suite runs without launching a process.
+
+### UI decisions
+
+**Width-1 glyphs.** The status chip is `▸N`/`✕N`, with no space, because the
+status bar compacts each status to its first whitespace token. `▸` and `✕` are
+single-column text glyphs, unlike emoji-ambiguous symbols such as `⚙` that
+would break footer alignment; `format.test.ts` asserts the width.
+
+**Untrusted output is sanitized at every boundary.** Logs are arbitrary program
+output: ANSI/OSC escapes, carriage-return progress rewrites, control characters.
+`sanitizeLogLine` strips escapes, resolves `\r` to the trailing segment, and
+collapses whitespace; it runs before text reaches the widget, the `/jobs` pane,
+the model-facing `logs` result, and completion notes. The raw file is never
+rewritten.
+
+**The widget is stateless and bounded.** Elapsed time is computed at render, so
+the runtime only calls `tui.requestRender()` on a clock that runs (only in
+`tui` mode, only while a job runs) and is cleared on shutdown. The widget shows
+at most three running jobs and auto-hides when none run. The latest output line
+is cached from the stdout stream (throttled), never read from the file on the
+render path; only the `/jobs` log pane reads a bounded tail, on a poll.
+
+**UI calls are guarded.** Every `ctx.ui.*` call is behind `ctx.mode === "tui"`
+and wrapped, and a `disposed` flag makes late `close` callbacks no-ops, so a
+job finishing after shutdown cannot touch a dead UI. In non-TUI modes the tool
+and `/jobs` degrade to text.
+
+## Model surface
+
+| Field | Value |
+|---|---|
+| `name` | `job` |
+| `action` | `start` \| `list` \| `status` \| `logs` \| `kill` \| `wait` \| `clear` |
+| `exposure` | `direct` (default) |
+| `executionMode` | `sequential` — calls share the in-memory job table |
+| `annotations` | `readOnlyHint: false`, `destructiveHint: true` — plan mode blocks it |
+
+## Result shape
+
+```
+JobDetails {
+  action: JobAction
+  job?: JobRecord           // start/status/logs/kill/wait
+  jobs?: JobRecord[]        // list/clear
+  logs?: string             // sanitized tail for `logs`
+  truncated?: boolean
+  cleared?: number
+  signalled?: boolean       // kill sent a signal to a running job
+  timedOut?: boolean        // wait hit its timeout
+  cancelled?: boolean       // wait was aborted; job still running
+  error?: string
+}
+```
+
+## Known limitations
+
+- **Concurrent sessions in the same project share a registry.** The on-disk
+  registry is per project, not per session, and has no lock. Two Pi sessions in
+  the same directory can overwrite each other's records, and a new session's
+  reconcile will reap the other session's live non-detached jobs. One session
+  per project, or `detached` jobs, avoids this; a per-session liveness marker
+  would be the fix.
+- **`unknown` has no exit code.** A job observed only after its process is gone
+  cannot recover its exit status; the registry records the transition but not
+  the code.
+

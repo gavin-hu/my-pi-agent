@@ -1,7 +1,7 @@
 // Real-runtime smoke test: load the package through the real Pi loader and
 // drive worktree_enter/status/exit without a model call.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +22,7 @@ const gitExtensionPath = join(repo, "extensions", "git", "index.ts");
 const checkpointExtensionPath = join(repo, "extensions", "checkpoint", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
+const jobsExtensionPath = join(repo, "extensions", "jobs", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
@@ -38,10 +39,14 @@ writeFileSync(join(work, "a.txt"), "hi\n");
 git("add", ".");
 git("commit", "-qm", "init");
 
+// Keep the jobs registry inside the smoke's temp agent dir instead of ~/.pi.
+mkdirSync(join(work, ".pi"), { recursive: true });
+writeFileSync(join(work, ".pi", "jobs.json"), JSON.stringify({ registryDir: join(agentDir, "jobs") }));
+
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, gitExtensionPath, checkpointExtensionPath, planExtensionPath, subagentExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, gitExtensionPath, checkpointExtensionPath, planExtensionPath, subagentExtensionPath, jobsExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -205,6 +210,27 @@ check(
 	"subagent advertises its built-in agents",
 	["explorer", "planner", "reviewer", "worker"].every((name) => subagentTool?.description?.includes(name)),
 );
+
+// jobs loads headlessly, registers an active tool and command, and can start and
+// kill a real background process. The registry is pointed at a temp directory.
+const jobsTool = session.getAllTools().find((t) => t.name === "job");
+check("job registered", !!jobsTool);
+check("job is direct", jobsTool?.exposure === "direct");
+check("job active by default", session.getActiveToolNames().includes("job"));
+check("jobs command registered", !!runner.getCommand("jobs"));
+const started = await call("job", { action: "start", command: "sleep 30", label: "smoke" });
+const startedDetails = started.details as { job?: { id?: string; status?: string } };
+check(
+	"job start returns a running job",
+	startedDetails.job?.status === "running" && !!startedDetails.job?.id,
+);
+const listedJobs = await call("job", { action: "list" });
+check(
+	"job list returns the started job",
+	((listedJobs.details as { jobs?: unknown[] }).jobs?.length ?? 0) >= 1,
+);
+const killedJob = await call("job", { action: "kill", id: startedDetails.job!.id });
+check("job kill signals the process", (killedJob.details as { signalled?: boolean }).signalled === true);
 
 // web-search loads and registers an active, direct tool. It is not executed
 // here: the network is covered by unit tests with an injected fetch.
