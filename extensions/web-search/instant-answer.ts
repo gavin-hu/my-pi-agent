@@ -8,8 +8,8 @@
  * loosely-typed JSON with nested topic groups.
  */
 
-import type { HttpRunner } from "./http.ts";
-import { HttpUnavailableError } from "./http.ts";
+import type { HttpRunner } from "../_shared/http.ts";
+import { HttpUnavailableError } from "../_shared/http.ts";
 import type { SearchResult } from "./types.ts";
 
 export interface InstantAnswer {

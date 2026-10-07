@@ -7,7 +7,7 @@
  */
 
 import type { WebSearchConfig } from "./config.ts";
-import { createFetchRunner, type HttpRunner } from "./http.ts";
+import { createFetchRunner, type HttpRunner } from "../_shared/http.ts";
 import { searchInstantAnswer, type InstantAnswer } from "./instant-answer.ts";
 import type { SearchProvider, SearchRequest, SearchResult } from "./types.ts";
 import { searchWikipedia, wikipediaLangFor } from "./wikipedia.ts";

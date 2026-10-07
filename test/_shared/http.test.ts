@@ -5,7 +5,7 @@ import {
 	HttpTimeoutError,
 	HttpTooLargeError,
 	HttpUnavailableError,
-} from "../../extensions/web-fetch/http.ts";
+} from "../../extensions/_shared/http.ts";
 
 describe("createFetchRunner", () => {
 	test("returns status, body, content type, final url, and size", async () => {

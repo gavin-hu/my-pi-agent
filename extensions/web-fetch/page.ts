@@ -8,7 +8,7 @@
 
 import type { WebFetchConfig } from "./config.ts";
 import { extractReadable } from "./extract.ts";
-import { createFetchRunner, type HttpRunner } from "./http.ts";
+import { createFetchRunner, type HttpRunner } from "../_shared/http.ts";
 import { assertAllowedUrl } from "./ssrf.ts";
 
 export class WebFetchError extends Error {

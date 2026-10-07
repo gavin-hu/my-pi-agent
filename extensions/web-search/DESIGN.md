@@ -15,6 +15,11 @@ DuckDuckGo's anti-bot layer challenges Node/Bun `fetch`.
   Wikipedia covers topics. For arbitrary pages, `web_fetch` reads a URL.
 - No news/images/video, no keyed providers, no curation UI, no caching.
 
+## Shared code
+
+The fetch runner (`HttpRunner`, `createFetchRunner`, and the HTTP error types)
+lives in `extensions/_shared/http.ts`, shared with `web_fetch`.
+
 ## Model surface
 
 | Field | Value |

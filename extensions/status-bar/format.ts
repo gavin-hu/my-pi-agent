@@ -7,6 +7,8 @@
 
 import { CONFIG } from "./config.ts";
 
+export { formatTokens, sanitize } from "../_shared/format.ts";
+
 /** Foreground theme tokens the bar uses. A subset of the theme's `ThemeColor`. */
 export type FgToken =
 	| "dim"
@@ -27,15 +29,6 @@ export type ThinkingColor =
 	| "thinkingHigh"
 	| "thinkingXhigh"
 	| "thinkingMax";
-
-/** Compact token count: `999`, `1.0k`, `12k`, `1.5M`, `12M`. */
-export function formatTokens(count: number): string {
-	if (count < 1000) return count.toString();
-	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-	if (count < 1000000) return `${Math.round(count / 1000)}k`;
-	if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
-	return `${Math.round(count / 1000000)}M`;
-}
 
 /** US-dollar cost. `compact` drops to one decimal place. */
 export function formatCost(cost: number, compact = false): string {
@@ -111,9 +104,4 @@ const THINKING_TOKENS: Record<string, ThinkingColor> = {
 /** Theme token for a reasoning-effort level. */
 export function thinkingColor(level: string): ThinkingColor {
 	return THINKING_TOKENS[level] ?? "thinkingMedium";
-}
-
-/** Collapse newlines, tabs, and runs of spaces so a status stays one line. */
-export function sanitize(text: string): string {
-	return text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
 }

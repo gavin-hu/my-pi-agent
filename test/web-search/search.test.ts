@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { DEFAULT_CONFIG } from "../../extensions/web-search/config.ts";
-import type { HttpResponse, HttpRunner } from "../../extensions/web-search/http.ts";
-import { HttpUnavailableError } from "../../extensions/web-search/http.ts";
+import type { HttpResponse, HttpRunner } from "../../extensions/_shared/http.ts";
+import { HttpUnavailableError } from "../../extensions/_shared/http.ts";
 import { resetThrottle, runSearch, setDefaultRunnerForTests, WebSearchError } from "../../extensions/web-search/search.ts";
 import type { SearchRequest } from "../../extensions/web-search/types.ts";
 

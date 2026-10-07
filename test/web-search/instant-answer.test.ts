@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createFetchRunner } from "../../extensions/web-search/http.ts";
+import { createFetchRunner } from "../../extensions/_shared/http.ts";
 import { parseInstantAnswer, searchInstantAnswer } from "../../extensions/web-search/instant-answer.ts";
 
 const SAMPLE = {

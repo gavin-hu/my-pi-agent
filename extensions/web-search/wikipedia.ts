@@ -6,8 +6,8 @@
  * to scrape) and each page comes with its canonical URL.
  */
 
-import type { HttpRunner } from "./http.ts";
-import { HttpUnavailableError } from "./http.ts";
+import type { HttpRunner } from "../_shared/http.ts";
+import { HttpUnavailableError } from "../_shared/http.ts";
 import type { SearchResult } from "./types.ts";
 
 const HAN = /[\u3400-\u9fff\uf900-\ufaff]/;

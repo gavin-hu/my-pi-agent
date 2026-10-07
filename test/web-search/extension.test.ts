@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HttpResponse, HttpRunner } from "../../extensions/web-search/http.ts";
+import type { HttpResponse, HttpRunner } from "../../extensions/_shared/http.ts";
 import { resetThrottle, setDefaultRunnerForTests } from "../../extensions/web-search/search.ts";
 import webSearch, { TOOL_NAME } from "../../extensions/web-search/index.ts";
 

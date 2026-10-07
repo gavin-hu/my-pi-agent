@@ -6,9 +6,7 @@
  * cannot produce a nonsensical request.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { clampInteger, cleanString, loadConfigFile } from "../_shared/config.ts";
 
 export interface WebSearchConfig {
 	/** Default number of results (1–MAX_RESULTS). */
@@ -48,31 +46,9 @@ export const DEFAULT_CONFIG: WebSearchConfig = {
 
 const LANG_PATTERN = /^[a-z][a-z0-9-]{1,11}$/i;
 
-function clampInteger(value: unknown, fallback: number, min: number, max: number): number {
-	const number = typeof value === "number" ? value : Number(value);
-	if (!Number.isFinite(number)) return fallback;
-	return Math.min(max, Math.max(min, Math.round(number)));
-}
-
-function cleanString(value: unknown, fallback: string): string {
-	return typeof value === "string" && value.trim() ? value.trim() : fallback;
-}
-
 function httpUrl(value: unknown, fallback: string): string {
 	const candidate = cleanString(value, fallback);
 	return /^https?:\/\//i.test(candidate) ? candidate : fallback;
-}
-
-function readJson(path: string): Record<string, unknown> | undefined {
-	try {
-		if (!existsSync(path)) return undefined;
-		const parsed = JSON.parse(readFileSync(path, "utf-8"));
-		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-			? (parsed as Record<string, unknown>)
-			: undefined;
-	} catch {
-		return undefined;
-	}
 }
 
 /** Validate and clamp a raw config object over the defaults. */
@@ -102,8 +78,5 @@ export function normalizeConfig(
  * file, then the project file. Missing or malformed files are ignored.
  */
 export function loadConfig(cwd: string): WebSearchConfig {
-	let config = DEFAULT_CONFIG;
-	config = normalizeConfig(readJson(join(getAgentDir(), "web-search.json")), config);
-	config = normalizeConfig(readJson(join(cwd, CONFIG_DIR_NAME, "web-search.json")), config);
-	return config;
+	return loadConfigFile(cwd, "web-search.json", DEFAULT_CONFIG, normalizeConfig);
 }

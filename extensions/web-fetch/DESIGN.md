@@ -13,8 +13,12 @@ readable text, page long output, and refuse internal targets. Complements
 - No model call and no "answer the prompt about this page" mode: it returns the
   page text and lets the model reason.
 - No JavaScript rendering, PDFs, images, or binary extraction.
-- No shared HTTP library with `web-search`: each extension stays self-contained,
-  at the cost of a small duplicated fetch runner.
+
+## Shared code
+
+The fetch runner (`HttpRunner`, `createFetchRunner`, and the HTTP error types)
+lives in `extensions/_shared/http.ts`, shared with `web_search`. Each extension
+still owns its page/search logic and stays otherwise self-contained.
 
 ## Model surface
 

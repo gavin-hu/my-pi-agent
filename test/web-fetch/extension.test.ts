@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cacheClear } from "../../extensions/web-fetch/cache.ts";
-import type { HttpResponse } from "../../extensions/web-fetch/http.ts";
+import type { HttpResponse } from "../../extensions/_shared/http.ts";
 import { setDefaultRunnerForTests } from "../../extensions/web-fetch/page.ts";
 import webFetch, { TOOL_NAME } from "../../extensions/web-fetch/index.ts";
 
