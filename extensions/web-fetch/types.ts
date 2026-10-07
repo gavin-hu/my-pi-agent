@@ -23,6 +23,10 @@ export type FetchResponse = {
 	startIndex: number;
 	/** True when more text remains after this slice. */
 	truncated: boolean;
+	/** True when the page came from the in-process cache. */
+	cached: boolean;
+	/** Passages from `find`, or an empty array. */
+	matches: { query: string; offset: number; passage: string }[];
 	/** ISO-8601 timestamp of when the fetch completed. */
 	fetchedAt: string;
 };

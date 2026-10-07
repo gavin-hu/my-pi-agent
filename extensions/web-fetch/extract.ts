@@ -123,7 +123,10 @@ export function extractReadable(html: string, baseUrl: string): ExtractedPage {
 	}
 
 	const body = content.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? content;
-	const main = largestMatch(body, ["article", "main"]) ?? body;
+	// Prefer a substantial <main>/<article>, but fall back to the whole body when
+	// the largest one is only a fragment (for example a teaser or card list).
+	const candidate = largestMatch(body, ["article", "main"]);
+	const main = candidate && candidate.length >= body.length * 0.5 ? candidate : body;
 
 	let text = convertAnchors(main, baseUrl);
 	text = convertImages(text);

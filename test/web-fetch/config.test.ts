@@ -28,6 +28,14 @@ describe("normalizeConfig", () => {
 		expect(normalizeConfig({ allowPrivateHosts: "yes" as unknown as boolean }).allowPrivateHosts).toBe(false);
 	});
 
+	test("clamps cache settings and defaults cacheEnabled", () => {
+		const config = normalizeConfig({ cacheTtlMs: -5, cacheMaxEntries: 0, cacheMaxBytes: 1, cacheEnabled: "x" as unknown as boolean });
+		expect(config.cacheTtlMs).toBe(0);
+		expect(config.cacheMaxEntries).toBe(1);
+		expect(config.cacheMaxBytes).toBe(1_024);
+		expect(config.cacheEnabled).toBe(DEFAULT_CONFIG.cacheEnabled);
+	});
+
 	test("keeps a custom user agent and treats blank as the default", () => {
 		expect(normalizeConfig({ userAgent: " my-bot " }).userAgent).toBe("my-bot");
 		expect(normalizeConfig({ userAgent: "   " }).userAgent).toBe(DEFAULT_CONFIG.userAgent);

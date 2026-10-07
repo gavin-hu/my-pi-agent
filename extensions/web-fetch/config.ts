@@ -22,6 +22,14 @@ export interface WebFetchConfig {
 	acceptLanguage: string;
 	/** Allow loopback/private/internal targets (disables the SSRF guard). */
 	allowPrivateHosts: boolean;
+	/** Cache extracted pages for the session. */
+	cacheEnabled: boolean;
+	/** Cache entry lifetime in ms (0 = never expire). */
+	cacheTtlMs: number;
+	/** Maximum cached pages. */
+	cacheMaxEntries: number;
+	/** Maximum total cached text bytes. */
+	cacheMaxBytes: number;
 }
 
 export const DEFAULT_CONFIG: WebFetchConfig = {
@@ -31,6 +39,10 @@ export const DEFAULT_CONFIG: WebFetchConfig = {
 	userAgent: "my-pi-agent/0.1 (+https://github.com/gavin-hu/my-pi-agent)",
 	acceptLanguage: "zh-CN,zh;q=0.9,en;q=0.8",
 	allowPrivateHosts: false,
+	cacheEnabled: true,
+	cacheTtlMs: 300_000,
+	cacheMaxEntries: 8,
+	cacheMaxBytes: 8_000_000,
 };
 
 function clampInteger(value: unknown, fallback: number, min: number, max: number): number {
@@ -68,6 +80,10 @@ export function normalizeConfig(
 		userAgent: cleanString(raw.userAgent, base.userAgent),
 		acceptLanguage: cleanString(raw.acceptLanguage, base.acceptLanguage),
 		allowPrivateHosts: typeof raw.allowPrivateHosts === "boolean" ? raw.allowPrivateHosts : base.allowPrivateHosts,
+		cacheEnabled: typeof raw.cacheEnabled === "boolean" ? raw.cacheEnabled : base.cacheEnabled,
+		cacheTtlMs: clampInteger(raw.cacheTtlMs, base.cacheTtlMs, 0, 3_600_000),
+		cacheMaxEntries: clampInteger(raw.cacheMaxEntries, base.cacheMaxEntries, 1, 50),
+		cacheMaxBytes: clampInteger(raw.cacheMaxBytes, base.cacheMaxBytes, 1_024, 50_000_000),
 	};
 }
 

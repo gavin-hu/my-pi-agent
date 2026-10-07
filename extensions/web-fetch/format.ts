@@ -1,10 +1,12 @@
 /**
  * Model-facing text formatting and slicing for `web_fetch`.
  *
- * The extracted text is sliced by code point from `startIndex`, so CJK and
- * emoji stay well-formed. A header describes the page, and a trailing note tells
- * the model how to read the next chunk when the page is longer than the budget.
+ * `formatPage` slices extracted text by code point from `startIndex`, so CJK and
+ * emoji stay well-formed, and names the offset of the next chunk.
+ * `formatMatches` renders find-in-page passages with their offsets.
  */
+
+import type { Passage } from "./find.ts";
 
 export interface PageFormatInput {
 	finalUrl: string;
@@ -28,15 +30,18 @@ export interface FormattedPage {
 	nextIndex: number;
 }
 
+function pageHeader(title: string, finalUrl: string, status: number, contentType: string): string {
+	const lines: string[] = [];
+	if (title) lines.push(`Title: ${title}`);
+	lines.push(`URL: ${finalUrl}`);
+	lines.push(`Status: ${status}${contentType ? ` (${contentType})` : ""}`);
+	return lines.join("\n");
+}
+
 export function formatPage(input: PageFormatInput): FormattedPage {
 	const points = Array.from(input.text);
 	const total = points.length;
-
-	const headerLines: string[] = [];
-	if (input.title) headerLines.push(`Title: ${input.title}`);
-	headerLines.push(`URL: ${input.finalUrl}`);
-	headerLines.push(`Status: ${input.status}${input.contentType ? ` (${input.contentType})` : ""}`);
-	const header = headerLines.join("\n");
+	const header = pageHeader(input.title, input.finalUrl, input.status, input.contentType);
 
 	if (total === 0) {
 		const text = `${header}\n\n(no readable text)`;
@@ -59,4 +64,32 @@ export function formatPage(input: PageFormatInput): FormattedPage {
 	}
 
 	return { header, body, text, truncated, nextIndex };
+}
+
+export interface MatchFormatInput {
+	finalUrl: string;
+	title: string;
+	status: number;
+	contentType: string;
+	matches: Passage[];
+	find: string[];
+}
+
+export interface FormattedMatches {
+	header: string;
+	body: string;
+	text: string;
+	truncated: boolean;
+}
+
+export function formatMatches(input: MatchFormatInput): FormattedMatches {
+	const quoted = input.find.map((term) => `"${term}"`).join(", ");
+	const header = `${pageHeader(input.title, input.finalUrl, input.status, input.contentType)}\nMatches for ${quoted}: ${input.matches.length}`;
+
+	if (input.matches.length === 0) {
+		return { header, body: "", text: `${header}\n\nNo matches.`, truncated: false };
+	}
+
+	const body = input.matches.map((match, index) => `${index + 1}. [offset ${match.offset}] ${match.passage}`).join("\n\n");
+	return { header, body, text: `${header}\n\n${body}`, truncated: false };
 }

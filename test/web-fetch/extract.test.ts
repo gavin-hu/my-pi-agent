@@ -69,6 +69,14 @@ describe("extractReadable", () => {
 		expect(extractReadable(html, "https://x/").text).toContain("big big");
 	});
 
+	test("falls back to the body when the largest article is only a fragment", () => {
+		const filler = `<p>${"real content ".repeat(40)}</p>`;
+		const html = `<body><article><p>teaser</p></article>${filler}</body>`;
+		const text = extractReadable(html, "https://x/").text;
+		expect(text).toContain("real content");
+		expect(text).toContain("teaser");
+	});
+
 	test("preserves CJK text", () => {
 		const cjk = extractReadable("<body><p>广州 早茶 文化</p></body>", "https://x/").text;
 		expect(cjk).toContain("广州 早茶 文化");
