@@ -9,7 +9,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { formatCallText, formatTodoList, progressSummary } from "./format.ts";
+import { formatCallText, formatTodoText, progressSummary } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, type TodoArgs } from "./schema.ts";
 import type { TodoDetails } from "./types.ts";
@@ -45,7 +45,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				const todos = normalizeTodos(args.todos);
 				runtime.setTodos(todos, ctx);
 				return {
-					content: [{ type: "text", text: todos.length === 0 ? "Todo list cleared." : formatTodoList(todos) }],
+					content: [{ type: "text", text: formatTodoText(todos) }],
 					details: { todos, action } satisfies TodoDetails,
 				};
 			} catch (error) {
