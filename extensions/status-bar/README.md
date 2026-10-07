@@ -66,6 +66,11 @@ clipping:
 | model | 2 right | accent | never |
 | thinking level | 2 right | thinking token | before cost |
 
+Zero-value meters are omitted, so a fresh session shows only the gauge and
+window instead of a row of `$0.00 · ↑0 ↓0 · R0 W0`. Unknown context usage shows
+a muted `?` rather than the success color. `cost` keeps two decimals below
+`$0.1` in its compact form so a small nonzero spend is never shown as `$0.0`.
+
 The worktree status is read from the `worktree` status key, so the
 [worktree](../worktree/) extension and the bar agree. The leading slot shows
 plan-style alerts when present and is omitted otherwise. The slot trails the

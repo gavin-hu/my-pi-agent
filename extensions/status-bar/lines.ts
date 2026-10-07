@@ -20,7 +20,9 @@ import {
 	formatPercent,
 	formatTokens,
 	sanitize,
+	stripAnsi,
 	thinkingColor,
+	truncateLabel,
 } from "./format.ts";
 import type { LineSpec, Segment, StatusSnapshot } from "./types.ts";
 
@@ -62,29 +64,35 @@ function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null
 	const raw = snapshot.statuses.get(CONFIG.worktreeStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.worktree;
-	const label = sanitize(raw).replace(/^\S+\s*/, "").trim() || sanitize(raw);
-	const short = label.length > CONFIG.worktreeLabelMax ? `${label.slice(0, CONFIG.worktreeLabelMax - 1)}…` : label;
+	const label = sanitize(stripAnsi(raw)).replace(/^\S+\s*/, "").trim();
+	if (!label) {
+		return { id: "worktree", weight: 3, droppable: true, separator: dim(theme, CONFIG.separators.item), forms: [theme.fg("success", icon)] };
+	}
+	const short = truncateLabel(label, CONFIG.worktreeLabelMax);
+	const forms = [theme.fg("success", `${icon} ${label}`)];
+	if (short !== label) forms.push(theme.fg("success", `${icon} ${short}`));
+	forms.push(theme.fg("success", icon));
 	return {
 		id: "worktree",
 		weight: 3,
 		droppable: true,
 		separator: dim(theme, CONFIG.separators.item),
-		forms: [
-			theme.fg("success", `${icon} ${label}`),
-			theme.fg("success", `${icon} ${short}`),
-			theme.fg("success", icon),
-		],
+		forms,
 	};
 }
 
 function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
 		.filter(([key]) => key !== CONFIG.worktreeStatusKey)
+		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([, value]) => sanitize(value))
 		.filter(Boolean);
 	if (others.length === 0) return null;
 	const full = others.join(dim(theme, CONFIG.separators.item));
-	const icons = others.map((status) => status.split(" ")[0]).join(" ");
+	// Derive the compact form from plain text: a themed status carries an
+	// opening SGR code but the reset is lost when we keep only the first token,
+	// which would bleed its color into the rest of the line.
+	const icons = others.map((status) => stripAnsi(status).split(" ")[0]).join(" ");
 	return { id: "statuses", weight: 1, droppable: false, separator: dim(theme, CONFIG.separators.group), forms: [full, icons] };
 }
 
@@ -122,7 +130,8 @@ function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
+function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	if (snapshot.usage.cost === 0) return null;
 	return {
 		id: "cost",
 		weight: 2,
@@ -135,8 +144,9 @@ function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	};
 }
 
-function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
+function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { input, output } = snapshot.usage;
+	if (input === 0 && output === 0) return null;
 	return {
 		id: "tokens",
 		weight: 4,
@@ -146,11 +156,10 @@ function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	};
 }
 
-function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
-	const parts = [
-		`R${formatTokens(snapshot.usage.cacheRead)}`,
-		`W${formatTokens(snapshot.usage.cacheWrite)}`,
-	];
+function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const { cacheRead, cacheWrite } = snapshot.usage;
+	if (cacheRead === 0 && cacheWrite === 0 && snapshot.cacheHitRate === null) return null;
+	const parts = [`R${formatTokens(cacheRead)}`, `W${formatTokens(cacheWrite)}`];
 	if (snapshot.cacheHitRate !== null) parts.push(`CH ${Math.round(snapshot.cacheHitRate)}%`);
 	return {
 		id: "cache",

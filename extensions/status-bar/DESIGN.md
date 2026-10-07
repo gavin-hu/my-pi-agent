@@ -38,6 +38,16 @@ blocks, the mode slot compacts to an icon, cost goes before tokens, and the gaug
 statuses, and model survive to the end. Only after everything is minimal does
 `truncateToWidth` apply.
 
+**Statuses compact from plain text.** Extension statuses are pre-themed (for
+`plan-mode`: `theme.fg("warning", "⏸ plan")`). The compact icon form is derived
+from the visible text, not the styled string, because keeping the first token of
+a themed status keeps its opening SGR code but not its reset — the color would
+bleed into the rest of the line.
+
+**Separators are the last thing to go.** Once every segment is at its floor
+the layout drops separator strings before falling back to `truncateToWidth`, so
+the ellipsis never replaces a `│` that has nothing after it.
+
 **Neutral by default; color means something.** Only the context gauge carries
 status color (`success`/`warning`/`error`); cost is `muted`, and
 tokens/cache/window are `dim`. Yellow is reserved for the gauge crossing 70%, so

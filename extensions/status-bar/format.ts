@@ -5,6 +5,7 @@
  * strings the bar shows. Styling happens in `lines.ts`.
  */
 
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import { CONFIG } from "./config.ts";
 
 export { formatTokens, sanitize } from "../_shared/format.ts";
@@ -30,9 +31,11 @@ export type ThinkingColor =
 	| "thinkingXhigh"
 	| "thinkingMax";
 
-/** US-dollar cost. `compact` drops to one decimal place. */
+/** US-dollar cost. `compact` drops to one decimal place, but never rounds a
+ *  positive sub-`$0.1` amount down to `$0.0`. */
 export function formatCost(cost: number, compact = false): string {
-	return `$${cost.toFixed(compact ? 1 : 2)}`;
+	const decimals = compact && cost >= 0.1 ? 1 : 2;
+	return `$${cost.toFixed(decimals)}`;
 }
 
 /** Rounded percentage, or `?` when the value is unknown. */
@@ -86,8 +89,9 @@ export function computeGauge(percent: number | null, blocks: number): { filled: 
 
 /** Gauge color for a context percentage. */
 export function contextColor(percent: number | null): FgToken {
-	if (percent !== null && percent > CONFIG.thresholds.danger) return "error";
-	if (percent !== null && percent > CONFIG.thresholds.warn) return "warning";
+	if (percent === null) return "muted";
+	if (percent > CONFIG.thresholds.danger) return "error";
+	if (percent > CONFIG.thresholds.warn) return "warning";
 	return "success";
 }
 
@@ -100,6 +104,16 @@ const THINKING_TOKENS: Record<string, ThinkingColor> = {
 	xhigh: "thinkingXhigh",
 	max: "thinkingMax",
 };
+
+/** Strip SGR color/style escapes, leaving only the visible characters. */
+export function stripAnsi(text: string): string {
+	return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+/** Truncate to `max` display columns, counting wide characters correctly. */
+export function truncateLabel(label: string, max: number): string {
+	return stripAnsi(truncateToWidth(label, max, "…"));
+}
 
 /** Theme token for a reasoning-effort level. */
 export function thinkingColor(level: string): ThinkingColor {

@@ -73,7 +73,7 @@ describe("buildLines", () => {
 		expect(line1).toBeTruthy();
 	});
 
-	test("shows zero usage meters and ? for unknown context", () => {
+	test("omits zero-value meters on a fresh session", () => {
 		const snapshot = fullSnapshot({
 			context: { tokens: null, contextWindow: 200000, percent: null },
 			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
@@ -81,12 +81,38 @@ describe("buildLines", () => {
 		});
 		const [, line2] = buildLines(snapshot, fakeTheme, "/home/u");
 
-		expect(ids(line2.left)).toEqual(["context", "window", "cost", "tokens", "cache", "statuses"]);
+		expect(ids(line2.left)).toEqual(["context", "window", "statuses"]);
 		const byId = new Map(line2.left.map((segment) => [segment.id, segment]));
 		expect(byId.get("context")!.forms[0]).toContain("?");
-		expect(byId.get("cost")!.forms[0]).toBe("$0.00");
-		expect(byId.get("tokens")!.forms[0]).toBe("↑0 ↓0");
-		expect(byId.get("cache")!.forms[0]).toBe("R0 W0");
+	});
+
+	test("strips color when compacting themed statuses", () => {
+		const themed = "\x1b[33m⏸ plan\x1b[39m";
+		const [, line2] = buildLines(fullSnapshot({ statuses: new Map([["plan-mode", themed]]) }), fakeTheme, "/home/u");
+		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
+
+		expect(statuses.forms[0]).toContain(themed);
+		expect(statuses.forms[1]).toBe("⏸");
+	});
+
+	test("orders multiple statuses by key", () => {
+		const snapshot = fullSnapshot({
+			statuses: new Map([
+				["zeta", "Z"],
+				["alpha", "A"],
+			]),
+		});
+		const [, line2] = buildLines(snapshot, fakeTheme, "/home/u");
+		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
+
+		expect(statuses.forms[0]).toBe("A · Z");
+	});
+
+	test("handles an icon-only worktree status without duplicating the icon", () => {
+		const [line1] = buildLines(fullSnapshot({ statuses: new Map([["worktree", "⧉"]]) }), fakeTheme, "/home/u");
+		const worktree = line1.right.find((segment) => segment.id === "worktree")!;
+
+		expect(worktree.forms).toEqual(["⧉"]);
 	});
 
 	test("omits the thinking segment without a level", () => {

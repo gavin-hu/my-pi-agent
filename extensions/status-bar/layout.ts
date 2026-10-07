@@ -20,6 +20,8 @@ interface State {
 	zone: Zone;
 	form: number;
 	dropped: boolean;
+	/** Rendered before the segment; dropped as a last resort to avoid a dangling separator. */
+	separator: string;
 	order: number;
 }
 
@@ -27,10 +29,10 @@ function makeStates(spec: LineSpec): State[] {
 	const states: State[] = [];
 	let order = 0;
 	for (const segment of spec.left) {
-		states.push({ segment, zone: "left", form: 0, dropped: false, order: order++ });
+		states.push({ segment, zone: "left", form: 0, dropped: false, separator: segment.separator, order: order++ });
 	}
 	for (const segment of spec.right) {
-		states.push({ segment, zone: "right", form: 0, dropped: false, order: order++ });
+		states.push({ segment, zone: "right", form: 0, dropped: false, separator: segment.separator, order: order++ });
 	}
 	return states;
 }
@@ -42,7 +44,7 @@ function composeZone(states: State[], zone: Zone): string {
 		if (state.zone !== zone || state.dropped) continue;
 		const text = state.segment.forms[Math.min(state.form, state.segment.forms.length - 1)] ?? "";
 		if (!text) continue;
-		out += (first ? "" : state.segment.separator) + text;
+		out += (first ? "" : state.separator) + text;
 		first = false;
 	}
 	return out;
@@ -84,6 +86,28 @@ function reduceOnce(states: State[]): boolean {
 	return true;
 }
 
+/** Drop the lowest-priority separator that still renders, as a last resort.
+ *  The first visible segment in each zone has no separator to drop. */
+function dropSeparator(states: State[]): boolean {
+	const firstLeft = states.find((state) => state.zone === "left" && !state.dropped);
+	const firstRight = states.find((state) => state.zone === "right" && !state.dropped);
+	let best: State | null = null;
+	for (const state of states) {
+		if (state.dropped || !state.separator) continue;
+		if (state === firstLeft || state === firstRight) continue;
+		if (
+			!best ||
+			state.segment.weight > best.segment.weight ||
+			(state.segment.weight === best.segment.weight && state.order > best.order)
+		) {
+			best = state;
+		}
+	}
+	if (!best) return false;
+	best.separator = "";
+	return true;
+}
+
 /** Render one line to a single string no wider than `width`. */
 export function renderLine(spec: LineSpec, width: number, theme: Theme): string {
 	const target = Math.max(1, width);
@@ -92,6 +116,11 @@ export function renderLine(spec: LineSpec, width: number, theme: Theme): string 
 	let guard = 0;
 	while (visibleWidth(assemble(states, target)) > target && guard++ < states.length * 8 + 16) {
 		if (!reduceOnce(states)) break;
+	}
+	// Only once every segment is at its floor do we give up separators, so the
+	// truncation ellipsis never replaces a separator's content.
+	while (visibleWidth(assemble(states, target)) > target) {
+		if (!dropSeparator(states)) break;
 	}
 
 	return truncateToWidth(assemble(states, target), target, theme.fg("dim", "…"));

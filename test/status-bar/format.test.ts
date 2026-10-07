@@ -7,7 +7,9 @@ import {
 	formatPercent,
 	formatTokens,
 	sanitize,
+	stripAnsi,
 	thinkingColor,
+	truncateLabel,
 } from "../../extensions/status-bar/format.ts";
 
 describe("formatTokens", () => {
@@ -26,6 +28,11 @@ describe("formatCost", () => {
 		expect(formatCost(0.31)).toBe("$0.31");
 		expect(formatCost(0.31, true)).toBe("$0.3");
 		expect(formatCost(1)).toBe("$1.00");
+	});
+
+	test("keeps the cents for a small nonzero cost when compact", () => {
+		expect(formatCost(0.04, true)).toBe("$0.04");
+		expect(formatCost(0, true)).toBe("$0.00");
 	});
 });
 
@@ -74,7 +81,7 @@ describe("computeGauge", () => {
 
 describe("contextColor", () => {
 	test("steps at the thresholds", () => {
-		expect(contextColor(null)).toBe("success");
+		expect(contextColor(null)).toBe("muted");
 		expect(contextColor(50)).toBe("success");
 		expect(contextColor(70)).toBe("success");
 		expect(contextColor(71)).toBe("warning");
@@ -94,5 +101,19 @@ describe("thinkingColor", () => {
 describe("sanitize", () => {
 	test("collapses whitespace and control characters", () => {
 		expect(sanitize("a\r\n\tb   c ")).toBe("a b c");
+	});
+});
+
+describe("stripAnsi", () => {
+	test("removes SGR escapes but keeps the text", () => {
+		expect(stripAnsi("\x1b[33m⏸ plan\x1b[39m")).toBe("⏸ plan");
+	});
+});
+
+describe("truncateLabel", () => {
+	test("keeps short labels and truncates by display width", () => {
+		expect(truncateLabel("main", 10)).toBe("main");
+		expect(truncateLabel("feature/long-name", 8)).toBe("feature…");
+		expect(truncateLabel("項目項目項目", 5)).toBe("項目…");
 	});
 });
