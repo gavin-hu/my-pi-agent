@@ -13,7 +13,7 @@ import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-codi
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 import { ENTER_TOOL, EXIT_TOOL, type PlanRuntime } from "./runtime.ts";
-import { extractPlanSteps } from "./steps.ts";
+import { extractPlanSteps, type PlanStep } from "./steps.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails } from "./types.ts";
 
 /** Tool that records the seeded steps; plan-mode only calls it if it exists. */
@@ -45,14 +45,17 @@ function preview(plan: string): string {
 	return [...lines.slice(0, PREVIEW_LINES), `… ${lines.length - PREVIEW_LINES} more lines`].join("\n");
 }
 
-/** Seed the todo list with the plan's steps; returns how many were recorded. */
-async function seedTodos(ctx: ExtensionToolContext, plan: string): Promise<number> {
+/** Seed the todo list with the plan's steps; returns what was recorded. */
+async function seedTodos(
+	ctx: ExtensionToolContext,
+	plan: string,
+): Promise<{ recorded: number; steps: PlanStep[] }> {
 	const steps = extractPlanSteps(plan);
-	if (steps.length === 0) return 0;
+	if (steps.length === 0) return { recorded: 0, steps };
 	const outcome = await ctx.executeTool(TODO_TOOL, {
-		todos: steps.map((content) => ({ content, status: "pending" })),
+		todos: steps.map((step) => ({ content: step.content, status: step.status })),
 	});
-	return outcome.isError ? 0 : steps.length;
+	return { recorded: outcome.isError ? 0 : steps.length, steps };
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
@@ -189,16 +192,22 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			}
 
 			runtime.disable(ctx);
-			const seeded = await seedTodos(ctx, plan);
+			const { recorded, steps } = await seedTodos(ctx, plan);
+			const listing =
+				steps.length > 0
+					? `\n\n${steps.map((step) => `- [${step.status === "completed" ? "x" : " "}] ${step.content}`).join("\n")}`
+					: "";
 			const tail =
-				seeded > 0
-					? ` Recorded ${seeded} step${seeded === 1 ? "" : "s"} in the todo list; mark each completed as you finish it.`
-					: " If the todo tool is available, record the steps with it before you start.";
+				recorded > 0
+					? ` Recorded ${recorded} step${recorded === 1 ? "" : "s"} in the todo list; mark each completed as you finish it.`
+					: steps.length > 0
+						? " The todo tool is unavailable; keep these steps in mind as you work."
+						: " If the todo tool is available, record the steps with it before you start.";
 			return {
 				content: [
-					{ type: "text", text: `Plan approved. Plan mode is off and write access is restored.${tail}` },
+					{ type: "text", text: `Plan approved. Plan mode is off and write access is restored.${tail}${listing}` },
 				],
-				details: { approved: true, plan, seeded } satisfies ExitPlanModeDetails,
+				details: { approved: true, plan, seeded: recorded, steps } satisfies ExitPlanModeDetails,
 			};
 		},
 

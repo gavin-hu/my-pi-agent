@@ -131,6 +131,28 @@ describe("exit_plan_mode", () => {
 		});
 	});
 
+	test("seeds checkbox statuses and lists the steps in the result", async () => {
+		const { enter, exit, runtime } = setup();
+		await enterPlan(enter, runtime);
+		const plan = ["- [x] Read the parser", "- [ ] Add a tokenizer", "   - nested note"].join("\n");
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute" });
+		const result = await call(exit, { plan }, ctx);
+
+		expect(result.details.seeded).toBe(2);
+		expect(result.details.steps).toEqual([
+			{ content: "Read the parser", status: "completed" },
+			{ content: "Add a tokenizer", status: "pending" },
+		]);
+		expect(toolCalls[0].args).toEqual({
+			todos: [
+				{ content: "Read the parser", status: "completed" },
+				{ content: "Add a tokenizer", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).toContain("- [x] Read the parser");
+		expect(result.content[0].text).toContain("- [ ] Add a tokenizer");
+	});
+
 	test("approves even when the todo tool is unavailable", async () => {
 		const { enter, exit, runtime } = setup();
 		await enterPlan(enter, runtime);

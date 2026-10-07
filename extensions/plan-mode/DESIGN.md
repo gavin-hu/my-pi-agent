@@ -52,7 +52,10 @@ the user a way to steer instead of only accept or reject.
 integration. The event bus carries no `ctx`, so a todo listener could not
 refresh its widget; calling the real todo tool through `ctx.executeTool()` runs
 its validation and widget sync and needs no change to `todo`. If `todo` is
-absent the outcome is simply `isError`, which plan mode ignores.
+absent the outcome is simply `isError`, which plan mode ignores. Only top-level
+list items become steps; a leading `- [ ]`/`- [x]` checkbox or `[DONE:n]`
+marker sets the seeded status, and the approval result lists the steps so the
+user can see what was recorded.
 
 **Segment-based bash allowlist.** The Pi example tests the whole command string
 with allow/deny regexes, which is easily bypassed. Splitting on shell operators

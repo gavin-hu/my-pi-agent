@@ -18,8 +18,10 @@ pi --plan                                 # start in plan mode
   mode before a non-trivial task; the user confirms.
 - **Reviewable plan.** The model writes the plan in its reply, then calls
   `exit_plan_mode`; the user approves, keeps planning, or asks for a refinement.
-- **Steps become todos.** On approval, the plan's numbered steps are recorded
-  with the `todo` tool (via `ctx.executeTool`), so execution starts tracked.
+- **Steps become todos.** On approval, the plan's top-level numbered/bulleted
+  steps are recorded with the `todo` tool (via `ctx.executeTool`); steps marked
+  `- [x]` (or `[DONE:n]`) seed as completed, and nested sub-bullets are treated
+  as notes. The approval result lists exactly what was recorded.
 - **Branch-aware.** The enabled flag is a custom session entry, so `/resume` and
   `/tree` restore the right mode.
 
