@@ -25,8 +25,19 @@ describe("TodoWidget", () => {
 
 	test("bounds the number of rows", () => {
 		const many: Todo[] = Array.from({ length: 9 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
-		const body = new TodoWidget(many, theme).render(60).join("\n");
-		expect(body).toContain("… 4 more");
+		const lines = new TodoWidget(many, theme).render(60);
+		// header + 3 items + overflow line
+		expect(lines).toHaveLength(5);
+		expect(lines.join("\n")).toContain("… 6 more");
+	});
+
+	test("shows active work before completed items", () => {
+		const long: Todo[] = [
+			...Array.from({ length: 5 }, (_, i) => ({ content: `done ${i}`, status: "completed" as const })),
+			{ content: "current task", status: "in_progress" as const },
+		];
+		const body = new TodoWidget(long, theme).render(60).join("\n");
+		expect(body).toContain("◐ current task");
 	});
 
 	test("never exceeds the available width", () => {
@@ -37,16 +48,56 @@ describe("TodoWidget", () => {
 
 describe("TodoListComponent", () => {
 	test("renders an empty-state hint", () => {
-		const lines = new TodoListComponent([], theme, () => {}).render(60);
+		const lines = new TodoListComponent([], theme, () => {}, () => {}).render(60);
 		expect(lines.join("\n")).toContain("No todos yet");
 	});
 
 	test("closes on Escape", () => {
 		let closed = 0;
-		const component = new TodoListComponent(todos, theme, () => closed++);
+		const component = new TodoListComponent(todos, theme, () => closed++, () => {});
 		component.handleInput("\u001b");
 		expect(closed).toBe(1);
 		component.handleInput("x");
 		expect(closed).toBe(1);
+	});
+
+	test("keeps the header border within the width", () => {
+		const lines = new TodoListComponent(todos, theme, () => {}, () => {}).render(40);
+		expect(visibleWidth(lines[0])).toBe(40);
+	});
+
+	test("sizes the window to the terminal height", () => {
+		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
+
+		const short = new TodoListComponent(many, theme, () => {}, () => {}, 15).render(60).join("\n");
+		expect(short).toContain("showing 1–6 of 30");
+		expect(short).not.toContain("item 6");
+
+		const tall = new TodoListComponent(many, theme, () => {}, () => {}, 60).render(60).join("\n");
+		expect(tall).toContain("showing 1–20 of 30");
+	});
+
+	test("drops the title instead of ellipsizing the border when very narrow", () => {
+		const lines = new TodoListComponent(todos, theme, () => {}, () => {}).render(6);
+		expect(visibleWidth(lines[0])).toBe(6);
+		expect(lines[0]).not.toContain("...");
+	});
+
+	test("windows long lists and scrolls on demand", () => {
+		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
+		let renders = 0;
+		const component = new TodoListComponent(many, theme, () => {}, () => renders++);
+
+		const first = component.render(60).join("\n");
+		expect(first).toContain("item 0");
+		expect(first).not.toContain("item 12");
+		expect(first).toContain("showing 1–12 of 30");
+
+		component.handleInput("\u001b[B"); // down arrow
+		expect(renders).toBe(1);
+		expect(component.render(60).join("\n")).toContain("showing 2–13 of 30");
+
+		component.handleInput("\u001b[6~"); // page down
+		expect(component.render(60).join("\n")).toContain("item 13");
 	});
 });

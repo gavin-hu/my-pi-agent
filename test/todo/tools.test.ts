@@ -14,6 +14,9 @@ function setup() {
 const call = (tool: any, params: unknown, ctx: any) =>
 	tool.execute("call-1", params, undefined, undefined, ctx);
 
+/** A theme double whose styled text stays assertable. */
+const theme: any = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
+
 describe("todo tool", () => {
 	test("registers a sequential, non-read-only tool", () => {
 		const { tool } = setup();
@@ -100,6 +103,28 @@ describe("todo tool", () => {
 		expect(result.details.error).toContain("At most one todo");
 		expect(result.details.todos).toEqual([{ content: "Keep me", status: "pending" }]);
 		expect(runtime.getTodos()).toEqual([{ content: "Keep me", status: "pending" }]);
+	});
+
+	test("streaming call shows a pending label, not a clear", () => {
+		const { tool } = setup();
+		const text = tool.renderCall({}, theme, { argsComplete: false }).render(80).join("\n");
+		expect(text).toContain("todo → …");
+		expect(text).not.toContain("clear list");
+	});
+
+	test("collapsed result leads with active work", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		const todos = [
+			...Array.from({ length: 8 }, (_, i) => ({ content: `done ${i}`, status: "completed" as const })),
+			{ content: "current", status: "in_progress" as const },
+		];
+		const result = await call(tool, { todos }, ctx);
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("◐ current");
 	});
 
 	test("works without a UI context", async () => {

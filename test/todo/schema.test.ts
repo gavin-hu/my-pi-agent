@@ -14,6 +14,21 @@ describe("normalizeTodos", () => {
 		]);
 	});
 
+	test("collapses whitespace runs so content stays on one line", () => {
+		expect(normalizeTodos([{ content: "first\nsecond\tthird  fourth", status: "pending" }])).toEqual([
+			{ content: "first second third fourth", status: "pending" },
+		]);
+	});
+
+	test("strips control characters that could corrupt the terminal", () => {
+		const [todo] = normalizeTodos([{ content: "safe\u001b[31mRED\u0007", status: "pending" }]);
+		expect(todo.content).toBe("safe [31mRED");
+	});
+
+	test("rejects content that is only whitespace or control characters", () => {
+		expect(() => normalizeTodos([{ content: "\n\t\u001b\u0007", status: "pending" }])).toThrow("content is required");
+	});
+
 	test("keeps a non-blank activeForm and drops a blank one", () => {
 		const [withForm, withoutForm] = normalizeTodos([
 			{ content: "Run tests", status: "in_progress", activeForm: "  Running tests  " },
@@ -21,6 +36,18 @@ describe("normalizeTodos", () => {
 		]);
 		expect(withForm.activeForm).toBe("Running tests");
 		expect(withoutForm.activeForm).toBeUndefined();
+	});
+
+	test("sanitizes activeForm like content", () => {
+		const [todo] = normalizeTodos([
+			{ content: "Run tests", status: "in_progress", activeForm: "Running\ntests\u001b[0m" },
+		]);
+		expect(todo.activeForm).toBe("Running tests [0m");
+	});
+
+	test("drops an activeForm made only of control characters", () => {
+		const [todo] = normalizeTodos([{ content: "Run tests", status: "in_progress", activeForm: "\u001b\u0007" }]);
+		expect(todo.activeForm).toBeUndefined();
 	});
 
 	test("accepts a status in any case", () => {

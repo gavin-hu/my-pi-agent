@@ -41,10 +41,27 @@ function normalizeStatus(raw: unknown, index: number): TodoStatus {
 }
 
 /**
+ * Make model text safe to render on one terminal line.
+ *
+ * Control characters (including ESC) are replaced with spaces so they cannot
+ * move the cursor or inject styling, and any whitespace run (newlines, tabs,
+ * repeated spaces) collapses to a single space. The result has no embedded
+ * newlines, which every surface relies on for its one-line-per-item layout.
+ */
+function sanitizeText(raw: string): string {
+	return raw
+		.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+/**
  * Validate and normalize the model's list.
  *
- * Rejects an empty description, an unknown status, duplicate content, and more
- * than one `in_progress` item. `activeForm` is trimmed and dropped when blank.
+ * Content and `activeForm` are sanitized to a single safe line (see
+ * `sanitizeText`). Rejects an empty description, an unknown status, duplicate
+ * content, and more than one `in_progress` item. `activeForm` is dropped when
+ * blank.
  */
 export function normalizeTodos(raw: unknown): Todo[] {
 	if (raw === undefined || raw === null) return [];
@@ -57,7 +74,7 @@ export function normalizeTodos(raw: unknown): Todo[] {
 
 	for (let i = 0; i < raw.length; i++) {
 		const item = (raw[i] ?? {}) as Partial<Todo>;
-		const content = typeof item.content === "string" ? item.content.trim() : "";
+		const content = typeof item.content === "string" ? sanitizeText(item.content) : "";
 		if (!content) throw new Error(`Todo ${i + 1}: content is required.`);
 		if (content.length > MAX_CONTENT) {
 			throw new Error(`Todo ${i + 1}: content is longer than ${MAX_CONTENT} characters.`);
@@ -70,8 +87,7 @@ export function normalizeTodos(raw: unknown): Todo[] {
 		const status = normalizeStatus(item.status, i);
 		if (status === "in_progress") inProgress++;
 
-		const activeForm =
-			typeof item.activeForm === "string" && item.activeForm.trim() ? item.activeForm.trim() : undefined;
+		const activeForm = typeof item.activeForm === "string" ? sanitizeText(item.activeForm) : "";
 		todos.push(activeForm ? { content, status, activeForm } : { content, status });
 	}
 

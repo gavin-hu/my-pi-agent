@@ -37,6 +37,22 @@ the list has an unfinished item — an empty or fully completed list hides it, s
 a finished plan stops crowding the editor while `/todos` still shows it. It
 never becomes the only copy of anything.
 
+**Content is sanitized to one safe line.** `normalizeTodos` replaces control
+characters (including `ESC`) with spaces and collapses whitespace runs before
+the length and duplicate checks. Every surface lays items out one per rendered
+row, so an embedded newline would corrupt the widget, the screen, and the
+transcript numbering; raw escape sequences would let model text restyle or
+control the terminal. Sanitizing at the boundary fixes both for every consumer
+at once, and keeps the pure `format.ts` helpers free of terminal concerns.
+
+**Previews surface active work; full views keep the model's order.** The
+widget and the collapsed transcript result order items by status
+(`in_progress` → `pending` → `completed`, stable), so an active task is never
+hidden behind finished rows or an overflow line. `/todos` and the expanded
+transcript result keep the submitted order, because those views answer "what
+did I ask for?" rather than "what now?". Both orderings come from one
+`compareByActivity` helper so they cannot drift.
+
 ## Non-goals
 
 - No priorities, due dates, or dependencies — a flat ordered checklist.

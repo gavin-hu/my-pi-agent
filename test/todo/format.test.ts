@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { formatCallText, formatTodoList, formatTodoText, progressSummary } from "../../extensions/todo/format.ts";
 import type { Todo } from "../../extensions/todo/types.ts";
 
@@ -40,5 +41,16 @@ describe("todo formatting", () => {
 		expect(formatCallText([{ content: "Only" }])).toBe("todo → 1 item: Only");
 		expect(formatCallText([{ content: "First" }, { content: "Second" }])).toBe("todo → 2 items: First, …");
 		expect(formatCallText(undefined)).toBe("todo → clear list");
+	});
+
+	test("formatCallText distinguishes a streaming call from a clear", () => {
+		expect(formatCallText(undefined, false)).toBe("todo → …");
+		expect(formatCallText([], false)).toBe("todo → clear list");
+	});
+
+	test("formatCallText clips a long first item", () => {
+		const text = formatCallText([{ content: "x".repeat(80) }]);
+		expect(visibleWidth(text)).toBe(visibleWidth("todo → 1 item: ") + 40);
+		expect(text.endsWith("…")).toBe(true);
 	});
 });

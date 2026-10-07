@@ -16,8 +16,8 @@ export function registerCommands(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				ctx.ui.notify(todos.length === 0 ? "No todos." : `${progressSummary(todos)}\n${formatTodoList(todos)}`, "info");
 				return;
 			}
-			await ctx.ui.custom<void>((_tui, theme, _keybindings, done) => {
-				return new TodoListComponent(todos, theme, () => done());
+			await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+				return new TodoListComponent(todos, theme, () => done(), () => tui.requestRender(), tui.terminal?.rows);
 			});
 		},
 	});

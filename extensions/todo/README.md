@@ -18,18 +18,23 @@ pi install ./                       # install the package
   `completed`), and an optional `activeForm` ("Running tests") shown while the
   item is in progress.
 - Shows a persistent widget above the editor while the list has unfinished
-  work (hidden when empty or fully completed), and a full-screen `/todos` view
-  on demand.
+  work (hidden when empty or fully completed), and a scrollable `/todos`
+  screen on demand.
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list.
 
+The widget leads with the active item, so an `in_progress` task is never
+pushed out by finished rows:
+
 ```
 Todos 1/3 completed
-  ✓ Write the schema
   ◐ Writing the tests
   ○ Ship it
+  ✓ Write the schema
 ```
+
+`/todos` keeps the model's list order (use it to see the plan as written).
 
 ## Tool
 
@@ -49,11 +54,22 @@ unchanged):
 - non-empty, unique content, at most 500 characters each;
 - a known `status`.
 
+Before those checks, `content` and `activeForm` are normalized to a single
+terminal-safe line: control characters (including `ESC`) are replaced with
+spaces and any whitespace run (newlines, tabs, repeated spaces) collapses to
+one space. This keeps every surface to one row per item and stops model text
+from injecting terminal sequences. An `activeForm` that sanitizes to nothing is
+dropped.
+
 ## Command
 
 | Command | What it does |
 |---|---|
-| `/todos` | Show the current list. An interactive screen in `tui` mode; a notification elsewhere. |
+| `/todos` | Show the current list. An interactive, scrollable screen in `tui` mode; a notification elsewhere. |
+
+On the `/todos` screen: `↑`/`↓` or `j`/`k` scroll one row, `PgUp`/`PgDn` page,
+`Home`/`End` jump, and `Esc` (or `Ctrl-C`) closes. The window grows and shrinks
+with the terminal height, so the footer hint stays visible.
 
 ## Behaviour by mode
 
@@ -70,7 +86,7 @@ tool result.
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
 | `state.ts` | Branch reconstruction and status queries (pure). |
 | `format.ts` | Model-facing and transcript text (pure). |
-| `tui.ts` | Widget and `/todos` components. |
+| `tui.ts` | Widget and scrollable `/todos` components. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `todo` tool registration and rendering. |
 | `commands.ts` | `/todos`. |

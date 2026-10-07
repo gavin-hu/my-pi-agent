@@ -9,7 +9,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { formatCallText, formatTodoText, progressSummary, todoGlyph, todoLabel } from "./format.ts";
+import { compareByActivity, formatCallText, formatTodoText, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, type TodoArgs } from "./schema.ts";
 import type { TodoDetails } from "./types.ts";
@@ -58,8 +58,12 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			}
 		},
 
-		renderCall(args, theme) {
-			return new Text(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", formatCallText(args.todos)), 0, 0);
+		renderCall(args, theme, context) {
+			return new Text(
+				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", formatCallText(args.todos, context.argsComplete)),
+				0,
+				0,
+			);
 		},
 
 		renderResult(result, { expanded }, theme) {
@@ -73,7 +77,10 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				return new Text(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared the todo list"), 0, 0);
 			}
 
-			const shown = expanded ? details.todos : details.todos.slice(0, COLLAPSED_ROWS);
+			// Expanded keeps the model's order; collapsed leads with active work so the
+			// in-progress item is visible, matching the widget.
+			const ordered = [...details.todos].sort(compareByActivity);
+			const shown = expanded ? details.todos : ordered.slice(0, COLLAPSED_ROWS);
 			const lines = shown.map((todo) => `${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`);
 			if (!expanded && details.todos.length > shown.length) {
 				lines.push(theme.fg("dim", `… ${details.todos.length - shown.length} more`));
