@@ -109,6 +109,24 @@ describe("multi-select", () => {
 		state = step(state, "space").state;
 		expect(state.selections.q1).toBeUndefined();
 	});
+
+	test("a custom Other answer satisfies the Enter gate", () => {
+		const multi = question({ multiSelect: true });
+		let state = initialState([multi]);
+		state = step(state, "down").state;
+		state = step(state, "down").state; // onto "Other"
+		const opened = step(state, "enter");
+		expect(opened.effect).toEqual({ type: "openEditor" });
+
+		const custom = applyCustomText(opened.state, "hand-rolled");
+		expect(custom.effect).toEqual({ type: "submit" });
+		expect(custom.state.selections.q1).toEqual({ type: "custom", text: "hand-rolled" });
+
+		// Revisit an option row: Enter must advance, not reject the existing answer.
+		const onOption = step(custom.state, "up").state;
+		const revisited = step(onOption, "enter");
+		expect(revisited.effect).toEqual({ type: "submit" });
+	});
 });
 
 describe("multiple questions", () => {

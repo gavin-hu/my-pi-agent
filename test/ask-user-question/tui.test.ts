@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { askViaTui } from "../../extensions/ask-user-question/tui.ts";
 import type { Question } from "../../extensions/ask-user-question/types.ts";
 
@@ -80,6 +81,64 @@ describe("askViaTui render", () => {
 		const text = h.render().join("\n");
 		expect(text).toContain("[x] OAuth");
 		expect(text).toContain("Selected: OAuth");
+	});
+
+	test("re-wraps when the width changes instead of serving stale lines", () => {
+		const h = harness([withOptions]);
+
+		const narrow = h.render(24);
+		expect(narrow.every((line) => visibleWidth(line) <= 24)).toBe(true);
+
+		// Rendering wider must recompute the wrap, not return the 24-col cache.
+		const wide = h.render(80);
+		expect(wide).not.toEqual(narrow);
+		expect(wide.every((line) => visibleWidth(line) <= 80)).toBe(true);
+		expect(wide.join("\n")).toContain("Which authentication should we use?");
+		expect(wide.join("\n")).toContain("Provider flow");
+	});
+
+	test("never splits a tab and keeps the submit arrow with its label", () => {
+		const headers = ["FirstHeader", "SecondHeader", "ThirdHeader", "FourthHeader"];
+		const questions = headers.map((header, i) => ({ ...withOptions, id: `q${i + 1}`, header }));
+		for (const width of [80, 44, 32, 20]) {
+			const lines = harness(questions).render(width);
+			expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
+			const submitLine = lines.find((line) => line.includes("Submit"));
+			expect(submitLine).toBeDefined();
+			expect(submitLine).toContain("→");
+			// A tab must not be broken across two lines: each header appears exactly once.
+			for (const header of headers) {
+				expect(lines.filter((line) => line.includes(header))).toHaveLength(1);
+			}
+		}
+	});
+
+	test("keeps answers gathered before a cancel", async () => {
+		const second: Question = { ...withOptions, id: "q2", header: "Scope", question: "Which scopes?" };
+		const h = harness([withOptions, second]);
+		h.input("\r"); // answer Auth and advance to Scope
+		h.input("\x1b"); // cancel on Scope
+		const result = await h.result;
+		expect(result.cancelled).toBe(true);
+		expect(result.answers).toHaveLength(1);
+		expect(result.answers[0].header).toBe("Auth");
+		expect(result.answers[0].values).toEqual(["OAuth"]);
+	});
+
+	test("shows a custom multi-select Other answer as selected", () => {
+		const multi: Question = { ...withOptions, id: "q1", header: "Auth", multiSelect: true };
+		const second: Question = { ...withOptions, id: "q2", header: "Scope", question: "Which scopes?" };
+		const h = harness([multi, second]);
+		h.input("\x1b[B"); // down to option 2
+		h.input("\x1b[B"); // down to Other
+		h.input("\r"); // open the editor
+		h.input("hand-rolled");
+		h.input("\r"); // commit custom text and advance to Scope
+		h.input("\x1b[D"); // back to Auth
+
+		const text = h.render().join("\n");
+		expect(text).toContain("[x] Other (type something)");
+		expect(text).toContain("Selected: hand-rolled");
 	});
 });
 

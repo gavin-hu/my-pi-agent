@@ -6,8 +6,16 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { OTHER_LABEL, cancelledResult, completedResult, describeSelection } from "./answers.ts";
+import {
+	Editor,
+	type EditorTheme,
+	Key,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
+import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "./answers.ts";
 import {
 	allAnswered,
 	applyCustomText,
@@ -21,7 +29,40 @@ import {
 } from "./tui-state.ts";
 import type { AskResult, Question, Selection } from "./types.ts";
 
-type Outcome = { type: "cancelled" } | { type: "submitted"; selections: Map<string, Selection> };
+type Outcome =
+	| { type: "cancelled"; selections: Map<string, Selection> }
+	| { type: "submitted"; selections: Map<string, Selection> };
+
+/**
+ * Lay atomic, ANSI-styled cells onto lines no wider than `width`.
+ *
+ * Cells are never split: a cell that would not fit moves to the next line, and
+ * a cell wider than the whole viewport is truncated. This keeps tab labels and
+ * the submit arrow intact instead of letting `wrapTextWithAnsi` break them
+ * mid-token.
+ */
+function layoutCells(cells: string[], width: number): string[] {
+	const lines: string[] = [];
+	let current = "";
+	let currentWidth = 0;
+	for (const cell of cells) {
+		let text = cell;
+		let cellWidth = visibleWidth(cell);
+		if (cellWidth > width) {
+			text = truncateToWidth(cell, width);
+			cellWidth = visibleWidth(text);
+		}
+		if (currentWidth > 0 && currentWidth + cellWidth > width) {
+			lines.push(current);
+			current = "";
+			currentWidth = 0;
+		}
+		current += text;
+		currentWidth += cellWidth;
+	}
+	lines.push(current);
+	return lines;
+}
 
 function mapKey(data: string): KeyAction | undefined {
 	if (matchesKey(data, Key.up)) return "up";
@@ -40,8 +81,12 @@ function mapKey(data: string): KeyAction | undefined {
 export async function askViaTui(ctx: ExtensionContext, questions: Question[], signal?: AbortSignal): Promise<AskResult> {
 	const outcome = await ctx.ui.custom<Outcome>((tui, theme, _keybindings, done) => {
 		let state: TuiState = initialState(questions);
+		let cachedWidth: number | undefined;
 		let cachedLines: string[] | undefined;
 		let settled = false;
+
+		/** Snapshot the answers recorded so far, for submit or partial cancel. */
+		const selectionMap = (): Map<string, Selection> => new Map(Object.entries(state.selections));
 
 		const finish = (result: Outcome): void => {
 			if (settled) return;
@@ -49,7 +94,7 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 			signal?.removeEventListener("abort", onAbort);
 			done(result);
 		};
-		const onAbort = (): void => finish({ type: "cancelled" });
+		const onAbort = (): void => finish({ type: "cancelled", selections: selectionMap() });
 		signal?.addEventListener("abort", onAbort, { once: true });
 		if (signal?.aborted) onAbort();
 
@@ -66,6 +111,7 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 		const editor = new Editor(tui, editorTheme);
 
 		const refresh = (): void => {
+			cachedWidth = undefined;
 			cachedLines = undefined;
 			tui.requestRender();
 		};
@@ -73,11 +119,11 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 		/** Resolve the interaction for terminal effects; returns true when finished. */
 		const finishWith = (effect: Effect): boolean => {
 			if (effect.type === "cancel") {
-				finish({ type: "cancelled" });
+				finish({ type: "cancelled", selections: selectionMap() });
 				return true;
 			}
 			if (effect.type === "submit") {
-				finish({ type: "submitted", selections: new Map(Object.entries(state.selections)) });
+				finish({ type: "submitted", selections: selectionMap() });
 				return true;
 			}
 			return false;
@@ -116,7 +162,7 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 		}
 
 		function render(width: number): string[] {
-			if (cachedLines) return cachedLines;
+			if (cachedLines && cachedWidth === width) return cachedLines;
 
 			const lines: string[] = [];
 			const renderWidth = Math.max(1, width);
@@ -149,20 +195,25 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 					const active = i === state.cursor;
 					const prefix = active ? theme.fg("accent", "> ") : "  ";
 					if (!option) {
-						const label = `${i + 1}. ${OTHER_LABEL}${state.editing ? " ✎" : ""}`;
+						const otherSelected = selection?.type === "custom";
+						const otherMarker = target.multiSelect ? `[${otherSelected ? "x" : " "}] ` : "";
+						const label = `${i + 1}. ${otherMarker}${OTHER_LABEL}${state.editing ? " ✎" : ""}`;
 						addWithPrefix(prefix, theme.fg(active || state.editing ? "accent" : "text", label));
 						continue;
 					}
 					const marker = target.multiSelect ? `[${chosen.includes(i + 1) ? "x" : " "}] ` : "";
 					addWithPrefix(prefix, theme.fg(active ? "accent" : "text", `${i + 1}. ${marker}${option.label}`));
-					if (option.description) addWithPrefix("     ", theme.fg("muted", option.description));
+					if (option.description) {
+						const indent = " ".repeat(visibleWidth(prefix) + String(i + 1).length + 2 + visibleWidth(marker));
+						addWithPrefix(indent, theme.fg("muted", option.description));
+					}
 				}
 			}
 
 			lines.push(theme.fg("accent", "─".repeat(renderWidth)));
 
 			if (isMulti) {
-				const tabs: string[] = ["← "];
+				const cells: string[] = [];
 				for (let i = 0; i < questions.length; i++) {
 					const answered = state.selections[questions[i].id] !== undefined;
 					const active = i === state.tab;
@@ -170,15 +221,16 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 					const styled = active
 						? theme.bg("selectedBg", theme.fg("text", text))
 						: theme.fg(answered ? "success" : "muted", text);
-					tabs.push(`${styled} `);
+					// Keep the leading hint glued to the first tab so it never wraps alone.
+					cells.push(cells.length === 0 ? `${theme.fg("muted", "← ")}${styled} ` : `${styled} `);
 				}
 				const canSubmit = allAnswered(state);
 				const submitText = " ✓ Submit ";
 				const submitStyled = submitTab
 					? theme.bg("selectedBg", theme.fg("text", submitText))
 					: theme.fg(canSubmit ? "success" : "dim", submitText);
-				tabs.push(`${submitStyled} →`);
-				addWithPrefix(" ", tabs.join(""));
+				cells.push(`${submitStyled} →`);
+				for (const tabLine of layoutCells(cells, Math.max(1, renderWidth - 1))) lines.push(` ${tabLine}`);
 				lines.push("");
 			}
 
@@ -188,8 +240,9 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 				renderOptions(question);
 				lines.push("");
 				addWithPrefix(" ", theme.fg("muted", "Your answer:"));
+				const editorPad = renderWidth > 1 ? " " : "";
 				for (const line of editor.render(Math.max(1, renderWidth - 2))) {
-					lines.push(` ${line}`);
+					lines.push(`${editorPad}${line}`);
 				}
 				lines.push("");
 				if (state.message) addWithPrefix(" ", theme.fg("warning", state.message));
@@ -220,19 +273,25 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 				renderOptions(question);
 				lines.push("");
 				if (state.message) addWithPrefix(" ", theme.fg("warning", state.message));
-				const help = question.multiSelect
-					? "↑↓ move • Space toggle • Enter confirm • Esc cancel"
-					: "↑↓ navigate • Enter select • Esc cancel";
+				const help =
+					optionCount(question) === 0
+						? "Enter to type an answer • Esc cancel"
+						: question.multiSelect
+							? "↑↓ move • Space toggle • Enter confirm • Esc cancel"
+							: "↑↓ choose • Enter select • Esc cancel";
 				addWithPrefix(" ", theme.fg("dim", `${isMulti ? "Tab/←→ navigate • " : ""}${help}`));
 				if (question.multiSelect) {
 					const selection = state.selections[question.id];
 					if (selection?.type === "options" && selection.labels.length > 0) {
 						addWithPrefix(" ", theme.fg("success", `Selected: ${selection.labels.join(", ")}`));
+					} else if (selection?.type === "custom") {
+						addWithPrefix(" ", theme.fg("success", `Selected: ${selection.text}`));
 					}
 				}
 			}
 
 			lines.push(theme.fg("accent", "─".repeat(renderWidth)));
+			cachedWidth = width;
 			cachedLines = lines;
 			return lines;
 		}
@@ -240,6 +299,7 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 		return {
 			render,
 			invalidate: () => {
+				cachedWidth = undefined;
 				cachedLines = undefined;
 			},
 			handleInput,
@@ -249,6 +309,6 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 		};
 	});
 
-	if (outcome.type === "cancelled") return cancelledResult(questions);
+	if (outcome.type === "cancelled") return cancelledResult(questions, collectAnswers(questions, outcome.selections));
 	return completedResult(questions, outcome.selections);
 }

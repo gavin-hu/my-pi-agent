@@ -146,7 +146,9 @@ function confirmCurrent(state: TuiState, question: Question): { state: TuiState;
 
 	if (question.multiSelect) {
 		const existing = state.selections[question.id];
-		if (!existing || existing.type !== "options" || existing.indices.length === 0) {
+		const answered =
+			existing?.type === "custom" || (existing?.type === "options" && existing.indices.length > 0);
+		if (!answered) {
 			return { state: { ...state, message: "Select at least one option." }, effect: { type: "blocked", message: "Select at least one option." } };
 		}
 		return advance(state);
