@@ -1,10 +1,10 @@
 /**
- * web-search — keyless web search for Pi.
+ * web-search — keyless, fetch-only web lookup for Pi.
  *
- * Registers one `web_search` tool backed by DuckDuckGo's classic HTML endpoint.
- * It is `direct` and active by default (also callable from codemode scripts
- * while active), runs sequentially, and reads its settings from
- * `~/.pi/agent/web-search.json` merged with `<cwd>/.pi/web-search.json`.
+ * Registers one `web_search` tool: DuckDuckGo Instant Answers first, Wikipedia
+ * as a fallback. Both are keyless and use native `fetch`. It is `direct` and
+ * active by default, and reads settings from `~/.pi/agent/web-search.json`
+ * merged with `<cwd>/.pi/web-search.json`.
  *
  * Load with:  pi --extension ./extensions/web-search
  */
@@ -12,8 +12,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { loadConfig } from "./config.ts";
-import { searchDuckDuckGo } from "./duckduckgo.ts";
 import { formatResults } from "./format.ts";
+import { runSearch } from "./search.ts";
 import { resolveRequest, WebSearchOutput, WebSearchParams, type WebSearchArgs } from "./schema.ts";
 import type { SearchResponse } from "./types.ts";
 
@@ -24,13 +24,13 @@ export default function webSearch(pi: ExtensionAPI) {
 		name: TOOL_NAME,
 		label: "Web search",
 		description:
-			"Search the web and get ranked results (title, URL, snippet). Keyless DuckDuckGo; works for Chinese and " +
-			"English. Use it for current facts, documentation, or anything not in the repository. Prefer specific " +
-			"queries; results are snippets only, so open a promising URL with fetch/bash when you need the full page.",
-		promptSnippet: "Search the web for ranked results with titles, URLs, and snippets.",
+			"Look up a quick fact, definition, or topic. Uses DuckDuckGo instant answers first and falls back to " +
+			"Wikipedia, so it returns answers and encyclopedia-style results (title, URL, snippet) rather than general " +
+			"web results. For anything else, or when you already have a URL, use web_fetch to read the page.",
+		promptSnippet: "Look up a fact/topic via DuckDuckGo instant answers, falling back to Wikipedia.",
 		promptGuidelines: [
-			"Use web_search for current or external information, then read promising pages rather than trusting snippets.",
-			"Issue specific queries; multiple narrow web_search calls usually beat one broad query.",
+			"Use web_search for quick facts and encyclopedia topics; it is not a general web search engine.",
+			"When you need current or niche information, or a specific page, use web_fetch instead.",
 		],
 		parameters: WebSearchParams,
 		outputSchema: WebSearchOutput,
@@ -42,12 +42,13 @@ export default function webSearch(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const config = loadConfig(ctx.cwd);
 			const request = resolveRequest(params as WebSearchArgs, config);
-			const results = await searchDuckDuckGo(request, config, signal);
+			const outcome = await runSearch(request, config, signal);
 
 			const response: SearchResponse = {
 				query: request.query,
-				provider: "duckduckgo",
-				results,
+				provider: outcome.provider,
+				answer: outcome.answer,
+				results: outcome.results,
 				truncated: false,
 				fetchedAt: new Date().toISOString(),
 			};
@@ -62,10 +63,9 @@ export default function webSearch(pi: ExtensionAPI) {
 		},
 
 		renderCall(args, theme) {
-			const { query, maxResults, region } = args as WebSearchArgs;
+			const { query, maxResults } = args as WebSearchArgs;
 			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", query ?? "");
-			const meta = [region, maxResults ? `${maxResults} results` : undefined].filter(Boolean);
-			if (meta.length > 0) text += theme.fg("dim", ` (${meta.join(", ")})`);
+			if (maxResults) text += theme.fg("dim", ` (${maxResults} results)`);
 			return new Text(text, 0, 0);
 		},
 
@@ -76,13 +76,15 @@ export default function webSearch(pi: ExtensionAPI) {
 				const message = first?.type === "text" ? first.text : "Search failed";
 				return new Text(theme.fg("error", message), 0, 0);
 			}
-			if (details.results.length === 0) {
+			if (details.provider === "none") {
 				return new Text(theme.fg("dim", `No results for "${details.query}".`), 0, 0);
 			}
 
+			const lines: string[] = [theme.fg("dim", `via ${details.provider}`)];
+			if (details.answer) lines.push(theme.fg("muted", details.answer.slice(0, 160)));
 			const shown = details.results.slice(0, 5);
-			const lines = shown.map(
-				(item, index) => `${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", item.title)}`,
+			lines.push(
+				...shown.map((item, index) => `${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", item.title)}`),
 			);
 			const extra = details.results.length - shown.length;
 			if (extra > 0) lines.push(theme.fg("dim", `+${extra} more`));

@@ -2,38 +2,62 @@ import { describe, expect, test } from "bun:test";
 import { formatResults } from "../../extensions/web-search/format.ts";
 import type { SearchResponse } from "../../extensions/web-search/types.ts";
 
-function response(results: SearchResponse["results"], query = "pi agent"): SearchResponse {
-	return { query, provider: "duckduckgo", results, truncated: false, fetchedAt: "2026-01-01T00:00:00.000Z" };
+function response(overrides: Partial<SearchResponse>): SearchResponse {
+	return {
+		query: "pi agent",
+		provider: "duckduckgo",
+		answer: "",
+		results: [],
+		truncated: false,
+		fetchedAt: "2026-01-01T00:00:00.000Z",
+		...overrides,
+	};
 }
 
 describe("formatResults", () => {
-	test("renders numbered blocks with url and snippet", () => {
+	test("renders an instant answer and numbered results", () => {
 		const { text, truncated } = formatResults(
-			response([
-				{ title: "First", url: "https://a.example/", snippet: "Alpha" },
-				{ title: "Second", url: "https://b.example/", snippet: "" },
-			]),
+			response({
+				answer: "Pi is a minimal agent harness — pi.dev (https://pi.dev/)",
+				results: [
+					{ title: "Pi", url: "https://pi.dev/", snippet: "A harness." },
+					{ title: "GitHub", url: "https://github.com/earendil-works/pi", snippet: "" },
+				],
+			}),
 			10_000,
 		);
-		expect(text).toContain('DuckDuckGo results for "pi agent"');
-		expect(text).toContain("1. First\n   https://a.example/\n   Alpha");
-		expect(text).toContain("2. Second\n   https://b.example/");
+		expect(text).toContain('DuckDuckGo instant answer for "pi agent"');
+		expect(text).toContain("Answer: Pi is a minimal agent harness");
+		expect(text).toContain("1. Pi\n   https://pi.dev/\n   A harness.");
+		expect(text).toContain("2. GitHub\n   https://github.com/earendil-works/pi");
 		expect(truncated).toBe(false);
 	});
 
-	test("reports no results without a heading list", () => {
-		const { text, truncated } = formatResults(response([]), 10_000);
-		expect(text).toBe('DuckDuckGo results for "pi agent": no results.');
+	test("labels Wikipedia results", () => {
+		const { text } = formatResults(
+			response({ provider: "wikipedia", results: [{ title: "广州", url: "https://zh.wikipedia.org/wiki/广州", snippet: "城市" }] }),
+			10_000,
+		);
+		expect(text).toContain('Wikipedia results for "pi agent"');
+		expect(text).toContain("1. 广州");
+	});
+
+	test("explains an empty result and points at web_fetch", () => {
+		const { text, truncated } = formatResults(response({ provider: "none" }), 10_000);
+		expect(text).toContain("No instant answer or Wikipedia results");
+		expect(text).toContain("web_fetch");
 		expect(truncated).toBe(false);
 	});
 
 	test("drops whole blocks that do not fit and notes the count", () => {
 		const { text, truncated } = formatResults(
-			response([
-				{ title: "First", url: "https://a.example/", snippet: "x".repeat(40) },
-				{ title: "Second", url: "https://b.example/", snippet: "y".repeat(40) },
-			]),
-			160,
+			response({
+				results: [
+					{ title: "First", url: "https://a.example/", snippet: "x".repeat(40) },
+					{ title: "Second", url: "https://b.example/", snippet: "y".repeat(40) },
+				],
+			}),
+			180,
 		);
 		expect(truncated).toBe(true);
 		expect(text).toContain("1. First");
@@ -43,7 +67,7 @@ describe("formatResults", () => {
 
 	test("hard-truncates by code point and keeps CJK well-formed", () => {
 		const { text, truncated } = formatResults(
-			response([{ title: "中文标题", url: "https://example.cn/", snippet: "一段很长的中文摘要".repeat(20) }]),
+			response({ results: [{ title: "中文标题", url: "https://example.cn/", snippet: "一段很长的中文摘要".repeat(20) }] }),
 			60,
 		);
 		expect(truncated).toBe(true);

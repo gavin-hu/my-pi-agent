@@ -17,35 +17,29 @@ describe("normalizeConfig", () => {
 	});
 
 	test("clamps numeric values into range", () => {
-		const config = normalizeConfig({ maxResults: 999, timeoutMs: 5, minIntervalMs: -10, maxOutputChars: 10 });
+		const config = normalizeConfig({ maxResults: 999, timeoutMs: 5, maxBytes: 1, minIntervalMs: -10, maxOutputChars: 10 });
 		expect(config.maxResults).toBe(MAX_RESULTS);
 		expect(config.timeoutMs).toBe(1_000);
+		expect(config.maxBytes).toBe(1_024);
 		expect(config.minIntervalMs).toBe(0);
 		expect(config.maxOutputChars).toBe(1_000);
 	});
 
-	test("rejects an unknown safe-search value and region, keeping the base", () => {
-		const config = normalizeConfig({ safeSearch: "yolo", region: "not a region" });
-		expect(config.safeSearch).toBe(DEFAULT_CONFIG.safeSearch);
-		expect(config.region).toBe(DEFAULT_CONFIG.region);
+	test("accepts a wikipedia language code and rejects nonsense", () => {
+		expect(normalizeConfig({ wikipediaLang: "zh" }).wikipediaLang).toBe("zh");
+		expect(normalizeConfig({ wikipediaLang: "zh-classical" }).wikipediaLang).toBe("zh-classical");
+		expect(normalizeConfig({ wikipediaLang: "not a lang!" }).wikipediaLang).toBe(DEFAULT_CONFIG.wikipediaLang);
 	});
 
-	test("accepts a valid region case-insensitively and lowercases it", () => {
-		expect(normalizeConfig({ region: "CN-ZH" }).region).toBe("cn-zh");
+	test("rejects non-http endpoints", () => {
+		const config = normalizeConfig({ instantAnswerEndpoint: "file:///etc/passwd", wikipediaEndpoint: "nope" });
+		expect(config.instantAnswerEndpoint).toBe(DEFAULT_CONFIG.instantAnswerEndpoint);
+		expect(config.wikipediaEndpoint).toBe(DEFAULT_CONFIG.wikipediaEndpoint);
 	});
 
-	test("rejects a non-http endpoint", () => {
-		expect(normalizeConfig({ endpoint: "file:///etc/passwd" }).endpoint).toBe(DEFAULT_CONFIG.endpoint);
-	});
-
-	test("keeps a custom user agent and treats blank as null", () => {
+	test("keeps a custom user agent and treats blank as the default", () => {
 		expect(normalizeConfig({ userAgent: " my-bot " }).userAgent).toBe("my-bot");
-		expect(normalizeConfig({ userAgent: "   " }).userAgent).toBeNull();
-	});
-
-	test("uses a custom curl path and falls back to the default when blank", () => {
-		expect(normalizeConfig({ curlPath: "/opt/homebrew/bin/curl" }).curlPath).toBe("/opt/homebrew/bin/curl");
-		expect(normalizeConfig({ curlPath: "  " }).curlPath).toBe(DEFAULT_CONFIG.curlPath);
+		expect(normalizeConfig({ userAgent: "   " }).userAgent).toBe(DEFAULT_CONFIG.userAgent);
 	});
 });
 
@@ -54,13 +48,13 @@ describe("loadConfig", () => {
 		const globalDir = mkdtempSync(join(tmpdir(), "web-search-global-"));
 		const cwd = mkdtempSync(join(tmpdir(), "web-search-project-"));
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(globalDir, "web-search.json"), JSON.stringify({ maxResults: 3, region: "us-en" }));
+		writeFileSync(join(globalDir, "web-search.json"), JSON.stringify({ maxResults: 3, wikipediaLang: "zh" }));
 		writeFileSync(join(cwd, ".pi", "web-search.json"), JSON.stringify({ maxResults: 5 }));
 		process.env.PI_CODING_AGENT_DIR = globalDir;
 
 		const config = loadConfig(cwd);
 		expect(config.maxResults).toBe(5);
-		expect(config.region).toBe("us-en");
+		expect(config.wikipediaLang).toBe("zh");
 	});
 
 	test("ignores malformed files", () => {
