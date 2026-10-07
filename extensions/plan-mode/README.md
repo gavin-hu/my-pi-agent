@@ -80,19 +80,24 @@ opens a menu below the editor:
 ## The bash allowlist
 
 `analyzeCommand` splits the command line into segments (`;`, `&&`, `||`, `|`,
-newlines, quote-aware) and requires every segment's first word to be on a
+`&`, newlines, quote-aware) and requires every segment's first word to be on a
 read-only allowlist. It also rejects argument-level escape hatches.
 
 Allowed: `cat`, `head`, `tail`, the search tools (`grep`, `rg`, `find`, `fd`),
 `ls`, `wc`, `sort`, `diff`, `jq`, `sed -n`, read-only `git` (`status`, `log`,
-`diff`, `show`, `branch`, `remote`, `config --get`, `worktree list`, …), read-only
-`npm`/`yarn`/`pnpm`/`bun` subcommands, interpreters with `--version`, `curl`/`wget`
-GETs, and more.
+`diff`, `show`, `branch` (listing only), `remote`, `config --get`,
+`worktree list`, …), read-only `npm`/`yarn`/`pnpm`/`bun` subcommands,
+interpreters with `--version`, `curl` GETs to stdout, `wget -O -` (stdout), and
+more.
 
-Rejected: `rm`, `mv`, `chmod`, `sudo`, command substitution (`$(…)`, backticks),
-`> file` redirection (except `/dev/null` and `2>&1`), `find -exec`/`-delete`,
-`sed -i`, `git commit`/`push`/`add`, `npm install`, `curl -X POST`, `xargs`,
-`bash -c`, and wrapper commands such as `env … <cmd>`.
+Rejected: `rm`, `mv`, `chmod`, `sudo`, command substitution (`$(…)`,
+backticks), process substitution (`<(…)`, `>(…)`), `> file` redirection (except
+`/dev/null`, `2>&1`, and `&>` to `/dev/null`), `find -exec`/`-delete`,
+`sed -i` and `sed`'s `w` command, `git commit`/`push`/`add`,
+`git branch <name>` (creation), `npm install`, `curl -X POST`,
+`curl -o`/`-O` (file writes), a bare `wget` (it downloads to the working
+directory; use `-O -`), `xargs`, `bash -c`, and wrapper commands such as
+`env … <cmd>`.
 
 > This is a guard rail, not a sandbox. Extensions run with Pi's OS permissions;
 > the allowlist prevents accidental writes while planning, not a hostile command.

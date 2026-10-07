@@ -135,12 +135,17 @@ const VERSION_ONLY = new Set(["node", "python", "python3"]);
 /** Argument-level escape hatches, checked against the whole command line. */
 const DENY_ARGUMENTS: Array<{ pattern: RegExp; reason: string }> = [
 	{ pattern: /\$\(|`/, reason: "command substitution is not allowed" },
+	{ pattern: /[<>]\(/, reason: "process substitution is not allowed" },
 	{ pattern: /\bsudo\b|\bsu\b/, reason: "privilege escalation is not allowed" },
 	{ pattern: /\bfind\b[^|;]*\s-(exec|execdir|ok|okdir|delete|fprint|fprint0|fls)\b/, reason: "find may not execute or delete" },
 	{ pattern: /\b(?:sed|perl)\b[^|;]*\s(?:-i|--in-place)\b/, reason: "in-place editing is not allowed" },
+	{ pattern: /\bsed\b[^|;]*['"]\s*w\s+[^\s;'"]/, reason: "sed may not write a file" },
+	{ pattern: /\bsed\b[^|;]*\bs\/[^/;]*\/[^/;]*\/[a-z]*w[a-z]*\s+[^\s;'"]/, reason: "sed may not write a file" },
 	{ pattern: /\bsort\b[^|;]*\s(?:-o|--output)\b/, reason: "sort may not write a file" },
 	{ pattern: /\btree\b[^|;]*\s-o\b/, reason: "tree may not write a file" },
 	{ pattern: /\bdate\b[^|;]*\s(?:-s|--set)\b/, reason: "the clock may not be set" },
+	{ pattern: /\bcurl\b[^|;]*\s-[a-zA-Z]*[oO]\b/, reason: "curl may not write a file" },
+	{ pattern: /\bcurl\b[^|;]*\s--(?:output|remote-name)\b/, reason: "curl may not write a file" },
 	{ pattern: /\bcurl\b[^|;]*\s(?:-X\s*(?:POST|PUT|PATCH|DELETE)|--data\S*|-d\b|-F\b|-T\b|--upload-file)/i, reason: "curl may not mutate remote state" },
 	{ pattern: /\bwget\b[^|;]*\s(?:--post-data|--post-file|--method)/i, reason: "wget may not mutate remote state" },
 ];
@@ -179,10 +184,21 @@ export function splitSegments(command: string): string[] {
 			current = "";
 			continue;
 		}
-		if (ch === "&" && command[i + 1] === "&") {
+		if (ch === "&") {
+			if (command[i + 1] === "&") {
+				segments.push(current);
+				current = "";
+				i++;
+				continue;
+			}
+			// `>&` (file-descriptor duplication) and `&>` (combined redirect) are
+			// redirection syntax, not command list separators.
+			if (command[i - 1] === ">" || command[i + 1] === ">") {
+				current += ch;
+				continue;
+			}
 			segments.push(current);
 			current = "";
-			i++;
 			continue;
 		}
 		if (ch === "|") {
@@ -236,8 +252,31 @@ function unsafeArguments(command: string, args: string[]): string | undefined {
 		if (sub === "config" && !args.some((arg) => GIT_CONFIG_READ.has(arg))) {
 			return '"git config" is only allowed with a read flag';
 		}
-		if (sub === "branch" && args.some((arg) => /^-[dDmM]$/.test(arg) || /^--(delete|move)$/.test(arg))) {
-			return '"git branch" may not modify branches';
+		if (sub === "branch") {
+			const rest = args.slice(1);
+			// Only listing flags are allowed; a bare positional argument names a
+			// branch to create, rename, or delete.
+			const VALUE_FLAGS = new Set([
+				"-l",
+				"--list",
+				"--contains",
+				"--no-contains",
+				"--merged",
+				"--no-merged",
+				"--points-at",
+				"--format",
+				"--sort",
+				"-t",
+				"--track",
+			]);
+			for (let i = 0; i < rest.length; i++) {
+				const arg = rest[i];
+				if (arg.startsWith("-")) {
+					if (VALUE_FLAGS.has(arg)) i++;
+					continue;
+				}
+				return '"git branch" may only list branches';
+			}
 		}
 		if (sub === "remote" && args.some((arg) => ["add", "remove", "rm", "set-url", "rename", "set-head", "prune"].includes(arg))) {
 			return '"git remote" may not be modified';
@@ -263,7 +302,31 @@ function unsafeArguments(command: string, args: string[]): string | undefined {
 	if (command === "find" && args.some((arg) => ["-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprint"].includes(arg))) {
 		return "find may not execute or delete";
 	}
+
+	if (command === "wget") {
+		if (!wgetWritesToStdout(args)) return '"wget" must write to stdout with -O - in plan mode';
+		return undefined;
+	}
 	return undefined;
+}
+
+/** Whether a `wget` invocation sends its download to stdout (`-O -`). */
+function wgetWritesToStdout(args: string[]): boolean {
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "--output-document") return args[i + 1] === "-";
+		if (arg.startsWith("--output-document=")) return arg.slice("--output-document=".length) === "-";
+		if (arg.startsWith("-") && !arg.startsWith("--")) {
+			const cluster = arg.slice(1);
+			const index = cluster.indexOf("O");
+			if (index === -1) continue;
+			const attached = cluster.slice(index + 1);
+			if (attached === "-") return true;
+			if (attached === "") return args[i + 1] === "-";
+			return false;
+		}
+	}
+	return false;
 }
 
 /** Assess one segment; returns a rejection reason or undefined. */

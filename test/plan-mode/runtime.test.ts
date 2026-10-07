@@ -44,6 +44,15 @@ describe("plan runtime — tool gating", () => {
 		runtime.toggle(ctx);
 		expect(activeTools()).toContain("todo");
 	});
+
+	test("disable does not activate tools that were not active", () => {
+		const { runtime, ctx, activeTools } = setup({ active: ["read", "todo"] });
+		runtime.enable(ctx);
+		runtime.disable(ctx);
+		expect(activeTools()).not.toContain("write");
+		expect(activeTools()).not.toContain("edit");
+		expect(activeTools()).not.toContain(ENTER_TOOL);
+	});
 });
 
 describe("plan runtime — persistence and status", () => {
@@ -83,6 +92,20 @@ describe("plan runtime — persistence and status", () => {
 		runtime.restore(ctx);
 		expect(runtime.isEnabled()).toBe(true);
 		expect(activeTools()).not.toContain("edit");
+	});
+
+	test("a persisted disable wins over the --plan flag", () => {
+		const { runtime, ctx, activeTools } = setup({ planFlag: true, branch: [stateEntry(false)] });
+		runtime.restore(ctx);
+		expect(runtime.isEnabled()).toBe(false);
+		expect(activeTools()).toContain("write");
+		expect(activeTools()).not.toContain(EXIT_TOOL);
+	});
+
+	test("a persisted enable wins too", () => {
+		const { runtime, ctx } = setup({ branch: [stateEntry(true)] });
+		runtime.restore(ctx);
+		expect(runtime.isEnabled()).toBe(true);
 	});
 
 	test("restore does not append a state entry", () => {

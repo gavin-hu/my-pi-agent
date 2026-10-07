@@ -98,7 +98,14 @@ export default function planMode(pi: ExtensionAPI): void {
 
 	// Keep stale plan-mode context out of later, non-plan turns (for example after /resume).
 	pi.on("context", (event) => {
-		if (runtime.isEnabled()) return undefined;
+		const planContexts = event.messages.filter(isPlanModeContext);
+		if (runtime.isEnabled()) {
+			// `before_agent_start` injects one each turn; keep only the newest so
+			// repeated instructions do not accumulate during a long plan.
+			if (planContexts.length <= 1) return undefined;
+			const last = planContexts[planContexts.length - 1];
+			return { messages: event.messages.filter((message) => !isPlanModeContext(message) || message === last) };
+		}
 		return { messages: event.messages.filter((message) => !isPlanModeContext(message)) };
 	});
 }

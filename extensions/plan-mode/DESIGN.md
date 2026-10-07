@@ -56,15 +56,18 @@ absent the outcome is simply `isError`, which plan mode ignores.
 
 **Segment-based bash allowlist.** The Pi example tests the whole command string
 with allow/deny regexes, which is easily bypassed. Splitting on shell operators
-(quote-aware) and validating every segment's first word closes the obvious
-holes (`ls; rm -rf x`, `curl … | sh`). Argument-level checks cover the rest
-(`find -exec`, `sed -i`, `git commit`, redirects, command substitution). It is
-deliberately conservative and documented as a guard, not containment.
+(`;`, `&&`, `||`, `|`, `&`, newlines, quote-aware) and validating every
+segment's first word closes the obvious holes (`ls; rm -rf x`, `ls & rm x`,
+`curl … | sh`). Argument-level checks cover the rest (`find -exec`, `sed -i`
+and `sed w`, redirects, command and process substitution, `curl -o`, a bare
+`wget`). It is deliberately conservative and documented as a guard, not
+containment.
 
 **State as a custom entry.** `{ enabled }` is persisted with
 `pi.appendEntry("plan-mode", …)` — excluded from model context, reconstructed
 from `ctx.sessionManager.getBranch()` on start and tree navigation. The
-`--plan` flag ORs in on restore.
+`--plan` flag enables plan mode only when the branch has no persisted entry, so
+a later disable survives tree navigation and `/resume`.
 
 ## Model surface
 

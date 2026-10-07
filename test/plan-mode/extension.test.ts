@@ -117,6 +117,13 @@ describe("plan-mode context", () => {
 		const [result] = await emit(fakePi.pi, "context", { messages: [planModeMessage()] }, ctx);
 		expect(result).toBeUndefined();
 	});
+
+	test("keeps only the newest injection while enabled", async () => {
+		const { fakePi, ctx } = await enabledPi();
+		const newest = planModeMessage();
+		const [result] = await emit(fakePi.pi, "context", { messages: [planModeMessage(), otherMessage(), newest] }, ctx);
+		expect(result.messages).toEqual([otherMessage(), newest]);
+	});
 });
 
 describe("/plan command", () => {

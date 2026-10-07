@@ -42,16 +42,19 @@ function readPersistedEnabled(ctx: ExtensionContext): boolean | undefined {
 
 export function createPlanRuntime(pi: ExtensionAPI): PlanRuntime {
 	let enabled = false;
+	// Tools plan mode deactivated, so disabling restores exactly those and does
+	// not re-activate a tool another extension intentionally hid.
+	let removedForPlan: string[] = [];
 
 	const applyTools = (): void => {
 		const active = pi.getActiveTools();
 		if (enabled) {
 			const hidden = new Set<string>([...RESTRICTED_TOOLS, ENTER_TOOL]);
+			removedForPlan = [...new Set(active.filter((name) => hidden.has(name)))];
 			pi.setActiveTools([...new Set([...active.filter((name) => !hidden.has(name)), EXIT_TOOL])]);
 		} else {
-			pi.setActiveTools(
-				[...new Set([...active.filter((name) => name !== EXIT_TOOL), ...RESTRICTED_TOOLS, ENTER_TOOL])],
-			);
+			pi.setActiveTools([...new Set([...active.filter((name) => name !== EXIT_TOOL), ...removedForPlan])]);
+			removedForPlan = [];
 		}
 	};
 
@@ -73,8 +76,10 @@ export function createPlanRuntime(pi: ExtensionAPI): PlanRuntime {
 		disable: (ctx) => setEnabled(false, ctx, true),
 		toggle: (ctx) => setEnabled(!enabled, ctx, true),
 		restore: (ctx) => {
-			const fromFlag = pi.getFlag("plan") === true;
 			const restored = readPersistedEnabled(ctx);
+			// `--plan` starts a fresh session in plan mode; an explicit persisted
+			// choice (including a later disable) wins over the launch flag.
+			const fromFlag = restored === undefined && pi.getFlag("plan") === true;
 			setEnabled(fromFlag || restored === true, ctx, false);
 		},
 	};

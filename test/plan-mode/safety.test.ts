@@ -7,6 +7,12 @@ describe("splitSegments", () => {
 		expect(splitSegments("a || b")).toEqual(["a", "b"]);
 	});
 
+	test("splits on a bare & but keeps >& and &>", () => {
+		expect(splitSegments("ls & rm -rf x")).toEqual(["ls", "rm -rf x"]);
+		expect(splitSegments("ls 2>&1")).toEqual(["ls 2>&1"]);
+		expect(splitSegments("ls &> out")).toEqual(["ls &> out"]);
+	});
+
 	test("keeps operators inside quotes", () => {
 		expect(splitSegments(`grep "a;b" file`)).toEqual([`grep "a;b" file`]);
 		expect(splitSegments("grep 'a|b' file")).toEqual(["grep 'a|b' file"]);
@@ -34,7 +40,15 @@ describe("analyzeCommand — safe", () => {
 		"node --version",
 		"python3 --version",
 		"sed -n '1,10p' file",
+		"sed 's/a/w b/' file",
 		"curl https://example.com",
+		"curl -s https://example.com",
+		"wget -qO- https://example.com",
+		"wget -O - https://example.com",
+		"wget --output-document=- https://example.com",
+		"git branch -a",
+		"git branch --list",
+		"git branch -l 'feat*'",
 		"printenv PATH",
 		"jq '.name' package.json",
 		"echo hi > /dev/null",
@@ -75,7 +89,18 @@ describe("analyzeCommand — unsafe", () => {
 		["sudo ls", "sudo"],
 		["curl -X POST https://x", "curl POST"],
 		["curl --data=x https://x", "curl data"],
+		["curl -o out https://x", "curl output file"],
+		["curl -O https://x/f", "curl remote-name"],
+		["curl -sO https://x/f", "curl combined -O"],
+		["wget https://x/f", "wget writes to cwd"],
+		["wget -O out https://x", "wget output file"],
 		["wget --post-data=x y", "wget post"],
+		["ls & rm -rf build", "bare & list"],
+		["ls & git commit -m x", "bare & hides a write"],
+		["cat <(rm -rf /)", "process substitution"],
+		["sed -n 'w /tmp/out' f", "sed w command"],
+		["sed 's/a/b/w out' f", "sed substitution w flag"],
+		["git branch new-feature", "git branch create"],
 		["ls | xargs rm", "xargs"],
 		["env rm -rf x", "env wrapper"],
 		["awk 'BEGIN { system(\"rm -rf /\") }'", "awk"],
