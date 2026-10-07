@@ -9,7 +9,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { formatCallText, formatTodoText, progressSummary } from "./format.ts";
+import { formatCallText, formatTodoText, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, type TodoArgs } from "./schema.ts";
 import type { TodoDetails } from "./types.ts";
@@ -74,21 +74,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			}
 
 			const shown = expanded ? details.todos : details.todos.slice(0, COLLAPSED_ROWS);
-			const lines = shown.map((todo) => {
-				const mark =
-					todo.status === "completed"
-						? theme.fg("success", "✓")
-						: todo.status === "in_progress"
-							? theme.fg("accent", "◐")
-							: theme.fg("dim", "○");
-				const text =
-					todo.status === "completed"
-						? theme.fg("dim", todo.content)
-						: todo.status === "in_progress"
-							? theme.fg("text", todo.activeForm ?? todo.content)
-							: theme.fg("muted", todo.content);
-				return `${mark} ${text}`;
-			});
+			const lines = shown.map((todo) => `${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`);
 			if (!expanded && details.todos.length > shown.length) {
 				lines.push(theme.fg("dim", `… ${details.todos.length - shown.length} more`));
 			}

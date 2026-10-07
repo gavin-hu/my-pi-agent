@@ -2,6 +2,7 @@
  * Model-facing and transcript text for the todo list (pure).
  */
 
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
 
@@ -11,6 +12,25 @@ const MODEL_MARK: Record<TodoStatus, string> = {
 	in_progress: "[~]",
 	completed: "[x]",
 };
+
+/** Themed status glyph, shared by the widget and the transcript renderer. */
+export function todoGlyph(todo: Todo, theme: Theme): string {
+	switch (todo.status) {
+		case "completed":
+			return theme.fg("success", "✓");
+		case "in_progress":
+			return theme.fg("accent", "◐");
+		default:
+			return theme.fg("dim", "○");
+	}
+}
+
+/** Themed item text: completed dim, in-progress accented, pending muted. */
+export function todoLabel(todo: Todo, theme: Theme): string {
+	if (todo.status === "completed") return theme.fg("dim", todo.content);
+	if (todo.status === "in_progress") return theme.fg("text", todo.activeForm ?? todo.content);
+	return theme.fg("muted", todo.content);
+}
 
 /** "2/5 completed", or a note when the list is empty. */
 export function progressSummary(todos: Todo[]): string {
