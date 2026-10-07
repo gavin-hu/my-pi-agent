@@ -107,4 +107,29 @@ describe("planReconcile", () => {
 		const { jobs } = planReconcile([finished], () => true, 999);
 		expect(jobs[0]).toEqual(finished);
 	});
+
+	test("keeps a live non-detached job owned by another live session", () => {
+		const { jobs, orphans } = planReconcile([record({ sessionId: "peer" })], () => true, 999, {
+			isOwnerAlive: (id) => id === "peer",
+			currentSessionId: "me",
+		});
+		expect(orphans).toHaveLength(0);
+		expect(jobs[0].status).toBe("running");
+	});
+
+	test("reaps a live non-detached job whose owner is dead", () => {
+		const { orphans } = planReconcile([record({ sessionId: "peer" })], () => true, 999, {
+			isOwnerAlive: () => false,
+			currentSessionId: "me",
+		});
+		expect(orphans.map((j) => j.id)).toEqual(["j1"]);
+	});
+
+	test("reaps a live non-detached leftover from the current session", () => {
+		const { orphans } = planReconcile([record({ sessionId: "me" })], () => true, 999, {
+			isOwnerAlive: () => true,
+			currentSessionId: "me",
+		});
+		expect(orphans.map((j) => j.id)).toEqual(["j1"]);
+	});
 });

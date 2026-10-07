@@ -33,6 +33,13 @@ import {
 	type StartTokenFn,
 } from "./process.ts";
 import { loadRegistry, planReconcile, registryDirFor, saveRegistry } from "./registry.ts";
+import {
+	isSessionAlive,
+	pruneSessionMarkers,
+	readSessionMarker,
+	removeSessionMarker,
+	touchSessionMarker,
+} from "./session.ts";
 import { JobsWidget, WIDGET_KEY } from "./tui.ts";
 import type { Job, JobRecord, KillSignal } from "./types.ts";
 
@@ -152,6 +159,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const jobs = new Map<string, Job>();
 	const handles = new Map<string, Handle>();
 	const waiters = new Map<string, Set<() => void>>();
+	/** Ids this session deleted, so a merge never resurrects them from disk. */
+	const removed = new Set<string>();
 	let counter = 1;
 	let dir = registryDirFor(process.cwd());
 	let config: JobsConfig = options.config ?? loadConfig(process.cwd());
@@ -169,11 +178,30 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const persist = (): void => {
 		try {
-			saveRegistry(dir, { version: 1, counter, jobs: [...jobs.values()].map(toRecord) });
+			// Merge onto a fresh read so a peer session's records are preserved
+			// instead of clobbered; our records win, and our deletions stick.
+			const disk = loadRegistry(dir);
+			const merged = new Map<string, JobRecord>();
+			for (const record of disk.jobs) merged.set(record.id, record);
+			for (const id of removed) merged.delete(id);
+			for (const job of jobs.values()) merged.set(job.id, toRecord(job));
+			counter = Math.max(counter, disk.counter);
+			saveRegistry(dir, { version: 1, counter, jobs: [...merged.values()] });
 		} catch {
 			// Registry persistence is best-effort; a job still works in-process.
 		}
 	};
+
+	/** Refresh this session's liveness marker while it runs jobs. */
+	const touchMarker = (): void => {
+		if (disposed) return;
+		touchSessionMarker(dir, sessionId, process.pid, now());
+	};
+
+	/** Whether the session that owns a job is still alive. */
+	const ownerAlive = (owner: string): boolean =>
+		owner === sessionId ||
+		isSessionAlive(readSessionMarker(dir, owner), now(), config.sessionTtlMs, liveness);
 
 	const stopClock = (): void => {
 		if (clock) {
@@ -190,6 +218,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 		if (clock) return;
 		clock = setInterval(() => {
+			touchMarker();
 			pollExternal();
 			tui?.requestRender();
 		}, config.repaintMs);
@@ -198,6 +227,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const paint = (): void => {
 		ensureClock();
+		touchMarker();
 		if (!uiCtx || disposed) return;
 		try {
 			setStatus(uiCtx);
@@ -288,13 +318,38 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	/** Poll reattached (unowned) jobs, which have no `close` event to observe. */
 	const pollExternal = (): void => {
+		touchMarker();
 		const time = now();
 		let changed = false;
 		for (const job of jobs.values()) {
 			if (job.status !== "running" || job.owned) continue;
+			const peer = job.sessionId !== sessionId;
+			const alive = peer ? ownerAlive(job.sessionId) : true;
+			// A live peer session owns this job; leave its state to that owner.
+			if (peer && alive) continue;
 			if (job.pid === null || !liveness(job.pid)) {
 				job.status = "unknown";
 				job.finishedAt = time;
+				resolveWaiters(job.id);
+				changed = true;
+				continue;
+			}
+			// The owner is gone and the job is not detached: reap the abandoned
+			// process, guarding against pid reuse with the start token.
+			if (peer && !job.detached) {
+				if (!tokenMatches(job)) {
+					job.status = "unknown";
+					job.finishedAt = time;
+				} else {
+					try {
+						killTree(job.pid, "SIGTERM");
+					} catch {
+						// Already gone.
+					}
+					job.status = "killed";
+					job.signal = "SIGTERM";
+					job.finishedAt = time;
+				}
 				resolveWaiters(job.id);
 				changed = true;
 			}
@@ -323,6 +378,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			const job = finished.shift();
 			if (!job) break;
 			jobs.delete(job.id);
+			removed.add(job.id);
 			try {
 				const path = safeLogPath(job);
 				if (path && existsSync(path)) unlinkSync(path);
@@ -437,6 +493,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 		handles.clear();
 		resolveAllWaiters();
+		removed.clear();
 		tui = undefined;
 		lastPaint = 0;
 
@@ -446,6 +503,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		sessionId = ctx.sessionManager.getSessionId();
 		uiCtx = ctx;
 
+		// Announce this session, and drop markers for sessions that are gone.
+		touchMarker();
+		pruneSessionMarkers(dir, now(), config.sessionTtlMs, liveness);
+
 		const file = loadRegistry(dir);
 		// A persisted pid can be reused before the next session; when the start
 		// token disagrees, treat the process as gone instead of reattaching to it.
@@ -454,7 +515,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 				? { ...record, status: "unknown" as const, finishedAt: now() }
 				: record,
 		);
-		const { jobs: reconciled, orphans } = planReconcile(checked, liveness, now());
+		const { jobs: reconciled, orphans } = planReconcile(checked, liveness, now(), {
+			isOwnerAlive: ownerAlive,
+			currentSessionId: sessionId,
+		});
 		counter = nextCounter(file.counter, reconciled);
 
 		for (const record of orphans) {
@@ -481,6 +545,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (!config.enabled) throw new Error("jobs are disabled.");
 		uiCtx = ctx;
 		const cwd = startOptions.cwd ? startOptions.cwd : effectiveCwd(ctx);
+		// A peer session may have advanced the shared counter since we loaded, so
+		// re-read it (and its ids) to avoid handing out a live job's id.
+		const disk = loadRegistry(dir);
+		counter = nextCounter(Math.max(counter, disk.counter), [...disk.jobs, ...jobs.values()]);
 		while (jobs.has(`j${counter}`)) counter++;
 		const id = `j${counter++}`;
 		const logPath = join(dir, `${id}.log`);
@@ -682,6 +750,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			if (!job) return { cleared: 0, refused: `no job "${id}".` };
 			if (job.status === "running") return { cleared: 0, refused: `job ${id} is still running; kill it first.` };
 			jobs.delete(id);
+			removed.add(id);
 			resolveWaiters(id);
 			try {
 				const path = safeLogPath(job);
@@ -719,6 +788,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 				}
 			}
 			jobs.delete(job.id);
+			removed.add(job.id);
 			resolveWaiters(job.id);
 			try {
 				const path = safeLogPath(job);
@@ -762,6 +832,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		handles.clear();
 		resolveAllWaiters();
 		persist();
+		removeSessionMarker(dir, sessionId);
 		uiCtx = undefined;
 	}
 

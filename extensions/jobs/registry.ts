@@ -85,6 +85,17 @@ export interface ReconcileResult {
 	orphans: JobRecord[];
 }
 
+/** Owner-liveness context for {@link planReconcile}. */
+export interface ReconcileOptions {
+	/**
+	 * Whether the session that started a job is still alive. A live owner means
+	 * another session owns the job, so it is left running rather than reaped.
+	 */
+	isOwnerAlive?: (sessionId: string) => boolean;
+	/** The reconciling session; its own leftovers are always reaped. */
+	currentSessionId?: string;
+}
+
 /**
  * Reconcile loaded records against current process liveness.
  *
@@ -93,8 +104,18 @@ export interface ReconcileResult {
  * - a running record whose pid is alive is reattached when detached, and
  *   otherwise returned as an orphan to kill, so an abandoned build cannot keep
  *   running unnoticed.
+ *
+ * When owner liveness is supplied, a live non-detached job owned by *another*
+ * still-live session is kept instead of reaped, so concurrent sessions in one
+ * project do not kill each other's jobs. Without it the legacy rule applies and
+ * every live non-detached leftover is an orphan.
  */
-export function planReconcile(records: JobRecord[], isAlive: (pid: number) => boolean, now: number): ReconcileResult {
+export function planReconcile(
+	records: JobRecord[],
+	isAlive: (pid: number) => boolean,
+	now: number,
+	options: ReconcileOptions = {},
+): ReconcileResult {
 	const jobs: JobRecord[] = [];
 	const orphans: JobRecord[] = [];
 
@@ -108,6 +129,16 @@ export function planReconcile(records: JobRecord[], isAlive: (pid: number) => bo
 			continue;
 		}
 		if (record.detached) {
+			jobs.push(record);
+			continue;
+		}
+		// Another live session still owns this job: keep it running instead of
+		// reaping a peer's work.
+		if (
+			options.isOwnerAlive &&
+			record.sessionId !== options.currentSessionId &&
+			options.isOwnerAlive(record.sessionId)
+		) {
 			jobs.push(record);
 			continue;
 		}

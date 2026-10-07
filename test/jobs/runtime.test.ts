@@ -1,7 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { saveRegistry } from "../../extensions/jobs/registry.ts";
+import { loadRegistry, saveRegistry } from "../../extensions/jobs/registry.ts";
 import { REGISTRY_VERSION } from "../../extensions/jobs/registry.ts";
+import { touchSessionMarker } from "../../extensions/jobs/session.ts";
+import type { JobRecord } from "../../extensions/jobs/types.ts";
 import { makeCtx, makeHarness, readLog, waitFor, type Harness } from "./helpers.ts";
+
+/** A persisted record belonging to another session. */
+function peerRecord(overrides: Partial<JobRecord> = {}): JobRecord {
+	return {
+		id: "j1",
+		label: "peer",
+		command: "sleep 99",
+		cwd: "/repo",
+		pid: 777,
+		status: "running",
+		exitCode: null,
+		signal: null,
+		startedAt: 1,
+		finishedAt: null,
+		logPath: "/tmp/peer.log",
+		detached: false,
+		wake: false,
+		sessionId: "peer",
+		seen: false,
+		lastLine: "",
+		...overrides,
+	};
+}
 
 function start(h: Harness, command = "sleep 10"): void {
 	const { ctx } = makeCtx();
@@ -374,6 +399,35 @@ describe("job runtime — registry reconcile", () => {
 			h.cleanup();
 		}
 	});
+
+	test("keeps a live non-detached job owned by another live session", () => {
+		const h = makeHarness();
+		try {
+			touchSessionMarker(h.dir, "peer", 999, Date.now());
+			saveRegistry(h.dir, { version: REGISTRY_VERSION, counter: 2, jobs: [peerRecord()] });
+			h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
+			expect(h.kills.some((k) => k.pid === 777)).toBe(false);
+			expect(h.runtime.get("j1")?.status).toBe("running");
+		} finally {
+			h.cleanup();
+		}
+	});
+
+	test("reaps a peer job once its owner's marker goes dead", async () => {
+		const h = makeHarness({ config: { repaintMs: 10 } });
+		try {
+			touchSessionMarker(h.dir, "peer", 999, Date.now());
+			saveRegistry(h.dir, { version: REGISTRY_VERSION, counter: 2, jobs: [peerRecord()] });
+			h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
+			expect(h.runtime.get("j1")?.status).toBe("running");
+			h.dead.add(999);
+			await new Promise((resolve) => setTimeout(resolve, 60));
+			expect(h.runtime.get("j1")?.status).toBe("killed");
+			expect(h.kills.some((k) => k.pid === 777 && k.signal === "SIGTERM")).toBe(true);
+		} finally {
+			h.cleanup();
+		}
+	});
 });
 
 describe("job runtime — pending, clear, status", () => {
@@ -457,6 +511,26 @@ describe("job runtime — pending, clear, status", () => {
 			await h.runtime.shutdown();
 			expect(h.kills.some((k) => k.pid === h.children[0].pid)).toBe(true);
 			expect(h.kills.some((k) => k.pid === detachedPid)).toBe(false);
+		} finally {
+			h.cleanup();
+		}
+	});
+
+	test("persist preserves a record added to disk by another session", () => {
+		const h = makeHarness();
+		try {
+			const { ctx } = makeCtx({ sessionId: "me" });
+			h.runtime.load(ctx);
+			saveRegistry(h.dir, {
+				version: REGISTRY_VERSION,
+				counter: 10,
+				jobs: [peerRecord({ id: "j9", detached: true })],
+			});
+			const job = h.runtime.start({ command: "mine" }, ctx);
+			expect(job.id).toBe("j10");
+			const ids = loadRegistry(h.dir).jobs.map((j) => j.id).sort();
+			expect(ids).toContain("j9");
+			expect(ids).toContain("j10");
 		} finally {
 			h.cleanup();
 		}

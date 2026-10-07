@@ -44,13 +44,22 @@ log files sit beside it. `projectKey` hashes the effective cwd (honoring
 (tmp + rename) and best-effort: a job still works in-process if the registry is
 unwritable.
 
+**Sessions heartbeat; reconciliation is owner-aware.** Because the registry is
+shared per project, each session writes a liveness marker beside it
+(`session-<hash>.json`: session id, host pid, last-seen time) on load, on start,
+and on every repaint tick. Reconciliation keeps a live non-detached job whose
+owner marker is alive instead of killing a peer's work, and the poll reaps such
+a job once its owner's marker expires. Markers older than `sessionTtlMs` (or
+whose pid is gone) are pruned. `persist` merges onto a fresh read and drops ids
+this session deleted, so a peer's concurrent additions survive.
+
 **Reconcile on load; kill by default.** At session start no process is owned by
 the new runtime, so each running record is checked with `process.kill(pid, 0)`:
 a dead pid becomes `unknown`; a live detached job is reattached; a live
-non-detached job is an orphan and is killed. This means an abandoned build
-cannot keep running unnoticed, while a dev server started `detached` survives.
-Session-owned jobs are likewise killed in `session_shutdown`, with a SIGTERM →
-grace → SIGKILL escalation.
+non-detached job whose owning session is gone is an orphan and is killed. This
+means an abandoned build cannot keep running unnoticed, while a dev server
+started `detached` survives. Session-owned jobs are likewise killed in
+`session_shutdown`, with a SIGTERM → grace → SIGKILL escalation.
 
 **Notify by default, wake opt-in.** Finished jobs are drained by
 `takePending()` and injected as a hidden `job-context` message at the next
@@ -134,11 +143,14 @@ JobDetails {
 ## Known limitations
 
 - **Concurrent sessions in the same project share a registry.** The on-disk
-  registry is per project, not per session, and has no lock. Two Pi sessions in
-  the same directory can overwrite each other's records, and a new session's
-  reconcile will reap the other session's live non-detached jobs. One session
-  per project, or `detached` jobs, avoids this; a per-session liveness marker
-  would be the fix.
+  registry is per project, not per session, and has no cross-process lock. A
+  session is no longer assumed dead just because another session is starting:
+  each session writes a heartbeat marker (`session-*.json`, refreshed while it
+  has running jobs), reconciliation reaps a live non-detached job only when its
+  owner marker is gone, and `persist` merges onto a fresh read so a peer's
+  records are preserved instead of clobbered. A residual simultaneous
+  read-modify-write race remains (two sessions writing at the exact same
+  instant); a true fix needs per-session registry files or a lock file.
 - **`unknown` has no exit code.** A job observed only after its process is gone
   cannot recover its exit status; the registry records the transition but not
   the code.

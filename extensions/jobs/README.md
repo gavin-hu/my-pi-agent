@@ -104,6 +104,7 @@ Merged from `~/.pi/agent/jobs.json` (global) and `<cwd>/.pi/jobs.json`
 | `maxLogLines` | `100` | Log lines returned by `logs`. |
 | `killGraceMs` | `5000` | Grace before SIGTERM escalates to SIGKILL. |
 | `repaintMs` | `1000` | Widget repaint interval while jobs run. |
+| `sessionTtlMs` | `60000` | How long a session heartbeat is trusted before its jobs may be reaped. |
 | `registryDir` | — | Override the registry/log directory. |
 
 ## Files
@@ -115,6 +116,7 @@ config.ts     jobs.json loading and clamping.
 format.ts     Pure formatting, sanitization, and duration helpers.
 process.ts    Injectable spawn/liveness/kill-tree primitives.
 registry.ts   On-disk registry and pure liveness reconciliation.
+session.ts    Per-session heartbeat markers and owner-liveness rules.
 runtime.ts    Job table, handles, logs, chip/widget, repaint clock.
 tui.ts        JobsWidget and the /jobs screen.
 tools.ts      The `job` tool and its transcript rendering.

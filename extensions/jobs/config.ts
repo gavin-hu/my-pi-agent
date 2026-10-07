@@ -27,6 +27,8 @@ export interface JobsConfig {
 	killGraceMs: number;
 	/** Widget repaint interval while jobs run. */
 	repaintMs: number;
+	/** How long a session heartbeat is trusted before its jobs are reaped. */
+	sessionTtlMs: number;
 	/** Override for the registry directory; defaults under the agent dir. */
 	registryDir: string | undefined;
 }
@@ -41,6 +43,7 @@ export const DEFAULT_CONFIG: JobsConfig = {
 	maxLogLines: 100,
 	killGraceMs: 5000,
 	repaintMs: 1000,
+	sessionTtlMs: 60_000,
 	registryDir: undefined,
 };
 
@@ -59,6 +62,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 		maxLogLines: clampInteger(raw.maxLogLines, base.maxLogLines, 1, 5000),
 		killGraceMs: clampInteger(raw.killGraceMs, base.killGraceMs, 0, 60_000),
 		repaintMs: clampInteger(raw.repaintMs, base.repaintMs, 100, 10_000),
+		sessionTtlMs: clampInteger(raw.sessionTtlMs, base.sessionTtlMs, 5_000, 600_000),
 		registryDir: registryDir || undefined,
 	};
 }
