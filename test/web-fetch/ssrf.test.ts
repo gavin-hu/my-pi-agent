@@ -18,6 +18,24 @@ describe("isBlockedIp", () => {
 		}
 	});
 
+	test("blocks every encoding of an embedded IPv4 address", () => {
+		for (const ip of [
+			"::ffff:127.0.0.1", // IPv4-mapped, dotted
+			"::ffff:7f00:1", // IPv4-mapped, hex
+			"0:0:0:0:0:ffff:7f00:1", // IPv4-mapped, uncompressed
+			"::7f00:1", // IPv4-compatible
+			"::ffff:0:7f00:1", // IPv4-translated
+			"64:ff9b::7f00:1", // NAT64 to loopback
+			"64:ff9b::a00:1", // NAT64 to 10.0.0.1
+			"2002:7f00:0001::", // 6to4 to loopback
+		]) {
+			expect(isBlockedIp(ip)).toBe(true);
+		}
+		// NAT64/6to4 to a public address stays allowed.
+		expect(isBlockedIp("64:ff9b::808:808")).toBe(false);
+		expect(isBlockedIp("2002:0808:0808::")).toBe(false);
+	});
+
 	test("allows public addresses", () => {
 		for (const ip of ["8.8.8.8", "1.1.1.1", "93.184.216.34", "2606:4700:4700::1111"]) {
 			expect(isBlockedIp(ip)).toBe(false);

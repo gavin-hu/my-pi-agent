@@ -59,20 +59,75 @@ function isBlockedIpv4(ip: string): boolean {
 	return ranges.some(([base, prefix]) => inRange(value, ipv4ToInt(base), prefix));
 }
 
-function isBlockedIpv6(raw: string): boolean {
-	const ip = raw.toLowerCase();
-	// IPv4-mapped (::ffff:a.b.c.d) and NAT64 (64:ff9b::/96) embed an IPv4 address.
-	const embedded = ip.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
-	if (embedded) return isBlockedIpv4(embedded[1]);
+/**
+ * Expand an IPv6 literal to its eight 16-bit groups. Accepts a dotted IPv4
+ * suffix (`::ffff:127.0.0.1`), a zone id (`fe80::1%eth0`), and `::`
+ * compression. Returns `undefined` for anything malformed.
+ */
+function expandIpv6(input: string): number[] | undefined {
+	let ip = input.toLowerCase().split("%")[0];
 
-	if (ip === "::" || ip === "::1") return true;
-	const bytes = ip.split(":").filter(Boolean);
-	const first = bytes[0] ?? "";
-	const firstValue = Number.parseInt(first || "0", 16);
-	if ((firstValue & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
-	if ((firstValue & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
-	if ((firstValue & 0xff00) === 0xff00) return true; // ff00::/8 multicast
-	if (ip.startsWith("2001:db8:")) return true; // documentation
+	const dotted = ip.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+	if (dotted) {
+		const parts = dotted[1].split(".").map((part) => Number(part));
+		if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return undefined;
+		const high = ((parts[0] << 8) | parts[1]).toString(16);
+		const low = ((parts[2] << 8) | parts[3]).toString(16);
+		ip = `${ip.slice(0, dotted.index)}${high}:${low}`;
+	}
+
+	const parseGroups = (part: string): number[] | undefined => {
+		if (part === "") return [];
+		const groups: number[] = [];
+		for (const group of part.split(":")) {
+			if (!/^[0-9a-f]{1,4}$/.test(group)) return undefined;
+			groups.push(Number.parseInt(group, 16));
+		}
+		return groups;
+	};
+
+	const halves = ip.split("::");
+	if (halves.length > 2) return undefined;
+	const head = parseGroups(halves[0]);
+	if (!head) return undefined;
+	if (halves.length === 2) {
+		const tail = parseGroups(halves[1]);
+		if (!tail) return undefined;
+		const missing = 8 - head.length - tail.length;
+		if (missing < 1) return undefined;
+		return [...head, ...new Array<number>(missing).fill(0), ...tail];
+	}
+	return head.length === 8 ? head : undefined;
+}
+
+/** The IPv4 address in the low 32 bits of an expanded IPv6 address. */
+function embeddedIpv4(groups: number[]): string {
+	return `${groups[6] >> 8}.${groups[6] & 0xff}.${groups[7] >> 8}.${groups[7] & 0xff}`;
+}
+
+function isBlockedIpv6(raw: string): boolean {
+	const g = expandIpv6(raw);
+	if (!g) return true; // malformed: fail closed
+
+	if (g.every((group) => group === 0)) return true; // ::
+	if (g.slice(0, 7).every((group) => group === 0) && g[7] === 1) return true; // ::1
+
+	// 6to4 (2002::/16) embeds an IPv4 address in groups 1-2.
+	if (g[0] === 0x2002 && isBlockedIpv4(`${g[1] >> 8}.${g[1] & 0xff}.${g[2] >> 8}.${g[2] & 0xff}`)) {
+		return true;
+	}
+	// IPv4-mapped (::ffff:a.b.c.d), IPv4-compatible (::a.b.c.d), IPv4-translated
+	// (::ffff:0:a.b.c.d), and NAT64 (64:ff9b::a.b.c.d) embed an IPv4 address.
+	const mapped = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0xffff;
+	const compatible = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0;
+	const translated = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0xffff && g[5] === 0;
+	const nat64 = g[0] === 0x64 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0;
+	if ((mapped || compatible || translated || nat64) && isBlockedIpv4(embeddedIpv4(g))) return true;
+
+	if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+	if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+	if ((g[0] & 0xff00) === 0xff00) return true; // ff00::/8 multicast
+	if (g[0] === 0x2001 && g[1] === 0x0db8) return true; // 2001:db8::/32 documentation
 	return false;
 }
 
