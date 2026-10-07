@@ -19,7 +19,8 @@ pi install ./                       # install the package
   item is in progress.
 - Shows a persistent widget above the editor while the list has unfinished
   work (hidden when empty or fully completed), and a scrollable `/todos`
-  screen on demand.
+  screen on demand. It sits below the [`goal`](../goal/) rail when both are
+  loaded.
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list, and stored lists are re-sanitized on replay.

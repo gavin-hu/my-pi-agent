@@ -42,6 +42,16 @@ repeated instructions never accumulate and stale ones never survive a
 goal into `ctx.ui.setWidget()`. The widget exists only in `tui` mode; the tool
 works in every mode.
 
+**The goal is pinned above the todo rail.** Pi renders above-editor widgets in
+insertion order and re-inserts a widget whenever it is set, so a goal update
+would otherwise move the goal *below* the todo list. There is no ordering
+option, so `_shared/rails.ts` coordinates on `pi.events`: after the goal sets
+its widget it announces, and the list (the lower rail) re-asserts itself, which
+re-appends it at the bottom. Only upper rails announce — a re-asserting rail
+must not, or the two would ping-pong. The coordination is value-only (a channel
+constant and pure helpers), never shared module state, because extensions load
+with isolated module caches.
+
 **The goal shares the todo widget's grammar.** Both are a header line at column
 zero plus glyph-led, two-space-indented body rows: `Goal · active` then
 `  ◎ <objective>`, wrapping with continuation rows aligned under the text. The

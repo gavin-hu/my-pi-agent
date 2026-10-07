@@ -40,7 +40,7 @@ function isGoalContext(message: AgentMessage): boolean {
 }
 
 export default function goal(pi: ExtensionAPI): void {
-	const runtime = createGoalRuntime();
+	const runtime = createGoalRuntime(pi);
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);

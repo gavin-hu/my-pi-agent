@@ -17,7 +17,8 @@ pi install ./                       # install the package
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done.
 - Shows a persistent glyph rail above the editor whenever a goal exists, using
-  the same header + indent + glyph grammar as the [`todo`](../todo/) widget:
+  the same header + indent + glyph grammar as the [`todo`](../todo/) widget,
+  and stays pinned above it when both are loaded:
 
   ```
   Goal · active

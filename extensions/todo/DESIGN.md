@@ -42,6 +42,15 @@ row budget (`maxRows`) and the finished-list behaviour (`hideWhenComplete`) come
 from `.pi/todo.json`, mirroring the goal widget's config. It never becomes the
 only copy of anything.
 
+**The list re-asserts itself below the goal.** The goal is the *what* and sits
+above the list, the *how*. Pi renders above-editor widgets in insertion order
+and re-inserts a widget whenever it is set, so a goal update would sink the
+goal below the list. With no ordering option, the list subscribes on
+`pi.events` and re-runs `setWidget` whenever a rail above it changes; because
+re-insertion appends, that pins the list to the bottom. Only upper rails
+announce, so the re-assert can never ping-pong. See
+[`_shared/rails.ts`](../_shared/rails.ts) and [goal](../goal/DESIGN.md).
+
 **Content is sanitized to one safe line.** `normalizeTodos` replaces control
 characters (including `ESC`) with spaces and collapses whitespace runs before
 the length and duplicate checks. Every surface lays items out one per rendered

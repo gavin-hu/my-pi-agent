@@ -46,6 +46,22 @@ export interface FakePiOptions {
 	) => Promise<{ stdout: string; stderr: string; code: number; killed?: boolean }>;
 }
 
+/** Minimal synchronous `EventBus` double: real `on`/`emit`, matching Pi's sync emit. */
+function createFakeEventBus() {
+	const listeners = new Map<string, Set<(data: unknown) => void>>();
+	return {
+		emit: (channel: string, data: unknown) => {
+			for (const handler of listeners.get(channel) ?? []) handler(data);
+		},
+		on: (channel: string, handler: (data: unknown) => void) => {
+			const set = listeners.get(channel) ?? new Set();
+			set.add(handler);
+			listeners.set(channel, set);
+			return () => set.delete(handler);
+		},
+	};
+}
+
 /** Build a superset `ExtensionAPI` double, returning its maps for assertions. */
 export function createFakePi(options: FakePiOptions = {}): FakePi {
 	const tools = new Map<string, any>();
@@ -89,7 +105,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		getAllTools: () => (pi.allTools.length > 0 ? pi.allTools : [...tools.values()]),
 		getSettings: () => options.settings ?? { compaction: { enabled: true } },
 
-		events: { emit: () => {}, on: () => () => {} },
+		events: createFakeEventBus(),
 		exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 0 })),
 		on: (event: string, handler: AnyHandler) => {
 			const list = handlers.get(event) ?? [];

@@ -16,7 +16,7 @@ import { createTodoRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
 export default function todo(pi: ExtensionAPI) {
-	const runtime = createTodoRuntime();
+	const runtime = createTodoRuntime(pi);
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);

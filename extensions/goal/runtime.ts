@@ -7,7 +7,8 @@
  * budget and achieved-goal treatment come from the goal config.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { announceRailChanged } from "../_shared/rails.ts";
 import { DEFAULT_GOAL_CONFIG, type GoalConfig } from "./config.ts";
 import { reconstructGoal } from "./state.ts";
 import { GoalWidget, WIDGET_KEY } from "./tui.ts";
@@ -26,7 +27,7 @@ export interface GoalRuntime {
 	clear(ctx: ExtensionContext): void;
 }
 
-export function createGoalRuntime(): GoalRuntime {
+export function createGoalRuntime(pi?: Pick<ExtensionAPI, "events">): GoalRuntime {
 	let goal: Goal | null = null;
 	let config: GoalConfig = DEFAULT_GOAL_CONFIG;
 
@@ -40,6 +41,10 @@ export function createGoalRuntime(): GoalRuntime {
 		const snapshot = current;
 		const options = { maxRows: config.maxRows, achieved: config.achieved };
 		ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => new GoalWidget(snapshot, theme, options));
+		// The goal is the upper rail; tell lower rails (todo) to re-assert so they
+		// stay below it. Re-insertion always appends, so a stale goal update would
+		// otherwise sink the goal under the list.
+		if (pi) announceRailChanged(pi);
 	};
 
 	return {
