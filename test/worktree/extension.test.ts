@@ -148,16 +148,64 @@ describe("extension enter / exit", () => {
 		await exit(pi, ctx, { remove: true });
 	});
 
-	test("registers its commands and tools", async () => {
+	test("registers a single worktree command and its tools", async () => {
 		const repo = await makeRepo("pi-wt-ext-");
 		cleanups.push(repo);
 		const { pi } = await boot(repo);
-		for (const name of ["worktree", "worktree-enter", "worktree-exit", "worktree-prune"]) {
-			expect(pi.commands.has(name)).toBe(true);
-		}
+		expect([...pi.commands.keys()]).toEqual(["worktree"]);
 		for (const name of ["worktree_enter", "worktree_exit", "worktree_prune", "worktree_status"]) {
 			expect(pi.tools.has(name)).toBe(true);
 		}
+	});
+
+	test("dispatches worktree subcommands", async () => {
+		const repo = await makeRepo("pi-wt-ext-");
+		cleanups.push(repo);
+		const { pi, ctx } = await boot(repo);
+		const command = pi.commands.get("worktree");
+		const run = (args: string) => command.handler(args, ctx);
+
+		// Bare invocation and `status` both report the current state.
+		await run("");
+		expect(ctx.notices.at(-1)).toContain("Not in a worktree.");
+		await run("status");
+		expect(ctx.notices.at(-1)).toContain("Not in a worktree.");
+
+		// `enter <name>` creates the worktree and rebinds the root.
+		await run("enter cmd");
+		const dir = wtPath(repo, "cmd");
+		expect(ctx.notices.at(-1)).toContain("Entered worktree");
+		expect(existsSync(dir)).toBe(true);
+
+		// `prune` keeps the current worktree and reports it.
+		await run("prune");
+		expect(ctx.notices.at(-1)).toContain("Kept");
+		expect(ctx.notices.at(-1)).toContain("current");
+
+		// `exit --remove` returns to the main checkout and cleans up.
+		await run("exit --remove");
+		expect(ctx.notices.at(-1)).toContain("Removed worktree");
+		expect(existsSync(dir)).toBe(false);
+
+		// Unknown subcommands produce usage instead of running anything.
+		await run("bogus");
+		expect(ctx.notices.at(-1)).toContain('Unknown worktree subcommand "bogus"');
+		expect(ctx.notices.at(-1)).toContain("Usage: /worktree");
+	});
+
+	test("completes worktree subcommands and exit flags", async () => {
+		const repo = await makeRepo("pi-wt-ext-");
+		cleanups.push(repo);
+		const { pi } = await boot(repo);
+		const completions = pi.commands.get("worktree").getArgumentCompletions as (prefix: string) => any;
+
+		const all = completions("");
+		expect(all.map((item: any) => item.value)).toEqual(["status ", "enter ", "exit ", "prune "]);
+
+		expect(completions("e").map((item: any) => item.label)).toEqual(["enter", "exit"]);
+		expect(completions("exit ").map((item: any) => item.label)).toEqual(["--keep", "--remove"]);
+		expect(completions("exit --k").map((item: any) => item.label)).toEqual(["--keep"]);
+		expect(completions("enter ")).toBeNull();
 	});
 
 	test("reports inactive overrides through worktree_status", async () => {

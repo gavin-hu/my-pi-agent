@@ -138,7 +138,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		// Release our lock but never remove the worktree on shutdown; cleanup is
-		// an explicit exit or `/worktree-prune`.
+		// an explicit exit or `/worktree prune`.
 		const state = getActive();
 		if (state && !state.borrowed && state.lockReason) {
 			try {

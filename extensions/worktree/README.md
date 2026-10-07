@@ -42,9 +42,9 @@ pi install ./ -l         # project-local
 | | |
 |---|---|
 | `/worktree` | status + list managed worktrees |
-| `/worktree-enter [name]` | enter a worktree |
-| `/worktree-exit [--keep\|--remove]` | exit a worktree |
-| `/worktree-prune` | remove clean, unused, old managed worktrees |
+| `/worktree enter [name]` | enter a worktree |
+| `/worktree exit [--keep\|--remove]` | exit a worktree |
+| `/worktree prune` | remove clean, unused, old managed worktrees |
 | `--worktree <name>` | enter at session start |
 
 The `worktree_status` tool is the model-facing equivalent of `/worktree`:
@@ -63,7 +63,7 @@ Merged from `~/.pi/agent/worktree.json` and `<repo>/.pi/worktree.json`
   "fetchRemote": true,
   "fetchTimeoutMs": 5000,
   "onExit": "ask",           // "ask" | "keep" | "remove"
-  "pruneAfterDays": 7,       // age before /worktree-prune may remove a clean worktree
+  "pruneAfterDays": 7,       // age before /worktree prune may remove a clean worktree
   "include": [],             // fallback when .worktreeinclude is absent
   "skipOverrides": [],       // tool names not to override (e.g. ["bash"])
   "guard": {
@@ -155,7 +155,7 @@ Extensions can also follow changes on the `pi.events` channel
 
 Entering a managed worktree takes a `git worktree lock` (reason
 `pi:<pid>:<session>`), so a concurrent sweep cannot remove it; exiting and
-shutdown release it. `/worktree-prune` (or the `worktree_prune` tool) removes
+shutdown release it. `/worktree prune` (or the `worktree_prune` tool) removes
 managed worktrees that are clean, have no new commits, are not the current or a
 live-locked one, and are older than `pruneAfterDays`. It releases locks whose
 owning process is gone first, and any failure keeps the worktree with a reason.
@@ -189,7 +189,7 @@ Implemented:
   fetch; worktree-name reuse reset rules; PR/MR references; an offer to add the worktree directory to
   `.gitignore`.
 - **M4** — subagent/child-process isolation via `PI_WORKTREE_ROOT` and the `worktree:changed` event;
-  `git worktree lock`/`unlock` with a stale-lock-aware `/worktree-prune`; packaged as a Pi package
+  `git worktree lock`/`unlock` with a stale-lock-aware `/worktree prune`; packaged as a Pi package
   (`package.json` with a `pi` manifest and host packages as peers).
 - **Hardening** — `worktree_status` tool; symlink-safe containment (`blockSymlinkEscapes`);
   credential-prompt suppression for network fetches; inactive-override reporting; shell-expansion-aware

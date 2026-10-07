@@ -32,7 +32,7 @@ export interface WorktreeConfig {
 	fetchTimeoutMs: number;
 	/** Cleanup behavior on exit: ask, always keep, or always remove. */
 	onExit: "ask" | "keep" | "remove";
-	/** Age in days after which `/worktree-prune` removes a clean, unused worktree. */
+	/** Age in days after which `/worktree prune` removes a clean, unused worktree. */
 	pruneAfterDays: number;
 	/** Gitignored file globs copied into new worktrees; fallback when `.worktreeinclude` is absent. */
 	include: string[];
