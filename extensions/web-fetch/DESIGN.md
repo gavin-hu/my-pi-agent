@@ -31,10 +31,11 @@ readable text, page long output, and refuse internal targets. Complements
 
 ```ts
 web_fetch({
-  url: string,          // absolute http(s), required
-  startIndex?: number,  // code-point offset, default 0
-  maxChars?: number,    // ≥200, capped by config.maxOutputChars
-  find?: string[],      // 1–10 terms; return passages instead of the page
+  url?: string,          // absolute http(s); provide url or urls
+  urls?: string[],       // 1–5 URLs, fetched sequentially
+  startIndex?: number,   // code-point offset, applied to every page (default 0)
+  maxChars?: number,     // ≥200; split across pages, capped by config.maxOutputChars
+  find?: string[],       // 1–10 terms; return passages instead of the page
   mode?: "insensitive" | "exact" | "fuzzy",  // default insensitive
   contextChars?: number, // 0–2000, default 200
   maxMatches?: number,   // 1–50, default 8
@@ -44,11 +45,12 @@ web_fetch({
 
 ### Result
 
-`content` is a header (`Title`, `URL`, `Status`) plus the text slice, with a
-trailing note when truncated. `details`/`structuredContent`:
+`content` is a `### <url>` section per page, each with a header
+(`Title`, `URL`, `Status`) and its text slice, or `ERROR: …` when it failed.
+`details`/`structuredContent` is always `{ pages: [...] }`, one entry per URL:
 
 ```ts
-{ url, finalUrl, title, status, contentType, text, totalChars, startIndex, truncated, fetchedAt }
+{ pages: [{ url, finalUrl, title, status, contentType, text, totalChars, startIndex, truncated, cached, matches, fetchedAt, error }] }
 ```
 
 `text` is the returned slice; `totalChars` is the whole extracted text length in
@@ -69,6 +71,11 @@ code points, and the note tells the model the next `startIndex` to use.
 4. **Format**: [`format.ts`](./format.ts) slices by code point from `startIndex`
    and reports the next index; with `find`, [`find.ts`](./find.ts) returns
    passages and their code-point offsets instead.
+5. **Batch**: with `urls`, steps 1–4 run per URL; a failure is recorded on that
+   page (`error`, `status: 0`) and does not abort the others. `maxChars` is split
+   evenly across pages (`max(200, floor(maxChars / n))`), and the joined text is
+   truncated at `maxChars`. The result is marked `isError` only when every page
+   failed.
 
 ### Find-in-page
 
@@ -140,7 +147,8 @@ ignored; values are validated/clamped.
 `main`/`article`, CJK), formatting/paging, find (modes, CJK offsets, context,
 limits, fuzzy), the cache (TTL, LRU by count and bytes, clear), config, and tool
 registration and execution (find path, cache hits, `refresh`, `session_shutdown`
-clearing). The runtime smoke test only asserts registration.
+clearing, batches with partial failure, URL resolution). The runtime smoke test
+only asserts registration.
 
 ## Risks
 

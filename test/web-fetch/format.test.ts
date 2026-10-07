@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatPage } from "../../extensions/web-fetch/format.ts";
+import { formatBatch, formatPage } from "../../extensions/web-fetch/format.ts";
 
 function input(overrides: Partial<Parameters<typeof formatPage>[0]> = {}) {
 	return {
@@ -61,5 +61,27 @@ describe("formatPage", () => {
 	test("omits the title line when there is no title", () => {
 		const result = formatPage(input({ title: "" }));
 		expect(result.header).not.toContain("Title:");
+	});
+});
+
+describe("formatBatch", () => {
+	test("joins sections under a heading per url", () => {
+		const result = formatBatch(
+			[
+				{ url: "https://a/", text: "Title: A\n\nbody a" },
+				{ url: "https://b/", text: "ERROR: HTTP 404" },
+			],
+			10_000,
+		);
+		expect(result.truncated).toBe(false);
+		expect(result.text).toContain("### https://a/\nTitle: A");
+		expect(result.text).toContain("### https://b/\nERROR: HTTP 404");
+	});
+
+	test("truncates the combined text by code point", () => {
+		const result = formatBatch([{ url: "https://a/", text: "中文内容".repeat(50) }], 20);
+		expect(result.truncated).toBe(true);
+		expect(Array.from(result.text).length).toBeLessThanOrEqual(20);
+		expect(result.text.endsWith("…")).toBe(true);
 	});
 });

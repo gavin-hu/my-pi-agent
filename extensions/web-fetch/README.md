@@ -12,13 +12,15 @@ pi install ./                            # or install the package
 
 ## What it does
 
-- GETs an http(s) URL and returns its readable text. HTML is converted to plain
-  text with links kept as `[text](url)`; JSON/text/XML is returned as-is; binary
-  content is reported by type and size.
+- GETs one or more http(s) URLs and returns their readable text. HTML is converted
+  to plain text with links kept as `[text](url)`; JSON/text/XML is returned as-is;
+  binary content is reported by type and size.
 - Long pages are paged. When the result is truncated it includes the
   `startIndex` to use on the next call.
 - `find` returns matching passages with code-point offsets (exact,
   case-insensitive, or fuzzy) instead of the whole page.
+- `urls` fetches up to five pages in one call; a failure on one URL does not
+  abort the others.
 - Fetched pages are cached in-process for the session, so paging and `find` do
   not refetch; `refresh: true` forces a refetch.
 - Loopback, private, link-local, and cloud-metadata addresses are refused.
@@ -30,18 +32,23 @@ web_fetch({ url: "https://pi.dev/" })
 web_fetch({ url: "https://en.wikipedia.org/wiki/Go_(programming_language)", maxChars: 4000 })
 web_fetch({ url: "https://example.com/long-article", startIndex: 20000 })
 web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"], mode: "insensitive" })
+web_fetch({ urls: ["https://a.example/", "https://b.example/"] })
 ```
 
 | Parameter | Type | Notes |
 |---|---|---|
-| `url` | string | Absolute http(s) URL, required |
-| `startIndex` | integer | Code-point offset to start from (default 0) |
-| `maxChars` | integer | ≥200; defaults to and is capped by `maxOutputChars` |
+| `url` | string | Absolute http(s) URL, required unless `urls` is given |
+| `urls` | string[] | 1–5 URLs fetched sequentially in one call |
+| `startIndex` | integer | Code-point offset to start from, applied to every page (default 0) |
+| `maxChars` | integer | ≥200; split across pages and capped by `maxOutputChars` |
 | `find` | string[] | 1–10 strings; return matching passages instead of the page |
 | `mode` | enum | `insensitive` (default) \| `exact` \| `fuzzy` |
 | `contextChars` | integer | 0–2000 chars of context per match (default 200) |
 | `maxMatches` | integer | 1–50 matches (default 8) |
 | `refresh` | boolean | Bypass the cache and refetch |
+
+`structuredContent` is `{ pages: [...] }`, one entry per URL (with an `error`
+field when a page failed).
 
 ## Configuration
 

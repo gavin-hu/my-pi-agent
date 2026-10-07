@@ -8,6 +8,7 @@ import type { WebFetchConfig } from "./config.ts";
 import type { FindMode } from "./find.ts";
 
 export const MAX_URL_LENGTH = 2048;
+export const MAX_URLS = 5;
 export const MIN_CHARS = 200;
 export const MAX_CHARS = 100_000;
 
@@ -17,11 +18,20 @@ const DEFAULT_MAX_MATCHES = 8;
 const MAX_FIND_TERMS = 10;
 
 export const WebFetchParams = Type.Object({
-	url: Type.String({
-		minLength: 1,
-		maxLength: MAX_URL_LENGTH,
-		description: "Absolute http(s) URL to fetch.",
-	}),
+	url: Type.Optional(
+		Type.String({
+			minLength: 1,
+			maxLength: MAX_URL_LENGTH,
+			description: "Absolute http(s) URL to fetch. Provide either `url` or `urls`.",
+		}),
+	),
+	urls: Type.Optional(
+		Type.Array(Type.String({ maxLength: MAX_URL_LENGTH }), {
+			minItems: 1,
+			maxItems: MAX_URLS,
+			description: `Up to ${MAX_URLS} URLs to fetch in one call (sequentially). Each is returned as its own page; failures do not abort the others.`,
+		}),
+	),
 	startIndex: Type.Optional(
 		Type.Integer({
 			minimum: 0,
@@ -54,7 +64,7 @@ export const WebFetchParams = Type.Object({
 
 export type WebFetchArgs = Static<typeof WebFetchParams>;
 
-export const WebFetchOutput = Type.Object({
+const PageSchema = Type.Object({
 	url: Type.String(),
 	finalUrl: Type.String(),
 	title: Type.String(),
@@ -67,12 +77,17 @@ export const WebFetchOutput = Type.Object({
 	cached: Type.Boolean(),
 	matches: Type.Array(Type.Object({ query: Type.String(), offset: Type.Number(), passage: Type.String() })),
 	fetchedAt: Type.String(),
+	error: Type.String(),
+});
+
+export const WebFetchOutput = Type.Object({
+	pages: Type.Array(PageSchema),
 });
 
 export type WebFetchStructured = Static<typeof WebFetchOutput>;
 
 export interface FetchRequest {
-	url: string;
+	urls: string[];
 	startIndex: number;
 	maxChars: number;
 	find: string[];
@@ -93,9 +108,26 @@ function normalizeFind(raw: unknown): string[] {
 
 /** Validate the arguments and clamp the optional fields. */
 export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): FetchRequest {
-	const url = typeof args.url === "string" ? args.url.trim() : "";
-	if (!url) throw new Error("url is required.");
-	if (url.length > MAX_URL_LENGTH) throw new Error(`url is longer than ${MAX_URL_LENGTH} characters.`);
+	const single = typeof args.url === "string" ? args.url.trim() : "";
+	const list = Array.isArray(args.urls)
+		? args.urls.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
+		: [];
+
+	if (single && list.length > 0) throw new Error("provide either url or urls, not both.");
+	const candidates = single ? [single] : list;
+	if (candidates.length === 0) throw new Error("url is required.");
+	if (candidates.length > MAX_URLS) throw new Error(`At most ${MAX_URLS} urls are allowed.`);
+	if (candidates.some((value) => value.length > MAX_URL_LENGTH)) {
+		throw new Error(`each url must be at most ${MAX_URL_LENGTH} characters.`);
+	}
+
+	const seen = new Set<string>();
+	const urls: string[] = [];
+	for (const candidate of candidates) {
+		if (seen.has(candidate)) continue;
+		seen.add(candidate);
+		urls.push(candidate);
+	}
 
 	const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
 	const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxOutputChars;
@@ -110,7 +142,7 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 		typeof args.maxMatches === "number" ? Math.min(50, Math.max(1, Math.round(args.maxMatches))) : DEFAULT_MAX_MATCHES;
 
 	return {
-		url,
+		urls,
 		startIndex,
 		maxChars,
 		find: normalizeFind(args.find),

@@ -29,4 +29,11 @@ export type FetchResponse = {
 	matches: { query: string; offset: number; passage: string }[];
 	/** ISO-8601 timestamp of when the fetch completed. */
 	fetchedAt: string;
+	/** Error message when this URL failed; empty otherwise. */
+	error: string;
+};
+
+/** The tool result: one entry per requested URL. */
+export type FetchBatch = {
+	pages: FetchResponse[];
 };

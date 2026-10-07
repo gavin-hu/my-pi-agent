@@ -93,3 +93,17 @@ export function formatMatches(input: MatchFormatInput): FormattedMatches {
 	const body = input.matches.map((match, index) => `${index + 1}. [offset ${match.offset}] ${match.passage}`).join("\n\n");
 	return { header, body, text: `${header}\n\n${body}`, truncated: false };
 }
+
+export interface BatchSection {
+	url: string;
+	/** Per-page formatted text (header + body, or an ERROR line). */
+	text: string;
+}
+
+/** Join per-page sections, truncating the whole result to `maxChars` code points. */
+export function formatBatch(sections: BatchSection[], maxChars: number): { text: string; truncated: boolean } {
+	const full = sections.map((section) => `### ${section.url}\n${section.text}`).join("\n\n");
+	const points = Array.from(full);
+	if (points.length <= maxChars) return { text: full, truncated: false };
+	return { text: `${points.slice(0, Math.max(1, maxChars - 1)).join("")}…`, truncated: true };
+}
