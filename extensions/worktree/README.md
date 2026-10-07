@@ -102,6 +102,17 @@ same-named wrappers for the path-taking tools (`root-tools.ts`) that re-run the
 real built-in definition with a context whose `cwd` is the active root; entering
 or exiting a worktree just changes that root.
 
+### Modules
+
+| File | Responsibility |
+|---|---|
+| `index.ts` | Extension factory: flags, lifecycle events, wiring |
+| `runtime.ts` | Shared mutable state (active worktree, config cache, env, events) |
+| `lifecycle.ts` | `enterWorktree` / `exitWorktree` / `pruneWorktrees` / `worktreeStatus` |
+| `tools.ts` / `commands.ts` | Model tools / slash commands |
+| `root-tools.ts` | Built-in tool overrides bound to the active root |
+| `git.ts` / `guard.ts` / `include.ts` / `config.ts` / `state.ts` | Git plumbing, isolation guard, `.worktreeinclude`, config, session state |
+
 ## Gitignored files
 
 A worktree is a fresh checkout, so untracked, gitignored files such as `.env`

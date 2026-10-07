@@ -1,5 +1,5 @@
-// Temporary real-runtime smoke test: load the package through the real Pi
-// loader and drive worktree_enter/status/exit without a model call.
+// Real-runtime smoke test: load the package through the real Pi loader and
+// drive worktree_enter/status/exit without a model call.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -10,6 +10,8 @@ import {
 	DefaultResourceLoader,
 	SessionManager,
 } from "@earendil-works/pi-coding-agent";
+import { canonicalize } from "../extensions/worktree/git.ts";
+import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 
 const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const extensionPath = join(repo, "extensions", "worktree", "index.ts");
@@ -52,6 +54,17 @@ const check = (label: string, cond: boolean) => {
 	console.log(`${cond ? "ok  " : "FAIL"} ${label}`);
 	if (!cond) ok = false;
 };
+
+// `findInactiveOverrides` treats a tool as ours when Pi records the extension
+// entry file as its source; verify that premise on the real registry.
+const entry = canonicalize(extensionPath);
+for (const name of ROOT_TOOL_NAMES) {
+	const info = session.getAllTools().find((t) => t.name === name);
+	check(
+		`override ${name} is sourced from the extension entry`,
+		!!info?.sourceInfo?.path && canonicalize(info.sourceInfo.path) === entry,
+	);
+}
 
 const entered = await call("worktree_enter", { name: "smoke" });
 const enterText = (entered.content[0] as { text: string }).text;
