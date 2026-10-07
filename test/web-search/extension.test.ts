@@ -5,16 +5,12 @@ import { join } from "node:path";
 import type { HttpResponse, HttpRunner } from "../../extensions/_shared/http.ts";
 import { resetThrottle, setDefaultRunnerForTests } from "../../extensions/web-search/search.ts";
 import webSearch, { TOOL_NAME } from "../../extensions/web-search/index.ts";
+import { createFakePi } from "../helpers/fakes.ts";
 
 type AnyFn = (...args: any[]) => any;
 
 function makeFakePi() {
-	const tools = new Map<string, any>();
-	const pi: any = {
-		registerTool: (tool: any) => tools.set(tool.name, tool),
-		on: () => () => {},
-	};
-	return { pi, tools };
+	return createFakePi();
 }
 
 function installTool() {

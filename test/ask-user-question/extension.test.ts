@@ -1,38 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import askUserQuestion from "../../extensions/ask-user-question/index.ts";
 import { TOOL_NAME } from "../../extensions/ask-user-question/tools.ts";
+import { createFakePi, emit } from "../helpers/fakes.ts";
 
 function makeFakePi(activeTools: string[] = [TOOL_NAME]) {
-	const tools = new Map<string, any>();
-	const handlers = new Map<string, Array<(...args: any[]) => any>>();
-	let active = [...activeTools];
-	const pi: any = {
-		tools,
-		handlers,
-		registerTool: (tool: any) => tools.set(tool.name, tool),
-		registerCommand: () => {},
-		on: (event: string, handler: (...args: any[]) => any) => {
-			const list = handlers.get(event) ?? [];
-			list.push(handler);
-			handlers.set(event, list);
-			return () => {};
-		},
-		getActiveTools: () => active,
-		setActiveTools: (names: string[]) => {
-			active = names;
-		},
-		getAllTools: () => [...tools.values()],
-		events: { emit: () => {} },
-	};
-	return pi;
+	return createFakePi({ active: activeTools }).pi;
 }
 
 function fakeCtx(hasUI: boolean) {
 	return { hasUI, mode: hasUI ? "tui" : "print" } as any;
-}
-
-async function emit(pi: any, event: string, payload: unknown, ctx: any) {
-	for (const handler of pi.handlers.get(event) ?? []) await handler(payload, ctx);
 }
 
 describe("ask_user_question extension", () => {

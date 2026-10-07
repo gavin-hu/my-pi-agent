@@ -1,4 +1,7 @@
-export type AnyHandler = (...args: any[]) => any;
+import { createFakePi, type AnyHandler } from "../helpers/fakes.ts";
+
+export { emit, fakeTheme } from "../helpers/fakes.ts";
+export type { AnyHandler };
 
 export interface FakePi {
 	pi: any;
@@ -9,35 +12,9 @@ export interface FakePi {
 
 /** Minimal `ExtensionAPI` double covering what the turn-separator extension uses. */
 export function makeFakePi(): FakePi {
-	const handlers = new Map<string, AnyHandler[]>();
-	const renderers = new Map<string, any>();
-	const appended: Array<{ customType: string; data?: unknown }> = [];
-
-	const pi: any = {
-		handlers,
-		registerEntryRenderer: (customType: string, renderer: any) => renderers.set(customType, renderer),
-		on: (event: string, handler: AnyHandler) => {
-			const list = handlers.get(event) ?? [];
-			list.push(handler);
-			handlers.set(event, list);
-			return () => {};
-		},
-		appendEntry: (customType: string, data?: unknown) => {
-			appended.push({ customType, data });
-		},
-	};
-
-	return { pi, handlers, renderers, appended };
+	const fake = createFakePi();
+	return { pi: fake.pi, handlers: fake.handlers, renderers: fake.renderers, appended: fake.appended };
 }
-
-export async function emit(pi: any, event: string, payload: unknown, ctx: any): Promise<void> {
-	for (const handler of pi.handlers.get(event) ?? []) await handler(payload, ctx);
-}
-
-/** Theme double whose `fg` is the identity, so text stays assertable. */
-export const fakeTheme: any = {
-	fg: (_color: string, text: string) => text,
-};
 
 export interface FakeCtxOptions {
 	mode?: string;

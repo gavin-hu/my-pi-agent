@@ -6,22 +6,12 @@ import { cacheClear } from "../../extensions/web-fetch/cache.ts";
 import type { HttpResponse } from "../../extensions/_shared/http.ts";
 import { setDefaultRunnerForTests } from "../../extensions/web-fetch/page.ts";
 import webFetch, { TOOL_NAME } from "../../extensions/web-fetch/index.ts";
+import { createFakePi } from "../helpers/fakes.ts";
 
 type AnyFn = (...args: any[]) => any;
 
 function makeFakePi() {
-	const tools = new Map<string, any>();
-	const handlers = new Map<string, AnyFn[]>();
-	const pi: any = {
-		registerTool: (tool: any) => tools.set(tool.name, tool),
-		on: (event: string, handler: AnyFn) => {
-			const list = handlers.get(event) ?? [];
-			list.push(handler);
-			handlers.set(event, list);
-			return () => {};
-		},
-	};
-	return { pi, tools, handlers };
+	return createFakePi();
 }
 
 function installTool() {

@@ -1,6 +1,8 @@
 import type { StatusSnapshot } from "../../extensions/status-bar/types.ts";
+import { createFakePi, fakeTheme, type AnyHandler } from "../helpers/fakes.ts";
 
-export type AnyHandler = (...args: any[]) => any;
+export { emit, fakeTheme } from "../helpers/fakes.ts";
+export type { AnyHandler };
 
 export interface FakePi {
 	pi: any;
@@ -10,33 +12,9 @@ export interface FakePi {
 
 /** Minimal `ExtensionAPI` double covering what the status-bar extension uses. */
 export function makeFakePi(options: { settings?: any } = {}): FakePi {
-	const commands = new Map<string, any>();
-	const handlers = new Map<string, AnyHandler[]>();
-
-	const pi: any = {
-		handlers,
-		registerCommand: (name: string, opts: any) => commands.set(name, opts),
-		on: (event: string, handler: AnyHandler) => {
-			const list = handlers.get(event) ?? [];
-			list.push(handler);
-			handlers.set(event, list);
-			return () => {};
-		},
-		getSettings: () => options.settings ?? { compaction: { enabled: true } },
-	};
-
-	return { pi, commands, handlers };
+	const fake = createFakePi({ settings: options.settings });
+	return { pi: fake.pi, commands: fake.commands, handlers: fake.handlers };
 }
-
-export async function emit(pi: any, event: string, payload: unknown, ctx: any): Promise<void> {
-	for (const handler of pi.handlers.get(event) ?? []) await handler(payload, ctx);
-}
-
-/** Theme double whose `fg` is the identity, so text stays assertable. */
-export const fakeTheme: any = {
-	fg: (_color: string, text: string) => text,
-	bold: (text: string) => text,
-};
 
 export interface FakeCtxOptions {
 	mode?: string;

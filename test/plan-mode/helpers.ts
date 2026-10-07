@@ -1,4 +1,7 @@
-export type AnyHandler = (...args: any[]) => any;
+import { createFakePi, type AnyHandler } from "../helpers/fakes.ts";
+
+export { emitCollect as emit } from "../helpers/fakes.ts";
+export type { AnyHandler };
 
 export interface FakePi {
 	pi: any;
@@ -6,60 +9,33 @@ export interface FakePi {
 	commands: Map<string, any>;
 	shortcuts: Map<string, any>;
 	flags: Map<string, any>;
-	entries: Array<{ customType: string; data: unknown }>;
+	entries: Array<{ customType: string; data?: unknown }>;
 	handlers: Map<string, AnyHandler[]>;
 	sentMessages: Array<{ content: unknown; options: unknown }>;
 	activeTools(): string[];
 }
 
 /** Minimal `ExtensionAPI` double covering the surface the plan-mode extension uses. */
-export function makeFakePi(
-	options: { active?: string[]; planFlag?: boolean } = {},
-): FakePi {
+export function makeFakePi(options: { active?: string[]; planFlag?: boolean } = {}): FakePi {
 	const defaultActive = ["read", "bash", "edit", "write", "grep", "find", "ls"];
-	let active = [...(options.active ?? defaultActive)];
-	const tools = new Map<string, any>();
-	const commands = new Map<string, any>();
-	const shortcuts = new Map<string, any>();
-	const flags = new Map<string, any>();
-	const entries: Array<{ customType: string; data: unknown }> = [];
-	const handlers = new Map<string, AnyHandler[]>();
-	const sentMessages: Array<{ content: unknown; options: unknown }> = [];
-
-	const pi: any = {
-		handlers,
-		registerTool: (tool: any) => tools.set(tool.name, tool),
-		registerCommand: (name: string, opts: any) => commands.set(name, opts),
-		registerShortcut: (key: string, opts: any) => shortcuts.set(String(key), opts),
-		registerFlag: (name: string, opts: any) => {
-			flags.set(name, { ...opts, default: name === "plan" && options.planFlag ? true : opts.default });
-		},
-		getFlag: (name: string) => flags.get(name)?.default ?? false,
-		appendEntry: (customType: string, data?: unknown) => entries.push({ customType, data }),
-		sendUserMessage: (content: unknown, options?: unknown) => sentMessages.push({ content, options }),
-		getActiveTools: () => [...active],
-		setActiveTools: (names: string[]) => {
-			active = [...new Set(names)];
-		},
-		getAllTools: () => [...tools.values()],
-		on: (event: string, handler: AnyHandler) => {
-			const list = handlers.get(event) ?? [];
-			list.push(handler);
-			handlers.set(event, list);
-			return () => {};
-		},
+	const fake = createFakePi({ active: options.active ?? defaultActive });
+	fake.pi.registerFlag = (name: string, opts: any) => {
+		fake.flags.set(name, { ...opts, default: name === "plan" && options.planFlag ? true : opts.default });
 	};
-
+	// Plan-mode's persisted entries historically carried no `type` field.
+	fake.pi.appendEntry = (customType: string, data?: unknown) => {
+		fake.entries.push({ customType, data } as any);
+	};
 	return {
-		pi,
-		tools,
-		commands,
-		shortcuts,
-		flags,
-		entries,
-		handlers,
-		sentMessages,
-		activeTools: () => [...active],
+		pi: fake.pi,
+		tools: fake.tools,
+		commands: fake.commands,
+		shortcuts: fake.shortcuts,
+		flags: fake.flags,
+		entries: fake.entries as Array<{ customType: string; data?: unknown }>,
+		handlers: fake.handlers,
+		sentMessages: fake.sentMessages,
+		activeTools: fake.activeTools,
 	};
 }
 
@@ -145,10 +121,4 @@ export function planModeMessage(): unknown {
 
 export function otherMessage(): unknown {
 	return { role: "user", content: "just a normal message" };
-}
-
-export async function emit(pi: any, event: string, payload: unknown, ctx: any): Promise<any[]> {
-	const results: any[] = [];
-	for (const handler of pi.handlers.get(event) ?? []) results.push(await handler(payload, ctx));
-	return results;
 }

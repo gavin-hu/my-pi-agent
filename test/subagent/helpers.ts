@@ -3,6 +3,7 @@ import type { ChildProcess, SpawnOptions } from "node:child_process";
 import type { Message } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { SpawnFn, SubagentMode } from "../../extensions/subagent/types.ts";
+import { createFakePi, fakeTheme as sharedFakeTheme } from "../helpers/fakes.ts";
 
 /** A scriptable stand-in for a spawned `pi` process. */
 export class FakeChild extends EventEmitter {
@@ -117,11 +118,8 @@ export function assistantMessage(
 
 /** A minimal `ExtensionAPI` that records registered tools. */
 export function makeFakePi(): { pi: ExtensionAPI; tools: Map<string, any> } {
-	const tools = new Map<string, any>();
-	const pi = {
-		registerTool: (tool: any) => tools.set(tool.name, tool),
-	} as unknown as ExtensionAPI;
-	return { pi, tools };
+	const fake = createFakePi();
+	return { pi: fake.pi as ExtensionAPI, tools: fake.tools };
 }
 
 /** A minimal tool context; only `cwd`, `model`, and `thinkingLevel` are read. */
@@ -135,10 +133,7 @@ export function fakeToolCtx(overrides: { cwd?: string; model?: { provider: strin
 
 /** A theme double with identity colorization, for pure render/format tests. */
 export function fakeTheme(): any {
-	return {
-		fg: (_color: string, text: string) => text,
-		bold: (text: string) => text,
-	};
+	return sharedFakeTheme;
 }
 
 /** Convenience: a fully-zeroed `SingleResult` fragment. */

@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_CONFIG, type WorktreeConfig } from "../../extensions/worktree/config.ts";
+import { createFakePi, emitFirst } from "../helpers/fakes.ts";
 
 type TestConfigOverrides = Partial<Omit<WorktreeConfig, "guard">> & {
 	guard?: Partial<WorktreeConfig["guard"]>;
@@ -50,44 +51,10 @@ export function execP(
 
 /** A minimal `pi` API for driving the extension without the Pi runtime. */
 export function makeFakePi() {
-	const tools = new Map<string, any>();
-	const commands = new Map<string, any>();
-	const handlers = new Map<string, Array<(...args: any[]) => any>>();
-	const entries: any[] = [];
-	const flags = new Map<string, any>();
-
-	const pi: any = {
-		tools,
-		commands,
-		handlers,
-		entries,
-		flags,
-		allTools: [] as any[],
-		exec: (command: string, args: string[], options?: { cwd?: string; timeout?: number }) =>
-			execP(command, args, options),
-		registerTool: (tool: any) => tools.set(tool.name, tool),
-		registerCommand: (name: string, options: any) => commands.set(name, options),
-		on: (event: string, handler: (...args: any[]) => any) => {
-			const list = handlers.get(event) ?? [];
-			list.push(handler);
-			handlers.set(event, list);
-			return () => {};
-		},
-		registerFlag: (name: string, options: any) => {
-			if (options?.default !== undefined) flags.set(name, options.default);
-		},
-		getFlag: (name: string) => flags.get(name),
-		appendEntry: (customType: string, data?: unknown) => {
-			entries.push({ type: "custom", customType, data });
-		},
-		getSettings: () => ({}),
-		getActiveTools: () => [],
-		getAllTools: () => pi.allTools,
-		setActiveTools: () => {},
-		sendMessage: () => {},
-		events: { emit: () => {}, on: () => () => {} },
-	};
-	return pi;
+	const fake = createFakePi({
+		exec: (command, args, options) => execP(command, args, options),
+	});
+	return fake.pi;
 }
 
 export interface FakeCtxOptions {
@@ -130,12 +97,7 @@ export function makeFakeCtx(pi: any, options: FakeCtxOptions) {
 
 /** Invoke every registered handler for an event, returning the first defined result. */
 export async function emitEvent(pi: any, event: string, payload: unknown, ctx: any): Promise<any> {
-	let result: any;
-	for (const handler of pi.handlers.get(event) ?? []) {
-		const value = await handler(payload, ctx);
-		if (value !== undefined && result === undefined) result = value;
-	}
-	return result;
+	return emitFirst(pi, event, payload, ctx);
 }
 
 async function git(args: string[], cwd: string): Promise<ExecResult> {
