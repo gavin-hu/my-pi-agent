@@ -172,8 +172,7 @@ bun run test:watch
 The suite covers the pure logic (`include.ts` gitignore matcher, `guard.ts` path and
 command checks, `parsePrReference`) and drives the extension end-to-end against real
 temporary git repositories through a mocked `pi` API: enter/exit, isolation guards,
-borrowed worktrees, prune, and inactive-override reporting. CI runs `bun test` plus a
-transpile check (`.github/workflows/ci.yml`).
+borrowed worktrees, prune, and inactive-override reporting.
 
 ## Status
 
