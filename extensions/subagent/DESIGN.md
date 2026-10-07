@@ -85,7 +85,8 @@ validation.
 SubagentDetails {
   mode: "single" | "parallel" | "chain"
   results: SingleResult[]   // agent, task, exitCode, messages, stderr,
-                            // usage, model, stopReason, errorMessage, step, toolErrors
+                            // usage, model, stopReason, errorMessage, step,
+                            // toolErrors, startedAt, finishedAt
 }
 ```
 

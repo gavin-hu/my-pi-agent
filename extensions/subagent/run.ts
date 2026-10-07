@@ -65,9 +65,14 @@ function spawnAndCollect(
 		let settled = false;
 		let aborted = false;
 
+		let kill: (() => void) | undefined;
+		let killTimer: ReturnType<typeof setTimeout> | undefined;
+
 		const finish = (exitCode: number) => {
 			if (settled) return;
 			settled = true;
+			if (kill && signal) signal.removeEventListener("abort", kill);
+			if (killTimer) clearTimeout(killTimer);
 			if (buffer.trim()) {
 				const event = parseJsonLine(buffer);
 				if (event && applyEvent(result, event)) onEvent();
@@ -99,13 +104,13 @@ function spawnAndCollect(
 		proc.on("error", () => finish(1));
 
 		if (signal) {
-			const kill = () => {
+			kill = () => {
 				aborted = true;
 				proc.kill("SIGTERM");
-				const timer = setTimeout(() => {
+				killTimer = setTimeout(() => {
 					if (!proc.killed) proc.kill("SIGKILL");
-				}, 5000) as { unref?: () => void };
-				timer.unref?.();
+				}, 5000);
+				killTimer.unref();
 			};
 			if (signal.aborted) kill();
 			else signal.addEventListener("abort", kill, { once: true });
@@ -132,6 +137,7 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 		stderr: "",
 		usage: emptyUsage(),
 		step: options.step,
+		startedAt: Date.now(),
 	};
 
 	if (!agent) {
@@ -164,6 +170,7 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 		);
 
 		result.exitCode = outcome.exitCode;
+		result.finishedAt = Date.now();
 		if (outcome.aborted) throw new Error("Subagent was aborted");
 		return result;
 	} finally {

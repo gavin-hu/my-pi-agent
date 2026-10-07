@@ -5,17 +5,21 @@
  * draws a collapsed summary or an expanded, per-result view. Both are pure
  * functions over the tool arguments/details so they can be tested by calling
  * `.render(width)` directly.
+ *
+ * Status and error rendering is shared across single- and multi-result modes so
+ * a failed task never loses its message, regardless of how many tasks ran.
  */
 
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
-import { aggregateUsage, formatToolCall, formatUsageStats } from "./format.ts";
+import { aggregateUsage, formatToolCall, formatUsageStats, shortenPath } from "./format.ts";
 import { COLLAPSED_ITEM_COUNT, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
 
 type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
+type ResultStatus = "running" | "aborted" | "failed" | "success";
 
 /** Text and tool-call parts of every assistant message, in order. */
 export function getDisplayItems(messages: SingleResult["messages"]): DisplayItem[] {
@@ -34,9 +38,65 @@ function clip(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, max)}...` : value;
 }
 
-function resultIcon(result: SingleResult, theme: Theme): string {
-	if (result.exitCode === -1) return theme.fg("warning", "⏳");
-	return isFailedResult(result) ? theme.fg("error", "✗") : theme.fg("success", "✓");
+const STATUS_META: Record<ResultStatus, { color: "warning" | "error" | "success"; glyph: string }> = {
+	running: { color: "warning", glyph: "⏳" },
+	aborted: { color: "warning", glyph: "⊘" },
+	failed: { color: "error", glyph: "✗" },
+	success: { color: "success", glyph: "✓" },
+};
+
+/** Classify a result. `isPartial` marks the streaming result before its first event. */
+function resultStatus(result: SingleResult, isPartial = false): ResultStatus {
+	if (isPartial || result.exitCode === -1) return "running";
+	if (result.stopReason === "aborted") return "aborted";
+	if (isFailedResult(result)) return "failed";
+	return "success";
+}
+
+function statusIcon(status: ResultStatus, theme: Theme): string {
+	const meta = STATUS_META[status];
+	return theme.fg(meta.color, meta.glyph);
+}
+
+/** The message a failed/aborted result should show, falling back to stderr. */
+function errorDetail(result: SingleResult, status: ResultStatus): string | undefined {
+	if (status !== "failed" && status !== "aborted") return undefined;
+	if (result.errorMessage) return result.errorMessage;
+	const stderr = result.stderr.trim();
+	return stderr || undefined;
+}
+
+/** A one-line "Error: ..." / "Aborted: ..." block, or undefined when clean. */
+function renderError(result: SingleResult, status: ResultStatus, theme: Theme): string | undefined {
+	const detail = errorDetail(result, status);
+	if (!detail) return undefined;
+	const label = status === "aborted" ? "Aborted" : "Error";
+	return theme.fg(status === "aborted" ? "warning" : "error", `${label}: ${detail}`);
+}
+
+function formatDuration(ms: number): string {
+	const seconds = Math.max(0, Math.round(ms / 1000));
+	if (seconds < 60) return `${seconds}s`;
+	const minutes = Math.floor(seconds / 60);
+	const rest = seconds % 60;
+	return rest ? `${minutes}m${rest}s` : `${minutes}m`;
+}
+
+/** " 12s" while running or once finished, or "" when no start time was recorded. */
+function durationSuffix(result: SingleResult, status: ResultStatus): string {
+	if (!result.startedAt) return "";
+	const end = result.finishedAt ?? (status === "running" ? Date.now() : undefined);
+	if (end === undefined) return "";
+	return ` ${formatDuration(end - result.startedAt)}`;
+}
+
+/** Prefix each line of intermediate assistant text with a muted gutter. */
+function quoteLines(text: string, theme: Theme): string {
+	return text
+		.trim()
+		.split("\n")
+		.map((line) => theme.fg("muted", "│ ") + theme.fg("toolOutput", line))
+		.join("\n");
 }
 
 function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, preview = true): string {
@@ -55,47 +115,63 @@ function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, 
 	return lines.join("\n");
 }
 
+function resultLabel(result: SingleResult): string {
+	return result.step ? `Step ${result.step}: ${result.agent}` : result.agent;
+}
+
 /** Preview the requested mode and its agents. */
-export function renderSubagentCall(args: SubagentArgs, theme: Theme): Component {
-	const header = (label: string, count: number) =>
-		theme.fg("toolTitle", theme.bold("subagent ")) + theme.fg("accent", `${label} (${count})`);
+export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): Component {
+	const title = theme.fg("toolTitle", theme.bold("subagent "));
+	const cwdNote = (cwd?: string) => {
+		if (!cwd || cwd === context?.cwd) return "";
+		return theme.fg("dim", `  in ${shortenPath(cwd)}`);
+	};
 
 	if (args.chain && args.chain.length > 0) {
-		let text = header(`chain ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`, args.chain.length);
+		let text = title + theme.fg("accent", `chain · ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
 			const step = args.chain[i];
 			const clean = step.task.replace(/\{previous\}/g, "").trim();
-			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}`;
+			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
 		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `... +${args.chain.length - 3} more`)}`;
 		return new Text(text, 0, 0);
 	}
 
 	if (args.tasks && args.tasks.length > 0) {
-		let text = header(`parallel ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`, args.tasks.length);
-		for (const task of args.tasks.slice(0, 3)) {
-			text += `\n  ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(task.task, 40)}`)}`;
+		let text = title + theme.fg("accent", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
+		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
+			const task = args.tasks[i];
+			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(task.task, 40)}`)}${cwdNote(task.cwd)}`;
 		}
 		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `... +${args.tasks.length - 3} more`)}`;
 		return new Text(text, 0, 0);
 	}
 
 	const agentName = args.agent || "...";
-	let text = theme.fg("toolTitle", theme.bold("subagent ")) + theme.fg("accent", agentName);
+	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
 	text += `\n  ${theme.fg("dim", clip(args.task ?? "...", 60))}`;
 	return new Text(text, 0, 0);
 }
 
-function expandedResult(result: SingleResult, theme: Theme, mdTheme = getMarkdownTheme()): Container {
-	const container = new Container();
-	const icon = resultIcon(result, theme);
-	let headerText = `${icon} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
-	if (result.step) headerText = `${theme.fg("muted", `step ${result.step} `)}` + headerText;
-	if (isFailedResult(result) && result.stopReason) headerText += ` ${theme.fg("error", `[${result.stopReason}]`)}`;
+/** Append one result's expanded block: header, error, task, output, usage. */
+function addExpandedResult(
+	container: Container,
+	result: SingleResult,
+	theme: Theme,
+	mdTheme: ReturnType<typeof getMarkdownTheme>,
+	isPartial = false,
+): void {
+	const status = resultStatus(result, isPartial);
+	let headerText = `${statusIcon(status, theme)} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
+	if (result.step) headerText = `${theme.fg("muted", `Step ${result.step} `)}` + headerText;
+	const duration = durationSuffix(result, status);
+	if (duration) headerText += theme.fg("dim", duration);
+	if (result.stopReason && status !== "success" && status !== "running") headerText += ` ${theme.fg("error", `[${result.stopReason}]`)}`;
 	container.addChild(new Text(headerText, 0, 0));
-	if (isFailedResult(result) && result.errorMessage) {
-		container.addChild(new Text(theme.fg("error", `Error: ${result.errorMessage}`), 0, 0));
-	}
+	const error = renderError(result, status, theme);
+	if (error) container.addChild(new Text(error, 0, 0));
+
 	container.addChild(new Spacer(1));
 	container.addChild(new Text(theme.fg("muted", "─── Task ───"), 0, 0));
 	container.addChild(new Text(theme.fg("dim", result.task), 0, 0));
@@ -105,11 +181,13 @@ function expandedResult(result: SingleResult, theme: Theme, mdTheme = getMarkdow
 	container.addChild(new Spacer(1));
 	container.addChild(new Text(theme.fg("muted", "─── Output ───"), 0, 0));
 	if (displayItems.length === 0 && !finalOutput) {
-		container.addChild(new Text(theme.fg("muted", "(no output)"), 0, 0));
+		container.addChild(new Text(theme.fg("muted", status === "running" ? "(running...)" : "(no output)"), 0, 0));
 	} else {
 		for (const item of displayItems) {
 			if (item.type === "toolCall") {
 				container.addChild(new Text(theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme, false), 0, 0));
+			} else if (item.text.trim() && item.text !== finalOutput) {
+				container.addChild(new Text(quoteLines(item.text, theme), 0, 0));
 			}
 		}
 		if (finalOutput) {
@@ -123,20 +201,29 @@ function expandedResult(result: SingleResult, theme: Theme, mdTheme = getMarkdow
 		container.addChild(new Spacer(1));
 		container.addChild(new Text(theme.fg("dim", usage), 0, 0));
 	}
+}
+
+function expandedResult(result: SingleResult, theme: Theme, mdTheme: ReturnType<typeof getMarkdownTheme>, isPartial: boolean): Container {
+	const container = new Container();
+	addExpandedResult(container, result, theme, mdTheme, isPartial);
 	return container;
 }
 
-function collapsedResult(result: SingleResult, theme: Theme): Text {
-	const icon = resultIcon(result, theme);
+function collapsedResult(result: SingleResult, theme: Theme, isPartial: boolean): Text {
+	const status = resultStatus(result, isPartial);
+	const icon = statusIcon(status, theme);
 	let text = `${icon} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
 	if (result.step) text = `${theme.fg("muted", `step ${result.step} `)}` + text;
-	if (isFailedResult(result) && result.stopReason) text += ` ${theme.fg("error", `[${result.stopReason}]`)}`;
+	const duration = durationSuffix(result, status);
+	if (duration) text += theme.fg("dim", duration);
+	if (result.stopReason && status !== "success" && status !== "running") text += ` ${theme.fg("error", `[${result.stopReason}]`)}`;
 
 	const displayItems = getDisplayItems(result.messages);
-	if (isFailedResult(result) && result.errorMessage) {
-		text += `\n${theme.fg("error", `Error: ${result.errorMessage}`)}`;
+	const error = renderError(result, status, theme);
+	if (error) {
+		text += `\n${error}`;
 	} else if (displayItems.length === 0) {
-		text += `\n${theme.fg("muted", result.exitCode === -1 ? "(running...)" : "(no output)")}`;
+		text += `\n${theme.fg("muted", status === "running" ? "(running...)" : "(no output)")}`;
 	} else {
 		text += `\n${renderDisplayItems(displayItems, theme, COLLAPSED_ITEM_COUNT)}`;
 		if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
@@ -146,72 +233,86 @@ function collapsedResult(result: SingleResult, theme: Theme): Text {
 	return new Text(text, 0, 0);
 }
 
+function summarizeResults(results: SingleResult[]) {
+	const statuses = results.map((result) => resultStatus(result));
+	return {
+		running: statuses.filter((status) => status === "running").length,
+		failed: statuses.filter((status) => status === "failed").length,
+		aborted: statuses.filter((status) => status === "aborted").length,
+		succeeded: statuses.filter((status) => status === "success").length,
+	};
+}
+
+/** Shared header for parallel/chain results, with a failure count when present. */
+function multiHeader(details: SubagentDetails, theme: Theme): string {
+	const { running, failed, aborted, succeeded } = summarizeResults(details.results);
+	const total = details.results.length;
+	const finished = total - running;
+	const noun = details.mode === "chain" ? "steps" : "tasks";
+
+	let status: string;
+	if (running > 0) {
+		status = `${finished}/${total} ${noun} done, ${running} running`;
+	} else {
+		status = `${succeeded}/${total} ${noun}`;
+		const issues: string[] = [];
+		if (failed) issues.push(`${failed} failed`);
+		if (aborted) issues.push(`${aborted} aborted`);
+		if (issues.length) status += ` (${issues.join(", ")})`;
+	}
+
+	const bad = failed + aborted;
+	const icon =
+		running > 0
+			? theme.fg("warning", "⏳")
+			: bad > 0
+				? theme.fg(bad === total ? "error" : "warning", bad === total ? "✗" : "◐")
+				: theme.fg("success", "✓");
+	return `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} · `))}${theme.fg("accent", status)}`;
+}
+
 function collapsedMulti(details: SubagentDetails, theme: Theme): Text {
 	const results = details.results;
-	const running = results.filter((r) => r.exitCode === -1).length;
-	const failed = results.filter((r) => r.exitCode !== -1 && isFailedResult(r)).length;
-	const succeeded = results.filter((r) => r.exitCode !== -1 && !isFailedResult(r)).length;
-
-	const icon = running > 0 ? theme.fg("warning", "⏳") : failed > 0 ? theme.fg("warning", "◐") : theme.fg("success", "✓");
-	const status =
-		running > 0
-			? `${succeeded + failed}/${results.length} done, ${running} running`
-			: `${succeeded}/${results.length} ${details.mode === "chain" ? "steps" : "tasks"}`;
-	let text = `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} `))}${theme.fg("accent", status)}`;
+	const { running } = summarizeResults(results);
+	let text = multiHeader(details, theme);
 
 	for (const result of results) {
+		const status = resultStatus(result);
 		const displayItems = getDisplayItems(result.messages);
-		const label = result.step ? `Step ${result.step}: ${result.agent}` : result.agent;
-		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", label)} ${resultIcon(result, theme)}`;
-		if (displayItems.length === 0) {
-			text += `\n${theme.fg("muted", result.exitCode === -1 ? "(running...)" : "(no output)")}`;
+		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", resultLabel(result))} ${statusIcon(status, theme)}`;
+		const duration = durationSuffix(result, status);
+		if (duration) text += theme.fg("dim", duration);
+		const error = renderError(result, status, theme);
+		if (error) {
+			text += `\n${error}`;
+		} else if (displayItems.length === 0) {
+			text += `\n${theme.fg("muted", status === "running" ? "(running...)" : "(no output)")}`;
 		} else {
-			text += `\n${renderDisplayItems(displayItems, theme, 5)}`;
+			text += `\n${renderDisplayItems(displayItems, theme, COLLAPSED_ITEM_COUNT)}`;
 		}
 	}
 	if (running === 0) {
 		const usage = formatUsageStats(aggregateUsage(results));
 		if (usage) text += `\n\n${theme.fg("dim", `Total: ${usage}`)}`;
 	}
-	text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+	const hasHidden = results.some((result) => getDisplayItems(result.messages).length > COLLAPSED_ITEM_COUNT);
+	if (running > 0 || hasHidden) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 	return new Text(text, 0, 0);
 }
 
 function expandedMulti(details: SubagentDetails, theme: Theme): Container {
 	const container = new Container();
-	const results = details.results;
-	const running = results.filter((r) => r.exitCode === -1).length;
-	const failed = results.filter((r) => r.exitCode !== -1 && isFailedResult(r)).length;
-	const succeeded = results.filter((r) => r.exitCode !== -1 && !isFailedResult(r)).length;
-	const icon = running > 0 ? theme.fg("warning", "⏳") : failed > 0 ? theme.fg("warning", "◐") : theme.fg("success", "✓");
-	const status =
-		running > 0
-			? `${succeeded + failed}/${results.length} done, ${running} running`
-			: `${succeeded}/${results.length} ${details.mode === "chain" ? "steps" : "tasks"}`;
-
-	container.addChild(new Text(`${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} `))}${theme.fg("accent", status)}`, 0, 0));
 	const mdTheme = getMarkdownTheme();
-	for (const result of results) {
-		const displayItems = getDisplayItems(result.messages);
-		const finalOutput = getFinalOutput(result.messages);
-		const label = result.step ? `─── Step ${result.step}: ` : "─── ";
+	container.addChild(new Text(multiHeader(details, theme), 0, 0));
+
+	for (const result of details.results) {
 		container.addChild(new Spacer(1));
-		container.addChild(new Text(`${theme.fg("muted", label)}${theme.fg("accent", result.agent)} ${resultIcon(result, theme)}`, 0, 0));
-		container.addChild(new Text(theme.fg("muted", "Task: ") + theme.fg("dim", result.task), 0, 0));
-		for (const item of displayItems) {
-			if (item.type === "toolCall") {
-				container.addChild(new Text(theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme, false), 0, 0));
-			}
-		}
-		if (finalOutput) {
-			container.addChild(new Spacer(1));
-			container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
-		}
-		const usage = formatUsageStats(result.usage, result.model);
-		if (usage) container.addChild(new Text(theme.fg("dim", usage), 0, 0));
+		addExpandedResult(container, result, theme, mdTheme);
 	}
+
+	const { running } = summarizeResults(details.results);
 	if (running === 0) {
-		const usage = formatUsageStats(aggregateUsage(results));
+		const usage = formatUsageStats(aggregateUsage(details.results));
 		if (usage) {
 			container.addChild(new Spacer(1));
 			container.addChild(new Text(theme.fg("dim", `Total: ${usage}`), 0, 0));
@@ -223,7 +324,7 @@ function expandedMulti(details: SubagentDetails, theme: Theme): Container {
 /** Render a subagent result, collapsed or expanded. */
 export function renderSubagentResult(
 	result: AgentToolResult<unknown>,
-	options: { expanded: boolean },
+	options: { expanded: boolean; isPartial?: boolean },
 	theme: Theme,
 ): Component {
 	const details = result.details as SubagentDetails | undefined;
@@ -232,8 +333,11 @@ export function renderSubagentResult(
 		return new Text(first?.type === "text" ? first.text : "(no output)", 0, 0);
 	}
 
+	const isPartial = options.isPartial ?? false;
 	if (details.results.length === 1) {
-		return options.expanded ? expandedResult(details.results[0], theme) : collapsedResult(details.results[0], theme);
+		return options.expanded
+			? expandedResult(details.results[0], theme, getMarkdownTheme(), isPartial)
+			: collapsedResult(details.results[0], theme, isPartial);
 	}
 	return options.expanded ? expandedMulti(details, theme) : collapsedMulti(details, theme);
 }

@@ -39,19 +39,25 @@ describe("renderSubagentCall", () => {
 		const text = render(
 			renderSubagentCall({ tasks: [{ agent: "explorer", task: "a" }, { agent: "planner", task: "b" }] }, theme),
 		);
-		expect(text).toContain("parallel 2 tasks");
-		expect(text).toContain("explorer");
-		expect(text).toContain("planner");
+		expect(text).toContain("parallel · 2 tasks");
+		expect(text).toContain("1. explorer");
+		expect(text).toContain("2. planner");
 	});
 
 	test("chain mode numbers steps and strips the placeholder", () => {
 		const text = render(
 			renderSubagentCall({ chain: [{ agent: "explorer", task: "find {previous}" }, { agent: "worker", task: "build" }] }, theme),
 		);
-		expect(text).toContain("chain 2 steps");
+		expect(text).toContain("chain · 2 steps");
 		expect(text).toContain("1.");
 		expect(text).toContain("worker");
 		expect(text).not.toContain("{previous}");
+	});
+
+	test("notes a per-task cwd that differs from the session cwd", () => {
+		const text = render(renderSubagentCall({ agent: "explorer", task: "x", cwd: "/tmp/elsewhere" }, theme, { cwd: "/repo" }));
+		expect(text).toContain("in /tmp/elsewhere");
+		expect(render(renderSubagentCall({ agent: "explorer", task: "x" }, theme, { cwd: "/repo" }))).not.toContain("in ");
 	});
 });
 
@@ -108,5 +114,52 @@ describe("renderSubagentResult", () => {
 	test("falls back to content when there are no results", () => {
 		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [] }, "nothing here"), { expanded: false }, theme));
 		expect(text.trim()).toBe("nothing here");
+	});
+
+	test("multi view surfaces the failure count and error detail", () => {
+		const failed = single({ agent: "worker", exitCode: 1, stopReason: "error", errorMessage: "permission denied" });
+		const details: SubagentDetails = { mode: "parallel", results: [single(), failed] };
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		expect(text).toContain("1/2 tasks (1 failed)");
+		expect(text).toContain("Error: permission denied");
+	});
+
+	test("multi expanded view surfaces the error too", () => {
+		const failed = single({ agent: "worker", exitCode: 1, stopReason: "error", errorMessage: "boom" });
+		const details: SubagentDetails = { mode: "parallel", results: [single(), failed] };
+		const text = render(renderSubagentResult(toolResult(details), { expanded: true }, theme));
+		expect(text).toContain("Error: boom");
+	});
+
+	test("falls back to stderr when a failure has no error message", () => {
+		const failed = single({ exitCode: 1, stderr: "fatal: EACCES\n" });
+		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		expect(text).toContain("Error: fatal: EACCES");
+	});
+
+	test("expanded view keeps intermediate assistant text", () => {
+		const messages = [
+			{ role: "assistant", content: [{ type: "text", text: "thinking out loud" }] },
+			{
+				role: "assistant",
+				content: [
+					{ type: "text", text: "intermediate note" },
+					{ type: "toolCall", name: "bash", arguments: { command: "ls" } },
+				],
+			},
+			assistantMessage("final answer"),
+		] as any;
+		const result = single({ messages });
+		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [result] }), { expanded: true }, theme));
+		expect(text).toContain("thinking out loud");
+		expect(text).toContain("intermediate note");
+		expect(text).toContain("final answer");
+	});
+
+	test("running results show an elapsed-time label", () => {
+		const now = Date.now();
+		const running = single({ exitCode: -1, messages: [], startedAt: now - 12000 });
+		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false }, theme));
+		expect(text).toContain("12s");
 	});
 });

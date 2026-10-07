@@ -4,14 +4,16 @@
 
 import * as os from "node:os";
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { formatTokens } from "../_shared/format.ts";
 import type { UsageStats } from "./types.ts";
 
-/** Compact token counts: 950, 1.2k, 34k, 1.5M. */
-export function formatTokens(count: number): string {
-	if (count < 1000) return count.toString();
-	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-	if (count < 1000000) return `${Math.round(count / 1000)}k`;
-	return `${(count / 1000000).toFixed(1)}M`;
+export { formatTokens };
+
+/** Dollar cost, keeping four decimals for the sub-cent amounts these runs produce. */
+export function formatCost(cost: number): string {
+	if (cost >= 1) return `$${cost.toFixed(2)}`;
+	if (cost >= 0.0001) return `$${cost.toFixed(4)}`;
+	return `$${cost.toPrecision(2)}`;
 }
 
 /** A space-separated usage line, omitting zero fields. */
@@ -22,7 +24,7 @@ export function formatUsageStats(usage: Partial<UsageStats>, model?: string): st
 	if (usage.output) parts.push(`↓${formatTokens(usage.output)}`);
 	if (usage.cacheRead) parts.push(`R${formatTokens(usage.cacheRead)}`);
 	if (usage.cacheWrite) parts.push(`W${formatTokens(usage.cacheWrite)}`);
-	if (usage.cost) parts.push(`$${usage.cost.toFixed(4)}`);
+	if (usage.cost) parts.push(formatCost(usage.cost));
 	if (usage.contextTokens && usage.contextTokens > 0) parts.push(`ctx:${formatTokens(usage.contextTokens)}`);
 	if (model) parts.push(model);
 	return parts.join(" ");

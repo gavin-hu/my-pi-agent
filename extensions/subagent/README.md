@@ -81,15 +81,21 @@ Exactly one of `agent`+`task`, `tasks`, or `chain` may be provided.
 **Collapsed** (default):
 
 ```
-✓ explorer
+✓ explorer 4s
 → grep /retry/ in ~/src
 → read ~/src/http.ts:40-120
 Retries are configured in http.ts:64...
 2 turns ↑12.4k ↓1.1k R8.0k $0.0042 ctx:18.2k claude-sonnet-4-5
 ```
 
-**Expanded** (`Ctrl+O`): the full task, every tool call, the final output
-rendered as Markdown, and per-step/per-task usage with a total.
+**Expanded** (`Ctrl+O`): the full task, every intermediate assistant message and
+tool call, the final output rendered as Markdown, and per-step/per-task usage
+with a total.
+
+A failed or aborted result always shows its `errorMessage`, falling back to the
+subprocess `stderr`, in both the collapsed and expanded views, in every mode.
+Parallel and chain headers state the failure count (`1/2 tasks (1 failed)`) and
+running tasks show an elapsed-time label.
 
 ## Security
 

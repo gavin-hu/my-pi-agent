@@ -38,6 +38,10 @@ export interface SingleResult {
 	step?: number;
 	/** Count of tool executions that reported `isError`. */
 	toolErrors?: number;
+	/** Epoch ms when the subprocess started, for the elapsed-time label. */
+	startedAt?: number;
+	/** Epoch ms when the subprocess finished. */
+	finishedAt?: number;
 }
 
 /** Structured result carried on the `subagent` tool result for rendering. */

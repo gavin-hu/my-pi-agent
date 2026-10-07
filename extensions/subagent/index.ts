@@ -16,11 +16,11 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { formatAgentList, listAgents } from "./agents.ts";
+import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
-import { MAX_CONCURRENCY, PER_TASK_OUTPUT_CAP, SubagentParams, resolveMode, type SubagentArgs } from "./schema.ts";
-import { emptyUsage, getFinalOutput, getResultOutput, isFailedResult, mapWithConcurrencyLimit, truncateOutput } from "./stream.ts";
-import type { DispatchDefaults, OnUpdateCallback, SingleResult, SubagentDetails } from "./types.ts";
+import { SubagentParams, resolveMode, type SubagentArgs } from "./schema.ts";
+import type { DispatchDefaults, SingleResult, SubagentDetails } from "./types.ts";
 
 export const TOOL_NAME = "subagent";
 
@@ -77,152 +77,23 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 			}
 
 			const mode = resolution.mode;
-			const makeDetails = (results: SingleResult[]): SubagentDetails => ({ mode, results });
-
-			if (mode === "chain" && args.chain) {
-				const results: SingleResult[] = [];
-				let previous = "";
-
-				for (let i = 0; i < args.chain.length; i++) {
-					const step = args.chain[i];
-					const task = step.task.replace(/\{previous\}/g, previous);
-					const chainUpdate: OnUpdateCallback | undefined = onUpdate
-						? (partial) => {
-								const current = partial.details?.results[0];
-								if (current) onUpdate({ content: partial.content, details: makeDetails([...results, current]) });
-							}
-						: undefined;
-
-					const result = await run({
-						defaultCwd: ctx.cwd,
-						defaults,
-						agentName: step.agent,
-						task,
-						cwd: step.cwd,
-						step: i + 1,
-						signal,
-						onUpdate: chainUpdate,
-						makeDetails,
-					});
-					results.push(result);
-
-					if (isFailedResult(result)) {
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text: `Chain stopped at step ${i + 1} (${step.agent}): ${getResultOutput(result)}`,
-								},
-							],
-							details: makeDetails(results),
-							isError: true,
-						};
-					}
-					previous = getFinalOutput(result.messages);
-				}
-
-				const last = results[results.length - 1];
-				return {
-					content: [{ type: "text" as const, text: last ? getFinalOutput(last.messages) || "(no output)" : "(no output)" }],
-					details: makeDetails(results),
-				};
-			}
-
-			if (mode === "parallel" && args.tasks) {
-				const tasks = args.tasks;
-				const allResults: SingleResult[] = tasks.map((task) => ({
-					agent: task.agent,
-					task: task.task,
-					exitCode: -1,
-					messages: [],
-					stderr: "",
-					usage: emptyUsage(),
-				}));
-
-				const emitParallel = () => {
-					if (!onUpdate) return;
-					const running = allResults.filter((r) => r.exitCode === -1).length;
-					const done = allResults.length - running;
-					onUpdate({
-						content: [{ type: "text", text: `Parallel: ${done}/${allResults.length} done, ${running} running...` }],
-						details: makeDetails([...allResults]),
-					});
-				};
-
-				const results = await mapWithConcurrencyLimit(tasks, MAX_CONCURRENCY, async (task, index) => {
-					const result = await run({
-						defaultCwd: ctx.cwd,
-						defaults,
-						agentName: task.agent,
-						task: task.task,
-						cwd: task.cwd,
-						signal,
-						onUpdate: (partial) => {
-							const current = partial.details?.results[0];
-							if (!current) return;
-							allResults[index] = current;
-							emitParallel();
-						},
-						makeDetails,
-					});
-					allResults[index] = result;
-					emitParallel();
-					return result;
-				});
-
-				const successCount = results.filter((result) => !isFailedResult(result)).length;
-				const summaries = results.map((result) => {
-					const output = truncateOutput(getResultOutput(result), PER_TASK_OUTPUT_CAP);
-					const status = isFailedResult(result)
-						? `failed${result.stopReason && result.stopReason !== "end" ? ` (${result.stopReason})` : ""}`
-						: "completed";
-					return `### [${result.agent}] ${status}\n\n${output}`;
-				});
-
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n---\n\n")}`,
-						},
-					],
-					details: makeDetails(results),
-				};
-			}
-
-			// Single mode.
-			const result = await run({
-				defaultCwd: ctx.cwd,
+			const context: ModeContext = {
+				run,
+				args,
 				defaults,
-				agentName: args.agent ?? "",
-				task: args.task ?? "",
-				cwd: args.cwd,
+				defaultCwd: ctx.cwd,
 				signal,
 				onUpdate,
-				makeDetails,
-			});
-
-			if (isFailedResult(result)) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Agent ${result.agent} ${result.stopReason ?? "failed"}: ${getResultOutput(result)}`,
-						},
-					],
-					details: makeDetails([result]),
-					isError: true,
-				};
-			}
-
-			return {
-				content: [{ type: "text" as const, text: getFinalOutput(result.messages) || "(no output)" }],
-				details: makeDetails([result]),
+				makeDetails: (results: SingleResult[]): SubagentDetails => ({ mode, results }),
 			};
+
+			if (mode === "chain" && args.chain) return runChainMode(context);
+			if (mode === "parallel" && args.tasks) return runParallelMode(context);
+			return runSingleMode(context);
 		},
 
-		renderCall(args, theme) {
-			return renderSubagentCall(args as SubagentArgs, theme);
+		renderCall(args, theme, context) {
+			return renderSubagentCall(args as SubagentArgs, theme, { cwd: context.cwd });
 		},
 
 		renderResult(result, options, theme) {
