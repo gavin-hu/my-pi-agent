@@ -77,6 +77,19 @@ The tool works in every mode. The persistent widget and the `/todos` screen
 require interactive (`tui`) mode; RPC and non-interactive runs simply get the
 tool result.
 
+## Configuration
+
+The widget presentation is configurable from `~/.pi/agent/todo.json` and
+`<cwd>/.pi/todo.json` (project values override global):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `maxRows` | `5` | Total widget rows, including the header and any overflow row (clamped 3–10). |
+| `hideWhenComplete` | `true` | Hide the widget once every item is completed. An empty list always hides. |
+
+Malformed files and invalid values are ignored, and todo behavior never depends
+on config.
+
 ## Files
 
 | File | Responsibility |
@@ -87,6 +100,7 @@ tool result.
 | `state.ts` | Branch reconstruction and status queries (pure). |
 | `format.ts` | Model-facing and transcript text (pure). |
 | `tui.ts` | Widget and scrollable `/todos` components. |
+| `config.ts` | Widget config load/validation (`todo.json`). |
 | `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `todo` tool registration and rendering. |
 | `commands.ts` | `/todos`. |

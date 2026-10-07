@@ -9,13 +9,15 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { compareByActivity, progressSummary, todoGlyph, todoLabel } from "./format.ts";
-import type { Todo } from "./types.ts";
+import { DEFAULT_MAX_ROWS, type Todo } from "./types.ts";
 
 /** Widget key used with `ctx.ui.setWidget()`. */
 export const WIDGET_KEY = "todo-widget";
 
-/** Total rows in the compact widget, including the header and any overflow line. */
-const WIDGET_ROWS = 5;
+export interface TodoWidgetOptions {
+	/** Total rows the widget may occupy, including the header and any overflow row. */
+	maxRows?: number;
+}
 
 /** Items the `/todos` screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
@@ -37,10 +39,11 @@ function todoRow(todo: Todo, theme: Theme, width: number): string {
 }
 
 /** Rows for the compact widget, bounded so it cannot crowd the editor. */
-function widgetLines(todos: Todo[], theme: Theme, width: number): string[] {
+function widgetLines(todos: Todo[], theme: Theme, width: number, options: TodoWidgetOptions = {}): string[] {
+	const maxRows = Math.max(2, options.maxRows ?? DEFAULT_MAX_ROWS);
 	const ordered = [...todos].sort(compareByActivity);
-	const hasMore = ordered.length > WIDGET_ROWS - 1;
-	const shown = ordered.slice(0, hasMore ? WIDGET_ROWS - 2 : WIDGET_ROWS - 1);
+	const hasMore = ordered.length > maxRows - 1;
+	const shown = ordered.slice(0, hasMore ? maxRows - 2 : maxRows - 1);
 
 	const lines = [`${theme.fg("accent", "Todos")} ${theme.fg("dim", progressSummary(todos))}`];
 	for (const todo of shown) lines.push(todoRow(todo, theme, width));
@@ -66,12 +69,13 @@ export class TodoWidget implements Component {
 	constructor(
 		private readonly todos: Todo[],
 		private readonly theme: Theme,
+		private readonly options: TodoWidgetOptions = {},
 	) {}
 
 	invalidate(): void {}
 
 	render(width: number): string[] {
-		return widgetLines(this.todos, this.theme, Math.max(1, width));
+		return widgetLines(this.todos, this.theme, Math.max(1, width), this.options);
 	}
 }
 

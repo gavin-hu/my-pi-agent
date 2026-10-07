@@ -74,7 +74,7 @@ The widget presentation is configurable from `~/.pi/agent/goal.json` and
 
 | Key | Default | Meaning |
 |---|---|---|
-| `maxRows` | `3` | Total widget rows, including the header (clamped 2–6). |
+| `maxRows` | `3` | Total widget rows, including the header (clamped 3–6). |
 | `achieved` | `"collapse"` | How an achieved goal renders: `collapse` (one dim line), `block` (the full rail), or `hide`. |
 
 Malformed files and invalid values are ignored, and goal behavior never depends

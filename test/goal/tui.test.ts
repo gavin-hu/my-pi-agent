@@ -41,6 +41,11 @@ describe("goalWidgetLines", () => {
 		expect(stripTerminalSequences(lines.at(-1) ?? "")).toEndWith("…");
 	});
 
+	test("marks a capped objective with a dedicated overflow row", () => {
+		const lines = goalWidgetLines(longGoal, theme, 24);
+		expect(lines.at(-1)).toBe("  …");
+	});
+
 	test("honors a custom row budget", () => {
 		expect(goalWidgetLines(longGoal, theme, 24, { maxRows: 2 })).toHaveLength(2);
 		expect(goalWidgetLines(longGoal, theme, 24, { maxRows: 4 })).toHaveLength(4);

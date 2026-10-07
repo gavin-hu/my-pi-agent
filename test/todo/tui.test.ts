@@ -31,6 +31,13 @@ describe("TodoWidget", () => {
 		expect(lines.join("\n")).toContain("… 6 more");
 	});
 
+	test("honors a custom row budget", () => {
+		const many: Todo[] = Array.from({ length: 9 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
+		const lines = new TodoWidget(many, theme, { maxRows: 3 }).render(60);
+		expect(lines).toHaveLength(3);
+		expect(lines.join("\n")).toContain("… 8 more");
+	});
+
 	test("shows active work before completed items", () => {
 		const long: Todo[] = [
 			...Array.from({ length: 5 }, (_, i) => ({ content: `done ${i}`, status: "completed" as const })),

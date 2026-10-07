@@ -49,7 +49,9 @@ goal deliberately does not own a separate visual language: the goal is the
 *what*, the todo list the *how*, and reading them as one family makes that
 relationship legible at a glance. The rail is drawn from literal characters (no
 panel or layout engine) so it stays legible in the main screen, and the active
-rail is capped (default three rows) so it cannot crowd the editor.
+rail is capped (default three rows) so it cannot crowd the editor; a capped
+rail ends with a dedicated dim `…` row, the same overflow row the todo widget
+uses.
 
 **Achieved goals collapse by default.** A one-line `✓ Goal achieved · …`
 replaces the rail once the goal is done, so finished work stops occupying the

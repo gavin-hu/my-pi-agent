@@ -38,7 +38,8 @@ interface GoalRailOptions {
 /**
  * Rows for a goal rail: the themed header plus `body` wrapped and led by the
  * status glyph. Continuation rows are padded to the text column. With `maxRows`
- * the rail is capped and the last shown body row ends in `…`.
+ * the rail is capped and a final dim `…` row marks the overflow, matching the
+ * todo widget's overflow row.
  */
 export function goalRailLines(
 	goal: Goal,
@@ -54,11 +55,9 @@ export function goalRailLines(
 	const inner = Math.max(1, w - textColumn);
 
 	const wrapped = wrapTextWithAnsi(body, inner);
-	const budget = options.maxRows === undefined ? wrapped.length : Math.max(0, options.maxRows - 1);
-	const shown = wrapped.slice(0, budget);
-	if (options.maxRows !== undefined && wrapped.length > budget && shown.length > 0) {
-		shown[shown.length - 1] = truncateToWidth(`${shown[shown.length - 1]}…`, inner, "…");
-	}
+	const maxRows = options.maxRows;
+	const hasMore = maxRows !== undefined && wrapped.length > maxRows - 1;
+	const shown = hasMore ? wrapped.slice(0, Math.max(0, maxRows - 2)) : wrapped;
 
 	const pad = " ".repeat(BODY_INDENT);
 	const continuation = " ".repeat(textColumn);
@@ -66,6 +65,7 @@ export function goalRailLines(
 	shown.forEach((line, index) => {
 		lines.push(index === 0 ? `${pad}${glyph}${" ".repeat(GLYPH_GAP)}${line}` : `${continuation}${line}`);
 	});
+	if (hasMore) lines.push(theme.fg("dim", `${pad}…`));
 	return lines.map((line) => truncateToWidth(line, w, "…"));
 }
 

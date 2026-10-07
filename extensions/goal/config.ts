@@ -19,7 +19,7 @@ export interface GoalConfig {
 export const DEFAULT_GOAL_CONFIG: GoalConfig = { maxRows: DEFAULT_MAX_ROWS, achieved: "collapse" };
 
 /** Smallest/largest widget row budget that still shows the objective. */
-export const MIN_MAX_ROWS = 2;
+export const MIN_MAX_ROWS = 3;
 export const MAX_MAX_ROWS = 6;
 
 const ACHIEVED_STYLES: readonly AchievedStyle[] = ["collapse", "block", "hide"];

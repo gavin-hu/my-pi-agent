@@ -10,6 +10,9 @@ export const TODO_STATUSES = ["pending", "in_progress", "completed"] as const;
 
 export type TodoStatus = (typeof TODO_STATUSES)[number];
 
+/** Default total rows for the persistent widget, header and overflow included. */
+export const DEFAULT_MAX_ROWS = 5;
+
 /** One item in the list. */
 export interface Todo {
 	/** Imperative description of the task, e.g. "Write the parser tests". */

@@ -1,10 +1,21 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import todo from "../../extensions/todo/index.ts";
 import { TOOL_NAME } from "../../extensions/todo/tools.ts";
 import type { Todo } from "../../extensions/todo/types.ts";
 import { emit, fakeCtx, lastWidget, makeFakePi, resultEntry } from "./helpers.ts";
 
 const pending = (content: string): Todo => ({ content, status: "pending" });
+const completed = (content: string): Todo => ({ content, status: "completed" });
+
+const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+
+afterEach(() => {
+	if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+	else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+});
 
 describe("todo extension", () => {
 	test("registers the tool and the /todos command", () => {
@@ -87,5 +98,24 @@ describe("todo extension", () => {
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await commands.get("todos").handler("", ctx);
 		expect(opened).toBe(1);
+	});
+
+	test("keeps the widget for a finished list when hideWhenComplete is false", async () => {
+		const globalDir = mkdtempSync(join(tmpdir(), "todo-ext-global-"));
+		const repo = mkdtempSync(join(tmpdir(), "todo-ext-repo-"));
+		mkdirSync(join(repo, ".pi"), { recursive: true });
+		writeFileSync(join(repo, ".pi", "todo.json"), JSON.stringify({ hideWhenComplete: false }));
+		process.env.PI_CODING_AGENT_DIR = globalDir;
+
+		const { pi } = makeFakePi();
+		todo(pi);
+		const { ctx, widgetCalls } = fakeCtx({
+			mode: "tui",
+			cwd: repo,
+			branch: [resultEntry([completed("done")])],
+		});
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
 	});
 });
