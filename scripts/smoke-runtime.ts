@@ -16,6 +16,7 @@ import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const extensionPath = join(repo, "extensions", "worktree", "index.ts");
 const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
+const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Scratch git repo with one commit.
@@ -31,7 +32,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -90,6 +91,19 @@ check("ask_user_question registered", !!askTool);
 check("ask_user_question is model-only", askTool?.exposure === "model-only");
 check("ask_user_question inactive without a UI", !session.getActiveToolNames().includes("ask_user_question"));
 check("ask_user_question supports no-UI result", !!session.getToolDefinition("ask_user_question"));
+
+// todo loads alongside the others and works headlessly (no widget without a UI).
+const todoTool = session.getAllTools().find((t) => t.name === "todo");
+check("todo registered", !!todoTool);
+check("todo is active by default", session.getActiveToolNames().includes("todo"));
+const wrote = await call("todo", { todos: [{ content: "smoke task", status: "in_progress" }] });
+const wroteText = (wrote.content[0] as { text: string }).text;
+const wroteDetails = wrote.details as { todos: unknown[]; action: string };
+check("todo writes a checklist", /1\. \[~\] smoke task/.test(wroteText));
+check("todo keeps structured details", wroteDetails.todos.length === 1 && wroteDetails.action === "write");
+const cleared = await call("todo", { todos: [] });
+const clearedDetails = cleared.details as { todos: unknown[]; action: string };
+check("todo clears", clearedDetails.todos.length === 0 && clearedDetails.action === "clear");
 
 const exited = await call("worktree_exit", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;

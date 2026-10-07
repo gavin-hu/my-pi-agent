@@ -19,6 +19,7 @@ pi -e .                  # try it for a single run, no settings change
 |---|---|---|
 | Extension | [`extensions/worktree/`](./extensions/worktree/) | `pi-worktree`: isolated `git worktree` workflow (`worktree_enter` / `worktree_exit` / `worktree_prune` / `worktree_status`, `/worktree*` commands, `--worktree <name>`). |
 | Extension | [`extensions/ask-user-question/`](./extensions/ask-user-question/) | `ask_user_question`: ask the user one or more structured questions (labelled options + free-form “Other”) and wait for the answer. |
+| Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent widget and `/todos`. |
 
 More extensions, skills, prompts, and themes can be added under the conventional
 directories and listed in the `pi` manifest.
