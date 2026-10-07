@@ -13,10 +13,11 @@ export type GoalStatus = (typeof GOAL_STATUSES)[number];
 /** Custom-entry type used to persist a goal set outside the tool (the `/goal` command). */
 export const GOAL_ENTRY_TYPE = "goal";
 
-/** Payload of a persisted goal entry. `goal: null` records a clear. */
-export interface GoalEntry {
-	goal: Goal | null;
-}
+/** How an achieved goal renders in the persistent widget. */
+export type AchievedStyle = "collapse" | "block" | "hide";
+
+/** Default total rows for the persistent goal widget, header included. */
+export const DEFAULT_MAX_ROWS = 3;
 
 /** The single session goal. */
 export interface Goal {

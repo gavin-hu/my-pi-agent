@@ -40,10 +40,22 @@ repeated instructions never accumulate and stale ones never survive a
 
 **Visibility is derived, never authoritative.** `runtime.setGoal` mirrors the
 goal into `ctx.ui.setWidget()`. The widget exists only in `tui` mode; the tool
-works in every mode. The widget is a quoted block — a dim `| ` bar prefixes
-every row, then `◎` (active) or `✓` (achieved) — and is capped at three rows so
-it cannot crowd the editor. Making the bar a literal character (rather than a
-padded panel) keeps it legible in the main screen without a layout engine.
+works in every mode.
+
+**The goal shares the todo widget's grammar.** Both are a header line at column
+zero plus glyph-led, two-space-indented body rows: `Goal · active` then
+`  ◎ <objective>`, wrapping with continuation rows aligned under the text. The
+goal deliberately does not own a separate visual language: the goal is the
+*what*, the todo list the *how*, and reading them as one family makes that
+relationship legible at a glance. The rail is drawn from literal characters (no
+panel or layout engine) so it stays legible in the main screen, and the active
+rail is capped (default three rows) so it cannot crowd the editor.
+
+**Achieved goals collapse by default.** A one-line `✓ Goal achieved · …`
+replaces the rail once the goal is done, so finished work stops occupying the
+editor; `/goal` and the transcript keep the record. `achieved` in
+`.pi/goal.json` selects `collapse`, `block`, or `hide`, and `maxRows` tunes the
+active budget. Config only affects presentation; behavior never depends on it.
 
 **Sanitize at the boundary.** `normalizeGoal` replaces control characters
 (including `ESC`) with spaces and collapses whitespace runs, so an embedded

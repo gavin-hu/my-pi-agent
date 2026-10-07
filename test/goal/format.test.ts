@@ -6,10 +6,11 @@ import {
 	formatCallText,
 	formatGoalNotice,
 	formatGoalText,
+	goalAchievedLine,
 	goalHeader,
 	goalObjective,
+	goalStatusLabel,
 	previewObjective,
-	ROW_PREFIX,
 } from "../../extensions/goal/format.ts";
 import type { Goal } from "../../extensions/goal/types.ts";
 
@@ -19,23 +20,28 @@ const active: Goal = { objective: "Ship the parser", status: "active" };
 const achieved: Goal = { objective: "Ship the parser", status: "achieved" };
 
 describe("headers", () => {
-	test("active header carries the bar, the glyph, and the label", () => {
+	test("active header names the goal and its status", () => {
 		const header = goalHeader(active, theme);
-		expect(header).toStartWith(ROW_PREFIX);
-		expect(header).toContain(ACTIVE_SYMBOL);
-		expect(header).toContain("Goal");
-		expect(header).not.toContain("achieved");
-	});
-
-	test("active header includes a status suffix only when asked", () => {
-		expect(goalHeader(active, theme)).not.toContain("active");
-		expect(goalHeader(active, theme, true)).toContain("active");
+		expect(header).toBe("Goal · active");
+		expect(header).not.toContain(ACTIVE_SYMBOL);
 	});
 
 	test("achieved header reads as done", () => {
 		const header = goalHeader(achieved, theme);
-		expect(header).toContain(ACHIEVED_SYMBOL);
-		expect(header).toContain("Goal achieved");
+		expect(header).toBe("Goal · achieved");
+		expect(header).not.toContain(ACHIEVED_SYMBOL);
+	});
+
+	test("status labels are human words", () => {
+		expect(goalStatusLabel("active")).toBe("active");
+		expect(goalStatusLabel("achieved")).toBe("achieved");
+	});
+
+	test("the achieved summary line carries the check glyph", () => {
+		const line = goalAchievedLine(achieved, theme);
+		expect(line).toStartWith(ACHIEVED_SYMBOL);
+		expect(line).toContain("Goal achieved");
+		expect(line).toContain("Ship the parser");
 	});
 
 	test("objective is dimmed once achieved", () => {

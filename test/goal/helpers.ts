@@ -32,12 +32,13 @@ export interface FakeCtx {
 }
 
 /** Minimal `ExtensionContext` double; `branch` is what `getBranch()` returns. */
-export function fakeCtx(options: { mode?: string; hasUI?: boolean; branch?: unknown[] } = {}): FakeCtx {
+export function fakeCtx(options: { mode?: string; hasUI?: boolean; branch?: unknown[]; cwd?: string } = {}): FakeCtx {
 	const widgetCalls: Array<{ key: string; content: unknown }> = [];
 	const notifications: string[] = [];
 	const ctx: any = {
 		mode: options.mode ?? "tui",
 		hasUI: options.hasUI ?? true,
+		cwd: options.cwd ?? process.cwd(),
 		sessionManager: { getBranch: () => options.branch ?? [] },
 		ui: {
 			theme: { fg: (_color: string, text: string) => text, bold: (text: string) => text },

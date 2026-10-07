@@ -12,9 +12,11 @@
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { registerCommands } from "./commands.ts";
+import { loadGoalConfig } from "./config.ts";
 import { createGoalRuntime } from "./runtime.ts";
+import { isActiveGoal } from "./state.ts";
 import type { Goal } from "./types.ts";
 import { registerTools } from "./tools.ts";
 
@@ -43,21 +45,27 @@ export default function goal(pi: ExtensionAPI): void {
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
 
-	pi.on("session_start", (_event, ctx) => runtime.reconstruct(ctx));
+	// Load the widget config once per session, before the first reconstruction.
+	const startSession = (ctx: ExtensionContext): void => {
+		runtime.setConfig(loadGoalConfig(ctx.cwd ?? process.cwd()));
+		runtime.reconstruct(ctx);
+	};
+
+	pi.on("session_start", (_event, ctx) => startSession(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.reconstruct(ctx));
 	pi.on("session_shutdown", (_event, ctx) => runtime.clear(ctx));
 
 	// Restate the goal at the start of each turn while it is active.
 	pi.on("before_agent_start", () => {
 		const goal = runtime.getGoal();
-		if (goal?.status !== "active") return undefined;
+		if (!isActiveGoal(goal)) return undefined;
 		return { message: { customType: GOAL_CONTEXT_TYPE, content: buildGoalContext(goal), display: false } };
 	});
 
 	// Keep stale goal restatements out of later turns (for example after the goal
 	// is cleared or achieved, or when /resume replays old history).
 	pi.on("context", (event) => {
-		const active = runtime.getGoal()?.status === "active";
+		const active = isActiveGoal(runtime.getGoal());
 		const contexts = event.messages.filter(isGoalContext);
 		if (contexts.length === 0) return undefined;
 		if (!active) return { messages: event.messages.filter((message) => !isGoalContext(message)) };

@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import goal, { GOAL_CONTEXT_MARKER } from "../../extensions/goal/index.ts";
 import { TOOL_NAME } from "../../extensions/goal/tools.ts";
 import { WIDGET_KEY } from "../../extensions/goal/tui.ts";
@@ -7,6 +10,13 @@ import { emit, fakeCtx, goalContextMessage, lastWidget, makeFakePi, otherMessage
 
 const active = (objective: string): Goal => ({ objective, status: "active" });
 const achieved = (objective: string): Goal => ({ objective, status: "achieved" });
+
+const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+
+afterEach(() => {
+	if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+	else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+});
 
 describe("goal extension", () => {
 	test("registers the tool and the /goal command", () => {
@@ -80,6 +90,25 @@ describe("goal extension", () => {
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: [resultEntry(active("one"))] });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await emit(pi, "session_shutdown", {}, ctx);
+		expect(widgetCalls.at(-1)).toEqual({ key: WIDGET_KEY, content: undefined });
+	});
+
+	test("honors a project config that hides achieved goals", async () => {
+		const globalDir = mkdtempSync(join(tmpdir(), "goal-ext-global-"));
+		const repo = mkdtempSync(join(tmpdir(), "goal-ext-repo-"));
+		mkdirSync(join(repo, ".pi"), { recursive: true });
+		writeFileSync(join(repo, ".pi", "goal.json"), JSON.stringify({ achieved: "hide" }));
+		process.env.PI_CODING_AGENT_DIR = globalDir;
+
+		const { pi } = makeFakePi();
+		goal(pi);
+		const { ctx, widgetCalls } = fakeCtx({
+			mode: "tui",
+			cwd: repo,
+			branch: [resultEntry(achieved("done"))],
+		});
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
 		expect(widgetCalls.at(-1)).toEqual({ key: WIDGET_KEY, content: undefined });
 	});
 });

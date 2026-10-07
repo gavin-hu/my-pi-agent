@@ -1,18 +1,22 @@
 /**
  * Model-facing and transcript text for the goal (pure).
  *
- * The active goal is drawn as a quoted block: a dim `| ` bar prefixes every
- * row, then the status glyph, then the objective. `| ◎` marks an active goal
- * and `| ✓` an achieved one. The symbols and prefix live here so the widget
- * and the transcript renderer agree.
+ * The goal is drawn as a glyph rail shared with `todo`: a header line
+ * (`Goal · active`) and an indented body row led by `◎` (active) or `✓`
+ * (achieved), with wrapped continuation rows aligned under the text. The
+ * symbols, indent, and label live here so the widget and the transcript
+ * renderer agree.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
 import type { Goal, GoalStatus } from "./types.ts";
 
-/** Left bar that makes the goal read as a quoted block. */
-export const ROW_PREFIX = "| ";
+/** Columns before the body glyph, matching the todo widget's item indent. */
+export const BODY_INDENT = 2;
+
+/** Columns between the body glyph and the objective text. */
+export const GLYPH_GAP = 1;
 
 /** Active-goal glyph. */
 export const ACTIVE_SYMBOL = "◎";
@@ -27,15 +31,29 @@ export function goalGlyph(goal: Goal, theme: Theme): string {
 	return goal.status === "achieved" ? theme.fg("success", ACHIEVED_SYMBOL) : theme.fg("accent", ACTIVE_SYMBOL);
 }
 
-/** Header row: `| ◎ Goal` (optionally with the status label) or `| ✓ Goal achieved`. */
-export function goalHeader(goal: Goal, theme: Theme, withStatus = false): string {
-	const prefix = theme.fg("dim", ROW_PREFIX);
-	const symbol = goalGlyph(goal, theme);
-	if (goal.status === "achieved") {
-		return `${prefix}${symbol} ${theme.fg("success", "Goal achieved")}`;
-	}
-	const status = withStatus ? `  ${theme.fg("dim", "active")}` : "";
-	return `${prefix}${symbol} ${theme.fg("accent", "Goal")}${status}`;
+/** Human label for a status, e.g. `active`. */
+export function goalStatusLabel(status: GoalStatus): string {
+	return status === "achieved" ? "achieved" : "active";
+}
+
+/**
+ * Header row: `Goal · active` or `Goal · achieved`. The label is accented and
+ * the status word is dim while active, success-colored once achieved.
+ */
+export function goalHeader(goal: Goal, theme: Theme): string {
+	const label = theme.fg("accent", "Goal");
+	const separator = theme.fg("dim", " · ");
+	const word = goalStatusLabel(goal.status);
+	const status = goal.status === "achieved" ? theme.fg("success", word) : theme.fg("dim", word);
+	return `${label}${separator}${status}`;
+}
+
+/**
+ * One-line summary of an achieved goal for the collapsed widget:
+ * `✓ Goal achieved · <objective>`. Callers clip it to the available width.
+ */
+export function goalAchievedLine(goal: Goal, theme: Theme): string {
+	return `${theme.fg("success", `${ACHIEVED_SYMBOL} `)}${theme.fg("dim", `Goal achieved · ${goal.objective}`)}`;
 }
 
 /** Themed objective text: dim once achieved, normal while active. */

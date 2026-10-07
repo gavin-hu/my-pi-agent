@@ -102,8 +102,8 @@ describe("goal tool", () => {
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
 			.render(80)
 			.join("\n");
-		expect(text).toContain("| ◎ Goal");
-		expect(text).toContain("Ship the parser");
+		expect(text).toContain("Goal · active");
+		expect(text).toContain("  ◎ Ship the parser");
 	});
 
 	test("renderResult shows an achieved goal and expands the objective", async () => {
@@ -117,8 +117,8 @@ describe("goal tool", () => {
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
 			.render(200)
 			.join("\n");
-		expect(collapsed).toContain("| ✓ Goal achieved");
-		expect(collapsed).toContain("Refactor the parser");
+		expect(collapsed).toContain("Goal · achieved");
+		expect(collapsed).toContain("  ✓ Refactor the parser");
 		expect(collapsed).toContain("…");
 		expect(collapsed).not.toContain("changelog");
 
@@ -150,7 +150,7 @@ describe("goal tool", () => {
 		expect(activeText).toContain("[text]Ship the parser");
 	});
 
-	test("keeps the quote bar on every wrapped transcript row", async () => {
+	test("keeps the glyph rail on every wrapped transcript row", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
 		const objective =
@@ -162,7 +162,9 @@ describe("goal tool", () => {
 			.render(40);
 
 		expect(lines.length).toBeGreaterThan(2);
-		expect(lines.every((line: string) => line.startsWith("| "))).toBe(true);
+		expect(lines[0]).toBe("Goal · achieved");
+		expect(lines[1]).toStartWith("  ✓ ");
+		expect(lines.slice(2).every((line: string) => line.startsWith("    "))).toBe(true);
 	});
 
 	test("renders a clear with a neutral marker, not the achieved check", async () => {

@@ -16,18 +16,19 @@ pi install ./                       # install the package
   it.
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done.
-- Shows a persistent quoted block above the editor whenever a goal exists:
+- Shows a persistent glyph rail above the editor whenever a goal exists, using
+  the same header + indent + glyph grammar as the [`todo`](../todo/) widget:
 
   ```
-  | ◎ Goal
-  | Refactor the parser to support streaming input and ship it with tests
+  Goal · active
+    ◎ Refactor the parser to support streaming input and ship it with tests
   ```
 
-  Once achieved it stays visible but dimmed, and the reminder stops:
+  Once achieved it collapses to one dim line by default, and the reminder
+  stops:
 
   ```
-  | ✓ Goal achieved
-  | Refactor the parser to support streaming input and ship it with tests
+  ✓ Goal achieved · Refactor the parser to support streaming input and ship it …
   ```
 
 - Restates an **active** goal to the model before each turn (an invisible
@@ -63,8 +64,21 @@ to one logical line and stops model text from injecting terminal sequences.
 
 The tool works in every mode. The persistent widget requires interactive
 (`tui`) mode; the reminder and the `/goal` command work everywhere. Achieved
-goals keep their place in the transcript and the widget but are no longer
-restated to the model.
+goals keep their place in the transcript but collapse to a single line in the
+widget by default, and they are no longer restated to the model.
+
+## Configuration
+
+The widget presentation is configurable from `~/.pi/agent/goal.json` and
+`<cwd>/.pi/goal.json` (project values override global):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `maxRows` | `3` | Total widget rows, including the header (clamped 2–6). |
+| `achieved` | `"collapse"` | How an achieved goal renders: `collapse` (one dim line), `block` (the full rail), or `hide`. |
+
+Malformed files and invalid values are ignored, and goal behavior never depends
+on config.
 
 ## Files
 
@@ -74,8 +88,9 @@ restated to the model.
 | `types.ts` | `Goal`, `GoalStatus`, `GoalDetails`. |
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
 | `state.ts` | Branch reconstruction (pure). |
-| `format.ts` | Model-facing and terminal text plus the `| ◎` / `| ✓` symbols (pure). |
-| `tui.ts` | The persistent goal widget and the transcript result block. |
+| `format.ts` | Model-facing and terminal text plus the `◎` / `✓` symbols and the rail vocabulary (pure). |
+| `config.ts` | Widget config load/validation (`goal.json`). |
+| `tui.ts` | The persistent goal widget and the transcript result rail. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `goal` tool registration and rendering. |
 | `commands.ts` | `/goal`. |
