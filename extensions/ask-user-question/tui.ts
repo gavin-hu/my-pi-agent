@@ -83,10 +83,17 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 			return false;
 		};
 
+		/** Finish, or refresh; clear the editor whenever it (re)opens for a fresh answer. */
+		const settle = (effect: Effect): void => {
+			if (finishWith(effect)) return;
+			if (effect.type === "openEditor") editor.setText("");
+			refresh();
+		};
+
 		editor.onSubmit = (value) => {
 			const next = applyCustomText(state, value);
 			state = next.state;
-			if (!finishWith(next.effect)) refresh();
+			settle(next.effect);
 		};
 
 		function handleInput(data: string): void {
@@ -105,7 +112,7 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 			if (!action) return;
 			const next = reduce(state, action);
 			state = next.state;
-			if (!finishWith(next.effect)) refresh();
+			settle(next.effect);
 		}
 
 		function render(width: number): string[] {

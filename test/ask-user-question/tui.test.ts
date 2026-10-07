@@ -107,4 +107,26 @@ describe("askViaTui wiring", () => {
 		const result = await h.result;
 		expect(result.cancelled).toBe(true);
 	});
+
+	test("clears the editor when a later question reopens it", async () => {
+		const q2: Question = { ...freeForm, id: "q2", header: "Notes", question: "Anything else?" };
+		const h = harness([withOptions, q2]);
+
+		// Q1: open "Other", type an answer, then leave via Escape (no submit).
+		h.input("\x1b[B"); // down to option 2
+		h.input("\x1b[B"); // down to "Other"
+		h.input("\r"); // open the editor
+		h.input("leftover answer");
+		h.input("\x1b"); // close the editor; the component keeps the text in the Editor
+
+		// Pick a real option so the flow advances to the free-form Q2.
+		h.input("\x1b[A"); // back to option 2
+		h.input("\x1b[A"); // back to option 1
+		h.input("\r");
+
+		// Q2 is free-form and opens the editor: it must not carry Q1's text.
+		const text = h.render().join("\n");
+		expect(text).toContain("Anything else?");
+		expect(text).not.toContain("leftover answer");
+	});
 });
