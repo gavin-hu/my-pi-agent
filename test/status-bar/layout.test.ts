@@ -1,0 +1,68 @@
+import { describe, expect, test } from "bun:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
+import { renderLine } from "../../extensions/status-bar/layout.ts";
+import { buildLines } from "../../extensions/status-bar/lines.ts";
+import { fakeTheme, fullSnapshot } from "./helpers.ts";
+
+describe("renderLine", () => {
+	test("fills the width and right-aligns the right zone", () => {
+		const [line1] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line1, 100, fakeTheme);
+
+		expect(visibleWidth(rendered)).toBe(100);
+		expect(rendered).toContain("~/repo/project");
+		expect(rendered).toContain("⎇ main");
+		expect(rendered.endsWith("⧉ smoke")).toBe(true);
+	});
+
+	test("renders every resources segment at full width", () => {
+		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line2, 100, fakeTheme);
+
+		expect(visibleWidth(rendered)).toBeLessThanOrEqual(100);
+		for (const text of ["⏸ plan", "62%", "$0.31", "R96k W0 CH 87%", "opus-4.5", "high"]) {
+			expect(rendered).toContain(text);
+		}
+	});
+
+	test("drops low-priority segments as the width shrinks", () => {
+		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line2, 40, fakeTheme);
+
+		expect(visibleWidth(rendered)).toBeLessThanOrEqual(40);
+		expect(rendered).toContain("62%");
+		expect(rendered).not.toContain("R96k");
+	});
+
+	test("never exceeds a very small width", () => {
+		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		expect(visibleWidth(renderLine(line1, 8, fakeTheme))).toBeLessThanOrEqual(8);
+		expect(visibleWidth(renderLine(line2, 8, fakeTheme))).toBeLessThanOrEqual(8);
+	});
+
+	test("trails the mode slot after the group separator", () => {
+		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line2, 100, fakeTheme);
+
+		expect(rendered.startsWith("▰")).toBe(true);
+		expect(rendered).toContain(" │ ⏸ plan");
+	});
+
+	test("has no separator when there is no mode slot", () => {
+		const [, line2] = buildLines(fullSnapshot({ statuses: new Map() }), fakeTheme, "/home/u");
+		expect(renderLine(line2, 100, fakeTheme)).not.toContain("│");
+	});
+
+	test("counts wide characters correctly", () => {
+		const snapshot = fullSnapshot({ cwd: "/home/u/項目", branch: null });
+		const [line1] = buildLines(snapshot, fakeTheme, "/home/u");
+		const rendered = renderLine(line1, 6, fakeTheme);
+
+		expect(visibleWidth(rendered)).toBeLessThanOrEqual(6);
+	});
+
+	test("returns a single line", () => {
+		const [line1] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		expect(renderLine(line1, 80, fakeTheme)).not.toContain("\n");
+	});
+});

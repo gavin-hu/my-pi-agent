@@ -89,7 +89,7 @@ export default function (pi: ExtensionAPI) {
 					createdByUs: false,
 				};
 				setActive(borrowed);
-				setStatus(ctx, `🌳 ${worktreeLabel(borrowed)} (inherited)`);
+				setStatus(ctx, `⧉ ${worktreeLabel(borrowed)} (inherited)`);
 				publishWorktree(pi, borrowed);
 				ctx.ui.notify(`Using parent worktree ${borrowed.path}`, "info");
 			} else {
@@ -103,7 +103,7 @@ export default function (pi: ExtensionAPI) {
 			const check = await checkCheckout(pi, recorded.path, recorded.repoRoot);
 			if (check.ok) {
 				setActive(recorded);
-				setStatus(ctx, `🌳 ${worktreeLabel(recorded)}`);
+				setStatus(ctx, `⧉ ${worktreeLabel(recorded)}`);
 				ctx.ui.notify(`Restored worktree ${worktreeLabel(recorded)}`, "info");
 			} else {
 				persistState((customType, data) => pi.appendEntry(customType, data), { ...recorded, active: false });

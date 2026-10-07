@@ -20,6 +20,7 @@ const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
+const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Scratch git repo with one commit.
@@ -35,7 +36,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -135,6 +136,10 @@ check("web_fetch registered", !!webFetchTool);
 check("web_fetch is direct", webFetchTool?.exposure === "direct");
 check("web_fetch active by default", session.getActiveToolNames().includes("web_fetch"));
 check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
+
+// status-bar loads headlessly and registers its toggle command; it installs no
+// tools and only paints the footer in interactive mode.
+check("status-bar command registered", !!runner.getCommand("status-bar"));
 
 const exited = await call("worktree_exit", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;

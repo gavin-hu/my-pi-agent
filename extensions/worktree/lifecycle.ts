@@ -297,7 +297,7 @@ export async function enterWorktree(
 	persistState((customType, data) => pi.appendEntry(customType, data), state);
 	applyWorktreeEnv(state);
 	publishWorktree(pi, state);
-	setStatus(ctx, `🌳 ${worktreeLabel(state)}`);
+	setStatus(ctx, `⧉ ${worktreeLabel(state)}`);
 	ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}`, "info");
 	const summary =
 		`Entered worktree.\n${stateSummary(state)}\n\n` +
