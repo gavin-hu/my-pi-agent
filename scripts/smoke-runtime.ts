@@ -15,6 +15,7 @@ import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 
 const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const extensionPath = join(repo, "extensions", "worktree", "index.ts");
+const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Scratch git repo with one commit.
@@ -27,7 +28,11 @@ writeFileSync(join(work, "a.txt"), "hi\n");
 git("add", ".");
 git("commit", "-qm", "init");
 
-const loader = new DefaultResourceLoader({ cwd: work, agentDir, additionalExtensionPaths: [extensionPath] });
+const loader = new DefaultResourceLoader({
+	cwd: work,
+	agentDir,
+	additionalExtensionPaths: [extensionPath, askExtensionPath],
+});
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
 if (loadErrors.length > 0) {
@@ -78,6 +83,13 @@ const statusText = (status.content[0] as { text: string }).text;
 console.log(statusText);
 check("status reports isolated", /Worktree: smoke/.test(statusText));
 check("status reports no inactive overrides", !/not active for/.test(statusText));
+
+// ask-user-question loads alongside worktree and gates itself on UI availability.
+const askTool = session.getAllTools().find((t) => t.name === "ask_user_question");
+check("ask_user_question registered", !!askTool);
+check("ask_user_question is model-only", askTool?.exposure === "model-only");
+check("ask_user_question inactive without a UI", !session.getActiveToolNames().includes("ask_user_question"));
+check("ask_user_question supports no-UI result", !!session.getToolDefinition("ask_user_question"));
 
 const exited = await call("worktree_exit", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;

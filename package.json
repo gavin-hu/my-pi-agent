@@ -14,7 +14,10 @@
     "access": "public"
   },
   "pi": {
-    "extensions": ["./extensions/worktree/index.ts"]
+    "extensions": [
+      "./extensions/worktree/index.ts",
+      "./extensions/ask-user-question/index.ts"
+    ]
   },
   "files": [
     "extensions",
@@ -25,7 +28,7 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
-    "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js",
+    "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js && bun build extensions/ask-user-question/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-ask-user-question-index.js",
     "smoke": "bun run scripts/smoke-runtime.ts",
     "check": "bun run typecheck && bun run transpile && bun test && bun run smoke"
   },
