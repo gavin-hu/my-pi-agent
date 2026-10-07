@@ -21,7 +21,10 @@ A call is a snapshot, so `todos: []` is the natural clear and there is no
 that must follow the active branch. `reconstructTodos` replays
 `ctx.sessionManager.getBranch()` and takes the last `todo` result, so `/resume`
 and `/tree` reproduce the list for that point in history. `pi.appendEntry()`
-was rejected because a durable side-channel list would not branch.
+was rejected because a durable side-channel list would not branch. Stored
+lists are replayed through `normalizeTodos`, so corrupt or tampered branch data
+is re-sanitized or ignored instead of reaching the widget, and rejected
+(`error`) results are skipped because they are not state writes.
 
 **Validation is pure and fail-safe.** `normalizeTodos` throws a model-readable
 message, and the tool turns that into an `isError` result that carries the

@@ -7,6 +7,12 @@ const pending = (content: string): Todo => ({ content, status: "pending" });
 const done = (content: string): Todo => ({ content, status: "completed" });
 const active = (content: string): Todo => ({ content, status: "in_progress" });
 
+/** A raw `todo` result entry, for malformed/error details the helper cannot build. */
+const rawEntry = (details: unknown): unknown => ({
+	type: "message",
+	message: { role: "toolResult", toolName: "todo", details },
+});
+
 describe("reconstructTodos", () => {
 	test("returns an empty list for an empty branch", () => {
 		expect(reconstructTodos([])).toEqual([]);
@@ -38,6 +44,34 @@ describe("reconstructTodos", () => {
 			null,
 		];
 		expect(reconstructTodos(entries)).toEqual([pending("kept")]);
+	});
+
+	test("ignores a malformed stored list instead of throwing", () => {
+		const entries = [resultEntry([pending("kept")]), rawEntry({ todos: [null], action: "write" })];
+		expect(reconstructTodos(entries)).toEqual([pending("kept")]);
+	});
+
+	test("ignores an entry with an invalid status", () => {
+		const entries = [
+			resultEntry([pending("kept")]),
+			rawEntry({ todos: [{ content: "bad", status: "bogus" }], action: "write" }),
+		];
+		expect(reconstructTodos(entries)).toEqual([pending("kept")]);
+	});
+
+	test("does not replay a rejected call as a state write", () => {
+		const entries = [
+			resultEntry([pending("kept")]),
+			rawEntry({ todos: [pending("other")], action: "write", error: "boom" }),
+		];
+		expect(reconstructTodos(entries)).toEqual([pending("kept")]);
+	});
+
+	test("re-sanitizes stored content to one safe line", () => {
+		const entries = [resultEntry([{ content: "line one\nline two", status: "pending" } as Todo])];
+		const [todo] = reconstructTodos(entries);
+		expect(todo.content).toBe("line one line two");
+		expect(todo.content).not.toContain("\u001b");
 	});
 
 	test("does not alias the stored list", () => {

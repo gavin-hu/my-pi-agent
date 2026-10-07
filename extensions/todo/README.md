@@ -22,7 +22,7 @@ pi install ./                       # install the package
   screen on demand.
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
-  into the current list.
+  into the current list, and stored lists are re-sanitized on replay.
 
 The widget leads with the active item, so an `in_progress` task is never
 pushed out by finished rows:
