@@ -21,6 +21,7 @@ const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
+const guardExtensionPath = join(repo, "extensions", "guard", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Scratch git repo with one commit.
@@ -36,7 +37,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, guardExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -140,6 +141,24 @@ check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
 // status-bar loads headlessly and registers its toggle command; it installs no
 // tools and only paints the footer in interactive mode.
 check("status-bar command registered", !!runner.getCommand("status-bar"));
+
+// guard loads last and blocks a protected write through the real tool_call
+// path (the extension runner dispatches the same handlers the model triggers).
+check("guard command registered", !!runner.getCommand("guard"));
+const guardBlock = await runner.emitToolCall({
+	type: "tool_call",
+	toolCallId: "smoke-guard",
+	toolName: "write",
+	input: { path: ".env", content: "X=1" },
+});
+check("guard blocks a protected write", guardBlock?.block === true);
+const guardAllow = await runner.emitToolCall({
+	type: "tool_call",
+	toolCallId: "smoke-guard-allow",
+	toolName: "write",
+	input: { path: "notes.txt", content: "hi" },
+});
+check("guard allows an ordinary write", guardAllow === undefined);
 
 const exited = await call("worktree_exit", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;

@@ -24,6 +24,7 @@ pi -e .                  # try it for a single run, no settings change
 | Extension | [`extensions/web-search/`](./extensions/web-search/) | `web_search`: keyless, fetch-only lookup — DuckDuckGo Instant Answers with a Wikipedia fallback (no general web results). |
 | Extension | [`extensions/web-fetch/`](./extensions/web-fetch/) | `web_fetch`: fetch a URL and return readable text (HTML→text, paging, SSRF guard); native `fetch`, no dependencies. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + git branch + worktree, then statuses + context gauge + usage + model; width-adaptive, `/status-bar` toggles it. |
+| Extension | [`extensions/guard/`](./extensions/guard/) | `guard`: a permission/safety gate — blocks writes to protected paths (`.env`, `.git`, keys, lockfiles), blocks/confirms dangerous commands and destructive tools, fail-safe without a UI; `/guard` toggles it. |
 | Theme | [`themes/nocturne.json`](./themes/nocturne.json) | `nocturne`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
 
 More extensions, skills, and prompts can be added under the conventional
