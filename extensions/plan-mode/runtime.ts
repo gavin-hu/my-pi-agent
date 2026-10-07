@@ -50,7 +50,6 @@ export function createPlanRuntime(pi: ExtensionAPI): PlanRuntime {
 		const active = pi.getActiveTools();
 		if (enabled) {
 			const hidden = new Set<string>([...RESTRICTED_TOOLS, ENTER_TOOL]);
-			removedForPlan = [...new Set(active.filter((name) => hidden.has(name)))];
 			pi.setActiveTools([...new Set([...active.filter((name) => !hidden.has(name)), EXIT_TOOL])]);
 		} else {
 			pi.setActiveTools([...new Set([...active.filter((name) => name !== EXIT_TOOL), ...removedForPlan])]);
@@ -64,6 +63,13 @@ export function createPlanRuntime(pi: ExtensionAPI): PlanRuntime {
 
 	const setEnabled = (next: boolean, ctx: ExtensionContext | undefined, persist: boolean): void => {
 		const changed = next !== enabled;
+		// Capture what we hide only when entering plan mode. A redundant enable (for
+		// example a `session_tree` restore while already enabled) must not recompute
+		// this from the already-filtered active set, or disabling would lose them.
+		if (changed && next) {
+			const hidden = new Set<string>([...RESTRICTED_TOOLS, ENTER_TOOL]);
+			removedForPlan = [...new Set(pi.getActiveTools().filter((name) => hidden.has(name)))];
+		}
 		enabled = next;
 		applyTools();
 		if (persist && changed) pi.appendEntry(STATE_TYPE, { enabled } satisfies PlanModeEntry);

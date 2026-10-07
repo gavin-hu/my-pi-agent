@@ -215,7 +215,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			return new Text(theme.fg("toolTitle", theme.bold(`${EXIT_TOOL} `)) + theme.fg("muted", "submitted a plan"), 0, 0);
 		},
 
-			renderResult(result, { expanded }, theme) {
+		renderResult(result, { expanded }, theme) {
 			const details = result.details as ExitPlanModeDetails | undefined;
 			if (!details) {
 				const first = result.content[0];

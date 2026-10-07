@@ -53,6 +53,16 @@ describe("plan runtime — tool gating", () => {
 		expect(activeTools()).not.toContain("edit");
 		expect(activeTools()).not.toContain(ENTER_TOOL);
 	});
+
+	test("a redundant enable does not forget the tools to restore", () => {
+		const { runtime, ctx, activeTools } = setup();
+		runtime.enable(ctx);
+		runtime.enable(ctx); // e.g. a session_tree restore while already enabled
+		runtime.disable(ctx);
+		expect(activeTools()).toContain("write");
+		expect(activeTools()).toContain("edit");
+		expect(activeTools()).toContain(ENTER_TOOL);
+	});
 });
 
 describe("plan runtime — persistence and status", () => {

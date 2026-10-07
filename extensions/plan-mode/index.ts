@@ -22,6 +22,9 @@ import { registerTools } from "./tools.ts";
 /** Marker embedded in the injected prompt and used to filter stale context. */
 export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
 
+/** Set form of `RESTRICTED_TOOLS`, built once instead of per tool call. */
+const RESTRICTED_TOOL_NAMES = new Set<string>(RESTRICTED_TOOLS);
+
 export const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
 You are in plan mode: a read-only exploration mode for safe code analysis.
 
@@ -70,8 +73,7 @@ export default function planMode(pi: ExtensionAPI): void {
 	pi.on("tool_call", (event) => {
 		if (!runtime.isEnabled()) return undefined;
 
-		const restricted = new Set<string>(RESTRICTED_TOOLS);
-		if (restricted.has(event.toolName)) {
+		if (RESTRICTED_TOOL_NAMES.has(event.toolName)) {
 			return {
 				block: true,
 				reason: `Plan mode: ${event.toolName} is disabled. Call exit_plan_mode and get approval first.`,

@@ -28,7 +28,7 @@ function cleanStep(text: string): string {
 	return text
 		.replace(/\*\*([^*]+)\*\*/g, "$1")
 		.replace(/\*([^*]+)\*/g, "$1")
-		.replace(/_([^_]+)_/g, "$1")
+		.replace(/(?<![A-Za-z0-9_])_([^_]+)_(?![A-Za-z0-9_])/g, "$1")
 		.replace(/`([^`]+)`/g, "$1")
 		.replace(/\[DONE:\d+\]/gi, "")
 		.replace(/\s+/g, " ")

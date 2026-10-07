@@ -20,6 +20,14 @@ describe("extractPlanSteps", () => {
 		expect(extractPlanSteps(plan)).toEqual([completed("Bold step with code"), pending("Italic one")]);
 	});
 
+	test("keeps underscores inside identifiers", () => {
+		const plan = "1. Rename user_id to account_id\n2. Read snake_case_file.ts";
+		expect(extractPlanSteps(plan)).toEqual([
+			pending("Rename user_id to account_id"),
+			pending("Read snake_case_file.ts"),
+		]);
+	});
+
 	test("turns checkboxes into status", () => {
 		const plan = ["- [ ] First task", "- [x] Done task", "- [X] Also done"].join("\n");
 		expect(extractPlanSteps(plan)).toEqual([
