@@ -17,6 +17,7 @@ const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const extensionPath = join(repo, "extensions", "worktree", "index.ts");
 const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
+const goalExtensionPath = join(repo, "extensions", "goal", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
@@ -38,7 +39,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, subagentExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, planExtensionPath, subagentExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -47,9 +48,10 @@ if (loadErrors.length > 0) {
 	process.exit(1);
 }
 
+const sessionManager = SessionManager.inMemory(work);
 const { session } = await createAgentSession({
 	resourceLoader: loader,
-	sessionManager: SessionManager.inMemory(work),
+	sessionManager,
 });
 
 const runner = session.extensionRunner;
@@ -110,6 +112,41 @@ check("todo keeps structured details", wroteDetails.todos.length === 1 && wroteD
 const cleared = await call("todo", { todos: [] });
 const clearedDetails = cleared.details as { todos: unknown[]; action: string };
 check("todo clears", clearedDetails.todos.length === 0 && clearedDetails.action === "clear");
+
+// goal loads alongside the others and tracks one session objective headlessly.
+const goalTool = session.getAllTools().find((t) => t.name === "goal");
+check("goal registered", !!goalTool);
+check("goal is active by default", session.getActiveToolNames().includes("goal"));
+check("goal is callable", !!session.getToolDefinition("goal"));
+const setGoal = await call("goal", { objective: "smoke objective" });
+const setGoalDetails = setGoal.details as { goal: { objective: string; status: string } | null; action: string };
+check(
+	"goal records an active objective",
+	setGoalDetails.goal?.objective === "smoke objective" && setGoalDetails.goal?.status === "active" && setGoalDetails.action === "set",
+);
+const achievedGoal = await call("goal", { objective: "smoke objective", status: "achieved" });
+const achievedDetails = achievedGoal.details as { goal: { status: string } | null; action: string };
+check("goal marks achieved", achievedDetails.goal?.status === "achieved" && achievedDetails.action === "achieve");
+const clearedGoal = await call("goal", { objective: "" });
+const clearedGoalDetails = clearedGoal.details as { goal: unknown; action: string };
+check("goal clears", clearedGoalDetails.goal === null && clearedGoalDetails.action === "clear");
+
+// The /goal command cannot return a tool result, so it persists a custom entry
+// that branch reconstruction replays.
+const goalCommand = runner.getCommand("goal");
+check("goal command registered", !!goalCommand);
+if (!goalCommand) throw new Error("missing goal command");
+const commandCtx = runner.createCommandContext();
+await goalCommand.handler("smoke via command", commandCtx);
+const commandPersisted = sessionManager
+	.getBranch()
+	.some(
+		(entry) =>
+			entry.type === "custom" &&
+			entry.customType === "goal" &&
+			(entry.data as { goal?: { objective?: string } }).goal?.objective === "smoke via command",
+	);
+check("goal command persists a branch entry", commandPersisted);
 
 // plan-mode loads; the read-only entry tool is active, the exit tool is not, and
 // a headless entry attempt refuses instead of entering silently.

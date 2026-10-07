@@ -1,0 +1,66 @@
+/**
+ * Parameter schema and validation for the `goal` tool.
+ *
+ * Pure: no host APIs, no terminal. Invalid input throws a model-readable
+ * `Error` before any state changes, so the model can retry with a corrected
+ * objective instead of silently corrupting the goal.
+ */
+
+import { StringEnum } from "@earendil-works/pi-ai";
+import { Type, type Static } from "typebox";
+import { GOAL_STATUSES, type Goal, type GoalStatus } from "./types.ts";
+
+/** Maximum length of the objective. */
+export const MAX_OBJECTIVE = 2000;
+
+const GoalStatusEnum = StringEnum(GOAL_STATUSES, {
+	description: 'Whether the goal is still being pursued. Defaults to "active".',
+});
+
+export const GoalParams = Type.Object({
+	objective: Type.String({
+		description: "The complete session goal, as a single line. Pass an empty string to clear the goal.",
+	}),
+	status: Type.Optional(GoalStatusEnum),
+});
+
+export type GoalArgs = Static<typeof GoalParams>;
+
+/**
+ * Make model text safe to render on one terminal line.
+ *
+ * Control characters (including ESC) become spaces so they cannot move the
+ * cursor or inject styling, and any whitespace run (newlines, tabs, repeated
+ * spaces) collapses to a single space. The widget and status chip both assume a
+ * single logical line and wrap it themselves.
+ */
+function sanitizeObjective(raw: string): string {
+	return raw
+		.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function normalizeStatus(raw: unknown): GoalStatus {
+	const value = typeof raw === "string" ? raw.trim().toLowerCase() : "active";
+	if ((GOAL_STATUSES as readonly string[]).includes(value)) return value as GoalStatus;
+	throw new Error(`status must be one of ${GOAL_STATUSES.join(", ")}.`);
+}
+
+/**
+ * Validate and normalize the model's goal.
+ *
+ * Returns `null` when the objective is empty or only whitespace, which is the
+ * clear signal. Otherwise returns the sanitized objective and a validated
+ * status (defaulting to `active`). Rejects an over-long objective and an
+ * unknown status.
+ */
+export function normalizeGoal(raw: unknown): Goal | null {
+	const args = (raw ?? {}) as Partial<GoalArgs>;
+	const objective = typeof args.objective === "string" ? sanitizeObjective(args.objective) : "";
+	if (!objective) return null;
+	if (objective.length > MAX_OBJECTIVE) {
+		throw new Error(`objective is longer than ${MAX_OBJECTIVE} characters.`);
+	}
+	return { objective, status: normalizeStatus(args.status) };
+}
