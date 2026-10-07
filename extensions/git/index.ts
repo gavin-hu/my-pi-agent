@@ -10,6 +10,7 @@
  * Load with:  pi --extension ./extensions/git
  */
 
+import { existsSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { MAX_OUTPUT, formatGitResult } from "./format.ts";
@@ -64,7 +65,12 @@ export default function git(pi: ExtensionAPI): void {
 				};
 			}
 
-			const result = await pi.exec("git", argv, { cwd: ctx.cwd, timeout: TIMEOUT_MS, signal });
+			// pi has no mutable session cwd, so the pi-worktree extension exports the
+			// effective root as PI_WORKTREE_ROOT. Honor it so read-only git follows
+			// the isolated worktree instead of the main checkout.
+			const worktree = process.env.PI_WORKTREE_ROOT;
+			const cwd = worktree && existsSync(worktree) ? worktree : ctx.cwd;
+			const result = await pi.exec("git", argv, { cwd, timeout: TIMEOUT_MS, signal });
 			const { text, isError } = formatGitResult(argv, result);
 			return {
 				content: [{ type: "text", text }],

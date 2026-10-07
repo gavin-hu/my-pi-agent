@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import git from "../../extensions/git/index.ts";
 import { createFakePi } from "../helpers/fakes.ts";
 
@@ -34,6 +36,32 @@ describe("git tool", () => {
 		expect(result.content[0].text).toContain("M a.txt");
 		expect(result.details.exitCode).toBe(0);
 		expect(result.isError).toBeUndefined();
+	});
+
+	test("honors PI_WORKTREE_ROOT over ctx.cwd", async () => {
+		const previous = process.env.PI_WORKTREE_ROOT;
+		process.env.PI_WORKTREE_ROOT = tmpdir();
+		try {
+			const { tool, calls } = setup();
+			await call(tool, { action: "status" });
+			expect(calls[0].cwd).toBe(tmpdir());
+		} finally {
+			if (previous === undefined) delete process.env.PI_WORKTREE_ROOT;
+			else process.env.PI_WORKTREE_ROOT = previous;
+		}
+	});
+
+	test("ignores a stale PI_WORKTREE_ROOT that no longer exists", async () => {
+		const previous = process.env.PI_WORKTREE_ROOT;
+		process.env.PI_WORKTREE_ROOT = join(tmpdir(), "pi-worktree-missing-dir-xyz");
+		try {
+			const { tool, calls } = setup();
+			await call(tool, { action: "status" });
+			expect(calls[0].cwd).toBe("/repo");
+		} finally {
+			if (previous === undefined) delete process.env.PI_WORKTREE_ROOT;
+			else process.env.PI_WORKTREE_ROOT = previous;
+		}
 	});
 
 	test("reports a git failure as an error result", async () => {
