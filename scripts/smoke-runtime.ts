@@ -18,6 +18,7 @@ const extensionPath = join(repo, "extensions", "worktree", "index.ts");
 const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const goalExtensionPath = join(repo, "extensions", "goal", "index.ts");
+const gitExtensionPath = join(repo, "extensions", "git", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
@@ -39,7 +40,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, planExtensionPath, subagentExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, gitExtensionPath, planExtensionPath, subagentExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -147,6 +148,11 @@ const commandPersisted = sessionManager
 			(entry.data as { goal?: { objective?: string } }).goal?.objective === "smoke via command",
 	);
 check("goal command persists a branch entry", commandPersisted);
+
+// git loads and registers a read-only tool.
+const gitTool = session.getAllTools().find((t) => t.name === "git");
+check("git tool registered", !!gitTool);
+check("git tool is read-only", gitTool?.annotations?.readOnlyHint === true);
 
 // plan-mode loads; the read-only entry tool is active, the exit tool is not, and
 // a headless entry attempt refuses instead of entering silently.

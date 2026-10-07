@@ -1,7 +1,7 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.1.0",
-  "description": "Personal Pi customizations, packaged as a Pi package: worktree, ask-user-question, todo, goal, plan-mode, subagent, web-search, web-fetch, status-bar, and turn-separator.",
+  "description": "Personal Pi customizations, packaged as a Pi package: worktree, ask-user-question, todo, goal, git, plan-mode, subagent, web-search, web-fetch, status-bar, and turn-separator.",
   "keywords": ["pi-package", "pi", "git", "worktree", "todo", "goal", "objective", "plan", "subagent", "agents", "delegation", "status-bar", "footer", "turn-separator", "separator", "transcript"],
   "type": "module",
   "license": "MIT",
@@ -19,6 +19,7 @@
       "./extensions/ask-user-question/index.ts",
       "./extensions/todo/index.ts",
       "./extensions/goal/index.ts",
+      "./extensions/git/index.ts",
       "./extensions/plan-mode/index.ts",
       "./extensions/subagent/index.ts",
       "./extensions/web-search/index.ts",
@@ -38,7 +39,7 @@
     "test": "bun test --isolate",
     "test:watch": "bun test --watch --isolate",
     "typecheck": "tsc --noEmit",
-    "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js && bun build extensions/ask-user-question/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-ask-user-question-index.js && bun build extensions/todo/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-todo-index.js && bun build extensions/goal/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-goal-index.js && bun build extensions/plan-mode/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-plan-mode-index.js && bun build extensions/subagent/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-subagent-index.js && bun build extensions/web-search/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-web-search-index.js && bun build extensions/web-fetch/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-web-fetch-index.js && bun build extensions/status-bar/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-status-bar-index.js && bun build extensions/turn-separator/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-turn-separator-index.js",
+    "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js && bun build extensions/ask-user-question/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-ask-user-question-index.js && bun build extensions/todo/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-todo-index.js && bun build extensions/goal/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-goal-index.js && bun build extensions/git/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-git-index.js && bun build extensions/plan-mode/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-plan-mode-index.js && bun build extensions/subagent/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-subagent-index.js && bun build extensions/web-search/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-web-search-index.js && bun build extensions/web-fetch/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-web-fetch-index.js && bun build extensions/status-bar/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-status-bar-index.js && bun build extensions/turn-separator/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-turn-separator-index.js",
     "smoke": "bun run scripts/smoke-runtime.ts",
     "check": "bun run typecheck && bun run transpile && bun run test && bun run smoke"
   },
