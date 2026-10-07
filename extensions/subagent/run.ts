@@ -132,7 +132,9 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 	const result: SingleResult = {
 		agent: options.agentName,
 		task: options.task,
-		exitCode: 1,
+		// `-1` is the running sentinel the renderers and `orchestrate.ts` use; the
+		// real exit code is only known once the process closes.
+		exitCode: -1,
 		messages: [],
 		stderr: "",
 		usage: emptyUsage(),
@@ -141,6 +143,7 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 	};
 
 	if (!agent) {
+		result.exitCode = 1;
 		result.stderr = `Unknown agent: "${options.agentName}". Available agents: ${formatAgentList()}.`;
 		return result;
 	}

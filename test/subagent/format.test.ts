@@ -61,6 +61,10 @@ describe("formatToolCall", () => {
 		expect(formatToolCall("write", { file_path: "/tmp/a.ts", content: "a\nb" }, theme, true)).toContain("(2 lines)");
 	});
 
+	test("collapses newlines so a tool call stays on one preview line", () => {
+		expect(formatToolCall("bash", { command: "echo a\necho b" }, theme, true)).toBe("$ echo a echo b");
+	});
+
 	test("falls back to a JSON preview for unknown tools", () => {
 		expect(formatToolCall("custom", { a: 1 }, theme, true)).toContain('{"a":1}');
 	});

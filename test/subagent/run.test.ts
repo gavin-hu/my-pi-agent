@@ -41,6 +41,25 @@ describe("runSingleAgent", () => {
 		expect(isFailedResult(result)).toBe(false);
 	});
 
+	test("marks the result as running while the process is in flight", async () => {
+		const seen: SingleResult[] = [];
+		const { spawn, children } = makeFakeSpawn((child) => {
+			child.line({ type: "message_end", message: assistantMessage("working") });
+		});
+
+		const promise = runSingleAgent(
+			options({
+				spawn,
+				onUpdate: (partial) => seen.push(partial.details?.results[0] as SingleResult),
+			}),
+		);
+		await waitFor(() => seen.length > 0);
+		expect(seen[0].exitCode).toBe(-1);
+
+		children[0].close(0);
+		await promise;
+	});
+
 	test("parses a final line that has no trailing newline", async () => {
 		const { spawn } = makeFakeSpawn((child) => {
 			child.write(JSON.stringify({ type: "message_end", message: assistantMessage("tail") }));

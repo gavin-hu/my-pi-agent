@@ -4,7 +4,7 @@
 
 import * as os from "node:os";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatTokens } from "../_shared/format.ts";
+import { formatTokens, sanitize } from "../_shared/format.ts";
 import type { UsageStats } from "./types.ts";
 
 export { formatTokens };
@@ -62,9 +62,9 @@ export function formatToolCall(
 
 	switch (toolName) {
 		case "bash":
-			return fg("muted", "$ ") + fg("toolOutput", clip(String(args.command ?? "..."), preview ? 60 : 200));
+			return fg("muted", "$ ") + fg("toolOutput", clip(sanitize(String(args.command ?? "...")), preview ? 60 : 200));
 		case "read": {
-			const rawPath = shortenPath(String(args.file_path ?? args.path ?? "..."));
+			const rawPath = shortenPath(sanitize(String(args.file_path ?? args.path ?? "...")));
 			const offset = args.offset as number | undefined;
 			const limit = args.limit as number | undefined;
 			let text = fg("accent", rawPath);
@@ -76,27 +76,27 @@ export function formatToolCall(
 			return fg("muted", "read ") + text;
 		}
 		case "write": {
-			const rawPath = shortenPath(String(args.file_path ?? args.path ?? "..."));
+			const rawPath = shortenPath(sanitize(String(args.file_path ?? args.path ?? "...")));
 			const content = String(args.content ?? "");
 			const lines = content.split("\n").length;
 			const text = fg("muted", "write ") + fg("accent", rawPath);
 			return lines > 1 ? text + fg("dim", ` (${lines} lines)`) : text;
 		}
 		case "edit":
-			return fg("muted", "edit ") + fg("accent", shortenPath(String(args.file_path ?? args.path ?? "..."))) + fg("dim", " (diff)");
+			return fg("muted", "edit ") + fg("accent", shortenPath(sanitize(String(args.file_path ?? args.path ?? "...")))) + fg("dim", " (diff)");
 		case "ls":
-			return fg("muted", "ls ") + fg("accent", shortenPath(String(args.path ?? ".")));
+			return fg("muted", "ls ") + fg("accent", shortenPath(sanitize(String(args.path ?? "."))));
 		case "find":
 			return (
 				fg("muted", "find ") +
-				fg("accent", String(args.pattern ?? "*")) +
-				fg("dim", ` in ${shortenPath(String(args.path ?? "."))}`)
+				fg("accent", sanitize(String(args.pattern ?? "*"))) +
+				fg("dim", ` in ${shortenPath(sanitize(String(args.path ?? ".")))}`)
 			);
 		case "grep":
 			return (
 				fg("muted", "grep ") +
-				fg("accent", `/${String(args.pattern ?? "")}/`) +
-				fg("dim", ` in ${shortenPath(String(args.path ?? "."))}`)
+				fg("accent", `/${sanitize(String(args.pattern ?? ""))}/`) +
+				fg("dim", ` in ${shortenPath(sanitize(String(args.path ?? ".")))}`)
 			);
 		default: {
 			const json = JSON.stringify(args);

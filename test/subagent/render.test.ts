@@ -59,6 +59,12 @@ describe("renderSubagentCall", () => {
 		expect(text).toContain("in /tmp/elsewhere");
 		expect(render(renderSubagentCall({ agent: "explorer", task: "x" }, theme, { cwd: "/repo" }))).not.toContain("in ");
 	});
+
+	test("keeps multi-line task text on one preview line", () => {
+		const text = render(renderSubagentCall({ agent: "worker", task: "First line\nSecond line" }, theme));
+		expect(text).toContain("First line Second line");
+		expect(text.split("\n")).toHaveLength(2);
+	});
 });
 
 describe("renderSubagentResult", () => {
@@ -161,5 +167,29 @@ describe("renderSubagentResult", () => {
 		const running = single({ exitCode: -1, messages: [], startedAt: now - 12000 });
 		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false }, theme));
 		expect(text).toContain("12s");
+	});
+
+	test("an in-flight streamed parallel task shows as running, not failed", () => {
+		const streaming = single({ agent: "explorer", exitCode: -1, messages: [assistantMessage("working")] });
+		const details: SubagentDetails = { mode: "parallel", results: [streaming, single({ agent: "planner" })] };
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false, isPartial: true }, theme));
+		expect(text).toContain("explorer ⏳");
+		expect(text).not.toContain("✗");
+		expect(text).toContain("1/2 tasks done, 1 running");
+	});
+
+	test("a failed result with many items still offers to expand", () => {
+		const messages = Array.from({ length: 12 }, (_, i) => assistantMessage(`note ${i}`));
+		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "boom", messages });
+		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		expect(text).toContain("Error: boom");
+		expect(text).toContain("Ctrl+O to expand");
+	});
+
+	test("a single-step chain keeps its mode header", () => {
+		const details: SubagentDetails = { mode: "chain", results: [single({ step: 1 })] };
+		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		expect(text).toContain("chain ·");
+		expect(text).toContain("Step 1: explorer");
 	});
 });

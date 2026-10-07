@@ -2,9 +2,9 @@
  * Transcript rendering for the `subagent` tool.
  *
  * `renderCall` previews the requested mode before execution; `renderResult`
- * draws a collapsed summary or an expanded, per-result view. Both are pure
- * functions over the tool arguments/details so they can be tested by calling
- * `.render(width)` directly.
+ * draws a collapsed summary or an expanded, per-result view. They are pure over
+ * the tool arguments/details, so tests can call `.render(width)` directly; the
+ * optional render context only drives the running elapsed-time repaint.
  *
  * Status and error rendering is shared across single- and multi-result modes so
  * a failed task never loses its message, regardless of how many tasks ran.
@@ -13,6 +13,7 @@
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
+import { sanitize } from "../_shared/format.ts";
 import { aggregateUsage, formatToolCall, formatUsageStats, shortenPath } from "./format.ts";
 import { COLLAPSED_ITEM_COUNT, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
@@ -45,7 +46,7 @@ const STATUS_META: Record<ResultStatus, { color: "warning" | "error" | "success"
 	success: { color: "success", glyph: "✓" },
 };
 
-/** Classify a result. `isPartial` marks the streaming result before its first event. */
+/** Classify a result. `isPartial` marks a still-streaming single result. */
 function resultStatus(result: SingleResult, isPartial = false): ResultStatus {
 	if (isPartial || result.exitCode === -1) return "running";
 	if (result.stopReason === "aborted") return "aborted";
@@ -56,6 +57,11 @@ function resultStatus(result: SingleResult, isPartial = false): ResultStatus {
 function statusIcon(status: ResultStatus, theme: Theme): string {
 	const meta = STATUS_META[status];
 	return theme.fg(meta.color, meta.glyph);
+}
+
+/** The color the status uses, so the `[stopReason]` bracket matches its icon. */
+function statusColor(status: ResultStatus): "warning" | "error" | "success" {
+	return STATUS_META[status].color;
 }
 
 /** The message a failed/aborted result should show, falling back to stderr. */
@@ -131,7 +137,7 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 		let text = title + theme.fg("accent", `chain · ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
 			const step = args.chain[i];
-			const clean = step.task.replace(/\{previous\}/g, "").trim();
+			const clean = sanitize(step.task.replace(/\{previous\}/g, ""));
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
 		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `... +${args.chain.length - 3} more`)}`;
@@ -142,7 +148,7 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 		let text = title + theme.fg("accent", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
 			const task = args.tasks[i];
-			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(task.task, 40)}`)}${cwdNote(task.cwd)}`;
+			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(sanitize(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
 		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `... +${args.tasks.length - 3} more`)}`;
 		return new Text(text, 0, 0);
@@ -150,7 +156,7 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 
 	const agentName = args.agent || "...";
 	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
-	text += `\n  ${theme.fg("dim", clip(args.task ?? "...", 60))}`;
+	text += `\n  ${theme.fg("dim", clip(sanitize(args.task ?? "..."), 60))}`;
 	return new Text(text, 0, 0);
 }
 
@@ -167,7 +173,7 @@ function addExpandedResult(
 	if (result.step) headerText = `${theme.fg("muted", `Step ${result.step} `)}` + headerText;
 	const duration = durationSuffix(result, status);
 	if (duration) headerText += theme.fg("dim", duration);
-	if (result.stopReason && status !== "success" && status !== "running") headerText += ` ${theme.fg("error", `[${result.stopReason}]`)}`;
+	if (result.stopReason && status !== "success" && status !== "running") headerText += ` ${theme.fg(statusColor(status), `[${result.stopReason}]`)}`;
 	container.addChild(new Text(headerText, 0, 0));
 	const error = renderError(result, status, theme);
 	if (error) container.addChild(new Text(error, 0, 0));
@@ -216,7 +222,7 @@ function collapsedResult(result: SingleResult, theme: Theme, isPartial: boolean)
 	if (result.step) text = `${theme.fg("muted", `step ${result.step} `)}` + text;
 	const duration = durationSuffix(result, status);
 	if (duration) text += theme.fg("dim", duration);
-	if (result.stopReason && status !== "success" && status !== "running") text += ` ${theme.fg("error", `[${result.stopReason}]`)}`;
+	if (result.stopReason && status !== "success" && status !== "running") text += ` ${theme.fg(statusColor(status), `[${result.stopReason}]`)}`;
 
 	const displayItems = getDisplayItems(result.messages);
 	const error = renderError(result, status, theme);
@@ -226,8 +232,8 @@ function collapsedResult(result: SingleResult, theme: Theme, isPartial: boolean)
 		text += `\n${theme.fg("muted", status === "running" ? "(running...)" : "(no output)")}`;
 	} else {
 		text += `\n${renderDisplayItems(displayItems, theme, COLLAPSED_ITEM_COUNT)}`;
-		if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 	}
+	if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 	const usage = formatUsageStats(result.usage, result.model);
 	if (usage) text += `\n${theme.fg("dim", usage)}`;
 	return new Text(text, 0, 0);
@@ -321,23 +327,48 @@ function expandedMulti(details: SubagentDetails, theme: Theme): Container {
 	return container;
 }
 
+/** The subset of Pi's render context the elapsed timer needs. */
+interface ElapsedRenderContext {
+	state?: Record<string, unknown>;
+	invalidate?: () => void;
+}
+
+/** Keep a 1s repaint ticking while any result is still running, so elapsed labels advance. */
+function syncElapsedTimer(running: boolean, context?: ElapsedRenderContext): void {
+	if (!context?.invalidate || !context.state) return;
+	const state = context.state as { elapsedTimer?: ReturnType<typeof setInterval> };
+	if (running && !state.elapsedTimer) {
+		state.elapsedTimer = setInterval(() => context.invalidate?.(), 1000);
+		(state.elapsedTimer as { unref?: () => void }).unref?.();
+	} else if (!running && state.elapsedTimer) {
+		clearInterval(state.elapsedTimer);
+		state.elapsedTimer = undefined;
+	}
+}
+
 /** Render a subagent result, collapsed or expanded. */
 export function renderSubagentResult(
 	result: AgentToolResult<unknown>,
 	options: { expanded: boolean; isPartial?: boolean },
 	theme: Theme,
+	context?: ElapsedRenderContext,
 ): Component {
 	const details = result.details as SubagentDetails | undefined;
 	if (!details || details.results.length === 0) {
+		syncElapsedTimer(false, context);
 		const first = result.content[0];
 		return new Text(first?.type === "text" ? first.text : "(no output)", 0, 0);
 	}
 
+	// The `-1` sentinel is set while a subprocess is in flight, in every mode.
+	syncElapsedTimer(details.results.some((entry) => entry.exitCode === -1), context);
+
 	const isPartial = options.isPartial ?? false;
-	if (details.results.length === 1) {
+	if (details.mode === "single") {
+		const single = details.results[0];
 		return options.expanded
-			? expandedResult(details.results[0], theme, getMarkdownTheme(), isPartial)
-			: collapsedResult(details.results[0], theme, isPartial);
+			? expandedResult(single, theme, getMarkdownTheme(), isPartial)
+			: collapsedResult(single, theme, isPartial);
 	}
 	return options.expanded ? expandedMulti(details, theme) : collapsedMulti(details, theme);
 }
