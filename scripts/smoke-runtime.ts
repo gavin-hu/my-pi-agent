@@ -18,6 +18,7 @@ const extensionPath = join(repo, "extensions", "worktree", "index.ts");
 const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
+const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Scratch git repo with one commit.
@@ -33,7 +34,7 @@ git("commit", "-qm", "init");
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, planExtensionPath, webSearchExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -117,6 +118,14 @@ check(
 	"enter_plan_mode refuses without a UI",
 	enterResult.isError === true && /No interactive UI/.test((enterResult.content[0] as { text: string }).text),
 );
+
+// web-search loads and registers an active, direct tool. It is not executed
+// here: the network is covered by unit tests with an injected fetch.
+const webSearchTool = session.getAllTools().find((t) => t.name === "web_search");
+check("web_search registered", !!webSearchTool);
+check("web_search is direct", webSearchTool?.exposure === "direct");
+check("web_search active by default", session.getActiveToolNames().includes("web_search"));
+check("web_search is callable", !!session.getToolDefinition("web_search"));
 
 const exited = await call("worktree_exit", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;
