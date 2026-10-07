@@ -55,7 +55,10 @@ export interface StartOptions {
 
 export interface LogResult {
 	job: Job;
+	/** Model-facing render of the tail, including status header/truncation note. */
 	text: string;
+	/** Sanitized tail lines, for the `/jobs` log pane. */
+	lines: string[];
 	truncated: boolean;
 }
 
@@ -555,7 +558,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 		const shown = tailLines(dropTrailingBlank(sanitizeLogText(text)), lines);
 		const formatted = formatLogs(job, shown, LOG_MODEL_CHARS);
-		return { job, text: formatted.text, truncated: formatted.truncated || truncatedBytes };
+		return { job, text: formatted.text, lines: shown, truncated: formatted.truncated || truncatedBytes };
 	}
 
 	function kill(id: string, signal: KillSignal = "SIGTERM"): Job | undefined {

@@ -13,7 +13,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { JobRecord, JobStatus } from "./types.ts";
 
 /** Longest sanitized log line kept for display; longer lines are clipped. */
@@ -100,7 +100,7 @@ export function statusWord(job: JobRecord): string {
 /** A label clipped to one safe display line. */
 export function shortLabel(job: JobRecord): string {
 	const label = sanitizeLogLine(job.label || job.command);
-	return visibleWidth(label) > MAX_LABEL ? `${label.slice(0, MAX_LABEL - 1)}…` : label;
+	return truncateToWidth(label, MAX_LABEL, "…");
 }
 
 /** One-line job summary shared by the model output and the widget. */
@@ -160,7 +160,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 		case "start": {
 			const command = typeof args.command === "string" ? args.command.trim() : "";
 			if (!command) return argsComplete ? "start" : "start …";
-			const preview = visibleWidth(command) > MAX_LABEL ? `${command.slice(0, MAX_LABEL - 1)}…` : command;
+			const preview = truncateToWidth(command, MAX_LABEL, "…");
 			return `start → ${preview}`;
 		}
 		case "kill":

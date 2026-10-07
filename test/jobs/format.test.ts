@@ -10,6 +10,7 @@ import {
 	formatLogs,
 	sanitizeLogLine,
 	sanitizeLogText,
+	shortLabel,
 	statusGlyph,
 	tailLines,
 } from "../../extensions/jobs/format.ts";
@@ -121,6 +122,13 @@ describe("formatLogs", () => {
 	});
 });
 
+describe("shortLabel", () => {
+	test("clips wide characters by display column, not code unit", () => {
+		const label = "界".repeat(40); // 80 columns
+		expect(visibleWidth(shortLabel(job({ label })))).toBeLessThanOrEqual(48);
+	});
+});
+
 describe("compareJobs", () => {
 	test("sorts running before finished, then newest first", () => {
 		const running = job({ id: "a", status: "running" });
@@ -138,5 +146,11 @@ describe("formatCallText", () => {
 	test("names the target for status/logs/kill/wait", () => {
 		expect(formatCallText("kill", { id: "j3" })).toBe("kill j3");
 		expect(formatCallText("wait", { id: "j3" })).toBe("wait j3");
+	});
+
+	test("clips a wide-character command by display column", () => {
+		const text = formatCallText("start", { command: "界".repeat(40) });
+		expect(text.startsWith("start → ")).toBe(true);
+		expect(visibleWidth(text.slice("start → ".length))).toBeLessThanOrEqual(48);
 	});
 });

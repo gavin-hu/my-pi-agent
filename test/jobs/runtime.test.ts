@@ -163,6 +163,8 @@ describe("job runtime — logs", () => {
 			expect(result?.text).toContain("b");
 			expect(result?.text).toContain("c");
 			expect(result?.text).not.toContain("\na\n");
+			expect(result?.lines).toEqual(["b", "c"]);
+			expect(result?.lines.join("\n")).not.toContain("output:");
 		} finally {
 			h.cleanup();
 		}

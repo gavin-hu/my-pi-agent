@@ -75,8 +75,8 @@ export class JobsWidget implements Component {
 }
 
 export interface JobListCallbacks {
-	/** Current sanitized log text for a job, or undefined when unknown. */
-	logs(id: string): { text: string } | undefined;
+	/** Current sanitized log lines for a job, or undefined when unknown. */
+	logs(id: string): { lines: string[] } | undefined;
 	kill(id: string): void;
 	clear(): void;
 }
@@ -106,9 +106,9 @@ export class JobListComponent implements Component {
 	invalidate(): void {}
 
 	/** Replace the log pane contents (called by the command's poll loop). */
-	setLogs(title: string, text: string): void {
+	setLogs(title: string, lines: string[]): void {
 		this.logTitle = title;
-		this.logLines = text.split("\n");
+		this.logLines = lines;
 		if (this.follow) this.logScroll = this.maxLogScroll;
 		else this.logScroll = Math.min(this.logScroll, this.maxLogScroll);
 		this.requestRender();
@@ -123,7 +123,7 @@ export class JobListComponent implements Component {
 	/** Re-read the open log pane from the runtime. */
 	refreshLogs(id: string): void {
 		const result = this.callbacks.logs(id);
-		if (result) this.setLogs(this.logTitle, result.text);
+		if (result) this.setLogs(this.logTitle, result.lines);
 	}
 
 	private get ordered(): JobRecord[] {
@@ -137,6 +137,7 @@ export class JobListComponent implements Component {
 	private clampSelection(): void {
 		const count = this.ordered.length;
 		this.selected = Math.min(Math.max(0, this.selected), Math.max(0, count - 1));
+		this.listScroll = Math.min(Math.max(0, this.listScroll), Math.max(0, count - this.visible));
 	}
 
 	private openLogs(): void {
@@ -148,7 +149,7 @@ export class JobListComponent implements Component {
 		this.logLines = [];
 		this.logTitle = `${job.id} ${shortLabel(job)}`;
 		const result = this.callbacks.logs(job.id);
-		if (result) this.setLogs(this.logTitle, result.text);
+		if (result) this.setLogs(this.logTitle, result.lines);
 		else this.requestRender();
 	}
 
@@ -208,7 +209,7 @@ export class JobListComponent implements Component {
 	private header(width: number): string {
 		const label = " Jobs ";
 		const prefix = "───";
-		if (width < 8) return this.theme.fg("borderMuted", "─".repeat(width));
+		if (width < 9) return this.theme.fg("borderMuted", "─".repeat(width));
 		const remaining = width - prefix.length - label.length;
 		return (
 			this.theme.fg("borderMuted", prefix) +
@@ -219,7 +220,7 @@ export class JobListComponent implements Component {
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const lines: string[] = [this.header(w), ""];
+		const lines: string[] = [truncateToWidth(this.header(w), w), ""];
 		if (this.mode === "logs") this.renderLogs(lines, w);
 		else this.renderList(lines, w);
 		lines.push("");
@@ -235,6 +236,7 @@ export class JobListComponent implements Component {
 
 	private renderList(lines: string[], w: number): void {
 		const jobs = this.ordered;
+		this.listScroll = Math.min(this.listScroll, Math.max(0, jobs.length - this.visible));
 		if (jobs.length === 0) {
 			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No background jobs.")}`, w));
 			return;
