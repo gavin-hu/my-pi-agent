@@ -26,10 +26,12 @@ export default function webSearch(pi: ExtensionAPI) {
 		description:
 			"Look up a quick fact, definition, or topic. Uses DuckDuckGo instant answers first and falls back to " +
 			"Wikipedia, so it returns answers and encyclopedia-style results (title, URL, snippet) rather than general " +
-			"web results. For anything else, or when you already have a URL, use web_fetch to read the page.",
+			"web results. Wikipedia search operators work (intitle:, incategory:, insource:); set source to force a " +
+			"backend. For anything else, or when you already have a URL, use web_fetch to read the page.",
 		promptSnippet: "Look up a fact/topic via DuckDuckGo instant answers, falling back to Wikipedia.",
 		promptGuidelines: [
 			"Use web_search for quick facts and encyclopedia topics; it is not a general web search engine.",
+			"Wikipedia operators like intitle:, incategory:, and insource: are supported; source: \"wikipedia\" forces them.",
 			"When you need current or niche information, or a specific page, use web_fetch instead.",
 		],
 		parameters: WebSearchParams,

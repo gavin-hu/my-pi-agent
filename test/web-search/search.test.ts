@@ -5,7 +5,7 @@ import { HttpUnavailableError } from "../../extensions/web-search/http.ts";
 import { resetThrottle, runSearch, setDefaultRunnerForTests, WebSearchError } from "../../extensions/web-search/search.ts";
 import type { SearchRequest } from "../../extensions/web-search/types.ts";
 
-const request: SearchRequest = { query: "pi agent", maxResults: 5 };
+const request: SearchRequest = { query: "pi agent", maxResults: 5, source: "auto" };
 const config = { ...DEFAULT_CONFIG, minIntervalMs: 0 };
 
 afterEach(() => setDefaultRunnerForTests(undefined));
@@ -92,6 +92,56 @@ describe("runSearch", () => {
 		controller.abort();
 		const runner: HttpRunner = () => Promise.reject(new HttpUnavailableError("Request failed: aborted"));
 		await expect(runSearch(request, config, controller.signal, { http: runner })).rejects.toThrow(WebSearchError);
+	});
+
+	test("source wikipedia skips the instant answer entirely", async () => {
+		const hosts: string[] = [];
+		const runner: HttpRunner = (req) => {
+			const host = new URL(req.url).hostname;
+			hosts.push(host);
+			if (host === "api.duckduckgo.com") throw new Error("instant must not be called");
+			return Promise.resolve(
+				json({ query: { pages: { "1": { title: "Pi", fullurl: "https://en.wikipedia.org/wiki/Pi", extract: "A.", index: 1 } } } }),
+			);
+		};
+		const outcome = await runSearch({ ...request, source: "wikipedia" }, config, undefined, { http: runner });
+		expect(outcome.provider).toBe("wikipedia");
+		expect(hosts).toEqual(["en.wikipedia.org"]);
+	});
+
+	test("source instant skips Wikipedia", async () => {
+		const hosts: string[] = [];
+		const runner: HttpRunner = (req) => {
+			const host = new URL(req.url).hostname;
+			hosts.push(host);
+			if (host !== "api.duckduckgo.com") throw new Error("wikipedia must not be called");
+			return Promise.resolve(json({}));
+		};
+		const outcome = await runSearch({ ...request, source: "instant" }, config, undefined, { http: runner });
+		expect(outcome.provider).toBe("none");
+		expect(hosts).toEqual(["api.duckduckgo.com"]);
+	});
+
+	test("auto skips the instant answer for a Wikipedia operator query", async () => {
+		const hosts: string[] = [];
+		const runner: HttpRunner = (req) => {
+			const host = new URL(req.url).hostname;
+			hosts.push(host);
+			if (host === "api.duckduckgo.com") throw new Error("instant must not be called");
+			return Promise.resolve(
+				json({ query: { pages: { "1": { title: "早茶", fullurl: "https://zh.wikipedia.org/wiki/早茶", extract: "飲茶", index: 1 } } } }),
+			);
+		};
+		const outcome = await runSearch({ ...request, query: "intitle:早茶" }, config, undefined, { http: runner });
+		expect(outcome.provider).toBe("wikipedia");
+		expect(hosts).toEqual(["zh.wikipedia.org"]);
+	});
+
+	test("a forced backend failure surfaces", async () => {
+		const runner: HttpRunner = () => Promise.resolve(json("boom", 500));
+		await expect(runSearch({ ...request, source: "instant" }, config, undefined, { http: runner })).rejects.toThrow(
+			WebSearchError,
+		);
 	});
 });
 

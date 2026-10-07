@@ -33,8 +33,14 @@ DuckDuckGo's anti-bot layer challenges Node/Bun `fetch`.
 web_search({
   query: string,        // 1–400 chars, required, any language
   maxResults?: number,  // 1–20, capped by config.maxResults
+  source?: "auto" | "instant" | "wikipedia",  // default auto
 })
 ```
+
+Wikipedia operators (`intitle:`, `incategory:`, `insource:`, …) are forwarded to
+`gsrsearch`. `source: "wikipedia"` skips the instant answer; `source: "instant"`
+skips Wikipedia; `auto` skips the instant answer when the query contains a
+Wikipedia operator.
 
 `resolveRequest()` validates the query and clamps `maxResults` to the configured
 ceiling before any request.
@@ -72,10 +78,11 @@ canonical URL. Results are ordered by the generator's `index`.
 
 [`search.ts`](./search.ts):
 
-1. Ask the Instant Answer API. If it has an answer or topics, return them
+1. Ask the Instant Answer API (unless the source is `wikipedia`, or `auto` with a
+   Wikipedia operator). If it has an answer or topics, return them
    (`provider: "duckduckgo"`).
-2. Otherwise query Wikipedia. If it returns pages, return them
-   (`provider: "wikipedia"`).
+2. Otherwise query Wikipedia (unless the source is `instant`). If it returns
+   pages, return them (`provider: "wikipedia"`).
 3. If both are empty, return `provider: "none"`. If a request failed, the
    failure is surfaced (unless a later backend answered).
 

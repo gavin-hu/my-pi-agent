@@ -8,6 +8,9 @@
 /** Which backend produced the result. */
 export type SearchProvider = "duckduckgo" | "wikipedia" | "none";
 
+/** Which backend(s) to try. */
+export type SearchSource = "auto" | "instant" | "wikipedia";
+
 /** One result: a Wikipedia page or a DuckDuckGo instant-answer topic. */
 export type SearchResult = {
 	title: string;
@@ -19,6 +22,7 @@ export type SearchResult = {
 export interface SearchRequest {
 	query: string;
 	maxResults: number;
+	source: SearchSource;
 }
 
 /** The result of one search, as returned in `details` and `structuredContent`. */

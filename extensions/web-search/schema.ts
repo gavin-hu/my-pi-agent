@@ -5,11 +5,13 @@
  * network call, so the model can retry with a corrected query.
  */
 
+import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { MAX_RESULTS, type WebSearchConfig } from "./config.ts";
-import type { SearchRequest } from "./types.ts";
+import type { SearchRequest, SearchSource } from "./types.ts";
 
 export const MAX_QUERY_LENGTH = 400;
+export const SEARCH_SOURCES = ["auto", "instant", "wikipedia"] as const;
 
 export const WebSearchParams = Type.Object({
 	query: Type.String({
@@ -22,6 +24,12 @@ export const WebSearchParams = Type.Object({
 			minimum: 1,
 			maximum: MAX_RESULTS,
 			description: `Number of results to return (1-${MAX_RESULTS}). Defaults to the configured value.`,
+		}),
+	),
+	source: Type.Optional(
+		StringEnum(SEARCH_SOURCES, {
+			description:
+				'Which backend to use. "auto" (default) tries instant answers then Wikipedia; "wikipedia" skips straight to Wikipedia (for intitle:/incategory:/insource: etc.); "instant" uses only instant answers.',
 		}),
 	),
 });
@@ -59,5 +67,10 @@ export function resolveRequest(args: WebSearchArgs, config: WebSearchConfig): Se
 	const requested = typeof args.maxResults === "number" ? args.maxResults : config.maxResults;
 	const maxResults = Math.min(config.maxResults, MAX_RESULTS, Math.max(1, Math.round(requested)));
 
-	return { query, maxResults };
+	const rawSource = typeof args.source === "string" ? args.source : "";
+	const source: SearchSource = (SEARCH_SOURCES as readonly string[]).includes(rawSource)
+		? (rawSource as SearchSource)
+		: "auto";
+
+	return { query, maxResults, source };
 }

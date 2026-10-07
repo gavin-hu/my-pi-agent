@@ -24,12 +24,18 @@ Example queries:
 web_search({ query: "what is the capital of Portugal" })
 web_search({ query: "广州 早茶 文化" })           // Han text → zh Wikipedia fallback
 web_search({ query: "python list comprehension", maxResults: 3 })
+web_search({ query: "intitle:早茶 广州", source: "wikipedia" })
 ```
+
+Wikipedia search operators are passed straight to `gsrsearch`: `intitle:`,
+`incategory:`, `insource:`, `prefix:`, `hastemplate:`, and friends. With
+`source: "auto"` an operator query skips the instant-answer lookup.
 
 | Parameter | Type | Notes |
 |---|---|---|
 | `query` | string | 1–400 chars, required, any language |
 | `maxResults` | integer | 1–20, capped by the configured maximum (default 8) |
+| `source` | enum | `auto` (default) \| `wikipedia` \| `instant` |
 
 ## Configuration
 
