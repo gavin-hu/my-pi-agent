@@ -1,0 +1,47 @@
+{
+  "name": "@gavin-hu/my-pi-agent",
+  "version": "0.1.0",
+  "description": "Personal Pi customizations, packaged as a Pi package. First extension: pi-worktree (isolated git worktrees).",
+  "keywords": ["pi-package", "pi", "git", "worktree"],
+  "type": "module",
+  "license": "MIT",
+  "author": "Gavin Hu",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gavin-hu/my-pi-agent.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": ["./extensions/worktree/index.ts"]
+  },
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "tsc --noEmit",
+    "transpile": "bun build extensions/worktree/index.ts --no-bundle --external '*' --target=node --outfile=/tmp/pi-worktree-index.js",
+    "check": "bun run typecheck && bun run transpile && bun test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-agent-core": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-agent-core": "^1.0.4",
+    "@earendil-works/pi-ai": "^1.0.4",
+    "@earendil-works/pi-coding-agent": "^1.0.4",
+    "@earendil-works/pi-tui": "^1.0.4",
+    "@types/bun": "latest",
+    "typebox": "^1.3.27",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+.pi/worktrees/
+.DS_Store
+*.log
+*.tgz
