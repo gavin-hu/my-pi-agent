@@ -10,8 +10,14 @@ permissions:
 
 jobs:
   check:
-    name: check
-    runs-on: ubuntu-latest
+    name: check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Report every OS even if one fails, so a Windows-only regression is
+      # visible without re-running the whole matrix.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -23,5 +29,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       # format:check, typecheck, transpile, test, smoke, e2e:rewind
+      # The default shell per OS is intentional: forcing bash on Windows would
+      # reintroduce Git-Bash path conversion, which is itself platform-specific.
       - name: Run checks
         run: bun run check
