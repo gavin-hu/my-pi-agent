@@ -80,7 +80,10 @@ function samePath(a: string, b: string): boolean {
 
 /** One terminal-safe line for the footer chip. */
 function statusName(path: string): string {
-	const name = basename(path).replace(/\.md$/i, "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+	const name = basename(path)
+		.replace(/\.md$/i, "")
+		.replace(/[\u0000-\u001f\u007f]/g, " ")
+		.trim();
 	if (!name) return "plan";
 	return name.length > STATUS_NAME_LENGTH ? `${name.slice(0, STATUS_NAME_LENGTH - 1)}…` : name;
 }
@@ -131,7 +134,9 @@ export function createPlanRuntime(
 		// example a `session_tree` restore while already enabled) must not recompute
 		// this from the already-filtered active set, or disabling would lose them.
 		if (changed && next) {
-			removedForPlan = [...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name) && !CONTROL_TOOLS.includes(name)))];
+			removedForPlan = [
+				...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name) && !CONTROL_TOOLS.includes(name))),
+			];
 		}
 		enabled = next;
 		applyTools();

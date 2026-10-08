@@ -90,7 +90,9 @@ export function formatMatches(input: MatchFormatInput): FormattedMatches {
 		return { header, body: "", text: `${header}\n\nNo matches.`, truncated: false };
 	}
 
-	const body = input.matches.map((match, index) => `${index + 1}. [offset ${match.offset}] ${match.passage}`).join("\n\n");
+	const body = input.matches
+		.map((match, index) => `${index + 1}. [offset ${match.offset}] ${match.passage}`)
+		.join("\n\n");
 	return { header, body, text: `${header}\n\n${body}`, truncated: false };
 }
 

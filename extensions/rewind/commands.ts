@@ -18,14 +18,15 @@ import { buildRewindPoints, type RewindPoint } from "./timeline.ts";
 /** Pick a point from the timeline, or undefined when the user cancels. */
 async function choosePoint(ctx: ExtensionCommandContext, points: RewindPoint[]): Promise<RewindPoint | undefined> {
 	if (ctx.mode === "tui") {
-		return ctx.ui.custom<RewindPoint | undefined>((tui, theme, _keybindings, done) =>
-			new RewindListComponent({
-				points,
-				theme,
-				onClose: (point) => done(point),
-				requestRender: () => tui.requestRender(),
-				viewportRows: () => tui.terminal?.rows,
-			}),
+		return ctx.ui.custom<RewindPoint | undefined>(
+			(tui, theme, _keybindings, done) =>
+				new RewindListComponent({
+					points,
+					theme,
+					onClose: (point) => done(point),
+					requestRender: () => tui.requestRender(),
+					viewportRows: () => tui.terminal?.rows,
+				}),
 		);
 	}
 	const labels = points.map((point) => formatRewindRow(point.summary, Boolean(point.snapshot), point.timestamp));

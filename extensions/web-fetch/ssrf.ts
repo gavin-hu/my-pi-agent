@@ -152,7 +152,11 @@ export type LookupImpl = typeof lookup;
  * Validate a URL, resolving the host unless private hosts are allowed. Throws
  * `SsrfError` when the target is not an allowed public http(s) URL.
  */
-export async function assertAllowedUrl(raw: string, allowPrivate: boolean, lookupImpl: LookupImpl = lookup): Promise<URL> {
+export async function assertAllowedUrl(
+	raw: string,
+	allowPrivate: boolean,
+	lookupImpl: LookupImpl = lookup,
+): Promise<URL> {
 	let url: URL;
 	try {
 		url = new URL(raw);

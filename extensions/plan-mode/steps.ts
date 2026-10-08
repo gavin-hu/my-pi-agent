@@ -88,7 +88,10 @@ export function extractPlanSteps(plan: string): PlanStep[] {
 		if (seen.has(key)) continue;
 		seen.add(key);
 		steps.push({
-			content: step.content.length > MAX_STEP_LENGTH ? `${step.content.slice(0, MAX_STEP_LENGTH - 1).trimEnd()}…` : step.content,
+			content:
+				step.content.length > MAX_STEP_LENGTH
+					? `${step.content.slice(0, MAX_STEP_LENGTH - 1).trimEnd()}…`
+					: step.content,
 			status: step.status,
 		});
 		if (steps.length >= MAX_STEPS) break;

@@ -59,7 +59,13 @@ const REQUIRED_COLORS = [
 	"bashMode",
 ] as const;
 
-const OPTIONAL_COLORS = ["scrollbarTrack", "scrollbarThumb", "searchMatchBg", "searchMatchText", "thinkingMax"] as const;
+const OPTIONAL_COLORS = [
+	"scrollbarTrack",
+	"scrollbarThumb",
+	"searchMatchBg",
+	"searchMatchText",
+	"thinkingMax",
+] as const;
 const ALL_COLORS = new Set<string>([...REQUIRED_COLORS, ...OPTIONAL_COLORS]);
 
 interface Theme {

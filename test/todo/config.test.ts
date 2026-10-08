@@ -2,11 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-	DEFAULT_TODO_CONFIG,
-	loadTodoConfig,
-	normalizeTodoConfig,
-} from "../../extensions/todo/config.ts";
+import { DEFAULT_TODO_CONFIG, loadTodoConfig, normalizeTodoConfig } from "../../extensions/todo/config.ts";
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 

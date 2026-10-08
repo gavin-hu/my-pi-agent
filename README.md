@@ -47,11 +47,12 @@ the theme's `export.pageBg`, so they are unaffected.
 
 ```bash
 bun install
-bun run test      # unit + git-integration tests (bun test --isolate)
-bun run typecheck # tsc --noEmit
-bun run smoke     # real-runtime load + enter/status/exit (no model call)
+bun run test       # unit + git-integration tests (bun test --isolate)
+bun run typecheck  # tsc --noEmit
+bun run format     # biome format --write .
+bun run smoke      # real-runtime load + enter/status/exit (no model call)
 bun run e2e:rewind # real SDK: command context → AgentSession.navigateTree + git restore
-bun run check     # typecheck + transpile + tests + smoke + e2e:rewind
+bun run check      # format:check + typecheck + transpile + tests + smoke + e2e:rewind
 ```
 
 There is also one live end-to-end test for the `subagent` extension. It makes a

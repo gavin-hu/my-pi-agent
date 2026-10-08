@@ -445,11 +445,7 @@ function cdRedirect(root: string, words: ShellWord[]): string | undefined {
 }
 
 /** Checks 2-4 for a bash command while isolated. */
-export function analyzeBashCommand(
-	command: string,
-	root: string,
-	config: WorktreeConfig,
-): GuardBlock | undefined {
+export function analyzeBashCommand(command: string, root: string, config: WorktreeConfig): GuardBlock | undefined {
 	if (config.guard.blockGitRedirects) {
 		for (const segment of splitSegments(command)) {
 			const words = tokenize(segment);

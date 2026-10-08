@@ -140,7 +140,11 @@ describe("buildLines", () => {
 
 	test("strips color when compacting themed statuses", () => {
 		const themed = `\x1b[33m${GLYPHS.plan} plan\x1b[39m`;
-		const [, line2] = buildLines(fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }), fakeTheme, "/home/u");
+		const [, line2] = buildLines(
+			fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }),
+			fakeTheme,
+			"/home/u",
+		);
 		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
 
 		expect(statuses.forms[0]).toContain(themed);

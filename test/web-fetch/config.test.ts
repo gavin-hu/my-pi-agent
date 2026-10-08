@@ -29,7 +29,12 @@ describe("normalizeConfig", () => {
 	});
 
 	test("clamps cache settings and defaults cacheEnabled", () => {
-		const config = normalizeConfig({ cacheTtlMs: -5, cacheMaxEntries: 0, cacheMaxBytes: 1, cacheEnabled: "x" as unknown as boolean });
+		const config = normalizeConfig({
+			cacheTtlMs: -5,
+			cacheMaxEntries: 0,
+			cacheMaxBytes: 1,
+			cacheEnabled: "x" as unknown as boolean,
+		});
 		expect(config.cacheTtlMs).toBe(0);
 		expect(config.cacheMaxEntries).toBe(1);
 		expect(config.cacheMaxBytes).toBe(1_024);

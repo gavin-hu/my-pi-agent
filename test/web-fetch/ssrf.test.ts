@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { assertAllowedUrl, isBlockedHostname, isBlockedIp, SsrfError, type LookupImpl } from "../../extensions/web-fetch/ssrf.ts";
+import {
+	assertAllowedUrl,
+	isBlockedHostname,
+	isBlockedIp,
+	SsrfError,
+	type LookupImpl,
+} from "../../extensions/web-fetch/ssrf.ts";
 
 function lookupReturning(...addresses: string[]): LookupImpl {
 	return (async () => addresses.map((address) => ({ address }))) as unknown as LookupImpl;
@@ -7,7 +13,15 @@ function lookupReturning(...addresses: string[]): LookupImpl {
 
 describe("isBlockedIp", () => {
 	test("blocks loopback, private, link-local, and metadata ranges", () => {
-		for (const ip of ["127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.1", "169.254.169.254", "0.0.0.0", "224.0.0.1"]) {
+		for (const ip of [
+			"127.0.0.1",
+			"10.1.2.3",
+			"172.16.0.1",
+			"192.168.1.1",
+			"169.254.169.254",
+			"0.0.0.0",
+			"224.0.0.1",
+		]) {
 			expect(isBlockedIp(ip)).toBe(true);
 		}
 	});
@@ -69,12 +83,16 @@ describe("assertAllowedUrl", () => {
 	});
 
 	test("rejects internal hostnames and literal addresses", async () => {
-		await expect(assertAllowedUrl("http://localhost:8080/", false, lookupReturning("127.0.0.1"))).rejects.toThrow(SsrfError);
+		await expect(assertAllowedUrl("http://localhost:8080/", false, lookupReturning("127.0.0.1"))).rejects.toThrow(
+			SsrfError,
+		);
 		await expect(assertAllowedUrl("http://10.0.0.5/", false, lookupReturning("10.0.0.5"))).rejects.toThrow(SsrfError);
 	});
 
 	test("rejects a public name that resolves to a private address", async () => {
-		await expect(assertAllowedUrl("https://evil.example/", false, lookupReturning("10.0.0.1"))).rejects.toThrow(SsrfError);
+		await expect(assertAllowedUrl("https://evil.example/", false, lookupReturning("10.0.0.1"))).rejects.toThrow(
+			SsrfError,
+		);
 	});
 
 	test("reports a resolution failure", async () => {

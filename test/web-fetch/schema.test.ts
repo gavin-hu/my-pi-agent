@@ -46,10 +46,7 @@ describe("resolveRequest", () => {
 	});
 
 	test("normalizes find and the mode", () => {
-		const request = resolveRequest(
-			{ url: "https://a/", find: ["  one  ", "", "two"], mode: "fuzzy" as const },
-			config,
-		);
+		const request = resolveRequest({ url: "https://a/", find: ["  one  ", "", "two"], mode: "fuzzy" as const }, config);
 		expect(request.find).toEqual(["one", "two"]);
 		expect(request.mode).toBe("fuzzy");
 	});

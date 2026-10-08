@@ -2,11 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-	DEFAULT_GOAL_CONFIG,
-	loadGoalConfig,
-	normalizeGoalConfig,
-} from "../../extensions/goal/config.ts";
+import { DEFAULT_GOAL_CONFIG, loadGoalConfig, normalizeGoalConfig } from "../../extensions/goal/config.ts";
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 
@@ -29,9 +25,7 @@ describe("normalizeGoalConfig", () => {
 	test("accepts each achieved style and rejects unknown ones", () => {
 		expect(normalizeGoalConfig({ achieved: "block" }, DEFAULT_GOAL_CONFIG).achieved).toBe("block");
 		expect(normalizeGoalConfig({ achieved: "hide" }, DEFAULT_GOAL_CONFIG).achieved).toBe("hide");
-		expect(normalizeGoalConfig({ achieved: "nope" }, DEFAULT_GOAL_CONFIG).achieved).toBe(
-			DEFAULT_GOAL_CONFIG.achieved,
-		);
+		expect(normalizeGoalConfig({ achieved: "nope" }, DEFAULT_GOAL_CONFIG).achieved).toBe(DEFAULT_GOAL_CONFIG.achieved);
 	});
 });
 

@@ -9,9 +9,7 @@ import { cleanup, execP, makeCtx, makeRepo } from "./helpers.ts";
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
 
-const TOOLS = [
-	{ name: "write", annotations: { readOnlyHint: false, destructiveHint: true } },
-];
+const TOOLS = [{ name: "write", annotations: { readOnlyHint: false, destructiveHint: true } }];
 
 function branchWithUser(id = "e1", text = "do the task") {
 	return [

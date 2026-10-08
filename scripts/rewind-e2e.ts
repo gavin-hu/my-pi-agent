@@ -110,7 +110,9 @@ const leafBefore = sessionManager.getLeafId();
 // Isolate the primitive first: the real navigateTree must move the leaf.
 const direct = await session.navigateTree(u2);
 const directLeaf = sessionManager.getLeafId();
-console.log(`direct navigateTree: leaf ${leafBefore} -> ${directLeaf}, editorText=${JSON.stringify(direct.editorText)}`);
+console.log(
+	`direct navigateTree: leaf ${leafBefore} -> ${directLeaf}, editorText=${JSON.stringify(direct.editorText)}`,
+);
 sessionManager.branch(leafEntry);
 
 await command.handler("", session.extensionRunner.createCommandContext());

@@ -14,7 +14,17 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	statSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createExecRunner, repoRoot as gitRepoRoot } from "../_shared/git.ts";
@@ -240,7 +250,12 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		if (!isContainedPlan(dir, resolved) || !existsSync(resolved)) return undefined;
 		try {
 			const content = readFileSync(resolved, "utf-8");
-			return { path: resolved, relativePath: relativeTo(cwd, resolved), content, bytes: Buffer.byteLength(content, "utf-8") };
+			return {
+				path: resolved,
+				relativePath: relativeTo(cwd, resolved),
+				content,
+				bytes: Buffer.byteLength(content, "utf-8"),
+			};
 		} catch {
 			return undefined;
 		}

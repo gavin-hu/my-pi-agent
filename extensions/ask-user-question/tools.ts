@@ -89,9 +89,7 @@ export function registerTools(pi: ExtensionAPI): void {
 				if (answer.wasCustom) {
 					return `${theme.fg("success", "✓ ")}${header}: ${theme.fg("muted", "(wrote) ")}${answer.values.join("; ")}`;
 				}
-				const numbered = answer.labels
-					.map((label, i) => `${answer.indices?.[i] ?? "?"}. ${label}`)
-					.join(", ");
+				const numbered = answer.labels.map((label, i) => `${answer.indices?.[i] ?? "?"}. ${label}`).join(", ");
 				return `${theme.fg("success", "✓ ")}${header}: ${numbered}`;
 			});
 			if (details.cancelled) lines.push(theme.fg("warning", "(cancelled)"));

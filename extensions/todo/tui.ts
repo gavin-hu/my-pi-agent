@@ -132,7 +132,9 @@ export class TodoListComponent implements Component {
 		const end = Math.min(this.todos.length, this.scrollTop + visible);
 		for (let i = this.scrollTop; i < end; i++) lines.push(todoRow(this.todos[i], this.theme, w));
 		if (this.scrollTop > 0 || end < this.todos.length) {
-			lines.push(truncateToWidth(this.theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.todos.length}`), w));
+			lines.push(
+				truncateToWidth(this.theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.todos.length}`), w),
+			);
 		}
 
 		lines.push("");

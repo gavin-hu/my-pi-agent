@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { HEADER_MAX_WIDTH, MAX_OPTIONS, MAX_QUESTIONS, normalizeQuestions } from "../../extensions/ask-user-question/schema.ts";
+import {
+	HEADER_MAX_WIDTH,
+	MAX_OPTIONS,
+	MAX_QUESTIONS,
+	normalizeQuestions,
+} from "../../extensions/ask-user-question/schema.ts";
 
 describe("normalizeQuestions", () => {
 	test("applies defaults", () => {
@@ -20,10 +25,7 @@ describe("normalizeQuestions", () => {
 				question: "Which database?",
 				header: "DB",
 				multiSelect: true,
-				options: [
-					{ label: "Postgres", description: "  Relational  " },
-					{ label: "SQLite" },
-				],
+				options: [{ label: "Postgres", description: "  Relational  " }, { label: "SQLite" }],
 			},
 		]);
 		expect(question.header).toBe("DB");
@@ -61,9 +63,9 @@ describe("normalizeQuestions", () => {
 	});
 
 	test("rejects duplicate options and blank labels", () => {
-		expect(() =>
-			normalizeQuestions([{ question: "Q?", options: [{ label: "A" }, { label: "a" }] }]),
-		).toThrow('duplicate option "a"');
+		expect(() => normalizeQuestions([{ question: "Q?", options: [{ label: "A" }, { label: "a" }] }])).toThrow(
+			'duplicate option "a"',
+		);
 		expect(() => normalizeQuestions([{ question: "Q?", options: [{ label: "A" }, { label: " " }] }])).toThrow(
 			"every option needs a label",
 		);

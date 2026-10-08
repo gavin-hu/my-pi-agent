@@ -278,7 +278,12 @@ function addExpandedResult(
 	}
 }
 
-function expandedResult(result: SingleResult, theme: Theme, mdTheme: ReturnType<typeof getMarkdownTheme>, isPartial: boolean): Container {
+function expandedResult(
+	result: SingleResult,
+	theme: Theme,
+	mdTheme: ReturnType<typeof getMarkdownTheme>,
+	isPartial: boolean,
+): Container {
 	const container = new Container();
 	addExpandedResult(container, result, theme, mdTheme, isPartial);
 	return container;
@@ -417,7 +422,10 @@ export function renderSubagentResult(
 	}
 
 	// The `-1` sentinel is set while a subprocess is in flight, in every mode.
-	syncElapsedTimer(details.results.some((entry) => entry.exitCode === -1), context);
+	syncElapsedTimer(
+		details.results.some((entry) => entry.exitCode === -1),
+		context,
+	);
 
 	const isPartial = options.isPartial ?? false;
 	if (details.mode === "single") {

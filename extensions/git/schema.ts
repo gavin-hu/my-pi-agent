@@ -14,8 +14,7 @@ const GIT_ACTIONS = ["status", "diff", "log", "show", "branch"] as const;
 
 export const GitParams = Type.Object({
 	action: StringEnum(GIT_ACTIONS, {
-		description:
-			"Which read-only git view to return. status/diff/log/show/branch; there is no commit, add, or push.",
+		description: "Which read-only git view to return. status/diff/log/show/branch; there is no commit, add, or push.",
 	}),
 	path: Type.Optional(
 		Type.String({

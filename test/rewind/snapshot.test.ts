@@ -33,10 +33,7 @@ describe("createSnapshot", () => {
 	test("captures tracked modifications and untracked files", async () => {
 		writeFileSync(join(repo, "README.md"), "changed\n");
 		writeFileSync(join(repo, "new.txt"), "new\n");
-		const snapshot = await createSnapshot(
-			{ runGit, now: () => 1000, idFactory: () => "t-dirty" },
-			input(repo),
-		);
+		const snapshot = await createSnapshot({ runGit, now: () => 1000, idFactory: () => "t-dirty" }, input(repo));
 
 		expect(snapshot.id).toBe("t-dirty");
 		expect(snapshot.clean).toBe(false);

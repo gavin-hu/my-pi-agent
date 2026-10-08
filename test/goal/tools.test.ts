@@ -12,8 +12,7 @@ function setup() {
 	return { pi, tool, runtime };
 }
 
-const call = (tool: any, params: unknown, ctx: any) =>
-	tool.execute("call-1", params, undefined, undefined, ctx);
+const call = (tool: any, params: unknown, ctx: any) => tool.execute("call-1", params, undefined, undefined, ctx);
 
 /** A theme double whose styled text stays assertable. */
 const theme: any = { fg: (_color: string, text: string) => text, bold: (text: string) => text };

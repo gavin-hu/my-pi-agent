@@ -38,8 +38,7 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 
 	// An empty list is always hidden; a fully completed one is hidden only when
 	// the config asks for it.
-	const shouldShow = (): boolean =>
-		todos.length > 0 && !(config.hideWhenComplete && !hasOpenTodos(todos));
+	const shouldShow = (): boolean => todos.length > 0 && !(config.hideWhenComplete && !hasOpenTodos(todos));
 
 	const syncWidget = (ctx?: ExtensionContext): void => {
 		if (!ctx || ctx.mode !== "tui") return;

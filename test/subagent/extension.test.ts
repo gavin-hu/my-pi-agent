@@ -10,7 +10,16 @@ function success(agent: string, text: string): SingleResult {
 }
 
 function failure(agent: string, message: string): SingleResult {
-	return { agent, task: "t", exitCode: 1, messages: [], stderr: "", usage: emptyUsage(), stopReason: "error", errorMessage: message };
+	return {
+		agent,
+		task: "t",
+		exitCode: 1,
+		messages: [],
+		stderr: "",
+		usage: emptyUsage(),
+		stopReason: "error",
+		errorMessage: message,
+	};
 }
 
 function register(run: (options: RunOptions) => Promise<SingleResult>) {

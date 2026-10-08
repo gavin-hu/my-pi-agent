@@ -89,7 +89,6 @@ export function formatCallText(todos: { content?: string }[] | undefined, argsCo
 	const item = todos[0]?.content?.trim();
 	const noun = count === 1 ? "item" : "items";
 	if (!item) return `todo → ${count} ${noun}`;
-	const preview =
-		visibleWidth(item) > CALL_PREVIEW_WIDTH ? `${sliceByColumn(item, 0, CALL_PREVIEW_WIDTH - 1)}…` : item;
+	const preview = visibleWidth(item) > CALL_PREVIEW_WIDTH ? `${sliceByColumn(item, 0, CALL_PREVIEW_WIDTH - 1)}…` : item;
 	return `todo → ${count} ${noun}: ${preview}${count > 1 ? ", …" : ""}`;
 }

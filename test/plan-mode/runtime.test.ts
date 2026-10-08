@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createPlanPolicy } from "../../extensions/plan-mode/policy.ts";
-import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "../../extensions/plan-mode/runtime.ts";
+import {
+	createPlanRuntime,
+	ENTER_TOOL,
+	EXIT_TOOL,
+	WRITE_PLAN_TOOL,
+	STATE_TYPE,
+} from "../../extensions/plan-mode/runtime.ts";
 import { fakeCtx, makeFakePi, stateEntry } from "./helpers.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {

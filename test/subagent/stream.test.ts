@@ -41,18 +41,41 @@ describe("parseJsonLine", () => {
 describe("applyEvent", () => {
 	test("records assistant messages and sums usage across turns", () => {
 		const target = result();
-		applyEvent(target, { type: "message_end", message: assistantMessage("one", { input: 10, output: 2, totalTokens: 12, cost: 0.1 }) });
-		applyEvent(target, { type: "message_end", message: assistantMessage("two", { input: 5, output: 3, cacheRead: 4, cacheWrite: 1, totalTokens: 20, cost: 0.2 }) });
+		applyEvent(target, {
+			type: "message_end",
+			message: assistantMessage("one", { input: 10, output: 2, totalTokens: 12, cost: 0.1 }),
+		});
+		applyEvent(target, {
+			type: "message_end",
+			message: assistantMessage("two", {
+				input: 5,
+				output: 3,
+				cacheRead: 4,
+				cacheWrite: 1,
+				totalTokens: 20,
+				cost: 0.2,
+			}),
+		});
 
 		expect(target.messages).toHaveLength(2);
-		expect(target.usage).toMatchObject({ turns: 2, input: 15, output: 5, cacheRead: 4, cacheWrite: 1, contextTokens: 20 });
+		expect(target.usage).toMatchObject({
+			turns: 2,
+			input: 15,
+			output: 5,
+			cacheRead: 4,
+			cacheWrite: 1,
+			contextTokens: 20,
+		});
 		expect(target.usage.cost).toBeCloseTo(0.3);
 		expect(target.model).toBe("claude-sonnet-4-5");
 	});
 
 	test("keeps the first model and the latest stop reason", () => {
 		const target = result();
-		applyEvent(target, { type: "message_end", message: assistantMessage("x", { model: "first", stopReason: "error", errorMessage: "boom" }) });
+		applyEvent(target, {
+			type: "message_end",
+			message: assistantMessage("x", { model: "first", stopReason: "error", errorMessage: "boom" }),
+		});
 		applyEvent(target, { type: "message_end", message: assistantMessage("y", { model: "second" }) });
 		expect(target.model).toBe("first");
 		expect(target.stopReason).toBe("stop");

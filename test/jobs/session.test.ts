@@ -102,7 +102,11 @@ describe("list / prune", () => {
 		try {
 			touchSessionMarker(dir, "s1", 1, 100);
 			touchSessionMarker(dir, "s2", 2, 100);
-			expect(listSessionMarkers(dir).map((m) => m.sessionId).sort()).toEqual(["s1", "s2"]);
+			expect(
+				listSessionMarkers(dir)
+					.map((m) => m.sessionId)
+					.sort(),
+			).toEqual(["s1", "s2"]);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}

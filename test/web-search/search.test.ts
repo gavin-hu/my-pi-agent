@@ -2,7 +2,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { DEFAULT_CONFIG } from "../../extensions/web-search/config.ts";
 import type { HttpResponse, HttpRunner } from "../../extensions/_shared/http.ts";
 import { HttpUnavailableError } from "../../extensions/_shared/http.ts";
-import { resetThrottle, runSearch, setDefaultRunnerForTests, WebSearchError } from "../../extensions/web-search/search.ts";
+import {
+	resetThrottle,
+	runSearch,
+	setDefaultRunnerForTests,
+	WebSearchError,
+} from "../../extensions/web-search/search.ts";
 import type { SearchRequest } from "../../extensions/web-search/types.ts";
 
 const request: SearchRequest = { query: "pi agent", maxResults: 5, source: "auto" };
@@ -45,7 +50,11 @@ describe("runSearch", () => {
 			instant: () => json({}),
 			wiki: () =>
 				json({
-					query: { pages: { "1": { title: "Pi", fullurl: "https://en.wikipedia.org/wiki/Pi", extract: "A harness.", index: 1 } } },
+					query: {
+						pages: {
+							"1": { title: "Pi", fullurl: "https://en.wikipedia.org/wiki/Pi", extract: "A harness.", index: 1 },
+						},
+					},
 				}),
 		});
 		const outcome = await runSearch(request, config, undefined, { http: runner });
@@ -63,7 +72,11 @@ describe("runSearch", () => {
 		const runner = routingRunner({
 			instant: () => json("boom", 500),
 			wiki: () =>
-				json({ query: { pages: { "1": { title: "Pi", fullurl: "https://en.wikipedia.org/wiki/Pi", extract: "A.", index: 1 } } } }),
+				json({
+					query: {
+						pages: { "1": { title: "Pi", fullurl: "https://en.wikipedia.org/wiki/Pi", extract: "A.", index: 1 } },
+					},
+				}),
 		});
 		const outcome = await runSearch(request, config, undefined, { http: runner });
 		expect(outcome.provider).toBe("wikipedia");
@@ -82,7 +95,9 @@ describe("runSearch", () => {
 	});
 
 	test("uses the test runner override when no deps are passed", async () => {
-		setDefaultRunnerForTests(routingRunner({ instant: () => json({ AbstractText: "x" }), wiki: () => json({ query: {} }) }));
+		setDefaultRunnerForTests(
+			routingRunner({ instant: () => json({ AbstractText: "x" }), wiki: () => json({ query: {} }) }),
+		);
 		const outcome = await runSearch(request, config, undefined);
 		expect(outcome.provider).toBe("duckduckgo");
 	});
@@ -101,7 +116,11 @@ describe("runSearch", () => {
 			hosts.push(host);
 			if (host === "api.duckduckgo.com") throw new Error("instant must not be called");
 			return Promise.resolve(
-				json({ query: { pages: { "1": { title: "Pi", fullurl: "https://en.wikipedia.org/wiki/Pi", extract: "A.", index: 1 } } } }),
+				json({
+					query: {
+						pages: { "1": { title: "Pi", fullurl: "https://en.wikipedia.org/wiki/Pi", extract: "A.", index: 1 } },
+					},
+				}),
 			);
 		};
 		const outcome = await runSearch({ ...request, source: "wikipedia" }, config, undefined, { http: runner });
@@ -129,7 +148,11 @@ describe("runSearch", () => {
 			hosts.push(host);
 			if (host === "api.duckduckgo.com") throw new Error("instant must not be called");
 			return Promise.resolve(
-				json({ query: { pages: { "1": { title: "早茶", fullurl: "https://zh.wikipedia.org/wiki/早茶", extract: "飲茶", index: 1 } } } }),
+				json({
+					query: {
+						pages: { "1": { title: "早茶", fullurl: "https://zh.wikipedia.org/wiki/早茶", extract: "飲茶", index: 1 } },
+					},
+				}),
 			);
 		};
 		const outcome = await runSearch({ ...request, query: "intitle:早茶" }, config, undefined, { http: runner });

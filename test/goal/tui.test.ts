@@ -20,9 +20,7 @@ describe("goalWidgetLines", () => {
 	});
 
 	test("renders the same one line for the block style", () => {
-		expect(goalWidgetLines(achieved, theme, 40, { achieved: "block" })).toEqual([
-			"Goal · achieved · Ship the parser",
-		]);
+		expect(goalWidgetLines(achieved, theme, 40, { achieved: "block" })).toEqual(["Goal · achieved · Ship the parser"]);
 	});
 
 	test("hides an achieved goal when asked", () => {

@@ -56,7 +56,9 @@ function isPlanModeContext(message: AgentMessage): boolean {
 	const content = candidate.content;
 	if (typeof content === "string") return content.includes(PLAN_MODE_MARKER);
 	if (Array.isArray(content)) {
-		return content.some((block) => block.type === "text" && (block as { text?: string }).text?.includes(PLAN_MODE_MARKER));
+		return content.some(
+			(block) => block.type === "text" && (block as { text?: string }).text?.includes(PLAN_MODE_MARKER),
+		);
 	}
 	return false;
 }

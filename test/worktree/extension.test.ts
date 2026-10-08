@@ -44,7 +44,9 @@ mock.module("@earendil-works/pi-coding-agent", () => {
 });
 
 const extension = (await import("../../extensions/worktree/index.ts")).default;
-const { cleanup, emitEvent, execP, makeFakeCtx, makeFakePi, makeRepo, makeRepoWithRemote } = await import("./helpers.ts");
+const { cleanup, emitEvent, execP, makeFakeCtx, makeFakePi, makeRepo, makeRepoWithRemote } = await import(
+	"./helpers.ts"
+);
 
 const cleanups: Array<string | undefined> = [];
 afterAll(() => {

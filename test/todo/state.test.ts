@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { completedCount, countByStatus, currentTodo, hasOpenTodos, reconstructTodos } from "../../extensions/todo/state.ts";
+import {
+	completedCount,
+	countByStatus,
+	currentTodo,
+	hasOpenTodos,
+	reconstructTodos,
+} from "../../extensions/todo/state.ts";
 import type { Todo } from "../../extensions/todo/types.ts";
 import { resultEntry } from "./helpers.ts";
 

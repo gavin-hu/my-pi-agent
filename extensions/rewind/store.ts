@@ -118,11 +118,7 @@ export async function getSnapshot(
 }
 
 /** Delete the given refs. Failures are reported as a count, not thrown. */
-export async function deleteSnapshots(
-	runGit: RunGit,
-	cwd: string,
-	snapshots: Snapshot[],
-): Promise<number> {
+export async function deleteSnapshots(runGit: RunGit, cwd: string, snapshots: Snapshot[]): Promise<number> {
 	let removed = 0;
 	for (const snapshot of snapshots) {
 		try {

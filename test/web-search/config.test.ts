@@ -17,7 +17,13 @@ describe("normalizeConfig", () => {
 	});
 
 	test("clamps numeric values into range", () => {
-		const config = normalizeConfig({ maxResults: 999, timeoutMs: 5, maxBytes: 1, minIntervalMs: -10, maxOutputChars: 10 });
+		const config = normalizeConfig({
+			maxResults: 999,
+			timeoutMs: 5,
+			maxBytes: 1,
+			minIntervalMs: -10,
+			maxOutputChars: 10,
+		});
 		expect(config.maxResults).toBe(MAX_RESULTS);
 		expect(config.timeoutMs).toBe(1_000);
 		expect(config.maxBytes).toBe(1_024);

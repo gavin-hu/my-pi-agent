@@ -78,7 +78,8 @@ function instantAnswerText(instant: InstantAnswer): string {
 }
 
 /** Wikipedia search syntax that makes an Instant Answer lookup pointless. */
-const WIKIPEDIA_OPERATOR = /\b(?:intitle|incategory|insource|prefix|deepcategory|hastemplate|subpageof|allintitle|allintext):/i;
+const WIKIPEDIA_OPERATOR =
+	/\b(?:intitle|incategory|insource|prefix|deepcategory|hastemplate|subpageof|allintitle|allintext):/i;
 
 function describe(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -96,7 +97,8 @@ export async function runSearch(
 ): Promise<SearchOutcome> {
 	const http = deps.http ?? runnerOverride ?? createFetchRunner();
 
-	const skipInstant = request.source === "wikipedia" || (request.source === "auto" && WIKIPEDIA_OPERATOR.test(request.query));
+	const skipInstant =
+		request.source === "wikipedia" || (request.source === "auto" && WIKIPEDIA_OPERATOR.test(request.query));
 	const skipWikipedia = request.source === "instant";
 
 	let instant: InstantAnswer | undefined;
@@ -129,11 +131,19 @@ export async function runSearch(
 		await throttle(config.minIntervalMs, signal);
 		try {
 			const lang = wikipediaLangFor(request.query, config.wikipediaLang);
-			const results = await searchWikipedia(request.query, lang, request.maxResults, config.wikipediaEndpoint, http, signal, {
-				timeoutMs: config.timeoutMs,
-				maxBytes: config.maxBytes,
-				userAgent: config.userAgent,
-			});
+			const results = await searchWikipedia(
+				request.query,
+				lang,
+				request.maxResults,
+				config.wikipediaEndpoint,
+				http,
+				signal,
+				{
+					timeoutMs: config.timeoutMs,
+					maxBytes: config.maxBytes,
+					userAgent: config.userAgent,
+				},
+			);
 			if (results.length > 0) return { provider: "wikipedia", answer: "", results };
 		} catch (error) {
 			wikiError = error;
@@ -141,7 +151,9 @@ export async function runSearch(
 	}
 
 	if (instantError && wikiError) {
-		throw new WebSearchError(`Search failed. Instant answer: ${describe(instantError)} Wikipedia: ${describe(wikiError)}`);
+		throw new WebSearchError(
+			`Search failed. Instant answer: ${describe(instantError)} Wikipedia: ${describe(wikiError)}`,
+		);
 	}
 	if (instantError) throw new WebSearchError(`Search failed: ${describe(instantError)}`);
 	if (wikiError) throw new WebSearchError(`Search failed: ${describe(wikiError)}`);

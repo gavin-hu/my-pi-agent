@@ -35,7 +35,10 @@ describe("formatResults", () => {
 
 	test("labels Wikipedia results", () => {
 		const { text } = formatResults(
-			response({ provider: "wikipedia", results: [{ title: "广州", url: "https://zh.wikipedia.org/wiki/广州", snippet: "城市" }] }),
+			response({
+				provider: "wikipedia",
+				results: [{ title: "广州", url: "https://zh.wikipedia.org/wiki/广州", snippet: "城市" }],
+			}),
 			10_000,
 		);
 		expect(text).toContain('Wikipedia results for "pi agent"');
@@ -67,7 +70,9 @@ describe("formatResults", () => {
 
 	test("hard-truncates by code point and keeps CJK well-formed", () => {
 		const { text, truncated } = formatResults(
-			response({ results: [{ title: "中文标题", url: "https://example.cn/", snippet: "一段很长的中文摘要".repeat(20) }] }),
+			response({
+				results: [{ title: "中文标题", url: "https://example.cn/", snippet: "一段很长的中文摘要".repeat(20) }],
+			}),
 			60,
 		);
 		expect(truncated).toBe(true);

@@ -141,9 +141,7 @@ export class PlanListComponent implements Component {
 		const lines: string[] = [screenHeader(theme, w, "Plans")];
 
 		if (this.plans.length === 0) {
-			lines.push(
-				truncateToWidth(`  ${theme.fg("dim", "No plans yet. Write one with write_plan while planning.")}`, w),
-			);
+			lines.push(truncateToWidth(`  ${theme.fg("dim", "No plans yet. Write one with write_plan while planning.")}`, w));
 			lines.push("");
 			lines.push(screenHint(theme, w, ["Esc close"]));
 			lines.push("");
@@ -182,9 +180,7 @@ export class PlanListComponent implements Component {
 			lines.push(truncateToWidth(marker + body, w));
 		}
 		if (this.scrollTop > 0 || end < this.plans.length) {
-			lines.push(
-				truncateToWidth(theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.plans.length}`), w),
-			);
+			lines.push(truncateToWidth(theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.plans.length}`), w));
 		}
 		lines.push("");
 		lines.push(screenHint(theme, w, ["Enter view", "d delete", "u use", "Esc close"]));

@@ -53,12 +53,7 @@ export async function planRestore(deps: RestoreDeps, input: RestoreInput): Promi
 	}
 	// Compare tree-to-tree, so untracked files captured in the snapshot are not
 	// mistaken for deletions against the real index.
-	const cur = await treeFromWorkingTree(
-		deps.runGit,
-		input.root,
-		input.indexFile,
-		input.target.includeUntracked,
-	);
+	const cur = await treeFromWorkingTree(deps.runGit, input.root, input.indexFile, input.target.includeUntracked);
 	const added = await addedPaths(deps.runGit, input.root, input.target.commit, cur);
 	const changed = await changedCount(deps.runGit, input.root, input.target.commit, cur, "MD");
 	const diff = await diffStat(deps.runGit, input.root, input.target.commit, cur);
@@ -79,12 +74,7 @@ function deleteFile(root: string, relative: string): void {
 
 /** Apply the restore. Recomputes the removal set immediately before mutating. */
 export async function applyRestore(deps: RestoreDeps, input: RestoreInput): Promise<RestoreSummary> {
-	const cur = await treeFromWorkingTree(
-		deps.runGit,
-		input.root,
-		input.indexFile,
-		input.target.includeUntracked,
-	);
+	const cur = await treeFromWorkingTree(deps.runGit, input.root, input.indexFile, input.target.includeUntracked);
 	const added = await addedPaths(deps.runGit, input.root, input.target.commit, cur);
 	const changed = await changedCount(deps.runGit, input.root, input.target.commit, cur, "MD");
 

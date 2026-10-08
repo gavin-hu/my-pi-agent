@@ -88,7 +88,13 @@ describe("web-fetch extension", () => {
 		const { tool } = installTool();
 		setDefaultRunnerForTests(() => Promise.resolve(httpResponse()));
 
-		const result = await tool.execute("call-2", { url: "https://1.1.1.1/page", find: ["Hello"] }, undefined, undefined, ctx);
+		const result = await tool.execute(
+			"call-2",
+			{ url: "https://1.1.1.1/page", find: ["Hello"] },
+			undefined,
+			undefined,
+			ctx,
+		);
 		const page = result.details.pages[0];
 
 		expect(result.content[0].text).toContain("Matches for");
@@ -121,7 +127,13 @@ describe("web-fetch extension", () => {
 		});
 
 		await tool.execute("call-5", { url: "https://1.1.1.1/page" }, undefined, undefined, ctx);
-		const refreshed = await tool.execute("call-6", { url: "https://1.1.1.1/page", refresh: true }, undefined, undefined, ctx);
+		const refreshed = await tool.execute(
+			"call-6",
+			{ url: "https://1.1.1.1/page", refresh: true },
+			undefined,
+			undefined,
+			ctx,
+		);
 
 		expect(calls).toBe(2);
 		expect(refreshed.details.pages[0].cached).toBe(false);
@@ -188,7 +200,13 @@ describe("web-fetch extension", () => {
 		const { tool } = installTool();
 		setDefaultRunnerForTests(() => Promise.resolve(httpResponse({ status: 500 })));
 
-		const result = await tool.execute("call-11", { urls: ["https://1.1.1.1/a", "https://1.1.2.2/b"] }, undefined, undefined, ctx);
+		const result = await tool.execute(
+			"call-11",
+			{ urls: ["https://1.1.1.1/a", "https://1.1.2.2/b"] },
+			undefined,
+			undefined,
+			ctx,
+		);
 		expect(result.isError).toBe(true);
 		expect(result.details.pages.every((page: any) => page.error)).toBe(true);
 	});

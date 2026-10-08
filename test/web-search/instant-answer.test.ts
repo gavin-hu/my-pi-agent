@@ -29,7 +29,11 @@ describe("parseInstantAnswer", () => {
 		expect(instant.source).toBe("Wikipedia");
 		expect(instant.url).toBe("https://en.wikipedia.org/wiki/Pi");
 		expect(instant.results.map((r) => r.title)).toEqual(["Alpha", "Beta", "Gamma"]);
-		expect(instant.results.map((r) => r.url)).toEqual(["https://a.example/", "https://b.example/", "https://c.example/"]);
+		expect(instant.results.map((r) => r.url)).toEqual([
+			"https://a.example/",
+			"https://b.example/",
+			"https://c.example/",
+		]);
 	});
 
 	test("prefers Answer over AbstractText over Definition", () => {
@@ -56,7 +60,14 @@ function runnerReturning(body: string, status = 200) {
 describe("searchInstantAnswer", () => {
 	test("builds the query and returns the parsed answer", async () => {
 		const { runner, seen } = runnerReturning(JSON.stringify(SAMPLE));
-		const instant = await searchInstantAnswer("pi agent", "https://api.duckduckgo.com/", runner, undefined, 1000, 100_000);
+		const instant = await searchInstantAnswer(
+			"pi agent",
+			"https://api.duckduckgo.com/",
+			runner,
+			undefined,
+			1000,
+			100_000,
+		);
 		const url = new URL(seen[0]);
 		expect(url.searchParams.get("q")).toBe("pi agent");
 		expect(url.searchParams.get("format")).toBe("json");
@@ -67,20 +78,22 @@ describe("searchInstantAnswer", () => {
 
 	test("returns undefined when there is no answer and no topics", async () => {
 		const { runner } = runnerReturning("{}");
-		expect(await searchInstantAnswer("x", "https://api.duckduckgo.com/", runner, undefined, 1000, 100_000)).toBeUndefined();
+		expect(
+			await searchInstantAnswer("x", "https://api.duckduckgo.com/", runner, undefined, 1000, 100_000),
+		).toBeUndefined();
 	});
 
 	test("throws on an HTTP error", async () => {
 		const { runner } = runnerReturning("nope", 503);
-		await expect(searchInstantAnswer("x", "https://api.duckduckgo.com/", runner, undefined, 1000, 100_000)).rejects.toThrow(
-			"HTTP 503",
-		);
+		await expect(
+			searchInstantAnswer("x", "https://api.duckduckgo.com/", runner, undefined, 1000, 100_000),
+		).rejects.toThrow("HTTP 503");
 	});
 
 	test("throws on invalid JSON", async () => {
 		const { runner } = runnerReturning("<html>not json</html>");
-		await expect(searchInstantAnswer("x", "https://api.duckduckgo.com/", runner, undefined, 1000, 100_000)).rejects.toThrow(
-			"invalid JSON",
-		);
+		await expect(
+			searchInstantAnswer("x", "https://api.duckduckgo.com/", runner, undefined, 1000, 100_000),
+		).rejects.toThrow("invalid JSON");
 	});
 });

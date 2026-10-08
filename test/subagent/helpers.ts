@@ -123,7 +123,9 @@ export function makeFakePi(): { pi: ExtensionAPI; tools: Map<string, any> } {
 }
 
 /** A minimal tool context; only `cwd`, `model`, and `thinkingLevel` are read. */
-export function fakeToolCtx(overrides: { cwd?: string; model?: { provider: string; id: string } | undefined } = {}): any {
+export function fakeToolCtx(
+	overrides: { cwd?: string; model?: { provider: string; id: string } | undefined } = {},
+): any {
 	return {
 		cwd: overrides.cwd ?? "/repo",
 		model: overrides.model === undefined ? { provider: "anthropic", id: "claude-sonnet-4-5" } : overrides.model,

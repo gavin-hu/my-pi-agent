@@ -77,9 +77,9 @@ describe("createFetchRunner", () => {
 		const controller = new AbortController();
 		controller.abort();
 		const fetchImpl = (async () => new Response("late", { status: 200 })) as unknown as typeof fetch;
-		await expect(createFetchRunner(fetchImpl)({ url: "https://x/", timeoutMs: 1000 }, controller.signal)).rejects.toThrow(
-			HttpAbortError,
-		);
+		await expect(
+			createFetchRunner(fetchImpl)({ url: "https://x/", timeoutMs: 1000 }, controller.signal),
+		).rejects.toThrow(HttpAbortError);
 	});
 
 	test("wraps a network failure", async () => {

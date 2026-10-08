@@ -24,12 +24,7 @@ describe("buildGitArgs", () => {
 	});
 
 	test("path is passed after --", () => {
-		expect(buildGitArgs({ action: "diff", path: "src/app.ts" })).toEqual([
-			"diff",
-			"--no-color",
-			"--",
-			"src/app.ts",
-		]);
+		expect(buildGitArgs({ action: "diff", path: "src/app.ts" })).toEqual(["diff", "--no-color", "--", "src/app.ts"]);
 		expect(buildGitArgs({ action: "log", path: "src" })).toEqual([
 			"log",
 			"--oneline",

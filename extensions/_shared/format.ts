@@ -16,5 +16,8 @@ export function formatTokens(count: number): string {
 
 /** Collapse newlines, tabs, and runs of spaces so text stays on one line. */
 export function sanitize(text: string): string {
-	return text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
+	return text
+		.replace(/[\r\n\t]/g, " ")
+		.replace(/ +/g, " ")
+		.trim();
 }

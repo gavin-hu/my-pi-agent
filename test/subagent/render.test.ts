@@ -37,7 +37,15 @@ describe("renderSubagentCall", () => {
 
 	test("parallel mode shows the task count and agents", () => {
 		const text = render(
-			renderSubagentCall({ tasks: [{ agent: "explorer", task: "a" }, { agent: "planner", task: "b" }] }, theme),
+			renderSubagentCall(
+				{
+					tasks: [
+						{ agent: "explorer", task: "a" },
+						{ agent: "planner", task: "b" },
+					],
+				},
+				theme,
+			),
 		);
 		expect(text).toContain("parallel · 2 tasks");
 		expect(text).toContain("1. explorer");
@@ -46,7 +54,15 @@ describe("renderSubagentCall", () => {
 
 	test("chain mode numbers steps and strips the placeholder", () => {
 		const text = render(
-			renderSubagentCall({ chain: [{ agent: "explorer", task: "find {previous}" }, { agent: "worker", task: "build" }] }, theme),
+			renderSubagentCall(
+				{
+					chain: [
+						{ agent: "explorer", task: "find {previous}" },
+						{ agent: "worker", task: "build" },
+					],
+				},
+				theme,
+			),
 		);
 		expect(text).toContain("chain · 2 steps");
 		expect(text).toContain("1.");
@@ -55,7 +71,9 @@ describe("renderSubagentCall", () => {
 	});
 
 	test("notes a per-task cwd that differs from the session cwd", () => {
-		const text = render(renderSubagentCall({ agent: "explorer", task: "x", cwd: "/tmp/elsewhere" }, theme, { cwd: "/repo" }));
+		const text = render(
+			renderSubagentCall({ agent: "explorer", task: "x", cwd: "/tmp/elsewhere" }, theme, { cwd: "/repo" }),
+		);
 		expect(text).toContain("in /tmp/elsewhere");
 		expect(render(renderSubagentCall({ agent: "explorer", task: "x" }, theme, { cwd: "/repo" }))).not.toContain("in ");
 	});
@@ -69,7 +87,9 @@ describe("renderSubagentCall", () => {
 
 describe("renderSubagentResult", () => {
 	test("collapsed single success shows output and usage", () => {
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, theme),
+		);
 		expect(text).toContain("✓");
 		expect(text).toContain("explorer");
 		expect(text).toContain("all done");
@@ -77,13 +97,17 @@ describe("renderSubagentResult", () => {
 
 	test("collapsed single failure shows the error", () => {
 		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "quota exceeded" });
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
+		);
 		expect(text).toContain("✗");
 		expect(text).toContain("quota exceeded");
 	});
 
 	test("expanded single shows task and output sections", () => {
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: true }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: true }, theme),
+		);
 		expect(text).toContain("Task");
 		expect(text).toContain("Output");
 		expect(text).toContain("find auth");
@@ -118,7 +142,9 @@ describe("renderSubagentResult", () => {
 	});
 
 	test("falls back to content when there are no results", () => {
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [] }, "nothing here"), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [] }, "nothing here"), { expanded: false }, theme),
+		);
 		expect(text.trim()).toBe("nothing here");
 	});
 
@@ -139,7 +165,9 @@ describe("renderSubagentResult", () => {
 
 	test("falls back to stderr when a failure has no error message", () => {
 		const failed = single({ exitCode: 1, stderr: "fatal: EACCES\n" });
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
+		);
 		expect(text).toContain("Error: fatal: EACCES");
 	});
 
@@ -156,7 +184,9 @@ describe("renderSubagentResult", () => {
 			assistantMessage("final answer"),
 		] as any;
 		const result = single({ messages });
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [result] }), { expanded: true }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [result] }), { expanded: true }, theme),
+		);
 		expect(text).toContain("thinking out loud");
 		expect(text).toContain("intermediate note");
 		expect(text).toContain("final answer");
@@ -165,7 +195,9 @@ describe("renderSubagentResult", () => {
 	test("running results show an elapsed-time label", () => {
 		const now = Date.now();
 		const running = single({ exitCode: -1, messages: [], startedAt: now - 12000 });
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false }, theme),
+		);
 		expect(text).toContain("12s");
 	});
 
@@ -181,7 +213,9 @@ describe("renderSubagentResult", () => {
 	test("a failed result with many items still offers to expand", () => {
 		const messages = Array.from({ length: 12 }, (_, i) => assistantMessage(`note ${i}`));
 		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "boom", messages });
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
+		);
 		expect(text).toContain("Error: boom");
 		expect(text).toContain("Ctrl+O to expand");
 	});
@@ -196,7 +230,11 @@ describe("renderSubagentResult", () => {
 	test("offers to expand when a single message is line-truncated", () => {
 		const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
 		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] }), { expanded: false }, theme),
+			renderSubagentResult(
+				toolResult({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] }),
+				{ expanded: false },
+				theme,
+			),
 		);
 		expect(text).toContain("Ctrl+O to expand");
 	});
@@ -215,7 +253,9 @@ describe("renderSubagentResult", () => {
 	test("clips long error detail in the collapsed view", () => {
 		const stderr = Array.from({ length: 30 }, (_, i) => `stderr line ${i}`).join("\n");
 		const failed = single({ exitCode: 1, stopReason: "error", stderr });
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
+		);
 		expect(text).toContain("Error: stderr line 0");
 		expect(text).toContain("…");
 		expect(text).not.toContain("stderr line 29");
@@ -252,7 +292,9 @@ describe("renderSubagentResult", () => {
 
 	test("offers to expand when a single error is truncated", () => {
 		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "x".repeat(1000) });
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
+		);
 		expect(text).toContain("Ctrl+O to expand");
 	});
 
@@ -267,18 +309,28 @@ describe("renderSubagentResult", () => {
 		const blank = single({
 			messages: [{ role: "assistant", content: [{ type: "text", text: "   " }] }] as any,
 		});
-		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [blank] }), { expanded: true }, theme));
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [blank] }), { expanded: true }, theme),
+		);
 		expect(text).toContain("Output");
 		expect(text).toContain("(no output)");
 	});
 
 	test("surfaces a tool-error count in the usage line", () => {
 		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [single({ toolErrors: 2 })] }), { expanded: false }, theme),
+			renderSubagentResult(
+				toolResult({ mode: "single", results: [single({ toolErrors: 2 })] }),
+				{ expanded: false },
+				theme,
+			),
 		);
 		expect(text).toContain("2 tool errors");
 		const one = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [single({ toolErrors: 1 })] }), { expanded: false }, theme),
+			renderSubagentResult(
+				toolResult({ mode: "single", results: [single({ toolErrors: 1 })] }),
+				{ expanded: false },
+				theme,
+			),
 		);
 		expect(one).toContain("1 tool error");
 	});

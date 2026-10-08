@@ -99,11 +99,7 @@ export async function listRefs(runGit: RunGit, cwd: string, namespace: string): 
 }
 
 /** Full commit messages for a list of commits, keyed by commit id. */
-export async function commitMessages(
-	runGit: RunGit,
-	cwd: string,
-	commits: string[],
-): Promise<Map<string, string>> {
+export async function commitMessages(runGit: RunGit, cwd: string, commits: string[]): Promise<Map<string, string>> {
 	const messages = new Map<string, string>();
 	if (commits.length === 0) return messages;
 	const result = await runGit(["log", "--no-color", "--no-walk", "--format=%H%x00%B%x1e", ...commits], { cwd });

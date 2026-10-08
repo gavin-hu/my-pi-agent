@@ -36,13 +36,23 @@ describe("TodoWidget", () => {
 
 describe("TodoListComponent", () => {
 	test("renders an empty-state hint", () => {
-		const lines = new TodoListComponent([], theme, () => {}, () => {}).render(60);
+		const lines = new TodoListComponent(
+			[],
+			theme,
+			() => {},
+			() => {},
+		).render(60);
 		expect(lines.join("\n")).toContain("No todos yet");
 	});
 
 	test("closes on Escape", () => {
 		let closed = 0;
-		const component = new TodoListComponent(todos, theme, () => closed++, () => {});
+		const component = new TodoListComponent(
+			todos,
+			theme,
+			() => closed++,
+			() => {},
+		);
 		component.handleInput("\u001b");
 		expect(closed).toBe(1);
 		component.handleInput("x");
@@ -50,18 +60,39 @@ describe("TodoListComponent", () => {
 	});
 
 	test("keeps the header border within the width", () => {
-		const lines = new TodoListComponent(todos, theme, () => {}, () => {}).render(40);
+		const lines = new TodoListComponent(
+			todos,
+			theme,
+			() => {},
+			() => {},
+		).render(40);
 		expect(visibleWidth(lines[0])).toBe(40);
 	});
 
 	test("sizes the window to the terminal height", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 
-		const short = new TodoListComponent(many, theme, () => {}, () => {}, 15).render(60).join("\n");
+		const short = new TodoListComponent(
+			many,
+			theme,
+			() => {},
+			() => {},
+			15,
+		)
+			.render(60)
+			.join("\n");
 		expect(short).toContain("showing 1–8 of 30");
 		expect(short).not.toContain("item 8");
 
-		const tall = new TodoListComponent(many, theme, () => {}, () => {}, 60).render(60).join("\n");
+		const tall = new TodoListComponent(
+			many,
+			theme,
+			() => {},
+			() => {},
+			60,
+		)
+			.render(60)
+			.join("\n");
 		expect(tall).toContain("item 29");
 		expect(tall).not.toContain("showing");
 	});
@@ -69,7 +100,13 @@ describe("TodoListComponent", () => {
 	test("resolves a live rows getter so a resize re-windows", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 		let rows = 60;
-		const component = new TodoListComponent(many, theme, () => {}, () => {}, () => rows);
+		const component = new TodoListComponent(
+			many,
+			theme,
+			() => {},
+			() => {},
+			() => rows,
+		);
 		expect(component.render(60).join("\n")).toContain("item 29");
 		rows = 15;
 		expect(component.render(60).join("\n")).toContain("showing 1–8 of 30");
@@ -78,7 +115,12 @@ describe("TodoListComponent", () => {
 	test("the wheel scrolls the list", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 		let renders = 0;
-		const component = new TodoListComponent(many, theme, () => {}, () => renders++);
+		const component = new TodoListComponent(
+			many,
+			theme,
+			() => {},
+			() => renders++,
+		);
 		component.render(60);
 		expect(component.handleMouse({ type: "wheel", wheelDelta: 2 } as any)).toEqual({ handled: true });
 		expect(renders).toBe(1);
@@ -87,7 +129,12 @@ describe("TodoListComponent", () => {
 	});
 
 	test("drops the title instead of ellipsizing the border when very narrow", () => {
-		const lines = new TodoListComponent(todos, theme, () => {}, () => {}).render(6);
+		const lines = new TodoListComponent(
+			todos,
+			theme,
+			() => {},
+			() => {},
+		).render(6);
 		expect(visibleWidth(lines[0])).toBe(6);
 		expect(lines[0]).not.toContain("...");
 	});
@@ -95,7 +142,12 @@ describe("TodoListComponent", () => {
 	test("windows long lists and scrolls on demand", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 		let renders = 0;
-		const component = new TodoListComponent(many, theme, () => {}, () => renders++);
+		const component = new TodoListComponent(
+			many,
+			theme,
+			() => {},
+			() => renders++,
+		);
 
 		const first = component.render(60).join("\n");
 		expect(first).toContain("item 0");

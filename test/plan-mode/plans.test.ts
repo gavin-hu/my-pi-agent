@@ -3,7 +3,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, utimesSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { createPlanStore, isWithin, MAX_PLAN_BYTES, planTitle, slugify, stamp } from "../../extensions/plan-mode/plans.ts";
+import {
+	createPlanStore,
+	isWithin,
+	MAX_PLAN_BYTES,
+	planTitle,
+	slugify,
+	stamp,
+} from "../../extensions/plan-mode/plans.ts";
 import { createFakePi } from "../helpers/fakes.ts";
 
 const FIXED = new Date(2026, 9, 8, 15, 30); // 2026-10-08 15:30 local
@@ -119,7 +126,9 @@ describe("createPlanStore — write", () => {
 	test("rejects an oversized plan and an empty title", async () => {
 		const root = tempDir();
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });
-		await expect(store.write(root, { title: "big", content: "x".repeat(MAX_PLAN_BYTES + 1) })).rejects.toThrow(/too large/);
+		await expect(store.write(root, { title: "big", content: "x".repeat(MAX_PLAN_BYTES + 1) })).rejects.toThrow(
+			/too large/,
+		);
 		await expect(store.write(root, { title: "   ", content: "x" })).rejects.toThrow(/title is required/);
 	});
 });
@@ -164,9 +173,9 @@ describe("createPlanStore — containment", () => {
 		await expect(
 			store.write(root, { title: "x", content: "!*.md\n", planPath: join(dir, ".gitignore") }),
 		).rejects.toThrow(/markdown plan file/);
-		await expect(
-			store.write(root, { title: "x", content: "x", planPath: join(dir, "notes.txt") }),
-		).rejects.toThrow(/markdown plan file/);
+		await expect(store.write(root, { title: "x", content: "x", planPath: join(dir, "notes.txt") })).rejects.toThrow(
+			/markdown plan file/,
+		);
 
 		expect(readFileSync(join(dir, ".gitignore"), "utf-8")).toBe("*\n");
 		expect(readFileSync(join(dir, "notes.txt"), "utf-8")).toBe("keep");

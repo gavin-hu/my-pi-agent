@@ -67,9 +67,17 @@ function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null
 	const raw = snapshot.statuses.get(CONFIG.worktreeStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.worktree;
-	const label = sanitize(stripAnsi(raw)).replace(/^\S+\s*/, "").trim();
+	const label = sanitize(stripAnsi(raw))
+		.replace(/^\S+\s*/, "")
+		.trim();
 	if (!label) {
-		return { id: "worktree", weight: 3, droppable: true, separator: dim(theme, CONFIG.separators.item), forms: [theme.fg("success", icon)] };
+		return {
+			id: "worktree",
+			weight: 3,
+			droppable: true,
+			separator: dim(theme, CONFIG.separators.item),
+			forms: [theme.fg("success", icon)],
+		};
 	}
 	const short = truncateLabel(label, CONFIG.worktreeLabelMax);
 	const forms = [theme.fg("success", `${icon} ${label}`)];
@@ -97,7 +105,13 @@ function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	// which would bleed its color into the rest of the line. A two-token badge
 	// keeps its count (`↺ 2` -> `↺2`) instead of collapsing to a bare icon.
 	const icons = others.map((status) => compactStatus(status)).join(" ");
-	return { id: "statuses", weight: 1, droppable: false, separator: dim(theme, CONFIG.separators.group), forms: [full, icons] };
+	return {
+		id: "statuses",
+		weight: 1,
+		droppable: false,
+		separator: dim(theme, CONFIG.separators.group),
+		forms: [full, icons],
+	};
 }
 
 function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
@@ -108,9 +122,7 @@ function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 		const { filled, empty } = computeGauge(percent, blocks);
 		const gauge =
 			blocks > 0
-				? theme.fg(color, CONFIG.gauge.full.repeat(filled)) +
-					theme.fg("dim", CONFIG.gauge.empty.repeat(empty)) +
-					" "
+				? theme.fg(color, CONFIG.gauge.full.repeat(filled)) + theme.fg("dim", CONFIG.gauge.empty.repeat(empty)) + " "
 				: "";
 		return `${gauge}${percentText}`;
 	});

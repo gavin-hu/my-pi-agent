@@ -110,7 +110,9 @@ export function formatToolCall(
 				fg("dim", " (diff)")
 			);
 		case "ls":
-			return fg("muted", "ls ") + fg("accent", clipPath(shortenPath(sanitize(String(a.path ?? "."))), preview ? 60 : 200));
+			return (
+				fg("muted", "ls ") + fg("accent", clipPath(shortenPath(sanitize(String(a.path ?? "."))), preview ? 60 : 200))
+			);
 		case "find":
 			return (
 				fg("muted", "find ") +

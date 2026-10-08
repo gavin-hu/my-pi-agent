@@ -11,19 +11,24 @@
  * twice and listeners/waiters are removed on cleanup.
  */
 
-import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, statSync, unlinkSync, writeFileSync, type WriteStream } from "node:fs";
+import {
+	closeSync,
+	createWriteStream,
+	existsSync,
+	mkdirSync,
+	openSync,
+	readSync,
+	statSync,
+	unlinkSync,
+	writeFileSync,
+	type WriteStream,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../_shared/ui.ts";
 import { resolveEffectiveCwd } from "../_shared/worktree-env.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
-import {
-	formatLogs,
-	pendingFailures,
-	sanitizeLogLine,
-	sanitizeLogText,
-	tailLines,
-} from "./format.ts";
+import { formatLogs, pendingFailures, sanitizeLogLine, sanitizeLogText, tailLines } from "./format.ts";
 import {
 	defaultKillTree,
 	defaultLiveness,
@@ -201,8 +206,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	/** Whether the session that owns a job is still alive. */
 	const ownerAlive = (owner: string): boolean =>
-		owner === sessionId ||
-		isSessionAlive(readSessionMarker(dir, owner), now(), config.sessionTtlMs, liveness);
+		owner === sessionId || isSessionAlive(readSessionMarker(dir, owner), now(), config.sessionTtlMs, liveness);
 
 	const stopClock = (): void => {
 		if (clock) {
@@ -245,9 +249,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 				return;
 			}
 			const running = [...jobs.values()].filter((job) => job.status === "running").length;
-			const unseenFailures = [...jobs.values()].filter(
-				(job) => !job.seen && job.status === "failed",
-			).length;
+			const unseenFailures = [...jobs.values()].filter((job) => !job.seen && job.status === "failed").length;
 			if (running > 0) {
 				ctx.ui.setStatus(STATUS_KEYS.jobs, theme(ctx, "accent", `${GLYPHS.jobsRunning}${running}`));
 			} else if (unseenFailures > 0) {
@@ -604,7 +606,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			sessionId,
 			seen: false,
 			lastLine: "",
-			startToken: pid !== null ? startToken(pid) ?? null : null,
+			startToken: pid !== null ? (startToken(pid) ?? null) : null,
 			owned: true,
 		};
 

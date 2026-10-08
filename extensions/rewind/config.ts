@@ -44,7 +44,9 @@ export const DEFAULT_CONFIG: RewindConfig = {
 /** Keep only trimmed, non-empty strings from an untrusted array. */
 function stringList(value: unknown, fallback: string[]): string[] {
 	if (!Array.isArray(value)) return fallback;
-	return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim());
+	return value
+		.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+		.map((item) => item.trim());
 }
 
 /** Normalize one merged config object over the running base. */

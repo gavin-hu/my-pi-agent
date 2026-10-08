@@ -87,7 +87,11 @@ export function fakeCtx(
 		},
 		executeTool: async (name: string, args: unknown) => {
 			toolCalls.push({ name, args });
-			return { isError: executeError, toolCall: { name, arguments: args }, result: { content: [], details: undefined } };
+			return {
+				isError: executeError,
+				toolCall: { name, arguments: args },
+				result: { content: [], details: undefined },
+			};
 		},
 	};
 

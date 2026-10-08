@@ -43,7 +43,9 @@ describe("reconstructGoal", () => {
 	test("ignores malformed custom entries instead of throwing or wiping state", () => {
 		const malformed = ["nope", 42, true, [], null, undefined, {}, { goal: undefined }];
 		for (const data of malformed) {
-			expect(() => reconstructGoal([resultEntry(active("kept")), { type: "custom", customType: "goal", data }])).not.toThrow();
+			expect(() =>
+				reconstructGoal([resultEntry(active("kept")), { type: "custom", customType: "goal", data }]),
+			).not.toThrow();
 			expect(reconstructGoal([resultEntry(active("kept")), { type: "custom", customType: "goal", data }])).toEqual(
 				active("kept"),
 			);
@@ -51,7 +53,9 @@ describe("reconstructGoal", () => {
 	});
 
 	test("an explicit null custom goal clears state", () => {
-		expect(reconstructGoal([resultEntry(active("one")), { type: "custom", customType: "goal", data: { goal: null } }])).toBeNull();
+		expect(
+			reconstructGoal([resultEntry(active("one")), { type: "custom", customType: "goal", data: { goal: null } }]),
+		).toBeNull();
 	});
 
 	test("does not alias the stored goal", () => {

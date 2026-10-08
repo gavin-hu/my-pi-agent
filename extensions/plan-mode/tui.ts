@@ -194,7 +194,11 @@ export class PlanViewComponent implements Component {
 		this.updateAnchor(body);
 
 		const lines: string[] = [
-			screenHeader(theme, w, truncateToWidth(`${this.browse() ? "Plan" : "Plan Review"} · ${title}`, Math.max(1, w - 6))),
+			screenHeader(
+				theme,
+				w,
+				truncateToWidth(`${this.browse() ? "Plan" : "Plan Review"} · ${title}`, Math.max(1, w - 6)),
+			),
 			"",
 		];
 

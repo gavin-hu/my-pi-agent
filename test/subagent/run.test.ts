@@ -26,7 +26,10 @@ function promptPath(args: string[]): string | undefined {
 describe("runSingleAgent", () => {
 	test("captures output, stderr, and usage from a successful run", async () => {
 		const { spawn } = makeFakeSpawn((child) => {
-			child.line({ type: "message_end", message: assistantMessage("all done", { input: 7, output: 3, totalTokens: 10, cost: 0.02 }) });
+			child.line({
+				type: "message_end",
+				message: assistantMessage("all done", { input: 7, output: 3, totalTokens: 10, cost: 0.02 }),
+			});
 			child.emitStderr("a warning");
 			child.close(0);
 		});
@@ -78,7 +81,10 @@ describe("runSingleAgent", () => {
 
 	test("propagates a model error and its message", async () => {
 		const { spawn } = makeFakeSpawn((child) => {
-			child.line({ type: "message_end", message: assistantMessage("", { stopReason: "error", errorMessage: "quota exceeded" }) });
+			child.line({
+				type: "message_end",
+				message: assistantMessage("", { stopReason: "error", errorMessage: "quota exceeded" }),
+			});
 			child.close(0);
 		});
 		const result = await runSingleAgent(options({ spawn }));

@@ -101,7 +101,9 @@ describe("guardFileTool", () => {
 	});
 
 	test("allows writes outside when blockFileEscapes is off", () => {
-		expect(guardFileTool("write", { path: "/main/file.txt" }, ROOT, config({ blockFileEscapes: false }))).toBeUndefined();
+		expect(
+			guardFileTool("write", { path: "/main/file.txt" }, ROOT, config({ blockFileEscapes: false })),
+		).toBeUndefined();
 	});
 
 	test("allows reads outside by default", () => {
@@ -235,9 +237,7 @@ describe("symlink-safe containment", () => {
 	test("realPathOfNearest resolves a missing leaf through its parent", () => {
 		const base = mkdtempSync(join(tmpdir(), "pi-wt-real-"));
 		temps.push(base);
-		expect(realPathOfNearest(join(base, "missing", "deep.txt"))).toBe(
-			join(realpathSync(base), "missing", "deep.txt"),
-		);
+		expect(realPathOfNearest(join(base, "missing", "deep.txt"))).toBe(join(realpathSync(base), "missing", "deep.txt"));
 	});
 });
 

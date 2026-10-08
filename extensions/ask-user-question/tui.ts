@@ -78,7 +78,11 @@ function mapKey(data: string): KeyAction | undefined {
 }
 
 /** Run the tabbed questionnaire and return the resulting answers. */
-export async function askViaTui(ctx: ExtensionContext, questions: Question[], signal?: AbortSignal): Promise<AskResult> {
+export async function askViaTui(
+	ctx: ExtensionContext,
+	questions: Question[],
+	signal?: AbortSignal,
+): Promise<AskResult> {
 	const outcome = await ctx.ui.custom<Outcome>((tui, theme, _keybindings, done) => {
 		let state: TuiState = initialState(questions);
 		let cachedWidth: number | undefined;

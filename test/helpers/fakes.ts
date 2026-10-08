@@ -94,8 +94,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 			entries.push({ type: "custom", customType, data });
 			appended.push({ customType, data });
 		},
-		sendUserMessage: (content: unknown, sendOptions?: unknown) =>
-			sentMessages.push({ content, options: sendOptions }),
+		sendUserMessage: (content: unknown, sendOptions?: unknown) => sentMessages.push({ content, options: sendOptions }),
 		sendMessage: () => {},
 
 		getActiveTools: () => [...active],

@@ -99,7 +99,9 @@ export function previewDiffText(diff: string, maxLines = DIFF_PREVIEW_LINES): st
 
 /** Restore confirmation text. */
 export function formatRestoreText(summary: RestoreSummary): string {
-	const parts = [`Restored snapshot #${summary.id}: ${summary.changed} file${summary.changed === 1 ? "" : "s"} changed`];
+	const parts = [
+		`Restored snapshot #${summary.id}: ${summary.changed} file${summary.changed === 1 ? "" : "s"} changed`,
+	];
 	if (summary.removed > 0) parts.push(`${summary.removed} removed`);
 	const line = `${parts.join(", ")}.`;
 	const safety = summary.safety ? ` A safety snapshot #${summary.safety} captures the pre-restore state.` : "";

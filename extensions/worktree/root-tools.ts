@@ -15,7 +15,12 @@
  * too.
  */
 
-import type { AgentToolResult, ExtensionAPI, ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type {
+	AgentToolResult,
+	ExtensionAPI,
+	ExtensionToolContext,
+	ToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 import {
 	createBashToolDefinition,
 	createEditToolDefinition,

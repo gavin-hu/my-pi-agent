@@ -14,7 +14,15 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, visibleWidth, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import {
+	Key,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	type Component,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
+} from "@earendil-works/pi-tui";
 import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
 import {
 	compareJobs,
@@ -270,10 +278,7 @@ export class JobListComponent implements Component {
 			}
 			if (this.listScroll > 0 || end < jobs.length) {
 				lines.push(
-					truncateToWidth(
-						this.theme.fg("dim", `  showing ${this.listScroll + 1}–${end} of ${jobs.length}`),
-						w,
-					),
+					truncateToWidth(this.theme.fg("dim", `  showing ${this.listScroll + 1}–${end} of ${jobs.length}`), w),
 				);
 			}
 		}
@@ -303,10 +308,7 @@ export class JobListComponent implements Component {
 			}
 			if (this.logScroll > 0 || end < this.logLines.length) {
 				lines.push(
-					truncateToWidth(
-						this.theme.fg("dim", `  line ${this.logScroll + 1}–${end} of ${this.logLines.length}`),
-						w,
-					),
+					truncateToWidth(this.theme.fg("dim", `  line ${this.logScroll + 1}–${end} of ${this.logLines.length}`), w),
 				);
 			}
 		}

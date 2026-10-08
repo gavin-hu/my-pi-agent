@@ -43,11 +43,7 @@ export function sessionMarkerPath(dir: string, sessionId: string): string {
 function parseMarker(raw: unknown): SessionMarker | undefined {
 	if (!raw || typeof raw !== "object") return undefined;
 	const marker = raw as Partial<SessionMarker>;
-	if (
-		typeof marker.sessionId !== "string" ||
-		typeof marker.pid !== "number" ||
-		typeof marker.updatedAt !== "number"
-	) {
+	if (typeof marker.sessionId !== "string" || typeof marker.pid !== "number" || typeof marker.updatedAt !== "number") {
 		return undefined;
 	}
 	return { sessionId: marker.sessionId, pid: marker.pid, updatedAt: marker.updatedAt };
@@ -120,12 +116,7 @@ export function isSessionAlive(
 }
 
 /** Delete markers whose owner is no longer alive. */
-export function pruneSessionMarkers(
-	dir: string,
-	now: number,
-	ttlMs: number,
-	isAlive: (pid: number) => boolean,
-): void {
+export function pruneSessionMarkers(dir: string, now: number, ttlMs: number, isAlive: (pid: number) => boolean): void {
 	for (const marker of listSessionMarkers(dir)) {
 		if (!isSessionAlive(marker, now, ttlMs, isAlive)) removeSessionMarker(dir, marker.sessionId);
 	}

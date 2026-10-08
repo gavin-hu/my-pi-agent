@@ -54,7 +54,8 @@ function largestMatch(html: string, tags: string[]): string | undefined {
 
 function resolveHref(href: string, base: string): string | undefined {
 	const trimmed = decodeEntities(href).trim();
-	if (!trimmed || trimmed.startsWith("#") || /^javascript:/i.test(trimmed) || /^mailto:/i.test(trimmed)) return undefined;
+	if (!trimmed || trimmed.startsWith("#") || /^javascript:/i.test(trimmed) || /^mailto:/i.test(trimmed))
+		return undefined;
 	try {
 		const url = new URL(trimmed, base);
 		return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
@@ -85,7 +86,10 @@ function convertStructure(html: string): string {
 	html2 = html2.replace(/<(h[1-6])\b[^>]*>/gi, (_m, level: string) => `\n\n${"#".repeat(Number(level[1]))} `);
 	html2 = html2.replace(/<li\b[^>]*>/gi, "\n- ");
 	html2 = html2.replace(/<br\s*\/?>/gi, "\n");
-	html2 = html2.replace(/<\/(p|div|section|article|main|ul|ol|table|tr|blockquote|pre|figure|figcaption|dl|dt|dd|h[1-6])>/gi, "\n\n");
+	html2 = html2.replace(
+		/<\/(p|div|section|article|main|ul|ol|table|tr|blockquote|pre|figure|figcaption|dl|dt|dd|h[1-6])>/gi,
+		"\n\n",
+	);
 	html2 = html2.replace(/<\/li>/gi, "\n");
 	return html2;
 }
@@ -118,7 +122,19 @@ export function extractReadable(html: string, baseUrl: string): ExtractedPage {
 	const title = extractTitle(html);
 
 	let content = html.replace(/<!--[\s\S]*?-->/g, "");
-	for (const tag of ["script", "style", "noscript", "template", "svg", "iframe", "form", "nav", "footer", "header", "aside"]) {
+	for (const tag of [
+		"script",
+		"style",
+		"noscript",
+		"template",
+		"svg",
+		"iframe",
+		"form",
+		"nav",
+		"footer",
+		"header",
+		"aside",
+	]) {
 		content = content.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?</${tag}>`, "gi"), " ");
 	}
 

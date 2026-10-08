@@ -63,7 +63,13 @@ describe("web-search extension", () => {
 	test("execute returns model text, details, and matching structuredContent", async () => {
 		const tool = installTool();
 		const runner: HttpRunner = () =>
-			Promise.resolve(json({ AbstractText: "Pi is a harness.", AbstractSource: "Wikipedia", AbstractURL: "https://en.wikipedia.org/wiki/Pi" }));
+			Promise.resolve(
+				json({
+					AbstractText: "Pi is a harness.",
+					AbstractSource: "Wikipedia",
+					AbstractURL: "https://en.wikipedia.org/wiki/Pi",
+				}),
+			);
 		setDefaultRunnerForTests(runner);
 
 		const result = await tool.execute("call-1", { query: "pi agent" }, undefined, undefined, ctx);
@@ -86,6 +92,8 @@ describe("web-search extension", () => {
 			throw new Error("the runner must not be called");
 		});
 
-		await expect(tool.execute("call-3", { query: "   " }, undefined, undefined, ctx)).rejects.toThrow("query is required");
+		await expect(tool.execute("call-3", { query: "   " }, undefined, undefined, ctx)).rejects.toThrow(
+			"query is required",
+		);
 	});
 });

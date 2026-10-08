@@ -60,7 +60,8 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 
 		renderCall(args, theme, context) {
 			return new Text(
-				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", formatCallText(args.todos, context.argsComplete)),
+				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
+					theme.fg("muted", formatCallText(args.todos, context.argsComplete)),
 				0,
 				0,
 			);

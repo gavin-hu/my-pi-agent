@@ -51,9 +51,7 @@ describe("normalizeGoal", () => {
 	});
 
 	test("rejects an over-long objective", () => {
-		expect(() => normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE + 1) })).toThrow(
-			`longer than ${MAX_OBJECTIVE}`,
-		);
+		expect(() => normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE + 1) })).toThrow(`longer than ${MAX_OBJECTIVE}`);
 	});
 
 	test("accepts an objective at the length limit", () => {

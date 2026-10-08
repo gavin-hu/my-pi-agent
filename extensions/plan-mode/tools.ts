@@ -35,7 +35,7 @@ const ExitPlanModeParams = Type.Object({
 
 const WritePlanParams = Type.Object({
 	title: Type.String({
-		description: "Short title for the plan, used as the file-name slug, e.g. \"Add rate limiting\".",
+		description: 'Short title for the plan, used as the file-name slug, e.g. "Add rate limiting".',
 	}),
 	content: Type.String({
 		description: "The complete plan as markdown, including every step, so the user can read and judge it.",
@@ -70,10 +70,7 @@ function preview(plan: string): string {
 }
 
 /** Seed the todo list with the plan's steps; returns what was recorded. */
-async function seedTodos(
-	ctx: ExtensionToolContext,
-	plan: string,
-): Promise<{ recorded: number; steps: PlanStep[] }> {
+async function seedTodos(ctx: ExtensionToolContext, plan: string): Promise<{ recorded: number; steps: PlanStep[] }> {
 	const steps = extractPlanSteps(plan);
 	if (steps.length === 0) return { recorded: 0, steps };
 	const outcome = await ctx.executeTool(TODO_TOOL, {
@@ -168,7 +165,11 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		},
 
 		renderCall(_args, theme) {
-			return new Text(theme.fg("toolTitle", theme.bold(`${ENTER_TOOL} `)) + theme.fg("muted", "requested plan mode"), 0, 0);
+			return new Text(
+				theme.fg("toolTitle", theme.bold(`${ENTER_TOOL} `)) + theme.fg("muted", "requested plan mode"),
+				0,
+				0,
+			);
 		},
 
 		renderResult(result, _options, theme) {
@@ -224,7 +225,11 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 				};
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				return { content: [{ type: "text", text: `Could not write the plan: ${message}` }], details: undefined, isError: true };
+				return {
+					content: [{ type: "text", text: `Could not write the plan: ${message}` }],
+					details: undefined,
+					isError: true,
+				};
 			}
 		},
 
@@ -240,11 +245,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 				const first = result.content[0];
 				return new Text(first?.type === "text" ? first.text : "", 0, 0);
 			}
-			return new Text(
-				theme.fg("success", "✓ Saved plan ") + theme.fg("muted", details.relativePath),
-				0,
-				0,
-			);
+			return new Text(theme.fg("success", "✓ Saved plan ") + theme.fg("muted", details.relativePath), 0, 0);
 		},
 	});
 
@@ -300,7 +301,13 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 							text: `No interactive UI is available to approve the plan. It is saved at ${file.relativePath}; present it and ask the user to approve it in their reply.`,
 						},
 					],
-					details: { approved: false, plan: file.content, planPath: file.path, relativePath: file.relativePath, unavailable: true } satisfies ExitPlanModeDetails,
+					details: {
+						approved: false,
+						plan: file.content,
+						planPath: file.path,
+						relativePath: file.relativePath,
+						unavailable: true,
+					} satisfies ExitPlanModeDetails,
 					isError: true,
 				};
 			}
@@ -316,7 +323,14 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 								text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
 							},
 						],
-						details: { approved: false, plan: file.content, planPath: file.path, relativePath: file.relativePath, refined: true, refinement } satisfies ExitPlanModeDetails,
+						details: {
+							approved: false,
+							plan: file.content,
+							planPath: file.path,
+							relativePath: file.relativePath,
+							refined: true,
+							refinement,
+						} satisfies ExitPlanModeDetails,
 					};
 				}
 			}
@@ -326,7 +340,12 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 					content: [
 						{ type: "text", text: "Plan not approved. Stay in plan mode, ask what to change, and revise the plan." },
 					],
-					details: { approved: false, plan: file.content, planPath: file.path, relativePath: file.relativePath } satisfies ExitPlanModeDetails,
+					details: {
+						approved: false,
+						plan: file.content,
+						planPath: file.path,
+						relativePath: file.relativePath,
+					} satisfies ExitPlanModeDetails,
 				};
 			}
 
@@ -349,7 +368,14 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${file.relativePath} is the source of truth; follow its steps.${tail}${listing}`,
 					},
 				],
-				details: { approved: true, plan: file.content, planPath: file.path, relativePath: file.relativePath, seeded: recorded, steps } satisfies ExitPlanModeDetails,
+				details: {
+					approved: true,
+					plan: file.content,
+					planPath: file.path,
+					relativePath: file.relativePath,
+					seeded: recorded,
+					steps,
+				} satisfies ExitPlanModeDetails,
 			};
 		},
 

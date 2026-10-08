@@ -32,9 +32,7 @@ const QuestionSchema = Type.Object({
 			description: `Up to ${MAX_OPTIONS} choices. Omit to ask for free-form text.`,
 		}),
 	),
-	multiSelect: Type.Optional(
-		Type.Boolean({ description: "Allow selecting several options at once (default false)" }),
-	),
+	multiSelect: Type.Optional(Type.Boolean({ description: "Allow selecting several options at once (default false)" })),
 });
 
 export const AskUserQuestionParams = Type.Object({

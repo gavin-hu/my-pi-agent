@@ -14,11 +14,11 @@ import {
 
 /** A runner that answers from a map and records every call. */
 function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: string[]) => Partial<GitResult>)) {
-	const calls: Array<{ args: string[]; options: { cwd: string; timeoutMs?: number; env?: Record<string, string> } }> = [];
+	const calls: Array<{ args: string[]; options: { cwd: string; timeoutMs?: number; env?: Record<string, string> } }> =
+		[];
 	const run: RunGit = async (args, options) => {
 		calls.push({ args, options });
-		const partial =
-			typeof responses === "function" ? responses(args) : (responses.get(args.join(" ")) ?? {});
+		const partial = typeof responses === "function" ? responses(args) : (responses.get(args.join(" ")) ?? {});
 		return { stdout: "", stderr: "", code: 0, ...partial };
 	};
 	return { run, calls };
@@ -98,9 +98,7 @@ describe("read helpers", () => {
 	});
 
 	test("revParse resolves an id or reports absence", async () => {
-		const found = recordingRunner((args) =>
-			args.at(-1) === "HEAD" ? { stdout: "abc123\n" } : {},
-		);
+		const found = recordingRunner((args) => (args.at(-1) === "HEAD" ? { stdout: "abc123\n" } : {}));
 		expect(await revParse(found.run, "/repo", "HEAD")).toBe("abc123");
 
 		const missing = recordingRunner(new Map([["rev-parse --verify --quiet HEAD", { code: 1 }]]));

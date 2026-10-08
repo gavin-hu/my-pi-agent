@@ -7,15 +7,7 @@
  * by git are copied, so tracked files are never duplicated.
  */
 
-import {
-	copyFileSync,
-	existsSync,
-	lstatSync,
-	mkdirSync,
-	readFileSync,
-	readlinkSync,
-	symlinkSync,
-} from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, symlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 

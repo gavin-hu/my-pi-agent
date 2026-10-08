@@ -49,11 +49,7 @@ export function announceRailChanged(pi: Pick<ExtensionAPI, "events">, id: RailId
 }
 
 /** Run `handler` whenever any rail above `id` announces; returns an unsubscribe. */
-export function onUpperRailChanged(
-	pi: Pick<ExtensionAPI, "events">,
-	id: RailId,
-	handler: () => void,
-): () => void {
+export function onUpperRailChanged(pi: Pick<ExtensionAPI, "events">, id: RailId, handler: () => void): () => void {
 	const upper = RAIL_ORDER.slice(0, RAIL_ORDER.indexOf(id));
 	const unsubs = upper.map((rail) => pi.events.on(channel(rail), () => handler()));
 	return () => {
@@ -70,10 +66,7 @@ export function setRailsSuppressed(pi: Pick<ExtensionAPI, "events">, suppressed:
 }
 
 /** Run an async dock screen with every rail hidden; always restores afterwards. */
-export async function withRailsSuppressed<T>(
-	pi: Pick<ExtensionAPI, "events">,
-	fn: () => Promise<T>,
-): Promise<T> {
+export async function withRailsSuppressed<T>(pi: Pick<ExtensionAPI, "events">, fn: () => Promise<T>): Promise<T> {
 	setRailsSuppressed(pi, true);
 	try {
 		return await fn();

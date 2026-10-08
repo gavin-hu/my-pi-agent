@@ -169,7 +169,9 @@ describe("JobListComponent", () => {
 	});
 
 	test("pages and jumps the selection", () => {
-		const jobs = Array.from({ length: 20 }, (_, i) => job({ id: `j${i}`, status: "exited", exitCode: 0, startedAt: i }));
+		const jobs = Array.from({ length: 20 }, (_, i) =>
+			job({ id: `j${i}`, status: "exited", exitCode: 0, startedAt: i }),
+		);
 		const { component } = makeComponent(jobs, {}, 12);
 		component.render(40);
 		component.handleInput("\u001b[6~"); // page down

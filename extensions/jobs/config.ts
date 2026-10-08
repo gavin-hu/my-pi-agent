@@ -56,8 +56,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 		showStatus: typeof raw.showStatus === "boolean" ? raw.showStatus : base.showStatus,
 		showWidget: typeof raw.showWidget === "boolean" ? raw.showWidget : base.showWidget,
 		wakeOnFinish: typeof raw.wakeOnFinish === "boolean" ? raw.wakeOnFinish : base.wakeOnFinish,
-		detachedByDefault:
-			typeof raw.detachedByDefault === "boolean" ? raw.detachedByDefault : base.detachedByDefault,
+		detachedByDefault: typeof raw.detachedByDefault === "boolean" ? raw.detachedByDefault : base.detachedByDefault,
 		maxJobs: clampInteger(raw.maxJobs, base.maxJobs, 1, 500),
 		maxLogLines: clampInteger(raw.maxLogLines, base.maxLogLines, 1, 5000),
 		killGraceMs: clampInteger(raw.killGraceMs, base.killGraceMs, 0, 60_000),

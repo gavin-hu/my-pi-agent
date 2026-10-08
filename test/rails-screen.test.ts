@@ -165,13 +165,15 @@ describe("dock screens suppress the rails", () => {
 		const events = capture(pi);
 		const { ctx, called, release } = screenCtx();
 
-		const running = tools.get(ASK_TOOL).execute(
-			"call-1",
-			{ questions: [{ question: "Pick one", options: [{ label: "a" }, { label: "b" }] }] },
-			undefined,
-			undefined,
-			ctx,
-		);
+		const running = tools
+			.get(ASK_TOOL)
+			.execute(
+				"call-1",
+				{ questions: [{ question: "Pick one", options: [{ label: "a" }, { label: "b" }] }] },
+				undefined,
+				undefined,
+				ctx,
+			);
 		await called;
 		expect(events).toEqual([true]);
 

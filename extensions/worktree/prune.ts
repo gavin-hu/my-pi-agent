@@ -88,8 +88,8 @@ export async function pruneWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): P
 		}
 	}
 
-	return [
-		...removed.map((path) => `Removed ${path}`),
-		...kept.map((path) => `Kept ${path}`),
-	].join("\n") || "Nothing to prune.";
+	return (
+		[...removed.map((path) => `Removed ${path}`), ...kept.map((path) => `Kept ${path}`)].join("\n") ||
+		"Nothing to prune."
+	);
 }

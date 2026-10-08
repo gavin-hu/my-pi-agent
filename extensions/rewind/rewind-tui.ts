@@ -94,17 +94,13 @@ export class RewindListComponent implements Component {
 		const lines: string[] = [screenHeader(this.theme, w, "Rewind"), ""];
 
 		if (this.points.length === 0) {
-			lines.push(
-				truncateToWidth(`  ${this.theme.fg("dim", "No prompts on this branch yet.")}`, w),
-			);
+			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No prompts on this branch yet.")}`, w));
 		} else {
 			const count = `${this.points.length} prompt${this.points.length === 1 ? "" : "s"}`;
 			lines.push(truncateToWidth(`  ${this.theme.fg("muted", `${count} · newest first`)}`, w));
 			lines.push("");
 			const focused = this.points[this.selected];
-			const detail = focused
-				? formatRewindDetail(Boolean(focused.snapshot), focused.snapshot?.id)
-				: "";
+			const detail = focused ? formatRewindDetail(Boolean(focused.snapshot), focused.snapshot?.id) : "";
 			let visible = viewportRows(this.options.viewportRows, {
 				chrome: SCREEN_CHROME_ROWS + (detail ? 1 : 0),
 				fallback: SCREEN_DEFAULT_ITEMS,
@@ -132,10 +128,7 @@ export class RewindListComponent implements Component {
 			}
 			if (this.scrollTop > 0 || end < this.points.length) {
 				lines.push(
-					truncateToWidth(
-						this.theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.points.length}`),
-						w,
-					),
+					truncateToWidth(this.theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.points.length}`), w),
 				);
 			}
 			lines.push("");

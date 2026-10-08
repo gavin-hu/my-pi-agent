@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { createFetchRunner } from "../../extensions/_shared/http.ts";
-import { parseWikipedia, searchWikipedia, wikipediaEndpointFor, wikipediaLangFor } from "../../extensions/web-search/wikipedia.ts";
+import {
+	parseWikipedia,
+	searchWikipedia,
+	wikipediaEndpointFor,
+	wikipediaLangFor,
+} from "../../extensions/web-search/wikipedia.ts";
 
 describe("wikipediaLangFor", () => {
 	test("picks zh for Han text and en otherwise when auto", () => {
@@ -15,7 +20,9 @@ describe("wikipediaLangFor", () => {
 
 describe("wikipediaEndpointFor", () => {
 	test("substitutes the language placeholder", () => {
-		expect(wikipediaEndpointFor("https://{lang}.wikipedia.org/w/api.php", "zh")).toBe("https://zh.wikipedia.org/w/api.php");
+		expect(wikipediaEndpointFor("https://{lang}.wikipedia.org/w/api.php", "zh")).toBe(
+			"https://zh.wikipedia.org/w/api.php",
+		);
 	});
 
 	test("leaves a template without a placeholder alone", () => {
@@ -42,7 +49,10 @@ describe("parseWikipedia", () => {
 
 	test("honours the result limit", () => {
 		const pages = Object.fromEntries(
-			Array.from({ length: 5 }, (_, i) => [String(i), { title: `T${i}`, fullurl: `https://x/${i}`, extract: "e", index: i }]),
+			Array.from({ length: 5 }, (_, i) => [
+				String(i),
+				{ title: `T${i}`, fullurl: `https://x/${i}`, extract: "e", index: i },
+			]),
 		);
 		expect(parseWikipedia({ query: { pages } }, 2)).toHaveLength(2);
 	});
@@ -60,18 +70,30 @@ describe("searchWikipedia", () => {
 			return Promise.resolve(
 				new Response(
 					JSON.stringify({
-						query: { pages: { "1": { title: "广州", fullurl: "https://zh.wikipedia.org/wiki/广州", extract: "城市", index: 1 } } },
+						query: {
+							pages: {
+								"1": { title: "广州", fullurl: "https://zh.wikipedia.org/wiki/广州", extract: "城市", index: 1 },
+							},
+						},
 					}),
 					{ status: 200 },
 				),
 			);
 		}) as unknown as typeof fetch);
 
-		const results = await searchWikipedia("广州 早茶", "zh", 3, "https://{lang}.wikipedia.org/w/api.php", runner, undefined, {
-			timeoutMs: 1000,
-			maxBytes: 100_000,
-			userAgent: "test-agent",
-		});
+		const results = await searchWikipedia(
+			"广州 早茶",
+			"zh",
+			3,
+			"https://{lang}.wikipedia.org/w/api.php",
+			runner,
+			undefined,
+			{
+				timeoutMs: 1000,
+				maxBytes: 100_000,
+				userAgent: "test-agent",
+			},
+		);
 
 		const url = new URL(requested);
 		expect(url.host).toBe("zh.wikipedia.org");
@@ -83,9 +105,13 @@ describe("searchWikipedia", () => {
 	});
 
 	test("throws on an HTTP error", async () => {
-		const runner = createFetchRunner((() => Promise.resolve(new Response("err", { status: 502 }))) as unknown as typeof fetch);
+		const runner = createFetchRunner((() =>
+			Promise.resolve(new Response("err", { status: 502 }))) as unknown as typeof fetch);
 		await expect(
-			searchWikipedia("x", "en", 3, "https://{lang}.wikipedia.org/w/api.php", runner, undefined, { timeoutMs: 1000, maxBytes: 100_000 }),
+			searchWikipedia("x", "en", 3, "https://{lang}.wikipedia.org/w/api.php", runner, undefined, {
+				timeoutMs: 1000,
+				maxBytes: 100_000,
+			}),
 		).rejects.toThrow("HTTP 502");
 	});
 });

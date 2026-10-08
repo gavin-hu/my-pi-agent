@@ -9,12 +9,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import {
-	formatCallText,
-	formatCompletion,
-	formatJobList,
-	formatJobStatus,
-} from "./format.ts";
+import { formatCallText, formatCompletion, formatJobList, formatJobStatus } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs } from "./schema.ts";
 import { toRecord, type JobDetails } from "./types.ts";
@@ -24,7 +19,10 @@ export const TOOL_NAME = "job";
 /** Collapsed transcript rows before the result is truncated. */
 const RESULT_ROWS = 8;
 
-function errorResult(action: JobDetails["action"], message: string): {
+function errorResult(
+	action: JobDetails["action"],
+	message: string,
+): {
 	content: Array<{ type: "text"; text: string }>;
 	details: JobDetails;
 	isError: true;
@@ -209,7 +207,10 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 			if (details.action === "logs" && details.logs) {
 				const lines = details.logs.split("\n");
 				const shown = expanded ? lines : lines.slice(Math.max(0, lines.length - RESULT_ROWS));
-				const prefix = !expanded && lines.length > shown.length ? theme.fg("dim", `… ${lines.length - shown.length} earlier lines\n`) : "";
+				const prefix =
+					!expanded && lines.length > shown.length
+						? theme.fg("dim", `… ${lines.length - shown.length} earlier lines\n`)
+						: "";
 				return new Text(prefix + shown.join("\n"), 0, 0);
 			}
 			if (details.action === "list" && details.jobs) {

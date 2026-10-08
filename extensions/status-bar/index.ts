@@ -27,7 +27,13 @@ export default function statusBar(pi: ExtensionAPI): void {
 			return;
 		}
 		ctx.ui.setFooter((tui, _theme, footerData) =>
-			createFooter(tui, footerData, () => read(ctx, footerData), () => ctx.ui.theme, homedir()),
+			createFooter(
+				tui,
+				footerData,
+				() => read(ctx, footerData),
+				() => ctx.ui.theme,
+				homedir(),
+			),
 		);
 	};
 

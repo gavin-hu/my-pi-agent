@@ -7,7 +7,11 @@ const completed = (content: string) => ({ content, status: "completed" as const 
 describe("extractPlanSteps", () => {
 	test("reads a numbered plan", () => {
 		const plan = ["Plan:", "1. Read the parser", "2. Add a tokenizer", "3. Update tests"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("Read the parser"), pending("Add a tokenizer"), pending("Update tests")]);
+		expect(extractPlanSteps(plan)).toEqual([
+			pending("Read the parser"),
+			pending("Add a tokenizer"),
+			pending("Update tests"),
+		]);
 	});
 
 	test("reads `1)` numbering and bullet lists", () => {
@@ -30,11 +34,7 @@ describe("extractPlanSteps", () => {
 
 	test("turns checkboxes into status", () => {
 		const plan = ["- [ ] First task", "- [x] Done task", "- [X] Also done"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([
-			pending("First task"),
-			completed("Done task"),
-			completed("Also done"),
-		]);
+		expect(extractPlanSteps(plan)).toEqual([pending("First task"), completed("Done task"), completed("Also done")]);
 	});
 
 	test("skips nested sub-bullets", () => {

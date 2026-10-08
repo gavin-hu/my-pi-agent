@@ -3,10 +3,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import rewind from "../../extensions/rewind/index.ts";
+import { createSnapshot } from "../../extensions/rewind/snapshot.ts";
 import { META_MARKER } from "../../extensions/rewind/store.ts";
 import { onRailsSuppressed } from "../../extensions/_shared/rails.ts";
 import { createFakePi, emit, type FakePi } from "../helpers/fakes.ts";
-import { cleanup, execP, makeCtx, makeRepo } from "./helpers.ts";
+import { cleanup, execP, indexFileFor, makeCtx, makeRepo, runGit } from "./helpers.ts";
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
@@ -92,6 +93,44 @@ describe("automatic snapshots", () => {
 		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "second" }, ctx);
 		await emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx);
 		expect((await refs(repo)).length).toBe(2);
+	});
+
+	test("the status chip counts rewindable prompts, not stored snapshots", async () => {
+		const repo = await makeRepo("pi-rw-ext-chip-");
+		cleanups.push(repo);
+		const fake = setup();
+		const branch = branchWithUser("e1", "do the task");
+		const ctx = makeCtx(fake, { cwd: repo, branch, sessionId: "s1" });
+
+		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
+		writeFileSync(join(repo, "w.txt"), "x\n");
+		await emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
+
+		// A pre-restore safety snapshot on the same entry is stored, but it is not
+		// a rewindable code point and must not inflate the chip.
+		await createSnapshot(
+			{ runGit },
+			{
+				root: repo,
+				indexFile: indexFileFor(repo),
+				namespace: NS,
+				reason: "pre-restore",
+				includeUntracked: true,
+				sessionId: "s1",
+				entryId: "e1",
+			},
+		);
+		expect((await refs(repo)).length).toBe(2);
+
+		// A second prompt snapshot re-runs setStatus: the chip reflects two
+		// rewindable points, not the three stored refs.
+		ctx.sessionManager.getBranch = () => [...branch, ...branchWithUser("e2", "and again")];
+		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "and again" }, ctx);
+		await emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
+		expect((await refs(repo)).length).toBe(3);
 	});
 
 	test("does not snapshot read-only calls", async () => {

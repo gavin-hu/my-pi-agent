@@ -57,7 +57,7 @@ describe("parseMultiSelect", () => {
 	});
 
 	test("parses labels case-insensitively and de-duplicates", () => {
-	const parsed = parseMultiSelect(multi, "oauth\noauth");
+		const parsed = parseMultiSelect(multi, "oauth\noauth");
 		expect(parsed?.type).toBe("options");
 		if (parsed?.type !== "options") throw new Error("expected options");
 		expect(parsed.values).toEqual(["OAuth"]);

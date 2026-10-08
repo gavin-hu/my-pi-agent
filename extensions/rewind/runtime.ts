@@ -16,7 +16,7 @@ import { gitDir, repoRoot, type RunGit, type RunGitOptions } from "./git.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { listSnapshots, pruneSnapshots } from "./store.ts";
-import { lastUserEntryId } from "./timeline.ts";
+import { buildRewindPoints, lastUserEntryId } from "./timeline.ts";
 import type { Snapshot, SnapshotReason, RestoreSummary } from "./types.ts";
 
 // The status chip is defined locally so this extension stays self-contained.
@@ -41,7 +41,7 @@ export interface RewindRuntime {
 	list(root: string, all: boolean): Promise<Snapshot[]>;
 	plan(root: string, target: Snapshot): Promise<PlanResult>;
 	restore(ctx: ExtensionContext, root: string, target: Snapshot, config: RewindConfig): Promise<RestoreSummary>;
-	/** Repaint the `↺ N` chip from the current snapshot count. */
+	/** Repaint the `↺ N` chip from the rewindable-prompt count on the active branch. */
 	setStatus(ctx: ExtensionContext): Promise<void>;
 	clearStatus(ctx: ExtensionContext): void;
 	/** Drop cached roots, config, and index paths (on session start). */
@@ -153,7 +153,12 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 	const plan = (root: string, target: Snapshot): Promise<PlanResult> =>
 		enqueue(async () => planRestore({ runGit }, { root, indexFile: await indexFileFor(root), target }));
 
-	const restore = (ctx: ExtensionContext, root: string, target: Snapshot, config: RewindConfig): Promise<RestoreSummary> =>
+	const restore = (
+		ctx: ExtensionContext,
+		root: string,
+		target: Snapshot,
+		config: RewindConfig,
+	): Promise<RestoreSummary> =>
 		enqueue(async () => {
 			const indexFile = await indexFileFor(root);
 			const input: RestoreInput = { root, indexFile, target };
@@ -177,13 +182,21 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 			return { ...summary, safety };
 		});
 
+	// The chip shows how many prompts on the active branch are code-rewindable,
+	// not how many snapshot refs exist for the root. Counting via
+	// `buildRewindPoints` matches `/rewind` exactly: read-only prompts (no
+	// snapshot), `pre-restore`/`manual` snapshots, and foreign-session snapshots
+	// are all excluded.
 	const setStatus = async (ctx: ExtensionContext): Promise<void> => {
 		try {
 			const root = await rootFor(ctx);
 			if (!root) return;
 			const config = configFor(root);
 			if (!config.showStatus) return;
-			const count = (await listSnapshots(runGit, root, config.refNamespace, { root })).length;
+			const snapshots = await listSnapshots(runGit, root, config.refNamespace, { root });
+			const session = ctx.sessionManager;
+			const points = buildRewindPoints(session.getBranch(), snapshots, session.getSessionId());
+			const count = points.filter((point) => point.snapshot).length;
 			if (count === 0) {
 				ctx.ui.setStatus(STATUS_KEY, undefined);
 				return;

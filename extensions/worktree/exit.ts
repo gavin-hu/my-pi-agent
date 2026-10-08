@@ -5,21 +5,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config.ts";
-import {
-	deleteBranch,
-	inspectWork,
-	lockWorktree,
-	unlockWorktree,
-	worktreeRemove,
-} from "./git.ts";
-import {
-	applyWorktreeEnv,
-	clearConfigCache,
-	getActive,
-	publishWorktree,
-	setActive,
-	setStatus,
-} from "./runtime.ts";
+import { deleteBranch, inspectWork, lockWorktree, unlockWorktree, worktreeRemove } from "./git.ts";
+import { applyWorktreeEnv, clearConfigCache, getActive, publishWorktree, setActive, setStatus } from "./runtime.ts";
 import { persistState, type WorktreeState } from "./state.ts";
 import { worktreeLabel } from "./status.ts";
 
@@ -36,7 +23,9 @@ export async function exitWorktree(
 	const state = getActive();
 	if (!state) throw new Error("Not currently in a worktree.");
 	if (state.borrowed) {
-		throw new Error("This worktree was inherited from the parent session, which owns it. Ask the parent to call worktree_exit.");
+		throw new Error(
+			"This worktree was inherited from the parent session, which owns it. Ask the parent to call worktree_exit.",
+		);
 	}
 	clearConfigCache();
 	const config = loadConfig(state.repoRoot);
@@ -69,10 +58,11 @@ export async function exitWorktree(
 			hasWork || unverifiable
 				? `has work that removal would delete: ${workSummary}`
 				: "was entered by path and is not managed by this session";
-		const choice = await ctx.ui.select(
-			`Worktree "${worktreeLabel(state)}" ${why}.`,
-			["Keep it for later", "Remove it and its branch", "Cancel"],
-		);
+		const choice = await ctx.ui.select(`Worktree "${worktreeLabel(state)}" ${why}.`, [
+			"Keep it for later",
+			"Remove it and its branch",
+			"Cancel",
+		]);
 		if (choice === undefined || choice.startsWith("Cancel")) throw new Error("Worktree exit cancelled.");
 		remove = choice.startsWith("Remove");
 	} else {
@@ -111,9 +101,7 @@ export async function exitWorktree(
 					);
 				} else {
 					const deleted = await deleteBranch(pi, state.repoRoot, state.branch, true);
-					lines.push(
-						deleted.ok ? `Deleted branch ${state.branch}` : `Kept branch ${state.branch}: ${deleted.error}`,
-					);
+					lines.push(deleted.ok ? `Deleted branch ${state.branch}` : `Kept branch ${state.branch}: ${deleted.error}`);
 				}
 			}
 		}

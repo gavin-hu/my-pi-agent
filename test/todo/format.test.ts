@@ -11,9 +11,7 @@ const todos: Todo[] = [
 
 describe("todo formatting", () => {
 	test("formatTodoList marks each status", () => {
-		expect(formatTodoList(todos)).toBe(
-			["1. [x] Write schema", "2. [~] Write tests", "3. [ ] Ship it"].join("\n"),
-		);
+		expect(formatTodoList(todos)).toBe(["1. [x] Write schema", "2. [~] Write tests", "3. [ ] Ship it"].join("\n"));
 	});
 
 	test("formatTodoList handles an empty list", () => {

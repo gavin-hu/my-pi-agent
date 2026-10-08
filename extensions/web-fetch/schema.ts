@@ -49,12 +49,17 @@ export const WebFetchParams = Type.Object({
 		Type.Array(Type.String(), {
 			minItems: 1,
 			maxItems: MAX_FIND_TERMS,
-			description: "Return passages matching these strings instead of the page text. Offsets are code points, usable as startIndex.",
+			description:
+				"Return passages matching these strings instead of the page text. Offsets are code points, usable as startIndex.",
 		}),
 	),
 	mode: Type.Optional(StringEnum(FIND_MODES, { description: "Match mode for `find`. Defaults to insensitive." })),
 	contextChars: Type.Optional(
-		Type.Integer({ minimum: 0, maximum: 2000, description: "Characters of context around each find match (default 200)." }),
+		Type.Integer({
+			minimum: 0,
+			maximum: 2000,
+			description: "Characters of context around each find match (default 200).",
+		}),
 	),
 	maxMatches: Type.Optional(
 		Type.Integer({ minimum: 1, maximum: 50, description: "Maximum find matches to return (default 8)." }),
@@ -108,7 +113,10 @@ function normalizeFind(raw: unknown): string[] {
 export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): FetchRequest {
 	const single = typeof args.url === "string" ? args.url.trim() : "";
 	const list = Array.isArray(args.urls)
-		? args.urls.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
+		? args.urls
+				.filter((value): value is string => typeof value === "string")
+				.map((value) => value.trim())
+				.filter(Boolean)
 		: [];
 
 	if (single && list.length > 0) throw new Error("provide either url or urls, not both.");
@@ -135,7 +143,9 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 	const mode: FindMode = (FIND_MODES as readonly string[]).includes(rawMode) ? (rawMode as FindMode) : "insensitive";
 
 	const contextChars =
-		typeof args.contextChars === "number" ? Math.min(2000, Math.max(0, Math.round(args.contextChars))) : DEFAULT_CONTEXT_CHARS;
+		typeof args.contextChars === "number"
+			? Math.min(2000, Math.max(0, Math.round(args.contextChars)))
+			: DEFAULT_CONTEXT_CHARS;
 	const maxMatches =
 		typeof args.maxMatches === "number" ? Math.min(50, Math.max(1, Math.round(args.maxMatches))) : DEFAULT_MAX_MATCHES;
 

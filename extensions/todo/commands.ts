@@ -19,7 +19,13 @@ export function registerCommands(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			}
 			await withRailsSuppressed(pi, () =>
 				ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-					return new TodoListComponent(todos, theme, () => done(), () => tui.requestRender(), () => tui.terminal?.rows);
+					return new TodoListComponent(
+						todos,
+						theme,
+						() => done(),
+						() => tui.requestRender(),
+						() => tui.terminal?.rows,
+					);
 				}),
 			);
 		},

@@ -528,7 +528,9 @@ describe("job runtime — pending, clear, status", () => {
 			});
 			const job = h.runtime.start({ command: "mine" }, ctx);
 			expect(job.id).toBe("j10");
-			const ids = loadRegistry(h.dir).jobs.map((j) => j.id).sort();
+			const ids = loadRegistry(h.dir)
+				.jobs.map((j) => j.id)
+				.sort();
 			expect(ids).toContain("j9");
 			expect(ids).toContain("j10");
 		} finally {

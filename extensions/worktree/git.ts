@@ -98,9 +98,7 @@ export async function resolveBaseRef(
 	if (branch) {
 		if (config.fetchRemote && (await fetchStale(pi, repoRoot))) {
 			// Never block on credentials: treat an error or timeout as "keep using the cache".
-			await withGitNoPrompt(() =>
-				git(pi, ["fetch", "--no-tags", "origin", branch], repoRoot, config.fetchTimeoutMs),
-			);
+			await withGitNoPrompt(() => git(pi, ["fetch", "--no-tags", "origin", branch], repoRoot, config.fetchTimeoutMs));
 		}
 		const remoteRef = `origin/${branch}`;
 		const exists = await git(pi, ["rev-parse", "--verify", "--quiet", remoteRef], repoRoot);
@@ -149,7 +147,8 @@ export function parsePrReference(input: string): PrReference | undefined {
 		const pull = url.pathname.match(/\/pull\/(\d+)/);
 		if (pull) return { number: Number.parseInt(pull[1], 10), host: url.hostname === "github.com" ? "github" : "other" };
 		const merge = url.pathname.match(/\/merge_requests\/(\d+)/);
-		if (merge) return { number: Number.parseInt(merge[1], 10), host: url.hostname === "gitlab.com" ? "gitlab" : "other" };
+		if (merge)
+			return { number: Number.parseInt(merge[1], 10), host: url.hostname === "gitlab.com" ? "gitlab" : "other" };
 	} catch {
 		// Not a URL.
 	}
@@ -185,10 +184,7 @@ export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boo
 	if (result.code !== 0) return false;
 	return result.stdout
 		.split("\n")
-		.some(
-			(line) =>
-				line.startsWith("worktree ") && canonicalize(line.slice("worktree ".length).trim()) === want,
-		);
+		.some((line) => line.startsWith("worktree ") && canonicalize(line.slice("worktree ".length).trim()) === want);
 }
 
 /** Whether a local branch exists. */
@@ -210,9 +206,7 @@ export async function worktreeAdd(
 	base: string,
 	createBranch = true,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	const args = createBranch
-		? ["worktree", "add", "-b", branch, dir, base]
-		: ["worktree", "add", dir, branch];
+	const args = createBranch ? ["worktree", "add", "-b", branch, dir, base] : ["worktree", "add", dir, branch];
 	const outcome = await gitOutcome(pi, args, repoRoot);
 	if (outcome.ok) return { ok: true };
 	return { ok: false, error: outcome.error || `git worktree add exited with code ${outcome.code}` };
@@ -264,9 +258,7 @@ export async function mergeBase(pi: ExtensionAPI, dir: string, ref: string): Pro
 	return result.code === 0 ? result.stdout.trim() || undefined : undefined;
 }
 
-export type CheckoutCheck =
-	| { ok: true }
-	| { ok: false; reason: "gone" | "unsafe" | "unverified"; detail: string };
+export type CheckoutCheck = { ok: true } | { ok: false; reason: "gone" | "unsafe" | "unverified"; detail: string };
 
 /**
  * Verify a directory is a usable, separate checkout before restoring it.
@@ -298,20 +290,13 @@ export async function checkCheckout(pi: ExtensionAPI, dir: string, mainRoot: str
  * Inspect submodules recursively for uncommitted work. `known: false` means git
  * could not inspect them, so cleanup should not assume the worktree is clean.
  */
-export async function submoduleChanges(
-	pi: ExtensionAPI,
-	dir: string,
-): Promise<{ known: boolean; count: number }> {
+export async function submoduleChanges(pi: ExtensionAPI, dir: string): Promise<{ known: boolean; count: number }> {
 	const list = await git(pi, ["submodule", "status", "--recursive"], dir);
 	if (list.code !== 0) return { known: false, count: 0 };
 	const modules = list.stdout.split("\n").filter((line) => line.trim().length > 0);
 	if (modules.length === 0) return { known: true, count: 0 };
 
-	const foreach = await git(
-		pi,
-		["submodule", "foreach", "--recursive", "--quiet", "git status --porcelain"],
-		dir,
-	);
+	const foreach = await git(pi, ["submodule", "foreach", "--recursive", "--quiet", "git status --porcelain"], dir);
 	if (foreach.code !== 0) return { known: false, count: 0 };
 
 	const count = foreach.stdout
@@ -376,7 +361,10 @@ export async function listManagedWorktrees(
 			flush();
 			current.path = line.slice("worktree ".length).trim();
 		} else if (line.startsWith("branch ")) {
-			current.branch = line.slice("branch ".length).trim().replace(/^refs\/heads\//, "");
+			current.branch = line
+				.slice("branch ".length)
+				.trim()
+				.replace(/^refs\/heads\//, "");
 		} else if (line.startsWith("HEAD ")) {
 			current.head = line.slice("HEAD ".length).trim().slice(0, 8);
 		} else if (line === "locked" || line.startsWith("locked ")) {

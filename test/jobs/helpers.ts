@@ -85,7 +85,8 @@ export function makeCtx(options: { cwd?: string; mode?: string; sessionId?: stri
 		mode: options.mode ?? "print",
 		hasUI: false,
 		ui: {
-			setStatus: (key: string, value?: string) => (value === undefined ? statuses.delete(key) : statuses.set(key, value)),
+			setStatus: (key: string, value?: string) =>
+				value === undefined ? statuses.delete(key) : statuses.set(key, value),
 			setWidget: (key: string, value: unknown) => widgets.set(key, value),
 			notify: (message: string) => notices.push(message),
 			confirm: async () => true,
@@ -111,11 +112,9 @@ export interface Harness {
 let clock = 1000;
 
 /** Build a runtime wired to fake process primitives and a temp registry. */
-export function makeHarness(options: {
-	script?: (child: FakeChild) => void;
-	config?: Partial<JobsConfig>;
-	startToken?: StartTokenFn;
-} = {}): Harness {
+export function makeHarness(
+	options: { script?: (child: FakeChild) => void; config?: Partial<JobsConfig>; startToken?: StartTokenFn } = {},
+): Harness {
 	const dir = mkdtempSync(join(tmpdir(), "pi-jobs-"));
 	const config: JobsConfig = {
 		...DEFAULT_CONFIG,

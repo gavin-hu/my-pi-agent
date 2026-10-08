@@ -5,11 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	createAgentSession,
-	DefaultResourceLoader,
-	SessionManager,
-} from "@earendil-works/pi-coding-agent";
+import { createAgentSession, DefaultResourceLoader, SessionManager } from "@earendil-works/pi-coding-agent";
 import { canonicalize } from "../extensions/worktree/git.ts";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 
@@ -46,7 +42,21 @@ writeFileSync(join(work, ".pi", "jobs.json"), JSON.stringify({ registryDir: join
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, gitExtensionPath, rewindExtensionPath, planExtensionPath, subagentExtensionPath, jobsExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
+	additionalExtensionPaths: [
+		extensionPath,
+		askExtensionPath,
+		todoExtensionPath,
+		goalExtensionPath,
+		gitExtensionPath,
+		rewindExtensionPath,
+		planExtensionPath,
+		subagentExtensionPath,
+		jobsExtensionPath,
+		webSearchExtensionPath,
+		webFetchExtensionPath,
+		statusBarExtensionPath,
+		turnSeparatorExtensionPath,
+	],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -129,7 +139,9 @@ const setGoal = await call("goal", { objective: "smoke objective" });
 const setGoalDetails = setGoal.details as { goal: { objective: string; status: string } | null; action: string };
 check(
 	"goal records an active objective",
-	setGoalDetails.goal?.objective === "smoke objective" && setGoalDetails.goal?.status === "active" && setGoalDetails.action === "set",
+	setGoalDetails.goal?.objective === "smoke objective" &&
+		setGoalDetails.goal?.status === "active" &&
+		setGoalDetails.action === "set",
 );
 const achievedGoal = await call("goal", { objective: "smoke objective", status: "achieved" });
 const achievedDetails = achievedGoal.details as { goal: { status: string } | null; action: string };
@@ -205,15 +217,9 @@ check("job active by default", session.getActiveToolNames().includes("job"));
 check("jobs command registered", !!runner.getCommand("jobs"));
 const started = await call("job", { action: "start", command: "sleep 30", label: "smoke" });
 const startedDetails = started.details as { job?: { id?: string; status?: string } };
-check(
-	"job start returns a running job",
-	startedDetails.job?.status === "running" && !!startedDetails.job?.id,
-);
+check("job start returns a running job", startedDetails.job?.status === "running" && !!startedDetails.job?.id);
 const listedJobs = await call("job", { action: "list" });
-check(
-	"job list returns the started job",
-	((listedJobs.details as { jobs?: unknown[] }).jobs?.length ?? 0) >= 1,
-);
+check("job list returns the started job", ((listedJobs.details as { jobs?: unknown[] }).jobs?.length ?? 0) >= 1);
 const killedJob = await call("job", { action: "kill", id: startedDetails.job!.id });
 check("job kill signals the process", (killedJob.details as { signalled?: boolean }).signalled === true);
 

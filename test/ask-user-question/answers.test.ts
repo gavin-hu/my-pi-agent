@@ -53,10 +53,7 @@ describe("formatAnswerText", () => {
 		const result = completedResult(
 			[multi],
 			new Map([
-				[
-					"q2",
-					{ type: "options", values: ["repo", "read:org"], labels: ["repo", "read:org"], indices: [2, 4] },
-				],
+				["q2", { type: "options", values: ["repo", "read:org"], labels: ["repo", "read:org"], indices: [2, 4] }],
 			]),
 		);
 		expect(formatAnswerText(result)).toBe("Scope: user selected: 2. repo, 4. read:org");

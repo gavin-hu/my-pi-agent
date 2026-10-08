@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { aggregateUsage, clip, clipPath, formatToolCall, formatUsageStats, shortenPath } from "../../extensions/subagent/format.ts";
+import {
+	aggregateUsage,
+	clip,
+	clipPath,
+	formatToolCall,
+	formatUsageStats,
+	shortenPath,
+} from "../../extensions/subagent/format.ts";
 import { fakeTheme } from "./helpers.ts";
 
 describe("formatUsageStats", () => {
@@ -79,7 +86,9 @@ describe("formatToolCall", () => {
 
 	test("formats built-in tools", () => {
 		expect(formatToolCall("bash", { command: "ls -la" }, theme, true)).toBe("$ ls -la");
-		expect(formatToolCall("read", { file_path: "/tmp/a.ts", offset: 10, limit: 5 }, theme, true)).toContain("/tmp/a.ts:10-14");
+		expect(formatToolCall("read", { file_path: "/tmp/a.ts", offset: 10, limit: 5 }, theme, true)).toContain(
+			"/tmp/a.ts:10-14",
+		);
 		expect(formatToolCall("grep", { pattern: "foo", path: "/tmp" }, theme, true)).toContain("/foo/");
 		expect(formatToolCall("find", { pattern: "*.ts", path: "." }, theme, true)).toContain("*.ts");
 		expect(formatToolCall("write", { file_path: "/tmp/a.ts", content: "a\nb" }, theme, true)).toContain("(2 lines)");

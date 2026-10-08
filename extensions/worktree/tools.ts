@@ -18,10 +18,14 @@ export function registerTools(pi: ExtensionAPI): void {
 			"existing worktree. The tool errors if the session is already isolated; call worktree_exit first.",
 		parameters: Type.Object({
 			name: Type.Optional(
-				Type.String({ description: "Name for a new worktree (branch worktree-<name>, directory .pi/worktrees/<name>)." }),
+				Type.String({
+					description: "Name for a new worktree (branch worktree-<name>, directory .pi/worktrees/<name>).",
+				}),
 			),
 			path: Type.Optional(
-				Type.String({ description: "Absolute or repo-relative path of an existing worktree to enter instead of creating one." }),
+				Type.String({
+					description: "Absolute or repo-relative path of an existing worktree to enter instead of creating one.",
+				}),
 			),
 		}),
 		annotations: { destructiveHint: true, openWorldHint: true },

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { formatPlanAge, formatPlanRow, PlanListComponent, type PlanListAction } from "../../extensions/plan-mode/list-tui.ts";
+import {
+	formatPlanAge,
+	formatPlanRow,
+	PlanListComponent,
+	type PlanListAction,
+} from "../../extensions/plan-mode/list-tui.ts";
 import type { PlanSummary } from "../../extensions/plan-mode/plans.ts";
 import { fakeTheme } from "../helpers/fakes.ts";
 

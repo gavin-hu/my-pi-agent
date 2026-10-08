@@ -25,7 +25,8 @@ pi install ./                        # install the package
     (a `pre-restore` safety snapshot is taken first).
   - *Conversation* moves the session tree back to that prompt and puts the
     prompt text back in the editor; the abandoned branch stays in the session.
-- Shows a `↺ N` status chip with the number of snapshots for the current worktree.
+- Shows a `↺ N` status chip counting the prompts on the active branch that have
+  a code snapshot — the same points `/rewind` can code-restore.
 - Stores metadata in the commit body, so snapshots survive across sessions and
   are listed from git rather than from session state.
 

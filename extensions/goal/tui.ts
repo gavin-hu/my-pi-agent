@@ -13,13 +13,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component } from "@earendil-works/pi-tui";
-import {
-	BODY_INDENT,
-	GLYPH_GAP,
-	goalGlyph,
-	goalHeader,
-	goalLine,
-} from "./format.ts";
+import { BODY_INDENT, GLYPH_GAP, goalGlyph, goalHeader, goalLine } from "./format.ts";
 import type { AchievedStyle, Goal } from "./types.ts";
 
 /** Widget key used with `ctx.ui.setWidget()`. */
@@ -52,12 +46,7 @@ export function goalRailLines(goal: Goal, body: string, theme: Theme, width: num
 }
 
 /** Rows for the goal widget: a single rail line, or nothing when hidden. */
-export function goalWidgetLines(
-	goal: Goal,
-	theme: Theme,
-	width: number,
-	options: GoalWidgetOptions = {},
-): string[] {
+export function goalWidgetLines(goal: Goal, theme: Theme, width: number, options: GoalWidgetOptions = {}): string[] {
 	const w = Math.max(1, width);
 	if (goal.status === "achieved" && options.achieved === "hide") return [];
 	return [truncateToWidth(goalLine(goal, theme), w, "…")];

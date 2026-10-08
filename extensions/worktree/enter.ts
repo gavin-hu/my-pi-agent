@@ -52,11 +52,7 @@ function generateName(): string {
 }
 
 /** Offer once per session to ignore the managed worktree directory. */
-async function maybeIgnoreWorktreeDir(
-	ctx: ExtensionContext,
-	root: string,
-	config: WorktreeConfig,
-): Promise<void> {
+async function maybeIgnoreWorktreeDir(ctx: ExtensionContext, root: string, config: WorktreeConfig): Promise<void> {
 	if (isGitignoreOffered()) return;
 	if (!ctx.hasUI) return;
 	markGitignoreOffered();

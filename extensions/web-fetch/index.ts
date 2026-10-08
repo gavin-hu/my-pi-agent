@@ -57,8 +57,7 @@ export default function webFetch(pi: ExtensionAPI) {
 
 			for (const url of request.urls) {
 				try {
-					const cachedEntry =
-						config.cacheEnabled && !request.refresh ? cacheGet(url, config.cacheTtlMs) : undefined;
+					const cachedEntry = config.cacheEnabled && !request.refresh ? cacheGet(url, config.cacheTtlMs) : undefined;
 					let page: PageResult;
 					let cached = false;
 					let fetchedAt: string;
@@ -205,7 +204,12 @@ export default function webFetch(pi: ExtensionAPI) {
 
 			if (details.pages.length === 1) {
 				const page = details.pages[0];
-				if (page.error) return new Text(theme.fg("error", page.error.startsWith("Error:") ? page.error : `Error: ${page.error}`), 0, 0);
+				if (page.error)
+					return new Text(
+						theme.fg("error", page.error.startsWith("Error:") ? page.error : `Error: ${page.error}`),
+						0,
+						0,
+					);
 				const label = page.title || page.finalUrl;
 				let text = theme.fg("muted", label);
 				if (page.matches.length > 0) text += theme.fg("dim", ` · ${page.matches.length} match(es)`);

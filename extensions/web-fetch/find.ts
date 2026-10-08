@@ -113,7 +113,10 @@ export function findPassages(text: string, queries: string[], options: FindOptio
 	for (const query of queries) {
 		const trimmed = query.trim();
 		if (!trimmed) continue;
-		const hits = options.mode === "fuzzy" ? fuzzyMatches(text, trimmed) : substringMatches(text, trimmed, options.mode === "insensitive");
+		const hits =
+			options.mode === "fuzzy"
+				? fuzzyMatches(text, trimmed)
+				: substringMatches(text, trimmed, options.mode === "insensitive");
 
 		for (const [start, end] of hits) {
 			if (results.length >= options.maxMatches) return results;

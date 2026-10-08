@@ -37,7 +37,11 @@ export function execP(
 				env: { ...process.env, ...(options?.env ?? {}) },
 			},
 			(error, stdout, stderr) => {
-				const code = error ? (typeof (error as { code?: unknown }).code === "number" ? (error as { code: number }).code : 1) : 0;
+				const code = error
+					? typeof (error as { code?: unknown }).code === "number"
+						? (error as { code: number }).code
+						: 1
+					: 0;
 				resolve({ stdout: stdout ?? "", stderr: stderr ?? "", code, killed: Boolean(child.killed) });
 			},
 		);
