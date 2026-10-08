@@ -11,6 +11,7 @@
  * with `pi.exec` in production.
  */
 
+import { realpathSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export interface GitResult {
@@ -66,7 +67,16 @@ export async function repoRoot(runGit: RunGit, cwd: string): Promise<string | un
 	const result = await runGit(["rev-parse", "--show-toplevel"], { cwd });
 	if (result.code !== 0) return undefined;
 	const root = result.stdout.trim();
-	return root || undefined;
+	if (!root) return undefined;
+	// git prints forward slashes on Windows even for `--show-toplevel`, so resolve
+	// to the native real path: it then compares equal to fs paths and to a
+	// snapshot root recorded elsewhere. Fall back to git's string when the path
+	// is not resolvable (for example a fake runner in a unit test).
+	try {
+		return realpathSync.native(root);
+	} catch {
+		return root;
+	}
 }
 
 /**

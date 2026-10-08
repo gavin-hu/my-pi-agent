@@ -53,10 +53,13 @@ export async function withGitNoPrompt<T>(fn: () => Promise<T>): Promise<T> {
 export function canonicalize(path: string): string {
 	const absolute = resolve(path);
 	try {
-		return realpathSync(absolute);
+		// `.native` resolves Windows 8.3 short names (e.g. HSPCAD~1) to their
+		// long form, so a temp path from os.tmpdir() compares equal to git's
+		// expanded output. It is equivalent to realpathSync on other platforms.
+		return realpathSync.native(absolute);
 	} catch {
 		try {
-			return join(realpathSync(dirname(absolute)), basename(absolute));
+			return join(realpathSync.native(dirname(absolute)), basename(absolute));
 		} catch {
 			return absolute;
 		}

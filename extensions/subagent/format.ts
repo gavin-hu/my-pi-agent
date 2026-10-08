@@ -3,7 +3,6 @@
  */
 
 import * as os from "node:os";
-import * as path from "node:path";
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { formatTokens, sanitize } from "../_shared/format.ts";
@@ -44,11 +43,15 @@ export function aggregateUsage(results: { usage: UsageStats }[]): Partial<UsageS
 	return total;
 }
 
-/** Replace the home directory prefix with `~`, matching a path boundary. */
+/** Replace the home directory prefix with `~`, matching a path boundary.
+ *  Separators are normalized so a Windows home (`C:\\Users\\x`) still matches a
+ *  path written with forward slashes, and the result reads uniformly in the UI. */
 export function shortenPath(p: string): string {
-	const home = os.homedir();
-	if (p === home) return "~";
-	return p.startsWith(home + path.sep) ? `~${p.slice(home.length)}` : p;
+	const normalize = (value: string): string => value.replace(/\\/g, "/");
+	const home = normalize(os.homedir()).replace(/\/+$/, "");
+	const path = normalize(p);
+	if (path === home) return "~";
+	return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
 /** Display-width-aware truncation with a trailing ellipsis (keeps wide chars/surrogates intact). */

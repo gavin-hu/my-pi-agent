@@ -25,7 +25,7 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../_shared/git.ts";
 import { extractPlanSteps } from "./steps.ts";
@@ -116,7 +116,7 @@ export function stamp(date: Date): string {
 /** Whether `path` resolves strictly inside `dir`. */
 export function isWithin(dir: string, path: string): boolean {
 	const rel = relative(resolve(dir), resolve(path));
-	return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+	return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
 /** A plan file name: markdown and not a dotfile, so the self-ignore file is never a target. */
@@ -141,8 +141,8 @@ function isContainedPlan(dir: string, path: string): boolean {
 		// real-path check, which rejects the path if it cannot be resolved.
 	}
 	try {
-		const realDir = realpathSync(dir);
-		const realParent = realpathSync(dirname(path));
+		const realDir = realpathSync.native(dir);
+		const realParent = realpathSync.native(dirname(path));
 		return realParent === realDir || isWithin(realDir, realParent);
 	} catch {
 		return false;
@@ -164,7 +164,7 @@ function ensureIgnored(dir: string): void {
 /** `path` relative to `cwd` when inside it, else `path`. */
 function relativeTo(cwd: string, path: string): string {
 	const rel = relative(cwd, path);
-	return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : path;
+	return rel && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel) ? rel : path;
 }
 
 function uniquePath(dir: string, base: string): string {

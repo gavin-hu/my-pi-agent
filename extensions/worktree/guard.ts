@@ -13,8 +13,14 @@
 
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { WorktreeConfig } from "./config.ts";
+
+/**
+ * Characters a backslash escapes in a shell. A backslash before anything else
+ * is a literal separator, so a Windows path (`C:\\Users\\x`) survives tokenizing.
+ */
+const ESCAPABLE = /[\s"'\\$`;&|<>()]/;
 
 export interface GuardBlock {
 	block: true;
@@ -24,7 +30,7 @@ export interface GuardBlock {
 /** Whether `target` is the root or lives inside it. */
 export function isInside(root: string, target: string): boolean {
 	const rel = relative(root, target);
-	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+	return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 /** Resolve a tool path argument against the worktree root (undefined path = root). */
@@ -48,7 +54,7 @@ export function realPathOfNearest(path: string): string {
 		current = parent;
 	}
 	try {
-		return join(realpathSync(current), ...missing);
+		return join(realpathSync.native(current), ...missing);
 	} catch {
 		return absolute;
 	}
@@ -131,7 +137,8 @@ function splitSegments(command: string): string[] {
 		if (quote) {
 			current += ch;
 			if (ch === "\\" && quote === '"' && i + 1 < command.length) {
-				current += command[++i];
+				const next = command[i + 1];
+				if (ESCAPABLE.test(next)) current += command[++i];
 			} else if (ch === quote) {
 				quote = null;
 			}
@@ -188,7 +195,9 @@ function tokenize(segment: string): ShellWord[] {
 		const ch = segment[i];
 		if (quote) {
 			if (ch === "\\" && quote === '"' && i + 1 < segment.length) {
-				current += segment[++i];
+				const next = segment[i + 1];
+				if (ESCAPABLE.test(next)) current += segment[++i];
+				else current += ch;
 			} else if (ch === quote) {
 				quote = null;
 			} else {
@@ -206,7 +215,9 @@ function tokenize(segment: string): ShellWord[] {
 			push();
 		} else if (ch === "\\" && i + 1 < segment.length) {
 			started = true;
-			current += segment[++i];
+			const next = segment[i + 1];
+			if (ESCAPABLE.test(next)) current += segment[++i];
+			else current += ch;
 		} else {
 			started = true;
 			current += ch;
@@ -274,8 +285,14 @@ function readShellWord(text: string, start: number): { raw: string; end: number 
 		const ch = text[i];
 		if (quote) {
 			if (ch === "\\" && quote === '"' && i + 1 < text.length) {
-				raw += text[i + 1];
-				i += 2;
+				const next = text[i + 1];
+				if (ESCAPABLE.test(next)) {
+					raw += next;
+					i += 2;
+				} else {
+					raw += ch;
+					i += 1;
+				}
 				continue;
 			}
 			if (ch === quote) {
@@ -293,8 +310,14 @@ function readShellWord(text: string, start: number): { raw: string; end: number 
 			continue;
 		}
 		if (ch === "\\" && i + 1 < text.length) {
-			raw += text[i + 1];
-			i += 2;
+			const next = text[i + 1];
+			if (ESCAPABLE.test(next)) {
+				raw += next;
+				i += 2;
+			} else {
+				raw += ch;
+				i += 1;
+			}
 			continue;
 		}
 		if (ch === " " || ch === "\t") break;
