@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `todo`: the `todo` tool now returns a compact progress/current-item result
   instead of echoing the full list it was just given; the list stays in the
   tool-result `details` and in `/todos`.
+- `todo`: an `in_progress` item now requires a non-blank `activeForm`, so the
+  widget always shows a present-continuous label ("Writing tests") rather than
+  falling back to the imperative content. Branch replay tolerates lists written
+  before the rule.
 - `worktree`: tool names are now verb-first, matching Claude Code's
   `EnterWorktree`/`ExitWorktree`: `worktree_enter` → `enter_worktree`,
   `worktree_exit` → `exit_worktree`, `worktree_prune` → `prune_worktrees`,
@@ -37,6 +41,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `todo`: the `/todos` screen now re-renders when the list changes while it is
+  open, instead of showing the snapshot captured at open.
 - `worktree`: refuse a `name` that resolves outside the managed worktree
   directory (an absolute or `..`-containing name could place the checkout
   anywhere).

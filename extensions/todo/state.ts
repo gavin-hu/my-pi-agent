@@ -24,11 +24,13 @@ interface BranchEntryLike {
 /**
  * Apply a stored list to the running value. Anything that does not re-validate
  * as a todo list is ignored, so a malformed entry cannot wipe a valid one.
+ * Replay is lenient about `activeForm`: a list written before that field was
+ * required still loads instead of being dropped.
  */
 function applyStoredTodos(current: Todo[], value: unknown): Todo[] {
 	if (!Array.isArray(value)) return current;
 	try {
-		return normalizeTodos(value);
+		return normalizeTodos(value, { requireActiveForm: false });
 	} catch {
 		return current;
 	}

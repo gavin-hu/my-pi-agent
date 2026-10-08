@@ -45,25 +45,25 @@ the plan as written).
 | `todos` | The complete list. Pass `[]` to clear. |
 | `todos[].content` | Imperative description, e.g. `"Write the parser tests"`. |
 | `todos[].status` | `pending`, `in_progress`, or `completed`. |
-| `todos[].activeForm` | Optional present-continuous label for the in-progress item. |
+| `todos[].activeForm` | Present-continuous label, required when the item is `in_progress`. |
 
 Validation rules (a violation returns an error result and leaves the list
 unchanged):
 
-The tool declares an `outputSchema` and returns matching `structuredContent`
-(`{ todos, action, error? }`), so codemode/scripts can read the list as data.
-
-- at most **one** item `in_progress`;
+- at most **one** item `in_progress`, and it needs a non-blank `activeForm`;
 - at most **50** items;
 - non-empty, unique content, at most 500 characters each;
 - a known `status`.
+
+The tool declares an `outputSchema` and returns matching `structuredContent`
+(`{ todos, action, error? }`), so codemode/scripts can read the list as data.
 
 Before those checks, `content` and `activeForm` are normalized to a single
 terminal-safe line: control characters (including `ESC`) are replaced with
 spaces and any whitespace run (newlines, tabs, repeated spaces) collapses to
 one space. This keeps every surface to one row per item and stops model text
 from injecting terminal sequences. An `activeForm` that sanitizes to nothing is
-dropped.
+dropped (and then rejected on an `in_progress` item).
 
 ## Command
 

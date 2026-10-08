@@ -17,17 +17,25 @@ export function registerCommands(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				ctx.ui.notify(todos.length === 0 ? "No todos." : `${progressSummary(todos)}\n${formatTodoList(todos)}`, "info");
 				return;
 			}
-			await withRailsSuppressed(pi, () =>
-				ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-					return new TodoListComponent(
-						todos,
-						theme,
-						() => done(),
-						() => tui.requestRender(),
-						() => tui.terminal?.rows,
-					);
-				}),
-			);
+			let unsubscribe: (() => void) | undefined;
+			try {
+				await withRailsSuppressed(pi, () =>
+					ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+						// Follow the list while the screen is open; the screen is disposed
+						// when `done()` resolves `custom`, so unsubscribe afterwards.
+						unsubscribe = runtime.onChange(() => tui.requestRender());
+						return new TodoListComponent(
+							() => runtime.getTodos(),
+							theme,
+							() => done(),
+							() => tui.requestRender(),
+							() => tui.terminal?.rows,
+						);
+					}),
+				);
+			} finally {
+				unsubscribe?.();
+			}
 		},
 	});
 }

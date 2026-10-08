@@ -28,7 +28,8 @@ export const TodoItem = Type.Object({
 	status: StringEnum(TODO_STATUSES),
 	activeForm: Type.Optional(
 		Type.String({
-			description: 'Present-continuous label shown while in progress, e.g. "Running tests". Defaults to content.',
+			description:
+				'Present-continuous label shown while in progress, e.g. "Running tests". Required when the item is in_progress.',
 		}),
 	),
 });
@@ -73,15 +74,27 @@ function sanitizeText(raw: string): string {
 		.trim();
 }
 
+/** Options for {@link normalizeTodos}. */
+export interface NormalizeOptions {
+	/**
+	 * Require a non-blank `activeForm` on `in_progress` items. Live tool input
+	 * enforces this (the default); branch replay passes `false` so lists written
+	 * before the rule was added still load.
+	 */
+	requireActiveForm?: boolean;
+}
+
 /**
  * Validate and normalize the model's list.
  *
  * Content and `activeForm` are sanitized to a single safe line (see
  * `sanitizeText`). Rejects an empty description, an unknown status, duplicate
- * content, and more than one `in_progress` item. `activeForm` is dropped when
- * blank.
+ * content, an over-long field, more than one `in_progress` item, and — unless
+ * `options.requireActiveForm` is `false` — an `in_progress` item without a
+ * non-blank `activeForm`. `activeForm` is dropped when blank.
  */
-export function normalizeTodos(raw: unknown): Todo[] {
+export function normalizeTodos(raw: unknown, options: NormalizeOptions = {}): Todo[] {
+	const requireActiveForm = options.requireActiveForm ?? true;
 	if (raw === undefined || raw === null) return [];
 	if (!Array.isArray(raw)) throw new Error("todos must be an array.");
 	if (raw.length > MAX_TODOS) throw new Error(`At most ${MAX_TODOS} todos are allowed.`);
@@ -106,6 +119,14 @@ export function normalizeTodos(raw: unknown): Todo[] {
 		if (status === "in_progress") inProgress++;
 
 		const activeForm = typeof item.activeForm === "string" ? sanitizeText(item.activeForm) : "";
+		if (activeForm.length > MAX_CONTENT) {
+			throw new Error(`Todo ${i + 1}: activeForm is longer than ${MAX_CONTENT} characters.`);
+		}
+		if (status === "in_progress" && requireActiveForm && !activeForm) {
+			throw new Error(
+				`Todo ${i + 1}: activeForm is required for an in_progress item (present-continuous, e.g. "Running tests").`,
+			);
+		}
 		todos.push(activeForm ? { content, status, activeForm } : { content, status });
 	}
 

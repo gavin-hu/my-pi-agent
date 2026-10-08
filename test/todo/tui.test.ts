@@ -37,7 +37,7 @@ describe("TodoWidget", () => {
 describe("TodoListComponent", () => {
 	test("renders an empty-state hint", () => {
 		const lines = new TodoListComponent(
-			[],
+			() => [],
 			theme,
 			() => {},
 			() => {},
@@ -48,7 +48,7 @@ describe("TodoListComponent", () => {
 	test("closes on Escape", () => {
 		let closed = 0;
 		const component = new TodoListComponent(
-			todos,
+			() => todos,
 			theme,
 			() => closed++,
 			() => {},
@@ -61,7 +61,7 @@ describe("TodoListComponent", () => {
 
 	test("keeps the header border within the width", () => {
 		const lines = new TodoListComponent(
-			todos,
+			() => todos,
 			theme,
 			() => {},
 			() => {},
@@ -73,7 +73,7 @@ describe("TodoListComponent", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 
 		const short = new TodoListComponent(
-			many,
+			() => many,
 			theme,
 			() => {},
 			() => {},
@@ -85,7 +85,7 @@ describe("TodoListComponent", () => {
 		expect(short).not.toContain("item 8");
 
 		const tall = new TodoListComponent(
-			many,
+			() => many,
 			theme,
 			() => {},
 			() => {},
@@ -101,7 +101,7 @@ describe("TodoListComponent", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 		let rows = 60;
 		const component = new TodoListComponent(
-			many,
+			() => many,
 			theme,
 			() => {},
 			() => {},
@@ -116,7 +116,7 @@ describe("TodoListComponent", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 		let renders = 0;
 		const component = new TodoListComponent(
-			many,
+			() => many,
 			theme,
 			() => {},
 			() => renders++,
@@ -130,7 +130,7 @@ describe("TodoListComponent", () => {
 
 	test("drops the title instead of ellipsizing the border when very narrow", () => {
 		const lines = new TodoListComponent(
-			todos,
+			() => todos,
 			theme,
 			() => {},
 			() => {},
@@ -143,7 +143,7 @@ describe("TodoListComponent", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 		let renders = 0;
 		const component = new TodoListComponent(
-			many,
+			() => many,
 			theme,
 			() => {},
 			() => renders++,
@@ -160,5 +160,19 @@ describe("TodoListComponent", () => {
 
 		component.handleInput("\u001b[6~"); // page down
 		expect(component.render(60).join("\n")).toContain("item 13");
+	});
+
+	test("re-reads the list through the getter on each render", () => {
+		let current: Todo[] = [{ content: "first", status: "pending" }];
+		const component = new TodoListComponent(
+			() => current,
+			theme,
+			() => {},
+			() => {},
+		);
+		expect(component.render(60).join("\n")).toContain("first");
+		current = [{ content: "second", status: "pending" }];
+		expect(component.render(60).join("\n")).toContain("second");
+		expect(component.render(60).join("\n")).not.toContain("first");
 	});
 });

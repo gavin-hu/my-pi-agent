@@ -23,6 +23,8 @@ export interface TodoRuntime {
 	reconstruct(ctx: ExtensionContext): void;
 	/** Apply the widget config (loaded per session). */
 	setConfig(config: TodoConfig): void;
+	/** Subscribe to list changes; returns an unsubscribe. */
+	onChange(listener: () => void): () => void;
 	/** Remove the widget, for example on shutdown. */
 	clearWidget(ctx: ExtensionContext): void;
 }
@@ -35,6 +37,12 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 	let lastTuiCtx: ExtensionContext | undefined;
 	// True while a dock screen owns the editor slot; the rail stays hidden.
 	let suppressed = false;
+	// Screens watching the list (for example the open `/todos` screen) so they
+	// can re-render when the list changes underneath them.
+	const listeners = new Set<() => void>();
+	const notify = (): void => {
+		for (const listener of listeners) listener();
+	};
 
 	// An empty list is always hidden; a fully completed one is hidden only when
 	// the config asks for it.
@@ -81,13 +89,21 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 		setTodos: (next, ctx) => {
 			todos = next;
 			syncWidget(ctx);
+			notify();
 		},
 		reconstruct: (ctx) => {
 			todos = reconstructTodos(ctx.sessionManager.getBranch());
 			syncWidget(ctx);
+			notify();
 		},
 		setConfig: (next) => {
 			config = next;
+		},
+		onChange: (listener) => {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
 		},
 		clearWidget: (ctx) => {
 			lastTuiCtx = undefined;

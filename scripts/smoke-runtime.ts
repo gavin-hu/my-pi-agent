@@ -126,7 +126,9 @@ check("ask_user_question supports no-UI result", !!session.getToolDefinition("as
 const todoTool = session.getAllTools().find((t) => t.name === "todo");
 check("todo registered", !!todoTool);
 check("todo is active by default", session.getActiveToolNames().includes("todo"));
-const wrote = await call("todo", { todos: [{ content: "smoke task", status: "in_progress" }] });
+const wrote = await call("todo", {
+	todos: [{ content: "smoke task", status: "in_progress", activeForm: "smoke task" }],
+});
 const wroteText = (wrote.content[0] as { text: string }).text;
 const wroteDetails = wrote.details as { todos: unknown[]; action: string };
 const wroteStructured = wrote.structuredContent as { todos: unknown[]; action: string };

@@ -80,6 +80,11 @@ describe("reconstructTodos", () => {
 		expect(todo.content).not.toContain("\u001b");
 	});
 
+	test("replays a legacy in_progress item without an activeForm", () => {
+		const entries = [resultEntry([{ content: "Running", status: "in_progress" } as Todo])];
+		expect(reconstructTodos(entries)).toEqual([{ content: "Running", status: "in_progress" }]);
+	});
+
 	test("does not alias the stored list", () => {
 		const stored = [pending("one")];
 		const result = reconstructTodos([resultEntry(stored)]);

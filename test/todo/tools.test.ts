@@ -85,7 +85,7 @@ describe("todo tool", () => {
 	test("removes the widget once every item is completed", async () => {
 		const { tool } = setup();
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui" });
-		await call(tool, { todos: [{ content: "One", status: "in_progress" }] }, ctx);
+		await call(tool, { todos: [{ content: "One", status: "in_progress", activeForm: "Doing one" }] }, ctx);
 		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
 
 		await call(tool, { todos: [{ content: "One", status: "completed" }] }, ctx);
@@ -101,8 +101,8 @@ describe("todo tool", () => {
 			tool,
 			{
 				todos: [
-					{ content: "A", status: "in_progress" },
-					{ content: "B", status: "in_progress" },
+					{ content: "A", status: "in_progress", activeForm: "Doing A" },
+					{ content: "B", status: "in_progress", activeForm: "Doing B" },
 				],
 			},
 			ctx,
@@ -144,7 +144,7 @@ describe("todo tool", () => {
 		const { ctx } = fakeCtx();
 		const todos = [
 			...Array.from({ length: 8 }, (_, i) => ({ content: `done ${i}`, status: "completed" as const })),
-			{ content: "current", status: "in_progress" as const },
+			{ content: "current", status: "in_progress" as const, activeForm: "current" },
 		];
 		const result = await call(tool, { todos }, ctx);
 		const text = tool

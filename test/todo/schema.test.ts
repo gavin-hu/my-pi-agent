@@ -46,18 +46,39 @@ describe("normalizeTodos", () => {
 	});
 
 	test("drops an activeForm made only of control characters", () => {
-		const [todo] = normalizeTodos([{ content: "Run tests", status: "in_progress", activeForm: "\u001b\u0007" }]);
+		const [todo] = normalizeTodos([{ content: "Run tests", status: "pending", activeForm: "\u001b\u0007" }]);
 		expect(todo.activeForm).toBeUndefined();
 	});
 
+	test("rejects an in_progress item without an activeForm", () => {
+		expect(() => normalizeTodos([{ content: "Run tests", status: "in_progress" }])).toThrow("activeForm is required");
+		expect(() => normalizeTodos([{ content: "Run tests", status: "in_progress", activeForm: "   " }])).toThrow(
+			"activeForm is required",
+		);
+	});
+
+	test("rejects an over-long activeForm", () => {
+		expect(() =>
+			normalizeTodos([{ content: "Run tests", status: "in_progress", activeForm: "x".repeat(MAX_CONTENT + 1) }]),
+		).toThrow(`activeForm is longer than ${MAX_CONTENT}`);
+	});
+
+	test("can accept a legacy in_progress item without an activeForm", () => {
+		expect(normalizeTodos([{ content: "Run tests", status: "in_progress" }], { requireActiveForm: false })).toEqual([
+			{ content: "Run tests", status: "in_progress" },
+		]);
+	});
+
 	test("accepts a status in any case", () => {
-		expect(normalizeTodos([{ content: "A", status: "IN_PROGRESS" }])[0].status).toBe("in_progress");
+		expect(normalizeTodos([{ content: "A", status: "IN_PROGRESS", activeForm: "Doing A" }])[0].status).toBe(
+			"in_progress",
+		);
 	});
 
 	test("allows a single in_progress item", () => {
 		const todos = normalizeTodos([
 			{ content: "A", status: "completed" },
-			{ content: "B", status: "in_progress" },
+			{ content: "B", status: "in_progress", activeForm: "Doing B" },
 			{ content: "C", status: "pending" },
 		]);
 		expect(todos).toHaveLength(3);
@@ -66,8 +87,8 @@ describe("normalizeTodos", () => {
 	test("rejects more than one in_progress item", () => {
 		expect(() =>
 			normalizeTodos([
-				{ content: "A", status: "in_progress" },
-				{ content: "B", status: "in_progress" },
+				{ content: "A", status: "in_progress", activeForm: "Doing A" },
+				{ content: "B", status: "in_progress", activeForm: "Doing B" },
 			]),
 		).toThrow("At most one todo may be in_progress");
 	});

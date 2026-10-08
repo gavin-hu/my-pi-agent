@@ -58,19 +58,24 @@ export class TodoWidget implements Component {
 	}
 }
 
-/** Dismissible, scrollable list opened by `/todos`. */
+/** Dismissible, scrollable list opened by `/todos`; reads the live list on each render. */
 export class TodoListComponent implements Component {
 	private scrollTop = 0;
 	/** Rows shown at once; recomputed from the terminal height on every render. */
 	private visible = SCREEN_DEFAULT_ITEMS;
 
 	constructor(
-		private readonly todos: Todo[],
+		private readonly getTodos: () => Todo[],
 		private readonly theme: Theme,
 		private readonly onClose: () => void,
 		private readonly requestRender: () => void,
 		private readonly viewportRowsSource?: ViewportRowsSource,
 	) {}
+
+	/** The live list; re-read on each render so an open screen follows changes. */
+	private get todos(): Todo[] {
+		return this.getTodos();
+	}
 
 	private get maxScroll(): number {
 		return Math.max(0, this.todos.length - this.visible);

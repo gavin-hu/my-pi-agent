@@ -30,9 +30,13 @@ is re-sanitized or ignored instead of reaching the widget, and rejected
 message, and the tool turns that into an `isError` result that carries the
 *previous* list. A rejected call never half-applies.
 
-**One `in_progress` item.** Claude Code enforces this and it keeps the widget
-honest: the single accented row is the current task. The rule is validated, not
-silently coerced, so the model learns it from the error.
+**One `in_progress` item, with a label.** Claude Code enforces this and it keeps
+the widget honest: the single accented row is the current task. The rule is
+validated, not silently coerced, so the model learns it from the error. The item
+must also carry a non-blank `activeForm`, so the widget shows a present-continuous
+label ("Writing tests") rather than an imperative ("Write tests"). Branch replay
+passes `{ requireActiveForm: false }` to `normalizeTodos`, so a list written
+before this rule still loads on `/resume` instead of being dropped.
 
 **The widget is derived, not authoritative.** `runtime.setTodos` mirrors state
 into `ctx.ui.setWidget()`; the widget only exists in `tui` mode and only while
@@ -40,6 +44,12 @@ the list has an unfinished item — an empty or fully completed list hides it, s
 a finished plan stops crowding the editor while `/todos` still shows it. The
 finished-list behaviour (`hideWhenComplete`) comes from `.pi/todo.json`,
 mirroring the goal widget's config. It never becomes the only copy of anything.
+
+**The `/todos` screen follows the live list.** The command subscribes to
+`runtime.onChange` while the screen is open and re-renders on every list update,
+then unsubscribes once `ctx.ui.custom` resolves and disposes the component. The
+component reads the list through a getter, so even a render it did not trigger
+shows current state.
 
 **The list is the middle rail.** The goal is the *what* and sits above the
 list, the *how*; `jobs` sits below it. Pi renders above-editor widgets in
