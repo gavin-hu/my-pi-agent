@@ -1,0 +1,14 @@
+# Normalize all text to LF so checkouts are consistent across platforms
+# (Biome formats with LF; a CRLF working tree fails `bun run format:check`).
+* text=auto eol=lf
+
+# Keep binary assets untouched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
