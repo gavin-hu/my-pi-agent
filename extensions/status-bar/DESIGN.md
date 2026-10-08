@@ -39,7 +39,10 @@ statuses, and model survive to the end. Only after everything is minimal does
 `truncateToWidth` apply.
 
 **Statuses compact from plain text.** Extension statuses are pre-themed (for
-`plan-mode`: `theme.fg("warning", "≡ plan")`). The compact icon form is derived
+`plan-mode`: `theme.fg("warning", "≡ plan · <plan-file>")`). The `plan-mode`
+chip's trailing ` · <plan-file>` detail is dropped before it joins the slot, so
+the bar shows only the mode (`≡ plan`) even though the built-in footer keeps the
+file name. The compact icon form is derived
 from the visible text, not the styled string, because keeping the first token of
 a themed status keeps its opening SGR code but not its reset — the color would
 bleed into the rest of the line. A status that is exactly a two-token

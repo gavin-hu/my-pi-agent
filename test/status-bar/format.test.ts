@@ -4,6 +4,7 @@ import {
 	compactStatus,
 	computeGauge,
 	contextColor,
+	dropStatusDetail,
 	formatCost,
 	formatCwd,
 	formatPercent,
@@ -141,6 +142,18 @@ describe("compactStatus", () => {
 
 	test("does not mistake a numeric label for a count", () => {
 		expect(compactStatus("≡ plan · 2024")).toBe("≡");
+	});
+});
+
+describe("dropStatusDetail", () => {
+	test("removes a trailing detail but keeps leading styling", () => {
+		expect(dropStatusDetail("≡ plan · add-rate-limiting")).toBe("≡ plan");
+		expect(dropStatusDetail("\x1b[33m≡ plan · add-rate-limiting\x1b[39m")).toBe("\x1b[33m≡ plan\x1b[39m");
+	});
+
+	test("leaves a status without detail untouched", () => {
+		expect(dropStatusDetail("≡ plan")).toBe("≡ plan");
+		expect(dropStatusDetail("↺ 2")).toBe("↺ 2");
 	});
 });
 

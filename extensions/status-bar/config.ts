@@ -17,6 +17,8 @@ export const CONFIG = {
 	icons: { branch: GLYPHS.branch, detached: GLYPHS.detached, worktree: GLYPHS.worktree },
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
 	worktreeStatusKey: STATUS_KEYS.worktree,
+	/** Status key whose ` · detail` suffix (the plan file name) is dropped. */
+	planStatusKey: STATUS_KEYS.planMode,
 	labels: { noModel: "no-model", detached: "detached" },
 	/** Minimum gap kept between the left and right zones. */
 	minGap: 2,

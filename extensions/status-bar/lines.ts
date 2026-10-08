@@ -16,6 +16,7 @@ import {
 	compactStatus,
 	computeGauge,
 	contextColor,
+	dropStatusDetail,
 	formatCost,
 	formatCwd,
 	formatPercent,
@@ -96,7 +97,11 @@ function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
 		.filter(([key]) => key !== CONFIG.worktreeStatusKey)
 		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([, value]) => sanitize(value))
+		.map(([key, value]) => {
+			const status = sanitize(value);
+			// The plan chip trails the plan file name; the slot shows the mode only.
+			return key === CONFIG.planStatusKey ? dropStatusDetail(status) : status;
+		})
 		.filter(Boolean);
 	if (others.length === 0) return null;
 	const full = others.join(dim(theme, CONFIG.separators.item));

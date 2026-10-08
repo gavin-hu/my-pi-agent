@@ -74,7 +74,9 @@ rather than `$0.00`.
 
 The worktree status is read from the `worktree` status key, so the
 [worktree](../worktree/) extension and the bar agree. The leading slot shows
-plan-style alerts when present and is omitted otherwise. The slot trails the
+plan-style alerts when present and is omitted otherwise. A plan chip's trailing
+plan file name is dropped, so the slot reads `≡ plan` even though the built-in
+footer keeps the name. The slot trails the
 meters after a `│`, so the context gauge always starts the line.
 
 ## Behaviour by mode

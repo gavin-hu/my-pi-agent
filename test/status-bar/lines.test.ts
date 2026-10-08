@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { GLYPHS, STATUS_KEYS } from "../../extensions/_shared/ui.ts";
 import { buildLines } from "../../extensions/status-bar/lines.ts";
+import { stripAnsi } from "../../extensions/status-bar/format.ts";
 import { fakeTheme, fullSnapshot } from "./helpers.ts";
 
 const ids = (segments: Array<{ id: string }>) => segments.map((segment) => segment.id);
@@ -148,6 +149,19 @@ describe("buildLines", () => {
 		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
 
 		expect(statuses.forms[0]).toContain(themed);
+		expect(statuses.forms[1]).toBe(GLYPHS.plan);
+	});
+
+	test("drops the plan file name from the plan status chip", () => {
+		const themed = `\x1b[33m${GLYPHS.plan} plan · add-rate-limiting\x1b[39m`;
+		const [, line2] = buildLines(
+			fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }),
+			fakeTheme,
+			"/home/u",
+		);
+		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
+
+		expect(stripAnsi(statuses.forms[0])).toBe(`${GLYPHS.plan} plan`);
 		expect(statuses.forms[1]).toBe(GLYPHS.plan);
 	});
 
