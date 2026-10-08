@@ -13,10 +13,10 @@ import { createReadOnlyPolicy } from "../_shared/policy.ts";
 import type { RewindConfig } from "./config.ts";
 
 /** Tools that only read files or track session state, so they never snapshot. */
-export const READER_TOOLS = ["read", "grep", "find", "ls", "git", "todo", "goal"];
+const READER_TOOLS = ["read", "grep", "find", "ls", "git", "todo", "goal"];
 
 /** Tools owned by this package that must not trigger an automatic snapshot. */
-export const OWN_TOOLS = ["ask_user_question"];
+const OWN_TOOLS = ["ask_user_question"];
 
 export interface SnapshotPolicy {
 	/** Whether a call to `toolName` should be preceded by a snapshot. */

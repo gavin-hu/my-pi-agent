@@ -7,9 +7,10 @@
  * not, because they never set the temporary index.
  */
 
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { resolveEffectiveCwd } from "../_shared/worktree-env.ts";
 import { loadConfig, type RewindConfig } from "./config.ts";
 import { gitDir, repoRoot, type RunGit, type RunGitOptions } from "./git.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
@@ -90,10 +91,7 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		return next;
 	}
 
-	const effectiveCwd = (ctx: ExtensionContext): string => {
-		const worktree = process.env.PI_WORKTREE_ROOT;
-		return worktree && existsSync(worktree) ? worktree : ctx.cwd;
-	};
+	const effectiveCwd = (ctx: ExtensionContext): string => resolveEffectiveCwd(ctx.cwd);
 
 	const rootFor = async (ctx: ExtensionContext): Promise<string | undefined> => {
 		const cwd = effectiveCwd(ctx);

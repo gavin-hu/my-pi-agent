@@ -11,13 +11,13 @@ import { sanitize } from "../_shared/format.ts";
 import type { RestoreSummary } from "./types.ts";
 
 /** Longest prompt summary shown before truncation. */
-export const LABEL_WIDTH = 48;
+const LABEL_WIDTH = 48;
 
 /** Longest stored prompt summary, so metadata commits stay small. */
 export const PROMPT_WIDTH = 100;
 
 /** Lines of diff shown in a notice before eliding. */
-export const DIFF_PREVIEW_LINES = 20;
+const DIFF_PREVIEW_LINES = 20;
 
 /** Truncate text to `max` display columns, appending `…` when cut. */
 function truncate(text: string, max = LABEL_WIDTH): string {

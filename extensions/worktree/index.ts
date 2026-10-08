@@ -48,7 +48,6 @@ import {
 } from "./runtime.ts";
 
 export { WORKTREE_EVENT_CHANNEL } from "./runtime.ts";
-export type { EnterOptions, ExitOptions } from "./lifecycle.ts";
 
 /** This extension entry file, as Pi records it for our tool registrations. */
 function extensionEntryPath(): string | undefined {

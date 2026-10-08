@@ -10,8 +10,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 
-export const GIT_ACTIONS = ["status", "diff", "log", "show", "branch"] as const;
-export type GitAction = (typeof GIT_ACTIONS)[number];
+const GIT_ACTIONS = ["status", "diff", "log", "show", "branch"] as const;
 
 export const GitParams = Type.Object({
 	action: StringEnum(GIT_ACTIONS, {

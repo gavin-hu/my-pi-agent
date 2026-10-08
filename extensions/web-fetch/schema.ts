@@ -7,12 +7,12 @@ import { Type, type Static } from "typebox";
 import type { WebFetchConfig } from "./config.ts";
 import type { FindMode } from "./find.ts";
 
-export const MAX_URL_LENGTH = 2048;
+const MAX_URL_LENGTH = 2048;
 export const MAX_URLS = 5;
 export const MIN_CHARS = 200;
-export const MAX_CHARS = 100_000;
+const MAX_CHARS = 100_000;
 
-export const FIND_MODES = ["insensitive", "exact", "fuzzy"] as const;
+const FIND_MODES = ["insensitive", "exact", "fuzzy"] as const;
 const DEFAULT_CONTEXT_CHARS = 200;
 const DEFAULT_MAX_MATCHES = 8;
 const MAX_FIND_TERMS = 10;

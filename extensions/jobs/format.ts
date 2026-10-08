@@ -18,7 +18,7 @@ import { GLYPHS } from "../_shared/ui.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
 
 /** Longest sanitized log line kept for display; longer lines are clipped. */
-export const MAX_LOG_LINE = 200;
+const MAX_LOG_LINE = 200;
 
 /** Longest label shown in the widget or transcript. */
 const MAX_LABEL = 48;
@@ -30,7 +30,7 @@ const OTHER_ESC = /\u001b[@-Z\\-_]/g;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g;
 
 /** Remove ANSI/OSC escape sequences and control characters from one line. */
-export function stripEscapes(raw: string): string {
+function stripEscapes(raw: string): string {
 	return raw.replace(OSC, "").replace(CSI, "").replace(OTHER_ESC, "");
 }
 
@@ -93,7 +93,7 @@ export function statusGlyph(status: JobStatus, theme: Theme): string {
 }
 
 /** Short status word for text output. */
-export function statusWord(job: JobRecord): string {
+function statusWord(job: JobRecord): string {
 	if (job.status === "failed" && job.exitCode !== null) return `failed (exit ${job.exitCode})`;
 	return job.status;
 }
@@ -105,7 +105,7 @@ export function shortLabel(job: JobRecord): string {
 }
 
 /** One-line job summary shared by the model output and the widget. */
-export function jobSummary(job: JobRecord, now: number): string {
+function jobSummary(job: JobRecord, now: number): string {
 	const parts = [`${job.id}`, statusWord(job), formatDuration(elapsedMs(job, now))];
 	if (job.status === "running" && job.pid) parts.push(`pid ${job.pid}`);
 	parts.push(shortLabel(job));

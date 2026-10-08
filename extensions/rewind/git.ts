@@ -9,80 +9,30 @@
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+	GitError,
+	currentBranch,
+	gitDir,
+	hasCommits,
+	repoRoot,
+	revParse,
+	runGitOrThrow as run,
+	type GitResult,
+	type RunGit,
+	type RunGitOptions,
+} from "../_shared/git.ts";
 
-export interface GitResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean;
-}
-
-export interface RunGitOptions {
-	cwd: string;
-	timeoutMs?: number;
-	/** Extra environment for this call (used for `GIT_INDEX_FILE`). */
-	env?: Record<string, string>;
-}
-
-export type RunGit = (args: string[], options: RunGitOptions) => Promise<GitResult>;
-
-/** A failed git call with a model-readable message. */
-export class GitError extends Error {
-	constructor(
-		message: string,
-		readonly code: number,
-	) {
-		super(message);
-		this.name = "GitError";
-	}
-}
-
-/** Run git and throw {@link GitError} on a non-zero exit. */
-async function run(runGit: RunGit, args: string[], options: RunGitOptions): Promise<string> {
-	const result = await runGit(args, options);
-	if (result.code !== 0) {
-		const detail = (result.stderr || result.stdout).trim() || `git ${args[0]} exited with code ${result.code}`;
-		throw new GitError(detail, result.code);
-	}
-	return result.stdout;
-}
-
-/** Absolute repository root containing `cwd`, or undefined when not a git repo. */
-export async function repoRoot(runGit: RunGit, cwd: string): Promise<string | undefined> {
-	const result = await runGit(["rev-parse", "--show-toplevel"], { cwd });
-	if (result.code !== 0) return undefined;
-	const root = result.stdout.trim();
-	return root || undefined;
-}
-
-/** Absolute path of the repository's git directory. */
-export async function gitDir(runGit: RunGit, cwd: string): Promise<string | undefined> {
-	const result = await runGit(["rev-parse", "--absolute-git-dir"], { cwd });
-	if (result.code !== 0) return undefined;
-	const dir = result.stdout.trim();
-	return dir || undefined;
-}
-
-/** Resolve a revision to a full object id, or undefined when it does not exist. */
-export async function revParse(runGit: RunGit, cwd: string, rev: string): Promise<string | undefined> {
-	const result = await runGit(["rev-parse", "--verify", "--quiet", rev], { cwd });
-	if (result.code !== 0) return undefined;
-	const id = result.stdout.trim();
-	return id || undefined;
-}
-
-/** Whether the repository has at least one commit. */
-export async function hasCommits(runGit: RunGit, cwd: string): Promise<boolean> {
-	return (await revParse(runGit, cwd, "HEAD")) !== undefined;
-}
-
-/** Branch checked out at `cwd`, or undefined when HEAD is detached. */
-export async function currentBranch(runGit: RunGit, cwd: string): Promise<string | undefined> {
-	const result = await runGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd });
-	if (result.code !== 0) return undefined;
-	const branch = result.stdout.trim();
-	return branch && branch !== "HEAD" ? branch : undefined;
-}
+export {
+	GitError,
+	currentBranch,
+	gitDir,
+	hasCommits,
+	repoRoot,
+	revParse,
+	type GitResult,
+	type RunGit,
+	type RunGitOptions,
+};
 
 /** Stage the working tree into a temporary index and return its tree id. */
 export async function treeFromWorkingTree(

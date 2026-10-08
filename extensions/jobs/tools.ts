@@ -17,17 +17,12 @@ import {
 } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs } from "./schema.ts";
-import type { Job, JobDetails, JobRecord } from "./types.ts";
+import { toRecord, type JobDetails } from "./types.ts";
 
 export const TOOL_NAME = "job";
 
 /** Collapsed transcript rows before the result is truncated. */
 const RESULT_ROWS = 8;
-
-function toRecord(job: Job): JobRecord {
-	const { owned: _owned, ...record } = job;
-	return record;
-}
 
 function errorResult(action: JobDetails["action"], message: string): {
 	content: Array<{ type: "text"; text: string }>;

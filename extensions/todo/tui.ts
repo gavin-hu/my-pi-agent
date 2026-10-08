@@ -36,7 +36,7 @@ function todoRow(todo: Todo, theme: Theme, width: number): string {
  * when nothing is open. Label-first and glyph-free, matching the `goal` and
  * `jobs` widgets. Callers clip it to the available width.
  */
-export function todoLine(todos: Todo[], theme: Theme): string {
+function todoLine(todos: Todo[], theme: Theme): string {
 	const head = `${theme.fg("accent", "Todos")} ${theme.fg("dim", "·")} ${theme.fg("dim", progressCount(todos))}`;
 	const current = currentTodo(todos);
 	if (!current) return `${head} ${theme.fg("dim", "completed")}`;

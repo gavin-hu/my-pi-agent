@@ -38,7 +38,7 @@ export interface SnapshotInput {
 }
 
 /** Default id: base-36 timestamp plus a short random suffix. */
-export function defaultId(now: number): string {
+function defaultId(now: number): string {
 	return `c-${now.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 

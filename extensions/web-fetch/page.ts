@@ -11,7 +11,7 @@ import { extractReadable } from "./extract.ts";
 import { createFetchRunner, type HttpRunner } from "../_shared/http.ts";
 import { assertAllowedUrl } from "./ssrf.ts";
 
-export class WebFetchError extends Error {
+class WebFetchError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "WebFetchError";

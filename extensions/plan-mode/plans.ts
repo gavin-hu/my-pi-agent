@@ -17,6 +17,7 @@
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createExecRunner, repoRoot as gitRepoRoot } from "../_shared/git.ts";
 import { extractPlanSteps } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
@@ -178,10 +179,10 @@ function uniquePath(dir: string, base: string): string {
 
 /** Repository (or worktree) root of `cwd`, or undefined outside a repository. */
 async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
+	const run = createExecRunner(pi);
 	try {
-		const result = await pi.exec("git", ["rev-parse", "--show-toplevel"], { cwd, timeout: 5_000 });
-		const root = result.code === 0 ? result.stdout.trim() : "";
-		return root || undefined;
+		// Local `rev-parse` is fast; cap it so a stuck call cannot hang the tool.
+		return await gitRepoRoot((args, options) => run(args, { timeoutMs: 5_000, ...options }), cwd);
 	} catch {
 		return undefined;
 	}

@@ -33,7 +33,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /** Rails in render order, top to bottom. */
-export const RAIL_ORDER = ["goal", "todo", "jobs"] as const;
+const RAIL_ORDER = ["goal", "todo", "jobs"] as const;
 
 /** Identifier for one above-editor rail. */
 export type RailId = (typeof RAIL_ORDER)[number];

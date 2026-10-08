@@ -6,8 +6,9 @@
  * to scrape) and each page comes with its canonical URL.
  */
 
-import type { HttpRunner } from "../_shared/http.ts";
 import { HttpUnavailableError } from "../_shared/http.ts";
+import type { HttpRunner } from "../_shared/http.ts";
+import { asRecord, asString } from "./json.ts";
 import type { SearchResult } from "./types.ts";
 
 const HAN = /[\u3400-\u9fff\uf900-\ufaff]/;
@@ -21,14 +22,6 @@ export function wikipediaLangFor(query: string, configured: string): string {
 /** Resolve the API endpoint, substituting `{lang}` when present. */
 export function wikipediaEndpointFor(template: string, lang: string): string {
 	return template.includes("{lang}") ? template.replaceAll("{lang}", lang) : template;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-
-function asString(value: unknown): string {
-	return typeof value === "string" ? value : "";
 }
 
 /** Turn a MediaWiki query response into a ranked list of results. */

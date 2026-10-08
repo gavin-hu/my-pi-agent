@@ -20,7 +20,7 @@ import { registerTools } from "./tools.ts";
 import type { Job, JobRecord } from "./types.ts";
 
 /** Marker embedded in the injected completion context. */
-export const JOB_CONTEXT_MARKER = "[BACKGROUND JOBS]";
+const JOB_CONTEXT_MARKER = "[BACKGROUND JOBS]";
 
 /** Custom-entry type used for the injected completion message. */
 export const JOB_CONTEXT_TYPE = "job-context";

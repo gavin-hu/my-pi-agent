@@ -15,6 +15,7 @@ import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync
 import { join, resolve } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../_shared/ui.ts";
+import { resolveEffectiveCwd } from "../_shared/worktree-env.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
 import {
 	formatLogs,
@@ -43,7 +44,7 @@ import {
 	touchSessionMarker,
 } from "./session.ts";
 import { JobsWidget, WIDGET_KEY } from "./tui.ts";
-import type { Job, JobRecord, KillSignal } from "./types.ts";
+import { toRecord, type Job, type JobRecord, type KillSignal } from "./types.ts";
 
 /** Bytes of log read for a `logs` call. */
 const LOG_READ_BYTES = 64 * 1024;
@@ -127,12 +128,7 @@ export interface JobsRuntime {
 	onFinish?: (job: Job) => void;
 }
 
-/** Strip runtime-only fields for persistence. */
-function toRecord(job: Job): JobRecord {
-	const { owned: _owned, ...record } = job;
-	return record;
-}
-
+/** One-line display label for a command, sanitized and clipped. */
 function previewLabel(command: string): string {
 	const clean = sanitizeLogLine(command);
 	return clean.length > 60 ? `${clean.slice(0, 59)}…` : clean;
@@ -179,10 +175,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	/** True while a full-screen UI owns the editor; the widget stays hidden. */
 	let uiSuppressed = false;
 
-	const effectiveCwd = (ctx: ExtensionContext): string => {
-		const worktree = process.env.PI_WORKTREE_ROOT;
-		return worktree && existsSync(worktree) ? worktree : ctx.cwd;
-	};
+	const effectiveCwd = (ctx: ExtensionContext): string => resolveEffectiveCwd(ctx.cwd);
 
 	const persist = (): void => {
 		try {

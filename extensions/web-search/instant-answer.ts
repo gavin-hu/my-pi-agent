@@ -8,8 +8,9 @@
  * loosely-typed JSON with nested topic groups.
  */
 
-import type { HttpRunner } from "../_shared/http.ts";
 import { HttpUnavailableError } from "../_shared/http.ts";
+import type { HttpRunner } from "../_shared/http.ts";
+import { asRecord, asString } from "./json.ts";
 import type { SearchResult } from "./types.ts";
 
 export interface InstantAnswer {
@@ -20,14 +21,6 @@ export interface InstantAnswer {
 	/** Source URL for the answer, when known. */
 	url: string;
 	results: SearchResult[];
-}
-
-function asString(value: unknown): string {
-	return typeof value === "string" ? value.trim() : "";
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function topicResult(raw: unknown): SearchResult | undefined {

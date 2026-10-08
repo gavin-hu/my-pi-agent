@@ -14,7 +14,7 @@ import { buildLines } from "./lines.ts";
 import type { FooterData, StatusSnapshot, TuiLike } from "./types.ts";
 
 /** A two-line, width-adaptive status bar. */
-export class StatusBar implements Component {
+class StatusBar implements Component {
 	/** Unsubscribes the branch watcher; set by `createFooter`. */
 	dispose?: () => void;
 

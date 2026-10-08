@@ -10,7 +10,7 @@ import { Type, type Static } from "typebox";
 import type { Question, RawOption, RawQuestion } from "./types.ts";
 
 export const MAX_QUESTIONS = 4;
-export const MIN_OPTIONS = 2;
+const MIN_OPTIONS = 2;
 export const MAX_OPTIONS = 4;
 /** Maximum visible width of a tab header. */
 export const HEADER_MAX_WIDTH = 12;

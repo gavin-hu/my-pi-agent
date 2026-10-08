@@ -15,10 +15,10 @@ export const MAX_COMMAND = 4000;
 /** Longest accepted label. */
 export const MAX_LABEL = 120;
 /** Bounds for `logs.lines`. */
-export const MIN_LOG_LINES = 1;
-export const MAX_LOG_LINES = 2000;
+const MIN_LOG_LINES = 1;
+const MAX_LOG_LINES = 2000;
 /** Bounds for `wait.timeoutMs`. */
-export const MAX_WAIT_MS = 600_000;
+const MAX_WAIT_MS = 600_000;
 
 export const JobParams = Type.Object({
 	action: StringEnum(JOB_ACTIONS),

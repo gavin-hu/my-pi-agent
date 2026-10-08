@@ -33,7 +33,7 @@ export function registryDirFor(cwd: string, override?: string): string {
 }
 
 /** Path of the registry file inside `dir`. */
-export function registryPathFor(dir: string): string {
+function registryPathFor(dir: string): string {
 	return join(dir, "registry.json");
 }
 

@@ -15,6 +15,11 @@ export interface GitOutput {
 	isError: boolean;
 }
 
+/** Cap text at `MAX_OUTPUT`, marking where it was cut. */
+function capOutput(text: string): string {
+	return text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… output truncated` : text;
+}
+
 /** Turn a git invocation and its result into model-facing text. */
 export function formatGitResult(argv: string[], result: ExecResult): GitOutput {
 	const command = `$ git ${argv.join(" ")}`;
@@ -23,10 +28,9 @@ export function formatGitResult(argv: string[], result: ExecResult): GitOutput {
 
 	if (result.code !== 0) {
 		const detail = stderr || stdout || `git exited with code ${result.code}`;
-		return { text: `${command}\n${detail}`, isError: true };
+		return { text: capOutput(`${command}\n${detail}`), isError: true };
 	}
 
 	if (!stdout) return { text: `${command}\n(no output)`, isError: false };
-	const body = stdout.length > MAX_OUTPUT ? `${stdout.slice(0, MAX_OUTPUT)}\n… output truncated` : stdout;
-	return { text: body, isError: false };
+	return { text: capOutput(stdout), isError: false };
 }

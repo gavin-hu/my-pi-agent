@@ -8,17 +8,16 @@
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+	createExecRunner,
+	currentBranch as sharedCurrentBranch,
+	hasCommits as sharedHasCommits,
+	repoRoot as sharedRepoRoot,
+} from "../_shared/git.ts";
 import type { WorktreeConfig } from "./config.ts";
 
-interface GitResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-}
-
-async function git(pi: ExtensionAPI, args: string[], cwd: string, timeout?: number): Promise<GitResult> {
-	const result = await pi.exec("git", args, timeout ? { cwd, timeout } : { cwd });
-	return { stdout: result.stdout, stderr: result.stderr, code: result.code };
+async function git(pi: ExtensionAPI, args: string[], cwd: string, timeout?: number) {
+	return createExecRunner(pi)(args, { cwd, ...(timeout ? { timeoutMs: timeout } : {}) });
 }
 
 type GitOutcome = { ok: true; stdout: string } | { ok: false; code: number; error: string };
@@ -66,23 +65,18 @@ export function canonicalize(path: string): string {
 
 /** Absolute path of the repository root containing `cwd`, or undefined when not a git repo. */
 export async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
-	const result = await git(pi, ["rev-parse", "--show-toplevel"], cwd);
-	if (result.code !== 0) return undefined;
-	const root = result.stdout.trim();
+	const root = await sharedRepoRoot(createExecRunner(pi), cwd);
 	return root ? canonicalize(root) : undefined;
 }
 
 /** Whether the repository has at least one commit (a worktree needs a commit to branch from). */
 export async function hasCommits(pi: ExtensionAPI, repoRoot: string): Promise<boolean> {
-	const result = await git(pi, ["rev-parse", "--verify", "--quiet", "HEAD"], repoRoot);
-	return result.code === 0 && result.stdout.trim().length > 0;
+	return sharedHasCommits(createExecRunner(pi), repoRoot);
 }
 
 /** The branch currently checked out in a worktree. */
 export async function currentBranch(pi: ExtensionAPI, dir: string): Promise<string | undefined> {
-	const result = await git(pi, ["rev-parse", "--abbrev-ref", "HEAD"], dir);
-	const branch = result.stdout.trim();
-	return result.code === 0 && branch && branch !== "HEAD" ? branch : undefined;
+	return sharedCurrentBranch(createExecRunner(pi), dir);
 }
 
 /**

@@ -9,13 +9,14 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { STATUS_KEYS } from "../_shared/ui.ts";
+import { ENV_ROOT } from "../_shared/worktree-env.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import type { WorktreeState } from "./state.ts";
 
 const STATUS_KEY = STATUS_KEYS.worktree;
 
 /** Environment variables a parent session passes to child processes (subagents). */
-export const ENV_ROOT = "PI_WORKTREE_ROOT";
+export { ENV_ROOT };
 export const ENV_BRANCH = "PI_WORKTREE_BRANCH";
 /** Main checkout a borrowed worktree forked from, so a child knows its `repoRoot`. */
 export const ENV_MAIN = "PI_WORKTREE_MAIN";

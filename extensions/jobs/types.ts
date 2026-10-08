@@ -55,6 +55,12 @@ export interface Job extends JobRecord {
 	owned: boolean;
 }
 
+/** Strip runtime-only fields for persistence. */
+export function toRecord(job: Job): JobRecord {
+	const { owned: _owned, ...record } = job;
+	return record;
+}
+
 /** Registry file contents. */
 export interface RegistryFile {
 	version: 1;

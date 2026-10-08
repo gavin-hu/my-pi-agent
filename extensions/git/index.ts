@@ -10,10 +10,10 @@
  * Load with:  pi --extension ./extensions/git
  */
 
-import { existsSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { MAX_OUTPUT, formatGitResult } from "./format.ts";
+import { resolveEffectiveCwd } from "../_shared/worktree-env.ts";
+import { formatGitResult } from "./format.ts";
 import { GitParams, buildGitArgs, type GitArgs } from "./schema.ts";
 
 export const TOOL_NAME = "git";
@@ -24,7 +24,7 @@ const PREVIEW_LINES = 12;
 const TIMEOUT_MS = 30_000;
 
 export interface GitDetails {
-	action: string;
+	action: GitArgs["action"];
 	argv: string[];
 	exitCode: number;
 }
@@ -65,11 +65,10 @@ export default function git(pi: ExtensionAPI): void {
 				};
 			}
 
-			// pi has no mutable session cwd, so the pi-worktree extension exports the
+			// pi has no mutable session cwd, so the worktree extension exports the
 			// effective root as PI_WORKTREE_ROOT. Honor it so read-only git follows
 			// the isolated worktree instead of the main checkout.
-			const worktree = process.env.PI_WORKTREE_ROOT;
-			const cwd = worktree && existsSync(worktree) ? worktree : ctx.cwd;
+			const cwd = resolveEffectiveCwd(ctx.cwd);
 			const result = await pi.exec("git", argv, { cwd, timeout: TIMEOUT_MS, signal });
 			const { text, isError } = formatGitResult(argv, result);
 			return {
@@ -87,8 +86,7 @@ export default function git(pi: ExtensionAPI): void {
 		renderResult(result, { expanded }, theme) {
 			const content = result.content[0];
 			const text = content?.type === "text" ? content.text : "";
-			const capped = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… output truncated` : text;
-			return new Text(theme.fg("dim", preview(capped, expanded)), 0, 0);
+			return new Text(theme.fg("dim", preview(text, expanded)), 0, 0);
 		},
 	});
 }

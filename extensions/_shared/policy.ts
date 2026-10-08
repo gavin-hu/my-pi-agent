@@ -1,6 +1,7 @@
 /**
- * Read-only capability policy shared by extensions that restrict what the model
- * may do (plan mode today; delegation next).
+ * Read-only capability policy shared by extensions that classify tool calls:
+ * plan mode blocks everything not provably read-only, and rewind uses the same
+ * classification to decide which calls are worth a snapshot.
  *
  * Instead of enumerating the tools that mutate, this defaults to *deny*: a tool
  * call is allowed only when the tool is a known structured reader or carries the

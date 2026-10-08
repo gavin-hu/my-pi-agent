@@ -10,8 +10,8 @@ import { Type, type Static } from "typebox";
 import { MAX_RESULTS, type WebSearchConfig } from "./config.ts";
 import type { SearchRequest, SearchSource } from "./types.ts";
 
-export const MAX_QUERY_LENGTH = 400;
-export const SEARCH_SOURCES = ["auto", "instant", "wikipedia"] as const;
+const MAX_QUERY_LENGTH = 400;
+const SEARCH_SOURCES = ["auto", "instant", "wikipedia"] as const;
 
 export const WebSearchParams = Type.Object({
 	query: Type.String({
