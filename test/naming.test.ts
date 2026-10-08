@@ -23,8 +23,8 @@ import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/jobs/tools.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan-mode/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
-import { TOOL_NAME as webFetch } from "../extensions/web-fetch/index.ts";
-import { TOOL_NAME as webSearch } from "../extensions/web-search/index.ts";
+import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
+import { TOOL_NAME as webSearch } from "../extensions/web-access/search/tool.ts";
 import { WORKTREE_TOOLS } from "../extensions/worktree/tools.ts";
 
 const NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -62,8 +62,8 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "plan-mode", name: EXIT_TOOL },
 	{ extension: "subagent", name: subagent },
 	{ extension: "todo", name: todo },
-	{ extension: "web-fetch", name: webFetch },
-	{ extension: "web-search", name: webSearch },
+	{ extension: "web-access", name: webFetch },
+	{ extension: "web-access", name: webSearch },
 	{ extension: "worktree", name: WORKTREE_TOOLS.enter },
 	{ extension: "worktree", name: WORKTREE_TOOLS.exit },
 	{ extension: "worktree", name: WORKTREE_TOOLS.prune },

@@ -1,5 +1,5 @@
 /**
- * Native-fetch HTTP transport shared by fetch-only extensions.
+ * Native-fetch HTTP transport used by the web-access extension.
  *
  * No `curl`, no dependencies: one `fetch` call with a combined caller-signal and
  * timeout, optional request body, and a size cap. `HttpRunner` is the seam tests

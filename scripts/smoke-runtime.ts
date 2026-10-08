@@ -19,8 +19,7 @@ const rewindExtensionPath = join(repo, "extensions", "rewind", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const jobsExtensionPath = join(repo, "extensions", "jobs", "index.ts");
-const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
-const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
+const webAccessExtensionPath = join(repo, "extensions", "web-access", "index.ts");
 const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
@@ -54,8 +53,7 @@ const loader = new DefaultResourceLoader({
 		planExtensionPath,
 		subagentExtensionPath,
 		jobsExtensionPath,
-		webSearchExtensionPath,
-		webFetchExtensionPath,
+		webAccessExtensionPath,
 		fileBrowserExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
@@ -242,8 +240,9 @@ check("job kill signals the process", (killedJob.details as { signalled?: boolea
 const reaped = await call("job", { action: "wait", id: startedDetails.job!.id, timeoutMs: 20000 });
 check("job is reaped before its worktree is removed", (reaped.details as { timedOut?: boolean }).timedOut === false);
 
-// web-search loads and registers an active, direct tool. It is not executed
-// here: the network is covered by unit tests with an injected fetch.
+// web-access loads and registers both an active, direct search tool and a
+// direct fetch tool. They are not executed here: the network is covered by unit
+// tests with an injected fetch.
 const webSearchTool = session.getAllTools().find((t) => t.name === "web_search");
 check("web_search registered", !!webSearchTool);
 check("web_search is direct", webSearchTool?.exposure === "direct");

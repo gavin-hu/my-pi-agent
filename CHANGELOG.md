@@ -20,6 +20,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `web-access`: merged the `web-search` and `web-fetch` extensions into one. The
+  `web_search` and `web_fetch` tools are unchanged; their settings now live in
+  one `web-access.json` under `search` and `fetch` sections.
 - `jobs`: removed the above-editor widget. Job state now lives entirely in the
   status bar as a `▸ N` running chip and a separate `✗ N` unreported-failure
   chip (each keeps its count in the compact bar); the `showWidget` config option

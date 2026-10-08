@@ -12,7 +12,7 @@ lives in the caller's closure, not in this module.
 | [`config.ts`](./config.ts) | `~/.pi/agent/<name>.json` + `<cwd>/.pi/<name>.json` loading, with `clampInteger` / `cleanString` / `readJson`. |
 | [`format.ts`](./format.ts) | Pure text/number formatting shared by renderers: `formatTokens`, `sanitize`. |
 | [`git.ts`](./git.ts) | The `RunGit` seam (`createExecRunner`, `runGitOrThrow`) plus read helpers (`repoRoot`, `gitDir`, `revParse`, `hasCommits`, `currentBranch`). |
-| [`http.ts`](./http.ts) | Native-`fetch` transport (`HttpRunner`, `createFetchRunner`, typed errors) used by fetch-only extensions; injectable for tests. |
+| [`http.ts`](./http.ts) | Native-`fetch` transport (`HttpRunner`, `createFetchRunner`, typed errors) used by `web-access`; injectable for tests. |
 | [`path-guard.ts`](./path-guard.ts) | `hasPathInput`: detect path-like tool arguments so a caller can refuse to trust a tool's `readOnlyHint`. |
 | [`policy.ts`](./policy.ts) | `createReadOnlyPolicy`: default-deny tool classification from `readOnlyHint` + explicit allow/deny. |
 | [`rails.ts`](./rails.ts) | Above-editor widget ordering (`goal` → `todo`) and dock-screen suppression, carried on `pi.events`. |

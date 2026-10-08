@@ -1,7 +1,7 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.4.0",
-  "description": "Personal Pi customizations, packaged as a Pi package: worktree, ask-user-question, todo, goal, git, rewind, plan-mode, subagent, jobs, web-search, web-fetch, file-browser, status-bar, and turn-separator.",
+  "description": "Personal Pi customizations, packaged as a Pi package: worktree, ask-user-question, todo, goal, git, rewind, plan-mode, subagent, jobs, web-access, file-browser, status-bar, and turn-separator.",
   "keywords": [
     "pi-package",
     "pi",
@@ -23,6 +23,7 @@
     "file-browser",
     "serve",
     "browser",
+    "web-access",
     "status-bar",
     "footer",
     "turn-separator",
@@ -50,8 +51,7 @@
       "./extensions/plan-mode/index.ts",
       "./extensions/subagent/index.ts",
       "./extensions/jobs/index.ts",
-      "./extensions/web-search/index.ts",
-      "./extensions/web-fetch/index.ts",
+      "./extensions/web-access/index.ts",
       "./extensions/file-browser/index.ts",
       "./extensions/status-bar/index.ts",
       "./extensions/turn-separator/index.ts"
