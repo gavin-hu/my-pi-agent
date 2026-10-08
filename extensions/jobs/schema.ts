@@ -40,20 +40,20 @@ export const JobParams = Type.Object({
 
 export type JobArgs = Static<typeof JobParams>;
 
-/** A validated call: the action plus the fields that action uses. */
-export interface JobCall {
-	action: JobAction;
-	command?: string;
-	cwd?: string;
-	label?: string;
-	wake?: boolean;
-	detached?: boolean;
-	id?: string;
-	lines?: number;
-	signal?: KillSignal;
-	timeoutMs?: number;
-	all?: boolean;
-}
+/**
+ * A validated call: the action plus exactly the fields that action uses.
+ *
+ * A discriminated union so callers narrow on `action` and never need a
+ * non-null assertion for the required fields of a branch.
+ */
+export type JobCall =
+	| { action: "start"; command: string; cwd?: string; label?: string; wake?: boolean; detached?: boolean }
+	| { action: "list" }
+	| { action: "status"; id: string }
+	| { action: "logs"; id: string; lines?: number }
+	| { action: "kill"; id: string; signal?: KillSignal }
+	| { action: "wait"; id: string; timeoutMs?: number }
+	| { action: "clear"; id?: string; all?: boolean };
 
 function optionalString(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -68,46 +68,58 @@ export function normalizeCall(raw: unknown): JobCall {
 	}
 
 	const id = optionalString(args.id);
-	if ((action === "status" || action === "logs" || action === "kill" || action === "wait") && !id) {
-		throw new Error(`"${action}" requires an id (e.g. "j1").`);
-	}
+	const requireId = (): string => {
+		if (!id) throw new Error(`"${action}" requires an id (e.g. "j1").`);
+		return id;
+	};
 
-	const call: JobCall = { action, id };
-	if (action === "start") {
-		const command = typeof args.command === "string" ? args.command.trim() : "";
-		if (!command) throw new Error('"start" requires a command.');
-		if (command.length > MAX_COMMAND) throw new Error(`command is longer than ${MAX_COMMAND} characters.`);
-		call.command = command;
-		const label = optionalString(args.label);
-		if (label && label.length > MAX_LABEL) throw new Error(`label is longer than ${MAX_LABEL} characters.`);
-		call.label = label;
-		const cwd = optionalString(args.cwd);
-		if (cwd) call.cwd = cwd;
-		if (typeof args.wake === "boolean") call.wake = args.wake;
-		if (typeof args.detached === "boolean") call.detached = args.detached;
-	}
-	if (action === "logs") {
-		const lines = typeof args.lines === "number" ? Math.round(args.lines) : undefined;
-		if (lines !== undefined && (lines < MIN_LOG_LINES || lines > MAX_LOG_LINES)) {
-			throw new Error(`lines must be between ${MIN_LOG_LINES} and ${MAX_LOG_LINES}.`);
+	switch (action) {
+		case "start": {
+			const command = typeof args.command === "string" ? args.command.trim() : "";
+			if (!command) throw new Error('"start" requires a command.');
+			if (command.length > MAX_COMMAND) throw new Error(`command is longer than ${MAX_COMMAND} characters.`);
+			const label = optionalString(args.label);
+			if (label && label.length > MAX_LABEL) throw new Error(`label is longer than ${MAX_LABEL} characters.`);
+			const cwd = optionalString(args.cwd);
+			return {
+				action: "start",
+				command,
+				...(label ? { label } : {}),
+				...(cwd ? { cwd } : {}),
+				...(typeof args.wake === "boolean" ? { wake: args.wake } : {}),
+				...(typeof args.detached === "boolean" ? { detached: args.detached } : {}),
+			};
 		}
-		call.lines = lines;
-	}
-	if (action === "kill") {
-		const signal = args.signal;
-		if (signal !== undefined && !(KILL_SIGNALS as readonly string[]).includes(signal)) {
-			throw new Error(`signal must be one of ${KILL_SIGNALS.join(", ")}.`);
+		case "list":
+			return { action: "list" };
+		case "status":
+			return { action: "status", id: requireId() };
+		case "logs": {
+			const lines = typeof args.lines === "number" ? Math.round(args.lines) : undefined;
+			if (lines !== undefined && (lines < MIN_LOG_LINES || lines > MAX_LOG_LINES)) {
+				throw new Error(`lines must be between ${MIN_LOG_LINES} and ${MAX_LOG_LINES}.`);
+			}
+			return { action: "logs", id: requireId(), ...(lines !== undefined ? { lines } : {}) };
 		}
-		call.signal = signal;
-	}
-	if (action === "wait") {
-		const timeoutMs = typeof args.timeoutMs === "number" ? Math.round(args.timeoutMs) : undefined;
-		if (timeoutMs !== undefined && (timeoutMs < 0 || timeoutMs > MAX_WAIT_MS)) {
-			throw new Error(`timeoutMs must be between 0 and ${MAX_WAIT_MS}.`);
+		case "kill": {
+			const signal = args.signal;
+			if (signal !== undefined && !(KILL_SIGNALS as readonly string[]).includes(signal)) {
+				throw new Error(`signal must be one of ${KILL_SIGNALS.join(", ")}.`);
+			}
+			return { action: "kill", id: requireId(), ...(signal !== undefined ? { signal } : {}) };
 		}
-		call.timeoutMs = timeoutMs;
+		case "wait": {
+			const timeoutMs = typeof args.timeoutMs === "number" ? Math.round(args.timeoutMs) : undefined;
+			if (timeoutMs !== undefined && (timeoutMs < 0 || timeoutMs > MAX_WAIT_MS)) {
+				throw new Error(`timeoutMs must be between 0 and ${MAX_WAIT_MS}.`);
+			}
+			return { action: "wait", id: requireId(), ...(timeoutMs !== undefined ? { timeoutMs } : {}) };
+		}
+		case "clear":
+			return {
+				action: "clear",
+				...(id ? { id } : {}),
+				...(typeof args.all === "boolean" ? { all: args.all } : {}),
+			};
 	}
-	if (action === "clear" && typeof args.all === "boolean") call.all = args.all;
-
-	return call;
 }

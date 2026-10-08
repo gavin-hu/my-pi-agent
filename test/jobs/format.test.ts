@@ -150,7 +150,7 @@ describe("jobCounts / pendingFailures", () => {
 			job({ id: "c", status: "failed", exitCode: 1 }),
 			job({ id: "d", status: "killed", signal: "SIGTERM" }),
 		];
-		expect(jobCounts(jobs)).toEqual({ total: 4, running: 1, finished: 3, failed: 1 });
+		expect(jobCounts(jobs)).toEqual({ total: 4, running: 1, failed: 1 });
 	});
 
 	test("pendingFailures lists only unseen failures", () => {

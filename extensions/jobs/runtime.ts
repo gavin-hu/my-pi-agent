@@ -1,9 +1,10 @@
 /**
- * Job runtime: the session-scoped job table and all side effects.
+ * Job runtime: the session-scoped job table and process lifecycle.
  *
- * Owns the in-memory `Job` map, live child handles, log streams, the registry,
- * waiter bookkeeping, the status chip, the widget, and the repaint clock. The
- * process/spawn/clock functions are injectable so the whole runtime can be
+ * Owns the in-memory `Job` map, live child handles, log streams, callbacks, and
+ * the repaint clock, and composes the smaller pieces: `store.ts` (durable
+ * registry), `logs.ts` (log tails), `ui.ts` (chip + widget), and `waiters.ts`.
+ * The process/spawn/clock functions are injectable so the whole runtime can be
  * driven by a fake child in tests.
  *
  * Concurrency: the runtime assumes the tool is `executionMode: "sequential"`,
@@ -11,24 +12,12 @@
  * twice and listeners/waiters are removed on cleanup.
  */
 
-import {
-	closeSync,
-	createWriteStream,
-	existsSync,
-	mkdirSync,
-	openSync,
-	readSync,
-	statSync,
-	unlinkSync,
-	writeFileSync,
-	type WriteStream,
-} from "node:fs";
-import { join, resolve } from "node:path";
+import { createWriteStream, existsSync, mkdirSync, unlinkSync, writeFileSync, type WriteStream } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { GLYPHS, STATUS_KEYS } from "../_shared/ui.ts";
 import { resolveEffectiveCwd } from "../_shared/worktree-env.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
-import { formatLogs, pendingFailures, sanitizeLogLine, sanitizeLogText, tailLines } from "./format.ts";
+import { clipLabel, formatLogs, sanitizeLogLine } from "./format.ts";
+import { readLogTail } from "./logs.ts";
 import {
 	defaultKillTree,
 	defaultLiveness,
@@ -40,7 +29,7 @@ import {
 	type SpawnedProcess,
 	type StartTokenFn,
 } from "./process.ts";
-import { loadRegistry, planReconcile, registryDirFor, saveRegistry } from "./registry.ts";
+import { loadRegistry, planReconcile, registryDirFor } from "./registry.ts";
 import {
 	isSessionAlive,
 	pruneSessionMarkers,
@@ -48,11 +37,11 @@ import {
 	removeSessionMarker,
 	touchSessionMarker,
 } from "./session.ts";
-import { JobsWidget, WIDGET_KEY } from "./tui.ts";
 import { toRecord, type Job, type JobRecord, type KillSignal } from "./types.ts";
+import { createUiController } from "./ui.ts";
+import { createJobStore } from "./store.ts";
+import { createWaiters } from "./waiters.ts";
 
-/** Bytes of log read for a `logs` call. */
-const LOG_READ_BYTES = 64 * 1024;
 /** Characters of sanitized log sent to the model. */
 const LOG_MODEL_CHARS = 16 * 1024;
 /** Cap on the buffered partial line used to track the latest output. */
@@ -134,27 +123,6 @@ export interface JobsRuntime {
 }
 
 /** One-line display label for a command, sanitized and clipped. */
-function previewLabel(command: string): string {
-	const clean = sanitizeLogLine(command);
-	return clean.length > 60 ? `${clean.slice(0, 59)}…` : clean;
-}
-
-/** Next free id, derived from the stored counter and the highest `j<n>` present. */
-function nextCounter(stored: number, records: JobRecord[]): number {
-	let next = stored > 0 ? stored : 1;
-	for (const record of records) {
-		const match = /^j(\d+)$/.exec(record.id);
-		if (match) next = Math.max(next, Number(match[1]) + 1);
-	}
-	return next;
-}
-
-/** Drop trailing blank lines so a final newline does not eat a requested line. */
-function dropTrailingBlank(lines: string[]): string[] {
-	const copy = [...lines];
-	while (copy.length > 0 && copy[copy.length - 1] === "") copy.pop();
-	return copy;
-}
 
 export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const spawn = options.spawn ?? defaultSpawn;
@@ -165,48 +133,41 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const jobs = new Map<string, Job>();
 	const handles = new Map<string, Handle>();
-	const waiters = new Map<string, Set<() => void>>();
-	/** Ids this session deleted, so a merge never resurrects them from disk. */
-	const removed = new Set<string>();
-	let counter = 1;
-	let dir = registryDirFor(process.cwd());
+	const waiters = createWaiters();
+	const store = createJobStore();
 	let config: JobsConfig = options.config ?? loadConfig(process.cwd());
 	let sessionId = "session";
 	let disposed = false;
-	let uiCtx: ExtensionContext | undefined;
-	let tui: { requestRender(): void } | undefined;
 	let clock: ReturnType<typeof setInterval> | undefined;
 	let lastPaint = 0;
-	/** True while a full-screen UI owns the editor; the widget stays hidden. */
-	let uiSuppressed = false;
+
+	/** Footer chip + widget; owns the attached context and suppression flag. */
+	const ui = createUiController({ getJobs: () => jobs.values(), getConfig: () => config });
 
 	const effectiveCwd = (ctx: ExtensionContext): string => resolveEffectiveCwd(ctx.cwd);
 
-	const persist = (): void => {
+	const persist = (): void => store.persist(jobs.values());
+
+	/** Delete a job's log file, best-effort. */
+	const removeLog = (job: JobRecord): void => {
 		try {
-			// Merge onto a fresh read so a peer session's records are preserved
-			// instead of clobbered; our records win, and our deletions stick.
-			const disk = loadRegistry(dir);
-			const merged = new Map<string, JobRecord>();
-			for (const record of disk.jobs) merged.set(record.id, record);
-			for (const id of removed) merged.delete(id);
-			for (const job of jobs.values()) merged.set(job.id, toRecord(job));
-			counter = Math.max(counter, disk.counter);
-			saveRegistry(dir, { version: 1, counter, jobs: [...merged.values()] });
+			const path = store.safeLogPath(job);
+			if (path && existsSync(path)) unlinkSync(path);
 		} catch {
-			// Registry persistence is best-effort; a job still works in-process.
+			// Log cleanup is best-effort.
 		}
 	};
 
 	/** Refresh this session's liveness marker while it runs jobs. */
 	const touchMarker = (): void => {
 		if (disposed) return;
-		touchSessionMarker(dir, sessionId, process.pid, now());
+		touchSessionMarker(store.directory(), sessionId, process.pid, now());
 	};
 
 	/** Whether the session that owns a job is still alive. */
 	const ownerAlive = (owner: string): boolean =>
-		owner === sessionId || isSessionAlive(readSessionMarker(dir, owner), now(), config.sessionTtlMs, liveness);
+		owner === sessionId ||
+		isSessionAlive(readSessionMarker(store.directory(), owner), now(), config.sessionTtlMs, liveness);
 
 	const stopClock = (): void => {
 		if (clock) {
@@ -217,7 +178,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const ensureClock = (): void => {
 		const running = [...jobs.values()].some((job) => job.status === "running");
-		if (disposed || !running || uiSuppressed) {
+		if (disposed || !running || ui.suppressed()) {
 			stopClock();
 			return;
 		}
@@ -225,7 +186,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		clock = setInterval(() => {
 			touchMarker();
 			pollExternal();
-			tui?.requestRender();
+			// Re-assert the chip every tick. It is otherwise only set on a job
+			// transition, so anything that clears extension statuses (a session reload,
+			// another UI path) would hide a still-running job's chip until the next
+			// transition. The clock is the only periodic hook while jobs run.
+			ui.setStatus();
+			ui.requestRender();
 		}, config.repaintMs);
 		clock.unref?.();
 	};
@@ -233,106 +199,13 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const paint = (): void => {
 		ensureClock();
 		touchMarker();
-		if (!uiCtx || disposed) return;
-		try {
-			setStatus(uiCtx);
-			syncWidget(uiCtx);
-		} catch {
-			// UI may be unavailable (print/json modes) or the session may be gone.
-		}
+		if (disposed) return;
+		ui.paint();
 	};
 
-	const setStatus = (ctx: ExtensionContext): void => {
-		try {
-			if (!config.showStatus) {
-				ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
-				return;
-			}
-			const running = [...jobs.values()].filter((job) => job.status === "running").length;
-			const unseenFailures = [...jobs.values()].filter((job) => !job.seen && job.status === "failed").length;
-			const runningBadge = theme(ctx, "accent", `${GLYPHS.jobsRunning}${running}`);
-			const failureBadge = theme(ctx, "error", `${GLYPHS.jobsFailure}${unseenFailures}`);
-			if (running > 0 && unseenFailures > 0) {
-				// One whitespace-free token so the compact status bar keeps both counts
-				// (it otherwise collapses the chip to its first token).
-				ctx.ui.setStatus(STATUS_KEYS.jobs, `${runningBadge}${theme(ctx, "dim", "·")}${failureBadge}`);
-			} else if (running > 0) {
-				ctx.ui.setStatus(STATUS_KEYS.jobs, runningBadge);
-			} else if (unseenFailures > 0) {
-				ctx.ui.setStatus(STATUS_KEYS.jobs, failureBadge);
-			} else {
-				ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
-			}
-		} catch {
-			// UI may be unavailable in non-interactive modes.
-		}
-	};
+	const resolveWaiters = (id: string): void => waiters.resolve(id);
 
-	const syncWidget = (ctx: ExtensionContext): void => {
-		try {
-			if (ctx.mode !== "tui" || !config.showWidget || uiSuppressed) {
-				if (ctx.mode === "tui") ctx.ui.setWidget(WIDGET_KEY, undefined);
-				return;
-			}
-			// Keep the widget mounted while an unreported failure is waiting, even
-			// after the process is gone, so the failure is not silently dropped.
-			const hasRunning = [...jobs.values()].some((job) => job.status === "running");
-			const hasPendingFailure = pendingFailures(jobs.values()).length > 0;
-			if (!hasRunning && !hasPendingFailure) {
-				ctx.ui.setWidget(WIDGET_KEY, undefined);
-				return;
-			}
-			ctx.ui.setWidget(WIDGET_KEY, (handle, theme) => {
-				tui = handle;
-				return new JobsWidget(() => jobs.values(), theme);
-			});
-		} catch {
-			// UI may be unavailable in non-interactive modes.
-		}
-	};
-
-	const setUiSuppressed = (value: boolean): void => {
-		uiSuppressed = value;
-		// Stop the repaint clock while a dock screen owns the editor, and restart it
-		// when the screen closes so externally-reaped jobs are polled again.
-		ensureClock();
-	};
-
-	/** Re-assert the widget after an upper rail re-inserted itself below us. */
-	const reassertWidget = (): void => {
-		if (!uiCtx || disposed) return;
-		try {
-			syncWidget(uiCtx);
-		} catch {
-			// UI may be gone.
-		}
-	};
-
-	const theme = (ctx: ExtensionContext, color: "accent" | "error" | "dim", text: string): string => {
-		try {
-			return ctx.ui.theme.fg(color, text);
-		} catch {
-			return text;
-		}
-	};
-
-	const resolveWaiters = (id: string): void => {
-		const set = waiters.get(id);
-		if (!set) return;
-		for (const resolve of set) resolve();
-		waiters.delete(id);
-	};
-
-	const resolveAllWaiters = (): void => {
-		for (const id of [...waiters.keys()]) resolveWaiters(id);
-	};
-
-	/** A log path is only trusted when it is exactly this job's file inside `dir`. */
-	const safeLogPath = (job: JobRecord): string | undefined => {
-		const expected = resolve(join(dir, `${job.id}.log`));
-		const actual = resolve(job.logPath);
-		return actual === expected ? actual : undefined;
-	};
+	const resolveAllWaiters = (): void => waiters.resolveAll();
 
 	/**
 	 * Whether a persisted start-time token still matches the live pid.
@@ -386,14 +259,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (!changed) return;
 		pruneFinished();
 		persist();
-		if (uiCtx && !disposed) {
-			try {
-				setStatus(uiCtx);
-				syncWidget(uiCtx);
-			} catch {
-				// UI may be gone.
-			}
-		}
+		if (!disposed) ui.paint();
 	};
 
 	const pruneFinished = (): void => {
@@ -407,13 +273,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			const job = finished.shift();
 			if (!job) break;
 			jobs.delete(job.id);
-			removed.add(job.id);
-			try {
-				const path = safeLogPath(job);
-				if (path && existsSync(path)) unlinkSync(path);
-			} catch {
-				// Log cleanup is best-effort.
-			}
+			store.markRemoved(job.id);
+			removeLog(job);
 		}
 	};
 
@@ -496,10 +357,17 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		clear,
 		takePending,
 		runningCount: () => [...jobs.values()].filter((job) => job.status === "running").length,
-		setStatus,
-		syncWidget,
-		reassertWidget,
-		setUiSuppressed,
+		setStatus: (ctx) => ui.setStatus(ctx),
+		syncWidget: (ctx) => ui.syncWidget(ctx),
+		reassertWidget: () => {
+			if (!disposed) ui.reassertWidget();
+		},
+		setUiSuppressed: (value) => {
+			ui.setSuppressed(value);
+			// Stop the repaint clock while a dock screen owns the editor, and restart it
+			// when the screen closes so externally-reaped jobs are polled again.
+			ensureClock();
+		},
 		shutdown,
 		get onFinish() {
 			return onFinishHandler;
@@ -524,22 +392,20 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 		handles.clear();
 		resolveAllWaiters();
-		removed.clear();
-		tui = undefined;
-		uiSuppressed = false;
+		store.resetRemoved();
 		lastPaint = 0;
 
 		config = options.config ?? loadConfig(effectiveCwd(ctx));
 		runtime.config = config;
-		dir = registryDirFor(effectiveCwd(ctx), config.registryDir);
+		store.setDirectory(registryDirFor(effectiveCwd(ctx), config.registryDir));
 		sessionId = ctx.sessionManager.getSessionId();
-		uiCtx = ctx;
+		ui.attach(ctx);
 
 		// Announce this session, and drop markers for sessions that are gone.
 		touchMarker();
-		pruneSessionMarkers(dir, now(), config.sessionTtlMs, liveness);
+		pruneSessionMarkers(store.directory(), now(), config.sessionTtlMs, liveness);
 
-		const file = loadRegistry(dir);
+		const file = loadRegistry(store.directory());
 		// A persisted pid can be reused before the next session; when the start
 		// token disagrees, treat the process as gone instead of reattaching to it.
 		const checked = file.jobs.map((record) =>
@@ -551,7 +417,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			isOwnerAlive: ownerAlive,
 			currentSessionId: sessionId,
 		});
-		counter = nextCounter(file.counter, reconciled);
+		store.setCounter(file.counter);
 
 		for (const record of orphans) {
 			if (record.pid !== null) {
@@ -575,16 +441,13 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	function start(startOptions: StartOptions, ctx: ExtensionContext): Job {
 		if (!config.enabled) throw new Error("jobs are disabled.");
-		uiCtx = ctx;
+		ui.attach(ctx);
 		const cwd = startOptions.cwd ? startOptions.cwd : effectiveCwd(ctx);
-		// A peer session may have advanced the shared counter since we loaded, so
-		// re-read it (and its ids) to avoid handing out a live job's id.
-		const disk = loadRegistry(dir);
-		counter = nextCounter(Math.max(counter, disk.counter), [...disk.jobs, ...jobs.values()]);
-		while (jobs.has(`j${counter}`)) counter++;
-		const id = `j${counter++}`;
-		const logPath = join(dir, `${id}.log`);
-		mkdirSync(dir, { recursive: true });
+		// `store.nextId` folds in the on-disk counter and ids, so a peer session
+		// that advanced the shared counter cannot hand us a live job's id.
+		const id = store.nextId(jobs.keys());
+		const logPath = store.logPath(id);
+		mkdirSync(store.directory(), { recursive: true });
 
 		const process_ = spawn(startOptions.command, { cwd });
 		const pid = process_.pid ?? null;
@@ -600,7 +463,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		stream.on("error", () => {});
 		const job: Job = {
 			id,
-			label: sanitizeLogLine((startOptions.label ?? "").trim()) || previewLabel(startOptions.command),
+			label: sanitizeLogLine((startOptions.label ?? "").trim()) || clipLabel(startOptions.command),
 			command: startOptions.command,
 			cwd,
 			pid,
@@ -636,29 +499,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	function logs(id: string, lines = config.maxLogLines): LogResult | undefined {
 		const job = jobs.get(id);
 		if (!job) return undefined;
-		let text = "";
-		let truncatedBytes = false;
-		const path = safeLogPath(job);
-		try {
-			if (path && existsSync(path)) {
-				const size = statSync(path).size;
-				const start = Math.max(0, size - LOG_READ_BYTES);
-				truncatedBytes = start > 0;
-				const fd = openSync(path, "r");
-				try {
-					const buffer = Buffer.alloc(size - start);
-					readSync(fd, buffer, 0, buffer.length, start);
-					text = buffer.toString("utf8");
-				} finally {
-					closeSync(fd);
-				}
-			}
-		} catch {
-			// A missing/unreadable log yields an empty tail.
-		}
-		const shown = tailLines(dropTrailingBlank(sanitizeLogText(text)), lines);
-		const formatted = formatLogs(job, shown, LOG_MODEL_CHARS);
-		return { job, text: formatted.text, lines: shown, truncated: formatted.truncated || truncatedBytes };
+		const tail = readLogTail(store.safeLogPath(job), lines);
+		const formatted = formatLogs(job, tail.lines, LOG_MODEL_CHARS);
+		return { job, text: formatted.text, lines: tail.lines, truncated: formatted.truncated || tail.truncated };
 	}
 
 	function kill(id: string, signal: KillSignal = "SIGTERM"): Job | undefined {
@@ -749,16 +592,13 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 		return new Promise<WaitResult>((resolve) => {
 			let settled = false;
+			let remove = (): void => {};
 			const finish = (timedOut: boolean, cancelled: boolean): void => {
 				if (settled) return;
 				settled = true;
 				if (timer) clearTimeout(timer);
 				signal?.removeEventListener("abort", onAbort);
-				const set = waiters.get(id);
-				if (set) {
-					set.delete(resolveWaiter);
-					if (set.size === 0) waiters.delete(id);
-				}
+				remove();
 				resolve({ job: jobs.get(id) ?? job, timedOut, cancelled });
 			};
 			const resolveWaiter = (): void => finish(false, false);
@@ -768,9 +608,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 					? setTimeout(() => finish(true, false), DEFAULT_WAIT_MS)
 					: setTimeout(() => finish(true, false), timeoutMs);
 
-			const set = waiters.get(id) ?? new Set<() => void>();
-			set.add(resolveWaiter);
-			waiters.set(id, set);
+			remove = waiters.add(id, resolveWaiter);
 			if (signal?.aborted) onAbort();
 			else signal?.addEventListener("abort", onAbort, { once: true });
 		});
@@ -782,14 +620,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			if (!job) return { cleared: 0, refused: `no job "${id}".` };
 			if (job.status === "running") return { cleared: 0, refused: `job ${id} is still running; kill it first.` };
 			jobs.delete(id);
-			removed.add(id);
+			store.markRemoved(id);
 			resolveWaiters(id);
-			try {
-				const path = safeLogPath(job);
-				if (path && existsSync(path)) unlinkSync(path);
-			} catch {
-				// Log cleanup is best-effort.
-			}
+			removeLog(job);
 			persist();
 			paint();
 			return { cleared: 1 };
@@ -820,14 +653,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 				}
 			}
 			jobs.delete(job.id);
-			removed.add(job.id);
+			store.markRemoved(job.id);
 			resolveWaiters(job.id);
-			try {
-				const path = safeLogPath(job);
-				if (path && existsSync(path)) unlinkSync(path);
-			} catch {
-				// Log cleanup is best-effort.
-			}
+			removeLog(job);
 			cleared++;
 		}
 		persist();
@@ -864,8 +692,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		handles.clear();
 		resolveAllWaiters();
 		persist();
-		removeSessionMarker(dir, sessionId);
-		uiCtx = undefined;
+		removeSessionMarker(store.directory(), sessionId);
+		ui.detach();
 	}
 
 	return runtime;

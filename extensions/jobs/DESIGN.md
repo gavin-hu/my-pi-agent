@@ -87,6 +87,13 @@ chip, and `wait` stay honest.
 spawn/liveness/kill/clock functions. Tests drive a scripted `FakeChild` and a
 temp registry, so the whole suite runs without launching a process.
 
+The runtime is composition, not a monolith: `store.ts` owns the durable
+registry (directory, id counter, session deletions, atomic merge-write),
+`logs.ts` reads bounded log tails, `ui.ts` owns the chip and widget, and
+`waiters.ts` owns `wait` resolver bookkeeping. The live `Job` map stays in the
+runtime because process events mutate it (status, `owned` handle, `lastLine`),
+while the store holds only what survives a session.
+
 ### UI decisions
 
 **Width-1 glyphs.** The status chip is `▸N`/`✗N`, with no space, because the

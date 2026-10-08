@@ -559,6 +559,22 @@ describe("job runtime — pending, clear, status", () => {
 		}
 	});
 
+	test("re-asserts the chip on the repaint clock after an external clear", async () => {
+		const h = makeHarness({ config: { repaintMs: 10 } });
+		try {
+			const { ctx, statuses } = makeCtx();
+			h.runtime.load(ctx);
+			h.runtime.start({ command: "sleep 10" }, ctx);
+			expect(statuses.get("jobs")).toContain("1");
+			// Simulate something clearing the status while the job keeps running.
+			statuses.delete("jobs");
+			await new Promise((resolve) => setTimeout(resolve, 60));
+			expect(statuses.get("jobs")).toContain("1");
+		} finally {
+			h.cleanup();
+		}
+	});
+
 	test("shutdown kills non-detached jobs and keeps detached ones", async () => {
 		const h = makeHarness();
 		try {

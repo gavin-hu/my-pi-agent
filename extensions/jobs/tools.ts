@@ -11,7 +11,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { formatCallText, formatCompletion, formatJobList, formatJobStatus } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
-import { JobParams, normalizeCall, type JobArgs } from "./schema.ts";
+import { JobParams, normalizeCall, type JobArgs, type JobCall } from "./schema.ts";
 import { toRecord, type JobDetails } from "./types.ts";
 
 export const TOOL_NAME = "job";
@@ -56,7 +56,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 		executionMode: "sequential",
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			let call;
+			let call: JobCall;
 			try {
 				call = normalizeCall(params as JobArgs);
 			} catch (error) {
@@ -68,7 +68,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					case "start": {
 						const job = runtime.start(
 							{
-								command: call.command!,
+								command: call.command,
 								cwd: call.cwd,
 								label: call.label,
 								wake: call.wake,
@@ -96,7 +96,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					}
 
 					case "status": {
-						const job = runtime.get(call.id!);
+						const job = runtime.get(call.id);
 						if (!job) return errorResult("status", `no job "${call.id}".`);
 						return {
 							content: [{ type: "text" as const, text: formatJobStatus(job) }],
@@ -105,7 +105,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					}
 
 					case "logs": {
-						const result = runtime.logs(call.id!, call.lines);
+						const result = runtime.logs(call.id, call.lines);
 						if (!result) return errorResult("logs", `no job "${call.id}".`);
 						return {
 							content: [{ type: "text" as const, text: result.text }],
@@ -119,9 +119,9 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					}
 
 					case "kill": {
-						const before = runtime.get(call.id!);
+						const before = runtime.get(call.id);
 						if (!before) return errorResult("kill", `no job "${call.id}".`);
-						const job = runtime.kill(call.id!, call.signal);
+						const job = runtime.kill(call.id, call.signal);
 						if (!job) return errorResult("kill", `no job "${call.id}".`);
 						const wasRunning = before.status === "running";
 						return {
@@ -142,10 +142,10 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					}
 
 					case "wait": {
-						const result = await runtime.wait(call.id!, call.timeoutMs, signal, () =>
+						const result = await runtime.wait(call.id, call.timeoutMs, signal, () =>
 							onUpdate?.({
 								content: [{ type: "text" as const, text: `Waiting on ${call.id}…` }],
-								details: { action: "wait", job: runtime.get(call.id!) } satisfies JobDetails,
+								details: { action: "wait", job: runtime.get(call.id) } satisfies JobDetails,
 							}),
 						);
 						if (!result) return errorResult("wait", `no job "${call.id}".`);

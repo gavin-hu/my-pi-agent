@@ -21,7 +21,7 @@ import type { JobRecord, JobStatus } from "./types.ts";
 const MAX_LOG_LINE = 200;
 
 /** Longest label shown in the widget or transcript. */
-const MAX_LABEL = 48;
+const MAX_DISPLAY_LABEL = 48;
 
 /** ESC-introduced sequences: OSC, CSI, and single-character escapes. */
 const OSC = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
@@ -99,9 +99,13 @@ function statusWord(job: JobRecord): string {
 }
 
 /** A label clipped to one safe display line. */
+export function clipLabel(text: string): string {
+	return truncateToWidth(sanitizeLogLine(text), MAX_DISPLAY_LABEL, "…");
+}
+
+/** A job's label (falling back to its command) clipped to one safe display line. */
 export function shortLabel(job: JobRecord): string {
-	const label = sanitizeLogLine(job.label || job.command);
-	return truncateToWidth(label, MAX_LABEL, "…");
+	return clipLabel(job.label || job.command);
 }
 
 /** One-line job summary shared by the model output and the widget. */
@@ -161,7 +165,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 		case "start": {
 			const command = typeof args.command === "string" ? args.command.trim() : "";
 			if (!command) return argsComplete ? "start" : "start …";
-			const preview = truncateToWidth(command, MAX_LABEL, "…");
+			const preview = truncateToWidth(command, MAX_DISPLAY_LABEL, "…");
 			return `start → ${preview}`;
 		}
 		case "kill":
@@ -186,7 +190,6 @@ export function compareJobs(a: JobRecord, b: JobRecord): number {
 export interface JobCounts {
 	total: number;
 	running: number;
-	finished: number;
 	failed: number;
 }
 
@@ -200,7 +203,7 @@ export function jobCounts(jobs: Iterable<JobRecord>): JobCounts {
 		if (job.status === "running") running++;
 		else if (job.status === "failed") failed++;
 	}
-	return { total, running, finished: total - running, failed };
+	return { total, running, failed };
 }
 
 /** Finished failures whose completion has not been reported to the model yet. */

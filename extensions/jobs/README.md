@@ -125,13 +125,17 @@ Merged from `~/.pi/agent/jobs.json` (global) and `<cwd>/.pi/jobs.json`
 
 ```
 index.ts      Extension factory; registers the tool/command and wires events.
-schema.ts     Parameter schema and pure validation.
+schema.ts     Parameter schema and pure validation (a `JobCall` union).
 config.ts     jobs.json loading and clamping.
 format.ts     Pure formatting, sanitization, and duration helpers.
 process.ts    Injectable spawn/liveness/kill-tree primitives.
 registry.ts   On-disk registry and pure liveness reconciliation.
 session.ts    Per-session heartbeat markers and owner-liveness rules.
-runtime.ts    Job table, handles, logs, chip/widget, repaint clock.
+store.ts      Durable registry: dir, id counter, deletions, merge-write.
+logs.ts       Bounded, sanitized log-tail reading.
+ui.ts         Footer chip and the above-editor widget.
+waiters.ts    `wait` resolver bookkeeping.
+runtime.ts    Composition: job table, handles, process events, repaint clock.
 tui.ts        JobsWidget and the /jobs screen.
 tools.ts      The `job` tool and its transcript rendering.
 commands.ts   The `/jobs` command.
