@@ -11,7 +11,7 @@
  */
 
 import { join, resolve } from "node:path";
-import { loadRegistry, saveRegistry } from "./registry.ts";
+import { loadRegistry, registryDirFor, saveRegistry } from "./registry.ts";
 import { toRecord, type Job, type JobRecord } from "./types.ts";
 
 export interface JobStore {
@@ -45,7 +45,7 @@ function nextCounter(stored: number, ids: Iterable<string>): number {
 	return next;
 }
 
-export function createJobStore(initialDir: string): JobStore {
+export function createJobStore(initialDir = registryDirFor(process.cwd())): JobStore {
 	let dir = initialDir;
 	let counter = 1;
 	const removed = new Set<string>();

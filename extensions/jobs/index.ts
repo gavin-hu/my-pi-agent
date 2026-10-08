@@ -17,6 +17,7 @@ import { registerCommands } from "./commands.ts";
 import { formatCompletion } from "./format.ts";
 import { createJobsRuntime, type JobsRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
+import { WIDGET_KEY } from "./tui.ts";
 import type { Job, JobRecord } from "./types.ts";
 
 /** Marker embedded in the injected completion context. */
@@ -122,7 +123,7 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 		await runtime.shutdown();
 		try {
 			ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
-			if (ctx.mode === "tui") ctx.ui.setWidget("jobs-widget", undefined);
+			if (ctx.mode === "tui") ctx.ui.setWidget(WIDGET_KEY, undefined);
 		} catch {
 			// UI may already be gone.
 		}

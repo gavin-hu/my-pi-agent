@@ -122,8 +122,6 @@ export interface JobsRuntime {
 	onFinish?: (job: Job) => void;
 }
 
-/** One-line display label for a command, sanitized and clipped. */
-
 export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const spawn = options.spawn ?? defaultSpawn;
 	const liveness = options.liveness ?? defaultLiveness;
