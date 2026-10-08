@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createPlanPolicy } from "../../extensions/plan-mode/policy.ts";
-import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, STATE_TYPE } from "../../extensions/plan-mode/runtime.ts";
+import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "../../extensions/plan-mode/runtime.ts";
 import { fakeCtx, makeFakePi, stateEntry } from "./helpers.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {
@@ -15,7 +15,7 @@ function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknow
 }
 
 describe("plan runtime — tool gating", () => {
-	test("enable removes write, edit, and enter_plan_mode and adds exit_plan_mode", () => {
+	test("enable removes write, edit, and enter_plan_mode and adds both control tools", () => {
 		const { runtime, ctx, activeTools } = setup();
 		runtime.enable(ctx);
 		const active = activeTools();
@@ -24,10 +24,11 @@ describe("plan runtime — tool gating", () => {
 		expect(active).not.toContain(ENTER_TOOL);
 		expect(active).not.toContain("bash");
 		expect(active).toContain(EXIT_TOOL);
+		expect(active).toContain(WRITE_PLAN_TOOL);
 		expect(active).toContain("todo");
 	});
 
-	test("disable restores write, edit, and enter_plan_mode and removes exit_plan_mode", () => {
+	test("disable restores write, edit, and enter_plan_mode and removes both control tools", () => {
 		const { runtime, ctx, activeTools } = setup();
 		runtime.enable(ctx);
 		runtime.disable(ctx);
@@ -36,6 +37,7 @@ describe("plan runtime — tool gating", () => {
 		expect(active).toContain("edit");
 		expect(active).toContain(ENTER_TOOL);
 		expect(active).not.toContain(EXIT_TOOL);
+		expect(active).not.toContain(WRITE_PLAN_TOOL);
 	});
 
 	test("keeps the read-only git tool while planning", () => {
@@ -157,5 +159,31 @@ describe("plan runtime — persistence and status", () => {
 		const { runtime, ctx, entries } = setup({ branch: [stateEntry(true)] });
 		runtime.restore(ctx);
 		expect(entries).toHaveLength(0);
+	});
+
+	test("setLastPlan updates the footer chip with the plan basename", () => {
+		const { runtime, ctx, statusCalls } = setup();
+		runtime.enable(ctx);
+		runtime.setLastPlan(ctx, "/repo/.pi/plans/2026-10-08-1530-add-rate-limiting.md");
+		expect(runtime.lastPlanPath()).toBe("/repo/.pi/plans/2026-10-08-1530-add-rate-limiting.md");
+		expect(String(statusCalls.at(-1)?.text)).toContain("⏸ plan · 2026-10-08-1530-add-rate-li");
+	});
+
+	test("recognizes only the known control tool names", () => {
+		const { runtime } = setup();
+		expect(runtime.isControlTool(EXIT_TOOL)).toBe(true);
+		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(true);
+		expect(runtime.isControlTool("write")).toBe(false);
+	});
+
+	test("rejects a control tool sourced from another extension", () => {
+		const fake = makeFakePi({ active: ["read"] });
+		fake.pi.allTools = [
+			{ name: EXIT_TOOL, sourceInfo: { path: "/other/index.ts" } },
+			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/other/index.ts" } },
+		];
+		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
+		expect(runtime.isControlTool(EXIT_TOOL)).toBe(false);
+		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(false);
 	});
 });

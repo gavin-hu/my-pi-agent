@@ -8,6 +8,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -17,6 +18,8 @@ import { createAgentSession, DefaultResourceLoader, SessionManager } from "@eare
 const repo = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const cwd = mkdtempSync(join(tmpdir(), "pi-plan-seed-repo-"));
 const agentDir = mkdtempSync(join(tmpdir(), "pi-plan-seed-agent-"));
+// Make cwd a repository so plan files land in <cwd>/.pi/plans instead of the real agent dir.
+execFileSync("git", ["init", "-q"], { cwd });
 
 afterAll(() => {
 	rmSync(cwd, { recursive: true, force: true });
@@ -81,6 +84,7 @@ async function boot() {
 		confirm: async () => true,
 		select: async () => "Approve and execute",
 		editor: async () => undefined,
+		custom: async () => "approve",
 	};
 	const ctx = new Proxy(base, {
 		get(target, prop, receiver) {
@@ -105,12 +109,18 @@ describe("plan-mode → todo seeding (real runtime)", () => {
 			expect(entered.details.entered).toBe(true);
 			expect(session.getActiveToolNames()).not.toContain("write");
 			expect(session.getActiveToolNames()).toContain("exit_plan_mode");
+			expect(session.getActiveToolNames()).toContain("write_plan");
 
-			const exited = await call("exit_plan_mode", { plan: PLAN });
+			const written = await call("write_plan", { title: "Seed plan", content: PLAN });
+			expect(written.isError).toBeUndefined();
+			const planPath = written.details.path as string;
+
+			const exited = await call("exit_plan_mode", { plan_path: planPath });
 			expect(exited.details.approved).toBe(true);
 			expect(exited.details.seeded).toBe(3);
 			expect(session.getActiveToolNames()).toContain("write");
 			expect(session.getActiveToolNames()).not.toContain("exit_plan_mode");
+			expect(session.getActiveToolNames()).not.toContain("write_plan");
 
 			// Read the seeded list back through the real todo tool: an invalid
 			// write returns the current list in its error details.

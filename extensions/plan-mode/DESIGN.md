@@ -6,7 +6,9 @@ Status: **implemented** (see [`README.md`](./README.md)).
 
 A read-only planning mode, modelled on Claude Code's `EnterPlanMode` /
 `ExitPlanMode` pair. The model explores and proposes; the user approves; only
-then does the model get write access. It is the last of the workflow trio —
+then does the model get write access. The plan is saved to `.pi/plans` and is
+the artifact the user reviews and the model executes, so the only write
+during planning is the plan file itself. It is the last of the workflow trio —
 `worktree` (isolation), `ask-user-question` (input), `todo` (tracking) — and it
 leans on the other two rather than duplicating them.
 
@@ -14,8 +16,8 @@ leans on the other two rather than duplicating them.
 
 - **Not a sandbox.** Extensions share Pi's OS permissions. The tool gating is a
   guard rail against accidental writes, stated as such.
-- **No plan files.** The plan lives in the conversation and the session, not in
-  `~/.claude/plans/`; the todo list is the durable copy of the steps.
+- **No plan manager.** Plan-mode writes and reads plan files but does not list
+  or browse them; a `/plans` command is future work.
 - **No progress tracker.** Plan mode does not own completion state; `todo` does.
 - **No auto-execution.** Approval hands control back to the model.
 
@@ -40,13 +42,26 @@ the read-only context for that very turn. The alternative — a `/plan` prompt
 template — only injects text and cannot guarantee the gating, so the command is
 the right home. `/plan` with no argument still toggles.
 
-**Review in the transcript, decide in a menu.** The plan is the model's message,
-so it is already on screen and scrollable; `exit_plan_mode` only opens the
-choice. Pi's `ctx.ui.confirm()` is a non-scrollable selector, so putting a long
-plan inside it pushes the buttons off-screen — the same class of problem as the
-Claude Code "approve before you've read it" bug. A `select` with *Approve /
-Keep planning / Refine* keeps the plan readable, works in TUI and RPC, and gives
-the user a way to steer instead of only accept or reject.
+**Review the file, decide in a screen (or a menu).** The plan is a file, so it
+is the artifact already on screen and scrollable in the transcript. In the TUI
+`exit_plan_mode` opens `PlanReviewComponent`, a scrollable, width-safe view of
+the file with approve/refine/keep in the footer; dialog-capable non-TUI modes
+fall back to Pi's `select` menu plus the refine editor. Pi's `ctx.ui.confirm()`
+is a non-scrollable selector, so putting a long plan inside it pushes the
+buttons off-screen — the same class of problem as the Claude Code "approve
+before you've read it" bug. A `select` (plus the review screen in the TUI) keeps
+the plan readable and gives the user a way to steer instead of only accept or
+reject.
+
+**The model writes the plan file through `write_plan`.** Plan mode is not
+strictly read-only: it permits exactly one write, a dedicated tool that takes a
+short title and markdown and can only create or overwrite files inside the
+resolved plans directory. It is not the builtin `write`, so the capability
+policy and the path backstop stay intact; the `tool_call` guard exempts the
+control tool only when the registered tool is this extension's own, matched by
+source path, so a same-named tool from another extension cannot borrow the
+exemption. The plans directory is self-ignoring (a `.gitignore` of `*`), so git
+and `checkpoint` leave plan files alone without editing the project.
 
 **Approval seeds `todo` via `ctx.executeTool`.** The user chose tight
 integration. The event bus carries no `ctx`, so a todo listener could not
@@ -78,7 +93,8 @@ a later disable survives tree navigation and `/resume`.
 | Tool | Params | Active | Notes |
 |---|---|---|---|
 | `enter_plan_mode` | none | normal mode | `defaultActive` true; `ctx.ui.confirm` before entering |
-| `exit_plan_mode` | `plan: string` | plan mode | `defaultActive` false; `select` → approve / keep / refine |
+| `write_plan` | `title`, `content`, optional `plan_path` | plan mode | `defaultActive` false; writes `<repo>/.pi/plans/YYYY-MM-DD-HHmm-<slug>.md` (agent dir outside a repo) |
+| `exit_plan_mode` | `plan_path` | plan mode | `defaultActive` false; reads the file, then review screen (TUI) or select (RPC) → approve / keep / refine |
 
 Tool gating is symmetric and stateless: enabling removes every active tool the
 policy does not consider read-only and adds `exit_plan_mode`; disabling restores
@@ -89,8 +105,9 @@ request cannot slip through.
 ## Prompt and context
 
 - `before_agent_start` injects a hidden `[PLAN MODE ACTIVE]` message while
-  enabled, telling the model to explore, write the plan in its reply, then call
-  `exit_plan_mode`; it may use `ask_user_question` to resolve approaches.
+  enabled, telling the model to explore, save the plan with `write_plan`, then
+  call `exit_plan_mode` with the returned path; the file is the source of truth
+  and it may use `ask_user_question` to resolve approaches.
 - `context` drops stale plan-mode messages when disabled, so `/resume` from a
   planning session does not carry the read-only instruction into later turns.
 
@@ -130,7 +147,9 @@ result is capability gating at the tool boundary, with raw shell removed.
    argument.
 
 The boundary is now: (1) capability gating, (3) no raw shell, and (4) a path
-check on top, so (2) holds because delegation is blocked. The one-line rule:
-**enforce capabilities at the tool boundary; do not parse commands to decide
-what is safe.** The remaining idea — read-only delegation — is a feature, not a
-hole.
+check on top, so (2) holds because delegation is blocked. Plan mode adds one
+narrow, audited write — the plan artifact, through `write_plan` into the plans
+directory — so the guarantee is "read-only except the plan file". The one-line
+rule: **enforce capabilities at the tool boundary; do not parse commands to
+decide what is safe.** The remaining idea — read-only delegation — is a feature,
+not a hole.

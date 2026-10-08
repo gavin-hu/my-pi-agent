@@ -1,8 +1,10 @@
-# plan-mode — read-only planning for Pi
+# plan-mode — file-backed planning for Pi
 
 A read-only exploration mode modelled on Claude Code's `EnterPlanMode` /
 `ExitPlanMode` pair. While plan mode is on, the model can investigate and
-propose, but cannot modify files until the user approves the plan.
+propose, but the only thing it may write is the plan file itself. The plan is
+saved under `.pi/plans` and is the artifact the user reviews and the model
+executes against.
 
 ```
 pi --extension ./extensions/plan-mode     # load just this extension
@@ -12,20 +14,30 @@ pi --plan                                 # start in plan mode
 
 ## What it does
 
-- **Read-only gating.** Tools that are not read-only are removed from the
-  active set or blocked. `write` and `edit` are hidden, raw shell (`bash`,
-  `powershell`) is disabled, and other tools that mutate (`subagent`,
-  worktree mutations, MCP tools) are blocked until you exit plan mode. Classification
-  defaults to *deny* and is driven by the shared
+- **Read-only gating, with one exception.** Tools that are not read-only are
+  removed from the active set or blocked. `write` and `edit` are hidden, raw
+  shell (`bash`, `powershell`) is disabled, and other mutating tools
+  (`subagent`, worktree mutations, MCP tools) are blocked until you exit plan
+  mode. Classification defaults to *deny* and is driven by the shared
   [`_shared/policy.ts`](../_shared/policy.ts), so unknown tools are safe by
   default and the MCP `readOnlyHint` is the only thing that opens one up — but a
   hinted tool that takes a file path is still refused unless it is a known
-  reader (`_shared/path-guard.ts`). The exact allow and deny lists live in
-  `policy.ts`.
+  reader (`_shared/path-guard.ts`). The one permitted write is the plan-mode
+  control tool `write_plan`, which can only create files inside the plans
+  directory.
 - **Model entry point.** The model can call `enter_plan_mode` to ask for plan
   mode before a non-trivial task; the user confirms.
-- **Reviewable plan.** The model writes the plan in its reply, then calls
-  `exit_plan_mode`; the user approves, keeps planning, or asks for a refinement.
+- **Plan files.** The model saves the plan with `write_plan`; the file lands in
+  `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` (or
+  `<agent-dir>/plans` outside a repository). The plans directory is
+  self-ignoring, so plan files never show up as untracked files or in
+  `checkpoint` snapshots.
+- **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
+  it: a scrollable review screen in the TUI, a select dialog elsewhere. The user
+  approves, keeps planning, or asks for a refinement.
+- **The file is the source of truth.** On approval the model is told to follow
+  the plan file's steps; refinements rewrite the same file (`write_plan` with
+  `plan_path`), so the reviewed artifact is the executed artifact.
 - **Steps become todos.** On approval, the plan's top-level numbered/bulleted
   steps are recorded with the `todo` tool (via `ctx.executeTool`); steps marked
   `- [x]` (or `[DONE:n]`) seed as completed, and nested sub-bullets are treated
@@ -43,7 +55,8 @@ pi --plan                                 # start in plan mode
 | `Ctrl+Alt+P` | the user | immediate |
 | `--plan` | the user, at launch | immediate |
 
-The footer shows `⏸ plan` while plan mode is on.
+The footer shows `⏸ plan` while plan mode is on, and `⏸ plan · <plan-file>`
+once the model has written a plan.
 
 ### `/plan <prompt>`
 
@@ -55,37 +68,50 @@ read-only:
 /plan add rate limiting to the public API
 ```
 
+## Writing a plan
+
+While plan mode is active the model has three tools:
+
+| Tool | Purpose |
+|---|---|
+| `write_plan` | Save the plan: `title` (file-name slug), `content` (full markdown), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
+| `exit_plan_mode` | Read the plan file (`plan_path`) and present it for approval. |
+| `enter_plan_mode` | Ask to enter plan mode. |
+
+A plan file looks like `.pi/plans/2026-10-08-1530-add-rate-limiting.md`. Because
+the directory holds a `.gitignore` with `*`, git and `checkpoint` ignore it
+without touching the project's own `.gitignore`.
+
 ## Reviewing a plan
 
-The plan stays in the conversation, so you can scroll it; `exit_plan_mode` then
-opens a menu below the editor:
+`exit_plan_mode` reads the plan file and opens a review screen in the TUI:
 
 ```
- ⏺ ## Plan
-   1. Read the parser and tokenizer.
-   2. Add a Token type and the lexer.
-   3. Wire the parser to the new lexer.
-   4. Update and add tests.
-   5. Run the suite and fix failures.
-   6. Update the README.
-   ⚙ exit_plan_mode  submitted a plan
+─── Plan Review · add-rate-limiting ────────────────────────────
+  6 steps · .pi/plans/2026-10-08-1530-add-rate-limiting.md
 
- ─────────────────────────────────────────────────────────────
-  Plan mode — what next?
+  ## Plan
+  1. Read the parser and tokenizer.
+  2. Add a Token type and the lexer.
+  3. Wire the parser to the new lexer.
+  4. Update and add tests.
+  …
 
-  → Approve and execute
-    Keep planning
-    Refine the plan          ← opens the editor; your text goes back to the model
-
-  ↑↓ navigate  enter select  esc cancel
- ─────────────────────────────────────────────────────────────
+  a approve · r refine · Esc keep · ↑↓/j/k scroll · lines 1–14 of 24 (43%)
 ```
 
-- **Approve and execute** — plan mode ends, write access returns, and the steps
-  are seeded into `todo`.
-- **Keep planning** — stay read-only; the model is told the plan was not approved.
-- **Refine the plan** — type the change you want; it is sent back to the model,
-  which revises the plan and calls `exit_plan_mode` again.
+- **`a` / Approve and execute** — plan mode ends, write access returns, and the
+  steps are seeded into `todo`. The model executes from the plan file.
+- **`r` / Refine the plan** — type the change you want; it is sent back to the
+  model, which rewrites the plan file and calls `exit_plan_mode` again.
+- **`Esc` / Keep planning** — stay read-only; the model is told the plan was not
+  approved.
+
+Scroll with `↑↓`/`j`/`k`, `space`/`b` or `PgUp`/`PgDn` (one line of overlap), `d`/`u` for a half page, and `g`/`G` (or `Home`/`End`) for the ends; the mouse wheel scrolls too in fullscreen. The subtitle leads with the current section (`§ Rollout`) once its heading scrolls off, then the step count and path; the footer shows the visible range and percent only when the plan overflows the screen. Hints are added while they fit, so a narrower terminal drops whole keys (the position, then `space`/`b` and `g`/`G`) rather than truncating one in half. Resizing the terminal keeps the same source line on top.
+
+Dialog-capable non-TUI modes (RPC) show the same three choices as a select menu
+plus the refine editor; without any UI the tools fail with an actionable message
+instead of deciding for the user.
 
 ## No raw shell
 
@@ -108,11 +134,14 @@ exit plan mode first or wait for approval.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Wiring: tools, command, flag, shortcut, events, context injection. |
-| `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `ExitPlanModeDetails`. |
+| `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`. |
 | `policy.ts` | Plan mode's read-only policy and shared prompt summary. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read. |
 | `steps.ts` | `extractPlanSteps` (pure). |
-| `runtime.ts` | Enabled state, tool gating, persistence, footer status. |
-| `tools.ts` | `enter_plan_mode` and `exit_plan_mode`. |
+| `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
+| `tools.ts` | `enter_plan_mode`, `write_plan`, and `exit_plan_mode`. |
 | `commands.ts` | `/plan`. |
+| `tui.ts` | `PlanReviewComponent` (scrollable plan + approve/refine/keep). |
 | `../_shared/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../_shared/path-guard.ts` | Path-argument detection for the read-only backstop. |
+| `../_shared/tui.ts` | Shared screen header and viewport-row helpers. |

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import planMode, { PLAN_MODE_MARKER } from "../../extensions/plan-mode/index.ts";
-import { ENTER_TOOL, EXIT_TOOL } from "../../extensions/plan-mode/runtime.ts";
+import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../../extensions/plan-mode/runtime.ts";
 import { emit, fakeCtx, makeFakePi, otherMessage, planModeMessage, stateEntry } from "./helpers.ts";
 
 /** A pi instance that has been started with plan mode restored as enabled. */
@@ -18,6 +18,7 @@ describe("plan-mode wire-up", () => {
 		planMode(pi);
 		expect(tools.has(ENTER_TOOL)).toBe(true);
 		expect(tools.has(EXIT_TOOL)).toBe(true);
+		expect(tools.has(WRITE_PLAN_TOOL)).toBe(true);
 		expect(commands.has("plan")).toBe(true);
 		expect(shortcuts.size).toBe(1);
 		expect(flags.has("plan")).toBe(true);
@@ -98,6 +99,19 @@ describe("plan-mode bash and write guard", () => {
 		}
 	});
 
+	test("allows the plan control tools but not a same-named write from elsewhere", async () => {
+		const { fakePi } = await enabledPi();
+		const { ctx } = fakeCtx();
+		for (const toolName of [WRITE_PLAN_TOOL, EXIT_TOOL]) {
+			const [result] = await emit(fakePi.pi, "tool_call", { toolName, input: {} }, ctx);
+			expect(result).toBeUndefined();
+		}
+
+		fakePi.pi.allTools = [{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/other/index.ts" } }];
+		const [blocked] = await emit(fakePi.pi, "tool_call", { toolName: WRITE_PLAN_TOOL, input: {} }, ctx);
+		expect(blocked.block).toBe(true);
+	});
+
 	test("allows a tool that carries the read-only hint", async () => {
 		const { fakePi } = await enabledPi();
 		fakePi.pi.allTools = [{ name: "web_search", annotations: { readOnlyHint: true } }];
@@ -140,6 +154,7 @@ describe("plan-mode context", () => {
 		const [result] = await emit(fakePi.pi, "before_agent_start", {}, ctx);
 		expect(result.message.customType).toBe("plan-mode-context");
 		expect(result.message.content).toContain(PLAN_MODE_MARKER);
+		expect(result.message.content).toContain("write_plan");
 		expect(result.message.display).toBe(false);
 	});
 

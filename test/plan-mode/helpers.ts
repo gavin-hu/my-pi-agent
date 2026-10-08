@@ -16,9 +16,9 @@ export interface FakePi {
 }
 
 /** Minimal `ExtensionAPI` double covering the surface the plan-mode extension uses. */
-export function makeFakePi(options: { active?: string[]; planFlag?: boolean } = {}): FakePi {
+export function makeFakePi(options: { active?: string[]; planFlag?: boolean; exec?: any } = {}): FakePi {
 	const defaultActive = ["read", "bash", "edit", "write", "grep", "find", "ls"];
-	const fake = createFakePi({ active: options.active ?? defaultActive });
+	const fake = createFakePi({ active: options.active ?? defaultActive, exec: options.exec });
 	fake.pi.registerFlag = (name: string, opts: any) => {
 		fake.flags.set(name, { ...opts, default: name === "plan" && options.planFlag ? true : opts.default });
 	};
@@ -43,6 +43,7 @@ export interface FakeCtx {
 	setConfirm(value: boolean | undefined): void;
 	setSelect(value: string | undefined): void;
 	setEditor(value: string | undefined): void;
+	setCustom(value: unknown): void;
 	setExecuteError(value: boolean): void;
 }
 
@@ -51,10 +52,12 @@ export function fakeCtx(
 	options: {
 		mode?: string;
 		hasUI?: boolean;
+		cwd?: string;
 		branch?: unknown[];
 		confirm?: boolean | undefined;
 		select?: string | undefined;
 		editor?: string | undefined;
+		custom?: unknown;
 	} = {},
 ): FakeCtx {
 	const statusCalls: Array<{ key: string; text: unknown }> = [];
@@ -63,11 +66,13 @@ export function fakeCtx(
 	let confirmResult = options.confirm;
 	let selectResult = options.select;
 	let editorResult = options.editor;
+	let customResult = options.custom;
 	let executeError = false;
 
 	const ctx: any = {
-		mode: options.mode ?? "tui",
+		mode: options.mode ?? "rpc",
 		hasUI: options.hasUI ?? true,
+		cwd: options.cwd ?? process.cwd(),
 		isIdle: () => true,
 		sessionManager: { getBranch: () => options.branch ?? [] },
 		tools: [],
@@ -78,6 +83,7 @@ export function fakeCtx(
 			confirm: async () => confirmResult,
 			select: async () => selectResult,
 			editor: async () => editorResult,
+			custom: async () => customResult,
 		},
 		executeTool: async (name: string, args: unknown) => {
 			toolCalls.push({ name, args });
@@ -98,6 +104,9 @@ export function fakeCtx(
 		},
 		setEditor: (value) => {
 			editorResult = value;
+		},
+		setCustom: (value) => {
+			customResult = value;
 		},
 		setExecuteError: (value) => {
 			executeError = value;

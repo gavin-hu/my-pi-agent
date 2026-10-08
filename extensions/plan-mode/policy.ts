@@ -22,7 +22,8 @@ const ALWAYS_BLOCKED_TOOLS = ["write", "edit", "bash", "powershell", ENTER_TOOL]
 
 /** One-clause description of the read-only guarantee, reused across prompts. */
 export const READ_ONLY_SUMMARY =
-	"write, edit, and raw shell (bash/powershell) are disabled, and other mutating tools are blocked";
+	"write, edit, and raw shell (bash/powershell) are disabled and other mutating tools are blocked; the only write is " +
+	"write_plan, which saves the plan under .pi/plans";
 
 /** Shown when a tool call is refused while planning. */
 export const BLOCKED_GUIDANCE = "Call exit_plan_mode and get approval before using it.";

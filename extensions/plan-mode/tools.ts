@@ -1,32 +1,54 @@
 /**
- * Model-facing registration for the plan-mode tool pair.
+ * Model-facing registration for the plan-mode tools.
  *
  * `enter_plan_mode` lets the model ask to plan before touching code; it needs
- * user confirmation. `exit_plan_mode` presents the finished plan for approval;
- * on approval it leaves plan mode and seeds the `todo` tool with the plan's
- * steps (through `ctx.executeTool`, so the todo widget and validation run
- * normally). Without an interactive UI neither tool can ask, so it fails with
- * an actionable message instead of deciding for the user.
+ * user confirmation. `write_plan` saves the plan artifact under `.pi/plans` and
+ * returns its path. `exit_plan_mode` reads that file back, presents it for
+ * approval (a scrollable review screen in the TUI, a select dialog elsewhere),
+ * and on approval seeds the `todo` tool with the plan's steps (through
+ * `ctx.executeTool`, so the todo widget and validation run normally). The file
+ * is the source of truth: the model executes from it.
+ *
+ * Without an interactive UI the approval tools fail with an actionable message
+ * instead of deciding for the user.
  */
 
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
-import { ENTER_TOOL, EXIT_TOOL, type PlanRuntime } from "./runtime.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
+import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
-import type { EnterPlanModeDetails, ExitPlanModeDetails } from "./types.ts";
+import { PlanReviewComponent, type PlanReviewAction } from "./tui.ts";
+import type { EnterPlanModeDetails, ExitPlanModeDetails, WritePlanDetails } from "./types.ts";
 
 /** Tool that records the seeded steps; plan-mode only calls it if it exists. */
 const TODO_TOOL = "todo";
 
 const ExitPlanModeParams = Type.Object({
-	plan: Type.String({
-		description: "The complete plan to execute, as markdown. Include every step so the user can judge it.",
+	plan_path: Type.String({
+		description:
+			"Path to the plan file written by write_plan (absolute, or relative to the working directory). The user reviews this file.",
 	}),
 });
 
+const WritePlanParams = Type.Object({
+	title: Type.String({
+		description: "Short title for the plan, used as the file-name slug, e.g. \"Add rate limiting\".",
+	}),
+	content: Type.String({
+		description: "The complete plan as markdown, including every step, so the user can read and judge it.",
+	}),
+	plan_path: Type.Optional(
+		Type.String({
+			description:
+				"Overwrite an existing plan file (one returned by an earlier write_plan) to refine it instead of creating a new file.",
+		}),
+	),
+});
+
 type ExitPlanModeArgs = Static<typeof ExitPlanModeParams>;
+type WritePlanArgs = Static<typeof WritePlanParams>;
 
 /** Lines of plan shown in an unexpanded result. */
 const PREVIEW_LINES = 8;
@@ -36,8 +58,9 @@ const ENTER_CONFIRM =
 	"Enter plan mode to investigate and propose an approach before making changes?";
 
 const ENTERED_TEXT =
-	"You are now in plan mode. Explore read-only, write the full plan in your reply, then call exit_plan_mode and wait " +
-	`for the user to approve, keep planning, or ask for a refinement. While planning, ${READ_ONLY_SUMMARY}.`;
+	"You are now in plan mode. Explore read-only, then save the full plan with write_plan (a short title and the markdown) " +
+	"and call exit_plan_mode with the returned path so the user can read the file and choose. " +
+	`While planning, ${READ_ONLY_SUMMARY}.`;
 
 function preview(plan: string): string {
 	const lines = plan.split("\n");
@@ -58,6 +81,38 @@ async function seedTodos(
 	return { recorded: outcome.isError ? 0 : steps.length, steps };
 }
 
+/**
+ * Ask the user to review the plan file. The TUI opens the scrollable review
+ * screen; dialog-capable modes (RPC) fall back to a select plus the refine
+ * editor; the caller has already refused when there is no UI.
+ */
+async function reviewPlan(
+	ctx: ExtensionToolContext,
+	plan: { path: string; relativePath: string; content: string; bytes: number },
+): Promise<PlanReviewAction> {
+	if (ctx.mode === "tui") {
+		const action = await ctx.ui.custom<PlanReviewAction | undefined>((tui, theme, _keybindings, done) =>
+			new PlanReviewComponent({
+				plan,
+				theme,
+				onClose: (choice) => done(choice),
+				requestRender: () => tui.requestRender(),
+				viewportRows: () => tui.terminal?.rows,
+			}),
+		);
+		return action ?? "keep";
+	}
+
+	const choice = await ctx.ui.select("Plan mode — what next?", [
+		"Approve and execute",
+		"Keep planning",
+		"Refine the plan",
+	]);
+	if (choice === "Approve and execute") return "approve";
+	if (choice === "Refine the plan") return "refine";
+	return "keep";
+}
+
 export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 	pi.registerTool({
 		name: ENTER_TOOL,
@@ -65,8 +120,8 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		description:
 			"Use this proactively before starting a non-trivial implementation task. Getting the user's sign-off on the " +
 			"approach before writing code prevents wasted effort and keeps you aligned. Entering plan mode switches you to " +
-			"read-only exploration so you can investigate and design, then call exit_plan_mode to present the plan for " +
-			"approval. Requires the user to confirm. Not needed for small or obvious changes.",
+			"read-only exploration so you can investigate and design, then save the plan with write_plan and call " +
+			"exit_plan_mode to present it for approval. Requires the user to confirm. Not needed for small or obvious changes.",
 		promptSnippet: "Ask the user to enter read-only plan mode before a non-trivial implementation task.",
 		promptGuidelines: [
 			"Call enter_plan_mode before a non-trivial implementation task; skip it for small, obvious changes.",
@@ -122,16 +177,87 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 	});
 
 	pi.registerTool({
+		name: WRITE_PLAN_TOOL,
+		label: "Write plan",
+		description:
+			"Save the plan you have designed as a markdown file under .pi/plans (project root, or the agent directory " +
+			"outside a repository). The file is the plan the user reviews and approves, so write the complete plan, not a " +
+			"summary. Returns the path; pass it to exit_plan_mode. Use plan_path to overwrite the same file when refining a " +
+			"plan instead of creating a new one.",
+		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
+		promptGuidelines: [
+			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
+			"Use a short, descriptive title; it becomes the plan file's slug.",
+		],
+		parameters: WritePlanParams,
+		defaultActive: false,
+		executionMode: "sequential",
+		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			if (!runtime.isEnabled()) {
+				return {
+					content: [{ type: "text", text: "Not in plan mode; call enter_plan_mode first." }],
+					details: undefined,
+					isError: true,
+				};
+			}
+			const args = params as WritePlanArgs;
+			try {
+				const file = await runtime.plans.write(ctx.cwd, {
+					title: args.title,
+					content: args.content,
+					planPath: args.plan_path,
+				});
+				runtime.setLastPlan(ctx, file.path);
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}`,
+						},
+					],
+					details: { path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
+				};
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return { content: [{ type: "text", text: `Could not write the plan: ${message}` }], details: undefined, isError: true };
+			}
+		},
+
+		renderCall(args, theme) {
+			const title = (args as Partial<WritePlanArgs>).title;
+			const suffix = title ? theme.fg("muted", title) : theme.fg("muted", "plan");
+			return new Text(theme.fg("toolTitle", theme.bold(`${WRITE_PLAN_TOOL} `)) + suffix, 0, 0);
+		},
+
+		renderResult(result, _options, theme) {
+			const details = result.details as WritePlanDetails | undefined;
+			if (!details) {
+				const first = result.content[0];
+				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+			}
+			return new Text(
+				theme.fg("success", "✓ Saved plan ") + theme.fg("muted", details.relativePath),
+				0,
+				0,
+			);
+		},
+	});
+
+	pi.registerTool({
 		name: EXIT_TOOL,
 		label: "Exit plan mode",
 		description:
-			"Present the finished plan and ask the user to approve it. Write the plan in your reply first, then call this " +
-			"tool so the user can read it before choosing. On approval, plan mode ends, write access is restored, and the " +
-			"plan's steps are recorded in the todo list; the user may instead keep planning or ask for a refinement.",
-		promptSnippet: "Present the plan and ask the user to approve leaving plan mode.",
+			"Present the saved plan and ask the user to approve it. Read the plan file written by write_plan, then call this " +
+			"tool with plan_path so the user can review it before choosing. On approval plan mode ends, write access is " +
+			"restored, and the plan's steps are recorded in the todo list; the user may instead keep planning or ask for a " +
+			"refinement. The plan file stays the source of truth as you execute.",
+		promptSnippet: "Present the saved plan and ask the user to approve leaving plan mode.",
 		promptGuidelines: [
 			"When plan mode is active, do not edit files; investigate and produce a plan.",
-			"Write the full plan in your reply, then call exit_plan_mode so the user can review it before deciding.",
+			"Save the plan with write_plan, then call exit_plan_mode with the returned plan_path.",
+			"After approval, treat the plan file as the source of truth and follow its steps.",
 		],
 		parameters: ExitPlanModeParams,
 		defaultActive: false,
@@ -139,60 +265,70 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const plan = (params as ExitPlanModeArgs).plan.trim();
+			const planPath = (params as ExitPlanModeArgs).plan_path.trim();
 
 			if (!runtime.isEnabled()) {
 				return {
 					content: [{ type: "text", text: "Not in plan mode; there is no plan to approve." }],
-					details: { approved: false, plan } satisfies ExitPlanModeDetails,
+					details: { approved: false, plan: "", planPath } satisfies ExitPlanModeDetails,
 					isError: true,
 				};
 			}
+
+			const file = await runtime.plans.read(ctx.cwd, planPath);
+			if (!file) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: `No plan file at "${planPath}". Save the plan with write_plan first, then pass the returned path.`,
+						},
+					],
+					details: { approved: false, plan: "", planPath } satisfies ExitPlanModeDetails,
+					isError: true,
+				};
+			}
+
 			if (!ctx.hasUI) {
 				return {
 					content: [
 						{
 							type: "text",
-							text: "No interactive UI is available to approve the plan. Present the plan and ask the user to approve it in their reply.",
+							text: `No interactive UI is available to approve the plan. It is saved at ${file.relativePath}; present it and ask the user to approve it in their reply.`,
 						},
 					],
-					details: { approved: false, plan, unavailable: true } satisfies ExitPlanModeDetails,
+					details: { approved: false, plan: file.content, planPath: file.path, relativePath: file.relativePath, unavailable: true } satisfies ExitPlanModeDetails,
 					isError: true,
 				};
 			}
 
-			const choice = await ctx.ui.select("Plan mode — what next?", [
-				"Approve and execute",
-				"Keep planning",
-				"Refine the plan",
-			]);
-
-			if (choice === "Refine the plan") {
+			const choice = await reviewPlan(ctx, file);
+			if (choice === "refine") {
 				const refinement = (await ctx.ui.editor("Refine the plan:", ""))?.trim();
 				if (refinement) {
 					return {
 						content: [
 							{
 								type: "text",
-								text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan, then call exit_plan_mode again.`,
+								text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
 							},
 						],
-						details: { approved: false, plan, refined: true, refinement } satisfies ExitPlanModeDetails,
+						details: { approved: false, plan: file.content, planPath: file.path, relativePath: file.relativePath, refined: true, refinement } satisfies ExitPlanModeDetails,
 					};
 				}
 			}
 
-			if (choice !== "Approve and execute") {
+			if (choice !== "approve") {
 				return {
 					content: [
 						{ type: "text", text: "Plan not approved. Stay in plan mode, ask what to change, and revise the plan." },
 					],
-					details: { approved: false, plan } satisfies ExitPlanModeDetails,
+					details: { approved: false, plan: file.content, planPath: file.path, relativePath: file.relativePath } satisfies ExitPlanModeDetails,
 				};
 			}
 
 			runtime.disable(ctx);
-			const { recorded, steps } = await seedTodos(ctx, plan);
+			const { recorded, steps } = await seedTodos(ctx, file.content);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps.map((step) => `- [${step.status === "completed" ? "x" : " "}] ${step.content}`).join("\n")}`
@@ -205,9 +341,12 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 						: " If the todo tool is available, record the steps with it before you start.";
 			return {
 				content: [
-					{ type: "text", text: `Plan approved. Plan mode is off and write access is restored.${tail}${listing}` },
+					{
+						type: "text",
+						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${file.relativePath} is the source of truth; follow its steps.${tail}${listing}`,
+					},
 				],
-				details: { approved: true, plan, seeded: recorded, steps } satisfies ExitPlanModeDetails,
+				details: { approved: true, plan: file.content, planPath: file.path, relativePath: file.relativePath, seeded: recorded, steps } satisfies ExitPlanModeDetails,
 			};
 		},
 
@@ -229,8 +368,10 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 						? theme.fg("accent", "Refining the plan")
 						: theme.fg("warning", "Plan not approved");
 			const extra = details.refined && details.refinement ? `\n${theme.fg("muted", `↳ ${details.refinement}`)}` : "";
+			const shown = details.relativePath ?? details.planPath;
+			const path = shown ? `\n${theme.fg("muted", `📄 ${shown}`)}` : "";
 			const body = expanded ? details.plan : preview(details.plan);
-			return new Text(`${heading}${extra}\n${theme.fg("dim", body)}`, 0, 0);
+			return new Text(`${heading}${extra}${path}\n${theme.fg("dim", body)}`, 0, 0);
 		},
 	});
 }

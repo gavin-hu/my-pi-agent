@@ -17,12 +17,26 @@ export interface EnterPlanModeDetails {
 	unavailable?: boolean;
 }
 
+/** Structured result carried in `write_plan`'s `details`. */
+export interface WritePlanDetails {
+	/** Absolute path of the written plan file. */
+	path: string;
+	/** Path relative to the working directory, when inside it. */
+	relativePath: string;
+	/** Size of the written plan in bytes. */
+	bytes: number;
+}
+
 /** Structured result carried in `exit_plan_mode`'s `details`. */
 export interface ExitPlanModeDetails {
 	/** Whether the user approved the plan. */
 	approved: boolean;
-	/** The plan the model submitted. */
+	/** The plan the model submitted, read from its file. */
 	plan: string;
+	/** Absolute path of the reviewed plan file. */
+	planPath?: string;
+	/** Path relative to the working directory, for transcript display. */
+	relativePath?: string;
 	/** How many plan steps were seeded into the todo list. */
 	seeded?: number;
 	/** The steps extracted from the plan, whether or not `todo` accepted them. */

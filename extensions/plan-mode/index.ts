@@ -1,11 +1,12 @@
 /**
- * plan-mode — a read-only planning mode for Pi.
+ * plan-mode — a file-backed planning mode for Pi.
  *
  * While plan mode is on, tools that are not read-only are removed from the
  * active set or blocked: write and edit are hidden, raw shell (bash and
  * powershell) is disabled, and everything else that mutates (subagent,
- * worktree, MCP tools) is blocked. The model investigates, produces a plan,
- * and calls `exit_plan_mode` to ask the user for approval.
+ * worktree, MCP tools) is blocked. The one permitted write is `write_plan`,
+ * which saves the plan under `.pi/plans`. The model investigates, saves the
+ * plan, and calls `exit_plan_mode` to read the file back and ask for approval.
  *
  * Toggle with `/plan`, `Ctrl+Alt+P`, or start with `--plan`. The state is
  * persisted as a custom session entry, so it follows the active branch.
@@ -16,6 +17,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
+import { fileURLToPath } from "node:url";
 import { hasPathInput } from "../_shared/path-guard.ts";
 import { registerCommands } from "./commands.ts";
 import { createPlanPolicy, BLOCKED_GUIDANCE, PLAN_SAFE_TOOLS, READ_ONLY_SUMMARY } from "./policy.ts";
@@ -29,11 +31,21 @@ const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
 You are in plan mode: a read-only exploration mode for safe code analysis.
 
 - While planning, ${READ_ONLY_SUMMARY}.
-- Investigate the code and design a concrete plan; do not modify anything yet.
-- Write the full plan in your reply, then call exit_plan_mode so the user can read it and approve, keep planning, or ask for a refinement.
+- Investigate the code and design a concrete plan; do not modify anything except the plan file.
+- Save the full plan with write_plan (a short title and the complete markdown), then call exit_plan_mode with the returned plan_path so the user can read the file and approve, keep planning, or ask for a refinement.
+- The plan file is the source of truth: after approval, follow its steps.
 - If you need to choose between approaches, use ask_user_question before finalizing the plan.
 
 If the todo tool is active, you may use it to record the planned steps, but do not start executing until the plan is approved.`;
+
+/** This extension entry file, as Pi records it for our tool registrations. */
+function extensionEntryPath(): string | undefined {
+	try {
+		return fileURLToPath(import.meta.url);
+	} catch {
+		return undefined;
+	}
+}
 
 function isPlanModeContext(message: AgentMessage): boolean {
 	const candidate = message as AgentMessage & { customType?: string };
@@ -50,7 +62,7 @@ function isPlanModeContext(message: AgentMessage): boolean {
 
 export default function planMode(pi: ExtensionAPI): void {
 	const policy = createPlanPolicy(pi);
-	const runtime = createPlanRuntime(pi, policy);
+	const runtime = createPlanRuntime(pi, policy, { entryPath: extensionEntryPath() });
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
@@ -76,6 +88,10 @@ export default function planMode(pi: ExtensionAPI): void {
 	 * the path backstop (a hint on a path-carrying tool is only a claim).
 	 */
 	const blockedReason = (toolName: string, input: unknown): string | undefined => {
+		// Plan-owned control tools are the sanctioned exception: `write_plan` saves
+		// the artifact, `exit_plan_mode` presents it. The source-path check keeps a
+		// same-named tool from another extension from borrowing the exemption.
+		if (runtime.isControlTool(toolName)) return undefined;
 		const blocked = policy.check(toolName);
 		if (blocked) return `Plan mode: ${blocked.reason}`;
 		if (hasPathInput(input) && !PLAN_SAFE_TOOLS.includes(toolName)) {

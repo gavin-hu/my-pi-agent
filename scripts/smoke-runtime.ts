@@ -179,8 +179,10 @@ check(
 // a headless entry attempt refuses instead of entering silently.
 check("enter_plan_mode registered", !!session.getAllTools().find((t) => t.name === "enter_plan_mode"));
 check("exit_plan_mode registered", !!session.getAllTools().find((t) => t.name === "exit_plan_mode"));
+check("write_plan registered", !!session.getAllTools().find((t) => t.name === "write_plan"));
 check("enter_plan_mode active by default", session.getActiveToolNames().includes("enter_plan_mode"));
 check("exit_plan_mode inactive without plan mode", !session.getActiveToolNames().includes("exit_plan_mode"));
+check("write_plan inactive without plan mode", !session.getActiveToolNames().includes("write_plan"));
 const enterResult = await call("enter_plan_mode", {});
 check(
 	"enter_plan_mode refuses without a UI",
