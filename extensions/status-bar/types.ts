@@ -6,6 +6,8 @@
  * each line for the available width.
  */
 
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
+
 /** Cumulative token/cost totals across the session branch. */
 export interface UsageTotals {
 	input: number;
@@ -39,7 +41,7 @@ export interface StatusSnapshot {
 	/** Extension status texts (from `ctx.ui.setStatus`), including `worktree`. */
 	statuses: ReadonlyMap<string, string>;
 	model: ModelInfo | null;
-	thinkingLevel: string | null;
+	thinkingLevel: ThinkingLevel | null;
 	context: ContextInfo;
 	usage: UsageTotals;
 	/** Latest cache hit rate as a percentage, or `null` when unknown. */

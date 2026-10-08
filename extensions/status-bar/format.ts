@@ -5,6 +5,7 @@
  * strings the bar shows. Styling happens in `lines.ts`.
  */
 
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { CONFIG } from "./config.ts";
 
@@ -95,7 +96,7 @@ export function contextColor(percent: number | null): FgToken {
 	return "success";
 }
 
-const THINKING_TOKENS: Record<string, ThinkingColor> = {
+const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {
 	off: "thinkingOff",
 	minimal: "thinkingMinimal",
 	low: "thinkingLow",
@@ -115,7 +116,8 @@ export function truncateLabel(label: string, max: number): string {
 	return stripAnsi(truncateToWidth(label, max, "…"));
 }
 
-/** Theme token for a reasoning-effort level. */
-export function thinkingColor(level: string): ThinkingColor {
-	return THINKING_TOKENS[level] ?? "thinkingMedium";
+/** Theme token for a reasoning-effort level. Mirrors Pi's own mapping; the
+ *  `thinkingOff` fallback only guards against an unknown runtime value. */
+export function thinkingColor(level: ThinkingLevel): ThinkingColor {
+	return THINKING_TOKENS[level] ?? "thinkingOff";
 }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
 	computeGauge,
 	contextColor,
@@ -91,10 +92,18 @@ describe("contextColor", () => {
 });
 
 describe("thinkingColor", () => {
-	test("maps known levels and falls back", () => {
+	test("maps every level to its theme token", () => {
+		expect(thinkingColor("off")).toBe("thinkingOff");
+		expect(thinkingColor("minimal")).toBe("thinkingMinimal");
+		expect(thinkingColor("low")).toBe("thinkingLow");
+		expect(thinkingColor("medium")).toBe("thinkingMedium");
 		expect(thinkingColor("high")).toBe("thinkingHigh");
 		expect(thinkingColor("xhigh")).toBe("thinkingXhigh");
-		expect(thinkingColor("nonsense")).toBe("thinkingMedium");
+		expect(thinkingColor("max")).toBe("thinkingMax");
+	});
+
+	test("falls back to the off token for an unknown runtime level", () => {
+		expect(thinkingColor("nonsense" as ThinkingLevel)).toBe("thinkingOff");
 	});
 });
 
