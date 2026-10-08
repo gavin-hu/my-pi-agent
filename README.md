@@ -30,9 +30,10 @@ only for the development tasks below.
 | Extension | [`extensions/rewind/`](./extensions/rewind/) | `rewind`: automatic per-prompt working-tree snapshots under `refs/pi/rewind`, plus `/rewind` to restore the code, the conversation, or both. Code rewinds never move HEAD; conversation rewinds use the session tree. |
 | Extension | [`extensions/plan-mode/`](./extensions/plan-mode/) | `plan-mode`: read-only planning via `enter_plan_mode` / `write_plan` / `exit_plan_mode`; plans are saved to `.pi/plans` and approved before execution (`--plan` to start, `/plan` toggles, `/plans` browses, `Ctrl+Alt+P`). |
 | Extension | [`extensions/subagent/`](./extensions/subagent/) | `subagent`: delegate a task to a specialized agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) running in its own `pi` process — single, parallel (max 8/4), or chained via `{previous}`, with optional user/project markdown agents. |
-| Extension | [`extensions/jobs/`](./extensions/jobs/) | `jobs`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸N` chip + one-line widget) with sanitized log tails and shutdown/reconcile lifecycle. |
+| Extension | [`extensions/jobs/`](./extensions/jobs/) | `jobs`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸ N` running / `✗ N` failure chips) with sanitized log tails and shutdown/reconcile lifecycle. |
 | Extension | [`extensions/web-search/`](./extensions/web-search/) | `web_search`: keyless, fetch-only lookup — DuckDuckGo Instant Answers with a Wikipedia fallback (no general web results). |
 | Extension | [`extensions/web-fetch/`](./extensions/web-fetch/) | `web_fetch`: fetch a URL and return readable text (HTML→text, paging, SSRF guard); native `fetch`, no dependencies. |
+| Extension | [`extensions/serve/`](./extensions/serve/) | `serve`: `/serve` starts a read-only local HTTP server rooted at the working directory and opens a two-pane browser tree — listings, file views, image thumbnails, per-language icons, and a filter; `127.0.0.1` only, no dependencies. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + git state, then context gauge + usage + mode/alert + model + thinking level; width-adaptive, `/status-bar` toggles it. |
 | Extension | [`extensions/turn-separator/`](./extensions/turn-separator/) | `turn-separator`: a labeled dashed line between completed turns — `agent_settled` appends an inert custom entry that an entry renderer draws as `╌╌╌ turn N ╌╌╌`; width-adaptive, TTY-only. |
 | Theme | [`themes/nocturne-dark.json`](./themes/nocturne-dark.json) | `nocturne-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
@@ -63,6 +64,14 @@ bun run smoke      # real-runtime package load + worktree enter/list/exit (no mo
 bun run e2e:rewind # real SDK: command context → AgentSession.navigateTree + git restore
 bun run check      # format:check + typecheck + transpile + tests + smoke + e2e:rewind
 ```
+
+### Cross-platform
+
+The package and its checks run on Windows, macOS, and Linux; CI runs the full
+`bun run check` on all three. `git` must be on `PATH`. Symlink-dependent tests
+skip automatically when the host cannot create symlinks (unprivileged Windows
+without Developer Mode), so an unprivileged Windows checkout still passes with a
+few skips instead of failures.
 
 There is also one live end-to-end test for the `subagent` extension. It makes a
 real model call and is skipped unless explicitly enabled:

@@ -4,6 +4,59 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `serve`: a read-only `/serve` command that starts a local HTTP server rooted
+  at the effective working directory and opens the default browser. The page is
+  a two-pane tree browser — a collapsible path tree, directory listings, and
+  file pages (text with a line-number gutter, images, binary/download cards) —
+  with image thumbnails, per-language icons, and a client-side path filter. It
+  binds `127.0.0.1` only, rejects foreign `Host` headers, guard-checks every path
+  against traversal and symlink escapes, caps listing/text/thumbnail/file sizes,
+  and uses a strict CSP (`/raw` is `script-src 'none'; sandbox`). No
+  dependencies beyond `node:http` and one first-party `app.js`.
+
+### Changed
+
+- `jobs`: removed the above-editor widget. Job state now lives entirely in the
+  status bar as a `▸ N` running chip and a separate `✗ N` unreported-failure
+  chip (each keeps its count in the compact bar); the `showWidget` config option
+  is gone.
+- Cross-platform: CI now runs the full `bun run check` on Ubuntu, Windows, and
+  macOS (matrix, `fail-fast: false`), so platform regressions are caught on every
+  pull request. The test script raises the per-test timeout to 30s so the slower
+  Windows temp/git tests are not flaky.
+
+### Fixed
+
+- Cross-platform runtime paths: git's `--show-toplevel` output is canonicalized
+  to the native real path in the shared `repoRoot`, so rewind and plan-mode
+  compare roots consistently on Windows (forward slashes vs backslashes, and 8.3
+  short names). Plan containment and the serve guard likewise resolve symlinks
+  with `realpathSync.native`.
+- `worktree`: the bash isolation guard keeps backslashes in unquoted/Windows
+  paths (only shell-significant characters are unescaped) and resolves real
+  paths natively, so `git -C C:\main\checkout` is still blocked on Windows. The
+  traversal check also accepts an in-tree sibling whose name starts with `..`.
+- `subagent`: `shortenPath` normalizes separators before replacing the home
+  prefix, so a Windows home (`C:\Users\x`) shortens to `~` for `/`-separated
+  paths too.
+- Windows: the test suite is portable. Temp paths are normalized with
+  `realpathSync.native` so the 8.3 short names from `os.tmpdir()` compare equal to
+  git's expanded output; path assertions use `join`/`resolve` instead of POSIX
+  literals; test repos are created with `git init -q -b main` and
+  `core.autocrlf=false` so restored files stay byte-exact; teardown retries a
+  locked temp directory instead of failing with `EBUSY`; and symlink-dependent
+  tests skip automatically when the host cannot create symlinks (for example
+  unprivileged Windows) via `test/helpers/platform.ts`.
+- Windows: the `smoke` script waits for a background job to exit before removing
+  the worktree it ran in, and `e2e:rewind` seeds its snapshot with the native
+  repo root.
+- `plan-mode`: the traversal guard accepts an in-tree sibling whose name merely
+  starts with `..` (for example `..notes`).
+
 ## [0.4.0] - 2026-10-08
 
 ### Added
