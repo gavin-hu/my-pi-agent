@@ -25,17 +25,15 @@ pi install ./                       # install the package
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list, and stored lists are re-sanitized on replay.
 
-The widget leads with the active item, so an `in_progress` task is never
-pushed out by finished rows:
+The widget is a one-line summary — progress plus the current item — so the
+active task is always visible without expanding the list:
 
 ```
-Todos 1/3 completed
-  ◐ Writing the tests
-  ○ Ship it
-  ✓ Write the schema
+Todos · 1/3 · ◐ Writing the tests
 ```
 
-`/todos` keeps the model's list order (use it to see the plan as written).
+`/todos` is the expanded view and keeps the model's list order (use it to see
+the plan as written).
 
 ## Tool
 
@@ -85,8 +83,7 @@ The widget presentation is configurable from `~/.pi/agent/todo.json` and
 
 | Key | Default | Meaning |
 |---|---|---|
-| `maxRows` | `5` | Total widget rows, including the header and any overflow row (clamped 3–10). |
-| `hideWhenComplete` | `true` | Hide the widget once every item is completed. An empty list always hides. |
+| `hideWhenComplete` | `true` | Hide the one-line widget once every item is completed. An empty list always hides. |
 
 Malformed files and invalid values are ignored, and todo behavior never depends
 on config.

@@ -8,16 +8,12 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { compareByActivity, progressSummary, todoGlyph, todoLabel } from "./format.ts";
-import { DEFAULT_MAX_ROWS, type Todo } from "./types.ts";
+import { progressCount, progressSummary, todoGlyph, todoLabel } from "./format.ts";
+import { currentTodo } from "./state.ts";
+import type { Todo } from "./types.ts";
 
 /** Widget key used with `ctx.ui.setWidget()`. */
 export const WIDGET_KEY = "todo-widget";
-
-export interface TodoWidgetOptions {
-	/** Total rows the widget may occupy, including the header and any overflow row. */
-	maxRows?: number;
-}
 
 /** Items the `/todos` screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
@@ -38,17 +34,15 @@ function todoRow(todo: Todo, theme: Theme, width: number): string {
 	return truncateToWidth(`  ${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`, width);
 }
 
-/** Rows for the compact widget, bounded so it cannot crowd the editor. */
-function widgetLines(todos: Todo[], theme: Theme, width: number, options: TodoWidgetOptions = {}): string[] {
-	const maxRows = Math.max(2, options.maxRows ?? DEFAULT_MAX_ROWS);
-	const ordered = [...todos].sort(compareByActivity);
-	const hasMore = ordered.length > maxRows - 1;
-	const shown = ordered.slice(0, hasMore ? maxRows - 2 : maxRows - 1);
-
-	const lines = [`${theme.fg("accent", "Todos")} ${theme.fg("dim", progressSummary(todos))}`];
-	for (const todo of shown) lines.push(todoRow(todo, theme, width));
-	if (hasMore) lines.push(truncateToWidth(theme.fg("dim", `  … ${ordered.length - shown.length} more`), width));
-	return lines.map((line) => truncateToWidth(line, width));
+/**
+ * One-line widget summary: progress plus the current item, or a completion note
+ * when nothing is open. Callers clip it to the available width.
+ */
+export function todoLine(todos: Todo[], theme: Theme): string {
+	const head = `${theme.fg("accent", "Todos")} ${theme.fg("dim", "·")} ${theme.fg("dim", progressCount(todos))}`;
+	const current = currentTodo(todos);
+	if (!current) return `${head} ${theme.fg("dim", "completed")}`;
+	return `${head} ${theme.fg("dim", "·")} ${todoGlyph(current, theme)} ${todoLabel(current, theme)}`;
 }
 
 /** Top border with the title centered-left, exactly `width` columns wide. */
@@ -64,18 +58,18 @@ function screenHeader(theme: Theme, width: number): string {
 	return theme.fg("borderMuted", prefix) + theme.fg("accent", label) + theme.fg("borderMuted", "─".repeat(remaining));
 }
 
-/** Persistent widget body shown above the editor while the list is non-empty. */
+/** Persistent one-line widget shown above the editor while the list has work. */
 export class TodoWidget implements Component {
 	constructor(
 		private readonly todos: Todo[],
 		private readonly theme: Theme,
-		private readonly options: TodoWidgetOptions = {},
 	) {}
 
 	invalidate(): void {}
 
 	render(width: number): string[] {
-		return widgetLines(this.todos, this.theme, Math.max(1, width), this.options);
+		if (this.todos.length === 0) return [];
+		return [truncateToWidth(todoLine(this.todos, this.theme), Math.max(1, width), "…")];
 	}
 }
 

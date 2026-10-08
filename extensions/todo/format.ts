@@ -44,10 +44,16 @@ export function todoLabel(todo: Todo, theme: Theme): string {
 	return theme.fg("muted", todo.content);
 }
 
+/** "2/5" — completed over total. */
+export function progressCount(todos: Todo[]): string {
+	if (todos.length === 0) return "0/0";
+	return `${completedCount(todos)}/${todos.length}`;
+}
+
 /** "2/5 completed", or a note when the list is empty. */
 export function progressSummary(todos: Todo[]): string {
 	if (todos.length === 0) return "No todos";
-	return `${completedCount(todos)}/${todos.length} completed`;
+	return `${progressCount(todos)} completed`;
 }
 
 /** Numbered checklist, one item per line. */

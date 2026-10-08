@@ -47,8 +47,7 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 			return;
 		}
 		const snapshot = todos;
-		const options = { maxRows: config.maxRows };
-		ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => new TodoWidget(snapshot, theme, options));
+		ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => new TodoWidget(snapshot, theme));
 	};
 
 	// The goal sits above this list by design, but Pi re-inserts a widget on every

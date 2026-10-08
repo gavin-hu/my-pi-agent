@@ -38,9 +38,8 @@ silently coerced, so the model learns it from the error.
 into `ctx.ui.setWidget()`; the widget only exists in `tui` mode and only while
 the list has an unfinished item — an empty or fully completed list hides it, so
 a finished plan stops crowding the editor while `/todos` still shows it. The
-row budget (`maxRows`) and the finished-list behaviour (`hideWhenComplete`) come
-from `.pi/todo.json`, mirroring the goal widget's config. It never becomes the
-only copy of anything.
+finished-list behaviour (`hideWhenComplete`) comes from `.pi/todo.json`,
+mirroring the goal widget's config. It never becomes the only copy of anything.
 
 **The list re-asserts itself below the goal.** The goal is the *what* and sits
 above the list, the *how*. Pi renders above-editor widgets in insertion order
@@ -59,13 +58,12 @@ transcript numbering; raw escape sequences would let model text restyle or
 control the terminal. Sanitizing at the boundary fixes both for every consumer
 at once, and keeps the pure `format.ts` helpers free of terminal concerns.
 
-**Previews surface active work; full views keep the model's order.** The
-widget and the collapsed transcript result order items by status
-(`in_progress` → `pending` → `completed`, stable), so an active task is never
-hidden behind finished rows or an overflow line. `/todos` and the expanded
-transcript result keep the submitted order, because those views answer "what
-did I ask for?" rather than "what now?". Both orderings come from one
-`compareByActivity` helper so they cannot drift.
+**The widget summarizes; full views keep the model's order.** The persistent
+widget is a single line — `Todos · 1/3 · ◐ Writing tests` — so progress and the
+current item are always visible without expanding the list; `currentTodo` picks
+the `in_progress` item, else the first pending one. `/todos` keeps the submitted
+order. The transcript result still orders items by status via
+`compareByActivity`, so an active task is never hidden behind finished rows.
 
 ## Non-goals
 
