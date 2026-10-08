@@ -83,7 +83,8 @@ describe("CheckpointListComponent", () => {
 		expect(short).not.toContain("prompt 6");
 
 		const tall = makeComponent({ checkpoints: many, viewportRows: 60 }).render(60).join("\n");
-		expect(tall).toContain("showing 1–20 of 30");
+		expect(tall).toContain("prompt 29");
+		expect(tall).not.toContain("showing");
 	});
 
 	test("drops the title instead of ellipsizing the border when very narrow", () => {
@@ -139,6 +140,15 @@ describe("CheckpointListComponent", () => {
 		component.handleInput("s");
 		component.handleInput("c");
 		expect(choices).toEqual([{ action: "save" }, { action: "clear" }]);
+	});
+
+	test("the wheel moves the selection", () => {
+		const component = makeComponent();
+		component.render(60);
+		expect(component.handleMouse({ type: "wheel", wheelDelta: 1 } as any)).toEqual({ handled: true });
+		const selected = component.render(60).find((line) => line.startsWith("❯"));
+		expect(selected).toContain("before restore");
+		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
 	});
 
 	test("loads stats once per focused checkpoint and renders them", async () => {

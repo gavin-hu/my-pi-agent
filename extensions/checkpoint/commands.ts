@@ -152,7 +152,7 @@ async function chooseCheckpoint(
 				theme,
 				onClose: (action) => done(action),
 				requestRender: () => tui.requestRender(),
-				viewportRows: tui.terminal?.rows,
+				viewportRows: () => tui.terminal?.rows,
 				loadStats,
 			}),
 		);

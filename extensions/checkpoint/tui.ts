@@ -10,7 +10,15 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import {
+	Key,
+	matchesKey,
+	truncateToWidth,
+	type Component,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
+} from "@earendil-works/pi-tui";
+import { screenHeader, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
 import { formatChangeSummary, formatCheckpointRow } from "./format.ts";
 import type { Checkpoint } from "./types.ts";
 
@@ -33,50 +41,27 @@ export interface CheckpointListOptions {
 	/** Called once when the screen closes, with the chosen action or undefined. */
 	onClose: (action?: CheckpointAction) => void;
 	requestRender: () => void;
-	viewportRows?: number;
+	viewportRows?: ViewportRowsSource;
 	/** Load change stats for the focused checkpoint. Results are cached per id. */
 	loadStats?: (checkpoint: Checkpoint) => Promise<CheckpointStats>;
 }
 
 /** Rows the screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
-/** Never show fewer/more than this many rows, however tall the terminal. */
-const SCREEN_MIN_ITEMS = 3;
-const SCREEN_MAX_ITEMS = 20;
-/** Header, summary, detail, footer, and blank rows the screen spends around items. */
-const SCREEN_CHROME_ROWS = 9;
-
-/** How many checkpoints fit in a terminal of `rows` rows (undefined falls back). */
-function visibleItems(rows: number | undefined): number {
-	if (rows === undefined || !Number.isFinite(rows) || rows <= 0) return SCREEN_DEFAULT_ITEMS;
-	return Math.max(SCREEN_MIN_ITEMS, Math.min(rows - SCREEN_CHROME_ROWS, SCREEN_MAX_ITEMS));
-}
-
-/** Top border with the title centered-left, exactly `width` columns wide. */
-function screenHeader(theme: Theme, width: number): string {
-	const label = " Checkpoints ";
-	const prefix = "───";
-	// Too narrow for the title and a border on each side: show a plain rule
-	// rather than truncating the title into an ellipsis.
-	if (width < visibleWidth(prefix) + visibleWidth(label) + 1) {
-		return theme.fg("borderMuted", "─".repeat(width));
-	}
-	const remaining = width - visibleWidth(prefix) - visibleWidth(label);
-	return theme.fg("borderMuted", prefix) + theme.fg("accent", label) + theme.fg("borderMuted", "─".repeat(remaining));
-}
+/** Header, summary, blanks, and footer rows around the list (excluding the optional range and detail rows). */
+const SCREEN_CHROME_ROWS = 8;
 
 /** Selectable, scrollable checkpoint list opened by `/checkpoint`. */
 export class CheckpointListComponent implements Component {
 	private selected = 0;
 	private scrollTop = 0;
 	private disposed = false;
-	private readonly visible: number;
+	private visible = SCREEN_DEFAULT_ITEMS;
 	private readonly stats = new Map<string, CheckpointStats>();
 	private readonly loading = new Set<string>();
 	private readonly errors = new Map<string, string>();
 
 	constructor(private readonly options: CheckpointListOptions) {
-		this.visible = visibleItems(options.viewportRows);
 		this.loadFocusedStats();
 	}
 
@@ -156,6 +141,13 @@ export class CheckpointListComponent implements Component {
 		}
 	}
 
+	/** Wheel scrolling in fullscreen moves the cursor; regular mode leaves the wheel to the terminal. */
+	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
+		this.setSelected(this.selected + event.wheelDelta);
+		return { handled: true };
+	}
+
 	dispose(): void {
 		this.disposed = true;
 	}
@@ -164,7 +156,7 @@ export class CheckpointListComponent implements Component {
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const lines: string[] = [screenHeader(this.theme, w), ""];
+		const lines: string[] = [screenHeader(this.theme, w, "Checkpoints"), ""];
 
 		if (this.checkpoints.length === 0) {
 			lines.push(
@@ -177,7 +169,20 @@ export class CheckpointListComponent implements Component {
 			const count = `${this.checkpoints.length} checkpoint${this.checkpoints.length === 1 ? "" : "s"}`;
 			lines.push(truncateToWidth(`  ${this.theme.fg("muted", `${count} · newest first`)}`, w));
 			lines.push("");
-			const end = Math.min(this.checkpoints.length, this.scrollTop + this.visible);
+			const hasDetail = Boolean(this.detailFor(this.checkpoints[this.selected]));
+			let visible = viewportRows(this.options.viewportRows, {
+				chrome: SCREEN_CHROME_ROWS + (hasDetail ? 1 : 0),
+				fallback: SCREEN_DEFAULT_ITEMS,
+			});
+			// Reserve the range row only when the list is longer than the viewport.
+			if (this.checkpoints.length > visible) {
+				visible = viewportRows(this.options.viewportRows, {
+					chrome: SCREEN_CHROME_ROWS + (hasDetail ? 1 : 0) + 1,
+					fallback: SCREEN_DEFAULT_ITEMS,
+				});
+			}
+			this.visible = visible;
+			const end = Math.min(this.checkpoints.length, this.scrollTop + visible);
 			for (let i = this.scrollTop; i < end; i++) {
 				const selected = i === this.selected;
 				const row = formatCheckpointRow(this.checkpoints[i], Date.now(), Math.max(1, w - 2));
@@ -194,7 +199,7 @@ export class CheckpointListComponent implements Component {
 				);
 			}
 			lines.push("");
-			const detail = this.detailFor(this.checkpoints[this.selected]);
+			const detail = hasDetail ? this.detailFor(this.checkpoints[this.selected]) : "";
 			if (detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", detail)}`, w));
 		}
 
