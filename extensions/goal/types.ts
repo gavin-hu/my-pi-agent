@@ -16,9 +16,6 @@ export const GOAL_ENTRY_TYPE = "goal";
 /** How an achieved goal renders in the persistent widget. */
 export type AchievedStyle = "collapse" | "block" | "hide";
 
-/** Default total rows for the persistent goal widget, header included. */
-export const DEFAULT_MAX_ROWS = 3;
-
 /** The single session goal. */
 export interface Goal {
 	/** The objective, sanitized to a single line. */

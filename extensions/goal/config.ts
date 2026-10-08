@@ -6,21 +6,15 @@
  * widget presentation is configurable — goal behavior never depends on it.
  */
 
-import { clampInteger, loadConfigFile } from "../_shared/config.ts";
-import { DEFAULT_MAX_ROWS, type AchievedStyle } from "./types.ts";
+import { loadConfigFile } from "../_shared/config.ts";
+import type { AchievedStyle } from "./types.ts";
 
 export interface GoalConfig {
-	/** Total widget rows, including the header. */
-	maxRows: number;
-	/** How an achieved goal renders: collapsed, as a block, or hidden. */
+	/** How an achieved goal renders: the one-line rail, or hidden. */
 	achieved: AchievedStyle;
 }
 
-export const DEFAULT_GOAL_CONFIG: GoalConfig = { maxRows: DEFAULT_MAX_ROWS, achieved: "collapse" };
-
-/** Smallest/largest widget row budget that still shows the objective. */
-export const MIN_MAX_ROWS = 3;
-export const MAX_MAX_ROWS = 6;
+export const DEFAULT_GOAL_CONFIG: GoalConfig = { achieved: "collapse" };
 
 const ACHIEVED_STYLES: readonly AchievedStyle[] = ["collapse", "block", "hide"];
 
@@ -29,13 +23,10 @@ function normalizeAchieved(value: unknown, fallback: AchievedStyle): AchievedSty
 	return (ACHIEVED_STYLES as readonly string[]).includes(style) ? (style as AchievedStyle) : fallback;
 }
 
-/** Validate/clamp a raw config object over `base`. */
+/** Validate a raw config object over `base`. */
 export function normalizeGoalConfig(raw: Record<string, unknown> | undefined, base: GoalConfig): GoalConfig {
 	if (!raw) return base;
-	return {
-		maxRows: clampInteger(raw.maxRows, base.maxRows, MIN_MAX_ROWS, MAX_MAX_ROWS),
-		achieved: normalizeAchieved(raw.achieved, base.achieved),
-	};
+	return { achieved: normalizeAchieved(raw.achieved, base.achieved) };
 }
 
 /** Effective goal config for `cwd` (global file, then project file, over defaults). */

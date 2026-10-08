@@ -52,27 +52,26 @@ must not, or the two would ping-pong. The coordination is value-only (a channel
 constant and pure helpers), never shared module state, because extensions load
 with isolated module caches.
 
-**The goal shares the todo widget's grammar.** Both are a header line at column
-zero plus glyph-led, two-space-indented body rows: `Goal · active` then
-`  ◎ <objective>`, wrapping with continuation rows aligned under the text. The
+**The goal widget is one line, matching the todo widget.** The persistent
+widget is a single glyph-led rail line, `◎ Goal · active · <objective>`. The
 goal deliberately does not own a separate visual language: the goal is the
 *what*, the todo list the *how*, and reading them as one family makes that
-relationship legible at a glance. The rail is drawn from literal characters (no
-panel or layout engine) so it stays legible in the main screen, and the active
-rail is capped (default three rows) so it cannot crowd the editor; a capped
-rail ends with a dedicated dim `…` row, the same overflow row the todo widget
-uses.
+relationship legible at a glance. The line is drawn from literal characters (no
+panel or layout engine) and clipped to the terminal, so it stays legible without
+crowding the editor. The transcript result keeps the multi-line glyph rail
+(`Goal · active` then `  ◎ <objective>`), which is where the full objective is
+read.
 
-**Achieved goals collapse by default.** A one-line `✓ Goal achieved · …`
-replaces the rail once the goal is done, so finished work stops occupying the
-editor; `/goal` and the transcript keep the record. `achieved` in
-`.pi/goal.json` selects `collapse`, `block`, or `hide`, and `maxRows` tunes the
-active budget. Config only affects presentation; behavior never depends on it.
+**An achieved goal is dimmed, not expanded.** The widget line becomes
+`✓ Goal · achieved · <objective>` with a dim objective, so finished work is
+visually retired; `/goal` and the transcript keep the record. `achieved` in
+`.pi/goal.json` accepts `collapse`/`block` (both render the one line) or `hide`
+to remove it. Config only affects presentation; behavior never depends on it.
 
 **Sanitize at the boundary.** `normalizeGoal` replaces control characters
 (including `ESC`) with spaces and collapses whitespace runs, so an embedded
-newline cannot corrupt the widget and raw escapes cannot
-restyle the terminal. The widget assumes one logical line and wraps it itself.
+newline cannot corrupt the widget and raw escapes cannot restyle the terminal.
+The widget assumes one logical line and clips it to the width.
 
 **Available while planning.** `plan-mode` keeps its `PLAN_SAFE_TOOLS` — the
 structured readers plus the plan and goal trackers — so the model can record or

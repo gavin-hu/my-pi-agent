@@ -39,7 +39,7 @@ export function createGoalRuntime(pi?: Pick<ExtensionAPI, "events">): GoalRuntim
 			return;
 		}
 		const snapshot = current;
-		const options = { maxRows: config.maxRows, achieved: config.achieved };
+		const options = { achieved: config.achieved };
 		ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => new GoalWidget(snapshot, theme, options));
 		// The goal is the upper rail; tell lower rails (todo) to re-assert so they
 		// stay below it. Re-insertion always appends, so a stale goal update would

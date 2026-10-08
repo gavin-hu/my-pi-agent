@@ -1,11 +1,13 @@
 /**
  * Terminal rendering for the goal.
  *
- * `goalRailLines` is the shared layout: a header (`Goal · active`) plus the
- * objective wrapped and led by the status glyph, with continuation rows aligned
- * under the text. It matches the todo widget's indent + glyph grammar so the
- * two read as a pair. `goalWidgetLines` caps the rail for the persistent widget;
- * `GoalResult` reuses it uncapped for the transcript.
+ * Two surfaces share one vocabulary. `goalWidgetLines` renders the persistent
+ * above-editor widget as a single glyph-led rail line (`◎ Goal · active ·
+ * <objective>`, dimmed once achieved). `goalRailLines` renders the transcript
+ * result as a header (`Goal · active`) plus the objective wrapped and led by the
+ * status glyph, with continuation rows aligned under the text; it matches the
+ * todo transcript result's indent + glyph grammar so the two read as a pair.
+ * `GoalResult` wraps `goalRailLines` uncapped for the transcript.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -13,41 +15,25 @@ import { truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component } from 
 import {
 	BODY_INDENT,
 	GLYPH_GAP,
-	goalAchievedLine,
 	goalGlyph,
 	goalHeader,
-	goalObjective,
+	goalLine,
 } from "./format.ts";
-import { DEFAULT_MAX_ROWS, type AchievedStyle, type Goal } from "./types.ts";
+import type { AchievedStyle, Goal } from "./types.ts";
 
 /** Widget key used with `ctx.ui.setWidget()`. */
 export const WIDGET_KEY = "goal-widget";
 
 export interface GoalWidgetOptions {
-	/** Total rows the rail may occupy, including the header. */
-	maxRows?: number;
-	/** `collapse` to one dim line, `block` to the rail, `hide` to no widget. */
+	/** `hide` removes an achieved goal; any other value renders the one-line rail. */
 	achieved?: AchievedStyle;
 }
 
-interface GoalRailOptions {
-	/** Cap the rail at this many rows (header included), marking overflow. */
-	maxRows?: number;
-}
-
 /**
- * Rows for a goal rail: the themed header plus `body` wrapped and led by the
- * status glyph. Continuation rows are padded to the text column. With `maxRows`
- * the rail is capped and a final dim `…` row marks the overflow, matching the
- * todo widget's overflow row.
+ * Rows for the transcript goal rail: the themed header plus `body` wrapped and
+ * led by the status glyph. Continuation rows are padded to the text column.
  */
-export function goalRailLines(
-	goal: Goal,
-	body: string,
-	theme: Theme,
-	width: number,
-	options: GoalRailOptions = {},
-): string[] {
+export function goalRailLines(goal: Goal, body: string, theme: Theme, width: number): string[] {
 	const w = Math.max(1, width);
 	const glyph = goalGlyph(goal, theme);
 	const glyphWidth = visibleWidth(glyph);
@@ -55,21 +41,16 @@ export function goalRailLines(
 	const inner = Math.max(1, w - textColumn);
 
 	const wrapped = wrapTextWithAnsi(body, inner);
-	const maxRows = options.maxRows;
-	const hasMore = maxRows !== undefined && wrapped.length > maxRows - 1;
-	const shown = hasMore ? wrapped.slice(0, Math.max(0, maxRows - 2)) : wrapped;
-
 	const pad = " ".repeat(BODY_INDENT);
 	const continuation = " ".repeat(textColumn);
 	const lines = [goalHeader(goal, theme)];
-	shown.forEach((line, index) => {
+	wrapped.forEach((line, index) => {
 		lines.push(index === 0 ? `${pad}${glyph}${" ".repeat(GLYPH_GAP)}${line}` : `${continuation}${line}`);
 	});
-	if (hasMore) lines.push(theme.fg("dim", `${pad}…`));
 	return lines.map((line) => truncateToWidth(line, w, "…"));
 }
 
-/** Rows for the goal widget, bounded so it cannot crowd the editor. */
+/** Rows for the goal widget: a single rail line, or nothing when hidden. */
 export function goalWidgetLines(
 	goal: Goal,
 	theme: Theme,
@@ -77,14 +58,8 @@ export function goalWidgetLines(
 	options: GoalWidgetOptions = {},
 ): string[] {
 	const w = Math.max(1, width);
-	if (goal.status === "achieved") {
-		const style = options.achieved ?? "collapse";
-		if (style === "hide") return [];
-		if (style === "collapse") return [truncateToWidth(goalAchievedLine(goal, theme), w, "…")];
-	}
-	return goalRailLines(goal, goalObjective(goal, theme), theme, w, {
-		maxRows: options.maxRows ?? DEFAULT_MAX_ROWS,
-	});
+	if (goal.status === "achieved" && options.achieved === "hide") return [];
+	return [truncateToWidth(goalLine(goal, theme), w, "…")];
 }
 
 /** Persistent widget body shown above the editor whenever a goal exists. */

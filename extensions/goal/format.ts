@@ -49,11 +49,15 @@ export function goalHeader(goal: Goal, theme: Theme): string {
 }
 
 /**
- * One-line summary of an achieved goal for the collapsed widget:
- * `✓ Goal achieved · <objective>`. Callers clip it to the available width.
+ * One-line rail for the persistent widget:
+ * `◎ Goal · active · <objective>` or `✓ Goal · achieved · <objective>`.
+ * Callers clip it to the available width.
  */
-export function goalAchievedLine(goal: Goal, theme: Theme): string {
-	return `${theme.fg("success", `${ACHIEVED_SYMBOL} `)}${theme.fg("dim", `Goal achieved · ${goal.objective}`)}`;
+export function goalLine(goal: Goal, theme: Theme): string {
+	const separator = theme.fg("dim", " · ");
+	const word = goalStatusLabel(goal.status);
+	const status = goal.status === "achieved" ? theme.fg("success", word) : theme.fg("dim", word);
+	return `${goalGlyph(goal, theme)} ${theme.fg("accent", "Goal")}${separator}${status}${separator}${goalObjective(goal, theme)}`;
 }
 
 /** Themed objective text: dim once achieved, normal while active. */

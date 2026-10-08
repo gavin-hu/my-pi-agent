@@ -16,20 +16,18 @@ pi install ./                       # install the package
   it.
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done.
-- Shows a persistent glyph rail above the editor whenever a goal exists, using
-  the same header + indent + glyph grammar as the [`todo`](../todo/) widget,
-  and stays pinned above it when both are loaded:
+- Shows a persistent one-line rail above the editor whenever a goal exists,
+  using the same glyph grammar as the [`todo`](../todo/) widget, and stays
+  pinned above it when both are loaded:
 
   ```
-  Goal · active
-    ◎ Refactor the parser to support streaming input and ship it with tests
+  ◎ Goal · active · Refactor the parser to support streaming input and ship it …
   ```
 
-  Once achieved it collapses to one dim line by default, and the reminder
-  stops:
+  Once achieved the same line is dimmed and the reminder stops:
 
   ```
-  ✓ Goal achieved · Refactor the parser to support streaming input and ship it …
+  ✓ Goal · achieved · Refactor the parser to support streaming input and ship it …
   ```
 
 - Restates an **active** goal to the model before each turn (an invisible
@@ -64,9 +62,10 @@ to one logical line and stops model text from injecting terminal sequences.
 ## Behaviour by mode
 
 The tool works in every mode. The persistent widget requires interactive
-(`tui`) mode; the reminder and the `/goal` command work everywhere. Achieved
-goals keep their place in the transcript but collapse to a single line in the
-widget by default, and they are no longer restated to the model.
+(`tui`) mode; the reminder and the `/goal` command work everywhere. The widget
+is always a single line; the transcript result keeps the full glyph rail.
+Achieved goals are dimmed in the widget (and can be hidden with
+`achieved: "hide"`), and they are no longer restated to the model.
 
 ## Configuration
 
@@ -75,8 +74,7 @@ The widget presentation is configurable from `~/.pi/agent/goal.json` and
 
 | Key | Default | Meaning |
 |---|---|---|
-| `maxRows` | `3` | Total widget rows, including the header (clamped 3–6). |
-| `achieved` | `"collapse"` | How an achieved goal renders: `collapse` (one dim line), `block` (the full rail), or `hide`. |
+| `achieved` | `"collapse"` | How an achieved goal renders in the one-line widget: `collapse`/`block` both draw the dim line, `hide` removes it. |
 
 Malformed files and invalid values are ignored, and goal behavior never depends
 on config.

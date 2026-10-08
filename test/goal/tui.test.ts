@@ -11,47 +11,32 @@ const achieved: Goal = { objective: "Ship the parser", status: "achieved" };
 const longGoal: Goal = { objective: "rework ".repeat(80).trim(), status: "active" };
 
 describe("goalWidgetLines", () => {
-	test("renders a header and a glyph-led objective row", () => {
-		const lines = goalWidgetLines(active, theme, 40);
-		expect(lines[0]).toBe("Goal · active");
-		expect(lines[1]).toBe("  ◎ Ship the parser");
-		expect(lines).toHaveLength(2);
+	test("renders a single glyph-led rail line while active", () => {
+		expect(goalWidgetLines(active, theme, 40)).toEqual(["◎ Goal · active · Ship the parser"]);
 	});
 
-	test("collapses an achieved goal to a single line by default", () => {
-		const lines = goalWidgetLines(achieved, theme, 40);
-		expect(lines).toHaveLength(1);
-		expect(lines[0]).toBe("✓ Goal achieved · Ship the parser");
+	test("renders a single line once achieved", () => {
+		expect(goalWidgetLines(achieved, theme, 40)).toEqual(["✓ Goal · achieved · Ship the parser"]);
 	});
 
-	test("renders an achieved block when asked", () => {
-		const lines = goalWidgetLines(achieved, theme, 40, { achieved: "block" });
-		expect(lines[0]).toBe("Goal · achieved");
-		expect(lines[1]).toBe("  ✓ Ship the parser");
+	test("renders the same one line for the block style", () => {
+		expect(goalWidgetLines(achieved, theme, 40, { achieved: "block" })).toEqual([
+			"✓ Goal · achieved · Ship the parser",
+		]);
 	});
 
 	test("hides an achieved goal when asked", () => {
 		expect(goalWidgetLines(achieved, theme, 40, { achieved: "hide" })).toEqual([]);
 	});
 
-	test("caps a long objective and marks the truncation", () => {
+	test("clips a long objective to one line", () => {
 		const lines = goalWidgetLines(longGoal, theme, 24);
-		expect(lines.length).toBeLessThanOrEqual(3);
-		expect(lines[0]).toBe("Goal · active");
-		expect(stripTerminalSequences(lines.at(-1) ?? "")).toEndWith("…");
+		expect(lines).toHaveLength(1);
+		expect(visibleWidth(lines[0])).toBeLessThanOrEqual(24);
+		expect(stripTerminalSequences(lines[0])).toEndWith("…");
 	});
 
-	test("marks a capped objective with a dedicated overflow row", () => {
-		const lines = goalWidgetLines(longGoal, theme, 24);
-		expect(lines.at(-1)).toBe("  …");
-	});
-
-	test("honors a custom row budget", () => {
-		expect(goalWidgetLines(longGoal, theme, 24, { maxRows: 2 })).toHaveLength(2);
-		expect(goalWidgetLines(longGoal, theme, 24, { maxRows: 4 })).toHaveLength(4);
-	});
-
-	test("keeps every row within the requested width", () => {
+	test("keeps every line within the requested width", () => {
 		for (const width of [1, 2, 3, 5, 12, 40, 120]) {
 			for (const goal of [active, achieved, longGoal]) {
 				for (const line of goalWidgetLines(goal, theme, width)) {
@@ -61,9 +46,8 @@ describe("goalWidgetLines", () => {
 		}
 	});
 
-	test("truncates the header rather than overflowing an ultra-narrow width", () => {
-		const lines = goalWidgetLines(active, theme, 1);
-		expect(visibleWidth(lines[0])).toBeLessThanOrEqual(1);
+	test("an ultra-narrow width never overflows", () => {
+		expect(visibleWidth(goalWidgetLines(active, theme, 1)[0])).toBeLessThanOrEqual(1);
 	});
 });
 
@@ -92,9 +76,9 @@ describe("GoalWidget", () => {
 		expect(widget.render(0)).toEqual(goalWidgetLines(active, theme, 1));
 	});
 
-	test("passes options through to the layout", () => {
-		const widget = new GoalWidget(achieved, theme, { achieved: "block", maxRows: 2 });
-		expect(widget.render(40)[0]).toBe("Goal · achieved");
+	test("passes the achieved style through", () => {
+		expect(new GoalWidget(achieved, theme, { achieved: "hide" }).render(40)).toEqual([]);
+		expect(new GoalWidget(achieved, theme, { achieved: "block" }).render(40)[0]).toContain("✓ Goal · achieved");
 	});
 });
 
