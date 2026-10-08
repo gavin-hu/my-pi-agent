@@ -19,8 +19,8 @@ pi install ./                       # install the package
   item is in progress.
 - Shows a persistent widget above the editor while the list has unfinished
   work (hidden when empty or fully completed), and a scrollable `/todos`
-  screen on demand. It sits below the [`goal`](../goal/) rail when both are
-  loaded.
+  screen on demand. It is the middle rail, between the [`goal`](../goal/) and
+  [`jobs`](../jobs/) widgets (`Goal / Todos / Jobs`).
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list, and stored lists are re-sanitized on replay.
@@ -29,7 +29,7 @@ The widget is a one-line summary — progress plus the current item — so the
 active task is always visible without expanding the list:
 
 ```
-Todos · 1/3 · ◐ Writing the tests
+Todos · 1/3 · Writing the tests
 ```
 
 `/todos` is the expanded view and keeps the model's list order (use it to see
@@ -74,7 +74,9 @@ with the terminal height, so the footer hint stays visible.
 
 The tool works in every mode. The persistent widget and the `/todos` screen
 require interactive (`tui`) mode; RPC and non-interactive runs simply get the
-tool result.
+tool result. While any dock screen is open (`/todos`, `/jobs`, `/rewind`,
+`/plans`, or the ask-user-question questionnaire), the above-editor rails are
+hidden and return on close.
 
 ## Configuration
 

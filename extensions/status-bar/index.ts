@@ -37,10 +37,10 @@ export default function statusBar(pi: ExtensionAPI): void {
 			enabled = !enabled;
 			if (enabled) {
 				install(ctx);
-				ctx.ui.notify("Status bar on", "info");
+				ctx.ui.notify("Status bar enabled", "info");
 			} else {
 				if (ctx.mode === "tui") ctx.ui.setFooter(undefined);
-				ctx.ui.notify("Built-in footer restored", "info");
+				ctx.ui.notify("Status bar disabled", "info");
 			}
 		},
 	});

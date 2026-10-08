@@ -161,7 +161,7 @@ cancel, `dim` for the help line).
      Good for machine clients
   4. Other (type something)
 
-  ↑↓ navigate • Enter select • Esc cancel
+  ↑/↓ navigate · Enter select · Esc cancel
 ──────────────────────────────────────────────────────────
 ```
 
@@ -183,7 +183,7 @@ One question has no tab bar: `Enter` on an option submits immediately.
      Good for machine clients
   4. Other (type something)
 
-  Tab/←→ navigate • ↑↓ select • Enter confirm • Esc cancel
+  Tab/←→ navigate · ↑/↓ select · Enter confirm · Esc cancel
 ──────────────────────────────────────────────────────────
 ```
 
@@ -206,7 +206,7 @@ is drawn with `selectedBg`.
         Read the user's org memberships
   4. Other (type something)
 
-  ↑↓ move • Space toggle • Enter confirm • Esc cancel
+  ↑/↓ move · Space toggle · Enter confirm · Esc cancel
   Selected: repo
 ──────────────────────────────────────────────────────────
 ```
@@ -230,7 +230,7 @@ is drawn with `selectedBg`.
   Your answer:
   mycompany-sso
 
-  Enter to submit • Esc to go back
+  Enter to submit · Esc to go back
 ──────────────────────────────────────────────────────────
 ```
 

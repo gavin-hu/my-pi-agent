@@ -20,7 +20,7 @@ describe("renderLine", () => {
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(visibleWidth(rendered)).toBeLessThanOrEqual(100);
-		for (const text of ["⏸ plan", "62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
+		for (const text of ["≡ plan", "62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
 			expect(rendered).toContain(text);
 		}
 	});
@@ -32,6 +32,15 @@ describe("renderLine", () => {
 		expect(visibleWidth(rendered)).toBeLessThanOrEqual(40);
 		expect(rendered).toContain("62%");
 		expect(rendered).not.toContain("R96k");
+	});
+
+	test("drops tokens before cost", () => {
+		// Pins the documented order: cost outlives the token meter.
+		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line2, 60, fakeTheme);
+
+		expect(rendered).toContain("$0.31");
+		expect(rendered).not.toContain("↑42k");
 	});
 
 	test("never exceeds a very small width", () => {
@@ -48,7 +57,7 @@ describe("renderLine", () => {
 			for (const line of [line1, line2]) {
 				const rendered = renderLine(line, width, fakeTheme);
 				expect(visibleWidth(rendered)).toBeLessThanOrEqual(width);
-				expect(rendered).not.toMatch(/%[⏸⧉⎇⚠]/);
+				expect(rendered).not.toMatch(/%[≡⧉⎇⚠]/);
 				expect(rendered).not.toMatch(/\S│|│\S/);
 			}
 		}
@@ -71,7 +80,7 @@ describe("renderLine", () => {
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(rendered.startsWith("▰")).toBe(true);
-		expect(rendered).toContain(" │ ⏸ plan");
+		expect(rendered).toContain(" │ ≡ plan");
 	});
 
 	test("has no separator when there is no mode slot", () => {

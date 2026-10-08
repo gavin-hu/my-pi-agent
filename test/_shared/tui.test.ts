@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { screenHeader, viewportRows } from "../../extensions/_shared/tui.ts";
+import { screenHeader, screenHint, viewportRows } from "../../extensions/_shared/tui.ts";
 import { fakeTheme } from "../helpers/fakes.ts";
 
 describe("viewportRows", () => {
@@ -43,5 +43,23 @@ describe("screenHeader", () => {
 		const line = screenHeader(fakeTheme, 4, "Checkpoints");
 		expect(line).not.toContain("Checkpoints");
 		expect(visibleWidth(line)).toBe(4);
+	});
+});
+
+describe("screenHint", () => {
+	test("joins hints with a middle dot under a two-space indent", () => {
+		expect(screenHint(fakeTheme, 80, ["a", "b"])).toBe("  a · b");
+	});
+
+	test("drops a whole hint rather than truncating it, keeping the first", () => {
+		const line = screenHint(fakeTheme, 10, ["alpha", "beta", "gamma"]);
+		expect(line).toContain("alpha");
+		expect(line).not.toContain("beta");
+		expect(visibleWidth(line)).toBeLessThanOrEqual(10);
+	});
+
+	test("still returns the first hint when it alone overflows", () => {
+		const line = screenHint(fakeTheme, 4, ["alpha", "beta"]);
+		expect(visibleWidth(line)).toBeLessThanOrEqual(4);
 	});
 });

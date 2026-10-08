@@ -15,33 +15,33 @@ Two lines, each with a left and right zone:
 - **Line 1 — identity:** `pwd` on the left, git state (`⎇ branch · ⧉ worktree`)
   on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
-  mode/alert slot (`⏸ plan`) trailing after a `│` when present; the model and
+  mode/alert slot (`≡ plan`) trailing after a `│` when present; the model and
   thinking level on the right. The gauge is anchored at column 0, so `%` is
   always in the same place.
 
 ```
- ~/repo/my-pi-agent                                                    ⎇ main · ⧉ smoke
- ▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87% │ ⏸ plan    opus-4.5 · high
+~/repo/my-pi-agent                                                    ⎇ main · ⧉ smoke
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87% │ ≡ plan    opus-4.5 · high
 ```
 
 With no plan mode there is no mode slot, so the `│` is omitted:
 
 ```
- ~/repo/my-pi-agent                                                    ⎇ main · ⧉ smoke
- ▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
+~/repo/my-pi-agent                                                    ⎇ main · ⧉ smoke
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
 
 As the terminal narrows, segments shrink and drop by priority rather than
 clipping:
 
 ```
- ~/repo                                                             ⎇ main · ⧉ smoke
- ▰▰▰▰▱ 62%/200k · $0.31 · ↑42k ↓8.0k │ ⏸ plan              opus-4.5
+~/repo                                                             ⎇ main · ⧉ smoke
+▰▰▰▰▱ 62%/200k · $0.31 · ↑42k ↓8.0k │ ≡ plan              opus-4.5
 ```
 
 ```
- ~/repo                                                     ⎇ · ⧉
- ▰▰▱ 62% · $0.31 │ ⏸ plan                      opus-4.5
+~/repo                                                     ⎇ · ⧉
+▰▰▱ 62% · $0.31 │ ≡ plan                      opus-4.5
 ```
 
 ## Command
@@ -57,11 +57,11 @@ clipping:
 | pwd | 1 left | dim | last |
 | branch | 1 right | purple (warning when detached) | last |
 | worktree | 1 right | success | first |
-| context gauge + `%` | 2 left | success <70 · warning 70–90 · error >90 | never |
+| context gauge + `%` | 2 left | success ≤70 · warning 71–90 · error >90 | never |
 | `/window` | 2 left | dim | before cost |
-| cost | 2 left | muted | before tokens |
-| tokens `↑in ↓out` | 2 left | dim | first |
-| cache `R… CH…%` | 2 left | dim | first |
+| cost | 2 left | muted | after tokens |
+| tokens `↑in ↓out` | 2 left | dim | after cache |
+| cache `R… CH …%` | 2 left | dim | first |
 | statuses | 2 left | as emitted by each extension | last |
 | model | 2 right | accent | never |
 | thinking level | 2 right | thinking token | before cost |
@@ -69,7 +69,8 @@ clipping:
 Zero-value meters are omitted, so a fresh session shows only the gauge and
 window instead of a row of `$0.00 · ↑0 ↓0 · R0 W0`. Unknown context usage shows
 a muted `?` rather than the success color. `cost` keeps two decimals below
-`$0.1` in its compact form so a small nonzero spend is never shown as `$0.0`.
+`$0.1` in its compact form, and a positive sub-cent spend shows as `<$0.01`
+rather than `$0.00`.
 
 The worktree status is read from the `worktree` status key, so the
 [worktree](../worktree/) extension and the bar agree. The leading slot shows

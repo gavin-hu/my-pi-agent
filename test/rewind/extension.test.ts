@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import rewind from "../../extensions/rewind/index.ts";
 import { META_MARKER } from "../../extensions/rewind/store.ts";
+import { onRailsSuppressed } from "../../extensions/_shared/rails.ts";
 import { createFakePi, emit, type FakePi } from "../helpers/fakes.ts";
 import { cleanup, execP, makeCtx, makeRepo } from "./helpers.ts";
 
@@ -161,5 +162,18 @@ describe("automatic snapshots", () => {
 		const fake = setup();
 		expect(fake.commands.has("rewind")).toBe(true);
 		expect(fake.commands.has("checkpoint")).toBe(false);
+	});
+
+	test("/rewind hides the rails while the picker is open", async () => {
+		const repo = await makeRepo("pi-rw-rail-");
+		cleanups.push(repo);
+		const fake = setup();
+		const events: boolean[] = [];
+		onRailsSuppressed(fake.pi, (suppressed) => events.push(suppressed));
+		const ctx = makeCtx(fake, { cwd: repo, hasUI: true, mode: "tui", branch: branchWithUser() });
+
+		await fake.commands.get("rewind").handler("", ctx);
+
+		expect(events).toEqual([true, false]);
 	});
 });

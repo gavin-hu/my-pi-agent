@@ -6,6 +6,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { withRailsSuppressed } from "../_shared/rails.ts";
 import { formatJobList } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
 import { JobListComponent } from "./tui.ts";
@@ -28,44 +29,42 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				timer = undefined;
 			};
 
-			// The screen supersedes the widget; hide it so the same running jobs are
-			// not listed twice while `/jobs` owns the editor.
-			runtime.setUiSuppressed(true);
+			// The dock screen owns the editor slot; hide the rails for its lifetime.
 			try {
-				await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-					const component = new JobListComponent(
-						() => runtime.list(),
-						theme,
-						{
-							logs: (id) => runtime.logs(id, 200),
-							kill: (id) => {
-								runtime.kill(id);
+				await withRailsSuppressed(pi, () =>
+					ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+						const component = new JobListComponent(
+							() => runtime.list(),
+							theme,
+							{
+								logs: (id) => runtime.logs(id, 200),
+								kill: (id) => {
+									runtime.kill(id);
+								},
+								clear: () => {
+									runtime.clear(undefined, false);
+								},
 							},
-							clear: () => {
-								runtime.clear(undefined, false);
+							() => {
+								stopTimer();
+								done();
 							},
-						},
-						() => {
-							stopTimer();
-							done();
-						},
-						() => tui.requestRender(),
-						() => tui.terminal?.rows,
-					);
+							() => tui.requestRender(),
+							() => tui.terminal?.rows,
+						);
 
-					// Poll the open log pane; the runtime's own clock repaints the list.
-					timer = setInterval(() => {
-						const id = component.currentLogId();
-						if (id) component.refreshLogs(id);
-					}, LOG_POLL_MS);
-					timer.unref?.();
+						// Poll the open log pane; the runtime's own clock repaints the list.
+						timer = setInterval(() => {
+							const id = component.currentLogId();
+							if (id) component.refreshLogs(id);
+						}, LOG_POLL_MS);
+						timer.unref?.();
 
-					return component;
-				});
+						return component;
+					}),
+				);
 			} finally {
 				stopTimer();
-				runtime.setUiSuppressed(false);
-				runtime.syncWidget(ctx);
 			}
 		},
 	});

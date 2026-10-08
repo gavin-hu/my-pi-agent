@@ -92,7 +92,7 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 		const running = allResults.filter((r) => r.exitCode === -1).length;
 		const done = allResults.length - running;
 		onUpdate({
-			content: [{ type: "text", text: `Parallel: ${done}/${allResults.length} done, ${running} running...` }],
+			content: [{ type: "text", text: `Parallel: ${done}/${allResults.length} done, ${running} running…` }],
 			details: makeDetails([...allResults]),
 		});
 	};

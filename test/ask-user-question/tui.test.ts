@@ -52,7 +52,7 @@ describe("askViaTui render", () => {
 	test("renders a question with options and the Other entry", () => {
 		const text = harness([withOptions]).render().join("\n");
 		expect(text).toContain("Which authentication should we use?");
-		expect(text).toContain("> 1. OAuth");
+		expect(text).toContain("❯ 1. OAuth");
 		expect(text).toContain("Provider flow");
 		expect(text).toContain("Other (type something)");
 		expect(text).toContain("Enter select");

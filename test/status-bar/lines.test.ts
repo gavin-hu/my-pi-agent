@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { GLYPHS, STATUS_KEYS } from "../../extensions/_shared/ui.ts";
 import { buildLines } from "../../extensions/status-bar/lines.ts";
 import { fakeTheme, fullSnapshot } from "./helpers.ts";
 
@@ -29,14 +30,14 @@ describe("buildLines", () => {
 		expect(line2.left[2].forms[0]).toBe("$0.31");
 		expect(line2.left[3].forms[0]).toBe("↑42k ↓8.0k");
 		expect(line2.left[4].forms[0]).toBe("R96k CH 87%");
-		expect(line2.left[5].forms[0]).toBe("⏸ plan");
+		expect(line2.left[5].forms[0]).toBe(`${GLYPHS.plan} plan`);
 		expect(line2.left[5].separator).toBe(" │ ");
 		expect(line2.right[0].forms[0]).toBe("opus-4.5");
 		expect(line2.right[1].forms[0]).toBe("high");
 	});
 
 	test("excludes worktree from the status alerts and routes it right", () => {
-		const snapshot = fullSnapshot({ statuses: new Map([["worktree", "⧉ smoke"]]) });
+		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.worktree, `${GLYPHS.worktree} smoke`]]) });
 		const [line1, line2] = buildLines(snapshot, fakeTheme, "/home/u");
 
 		expect(ids(line1.right)).toEqual(["branch", "worktree"]);
@@ -76,6 +77,33 @@ describe("buildLines", () => {
 		expect(cache.forms[0]).toBe("R96k CH 87%");
 	});
 
+	test("omits the cache segment when nothing was cached, even at a 0% hit rate", () => {
+		const [, line2] = buildLines(
+			fullSnapshot({
+				usage: { input: 100, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+				cacheHitRate: 0,
+			}),
+			fakeTheme,
+			"/home/u",
+		);
+
+		expect(ids(line2.left)).not.toContain("cache");
+	});
+
+	test("shows cache tokens without a hit rate when no rate is known", () => {
+		const [, line2] = buildLines(
+			fullSnapshot({
+				usage: { input: 0, output: 0, cacheRead: 96000, cacheWrite: 0, cost: 0 },
+				cacheHitRate: null,
+			}),
+			fakeTheme,
+			"/home/u",
+		);
+		const cache = line2.left.find((segment) => segment.id === "cache")!;
+
+		expect(cache.forms[0]).toBe("R96k");
+	});
+
 	test("omits the branch and worktree when absent", () => {
 		const snapshot = fullSnapshot({ branch: null, statuses: new Map() });
 		const [line1] = buildLines(snapshot, fakeTheme, "/home/u");
@@ -111,12 +139,21 @@ describe("buildLines", () => {
 	});
 
 	test("strips color when compacting themed statuses", () => {
-		const themed = "\x1b[33m⏸ plan\x1b[39m";
-		const [, line2] = buildLines(fullSnapshot({ statuses: new Map([["plan-mode", themed]]) }), fakeTheme, "/home/u");
+		const themed = `\x1b[33m${GLYPHS.plan} plan\x1b[39m`;
+		const [, line2] = buildLines(fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }), fakeTheme, "/home/u");
 		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
 
 		expect(statuses.forms[0]).toContain(themed);
-		expect(statuses.forms[1]).toBe("⏸");
+		expect(statuses.forms[1]).toBe(GLYPHS.plan);
+	});
+
+	test("keeps a trailing count when compacting a badge status", () => {
+		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.rewind, `${GLYPHS.rewind} 2`]]) });
+		const [, line2] = buildLines(snapshot, fakeTheme, "/home/u");
+		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
+
+		expect(statuses.forms[0]).toBe("↺ 2");
+		expect(statuses.forms[1]).toBe("↺2");
 	});
 
 	test("orders multiple statuses by key", () => {

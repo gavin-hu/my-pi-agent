@@ -197,7 +197,7 @@ export default function webFetch(pi: ExtensionAPI) {
 			if (!details || result.isError) {
 				const first = result.content[0];
 				const message = first?.type === "text" ? first.text : "Fetch failed";
-				return new Text(theme.fg("error", message), 0, 0);
+				return new Text(theme.fg("error", message.startsWith("Error:") ? message : `Error: ${message}`), 0, 0);
 			}
 
 			const failed = details.pages.filter((page) => page.error).length;
@@ -205,17 +205,17 @@ export default function webFetch(pi: ExtensionAPI) {
 
 			if (details.pages.length === 1) {
 				const page = details.pages[0];
-				if (page.error) return new Text(theme.fg("error", page.error), 0, 0);
+				if (page.error) return new Text(theme.fg("error", page.error.startsWith("Error:") ? page.error : `Error: ${page.error}`), 0, 0);
 				const label = page.title || page.finalUrl;
 				let text = theme.fg("muted", label);
-				if (page.matches.length > 0) text += theme.fg("dim", ` — ${page.matches.length} match(es)`);
-				else text += theme.fg("dim", ` — ${page.totalChars} chars`);
+				if (page.matches.length > 0) text += theme.fg("dim", ` · ${page.matches.length} match(es)`);
+				else text += theme.fg("dim", ` · ${page.totalChars} chars`);
 				if (page.cached) text += theme.fg("dim", " (cached)");
 				return new Text(text, 0, 0);
 			}
 
 			let text = theme.fg("muted", `${details.pages.length} pages`);
-			text += theme.fg("dim", ` — ${details.pages.length - failed} ok`);
+			text += theme.fg("dim", ` · ${details.pages.length - failed} ok`);
 			if (failed > 0) text += theme.fg("error", `, ${failed} failed`);
 			if (cached > 0) text += theme.fg("dim", `, ${cached} cached`);
 			return new Text(text, 0, 0);

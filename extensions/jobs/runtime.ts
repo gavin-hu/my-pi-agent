@@ -14,6 +14,7 @@
 import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, statSync, unlinkSync, writeFileSync, type WriteStream } from "node:fs";
 import { join, resolve } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { GLYPHS, STATUS_KEYS } from "../_shared/ui.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
 import {
 	formatLogs,
@@ -116,6 +117,8 @@ export interface JobsRuntime {
 	runningCount(): number;
 	setStatus(ctx: ExtensionContext): void;
 	syncWidget(ctx: ExtensionContext): void;
+	/** Re-assert the widget; called by the rail coordinator when an upper rail changes. */
+	reassertWidget(): void;
 	/** Hide the widget while a full-screen UI (the `/jobs` screen) owns the editor. */
 	setUiSuppressed(value: boolean): void;
 	/** Kill session-owned jobs (unless detached), stop the clock, persist. */
@@ -245,7 +248,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const setStatus = (ctx: ExtensionContext): void => {
 		try {
 			if (!config.showStatus) {
-				ctx.ui.setStatus("jobs", undefined);
+				ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
 				return;
 			}
 			const running = [...jobs.values()].filter((job) => job.status === "running").length;
@@ -253,11 +256,11 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 				(job) => !job.seen && job.status === "failed",
 			).length;
 			if (running > 0) {
-				ctx.ui.setStatus("jobs", theme(ctx, "accent", `▸${running}`));
+				ctx.ui.setStatus(STATUS_KEYS.jobs, theme(ctx, "accent", `${GLYPHS.jobsRunning}${running}`));
 			} else if (unseenFailures > 0) {
-				ctx.ui.setStatus("jobs", theme(ctx, "error", `✕${unseenFailures}`));
+				ctx.ui.setStatus(STATUS_KEYS.jobs, theme(ctx, "error", `${GLYPHS.jobsFailure}${unseenFailures}`));
 			} else {
-				ctx.ui.setStatus("jobs", undefined);
+				ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
 			}
 		} catch {
 			// UI may be unavailable in non-interactive modes.
@@ -289,6 +292,16 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const setUiSuppressed = (value: boolean): void => {
 		uiSuppressed = value;
+	};
+
+	/** Re-assert the widget after an upper rail re-inserted itself below us. */
+	const reassertWidget = (): void => {
+		if (!uiCtx || disposed) return;
+		try {
+			syncWidget(uiCtx);
+		} catch {
+			// UI may be gone.
+		}
 	};
 
 	const theme = (ctx: ExtensionContext, color: "accent" | "error", text: string): string => {
@@ -481,6 +494,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		runningCount: () => [...jobs.values()].filter((job) => job.status === "running").length,
 		setStatus,
 		syncWidget,
+		reassertWidget,
 		setUiSuppressed,
 		shutdown,
 		get onFinish() {

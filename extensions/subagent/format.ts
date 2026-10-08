@@ -54,17 +54,17 @@ export function shortenPath(p: string): string {
 /** Display-width-aware truncation with a trailing ellipsis (keeps wide chars/surrogates intact). */
 export function clip(value: string, max: number): string {
 	// `truncateToWidth` emits ANSI resets; strip them since we colorize afterwards.
-	return visibleWidth(value) > max ? stripTerminalSequences(truncateToWidth(value, max, "...")) : value;
+	return visibleWidth(value) > max ? stripTerminalSequences(truncateToWidth(value, max, "…")) : value;
 }
 
-const PATH_ELLIPSIS = ".../";
+const PATH_ELLIPSIS = "…/";
 
 /** Clip a path, keeping its basename so the file stays identifiable. */
 export function clipPath(value: string, max: number): string {
 	if (visibleWidth(value) <= max) return value;
 	const separator = Math.max(value.lastIndexOf("/"), value.lastIndexOf("\\"));
 	const base = separator >= 0 ? value.slice(separator + 1) : value;
-	const headWidth = max - visibleWidth(base) - PATH_ELLIPSIS.length;
+	const headWidth = max - visibleWidth(base) - visibleWidth(PATH_ELLIPSIS);
 	if (headWidth <= 0) return clip(value, max);
 	const head = stripTerminalSequences(truncateToWidth(value.slice(0, separator + 1), headWidth, ""));
 	return `${head}${PATH_ELLIPSIS}${base}`;
@@ -77,15 +77,15 @@ export function formatToolCall(
 	theme: Theme,
 	preview: boolean,
 ): string {
-const fg = theme.fg.bind(theme);
+	const fg = theme.fg.bind(theme);
 	// Defensive: a malformed tool-call part can carry a null/undefined `arguments`.
 	const a = (args && typeof args === "object" ? args : {}) as Record<string, unknown>;
 
 	switch (toolName) {
 		case "bash":
-			return fg("muted", "$ ") + fg("toolOutput", clip(sanitize(String(a.command ?? "...")), preview ? 60 : 200));
+			return fg("muted", "$ ") + fg("toolOutput", clip(sanitize(String(a.command ?? "…")), preview ? 60 : 200));
 		case "read": {
-			const rawPath = clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "..."))), preview ? 60 : 200);
+			const rawPath = clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
 			const offset = a.offset as number | undefined;
 			const limit = a.limit as number | undefined;
 			let text = fg("accent", rawPath);
@@ -97,7 +97,7 @@ const fg = theme.fg.bind(theme);
 			return fg("muted", "read ") + text;
 		}
 		case "write": {
-			const rawPath = clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "..."))), preview ? 60 : 200);
+			const rawPath = clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
 			const content = String(a.content ?? "");
 			const lines = content.split("\n").length;
 			const text = fg("muted", "write ") + fg("accent", rawPath);
@@ -106,7 +106,7 @@ const fg = theme.fg.bind(theme);
 		case "edit":
 			return (
 				fg("muted", "edit ") +
-				fg("accent", clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "..."))), preview ? 60 : 200)) +
+				fg("accent", clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200)) +
 				fg("dim", " (diff)")
 			);
 		case "ls":

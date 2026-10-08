@@ -17,17 +17,21 @@ pi install ./                       # install the package
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done.
 - Shows a persistent one-line rail above the editor whenever a goal exists,
-  using the same glyph grammar as the [`todo`](../todo/) widget, and stays
-  pinned above it when both are loaded:
+  label-first to match the [`todo`](../todo/) and [`jobs`](../jobs/) widgets,
+  and stays pinned at the top of the `Goal / Todos / Jobs` stack when they are
+  loaded:
 
   ```
-  ◎ Goal · active · Refactor the parser to support streaming input and ship it …
+  Goal · active · Refactor the parser to support streaming input and ship it …
   ```
 
-  Once achieved the same line is dimmed and the reminder stops:
+  Once achieved the goal is hidden from the widget by default, matching a
+  completed todo list and a finished job; the transcript keeps the record. Set
+  `achieved: "collapse"` (or `"block"`) in `.pi/goal.json` to keep drawing the
+  dimmed line instead:
 
   ```
-  ✓ Goal · achieved · Refactor the parser to support streaming input and ship it …
+  Goal · achieved · Refactor the parser to support streaming input and ship it …
   ```
 
 - Restates an **active** goal to the model before each turn (an invisible
@@ -64,8 +68,10 @@ to one logical line and stops model text from injecting terminal sequences.
 The tool works in every mode. The persistent widget requires interactive
 (`tui`) mode; the reminder and the `/goal` command work everywhere. The widget
 is always a single line; the transcript result keeps the full glyph rail.
-Achieved goals are dimmed in the widget (and can be hidden with
-`achieved: "hide"`), and they are no longer restated to the model.
+Achieved goals are hidden from the widget by default (restore the dimmed line
+with `achieved: "collapse"`), and they are no longer restated to the model.
+While a dock screen is open (`/todos`, `/jobs`, `/rewind`, `/plans`, or the
+ask-user-question questionnaire), the rail is hidden and returns on close.
 
 ## Configuration
 
@@ -74,7 +80,7 @@ The widget presentation is configurable from `~/.pi/agent/goal.json` and
 
 | Key | Default | Meaning |
 |---|---|---|
-| `achieved` | `"collapse"` | How an achieved goal renders in the one-line widget: `collapse`/`block` both draw the dim line, `hide` removes it. |
+| `achieved` | `"hide"` | How an achieved goal renders in the one-line widget: `collapse`/`block` both draw the dim line, `hide` removes it. |
 
 Malformed files and invalid values are ignored, and goal behavior never depends
 on config.
@@ -87,7 +93,7 @@ on config.
 | `types.ts` | `Goal`, `GoalStatus`, `GoalDetails`. |
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
 | `state.ts` | Branch reconstruction (pure). |
-| `format.ts` | Model-facing and terminal text plus the `◎` / `✓` symbols and the rail vocabulary (pure). |
+| `format.ts` | Model-facing and terminal text plus the transcript `◎` / `✓` symbols and the rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (`goal.json`). |
 | `tui.ts` | The persistent goal widget and the transcript result rail. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |

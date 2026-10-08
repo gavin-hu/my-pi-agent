@@ -34,15 +34,19 @@ built-in one entirely.
 shorter `forms` and a `weight`. `layout.ts` renders, and while the line is too
 wide it advances the lowest-priority form or drops the lowest-priority segment.
 This makes narrow terminals predictable: the gauge steps `10 → 5 → 3 → 0`
-blocks, the mode slot compacts to an icon, cost goes before tokens, and the gauge,
+blocks, the mode slot compacts to an icon, tokens drop before cost, and the gauge,
 statuses, and model survive to the end. Only after everything is minimal does
 `truncateToWidth` apply.
 
 **Statuses compact from plain text.** Extension statuses are pre-themed (for
-`plan-mode`: `theme.fg("warning", "⏸ plan")`). The compact icon form is derived
+`plan-mode`: `theme.fg("warning", "≡ plan")`). The compact icon form is derived
 from the visible text, not the styled string, because keeping the first token of
 a themed status keeps its opening SGR code but not its reset — the color would
-bleed into the rest of the line.
+bleed into the rest of the line. A status that is exactly a two-token
+`icon count` badge (for `rewind`: `↺ 2`) is the exception: it compacts to
+`↺2`, keeping the count, where an icon-plus-label status (`≡ plan`) drops to its
+icon alone. This is why `rewind` can print a natural `↺ N` without losing
+the number when the bar narrows.
 
 **Separators shrink to a single space.** Once every segment is at its floor
 the layout collapses padded separators (` · `, ` │ `) to one space before

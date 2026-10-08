@@ -7,7 +7,15 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import {
+	Key,
+	matchesKey,
+	truncateToWidth,
+	type Component,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
+} from "@earendil-works/pi-tui";
+import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
 import { progressCount, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import { currentTodo } from "./state.ts";
 import type { Todo } from "./types.ts";
@@ -17,17 +25,6 @@ export const WIDGET_KEY = "todo-widget";
 
 /** Items the `/todos` screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
-/** Never show fewer/more than this many items, however tall the terminal. */
-const SCREEN_MIN_ITEMS = 3;
-const SCREEN_MAX_ITEMS = 20;
-/** Header, summary, footer, and blank rows the screen spends around the items. */
-const SCREEN_CHROME_ROWS = 9;
-
-/** How many items fit in a terminal of `rows` rows (undefined falls back). */
-function visibleItems(rows: number | undefined): number {
-	if (rows === undefined || !Number.isFinite(rows) || rows <= 0) return SCREEN_DEFAULT_ITEMS;
-	return Math.max(SCREEN_MIN_ITEMS, Math.min(rows - SCREEN_CHROME_ROWS, SCREEN_MAX_ITEMS));
-}
 
 /** One indented item line, clipped to `width`. */
 function todoRow(todo: Todo, theme: Theme, width: number): string {
@@ -36,26 +33,14 @@ function todoRow(todo: Todo, theme: Theme, width: number): string {
 
 /**
  * One-line widget summary: progress plus the current item, or a completion note
- * when nothing is open. Callers clip it to the available width.
+ * when nothing is open. Label-first and glyph-free, matching the `goal` and
+ * `jobs` widgets. Callers clip it to the available width.
  */
 export function todoLine(todos: Todo[], theme: Theme): string {
 	const head = `${theme.fg("accent", "Todos")} ${theme.fg("dim", "·")} ${theme.fg("dim", progressCount(todos))}`;
 	const current = currentTodo(todos);
 	if (!current) return `${head} ${theme.fg("dim", "completed")}`;
-	return `${head} ${theme.fg("dim", "·")} ${todoGlyph(current, theme)} ${todoLabel(current, theme)}`;
-}
-
-/** Top border with the title centered-left, exactly `width` columns wide. */
-function screenHeader(theme: Theme, width: number): string {
-	const label = " Todos ";
-	const prefix = "───";
-	// Too narrow for the title and a border on each side: show a plain rule
-	// rather than truncating the title into an ellipsis.
-	if (width < visibleWidth(prefix) + visibleWidth(label) + 1) {
-		return theme.fg("borderMuted", "─".repeat(width));
-	}
-	const remaining = width - visibleWidth(prefix) - visibleWidth(label);
-	return theme.fg("borderMuted", prefix) + theme.fg("accent", label) + theme.fg("borderMuted", "─".repeat(remaining));
+	return `${head} ${theme.fg("dim", "·")} ${todoLabel(current, theme)}`;
 }
 
 /** Persistent one-line widget shown above the editor while the list has work. */
@@ -76,19 +61,16 @@ export class TodoWidget implements Component {
 /** Dismissible, scrollable list opened by `/todos`. */
 export class TodoListComponent implements Component {
 	private scrollTop = 0;
-
-	/** Number of items shown at once, derived from the terminal height. */
-	private readonly visible: number;
+	/** Rows shown at once; recomputed from the terminal height on every render. */
+	private visible = SCREEN_DEFAULT_ITEMS;
 
 	constructor(
 		private readonly todos: Todo[],
 		private readonly theme: Theme,
 		private readonly onClose: () => void,
 		private readonly requestRender: () => void,
-		viewportRows?: number,
-	) {
-		this.visible = visibleItems(viewportRows);
-	}
+		private readonly viewportRowsSource?: ViewportRowsSource,
+	) {}
 
 	private get maxScroll(): number {
 		return Math.max(0, this.todos.length - this.visible);
@@ -114,30 +96,47 @@ export class TodoListComponent implements Component {
 		else if (matchesKey(data, Key.end)) this.setScroll(this.maxScroll);
 	}
 
+	/** Wheel scrolling moves the list, matching the other list screens. */
+	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
+		this.setScroll(this.scrollTop + event.wheelDelta);
+		return { handled: true };
+	}
+
 	invalidate(): void {}
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const lines: string[] = [screenHeader(this.theme, w), ""];
+		const lines: string[] = [screenHeader(this.theme, w, "Todos")];
 
 		if (this.todos.length === 0) {
 			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No todos yet. Ask the agent to plan some work.")}`, w));
-		} else {
-			lines.push(truncateToWidth(`  ${this.theme.fg("muted", progressSummary(this.todos))}`, w));
 			lines.push("");
-			const end = Math.min(this.todos.length, this.scrollTop + this.visible);
-			for (let i = this.scrollTop; i < end; i++) lines.push(todoRow(this.todos[i], this.theme, w));
-			if (this.scrollTop > 0 || end < this.todos.length) {
-				lines.push(truncateToWidth(this.theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.todos.length}`), w));
-			}
+			lines.push(screenHint(this.theme, w, ["Esc close"]));
+			lines.push("");
+			return lines;
+		}
+
+		lines.push(truncateToWidth(`  ${this.theme.fg("muted", progressSummary(this.todos))}`, w));
+		lines.push("");
+		// header, summary, blank, blank-after-list, hint, blank
+		const chrome = 6;
+		let visible = viewportRows(this.viewportRowsSource, { chrome, fallback: SCREEN_DEFAULT_ITEMS });
+		// Reserve the range row only when the list is longer than the viewport.
+		if (this.todos.length > visible) {
+			visible = viewportRows(this.viewportRowsSource, { chrome: chrome + 1, fallback: SCREEN_DEFAULT_ITEMS });
+		}
+		this.visible = visible;
+		this.scrollTop = Math.min(this.scrollTop, this.maxScroll);
+
+		const end = Math.min(this.todos.length, this.scrollTop + visible);
+		for (let i = this.scrollTop; i < end; i++) lines.push(todoRow(this.todos[i], this.theme, w));
+		if (this.scrollTop > 0 || end < this.todos.length) {
+			lines.push(truncateToWidth(this.theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.todos.length}`), w));
 		}
 
 		lines.push("");
-		const hint =
-			this.todos.length > this.visible
-				? "↑/↓ or j/k scroll · PgUp/PgDn · Home/End · Esc to close"
-				: "Press Escape to close";
-		lines.push(truncateToWidth(`  ${this.theme.fg("dim", hint)}`, w));
+		lines.push(screenHint(this.theme, w, ["↑/↓ or k/j scroll", "PgUp/PgDn", "Home/End", "Esc close"]));
 		lines.push("");
 		return lines;
 	}

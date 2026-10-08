@@ -19,6 +19,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
 import { hasPathInput } from "../_shared/path-guard.ts";
+import { STATUS_KEYS } from "../_shared/ui.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
 import { createPlanPolicy, BLOCKED_GUIDANCE, PLAN_SAFE_TOOLS, READ_ONLY_SUMMARY } from "./policy.ts";
 import { createPlanRuntime } from "./runtime.ts";
@@ -83,7 +84,7 @@ export default function planMode(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
-	pi.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus("plan-mode", undefined));
+	pi.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEYS.planMode, undefined));
 
 	/**
 	 * Why a tool call is blocked while planning, or undefined when it may

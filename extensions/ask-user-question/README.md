@@ -30,7 +30,7 @@ on.
      Simpler, server-side sessions
   3. Other (type something)
 
-  Tab/←→ navigate • ↑↓ select • Enter confirm • Esc cancel
+  Tab/←→ navigate · ↑/↓ select · Enter confirm · Esc cancel
 ──────────────────────────────────────────────────────────
 ```
 

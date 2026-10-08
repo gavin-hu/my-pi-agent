@@ -186,6 +186,18 @@ describe("JobListComponent", () => {
 		}
 	});
 
+	test("the wheel moves the selection", () => {
+		const jobs = Array.from({ length: 10 }, (_, i) =>
+			job({ id: `j${i}`, label: `label${i}`, status: "exited", exitCode: 0, startedAt: i }),
+		);
+		const { component } = makeComponent(jobs, {}, 12);
+		component.render(40);
+		expect(component.handleMouse({ type: "wheel", wheelDelta: 1 } as any)).toEqual({ handled: true });
+		const selected = component.render(40).find((line) => line.startsWith("❯"));
+		expect(selected).toContain("label8");
+		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
+	});
+
 	test("escape closes the screen from list mode", () => {
 		let closed = 0;
 		const component = new JobListComponent(

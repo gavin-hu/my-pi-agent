@@ -14,7 +14,7 @@ export interface GoalConfig {
 	achieved: AchievedStyle;
 }
 
-export const DEFAULT_GOAL_CONFIG: GoalConfig = { achieved: "collapse" };
+export const DEFAULT_GOAL_CONFIG: GoalConfig = { achieved: "hide" };
 
 const ACHIEVED_STYLES: readonly AchievedStyle[] = ["collapse", "block", "hide"];
 

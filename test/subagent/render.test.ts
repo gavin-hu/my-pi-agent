@@ -217,7 +217,7 @@ describe("renderSubagentResult", () => {
 		const failed = single({ exitCode: 1, stopReason: "error", stderr });
 		const text = render(renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme));
 		expect(text).toContain("Error: stderr line 0");
-		expect(text).toContain("...");
+		expect(text).toContain("…");
 		expect(text).not.toContain("stderr line 29");
 	});
 

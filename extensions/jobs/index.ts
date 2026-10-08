@@ -11,6 +11,8 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { onRailsSuppressed, onUpperRailChanged } from "../_shared/rails.ts";
+import { STATUS_KEYS } from "../_shared/ui.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion } from "./format.ts";
 import { createJobsRuntime, type JobsRuntime } from "./runtime.ts";
@@ -43,6 +45,18 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
+
+	// Jobs is the bottom rail: re-assert whenever goal or todo re-inserts itself,
+	// keeping the stack Goal / Todos / Jobs. The bottom rail never announces.
+	onUpperRailChanged(pi, "jobs", () => runtime.reassertWidget());
+
+	// Hide the rail while a dock screen is open; re-sync when the last screen
+	// closes. `onRailsSuppressed` already coalesces nesting, so its boolean is the
+	// current level, not an edge. Reuses the runtime's `uiSuppressed` flag.
+	onRailsSuppressed(pi, (suppressed) => {
+		runtime.setUiSuppressed(suppressed);
+		runtime.reassertWidget();
+	});
 
 	/** Drain every unreported completion; returns them so the caller can report. */
 	const drainPending = (): JobRecord[] => runtime.takePending();
@@ -107,7 +121,7 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 		runtime.onFinish = undefined;
 		await runtime.shutdown();
 		try {
-			ctx.ui.setStatus("jobs", undefined);
+			ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
 			if (ctx.mode === "tui") ctx.ui.setWidget("jobs-widget", undefined);
 		} catch {
 			// UI may already be gone.

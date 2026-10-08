@@ -2,11 +2,12 @@
  * Terminal rendering for the goal.
  *
  * Two surfaces share one vocabulary. `goalWidgetLines` renders the persistent
- * above-editor widget as a single glyph-led rail line (`◎ Goal · active ·
- * <objective>`, dimmed once achieved). `goalRailLines` renders the transcript
- * result as a header (`Goal · active`) plus the objective wrapped and led by the
- * status glyph, with continuation rows aligned under the text; it matches the
- * todo transcript result's indent + glyph grammar so the two read as a pair.
+ * above-editor widget as a single label-first rail line (`Goal · active ·
+ * <objective>`, dimmed once achieved), matching the `todo` and `jobs` widgets.
+ * `goalRailLines` renders the transcript result as a header (`Goal · active`)
+ * plus the objective wrapped and led by the status glyph, with continuation rows
+ * aligned under the text; it matches the todo transcript result's indent + glyph
+ * grammar so the two read as a pair.
  * `GoalResult` wraps `goalRailLines` uncapped for the transcript.
  */
 

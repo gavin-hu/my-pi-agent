@@ -18,6 +18,10 @@ afterEach(() => {
 const tempDir = (prefix: string): string => mkdtempSync(join(tmpdir(), prefix));
 
 describe("normalizeGoalConfig", () => {
+	test("hides an achieved goal by default", () => {
+		expect(DEFAULT_GOAL_CONFIG.achieved).toBe("hide");
+	});
+
 	test("returns the base for missing input", () => {
 		expect(normalizeGoalConfig(undefined, DEFAULT_GOAL_CONFIG)).toEqual(DEFAULT_GOAL_CONFIG);
 	});

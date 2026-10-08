@@ -30,19 +30,20 @@ in plan mode.
 
 **User-driven entry is instant, model-driven entry confirmed.** `/plan`,
 `Ctrl+Alt+P`, and `--plan` are the user's own action, so they take effect at
-once — matching Claude Code. `enter_plan_mode` changes the mode on the user's
-behalf, so it confirms first.
+once — matching Claude Code. `/plan` only enters plan mode; `Ctrl+Alt+P`
+toggles. `enter_plan_mode` changes the mode on the user's behalf, so it confirms
+first.
 
 **`/plan <prompt>` enters and runs in one step.** An extension command receives
 the raw argument string, so `/plan <prompt>` enables plan mode and sends the
 rest of the line as the first user message; `before_agent_start` then injects
 the read-only context for that very turn. The alternative — a `/plan` prompt
 template — only injects text and cannot guarantee the gating, so the command is
-the right home. `/plan` with no argument still toggles.
+the right home. `/plan` with no argument just enters plan mode.
 
 **Review the file, decide in a screen (or a menu).** The plan is a file, so it
 is the artifact already on screen and scrollable in the transcript. In the TUI
-`exit_plan_mode` opens `PlanReviewComponent`, a scrollable, width-safe view of
+`exit_plan_mode` opens `PlanViewComponent`, a scrollable, width-safe view of
 the file with approve/refine/keep in the footer; dialog-capable non-TUI modes
 fall back to Pi's `select` menu plus the refine editor. Pi's `ctx.ui.confirm()`
 is a non-scrollable selector, so putting a long plan inside it pushes the
@@ -62,7 +63,7 @@ directory's own `.gitignore` are never writable targets. It is not the builtin
 control tool only when the registered tool is this extension's own, matched by
 source path, so a same-named tool from another extension cannot borrow the
 exemption. The plans directory is self-ignoring (a `.gitignore` of `*`), so git
-and `checkpoint` leave plan files alone without editing the project.
+and `rewind` leave plan files alone without editing the project.
 
 **Approval seeds `todo` via `ctx.executeTool`.** The user chose tight
 integration. The event bus carries no `ctx`, so a todo listener could not
@@ -89,15 +90,15 @@ from `ctx.sessionManager.getBranch()` on start and tree navigation. The
 `--plan` flag enables plan mode only when the branch has no persisted entry, so
 a later disable survives tree navigation and `/resume`.
 
-**Saved plans are managed from `/plan`, not a registry.** The plans directory
-is the index: `/plan list` reads it (readdir + file-name parse) newest-first and
-opens a browser, `/plan show` reopens one plan in `PlanReviewComponent` with a
-read-only `browse` mode (no approve/refine — viewing is not approving), and
-`/plan delete` removes one after a confirm. `list`, `show`, and `delete` are
-reserved first arguments under `/plan`, so the command keeps its existing
-toggle and `/plan <prompt>` behaviour and the collision is three words rather
-than a second command. There is no persisted plan metadata; deleting is a
-filesystem unlink behind the same containment check as `write_plan`.
+**Saved plans are managed from `/plans`, not a registry.** The plans directory
+is the index: `/plans` reads it (readdir + file-name parse) newest-first and
+opens a browser (or prints the list without a TUI). The browser owns every
+action — Enter reopens one plan in `PlanViewComponent` with a read-only `browse`
+mode (no approve/refine — viewing is not approving), `d` deletes one after a
+confirm, and `u` hands one back to the model to execute. `/plans` takes no
+arguments, so it cannot collide with `/plan`, which is now only the way to enter
+plan mode. There is no persisted plan metadata; deleting is a filesystem unlink
+behind the same containment check as `write_plan`.
 
 ## Model surface
 
@@ -105,7 +106,7 @@ filesystem unlink behind the same containment check as `write_plan`.
 |---|---|---|---|
 | `enter_plan_mode` | none | normal mode | `defaultActive` true; `ctx.ui.confirm` before entering |
 | `write_plan` | `title`, `content`, optional `plan_path` | plan mode | `defaultActive` false; writes `<repo>/.pi/plans/YYYY-MM-DD-HHmm-<slug>.md` (agent dir outside a repo) |
-| `exit_plan_mode` | `plan_path` | plan mode | `defaultActive` false; reads the file, then review screen (TUI) or select (RPC) → approve / keep / refine |
+| `exit_plan_mode` | `plan_path` | plan mode | `defaultActive` false; reads the file, then the read/review screen (TUI) or select (RPC) → approve / keep / refine |
 
 Tool gating is symmetric and stateless: enabling removes every active tool the
 policy does not consider read-only and adds `exit_plan_mode`; disabling restores

@@ -22,6 +22,7 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { GLYPHS } from "../_shared/ui.ts";
 import { canonicalize, checkCheckout, repoRoot, unlockWorktree } from "./git.ts";
 import { analyzeBashCommand, guardFileTool } from "./guard.ts";
 import { enterWorktree, findInactiveOverrides, refusalMessage, worktreeLabel } from "./lifecycle.ts";
@@ -93,7 +94,7 @@ export default function (pi: ExtensionAPI) {
 					createdByUs: false,
 				};
 				setActive(borrowed);
-				setStatus(ctx, `⧉ ${worktreeLabel(borrowed)} (inherited)`);
+				setStatus(ctx, `${GLYPHS.worktree} ${worktreeLabel(borrowed)} (inherited)`);
 				publishWorktree(pi, borrowed);
 				ctx.ui.notify(`Using parent worktree ${borrowed.path}`, "info");
 			} else {
@@ -108,7 +109,7 @@ export default function (pi: ExtensionAPI) {
 			const check = await checkCheckout(pi, recorded.path, recorded.repoRoot);
 			if (check.ok) {
 				setActive(recorded);
-				setStatus(ctx, `⧉ ${worktreeLabel(recorded)}`);
+				setStatus(ctx, `${GLYPHS.worktree} ${worktreeLabel(recorded)}`);
 				ctx.ui.notify(`Restored worktree ${worktreeLabel(recorded)}`, "info");
 			} else {
 				// "unverified" keeps the recorded binding so a later resume can

@@ -8,10 +8,11 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { STATUS_KEYS } from "../_shared/ui.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import type { WorktreeState } from "./state.ts";
 
-const STATUS_KEY = "worktree";
+const STATUS_KEY = STATUS_KEYS.worktree;
 
 /** Environment variables a parent session passes to child processes (subagents). */
 export const ENV_ROOT = "PI_WORKTREE_ROOT";

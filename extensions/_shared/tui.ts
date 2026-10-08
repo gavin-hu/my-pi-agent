@@ -1,16 +1,40 @@
 /**
- * Small TUI helpers shared by extension screens (checkpoint, plan-mode).
+ * Small TUI helpers shared by extension screens (rewind, jobs, plan-mode,
+ * todo).
+ *
+ * `FULL_SCREEN_OVERLAY` is for the one surface that must own the whole terminal:
+ * the plan read/review screen. Every list screen (`/todos`, `/jobs`,
+ * `/rewind`, `/plans`) stays in the dock's editor slot so they match each
+ * other and leave the transcript visible.
  *
  * Screens are full-width, terminal-height-aware components. These helpers build
- * the top rule and clamp a screen's body to the terminal, so each screen keeps
- * its own layout but not its own copy of the arithmetic.
+ * the top rule, clamp a screen's body to the terminal, and render the key-hint
+ * footer, so each screen keeps its own layout but not its own copy of the
+ * arithmetic or hint vocabulary.
  *
  * No runtime dependencies beyond `@earendil-works/pi-tui`: the theme is passed
  * in, and the viewport options are explicit.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, type OverlayOptions } from "@earendil-works/pi-tui";
+import { SEPARATORS } from "./ui.ts";
+
+/**
+ * `ctx.ui.custom` options that give a screen the whole terminal.
+ *
+ * Without `overlay`, Pi mounts the component in the editor slot of its dock,
+ * where it shares the terminal with the transcript, status line, widgets, and
+ * footer. A screen sized to `terminal.rows` then overflows the slot and the
+ * layout clips its bottom — losing the screen's own footer. Mounting as a
+ * full-screen overlay keeps the row budget equal to the terminal's, however
+ * much chrome the dock carries; keep the chrome budget small on dock-mounted
+ * list screens so their footer survives the slot.
+ */
+export const FULL_SCREEN_OVERLAY: { overlay: true; overlayOptions: OverlayOptions } = {
+	overlay: true,
+	overlayOptions: { width: "100%", maxHeight: "100%", anchor: "top-left", margin: 0 },
+};
 
 /**
  * Top border with `label` centered-left, exactly `width` columns wide. When the
@@ -47,4 +71,20 @@ export function viewportRows(source: ViewportRowsSource | undefined, options: Vi
 	const rows = typeof source === "function" ? source() : source;
 	if (rows === undefined || !Number.isFinite(rows) || rows <= 0) return Math.max(1, options.fallback);
 	return Math.max(1, rows - options.chrome);
+}
+
+/**
+ * A dim, two-space-indented key-hint footer, joined with ` · `. Hints are added
+ * while they fit, so a narrow terminal drops whole keys instead of truncating
+ * one in half. The first hint is always kept; the result is clipped to `width`.
+ */
+export function screenHint(theme: Theme, width: number, hints: string[]): string {
+	const target = Math.max(1, width);
+	const kept: string[] = [];
+	for (const hint of hints) {
+		const candidate = [...kept, hint].join(SEPARATORS.item);
+		if (kept.length > 0 && visibleWidth(`  ${candidate}`) > target) break;
+		kept.push(hint);
+	}
+	return truncateToWidth(`  ${theme.fg("dim", kept.join(SEPARATORS.item))}`, target);
 }

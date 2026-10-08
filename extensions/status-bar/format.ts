@@ -32,9 +32,10 @@ export type ThinkingColor =
 	| "thinkingXhigh"
 	| "thinkingMax";
 
-/** US-dollar cost. `compact` drops to one decimal place, but never rounds a
- *  positive sub-`$0.1` amount down to `$0.0`. */
+/** US-dollar cost. `compact` drops to one decimal place above `$0.1`, but
+ *  never rounds a positive sub-cent amount down to `$0.00` — it shows `<$0.01`. */
 export function formatCost(cost: number, compact = false): string {
+	if (cost > 0 && cost < 0.01) return "<$0.01";
 	const decimals = compact && cost >= 0.1 ? 1 : 2;
 	return `$${cost.toFixed(decimals)}`;
 }
@@ -109,6 +110,22 @@ const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {
 /** Strip SGR color/style escapes, leaving only the visible characters. */
 export function stripAnsi(text: string): string {
 	return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+/**
+ * Compact a status to its icon form for a narrow bar.
+ *
+ * An icon plus a label (`≡ plan`) keeps only the icon. An icon plus a bare
+ * count (`↺ 2`) is a badge: it keeps the count and drops the space (`↺2`),
+ * because the number is the state. SGR color is stripped first — keeping the
+ * opening escape without its reset would bleed color into the rest of the line.
+ * Requiring exactly two tokens (rather than "the last token is numeric") keeps
+ * a numeric label like `≡ plan · 2024` from being mistaken for a count.
+ */
+export function compactStatus(status: string): string {
+	const tokens = stripAnsi(status).trim().split(/\s+/).filter(Boolean);
+	const icon = tokens[0] ?? "";
+	return tokens.length === 2 && /^\d+$/.test(tokens[1]) ? `${icon}${tokens[1]}` : icon;
 }
 
 /** Truncate to `max` display columns, counting wide characters correctly. */

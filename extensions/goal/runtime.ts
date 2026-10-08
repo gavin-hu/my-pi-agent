@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { announceRailChanged } from "../_shared/rails.ts";
+import { announceRailChanged, onRailsSuppressed } from "../_shared/rails.ts";
 import { DEFAULT_GOAL_CONFIG, type GoalConfig } from "./config.ts";
 import { reconstructGoal } from "./state.ts";
 import { GoalWidget, WIDGET_KEY } from "./tui.ts";
@@ -30,9 +30,18 @@ export interface GoalRuntime {
 export function createGoalRuntime(pi?: Pick<ExtensionAPI, "events">): GoalRuntime {
 	let goal: Goal | null = null;
 	let config: GoalConfig = DEFAULT_GOAL_CONFIG;
+	// True while a dock screen owns the editor slot; the rail stays hidden.
+	let suppressed = false;
+	// Most recent TUI context, so a suppression change can re-sync the widget.
+	let lastTuiCtx: ExtensionContext | undefined;
 
 	const sync = (ctx?: ExtensionContext): void => {
 		if (!ctx || ctx.mode !== "tui") return;
+		lastTuiCtx = ctx;
+		if (suppressed) {
+			ctx.ui.setWidget(WIDGET_KEY, undefined);
+			return;
+		}
 		const current = goal;
 		if (!current || (current.status === "achieved" && config.achieved === "hide")) {
 			ctx.ui.setWidget(WIDGET_KEY, undefined);
@@ -41,11 +50,19 @@ export function createGoalRuntime(pi?: Pick<ExtensionAPI, "events">): GoalRuntim
 		const snapshot = current;
 		const options = { achieved: config.achieved };
 		ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => new GoalWidget(snapshot, theme, options));
-		// The goal is the upper rail; tell lower rails (todo) to re-assert so they
-		// stay below it. Re-insertion always appends, so a stale goal update would
-		// otherwise sink the goal under the list.
-		if (pi) announceRailChanged(pi);
+		// The goal is the top rail; announce so the rails below it (todo, then jobs)
+		// re-assert. Re-insertion always appends, so a stale goal update would
+		// otherwise sink the goal under them.
+		if (pi) announceRailChanged(pi, "goal");
 	};
+
+	// Hide the rail while a dock screen is open; re-sync (and re-announce) when the
+	// last screen closes so the ordering chain is re-established.
+	if (pi)
+		onRailsSuppressed(pi, (open) => {
+			suppressed = open;
+			sync(lastTuiCtx);
+		});
 
 	return {
 		getGoal: () => goal,

@@ -50,14 +50,14 @@ describe("shortenPath", () => {
 describe("clip", () => {
 	test("keeps surrogate pairs intact", () => {
 		const out = clip(`${"a".repeat(59)}😀tail`, 60);
-		expect(out.endsWith("...")).toBe(true);
+		expect(out.endsWith("…")).toBe(true);
 		expect(out).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
 		expect(out).not.toMatch(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
 	});
 
 	test("accounts for wide characters by display width", () => {
 		const out = clip("界".repeat(40), 20);
-		expect(out.endsWith("...")).toBe(true);
+		expect(out.endsWith("…")).toBe(true);
 		expect([...out].length).toBeLessThanOrEqual(12);
 	});
 });
@@ -66,7 +66,7 @@ describe("clipPath", () => {
 	test("preserves the basename when eliding the middle", () => {
 		const out = clipPath("/Users/gavin/Repositories/company/project/src/deeply/nested/module/file.ts", 40);
 		expect(out.endsWith("file.ts")).toBe(true);
-		expect(out).toContain("...");
+		expect(out).toContain("…");
 	});
 
 	test("returns a short path unchanged", () => {
@@ -92,7 +92,7 @@ describe("formatToolCall", () => {
 	test("clips an overlong path in the preview", () => {
 		const out = formatToolCall("read", { file_path: `/tmp/${"a".repeat(200)}` }, theme, true);
 		expect(out.length).toBeLessThan(90);
-		expect(out).toContain("...");
+		expect(out).toContain("…");
 	});
 
 	test("does not throw on malformed arguments", () => {

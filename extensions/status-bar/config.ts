@@ -5,16 +5,18 @@
  * segments themselves (see `lines.ts`); everything shared lives here.
  */
 
+import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../_shared/ui.ts";
+
 export const CONFIG = {
 	/** Context percentage thresholds. */
 	thresholds: { warn: 70, danger: 90 },
 	/** Gauge glyphs, and the block counts the gauge steps down through. */
-	gauge: { full: "▰", empty: "▱", widths: [10, 5, 3, 0] as const },
+	gauge: { full: GLYPHS.gaugeFull, empty: GLYPHS.gaugeEmpty, widths: [10, 5, 3, 0] as const },
 	/** Separators printed before grouped and other segments. */
-	separators: { group: " │ ", item: " · " },
-	icons: { branch: "⎇", detached: "⚠", worktree: "⧉", warning: "⚠" },
+	separators: { group: SEPARATORS.group, item: SEPARATORS.item },
+	icons: { branch: GLYPHS.branch, detached: GLYPHS.detached, worktree: GLYPHS.worktree },
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
-	worktreeStatusKey: "worktree",
+	worktreeStatusKey: STATUS_KEYS.worktree,
 	labels: { noModel: "no-model", detached: "detached" },
 	/** Minimum gap kept between the left and right zones. */
 	minGap: 2,

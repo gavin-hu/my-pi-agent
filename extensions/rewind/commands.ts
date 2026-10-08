@@ -8,6 +8,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { withRailsSuppressed } from "../_shared/rails.ts";
 import { formatRewindListText, formatRewindRow } from "./format.ts";
 import { rewindTo } from "./rewind.ts";
 import type { RewindRuntime } from "./runtime.ts";
@@ -34,7 +35,7 @@ async function choosePoint(ctx: ExtensionCommandContext, points: RewindPoint[]):
 }
 
 /** Open the timeline and rewind to the chosen point. */
-async function openRewind(runtime: RewindRuntime, ctx: ExtensionCommandContext): Promise<void> {
+async function openRewind(pi: ExtensionAPI, runtime: RewindRuntime, ctx: ExtensionCommandContext): Promise<void> {
 	const root = await runtime.rootFor(ctx);
 	const snapshots = root ? await runtime.list(root, false) : [];
 	const points = buildRewindPoints(ctx.sessionManager.getBranch(), snapshots, ctx.sessionManager.getSessionId());
@@ -57,7 +58,7 @@ async function openRewind(runtime: RewindRuntime, ctx: ExtensionCommandContext):
 		return;
 	}
 
-	const point = await choosePoint(ctx, points);
+	const point = await withRailsSuppressed(pi, () => choosePoint(ctx, points));
 	if (!point) return;
 	await rewindTo(runtime, ctx, root, point);
 }
@@ -66,7 +67,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: RewindRuntime): void
 	pi.registerCommand("rewind", {
 		description: "Rewind the working tree and/or conversation to an earlier prompt",
 		handler: async (_args, ctx) => {
-			await openRewind(runtime, ctx);
+			await openRewind(pi, runtime, ctx);
 		},
 	});
 }

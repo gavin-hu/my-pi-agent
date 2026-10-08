@@ -6,11 +6,13 @@
  * theme automatically.
  */
 
+import { GLYPHS } from "../_shared/ui.ts";
+
 export const CONFIG = {
 	/** Custom entry type. Changing it orphans separators recorded by an older build. */
 	customType: "turn-separator",
 	/** Repeatable glyph that fills each side of the label. */
-	glyph: "╌",
+	glyph: GLYPHS.turnRule,
 	/** Word printed before the turn number. */
 	labelPrefix: "turn",
 	/** Spaces on each side of the label. */

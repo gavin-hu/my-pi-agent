@@ -1,62 +1,33 @@
 /**
  * Slash commands for the plan-mode extension.
  *
- * `/plan` toggles plan mode, or enters it and sends the rest of the line as the
- * task. `list`, `show`, and `delete` are reserved first arguments that manage
- * saved plan files instead:
- *
- *   /plan                  toggle plan mode
- *   /plan <prompt>         enter plan mode and send the task
- *   /plan list             open the TUI browser (print the list elsewhere)
- *   /plan show <file>      open one saved plan in the review screen (browse)
- *   /plan delete <file>    confirm and delete one saved plan
+ * `/plan` enters plan mode, optionally sending the rest of the line as the
+ * task; `Ctrl+Alt+P` is the toggle. `/plans` opens the plan browser in the TUI,
+ * or prints the saved plans elsewhere. All management happens in the browser:
+ * Enter reads, `d` deletes, `u` uses, Esc closes.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { withRailsSuppressed } from "../_shared/rails.ts";
+import { FULL_SCREEN_OVERLAY } from "../_shared/tui.ts";
 import type { PlanSummary, StoredPlan } from "./plans.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import { PlanListComponent, type PlanListAction } from "./list-tui.ts";
-import { PlanReviewComponent } from "./tui.ts";
+import { PlanViewComponent } from "./tui.ts";
 
 const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 
-/** Reserved first arguments; anything else is a task prompt. */
-const SUBCOMMANDS = ["list", "show", "delete"] as const;
-type PlanSubcommand = (typeof SUBCOMMANDS)[number];
+/** Old `/plan list|show|delete` words; `/plan` now only enters plan mode. */
+const LEGACY_SUBCOMMANDS = ["list", "show", "delete", "use"] as const;
 
 /** Lines of a plan shown in an unstructured (non-TUI) notice. */
 const PREVIEW_LINES = 40;
 
-interface Completion {
-	value: string;
-	label: string;
-	description?: string;
-}
-
-const SUBCOMMAND_ITEMS: Completion[] = [
-	{ value: "list", label: "list", description: "List saved plans, or open the browser" },
-	{ value: "show", label: "show", description: "View a saved plan: show <file>" },
-	{ value: "delete", label: "delete", description: "Delete a saved plan: delete <file>" },
-];
-
 /** Notice text for the current mode; shared by `/plan` and the `Ctrl+Alt+P` shortcut. */
 export function planModeNotice(enabled: boolean): string {
 	return enabled ? ENABLED_NOTICE : DISABLED_NOTICE;
-}
-
-/** Split `/plan` arguments into a reserved subcommand + rest, or a task prompt. */
-function parsePlanArgs(raw: string):
-	| { kind: "subcommand"; subcommand: PlanSubcommand; rest: string }
-	| { kind: "prompt"; prompt: string } {
-	const trimmed = raw.trim();
-	if (!trimmed) return { kind: "prompt", prompt: "" };
-	const [first, ...rest] = trimmed.split(/\s+/);
-	if ((SUBCOMMANDS as readonly string[]).includes(first)) {
-		return { kind: "subcommand", subcommand: first as PlanSubcommand, rest: rest.join(" ").trim() };
-	}
-	return { kind: "prompt", prompt: trimmed };
 }
 
 /** Bounded text for a plan shown outside the TUI. */
@@ -85,29 +56,36 @@ async function browsePlan(ctx: ExtensionCommandContext, plan: StoredPlan): Promi
 		ctx.ui.notify(`${plan.relativePath}\n\n${previewPlan(plan.content)}`, "info");
 		return;
 	}
-	await ctx.ui.custom<undefined>((tui, theme, _keybindings, done) =>
-		new PlanReviewComponent({
-			plan,
-			theme,
-			mode: "browse",
-			onClose: () => done(undefined),
-			requestRender: () => tui.requestRender(),
-			viewportRows: () => tui.terminal?.rows,
-		}),
+	await ctx.ui.custom<undefined>(
+		(tui, theme, _keybindings, done) =>
+			new PlanViewComponent({
+				plan,
+				theme,
+				mode: "browse",
+				onClose: () => done(undefined),
+				requestRender: () => tui.requestRender(),
+				viewportRows: () => tui.terminal?.rows,
+			}),
+		FULL_SCREEN_OVERLAY,
 	);
 }
 
 /** Pick a plan from the TUI browser; undefined closes the menu. */
-async function choosePlan(ctx: ExtensionCommandContext, plans: PlanSummary[]): Promise<PlanListAction | undefined> {
-	if (plans.length === 0) return undefined;
-	return ctx.ui.custom<PlanListAction | undefined>((tui, theme, _keybindings, done) =>
-		new PlanListComponent({
-			plans,
-			theme,
-			onClose: (action) => done(action),
-			requestRender: () => tui.requestRender(),
-			viewportRows: () => tui.terminal?.rows,
-		}),
+async function choosePlan(
+	ctx: ExtensionCommandContext,
+	plans: PlanSummary[],
+	activePlanPath?: string,
+): Promise<PlanListAction | undefined> {
+	return ctx.ui.custom<PlanListAction | undefined>(
+		(tui, theme, _keybindings, done) =>
+			new PlanListComponent({
+				plans,
+				theme,
+				activePlanPath,
+				onClose: (action) => done(action),
+				requestRender: () => tui.requestRender(),
+				viewportRows: () => tui.terminal?.rows,
+			}),
 	);
 }
 
@@ -129,11 +107,11 @@ async function usePlan(pi: ExtensionAPI, ctx: ExtensionCommandContext, plan: Pla
 	else await pi.sendUserMessage(message, { deliverAs: "followUp" });
 }
 
-/** The TUI browser behind `/plan list`. View and delete keep it open; use closes it. */
+/** The TUI browser behind `/plans`. View and delete keep it open; use closes it. */
 async function openPlansMenu(pi: ExtensionAPI, runtime: PlanRuntime, ctx: ExtensionCommandContext): Promise<void> {
 	for (;;) {
 		const plans = await runtime.plans.list(ctx.cwd);
-		const choice = await choosePlan(ctx, plans);
+		const choice = await choosePlan(ctx, plans, runtime.lastPlanPath());
 		if (!choice) return;
 
 		if (choice.action === "view") {
@@ -165,76 +143,39 @@ async function openPlansMenu(pi: ExtensionAPI, runtime: PlanRuntime, ctx: Extens
 	}
 }
 
-/** `/plan show <file>` and `/plan delete <file>`. */
-async function manageFile(
-	runtime: PlanRuntime,
-	ctx: ExtensionCommandContext,
-	subcommand: "show" | "delete",
-	argument: string,
-): Promise<void> {
-	if (!argument) {
-		ctx.ui.notify(`Usage: /plan ${subcommand} <plan-file>`, "warning");
-		return;
-	}
-	const plan = await runtime.plans.read(ctx.cwd, argument);
-	if (!plan) {
-		ctx.ui.notify(`Plan not found: ${argument}`, "warning");
-		return;
-	}
-	if (subcommand === "show") {
-		await browsePlan(ctx, plan);
-		return;
-	}
-	if (!ctx.hasUI) {
-		ctx.ui.notify("Deleting a plan needs an interactive UI to confirm.", "warning");
-		return;
-	}
-	const approved = await ctx.ui.confirm(
-		"Delete this plan?",
-		`${plan.relativePath}\nThis removes the file from the plans directory; it cannot be undone.`,
-	);
-	if (!approved) return;
-	const removed = await runtime.plans.remove(ctx.cwd, plan.path);
-	ctx.ui.notify(removed ? `Deleted ${plan.relativePath}.` : `Could not delete ${plan.relativePath}.`, removed ? "info" : "warning");
-}
-
 export function registerCommands(pi: ExtensionAPI, runtime: PlanRuntime): void {
 	pi.registerCommand("plan", {
-		description: "Toggle plan mode, plan a task, or manage saved plans: /plan [prompt|list|show|delete]",
-		getArgumentCompletions: (prefix) => {
-			const [action = "", argument] = prefix.trimStart().split(/\s+/);
-			if (argument !== undefined) return null;
-			const items = SUBCOMMAND_ITEMS.filter((item) => item.value.startsWith(action));
-			return items.length > 0 ? items.map((item) => ({ ...item, value: `${item.value} ` })) : null;
-		},
+		description: "Enter plan mode (read-only exploration) with an optional task",
 		handler: async (args, ctx) => {
-			const parsed = parsePlanArgs(args);
-
-			if (parsed.kind === "subcommand") {
-				if (parsed.subcommand === "list") {
-					if (ctx.mode === "tui") await openPlansMenu(pi, runtime, ctx);
-					else printPlans(ctx, await runtime.plans.list(ctx.cwd));
-					return;
-				}
-				await manageFile(runtime, ctx, parsed.subcommand, parsed.rest);
-				return;
-			}
-
-			const prompt = parsed.prompt;
-
-			// `/plan` toggles; `/plan <prompt>` enters plan mode and sends the task.
-			if (!prompt) {
-				runtime.toggle(ctx);
-				ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
+			const prompt = args.trim();
+			const first = prompt.split(/\s+/)[0];
+			// `/plan list` and friends used to manage plans; point them at `/plans`
+			// instead of silently planning a task named "list".
+			if (prompt && (LEGACY_SUBCOMMANDS as readonly string[]).includes(first)) {
+				ctx.ui.notify("Plan management moved to /plans.", "info");
 				return;
 			}
 
 			if (!runtime.isEnabled()) {
 				runtime.enable(ctx);
 				ctx.ui.notify(ENABLED_NOTICE, "info");
+			} else if (!prompt) {
+				ctx.ui.notify("Already in plan mode.", "info");
+				return;
 			}
-			if (ctx.isIdle()) await pi.sendUserMessage(prompt);
-			else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
+
+			if (prompt) {
+				if (ctx.isIdle()) await pi.sendUserMessage(prompt);
+				else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
+			}
+		},
+	});
+
+	pi.registerCommand("plans", {
+		description: "Browse and manage saved plans",
+		handler: async (_args, ctx) => {
+			if (ctx.mode === "tui") await withRailsSuppressed(pi, () => openPlansMenu(pi, runtime, ctx));
+			else printPlans(ctx, await runtime.plans.list(ctx.cwd));
 		},
 	});
 }

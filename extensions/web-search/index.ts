@@ -76,7 +76,7 @@ export default function webSearch(pi: ExtensionAPI) {
 			if (!details || result.isError) {
 				const first = result.content[0];
 				const message = first?.type === "text" ? first.text : "Search failed";
-				return new Text(theme.fg("error", message), 0, 0);
+				return new Text(theme.fg("error", `Error: ${message}`), 0, 0);
 			}
 			if (details.provider === "none") {
 				return new Text(theme.fg("dim", `No results for "${details.query}".`), 0, 0);

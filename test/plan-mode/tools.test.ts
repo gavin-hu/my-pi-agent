@@ -114,7 +114,7 @@ describe("write_plan", () => {
 		expect(details.bytes).toBeGreaterThan(0);
 		expect(result.content[0].text).toContain(details.path);
 		expect(runtime.lastPlanPath()).toBe(details.path);
-		expect(String(statusCalls.at(-1)?.text)).toContain("⏸ plan");
+		expect(String(statusCalls.at(-1)?.text)).toContain("≡ plan");
 	});
 
 	test("reports a write failure as an error result", async () => {
@@ -286,5 +286,30 @@ describe("exit_plan_mode", () => {
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
+	});
+
+	// The review sizes itself to the whole terminal, so it must be an overlay.
+	// Mounted in the editor slot of Pi's dock it would share the terminal with the
+	// transcript, status line, widgets, and footer, and the layout would clip the
+	// bottom of the screen — its own footer hints.
+	test("mounts the review screen as a full-screen overlay", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+
+		const { ctx } = fakeCtx({ mode: "tui", cwd: root });
+		const seen: unknown[] = [];
+		ctx.ui.custom = async (_factory: unknown, options: unknown) => {
+			seen.push(options);
+			return "approve";
+		};
+		await call(exit, { plan_path: planPath }, ctx);
+
+		expect(seen).toEqual([
+			{
+				overlay: true,
+				overlayOptions: { width: "100%", maxHeight: "100%", anchor: "top-left", margin: 0 },
+			},
+		]);
 	});
 });

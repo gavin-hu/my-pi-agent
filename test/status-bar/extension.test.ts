@@ -49,11 +49,11 @@ describe("status-bar extension", () => {
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await command.handler("", ctx);
 		expect(footers.at(-1)).toBeUndefined();
-		expect(notifications.at(-1)).toBe("Built-in footer restored");
+		expect(notifications.at(-1)).toBe("Status bar disabled");
 
 		await command.handler("", ctx);
 		expect(typeof footers.at(-1)).toBe("function");
-		expect(notifications.at(-1)).toBe("Status bar on");
+		expect(notifications.at(-1)).toBe("Status bar enabled");
 	});
 
 	test("renders two lines through the installed factory", async () => {

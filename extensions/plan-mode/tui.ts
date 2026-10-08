@@ -1,10 +1,11 @@
 /**
  * Terminal rendering for the plan review screen.
  *
- * `PlanReviewComponent` is the scrollable screen `exit_plan_mode` opens in the
- * TUI. It reads the plan file the user is approving, sanitizes it for terminal
- * display, and returns the chosen action through `onClose` so the tool can act
- * only after the screen is gone and input focus is free again.
+ * `PlanViewComponent` is the scrollable read/review screen. `exit_plan_mode`
+ * opens it for approval (`mode: "review"`), and the `/plans` browser opens it
+ * read-only (`mode: "browse"`). It sanitizes the plan file for terminal display
+ * and returns the chosen action through `onClose` so the caller can act only
+ * after the screen is gone and input focus is free again.
  */
 
 import { basename } from "node:path";
@@ -13,24 +14,22 @@ import {
 	Key,
 	matchesKey,
 	truncateToWidth,
-	visibleWidth,
 	wrapTextWithAnsi,
 	type Component,
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { screenHeader, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
+import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { extractPlanSteps } from "./steps.ts";
 
-/** What the user chose from the review screen. */
-export type PlanReviewAction = "approve" | "refine" | "keep";
+/** What the user chose from the read/review screen. */
+export type PlanViewAction = "approve" | "refine" | "keep";
 
-export interface PlanReviewOptions {
+export interface PlanViewOptions {
 	plan: StoredPlan;
 	theme: Theme;
 	/** Called once when the screen closes. */
-	onClose: (action: PlanReviewAction) => void;
+	onClose: (action: PlanViewAction) => void;
 	requestRender: () => void;
 	viewportRows?: ViewportRowsSource;
 	/** `browse` opens a saved plan read-only (no approve/refine); defaults to `review`. */
@@ -39,8 +38,8 @@ export interface PlanReviewOptions {
 
 /** Rows the screen shows when the terminal height is unknown. */
 const DEFAULT_ROWS = 20;
-/** Header, subtitle, blanks, and footer rows around a non-empty plan. */
-const CHROME_ROWS = 6;
+/** Header, blanks, and footer rows around a non-empty plan. */
+const CHROME_ROWS = 5;
 
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
@@ -64,18 +63,6 @@ function styleLine(theme: Theme, raw: string): string {
 interface BodyLine {
 	text: string;
 	source: number;
-	/** Nearest heading at or above this line, for the sticky section title. */
-	heading: string | null;
-	/** Source line of that heading, or -1 when there is none. */
-	headingSource: number;
-}
-
-/** Heading text without the leading `#` markers, or null when the line is not a heading. */
-function headingText(raw: string): string | null {
-	const text = sanitize(raw)
-		.match(/^\s{0,3}#{1,6}(?:\s+(.*))?$/)?.[1]
-		?.trim();
-	return text ? text : null;
 }
 
 /** Human title for the header: the file name without its extension or stamp. */
@@ -83,19 +70,17 @@ function displayTitle(fileName: string): string {
 	return planTitle(fileName);
 }
 
-/** Selectable, scrollable plan review opened by `exit_plan_mode`. */
-export class PlanReviewComponent implements Component {
+/** Scrollable plan read/review screen shared by `exit_plan_mode` and `/plans`. */
+export class PlanViewComponent implements Component {
 	private offset = 0;
 	private visible = DEFAULT_ROWS;
 	private maxOffset = 0;
 	/** Wrapped lines are expensive to build, so they are cached per width. */
 	private cache: { width: number; lines: BodyLine[] } | null = null;
-	/** Plan steps are content-derived and fixed per component, so count them once. */
-	private stepCount: number | undefined;
 	/** Source line (and wrap offset) the view starts at, so a resize keeps its place. */
 	private anchor: { source: number; within: number } | null = null;
 
-	constructor(private readonly options: PlanReviewOptions) {}
+	constructor(private readonly options: PlanViewOptions) {}
 
 	private get theme(): Theme {
 		return this.options.theme;
@@ -106,28 +91,16 @@ export class PlanReviewComponent implements Component {
 		return this.options.mode === "browse";
 	}
 
-	/** Number of plan steps, counted once. */
-	private planSteps(): number {
-		return (this.stepCount ??= extractPlanSteps(this.options.plan.content).length);
-	}
-
 	/** Styled, wrapped body lines for the given outer width. */
 	private body(width: number): BodyLine[] {
 		if (this.cache?.width === width) return this.cache.lines;
 		const inner = Math.max(1, width - 2);
 		const out: BodyLine[] = [];
 		const source = this.options.plan.content.split("\n");
-		let heading: string | null = null;
-		let headingSource = -1;
 		for (let index = 0; index < source.length; index++) {
 			const raw = source[index];
-			const display = headingText(raw);
-			if (display) {
-				heading = display;
-				headingSource = index;
-			}
 			for (const line of wrapTextWithAnsi(styleLine(this.theme, raw), inner)) {
-				out.push({ text: `  ${line}`, source: index, heading, headingSource });
+				out.push({ text: `  ${line}`, source: index });
 			}
 		}
 		this.cache = { width, lines: out };
@@ -208,7 +181,6 @@ export class PlanReviewComponent implements Component {
 		const theme = this.theme;
 		const w = Math.max(1, width);
 		const plan = this.options.plan;
-		const steps = this.planSteps();
 		const title = displayTitle(basename(plan.path));
 
 		const cachedWidth = this.cache?.width;
@@ -221,21 +193,14 @@ export class PlanReviewComponent implements Component {
 		this.offset = Math.min(Math.max(0, this.offset), this.maxOffset);
 		this.updateAnchor(body);
 
-		const top = body[this.offset];
-		const sticky = this.maxOffset > 0 && top && top.heading && top.headingSource < top.source ? top.heading : null;
-		// Section and step count come first so a long path cannot push them off screen.
-		const stepLabel = `${steps} step${steps === 1 ? "" : "s"}`;
-		const section = sticky ? `${theme.fg("accent", `§ ${sticky}`)} · ` : "";
-		const subtitle = `${section}${theme.fg("muted", [stepLabel, plan.relativePath].join(" · "))}`;
 		const lines: string[] = [
 			screenHeader(theme, w, truncateToWidth(`${this.browse() ? "Plan" : "Plan Review"} · ${title}`, Math.max(1, w - 6))),
-			truncateToWidth(`  ${subtitle}`, w),
 			"",
 		];
 
 		const end = Math.min(body.length, this.offset + visible);
 		for (let i = this.offset; i < end; i++) lines.push(truncateToWidth(body[i].text, w));
-		if (body.length === 0) lines.push(truncateToWidth(`  ${theme.fg("dim", "(empty plan)")}`, w));
+		if (body.length === 0) lines.push(truncateToWidth(`  ${theme.fg("dim", "This plan is empty.")}`, w));
 
 		lines.push("");
 		const scrollable = this.maxOffset > 0;
@@ -243,7 +208,7 @@ export class PlanReviewComponent implements Component {
 		const hints = scrollable
 			? [
 					...(this.browse() ? ["Esc close"] : ["a approve", "r refine", "Esc keep"]),
-					"↑↓/j/k scroll",
+					"↑/↓ or k/j scroll",
 					`lines ${this.offset + 1}–${end} of ${body.length} (${percent}%)`,
 					"space/b page",
 					"g/G ends",
@@ -251,15 +216,7 @@ export class PlanReviewComponent implements Component {
 			: this.browse()
 				? ["Esc close"]
 				: ["a approve", "r refine", "Esc keep planning"];
-		// Add hints until the row would overflow, so a narrow terminal drops whole
-		// keys instead of truncating one in half.
-		const footer: string[] = [];
-		for (const hint of hints) {
-			const candidate = [...footer, hint].join(" · ");
-			if (footer.length > 0 && visibleWidth(`  ${candidate}`) > w) break;
-			footer.push(hint);
-		}
-		lines.push(truncateToWidth(`  ${theme.fg("dim", footer.join(" · "))}`, w));
+		lines.push(screenHint(theme, w, hints));
 		lines.push("");
 		return lines;
 	}

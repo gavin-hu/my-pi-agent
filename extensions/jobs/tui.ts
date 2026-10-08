@@ -14,8 +14,8 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { screenHeader, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
+import { Key, matchesKey, truncateToWidth, visibleWidth, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
 import {
 	compareJobs,
 	elapsedMs,
@@ -183,6 +183,14 @@ export class JobListComponent implements Component {
 		else this.handleLogInput(data);
 	}
 
+	/** Wheel scrolling moves the selection, or scrolls the log pane in log mode. */
+	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
+		if (this.mode === "list") this.setSelection(this.selected + event.wheelDelta);
+		else this.setLogScroll(this.logScroll + event.wheelDelta);
+		return { handled: true };
+	}
+
 	private handleListInput(data: string): void {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") {
 			this.onClose();
@@ -272,12 +280,7 @@ export class JobListComponent implements Component {
 		lines.push("");
 		for (const line of detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", line)}`, w));
 		lines.push("");
-		lines.push(
-			truncateToWidth(
-				`  ${this.theme.fg("dim", "↑/↓ select · Enter logs · d kill · x clear finished · Esc close")}`,
-				w,
-			),
-		);
+		lines.push(screenHint(this.theme, w, ["↑/↓ select", "Enter logs", "d kill", "x clear finished", "Esc close"]));
 		lines.push("");
 		return lines;
 	}
@@ -308,7 +311,7 @@ export class JobListComponent implements Component {
 			}
 		}
 		lines.push("");
-		lines.push(truncateToWidth(`  ${this.theme.fg("dim", "↑/↓ scroll · g/G · PgUp/PgDn · Esc back")}`, w));
+		lines.push(screenHint(this.theme, w, ["↑/↓ scroll", "g/G", "PgUp/PgDn", "Esc back"]));
 		lines.push("");
 		return lines;
 	}

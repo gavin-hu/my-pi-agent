@@ -14,6 +14,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
+import { GLYPHS } from "../_shared/ui.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
 
 /** Longest sanitized log line kept for display; longer lines are clipped. */
@@ -81,7 +82,7 @@ export function statusGlyph(status: JobStatus, theme: Theme): string {
 		case "exited":
 			return theme.fg("success", "✓");
 		case "failed":
-			return theme.fg("error", "✕");
+			return theme.fg("error", GLYPHS.jobsFailure);
 		case "killed":
 			return theme.fg("muted", "◌");
 		case "unknown":

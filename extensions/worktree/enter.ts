@@ -6,6 +6,7 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { GLYPHS } from "../_shared/ui.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import {
 	branchExists,
@@ -241,7 +242,7 @@ export async function enterWorktree(
 	persistState((customType, data) => pi.appendEntry(customType, data), state);
 	applyWorktreeEnv(state);
 	publishWorktree(pi, state);
-	setStatus(ctx, `⧉ ${worktreeLabel(state)}`);
+	setStatus(ctx, `${GLYPHS.worktree} ${worktreeLabel(state)}`);
 	ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}`, "info");
 	const summary =
 		`Entered worktree.\n${stateSummary(state)}\n\n` +

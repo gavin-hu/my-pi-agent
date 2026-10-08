@@ -11,17 +11,17 @@ const achieved: Goal = { objective: "Ship the parser", status: "achieved" };
 const longGoal: Goal = { objective: "rework ".repeat(80).trim(), status: "active" };
 
 describe("goalWidgetLines", () => {
-	test("renders a single glyph-led rail line while active", () => {
-		expect(goalWidgetLines(active, theme, 40)).toEqual(["◎ Goal · active · Ship the parser"]);
+	test("renders a single label-first rail line while active", () => {
+		expect(goalWidgetLines(active, theme, 40)).toEqual(["Goal · active · Ship the parser"]);
 	});
 
 	test("renders a single line once achieved", () => {
-		expect(goalWidgetLines(achieved, theme, 40)).toEqual(["✓ Goal · achieved · Ship the parser"]);
+		expect(goalWidgetLines(achieved, theme, 40)).toEqual(["Goal · achieved · Ship the parser"]);
 	});
 
 	test("renders the same one line for the block style", () => {
 		expect(goalWidgetLines(achieved, theme, 40, { achieved: "block" })).toEqual([
-			"✓ Goal · achieved · Ship the parser",
+			"Goal · achieved · Ship the parser",
 		]);
 	});
 
@@ -78,7 +78,7 @@ describe("GoalWidget", () => {
 
 	test("passes the achieved style through", () => {
 		expect(new GoalWidget(achieved, theme, { achieved: "hide" }).render(40)).toEqual([]);
-		expect(new GoalWidget(achieved, theme, { achieved: "block" }).render(40)[0]).toContain("✓ Goal · achieved");
+		expect(new GoalWidget(achieved, theme, { achieved: "block" }).render(40)[0]).toContain("Goal · achieved");
 	});
 });
 

@@ -42,18 +42,24 @@ repeated instructions never accumulate and stale ones never survive a
 goal into `ctx.ui.setWidget()`. The widget exists only in `tui` mode; the tool
 works in every mode.
 
-**The goal is pinned above the todo rail.** Pi renders above-editor widgets in
-insertion order and re-inserts a widget whenever it is set, so a goal update
-would otherwise move the goal *below* the todo list. There is no ordering
+**The goal is the top rail.** Pi renders above-editor widgets in insertion
+order and re-inserts a widget whenever it is set, so a goal update would
+otherwise move the goal *below* the rails under it. There is no ordering
 option, so `_shared/rails.ts` coordinates on `pi.events`: after the goal sets
-its widget it announces, and the list (the lower rail) re-asserts itself, which
-re-appends it at the bottom. Only upper rails announce — a re-asserting rail
-must not, or the two would ping-pong. The coordination is value-only (a channel
-constant and pure helpers), never shared module state, because extensions load
-with isolated module caches.
+its widget it announces; `todo` re-asserts itself and then announces; `jobs`
+re-asserts itself and, as the bottom rail, never announces. Because
+re-insertion always appends, this chain pins the stack to `Goal / Todos /
+Jobs` and cannot ping-pong. The coordination is value-only (per-rail channels
+and pure helpers), never shared module state, because extensions load with
+isolated module caches. While a dock screen owns the editor slot (`/todos`,
+`/jobs`, `/rewind`, `/plans`, or the ask-user-question questionnaire), every
+rail is hidden via `withRailsSuppressed` and restored on close.
 
 **The goal widget is one line, matching the todo widget.** The persistent
-widget is a single glyph-led rail line, `◎ Goal · active · <objective>`. The
+widget is a single label-first rail line, `Goal · active · <objective>`,
+following the same grammar as the `todo` (`Todos · 2/3 · …`) and `jobs`
+(`Jobs · 1 running`) widgets: the accent label leads, the status follows, and
+no glyph is prefixed. The
 goal deliberately does not own a separate visual language: the goal is the
 *what*, the todo list the *how*, and reading them as one family makes that
 relationship legible at a glance. The line is drawn from literal characters (no
@@ -62,11 +68,12 @@ crowding the editor. The transcript result keeps the multi-line glyph rail
 (`Goal · active` then `  ◎ <objective>`), which is where the full objective is
 read.
 
-**An achieved goal is dimmed, not expanded.** The widget line becomes
-`✓ Goal · achieved · <objective>` with a dim objective, so finished work is
-visually retired; `/goal` and the transcript keep the record. `achieved` in
-`.pi/goal.json` accepts `collapse`/`block` (both render the one line) or `hide`
-to remove it. Config only affects presentation; behavior never depends on it.
+**An achieved goal is hidden by default.** Marking a goal achieved removes its
+widget, matching a completed todo list and a finished job; `/goal` and the
+transcript keep the record. `achieved` in `.pi/goal.json` accepts `collapse`/
+`block` to keep drawing the (dimmed) `Goal · achieved · <objective>` line, or
+`hide` (the default) to remove it. Config only affects presentation; behavior
+never depends on it.
 
 **Sanitize at the boundary.** `normalizeGoal` replaces control characters
 (including `ESC`) with spaces and collapses whitespace runs, so an embedded

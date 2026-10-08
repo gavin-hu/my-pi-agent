@@ -1,3 +1,4 @@
+import { GLYPHS, STATUS_KEYS } from "../../extensions/_shared/ui.ts";
 import type { StatusSnapshot } from "../../extensions/status-bar/types.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../helpers/fakes.ts";
 
@@ -91,8 +92,8 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 		cwd: "/home/u/repo/project",
 		branch: "main",
 		statuses: new Map([
-			["plan-mode", "⏸ plan"],
-			["worktree", "⧉ smoke"],
+			[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
+			[STATUS_KEYS.worktree, `${GLYPHS.worktree} smoke`],
 		]),
 		model: { id: "opus-4.5", provider: "anthropic", reasoning: true },
 		thinkingLevel: "high",

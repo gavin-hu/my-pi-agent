@@ -1,7 +1,7 @@
 /**
  * Terminal rendering for the plan browser.
  *
- * `PlanListComponent` is the selectable screen `/plan list` opens in the TUI. It
+ * `PlanListComponent` is the selectable screen `/plans` opens in the TUI. It
  * lists the plans directory newest-first and resolves the chosen action through
  * `onClose`, so the command runs a confirm dialog (for delete/use) only after the
  * screen is gone and input focus is free again. Rows are width-safe; the selected
@@ -17,7 +17,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { screenHeader, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
+import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
 import type { PlanSummary } from "./plans.ts";
 
 /** What the user chose from the list. */
@@ -29,6 +29,8 @@ export type PlanListAction =
 export interface PlanListOptions {
 	plans: PlanSummary[];
 	theme: Theme;
+	/** Absolute path of the plan written this session, marked with `●`. */
+	activePlanPath?: string;
 	/** Called once when the screen closes, with the chosen action or undefined. */
 	onClose: (action?: PlanListAction) => void;
 	requestRender: () => void;
@@ -40,13 +42,37 @@ const SCREEN_DEFAULT_PLANS = 12;
 /** Header, summary, blanks, and footer rows around the list (excluding the optional range row). */
 const SCREEN_CHROME_ROWS = 7;
 
-/** `◦ title · N steps · relative/path` for one row, clipped to `width`. */
-export function formatPlanRow(plan: PlanSummary, width: number): string {
-	const steps = `${plan.steps} step${plan.steps === 1 ? "" : "s"}`;
-	return truncateToWidth(`◦ ${plan.title} · ${steps} · ${plan.relativePath}`, Math.max(1, width));
+/** Relative age of a plan's mtime: `just now`, `5m ago`, `3h ago`, `2d ago`, or a date. */
+export function formatPlanAge(modified: number, now = Date.now()): string {
+	const diff = now - modified;
+	if (!Number.isFinite(diff) || diff < 60_000) return "just now";
+	const minutes = Math.floor(diff / 60_000);
+	if (minutes < 60) return `${minutes}m ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours}h ago`;
+	const days = Math.floor(hours / 24);
+	if (days < 7) return `${days}d ago`;
+	const date = new Date(modified);
+	const pad = (value: number): string => String(value).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** Selectable, scrollable plan list opened by `/plan list`. */
+export interface PlanRowOptions {
+	/** Mark the plan written in the current session with `●` instead of `◦`. */
+	active?: boolean;
+	/** Clock used for the relative age; defaults to `Date.now()`. */
+	now?: number;
+}
+
+/** `◦ title · N steps · 2h ago · relative/path` for one row, clipped to `width`. */
+export function formatPlanRow(plan: PlanSummary, width: number, options: PlanRowOptions = {}): string {
+	const steps = `${plan.steps} step${plan.steps === 1 ? "" : "s"}`;
+	const marker = options.active ? "●" : "◦";
+	const age = formatPlanAge(plan.modified, options.now);
+	return truncateToWidth(`${marker} ${plan.title} · ${steps} · ${age} · ${plan.relativePath}`, Math.max(1, width));
+}
+
+/** Selectable, scrollable plan list opened by `/plans`. */
 export class PlanListComponent implements Component {
 	private selected = 0;
 	private scrollTop = 0;
@@ -73,7 +99,7 @@ export class PlanListComponent implements Component {
 		this.options.requestRender();
 	}
 
-	private focused(): PlanSummary | undefined {
+	private selectedPlan(): PlanSummary | undefined {
 		return this.plans[this.selected];
 	}
 
@@ -89,13 +115,13 @@ export class PlanListComponent implements Component {
 		else if (matchesKey(data, Key.home)) this.setSelected(0);
 		else if (matchesKey(data, Key.end)) this.setSelected(this.plans.length - 1);
 		else if (matchesKey(data, Key.enter)) {
-			const plan = this.focused();
+			const plan = this.selectedPlan();
 			if (plan) this.options.onClose({ action: "view", plan });
 		} else if (data === "d") {
-			const plan = this.focused();
+			const plan = this.selectedPlan();
 			if (plan) this.options.onClose({ action: "delete", plan });
 		} else if (data === "u") {
-			const plan = this.focused();
+			const plan = this.selectedPlan();
 			if (plan) this.options.onClose({ action: "use", plan });
 		}
 	}
@@ -112,14 +138,14 @@ export class PlanListComponent implements Component {
 	render(width: number): string[] {
 		const theme = this.theme;
 		const w = Math.max(1, width);
-		const lines: string[] = [screenHeader(theme, w, "Plans"), ""];
+		const lines: string[] = [screenHeader(theme, w, "Plans")];
 
 		if (this.plans.length === 0) {
 			lines.push(
-				truncateToWidth(`  ${theme.fg("dim", "(no plans yet — write one with write_plan while planning)")}`, w),
+				truncateToWidth(`  ${theme.fg("dim", "No plans yet. Write one with write_plan while planning.")}`, w),
 			);
 			lines.push("");
-			lines.push(truncateToWidth(`  ${theme.fg("dim", "Esc close")}`, w));
+			lines.push(screenHint(theme, w, ["Esc close"]));
 			lines.push("");
 			return lines;
 		}
@@ -146,9 +172,11 @@ export class PlanListComponent implements Component {
 		this.scrollTop = Math.min(this.scrollTop, Math.max(0, this.plans.length - visible));
 
 		const end = Math.min(this.plans.length, this.scrollTop + visible);
+		const now = Date.now();
 		for (let i = this.scrollTop; i < end; i++) {
 			const selected = i === this.selected;
-			const row = formatPlanRow(this.plans[i], Math.max(1, w - 2));
+			const active = this.options.activePlanPath !== undefined && this.plans[i].path === this.options.activePlanPath;
+			const row = formatPlanRow(this.plans[i], Math.max(1, w - 2), { active, now });
 			const marker = selected ? theme.fg("accent", "❯ ") : "  ";
 			const body = selected ? theme.fg("accent", row) : theme.fg("dim", row);
 			lines.push(truncateToWidth(marker + body, w));
@@ -159,7 +187,7 @@ export class PlanListComponent implements Component {
 			);
 		}
 		lines.push("");
-		lines.push(truncateToWidth(`  ${theme.fg("dim", "Enter view · d delete · u use · Esc close")}`, w));
+		lines.push(screenHint(theme, w, ["Enter view", "d delete", "u use", "Esc close"]));
 		lines.push("");
 		return lines;
 	}

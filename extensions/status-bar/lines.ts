@@ -13,6 +13,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CONFIG } from "./config.ts";
 import {
+	compactStatus,
 	computeGauge,
 	contextColor,
 	formatCost,
@@ -93,8 +94,9 @@ function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const full = others.join(dim(theme, CONFIG.separators.item));
 	// Derive the compact form from plain text: a themed status carries an
 	// opening SGR code but the reset is lost when we keep only the first token,
-	// which would bleed its color into the rest of the line.
-	const icons = others.map((status) => stripAnsi(status).split(" ")[0]).join(" ");
+	// which would bleed its color into the rest of the line. A two-token badge
+	// keeps its count (`↺ 2` -> `↺2`) instead of collapsing to a bare icon.
+	const icons = others.map((status) => compactStatus(status)).join(" ");
 	return { id: "statuses", weight: 1, droppable: false, separator: dim(theme, CONFIG.separators.group), forms: [full, icons] };
 }
 
@@ -163,11 +165,15 @@ function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 
 function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { cacheRead, cacheWrite } = snapshot.usage;
-	if (cacheRead === 0 && cacheWrite === 0 && snapshot.cacheHitRate === null) return null;
+	const cached = cacheRead > 0 || cacheWrite > 0;
 	const parts: string[] = [];
 	if (cacheRead > 0) parts.push(`R${formatTokens(cacheRead)}`);
 	if (cacheWrite > 0) parts.push(`W${formatTokens(cacheWrite)}`);
-	if (snapshot.cacheHitRate !== null) parts.push(`CH ${Math.round(snapshot.cacheHitRate)}%`);
+	// A hit rate is meaningful only once something was actually cached; an
+	// assistant turn with no cache reports `0`, which would otherwise render a
+	// lone `CH 0%` (the built-in footer guards this the same way).
+	if (cached && snapshot.cacheHitRate !== null) parts.push(`CH ${Math.round(snapshot.cacheHitRate)}%`);
+	if (parts.length === 0) return null;
 	return {
 		id: "cache",
 		weight: 5,

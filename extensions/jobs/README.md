@@ -71,7 +71,9 @@ The screen shows a counts summary (`N jobs · R running · F failed`), running
 jobs first then recent finished jobs, and a focused detail pane (command, cwd,
 outcome, and the last output line). Opening `/jobs` temporarily hides the
 widget so the same running jobs are not listed twice; the widget returns when
-the screen closes.
+the screen closes. More generally, any dock screen (`/todos`, `/jobs`,
+`/rewind`, `/plans`, or the ask-user-question questionnaire) hides all three
+above-editor rails for its lifetime and restores them on close.
 
 ## Status chip and widget
 

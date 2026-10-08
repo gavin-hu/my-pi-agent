@@ -18,6 +18,7 @@ import { basename, resolve } from "node:path";
 import { realpathSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ReadOnlyPolicy } from "../_shared/policy.ts";
+import { GLYPHS, STATUS_KEYS } from "../_shared/ui.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
 import type { PlanModeEntry } from "./types.ts";
 
@@ -117,10 +118,11 @@ export function createPlanRuntime(
 		}
 	};
 
-	const statusText = (): string => (lastPlanPath ? `⏸ plan · ${statusName(lastPlanPath)}` : "⏸ plan");
+	const statusText = (): string =>
+		lastPlanPath ? `${GLYPHS.plan} plan · ${statusName(lastPlanPath)}` : `${GLYPHS.plan} plan`;
 
 	const setStatus = (ctx: ExtensionContext): void => {
-		ctx.ui.setStatus("plan-mode", enabled ? ctx.ui.theme.fg("warning", statusText()) : undefined);
+		ctx.ui.setStatus(STATUS_KEYS.planMode, enabled ? ctx.ui.theme.fg("warning", statusText()) : undefined);
 	};
 
 	const setEnabled = (next: boolean, ctx: ExtensionContext | undefined, persist: boolean): void => {

@@ -193,7 +193,7 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 				for (let i = 0; i < count; i++) {
 					const option = target.options[i];
 					const active = i === state.cursor;
-					const prefix = active ? theme.fg("accent", "> ") : "  ";
+					const prefix = active ? theme.fg("accent", "❯ ") : "  ";
 					if (!option) {
 						const otherSelected = selection?.type === "custom";
 						const otherMarker = target.multiSelect ? `[${otherSelected ? "x" : " "}] ` : "";
@@ -246,7 +246,7 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 				}
 				lines.push("");
 				if (state.message) addWithPrefix(" ", theme.fg("warning", state.message));
-				addWithPrefix(" ", theme.fg("dim", "Enter to submit • Esc to go back"));
+				addWithPrefix(" ", theme.fg("dim", "Enter to submit · Esc to go back"));
 			} else if (submitTab) {
 				addWithPrefix(" ", theme.fg("accent", theme.bold("Ready to submit")));
 				lines.push("");
@@ -275,11 +275,11 @@ export async function askViaTui(ctx: ExtensionContext, questions: Question[], si
 				if (state.message) addWithPrefix(" ", theme.fg("warning", state.message));
 				const help =
 					optionCount(question) === 0
-						? "Enter to type an answer • Esc cancel"
+						? "Enter to type an answer · Esc cancel"
 						: question.multiSelect
-							? "↑↓ move • Space toggle • Enter confirm • Esc cancel"
-							: "↑↓ choose • Enter select • Esc cancel";
-				addWithPrefix(" ", theme.fg("dim", `${isMulti ? "Tab/←→ navigate • " : ""}${help}`));
+							? "↑/↓ move · Space toggle · Enter confirm · Esc cancel"
+							: "↑/↓ choose · Enter select · Esc cancel";
+				addWithPrefix(" ", theme.fg("dim", `${isMulti ? "Tab/←→ navigate · " : ""}${help}`));
 				if (question.multiSelect) {
 					const selection = state.selections[question.id];
 					if (selection?.type === "options" && selection.labels.length > 0) {

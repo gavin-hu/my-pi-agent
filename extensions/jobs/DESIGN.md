@@ -26,7 +26,7 @@ normal tools — which is exactly the gap this extension fills.
 ## Decisions
 
 **Shell commands only, one action-based tool.** A single `job` tool with seven
-actions mirrors `checkpoint` and keeps the model surface small. Validation is
+actions mirrors `rewind` and keeps the model surface small. Validation is
 pure and runs before any side effect, so `codemode` callers that bypass the
 TypeBox schema cannot start a process with missing arguments.
 
@@ -114,8 +114,21 @@ rails grammar (`Jobs · 2 running · 1 failed`) and stays mounted while a job ru
 or an unreported failure waits, so a failure is not hidden between completion
 and the next turn (matching the `✕N` chip and the report-at-next-turn model).
 
+**The jobs rail is the bottom rail.** Pi re-inserts a widget on every set, so a
+`goal` or `todo` update would otherwise sink those rails below this one.
+`_shared/rails.ts` keeps the stack `Goal / Todos / Jobs`: `jobs` re-asserts
+itself whenever an upper rail announces, and — being the bottom rail — never
+announces. See [`_shared/rails.ts`](../_shared/rails.ts) and
+[goal](../goal/DESIGN.md).
+
+**A dock screen hides every rail.** Any `ctx.ui.custom` screen mounted in the
+dock editor slot (`/todos`, `/jobs`, `/rewind`, `/plans`, or the
+ask-user-question questionnaire) emits a suppression signal via
+`withRailsSuppressed`; each rail hides for the screen's lifetime and re-syncs
+on close. See [`_shared/rails.ts`](../_shared/rails.ts).
+
 **The `/jobs` screen is the expanded view.** It shares `screenHeader` and
-`viewportRows` with `checkpoint`/`plan-mode`, adds a `❯` selection marker, a
+`viewportRows` with `rewind`/`plan-mode`, adds a `❯` selection marker, a
 counts summary (`N jobs · R running · F failed`), running jobs first then recent
 finished jobs, and a focused detail pane (command, cwd, outcome, elapsed, last
 line). While it owns the editor the runtime suppresses the widget via

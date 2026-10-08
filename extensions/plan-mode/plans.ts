@@ -8,7 +8,7 @@
  * repository.
  *
  * The directory is self-ignoring: the first write drops a `.gitignore` with `*`
- * so plans never show up as untracked files or inside checkpoint snapshots,
+ * so plans never show up as untracked files or inside rewind snapshots,
  * without editing the project's own `.gitignore`.
  *
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
@@ -138,7 +138,7 @@ function isContainedPlan(dir: string, path: string): boolean {
 	}
 }
 
-/** Keep plan files out of git (and so out of checkpoint snapshots) without touching the project. */
+/** Keep plan files out of git (and so out of rewind snapshots) without touching the project. */
 function ensureIgnored(dir: string): void {
 	const ignore = join(dir, ".gitignore");
 	if (existsSync(ignore)) return;

@@ -16,10 +16,11 @@
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
+import { FULL_SCREEN_OVERLAY } from "../_shared/tui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
-import { PlanReviewComponent, type PlanReviewAction } from "./tui.ts";
+import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, WritePlanDetails } from "./types.ts";
 
 /** Tool that records the seeded steps; plan-mode only calls it if it exists. */
@@ -89,16 +90,18 @@ async function seedTodos(
 async function reviewPlan(
 	ctx: ExtensionToolContext,
 	plan: { path: string; relativePath: string; content: string; bytes: number },
-): Promise<PlanReviewAction> {
+): Promise<PlanViewAction> {
 	if (ctx.mode === "tui") {
-		const action = await ctx.ui.custom<PlanReviewAction | undefined>((tui, theme, _keybindings, done) =>
-			new PlanReviewComponent({
-				plan,
-				theme,
-				onClose: (choice) => done(choice),
-				requestRender: () => tui.requestRender(),
-				viewportRows: () => tui.terminal?.rows,
-			}),
+		const action = await ctx.ui.custom<PlanViewAction | undefined>(
+			(tui, theme, _keybindings, done) =>
+				new PlanViewComponent({
+					plan,
+					theme,
+					onClose: (choice) => done(choice),
+					requestRender: () => tui.requestRender(),
+					viewportRows: () => tui.terminal?.rows,
+				}),
+			FULL_SCREEN_OVERLAY,
 		);
 		return action ?? "keep";
 	}

@@ -16,7 +16,7 @@ describe("TodoWidget", () => {
 	test("shows progress and the current item on one line", () => {
 		const lines = new TodoWidget(todos, theme).render(60);
 		expect(lines).toHaveLength(1);
-		expect(lines[0]).toBe("Todos · 1/3 · ◐ Writing tests");
+		expect(lines[0]).toBe("Todos · 1/3 · Writing tests");
 	});
 
 	test("falls back to a completion note when nothing is open", () => {
@@ -58,11 +58,32 @@ describe("TodoListComponent", () => {
 		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
 
 		const short = new TodoListComponent(many, theme, () => {}, () => {}, 15).render(60).join("\n");
-		expect(short).toContain("showing 1–6 of 30");
-		expect(short).not.toContain("item 6");
+		expect(short).toContain("showing 1–8 of 30");
+		expect(short).not.toContain("item 8");
 
 		const tall = new TodoListComponent(many, theme, () => {}, () => {}, 60).render(60).join("\n");
-		expect(tall).toContain("showing 1–20 of 30");
+		expect(tall).toContain("item 29");
+		expect(tall).not.toContain("showing");
+	});
+
+	test("resolves a live rows getter so a resize re-windows", () => {
+		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
+		let rows = 60;
+		const component = new TodoListComponent(many, theme, () => {}, () => {}, () => rows);
+		expect(component.render(60).join("\n")).toContain("item 29");
+		rows = 15;
+		expect(component.render(60).join("\n")).toContain("showing 1–8 of 30");
+	});
+
+	test("the wheel scrolls the list", () => {
+		const many: Todo[] = Array.from({ length: 30 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
+		let renders = 0;
+		const component = new TodoListComponent(many, theme, () => {}, () => renders++);
+		component.render(60);
+		expect(component.handleMouse({ type: "wheel", wheelDelta: 2 } as any)).toEqual({ handled: true });
+		expect(renders).toBe(1);
+		expect(component.render(60).join("\n")).toContain("item 2");
+		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
 	});
 
 	test("drops the title instead of ellipsizing the border when very narrow", () => {

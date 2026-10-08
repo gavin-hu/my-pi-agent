@@ -37,9 +37,9 @@ describe("headers", () => {
 		expect(goalStatusLabel("achieved")).toBe("achieved");
 	});
 
-	test("the one-line rail leads with the glyph and names the status", () => {
-		expect(goalLine(active, theme)).toBe("◎ Goal · active · Ship the parser");
-		expect(goalLine(achieved, theme)).toBe("✓ Goal · achieved · Ship the parser");
+	test("the one-line rail is label-first and names the status", () => {
+		expect(goalLine(active, theme)).toBe("Goal · active · Ship the parser");
+		expect(goalLine(achieved, theme)).toBe("Goal · achieved · Ship the parser");
 	});
 
 	test("objective is dimmed once achieved", () => {

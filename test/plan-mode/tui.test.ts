@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { PlanReviewComponent, type PlanReviewAction } from "../../extensions/plan-mode/tui.ts";
+import { PlanViewComponent, type PlanViewAction } from "../../extensions/plan-mode/tui.ts";
 import type { StoredPlan } from "../../extensions/plan-mode/plans.ts";
 import { fakeTheme } from "../helpers/fakes.ts";
 
@@ -14,7 +14,7 @@ function plan(content: string, path = "/repo/.pi/plans/2026-10-08-1530-demo.md")
 	return { path, relativePath: ".pi/plans/2026-10-08-1530-demo.md", content, bytes: content.length };
 }
 
-describe("PlanReviewComponent — browse mode", () => {
+describe("PlanViewComponent — browse mode", () => {
 	test("drops approve and refine from the header and footer", () => {
 		const { component } = setup(undefined, { mode: "browse" });
 		const text = render(component, 80).join("\n");
@@ -41,7 +41,7 @@ describe("PlanReviewComponent — browse mode", () => {
 	});
 });
 
-function render(component: PlanReviewComponent, width: number): string[] {
+function render(component: PlanViewComponent, width: number): string[] {
 	return component.render(width);
 }
 
@@ -49,9 +49,9 @@ function setup(
 	content = "# Plan\n1. Read the parser\n2. Add a tokenizer",
 	options: { rows?: number; mode?: "review" | "browse" } = {},
 ) {
-	const actions: PlanReviewAction[] = [];
+	const actions: PlanViewAction[] = [];
 	let renders = 0;
-	const component = new PlanReviewComponent({
+	const component = new PlanViewComponent({
 		plan: plan(content),
 		theme: fakeTheme,
 		onClose: (action) => actions.push(action),
@@ -64,7 +64,7 @@ function setup(
 	return { component, actions, renders: () => renders };
 }
 
-describe("PlanReviewComponent — render", () => {
+describe("PlanViewComponent — render", () => {
 	test("stays within the terminal width", () => {
 		const { component } = setup();
 		for (const width of [20, 40, 80, 1]) {
@@ -74,13 +74,16 @@ describe("PlanReviewComponent — render", () => {
 		}
 	});
 
-	test("shows the title, path, and step count", () => {
+	test("shows the title but no subtitle row", () => {
 		const { component } = setup();
-		const text = render(component, 80).join("\n");
+		const lines = render(component, 80);
+		const text = lines.join("\n");
 		expect(text).toContain("Plan Review");
 		expect(text).toContain("demo");
-		expect(text).toContain(".pi/plans/2026-10-08-1530-demo.md");
-		expect(text).toContain("2 steps");
+		expect(text).not.toContain(".pi/plans/2026-10-08-1530-demo.md");
+		expect(text).not.toContain("2 steps");
+		expect(lines[1]).toBe("");
+		expect(lines[2]).toContain("Plan");
 	});
 
 	test("renders the plan body and the key hints", () => {
@@ -101,7 +104,7 @@ describe("PlanReviewComponent — render", () => {
 	test("handles an empty plan", () => {
 		const { component } = setup("");
 		const text = render(component, 80).join("\n");
-		expect(text).toContain("empty plan");
+		expect(text).toContain("This plan is empty.");
 	});
 
 	test("expands tabs and strips line-breaking control characters", () => {
@@ -124,42 +127,9 @@ describe("PlanReviewComponent — render", () => {
 		expect(full).not.toContain("2026-10-08-1530");
 		expect(render(component, 20)[0]).toContain("Plan Review");
 	});
-
-	test("shows the nearest section heading once scrolled past it", () => {
-		const content = [
-			"# Title",
-			"intro",
-			"## Alpha",
-			...Array.from({ length: 20 }, (_, i) => `alpha ${i}`),
-			"## Beta",
-			...Array.from({ length: 20 }, (_, i) => `beta ${i}`),
-		].join("\n");
-		const { component } = setup(content, { rows: 12 });
-		expect(render(component, 80).join("\n")).not.toContain("§");
-		for (let i = 0; i < 30; i++) component.handleInput(DOWN);
-		const text = render(component, 80).join("\n");
-		expect(text).toContain("§ Beta");
-		expect(text).not.toContain("§ ## Beta");
-	});
-
-	test("keeps the section visible when the plan path is long", () => {
-		const content = ["# Title", "## Beta", ...Array.from({ length: 30 }, (_, i) => `line ${i}`)].join("\n");
-		const longPath = ".pi/plans/2026-10-08-1530-a-very-long-descriptive-plan-title-about-rate-limiting.md";
-		const component = new PlanReviewComponent({
-			plan: { path: `/repo/${longPath}`, relativePath: longPath, content, bytes: content.length },
-			theme: fakeTheme,
-			onClose: () => {},
-			requestRender: () => {},
-			viewportRows: 10,
-		});
-		component.render(60);
-		for (let i = 0; i < 10; i++) component.handleInput(DOWN);
-		const text = component.render(60).join("\n");
-		expect(text).toContain("§ Beta");
-	});
 });
 
-describe("PlanReviewComponent — scrolling", () => {
+describe("PlanViewComponent — scrolling", () => {
 	const manyLines = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join("\n");
 
 	test("clamps scrolling to the body and repaints", () => {
@@ -188,8 +158,8 @@ describe("PlanReviewComponent — scrolling", () => {
 		render(component, 80);
 		component.handleInput(PAGE_DOWN);
 		const text = render(component, 80).join("\n");
-		// viewport is 14 rows, so a page advances 13 lines.
-		expect(text).toContain("Line 14");
+		// viewport is 15 rows, so a page advances 14 lines.
+		expect(text).toContain("Line 15");
 	});
 
 	test("d and u move by half a page", () => {
@@ -229,7 +199,6 @@ describe("PlanReviewComponent — scrolling", () => {
 		const text = render(fits.component, 80).join("\n");
 		expect(text).not.toContain("of");
 		expect(text).not.toContain("↑↓");
-		expect(text).not.toContain("§");
 	});
 
 	test("shows only the footer hints that fit", () => {
@@ -261,15 +230,15 @@ describe("PlanReviewComponent — scrolling", () => {
 		for (let i = 0; i < 7; i++) component.handleInput(DOWN);
 		// Walk to the next source-line boundary so the check does not depend on wrap counts.
 		let guard = 0;
-		while (guard++ < 20 && !/^\s*Line \d+ /i.test(render(component, 40)[3] ?? "")) component.handleInput(DOWN);
-		const before = /\d+/.exec(render(component, 40)[3] ?? "")?.[0];
+		while (guard++ < 20 && !/^\s*Line \d+ /i.test(render(component, 40)[2] ?? "")) component.handleInput(DOWN);
+		const before = /\d+/.exec(render(component, 40)[2] ?? "")?.[0];
 		expect(before).toBeDefined();
 		expect(before).not.toBe("1");
-		expect(render(component, 120)[3] ?? "").toContain(`Line ${before} `);
+		expect(render(component, 120)[2] ?? "").toContain(`Line ${before} `);
 	});
 });
 
-describe("PlanReviewComponent — actions", () => {
+describe("PlanViewComponent — actions", () => {
 	test("a approves, r refines, Esc keeps planning", () => {
 		const approve = setup();
 		approve.component.handleInput("a");

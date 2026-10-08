@@ -41,14 +41,17 @@ a finished plan stops crowding the editor while `/todos` still shows it. The
 finished-list behaviour (`hideWhenComplete`) comes from `.pi/todo.json`,
 mirroring the goal widget's config. It never becomes the only copy of anything.
 
-**The list re-asserts itself below the goal.** The goal is the *what* and sits
-above the list, the *how*. Pi renders above-editor widgets in insertion order
-and re-inserts a widget whenever it is set, so a goal update would sink the
-goal below the list. With no ordering option, the list subscribes on
-`pi.events` and re-runs `setWidget` whenever a rail above it changes; because
-re-insertion appends, that pins the list to the bottom. Only upper rails
-announce, so the re-assert can never ping-pong. See
-[`_shared/rails.ts`](../_shared/rails.ts) and [goal](../goal/DESIGN.md).
+**The list is the middle rail.** The goal is the *what* and sits above the
+list, the *how*; `jobs` sits below it. Pi renders above-editor widgets in
+insertion order and re-inserts a widget whenever it is set, so an update to an
+upper rail would sink the list below the rails under it. With no ordering
+option, the list subscribes on `pi.events` and re-runs `setWidget` whenever a
+rail above it changes, then announces so `jobs` re-asserts in turn; because
+re-insertion appends, the stack stays `Goal / Todos / Jobs`. The bottom rail
+never announces, so the chain cannot ping-pong. See
+[`_shared/rails.ts`](../_shared/rails.ts), [goal](../goal/DESIGN.md), and
+[jobs](../jobs/DESIGN.md). While a dock screen owns the editor slot, every rail
+is hidden via `withRailsSuppressed` and restored on close.
 
 **Content is sanitized to one safe line.** `normalizeTodos` replaces control
 characters (including `ESC`) with spaces and collapses whitespace runs before
@@ -59,7 +62,7 @@ control the terminal. Sanitizing at the boundary fixes both for every consumer
 at once, and keeps the pure `format.ts` helpers free of terminal concerns.
 
 **The widget summarizes; full views keep the model's order.** The persistent
-widget is a single line — `Todos · 1/3 · ◐ Writing tests` — so progress and the
+widget is a single line — `Todos · 1/3 · Writing tests` — so progress and the
 current item are always visible without expanding the list; `currentTodo` picks
 the `in_progress` item, else the first pending one. `/todos` keeps the submitted
 order. The transcript result still orders items by status via

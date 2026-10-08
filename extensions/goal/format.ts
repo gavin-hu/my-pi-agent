@@ -1,11 +1,12 @@
 /**
  * Model-facing and transcript text for the goal (pure).
  *
- * The goal is drawn as a glyph rail shared with `todo`: a header line
- * (`Goal · active`) and an indented body row led by `◎` (active) or `✓`
+ * The transcript result is drawn as a glyph rail shared with `todo`: a header
+ * line (`Goal · active`) and an indented body row led by `◎` (active) or `✓`
  * (achieved), with wrapped continuation rows aligned under the text. The
- * symbols, indent, and label live here so the widget and the transcript
- * renderer agree.
+ * persistent widget, by contrast, is a plain label-first line
+ * (`Goal · active · <objective>`) matching the `todo` and `jobs` widgets. The
+ * symbols, indent, and labels live here so the renderers agree.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -50,14 +51,15 @@ export function goalHeader(goal: Goal, theme: Theme): string {
 
 /**
  * One-line rail for the persistent widget:
- * `◎ Goal · active · <objective>` or `✓ Goal · achieved · <objective>`.
+ * `Goal · active · <objective>` or `Goal · achieved · <objective>`.
+ * Label-first to match the `todo` and `jobs` widgets; no leading glyph.
  * Callers clip it to the available width.
  */
 export function goalLine(goal: Goal, theme: Theme): string {
 	const separator = theme.fg("dim", " · ");
 	const word = goalStatusLabel(goal.status);
 	const status = goal.status === "achieved" ? theme.fg("success", word) : theme.fg("dim", word);
-	return `${goalGlyph(goal, theme)} ${theme.fg("accent", "Goal")}${separator}${status}${separator}${goalObjective(goal, theme)}`;
+	return `${theme.fg("accent", "Goal")}${separator}${status}${separator}${goalObjective(goal, theme)}`;
 }
 
 /** Themed objective text: dim once achieved, normal while active. */

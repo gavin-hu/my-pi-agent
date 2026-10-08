@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
+	compactStatus,
 	computeGauge,
 	contextColor,
 	formatCost,
@@ -34,6 +35,11 @@ describe("formatCost", () => {
 	test("keeps the cents for a small nonzero cost when compact", () => {
 		expect(formatCost(0.04, true)).toBe("$0.04");
 		expect(formatCost(0, true)).toBe("$0.00");
+	});
+
+	test("never renders a positive sub-cent cost as $0.00", () => {
+		expect(formatCost(0.004)).toBe("<$0.01");
+		expect(formatCost(0.004, true)).toBe("<$0.01");
 	});
 });
 
@@ -115,7 +121,26 @@ describe("sanitize", () => {
 
 describe("stripAnsi", () => {
 	test("removes SGR escapes but keeps the text", () => {
-		expect(stripAnsi("\x1b[33m⏸ plan\x1b[39m")).toBe("⏸ plan");
+		expect(stripAnsi("\x1b[33m≡ plan\x1b[39m")).toBe("≡ plan");
+	});
+});
+
+describe("compactStatus", () => {
+	test("keeps only the icon of an icon+label status", () => {
+		expect(compactStatus("≡ plan")).toBe("≡");
+	});
+
+	test("keeps the count of an icon+count badge", () => {
+		expect(compactStatus("↺ 2")).toBe("↺2");
+		expect(compactStatus("▸ 12")).toBe("▸12");
+	});
+
+	test("strips color while compacting", () => {
+		expect(compactStatus("\x1b[33m↺ 3\x1b[39m")).toBe("↺3");
+	});
+
+	test("does not mistake a numeric label for a count", () => {
+		expect(compactStatus("≡ plan · 2024")).toBe("≡");
 	});
 });
 

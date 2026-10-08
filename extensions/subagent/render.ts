@@ -96,7 +96,7 @@ function hasClippedError(result: SingleResult, status: ResultStatus): boolean {
 function collapsedBody(result: SingleResult, status: ResultStatus, items: DisplayItem[], theme: Theme): string {
 	const error = renderError(result, status, theme, COLLAPSED_ERROR_MAX);
 	if (error) return `\n${error}`;
-	if (items.length === 0) return `\n${theme.fg("muted", status === "running" ? "(running...)" : "(no output)")}`;
+	if (items.length === 0) return `\n${theme.fg("muted", status === "running" ? "(running…)" : "(no output)")}`;
 	return `\n${renderDisplayItems(items, theme, COLLAPSED_ITEM_COUNT)}`;
 }
 
@@ -173,7 +173,7 @@ function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, 
 	const shown = limit ? items.slice(-limit) : items;
 	const skipped = limit && items.length > limit ? items.length - limit : 0;
 	const lines: string[] = [];
-	if (skipped > 0) lines.push(theme.fg("muted", `... ${skipped} earlier items`));
+	if (skipped > 0) lines.push(theme.fg("muted", `… ${skipped} earlier items`));
 	for (const item of shown) {
 		if (item.type === "text") {
 			const text = preview ? item.text.split("\n").slice(0, COLLAPSED_TEXT_LINES).join("\n") : item.text;
@@ -206,7 +206,7 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 			const clean = sanitize(step.task.replace(/\{previous\}/g, ""));
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
-		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `... +${args.chain.length - 3} more`)}`;
+		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `… +${args.chain.length - 3} more`)}`;
 		return new Text(text, 0, 0);
 	}
 
@@ -216,13 +216,13 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 			const task = args.tasks[i];
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(sanitize(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
-		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `... +${args.tasks.length - 3} more`)}`;
+		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `… +${args.tasks.length - 3} more`)}`;
 		return new Text(text, 0, 0);
 	}
 
-	const agentName = args.agent || "...";
+	const agentName = args.agent || "…";
 	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
-	text += `\n  ${theme.fg("dim", clip(sanitize(args.task ?? "..."), 60))}`;
+	text += `\n  ${theme.fg("dim", clip(sanitize(args.task ?? "…"), 60))}`;
 	return new Text(text, 0, 0);
 }
 
@@ -268,7 +268,7 @@ function addExpandedResult(
 		renderedOutput = true;
 	}
 	if (!renderedOutput) {
-		container.addChild(new Text(theme.fg("muted", status === "running" ? "(running...)" : "(no output)"), 0, 0));
+		container.addChild(new Text(theme.fg("muted", status === "running" ? "(running…)" : "(no output)"), 0, 0));
 	}
 
 	const usage = usageLine(result);
