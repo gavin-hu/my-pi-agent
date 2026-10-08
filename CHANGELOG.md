@@ -13,10 +13,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a code snapshot, so it read lower than the menu whenever a prompt was
   read-only. The list's per-row code-snapshot marker moved from `↺` to `◆`, so
   `↺` means one thing everywhere: a rewind point.
+- `plan-mode`: `/plan` with no argument now toggles plan mode instead of only
+  entering it, so the toggle works in terminals that do not forward
+  `Ctrl+Alt+P` (such as Zed's integrated terminal). `/plan <task>` still enters
+  plan mode and runs the task.
+
+## [0.3.0] - 2026-10-08
+
+### Changed
 
 - `goal`, `todo`, and `jobs` share one rail family: label-first one-line
   widgets pinned in a stable `goal` → `todo` → `jobs` order, hidden while a dock
   screen (`/todos`, `/jobs`, `/plans`, `/rewind`) is open.
+- `plan-mode`: the refine prompt keeps the plan on screen and opens an inline
+  editor (`Enter` submits, `Esc` returns to the plan). The dialog fallback now
+  reopens the review when the refine editor is cancelled instead of reporting
+  the plan as not approved.
 - Internal cleanup: git plumbing, worktree-root resolution, JSON narrowing, and
   the jobs record mapping moved to `_shared/` modules; duplicated and unused
   exports removed; `git` and `worktree` gained `DESIGN.md`.
