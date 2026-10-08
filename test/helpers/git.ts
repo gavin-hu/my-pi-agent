@@ -5,7 +5,7 @@
  * code instead of rejecting, so tests can run real git commands. `makeRepo`
  * builds a temp repository with one commit; `cleanup` removes the temp dirs.
  *
- * Extracted from the worktree suite so the checkpoint suite can share it.
+ * Extracted from the worktree suite so the rewind suite can share it.
  */
 
 import { execFile } from "node:child_process";

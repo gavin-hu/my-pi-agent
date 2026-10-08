@@ -14,7 +14,7 @@ import {
 	revParse,
 	treeFromIndex,
 	treeFromWorkingTree,
-} from "../../extensions/checkpoint/git.ts";
+} from "../../extensions/rewind/git.ts";
 import { cleanup, indexFileFor, makeRepo, runGit } from "./helpers.ts";
 
 const cleanups: string[] = [];
@@ -24,7 +24,7 @@ describe("git plumbing", () => {
 	let repo: string;
 
 	beforeAll(async () => {
-		repo = await makeRepo("pi-cp-git-");
+		repo = await makeRepo("pi-rw-git-");
 		cleanups.push(repo);
 	});
 
@@ -37,7 +37,7 @@ describe("git plumbing", () => {
 	});
 
 	test("reports no root outside a repository", async () => {
-		const outside = mkdtempSync(join(tmpdir(), "pi-cp-nogit-"));
+		const outside = mkdtempSync(join(tmpdir(), "pi-rw-nogit-"));
 		cleanups.push(outside);
 		expect(await repoRoot(runGit, outside)).toBeUndefined();
 	});

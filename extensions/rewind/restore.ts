@@ -19,7 +19,7 @@ import {
 	treeFromWorkingTree,
 	type RunGit,
 } from "./git.ts";
-import type { Checkpoint, RestoreSummary } from "./types.ts";
+import type { Snapshot, RestoreSummary } from "./types.ts";
 
 export interface RestoreDeps {
 	runGit: RunGit;
@@ -31,7 +31,7 @@ export interface RestoreInput {
 	/** Temporary index path used for staging. */
 	indexFile: string;
 	/** Snapshot to restore. */
-	target: Checkpoint;
+	target: Snapshot;
 }
 
 export interface RestorePlan {

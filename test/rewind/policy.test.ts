@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_CONFIG, type CheckpointConfig } from "../../extensions/checkpoint/config.ts";
-import { createSnapshotPolicy } from "../../extensions/checkpoint/policy.ts";
+import { DEFAULT_CONFIG, type RewindConfig } from "../../extensions/rewind/config.ts";
+import { createSnapshotPolicy } from "../../extensions/rewind/policy.ts";
 import { createFakePi } from "../helpers/fakes.ts";
 
 const tools = [
@@ -11,11 +11,10 @@ const tools = [
 	{ name: "edit", annotations: { readOnlyHint: false, destructiveHint: true } },
 	{ name: "bash" },
 	{ name: "subagent", annotations: { readOnlyHint: false } },
-	{ name: "checkpoint", annotations: { readOnlyHint: false, destructiveHint: true } },
 	{ name: "ask_user_question" },
 ];
 
-function policy(overrides: Partial<CheckpointConfig> = {}) {
+function policy(overrides: Partial<RewindConfig> = {}) {
 	const fake = createFakePi({ allTools: tools });
 	return createSnapshotPolicy(fake.pi, { ...DEFAULT_CONFIG, ...overrides });
 }
@@ -37,7 +36,6 @@ describe("createSnapshotPolicy", () => {
 
 	test("never snapshots its own tools", () => {
 		const subject = policy();
-		expect(subject.shouldSnapshot("checkpoint")).toBe(false);
 		expect(subject.shouldSnapshot("ask_user_question")).toBe(false);
 	});
 

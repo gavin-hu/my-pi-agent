@@ -9,8 +9,8 @@
  */
 
 import { commitTree, currentBranch, revParse, treeFromWorkingTree, updateRef, GitError, type RunGit } from "./git.ts";
-import { encodeMessage, refFor, META_VERSION, type CheckpointMeta } from "./store.ts";
-import type { Checkpoint, CheckpointReason } from "./types.ts";
+import { encodeMessage, refFor, META_VERSION, type SnapshotMeta } from "./store.ts";
+import type { Snapshot, SnapshotReason } from "./types.ts";
 
 export interface SnapshotDeps {
 	runGit: RunGit;
@@ -27,10 +27,14 @@ export interface SnapshotInput {
 	indexFile: string;
 	/** Ref namespace to write under. */
 	namespace: string;
-	reason: CheckpointReason;
+	reason: SnapshotReason;
 	label?: string;
 	prompt?: string;
 	includeUntracked: boolean;
+	/** Pi session the snapshot is taken in. */
+	sessionId: string;
+	/** User-message entry the snapshot precedes, or null outside a prompt. */
+	entryId: string | null;
 }
 
 /** Default id: base-36 timestamp plus a short random suffix. */
@@ -38,8 +42,8 @@ export function defaultId(now: number): string {
 	return `c-${now.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Point a ref at the current working tree and return the recorded checkpoint. */
-export async function createCheckpoint(deps: SnapshotDeps, input: SnapshotInput): Promise<Checkpoint> {
+/** Point a ref at the current working tree and return the recorded snapshot. */
+export async function createSnapshot(deps: SnapshotDeps, input: SnapshotInput): Promise<Snapshot> {
 	const { runGit } = deps;
 	const head = await revParse(runGit, input.root, "HEAD");
 	if (!head) throw new GitError("the repository has no commits to snapshot.", 1);
@@ -52,7 +56,7 @@ export async function createCheckpoint(deps: SnapshotDeps, input: SnapshotInput)
 	const id = deps.idFactory?.(now) ?? defaultId(now);
 	const branch = await currentBranch(runGit, input.root);
 
-	const meta: CheckpointMeta = {
+	const meta: SnapshotMeta = {
 		v: META_VERSION,
 		id,
 		reason: input.reason,
@@ -64,6 +68,8 @@ export async function createCheckpoint(deps: SnapshotDeps, input: SnapshotInput)
 		head,
 		clean,
 		includeUntracked: input.includeUntracked,
+		sessionId: input.sessionId,
+		entryId: input.entryId,
 	};
 
 	// Always commit so the metadata travels with the snapshot; `commit-tree`

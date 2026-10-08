@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "../../extensions/checkpoint/config.ts";
+import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "../../extensions/rewind/config.ts";
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 
@@ -38,16 +38,16 @@ describe("normalizeConfig", () => {
 
 describe("loadConfig", () => {
 	test("returns the defaults when no files exist", () => {
-		process.env.PI_CODING_AGENT_DIR = tempDir("checkpoint-global-");
-		expect(loadConfig(tempDir("checkpoint-repo-"))).toEqual(DEFAULT_CONFIG);
+		process.env.PI_CODING_AGENT_DIR = tempDir("rewind-global-");
+		expect(loadConfig(tempDir("rewind-repo-"))).toEqual(DEFAULT_CONFIG);
 	});
 
 	test("merges global then project, with project winning", () => {
-		const globalDir = tempDir("checkpoint-global-");
-		const repo = tempDir("checkpoint-repo-");
+		const globalDir = tempDir("rewind-global-");
+		const repo = tempDir("rewind-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(globalDir, "checkpoint.json"), JSON.stringify({ autoSnapshots: false, max: 5 }));
-		writeFileSync(join(repo, ".pi", "checkpoint.json"), JSON.stringify({ max: 9 }));
+		writeFileSync(join(globalDir, "rewind.json"), JSON.stringify({ autoSnapshots: false, max: 5 }));
+		writeFileSync(join(repo, ".pi", "rewind.json"), JSON.stringify({ max: 9 }));
 		process.env.PI_CODING_AGENT_DIR = globalDir;
 
 		const config = loadConfig(repo);
@@ -56,9 +56,9 @@ describe("loadConfig", () => {
 	});
 
 	test("ignores malformed files", () => {
-		const globalDir = tempDir("checkpoint-global-");
-		const repo = tempDir("checkpoint-repo-");
-		writeFileSync(join(globalDir, "checkpoint.json"), "{ not json");
+		const globalDir = tempDir("rewind-global-");
+		const repo = tempDir("rewind-repo-");
+		writeFileSync(join(globalDir, "rewind.json"), "{ not json");
 		process.env.PI_CODING_AGENT_DIR = globalDir;
 		expect(loadConfig(repo)).toEqual(DEFAULT_CONFIG);
 	});

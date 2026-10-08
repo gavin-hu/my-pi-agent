@@ -1,5 +1,5 @@
 /**
- * Runtime services shared by the checkpoint tool, command, and event wiring.
+ * Runtime services shared by the command and event wiring.
  *
  * Owns the effective root, the config cache, the temporary index file, a
  * serialized git runner (so `GIT_INDEX_FILE` mutation cannot interleave), and
@@ -10,36 +10,37 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { loadConfig, type CheckpointConfig } from "./config.ts";
+import { loadConfig, type RewindConfig } from "./config.ts";
 import { gitDir, repoRoot, type RunGit, type RunGitOptions } from "./git.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
-import { createCheckpoint } from "./snapshot.ts";
-import { clearCheckpoints, getCheckpoint, listCheckpoints, pruneCheckpoints } from "./store.ts";
-import type { Checkpoint, CheckpointReason, RestoreSummary } from "./types.ts";
+import { createSnapshot } from "./snapshot.ts";
+import { listSnapshots, pruneSnapshots } from "./store.ts";
+import { lastUserEntryId } from "./timeline.ts";
+import type { Snapshot, SnapshotReason, RestoreSummary } from "./types.ts";
 
-const STATUS_KEY = "checkpoint";
+// The status chip is defined locally so this extension stays self-contained.
+const STATUS_KEY = "rewind";
+const STATUS_GLYPH = "↺";
 const SNAPSHOT_TIMEOUT_MS = 30_000;
 
 export interface SnapshotOptions {
-	reason: CheckpointReason;
+	reason: SnapshotReason;
 	label?: string;
 	prompt?: string;
 }
 
-export interface CheckpointRuntime {
+export interface RewindRuntime {
 	/** Working directory the effective root resolves from. */
 	effectiveCwd(ctx: ExtensionContext): string;
 	/** Repository (or worktree) root, or undefined outside a repository. */
 	rootFor(ctx: ExtensionContext): Promise<string | undefined>;
-	configFor(root: string): CheckpointConfig;
-	/** Create and store a checkpoint of the current working tree. */
-	snapshot(ctx: ExtensionContext, options: SnapshotOptions): Promise<Checkpoint>;
-	list(root: string, all: boolean): Promise<Checkpoint[]>;
-	get(root: string, id: string, all: boolean): Promise<Checkpoint | undefined>;
-	plan(root: string, target: Checkpoint): Promise<PlanResult>;
-	restore(root: string, target: Checkpoint, config: CheckpointConfig): Promise<RestoreSummary>;
-	clear(root: string, all: boolean): Promise<number>;
-	/** Repaint the `⧉ N` chip from the current checkpoint count. */
+	configFor(root: string): RewindConfig;
+	/** Create and store a snapshot of the current working tree. */
+	snapshot(ctx: ExtensionContext, options: SnapshotOptions): Promise<Snapshot>;
+	list(root: string, all: boolean): Promise<Snapshot[]>;
+	plan(root: string, target: Snapshot): Promise<PlanResult>;
+	restore(ctx: ExtensionContext, root: string, target: Snapshot, config: RewindConfig): Promise<RestoreSummary>;
+	/** Repaint the `↺ N` chip from the current snapshot count. */
 	setStatus(ctx: ExtensionContext): Promise<void>;
 	clearStatus(ctx: ExtensionContext): void;
 	/** Drop cached roots, config, and index paths (on session start). */
@@ -71,9 +72,9 @@ function createRunGit(pi: ExtensionAPI): RunGit {
 	};
 }
 
-export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
+export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 	const runGit = createRunGit(pi);
-	const configCache = new Map<string, CheckpointConfig>();
+	const configCache = new Map<string, RewindConfig>();
 	const rootCache = new Map<string, string | undefined>();
 	const indexCache = new Map<string, string>();
 
@@ -103,7 +104,7 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 		return root;
 	};
 
-	const configFor = (root: string): CheckpointConfig => {
+	const configFor = (root: string): RewindConfig => {
 		let config = configCache.get(root);
 		if (!config) {
 			config = loadConfig(root);
@@ -118,17 +119,17 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 		const dir = await gitDir(runGit, root);
 		const selfDir = join(dir ?? join(root, ".git"), "pi");
 		mkdirSync(selfDir, { recursive: true });
-		const file = join(selfDir, `checkpoint-index-${process.pid}`);
+		const file = join(selfDir, `rewind-index-${process.pid}`);
 		indexCache.set(root, file);
 		return file;
 	};
 
-	const snapshot = (ctx: ExtensionContext, options: SnapshotOptions): Promise<Checkpoint> =>
+	const snapshot = (ctx: ExtensionContext, options: SnapshotOptions): Promise<Snapshot> =>
 		enqueue(async () => {
 			const root = await rootFor(ctx);
 			if (!root) throw new Error("not inside a git repository.");
 			const config = configFor(root);
-			const checkpoint = await createCheckpoint(
+			const snapshot = await createSnapshot(
 				{ runGit },
 				{
 					root,
@@ -138,30 +139,29 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 					label: options.label,
 					prompt: options.prompt,
 					includeUntracked: config.includeUntracked,
+					sessionId: ctx.sessionManager.getSessionId(),
+					entryId: lastUserEntryId(ctx.sessionManager.getBranch()),
 				},
 			);
 			if (config.autoPrune) {
-				await pruneCheckpoints(runGit, root, config.refNamespace, config.max, root);
+				await pruneSnapshots(runGit, root, config.refNamespace, config.max, root);
 			}
-			return checkpoint;
+			return snapshot;
 		});
 
-	const list = (root: string, all: boolean): Promise<Checkpoint[]> =>
-		listCheckpoints(runGit, root, configFor(root).refNamespace, all ? {} : { root });
+	const list = (root: string, all: boolean): Promise<Snapshot[]> =>
+		listSnapshots(runGit, root, configFor(root).refNamespace, all ? {} : { root });
 
-	const get = (root: string, id: string, all: boolean): Promise<Checkpoint | undefined> =>
-		getCheckpoint(runGit, root, configFor(root).refNamespace, id, all ? {} : { root });
-
-	const plan = (root: string, target: Checkpoint): Promise<PlanResult> =>
+	const plan = (root: string, target: Snapshot): Promise<PlanResult> =>
 		enqueue(async () => planRestore({ runGit }, { root, indexFile: await indexFileFor(root), target }));
 
-	const restore = (root: string, target: Checkpoint, config: CheckpointConfig): Promise<RestoreSummary> =>
+	const restore = (ctx: ExtensionContext, root: string, target: Snapshot, config: RewindConfig): Promise<RestoreSummary> =>
 		enqueue(async () => {
 			const indexFile = await indexFileFor(root);
 			const input: RestoreInput = { root, indexFile, target };
 			let safety: string | undefined;
-			if (config.safetyCheckpoint) {
-				const before = await createCheckpoint(
+			if (config.safetySnapshot) {
+				const before = await createSnapshot(
 					{ runGit },
 					{
 						root,
@@ -169,6 +169,8 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 						namespace: config.refNamespace,
 						reason: "pre-restore",
 						includeUntracked: config.includeUntracked,
+						sessionId: ctx.sessionManager.getSessionId(),
+						entryId: lastUserEntryId(ctx.sessionManager.getBranch()),
 					},
 				);
 				safety = before.id;
@@ -177,24 +179,21 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 			return { ...summary, safety };
 		});
 
-	const clear = (root: string, all: boolean): Promise<number> =>
-		clearCheckpoints(runGit, root, configFor(root).refNamespace, all ? {} : { root });
-
 	const setStatus = async (ctx: ExtensionContext): Promise<void> => {
 		try {
 			const root = await rootFor(ctx);
 			if (!root) return;
 			const config = configFor(root);
 			if (!config.showStatus) return;
-			const count = (await listCheckpoints(runGit, root, config.refNamespace, { root })).length;
+			const count = (await listSnapshots(runGit, root, config.refNamespace, { root })).length;
 			if (count === 0) {
 				ctx.ui.setStatus(STATUS_KEY, undefined);
 				return;
 			}
-			// No space between glyph and count: the status bar compacts each status
-			// to its first whitespace-delimited token, and `⟲ 2` would collapse to a
-			// bare `⟲`. `⟲` also avoids colliding with the worktree icon `⧉`.
-			const label = `⟲${count}`;
+			// The status bar compacts a two-token icon+count badge (`↺ 2`) to
+			// `↺2`, so the count survives a narrow line; `↺` also avoids colliding
+			// with the worktree icon `⧉`.
+			const label = `${STATUS_GLYPH} ${count}`;
 			let themed = label;
 			try {
 				themed = ctx.ui.theme.fg("accent", label);
@@ -221,10 +220,8 @@ export function createRuntime(pi: ExtensionAPI): CheckpointRuntime {
 		configFor,
 		snapshot,
 		list,
-		get,
 		plan,
 		restore,
-		clear,
 		setStatus,
 		clearStatus,
 		invalidate: () => {

@@ -1,23 +1,23 @@
 /**
- * Checkpoint storage: metadata encoding and ref-backed listing.
+ * Snapshot storage: metadata encoding and ref-backed listing.
  *
- * Each checkpoint is a commit under `refs/pi/checkpoints/<id>`. The metadata
- * line in the commit body is the source of truth; a malformed message is
- * skipped rather than trusted, so one bad object cannot break the list.
+ * Each snapshot is a commit under `refs/pi/rewind/<id>`. The metadata line in
+ * the commit body is the source of truth; a malformed message is skipped rather
+ * than trusted, so one bad object cannot break the list.
  */
 
 import { commitMessages, deleteRef, listRefs, type RunGit } from "./git.ts";
-import type { Checkpoint, CheckpointReason } from "./types.ts";
+import type { Snapshot, SnapshotReason } from "./types.ts";
 
-/** Prefix of the metadata line in a checkpoint commit body. */
-export const META_MARKER = "pi-checkpoint: ";
+/** Prefix of the metadata line in a snapshot commit body. */
+export const META_MARKER = "pi-rewind: ";
 
 /** Metadata schema version; refs written by other versions are ignored. */
-export const META_VERSION = 2;
+export const META_VERSION = 3;
 
-const REASONS: readonly CheckpointReason[] = ["auto", "manual", "pre-restore"];
+const REASONS: readonly SnapshotReason[] = ["auto", "manual", "pre-restore"];
 
-/** Full ref name for a checkpoint id. */
+/** Full ref name for a snapshot id. */
 export function refFor(namespace: string, id: string): string {
 	return `${namespace}/${id}`;
 }
@@ -29,15 +29,15 @@ export function idFromRef(namespace: string, ref: string): string | undefined {
 }
 
 /** The metadata stored in the commit body (everything except derived ref/commit). */
-export type CheckpointMeta = Omit<Checkpoint, "ref" | "commit"> & { v: number };
+export type SnapshotMeta = Omit<Snapshot, "ref" | "commit"> & { v: number };
 
-/** Commit message for a checkpoint: a short subject plus the metadata line. */
-export function encodeMessage(checkpoint: CheckpointMeta): string {
-	return [`checkpoint ${checkpoint.id}`, "", META_MARKER + JSON.stringify(checkpoint)].join("\n");
+/** Commit message for a snapshot: a short subject plus the metadata line. */
+export function encodeMessage(snapshot: SnapshotMeta): string {
+	return [`snapshot ${snapshot.id}`, "", META_MARKER + JSON.stringify(snapshot)].join("\n");
 }
 
 /** Parse the metadata line from a commit body, or undefined when absent/invalid. */
-export function parseMessage(message: string): CheckpointMeta | undefined {
+export function parseMessage(message: string): SnapshotMeta | undefined {
 	const line = message.split("\n").find((candidate) => candidate.startsWith(META_MARKER));
 	if (!line) return undefined;
 	let raw: unknown;
@@ -49,9 +49,9 @@ export function parseMessage(message: string): CheckpointMeta | undefined {
 	return isMeta(raw) ? raw : undefined;
 }
 
-function isMeta(value: unknown): value is CheckpointMeta {
+function isMeta(value: unknown): value is SnapshotMeta {
 	if (!value || typeof value !== "object") return false;
-	const meta = value as Partial<CheckpointMeta>;
+	const meta = value as Partial<SnapshotMeta>;
 	return (
 		meta.v === META_VERSION &&
 		typeof meta.id === "string" &&
@@ -61,23 +61,25 @@ function isMeta(value: unknown): value is CheckpointMeta {
 		typeof meta.timestamp === "number" &&
 		typeof meta.clean === "boolean" &&
 		typeof meta.includeUntracked === "boolean" &&
+		typeof meta.sessionId === "string" &&
+		(meta.entryId === null || typeof meta.entryId === "string") &&
 		(meta.prompt === undefined || typeof meta.prompt === "string") &&
-		REASONS.includes(meta.reason as CheckpointReason)
+		REASONS.includes(meta.reason as SnapshotReason)
 	);
 }
 
 export interface ListOptions {
-	/** Only return checkpoints whose recorded root matches. */
+	/** Only return snapshots whose recorded root matches. */
 	root?: string;
 }
 
-/** All valid checkpoints under `namespace`, newest first. */
-export async function listCheckpoints(
+/** All valid snapshots under `namespace`, newest first. */
+export async function listSnapshots(
 	runGit: RunGit,
 	cwd: string,
 	namespace: string,
 	options: ListOptions = {},
-): Promise<Checkpoint[]> {
+): Promise<Snapshot[]> {
 	const refs = await listRefs(runGit, cwd, namespace);
 	if (refs.size === 0) return [];
 
@@ -88,43 +90,43 @@ export async function listCheckpoints(
 		entries.map((entry) => entry.commit),
 	);
 
-	const checkpoints: Checkpoint[] = [];
+	const snapshots: Snapshot[] = [];
 	for (const entry of entries) {
 		const meta = parseMessage(messages.get(entry.commit) ?? "");
 		if (!meta) continue;
 		// Trust the ref for identity, so a rewritten message cannot alias another ref.
 		const id = idFromRef(namespace, entry.ref) ?? meta.id;
-		const checkpoint: Checkpoint = { ...meta, id, ref: entry.ref, commit: entry.commit };
-		if (options.root !== undefined && checkpoint.root !== options.root) continue;
-		checkpoints.push(checkpoint);
+		const snapshot: Snapshot = { ...meta, id, ref: entry.ref, commit: entry.commit };
+		if (options.root !== undefined && snapshot.root !== options.root) continue;
+		snapshots.push(snapshot);
 	}
-	checkpoints.sort((a, b) => b.timestamp - a.timestamp || b.id.localeCompare(a.id));
-	return checkpoints;
+	snapshots.sort((a, b) => b.timestamp - a.timestamp || b.id.localeCompare(a.id));
+	return snapshots;
 }
 
-/** Resolve `id` (or the literal `"last"`) to a checkpoint, or undefined. */
-export async function getCheckpoint(
+/** Resolve `id` (or the literal `"last"`) to a snapshot, or undefined. */
+export async function getSnapshot(
 	runGit: RunGit,
 	cwd: string,
 	namespace: string,
 	id: string,
 	options: ListOptions = {},
-): Promise<Checkpoint | undefined> {
-	const checkpoints = await listCheckpoints(runGit, cwd, namespace, options);
-	if (id === "last") return checkpoints[0];
-	return checkpoints.find((checkpoint) => checkpoint.id === id);
+): Promise<Snapshot | undefined> {
+	const snapshots = await listSnapshots(runGit, cwd, namespace, options);
+	if (id === "last") return snapshots[0];
+	return snapshots.find((snapshot) => snapshot.id === id);
 }
 
 /** Delete the given refs. Failures are reported as a count, not thrown. */
-export async function deleteCheckpoints(
+export async function deleteSnapshots(
 	runGit: RunGit,
 	cwd: string,
-	checkpoints: Checkpoint[],
+	snapshots: Snapshot[],
 ): Promise<number> {
 	let removed = 0;
-	for (const checkpoint of checkpoints) {
+	for (const snapshot of snapshots) {
 		try {
-			await deleteRef(runGit, cwd, checkpoint.ref);
+			await deleteRef(runGit, cwd, snapshot.ref);
 			removed += 1;
 		} catch {
 			// A ref deleted by a concurrent session is fine to ignore.
@@ -134,11 +136,11 @@ export async function deleteCheckpoints(
 }
 
 /**
- * Delete refs under `namespace`. When `root` is given, checkpoints that parse
+ * Delete refs under `namespace`. When `root` is given, snapshots that parse
  * and belong to another root are kept; unparseable refs (a foreign or older
  * schema) are always removed, so a redesign cannot strand invisible orphans.
  */
-export async function clearCheckpoints(
+export async function clearSnapshots(
 	runGit: RunGit,
 	cwd: string,
 	namespace: string,
@@ -168,8 +170,8 @@ export async function clearCheckpoints(
 	return removed;
 }
 
-/** Delete the oldest checkpoints for `root` beyond `max`; returns the count. */
-export async function pruneCheckpoints(
+/** Delete the oldest snapshots for `root` beyond `max`; returns the count. */
+export async function pruneSnapshots(
 	runGit: RunGit,
 	cwd: string,
 	namespace: string,
@@ -177,7 +179,7 @@ export async function pruneCheckpoints(
 	root: string,
 ): Promise<number> {
 	if (max < 0) return 0;
-	const checkpoints = await listCheckpoints(runGit, cwd, namespace, { root });
-	if (checkpoints.length <= max) return 0;
-	return deleteCheckpoints(runGit, cwd, checkpoints.slice(max));
+	const snapshots = await listSnapshots(runGit, cwd, namespace, { root });
+	if (snapshots.length <= max) return 0;
+	return deleteSnapshots(runGit, cwd, snapshots.slice(max));
 }

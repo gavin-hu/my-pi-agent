@@ -1,5 +1,5 @@
 /**
- * Git plumbing for the checkpoint extension.
+ * Git plumbing for the rewind extension.
  *
  * Everything runs through an injected {@link RunGit}, so the algorithms are
  * testable with a fake runner and use `pi.exec` in production. Snapshots are

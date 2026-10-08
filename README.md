@@ -22,7 +22,7 @@ pi -e .                  # try it for a single run, no settings change
 | Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent one-line widget and `/todos`. |
 | Extension | [`extensions/goal/`](./extensions/goal/) | `goal`: a persistent session objective (`active`/`achieved`) kept in a one-line widget and restated before each turn; `/goal [text\|clear\|done]`. |
 | Extension | [`extensions/git/`](./extensions/git/) | `git`: read-only git inspection with no shell — `status`, `diff`, `log`, `show`, and branch listing, annotated `readOnlyHint` so plan mode keeps git visibility. |
-| Extension | [`extensions/checkpoint/`](./extensions/checkpoint/) | `checkpoint`: automatic and manual working-tree snapshots kept as git refs (`refs/pi/checkpoints`), with `save`/`list`/`diff`/`restore`/`clear` and `/checkpoint`. Rewind rewrites the working tree without moving HEAD. |
+| Extension | [`extensions/rewind/`](./extensions/rewind/) | `rewind`: automatic per-prompt working-tree snapshots kept as git refs (`refs/pi/rewind`), plus `/rewind` — pick a prompt on the active branch and restore the code, the conversation, or both. Code rewinds never move HEAD; conversation rewinds use the session tree. |
 | Extension | [`extensions/plan-mode/`](./extensions/plan-mode/) | `plan-mode`: read-only planning with `enter_plan_mode` / `write_plan` / `exit_plan_mode`; plans are saved to `.pi/plans`, reviewed from the file, and approved before execution (`/plan [prompt]`, `/plan list|show|delete`, `Ctrl+Alt+P`). |
 | Extension | [`extensions/subagent/`](./extensions/subagent/) | `subagent`: delegate a task to a built-in specialized agent (`explorer`, `planner`, `reviewer`, `worker`) running in its own `pi` process — single, parallel (max 8/4), or chained via `{previous}`. |
 | Extension | [`extensions/jobs/`](./extensions/jobs/) | `jobs`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸N` chip + one-line widget) with sanitized log tails and shutdown/reconcile lifecycle. |
@@ -50,7 +50,8 @@ bun install
 bun run test      # unit + git-integration tests (bun test --isolate)
 bun run typecheck # tsc --noEmit
 bun run smoke     # real-runtime load + enter/status/exit (no model call)
-bun run check     # typecheck + transpile + tests + smoke
+bun run e2e:rewind # real SDK: command context → AgentSession.navigateTree + git restore
+bun run check     # typecheck + transpile + tests + smoke + e2e:rewind
 ```
 
 There is also one live end-to-end test for the `subagent` extension. It makes a

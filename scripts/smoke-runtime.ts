@@ -19,7 +19,7 @@ const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const goalExtensionPath = join(repo, "extensions", "goal", "index.ts");
 const gitExtensionPath = join(repo, "extensions", "git", "index.ts");
-const checkpointExtensionPath = join(repo, "extensions", "checkpoint", "index.ts");
+const rewindExtensionPath = join(repo, "extensions", "rewind", "index.ts");
 const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
 const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const jobsExtensionPath = join(repo, "extensions", "jobs", "index.ts");
@@ -46,7 +46,7 @@ writeFileSync(join(work, ".pi", "jobs.json"), JSON.stringify({ registryDir: join
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
-	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, gitExtensionPath, checkpointExtensionPath, planExtensionPath, subagentExtensionPath, jobsExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
+	additionalExtensionPaths: [extensionPath, askExtensionPath, todoExtensionPath, goalExtensionPath, gitExtensionPath, rewindExtensionPath, planExtensionPath, subagentExtensionPath, jobsExtensionPath, webSearchExtensionPath, webFetchExtensionPath, statusBarExtensionPath, turnSeparatorExtensionPath],
 });
 await loader.reload();
 const loadErrors = loader.getExtensions().errors;
@@ -160,20 +160,15 @@ const gitTool = session.getAllTools().find((t) => t.name === "git");
 check("git tool registered", !!gitTool);
 check("git tool is read-only", gitTool?.annotations?.readOnlyHint === true);
 
-// checkpoint loads alongside the others and exposes a save-only tool; the
-// working tree is checkpointed automatically per prompt and the user restores
-// from the /checkpoint menu.
-const checkpointTool = session.getAllTools().find((t) => t.name === "checkpoint");
-check("checkpoint registered", !!checkpointTool);
-check("checkpoint is active by default", session.getActiveToolNames().includes("checkpoint"));
-check("checkpoint is not destructive", checkpointTool?.annotations?.destructiveHint === false);
-check("checkpoint command registered", !!runner.getCommand("checkpoint"));
-const savedCheckpoint = await call("checkpoint", { label: "smoke" });
-const savedCheckpointDetails = savedCheckpoint.details as { checkpoint?: { label?: string; reason?: string } };
-check(
-	"checkpoint save records a snapshot",
-	savedCheckpointDetails.checkpoint?.label === "smoke" && savedCheckpointDetails.checkpoint?.reason === "manual",
-);
+// rewind loads alongside the others: automatic per-prompt snapshots stay, the
+// old checkpoint tool and command are gone, and /rewind handles the rewind.
+const rewindTool = session.getAllTools().find((t) => t.name === "checkpoint");
+check("checkpoint tool removed", !rewindTool);
+check("checkpoint command removed", !runner.getCommand("checkpoint"));
+check("rewind command registered", !!runner.getCommand("rewind"));
+const rewindCommand = runner.getCommand("rewind");
+if (!rewindCommand) throw new Error("missing rewind command");
+await rewindCommand.handler("", runner.createCommandContext());
 
 // plan-mode loads; the read-only entry tool is active, the exit tool is not, and
 // a headless entry attempt refuses instead of entering silently.
