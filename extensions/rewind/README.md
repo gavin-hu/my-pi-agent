@@ -18,15 +18,16 @@ pi install ./                        # install the package
 - Takes **one automatic snapshot per user prompt**, before the prompt's first
   mutating tool call. A read-only prompt snapshots nothing.
 - `/rewind` lists **every user prompt on the active branch** (newest first), each
-  marked `↺` when a code snapshot was captured for it.
+  marked `◆` when a code snapshot was captured for it.
 - Picking a point asks what to restore: **Code and conversation**,
   **Conversation only**, or **Code only**.
   - *Code* rewrites the working tree to the snapshot and is itself undoable
     (a `pre-restore` safety snapshot is taken first).
   - *Conversation* moves the session tree back to that prompt and puts the
     prompt text back in the editor; the abandoned branch stays in the session.
-- Shows a `↺ N` status chip counting the prompts on the active branch that have
-  a code snapshot — the same points `/rewind` can code-restore.
+- Shows a `↺ N` status chip counting the prompts on the active branch — the
+  same points `/rewind` lists (its list size), whether or not each has a code
+  snapshot.
 - Stores metadata in the commit body, so snapshots survive across sessions and
   are listed from git rather than from session state.
 

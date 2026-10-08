@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `rewind`: the `↺ N` status chip now counts every prompt on the active branch,
+  matching the `/rewind` list size. Previously it counted only the prompts with
+  a code snapshot, so it read lower than the menu whenever a prompt was
+  read-only. The list's per-row code-snapshot marker moved from `↺` to `◆`, so
+  `↺` means one thing everywhere: a rewind point.
+
 - `goal`, `todo`, and `jobs` share one rail family: label-first one-line
   widgets pinned in a stable `goal` → `todo` → `jobs` order, hidden while a dock
   screen (`/todos`, `/jobs`, `/plans`, `/rewind`) is open.

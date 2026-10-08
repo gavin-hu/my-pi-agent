@@ -95,21 +95,25 @@ describe("automatic snapshots", () => {
 		expect((await refs(repo)).length).toBe(2);
 	});
 
-	test("the status chip counts rewindable prompts, not stored snapshots", async () => {
+	test("the status chip equals the /rewind list size, not the snapshot count", async () => {
 		const repo = await makeRepo("pi-rw-ext-chip-");
 		cleanups.push(repo);
 		const fake = setup();
 		const branch = branchWithUser("e1", "do the task");
 		const ctx = makeCtx(fake, { cwd: repo, branch, sessionId: "s1" });
 
+		// One branch prompt and no snapshot yet: the chip already counts the
+		// prompt, matching the one row `/rewind` would list.
 		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
+
 		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
 		writeFileSync(join(repo, "w.txt"), "x\n");
 		await emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx);
 		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
 
 		// A pre-restore safety snapshot on the same entry is stored, but it is not
-		// a rewindable code point and must not inflate the chip.
+		// a rewind point and adds no list row, so it must not inflate the chip.
 		await createSnapshot(
 			{ runGit },
 			{
@@ -124,13 +128,30 @@ describe("automatic snapshots", () => {
 		);
 		expect((await refs(repo)).length).toBe(2);
 
-		// A second prompt snapshot re-runs setStatus: the chip reflects two
-		// rewindable points, not the three stored refs.
+		// A second branch prompt raises the chip to two, matching the two rows
+		// `/rewind` would list — not the three stored refs.
 		ctx.sessionManager.getBranch = () => [...branch, ...branchWithUser("e2", "and again")];
 		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "and again" }, ctx);
 		await emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx);
 		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
 		expect((await refs(repo)).length).toBe(3);
+	});
+
+	test("the status chip equals the /rewind list size", async () => {
+		const repo = await makeRepo("pi-rw-ext-parity-");
+		cleanups.push(repo);
+		const fake = setup();
+		const branch = [...branchWithUser("e1", "first"), ...branchWithUser("e2", "second")];
+		const ctx = makeCtx(fake, { cwd: repo, branch, sessionId: "s1" });
+
+		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
+
+		// Even with no snapshots at all, the headless `/rewind` list reports the
+		// same two conversation-only points the chip counts.
+		await fake.commands.get("rewind").handler("", ctx);
+		const list = ctx.notices.at(-1)?.message ?? "";
+		expect(list.split("\n")[0]).toBe("2 prompts (newest first):");
 	});
 
 	test("does not snapshot read-only calls", async () => {
@@ -143,6 +164,8 @@ describe("automatic snapshots", () => {
 
 		await emit(fake.pi, "tool_call", { toolName: "read", input: {} }, ctx);
 		expect((await refs(repo)).length).toBe(0);
+		// No snapshot, but the prompt still appears in `/rewind`, so it is counted.
+		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
 	});
 
 	test("records the prompt summary and conversation anchor at schema v3", async () => {

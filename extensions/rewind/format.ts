@@ -54,8 +54,11 @@ export function formatChangeSummary(changed: number, removed: number): string {
 	return removed > 0 ? `${changedText}, ${removed} created` : changedText;
 }
 
+/** Marks a timeline row whose point has a code snapshot to restore. */
+const SNAPSHOT_GLYPH = "◆";
+
 /**
- * Id-free row for the rewind timeline: `↺ "prompt"          2m ago`.
+ * Id-free row for the rewind timeline: `◆ "prompt"          2m ago`.
  * The leading glyph marks a point with a code snapshot; the time is
  * right-aligned so the whole row never exceeds `width`.
  */
@@ -66,7 +69,7 @@ export function formatRewindRow(
 	now = Date.now(),
 	width = 80,
 ): string {
-	const prefix = hasSnapshot ? "↺ " : "  ";
+	const prefix = hasSnapshot ? `${SNAPSHOT_GLYPH} ` : "  ";
 	const suffix = `  ${formatRelativeTime(timestamp, now)}`;
 	const available = Math.max(1, width - visibleWidth(prefix) - visibleWidth(suffix));
 	const label = truncate(sanitize(summary || "(no text)"), available);

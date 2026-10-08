@@ -65,7 +65,7 @@ describe("RewindListComponent", () => {
 		// The focused row (first, conversation-only) shows its detail line.
 		expect(body).toContain("conversation only");
 		// The code point carries the snapshot marker.
-		expect(body).toContain("↺");
+		expect(body).toContain("◆");
 	});
 
 	test("shows the focused point's snapshot id in the detail line", () => {

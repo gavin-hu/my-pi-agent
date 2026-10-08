@@ -42,7 +42,7 @@ describe("formatRewindRow", () => {
 
 	test("marks a code snapshot and right-aligns the age", () => {
 		const row = formatRewindRow("fix the list", true, now - 120_000, now, 40);
-		expect(row.startsWith("↺ ")).toBe(true);
+		expect(row.startsWith("◆ ")).toBe(true);
 		expect(row).toContain("fix the list");
 		expect(row).toMatch(/2m ago$/);
 		expect(visibleWidth(row)).toBeLessThanOrEqual(40);
@@ -50,7 +50,7 @@ describe("formatRewindRow", () => {
 
 	test("leaves the marker blank for a conversation-only point", () => {
 		const row = formatRewindRow("explain this", false, now - 3_000, now, 40);
-		expect(row.startsWith("↺")).toBe(false);
+		expect(row.startsWith("◆")).toBe(false);
 		expect(row).toMatch(/3s ago$/);
 	});
 
@@ -81,8 +81,8 @@ describe("formatRewindListText", () => {
 		]);
 		expect(text).toContain("2 prompts (newest first):");
 		expect(text.split("\n")[1]).toContain("second");
-		expect(text.split("\n")[1]).toContain("↺");
-		expect(text.split("\n")[2]).not.toContain("↺");
+		expect(text.split("\n")[1]).toContain("◆");
+		expect(text.split("\n")[2]).not.toContain("◆");
 	});
 });
 

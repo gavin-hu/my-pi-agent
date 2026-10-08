@@ -16,7 +16,7 @@ import { gitDir, repoRoot, type RunGit, type RunGitOptions } from "./git.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { listSnapshots, pruneSnapshots } from "./store.ts";
-import { buildRewindPoints, lastUserEntryId } from "./timeline.ts";
+import { lastUserEntryId, userMessagesFromBranch } from "./timeline.ts";
 import type { Snapshot, SnapshotReason, RestoreSummary } from "./types.ts";
 
 // The status chip is defined locally so this extension stays self-contained.
@@ -41,7 +41,7 @@ export interface RewindRuntime {
 	list(root: string, all: boolean): Promise<Snapshot[]>;
 	plan(root: string, target: Snapshot): Promise<PlanResult>;
 	restore(ctx: ExtensionContext, root: string, target: Snapshot, config: RewindConfig): Promise<RestoreSummary>;
-	/** Repaint the `↺ N` chip from the rewindable-prompt count on the active branch. */
+	/** Repaint the `↺ N` chip from the prompt count on the active branch (`/rewind` list size). */
 	setStatus(ctx: ExtensionContext): Promise<void>;
 	clearStatus(ctx: ExtensionContext): void;
 	/** Drop cached roots, config, and index paths (on session start). */
@@ -182,21 +182,15 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 			return { ...summary, safety };
 		});
 
-	// The chip shows how many prompts on the active branch are code-rewindable,
-	// not how many snapshot refs exist for the root. Counting via
-	// `buildRewindPoints` matches `/rewind` exactly: read-only prompts (no
-	// snapshot), `pre-restore`/`manual` snapshots, and foreign-session snapshots
-	// are all excluded.
+	// The chip shows the number of prompts on the active branch — the `/rewind`
+	// list size. The menu renders one row per branch user message, so counting
+	// that same source keeps the two in lockstep without listing any refs.
 	const setStatus = async (ctx: ExtensionContext): Promise<void> => {
 		try {
 			const root = await rootFor(ctx);
 			if (!root) return;
-			const config = configFor(root);
-			if (!config.showStatus) return;
-			const snapshots = await listSnapshots(runGit, root, config.refNamespace, { root });
-			const session = ctx.sessionManager;
-			const points = buildRewindPoints(session.getBranch(), snapshots, session.getSessionId());
-			const count = points.filter((point) => point.snapshot).length;
+			if (!configFor(root).showStatus) return;
+			const count = userMessagesFromBranch(ctx.sessionManager.getBranch()).length;
 			if (count === 0) {
 				ctx.ui.setStatus(STATUS_KEY, undefined);
 				return;

@@ -2,7 +2,7 @@
  * Terminal rendering for the rewind timeline.
  *
  * `RewindListComponent` is the selectable screen `/rewind` opens in the TUI.
- * Rows are id-free and width-safe: a leading `↺` marks a prompt that has a code
+ * Rows are id-free and width-safe: a leading `◆` marks a prompt that has a code
  * snapshot, and the focused row's detail line says whether code will be
  * restored. The component resolves the chosen point through `onClose`, so the
  * scope dialog runs only after the screen is gone and input focus is free.
