@@ -89,10 +89,14 @@ temp registry, so the whole suite runs without launching a process.
 
 ### UI decisions
 
-**Width-1 glyphs.** The status chip is `▸N`/`✕N`, with no space, because the
-status bar compacts each status to its first whitespace token. `▸` and `✕` are
+**Width-1 glyphs.** The status chip is `▸N`/`✗N`, with no space, because the
+status bar compacts each status to its first whitespace token. `▸` and `✗` are
 single-column text glyphs, unlike emoji-ambiguous symbols such as `⚙` that
-would break footer alignment; `format.test.ts` asserts the width.
+would break footer alignment; `format.test.ts` asserts the width. When jobs run
+*and* an unreported failure waits, the chip is the combined `▸N·✗N` — still one
+whitespace-free token, so the compact form keeps both counts instead of dropping
+the failure behind the running count (the widget is hidden while a dock screen
+is open, and may be disabled, so the chip is then the only signal).
 
 **Untrusted output is sanitized at every boundary.** Logs are arbitrary program
 output: ANSI/OSC escapes, carriage-return progress rewrites, control characters.
@@ -106,13 +110,14 @@ the runtime only calls `tui.requestRender()` on a clock that runs (only in
 `tui` mode, only while a job runs) and is cleared on shutdown. The widget is a
 single header line (`Jobs · 2 running · 1 failed`) and auto-hides when there is
 nothing running and no unreported failure. The latest output line is cached from
-the stdout stream (throttled), never read from the file on the render path; only
-the `/jobs` log pane reads a bounded tail, on a poll.
+the stdout stream (throttled) for `status`/`wait`/completion notes and the
+`/jobs` detail pane; the widget header never reads it, and nothing on the render
+path touches the file — only the `/jobs` log pane reads a bounded tail, on a poll.
 
 **The widget is the collapsed view of the screen.** It reuses the `todo`/`goal`
 rails grammar (`Jobs · 2 running · 1 failed`) and stays mounted while a job runs
 or an unreported failure waits, so a failure is not hidden between completion
-and the next turn (matching the `✕N` chip and the report-at-next-turn model).
+and the next turn (matching the `✗N` chip and the report-at-next-turn model).
 
 **The jobs rail is the bottom rail.** Pi re-inserts a widget on every set, so a
 `goal` or `todo` update would otherwise sink those rails below this one.
@@ -131,7 +136,11 @@ on close. See [`_shared/rails.ts`](../_shared/rails.ts).
 `viewportRows` with `rewind`/`plan-mode`, adds a `❯` selection marker, a
 counts summary (`N jobs · R running · F failed`), running jobs first then recent
 finished jobs, and a focused detail pane (command, cwd, outcome, elapsed, last
-line). While it owns the editor the runtime suppresses the widget via
+line). Destructive keys (`d`/`K` kill, `x` clear) ask for a `y`/`N`
+confirmation first, matching `plan-mode`'s confirm-before-delete convention.
+Selection is tracked by job id, and the open log pane pins its job id, so the
+screen's live re-sort (running first) cannot move the cursor or switch the log
+out from under the user. While it owns the editor the runtime suppresses the widget via
 `setUiSuppressed`, so the collapsed and expanded lists are never shown at once;
 the footer chip is untouched, so the running signal survives the detour.
 

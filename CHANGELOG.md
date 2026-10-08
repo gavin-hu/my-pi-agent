@@ -55,6 +55,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `worktree`: `exit_worktree` reports `removed` from the actual removal, not
   the decision, and its error message no longer suggests an unsupported
   switch-by-path.
+- `jobs`: the `/jobs` screen tracks selection by job id and pins the open log
+  pane to its job, so the live running-first re-sort can no longer move the
+  cursor or switch the log out from under the user.
+- `jobs`: `d`/`K` (kill) and `x` (clear) ask for a `y`/`N` confirmation before
+  acting, matching `plan-mode`'s confirm-before-delete convention.
+- `jobs`: the `/jobs` log pane only repaints when its tail actually changes,
+  instead of on every 500 ms poll.
+- `jobs`: the repaint clock parks while a dock screen hides the rails and
+  restarts when the screen closes, so a suppressed/hidden widget is not
+  re-hidden every tick (and reattached jobs resume being polled on close).
+- `jobs`: `wait` shows a `Waiting on <id>…` row while it blocks instead of
+  rendering blank.
+- `jobs`: the footer chip shows `▸N·✗N` when jobs are running and an unreported
+  failure is waiting, instead of hiding the failure behind the running count
+  (which mattered whenever the widget was hidden or disabled).
+- `jobs`: docs now match the rendered `✗N`/`▸N·✗N` failure chip (was documented
+  as `✕N`) and no longer imply the widget header shows the latest output line.
 
 ## [0.3.0] - 2026-10-08
 

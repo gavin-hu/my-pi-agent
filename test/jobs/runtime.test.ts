@@ -400,6 +400,49 @@ describe("job runtime — registry reconcile", () => {
 		}
 	});
 
+	test("stops polling reattached jobs while a dock screen hides the rails", async () => {
+		const h = makeHarness({ config: { repaintMs: 10 } });
+		try {
+			saveRegistry(h.dir, {
+				version: REGISTRY_VERSION,
+				counter: 2,
+				jobs: [
+					{
+						id: "j1",
+						label: "server",
+						command: "dev",
+						cwd: "/repo",
+						pid: 777,
+						status: "running",
+						exitCode: null,
+						signal: null,
+						startedAt: 1,
+						finishedAt: null,
+						logPath: "/tmp/old.log",
+						detached: true,
+						wake: false,
+						sessionId: "old",
+						seen: false,
+						lastLine: "",
+					},
+				],
+			});
+			h.runtime.load(makeCtx().ctx);
+			expect(h.runtime.get("j1")?.status).toBe("running");
+			// Suppressing hides the rails and parks the repaint clock, so the dead
+			// pid is not noticed until the screen closes and polling resumes.
+			h.runtime.setUiSuppressed(true);
+			h.dead.add(777);
+			await new Promise((resolve) => setTimeout(resolve, 60));
+			expect(h.runtime.get("j1")?.status).toBe("running");
+			h.runtime.setUiSuppressed(false);
+			await new Promise((resolve) => setTimeout(resolve, 60));
+			expect(h.runtime.get("j1")?.status).toBe("unknown");
+		} finally {
+			h.cleanup();
+		}
+	});
+
 	test("keeps a live non-detached job owned by another live session", () => {
 		const h = makeHarness();
 		try {
@@ -495,6 +538,22 @@ describe("job runtime — pending, clear, status", () => {
 			h.children[0].close(0);
 			h.runtime.setStatus(ctx);
 			expect(statuses.has("jobs")).toBe(false);
+		} finally {
+			h.cleanup();
+		}
+	});
+
+	test("status chip keeps both the running and unreported-failure counts in one token", () => {
+		const h = makeHarness();
+		try {
+			const { ctx, statuses } = makeCtx();
+			h.runtime.load(ctx);
+			h.runtime.start({ command: "sleep 1" }, ctx); // j1
+			h.runtime.start({ command: "sleep 1" }, ctx); // j2, stays running
+			h.children[0].close(1); // j1 fails, unreported
+			h.runtime.setStatus(ctx);
+			// No whitespace, so the status bar's compact form keeps the whole chip.
+			expect(statuses.get("jobs")).toBe("▸1·✗1");
 		} finally {
 			h.cleanup();
 		}

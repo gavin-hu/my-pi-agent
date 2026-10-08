@@ -92,22 +92,67 @@ describe("JobsWidget", () => {
 });
 
 describe("JobListComponent", () => {
-	test("d kills the selected running job", () => {
+	test("d asks for confirmation before killing the selected running job", () => {
 		const { component, killed } = makeComponent([job()], {});
 		component.handleInput("d");
+		expect(killed).toEqual([]);
+		expect(component.render(60).join("\n")).toContain("Kill j1");
+		component.handleInput("y");
 		expect(killed).toEqual(["j1"]);
+	});
+
+	test("n cancels a pending kill", () => {
+		const { component, killed } = makeComponent([job()], {});
+		component.handleInput("d");
+		component.handleInput("n");
+		expect(killed).toEqual([]);
+		expect(component.render(60).join("\n")).not.toContain("Kill j1");
 	});
 
 	test("d does nothing for a finished job", () => {
 		const { component, killed } = makeComponent([job({ status: "exited" })], {});
 		component.handleInput("d");
+		component.handleInput("y");
 		expect(killed).toEqual([]);
 	});
 
-	test("x clears finished jobs", () => {
+	test("x asks for confirmation before clearing finished jobs", () => {
 		const { component, clearedCount } = makeComponent([job({ status: "exited" })], {});
 		component.handleInput("x");
+		expect(clearedCount()).toBe(0);
+		component.handleInput("y");
 		expect(clearedCount()).toBe(1);
+	});
+
+	test("selection follows the job id when the list re-sorts", () => {
+		let jobs = [
+			job({ id: "j1", label: "one", status: "running", startedAt: 0 }),
+			job({ id: "j2", label: "two", status: "running", startedAt: 1 }),
+		];
+		const { component } = makeComponent(jobs, {}, 12);
+		// ordered newest-first: j2 then j1; select the second row (j1).
+		component.handleInput("j");
+		expect(component.render(40).find((line) => line.startsWith("❯"))).toContain("j1");
+		// j2 finishes and sinks below the still-running j1: j1's index changes.
+		jobs = [
+			job({ id: "j1", label: "one", status: "running", startedAt: 0 }),
+			job({ id: "j2", label: "two", status: "exited", exitCode: 0, startedAt: 1, finishedAt: 5, pid: null }),
+		];
+		expect(component.render(40).find((line) => line.startsWith("❯"))).toContain("j1");
+	});
+
+	test("keeps the log pane on its job when the list re-sorts", () => {
+		let jobs = [job({ id: "j1", status: "running", startedAt: 0 }), job({ id: "j2", status: "running", startedAt: 1 })];
+		const { component } = makeComponent(jobs, { logs: () => ({ lines: ["x"] }) });
+		// First row is j2; open its log.
+		component.handleInput("l");
+		expect(component.currentLogId()).toBe("j2");
+		// j2 finishes and sinks, so index 0 now points at j1.
+		jobs = [
+			job({ id: "j1", status: "running", startedAt: 0 }),
+			job({ id: "j2", status: "exited", exitCode: 0, startedAt: 1, finishedAt: 5, pid: null }),
+		];
+		expect(component.currentLogId()).toBe("j2");
 	});
 
 	test("shows a counts summary and a focused detail pane", () => {
@@ -134,6 +179,26 @@ describe("JobListComponent", () => {
 		const { component } = makeComponent([job()], { logs: () => ({ lines: [] }) });
 		component.handleInput("l");
 		expect(component.render(60).join("\n")).toContain("Job Logs · j1 build");
+	});
+
+	test("does not repaint the log pane when the tail is unchanged", () => {
+		let renders = 0;
+		const component = new JobListComponent(
+			() => [job()],
+			fakeTheme,
+			{ logs: () => ({ lines: ["a", "b"] }), kill: () => {}, clear: () => {} },
+			() => {},
+			() => {
+				renders++;
+			},
+			12,
+		);
+		component.handleInput("l");
+		const afterOpen = renders;
+		component.refreshLogs("j1"); // identical tail
+		expect(renders).toBe(afterOpen);
+		component.setLogs("j1 build", ["a", "c"]); // changed tail
+		expect(renders).toBe(afterOpen + 1);
 	});
 
 	test("shows the no-output note for an empty log tail", () => {

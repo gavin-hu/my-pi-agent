@@ -63,7 +63,9 @@ leaves the job running.
 
 On the `/jobs` screen: `↑`/`↓` or `j`/`k` select, `PgUp`/`PgDn` page,
 `Home`/`End` jump, `Enter`/`l` opens the log pane, `d` (or `K`) kills the
-selected running job, `x` clears finished jobs, `Esc`/`q` closes. In the log
+selected running job, `x` clears finished jobs, `Esc`/`q` closes. `d` and `x`
+ask for a `y`/`N` confirmation before acting, so a stray key cannot kill a
+build. In the log
 pane, `↑`/`↓`, `PgUp`/`PgDn`, `Home`/`End`, and `g`/`G` scroll; the view follows
 the tail until you scroll up, and `Esc`/`Backspace`/`q` returns to the list.
 
@@ -77,8 +79,10 @@ above-editor rails for its lifetime and restores them on close.
 
 ## Status chip and widget
 
-While jobs run, the footer shows `▸N` (running) or `✕N` (an unreported
-failure). The persistent widget is a single line above the editor:
+While jobs run, the footer shows `▸N` (running), `✗N` (an unreported failure),
+or `▸N·✗N` when both are present. The combined form is a single whitespace-free
+token so a narrow status bar keeps both counts. The persistent widget is a
+single line above the editor:
 
 ```
 Jobs · 2 running · 1 failed

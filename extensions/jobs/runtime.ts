@@ -217,7 +217,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const ensureClock = (): void => {
 		const running = [...jobs.values()].some((job) => job.status === "running");
-		if (disposed || !running) {
+		if (disposed || !running || uiSuppressed) {
 			stopClock();
 			return;
 		}
@@ -250,10 +250,16 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			}
 			const running = [...jobs.values()].filter((job) => job.status === "running").length;
 			const unseenFailures = [...jobs.values()].filter((job) => !job.seen && job.status === "failed").length;
-			if (running > 0) {
-				ctx.ui.setStatus(STATUS_KEYS.jobs, theme(ctx, "accent", `${GLYPHS.jobsRunning}${running}`));
+			const runningBadge = theme(ctx, "accent", `${GLYPHS.jobsRunning}${running}`);
+			const failureBadge = theme(ctx, "error", `${GLYPHS.jobsFailure}${unseenFailures}`);
+			if (running > 0 && unseenFailures > 0) {
+				// One whitespace-free token so the compact status bar keeps both counts
+				// (it otherwise collapses the chip to its first token).
+				ctx.ui.setStatus(STATUS_KEYS.jobs, `${runningBadge}${theme(ctx, "dim", "·")}${failureBadge}`);
+			} else if (running > 0) {
+				ctx.ui.setStatus(STATUS_KEYS.jobs, runningBadge);
 			} else if (unseenFailures > 0) {
-				ctx.ui.setStatus(STATUS_KEYS.jobs, theme(ctx, "error", `${GLYPHS.jobsFailure}${unseenFailures}`));
+				ctx.ui.setStatus(STATUS_KEYS.jobs, failureBadge);
 			} else {
 				ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
 			}
@@ -287,6 +293,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const setUiSuppressed = (value: boolean): void => {
 		uiSuppressed = value;
+		// Stop the repaint clock while a dock screen owns the editor, and restart it
+		// when the screen closes so externally-reaped jobs are polled again.
+		ensureClock();
 	};
 
 	/** Re-assert the widget after an upper rail re-inserted itself below us. */
@@ -299,7 +308,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 	};
 
-	const theme = (ctx: ExtensionContext, color: "accent" | "error", text: string): string => {
+	const theme = (ctx: ExtensionContext, color: "accent" | "error" | "dim", text: string): string => {
 		try {
 			return ctx.ui.theme.fg(color, text);
 		} catch {

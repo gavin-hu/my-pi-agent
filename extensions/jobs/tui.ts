@@ -97,15 +97,23 @@ export interface JobListCallbacks {
 	clear(): void;
 }
 
+/** A destructive action waiting for y/N confirmation. */
+type PendingConfirm = { kind: "kill"; id: string; label: string } | { kind: "clear"; count: number };
+
 /** Dismissible `/jobs` screen: a selectable list with a focus pane and log view. */
 export class JobListComponent implements Component {
 	private mode: "list" | "logs" = "list";
-	private selected = 0;
+	/** Stable selection identity; survives the live re-sort of the job list. */
+	private selectedId: string | undefined;
 	private listScroll = 0;
+	/** Job whose log pane is open; captured so a re-sort cannot switch it. */
+	private logJobId: string | undefined;
 	private logScroll = 0;
 	private logLines: string[] = [];
 	private logTitle = "";
 	private follow = true;
+	/** Pending destructive action awaiting y/N. */
+	private confirm: PendingConfirm | undefined;
 	/** Rows shown at once; recomputed from the terminal height on every render. */
 	private visible = SCREEN_DEFAULT_ROWS;
 
@@ -122,17 +130,28 @@ export class JobListComponent implements Component {
 
 	/** Replace the log pane contents (called by the command's poll loop). */
 	setLogs(title: string, lines: string[]): void {
+		const titleChanged = title !== this.logTitle;
+		const linesChanged = !this.sameLines(lines);
 		this.logTitle = title;
 		this.logLines = lines;
 		if (this.follow) this.logScroll = this.maxLogScroll;
 		else this.logScroll = Math.min(this.logScroll, this.maxLogScroll);
-		this.requestRender();
+		// The poll fires every 500ms; skip the repaint when nothing changed so an
+		// idle log pane does not redraw (and fight the user's scroll) constantly.
+		if (titleChanged || linesChanged) this.requestRender();
+	}
+
+	private sameLines(next: string[]): boolean {
+		if (next.length !== this.logLines.length) return false;
+		for (let i = 0; i < next.length; i++) {
+			if (next[i] !== this.logLines[i]) return false;
+		}
+		return true;
 	}
 
 	/** The job whose log pane is open, or undefined in list mode. */
 	currentLogId(): string | undefined {
-		if (this.mode !== "logs") return undefined;
-		return this.ordered[this.selected]?.id;
+		return this.mode === "logs" ? this.logJobId : undefined;
 	}
 
 	/** Re-read the open log pane from the runtime. */
@@ -143,6 +162,20 @@ export class JobListComponent implements Component {
 
 	private get ordered(): JobRecord[] {
 		return [...this.jobs()].sort(compareJobs);
+	}
+
+	/** Index of the selected job in `ordered`, re-derived from its id each time. */
+	private indexOfSelected(ordered: JobRecord[]): number {
+		if (ordered.length === 0) return 0;
+		const index = this.selectedId ? ordered.findIndex((job) => job.id === this.selectedId) : -1;
+		return index >= 0 ? index : 0;
+	}
+
+	/** Scroll the list so `index` is visible. */
+	private ensureVisible(index: number): void {
+		if (index < this.listScroll) this.listScroll = index;
+		else if (index >= this.listScroll + this.visible) this.listScroll = index - this.visible + 1;
+		this.listScroll = Math.max(0, this.listScroll);
 	}
 
 	private get maxLogScroll(): number {
@@ -159,24 +192,30 @@ export class JobListComponent implements Component {
 	}
 
 	private setSelection(next: number): void {
-		const count = this.ordered.length;
-		if (count === 0) return;
-		this.selected = Math.min(Math.max(0, next), count - 1);
-		if (this.selected < this.listScroll) this.listScroll = this.selected;
-		else if (this.selected >= this.listScroll + this.visible) this.listScroll = this.selected - this.visible + 1;
+		const ordered = this.ordered;
+		if (ordered.length === 0) return;
+		const index = Math.min(Math.max(0, next), ordered.length - 1);
+		this.selectedId = ordered[index].id;
+		this.ensureVisible(index);
 		this.requestRender();
 	}
 
 	private clampSelection(): void {
-		const count = this.ordered.length;
-		this.selected = Math.min(Math.max(0, this.selected), Math.max(0, count - 1));
-		this.listScroll = Math.min(Math.max(0, this.listScroll), Math.max(0, count - this.visible));
+		const ordered = this.ordered;
+		if (ordered.length === 0) {
+			this.selectedId = undefined;
+			this.listScroll = 0;
+			return;
+		}
+		this.selectedId = ordered[this.indexOfSelected(ordered)].id;
+		this.listScroll = Math.min(Math.max(0, this.listScroll), Math.max(0, ordered.length - this.visible));
 	}
 
 	private openLogs(): void {
-		const job = this.ordered[this.selected];
+		const job = this.ordered[this.indexOfSelected(this.ordered)];
 		if (!job) return;
 		this.mode = "logs";
+		this.logJobId = job.id;
 		this.logScroll = 0;
 		this.follow = true;
 		this.logLines = [];
@@ -187,6 +226,10 @@ export class JobListComponent implements Component {
 	}
 
 	handleInput(data: string): void {
+		if (this.confirm) {
+			this.handleConfirmInput(data);
+			return;
+		}
 		if (this.mode === "list") this.handleListInput(data);
 		else this.handleLogInput(data);
 	}
@@ -194,8 +237,12 @@ export class JobListComponent implements Component {
 	/** Wheel scrolling moves the selection, or scrolls the log pane in log mode. */
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
 		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
-		if (this.mode === "list") this.setSelection(this.selected + event.wheelDelta);
-		else this.setLogScroll(this.logScroll + event.wheelDelta);
+		if (this.confirm) return { handled: true };
+		if (this.mode === "list") {
+			this.setSelection(this.indexOfSelected(this.ordered) + event.wheelDelta);
+		} else {
+			this.setLogScroll(this.logScroll + event.wheelDelta);
+		}
 		return { handled: true };
 	}
 
@@ -204,24 +251,63 @@ export class JobListComponent implements Component {
 			this.onClose();
 			return;
 		}
-		if (matchesKey(data, Key.up) || data === "k") this.setSelection(this.selected - 1);
-		else if (matchesKey(data, Key.down) || data === "j") this.setSelection(this.selected + 1);
-		else if (matchesKey(data, Key.pageUp)) this.setSelection(this.selected - this.visible);
-		else if (matchesKey(data, Key.pageDown)) this.setSelection(this.selected + this.visible);
+		const ordered = this.ordered;
+		const index = this.indexOfSelected(ordered);
+		if (matchesKey(data, Key.up) || data === "k") this.setSelection(index - 1);
+		else if (matchesKey(data, Key.down) || data === "j") this.setSelection(index + 1);
+		else if (matchesKey(data, Key.pageUp)) this.setSelection(index - this.visible);
+		else if (matchesKey(data, Key.pageDown)) this.setSelection(index + this.visible);
 		else if (matchesKey(data, Key.home)) this.setSelection(0);
-		else if (matchesKey(data, Key.end)) this.setSelection(this.ordered.length - 1);
+		else if (matchesKey(data, Key.end)) this.setSelection(ordered.length - 1);
 		else if (matchesKey(data, Key.enter) || data === "l") this.openLogs();
 		else if (data === "d" || data === "K") {
-			const job = this.ordered[this.selected];
+			const job = ordered[index];
 			if (job && job.status === "running") {
-				this.callbacks.kill(job.id);
+				this.confirm = { kind: "kill", id: job.id, label: shortLabel(job) };
 				this.requestRender();
 			}
 		} else if (data === "x") {
-			this.callbacks.clear();
-			this.clampSelection();
+			const count = ordered.filter((job) => job.status !== "running").length;
+			if (count > 0) {
+				this.confirm = { kind: "clear", count };
+				this.requestRender();
+			}
+		}
+	}
+
+	/** Resolve a pending y/N confirmation. */
+	private handleConfirmInput(data: string): void {
+		const pending = this.confirm;
+		if (!pending) return;
+		if (data === "y" || data === "Y" || matchesKey(data, Key.enter)) {
+			this.confirm = undefined;
+			if (pending.kind === "kill") this.callbacks.kill(pending.id);
+			else {
+				this.callbacks.clear();
+				this.clampSelection();
+			}
+			this.requestRender();
+			return;
+		}
+		if (
+			data === "n" ||
+			data === "N" ||
+			matchesKey(data, Key.escape) ||
+			matchesKey(data, Key.ctrl("c")) ||
+			data === "q"
+		) {
+			this.confirm = undefined;
 			this.requestRender();
 		}
+	}
+
+	/** Warning line shown in place of the hint while a confirm is pending. */
+	private confirmPrompt(): string {
+		const pending = this.confirm;
+		if (!pending) return "";
+		return pending.kind === "kill"
+			? `Kill ${pending.id} (${pending.label})? y/N`
+			: `Clear ${pending.count} finished job${pending.count === 1 ? "" : "s"}? y/N`;
 	}
 
 	private setLogScroll(next: number): void {
@@ -234,6 +320,7 @@ export class JobListComponent implements Component {
 	private handleLogInput(data: string): void {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.backspace) || data === "q") {
 			this.mode = "list";
+			this.logJobId = undefined;
 			this.requestRender();
 			return;
 		}
@@ -261,12 +348,14 @@ export class JobListComponent implements Component {
 	private renderList(w: number): string[] {
 		const jobs = this.ordered;
 		this.clampSelection();
-		const focused = jobs[this.selected];
+		const index = this.indexOfSelected(jobs);
+		const focused = jobs[index];
 		const detail = focused ? formatJobDetail(focused, Date.now()) : [];
 		// header, summary, blank, blank-after-list, blank-after-detail, hint, blank
 		const chrome = 7 + detail.length;
 		this.visible = this.fitRows(jobs.length, chrome);
 		this.clampSelection();
+		this.ensureVisible(this.indexOfSelected(jobs));
 
 		const lines: string[] = [screenHeader(this.theme, w, "Jobs"), this.summary(jobCounts(jobs), w), ""];
 		if (jobs.length === 0) {
@@ -274,7 +363,7 @@ export class JobListComponent implements Component {
 		} else {
 			const end = Math.min(jobs.length, this.listScroll + this.visible);
 			for (let i = this.listScroll; i < end; i++) {
-				lines.push(jobRow(jobs[i], this.theme, w, i === this.selected));
+				lines.push(jobRow(jobs[i], this.theme, w, i === index));
 			}
 			if (this.listScroll > 0 || end < jobs.length) {
 				lines.push(
@@ -285,7 +374,11 @@ export class JobListComponent implements Component {
 		lines.push("");
 		for (const line of detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", line)}`, w));
 		lines.push("");
-		lines.push(screenHint(this.theme, w, ["↑/↓ select", "Enter logs", "d kill", "x clear finished", "Esc close"]));
+		lines.push(
+			this.confirm
+				? truncateToWidth(`  ${this.theme.fg("warning", this.confirmPrompt())}`, w)
+				: screenHint(this.theme, w, ["↑/↓ select", "Enter logs", "d kill", "x clear finished", "Esc close"]),
+		);
 		lines.push("");
 		return lines;
 	}

@@ -143,7 +143,10 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 					case "wait": {
 						const result = await runtime.wait(call.id!, call.timeoutMs, signal, () =>
-							onUpdate?.({ content: [], details: { action: "wait", job: runtime.get(call.id!) } satisfies JobDetails }),
+							onUpdate?.({
+								content: [{ type: "text" as const, text: `Waiting on ${call.id}…` }],
+								details: { action: "wait", job: runtime.get(call.id!) } satisfies JobDetails,
+							}),
 						);
 						if (!result) return errorResult("wait", `no job "${call.id}".`);
 						const { job, timedOut, cancelled } = result;

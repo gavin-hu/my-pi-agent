@@ -93,6 +93,24 @@ describe("job tool", () => {
 		}
 	});
 
+	test("wait reports progress while it blocks", async () => {
+		const { h, tool, ctx } = setup();
+		try {
+			await tool.execute("t", { action: "start", command: "sleep 1" }, undefined, undefined, ctx);
+			const updates: Array<{ content?: Array<{ text?: string }> }> = [];
+			await tool.execute(
+				"t",
+				{ action: "wait", id: "j1", timeoutMs: 0 },
+				undefined,
+				(update: unknown) => updates.push(update as { content?: Array<{ text?: string }> }),
+				ctx,
+			);
+			expect(updates[0]?.content?.[0]?.text).toContain("Waiting on j1");
+		} finally {
+			h.cleanup();
+		}
+	});
+
 	test("clear removes finished jobs", async () => {
 		const { h, call } = setup();
 		try {
