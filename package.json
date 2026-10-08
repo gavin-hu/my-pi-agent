@@ -1,6 +1,6 @@
 {
   "name": "@gavin-hu/my-pi-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Personal Pi customizations, packaged as a Pi package: worktree, ask-user-question, todo, goal, git, rewind, plan-mode, subagent, jobs, web-search, web-fetch, status-bar, and turn-separator.",
   "keywords": ["pi-package", "pi", "git", "worktree", "todo", "goal", "objective", "plan", "subagent", "agents", "delegation", "rewind", "snapshot", "undo", "jobs", "background", "process", "status-bar", "footer", "turn-separator", "separator", "transcript"],
   "type": "module",
@@ -35,6 +35,7 @@
     "extensions",
     "themes",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
