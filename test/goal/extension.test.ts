@@ -147,6 +147,16 @@ describe("goal reminder", () => {
 		expect(result.messages).toEqual([otherMessage()]);
 	});
 
+	test("filters stale goal context once the goal is achieved", async () => {
+		const { pi } = makeFakePi();
+		goal(pi);
+		const { ctx } = fakeCtx({ branch: [resultEntry(achieved("done"))] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		const [result] = await emit(pi, "context", { messages: [goalContextMessage(), otherMessage()] }, ctx);
+		expect(result.messages).toEqual([otherMessage()]);
+	});
+
 	test("keeps messages while active", async () => {
 		const { pi } = makeFakePi();
 		goal(pi);
@@ -195,6 +205,13 @@ describe("/goal command", () => {
 		expect(notifications.at(-1)).toBe("No goal set.");
 	});
 
+	test("clearing an unset goal is a no-op with a report", async () => {
+		const { command, ctx, notifications, entries } = await started();
+		await command.handler("clear", ctx);
+		expect(notifications.at(-1)).toBe("No goal set.");
+		expect(entries).toHaveLength(0);
+	});
+
 	test("sets a goal and persists it as a branch entry", async () => {
 		const { command, ctx, notifications, entries } = await started();
 		await command.handler("  ship the parser  ", ctx);
@@ -216,6 +233,17 @@ describe("/goal command", () => {
 	test("marks a goal done and persists it", async () => {
 		const { command, ctx, notifications, entries } = await started([resultEntry(active("ship it"))]);
 		await command.handler("done", ctx);
+		expect(notifications.at(-1)).toBe("Goal achieved: ship it");
+		expect(entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "goal",
+			data: { goal: { objective: "ship it", status: "achieved" } },
+		});
+	});
+
+	test("accepts the achieved keyword as a synonym for done", async () => {
+		const { command, ctx, notifications, entries } = await started([resultEntry(active("ship it"))]);
+		await command.handler("achieved", ctx);
 		expect(notifications.at(-1)).toBe("Goal achieved: ship it");
 		expect(entries.at(-1)).toEqual({
 			type: "custom",

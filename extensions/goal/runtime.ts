@@ -65,7 +65,8 @@ export function createGoalRuntime(pi?: Pick<ExtensionAPI, "events">): GoalRuntim
 		});
 
 	return {
-		getGoal: () => goal,
+		// Hand out a copy so callers cannot mutate the live goal without a sync.
+		getGoal: () => (goal ? { ...goal } : null),
 		setGoal: (next, ctx) => {
 			goal = next;
 			sync(ctx);

@@ -28,6 +28,10 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 
 			const keyword = input.toLowerCase();
 			if (keyword === "clear") {
+				if (!runtime.getGoal()) {
+					ctx.ui.notify("No goal set.", "info");
+					return;
+				}
 				runtime.setGoal(null, ctx);
 				persist(null);
 				ctx.ui.notify("Goal cleared.", "info");

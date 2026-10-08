@@ -50,6 +50,11 @@ describe("normalizeGoal", () => {
 		expect(() => normalizeGoal({ objective: "Ship it", status: 42 })).toThrow("status must be one of");
 	});
 
+	test("rejects an unknown status even when the objective is empty", () => {
+		expect(() => normalizeGoal({ objective: "", status: "blocked" })).toThrow("status must be one of");
+		expect(() => normalizeGoal({ status: "blocked" })).toThrow("status must be one of");
+	});
+
 	test("rejects an over-long objective", () => {
 		expect(() => normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE + 1) })).toThrow(`longer than ${MAX_OBJECTIVE}`);
 	});

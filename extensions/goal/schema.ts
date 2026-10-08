@@ -58,12 +58,15 @@ function normalizeStatus(raw: unknown): GoalStatus {
  */
 export function normalizeGoal(raw: unknown): Goal | null {
 	const args = (raw ?? {}) as Partial<GoalArgs>;
+	// Validate the status first so an unknown value is rejected even when the
+	// objective is empty (a clear), matching the documented contract.
+	const status = normalizeStatus(args.status);
 	const objective = typeof args.objective === "string" ? sanitizeObjective(args.objective) : "";
 	if (!objective) return null;
 	if (objective.length > MAX_OBJECTIVE) {
 		throw new Error(`objective is longer than ${MAX_OBJECTIVE} characters.`);
 	}
-	return { objective, status: normalizeStatus(args.status) };
+	return { objective, status };
 }
 
 /**

@@ -60,6 +60,33 @@ describe("goal tool", () => {
 		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
 	});
 
+	test("announces a rail change only when a visible goal is set", () => {
+		const { pi } = makeFakePi();
+		const runtime = createGoalRuntime(pi);
+		runtime.setConfig({ achieved: "hide" });
+		let announces = 0;
+		pi.events.on("my-pi-agent/rails-changed/goal", () => announces++);
+		const { ctx } = fakeCtx({ mode: "tui" });
+
+		// Achieved + `hide` removes the rail, so the rails below it need no re-assert.
+		runtime.setGoal({ objective: "ship it", status: "achieved" }, ctx);
+		expect(announces).toBe(0);
+
+		// A visible (active) goal re-asserts the stack under it.
+		runtime.setGoal({ objective: "ship again", status: "active" }, ctx);
+		expect(announces).toBe(1);
+	});
+
+	test("getGoal returns a copy that cannot mutate the live goal", () => {
+		const { runtime } = setup();
+		runtime.setGoal({ objective: "ship it", status: "active" });
+
+		const snapshot = runtime.getGoal();
+		snapshot!.objective = "mutated";
+
+		expect(runtime.getGoal()).toEqual({ objective: "ship it", status: "active" });
+	});
+
 	test("clearing removes the goal and the widget", async () => {
 		const { tool, runtime } = setup();
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui" });
