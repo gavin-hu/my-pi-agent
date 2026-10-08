@@ -6,8 +6,12 @@ import {
 	formatCallText,
 	formatCompletion,
 	formatDuration,
+	formatJobDetail,
 	formatJobList,
 	formatLogs,
+	jobCounts,
+	jobOutcome,
+	pendingFailures,
 	sanitizeLogLine,
 	sanitizeLogText,
 	shortLabel,
@@ -135,6 +139,54 @@ describe("compareJobs", () => {
 		const old = job({ id: "b", status: "exited", startedAt: 1 });
 		const recent = job({ id: "c", status: "exited", startedAt: 99 });
 		expect([old, running, recent].sort(compareJobs).map((j) => j.id)).toEqual(["a", "c", "b"]);
+	});
+});
+
+describe("jobCounts / pendingFailures", () => {
+	test("counts totals, running, finished, and failed in one pass", () => {
+		const jobs = [
+			job({ id: "a", status: "running" }),
+			job({ id: "b", status: "exited", exitCode: 0 }),
+			job({ id: "c", status: "failed", exitCode: 1 }),
+			job({ id: "d", status: "killed", signal: "SIGTERM" }),
+		];
+		expect(jobCounts(jobs)).toEqual({ total: 4, running: 1, finished: 3, failed: 1 });
+	});
+
+	test("pendingFailures lists only unseen failures", () => {
+		const jobs = [
+			job({ id: "a", status: "failed", seen: false }),
+			job({ id: "b", status: "failed", seen: true }),
+			job({ id: "c", status: "exited", seen: false }),
+		];
+		expect(pendingFailures(jobs).map((j) => j.id)).toEqual(["a"]);
+	});
+});
+
+describe("jobOutcome / formatJobDetail", () => {
+	test("names pid, exit code, and signal", () => {
+		expect(jobOutcome(job({ status: "running", pid: 42 }))).toBe("pid 42");
+		expect(jobOutcome(job({ status: "exited", exitCode: 0 }))).toBe("exit 0");
+		expect(jobOutcome(job({ status: "failed", exitCode: 2 }))).toBe("exit 2");
+		expect(jobOutcome(job({ status: "killed", signal: "SIGKILL" }))).toBe("SIGKILL");
+		expect(jobOutcome(job({ status: "unknown" }))).toBe("—");
+	});
+
+	test("builds command, cwd+outcome+elapsed, and last lines", () => {
+		const detail = formatJobDetail(job({ startedAt: 1000, finishedAt: 3200, lastLine: "compiled" }), 9000);
+		expect(detail[0]).toBe("command: npm run build");
+		expect(detail[1]).toBe("cwd: /repo · pid 1234 · 2.2s");
+		expect(detail[2]).toBe("last: compiled");
+	});
+
+	test("omits the last line when empty", () => {
+		expect(formatJobDetail(job({ lastLine: "" }), 5000)).toHaveLength(2);
+	});
+
+	test("strips ANSI from a malicious last line", () => {
+		const detail = formatJobDetail(job({ lastLine: "\u001b[31mowned\u001b[0m" }), 5000);
+		expect(detail[2]).toBe("last: owned");
+		expect(detail[2]).not.toContain("\u001b");
 	});
 });
 

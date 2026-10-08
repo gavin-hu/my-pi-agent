@@ -181,3 +181,55 @@ export function compareJobs(a: JobRecord, b: JobRecord): number {
 	const rank = (job: JobRecord): number => (job.status === "running" ? 0 : 1);
 	return rank(a) - rank(b) || b.startedAt - a.startedAt;
 }
+
+export interface JobCounts {
+	total: number;
+	running: number;
+	finished: number;
+	failed: number;
+}
+
+/** One-pass status counts for the widget header and `/jobs` summary. */
+export function jobCounts(jobs: Iterable<JobRecord>): JobCounts {
+	let total = 0;
+	let running = 0;
+	let failed = 0;
+	for (const job of jobs) {
+		total++;
+		if (job.status === "running") running++;
+		else if (job.status === "failed") failed++;
+	}
+	return { total, running, finished: total - running, failed };
+}
+
+/** Finished failures whose completion has not been reported to the model yet. */
+export function pendingFailures(jobs: Iterable<JobRecord>): JobRecord[] {
+	return [...jobs].filter((job) => !job.seen && job.status === "failed");
+}
+
+/** Short outcome word for a job: pid while running, else exit code or signal. */
+export function jobOutcome(job: JobRecord): string {
+	switch (job.status) {
+		case "running":
+			return job.pid !== null ? `pid ${job.pid}` : "running";
+		case "exited":
+			return `exit ${job.exitCode ?? 0}`;
+		case "failed":
+			return job.exitCode !== null ? `exit ${job.exitCode}` : "failed";
+		case "killed":
+			return job.signal ?? "killed";
+		default:
+			return "—";
+	}
+}
+
+/** Unstyled, sanitized detail lines for the `/jobs` focus pane. */
+export function formatJobDetail(job: JobRecord, now = Date.now()): string[] {
+	const lines = [
+		sanitizeLogLine(`command: ${job.command}`),
+		sanitizeLogLine(`cwd: ${job.cwd} · ${jobOutcome(job)} · ${formatDuration(elapsedMs(job, now))}`),
+	];
+	const last = sanitizeLogLine(job.lastLine);
+	if (last) lines.push(`last: ${last}`);
+	return lines;
+}

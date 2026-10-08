@@ -51,11 +51,43 @@ function makeComponent(
 }
 
 describe("JobsWidget", () => {
-	test("lists running jobs and hides when none run", () => {
-		const widget = new JobsWidget(() => [job()], fakeTheme);
-		expect(widget.render(40).length).toBeGreaterThan(1);
-		const empty = new JobsWidget(() => [job({ status: "exited" })], fakeTheme);
+	test("shows one running line under a rails header", () => {
+		const lines = new JobsWidget(() => [job()], fakeTheme).render(40);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("Jobs");
+		expect(lines[0]).toContain("1 running");
+	});
+
+	test("hides when nothing runs and no failure waits", () => {
+		const empty = new JobsWidget(() => [job({ status: "exited", exitCode: 0 })], fakeTheme);
 		expect(empty.render(40)).toEqual([]);
+	});
+
+	test("stays mounted for an unreported failure", () => {
+		const widget = new JobsWidget(() => [job({ status: "failed", exitCode: 1, pid: null, seen: false })], fakeTheme);
+		const lines = widget.render(40);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("1 failed");
+	});
+
+	test("reports both running and failed on the one line", () => {
+		const widget = new JobsWidget(
+			() => [job(), job({ id: "j2", status: "failed", exitCode: 2, pid: null, seen: false })],
+			fakeTheme,
+		);
+		const line = widget.render(40)[0];
+		expect(line).toContain("1 running");
+		expect(line).toContain("1 failed");
+	});
+
+	test("hides once the failure is seen", () => {
+		const widget = new JobsWidget(() => [job({ status: "failed", exitCode: 1, seen: true })], fakeTheme);
+		expect(widget.render(40)).toEqual([]);
+	});
+
+	test("fits a narrow width", () => {
+		const widget = new JobsWidget(() => [job({ label: "a very long label here" })], fakeTheme);
+		for (const line of widget.render(10)) expect(visibleWidth(line)).toBeLessThanOrEqual(10);
 	});
 });
 
@@ -78,11 +110,30 @@ describe("JobListComponent", () => {
 		expect(clearedCount()).toBe(1);
 	});
 
+	test("shows a counts summary and a focused detail pane", () => {
+		const jobs = [
+			job({ id: "j1", status: "running", lastLine: "compiled 42 modules" }),
+			job({ id: "j0", status: "failed", exitCode: 1, pid: null, startedAt: -5000 }),
+		];
+		const { component } = makeComponent(jobs, {});
+		const text = component.render(70).join("\n");
+		expect(text).toContain("2 jobs · 1 running · 1 failed");
+		expect(text).toContain("command: npm run build");
+		expect(text).toContain("cwd: /repo · pid 1234");
+		expect(text).toContain("last: compiled 42 modules");
+	});
+
 	test("opening logs reads and renders the pane", () => {
 		const { component } = makeComponent([job()], { logs: () => ({ lines: ["line one", "line two"] }) });
 		component.handleInput("l");
 		expect(component.currentLogId()).toBe("j1");
 		expect(component.render(40).join("\n")).toContain("line two");
+	});
+
+	test("the log header names the job", () => {
+		const { component } = makeComponent([job()], { logs: () => ({ lines: [] }) });
+		component.handleInput("l");
+		expect(component.render(60).join("\n")).toContain("Job Logs · j1 build");
 	});
 
 	test("shows the no-output note for an empty log tail", () => {
@@ -115,6 +166,17 @@ describe("JobListComponent", () => {
 		expect(rendered).toContain("j19");
 		expect(rendered).toContain("j18");
 		expect(rendered).not.toMatch(/showing \d+–\d+ of 2/);
+	});
+
+	test("pages and jumps the selection", () => {
+		const jobs = Array.from({ length: 20 }, (_, i) => job({ id: `j${i}`, status: "exited", exitCode: 0, startedAt: i }));
+		const { component } = makeComponent(jobs, {}, 12);
+		component.render(40);
+		component.handleInput("\u001b[6~"); // page down
+		component.handleInput("\u001b[F"); // end
+		expect(component.render(40).join("\n")).toContain("j0"); // newest finished sorts first
+		component.handleInput("\u001b[H"); // home
+		expect(component.render(40).join("\n")).toContain("j19"); // oldest finished sorts last
 	});
 
 	test("header never exceeds a narrow viewport", () => {

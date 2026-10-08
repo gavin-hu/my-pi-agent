@@ -101,12 +101,26 @@ collapses whitespace; it runs before text reaches the widget, the `/jobs` pane,
 the model-facing `logs` result, and completion notes. The raw file is never
 rewritten.
 
-**The widget is stateless and bounded.** Elapsed time is computed at render, so
+**The widget is stateless and one line.** Elapsed time is computed at render, so
 the runtime only calls `tui.requestRender()` on a clock that runs (only in
-`tui` mode, only while a job runs) and is cleared on shutdown. The widget shows
-at most three running jobs and auto-hides when none run. The latest output line
-is cached from the stdout stream (throttled), never read from the file on the
-render path; only the `/jobs` log pane reads a bounded tail, on a poll.
+`tui` mode, only while a job runs) and is cleared on shutdown. The widget is a
+single header line (`Jobs · 2 running · 1 failed`) and auto-hides when there is
+nothing running and no unreported failure. The latest output line is cached from
+the stdout stream (throttled), never read from the file on the render path; only
+the `/jobs` log pane reads a bounded tail, on a poll.
+
+**The widget is the collapsed view of the screen.** It reuses the `todo`/`goal`
+rails grammar (`Jobs · 2 running · 1 failed`) and stays mounted while a job runs
+or an unreported failure waits, so a failure is not hidden between completion
+and the next turn (matching the `✕N` chip and the report-at-next-turn model).
+
+**The `/jobs` screen is the expanded view.** It shares `screenHeader` and
+`viewportRows` with `checkpoint`/`plan-mode`, adds a `❯` selection marker, a
+counts summary (`N jobs · R running · F failed`), running jobs first then recent
+finished jobs, and a focused detail pane (command, cwd, outcome, elapsed, last
+line). While it owns the editor the runtime suppresses the widget via
+`setUiSuppressed`, so the collapsed and expanded lists are never shown at once;
+the footer chip is untouched, so the running signal survives the detour.
 
 **UI calls are guarded.** Every `ctx.ui.*` call is behind `ctx.mode === "tui"`
 and wrapped, and a `disposed` flag makes late `close` callbacks no-ops, so a

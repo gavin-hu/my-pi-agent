@@ -536,3 +536,41 @@ describe("job runtime — pending, clear, status", () => {
 		}
 	});
 });
+
+describe("job runtime — widget", () => {
+	test("mounts for an unreported failure and hides once it is seen", () => {
+		const h = makeHarness();
+		try {
+			const { ctx, widgets } = makeCtx({ mode: "tui" });
+			h.runtime.load(ctx);
+			h.runtime.start({ command: "false" }, ctx);
+			h.children[0].close(1); // failed, not yet reported
+			h.runtime.syncWidget(ctx);
+			expect(widgets.get("jobs-widget")).toBeDefined();
+			h.runtime.takePending();
+			h.runtime.syncWidget(ctx);
+			expect(widgets.get("jobs-widget")).toBeUndefined();
+		} finally {
+			h.cleanup();
+		}
+	});
+
+	test("setUiSuppressed hides the widget and restores it", () => {
+		const h = makeHarness();
+		try {
+			const { ctx, widgets } = makeCtx({ mode: "tui" });
+			h.runtime.load(ctx);
+			h.runtime.start({ command: "sleep 10" }, ctx);
+			h.runtime.syncWidget(ctx);
+			expect(widgets.get("jobs-widget")).toBeDefined();
+			h.runtime.setUiSuppressed(true);
+			h.runtime.syncWidget(ctx);
+			expect(widgets.get("jobs-widget")).toBeUndefined();
+			h.runtime.setUiSuppressed(false);
+			h.runtime.syncWidget(ctx);
+			expect(widgets.get("jobs-widget")).toBeDefined();
+		} finally {
+			h.cleanup();
+		}
+	});
+});

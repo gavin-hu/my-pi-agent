@@ -2,10 +2,11 @@
  * Terminal rendering for jobs.
  *
  * `JobsWidget` is the persistent, non-interactive list shown above the editor
- * while jobs run; `JobListComponent` is the dismissible `/jobs` screen with a
- * detail/log pane. Both are stateless with respect to time: elapsed values are
- * computed from `Date.now()` at render, so the runtime only has to call
- * `requestRender()`, never rebuild the component.
+ * while jobs run or an unreported failure waits; `JobListComponent` is the
+ * dismissible `/jobs` screen with a focused detail pane and a log view. Both are
+ * stateless with respect to time: elapsed values are computed from `Date.now()`
+ * at render, so the runtime only has to call `requestRender()`, never rebuild
+ * the component.
  *
  * Every line is clipped with `truncateToWidth`; log text arrives already
  * sanitized by the runtime, so no untrusted escape sequence reaches the
@@ -13,42 +14,56 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, type Component } from "@earendil-works/pi-tui";
-import { compareJobs, elapsedMs, formatDuration, shortLabel, statusGlyph } from "./format.ts";
+import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { screenHeader, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
+import {
+	compareJobs,
+	elapsedMs,
+	formatDuration,
+	formatJobDetail,
+	jobCounts,
+	pendingFailures,
+	shortLabel,
+	statusGlyph,
+	type JobCounts,
+} from "./format.ts";
 import type { JobRecord } from "./types.ts";
 
 /** Widget key used with `ctx.ui.setWidget()`. */
 export const WIDGET_KEY = "jobs-widget";
 
-/** Widget rows, including the header and any overflow line. */
-const WIDGET_ROWS = 4;
-
-/** Rows the `/jobs` screen shows when the terminal height is unknown. */
+/** Rows the `/jobs` screen body shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
-const SCREEN_MIN_ROWS = 4;
-const SCREEN_MAX_ROWS = 24;
-/** Fixed chrome rows around the list/log body. */
-const SCREEN_CHROME_ROWS = 8;
 
-function visibleRows(rows: number | undefined): number {
-	if (rows === undefined || !Number.isFinite(rows) || rows <= 0) return SCREEN_DEFAULT_ROWS;
-	return Math.max(SCREEN_MIN_ROWS, Math.min(rows - SCREEN_CHROME_ROWS, SCREEN_MAX_ROWS));
+/** The `❯ ` selection marker (accent) or a same-width blank. */
+function rowMarker(theme: Theme, selected: boolean): string {
+	return selected ? theme.fg("accent", "❯ ") : "  ";
 }
 
-/** One row for a job: status glyph, label, elapsed. */
+/**
+ * One job row: selection marker, status glyph, id, label, and a right-aligned
+ * elapsed value. The label is padded so the elapsed column lines up; the final
+ * `truncateToWidth` keeps the row safe at any width.
+ */
 function jobRow(job: JobRecord, theme: Theme, width: number, selected = false): string {
+	const head = `${rowMarker(theme, selected)}${statusGlyph(job.status, theme)} ${job.id}  `;
 	const elapsed = formatDuration(elapsedMs(job, Date.now()));
-	const marker = selected ? theme.fg("accent", "›") : " ";
-	const head = `${marker} ${statusGlyph(job.status, theme)} ${job.id}`;
-	const tail = theme.fg("dim", elapsed);
-	const label = shortLabel(job);
-	const prefixWidth = 2 + 2 + job.id.length + 1;
-	const available = Math.max(1, width - prefixWidth - elapsed.length - 2);
-	const clipped = truncateToWidth(label, available);
-	return truncateToWidth(`${head} ${clipped}  ${tail}`, width);
+	const available = Math.max(1, width - visibleWidth(head) - elapsed.length - 1);
+	const clipped = truncateToWidth(shortLabel(job), available, "…");
+	const pad = " ".repeat(Math.max(0, available - visibleWidth(clipped)));
+	return truncateToWidth(`${head}${clipped}${pad} ${theme.fg("dim", elapsed)}`, width);
 }
 
-/** Persistent widget shown while any job is running. */
+/** Rails-style widget header: `Jobs · N running · M failed`. */
+function widgetHeader(theme: Theme, running: number, failed: number): string {
+	const parts: string[] = [];
+	if (running > 0) parts.push(theme.fg("dim", `${running} running`));
+	if (failed > 0) parts.push(theme.fg("error", `${failed} failed`));
+	const head = theme.fg("accent", "Jobs");
+	return parts.length === 0 ? head : `${head} ${theme.fg("dim", "·")} ${parts.join(` ${theme.fg("dim", "·")} `)}`;
+}
+
+/** Persistent one-line widget shown while jobs run or a completion is unreported. */
 export class JobsWidget implements Component {
 	constructor(
 		private readonly jobs: () => Iterable<JobRecord>,
@@ -60,17 +75,10 @@ export class JobsWidget implements Component {
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const all = [...this.jobs()];
-		const running = all.filter((job) => job.status === "running").sort(compareJobs);
-		if (running.length === 0) return [];
-
-		const hasMore = running.length > WIDGET_ROWS - 1;
-		const shown = running.slice(0, hasMore ? WIDGET_ROWS - 2 : WIDGET_ROWS - 1);
-		const lines = [`${this.theme.fg("accent", "Jobs")} ${this.theme.fg("dim", `${running.length} running`)}`];
-		for (const job of shown) lines.push(jobRow(job, this.theme, w));
-		if (hasMore) {
-			lines.push(truncateToWidth(this.theme.fg("dim", `  … ${running.length - shown.length} more`), w));
-		}
-		return lines.map((line) => truncateToWidth(line, w));
+		const running = all.filter((job) => job.status === "running").length;
+		const failed = pendingFailures(all).length;
+		if (running === 0 && failed === 0) return [];
+		return [truncateToWidth(widgetHeader(this.theme, running, failed), w)];
 	}
 }
 
@@ -81,7 +89,7 @@ export interface JobListCallbacks {
 	clear(): void;
 }
 
-/** Dismissible, scrollable `/jobs` screen. */
+/** Dismissible `/jobs` screen: a selectable list with a focus pane and log view. */
 export class JobListComponent implements Component {
 	private mode: "list" | "logs" = "list";
 	private selected = 0;
@@ -90,7 +98,8 @@ export class JobListComponent implements Component {
 	private logLines: string[] = [];
 	private logTitle = "";
 	private follow = true;
-	private readonly visible: number;
+	/** Rows shown at once; recomputed from the terminal height on every render. */
+	private visible = SCREEN_DEFAULT_ROWS;
 
 	constructor(
 		private readonly jobs: () => JobRecord[],
@@ -98,10 +107,8 @@ export class JobListComponent implements Component {
 		private readonly callbacks: JobListCallbacks,
 		private readonly onClose: () => void,
 		private readonly requestRender: () => void,
-		viewportRows?: number,
-	) {
-		this.visible = visibleRows(viewportRows);
-	}
+		private readonly viewportRowsSource?: ViewportRowsSource,
+	) {}
 
 	invalidate(): void {}
 
@@ -134,6 +141,24 @@ export class JobListComponent implements Component {
 		return Math.max(0, this.logLines.length - this.visible);
 	}
 
+	/** Row count that fits, reserving one more line when a range row is needed. */
+	private fitRows(itemCount: number, chrome: number): number {
+		let visible = viewportRows(this.viewportRowsSource, { chrome, fallback: SCREEN_DEFAULT_ROWS });
+		if (itemCount > visible) {
+			visible = viewportRows(this.viewportRowsSource, { chrome: chrome + 1, fallback: SCREEN_DEFAULT_ROWS });
+		}
+		return visible;
+	}
+
+	private setSelection(next: number): void {
+		const count = this.ordered.length;
+		if (count === 0) return;
+		this.selected = Math.min(Math.max(0, next), count - 1);
+		if (this.selected < this.listScroll) this.listScroll = this.selected;
+		else if (this.selected >= this.listScroll + this.visible) this.listScroll = this.selected - this.visible + 1;
+		this.requestRender();
+	}
+
 	private clampSelection(): void {
 		const count = this.ordered.length;
 		this.selected = Math.min(Math.max(0, this.selected), Math.max(0, count - 1));
@@ -163,19 +188,14 @@ export class JobListComponent implements Component {
 			this.onClose();
 			return;
 		}
-		if (matchesKey(data, Key.up) || data === "k") {
-			this.selected--;
-			this.clampSelection();
-			if (this.selected < this.listScroll) this.listScroll = this.selected;
-			this.requestRender();
-		} else if (matchesKey(data, Key.down) || data === "j") {
-			this.selected++;
-			this.clampSelection();
-			if (this.selected >= this.listScroll + this.visible) this.listScroll = this.selected - this.visible + 1;
-			this.requestRender();
-		} else if (matchesKey(data, Key.enter) || data === "l") {
-			this.openLogs();
-		} else if (data === "d" || data === "K") {
+		if (matchesKey(data, Key.up) || data === "k") this.setSelection(this.selected - 1);
+		else if (matchesKey(data, Key.down) || data === "j") this.setSelection(this.selected + 1);
+		else if (matchesKey(data, Key.pageUp)) this.setSelection(this.selected - this.visible);
+		else if (matchesKey(data, Key.pageDown)) this.setSelection(this.selected + this.visible);
+		else if (matchesKey(data, Key.home)) this.setSelection(0);
+		else if (matchesKey(data, Key.end)) this.setSelection(this.ordered.length - 1);
+		else if (matchesKey(data, Key.enter) || data === "l") this.openLogs();
+		else if (data === "d" || data === "K") {
 			const job = this.ordered[this.selected];
 			if (job && job.status === "running") {
 				this.callbacks.kill(job.id);
@@ -188,88 +208,108 @@ export class JobListComponent implements Component {
 		}
 	}
 
+	private setLogScroll(next: number): void {
+		this.logScroll = Math.min(Math.max(0, next), this.maxLogScroll);
+		// Follow the tail only while the view is parked at the bottom.
+		this.follow = this.logScroll >= this.maxLogScroll;
+		this.requestRender();
+	}
+
 	private handleLogInput(data: string): void {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.backspace) || data === "q") {
 			this.mode = "list";
 			this.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.up) || data === "k") this.logScroll--;
-		else if (matchesKey(data, Key.down) || data === "j") this.logScroll++;
-		else if (matchesKey(data, Key.pageUp)) this.logScroll -= this.visible;
-		else if (matchesKey(data, Key.pageDown)) this.logScroll += this.visible;
-		else if (data === "g") this.logScroll = 0;
-		else if (data === "G") this.logScroll = this.maxLogScroll;
-		this.logScroll = Math.min(Math.max(0, this.logScroll), this.maxLogScroll);
-		// Follow the tail only while the view is parked at the bottom.
-		this.follow = this.logScroll >= this.maxLogScroll;
-		this.requestRender();
+		if (matchesKey(data, Key.up) || data === "k") this.setLogScroll(this.logScroll - 1);
+		else if (matchesKey(data, Key.down) || data === "j") this.setLogScroll(this.logScroll + 1);
+		else if (matchesKey(data, Key.pageUp)) this.setLogScroll(this.logScroll - this.visible);
+		else if (matchesKey(data, Key.pageDown)) this.setLogScroll(this.logScroll + this.visible);
+		else if (matchesKey(data, Key.home) || data === "g") this.setLogScroll(0);
+		else if (matchesKey(data, Key.end) || data === "G") this.setLogScroll(this.maxLogScroll);
 	}
 
-	private header(width: number): string {
-		const label = " Jobs ";
-		const prefix = "───";
-		if (width < 9) return this.theme.fg("borderMuted", "─".repeat(width));
-		const remaining = width - prefix.length - label.length;
-		return (
-			this.theme.fg("borderMuted", prefix) +
-			this.theme.fg("accent", label) +
-			this.theme.fg("borderMuted", "─".repeat(Math.max(0, remaining)))
-		);
+	private summary(counts: JobCounts, width: number): string {
+		const sep = this.theme.fg("muted", " · ");
+		let text = this.theme.fg("muted", `${counts.total} job${counts.total === 1 ? "" : "s"}`);
+		if (counts.running > 0) text += sep + this.theme.fg("muted", `${counts.running} running`);
+		if (counts.failed > 0) text += sep + this.theme.fg("error", `${counts.failed} failed`);
+		return truncateToWidth(`  ${text}`, width);
 	}
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const lines: string[] = [truncateToWidth(this.header(w), w), ""];
-		if (this.mode === "logs") this.renderLogs(lines, w);
-		else this.renderList(lines, w);
+		return this.mode === "logs" ? this.renderLogs(w) : this.renderList(w);
+	}
+
+	private renderList(w: number): string[] {
+		const jobs = this.ordered;
+		this.clampSelection();
+		const focused = jobs[this.selected];
+		const detail = focused ? formatJobDetail(focused, Date.now()) : [];
+		// header, summary, blank, blank-after-list, blank-after-detail, hint, blank
+		const chrome = 7 + detail.length;
+		this.visible = this.fitRows(jobs.length, chrome);
+		this.clampSelection();
+
+		const lines: string[] = [screenHeader(this.theme, w, "Jobs"), this.summary(jobCounts(jobs), w), ""];
+		if (jobs.length === 0) {
+			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No background jobs.")}`, w));
+		} else {
+			const end = Math.min(jobs.length, this.listScroll + this.visible);
+			for (let i = this.listScroll; i < end; i++) {
+				lines.push(jobRow(jobs[i], this.theme, w, i === this.selected));
+			}
+			if (this.listScroll > 0 || end < jobs.length) {
+				lines.push(
+					truncateToWidth(
+						this.theme.fg("dim", `  showing ${this.listScroll + 1}–${end} of ${jobs.length}`),
+						w,
+					),
+				);
+			}
+		}
 		lines.push("");
-		lines.push(truncateToWidth(`  ${this.theme.fg("dim", this.hint())}`, w));
+		for (const line of detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", line)}`, w));
+		lines.push("");
+		lines.push(
+			truncateToWidth(
+				`  ${this.theme.fg("dim", "↑/↓ select · Enter logs · d kill · x clear finished · Esc close")}`,
+				w,
+			),
+		);
 		lines.push("");
 		return lines;
 	}
 
-	private hint(): string {
-		if (this.mode === "logs") return "↑/↓ scroll · g/G top/bottom · Esc back";
-		return "↑/↓ select · Enter logs · d kill · x clear finished · Esc close";
-	}
+	private renderLogs(w: number): string[] {
+		// header, blank, blank-after-log, hint, blank
+		const chrome = 5;
+		this.visible = this.fitRows(this.logLines.length, chrome);
+		this.logScroll = Math.min(Math.max(0, this.logScroll), this.maxLogScroll);
+		if (this.follow) this.logScroll = this.maxLogScroll;
 
-	private renderList(lines: string[], w: number): void {
-		const jobs = this.ordered;
-		this.listScroll = Math.min(this.listScroll, Math.max(0, jobs.length - this.visible));
-		if (jobs.length === 0) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No background jobs.")}`, w));
-			return;
-		}
-		const end = Math.min(jobs.length, this.listScroll + this.visible);
-		for (let i = this.listScroll; i < end; i++) {
-			lines.push(jobRow(jobs[i], this.theme, w, i === this.selected));
-		}
-		if (this.listScroll > 0 || end < jobs.length) {
-			lines.push(
-				truncateToWidth(this.theme.fg("dim", `  showing ${this.listScroll + 1}–${end} of ${jobs.length}`), w),
-			);
-		}
-	}
-
-	private renderLogs(lines: string[], w: number): void {
-		lines.push(truncateToWidth(`  ${this.theme.fg("muted", this.logTitle)}`, w));
-		lines.push("");
+		const label = this.logTitle ? `Job Logs · ${this.logTitle}` : "Job Logs";
+		const lines: string[] = [screenHeader(this.theme, w, label), ""];
 		if (this.logLines.length === 0) {
 			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No output yet.")}`, w));
-			return;
+		} else {
+			const end = Math.min(this.logLines.length, this.logScroll + this.visible);
+			for (let i = this.logScroll; i < end; i++) {
+				lines.push(truncateToWidth(`  ${this.logLines[i]}`, w));
+			}
+			if (this.logScroll > 0 || end < this.logLines.length) {
+				lines.push(
+					truncateToWidth(
+						this.theme.fg("dim", `  line ${this.logScroll + 1}–${end} of ${this.logLines.length}`),
+						w,
+					),
+				);
+			}
 		}
-		const end = Math.min(this.logLines.length, this.logScroll + this.visible);
-		for (let i = this.logScroll; i < end; i++) {
-			lines.push(truncateToWidth(`  ${this.logLines[i]}`, w));
-		}
-		if (this.logScroll > 0 || end < this.logLines.length) {
-			lines.push(
-				truncateToWidth(
-					this.theme.fg("dim", `  line ${this.logScroll + 1}–${end} of ${this.logLines.length}`),
-					w,
-				),
-			);
-		}
+		lines.push("");
+		lines.push(truncateToWidth(`  ${this.theme.fg("dim", "↑/↓ scroll · g/G · PgUp/PgDn · Esc back")}`, w));
+		lines.push("");
+		return lines;
 	}
 }

@@ -17,6 +17,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig, type JobsConfig } from "./config.ts";
 import {
 	formatLogs,
+	pendingFailures,
 	sanitizeLogLine,
 	sanitizeLogText,
 	tailLines,
@@ -115,6 +116,8 @@ export interface JobsRuntime {
 	runningCount(): number;
 	setStatus(ctx: ExtensionContext): void;
 	syncWidget(ctx: ExtensionContext): void;
+	/** Hide the widget while a full-screen UI (the `/jobs` screen) owns the editor. */
+	setUiSuppressed(value: boolean): void;
 	/** Kill session-owned jobs (unless detached), stop the clock, persist. */
 	shutdown(): Promise<void>;
 	/** Called when a job finishes; the index wires wake/notification here. */
@@ -170,6 +173,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	let tui: { requestRender(): void } | undefined;
 	let clock: ReturnType<typeof setInterval> | undefined;
 	let lastPaint = 0;
+	/** True while a full-screen UI owns the editor; the widget stays hidden. */
+	let uiSuppressed = false;
 
 	const effectiveCwd = (ctx: ExtensionContext): string => {
 		const worktree = process.env.PI_WORKTREE_ROOT;
@@ -261,12 +266,15 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const syncWidget = (ctx: ExtensionContext): void => {
 		try {
-			if (ctx.mode !== "tui" || !config.showWidget) {
+			if (ctx.mode !== "tui" || !config.showWidget || uiSuppressed) {
 				if (ctx.mode === "tui") ctx.ui.setWidget(WIDGET_KEY, undefined);
 				return;
 			}
-			const running = [...jobs.values()].some((job) => job.status === "running");
-			if (!running) {
+			// Keep the widget mounted while an unreported failure is waiting, even
+			// after the process is gone, so the failure is not silently dropped.
+			const hasRunning = [...jobs.values()].some((job) => job.status === "running");
+			const hasPendingFailure = pendingFailures(jobs.values()).length > 0;
+			if (!hasRunning && !hasPendingFailure) {
 				ctx.ui.setWidget(WIDGET_KEY, undefined);
 				return;
 			}
@@ -277,6 +285,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		} catch {
 			// UI may be unavailable in non-interactive modes.
 		}
+	};
+
+	const setUiSuppressed = (value: boolean): void => {
+		uiSuppressed = value;
 	};
 
 	const theme = (ctx: ExtensionContext, color: "accent" | "error", text: string): string => {
@@ -469,6 +481,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		runningCount: () => [...jobs.values()].filter((job) => job.status === "running").length,
 		setStatus,
 		syncWidget,
+		setUiSuppressed,
 		shutdown,
 		get onFinish() {
 			return onFinishHandler;
@@ -495,6 +508,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		resolveAllWaiters();
 		removed.clear();
 		tui = undefined;
+		uiSuppressed = false;
 		lastPaint = 0;
 
 		config = options.config ?? loadConfig(effectiveCwd(ctx));

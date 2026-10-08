@@ -28,6 +28,9 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				timer = undefined;
 			};
 
+			// The screen supersedes the widget; hide it so the same running jobs are
+			// not listed twice while `/jobs` owns the editor.
+			runtime.setUiSuppressed(true);
 			try {
 				await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 					const component = new JobListComponent(
@@ -47,7 +50,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 							done();
 						},
 						() => tui.requestRender(),
-						tui.terminal?.rows,
+						() => tui.terminal?.rows,
 					);
 
 					// Poll the open log pane; the runtime's own clock repaints the list.
@@ -61,6 +64,8 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				});
 			} finally {
 				stopTimer();
+				runtime.setUiSuppressed(false);
+				runtime.syncWidget(ctx);
 			}
 		},
 	});

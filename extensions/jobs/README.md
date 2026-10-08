@@ -61,26 +61,34 @@ leaves the job running.
 |---|---|
 | `/jobs` | Interactive list (TUI) or a text summary elsewhere. |
 
-On the `/jobs` screen: `↑`/`↓` or `j`/`k` select, `Enter`/`l` opens the log
-pane, `d` (or `K`) kills the selected job, `x` clears finished jobs, `Esc`
-closes. In the log pane, `↑`/`↓`, `PgUp`/`PgDn`, and `g`/`G` scroll; the view
-follows the tail until you scroll up.
+On the `/jobs` screen: `↑`/`↓` or `j`/`k` select, `PgUp`/`PgDn` page,
+`Home`/`End` jump, `Enter`/`l` opens the log pane, `d` (or `K`) kills the
+selected running job, `x` clears finished jobs, `Esc`/`q` closes. In the log
+pane, `↑`/`↓`, `PgUp`/`PgDn`, `Home`/`End`, and `g`/`G` scroll; the view follows
+the tail until you scroll up, and `Esc`/`Backspace`/`q` returns to the list.
+
+The screen shows a counts summary (`N jobs · R running · F failed`), running
+jobs first then recent finished jobs, and a focused detail pane (command, cwd,
+outcome, and the last output line). Opening `/jobs` temporarily hides the
+widget so the same running jobs are not listed twice; the widget returns when
+the screen closes.
 
 ## Status chip and widget
 
 While jobs run, the footer shows `▸N` (running) or `✕N` (an unreported
-failure). The widget lists running jobs, newest first:
+failure). The persistent widget is a single line above the editor:
 
 ```
-Jobs 2 running
-  ▸ j1  build        3.2s
-  ▸ j2  dev server   12s
+Jobs · 2 running · 1 failed
 ```
 
-Both disappear once nothing is running. Job output is sanitized before it is
-rendered: ANSI escapes and control characters are stripped and carriage-return
-progress rewrites collapse to their final state, so a background process cannot
-corrupt the terminal. The raw log file is untouched.
+It stays mounted while a job runs or a failure is waiting to be reported, and
+disappears once nothing is running and no unreported failure remains. The
+`/jobs` screen is the expanded view (per-job rows, detail pane, and logs). Job
+output is sanitized before it is rendered: ANSI escapes and control characters
+are stripped and carriage-return progress rewrites collapse to their final
+state, so a background process cannot corrupt the terminal. The raw log file is
+untouched.
 
 ## Behaviour by mode
 
