@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import planMode, { PLAN_MODE_MARKER } from "../../extensions/plan-mode/index.ts";
+import { createPlanStore } from "../../extensions/plan-mode/plans.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../../extensions/plan-mode/runtime.ts";
 import { emit, fakeCtx, makeFakePi, otherMessage, planModeMessage, stateEntry } from "./helpers.ts";
 
@@ -245,5 +249,108 @@ describe("Ctrl+Alt+P shortcut", () => {
 		shortcut.handler(ctx);
 		expect(fakePi.activeTools()).toContain("write");
 		expect(notifications.at(-1)).toContain("Plan mode disabled");
+	});
+});
+
+const FIXED = new Date(2026, 9, 8, 15, 30);
+
+/** A temp repo root plus a pi whose `git rev-parse` reports it and a plan store on top. */
+function planRepo() {
+	const root = mkdtempSync(join(tmpdir(), "pi-plan-cmd-"));
+	const fakePi = makeFakePi({
+		active: ["read", "bash", "write", "edit", ENTER_TOOL],
+		exec: async (command: string, args: string[]) =>
+			command === "git" && args[0] === "rev-parse"
+				? { stdout: `${root}\n`, stderr: "", code: 0 }
+				: { stdout: "", stderr: "", code: 1 },
+	});
+	planMode(fakePi.pi);
+	return { root, fakePi, store: createPlanStore(fakePi.pi, { now: () => FIXED }) };
+}
+
+describe("/plan saved-plan subcommands", () => {
+	test("/plan list prints the plans in non-TUI mode and sends no task", async () => {
+		const { root, fakePi, store } = planRepo();
+		await store.write(root, { title: "Alpha", content: "1. one\n2. two" });
+		const { ctx, notifications } = fakeCtx({ cwd: root });
+
+		await fakePi.commands.get("plan").handler("list", ctx);
+
+		expect(notifications.at(-1)).toContain("1 plan");
+		expect(notifications.at(-1)).toContain("alpha");
+		expect(fakePi.sentMessages).toEqual([]);
+	});
+
+	test("/plan show prints the plan in non-TUI mode", async () => {
+		const { root, fakePi, store } = planRepo();
+		const file = await store.write(root, { title: "Alpha", content: "# Plan\n1. read the parser" });
+		const { ctx, notifications } = fakeCtx({ cwd: root });
+
+		await fakePi.commands.get("plan").handler(`show ${file.path}`, ctx);
+
+		expect(notifications.at(-1)).toContain("read the parser");
+	});
+
+	test("/plan delete confirms and removes the file", async () => {
+		const { root, fakePi, store } = planRepo();
+		const file = await store.write(root, { title: "Bye", content: "1. x" });
+		const { ctx, notifications } = fakeCtx({ cwd: root, confirm: true });
+
+		await fakePi.commands.get("plan").handler(`delete ${file.path}`, ctx);
+
+		expect(existsSync(file.path)).toBe(false);
+		expect(notifications.at(-1)).toContain("Deleted");
+	});
+
+	test("/plan delete keeps the file when the confirm is declined", async () => {
+		const { root, fakePi, store } = planRepo();
+		const file = await store.write(root, { title: "Keep", content: "1. x" });
+		const { ctx } = fakeCtx({ cwd: root, confirm: false });
+
+		await fakePi.commands.get("plan").handler(`delete ${file.path}`, ctx);
+
+		expect(existsSync(file.path)).toBe(true);
+	});
+
+	test("show and delete warn about a missing plan", async () => {
+		const { root, fakePi } = planRepo();
+		const { ctx, notifications } = fakeCtx({ cwd: root });
+
+		await fakePi.commands.get("plan").handler("show .pi/plans/nope.md", ctx);
+		expect(notifications.at(-1)).toContain("Plan not found");
+
+		await fakePi.commands.get("plan").handler("delete .pi/plans/nope.md", ctx);
+		expect(notifications.at(-1)).toContain("Plan not found");
+	});
+
+	test("a missing file argument reports usage", async () => {
+		const { root, fakePi } = planRepo();
+		const { ctx, notifications } = fakeCtx({ cwd: root });
+
+		await fakePi.commands.get("plan").handler("show", ctx);
+
+		expect(notifications.at(-1)).toContain("Usage: /plan show");
+	});
+
+	test("the TUI browser's `u` hands the plan to the model", async () => {
+		const { root, fakePi, store } = planRepo();
+		const file = await store.write(root, { title: "Alpha", content: "1. x" });
+		const plans = await store.list(root);
+		const { ctx } = fakeCtx({ cwd: root, mode: "tui", confirm: true });
+		ctx.ui.custom = async () => ({ action: "use", plan: plans[0] });
+
+		await fakePi.commands.get("plan").handler("list", ctx);
+
+		expect(fakePi.sentMessages).toHaveLength(1);
+		expect(String(fakePi.sentMessages[0].content)).toContain(file.path);
+	});
+
+	test("completions offer the subcommands and stop after the subcommand", async () => {
+		const { fakePi } = planRepo();
+		const command = fakePi.commands.get("plan");
+
+		const completions = await command.getArgumentCompletions("s");
+		expect((completions ?? []).map((item: { value: string }) => item.value)).toContain("show ");
+		expect(await command.getArgumentCompletions("show ")).toBeNull();
 	});
 });

@@ -20,7 +20,7 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { screenHeader, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
-import type { StoredPlan } from "./plans.ts";
+import { planTitle, type StoredPlan } from "./plans.ts";
 import { extractPlanSteps } from "./steps.ts";
 
 /** What the user chose from the review screen. */
@@ -33,6 +33,8 @@ export interface PlanReviewOptions {
 	onClose: (action: PlanReviewAction) => void;
 	requestRender: () => void;
 	viewportRows?: ViewportRowsSource;
+	/** `browse` opens a saved plan read-only (no approve/refine); defaults to `review`. */
+	mode?: "review" | "browse";
 }
 
 /** Rows the screen shows when the terminal height is unknown. */
@@ -76,12 +78,9 @@ function headingText(raw: string): string | null {
 	return text ? text : null;
 }
 
-/** Timestamp prefix the plan store adds to file names. */
-const PLAN_STAMP = /^\d{4}-\d{2}-\d{2}-\d{4}-/;
-
-/** Human title for the header: drop the extension and the timestamp prefix. */
+/** Human title for the header: the file name without its extension or stamp. */
 function displayTitle(fileName: string): string {
-	return fileName.replace(/\.md$/i, "").replace(PLAN_STAMP, "") || fileName;
+	return planTitle(fileName);
 }
 
 /** Selectable, scrollable plan review opened by `exit_plan_mode`. */
@@ -100,6 +99,11 @@ export class PlanReviewComponent implements Component {
 
 	private get theme(): Theme {
 		return this.options.theme;
+	}
+
+	/** True when the screen is a read-only browser, not an approval prompt. */
+	private browse(): boolean {
+		return this.options.mode === "browse";
 	}
 
 	/** Number of plan steps, counted once. */
@@ -185,8 +189,8 @@ export class PlanReviewComponent implements Component {
 		else if (matchesKey(data, Key.ctrl("d")) || data === "d") this.scroll(this.halfPage());
 		else if (matchesKey(data, Key.home) || data === "g") this.scrollTo(0);
 		else if (matchesKey(data, Key.end) || data === "G") this.scrollTo(this.maxOffset);
-		else if (data === "a") this.options.onClose("approve");
-		else if (data === "r") this.options.onClose("refine");
+		else if (data === "a" && !this.browse()) this.options.onClose("approve");
+		else if (data === "r" && !this.browse()) this.options.onClose("refine");
 	}
 
 	/** Wheel scrolling in fullscreen; regular mode leaves the wheel to the terminal. */
@@ -224,7 +228,7 @@ export class PlanReviewComponent implements Component {
 		const section = sticky ? `${theme.fg("accent", `§ ${sticky}`)} · ` : "";
 		const subtitle = `${section}${theme.fg("muted", [stepLabel, plan.relativePath].join(" · "))}`;
 		const lines: string[] = [
-			screenHeader(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6))),
+			screenHeader(theme, w, truncateToWidth(`${this.browse() ? "Plan" : "Plan Review"} · ${title}`, Math.max(1, w - 6))),
 			truncateToWidth(`  ${subtitle}`, w),
 			"",
 		];
@@ -238,15 +242,15 @@ export class PlanReviewComponent implements Component {
 		const percent = this.maxOffset === 0 ? 100 : Math.round((this.offset / this.maxOffset) * 100);
 		const hints = scrollable
 			? [
-					"a approve",
-					"r refine",
-					"Esc keep",
+					...(this.browse() ? ["Esc close"] : ["a approve", "r refine", "Esc keep"]),
 					"↑↓/j/k scroll",
 					`lines ${this.offset + 1}–${end} of ${body.length} (${percent}%)`,
 					"space/b page",
 					"g/G ends",
 				]
-			: ["a approve", "r refine", "Esc keep planning"];
+			: this.browse()
+				? ["Esc close"]
+				: ["a approve", "r refine", "Esc keep planning"];
 		// Add hints until the row would overflow, so a narrow terminal drops whole
 		// keys instead of truncating one in half.
 		const footer: string[] = [];

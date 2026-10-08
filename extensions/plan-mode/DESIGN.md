@@ -16,8 +16,6 @@ leans on the other two rather than duplicating them.
 
 - **Not a sandbox.** Extensions share Pi's OS permissions. The tool gating is a
   guard rail against accidental writes, stated as such.
-- **No plan manager.** Plan-mode writes and reads plan files but does not list
-  or browse them; a `/plans` command is future work.
 - **No progress tracker.** Plan mode does not own completion state; `todo` does.
 - **No auto-execution.** Approval hands control back to the model.
 
@@ -87,6 +85,16 @@ code.
 from `ctx.sessionManager.getBranch()` on start and tree navigation. The
 `--plan` flag enables plan mode only when the branch has no persisted entry, so
 a later disable survives tree navigation and `/resume`.
+
+**Saved plans are managed from `/plan`, not a registry.** The plans directory
+is the index: `/plan list` reads it (readdir + file-name parse) newest-first and
+opens a browser, `/plan show` reopens one plan in `PlanReviewComponent` with a
+read-only `browse` mode (no approve/refine — viewing is not approving), and
+`/plan delete` removes one after a confirm. `list`, `show`, and `delete` are
+reserved first arguments under `/plan`, so the command keeps its existing
+toggle and `/plan <prompt>` behaviour and the collision is three words rather
+than a second command. There is no persisted plan metadata; deleting is a
+filesystem unlink behind the same containment check as `write_plan`.
 
 ## Model surface
 

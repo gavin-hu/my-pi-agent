@@ -44,6 +44,9 @@ pi --plan                                 # start in plan mode
   as notes. The approval result lists exactly what was recorded.
 - **Branch-aware.** The enabled flag is a custom session entry, so `/resume` and
   `/tree` restore the right mode.
+- **Manageable plans.** `/plan list` browses the saved plans directory, `/plan
+  show` reopens one read-only, and `/plan delete` removes one — see [Managing
+  plans](#managing-plans).
 
 ## Entering plan mode
 
@@ -67,6 +70,9 @@ read-only:
 ```
 /plan add rate limiting to the public API
 ```
+
+`list`, `show`, and `delete` are reserved first arguments for managing saved
+plans; every other argument is sent as a task.
 
 ## Writing a plan
 
@@ -113,6 +119,51 @@ Dialog-capable non-TUI modes (RPC) show the same three choices as a select menu
 plus the refine editor; without any UI the tools fail with an actionable message
 instead of deciding for the user.
 
+## Managing plans
+
+Saved plans are files under `.pi/plans`, so `/plan` doubles as a small manager.
+`list`, `show`, and `delete` are reserved first arguments — `/plan list` never
+gives the model the task "list" — while any other argument is still a task
+prompt (see [`/plan <prompt>`](#plan-prompt)).
+
+| Command | What it does |
+|---|---|
+| `/plan list` | Open the selectable browser in the TUI; print the list in other modes. |
+| `/plan show <file>` | Open one saved plan in the review screen, read-only. |
+| `/plan delete <file>` | Confirm and delete one saved plan file. |
+| `/plan` | Toggle plan mode (unchanged). |
+| `/plan <prompt>` | Enter plan mode and send the task (unchanged). |
+
+`/plan list` opens the browser:
+
+```
+─── Plans ─────────────────────────────────────────────────────
+  4 plans · newest first
+
+❯ ◦ add-rate-limiting · 6 steps · .pi/plans/2026-10-08-1530-add-rate-limiting.md
+  ◦ redesign-jobs-ui · 12 steps · .pi/plans/2026-10-08-1037-redesign-jobs-ui.md
+  ◦ one-line-widgets · 8 steps · .pi/plans/2026-10-08-1105-one-line-jobs-…
+  ◦ split-worktree-modules · 9 steps · .pi/plans/2026-10-07-2210-refactor-…
+
+  Enter view · d delete · u use · Esc close
+```
+
+The selected row is highlighted, the rest dim; every row is clipped to the
+terminal width. The browser lists only the current working directory's plans
+directory, newest first — the directory is the index, with no registry.
+
+- **`Enter` / View** — reopen the plan in the review screen in **browse** mode:
+  the same scrollable view without the approve/refine keys, because viewing a
+  saved plan is not approving the current task.
+- **`d` / Delete** — confirm and remove the file.
+- **`u` / Use** — confirm, then hand the plan back to the model to execute in
+  normal (write-capable) mode. Steps are not auto-seeded into `todo`; that only
+  happens on approval.
+- **`Esc`** — close the browser.
+
+`/plan show` and `/plan delete` accept a path or file name; argument completion
+offers the subcommands.
+
 ## No raw shell
 
 Plan mode does not run `bash` or `powershell`. Investigation uses the structured
@@ -136,12 +187,13 @@ exit plan mode first or wait for approval.
 | `index.ts` | Wiring: tools, command, flag, shortcut, events, context injection. |
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`. |
 | `policy.ts` | Plan mode's read-only policy and shared prompt summary. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/list/remove. |
 | `steps.ts` | `extractPlanSteps` (pure). |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, and `exit_plan_mode`. |
-| `commands.ts` | `/plan`. |
-| `tui.ts` | `PlanReviewComponent` (scrollable plan + approve/refine/keep). |
+| `commands.ts` | `/plan` (toggle, task, and `list`/`show`/`delete`). |
+| `tui.ts` | `PlanReviewComponent` (scrollable plan + approve/refine/keep, or browse). |
+| `list-tui.ts` | `PlanListComponent` (the `/plan list` browser). |
 | `../_shared/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../_shared/path-guard.ts` | Path-argument detection for the read-only backstop. |
 | `../_shared/tui.ts` | Shared screen header and viewport-row helpers. |

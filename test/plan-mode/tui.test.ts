@@ -14,11 +14,41 @@ function plan(content: string, path = "/repo/.pi/plans/2026-10-08-1530-demo.md")
 	return { path, relativePath: ".pi/plans/2026-10-08-1530-demo.md", content, bytes: content.length };
 }
 
+describe("PlanReviewComponent — browse mode", () => {
+	test("drops approve and refine from the header and footer", () => {
+		const { component } = setup(undefined, { mode: "browse" });
+		const text = render(component, 80).join("\n");
+		expect(text).toContain("Plan · demo");
+		expect(text).not.toContain("Plan Review");
+		expect(text).toContain("Esc close");
+		expect(text).not.toContain("a approve");
+		expect(text).not.toContain("r refine");
+	});
+
+	test("a and r are inert; Esc still closes with keep", () => {
+		const { component, actions } = setup(undefined, { mode: "browse" });
+		component.handleInput("a");
+		component.handleInput("r");
+		expect(actions).toEqual([]);
+		component.handleInput("\u001b");
+		expect(actions).toEqual(["keep"]);
+	});
+
+	test("review mode still offers approve and refine", () => {
+		const { component, actions } = setup();
+		component.handleInput("a");
+		expect(actions).toEqual(["approve"]);
+	});
+});
+
 function render(component: PlanReviewComponent, width: number): string[] {
 	return component.render(width);
 }
 
-function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", options: { rows?: number } = {}) {
+function setup(
+	content = "# Plan\n1. Read the parser\n2. Add a tokenizer",
+	options: { rows?: number; mode?: "review" | "browse" } = {},
+) {
 	const actions: PlanReviewAction[] = [];
 	let renders = 0;
 	const component = new PlanReviewComponent({
@@ -29,6 +59,7 @@ function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", optio
 			renders += 1;
 		},
 		viewportRows: options.rows,
+		mode: options.mode,
 	});
 	return { component, actions, renders: () => renders };
 }

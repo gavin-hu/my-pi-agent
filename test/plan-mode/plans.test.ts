@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { createPlanStore, isWithin, MAX_PLAN_BYTES, slugify, stamp } from "../../extensions/plan-mode/plans.ts";
+import { createPlanStore, isWithin, MAX_PLAN_BYTES, planTitle, slugify, stamp } from "../../extensions/plan-mode/plans.ts";
 import { createFakePi } from "../helpers/fakes.ts";
 
 const FIXED = new Date(2026, 9, 8, 15, 30); // 2026-10-08 15:30 local
@@ -149,5 +149,69 @@ describe("createPlanStore — read", () => {
 		const relative = join(CONFIG_DIR_NAME, "plans", "2026-10-08-1530-relative.md");
 		expect(existsSync(file.path)).toBe(true);
 		expect((await store.read(root, relative))?.content).toBe("body");
+	});
+});
+
+describe("planTitle", () => {
+	test("drops the extension and the timestamp prefix", () => {
+		expect(planTitle("2026-10-08-1530-add-rate-limiting.md")).toBe("add-rate-limiting");
+		expect(planTitle("custom-name.md")).toBe("custom-name");
+	});
+});
+
+describe("createPlanStore — list", () => {
+	test("returns markdown plans newest first with titles and step counts", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const older = await store.write(root, { title: "Older", content: "1. one\n2. two" });
+		const newer = await store.write(root, { title: "Newer", content: "1. only" });
+		// Pin the mtimes so the order does not depend on filesystem timestamp resolution.
+		utimesSync(older.path, new Date(1_000), new Date(1_000));
+		utimesSync(newer.path, new Date(2_000), new Date(2_000));
+
+		const plans = await store.list(root);
+		expect(plans.map((plan) => plan.title)).toEqual(["newer", "older"]);
+		expect(plans[0].steps).toBe(1);
+		expect(plans[1].steps).toBe(2);
+		expect(plans[0].relativePath).toContain("2026-10-08-1530-newer.md");
+		expect(plans[0].bytes).toBeGreaterThan(0);
+	});
+
+	test("ignores non-markdown files and subdirectories", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		await store.write(root, { title: "Keep", content: "1. x" });
+		const dir = await store.dirFor(root);
+		writeFileSync(join(dir, "notes.txt"), "ignore me");
+		mkdirSync(join(dir, "nested.md"));
+
+		expect((await store.list(root)).map((plan) => plan.title)).toEqual(["keep"]);
+	});
+
+	test("returns an empty list when the directory does not exist", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		expect(await store.list(root)).toEqual([]);
+	});
+});
+
+describe("createPlanStore — remove", () => {
+	test("deletes a plan inside the directory", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Bye", content: "1. x" });
+
+		expect(await store.remove(root, file.path)).toBe(true);
+		expect(existsSync(file.path)).toBe(false);
+	});
+
+	test("returns false for a missing file and a path outside the directory", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		expect(await store.remove(root, join(root, CONFIG_DIR_NAME, "plans", "nope.md"))).toBe(false);
+
+		writeFileSync(join(root, "outside.md"), "keep me");
+		expect(await store.remove(root, join(root, "outside.md"))).toBe(false);
+		expect(existsSync(join(root, "outside.md"))).toBe(true);
 	});
 });

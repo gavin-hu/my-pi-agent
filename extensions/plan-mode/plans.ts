@@ -14,9 +14,10 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { extractPlanSteps } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
 export const MAX_PLAN_BYTES = 256 * 1024;
@@ -38,6 +39,21 @@ export interface WrittenPlan extends StoredPlan {
 	title: string;
 }
 
+/** One entry in the plans directory, enough to render a list row. */
+export interface PlanSummary {
+	/** Absolute path. */
+	path: string;
+	/** Path relative to the working directory, when it is inside it. */
+	relativePath: string;
+	/** File name minus `.md` and the timestamp prefix. */
+	title: string;
+	bytes: number;
+	/** Modification time in milliseconds, for newest-first ordering. */
+	modified: number;
+	/** Top-level steps `extractPlanSteps` finds in the file. */
+	steps: number;
+}
+
 export interface WritePlanInput {
 	/** Short title; drives the file-name slug. */
 	title: string;
@@ -53,6 +69,18 @@ export interface PlanStore {
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
+	/** Every plan in the plans directory, newest first. */
+	list(cwd: string): Promise<PlanSummary[]>;
+	/** Delete a plan inside the plans directory; false when missing or outside. */
+	remove(cwd: string, planPath: string): Promise<boolean>;
+}
+
+/** Timestamp prefix the plan store adds to file names. */
+const PLAN_STAMP = /^\d{4}-\d{2}-\d{2}-\d{4}-/;
+
+/** Human title for a plan file name: drop the extension and the timestamp prefix. */
+export function planTitle(fileName: string): string {
+	return fileName.replace(/\.md$/i, "").replace(PLAN_STAMP, "") || fileName;
 }
 
 /** Turn a title into a filename-safe slug. */
@@ -170,5 +198,54 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 	};
 
-	return { dirFor, write, read };
+	const list = async (cwd: string): Promise<PlanSummary[]> => {
+		const dir = await dirFor(cwd);
+		if (!existsSync(dir)) return [];
+
+		let entries: string[];
+		try {
+			entries = readdirSync(dir, { withFileTypes: true })
+				.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
+				.map((entry) => entry.name);
+		} catch {
+			return [];
+		}
+
+		const summaries: PlanSummary[] = [];
+		for (const name of entries) {
+			const path = join(dir, name);
+			try {
+				const stats = statSync(path);
+				const content = readFileSync(path, "utf-8");
+				summaries.push({
+					path,
+					relativePath: relativeTo(cwd, path),
+					title: planTitle(name),
+					bytes: stats.size,
+					modified: stats.mtimeMs,
+					steps: extractPlanSteps(content).length,
+				});
+			} catch {
+				// A file that vanished or cannot be read is skipped, not fatal to the list.
+			}
+		}
+
+		// Newest first; the path breaks ties so the order is stable across identical mtimes.
+		summaries.sort((a, b) => b.modified - a.modified || b.path.localeCompare(a.path));
+		return summaries;
+	};
+
+	const remove = async (cwd: string, planPath: string): Promise<boolean> => {
+		const dir = await dirFor(cwd);
+		const resolved = resolve(cwd, planPath);
+		if (!isWithin(dir, resolved) || !existsSync(resolved)) return false;
+		try {
+			unlinkSync(resolved);
+			return true;
+		} catch {
+			return false;
+		}
+	};
+
+	return { dirFor, write, read, list, remove };
 }
