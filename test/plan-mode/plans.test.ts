@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -149,6 +149,71 @@ describe("createPlanStore — read", () => {
 		const relative = join(CONFIG_DIR_NAME, "plans", "2026-10-08-1530-relative.md");
 		expect(existsSync(file.path)).toBe(true);
 		expect((await store.read(root, relative))?.content).toBe("body");
+	});
+});
+
+describe("createPlanStore — containment", () => {
+	test("refuses to overwrite the directory's .gitignore or a non-markdown file", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const dir = await store.dirFor(root);
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(join(dir, ".gitignore"), "*\n");
+		writeFileSync(join(dir, "notes.txt"), "keep");
+
+		await expect(
+			store.write(root, { title: "x", content: "!*.md\n", planPath: join(dir, ".gitignore") }),
+		).rejects.toThrow(/markdown plan file/);
+		await expect(
+			store.write(root, { title: "x", content: "x", planPath: join(dir, "notes.txt") }),
+		).rejects.toThrow(/markdown plan file/);
+
+		expect(readFileSync(join(dir, ".gitignore"), "utf-8")).toBe("*\n");
+		expect(readFileSync(join(dir, "notes.txt"), "utf-8")).toBe("keep");
+	});
+
+	test("refuses a symlink that points outside the plans directory", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const dir = await store.dirFor(root);
+		mkdirSync(dir, { recursive: true });
+		const outside = join(root, "outside.md");
+		writeFileSync(outside, "secret");
+		const link = join(dir, "link.md");
+		symlinkSync(outside, link);
+
+		expect(await store.read(root, link)).toBeUndefined();
+		expect(await store.remove(root, link)).toBe(false);
+		await expect(store.write(root, { title: "x", content: "pwn", planPath: link })).rejects.toThrow(
+			/markdown plan file/,
+		);
+		expect(readFileSync(outside, "utf-8")).toBe("secret");
+	});
+
+	test("skips a dangling symlink when choosing a new plan name", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const dir = await store.dirFor(root);
+		mkdirSync(dir, { recursive: true });
+		const target = join(root, "created-by-write.md");
+		symlinkSync(target, join(dir, "2026-10-08-1530-dangling.md"));
+
+		const file = await store.write(root, { title: "Dangling", content: "body" });
+		expect(file.path).toContain("2026-10-08-1530-dangling-2.md");
+		expect(existsSync(target)).toBe(false);
+	});
+
+	test("refuses a symlinked subdirectory that escapes the plans directory", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const dir = await store.dirFor(root);
+		mkdirSync(dir, { recursive: true });
+		const outside = mkdtempSync(join(tmpdir(), "pi-plan-outside-"));
+		symlinkSync(outside, join(dir, "sub"));
+
+		await expect(
+			store.write(root, { title: "x", content: "pwn", planPath: join(dir, "sub", "escape.md") }),
+		).rejects.toThrow(/markdown plan file/);
 	});
 });
 

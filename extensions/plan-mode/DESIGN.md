@@ -54,8 +54,11 @@ reject.
 **The model writes the plan file through `write_plan`.** Plan mode is not
 strictly read-only: it permits exactly one write, a dedicated tool that takes a
 short title and markdown and can only create or overwrite files inside the
-resolved plans directory. It is not the builtin `write`, so the capability
-policy and the path backstop stay intact; the `tool_call` guard exempts the
+resolved plans directory. A `plan_path` must name a markdown non-dotfile whose
+real parent resolves inside the plans directory, so symlinks and the
+directory's own `.gitignore` are never writable targets. It is not the builtin
+`write`, so the capability policy and the path backstop stay intact; the
+`tool_call` guard exempts the
 control tool only when the registered tool is this extension's own, matched by
 source path, so a same-named tool from another extension cannot borrow the
 exemption. The plans directory is self-ignoring (a `.gitignore` of `*`), so git

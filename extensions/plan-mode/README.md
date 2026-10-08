@@ -23,8 +23,9 @@ pi --plan                                 # start in plan mode
   default and the MCP `readOnlyHint` is the only thing that opens one up — but a
   hinted tool that takes a file path is still refused unless it is a known
   reader (`_shared/path-guard.ts`). The one permitted write is the plan-mode
-  control tool `write_plan`, which can only create files inside the plans
-  directory.
+  control tool `write_plan`, which can only create or overwrite markdown plan
+  files directly inside the plans directory — never dotfiles (such as the
+  directory's own `.gitignore`) and never through a symlink.
 - **Model entry point.** The model can call `enter_plan_mode` to ask for plan
   mode before a non-trivial task; the user confirms.
 - **Plan files.** The model saves the plan with `write_plan`; the file lands in

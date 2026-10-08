@@ -14,8 +14,8 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { extractPlanSteps } from "./steps.ts";
 
@@ -108,6 +108,36 @@ export function isWithin(dir: string, path: string): boolean {
 	return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
 
+/** A plan file name: markdown and not a dotfile, so the self-ignore file is never a target. */
+function isPlanFileName(path: string): boolean {
+	const name = basename(path);
+	return name.toLowerCase().endsWith(".md") && !name.startsWith(".");
+}
+
+/**
+ * Whether `path` may be read, written, or deleted as a plan. Beyond the lexical
+ * containment in {@link isWithin}, this rejects dotfiles (including the
+ * directory's own `.gitignore`) and resolves symlinks, so a link placed inside
+ * the plans directory cannot redirect a read or write outside it.
+ */
+function isContainedPlan(dir: string, path: string): boolean {
+	if (!isWithin(dir, path) || !isPlanFileName(path)) return false;
+	try {
+		// A symlink itself must never be the target; a missing file is a new plan.
+		if (lstatSync(path).isSymbolicLink()) return false;
+	} catch {
+		// Missing (ENOENT) is expected; any other error falls through to the
+		// real-path check, which rejects the path if it cannot be resolved.
+	}
+	try {
+		const realDir = realpathSync(dir);
+		const realParent = realpathSync(dirname(path));
+		return realParent === realDir || isWithin(realDir, realParent);
+	} catch {
+		return false;
+	}
+}
+
 /** Keep plan files out of git (and so out of checkpoint snapshots) without touching the project. */
 function ensureIgnored(dir: string): void {
 	const ignore = join(dir, ".gitignore");
@@ -127,9 +157,19 @@ function relativeTo(cwd: string, path: string): string {
 }
 
 function uniquePath(dir: string, base: string): string {
+	const taken = (candidate: string): boolean => {
+		try {
+			// lstat, not exists: a dangling symlink still occupies the name and must
+			// never be written through.
+			lstatSync(candidate);
+			return true;
+		} catch {
+			return false;
+		}
+	};
 	let candidate = join(dir, `${base}.md`);
 	let suffix = 2;
-	while (existsSync(candidate)) {
+	while (taken(candidate)) {
 		candidate = join(dir, `${base}-${suffix}.md`);
 		suffix += 1;
 	}
@@ -176,10 +216,17 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		let path: string;
 		if (input.planPath) {
 			const resolved = resolve(cwd, input.planPath);
-			if (!isWithin(dir, resolved)) throw new Error("plan_path must be a file inside the plans directory.");
+			if (!isContainedPlan(dir, resolved)) {
+				throw new Error("plan_path must be a markdown plan file inside the plans directory.");
+			}
 			path = resolved;
 		} else {
 			path = uniquePath(dir, `${stamp(now())}-${slugify(title)}`);
+		}
+
+		// A new plan can still land on a dangling symlink; refuse to write through it.
+		if (!isContainedPlan(dir, path)) {
+			throw new Error("The plan path is not writable inside the plans directory.");
 		}
 
 		writeFileSync(path, input.content, "utf-8");
@@ -189,7 +236,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const read = async (cwd: string, planPath: string): Promise<StoredPlan | undefined> => {
 		const dir = await dirFor(cwd);
 		const resolved = resolve(cwd, planPath);
-		if (!isWithin(dir, resolved) || !existsSync(resolved)) return undefined;
+		if (!isContainedPlan(dir, resolved) || !existsSync(resolved)) return undefined;
 		try {
 			const content = readFileSync(resolved, "utf-8");
 			return { path: resolved, relativePath: relativeTo(cwd, resolved), content, bytes: Buffer.byteLength(content, "utf-8") };
@@ -238,7 +285,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const remove = async (cwd: string, planPath: string): Promise<boolean> => {
 		const dir = await dirFor(cwd);
 		const resolved = resolve(cwd, planPath);
-		if (!isWithin(dir, resolved) || !existsSync(resolved)) return false;
+		if (!isContainedPlan(dir, resolved) || !existsSync(resolved)) return false;
 		try {
 			unlinkSync(resolved);
 			return true;
