@@ -4,6 +4,8 @@ import { PlanViewComponent, type PlanViewAction } from "../../extensions/plan-mo
 import type { StoredPlan } from "../../extensions/plan-mode/plans.ts";
 import { fakeTheme } from "../helpers/fakes.ts";
 
+const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
+
 const DOWN = "\x1b[B";
 const HOME = "\x1b[H";
 const END = "\x1b[F";
@@ -47,21 +49,26 @@ function render(component: PlanViewComponent, width: number): string[] {
 
 function setup(
 	content = "# Plan\n1. Read the parser\n2. Add a tokenizer",
-	options: { rows?: number; mode?: "review" | "browse" } = {},
+	options: { rows?: number; mode?: "review" | "browse"; tui?: unknown } = {},
 ) {
 	const actions: PlanViewAction[] = [];
+	const refinements: Array<string | undefined> = [];
 	let renders = 0;
 	const component = new PlanViewComponent({
 		plan: plan(content),
 		theme: fakeTheme,
-		onClose: (action) => actions.push(action),
+		onClose: (action, refinement) => {
+			actions.push(action);
+			refinements.push(refinement);
+		},
 		requestRender: () => {
 			renders += 1;
 		},
 		viewportRows: options.rows,
 		mode: options.mode,
+		tui: options.tui as any,
 	});
-	return { component, actions, renders: () => renders };
+	return { component, actions, refinements, renders: () => renders };
 }
 
 describe("PlanViewComponent — render", () => {
@@ -258,5 +265,53 @@ describe("PlanViewComponent — actions", () => {
 		component.handleInput("j");
 		component.handleInput("k");
 		expect(actions).toEqual([]);
+	});
+});
+
+describe("PlanViewComponent — inline refine", () => {
+	test("r opens the inline editor and keeps the review open", () => {
+		const { component, actions } = setup(undefined, { tui });
+		render(component, 80);
+		component.handleInput("r");
+		expect(actions).toEqual([]);
+		const text = render(component, 80).join("\n");
+		expect(text).toContain("Refine the plan:");
+		expect(text).toContain("Enter submit");
+		expect(text).toContain("Esc back to plan");
+	});
+
+	test("typing and Enter submits the refinement text", () => {
+		const { component, actions, refinements } = setup(undefined, { tui });
+		render(component, 80);
+		component.handleInput("r");
+		component.handleInput("use a hand-written lexer");
+		component.handleInput("\r");
+		expect(actions).toEqual(["refine"]);
+		expect(refinements).toEqual(["use a hand-written lexer"]);
+	});
+
+	test("an empty submission stays in the editor", () => {
+		const { component, actions } = setup(undefined, { tui });
+		render(component, 80);
+		component.handleInput("r");
+		component.handleInput("\r");
+		expect(actions).toEqual([]);
+		expect(render(component, 80).join("\n")).toContain("Refine the plan:");
+	});
+
+	test("Esc leaves the editor and returns to the review", () => {
+		const { component, actions } = setup(undefined, { tui });
+		render(component, 80);
+		component.handleInput("r");
+		component.handleInput("\x1b");
+		expect(actions).toEqual([]);
+		component.handleInput("a");
+		expect(actions).toEqual(["approve"]);
+	});
+
+	test("without a TUI, r still closes with refine", () => {
+		const { component, actions } = setup();
+		component.handleInput("r");
+		expect(actions).toEqual(["refine"]);
 	});
 });

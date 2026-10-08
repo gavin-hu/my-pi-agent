@@ -197,7 +197,7 @@ describe("plan-mode context", () => {
 });
 
 describe("/plan command", () => {
-	test("enters plan mode and does not toggle", async () => {
+	test("toggles plan mode on and off", async () => {
 		const fakePi = makeFakePi({ active: ["read", "bash", "write", "edit", ENTER_TOOL] });
 		planMode(fakePi.pi);
 		const { ctx, notifications } = fakeCtx();
@@ -207,8 +207,8 @@ describe("/plan command", () => {
 		expect(notifications.at(-1)).toContain("Plan mode enabled");
 
 		await fakePi.commands.get("plan").handler("", ctx);
-		expect(fakePi.activeTools()).not.toContain("write");
-		expect(notifications.at(-1)).toContain("Already in plan mode");
+		expect(fakePi.activeTools()).toContain("write");
+		expect(notifications.at(-1)).toContain("Plan mode disabled");
 	});
 
 	test("/plan <prompt> enters plan mode and sends the prompt", async () => {

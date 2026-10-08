@@ -84,7 +84,7 @@ async function boot() {
 		confirm: async () => true,
 		select: async () => "Approve and execute",
 		editor: async () => undefined,
-		custom: async () => "approve",
+		custom: async () => ({ action: "approve" }),
 	};
 	const ctx = new Proxy(base, {
 		get(target, prop, receiver) {

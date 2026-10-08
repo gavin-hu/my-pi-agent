@@ -265,12 +265,16 @@ describe("exit_plan_mode", () => {
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
-	test("treats an empty refinement as keeping planning", async () => {
+	test("an empty refinement returns to the review", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Use a generator");
 
-		const { ctx } = fakeCtx({ select: "Refine the plan", editor: "   ", cwd: root });
+		const { ctx } = fakeCtx({
+			select: ["Refine the plan", "Keep planning"],
+			editor: ["   "],
+			cwd: root,
+		});
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.refined).toBeUndefined();
 		expect(result.details.approved).toBe(false);
@@ -282,10 +286,27 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ mode: "tui", custom: "approve", cwd: root });
+		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "approve" }, cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
+	});
+
+	test("carries an inline TUI refinement through", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Use a generator");
+
+		const { ctx } = fakeCtx({
+			mode: "tui",
+			custom: { action: "refine", refinement: "use a hand-written lexer" },
+			cwd: root,
+		});
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details.refined).toBe(true);
+		expect(result.details.refinement).toBe("use a hand-written lexer");
+		expect(result.content[0].text).toContain("use a hand-written lexer");
+		expect(runtime.isEnabled()).toBe(true);
 	});
 
 	// The review sizes itself to the whole terminal, so it must be an overlay.

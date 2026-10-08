@@ -79,38 +79,49 @@ async function seedTodos(ctx: ExtensionToolContext, plan: string): Promise<{ rec
 	return { recorded: outcome.isError ? 0 : steps.length, steps };
 }
 
+/** The review choice plus the refinement the user typed in the TUI, if any. */
+interface PlanReviewOutcome {
+	action: PlanViewAction;
+	refinement?: string;
+}
+
+/** Prompt shown by the dialog-based refine editor in non-TUI modes. */
+const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, Esc to cancel)";
+
 /**
  * Ask the user to review the plan file. The TUI opens the scrollable review
- * screen; dialog-capable modes (RPC) fall back to a select plus the refine
- * editor; the caller has already refused when there is no UI.
+ * screen (with an inline refine editor); dialog-capable modes (RPC) fall back
+ * to a select plus the refine editor; the caller has already refused when there
+ * is no UI.
  */
 async function reviewPlan(
 	ctx: ExtensionToolContext,
 	plan: { path: string; relativePath: string; content: string; bytes: number },
-): Promise<PlanViewAction> {
+): Promise<PlanReviewOutcome> {
 	if (ctx.mode === "tui") {
-		const action = await ctx.ui.custom<PlanViewAction | undefined>(
+		const outcome = await ctx.ui.custom<PlanReviewOutcome | undefined>(
 			(tui, theme, _keybindings, done) =>
 				new PlanViewComponent({
 					plan,
 					theme,
-					onClose: (choice) => done(choice),
+					onClose: (action, refinement) => done({ action, refinement }),
 					requestRender: () => tui.requestRender(),
 					viewportRows: () => tui.terminal?.rows,
+					tui,
 				}),
 			FULL_SCREEN_OVERLAY,
 		);
-		return action ?? "keep";
+		return outcome ?? { action: "keep" };
 	}
 
 	const choice = await ctx.ui.select("Plan mode — what next?", [
 		"Approve and execute",
-		"Keep planning",
 		"Refine the plan",
+		"Keep planning",
 	]);
-	if (choice === "Approve and execute") return "approve";
-	if (choice === "Refine the plan") return "refine";
-	return "keep";
+	if (choice === "Approve and execute") return { action: "approve" };
+	if (choice === "Refine the plan") return { action: "refine" };
+	return { action: "keep" };
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
@@ -312,30 +323,40 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 				};
 			}
 
-			const choice = await reviewPlan(ctx, file);
-			if (choice === "refine") {
-				const refinement = (await ctx.ui.editor("Refine the plan:", ""))?.trim();
+			let outcome = await reviewPlan(ctx, file);
+			// The dialog-based refine editor carries no text from the review screen; an
+			// empty or cancelled editor returns to the review instead of being reported
+			// as "not approved".
+			while (outcome.action === "refine" && !outcome.refinement) {
+				const refinement = (await ctx.ui.editor(REFINE_PROMPT, ""))?.trim();
 				if (refinement) {
-					return {
-						content: [
-							{
-								type: "text",
-								text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
-							},
-						],
-						details: {
-							approved: false,
-							plan: file.content,
-							planPath: file.path,
-							relativePath: file.relativePath,
-							refined: true,
-							refinement,
-						} satisfies ExitPlanModeDetails,
-					};
+					outcome = { action: "refine", refinement };
+					break;
 				}
+				outcome = await reviewPlan(ctx, file);
 			}
 
-			if (choice !== "approve") {
+			if (outcome.action === "refine") {
+				const refinement = outcome.refinement ?? "";
+				return {
+					content: [
+						{
+							type: "text",
+							text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
+						},
+					],
+					details: {
+						approved: false,
+						plan: file.content,
+						planPath: file.path,
+						relativePath: file.relativePath,
+						refined: true,
+						refinement,
+					} satisfies ExitPlanModeDetails,
+				};
+			}
+
+			if (outcome.action !== "approve") {
 				return {
 					content: [
 						{ type: "text", text: "Plan not approved. Stay in plan mode, ask what to change, and revise the plan." },

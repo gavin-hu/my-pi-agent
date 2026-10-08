@@ -1,9 +1,9 @@
 /**
  * Slash commands for the plan-mode extension.
  *
- * `/plan` enters plan mode, optionally sending the rest of the line as the
- * task; `Ctrl+Alt+P` is the toggle. `/plans` opens the plan browser in the TUI,
- * or prints the saved plans elsewhere. All management happens in the browser:
+ * `/plan` toggles plan mode, or enters it and sends an optional task;
+ * `Ctrl+Alt+P` toggles too. `/plans` opens the plan browser in the TUI, or
+ * prints the saved plans elsewhere. All management happens in the browser:
  * Enter reads, `d` deletes, `u` uses, Esc closes.
  */
 
@@ -19,7 +19,7 @@ import { PlanViewComponent } from "./tui.ts";
 const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 
-/** Old `/plan list|show|delete` words; `/plan` now only enters plan mode. */
+/** Old `/plan list|show|delete` words; `/plan` now toggles plan mode. */
 const LEGACY_SUBCOMMANDS = ["list", "show", "delete", "use"] as const;
 
 /** Lines of a plan shown in an unstructured (non-TUI) notice. */
@@ -145,7 +145,7 @@ async function openPlansMenu(pi: ExtensionAPI, runtime: PlanRuntime, ctx: Extens
 
 export function registerCommands(pi: ExtensionAPI, runtime: PlanRuntime): void {
 	pi.registerCommand("plan", {
-		description: "Enter plan mode (read-only exploration) with an optional task",
+		description: "Toggle plan mode (read-only exploration), or enter it with an optional task",
 		handler: async (args, ctx) => {
 			const prompt = args.trim();
 			const first = prompt.split(/\s+/)[0];
@@ -156,18 +156,20 @@ export function registerCommands(pi: ExtensionAPI, runtime: PlanRuntime): void {
 				return;
 			}
 
-			if (!runtime.isEnabled()) {
-				runtime.enable(ctx);
-				ctx.ui.notify(ENABLED_NOTICE, "info");
-			} else if (!prompt) {
-				ctx.ui.notify("Already in plan mode.", "info");
+			// No task: toggle, exactly like Ctrl+Alt+P.
+			if (!prompt) {
+				runtime.toggle(ctx);
+				ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
 				return;
 			}
 
-			if (prompt) {
-				if (ctx.isIdle()) await pi.sendUserMessage(prompt);
-				else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
+			// A task always means "plan this": enter if needed, then send.
+			if (!runtime.isEnabled()) {
+				runtime.enable(ctx);
+				ctx.ui.notify(ENABLED_NOTICE, "info");
 			}
+			if (ctx.isIdle()) await pi.sendUserMessage(prompt);
+			else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 		},
 	});
 

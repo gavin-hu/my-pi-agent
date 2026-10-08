@@ -35,6 +35,9 @@ export function makeFakePi(options: { active?: string[]; planFlag?: boolean; exe
 	};
 }
 
+/** A dialog result, or a queue consumed one call at a time. */
+type DialogResult = string | undefined;
+
 export interface FakeCtx {
 	ctx: any;
 	statusCalls: Array<{ key: string; text: unknown }>;
@@ -55,8 +58,8 @@ export function fakeCtx(
 		cwd?: string;
 		branch?: unknown[];
 		confirm?: boolean | undefined;
-		select?: string | undefined;
-		editor?: string | undefined;
+		select?: DialogResult | DialogResult[];
+		editor?: DialogResult | DialogResult[];
 		custom?: unknown;
 	} = {},
 ): FakeCtx {
@@ -64,10 +67,13 @@ export function fakeCtx(
 	const notifications: string[] = [];
 	const toolCalls: Array<{ name: string; args: unknown }> = [];
 	let confirmResult = options.confirm;
-	let selectResult = options.select;
-	let editorResult = options.editor;
+	let selectResult: DialogResult | DialogResult[] = options.select;
+	let editorResult: DialogResult | DialogResult[] = options.editor;
 	let customResult = options.custom;
 	let executeError = false;
+
+	const takeSelect = (): DialogResult => (Array.isArray(selectResult) ? selectResult.shift() : selectResult);
+	const takeEditor = (): DialogResult => (Array.isArray(editorResult) ? editorResult.shift() : editorResult);
 
 	const ctx: any = {
 		mode: options.mode ?? "rpc",
@@ -81,8 +87,8 @@ export function fakeCtx(
 			setStatus: (key: string, text: unknown) => statusCalls.push({ key, text }),
 			notify: (message: string) => notifications.push(message),
 			confirm: async () => confirmResult,
-			select: async () => selectResult,
-			editor: async () => editorResult,
+			select: async () => takeSelect(),
+			editor: async () => takeEditor(),
 			custom: async () => customResult,
 		},
 		executeTool: async (name: string, args: unknown) => {

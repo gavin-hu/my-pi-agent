@@ -30,9 +30,10 @@ in plan mode.
 
 **User-driven entry is instant, model-driven entry confirmed.** `/plan`,
 `Ctrl+Alt+P`, and `--plan` are the user's own action, so they take effect at
-once — matching Claude Code. `/plan` only enters plan mode; `Ctrl+Alt+P`
-toggles. `enter_plan_mode` changes the mode on the user's behalf, so it confirms
-first.
+once — matching Claude Code. `/plan` with no argument toggles plan mode, and
+`/plan <task>` enters it and runs the task; `Ctrl+Alt+P` is the keyboard toggle
+for terminals that forward it. `enter_plan_mode` changes the mode on the user's
+behalf, so it confirms first.
 
 **`/plan <prompt>` enters and runs in one step.** An extension command receives
 the raw argument string, so `/plan <prompt>` enables plan mode and sends the
@@ -45,7 +46,12 @@ the right home. `/plan` with no argument just enters plan mode.
 is the artifact already on screen and scrollable in the transcript. In the TUI
 `exit_plan_mode` opens `PlanViewComponent`, a scrollable, width-safe view of
 the file with approve/refine/keep in the footer; dialog-capable non-TUI modes
-fall back to Pi's `select` menu plus the refine editor. Pi's `ctx.ui.confirm()`
+fall back to Pi's `select` menu plus the refine editor. Refining keeps the
+review mounted and opens an inline `Editor` beneath the plan, so the artifact
+the user is pointing at never leaves the screen; `Esc` returns to the plan, and
+only a submitted buffer leaves the screen. In the dialog fallback an empty or
+cancelled editor reopens the review rather than being reported as "not
+approved", so backing out of the text prompt is not read as a decision. Pi's `ctx.ui.confirm()`
 is a non-scrollable selector, so putting a long plan inside it pushes the
 buttons off-screen — the same class of problem as the Claude Code "approve
 before you've read it" bug. A `select` (plus the review screen in the TUI) keeps

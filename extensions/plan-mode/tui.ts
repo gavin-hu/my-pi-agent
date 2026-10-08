@@ -11,11 +11,14 @@
 import { basename } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
+	Editor,
+	type EditorTheme,
 	Key,
 	matchesKey,
 	truncateToWidth,
 	wrapTextWithAnsi,
 	type Component,
+	type TUI,
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
@@ -28,12 +31,17 @@ export type PlanViewAction = "approve" | "refine" | "keep";
 export interface PlanViewOptions {
 	plan: StoredPlan;
 	theme: Theme;
-	/** Called once when the screen closes. */
-	onClose: (action: PlanViewAction) => void;
+	/**
+	 * Called once when the screen closes. `refinement` carries the typed text
+	 * when the action is `refine` and the inline editor was used.
+	 */
+	onClose: (action: PlanViewAction, refinement?: string) => void;
 	requestRender: () => void;
 	viewportRows?: ViewportRowsSource;
 	/** `browse` opens a saved plan read-only (no approve/refine); defaults to `review`. */
 	mode?: "review" | "browse";
+	/** TUI handle for the inline refine editor; without it, `r` closes with `refine`. */
+	tui?: TUI;
 }
 
 /** Rows the screen shows when the terminal height is unknown. */
@@ -70,6 +78,20 @@ function displayTitle(fileName: string): string {
 	return planTitle(fileName);
 }
 
+/** Minimal editor theme for the inline refine input. */
+function editorTheme(theme: Theme): EditorTheme {
+	return {
+		borderColor: (text) => theme.fg("borderMuted", text),
+		selectList: {
+			selectedPrefix: (text) => theme.fg("accent", text),
+			selectedText: (text) => theme.fg("accent", text),
+			description: (text) => theme.fg("muted", text),
+			scrollInfo: (text) => theme.fg("dim", text),
+			noMatch: (text) => theme.fg("warning", text),
+		},
+	};
+}
+
 /** Scrollable plan read/review screen shared by `exit_plan_mode` and `/plans`. */
 export class PlanViewComponent implements Component {
 	private offset = 0;
@@ -79,6 +101,10 @@ export class PlanViewComponent implements Component {
 	private cache: { width: number; lines: BodyLine[] } | null = null;
 	/** Source line (and wrap offset) the view starts at, so a resize keeps its place. */
 	private anchor: { source: number; within: number } | null = null;
+	/** True while the inline refine editor owns the keyboard. */
+	private editing = false;
+	/** The inline refine editor, built lazily once a TUI handle is available. */
+	private editor: Editor | null = null;
 
 	constructor(private readonly options: PlanViewOptions) {}
 
@@ -147,7 +173,56 @@ export class PlanViewComponent implements Component {
 		return Math.max(1, Math.floor(this.visible / 2));
 	}
 
+	/** Lazily build the inline refine editor; needs a TUI handle. */
+	private ensureEditor(): Editor | null {
+		if (!this.options.tui) return null;
+		if (!this.editor) {
+			const editor = new Editor(this.options.tui, editorTheme(this.theme));
+			editor.onSubmit = (value) => this.submitRefinement(value);
+			this.editor = editor;
+		}
+		return this.editor;
+	}
+
+	/** Open the inline refine input; without a TUI, close with `refine` as before. */
+	private startRefine(): void {
+		const editor = this.ensureEditor();
+		if (!editor) {
+			this.options.onClose("refine");
+			return;
+		}
+		editor.setText("");
+		editor.focused = true;
+		this.editing = true;
+		this.options.requestRender();
+	}
+
+	/** Leave the inline refine input without submitting; the review stays open. */
+	private cancelRefine(): void {
+		this.editing = false;
+		if (this.editor) this.editor.focused = false;
+		this.options.requestRender();
+	}
+
+	/** Submit the typed refinement; an empty buffer stays in the editor. */
+	private submitRefinement(value: string): void {
+		const text = value.trim();
+		if (!text) return;
+		this.editing = false;
+		if (this.editor) this.editor.focused = false;
+		this.options.onClose("refine", text);
+	}
+
 	handleInput(data: string): void {
+		if (this.editing) {
+			if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+				this.cancelRefine();
+				return;
+			}
+			this.editor?.handleInput(data);
+			this.options.requestRender();
+			return;
+		}
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
 			this.options.onClose("keep");
 			return;
@@ -163,7 +238,7 @@ export class PlanViewComponent implements Component {
 		else if (matchesKey(data, Key.home) || data === "g") this.scrollTo(0);
 		else if (matchesKey(data, Key.end) || data === "G") this.scrollTo(this.maxOffset);
 		else if (data === "a" && !this.browse()) this.options.onClose("approve");
-		else if (data === "r" && !this.browse()) this.options.onClose("refine");
+		else if (data === "r" && !this.browse()) this.startRefine();
 	}
 
 	/** Wheel scrolling in fullscreen; regular mode leaves the wheel to the terminal. */
@@ -175,6 +250,7 @@ export class PlanViewComponent implements Component {
 
 	invalidate(): void {
 		this.cache = null;
+		this.editor?.invalidate();
 	}
 
 	render(width: number): string[] {
@@ -185,7 +261,9 @@ export class PlanViewComponent implements Component {
 
 		const cachedWidth = this.cache?.width;
 		const body = plan.content.trim() ? this.body(w) : [];
-		const chrome = CHROME_ROWS + (body.length === 0 ? 1 : 0);
+		const editorLines = this.editing ? (this.editor?.render(Math.max(1, w - 2)) ?? []) : [];
+		const editorRows = editorLines.length > 0 ? editorLines.length + 2 : 0;
+		const chrome = CHROME_ROWS + (body.length === 0 ? 1 : 0) + editorRows;
 		const visible = viewportRows(this.options.viewportRows, { chrome, fallback: DEFAULT_ROWS });
 		this.visible = visible;
 		this.maxOffset = Math.max(0, body.length - visible);
@@ -206,21 +284,31 @@ export class PlanViewComponent implements Component {
 		for (let i = this.offset; i < end; i++) lines.push(truncateToWidth(body[i].text, w));
 		if (body.length === 0) lines.push(truncateToWidth(`  ${theme.fg("dim", "This plan is empty.")}`, w));
 
+		if (this.editing) {
+			lines.push("");
+			lines.push(truncateToWidth(`  ${theme.fg("muted", "Refine the plan:")}`, w));
+			for (const line of editorLines) lines.push(truncateToWidth(`  ${line}`, w));
+		}
+
 		lines.push("");
-		const scrollable = this.maxOffset > 0;
-		const percent = this.maxOffset === 0 ? 100 : Math.round((this.offset / this.maxOffset) * 100);
-		const hints = scrollable
-			? [
-					...(this.browse() ? ["Esc close"] : ["a approve", "r refine", "Esc keep"]),
-					"↑/↓ or k/j scroll",
-					`lines ${this.offset + 1}–${end} of ${body.length} (${percent}%)`,
-					"space/b page",
-					"g/G ends",
-				]
-			: this.browse()
-				? ["Esc close"]
-				: ["a approve", "r refine", "Esc keep planning"];
-		lines.push(screenHint(theme, w, hints));
+		if (this.editing) {
+			lines.push(screenHint(theme, w, ["Enter submit", "Esc back to plan"]));
+		} else {
+			const scrollable = this.maxOffset > 0;
+			const percent = this.maxOffset === 0 ? 100 : Math.round((this.offset / this.maxOffset) * 100);
+			const hints = scrollable
+				? [
+						...(this.browse() ? ["Esc close"] : ["a approve", "r refine", "Esc keep"]),
+						"↑/↓ or k/j scroll",
+						`lines ${this.offset + 1}–${end} of ${body.length} (${percent}%)`,
+						"space/b page",
+						"g/G ends",
+					]
+				: this.browse()
+					? ["Esc close"]
+					: ["a approve", "r refine", "Esc keep planning"];
+			lines.push(screenHint(theme, w, hints));
+		}
 		lines.push("");
 		return lines;
 	}

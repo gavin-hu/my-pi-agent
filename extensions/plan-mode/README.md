@@ -59,24 +59,27 @@ pi --plan                                 # start in plan mode
 | `Ctrl+Alt+P` | the user | immediate |
 | `--plan` | the user, at launch | immediate |
 
-`/plan` always enters plan mode; it never disables it. `Ctrl+Alt+P` is the
-toggle. The footer shows `≡ plan` while plan mode is on, and `≡ plan ·
-<plan-file>` once the model has written a plan.
+`/plan` with no argument toggles plan mode; `/plan <prompt>` enters it (if it is
+not already on) and runs the task. `Ctrl+Alt+P` also toggles where the terminal
+forwards it; because slash commands go through Pi directly, `/plan` is the
+toggle that works in every terminal (for example Zed's integrated terminal,
+which does not forward `Ctrl+Alt+P`). The footer shows `≡ plan` while plan mode
+is on, and `≡ plan · <plan-file>` once the model has written a plan.
 
 ### `/plan <prompt>`
 
-`/plan` with no argument enters plan mode. With an argument it enters plan mode
-and sends the rest of the line as the task, so the first turn already runs
-read-only:
+`/plan` with no argument toggles plan mode. With an argument it enters plan mode
+(if it is not already on) and sends the rest of the line as the task, so the
+first turn already runs read-only:
 
 ```
 /plan add rate limiting to the public API
 ```
 
-`/plan` never disables plan mode; use `Ctrl+Alt+P` to toggle. Saved plans are
-managed with `/plans` (see [Managing plans](#managing-plans)); for a short
-migration period `/plan list` and friends point at `/plans` instead of planning
-a task.
+`/plan <prompt>` never disables plan mode; only the argument-less `/plan` (or
+`Ctrl+Alt+P`) toggles. Saved plans are managed with `/plans` (see
+[Managing plans](#managing-plans)); for a short migration period `/plan list`
+and friends point at `/plans` instead of planning a task.
 
 ## Writing a plan
 
@@ -111,16 +114,20 @@ without touching the project's own `.gitignore`.
 
 - **`a` / Approve and execute** — plan mode ends, write access returns, and the
   steps are seeded into `todo`. The model executes from the plan file.
-- **`r` / Refine the plan** — type the change you want; it is sent back to the
-  model, which rewrites the plan file and calls `exit_plan_mode` again.
+- **`r` / Refine the plan** — the plan stays on screen and an inline editor
+  opens beneath it, so you can point at what you are reading. `Enter` submits
+  the change (an empty buffer does nothing); `Esc` returns to the plan without
+  submitting. The refinement is sent back to the model, which rewrites the plan
+  file and calls `exit_plan_mode` again.
 - **`Esc` / Keep planning** — stay read-only; the model is told the plan was not
   approved.
 
 Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or `PgUp`/`PgDn` (one line of overlap), `d`/`u` for a half page, and `g`/`G` (or `Home`/`End`) for the ends; the mouse wheel scrolls too in the full-screen review. The footer shows the visible range and percent only when the plan overflows the screen. Hints are added while they fit, so a narrower terminal drops whole keys (the position, then `space`/`b` and `g`/`G`) rather than truncating one in half. Resizing the terminal keeps the same source line on top.
 
 Dialog-capable non-TUI modes (RPC) show the same three choices as a select menu
-plus the refine editor; without any UI the tools fail with an actionable message
-instead of deciding for the user.
+(approve, refine, keep) plus the refine editor; cancelling that editor returns
+to the select instead of being reported as "not approved". Without any UI the
+tools fail with an actionable message instead of deciding for the user.
 
 ## Managing plans
 
