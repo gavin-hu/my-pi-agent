@@ -19,6 +19,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`env.ts`](./env.ts) | The worktree module's process-environment contract: `ENV_ROOT`, `worktreeRoot`, `resolveEffectiveCwd`. |
 | [`format.ts`](./format.ts) | Pure text/number formatting shared by renderers: `formatTokens`, `sanitize`. |
 | [`git.ts`](./git.ts) | The `RunGit` seam (`createExecRunner`, `runGitOrThrow`) plus read helpers (`repoRoot`, `gitDir`, `revParse`, `hasCommits`, `currentBranch`). |
+| [`path.ts`](./path.ts) | `isInside`: the containment predicate the file-browser and worktree guards both use on a resolved target. |
 | [`policy.ts`](./policy.ts) | `createReadOnlyPolicy`: default-deny tool classification from `readOnlyHint` + explicit allow/deny. |
 | [`rails.ts`](./rails.ts) | Above-editor widget ordering (`goal` → `todo`) and dock-screen suppression, carried on `pi.events`. |
 | [`tool-names.ts`](./tool-names.ts) | Tool names more than one extension must agree on, so an orchestrating `ctx.executeTool()` call breaks the build on a rename. |

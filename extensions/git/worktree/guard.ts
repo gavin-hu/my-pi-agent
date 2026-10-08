@@ -13,7 +13,8 @@
 
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { isInside } from "../../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 
 /**
@@ -25,12 +26,6 @@ const ESCAPABLE = /[\s"'\\$`;&|<>()]/;
 export interface GuardBlock {
 	block: true;
 	reason: string;
-}
-
-/** Whether `target` is the root or lives inside it. */
-export function isInside(root: string, target: string): boolean {
-	const rel = relative(root, target);
-	return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 /** Resolve a tool path argument against the worktree root (undefined path = root). */

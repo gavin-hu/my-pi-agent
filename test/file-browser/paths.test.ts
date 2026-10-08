@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
 	HttpError,
-	isInside,
 	relativePath,
 	resolveDecodedPath,
 	resolveRequestPath,
@@ -14,19 +13,6 @@ let fixture: Fixture | undefined;
 afterEach(() => {
 	fixture?.remove();
 	fixture = undefined;
-});
-
-describe("isInside", () => {
-	test("accepts the root and descendants", () => {
-		expect(isInside("/a/b", "/a/b")).toBe(true);
-		expect(isInside("/a/b", "/a/b/c")).toBe(true);
-	});
-
-	test("rejects siblings and parents", () => {
-		expect(isInside("/a/b", "/a/c")).toBe(false);
-		expect(isInside("/a/b", "/a")).toBe(false);
-		expect(isInside("/a/b", "/a/bc")).toBe(false);
-	});
 });
 
 describe("resolveRequestPath", () => {

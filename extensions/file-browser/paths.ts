@@ -9,6 +9,7 @@
 
 import { realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { isInside } from "../../lib/path.ts";
 
 /** An HTTP-shaped failure the router turns into a status page. */
 export class HttpError extends Error {
@@ -31,12 +32,6 @@ export function decodePath(raw: string): string {
 	}
 	if (decoded.includes("\0")) throw new HttpError(400, "The path contains a NUL byte.");
 	return decoded;
-}
-
-/** Whether `target` is `root` itself or sits underneath it. */
-export function isInside(root: string, target: string): boolean {
-	const rel = relative(root, target);
-	return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 function isMissing(error: unknown): boolean {

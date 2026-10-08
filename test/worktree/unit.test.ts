@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { globToRegExp, isIncluded } from "../../extensions/git/worktree/include.ts";
 import {
-	isInside,
 	isInsideReal,
 	realPathOfNearest,
 	resolveUnder,
@@ -75,19 +74,8 @@ describe("globToRegExp / isIncluded", () => {
 	});
 });
 
-describe("isInside / resolveUnder", () => {
-	test("root itself and descendants are inside", () => {
-		expect(isInside("/a/b", "/a/b")).toBe(true);
-		expect(isInside("/a/b", "/a/b/c/d")).toBe(true);
-	});
-
-	test("siblings, parents and prefixes are outside", () => {
-		expect(isInside("/a/b", "/a/c")).toBe(false);
-		expect(isInside("/a/b", "/a")).toBe(false);
-		expect(isInside("/a/b", "/a/bc")).toBe(false);
-	});
-
-	test("resolveUnder treats a missing path as the root and resolves relative paths", () => {
+describe("resolveUnder", () => {
+	test("treats a missing path as the root and resolves relative paths", () => {
 		expect(resolveUnder("/a/b", undefined)).toBe("/a/b");
 		expect(resolveUnder("/a/b", "")).toBe("/a/b");
 		expect(resolveUnder("/a/b", "c")).toBe(resolve("/a/b", "c"));

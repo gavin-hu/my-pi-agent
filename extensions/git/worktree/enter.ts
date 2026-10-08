@@ -6,6 +6,7 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isInside } from "../../../lib/path.ts";
 import { GLYPHS } from "../../../lib/ui.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import {
@@ -27,7 +28,6 @@ import {
 	worktreeExists,
 	worktreePath,
 } from "./git.ts";
-import { isInside } from "./guard.ts";
 import { copyIncludes, includePatterns } from "./include.ts";
 import { upsertRecord } from "./registry.ts";
 import {
