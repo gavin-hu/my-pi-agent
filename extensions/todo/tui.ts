@@ -15,7 +15,8 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../../lib/tui.ts";
+import { clampScroll, fitRows, formatRange, navIntent, wheelDelta } from "../../lib/list-cursor.ts";
+import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
 import { progressCount, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import { currentTodo } from "./state.ts";
 import type { Todo } from "./types.ts";
@@ -82,7 +83,7 @@ export class TodoListComponent implements Component {
 	}
 
 	private setScroll(next: number): void {
-		const clamped = Math.min(Math.max(0, next), this.maxScroll);
+		const clamped = clampScroll(next, this.todos.length, this.visible);
 		if (clamped === this.scrollTop) return;
 		this.scrollTop = clamped;
 		this.requestRender();
@@ -93,18 +94,33 @@ export class TodoListComponent implements Component {
 			this.onClose();
 			return;
 		}
-		if (matchesKey(data, Key.up) || data === "k") this.setScroll(this.scrollTop - 1);
-		else if (matchesKey(data, Key.down) || data === "j") this.setScroll(this.scrollTop + 1);
-		else if (matchesKey(data, Key.pageUp)) this.setScroll(this.scrollTop - this.visible);
-		else if (matchesKey(data, Key.pageDown)) this.setScroll(this.scrollTop + this.visible);
-		else if (matchesKey(data, Key.home)) this.setScroll(0);
-		else if (matchesKey(data, Key.end)) this.setScroll(this.maxScroll);
+		switch (navIntent(data)) {
+			case "up":
+				this.setScroll(this.scrollTop - 1);
+				return;
+			case "down":
+				this.setScroll(this.scrollTop + 1);
+				return;
+			case "pageUp":
+				this.setScroll(this.scrollTop - this.visible);
+				return;
+			case "pageDown":
+				this.setScroll(this.scrollTop + this.visible);
+				return;
+			case "home":
+				this.setScroll(0);
+				return;
+			case "end":
+				this.setScroll(this.maxScroll);
+				return;
+		}
 	}
 
 	/** Wheel scrolling moves the list, matching the other list screens. */
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
-		this.setScroll(this.scrollTop + event.wheelDelta);
+		const delta = wheelDelta(event);
+		if (delta === undefined) return undefined;
+		this.setScroll(this.scrollTop + delta);
 		return { handled: true };
 	}
 
@@ -126,20 +142,13 @@ export class TodoListComponent implements Component {
 		lines.push("");
 		// header, summary, blank, blank-after-list, hint, blank
 		const chrome = 6;
-		let visible = viewportRows(this.viewportRowsSource, { chrome, fallback: SCREEN_DEFAULT_ITEMS });
-		// Reserve the range row only when the list is longer than the viewport.
-		if (this.todos.length > visible) {
-			visible = viewportRows(this.viewportRowsSource, { chrome: chrome + 1, fallback: SCREEN_DEFAULT_ITEMS });
-		}
-		this.visible = visible;
-		this.scrollTop = Math.min(this.scrollTop, this.maxScroll);
+		this.visible = fitRows(this.viewportRowsSource, this.todos.length, chrome, SCREEN_DEFAULT_ITEMS);
+		this.scrollTop = clampScroll(this.scrollTop, this.todos.length, this.visible);
 
-		const end = Math.min(this.todos.length, this.scrollTop + visible);
+		const end = Math.min(this.todos.length, this.scrollTop + this.visible);
 		for (let i = this.scrollTop; i < end; i++) lines.push(todoRow(this.todos[i], this.theme, w));
 		if (this.scrollTop > 0 || end < this.todos.length) {
-			lines.push(
-				truncateToWidth(this.theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.todos.length}`), w),
-			);
+			lines.push(formatRange(this.theme, w, { start: this.scrollTop, end, total: this.todos.length }));
 		}
 
 		lines.push("");

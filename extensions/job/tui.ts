@@ -21,7 +21,16 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../../lib/tui.ts";
+import {
+	clampScroll,
+	fitRows,
+	formatRange,
+	keepVisible,
+	navIntent,
+	selectionMarker,
+	wheelDelta,
+} from "../../lib/list-cursor.ts";
+import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
 import {
 	compareJobs,
 	elapsedMs,
@@ -37,18 +46,13 @@ import type { JobRecord } from "./types.ts";
 /** Rows the `/jobs` screen body shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
 
-/** The `❯ ` selection marker (accent) or a same-width blank. */
-function rowMarker(theme: Theme, selected: boolean): string {
-	return selected ? theme.fg("accent", "❯ ") : "  ";
-}
-
 /**
  * One job row: selection marker, status glyph, id, label, and a right-aligned
  * elapsed value. The label is padded so the elapsed column lines up; the final
  * `truncateToWidth` keeps the row safe at any width.
  */
 function jobRow(job: JobRecord, theme: Theme, width: number, selected = false): string {
-	const head = `${rowMarker(theme, selected)}${statusGlyph(job.status, theme)} ${job.id}  `;
+	const head = `${selectionMarker(theme, selected)}${statusGlyph(job.status, theme)} ${job.id}  `;
 	const elapsed = formatDuration(elapsedMs(job, Date.now()));
 	const available = Math.max(1, width - visibleWidth(head) - elapsed.length - 1);
 	const clipped = truncateToWidth(shortLabel(job), available, "…");
@@ -139,22 +143,11 @@ export class JobListComponent implements Component {
 
 	/** Scroll the list so `index` is visible. */
 	private ensureVisible(index: number): void {
-		if (index < this.listScroll) this.listScroll = index;
-		else if (index >= this.listScroll + this.visible) this.listScroll = index - this.visible + 1;
-		this.listScroll = Math.max(0, this.listScroll);
+		this.listScroll = Math.max(0, keepVisible(this.listScroll, index, this.visible));
 	}
 
 	private get maxLogScroll(): number {
 		return Math.max(0, this.logLines.length - this.visible);
-	}
-
-	/** Row count that fits, reserving one more line when a range row is needed. */
-	private fitRows(itemCount: number, chrome: number): number {
-		let visible = viewportRows(this.viewportRowsSource, { chrome, fallback: SCREEN_DEFAULT_ROWS });
-		if (itemCount > visible) {
-			visible = viewportRows(this.viewportRowsSource, { chrome: chrome + 1, fallback: SCREEN_DEFAULT_ROWS });
-		}
-		return visible;
 	}
 
 	private setSelection(next: number): void {
@@ -174,7 +167,7 @@ export class JobListComponent implements Component {
 			return;
 		}
 		this.selectedId = ordered[this.indexOfSelected(ordered)].id;
-		this.listScroll = Math.min(Math.max(0, this.listScroll), Math.max(0, ordered.length - this.visible));
+		this.listScroll = clampScroll(this.listScroll, ordered.length, this.visible);
 	}
 
 	private openLogs(): void {
@@ -202,12 +195,13 @@ export class JobListComponent implements Component {
 
 	/** Wheel scrolling moves the selection, or scrolls the log pane in log mode. */
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
+		const delta = wheelDelta(event);
+		if (delta === undefined) return undefined;
 		if (this.confirm) return { handled: true };
 		if (this.mode === "list") {
-			this.setSelection(this.indexOfSelected(this.ordered) + event.wheelDelta);
+			this.setSelection(this.indexOfSelected(this.ordered) + delta);
 		} else {
-			this.setLogScroll(this.logScroll + event.wheelDelta);
+			this.setLogScroll(this.logScroll + delta);
 		}
 		return { handled: true };
 	}
@@ -219,13 +213,27 @@ export class JobListComponent implements Component {
 		}
 		const ordered = this.ordered;
 		const index = this.indexOfSelected(ordered);
-		if (matchesKey(data, Key.up) || data === "k") this.setSelection(index - 1);
-		else if (matchesKey(data, Key.down) || data === "j") this.setSelection(index + 1);
-		else if (matchesKey(data, Key.pageUp)) this.setSelection(index - this.visible);
-		else if (matchesKey(data, Key.pageDown)) this.setSelection(index + this.visible);
-		else if (matchesKey(data, Key.home)) this.setSelection(0);
-		else if (matchesKey(data, Key.end)) this.setSelection(ordered.length - 1);
-		else if (matchesKey(data, Key.enter) || data === "l") this.openLogs();
+		switch (navIntent(data)) {
+			case "up":
+				this.setSelection(index - 1);
+				return;
+			case "down":
+				this.setSelection(index + 1);
+				return;
+			case "pageUp":
+				this.setSelection(index - this.visible);
+				return;
+			case "pageDown":
+				this.setSelection(index + this.visible);
+				return;
+			case "home":
+				this.setSelection(0);
+				return;
+			case "end":
+				this.setSelection(ordered.length - 1);
+				return;
+		}
+		if (matchesKey(data, Key.enter) || data === "l") this.openLogs();
 		else if (data === "d" || data === "K") {
 			const job = ordered[index];
 			if (job && job.status === "running") {
@@ -277,7 +285,7 @@ export class JobListComponent implements Component {
 	}
 
 	private setLogScroll(next: number): void {
-		this.logScroll = Math.min(Math.max(0, next), this.maxLogScroll);
+		this.logScroll = clampScroll(next, this.logLines.length, this.visible);
 		// Follow the tail only while the view is parked at the bottom.
 		this.follow = this.logScroll >= this.maxLogScroll;
 		this.requestRender();
@@ -290,12 +298,28 @@ export class JobListComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.up) || data === "k") this.setLogScroll(this.logScroll - 1);
-		else if (matchesKey(data, Key.down) || data === "j") this.setLogScroll(this.logScroll + 1);
-		else if (matchesKey(data, Key.pageUp)) this.setLogScroll(this.logScroll - this.visible);
-		else if (matchesKey(data, Key.pageDown)) this.setLogScroll(this.logScroll + this.visible);
-		else if (matchesKey(data, Key.home) || data === "g") this.setLogScroll(0);
-		else if (matchesKey(data, Key.end) || data === "G") this.setLogScroll(this.maxLogScroll);
+		switch (navIntent(data)) {
+			case "up":
+				this.setLogScroll(this.logScroll - 1);
+				return;
+			case "down":
+				this.setLogScroll(this.logScroll + 1);
+				return;
+			case "pageUp":
+				this.setLogScroll(this.logScroll - this.visible);
+				return;
+			case "pageDown":
+				this.setLogScroll(this.logScroll + this.visible);
+				return;
+			case "home":
+				this.setLogScroll(0);
+				return;
+			case "end":
+				this.setLogScroll(this.maxLogScroll);
+				return;
+		}
+		if (data === "g") this.setLogScroll(0);
+		else if (data === "G") this.setLogScroll(this.maxLogScroll);
 	}
 
 	private summary(counts: JobCounts, width: number): string {
@@ -319,7 +343,7 @@ export class JobListComponent implements Component {
 		const detail = focused ? formatJobDetail(focused, Date.now()) : [];
 		// header, summary, blank, blank-after-list, blank-after-detail, hint, blank
 		const chrome = 7 + detail.length;
-		this.visible = this.fitRows(jobs.length, chrome);
+		this.visible = fitRows(this.viewportRowsSource, jobs.length, chrome, SCREEN_DEFAULT_ROWS);
 		this.clampSelection();
 		this.ensureVisible(this.indexOfSelected(jobs));
 
@@ -332,9 +356,7 @@ export class JobListComponent implements Component {
 				lines.push(jobRow(jobs[i], this.theme, w, i === index));
 			}
 			if (this.listScroll > 0 || end < jobs.length) {
-				lines.push(
-					truncateToWidth(this.theme.fg("dim", `  showing ${this.listScroll + 1}–${end} of ${jobs.length}`), w),
-				);
+				lines.push(formatRange(this.theme, w, { start: this.listScroll, end, total: jobs.length }));
 			}
 		}
 		lines.push("");
@@ -352,8 +374,8 @@ export class JobListComponent implements Component {
 	private renderLogs(w: number): string[] {
 		// header, blank, blank-after-log, hint, blank
 		const chrome = 5;
-		this.visible = this.fitRows(this.logLines.length, chrome);
-		this.logScroll = Math.min(Math.max(0, this.logScroll), this.maxLogScroll);
+		this.visible = fitRows(this.viewportRowsSource, this.logLines.length, chrome, SCREEN_DEFAULT_ROWS);
+		this.logScroll = clampScroll(this.logScroll, this.logLines.length, this.visible);
 		if (this.follow) this.logScroll = this.maxLogScroll;
 
 		const label = this.logTitle ? `Job Logs · ${this.logTitle}` : "Job Logs";
@@ -367,7 +389,7 @@ export class JobListComponent implements Component {
 			}
 			if (this.logScroll > 0 || end < this.logLines.length) {
 				lines.push(
-					truncateToWidth(this.theme.fg("dim", `  line ${this.logScroll + 1}–${end} of ${this.logLines.length}`), w),
+					formatRange(this.theme, w, { start: this.logScroll, end, total: this.logLines.length, label: "line" }),
 				);
 			}
 		}

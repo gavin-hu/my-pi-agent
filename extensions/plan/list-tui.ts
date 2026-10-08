@@ -17,7 +17,8 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../../lib/tui.ts";
+import { fitRows, formatRange, ListCursor, navIntent, selectionMarker, wheelDelta } from "../../lib/list-cursor.ts";
+import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
 import type { PlanSummary } from "./plans.ts";
 
 /** What the user chose from the list. */
@@ -74,11 +75,11 @@ export function formatPlanRow(plan: PlanSummary, width: number, options: PlanRow
 
 /** Selectable, scrollable plan list opened by `/plans`. */
 export class PlanListComponent implements Component {
-	private selected = 0;
-	private scrollTop = 0;
-	private visible = SCREEN_DEFAULT_PLANS;
+	private readonly cursor: ListCursor;
 
-	constructor(private readonly options: PlanListOptions) {}
+	constructor(private readonly options: PlanListOptions) {
+		this.cursor = new ListCursor(options.requestRender);
+	}
 
 	private get plans(): PlanSummary[] {
 		return this.options.plans;
@@ -88,19 +89,8 @@ export class PlanListComponent implements Component {
 		return this.options.theme;
 	}
 
-	/** Move the cursor, clamping at both ends and keeping it on screen. */
-	private setSelected(next: number): void {
-		if (this.plans.length === 0) return;
-		const clamped = Math.min(Math.max(0, next), this.plans.length - 1);
-		if (clamped === this.selected) return;
-		this.selected = clamped;
-		if (this.selected < this.scrollTop) this.scrollTop = this.selected;
-		else if (this.selected >= this.scrollTop + this.visible) this.scrollTop = this.selected - this.visible + 1;
-		this.options.requestRender();
-	}
-
 	private selectedPlan(): PlanSummary | undefined {
-		return this.plans[this.selected];
+		return this.plans[this.cursor.selected];
 	}
 
 	handleInput(data: string): void {
@@ -108,13 +98,28 @@ export class PlanListComponent implements Component {
 			this.options.onClose(undefined);
 			return;
 		}
-		if (matchesKey(data, Key.up) || data === "k") this.setSelected(this.selected - 1);
-		else if (matchesKey(data, Key.down) || data === "j") this.setSelected(this.selected + 1);
-		else if (matchesKey(data, Key.pageUp)) this.setSelected(this.selected - this.visible);
-		else if (matchesKey(data, Key.pageDown)) this.setSelected(this.selected + this.visible);
-		else if (matchesKey(data, Key.home)) this.setSelected(0);
-		else if (matchesKey(data, Key.end)) this.setSelected(this.plans.length - 1);
-		else if (matchesKey(data, Key.enter)) {
+		const count = this.plans.length;
+		switch (navIntent(data)) {
+			case "up":
+				this.cursor.by(-1, count);
+				return;
+			case "down":
+				this.cursor.by(1, count);
+				return;
+			case "pageUp":
+				this.cursor.page(-1, count);
+				return;
+			case "pageDown":
+				this.cursor.page(1, count);
+				return;
+			case "home":
+				this.cursor.set(0, count);
+				return;
+			case "end":
+				this.cursor.set(count - 1, count);
+				return;
+		}
+		if (matchesKey(data, Key.enter)) {
 			const plan = this.selectedPlan();
 			if (plan) this.options.onClose({ action: "view", plan });
 		} else if (data === "d") {
@@ -128,8 +133,9 @@ export class PlanListComponent implements Component {
 
 	/** Wheel scrolling in fullscreen moves the cursor; regular mode leaves the wheel to the terminal. */
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
-		this.setSelected(this.selected + event.wheelDelta);
+		const delta = wheelDelta(event);
+		if (delta === undefined) return undefined;
+		this.cursor.by(delta, this.plans.length);
 		return { handled: true };
 	}
 
@@ -152,35 +158,21 @@ export class PlanListComponent implements Component {
 		lines.push(truncateToWidth(`  ${theme.fg("muted", `${count} · newest first`)}`, w));
 		lines.push("");
 
-		let visible = viewportRows(this.options.viewportRows, {
-			chrome: SCREEN_CHROME_ROWS,
-			fallback: SCREEN_DEFAULT_PLANS,
-		});
-		// Reserve the range row only when the list is longer than the viewport.
-		if (this.plans.length > visible) {
-			visible = viewportRows(this.options.viewportRows, {
-				chrome: SCREEN_CHROME_ROWS + 1,
-				fallback: SCREEN_DEFAULT_PLANS,
-			});
-		}
-		this.visible = visible;
-		this.selected = Math.min(this.selected, this.plans.length - 1);
-		if (this.selected < this.scrollTop) this.scrollTop = this.selected;
-		else if (this.selected >= this.scrollTop + visible) this.scrollTop = this.selected - visible + 1;
-		this.scrollTop = Math.min(this.scrollTop, Math.max(0, this.plans.length - visible));
+		const cursor = this.cursor;
+		cursor.visible = fitRows(this.options.viewportRows, this.plans.length, SCREEN_CHROME_ROWS, SCREEN_DEFAULT_PLANS);
+		cursor.sync(this.plans.length);
 
-		const end = Math.min(this.plans.length, this.scrollTop + visible);
+		const { start, end } = cursor.window(this.plans.length);
 		const now = Date.now();
-		for (let i = this.scrollTop; i < end; i++) {
-			const selected = i === this.selected;
+		for (let i = start; i < end; i++) {
+			const selected = i === cursor.selected;
 			const active = this.options.activePlanPath !== undefined && this.plans[i].path === this.options.activePlanPath;
 			const row = formatPlanRow(this.plans[i], Math.max(1, w - 2), { active, now });
-			const marker = selected ? theme.fg("accent", "❯ ") : "  ";
 			const body = selected ? theme.fg("accent", row) : theme.fg("dim", row);
-			lines.push(truncateToWidth(marker + body, w));
+			lines.push(truncateToWidth(selectionMarker(theme, selected) + body, w));
 		}
-		if (this.scrollTop > 0 || end < this.plans.length) {
-			lines.push(truncateToWidth(theme.fg("dim", `  showing ${this.scrollTop + 1}–${end} of ${this.plans.length}`), w));
+		if (cursor.clipped(this.plans.length)) {
+			lines.push(formatRange(theme, w, { start, end, total: this.plans.length }));
 		}
 		lines.push("");
 		lines.push(screenHint(theme, w, ["Enter view", "d delete", "u use", "Esc close"]));

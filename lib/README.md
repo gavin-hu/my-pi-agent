@@ -19,6 +19,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`env.ts`](./env.ts) | The worktree module's process-environment contract: `ENV_ROOT`, `worktreeRoot`, `resolveEffectiveCwd`. |
 | [`format.ts`](./format.ts) | Pure text/number formatting shared by renderers: `formatTokens`, `sanitize`. |
 | [`git.ts`](./git.ts) | The `RunGit` seam (`createExecRunner`, `runGitOrThrow`) plus read helpers (`repoRoot`, `gitDir`, `revParse`, `hasCommits`, `currentBranch`). |
+| [`list-cursor.ts`](./list-cursor.ts) | Scrollable-list behavior for the `/plans`, `/rewind`, `/todos`, and `/jobs` screens: `fitRows`, `keepVisible`, `clampScroll`, `navIntent`, `wheelDelta`, `selectionMarker`, `formatRange`, and the `ListCursor` state. |
 | [`path.ts`](./path.ts) | `isInside`: the containment predicate the file-browser and worktree guards both use on a resolved target. |
 | [`policy.ts`](./policy.ts) | `createReadOnlyPolicy`: default-deny tool classification from `readOnlyHint` + explicit allow/deny. |
 | [`rails.ts`](./rails.ts) | Above-editor widget ordering (`goal` → `todo`) and dock-screen suppression, carried on `pi.events`. |
