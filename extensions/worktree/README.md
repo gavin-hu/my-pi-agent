@@ -76,12 +76,14 @@ Merged from `~/.pi/agent/worktree.json` and `<repo>/.pi/worktree.json`
 }
 ```
 
-In `bash`, file redirection targets (`>`, `>>`, `>|`, `<`, `<>`), `git`
-redirect options, and `cd`/`pushd`/`popd` targets are checked; `~`, `$VAR`, and
-`${VAR}` are expanded first, and a value that cannot be resolved statically (an
-unknown variable, `~user`, a backtick) is treated as escaping. File-descriptor
-duplications (`2>&1`), heredocs, and here-strings are not treated as paths, and
-options are only recognized in real argument position, so
+In `bash`, file redirection targets (`>`, `>>`, `>|`, `<`, `<>`, and the
+`>&file`/`&>file` forms), `git` redirect options (`-C`, `--git-dir`,
+`--work-tree`, and `-c core.worktree=`), and `cd`/`pushd`/`popd` targets
+(including `-P`/`-L`/`--` option forms) are checked; `~`, `$VAR`, and `${VAR}`
+are expanded first, and a value that cannot be resolved statically (an unknown
+variable, `~user`, a backtick) is treated as escaping. File-descriptor
+duplications (`2>&1`, `>&-`), heredocs, and here-strings are not treated as
+paths, and options are only recognized in real argument position, so
 `git log --grep='--git-dir=/tmp/x'` and `git log -C` are not false positives.
 
 This guard is best-effort: it covers the built-in file tools and these common
@@ -167,6 +169,11 @@ managed worktrees that are clean, have no new commits, are not the current or a
 live-locked one, and are older than `pruneAfterDays`. It releases locks whose
 owning process is gone first, and any failure keeps the worktree with a reason.
 
+Managed worktrees are tracked in a disposable index at
+`.pi/worktrees/index.json` (provenance plus a `lastUsedAt` timestamp), reconciled
+against `git worktree list` on every status/prune read. Prune age follows last
+use, falling back to directory mtime for a worktree with no record.
+
 ## Testing
 
 ```bash
@@ -205,8 +212,11 @@ Known limitations:
 
 - Pi refuses to load two extensions that register the same tool name. If another
   extension owns `bash` (or another overridden name), set
-  `skipOverrides: ["bash"]` so this extension does not register it; bash
-  isolation is then guard-only, and `worktree_status` says so.
+  `skipOverrides: ["bash"]` so this extension does not register it; that tool
+  then runs in the main checkout with **no re-rooting**, so only its absolute
+  writes are guarded (relative paths are not isolated), and `worktree_status`
+  reports it. `skipOverrides` is read when the extension loads, from the
+  process working directory; reload after changing it.
 - The guard is best-effort at the shell level: command substitution, `eval`, and
   `sh -c` are only covered when `blockUnparsableCommands` is enabled, and real
   isolation of arbitrary shell writes needs an OS sandbox.

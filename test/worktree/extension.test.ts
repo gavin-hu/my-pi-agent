@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalize } from "../../extensions/worktree/git.ts";
+import { loadRegistry, touchRecord } from "../../extensions/worktree/registry.ts";
 
 // --- module mocks (must run before importing the extension) -----------------
 
@@ -44,7 +45,7 @@ mock.module("@earendil-works/pi-coding-agent", () => {
 });
 
 const extension = (await import("../../extensions/worktree/index.ts")).default;
-const { cleanup, emitEvent, execP, makeFakeCtx, makeFakePi, makeRepo, makeRepoWithRemote } = await import(
+const { cleanup, emitEvent, execP, makeFakeCtx, makeFakePi, makeRepo, makeRepoWithRemote, testConfig } = await import(
 	"./helpers.ts"
 );
 
@@ -116,10 +117,14 @@ describe("extension enter / exit", () => {
 		expect(existsSync(dir)).toBe(true);
 		expect(ctx.statuses.get("worktree")).toContain("a");
 		expect(pi.entries.some((entry: any) => entry.customType === "worktree" && entry.data?.active === true)).toBe(true);
+		// Entering records provenance in the registry.
+		expect(loadRegistry(repo, testConfig()).worktrees.map((record) => record.path)).toContain(canonicalize(dir));
 
 		const exited = await exit(pi, ctx, { remove: true });
 		expect(exited.content[0].text).toContain("Removed worktree");
 		expect(existsSync(dir)).toBe(false);
+		// A removed worktree is dropped from the registry.
+		expect(loadRegistry(repo, testConfig()).worktrees.map((record) => record.path)).not.toContain(canonicalize(dir));
 		const branches = await execP("git", ["branch"], { cwd: repo });
 		expect(branches.stdout).not.toContain("worktree-a");
 	});
@@ -151,6 +156,20 @@ describe("extension enter / exit", () => {
 		expect(handler({ toolName: "bash", input: { command: "git status" } })).toBeUndefined();
 
 		await exit(pi, ctx, { remove: true });
+	});
+
+	test("refuses a worktree name that escapes the managed directory", async () => {
+		const repo = await makeRepo("pi-wt-ext-");
+		cleanups.push(repo);
+		const { pi, ctx } = await boot(repo);
+		const escaped = join(tmpdir(), `pi-wt-escape-${Date.now()}`);
+		try {
+			await enter(pi, ctx, { name: escaped });
+			expect.unreachable();
+		} catch (error) {
+			expect((error as Error).message).toMatch(/outside/);
+		}
+		expect(existsSync(escaped)).toBe(false);
 	});
 
 	test("registers a single worktree command and its tools", async () => {
@@ -380,6 +399,7 @@ describe("prune", () => {
 		const newDir = wtPath(repo, "new");
 		const past = new Date(Date.now() - 30 * 86_400_000);
 		utimesSync(oldDir, past, past);
+		touchRecord(repo, testConfig(), oldDir, past.getTime());
 
 		// Fresh boot so no worktree is current.
 		const { pi, ctx } = await boot(repo);
@@ -396,9 +416,10 @@ describe("prune", () => {
 });
 
 describe("prune edge cases", () => {
-	function age(dir: string, days = 30): void {
+	function age(repo: string, dir: string, days = 30): void {
 		const past = new Date(Date.now() - days * 86_400_000);
 		utimesSync(dir, past, past);
+		touchRecord(repo, testConfig(), dir, past.getTime());
 	}
 
 	async function prune(pi: any, ctx: any): Promise<string> {
@@ -425,7 +446,7 @@ describe("prune edge cases", () => {
 		await exit(first.pi, first.ctx, { remove: false });
 		const dir = wtPath(repo, "live");
 		await execP("git", ["worktree", "lock", "--reason", `pi:${process.pid}:sess`, dir], { cwd: repo });
-		age(dir);
+		age(repo, dir);
 
 		const { pi, ctx } = await boot(repo);
 		expect(await prune(pi, ctx)).toContain(`${dir} (locked)`);
@@ -440,7 +461,7 @@ describe("prune edge cases", () => {
 		await exit(first.pi, first.ctx, { remove: false });
 		const dir = wtPath(repo, "dead");
 		await execP("git", ["worktree", "lock", "--reason", "pi:999999:sess", dir], { cwd: repo });
-		age(dir);
+		age(repo, dir);
 
 		const { pi, ctx } = await boot(repo);
 		expect(await prune(pi, ctx)).toContain(`Removed ${dir}`);
@@ -455,7 +476,7 @@ describe("prune edge cases", () => {
 		await exit(first.pi, first.ctx, { remove: false });
 		const dir = wtPath(repo, "work");
 		writeFileSync(join(dir, "dirty.txt"), "x");
-		age(dir);
+		age(repo, dir);
 
 		const { pi, ctx } = await boot(repo);
 		expect(await prune(pi, ctx)).toContain(`${dir} (has work)`);
@@ -469,7 +490,7 @@ describe("prune edge cases", () => {
 		await enter(first.pi, first.ctx, { name: "nodef" });
 		await exit(first.pi, first.ctx, { remove: false });
 		const dir = wtPath(repo, "nodef");
-		age(dir);
+		age(repo, dir);
 
 		const { pi, ctx } = await boot(repo);
 		expect(await prune(pi, ctx)).toContain(`${dir} (no default branch)`);

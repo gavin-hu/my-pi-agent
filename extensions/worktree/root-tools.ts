@@ -106,15 +106,11 @@ export function registerRootTools(pi: ExtensionAPI, host: RootToolHost): void {
 		const template = createBuiltin(name, process.cwd(), {});
 
 		pi.registerTool({
-			name,
-			label: template.label,
-			description: template.description,
-			promptSnippet: template.promptSnippet,
-			promptGuidelines: template.promptGuidelines,
-			parameters: template.parameters,
-			outputSchema: template.outputSchema,
-			constrainedSampling: template.constrainedSampling,
-			annotations: template.annotations,
+			// Spread the real built-in so we keep everything that is not the
+			// execution binding: renderers (`renderCall`/`renderResult`/
+			// `renderShell`), `prepareArguments` (edit arg normalization), and
+			// any future metadata. Only `execute` is replaced below.
+			...template,
 			// The built-in registration stays responsible for activation; a
 			// defaultActive override would re-enable tools a user disabled.
 			defaultActive: false,

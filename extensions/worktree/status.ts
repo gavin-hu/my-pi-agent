@@ -6,7 +6,8 @@
 import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config.ts";
-import { canonicalize, type CheckoutCheck, listManagedWorktrees, repoRoot } from "./git.ts";
+import { canonicalize, type CheckoutCheck, defaultBranch, listManagedWorktrees, repoRoot } from "./git.ts";
+import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { getActive, getInactiveOverrides } from "./runtime.ts";
 import type { WorktreeState } from "./state.ts";
@@ -65,6 +66,27 @@ export function findInactiveOverrides(pi: ExtensionAPI, self: string | undefined
 	return inactive;
 }
 
+/** Compact marks for one managed worktree in the status list. */
+function statusMarks(status: CheckoutStatus, isCurrent: boolean): string[] {
+	const marks: string[] = [];
+	if (isCurrent) marks.push("current");
+	if (status.state === "missing") marks.push("missing");
+	if (status.locked) marks.push(status.staleLock ? "locked (stale)" : "locked");
+	if (status.state === "dirty") marks.push(`dirty (${status.changed})`);
+	if (status.ahead > 0) marks.push(`ahead ${status.ahead}`);
+	if (status.behind > 0) marks.push(`behind ${status.behind}`);
+	if (status.merged) marks.push("merged");
+	if (status.lastUsedAt) marks.push(`used ${relativeDay(status.lastUsedAt)}`);
+	return marks;
+}
+
+function relativeDay(at: number): string {
+	const days = Math.floor((Date.now() - at) / 86_400_000);
+	if (days <= 0) return "today";
+	if (days === 1) return "1d ago";
+	return `${days}d ago`;
+}
+
 /** Human-readable status: current worktree, override conflicts, managed worktrees. */
 export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string> {
 	const current = getActive();
@@ -84,12 +106,17 @@ export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): P
 	if (root) {
 		const config = loadConfig(root);
 		const managed = await listManagedWorktrees(pi, root, config);
+		const { registry } = reconcileRegistry(root, config, managed);
+		const baseBranch = await defaultBranch(pi, root);
+		const baseRef = baseBranch ? `origin/${baseBranch}` : undefined;
 		lines.push("", `Managed worktrees (${managed.length}):`);
 		for (const entry of managed) {
-			const marks = [current?.path === entry.path ? "current" : "", entry.locked !== undefined ? "locked" : ""]
-				.filter(Boolean)
-				.join(", ");
-			lines.push(`  ${entry.path}  ${entry.branch ?? ""}${marks ? `  [${marks}]` : ""}`.trimEnd());
+			const record = registry.worktrees.find((candidate) => candidate.path === canonicalize(entry.path));
+			const status = await statusOf(pi, entry, { baseRef, record });
+			const marks = statusMarks(status, current?.path === entry.path);
+			lines.push(
+				`  ${entry.path}  ${entry.branch ?? ""}${marks.length > 0 ? `  [${marks.join(", ")}]` : ""}`.trimEnd(),
+			);
 		}
 	}
 	return lines.join("\n");

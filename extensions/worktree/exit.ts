@@ -6,6 +6,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config.ts";
 import { deleteBranch, inspectWork, lockWorktree, unlockWorktree, worktreeRemove } from "./git.ts";
+import { removeRecord, touchRecord } from "./registry.ts";
 import { applyWorktreeEnv, clearConfigCache, getActive, publishWorktree, setActive, setStatus } from "./runtime.ts";
 import { persistState, type WorktreeState } from "./state.ts";
 import { worktreeLabel } from "./status.ts";
@@ -83,14 +84,18 @@ export async function exitWorktree(
 	// removal discards, or commits not reachable from the recorded base.
 	if (remove && dirty.length > 0) keepBranch = true;
 	const branchHasWork = ahead > 0 || !state.baseCommit;
+	let removed = false;
 
 	if (remove) {
-		const removed = await worktreeRemove(pi, state.repoRoot, state.path, forceRemove);
-		if (!removed.ok) {
-			lines.push(`Kept the worktree: ${removed.error}`);
+		const outcome = await worktreeRemove(pi, state.repoRoot, state.path, forceRemove);
+		if (!outcome.ok) {
+			lines.push(`Kept the worktree: ${outcome.error}`);
 			// Re-lock so a concurrent prune cannot sweep a worktree we kept.
 			if (state.lockReason) await lockWorktree(pi, state.repoRoot, state.path, state.lockReason);
+			touchRecord(state.repoRoot, config, state.path);
 		} else {
+			removed = true;
+			removeRecord(state.repoRoot, config, state.path);
 			lines.push(`Removed worktree ${state.path}`);
 			if (state.branch) {
 				if (keepBranch) {
@@ -108,8 +113,9 @@ export async function exitWorktree(
 	} else {
 		lines.push(`Kept worktree ${state.path}`);
 		if (state.branch) lines.push(`Re-enter with worktree_enter (path: ${state.path})`);
+		touchRecord(state.repoRoot, config, state.path);
 	}
 
 	ctx.ui.notify(`Exited worktree ${worktreeLabel(state)}`, "info");
-	return { state, removed: remove, output: lines.join("\n") };
+	return { state, removed, output: lines.join("\n") };
 }

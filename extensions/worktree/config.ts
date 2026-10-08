@@ -82,8 +82,8 @@ function merge(base: WorktreeConfig, next: Partial<WorktreeConfig> | undefined):
 }
 
 /** Load the effective config for a repository root. */
-export function loadConfig(repoRoot: string): WorktreeConfig {
-	let config = merge(DEFAULT_CONFIG, readJson(join(getAgentDir(), "worktree.json")));
+export function loadConfig(repoRoot: string, agentDir: string = getAgentDir()): WorktreeConfig {
+	let config = merge(DEFAULT_CONFIG, readJson(join(agentDir, "worktree.json")));
 	config = merge(config, readJson(join(repoRoot, CONFIG_DIR_NAME, "worktree.json")));
 	return config;
 }

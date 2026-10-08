@@ -140,7 +140,27 @@ function splitSegments(command: string): string[] {
 		if (ch === "'" || ch === '"') {
 			quote = ch;
 			current += ch;
-		} else if (ch === ";" || ch === "&" || ch === "|" || ch === "\n") {
+		} else if (ch === ";" || ch === "\n") {
+			segments.push(current);
+			current = "";
+		} else if (ch === "&") {
+			const prev = command[i - 1];
+			const next = command[i + 1];
+			if (next === "&") {
+				// `&&` is a command separator.
+				segments.push(current);
+				current = "";
+				i++;
+			} else if (prev === ">" || prev === "<" || next === ">") {
+				// `>&`, `<&`, `&>`: redirection, not a separator.
+				current += ch;
+			} else {
+				// Background job `&`.
+				segments.push(current);
+				current = "";
+			}
+		} else if (ch === "|") {
+			if (command[i + 1] === "&") i++; // `|&` is still a pipe separator.
 			segments.push(current);
 			current = "";
 		} else {
@@ -318,9 +338,21 @@ function redirectionTargets(segment: string): Redirect[] {
 			i += 2;
 			continue;
 		}
-		if (two === "<<" || two === ">&" || two === "<&") {
-			// Heredoc delimiter or file-descriptor duplication: not a path.
+		if (two === "<<") {
+			// Heredoc delimiter: not a path.
 			i += 1;
+			continue;
+		}
+		if (two === ">&" || two === "<&") {
+			// File-descriptor duplication (`2>&1`, `>&-`) is not a path, but bash
+			// treats `>&file` as `&>file` (stdout+stderr to a file).
+			const operand = readShellWord(segment, i + 2);
+			if (operand.raw === "" || /^\d+$/.test(operand.raw) || operand.raw === "-") {
+				i += 1;
+				continue;
+			}
+			redirects.push({ target: operand.raw, write: ch === ">" });
+			i = operand.end - 1;
 			continue;
 		}
 		// `>`, `>>`, `>|`, `<`, `<>`: the next word is a path.
@@ -349,14 +381,39 @@ function redirectionEscapes(root: string, command: string, config: WorktreeConfi
 	return undefined;
 }
 
+/** Commands that wrap another command, so a following assignment is still a prefix. */
+const COMMAND_WRAPPERS = new Set(["sudo", "doas", "env", "command", "builtin", "exec", "nohup", "nice", "time"]);
+
+function isAssignment(word: string): boolean {
+	return /^[A-Za-z_][A-Za-z0-9_]*=/.test(word);
+}
+
 /** A leading `GIT_DIR=`/`GIT_WORK_TREE=` assignment that points outside. */
 function envGitRedirect(root: string, words: ShellWord[]): string | undefined {
-	for (const word of words) {
+	for (let i = 0; i < words.length; i++) {
+		const word = words[i];
 		if (word.leadingQuoted) continue;
 		const match = word.text.match(/^(GIT_DIR|GIT_WORK_TREE)=(.+)$/);
-		if (match && pathEscapes(root, match[2])) {
+		if (!match) continue;
+		// Only a real command-prefix assignment counts: every preceding word must be
+		// another assignment, a wrapper, or a wrapper option, so `echo GIT_DIR=/x`
+		// is not a redirect.
+		const isPrefix = words
+			.slice(0, i)
+			.every((w) => isAssignment(w.text) || COMMAND_WRAPPERS.has(w.text) || w.text.startsWith("-"));
+		if (isPrefix && pathEscapes(root, match[2])) {
 			return `${match[1]}=${match[2]} redirects git outside the worktree.`;
 		}
+	}
+	return undefined;
+}
+
+/** `-c core.worktree=<dir>` moves the working tree, like `--work-tree`. */
+function gitConfigRedirect(root: string, flag: string, value: string | undefined): string | undefined {
+	if (!value) return undefined;
+	const match = value.match(/^core\.worktree=(.*)$/i);
+	if (match && pathEscapes(root, match[1])) {
+		return `${flag} core.worktree=${match[1]} redirects git outside the worktree.`;
 	}
 	return undefined;
 }
@@ -398,12 +455,18 @@ function gitRedirect(root: string, words: ShellWord[]): string | undefined {
 			}
 			continue;
 		}
-		if (
-			word.text === "-c" ||
-			word.text === "--namespace" ||
-			word.text === "--exec-path" ||
-			word.text === "--config-env"
-		) {
+		if (word.text === "-c" || word.text === "--config-env") {
+			const reason = gitConfigRedirect(root, word.text, words[i + 1]?.text);
+			if (reason) return reason;
+			i++;
+			continue;
+		}
+		if (word.text.startsWith("-c") && word.text.length > 2) {
+			const reason = gitConfigRedirect(root, "-c", word.text.slice(2));
+			if (reason) return reason;
+			continue;
+		}
+		if (word.text === "--namespace" || word.text === "--exec-path" || word.text.startsWith("--config-env=")) {
 			i++;
 			continue;
 		}
@@ -432,8 +495,24 @@ function cdRedirect(root: string, words: ShellWord[]): string | undefined {
 	const command = words[i]?.text.replace(/^[({]+/, "").replace(/\)+$/, "");
 	if (!command || !CD_LIKE.has(command)) return undefined;
 
-	const target = words[i + 1]?.text.replace(/\)+$/, "");
 	if (command === "popd") return "popd returns to a directory that may be outside the worktree.";
+
+	// Skip options (`cd -P`, `pushd -n`) and an optional end-of-options `--`, so
+	// the real target is checked instead of the option.
+	let j = i + 1;
+	while (j < words.length) {
+		const text = words[j].text.replace(/\)+$/, "");
+		if (text === "--") {
+			j++;
+			continue;
+		}
+		if (text.length > 1 && text.startsWith("-") && text[1] !== "-") {
+			j++;
+			continue;
+		}
+		break;
+	}
+	const target = words[j]?.text.replace(/\)+$/, "");
 	if (!target) {
 		return command === "pushd"
 			? "pushd with no target swaps directories without telling the guard where."

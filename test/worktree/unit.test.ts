@@ -203,6 +203,36 @@ describe("analyzeBashCommand", () => {
 		expect(analyzeBashCommand("pushd /main", ROOT, config())?.block).toBe(true);
 		expect(analyzeBashCommand("popd", ROOT, config())?.block).toBe(true);
 	});
+
+	test("blocks cd options and -- before the target", () => {
+		expect(analyzeBashCommand("cd -P /main", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("cd -L /main", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("cd -- /main", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("command cd -P /main", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("pushd -n /main", ROOT, config())?.block).toBe(true);
+		// In-worktree targets with the same option forms stay allowed.
+		expect(analyzeBashCommand("cd -P sub", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cd -- sub", ROOT, config())).toBeUndefined();
+	});
+
+	test("treats `>&file` as a file redirect but not `>&1` or `>&-`", () => {
+		expect(analyzeBashCommand("echo x >&/main/f", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("echo x >& /main/f", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("echo x >&2", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cmd 2>&1", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cmd >&-", ROOT, config())).toBeUndefined();
+	});
+
+	test("blocks `git -c core.worktree=`", () => {
+		expect(analyzeBashCommand("git -c core.worktree=/main status", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("git -c core.worktree=sub status", ROOT, config())).toBeUndefined();
+	});
+
+	test("does not treat a GIT_DIR argument as a redirect", () => {
+		expect(analyzeBashCommand("echo GIT_DIR=/etc/hosts", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("env GIT_DIR=/main/.git git status", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("env -i GIT_DIR=/main/.git git status", ROOT, config())?.block).toBe(true);
+	});
 });
 
 describe("symlink-safe containment", () => {

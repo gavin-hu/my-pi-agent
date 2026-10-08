@@ -1,5 +1,5 @@
 // Real-runtime smoke test: load the package through the real Pi loader and
-// drive worktree_enter/status/exit without a model call.
+// drive worktree_enter/worktree_status/worktree_exit without a model call.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -95,7 +95,12 @@ for (const name of ROOT_TOOL_NAMES) {
 		`override ${name} is sourced from the extension entry`,
 		!!info?.sourceInfo?.path && canonicalize(info.sourceInfo.path) === entry,
 	);
+	// The override must keep the built-in renderers (and edit's arg normalizer),
+	// otherwise the TUI loses diffs/highlighting and some models' edits break.
+	const def = tool(name) as { renderCall?: unknown; renderResult?: unknown; prepareArguments?: unknown };
+	check(`override ${name} keeps renderCall/renderResult`, !!def.renderCall && !!def.renderResult);
 }
+check("edit override keeps prepareArguments", !!tool("edit").prepareArguments);
 
 const entered = await call("worktree_enter", { name: "smoke" });
 const enterText = (entered.content[0] as { text: string }).text;

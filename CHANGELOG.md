@@ -6,8 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `worktree`: a disposable managed-worktree registry
+  (`.pi/worktrees/index.json`) recording provenance and last use, plus a
+  `statusOf()` view for derived dirty/ahead/behind/merged/locked state.
+  `worktree_status` shows the derived marks, and `/worktree prune` now ages
+  worktrees by last use instead of directory mtime.
+
 ### Changed
 
+- `worktree`: tool names are now verb-first, matching Claude Code's
+  `EnterWorktree`/`ExitWorktree`: `worktree_enter` → `worktree_enter`,
+  `worktree_exit` → `worktree_exit`, `worktree_prune` → `worktree_prune`,
+  `worktree_status` → `worktree_status`.
 - `rewind`: the `↺ N` status chip now counts every prompt on the active branch,
   matching the `/rewind` list size. Previously it counted only the prompts with
   a code snapshot, so it read lower than the menu whenever a prompt was
@@ -17,6 +29,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   entering it, so the toggle works in terminals that do not forward
   `Ctrl+Alt+P` (such as Zed's integrated terminal). `/plan <task>` still enters
   plan mode and runs the task.
+
+### Fixed
+
+- `worktree`: refuse a `name` that resolves outside the managed worktree
+  directory (an absolute or `..`-containing name could place the checkout
+  anywhere).
+- `worktree`: the built-in tool overrides keep the built-in renderers
+  (`renderCall`/`renderResult`) and `edit`'s `prepareArguments`, so the TUI
+  keeps diffs/highlighting and models that send `oldText`/`newText` still work.
+- `worktree`: the bash guard now catches `cd -P`/`cd --`/`pushd -n` option
+  forms, `>&file` redirects, and `git -c core.worktree=`; it no longer mistakes
+  a `GIT_DIR=` argument (for example `echo GIT_DIR=/x`) for a redirect.
+- `worktree`: `worktree_exit` reports `removed` from the actual removal, not
+  the decision, and its error message no longer suggests an unsupported
+  switch-by-path.
 
 ## [0.3.0] - 2026-10-08
 

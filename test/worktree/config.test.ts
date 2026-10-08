@@ -1,24 +1,19 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_CONFIG, loadConfig } from "../../extensions/worktree/config.ts";
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-
-afterEach(() => {
-	if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-	else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
-});
-
+// Pass the agent dir explicitly so these tests never depend on
+// `PI_CODING_AGENT_DIR` (other suites mock the host package, and that mock is
+// process-global).
 function tempDir(prefix: string): string {
 	return mkdtempSync(join(tmpdir(), prefix));
 }
 
 describe("loadConfig", () => {
 	test("returns the defaults when no files exist", () => {
-		process.env.PI_CODING_AGENT_DIR = tempDir("worktree-global-");
-		expect(loadConfig(tempDir("worktree-repo-"))).toEqual(DEFAULT_CONFIG);
+		expect(loadConfig(tempDir("worktree-repo-"), tempDir("worktree-global-"))).toEqual(DEFAULT_CONFIG);
 	});
 
 	test("merges the global file then the project file, with project winning", () => {
@@ -33,9 +28,8 @@ describe("loadConfig", () => {
 			join(repo, ".pi", "worktree.json"),
 			JSON.stringify({ branchPrefix: "wt-", guard: { blockGitRedirects: false } }),
 		);
-		process.env.PI_CODING_AGENT_DIR = globalDir;
 
-		const config = loadConfig(repo);
+		const config = loadConfig(repo, globalDir);
 		expect(config.baseRef).toBe("head");
 		expect(config.pruneAfterDays).toBe(30);
 		expect(config.branchPrefix).toBe("wt-");
@@ -51,9 +45,8 @@ describe("loadConfig", () => {
 		mkdirSync(join(repo, ".pi"), { recursive: true });
 		writeFileSync(join(globalDir, "worktree.json"), JSON.stringify({ include: ["a", "b"], skipOverrides: ["bash"] }));
 		writeFileSync(join(repo, ".pi", "worktree.json"), JSON.stringify({ include: ["c"] }));
-		process.env.PI_CODING_AGENT_DIR = globalDir;
 
-		const config = loadConfig(repo);
+		const config = loadConfig(repo, globalDir);
 		expect(config.include).toEqual(["c"]);
 		expect(config.skipOverrides).toEqual(["bash"]);
 	});
@@ -64,8 +57,7 @@ describe("loadConfig", () => {
 		mkdirSync(join(repo, ".pi"), { recursive: true });
 		writeFileSync(join(globalDir, "worktree.json"), "{ not json");
 		writeFileSync(join(repo, ".pi", "worktree.json"), "{ also not json");
-		process.env.PI_CODING_AGENT_DIR = globalDir;
 
-		expect(loadConfig(repo)).toEqual(DEFAULT_CONFIG);
+		expect(loadConfig(repo, globalDir)).toEqual(DEFAULT_CONFIG);
 	});
 });

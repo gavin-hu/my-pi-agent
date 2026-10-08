@@ -29,6 +29,7 @@ import {
 } from "./git.ts";
 import { isInside } from "./guard.ts";
 import { copyIncludes, includePatterns } from "./include.ts";
+import { upsertRecord } from "./registry.ts";
 import {
 	applyWorktreeEnv,
 	clearConfigCache,
@@ -106,8 +107,7 @@ export async function enterWorktree(
 	}
 	if (current) {
 		throw new Error(
-			`Already working in a worktree (${worktreeLabel(current)}). ` +
-				`Call worktree_exit first, or use worktree_enter with "path" to switch managed worktrees.`,
+			`Already working in a worktree (${worktreeLabel(current)}). Call worktree_exit before entering another.`,
 		);
 	}
 
@@ -153,6 +153,15 @@ export async function enterWorktree(
 		if (prRef) name = `pr-${prRef.number}`;
 		if (!name) name = generateName();
 		target = worktreePath(root, config, name);
+		// `name` becomes both a directory and a branch, so an absolute name or one
+		// with `..` can otherwise place the worktree outside the managed root.
+		const managedRoot = canonicalize(resolve(root, config.dir));
+		if (!isInside(managedRoot, target)) {
+			throw new Error(
+				`Refusing to create a worktree outside ${managedRoot}: ${target}. ` +
+					`Use a name relative to the managed directory.`,
+			);
+		}
 		branch = `${config.branchPrefix}${name}`;
 	}
 
@@ -236,6 +245,22 @@ export async function enterWorktree(
 	setActive(state);
 	setBaseCwd(ctx.cwd);
 	persistState((customType, data) => pi.appendEntry(customType, data), state);
+	// Best-effort provenance for management (list/prune/switch); never blocks enter.
+	try {
+		upsertRecord(root, config, {
+			path: target,
+			name: state.name,
+			branch,
+			repoRoot: root,
+			base: { ref: baseRef, commit: baseCommit, mode: baseRefMode },
+			createdAt: Date.now(),
+			lastUsedAt: Date.now(),
+			pr: prRef ? { number: prRef.number, host: prRef.host } : undefined,
+			createdByUs,
+		});
+	} catch {
+		// The registry is a cache; entering must still succeed.
+	}
 	applyWorktreeEnv(state);
 	publishWorktree(pi, state);
 	setStatus(ctx, `${GLYPHS.worktree} ${worktreeLabel(state)}`);

@@ -252,6 +252,20 @@ export async function commitsAhead(pi: ExtensionAPI, dir: string, base: string):
 	return Number.isFinite(count) ? count : 0;
 }
 
+/** Count of commits reachable from `base` but not from HEAD. */
+export async function commitsBehind(pi: ExtensionAPI, dir: string, base: string): Promise<number> {
+	const result = await git(pi, ["rev-list", "--count", `HEAD..${base}`], dir);
+	if (result.code !== 0) return 0;
+	const count = Number.parseInt(result.stdout.trim(), 10);
+	return Number.isFinite(count) ? count : 0;
+}
+
+/** Whether `branch` is fully contained in `ref` (already merged). */
+export async function isBranchMerged(pi: ExtensionAPI, dir: string, branch: string, ref: string): Promise<boolean> {
+	const result = await git(pi, ["merge-base", "--is-ancestor", branch, ref], dir);
+	return result.code === 0;
+}
+
 /** Merge base of `ref` and HEAD, used as the fork point of a reopened worktree. */
 export async function mergeBase(pi: ExtensionAPI, dir: string, ref: string): Promise<string | undefined> {
 	const result = await git(pi, ["merge-base", ref, "HEAD"], dir);
@@ -397,4 +411,16 @@ export function isProcessAlive(pid: number): boolean {
 	} catch (error) {
 		return (error as NodeJS.ErrnoException).code === "EPERM";
 	}
+}
+
+/** Owning pid from a `pi:<pid>:<session>` lock reason, when present. */
+export function lockOwnerPid(reason: string): number | undefined {
+	const match = reason.match(/^pi:(\d+):/);
+	return match ? Number.parseInt(match[1], 10) : undefined;
+}
+
+/** Whether a lock reason names a `pi` process that is no longer alive. */
+export function isStaleLock(reason: string): boolean {
+	const pid = lockOwnerPid(reason);
+	return pid !== undefined && !isProcessAlive(pid);
 }
