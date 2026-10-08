@@ -16,7 +16,7 @@
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
-import { TOOL_NAME as TODO_TOOL } from "../todo/tools.ts";
+import { TODO_TOOL } from "../_shared/tool-names.ts";
 import { FULL_SCREEN_OVERLAY } from "../_shared/tui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";

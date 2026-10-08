@@ -16,13 +16,13 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { TODO_TOOL as todo } from "../extensions/_shared/tool-names.ts";
 import { TOOL_NAME as askUserQuestion } from "../extensions/ask-user-question/tools.ts";
 import { TOOL_NAME as git } from "../extensions/git/index.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/jobs/tools.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan-mode/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
-import { TOOL_NAME as todo } from "../extensions/todo/tools.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-fetch/index.ts";
 import { TOOL_NAME as webSearch } from "../extensions/web-search/index.ts";
 import { WORKTREE_TOOLS } from "../extensions/worktree/tools.ts";

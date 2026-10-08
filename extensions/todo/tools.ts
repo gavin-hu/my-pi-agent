@@ -9,12 +9,13 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { TODO_TOOL } from "../_shared/tool-names.ts";
 import { compareByActivity, formatCallText, formatTodoText, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, type TodoArgs } from "./schema.ts";
 import type { TodoDetails } from "./types.ts";
 
-export const TOOL_NAME = "todo";
+export const TOOL_NAME = TODO_TOOL;
 
 /** Rows shown in an unexpanded transcript result before collapsing. */
 const COLLAPSED_ROWS = 6;
