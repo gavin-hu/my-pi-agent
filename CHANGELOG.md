@@ -4,6 +4,17 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `goal`, `todo`, and `jobs` share one rail family: label-first one-line
+  widgets pinned in a stable `goal` → `todo` → `jobs` order, hidden while a dock
+  screen (`/todos`, `/jobs`, `/plans`, `/rewind`) is open.
+- Internal cleanup: git plumbing, worktree-root resolution, JSON narrowing, and
+  the jobs record mapping moved to `_shared/` modules; duplicated and unused
+  exports removed; `git` and `worktree` gained `DESIGN.md`.
+
 ## [0.2.0] - 2026-10-08
 
 ### Added
