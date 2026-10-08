@@ -97,25 +97,18 @@ async function browsePlan(ctx: ExtensionCommandContext, plan: StoredPlan): Promi
 	);
 }
 
-/** Pick a plan from the browser or a select; undefined closes the menu. */
+/** Pick a plan from the TUI browser; undefined closes the menu. */
 async function choosePlan(ctx: ExtensionCommandContext, plans: PlanSummary[]): Promise<PlanListAction | undefined> {
 	if (plans.length === 0) return undefined;
-	if (ctx.mode === "tui") {
-		return ctx.ui.custom<PlanListAction | undefined>((tui, theme, _keybindings, done) =>
-			new PlanListComponent({
-				plans,
-				theme,
-				onClose: (action) => done(action),
-				requestRender: () => tui.requestRender(),
-				viewportRows: () => tui.terminal?.rows,
-			}),
-		);
-	}
-	if (!ctx.hasUI || plans.length === 1) return { action: "view", plan: plans[0] };
-	const labels = plans.map((plan) => `${plan.title} · ${plan.steps} steps`);
-	const chosen = await ctx.ui.select("Open which plan?", labels);
-	if (!chosen) return undefined;
-	return { action: "view", plan: plans[labels.indexOf(chosen)] };
+	return ctx.ui.custom<PlanListAction | undefined>((tui, theme, _keybindings, done) =>
+		new PlanListComponent({
+			plans,
+			theme,
+			onClose: (action) => done(action),
+			requestRender: () => tui.requestRender(),
+			viewportRows: () => tui.terminal?.rows,
+		}),
+	);
 }
 
 /** Confirm and hand a saved plan back to the model to execute (normal mode). */
@@ -136,7 +129,7 @@ async function usePlan(pi: ExtensionAPI, ctx: ExtensionCommandContext, plan: Pla
 	else await pi.sendUserMessage(message, { deliverAs: "followUp" });
 }
 
-/** The interactive browser behind `/plan list`. View and delete keep it open; use closes it. */
+/** The TUI browser behind `/plan list`. View and delete keep it open; use closes it. */
 async function openPlansMenu(pi: ExtensionAPI, runtime: PlanRuntime, ctx: ExtensionCommandContext): Promise<void> {
 	for (;;) {
 		const plans = await runtime.plans.list(ctx.cwd);
