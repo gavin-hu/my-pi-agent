@@ -1,5 +1,5 @@
 /**
- * Shared helpers for the pi-worktree test suite.
+ * Shared helpers for the worktree test suite.
  *
  * The git primitives (`execP`, `makeRepo`, `makeRepoWithRemote`, `cleanup`)
  * live in `test/helpers/git.ts` and are re-exported here so existing imports

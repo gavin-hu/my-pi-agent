@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { realpathSync } from "node:fs";
-import { DEFAULT_CONFIG, type ServeConfig } from "../../extensions/serve/config.ts";
-import { handleRequest, type ServeContext, type ServeResponse } from "../../extensions/serve/router.ts";
+import { DEFAULT_CONFIG, type ServeConfig } from "../../extensions/file-browser/config.ts";
+import { handleRequest, type ServeContext, type ServeResponse } from "../../extensions/file-browser/router.ts";
 import { makeFixture, type Fixture } from "./helpers.ts";
 
 let fixture: Fixture | undefined;

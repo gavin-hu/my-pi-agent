@@ -1,12 +1,12 @@
 /**
- * serve — view the working directory in a browser.
+ * file-browser — view the working directory in a browser.
  *
  * Registers the read-only `/serve` command. It starts a `node:http` server
  * bound to 127.0.0.1, rooted at the effective cwd, and opens the default
  * browser at a two-pane tree browser. No tool is registered; the server is
  * closed on `session_shutdown`.
  *
- * Load with:  pi --extension ./extensions/serve
+ * Load with:  pi --extension ./extensions/file-browser
  */
 
 import { stat } from "node:fs/promises";
@@ -17,7 +17,7 @@ import { openInBrowser } from "./open.ts";
 import { HttpError, resolveRequestPath } from "./paths.ts";
 import { createFileServer, type FileServer } from "./server.ts";
 
-export interface ServeDeps {
+export interface FileBrowserDeps {
 	/** Override the server factory (tests). */
 	createServer?: typeof createFileServer;
 	/** Override the browser opener (tests). */
@@ -29,7 +29,7 @@ interface RunningServer {
 	root: string;
 }
 
-export default function serve(pi: ExtensionAPI, deps: ServeDeps = {}): void {
+export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
 	let running: RunningServer | undefined;
 
 	const stop = async (): Promise<boolean> => {
@@ -79,7 +79,7 @@ export default function serve(pi: ExtensionAPI, deps: ServeDeps = {}): void {
 		} catch (error) {
 			const code = (error as NodeJS.ErrnoException | undefined)?.code;
 			if (code === "EADDRINUSE") {
-				ctx.ui.notify(`serve: port ${config.port} is in use; set "port": 0 in serve.json`, "error");
+				ctx.ui.notify(`serve: port ${config.port} is in use; set "port": 0 in file-browser.json`, "error");
 			} else {
 				ctx.ui.notify(`serve: ${error instanceof Error ? error.message : String(error)}`, "error");
 			}

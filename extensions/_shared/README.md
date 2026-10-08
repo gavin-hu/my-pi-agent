@@ -1,4 +1,4 @@
-# `_shared` — shared extension helpers
+# _shared — shared extension helpers
 
 Small modules imported by two or more extensions. Pi loads each extension with
 an **isolated module cache**, so these are *value-only* libraries: pure

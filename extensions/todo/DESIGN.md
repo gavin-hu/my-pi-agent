@@ -5,7 +5,7 @@ Status: **implemented** (see [`README.md`](./README.md)).
 ## Goal
 
 Give the model a first-class task list, modelled on Claude Code's `TodoWrite`,
-the same symmetry `pi-worktree` and `ask-user-question` have with their Claude
+the same symmetry `worktree` and `ask-user-question` have with their Claude
 Code counterparts. Pi ships a single-file `todo.ts` example but no reviewed,
 tested, packaged implementation.
 

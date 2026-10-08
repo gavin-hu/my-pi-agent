@@ -1,8 +1,9 @@
 /**
  * Configuration for the serve extension.
  *
- * Merged from ~/.pi/agent/serve.json (global) and <cwd>/.pi/serve.json
- * (project). Project values win. Everything is validated and clamped so a typo
+ * Merged from ~/.pi/agent/file-browser.json (global) and
+ * <cwd>/.pi/file-browser.json (project). Project values win. Everything is
+ * validated and clamped so a typo
  * cannot produce a nonsensical server.
  */
 
@@ -62,5 +63,5 @@ export function normalizeConfig(
 
 /** Load the effective config for a working directory. */
 export function loadConfig(cwd: string): ServeConfig {
-	return loadConfigFile(cwd, "serve.json", DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigFile(cwd, "file-browser.json", DEFAULT_CONFIG, normalizeConfig);
 }

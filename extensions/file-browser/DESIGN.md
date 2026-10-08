@@ -1,4 +1,4 @@
-# `serve` — Design
+# `file-browser` — Design
 
 Status: **implemented** (see [`README.md`](./README.md)).
 
@@ -82,7 +82,7 @@ ordinary links. The palette follows `nocturne-dark`/`nocturne-light` via
 
 ## Testing
 
-`test/serve/` covers the path guard (traversal, encoded, NUL, malformed,
+`test/file-browser/` covers the path guard (traversal, encoded, NUL, malformed,
 absolute, symlink escape and in-root symlink), file classification/listings/
 reads/tree, the icon mapping and sprite, HTML escaping/encoding/rendering, the
 client script and its serving, the platform browser commands with an injected

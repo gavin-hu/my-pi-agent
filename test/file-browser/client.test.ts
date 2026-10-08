@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { CLIENT_JS } from "../../extensions/serve/client.ts";
-import { DEFAULT_CONFIG } from "../../extensions/serve/config.ts";
-import { handleRequest } from "../../extensions/serve/router.ts";
+import { CLIENT_JS } from "../../extensions/file-browser/client.ts";
+import { DEFAULT_CONFIG } from "../../extensions/file-browser/config.ts";
+import { handleRequest } from "../../extensions/file-browser/router.ts";
 import { makeFixture, type Fixture } from "./helpers.ts";
 
 let fixture: Fixture | undefined;

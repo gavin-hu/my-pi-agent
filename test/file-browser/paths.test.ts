@@ -6,7 +6,7 @@ import {
 	relativePath,
 	resolveDecodedPath,
 	resolveRequestPath,
-} from "../../extensions/serve/paths.ts";
+} from "../../extensions/file-browser/paths.ts";
 import { makeFixture, type Fixture } from "./helpers.ts";
 
 let fixture: Fixture | undefined;

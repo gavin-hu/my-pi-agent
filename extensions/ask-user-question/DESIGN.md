@@ -7,7 +7,7 @@ are resolved as noted.
 
 Give the model a first-class way to ask the human one or more *structured*
 questions mid-turn and get typed answers back, modelled on Claude Code's
-`AskUserQuestion` tool — the same symmetry `pi-worktree` has with
+`AskUserQuestion` tool — the same symmetry `worktree` has with
 `EnterWorktree`.
 
 Today the model either asks in prose (a full turn is spent, and answers are

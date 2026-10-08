@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import serve from "../../extensions/serve/index.ts";
-import type { FileServer } from "../../extensions/serve/server.ts";
+import fileBrowser from "../../extensions/file-browser/index.ts";
+import type { FileServer } from "../../extensions/file-browser/server.ts";
 import { createFakePi, fakeCtx, makeFixture, runCommand, type Fixture } from "./helpers.ts";
 import { emit } from "../helpers/fakes.ts";
 
@@ -23,16 +23,16 @@ function fakeServer(root: string): FileServer {
 	return { url: "http://127.0.0.1:4321/", port: 4321, root, close: async () => {} };
 }
 
-describe("serve extension", () => {
+describe("file-browser extension", () => {
 	test("registers the /serve command", () => {
 		const { pi, commands } = createFakePi();
-		serve(pi);
+		fileBrowser(pi);
 		expect(commands.has("serve")).toBe(true);
 	});
 
 	test("reports not running before a start", async () => {
 		const { pi } = createFakePi();
-		serve(pi);
+		fileBrowser(pi);
 		const { ctx, notifications } = fakeCtx("/tmp/repo");
 
 		await runCommand(pi, "serve", "status", ctx);
@@ -50,7 +50,7 @@ describe("serve extension", () => {
 				closes++;
 			},
 		};
-		serve(pi, { createServer: (async () => started) as any, open: (url) => opened.push(url) });
+		fileBrowser(pi, { createServer: (async () => started) as any, open: (url) => opened.push(url) });
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
 		await runCommand(pi, "serve", "", ctx);
@@ -69,7 +69,7 @@ describe("serve extension", () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
 		let closes = 0;
-		serve(pi, {
+		fileBrowser(pi, {
 			createServer: (async () => ({
 				...fakeServer(fixture!.root),
 				close: async () => {
@@ -87,7 +87,7 @@ describe("serve extension", () => {
 	test("reports a port conflict with a hint", async () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
-		serve(pi, {
+		fileBrowser(pi, {
 			createServer: (async () => {
 				const error = new Error("in use") as NodeJS.ErrnoException;
 				error.code = "EADDRINUSE";
@@ -104,7 +104,7 @@ describe("serve extension", () => {
 	test("refuses a subpath that is not a folder", async () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
-		serve(pi, { createServer: (async () => fakeServer(fixture!.root)) as any });
+		fileBrowser(pi, { createServer: (async () => fakeServer(fixture!.root)) as any });
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
 		await runCommand(pi, "serve", "a.txt", ctx);

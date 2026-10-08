@@ -1,5 +1,5 @@
 /**
- * pi-worktree — Isolated git worktrees (EnterWorktree / ExitWorktree) for Pi.
+ * worktree — Isolated git worktrees (EnterWorktree / ExitWorktree) for Pi.
  *
  * Mimics Claude Code's worktree isolation:
  *   - `enter_worktree` creates (or enters) an isolated `git worktree` under

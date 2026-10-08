@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { Listing, TreeNode } from "../../extensions/serve/files.ts";
+import type { Listing, TreeNode } from "../../extensions/file-browser/files.ts";
 import {
 	encodePath,
 	escapeHtml,
@@ -7,7 +7,7 @@ import {
 	renderBreadcrumbs,
 	renderDirectoryPage,
 	renderFilePage,
-} from "../../extensions/serve/html.ts";
+} from "../../extensions/file-browser/html.ts";
 import { makeFixture, type Fixture } from "./helpers.ts";
 
 let fixture: Fixture | undefined;

@@ -21,7 +21,7 @@ const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const jobsExtensionPath = join(repo, "extensions", "jobs", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
-const serveExtensionPath = join(repo, "extensions", "serve", "index.ts");
+const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
@@ -56,7 +56,7 @@ const loader = new DefaultResourceLoader({
 		jobsExtensionPath,
 		webSearchExtensionPath,
 		webFetchExtensionPath,
-		serveExtensionPath,
+		fileBrowserExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
 	],

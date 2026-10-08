@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { DEFAULT_CONFIG } from "../../extensions/serve/config.ts";
-import { createFileServer, type FileServer } from "../../extensions/serve/server.ts";
+import { DEFAULT_CONFIG } from "../../extensions/file-browser/config.ts";
+import { createFileServer, type FileServer } from "../../extensions/file-browser/server.ts";
 import { makeFixture, type Fixture } from "./helpers.ts";
 
 let fixture: Fixture | undefined;

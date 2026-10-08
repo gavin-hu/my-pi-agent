@@ -8,7 +8,7 @@ import {
 	isProbablyText,
 	listDirectory,
 	readFileView,
-} from "../../extensions/serve/files.ts";
+} from "../../extensions/file-browser/files.ts";
 import { makeFixture, type Fixture } from "./helpers.ts";
 
 let fixture: Fixture | undefined;

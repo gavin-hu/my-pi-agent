@@ -22,7 +22,7 @@ only for the development tasks below.
 
 | Resource | Path | What it does |
 |---|---|---|
-| Extension | [`extensions/worktree/`](./extensions/worktree/) | `pi-worktree`: isolated `git worktree` workflow — `enter_worktree` / `exit_worktree` / `prune_worktrees` / `list_worktrees`, `/worktree*`, `--worktree <name>`. |
+| Extension | [`extensions/worktree/`](./extensions/worktree/) | `worktree`: isolated `git worktree` workflow — `enter_worktree` / `exit_worktree` / `prune_worktrees` / `list_worktrees`, `/worktree*`, `--worktree <name>`. |
 | Extension | [`extensions/ask-user-question/`](./extensions/ask-user-question/) | `ask_user_question`: ask the user one or more structured questions (labelled options + free-form “Other”) and wait for the answer. |
 | Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent one-line widget and `/todos`. |
 | Extension | [`extensions/goal/`](./extensions/goal/) | `goal`: a persistent session objective (`active`/`achieved`) kept in a one-line widget and restated before each turn; `/goal [text\|clear\|done]`. |
@@ -33,7 +33,7 @@ only for the development tasks below.
 | Extension | [`extensions/jobs/`](./extensions/jobs/) | `jobs`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸ N` running / `✗ N` failure chips) with sanitized log tails and shutdown/reconcile lifecycle. |
 | Extension | [`extensions/web-search/`](./extensions/web-search/) | `web_search`: keyless, fetch-only lookup — DuckDuckGo Instant Answers with a Wikipedia fallback (no general web results). |
 | Extension | [`extensions/web-fetch/`](./extensions/web-fetch/) | `web_fetch`: fetch a URL and return readable text (HTML→text, paging, SSRF guard); native `fetch`, no dependencies. |
-| Extension | [`extensions/serve/`](./extensions/serve/) | `serve`: `/serve` starts a read-only local HTTP server rooted at the working directory and opens a two-pane browser tree — listings, file views, image thumbnails, per-language icons, and a filter; `127.0.0.1` only, no dependencies. |
+| Extension | [`extensions/file-browser/`](./extensions/file-browser/) | `file-browser`: `/serve` starts a read-only local HTTP server rooted at the working directory and opens a two-pane browser tree — listings, file views, image thumbnails, per-language icons, and a filter; `127.0.0.1` only, no dependencies. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + git state, then context gauge + usage + mode/alert + model + thinking level; width-adaptive, `/status-bar` toggles it. |
 | Extension | [`extensions/turn-separator/`](./extensions/turn-separator/) | `turn-separator`: a labeled dashed line between completed turns — `agent_settled` appends an inert custom entry that an entry renderer draws as `╌╌╌ turn N ╌╌╌`; width-adaptive, TTY-only. |
 | Theme | [`themes/nocturne-dark.json`](./themes/nocturne-dark.json) | `nocturne-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |

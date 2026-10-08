@@ -8,7 +8,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `serve`: a read-only `/serve` command that starts a local HTTP server rooted
+- `file-browser`: a read-only `/serve` command that starts a local HTTP server rooted
   at the effective working directory and opens the default browser. The page is
   a two-pane tree browser — a collapsible path tree, directory listings, and
   file pages (text with a line-number gutter, images, binary/download cards) —

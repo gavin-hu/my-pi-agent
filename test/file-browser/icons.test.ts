@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { FOLDER_ICON, iconHref, languageOf, SPRITE } from "../../extensions/serve/icons.ts";
+import { FOLDER_ICON, iconHref, languageOf, SPRITE } from "../../extensions/file-browser/icons.ts";
 
 describe("languageOf", () => {
 	test("maps languages, docs, config, archives, and images", () => {

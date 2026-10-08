@@ -1,4 +1,4 @@
-# pi-worktree — EnterWorktree / ExitWorktree for Pi
+# worktree — EnterWorktree / ExitWorktree for Pi
 
 An isolated `git worktree` workflow for Pi, modelled on Claude Code's
 `EnterWorktree` / `ExitWorktree` tools.

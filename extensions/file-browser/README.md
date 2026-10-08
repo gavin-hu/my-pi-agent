@@ -1,4 +1,4 @@
-# `serve` — view the working directory in a browser
+# file-browser — view the working directory in a browser
 
 `/serve` starts a **read-only** HTTP server rooted at the effective working
 directory, opens the default browser at it, and prints the URL. The page is a
@@ -35,7 +35,8 @@ vanilla script.
 
 ## Configuration
 
-`~/.pi/agent/serve.json` merged with `<cwd>/.pi/serve.json` (project wins):
+`~/.pi/agent/file-browser.json` merged with `<cwd>/.pi/file-browser.json`
+(project wins):
 
 ```jsonc
 {
