@@ -5,9 +5,9 @@
  * (project). Project values win.
  */
 
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { readJson } from "../_shared/config.ts";
 
 export interface WorktreeGuardConfig {
 	/** Block write/edit whose resolved path leaves the active worktree. Default: true */
@@ -60,16 +60,6 @@ export const DEFAULT_CONFIG: WorktreeConfig = {
 	},
 };
 
-function readJson(path: string): Partial<WorktreeConfig> | undefined {
-	try {
-		if (!existsSync(path)) return undefined;
-		const parsed = JSON.parse(readFileSync(path, "utf-8"));
-		return parsed && typeof parsed === "object" ? (parsed as Partial<WorktreeConfig>) : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
 function merge(base: WorktreeConfig, next: Partial<WorktreeConfig> | undefined): WorktreeConfig {
 	if (!next) return base;
 	return {
@@ -83,7 +73,7 @@ function merge(base: WorktreeConfig, next: Partial<WorktreeConfig> | undefined):
 
 /** Load the effective config for a repository root. */
 export function loadConfig(repoRoot: string, agentDir: string = getAgentDir()): WorktreeConfig {
-	let config = merge(DEFAULT_CONFIG, readJson(join(agentDir, "worktree.json")));
-	config = merge(config, readJson(join(repoRoot, CONFIG_DIR_NAME, "worktree.json")));
+	let config = merge(DEFAULT_CONFIG, readJson(join(agentDir, "worktree.json")) as Partial<WorktreeConfig>);
+	config = merge(config, readJson(join(repoRoot, CONFIG_DIR_NAME, "worktree.json")) as Partial<WorktreeConfig>);
 	return config;
 }

@@ -27,7 +27,7 @@ import {
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createExecRunner, repoRoot as gitRepoRoot } from "../_shared/git.ts";
+import { repoRootFor } from "../_shared/git.ts";
 import { extractPlanSteps } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
@@ -189,13 +189,8 @@ function uniquePath(dir: string, base: string): string {
 
 /** Repository (or worktree) root of `cwd`, or undefined outside a repository. */
 async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
-	const run = createExecRunner(pi);
-	try {
-		// Local `rev-parse` is fast; cap it so a stuck call cannot hang the tool.
-		return await gitRepoRoot((args, options) => run(args, { timeoutMs: 5_000, ...options }), cwd);
-	} catch {
-		return undefined;
-	}
+	// Local `rev-parse` is fast; cap it so a stuck call cannot hang the tool.
+	return repoRootFor(pi, cwd, 5_000);
 }
 
 export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } = {}): PlanStore {

@@ -12,7 +12,7 @@ import {
 	createExecRunner,
 	currentBranch as sharedCurrentBranch,
 	hasCommits as sharedHasCommits,
-	repoRoot as sharedRepoRoot,
+	repoRootFor,
 } from "../_shared/git.ts";
 import type { WorktreeConfig } from "./config.ts";
 
@@ -65,7 +65,7 @@ export function canonicalize(path: string): string {
 
 /** Absolute path of the repository root containing `cwd`, or undefined when not a git repo. */
 export async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
-	const root = await sharedRepoRoot(createExecRunner(pi), cwd);
+	const root = await repoRootFor(pi, cwd);
 	return root ? canonicalize(root) : undefined;
 }
 

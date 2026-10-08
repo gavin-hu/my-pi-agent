@@ -69,6 +69,24 @@ export async function repoRoot(runGit: RunGit, cwd: string): Promise<string | un
 	return root || undefined;
 }
 
+/**
+ * Repository root via a Pi `exec`, optionally capping each git call with
+ * `timeoutMs`. Never throws: a failed or stuck git call yields `undefined`.
+ */
+export async function repoRootFor(
+	pi: Pick<ExtensionAPI, "exec">,
+	cwd: string,
+	timeoutMs?: number,
+): Promise<string | undefined> {
+	const run = createExecRunner(pi);
+	const runGit: RunGit = timeoutMs === undefined ? run : (args, options) => run(args, { timeoutMs, ...options });
+	try {
+		return await repoRoot(runGit, cwd);
+	} catch {
+		return undefined;
+	}
+}
+
 /** Absolute path of the repository's git directory. */
 export async function gitDir(runGit: RunGit, cwd: string): Promise<string | undefined> {
 	const result = await runGit(["rev-parse", "--absolute-git-dir"], { cwd });
