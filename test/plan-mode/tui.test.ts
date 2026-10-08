@@ -74,11 +74,12 @@ describe("PlanReviewComponent — render", () => {
 	});
 
 	test("expands tabs and strips line-breaking control characters", () => {
-		const { component } = setup("a\tb\rcd");
+		const { component } = setup("a\tb\rcd\u009b");
 		const lines = render(component, 20);
 		for (const line of lines) {
 			expect(line).not.toContain("\t");
 			expect(line).not.toContain("\r");
+			expect(line).not.toContain("\u009b");
 			expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 		}
 		expect(lines.join("\n")).toContain("a    b cd");

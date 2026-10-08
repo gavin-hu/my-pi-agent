@@ -43,9 +43,9 @@ const CHROME_ROWS = 6;
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
 
-/** Replace control characters (including ESC) so model text cannot drive the terminal. */
+/** Replace control characters (including ESC and the C1 block) so model text cannot drive the terminal. */
 function sanitize(text: string): string {
-	return text.replace(/\t/g, " ".repeat(TAB_WIDTH)).replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, " ");
+	return text.replace(/\t/g, " ".repeat(TAB_WIDTH)).replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, " ");
 }
 
 /** Light markdown styling for one source line. */
@@ -91,6 +91,8 @@ export class PlanReviewComponent implements Component {
 	private maxOffset = 0;
 	/** Wrapped lines are expensive to build, so they are cached per width. */
 	private cache: { width: number; lines: BodyLine[] } | null = null;
+	/** Plan steps are content-derived and fixed per component, so count them once. */
+	private stepCount: number | undefined;
 	/** Source line (and wrap offset) the view starts at, so a resize keeps its place. */
 	private anchor: { source: number; within: number } | null = null;
 
@@ -98,6 +100,11 @@ export class PlanReviewComponent implements Component {
 
 	private get theme(): Theme {
 		return this.options.theme;
+	}
+
+	/** Number of plan steps, counted once. */
+	private planSteps(): number {
+		return (this.stepCount ??= extractPlanSteps(this.options.plan.content).length);
 	}
 
 	/** Styled, wrapped body lines for the given outer width. */
@@ -197,7 +204,7 @@ export class PlanReviewComponent implements Component {
 		const theme = this.theme;
 		const w = Math.max(1, width);
 		const plan = this.options.plan;
-		const steps = extractPlanSteps(plan.content).length;
+		const steps = this.planSteps();
 		const title = displayTitle(basename(plan.path));
 
 		const cachedWidth = this.cache?.width;

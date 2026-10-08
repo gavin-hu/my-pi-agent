@@ -7,6 +7,12 @@ import { READ_ONLY_SUMMARY } from "./policy.ts";
 import type { PlanRuntime } from "./runtime.ts";
 
 const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
+const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
+
+/** Notice text for the current mode; shared by `/plan` and the `Ctrl+Alt+P` shortcut. */
+export function planModeNotice(enabled: boolean): string {
+	return enabled ? ENABLED_NOTICE : DISABLED_NOTICE;
+}
 
 export function registerCommands(pi: ExtensionAPI, runtime: PlanRuntime): void {
 	pi.registerCommand("plan", {
@@ -17,10 +23,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			// `/plan` toggles; `/plan <prompt>` enters plan mode and sends the task.
 			if (!prompt) {
 				runtime.toggle(ctx);
-				ctx.ui.notify(
-					runtime.isEnabled() ? ENABLED_NOTICE : "Plan mode disabled — full access restored.",
-					"info",
-				);
+				ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
 				return;
 			}
 

@@ -17,7 +17,8 @@ pi install ./                            # install the package
   mutating tool call. A read-only prompt snapshots nothing.
 - Labels each snapshot with a short summary of the prompt, so the list reads as
   a task timeline instead of a wall of tool names.
-- `/checkpoint` opens a selectable menu: `Enter` restores (with a confirm and a
+- `/checkpoint` opens a selectable menu: `↑↓`/`j`/`k` or the mouse wheel move
+  the selection, `PgUp`/`PgDn` page, `Enter` restores (with a confirm and a
   diff preview), `d` shows the diff, `Esc` closes.
 - Restoring is undoable: by default it first saves a `pre-restore` checkpoint of
   the current state.

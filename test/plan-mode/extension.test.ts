@@ -230,3 +230,20 @@ describe("/plan command", () => {
 		expect(fakePi.sentMessages).toEqual([{ content: "refactor auth", options: undefined }]);
 	});
 });
+
+describe("Ctrl+Alt+P shortcut", () => {
+	test("toggles plan mode and notifies, like /plan", () => {
+		const fakePi = makeFakePi({ active: ["read", "bash", "write", "edit", ENTER_TOOL] });
+		planMode(fakePi.pi);
+		const { ctx, notifications } = fakeCtx();
+		const shortcut = [...fakePi.shortcuts.values()][0];
+
+		shortcut.handler(ctx);
+		expect(fakePi.activeTools()).not.toContain("write");
+		expect(notifications.at(-1)).toContain("Plan mode enabled");
+
+		shortcut.handler(ctx);
+		expect(fakePi.activeTools()).toContain("write");
+		expect(notifications.at(-1)).toContain("Plan mode disabled");
+	});
+});

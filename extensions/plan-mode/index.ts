@@ -19,7 +19,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
 import { hasPathInput } from "../_shared/path-guard.ts";
-import { registerCommands } from "./commands.ts";
+import { planModeNotice, registerCommands } from "./commands.ts";
 import { createPlanPolicy, BLOCKED_GUIDANCE, PLAN_SAFE_TOOLS, READ_ONLY_SUMMARY } from "./policy.ts";
 import { createPlanRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
@@ -75,7 +75,10 @@ export default function planMode(pi: ExtensionAPI): void {
 
 	pi.registerShortcut(Key.ctrlAlt("p"), {
 		description: "Toggle plan mode",
-		handler: (ctx) => runtime.toggle(ctx),
+		handler: (ctx) => {
+			runtime.toggle(ctx);
+			ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
+		},
 	});
 
 	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
