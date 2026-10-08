@@ -59,7 +59,7 @@ bun run test       # unit + integration tests (bun test --isolate)
 bun run typecheck  # tsc --noEmit
 bun run format     # biome format --write .
 bun run transpile  # bun build (--no-bundle) every extension
-bun run smoke      # real-runtime package load + worktree enter/status/exit (no model call)
+bun run smoke      # real-runtime package load + worktree enter/list/exit (no model call)
 bun run e2e:rewind # real SDK: command context → AgentSession.navigateTree + git restore
 bun run check      # format:check + typecheck + transpile + tests + smoke + e2e:rewind
 ```
@@ -75,6 +75,25 @@ Extensions are plain TypeScript loaded by Pi through `jiti`, so there is no
 build step to run an extension. `@earendil-works/pi-*` and `typebox` are
 `peerDependencies` supplied by the Pi host; they are installed as dev
 dependencies here only for typechecking and tests.
+
+## Tool naming
+
+Model-facing tools are lowercase `snake_case` and follow Claude Code's
+plan/worktree shape:
+
+- A singleton tool is named for its domain: `git`, `todo`, `goal`, `job`,
+  `subagent`.
+- A multi-word tool is verb-first: `enter_worktree`, `exit_worktree`,
+  `prune_worktrees`, `list_worktrees`, `enter_plan_mode`, `write_plan`,
+  `exit_plan_mode`, `ask_user_question`. The noun-first `web_search` and
+  `web_fetch` mirror Claude Code's `WebSearch`/`WebFetch`.
+- A name one tool calls through `ctx.executeTool()` lives in
+  [`extensions/_shared/tool-names.ts`](./extensions/_shared/tool-names.ts), never
+  as a cross-extension import (see [`extensions/_shared/README.md`](./extensions/_shared/README.md)).
+- [`test/naming.test.ts`](./test/naming.test.ts) enforces the shape, uniqueness,
+  verb-first ordering, and the reviewed set of names. Built-in overrides
+  (`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`) reuse the built-in names and
+  are excluded.
 
 ## Package conventions
 
