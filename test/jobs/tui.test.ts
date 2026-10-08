@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { JobListComponent, JobsWidget } from "../../extensions/jobs/tui.ts";
+import { JobListComponent } from "../../extensions/jobs/tui.ts";
 import type { JobRecord } from "../../extensions/jobs/types.ts";
 import { fakeTheme } from "../helpers/fakes.ts";
 
@@ -49,47 +49,6 @@ function makeComponent(
 	);
 	return { component, killed, clearedCount: () => cleared };
 }
-
-describe("JobsWidget", () => {
-	test("shows one running line under a rails header", () => {
-		const lines = new JobsWidget(() => [job()], fakeTheme).render(40);
-		expect(lines).toHaveLength(1);
-		expect(lines[0]).toContain("Jobs");
-		expect(lines[0]).toContain("1 running");
-	});
-
-	test("hides when nothing runs and no failure waits", () => {
-		const empty = new JobsWidget(() => [job({ status: "exited", exitCode: 0 })], fakeTheme);
-		expect(empty.render(40)).toEqual([]);
-	});
-
-	test("stays mounted for an unreported failure", () => {
-		const widget = new JobsWidget(() => [job({ status: "failed", exitCode: 1, pid: null, seen: false })], fakeTheme);
-		const lines = widget.render(40);
-		expect(lines).toHaveLength(1);
-		expect(lines[0]).toContain("1 failed");
-	});
-
-	test("reports both running and failed on the one line", () => {
-		const widget = new JobsWidget(
-			() => [job(), job({ id: "j2", status: "failed", exitCode: 2, pid: null, seen: false })],
-			fakeTheme,
-		);
-		const line = widget.render(40)[0];
-		expect(line).toContain("1 running");
-		expect(line).toContain("1 failed");
-	});
-
-	test("hides once the failure is seen", () => {
-		const widget = new JobsWidget(() => [job({ status: "failed", exitCode: 1, seen: true })], fakeTheme);
-		expect(widget.render(40)).toEqual([]);
-	});
-
-	test("fits a narrow width", () => {
-		const widget = new JobsWidget(() => [job({ label: "a very long label here" })], fakeTheme);
-		for (const line of widget.render(10)) expect(visibleWidth(line)).toBeLessThanOrEqual(10);
-	});
-});
 
 describe("JobListComponent", () => {
 	test("d asks for confirmation before killing the selected running job", () => {

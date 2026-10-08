@@ -15,7 +15,7 @@ lives in the caller's closure, not in this module.
 | [`http.ts`](./http.ts) | Native-`fetch` transport (`HttpRunner`, `createFetchRunner`, typed errors) used by fetch-only extensions; injectable for tests. |
 | [`path-guard.ts`](./path-guard.ts) | `hasPathInput`: detect path-like tool arguments so a caller can refuse to trust a tool's `readOnlyHint`. |
 | [`policy.ts`](./policy.ts) | `createReadOnlyPolicy`: default-deny tool classification from `readOnlyHint` + explicit allow/deny. |
-| [`rails.ts`](./rails.ts) | Above-editor widget ordering (`goal` → `todo` → `jobs`) and dock-screen suppression, carried on `pi.events`. |
+| [`rails.ts`](./rails.ts) | Above-editor widget ordering (`goal` → `todo`) and dock-screen suppression, carried on `pi.events`. |
 | [`tool-names.ts`](./tool-names.ts) | Tool names more than one extension must agree on, so an orchestrating `ctx.executeTool()` call breaks the build on a rename. |
 | [`tui.ts`](./tui.ts) | Screen chrome: `screenHeader`, `screenHint`, `viewportRows`, and `FULL_SCREEN_OVERLAY`. |
 | [`ui.ts`](./ui.ts) | Shared UI vocabulary: `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` (`ctx.ui.setStatus` keys). |

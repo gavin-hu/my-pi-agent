@@ -8,8 +8,8 @@ function setup() {
 	const h = makeHarness();
 	const { pi, tools, commands, handlers } = createFakePi();
 	jobs(pi, { runtime: h.runtime });
-	const { ctx, statuses } = makeCtx();
-	return { h, pi, tools, commands, handlers, ctx, statuses };
+	const { ctx, statuses, widgets } = makeCtx();
+	return { h, pi, tools, commands, handlers, ctx, statuses, widgets };
 }
 
 describe("jobs extension", () => {
@@ -137,13 +137,31 @@ describe("jobs extension", () => {
 		}
 	});
 
-	test("clears the chip and widget on shutdown", async () => {
+	test("does not mount an above-editor widget in a TUI session", () => {
+		const h = makeHarness();
+		try {
+			const { pi } = createFakePi();
+			jobs(pi, { runtime: h.runtime });
+			const { ctx, widgets } = makeCtx({ mode: "tui" });
+			h.runtime.load(ctx);
+			h.runtime.start({ command: "sleep 1" }, ctx);
+			expect(widgets.size).toBe(0);
+		} finally {
+			h.cleanup();
+		}
+	});
+
+	test("clears the status chips on shutdown", async () => {
 		const { h, pi, ctx, statuses } = setup();
 		try {
 			await emit(pi, "session_start", {}, ctx);
 			h.runtime.start({ command: "sleep 1" }, ctx);
+			h.children[0].close(1); // unreported failure
+			h.runtime.setStatus(ctx);
+			expect(statuses.get("jobs-failure")).toBe("✗ 1");
 			for (const handler of (pi.handlers.get("session_shutdown") ?? []) as AnyHandler[]) await handler({}, ctx);
 			expect(statuses.has("jobs")).toBe(false);
+			expect(statuses.has("jobs-failure")).toBe(false);
 		} finally {
 			h.cleanup();
 		}

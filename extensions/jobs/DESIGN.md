@@ -79,8 +79,8 @@ degrades to liveness.
 
 **Reattached jobs are polled.** A reattached detached job has no child handle,
 so its `close` event never fires. The repaint clock polls unowned running jobs
-and transitions them to `unknown` when their pid disappears, so the widget,
-chip, and `wait` stay honest.
+and transitions them to `unknown` when their pid disappears, so the status
+chip and `wait` stay honest.
 
 **Pure logic split from IO.** `format.ts` and the reconciliation in
 `registry.ts` are pure; `process.ts` and the runtime take injectable
@@ -89,55 +89,34 @@ temp registry, so the whole suite runs without launching a process.
 
 The runtime is composition, not a monolith: `store.ts` owns the durable
 registry (directory, id counter, session deletions, atomic merge-write),
-`logs.ts` reads bounded log tails, `ui.ts` owns the chip and widget, and
+`logs.ts` reads bounded log tails, `ui.ts` owns the status chips, and
 `waiters.ts` owns `wait` resolver bookkeeping. The live `Job` map stays in the
 runtime because process events mutate it (status, `owned` handle, `lastLine`),
 while the store holds only what survives a session.
 
 ### UI decisions
 
-**Width-1 glyphs.** The status chip is `▸N`/`✗N`, with no space, because the
-status bar compacts each status to its first whitespace token. `▸` and `✗` are
-single-column text glyphs, unlike emoji-ambiguous symbols such as `⚙` that
-would break footer alignment; `format.test.ts` asserts the width. When jobs run
-*and* an unreported failure waits, the chip is the combined `▸N·✗N` — still one
-whitespace-free token, so the compact form keeps both counts instead of dropping
-the failure behind the running count (the widget is hidden while a dock screen
-is open, and may be disabled, so the chip is then the only signal).
+**Width-1 glyphs.** The running chip is `▸ N` and the failure chip is `✗ N`,
+each a two-token badge under its own status key, so the status bar joins them
+with its normal separator and compacts each independently (`▸N` / `✗N`). `▸` and
+`✗` are single-column text glyphs, unlike emoji-ambiguous symbols such as `⚙`
+that would break footer alignment; `format.test.ts` asserts the width. Because
+the two counts live in separate statuses, an unreported failure is never hidden
+behind the running count — the chip is the only job signal in the status bar.
 
 **Untrusted output is sanitized at every boundary.** Logs are arbitrary program
 output: ANSI/OSC escapes, carriage-return progress rewrites, control characters.
 `sanitizeLogLine` strips escapes, resolves `\r` to the trailing segment, and
-collapses whitespace; it runs before text reaches the widget, the `/jobs` pane,
+collapses whitespace; it runs before text reaches the `/jobs` pane,
 the model-facing `logs` result, and completion notes. The raw file is never
 rewritten.
 
-**The widget is stateless and one line.** Elapsed time is computed at render, so
-the runtime only calls `tui.requestRender()` on a clock that runs (only in
-`tui` mode, only while a job runs) and is cleared on shutdown. The widget is a
-single header line (`Jobs · 2 running · 1 failed`) and auto-hides when there is
-nothing running and no unreported failure. The latest output line is cached from
+**The latest line is cached.** Elapsed time is computed at render, and the
+runtime's clock re-publishes the status chips (only in `tui` mode, only while a
+job runs) and is cleared on shutdown. The latest output line is cached from
 the stdout stream (throttled) for `status`/`wait`/completion notes and the
-`/jobs` detail pane; the widget header never reads it, and nothing on the render
-path touches the file — only the `/jobs` log pane reads a bounded tail, on a poll.
-
-**The widget is the collapsed view of the screen.** It reuses the `todo`/`goal`
-rails grammar (`Jobs · 2 running · 1 failed`) and stays mounted while a job runs
-or an unreported failure waits, so a failure is not hidden between completion
-and the next turn (matching the `✗N` chip and the report-at-next-turn model).
-
-**The jobs rail is the bottom rail.** Pi re-inserts a widget on every set, so a
-`goal` or `todo` update would otherwise sink those rails below this one.
-`_shared/rails.ts` keeps the stack `Goal / Todos / Jobs`: `jobs` re-asserts
-itself whenever an upper rail announces, and — being the bottom rail — never
-announces. See [`_shared/rails.ts`](../_shared/rails.ts) and
-[goal](../goal/DESIGN.md).
-
-**A dock screen hides every rail.** Any `ctx.ui.custom` screen mounted in the
-dock editor slot (`/todos`, `/jobs`, `/rewind`, `/plans`, or the
-ask-user-question questionnaire) emits a suppression signal via
-`withRailsSuppressed`; each rail hides for the screen's lifetime and re-syncs
-on close. See [`_shared/rails.ts`](../_shared/rails.ts).
+`/jobs` detail pane; nothing on the status-chip path touches the file — only
+the `/jobs` log pane reads a bounded tail, on a poll.
 
 **The `/jobs` screen is the expanded view.** It shares `screenHeader` and
 `viewportRows` with `rewind`/`plan-mode`, adds a `❯` selection marker, a
@@ -147,9 +126,8 @@ line). Destructive keys (`d`/`K` kill, `x` clear) ask for a `y`/`N`
 confirmation first, matching `plan-mode`'s confirm-before-delete convention.
 Selection is tracked by job id, and the open log pane pins its job id, so the
 screen's live re-sort (running first) cannot move the cursor or switch the log
-out from under the user. While it owns the editor the runtime suppresses the widget via
-`setUiSuppressed`, so the collapsed and expanded lists are never shown at once;
-the footer chip is untouched, so the running signal survives the detour.
+out from under the user. The footer chips are untouched, so the running signal
+survives the detour.
 
 **UI calls are guarded.** Every `ctx.ui.*` call is behind `ctx.mode === "tui"`
 and wrapped, and a `disposed` flag makes late `close` callbacks no-ops, so a

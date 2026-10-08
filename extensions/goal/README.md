@@ -17,16 +17,15 @@ pi install ./                       # install the package
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done.
 - Shows a persistent one-line rail above the editor whenever a goal exists,
-  label-first to match the [`todo`](../todo/) and [`jobs`](../jobs/) widgets,
-  and stays pinned at the top of the `Goal / Todos / Jobs` stack when they are
-  loaded:
+  label-first to match the [`todo`](../todo/) widget, and stays pinned at the
+  top of the `Goal / Todos` stack when both are loaded:
 
   ```
   Goal · active · Refactor the parser to support streaming input and ship it …
   ```
 
   Once achieved the goal is hidden from the widget by default, matching a
-  completed todo list and a finished job; the transcript keeps the record. Set
+  completed todo list; the transcript keeps the record. Set
   `achieved: "collapse"` (or `"block"`) in `.pi/goal.json` to keep drawing the
   dimmed line instead:
 

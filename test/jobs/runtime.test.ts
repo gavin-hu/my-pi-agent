@@ -400,49 +400,6 @@ describe("job runtime — registry reconcile", () => {
 		}
 	});
 
-	test("stops polling reattached jobs while a dock screen hides the rails", async () => {
-		const h = makeHarness({ config: { repaintMs: 10 } });
-		try {
-			saveRegistry(h.dir, {
-				version: REGISTRY_VERSION,
-				counter: 2,
-				jobs: [
-					{
-						id: "j1",
-						label: "server",
-						command: "dev",
-						cwd: "/repo",
-						pid: 777,
-						status: "running",
-						exitCode: null,
-						signal: null,
-						startedAt: 1,
-						finishedAt: null,
-						logPath: "/tmp/old.log",
-						detached: true,
-						wake: false,
-						sessionId: "old",
-						seen: false,
-						lastLine: "",
-					},
-				],
-			});
-			h.runtime.load(makeCtx().ctx);
-			expect(h.runtime.get("j1")?.status).toBe("running");
-			// Suppressing hides the rails and parks the repaint clock, so the dead
-			// pid is not noticed until the screen closes and polling resumes.
-			h.runtime.setUiSuppressed(true);
-			h.dead.add(777);
-			await new Promise((resolve) => setTimeout(resolve, 60));
-			expect(h.runtime.get("j1")?.status).toBe("running");
-			h.runtime.setUiSuppressed(false);
-			await new Promise((resolve) => setTimeout(resolve, 60));
-			expect(h.runtime.get("j1")?.status).toBe("unknown");
-		} finally {
-			h.cleanup();
-		}
-	});
-
 	test("keeps a live non-detached job owned by another live session", () => {
 		const h = makeHarness();
 		try {
@@ -534,7 +491,7 @@ describe("job runtime — pending, clear, status", () => {
 			expect(statuses.has("jobs")).toBe(false);
 			h.runtime.start({ command: "sleep 10" }, ctx);
 			h.runtime.setStatus(ctx);
-			expect(statuses.get("jobs")).toContain("1");
+			expect(statuses.get("jobs")).toBe("▸ 1");
 			h.children[0].close(0);
 			h.runtime.setStatus(ctx);
 			expect(statuses.has("jobs")).toBe(false);
@@ -543,7 +500,7 @@ describe("job runtime — pending, clear, status", () => {
 		}
 	});
 
-	test("status chip keeps both the running and unreported-failure counts in one token", () => {
+	test("status chips show the running and unreported-failure counts separately", () => {
 		const h = makeHarness();
 		try {
 			const { ctx, statuses } = makeCtx();
@@ -552,8 +509,8 @@ describe("job runtime — pending, clear, status", () => {
 			h.runtime.start({ command: "sleep 1" }, ctx); // j2, stays running
 			h.children[0].close(1); // j1 fails, unreported
 			h.runtime.setStatus(ctx);
-			// No whitespace, so the status bar's compact form keeps the whole chip.
-			expect(statuses.get("jobs")).toBe("▸1·✗1");
+			expect(statuses.get("jobs")).toBe("▸ 1");
+			expect(statuses.get("jobs-failure")).toBe("✗ 1");
 		} finally {
 			h.cleanup();
 		}
@@ -608,44 +565,6 @@ describe("job runtime — pending, clear, status", () => {
 				.sort();
 			expect(ids).toContain("j9");
 			expect(ids).toContain("j10");
-		} finally {
-			h.cleanup();
-		}
-	});
-});
-
-describe("job runtime — widget", () => {
-	test("mounts for an unreported failure and hides once it is seen", () => {
-		const h = makeHarness();
-		try {
-			const { ctx, widgets } = makeCtx({ mode: "tui" });
-			h.runtime.load(ctx);
-			h.runtime.start({ command: "false" }, ctx);
-			h.children[0].close(1); // failed, not yet reported
-			h.runtime.syncWidget(ctx);
-			expect(widgets.get("jobs-widget")).toBeDefined();
-			h.runtime.takePending();
-			h.runtime.syncWidget(ctx);
-			expect(widgets.get("jobs-widget")).toBeUndefined();
-		} finally {
-			h.cleanup();
-		}
-	});
-
-	test("setUiSuppressed hides the widget and restores it", () => {
-		const h = makeHarness();
-		try {
-			const { ctx, widgets } = makeCtx({ mode: "tui" });
-			h.runtime.load(ctx);
-			h.runtime.start({ command: "sleep 10" }, ctx);
-			h.runtime.syncWidget(ctx);
-			expect(widgets.get("jobs-widget")).toBeDefined();
-			h.runtime.setUiSuppressed(true);
-			h.runtime.syncWidget(ctx);
-			expect(widgets.get("jobs-widget")).toBeUndefined();
-			h.runtime.setUiSuppressed(false);
-			h.runtime.syncWidget(ctx);
-			expect(widgets.get("jobs-widget")).toBeDefined();
 		} finally {
 			h.cleanup();
 		}

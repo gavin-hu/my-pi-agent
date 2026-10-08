@@ -51,16 +51,14 @@ then unsubscribes once `ctx.ui.custom` resolves and disposes the component. The
 component reads the list through a getter, so even a render it did not trigger
 shows current state.
 
-**The list is the middle rail.** The goal is the *what* and sits above the
-list, the *how*; `jobs` sits below it. Pi renders above-editor widgets in
-insertion order and re-inserts a widget whenever it is set, so an update to an
-upper rail would sink the list below the rails under it. With no ordering
-option, the list subscribes on `pi.events` and re-runs `setWidget` whenever a
-rail above it changes, then announces so `jobs` re-asserts in turn; because
-re-insertion appends, the stack stays `Goal / Todos / Jobs`. The bottom rail
-never announces, so the chain cannot ping-pong. See
-[`_shared/rails.ts`](../_shared/rails.ts), [goal](../goal/DESIGN.md), and
-[jobs](../jobs/DESIGN.md). While a dock screen owns the editor slot, every rail
+**The list is the bottom rail.** The goal is the *what* and sits above the
+list, the *how*. Pi renders above-editor widgets in insertion order and
+re-inserts a widget whenever it is set, so a goal update would sink the list
+below it. With no ordering option, the list subscribes on `pi.events` and
+re-runs `setWidget` whenever a rail above it changes; because re-insertion
+appends, the stack stays `Goal / Todos`. The bottom rail never announces, so
+the chain cannot ping-pong. See [`_shared/rails.ts`](../_shared/rails.ts) and
+[goal](../goal/DESIGN.md). While a dock screen owns the editor slot, every rail
 is hidden via `withRailsSuppressed` and restored on close.
 
 **Content is sanitized to one safe line.** `normalizeTodos` replaces control

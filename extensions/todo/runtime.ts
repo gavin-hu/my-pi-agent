@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { announceRailChanged, onRailsSuppressed, onUpperRailChanged } from "../_shared/rails.ts";
+import { onRailsSuppressed, onUpperRailChanged } from "../_shared/rails.ts";
 import { DEFAULT_TODO_CONFIG, type TodoConfig } from "./config.ts";
 import { hasOpenTodos, reconstructTodos } from "./state.ts";
 import { TodoWidget, WIDGET_KEY } from "./tui.ts";
@@ -57,20 +57,15 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 		}
 		if (!shouldShow()) {
 			ctx.ui.setWidget(WIDGET_KEY, undefined);
-			if (pi) announceRailChanged(pi, "todo");
 			return;
 		}
 		const snapshot = todos;
 		ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => new TodoWidget(snapshot, theme));
-		// Announce so the jobs rail below re-asserts after this widget was re-inserted.
-		if (pi) announceRailChanged(pi, "todo");
 	};
 
-	// The goal sits above this list, and the jobs widget below it. Pi re-inserts a
-	// widget on every set, so a goal update would sink the list below later rails.
-	// Re-assert the list when an upper rail changes: re-insertion appends, pinning
-	// the list back under the goal. The list then announces so jobs re-asserts
-	// below it in turn.
+	// Re-assert the list when the goal above it changes: Pi re-inserts a widget
+	// on every set, so a goal update would otherwise sink the list below it. Todo
+	// is the bottom rail, so it does not announce.
 	if (pi)
 		onUpperRailChanged(pi, "todo", () => {
 			if (lastTuiCtx) syncWidget(lastTuiCtx);

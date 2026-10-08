@@ -6,15 +6,14 @@
  * widget updated most recently sinks to the bottom. There is no order option.
  *
  * The rails are meant to read as one family, top to bottom: `goal` (the *what*),
- * `todo` (the *how*), then `jobs` (the background work). To keep that order
- * stable, each rail re-asserts itself whenever a rail above it changes:
- * re-insertion always appends, so re-asserting pins the rail to the bottom of
- * the stack. A rail that re-asserts must announce in turn if another rail sits
- * below it, or only the rails it can see would follow. The chain is therefore:
+ * then `todo` (the *how*). To keep that order stable, each rail re-asserts
+ * itself whenever a rail above it changes: re-insertion always appends, so
+ * re-asserting pins the rail to the bottom of the stack. A rail that re-asserts
+ * must announce in turn if another rail sits below it, or only the rails it can
+ * see would follow. The chain is therefore:
  *
  *   goal  → announces only (top rail)
- *   todo  → re-asserts on goal, then announces (so jobs follows)
- *   jobs  → re-asserts on goal and todo, never announces (bottom rail)
+ *   todo  → re-asserts on goal (bottom rail)
  *
  * A rail only ever subscribes to rails strictly above it, so the chain can
  * never ping-pong back up. Subscribing to *all* uppers (not just the immediate
@@ -33,7 +32,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /** Rails in render order, top to bottom. */
-const RAIL_ORDER = ["goal", "todo", "jobs"] as const;
+const RAIL_ORDER = ["goal", "todo"] as const;
 
 /** Identifier for one above-editor rail. */
 export type RailId = (typeof RAIL_ORDER)[number];

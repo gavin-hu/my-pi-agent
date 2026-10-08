@@ -21,8 +21,8 @@ pi install ./                       # install the package
   item is in progress.
 - Shows a persistent widget above the editor while the list has unfinished
   work (hidden when empty or fully completed), and a scrollable `/todos`
-  screen on demand. It is the middle rail, between the [`goal`](../goal/) and
-  [`jobs`](../jobs/) widgets (`Goal / Todos / Jobs`).
+  screen on demand. It is the bottom rail, below the [`goal`](../goal/) widget
+  (`Goal / Todos`).
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list, and stored lists are re-sanitized on replay.

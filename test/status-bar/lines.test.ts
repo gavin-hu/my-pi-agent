@@ -174,14 +174,18 @@ describe("buildLines", () => {
 		expect(statuses.forms[1]).toBe("↺2");
 	});
 
-	test("renders the jobs chip, including the combined running/failure form", () => {
-		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.jobs, "▸1·✗1"]]) });
+	test("renders the jobs running and failure chips as separate segments", () => {
+		const snapshot = fullSnapshot({
+			statuses: new Map([
+				[STATUS_KEYS.jobs, "▸ 1"],
+				[STATUS_KEYS.jobsFailure, "✗ 1"],
+			]),
+		});
 		const [, line2] = buildLines(snapshot, fakeTheme, "/home/u");
-		const statuses = line2.left.find((segment) => segment.id === "statuses");
-		expect(statuses).toBeDefined();
-		// No whitespace in the chip, so the compact icon form keeps both counts.
-		expect(statuses!.forms[0]).toBe("▸1·✗1");
-		expect(statuses!.forms[1]).toBe("▸1·✗1");
+		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
+		expect(statuses.forms[0]).toBe("▸ 1 · ✗ 1");
+		// Each chip compacts to glyph+count independently.
+		expect(statuses.forms[1]).toBe("▸1 ✗1");
 	});
 
 	test("orders multiple statuses by key", () => {

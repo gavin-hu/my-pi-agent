@@ -65,8 +65,6 @@ function screenCtx(options: { cwd?: string; branch?: unknown[] } = {}) {
 function stubJobsRuntime(): any {
 	return {
 		config: {},
-		setUiSuppressed() {},
-		reassertWidget() {},
 		setStatus() {},
 		takePending: () => [],
 		shutdown: async () => {},

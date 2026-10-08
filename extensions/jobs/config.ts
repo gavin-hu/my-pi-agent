@@ -11,10 +11,8 @@ import { clampInteger, cleanString, loadConfigFile } from "../_shared/config.ts"
 export interface JobsConfig {
 	/** Track jobs at all. Default: true. */
 	enabled: boolean;
-	/** Show a `▸N` status chip while jobs run. */
+	/** Show the status chips while jobs run or a failure is unreported. */
 	showStatus: boolean;
-	/** Show the jobs widget above the editor while jobs run. */
-	showWidget: boolean;
 	/** Wake the agent with one triggered turn when any job finishes. */
 	wakeOnFinish: boolean;
 	/** Leave jobs running when the session ends unless a job opts out. */
@@ -25,7 +23,7 @@ export interface JobsConfig {
 	maxLogLines: number;
 	/** Grace period before a SIGTERM escalates to SIGKILL. */
 	killGraceMs: number;
-	/** Widget repaint interval while jobs run. */
+	/** Status-chip refresh interval while jobs run. */
 	repaintMs: number;
 	/** How long a session heartbeat is trusted before its jobs are reaped. */
 	sessionTtlMs: number;
@@ -36,7 +34,6 @@ export interface JobsConfig {
 export const DEFAULT_CONFIG: JobsConfig = {
 	enabled: true,
 	showStatus: true,
-	showWidget: true,
 	wakeOnFinish: false,
 	detachedByDefault: false,
 	maxJobs: 20,
@@ -54,7 +51,6 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	return {
 		enabled: typeof raw.enabled === "boolean" ? raw.enabled : base.enabled,
 		showStatus: typeof raw.showStatus === "boolean" ? raw.showStatus : base.showStatus,
-		showWidget: typeof raw.showWidget === "boolean" ? raw.showWidget : base.showWidget,
 		wakeOnFinish: typeof raw.wakeOnFinish === "boolean" ? raw.wakeOnFinish : base.wakeOnFinish,
 		detachedByDefault: typeof raw.detachedByDefault === "boolean" ? raw.detachedByDefault : base.detachedByDefault,
 		maxJobs: clampInteger(raw.maxJobs, base.maxJobs, 1, 500),

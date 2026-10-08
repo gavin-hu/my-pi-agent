@@ -46,10 +46,9 @@ works in every mode.
 order and re-inserts a widget whenever it is set, so a goal update would
 otherwise move the goal *below* the rails under it. There is no ordering
 option, so `_shared/rails.ts` coordinates on `pi.events`: after the goal sets
-its widget it announces; `todo` re-asserts itself and then announces; `jobs`
-re-asserts itself and, as the bottom rail, never announces. Because
-re-insertion always appends, this chain pins the stack to `Goal / Todos /
-Jobs` and cannot ping-pong. The coordination is value-only (per-rail channels
+its widget it announces, and `todo` re-asserts itself. Because re-insertion
+always appends, this chain pins the stack to `Goal / Todos` and cannot
+ping-pong. The coordination is value-only (per-rail channels
 and pure helpers), never shared module state, because extensions load with
 isolated module caches. While a dock screen owns the editor slot (`/todos`,
 `/jobs`, `/rewind`, `/plans`, or the ask-user-question questionnaire), every
@@ -57,8 +56,8 @@ rail is hidden via `withRailsSuppressed` and restored on close.
 
 **The goal widget is one line, matching the todo widget.** The persistent
 widget is a single label-first rail line, `Goal · active · <objective>`,
-following the same grammar as the `todo` (`Todos · 2/3 · …`) and `jobs`
-(`Jobs · 1 running`) widgets: the accent label leads, the status follows, and
+following the same grammar as the `todo` (`Todos · 2/3 · …`) widget: the accent
+label leads, the status follows, and
 no glyph is prefixed. The
 goal deliberately does not own a separate visual language: the goal is the
 *what*, the todo list the *how*, and reading them as one family makes that
@@ -69,7 +68,7 @@ crowding the editor. The transcript result keeps the multi-line glyph rail
 read.
 
 **An achieved goal is hidden by default.** Marking a goal achieved removes its
-widget, matching a completed todo list and a finished job; `/goal` and the
+widget, matching a completed todo list; `/goal` and the
 transcript keep the record. `achieved` in `.pi/goal.json` accepts `collapse`/
 `block` to keep drawing the (dimmed) `Goal · achieved · <objective>` line, or
 `hide` (the default) to remove it. Config only affects presentation; behavior

@@ -1,19 +1,17 @@
 /**
- * Cross-extension ordering for the above-editor rails: goal / todo / jobs.
+ * Cross-extension ordering for the above-editor rails: goal / todo.
  *
  * Pi renders above-editor widgets in insertion order and re-inserts on every
  * set, so an update to an upper rail would otherwise sink it below the rails
- * under it. The rails chain on `pi.events`: goal announces, todo re-asserts and
- * announces, jobs re-asserts (the bottom rail never announces). These tests
- * drive all three extensions on one fake Pi and replay the `setWidget` calls
- * into the effective render order.
+ * under it. The rails chain on `pi.events`: goal announces and todo re-asserts
+ * (the bottom rail). These tests drive both extensions on one fake Pi and
+ * replay the `setWidget` calls into the effective render order.
  */
 
 import { describe, expect, test } from "bun:test";
 import goal from "../extensions/goal/index.ts";
 import { TOOL_NAME as GOAL_TOOL } from "../extensions/goal/tools.ts";
 import type { Goal } from "../extensions/goal/types.ts";
-import jobs from "../extensions/jobs/index.ts";
 import { setRailsSuppressed } from "../extensions/_shared/rails.ts";
 import todo from "../extensions/todo/index.ts";
 import { TOOL_NAME as TODO_TOOL } from "../extensions/todo/tools.ts";
@@ -23,7 +21,6 @@ import { fakeCtx } from "./goal/helpers.ts";
 
 const GOAL_WIDGET = "goal-widget";
 const TODO_WIDGET = "todo-widget";
-const JOBS_WIDGET = "jobs-widget";
 
 const active = (objective: string): Goal => ({ objective, status: "active" });
 const pending = (content: string): Todo => ({ content, status: "pending" });
@@ -48,53 +45,16 @@ function todoEntry(todos: Todo[]): unknown {
 	};
 }
 
-/** Minimal jobs runtime covering the surface `jobs/index.ts` touches. */
-function stubJobsRuntime(): any {
-	let ctx: any;
-	let suppressed = false;
-	const runtime: any = {
-		config: {},
-		load(next: any) {
-			ctx = next;
-			runtime.syncWidget(next);
-		},
-		setUiSuppressed(value: boolean) {
-			suppressed = value;
-		},
-		syncWidget(next: any) {
-			ctx = next;
-			if (next.mode !== "tui") return;
-			if (suppressed) {
-				next.ui.setWidget(JOBS_WIDGET, undefined);
-				return;
-			}
-			next.ui.setWidget(JOBS_WIDGET, () => ({ render: () => [] }));
-		},
-		reassertWidget() {
-			if (ctx) runtime.syncWidget(ctx);
-		},
-		setStatus() {},
-		takePending() {
-			return [];
-		},
-		shutdown: async () => {},
-		onFinish: undefined,
-	};
-	return runtime;
-}
+type Rail = "goal" | "todo";
 
-type Rail = "goal" | "todo" | "jobs";
-
-/** Load the three extensions on one Pi, in the given order. */
-function setup(order: Rail[] = ["goal", "todo", "jobs"]) {
+/** Load the extensions on one Pi, in the given order. */
+function setup(order: Rail[] = ["goal", "todo"]) {
 	const { pi, tools } = createFakePi();
-	const runtime = stubJobsRuntime();
 	for (const rail of order) {
 		if (rail === "goal") goal(pi);
-		else if (rail === "todo") todo(pi);
-		else jobs(pi, { runtime });
+		else todo(pi);
 	}
-	return { pi, tools, runtime };
+	return { pi, tools };
 }
 
 /**
@@ -113,20 +73,16 @@ function renderOrder(calls: Array<{ key: string; content: unknown }>): string[] 
 }
 
 const sessionBranch = (): unknown[] => [goalEntry(active("ship it")), todoEntry([pending("one")])];
-const CANONICAL = [GOAL_WIDGET, TODO_WIDGET, JOBS_WIDGET];
+const CANONICAL = [GOAL_WIDGET, TODO_WIDGET];
 
-describe("rail ordering: goal / todo / jobs", () => {
+describe("rail ordering: goal / todo", () => {
 	const loadOrders: Rail[][] = [
-		["goal", "todo", "jobs"],
-		["goal", "jobs", "todo"],
-		["todo", "goal", "jobs"],
-		["todo", "jobs", "goal"],
-		["jobs", "goal", "todo"],
-		["jobs", "todo", "goal"],
+		["goal", "todo"],
+		["todo", "goal"],
 	];
 
 	for (const order of loadOrders) {
-		test(`session start renders goal/todo/jobs for load order ${order.join(">")}`, async () => {
+		test(`session start renders goal/todo for load order ${order.join(">")}`, async () => {
 			const { pi } = setup(order);
 			const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: sessionBranch() });
 
@@ -136,7 +92,7 @@ describe("rail ordering: goal / todo / jobs", () => {
 		});
 	}
 
-	test("a goal update keeps goal above todo above jobs", async () => {
+	test("a goal update keeps goal above todo", async () => {
 		const { pi, tools } = setup();
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: sessionBranch() });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -146,22 +102,12 @@ describe("rail ordering: goal / todo / jobs", () => {
 		expect(renderOrder(widgetCalls)).toEqual(CANONICAL);
 	});
 
-	test("a todo update keeps todo between goal and jobs", async () => {
+	test("a todo update keeps todo below goal", async () => {
 		const { pi, tools } = setup();
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: sessionBranch() });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
 		await tools.get(TODO_TOOL).execute("call-1", { todos: [pending("two")] }, undefined, undefined, ctx);
-
-		expect(renderOrder(widgetCalls)).toEqual(CANONICAL);
-	});
-
-	test("a jobs repaint never rises above an upper rail", async () => {
-		const { pi, runtime } = setup();
-		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: sessionBranch() });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		runtime.syncWidget(ctx);
 
 		expect(renderOrder(widgetCalls)).toEqual(CANONICAL);
 	});
@@ -178,11 +124,11 @@ describe("rail ordering: goal / todo / jobs", () => {
 
 describe("rail suppression while a dock screen is open", () => {
 	async function started() {
-		const { pi, runtime } = setup();
+		const { pi } = setup();
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: sessionBranch() });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		expect(renderOrder(widgetCalls)).toEqual(CANONICAL);
-		return { pi, runtime, ctx, widgetCalls };
+		return { pi, widgetCalls };
 	}
 
 	test("hides every rail while suppressed and restores them in order", async () => {

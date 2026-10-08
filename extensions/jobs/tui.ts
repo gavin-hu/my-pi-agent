@@ -1,12 +1,10 @@
 /**
- * Terminal rendering for jobs.
+ * Terminal rendering for jobs' `/jobs` screen.
  *
- * `JobsWidget` is the persistent, non-interactive list shown above the editor
- * while jobs run or an unreported failure waits; `JobListComponent` is the
- * dismissible `/jobs` screen with a focused detail pane and a log view. Both are
- * stateless with respect to time: elapsed values are computed from `Date.now()`
- * at render, so the runtime only has to call `requestRender()`, never rebuild
- * the component.
+ * `JobListComponent` is the dismissible `/jobs` screen with a focused detail
+ * pane and a log view. It is stateless with respect to time: elapsed values are
+ * computed from `Date.now()` at render, so the command can refresh the screen
+ * without rebuilding the component.
  *
  * Every line is clipped with `truncateToWidth`; log text arrives already
  * sanitized by the runtime, so no untrusted escape sequence reaches the
@@ -30,15 +28,11 @@ import {
 	formatDuration,
 	formatJobDetail,
 	jobCounts,
-	pendingFailures,
 	shortLabel,
 	statusGlyph,
 	type JobCounts,
 } from "./format.ts";
 import type { JobRecord } from "./types.ts";
-
-/** Widget key used with `ctx.ui.setWidget()`. */
-export const WIDGET_KEY = "jobs-widget";
 
 /** Rows the `/jobs` screen body shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
@@ -60,34 +54,6 @@ function jobRow(job: JobRecord, theme: Theme, width: number, selected = false): 
 	const clipped = truncateToWidth(shortLabel(job), available, "…");
 	const pad = " ".repeat(Math.max(0, available - visibleWidth(clipped)));
 	return truncateToWidth(`${head}${clipped}${pad} ${theme.fg("dim", elapsed)}`, width);
-}
-
-/** Rails-style widget header: `Jobs · N running · M failed`. */
-function widgetHeader(theme: Theme, running: number, failed: number): string {
-	const parts: string[] = [];
-	if (running > 0) parts.push(theme.fg("dim", `${running} running`));
-	if (failed > 0) parts.push(theme.fg("error", `${failed} failed`));
-	const head = theme.fg("accent", "Jobs");
-	return parts.length === 0 ? head : `${head} ${theme.fg("dim", "·")} ${parts.join(` ${theme.fg("dim", "·")} `)}`;
-}
-
-/** Persistent one-line widget shown while jobs run or a completion is unreported. */
-export class JobsWidget implements Component {
-	constructor(
-		private readonly jobs: () => Iterable<JobRecord>,
-		private readonly theme: Theme,
-	) {}
-
-	invalidate(): void {}
-
-	render(width: number): string[] {
-		const w = Math.max(1, width);
-		const all = [...this.jobs()];
-		const running = all.filter((job) => job.status === "running").length;
-		const failed = pendingFailures(all).length;
-		if (running === 0 && failed === 0) return [];
-		return [truncateToWidth(widgetHeader(this.theme, running, failed), w)];
-	}
 }
 
 export interface JobListCallbacks {

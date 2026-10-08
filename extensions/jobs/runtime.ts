@@ -3,7 +3,7 @@
  *
  * Owns the in-memory `Job` map, live child handles, log streams, callbacks, and
  * the repaint clock, and composes the smaller pieces: `store.ts` (durable
- * registry), `logs.ts` (log tails), `ui.ts` (chip + widget), and `waiters.ts`.
+ * registry), `logs.ts` (log tails), `ui.ts` (status chips), and `waiters.ts`.
  * The process/spawn/clock functions are injectable so the whole runtime can be
  * driven by a fake child in tests.
  *
@@ -110,12 +110,8 @@ export interface JobsRuntime {
 	/** Finished jobs not yet reported to the model; marks them seen. */
 	takePending(): JobRecord[];
 	runningCount(): number;
+	/** Publish the footer status chips. */
 	setStatus(ctx: ExtensionContext): void;
-	syncWidget(ctx: ExtensionContext): void;
-	/** Re-assert the widget; called by the rail coordinator when an upper rail changes. */
-	reassertWidget(): void;
-	/** Hide the widget while a full-screen UI (the `/jobs` screen) owns the editor. */
-	setUiSuppressed(value: boolean): void;
 	/** Kill session-owned jobs (unless detached), stop the clock, persist. */
 	shutdown(): Promise<void>;
 	/** Called when a job finishes; the index wires wake/notification here. */
@@ -139,7 +135,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	let clock: ReturnType<typeof setInterval> | undefined;
 	let lastPaint = 0;
 
-	/** Footer chip + widget; owns the attached context and suppression flag. */
+	/** Footer status chips; owns the attached context. */
 	const ui = createUiController({ getJobs: () => jobs.values(), getConfig: () => config });
 
 	const effectiveCwd = (ctx: ExtensionContext): string => resolveEffectiveCwd(ctx.cwd);
@@ -176,7 +172,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const ensureClock = (): void => {
 		const running = [...jobs.values()].some((job) => job.status === "running");
-		if (disposed || !running || ui.suppressed()) {
+		if (disposed || !running) {
 			stopClock();
 			return;
 		}
@@ -189,7 +185,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			// another UI path) would hide a still-running job's chip until the next
 			// transition. The clock is the only periodic hook while jobs run.
 			ui.setStatus();
-			ui.requestRender();
 		}, config.repaintMs);
 		clock.unref?.();
 	};
@@ -356,16 +351,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		takePending,
 		runningCount: () => [...jobs.values()].filter((job) => job.status === "running").length,
 		setStatus: (ctx) => ui.setStatus(ctx),
-		syncWidget: (ctx) => ui.syncWidget(ctx),
-		reassertWidget: () => {
-			if (!disposed) ui.reassertWidget();
-		},
-		setUiSuppressed: (value) => {
-			ui.setSuppressed(value);
-			// Stop the repaint clock while a dock screen owns the editor, and restart it
-			// when the screen closes so externally-reaped jobs are polled again.
-			ensureClock();
-		},
 		shutdown,
 		get onFinish() {
 			return onFinishHandler;

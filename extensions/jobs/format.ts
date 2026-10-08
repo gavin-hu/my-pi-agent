@@ -2,8 +2,8 @@
  * Pure text/format helpers for the jobs extension.
  *
  * No host APIs and no theme logic beyond `Theme` colour helpers: these turn job
- * state and raw log bytes into short, terminal-safe strings for the widget, the
- * `/jobs` screen, the transcript, and the model.
+ * state and raw log bytes into short, terminal-safe strings for the status
+ * chip, the `/jobs` screen, the transcript, and the model.
  *
  * Raw log output is untrusted: it can contain ANSI escapes, carriage-return
  * progress rewrites, and control characters. Every boundary that surfaces log
@@ -20,7 +20,7 @@ import type { JobRecord, JobStatus } from "./types.ts";
 /** Longest sanitized log line kept for display; longer lines are clipped. */
 const MAX_LOG_LINE = 200;
 
-/** Longest label shown in the widget or transcript. */
+/** Longest label shown in the transcript or `/jobs` screen. */
 const MAX_DISPLAY_LABEL = 48;
 
 /** ESC-introduced sequences: OSC, CSI, and single-character escapes. */
@@ -108,7 +108,7 @@ export function shortLabel(job: JobRecord): string {
 	return clipLabel(job.label || job.command);
 }
 
-/** One-line job summary shared by the model output and the widget. */
+/** One-line job summary shared by the model output and the `/jobs` screen. */
 function jobSummary(job: JobRecord, now: number): string {
 	const parts = [`${job.id}`, statusWord(job), formatDuration(elapsedMs(job, now))];
 	if (job.status === "running" && job.pid) parts.push(`pid ${job.pid}`);
@@ -193,7 +193,7 @@ export interface JobCounts {
 	failed: number;
 }
 
-/** One-pass status counts for the widget header and `/jobs` summary. */
+/** One-pass status counts for the `/jobs` summary. */
 export function jobCounts(jobs: Iterable<JobRecord>): JobCounts {
 	let total = 0;
 	let running = 0;

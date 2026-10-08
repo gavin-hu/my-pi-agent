@@ -31,5 +31,6 @@ export const STATUS_KEYS = {
 	worktree: "worktree",
 	planMode: "plan-mode",
 	jobs: "jobs",
+	jobsFailure: "jobs-failure",
 	rewind: "rewind",
 } as const;

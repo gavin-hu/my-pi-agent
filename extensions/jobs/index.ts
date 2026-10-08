@@ -2,22 +2,20 @@
  * jobs — manage long-running background shell commands.
  *
  * Registers the `job` tool and `/jobs` command. Jobs run as detached shell
- * processes with their output streamed to log files; the session state chip and
- * widget show running jobs, and finished jobs are reported to the model at the
- * next turn (or, for `wake` jobs, by triggering one turn).
+ * processes with their output streamed to log files; the status chip shows
+ * running and unreported-failure counts, and finished jobs are reported to the
+ * model at the next turn (or, for `wake` jobs, by triggering one turn).
  *
  * Load with:  pi --extension ./extensions/jobs
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { onRailsSuppressed, onUpperRailChanged } from "../_shared/rails.ts";
 import { STATUS_KEYS } from "../_shared/ui.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion } from "./format.ts";
 import { createJobsRuntime, type JobsRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
-import { WIDGET_KEY } from "./tui.ts";
 import type { Job, JobRecord } from "./types.ts";
 
 /** Marker embedded in the injected completion context. */
@@ -46,18 +44,6 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
-
-	// Jobs is the bottom rail: re-assert whenever goal or todo re-inserts itself,
-	// keeping the stack Goal / Todos / Jobs. The bottom rail never announces.
-	onUpperRailChanged(pi, "jobs", () => runtime.reassertWidget());
-
-	// Hide the rail while a dock screen is open; re-sync when the last screen
-	// closes. `onRailsSuppressed` already coalesces nesting, so its boolean is the
-	// current level, not an edge. Reuses the runtime's `uiSuppressed` flag.
-	onRailsSuppressed(pi, (suppressed) => {
-		runtime.setUiSuppressed(suppressed);
-		runtime.reassertWidget();
-	});
 
 	/** Drain every unreported completion; returns them so the caller can report. */
 	const drainPending = (): JobRecord[] => runtime.takePending();
@@ -90,7 +76,6 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	// Tree navigation does not change the process table; only repaint.
 	pi.on("session_tree", (_event, ctx) => {
 		runtime.setStatus(ctx);
-		runtime.syncWidget(ctx);
 	});
 
 	pi.on("agent_start", () => {
@@ -123,7 +108,7 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 		await runtime.shutdown();
 		try {
 			ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
-			if (ctx.mode === "tui") ctx.ui.setWidget(WIDGET_KEY, undefined);
+			ctx.ui.setStatus(STATUS_KEYS.jobsFailure, undefined);
 		} catch {
 			// UI may already be gone.
 		}
