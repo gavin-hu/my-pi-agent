@@ -15,7 +15,15 @@ export const MAX_TODOS = 50;
 /** Maximum length of a single item's text. */
 export const MAX_CONTENT = 500;
 
-const TodoItem = Type.Object({
+/**
+ * One item in the tool's input and output schemas.
+ *
+ * The input schema (`TodoParams`) enforces `maxItems` and the status enum
+ * before `execute` runs. `normalizeTodos` re-enforces both for branch replay
+ * and direct unit use, and owns the semantic rules the schema cannot express
+ * (one `in_progress`, unique non-empty content, content length).
+ */
+export const TodoItem = Type.Object({
 	content: Type.String({ description: "Imperative description of the task" }),
 	status: StringEnum(TODO_STATUSES),
 	activeForm: Type.Optional(
@@ -30,6 +38,16 @@ export const TodoParams = Type.Object({
 		maxItems: MAX_TODOS,
 		description: "The complete todo list. It replaces the previous list; pass [] to clear.",
 	}),
+});
+
+/**
+ * Structured result returned as `structuredContent`, mirroring the `details`
+ * payload so codemode/scripts can read the list as data.
+ */
+export const TodoResult = Type.Object({
+	todos: Type.Array(TodoItem, { maxItems: MAX_TODOS }),
+	action: StringEnum(["write", "clear"] as const),
+	error: Type.Optional(Type.String()),
 });
 
 export type TodoArgs = Static<typeof TodoParams>;

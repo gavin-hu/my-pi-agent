@@ -23,11 +23,10 @@ describe("todo formatting", () => {
 		expect(progressSummary([])).toBe("No todos");
 	});
 
-	test("formatTodoText adds progress and the active item", () => {
+	test("formatTodoText returns a compact summary, not the checklist", () => {
 		const text = formatTodoText(todos);
-		expect(text).toContain("1. [x] Write schema");
-		expect(text).toContain("1/3 completed");
-		expect(text).toContain("In progress: Writing tests");
+		expect(text).toBe("1/3 completed\nIn progress: Writing tests");
+		expect(text).not.toContain("Write schema");
 	});
 
 	test("formatTodoText reports a cleared list", () => {

@@ -11,7 +11,7 @@ export const TODO_STATUSES = ["pending", "in_progress", "completed"] as const;
 export type TodoStatus = (typeof TODO_STATUSES)[number];
 
 /** One item in the list. */
-export interface Todo {
+export type Todo = {
 	/** Imperative description of the task, e.g. "Write the parser tests". */
 	content: string;
 	status: TodoStatus;
@@ -20,7 +20,7 @@ export interface Todo {
 	 * "Writing the parser tests". Falls back to `content` when absent.
 	 */
 	activeForm?: string;
-}
+};
 
 /** Structured result carried in the tool's `details` and used for reconstruction. */
 export interface TodoDetails {

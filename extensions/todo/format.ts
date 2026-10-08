@@ -62,11 +62,17 @@ export function formatTodoList(todos: Todo[]): string {
 	return todos.map((todo, i) => `${i + 1}. ${MODEL_MARK[todo.status]} ${todo.content}`).join("\n");
 }
 
-/** The model-facing result: the checklist plus progress and the active item. */
+/**
+ * The model-facing result: a compact progress summary and the current item.
+ *
+ * The model just sent the full list, so echoing the checklist back only spends
+ * context. The complete list lives in the tool-result `details` (for branch
+ * reconstruction and rendering) and is shown by `/todos`.
+ */
 export function formatTodoText(todos: Todo[]): string {
 	if (todos.length === 0) return "Todo list cleared.";
 
-	const lines = [formatTodoList(todos), "", progressSummary(todos)];
+	const lines = [progressSummary(todos)];
 	const current = currentTodo(todos);
 	if (current) {
 		const label = current.status === "in_progress" ? "In progress" : "Next";

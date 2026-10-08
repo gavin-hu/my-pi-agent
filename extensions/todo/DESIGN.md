@@ -67,6 +67,9 @@ current item are always visible without expanding the list; `currentTodo` picks
 the `in_progress` item, else the first pending one. `/todos` keeps the submitted
 order. The transcript result still orders items by status via
 `compareByActivity`, so an active task is never hidden behind finished rows.
+The model-facing result is compact too — progress plus the current item — with
+the full list carried in the tool-result `details` (and as `structuredContent`)
+rather than echoed back, since the model just sent it.
 
 ## Non-goals
 
@@ -83,6 +86,7 @@ order. The transcript result still orders items by status via
 | `exposure` | `direct` (default) |
 | `executionMode` | `sequential` — calls share the in-memory list |
 | `annotations` | `idempotentHint: true` (a snapshot write), not read-only |
+| `outputSchema` | `TodoResult` — `{ todos, action, error? }`, also returned as `structuredContent` for scripts |
 
 `promptGuidelines` teach the replacement semantics and the one-`in_progress`
 rule, since both are easy for a model to get wrong.

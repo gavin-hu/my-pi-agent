@@ -13,7 +13,9 @@ pi install ./                       # install the package
 ## What it does
 
 - Registers one model-callable tool, `todo`, that **replaces** the task list.
-  An empty list clears it.
+  An empty list clears it. The tool result is a compact summary — progress plus
+  the current item — not an echo of the list the model just sent; the full list
+  lives in `/todos` and in each result's `details`.
 - Each item has `content`, a `status` (`pending` | `in_progress` |
   `completed`), and an optional `activeForm` ("Running tests") shown while the
   item is in progress.
@@ -47,6 +49,9 @@ the plan as written).
 
 Validation rules (a violation returns an error result and leaves the list
 unchanged):
+
+The tool declares an `outputSchema` and returns matching `structuredContent`
+(`{ todos, action, error? }`), so codemode/scripts can read the list as data.
 
 - at most **one** item `in_progress`;
 - at most **50** items;

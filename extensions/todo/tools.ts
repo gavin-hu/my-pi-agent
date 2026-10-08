@@ -7,18 +7,38 @@
  * without corrupting state.
  */
 
+import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { TODO_TOOL } from "../_shared/tool-names.ts";
 import { compareByActivity, formatCallText, formatTodoText, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
-import { normalizeTodos, TodoParams, type TodoArgs } from "./schema.ts";
-import type { TodoDetails } from "./types.ts";
+import { normalizeTodos, TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
+import type { Todo, TodoDetails } from "./types.ts";
 
 export const TOOL_NAME = TODO_TOOL;
 
 /** Rows shown in an unexpanded transcript result before collapsing. */
 const COLLAPSED_ROWS = 6;
+
+/**
+ * JSON-safe mirror of the list for `structuredContent`.
+ *
+ * `JsonValue` forbids `undefined`, so an absent `activeForm` is omitted rather
+ * than set to `undefined`, and `error` is added only on failure.
+ */
+function toStructuredContent(todos: Todo[], action: "write" | "clear", error?: string): Record<string, JsonValue> {
+	const content: Record<string, JsonValue> = {
+		todos: todos.map((todo) => {
+			const item: Record<string, JsonValue> = { content: todo.content, status: todo.status };
+			if (todo.activeForm !== undefined) item.activeForm = todo.activeForm;
+			return item;
+		}),
+		action,
+	};
+	if (error !== undefined) content.error = error;
+	return content;
+}
 
 export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 	pi.registerTool({
@@ -36,24 +56,29 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			"Keep exactly one item in_progress at a time.",
 		],
 		parameters: TodoParams,
+		outputSchema: TodoResult,
 		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 		executionMode: "sequential",
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const args = params as TodoArgs;
-			const action = args.todos.length === 0 ? "clear" : "write";
+			const todosArg = (params as Partial<TodoArgs> | undefined)?.todos;
+			const action = Array.isArray(todosArg) && todosArg.length === 0 ? "clear" : "write";
 			try {
-				const todos = normalizeTodos(args.todos);
+				if (!Array.isArray(todosArg)) throw new Error("todos must be an array.");
+				const todos = normalizeTodos(todosArg);
 				runtime.setTodos(todos, ctx);
 				return {
 					content: [{ type: "text", text: formatTodoText(todos) }],
 					details: { todos, action } satisfies TodoDetails,
+					structuredContent: toStructuredContent(todos, action),
 				};
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
+				const previous = runtime.getTodos();
 				return {
 					content: [{ type: "text", text: `Error: ${message}` }],
-					details: { todos: runtime.getTodos(), action: "write", error: message } satisfies TodoDetails,
+					details: { todos: previous, action, error: message } satisfies TodoDetails,
+					structuredContent: toStructuredContent(previous, action, message),
 					isError: true,
 				};
 			}

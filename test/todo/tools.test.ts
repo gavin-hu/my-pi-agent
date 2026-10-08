@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { MAX_TODOS } from "../../extensions/todo/schema.ts";
 import { createTodoRuntime } from "../../extensions/todo/runtime.ts";
 import { TOOL_NAME, registerTools } from "../../extensions/todo/tools.ts";
 import { fakeCtx, lastWidget, makeFakePi } from "./helpers.ts";
@@ -27,7 +28,7 @@ describe("todo tool", () => {
 		expect(tool.promptGuidelines.length).toBeGreaterThan(0);
 	});
 
-	test("replaces the list and returns a checklist", async () => {
+	test("replaces the list and returns a compact summary", async () => {
 		const { tool, runtime } = setup();
 		const { ctx } = fakeCtx();
 		const result = await call(
@@ -47,9 +48,18 @@ describe("todo tool", () => {
 			{ content: "Write schema", status: "completed" },
 			{ content: "Write tests", status: "in_progress", activeForm: "Writing tests" },
 		]);
-		expect(result.content[0].text).toContain("1. [x] Write schema");
-		expect(result.content[0].text).toContain("2. [~] Write tests");
+		expect(result.content[0].text).toBe("1/2 completed\nIn progress: Writing tests");
+		expect(result.content[0].text).not.toContain("Write schema");
 		expect(runtime.getTodos()).toHaveLength(2);
+	});
+
+	test("declares an output schema and returns structured content", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		expect(tool.outputSchema).toBeDefined();
+
+		const result = await call(tool, { todos: [{ content: "One", status: "pending" }] }, ctx);
+		expect(result.structuredContent).toEqual({ todos: [{ content: "One", status: "pending" }], action: "write" });
 	});
 
 	test("updates the widget on a TUI session", async () => {
@@ -101,6 +111,24 @@ describe("todo tool", () => {
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toContain("At most one todo");
 		expect(result.details.todos).toEqual([{ content: "Keep me", status: "pending" }]);
+		expect(result.structuredContent).toEqual({
+			todos: [{ content: "Keep me", status: "pending" }],
+			action: "write",
+			error: result.details.error,
+		});
+		expect(runtime.getTodos()).toEqual([{ content: "Keep me", status: "pending" }]);
+	});
+
+	test("rejects too many items without changing the list", async () => {
+		const { tool, runtime } = setup();
+		const { ctx } = fakeCtx();
+		await call(tool, { todos: [{ content: "Keep me", status: "pending" }] }, ctx);
+
+		const many = Array.from({ length: MAX_TODOS + 1 }, (_, i) => ({ content: `item ${i}`, status: "pending" }));
+		const result = await call(tool, { todos: many }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toContain(`At most ${MAX_TODOS}`);
 		expect(runtime.getTodos()).toEqual([{ content: "Keep me", status: "pending" }]);
 	});
 

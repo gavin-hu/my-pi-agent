@@ -129,8 +129,10 @@ check("todo is active by default", session.getActiveToolNames().includes("todo")
 const wrote = await call("todo", { todos: [{ content: "smoke task", status: "in_progress" }] });
 const wroteText = (wrote.content[0] as { text: string }).text;
 const wroteDetails = wrote.details as { todos: unknown[]; action: string };
-check("todo writes a checklist", /1\. \[~\] smoke task/.test(wroteText));
+const wroteStructured = wrote.structuredContent as { todos: unknown[]; action: string };
+check("todo writes a compact summary", /0\/1 completed/.test(wroteText) && /In progress: smoke task/.test(wroteText));
 check("todo keeps structured details", wroteDetails.todos.length === 1 && wroteDetails.action === "write");
+check("todo returns structured content", wroteStructured.todos.length === 1 && wroteStructured.action === "write");
 const cleared = await call("todo", { todos: [] });
 const clearedDetails = cleared.details as { todos: unknown[]; action: string };
 check("todo clears", clearedDetails.todos.length === 0 && clearedDetails.action === "clear");

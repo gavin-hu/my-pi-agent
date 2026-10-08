@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `todo`: the `todo` tool declares an `outputSchema` and returns matching
+  `structuredContent`, so codemode/scripts can read the list as data.
 - `worktree`: a disposable managed-worktree registry
   (`.pi/worktrees/index.json`) recording provenance and last use, plus a
   `statusOf()` view for derived dirty/ahead/behind/merged/locked state.
@@ -16,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `todo`: the `todo` tool now returns a compact progress/current-item result
+  instead of echoing the full list it was just given; the list stays in the
+  tool-result `details` and in `/todos`.
 - `worktree`: tool names are now verb-first, matching Claude Code's
   `EnterWorktree`/`ExitWorktree`: `worktree_enter` → `enter_worktree`,
   `worktree_exit` → `exit_worktree`, `worktree_prune` → `prune_worktrees`,
