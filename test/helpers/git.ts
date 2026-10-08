@@ -9,7 +9,7 @@
  */
 
 import { execFile } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -55,19 +55,25 @@ async function git(args: string[], cwd: string): Promise<ExecResult> {
 /** Create a temp git repo with one commit. */
 export async function makeRepo(prefix = "pi-test-"): Promise<string> {
 	const dir = mkdtempSync(join(tmpdir(), prefix));
-	await git(["init", "-q"], dir);
+	await git(["init", "-q", "-b", "main"], dir);
 	await git(["config", "user.email", "test@example.com"], dir);
 	await git(["config", "user.name", "Test"], dir);
+	// Keep line endings byte-exact: a global `core.autocrlf=true` (common on
+	// Windows) would rewrite LF blobs to CRLF on checkout, so a restored file
+	// would not equal the bytes the test wrote.
+	await git(["config", "core.autocrlf", "false"], dir);
 	writeFileSync(join(dir, "README.md"), "hello\n");
 	await git(["add", "."], dir);
 	await git(["commit", "-qm", "init"], dir);
-	return dir;
+	// Return the long-form path so assertions and command strings match git's
+	// expanded output on Windows (os.tmpdir() may use 8.3 short names).
+	return realpathSync.native(dir);
 }
 
 /** Create a temp repo with an origin remote, pushed main, and origin/HEAD set. */
 export async function makeRepoWithRemote(prefix = "pi-test-remote-"): Promise<{ repo: string; remote: string }> {
 	const repo = await makeRepo(prefix);
-	const remote = mkdtempSync(join(tmpdir(), "pi-test-bare-"));
+	const remote = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-test-bare-")));
 	await git(["init", "--bare", "-q"], remote);
 	await git(["remote", "add", "origin", remote], repo);
 	await git(["push", "-q", "-u", "origin", "HEAD:main"], repo);
@@ -78,6 +84,8 @@ export async function makeRepoWithRemote(prefix = "pi-test-remote-"): Promise<{ 
 /** Remove temp directories, ignoring missing ones. */
 export function cleanup(...dirs: Array<string | undefined>): void {
 	for (const dir of dirs) {
-		if (dir) rmSync(dir, { recursive: true, force: true });
+		// Windows holds handles briefly after git exits, so retry EBUSY/EPERM
+		// removals instead of failing teardown.
+		if (dir) rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 	}
 }

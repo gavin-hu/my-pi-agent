@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	symlinkSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -12,11 +21,18 @@ import {
 	stamp,
 } from "../../extensions/plan-mode/plans.ts";
 import { createFakePi } from "../helpers/fakes.ts";
+import { canCreateSymlinks } from "../helpers/platform.ts";
 
 const FIXED = new Date(2026, 9, 8, 15, 30); // 2026-10-08 15:30 local
 
+// Windows requires Developer Mode/admin to create symlinks; skip those tests
+// rather than fail when the privilege is unavailable.
+const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
+
 function tempDir(): string {
-	return mkdtempSync(join(tmpdir(), "pi-plan-"));
+	// Native real path: `repoRoot` canonicalizes git's output the same way, so
+	// expected and returned paths compare equal on Windows (8.3 short names).
+	return realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-")));
 }
 
 /** A fake pi whose `git rev-parse` reports `root` as the repository root. */
@@ -67,6 +83,14 @@ describe("isWithin", () => {
 		expect(isWithin(dir, join(dir, "a.md"))).toBe(true);
 		expect(isWithin(dir, join(dir, "..", "escape.md"))).toBe(false);
 		expect(isWithin(dir, dir)).toBe(false);
+	});
+
+	test("accepts an in-tree sibling whose name starts with ..", () => {
+		const dir = join(tmpdir(), "plans");
+		// `..notes` is inside: only `..` and `../` escape. A naive prefix check
+		// would reject it.
+		expect(isWithin(dir, join(dir, "..notes"))).toBe(true);
+		expect(isWithin(dir, join(dir, "..", "plans2"))).toBe(false);
 	});
 });
 
@@ -181,7 +205,7 @@ describe("createPlanStore — containment", () => {
 		expect(readFileSync(join(dir, "notes.txt"), "utf-8")).toBe("keep");
 	});
 
-	test("refuses a symlink that points outside the plans directory", async () => {
+	symlinkTest("refuses a symlink that points outside the plans directory", async () => {
 		const root = tempDir();
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });
 		const dir = await store.dirFor(root);
@@ -199,7 +223,7 @@ describe("createPlanStore — containment", () => {
 		expect(readFileSync(outside, "utf-8")).toBe("secret");
 	});
 
-	test("skips a dangling symlink when choosing a new plan name", async () => {
+	symlinkTest("skips a dangling symlink when choosing a new plan name", async () => {
 		const root = tempDir();
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });
 		const dir = await store.dirFor(root);
@@ -212,7 +236,7 @@ describe("createPlanStore — containment", () => {
 		expect(existsSync(target)).toBe(false);
 	});
 
-	test("refuses a symlinked subdirectory that escapes the plans directory", async () => {
+	symlinkTest("refuses a symlinked subdirectory that escapes the plans directory", async () => {
 		const root = tempDir();
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });
 		const dir = await store.dirFor(root);

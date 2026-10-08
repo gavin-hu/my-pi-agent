@@ -19,7 +19,8 @@ const repo = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const cwd = mkdtempSync(join(tmpdir(), "pi-plan-seed-repo-"));
 const agentDir = mkdtempSync(join(tmpdir(), "pi-plan-seed-agent-"));
 // Make cwd a repository so plan files land in <cwd>/.pi/plans instead of the real agent dir.
-execFileSync("git", ["init", "-q"], { cwd });
+execFileSync("git", ["init", "-q", "-b", "main"], { cwd });
+execFileSync("git", ["config", "core.autocrlf", "false"], { cwd });
 
 afterAll(() => {
 	rmSync(cwd, { recursive: true, force: true });

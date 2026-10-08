@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
 	loadRegistry,
@@ -41,7 +41,7 @@ describe("projectKey / registryDirFor", () => {
 	});
 
 	test("honours an explicit override", () => {
-		expect(registryDirFor("/a/repo", "/custom/dir")).toBe("/custom/dir");
+		expect(registryDirFor("/a/repo", "/custom/dir")).toBe(resolve("/custom/dir"));
 	});
 });
 

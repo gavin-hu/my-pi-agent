@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fakeTheme } from "../helpers/fakes.ts";
@@ -16,7 +16,7 @@ function repoExec(root: string) {
 }
 
 function setup() {
-	const root = mkdtempSync(join(tmpdir(), "pi-plan-tools-"));
+	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
 	const fake = makeFakePi({
 		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
 		exec: repoExec(root),

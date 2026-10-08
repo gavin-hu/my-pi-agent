@@ -209,7 +209,8 @@ describe("automatic snapshots", () => {
 	test("a snapshot failure warns and never blocks the tool call", async () => {
 		const repo = mkdtempSync(join(tmpdir(), "pi-rw-nocommit-"));
 		cleanups.push(repo);
-		await execP("git", ["init", "-q"], { cwd: repo });
+		await execP("git", ["init", "-q", "-b", "main"], { cwd: repo });
+		await execP("git", ["config", "core.autocrlf", "false"], { cwd: repo });
 		const fake = setup();
 		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
 		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);

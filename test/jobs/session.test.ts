@@ -24,7 +24,7 @@ describe("sessionMarkerPath", () => {
 
 	test("hashes the id so it cannot escape the directory", () => {
 		const path = sessionMarkerPath("/dir", "../../evil");
-		expect(path.startsWith("/dir/session-")).toBe(true);
+		expect(path.startsWith(join("/dir", "session-"))).toBe(true);
 		expect(path).not.toContain("..");
 	});
 });

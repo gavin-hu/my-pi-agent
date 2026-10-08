@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
 	aggregateUsage,
 	clip,
@@ -40,16 +42,16 @@ describe("aggregateUsage", () => {
 
 describe("shortenPath", () => {
 	test("replaces the home prefix only", () => {
-		const home = process.env.HOME ?? "";
-		if (!home) return;
-		expect(shortenPath(`${home}/projects/x`)).toBe("~/projects/x");
+		const home = homedir();
+		expect(shortenPath(join(home, "projects", "x"))).toBe("~/projects/x");
 		expect(shortenPath("/tmp/x")).toBe("/tmp/x");
 	});
 
 	test("does not shorten a sibling path sharing the prefix", () => {
-		const home = process.env.HOME ?? "";
-		if (!home) return;
-		expect(shortenPath(`${home}x/y`)).toBe(`${home}x/y`);
+		const home = homedir();
+		const normalize = (value: string): string => value.replace(/\\/g, "/");
+		// A sibling directory whose name merely starts with the home string.
+		expect(shortenPath(`${home}-backup/x`)).toBe(normalize(`${home}-backup/x`));
 		expect(shortenPath(home)).toBe("~");
 	});
 });

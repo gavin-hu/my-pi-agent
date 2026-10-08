@@ -15,11 +15,12 @@ const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const rewindEntry = join(repo, "extensions", "rewind", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-rewind-e2e-agent-"));
 
-const gitRepo = realpathSync(mkdtempSync(join(tmpdir(), "pi-rewind-e2e-repo-")));
+const gitRepo = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-rewind-e2e-repo-")));
 const git = (...args: string[]) => execFileSync("git", args, { cwd: gitRepo, stdio: "pipe" }).toString();
-git("init", "-q");
+git("init", "-q", "-b", "main");
 git("config", "user.email", "t@t");
 git("config", "user.name", "t");
+git("config", "core.autocrlf", "false");
 writeFileSync(join(gitRepo, "a.txt"), "one\n");
 git("add", ".");
 git("commit", "-qm", "init");

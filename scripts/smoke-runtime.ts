@@ -21,6 +21,7 @@ const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const jobsExtensionPath = join(repo, "extensions", "jobs", "index.ts");
 const webSearchExtensionPath = join(repo, "extensions", "web-search", "index.ts");
 const webFetchExtensionPath = join(repo, "extensions", "web-fetch", "index.ts");
+const serveExtensionPath = join(repo, "extensions", "serve", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
@@ -28,9 +29,10 @@ const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 // Scratch git repo with one commit.
 const work = mkdtempSync(join(tmpdir(), "pi-smoke-repo-"));
 const git = (...args: string[]) => execFileSync("git", args, { cwd: work, stdio: "pipe" }).toString();
-git("init", "-q");
+git("init", "-q", "-b", "main");
 git("config", "user.email", "t@t");
 git("config", "user.name", "t");
+git("config", "core.autocrlf", "false");
 writeFileSync(join(work, "a.txt"), "hi\n");
 git("add", ".");
 git("commit", "-qm", "init");
@@ -54,6 +56,7 @@ const loader = new DefaultResourceLoader({
 		jobsExtensionPath,
 		webSearchExtensionPath,
 		webFetchExtensionPath,
+		serveExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
 	],
@@ -233,6 +236,11 @@ const listedJobs = await call("job", { action: "list" });
 check("job list returns the started job", ((listedJobs.details as { jobs?: unknown[] }).jobs?.length ?? 0) >= 1);
 const killedJob = await call("job", { action: "kill", id: startedDetails.job!.id });
 check("job kill signals the process", (killedJob.details as { signalled?: boolean }).signalled === true);
+// The job runs with the active worktree as its cwd. A graceful taskkill on
+// Windows can be ignored by a console child, and a live child holds that
+// directory, so wait for the process to exit before removing the worktree.
+const reaped = await call("job", { action: "wait", id: startedDetails.job!.id, timeoutMs: 20000 });
+check("job is reaped before its worktree is removed", (reaped.details as { timedOut?: boolean }).timedOut === false);
 
 // web-search loads and registers an active, direct tool. It is not executed
 // here: the network is covered by unit tests with an injected fetch.
@@ -249,6 +257,13 @@ check("web_fetch registered", !!webFetchTool);
 check("web_fetch is direct", webFetchTool?.exposure === "direct");
 check("web_fetch active by default", session.getActiveToolNames().includes("web_fetch"));
 check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
+
+// serve loads headlessly and registers its command; /serve status must not
+// start a server or open a browser.
+const serveCommand = runner.getCommand("serve");
+check("serve command registered", !!serveCommand);
+if (serveCommand) await serveCommand.handler("status", runner.createCommandContext());
+check("serve status runs without starting a server", !!serveCommand);
 
 // status-bar loads headlessly and registers its toggle command; it installs no
 // tools and only paints the footer in interactive mode.

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { loadRegistry, REGISTRY_VERSION, saveRegistry } from "../../extensions/jobs/registry.ts";
 import { createJobStore } from "../../extensions/jobs/store.ts";
 import type { Job, JobRecord } from "../../extensions/jobs/types.ts";
@@ -64,7 +64,7 @@ describe("job store", () => {
 	test("safeLogPath accepts only this job's file in the directory", () => {
 		const store = createJobStore("/tmp/pi-jobs-store");
 		expect(store.safeLogPath(record({ id: "j1", logPath: "/tmp/pi-jobs-store/j1.log" }))).toBe(
-			"/tmp/pi-jobs-store/j1.log",
+			resolve(join("/tmp/pi-jobs-store", "j1.log")),
 		);
 		expect(store.safeLogPath(record({ id: "j1", logPath: "/tmp/elsewhere/j1.log" }))).toBeUndefined();
 	});

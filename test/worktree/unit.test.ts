@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { globToRegExp, isIncluded } from "../../extensions/worktree/include.ts";
 import {
 	isInside,
@@ -14,6 +14,7 @@ import {
 import { parsePrReference } from "../../extensions/worktree/git.ts";
 import type { WorktreeConfig } from "../../extensions/worktree/config.ts";
 import { cleanup, testConfig } from "./helpers.ts";
+import { canCreateSymlinks } from "../helpers/platform.ts";
 
 const temps: string[] = [];
 afterAll(() => cleanup(...temps));
@@ -23,6 +24,10 @@ function config(guard: Partial<WorktreeConfig["guard"]> = {}): WorktreeConfig {
 }
 
 const ROOT = "/wt";
+
+// Windows requires Developer Mode/admin to create symlinks; skip those tests
+// rather than fail when the privilege is unavailable.
+const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
 
 describe("globToRegExp / isIncluded", () => {
 	test("basename patterns match at any depth", () => {
@@ -85,8 +90,8 @@ describe("isInside / resolveUnder", () => {
 	test("resolveUnder treats a missing path as the root and resolves relative paths", () => {
 		expect(resolveUnder("/a/b", undefined)).toBe("/a/b");
 		expect(resolveUnder("/a/b", "")).toBe("/a/b");
-		expect(resolveUnder("/a/b", "c")).toBe("/a/b/c");
-		expect(resolveUnder("/a/b", "/x/y")).toBe("/x/y");
+		expect(resolveUnder("/a/b", "c")).toBe(resolve("/a/b", "c"));
+		expect(resolveUnder("/a/b", "/x/y")).toBe(resolve("/x/y"));
 	});
 });
 
@@ -236,7 +241,7 @@ describe("analyzeBashCommand", () => {
 });
 
 describe("symlink-safe containment", () => {
-	test("blocks a write through a symlink that leaves the worktree", () => {
+	symlinkTest("blocks a write through a symlink that leaves the worktree", () => {
 		const base = mkdtempSync(join(tmpdir(), "pi-wt-symlink-"));
 		temps.push(base);
 		const root = join(base, "worktree");
@@ -267,7 +272,9 @@ describe("symlink-safe containment", () => {
 	test("realPathOfNearest resolves a missing leaf through its parent", () => {
 		const base = mkdtempSync(join(tmpdir(), "pi-wt-real-"));
 		temps.push(base);
-		expect(realPathOfNearest(join(base, "missing", "deep.txt"))).toBe(join(realpathSync(base), "missing", "deep.txt"));
+		expect(realPathOfNearest(join(base, "missing", "deep.txt"))).toBe(
+			join(realpathSync.native(base), "missing", "deep.txt"),
+		);
 	});
 });
 
