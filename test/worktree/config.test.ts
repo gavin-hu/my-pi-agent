@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_CONFIG, loadConfig } from "../../extensions/worktree/config.ts";
+import { DEFAULT_CONFIG, loadConfig } from "../../extensions/git/worktree/config.ts";
 
 // Pass the agent dir explicitly so these tests never depend on
 // `PI_CODING_AGENT_DIR` (other suites mock the host package, and that mock is

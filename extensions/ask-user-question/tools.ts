@@ -4,7 +4,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { withRailsSuppressed } from "../_shared/rails.ts";
+import { withRailsSuppressed } from "../../lib/rails.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";
 import { AskUserQuestionParams, normalizeQuestions, type AskUserQuestionArgs } from "./schema.ts";

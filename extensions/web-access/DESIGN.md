@@ -33,7 +33,7 @@ definition (`tool.ts`), so the halves do not import each other.
 
 ## Shared code
 
-`extensions/_shared/http.ts` holds the fetch runner (`HttpRunner`,
+[`http.ts`](./http.ts) holds the fetch runner (`HttpRunner`,
 `createFetchRunner`, and the HTTP error types), used by both halves and
 injectable for tests.
 

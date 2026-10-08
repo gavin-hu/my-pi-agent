@@ -10,7 +10,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { TODO_TOOL } from "../_shared/tool-names.ts";
+import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { compareByActivity, formatCallText, formatTodoText, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, TodoResult, type TodoArgs } from "./schema.ts";

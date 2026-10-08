@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { copyIncludes, includePatterns, isIncluded } from "../../extensions/worktree/include.ts";
+import { copyIncludes, includePatterns, isIncluded } from "../../extensions/git/worktree/include.ts";
 import { cleanup, execP, makeFakePi, makeRepo } from "./helpers.ts";
 
 const pi = makeFakePi();

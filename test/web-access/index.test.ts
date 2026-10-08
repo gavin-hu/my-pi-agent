@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HttpResponse } from "../../extensions/_shared/http.ts";
+import type { HttpResponse } from "../../extensions/web-access/http.ts";
 import { cacheClear } from "../../extensions/web-access/fetch/cache.ts";
 import { setDefaultRunnerForTests } from "../../extensions/web-access/fetch/page.ts";
 import { TOOL_NAME as FETCH_TOOL } from "../../extensions/web-access/fetch/tool.ts";

@@ -1,4 +1,4 @@
-import { GLYPHS, STATUS_KEYS } from "../../extensions/_shared/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import type { StatusSnapshot } from "../../extensions/status-bar/types.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../helpers/fakes.ts";
 

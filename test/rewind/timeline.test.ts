@@ -6,8 +6,8 @@ import {
 	rewindScopes,
 	userMessagesFromBranch,
 	type RewindPoint,
-} from "../../extensions/rewind/timeline.ts";
-import type { Snapshot } from "../../extensions/rewind/types.ts";
+} from "../../extensions/git/rewind/timeline.ts";
+import type { Snapshot } from "../../extensions/git/rewind/types.ts";
 
 function userEntry(id: string, content: unknown, timestamp = 1000): any {
 	return {

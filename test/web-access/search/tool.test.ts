@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HttpResponse, HttpRunner } from "../../../extensions/_shared/http.ts";
+import type { HttpResponse, HttpRunner } from "../../../extensions/web-access/http.ts";
 import { resetThrottle, setDefaultRunnerForTests } from "../../../extensions/web-access/search/search.ts";
 import { registerSearchTool, TOOL_NAME } from "../../../extensions/web-access/search/tool.ts";
 import { createFakePi } from "../../helpers/fakes.ts";

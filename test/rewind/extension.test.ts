@@ -2,10 +2,10 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import rewind from "../../extensions/rewind/index.ts";
-import { createSnapshot } from "../../extensions/rewind/snapshot.ts";
-import { META_MARKER } from "../../extensions/rewind/store.ts";
-import { onRailsSuppressed } from "../../extensions/_shared/rails.ts";
+import { registerRewind } from "../../extensions/git/rewind/index.ts";
+import { createSnapshot } from "../../extensions/git/rewind/snapshot.ts";
+import { META_MARKER } from "../../extensions/git/rewind/store.ts";
+import { onRailsSuppressed } from "../../lib/rails.ts";
 import { createFakePi, emit, type FakePi } from "../helpers/fakes.ts";
 import { cleanup, execP, indexFileFor, makeCtx, makeRepo, runGit } from "./helpers.ts";
 
@@ -41,7 +41,7 @@ function setup(allTools = TOOLS): FakePi {
 		allTools,
 		exec: (command, args, options) => execP(command, args, options),
 	});
-	rewind(fake.pi);
+	registerRewind(fake.pi);
 	return fake;
 }
 

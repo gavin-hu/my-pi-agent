@@ -3,7 +3,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../_shared/rails.ts";
+import { withRailsSuppressed } from "../../lib/rails.ts";
 import { formatTodoList, progressSummary } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { TodoListComponent } from "./tui.ts";

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { commitTree, listRefs, revParse, updateRef } from "../../extensions/rewind/git.ts";
-import { createSnapshot, type SnapshotInput } from "../../extensions/rewind/snapshot.ts";
+import { commitTree, listRefs, revParse, updateRef } from "../../extensions/git/rewind/git.ts";
+import { createSnapshot, type SnapshotInput } from "../../extensions/git/rewind/snapshot.ts";
 import {
 	clearSnapshots,
 	deleteSnapshots,
@@ -12,7 +12,7 @@ import {
 	pruneSnapshots,
 	refFor,
 	type SnapshotMeta,
-} from "../../extensions/rewind/store.ts";
+} from "../../extensions/git/rewind/store.ts";
 import { cleanup, indexFileFor, makeRepo, runGit } from "./helpers.ts";
 
 const cleanups: string[] = [];

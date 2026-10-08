@@ -6,19 +6,17 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAgentSession, DefaultResourceLoader, SessionManager } from "@earendil-works/pi-coding-agent";
-import { canonicalize } from "../extensions/worktree/git.ts";
-import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
+import { canonicalize } from "../extensions/git/worktree/git.ts";
+import { ROOT_TOOL_NAMES } from "../extensions/git/worktree/root-tools.ts";
 
 const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const extensionPath = join(repo, "extensions", "worktree", "index.ts");
+const extensionPath = join(repo, "extensions", "git", "index.ts");
 const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const goalExtensionPath = join(repo, "extensions", "goal", "index.ts");
-const gitExtensionPath = join(repo, "extensions", "git", "index.ts");
-const rewindExtensionPath = join(repo, "extensions", "rewind", "index.ts");
-const planExtensionPath = join(repo, "extensions", "plan-mode", "index.ts");
+const planExtensionPath = join(repo, "extensions", "plan", "index.ts");
 const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
-const jobsExtensionPath = join(repo, "extensions", "jobs", "index.ts");
+const jobExtensionPath = join(repo, "extensions", "job", "index.ts");
 const webAccessExtensionPath = join(repo, "extensions", "web-access", "index.ts");
 const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
@@ -48,11 +46,9 @@ const loader = new DefaultResourceLoader({
 		askExtensionPath,
 		todoExtensionPath,
 		goalExtensionPath,
-		gitExtensionPath,
-		rewindExtensionPath,
 		planExtensionPath,
 		subagentExtensionPath,
-		jobsExtensionPath,
+		jobExtensionPath,
 		webAccessExtensionPath,
 		fileBrowserExtensionPath,
 		statusBarExtensionPath,
@@ -192,7 +188,7 @@ const rewindCommand = runner.getCommand("rewind");
 if (!rewindCommand) throw new Error("missing rewind command");
 await rewindCommand.handler("", runner.createCommandContext());
 
-// plan-mode loads; the read-only entry tool is active, the exit tool is not, and
+// plan loads; the read-only entry tool is active, the exit tool is not, and
 // a headless entry attempt refuses instead of entering silently.
 check("enter_plan_mode registered", !!session.getAllTools().find((t) => t.name === "enter_plan_mode"));
 check("exit_plan_mode registered", !!session.getAllTools().find((t) => t.name === "exit_plan_mode"));

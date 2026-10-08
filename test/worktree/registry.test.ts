@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { canonicalize } from "../../extensions/worktree/git.ts";
+import { canonicalize } from "../../extensions/git/worktree/git.ts";
 import {
 	loadRegistry,
 	reconcileRegistry,
@@ -12,7 +12,7 @@ import {
 	touchRecord,
 	upsertRecord,
 	type WorktreeRecord,
-} from "../../extensions/worktree/registry.ts";
+} from "../../extensions/git/worktree/registry.ts";
 import { cleanup, execP, makeFakePi, makeRepoWithRemote, testConfig } from "./helpers.ts";
 
 const temps: string[] = [];

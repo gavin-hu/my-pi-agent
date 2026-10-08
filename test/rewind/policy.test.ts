@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_CONFIG, type RewindConfig } from "../../extensions/rewind/config.ts";
-import { createSnapshotPolicy } from "../../extensions/rewind/policy.ts";
+import { DEFAULT_CONFIG, type RewindConfig } from "../../extensions/git/rewind/config.ts";
+import { createSnapshotPolicy } from "../../extensions/git/rewind/policy.ts";
 import { createFakePi } from "../helpers/fakes.ts";
 
 const tools = [

@@ -5,7 +5,7 @@
 import * as os from "node:os";
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatTokens, sanitize } from "../_shared/format.ts";
+import { formatTokens, sanitize } from "../../lib/format.ts";
 import type { UsageStats } from "./types.ts";
 
 /** Dollar cost, keeping four decimals for the sub-cent amounts these runs produce. */

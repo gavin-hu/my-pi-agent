@@ -11,7 +11,7 @@
 
 import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { resolveEffectiveCwd } from "../_shared/worktree-env.ts";
+import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { loadConfig } from "./config.ts";
 import { openInBrowser } from "./open.ts";
 import { HttpError, resolveRequestPath } from "./paths.ts";

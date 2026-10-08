@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "../../extensions/rewind/config.ts";
+import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "../../extensions/git/rewind/config.ts";
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 

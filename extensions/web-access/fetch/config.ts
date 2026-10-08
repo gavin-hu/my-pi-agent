@@ -6,7 +6,7 @@
  * over global ones in the top-level loader.
  */
 
-import { clampInteger, cleanString } from "../../_shared/config.ts";
+import { clampInteger, cleanString } from "../../../lib/config.ts";
 
 export interface WebFetchConfig {
 	/** Per-request timeout in milliseconds. */

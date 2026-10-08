@@ -10,7 +10,7 @@ import {
 	formatRewindRow,
 	previewDiffText,
 	summarizePrompt,
-} from "../../extensions/rewind/format.ts";
+} from "../../extensions/git/rewind/format.ts";
 
 describe("formatRelativeTime", () => {
 	const now = 1_000_000;

@@ -12,7 +12,7 @@ import { describe, expect, test } from "bun:test";
 import goal from "../extensions/goal/index.ts";
 import { TOOL_NAME as GOAL_TOOL } from "../extensions/goal/tools.ts";
 import type { Goal } from "../extensions/goal/types.ts";
-import { setRailsSuppressed } from "../extensions/_shared/rails.ts";
+import { setRailsSuppressed } from "../lib/rails.ts";
 import todo from "../extensions/todo/index.ts";
 import { TOOL_NAME as TODO_TOOL } from "../extensions/todo/tools.ts";
 import type { Todo } from "../extensions/todo/types.ts";

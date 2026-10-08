@@ -7,7 +7,7 @@
  * cannot produce a nonsensical server.
  */
 
-import { clampInteger, loadConfigFile } from "../_shared/config.ts";
+import { clampInteger, loadConfigFile } from "../../lib/config.ts";
 
 export interface ServeConfig {
 	/** TCP port on 127.0.0.1; `0` asks the OS for a free port. */

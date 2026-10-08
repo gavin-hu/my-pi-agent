@@ -15,7 +15,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../_shared/tui.ts";
+import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../../lib/tui.ts";
 import { progressCount, progressSummary, todoGlyph, todoLabel } from "./format.ts";
 import { currentTodo } from "./state.ts";
 import type { Todo } from "./types.ts";

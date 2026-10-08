@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createSnapshot, type SnapshotInput } from "../../extensions/rewind/snapshot.ts";
+import { createSnapshot, type SnapshotInput } from "../../extensions/git/rewind/snapshot.ts";
 import { cleanup, indexFileFor, makeRepo, runGit } from "./helpers.ts";
 
 const cleanups: string[] = [];

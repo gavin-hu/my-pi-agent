@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { DEFAULT_SEARCH_CONFIG } from "../../../extensions/web-access/search/config.ts";
-import type { HttpResponse, HttpRunner } from "../../../extensions/_shared/http.ts";
-import { HttpUnavailableError } from "../../../extensions/_shared/http.ts";
+import type { HttpResponse, HttpRunner } from "../../../extensions/web-access/http.ts";
+import { HttpUnavailableError } from "../../../extensions/web-access/http.ts";
 import {
 	resetThrottle,
 	runSearch,

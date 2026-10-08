@@ -6,7 +6,7 @@
  * theme automatically.
  */
 
-import { GLYPHS } from "../_shared/ui.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 
 export const CONFIG = {
 	/** Custom entry type. Changing it orphans separators recorded by an older build. */

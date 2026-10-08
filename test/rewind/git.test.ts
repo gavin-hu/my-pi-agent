@@ -14,7 +14,7 @@ import {
 	revParse,
 	treeFromIndex,
 	treeFromWorkingTree,
-} from "../../extensions/rewind/git.ts";
+} from "../../extensions/git/rewind/git.ts";
 import { cleanup, indexFileFor, makeRepo, runGit } from "./helpers.ts";
 
 const cleanups: string[] = [];

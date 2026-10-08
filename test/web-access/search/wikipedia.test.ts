@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createFetchRunner } from "../../../extensions/_shared/http.ts";
+import { createFetchRunner } from "../../../extensions/web-access/http.ts";
 import {
 	parseWikipedia,
 	searchWikipedia,

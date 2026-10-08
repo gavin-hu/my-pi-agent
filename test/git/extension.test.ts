@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import git from "../../extensions/git/index.ts";
-import { createFakePi } from "../helpers/fakes.ts";
+import { registerGitTool } from "../../extensions/git/tool/index.ts";
+import { createFakePi, fakeTheme } from "../helpers/fakes.ts";
 
 function setup(result = { stdout: " M a.txt", stderr: "", code: 0, killed: false }) {
 	const calls: Array<{ command: string; args: string[]; cwd?: string }> = [];
@@ -12,7 +12,7 @@ function setup(result = { stdout: " M a.txt", stderr: "", code: 0, killed: false
 			return result;
 		},
 	});
-	git(fake.pi);
+	registerGitTool(fake.pi);
 	const tool = fake.tools.get("git");
 	return { ...fake, tool, calls };
 }
@@ -80,5 +80,40 @@ describe("git tool", () => {
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("Invalid ref");
 		expect(calls).toHaveLength(0);
+	});
+});
+
+describe("git tool rendering", () => {
+	const renderCall = (tool: any, args: Record<string, unknown>): string =>
+		tool.renderCall(args, fakeTheme).render(80).join("\n");
+
+	test("shows the plain invocation for a bare action", () => {
+		const { tool } = setup();
+		expect(renderCall(tool, { action: "status" }).trim()).toBe("git status");
+	});
+
+	test("shows diff flags", () => {
+		const { tool } = setup();
+		const text = renderCall(tool, { action: "diff", staged: true, stat: true });
+		expect(text).toContain("git diff --cached --stat");
+	});
+
+	test("shows log limit and ref", () => {
+		const { tool } = setup();
+		const text = renderCall(tool, { action: "log", limit: 5, ref: "main" });
+		expect(text).toContain("git log -n5 main");
+	});
+
+	test("shows a path after --", () => {
+		const { tool } = setup();
+		const text = renderCall(tool, { action: "diff", path: "src/app.ts" });
+		expect(text).toContain("git diff -- src/app.ts");
+	});
+
+	test("renders an error result with its message", () => {
+		const { tool } = setup();
+		const result = { content: [{ type: "text", text: "fatal: not a git repository" }], isError: true };
+		const text = tool.renderResult(result, { expanded: false }, fakeTheme).render(80).join("\n");
+		expect(text).toContain("fatal: not a git repository");
 	});
 });

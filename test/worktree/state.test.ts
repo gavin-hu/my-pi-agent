@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { loadState, persistState, type WorktreeState } from "../../extensions/worktree/state.ts";
+import { loadState, persistState, type WorktreeState } from "../../extensions/git/worktree/state.ts";
 
 const state: WorktreeState = {
 	active: true,

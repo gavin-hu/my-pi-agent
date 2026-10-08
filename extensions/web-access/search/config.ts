@@ -6,7 +6,7 @@
  * so a typo cannot produce a nonsensical request.
  */
 
-import { clampInteger, cleanString } from "../../_shared/config.ts";
+import { clampInteger, cleanString } from "../../../lib/config.ts";
 
 export interface WebSearchConfig {
 	/** Default number of results (1–MAX_RESULTS). */

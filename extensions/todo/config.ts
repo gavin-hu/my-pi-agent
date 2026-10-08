@@ -6,7 +6,7 @@
  * widget presentation is configurable — todo behavior never depends on it.
  */
 
-import { loadConfigFile } from "../_shared/config.ts";
+import { loadConfigFile } from "../../lib/config.ts";
 
 export interface TodoConfig {
 	/** Hide the widget once every item is completed (an empty list always hides). */

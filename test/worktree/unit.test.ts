@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { globToRegExp, isIncluded } from "../../extensions/worktree/include.ts";
+import { globToRegExp, isIncluded } from "../../extensions/git/worktree/include.ts";
 import {
 	isInside,
 	isInsideReal,
@@ -10,9 +10,9 @@ import {
 	resolveUnder,
 	guardFileTool,
 	analyzeBashCommand,
-} from "../../extensions/worktree/guard.ts";
-import { parsePrReference } from "../../extensions/worktree/git.ts";
-import type { WorktreeConfig } from "../../extensions/worktree/config.ts";
+} from "../../extensions/git/worktree/guard.ts";
+import { parsePrReference } from "../../extensions/git/worktree/git.ts";
+import type { WorktreeConfig } from "../../extensions/git/worktree/config.ts";
 import { cleanup, testConfig } from "./helpers.ts";
 import { canCreateSymlinks } from "../helpers/platform.ts";
 

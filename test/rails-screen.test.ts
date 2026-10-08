@@ -10,11 +10,11 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { onRailsSuppressed, setRailsSuppressed, withRailsSuppressed } from "../extensions/_shared/rails.ts";
+import { onRailsSuppressed, setRailsSuppressed, withRailsSuppressed } from "../lib/rails.ts";
 import askUserQuestion from "../extensions/ask-user-question/index.ts";
 import { TOOL_NAME as ASK_TOOL } from "../extensions/ask-user-question/tools.ts";
-import jobs from "../extensions/jobs/index.ts";
-import planMode from "../extensions/plan-mode/index.ts";
+import jobs from "../extensions/job/index.ts";
+import planMode from "../extensions/plan/index.ts";
 import todo from "../extensions/todo/index.ts";
 import { createFakePi } from "./helpers/fakes.ts";
 

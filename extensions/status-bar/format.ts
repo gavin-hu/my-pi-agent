@@ -9,7 +9,7 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { CONFIG } from "./config.ts";
 
-export { formatTokens, sanitize } from "../_shared/format.ts";
+export { formatTokens, sanitize } from "../../lib/format.ts";
 
 /** Foreground theme tokens the bar uses. A subset of the theme's `ThemeColor`. */
 export type FgToken =

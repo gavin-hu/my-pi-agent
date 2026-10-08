@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import rewind from "../../extensions/rewind/index.ts";
+import { registerRewind } from "../../extensions/git/rewind/index.ts";
 import { createFakePi, emit, type FakePi } from "../helpers/fakes.ts";
 import { cleanup, execP, makeCtx, makeRepo } from "./helpers.ts";
 
@@ -29,7 +29,7 @@ function setup(): FakePi {
 		allTools: TOOLS,
 		exec: (command, args, options) => execP(command, args, options),
 	});
-	rewind(fake.pi);
+	registerRewind(fake.pi);
 	return fake;
 }
 

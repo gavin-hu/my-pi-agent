@@ -3,8 +3,8 @@ import { existsSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalize } from "../../extensions/worktree/git.ts";
-import { loadRegistry, touchRecord } from "../../extensions/worktree/registry.ts";
+import { canonicalize } from "../../extensions/git/worktree/git.ts";
+import { loadRegistry, touchRecord } from "../../extensions/git/worktree/registry.ts";
 
 // --- module mocks (must run before importing the extension) -----------------
 
@@ -44,7 +44,9 @@ mock.module("@earendil-works/pi-coding-agent", () => {
 	};
 });
 
-const extension = (await import("../../extensions/worktree/index.ts")).default;
+const { registerWorktree } = await import("../../extensions/git/worktree/index.ts");
+/** The merged extension entry Pi records as the source of the override tools. */
+const MERGED_ENTRY = canonicalize(fileURLToPath(new URL("../../extensions/git/index.ts", import.meta.url)));
 const { cleanup, emitEvent, execP, makeFakeCtx, makeFakePi, makeRepo, makeRepoWithRemote, testConfig } = await import(
 	"./helpers.ts"
 );
@@ -75,7 +77,7 @@ async function boot(repo: string, options: BootOptions = {}) {
 
 	const pi = makeFakePi();
 	pi.allTools = options.allTools ?? [];
-	extension(pi);
+	registerWorktree(pi, { entryPath: MERGED_ENTRY });
 	const ctx = makeFakeCtx(pi, {
 		cwd: repo,
 		hasUI: options.hasUI,
@@ -251,7 +253,7 @@ describe("extension enter / exit", () => {
 	test("reports no inactive overrides when ours are effective", async () => {
 		const repo = await makeRepo("pi-wt-ext-");
 		cleanups.push(repo);
-		const self = fileURLToPath(new URL("../../extensions/worktree/index.ts", import.meta.url));
+		const self = MERGED_ENTRY;
 		const tools = ["read", "write", "edit", "bash", "grep", "find", "ls"].map((name) => ({
 			name,
 			description: "",

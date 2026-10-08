@@ -25,7 +25,7 @@ import {
 	worktreeAdd,
 	worktreeExists,
 	worktreeRemove,
-} from "../../extensions/worktree/git.ts";
+} from "../../extensions/git/worktree/git.ts";
 import { cleanup, execP, makeFakePi, makeRepo, makeRepoWithRemote, testConfig } from "./helpers.ts";
 
 const pi = makeFakePi();

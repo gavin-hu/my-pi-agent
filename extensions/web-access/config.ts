@@ -8,7 +8,7 @@
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
-import { readJson } from "../_shared/config.ts";
+import { readJson } from "../../lib/config.ts";
 import { DEFAULT_FETCH_CONFIG, normalizeFetchConfig, type WebFetchConfig } from "./fetch/config.ts";
 import { DEFAULT_SEARCH_CONFIG, normalizeSearchConfig, type WebSearchConfig } from "./search/config.ts";
 

@@ -57,7 +57,7 @@ re-inserts a widget whenever it is set, so a goal update would sink the list
 below it. With no ordering option, the list subscribes on `pi.events` and
 re-runs `setWidget` whenever a rail above it changes; because re-insertion
 appends, the stack stays `Goal / Todos`. The bottom rail never announces, so
-the chain cannot ping-pong. See [`_shared/rails.ts`](../_shared/rails.ts) and
+the chain cannot ping-pong. See [`lib/rails.ts`](../../lib/rails.ts) and
 [goal](../goal/DESIGN.md). While a dock screen owns the editor slot, every rail
 is hidden via `withRailsSuppressed` and restored on close.
 

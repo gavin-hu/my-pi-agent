@@ -45,7 +45,7 @@ works in every mode.
 **The goal is the top rail.** Pi renders above-editor widgets in insertion
 order and re-inserts a widget whenever it is set, so a goal update would
 otherwise move the goal *below* the rails under it. There is no ordering
-option, so `_shared/rails.ts` coordinates on `pi.events`: after the goal sets
+option, so [`lib/rails.ts`](../../lib/rails.ts) coordinates on `pi.events`: after the goal sets
 its widget it announces, and `todo` re-asserts itself. Because re-insertion
 always appends, this chain pins the stack to `Goal / Todos` and cannot
 ping-pong. The coordination is value-only (per-rail channels

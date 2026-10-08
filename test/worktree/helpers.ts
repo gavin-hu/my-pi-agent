@@ -6,7 +6,7 @@
  * keep working.
  */
 
-import { DEFAULT_CONFIG, type WorktreeConfig } from "../../extensions/worktree/config.ts";
+import { DEFAULT_CONFIG, type WorktreeConfig } from "../../extensions/git/worktree/config.ts";
 import { createFakePi, emitFirst } from "../helpers/fakes.ts";
 import { execP } from "../helpers/git.ts";
 

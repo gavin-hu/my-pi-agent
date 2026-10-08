@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cacheClear } from "../../../extensions/web-access/fetch/cache.ts";
-import type { HttpResponse } from "../../../extensions/_shared/http.ts";
+import type { HttpResponse } from "../../../extensions/web-access/http.ts";
 import { setDefaultRunnerForTests } from "../../../extensions/web-access/fetch/page.ts";
 import { registerFetchTool, TOOL_NAME } from "../../../extensions/web-access/fetch/tool.ts";
 import { createFakePi } from "../../helpers/fakes.ts";

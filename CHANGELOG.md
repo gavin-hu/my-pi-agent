@@ -20,6 +20,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Internal: removed `extensions/_shared/`. Cross-extension helpers now live in a
+  top-level [`lib/`](./lib/) (the worktree-environment module is now
+  `lib/env.ts`), and the single-consumer helpers moved into their extension
+  (`web-access/http.ts`, `plan/path-guard.ts`). No behavior change.
+- `git` tool: clarified the per-action parameter documentation, added a
+  params-by-action summary to the description, and improved transcript rendering
+  (the call line now shows the effective invocation and errors render in the
+  error color). The action set and argv are unchanged. The tool source moved
+  under `extensions/git/tool/` (`index.ts` / `schema.ts` / `format.ts` /
+  `render.ts`), and the rewind status chip now reuses the shared
+  `lib/ui.ts` key and glyph.
+- `plan-mode`: renamed the extension to `plan` at `extensions/plan/`. The tools
+  (`enter_plan_mode` / `write_plan` / `exit_plan_mode`), the commands (`/plan`,
+  `/plans`), the `--plan` flag, the `plan-mode` status key, and the persisted
+  `plan-mode` session entry are unchanged.
+- `jobs`: renamed the extension directory to `extensions/job/` (and its tests to
+  `test/job/`) so the folder matches the `job` tool. The `/jobs` command and
+  screen, the `jobs.json` config, the `~/.pi/agent/jobs/` registry/log store,
+  and the `jobs` status key are unchanged.
+- `git`, `worktree`, and `rewind`: merged into one `git` extension at
+  `extensions/git/`, with the worktree and rewind code now living in the nested
+  `worktree/` and `rewind/` modules. Tool and command names are unchanged
+  (`git`, `enter_worktree` / `exit_worktree` / `prune_worktrees` /
+  `list_worktrees`, `/worktree*`, `/rewind`), and the modules are no longer
+  loadable as standalone extensions.
 - `web-access`: merged the `web-search` and `web-fetch` extensions into one. The
   `web_search` and `web_fetch` tools are unchanged; their settings now live in
   one `web-access.json` under `search` and `fetch` sections.

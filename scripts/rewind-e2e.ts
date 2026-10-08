@@ -8,11 +8,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DefaultResourceLoader, SessionManager, createAgentSession } from "@earendil-works/pi-coding-agent";
-import { createSnapshot } from "../extensions/rewind/snapshot.ts";
-import type { RunGit } from "../extensions/rewind/git.ts";
+import { createSnapshot } from "../extensions/git/rewind/snapshot.ts";
+import type { RunGit } from "../extensions/git/rewind/git.ts";
 
 const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const rewindEntry = join(repo, "extensions", "rewind", "index.ts");
+const rewindEntry = join(repo, "extensions", "git", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-rewind-e2e-agent-"));
 
 const gitRepo = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-rewind-e2e-repo-")));

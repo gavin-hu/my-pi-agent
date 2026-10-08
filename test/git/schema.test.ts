@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildGitArgs } from "../../extensions/git/schema.ts";
+import { buildGitArgs } from "../../extensions/git/tool/schema.ts";
 
 describe("buildGitArgs", () => {
 	test("status", () => {
@@ -42,6 +42,11 @@ describe("buildGitArgs", () => {
 
 	test("branch lists", () => {
 		expect(buildGitArgs({ action: "branch" })).toEqual(["branch", "--all", "--no-color"]);
+	});
+
+	test("ignores a param outside the action's set", () => {
+		expect(buildGitArgs({ action: "status", limit: 5, stat: true })).toEqual(["status", "--short", "--branch"]);
+		expect(buildGitArgs({ action: "branch", path: "src" })).toEqual(["branch", "--all", "--no-color"]);
 	});
 
 	test("rejects option-injection refs", () => {

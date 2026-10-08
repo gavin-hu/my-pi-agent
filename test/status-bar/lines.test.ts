@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { GLYPHS, STATUS_KEYS } from "../../extensions/_shared/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import { buildLines } from "../../extensions/status-bar/lines.ts";
 import { stripAnsi } from "../../extensions/status-bar/format.ts";
 import { fakeTheme, fullSnapshot } from "./helpers.ts";

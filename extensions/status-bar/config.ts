@@ -5,7 +5,7 @@
  * segments themselves (see `lines.ts`); everything shared lives here.
  */
 
-import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../_shared/ui.ts";
+import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
 
 export const CONFIG = {
 	/** Context percentage thresholds. */

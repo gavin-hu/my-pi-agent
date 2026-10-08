@@ -6,7 +6,7 @@
  * widget presentation is configurable — goal behavior never depends on it.
  */
 
-import { loadConfigFile } from "../_shared/config.ts";
+import { loadConfigFile } from "../../lib/config.ts";
 import type { AchievedStyle } from "./types.ts";
 
 export interface GoalConfig {

@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { announceRailChanged, onRailsSuppressed } from "../_shared/rails.ts";
+import { announceRailChanged, onRailsSuppressed } from "../../lib/rails.ts";
 import { DEFAULT_GOAL_CONFIG, type GoalConfig } from "./config.ts";
 import { reconstructGoal } from "./state.ts";
 import { GoalWidget, WIDGET_KEY } from "./tui.ts";

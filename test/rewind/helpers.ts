@@ -7,7 +7,7 @@
 
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { RunGit } from "../../extensions/rewind/git.ts";
+import type { RunGit } from "../../extensions/git/rewind/git.ts";
 import { createFakePi, type FakePi } from "../helpers/fakes.ts";
 import { execP } from "../helpers/git.ts";
 

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { RewindListComponent, type RewindListOptions } from "../../extensions/rewind/rewind-tui.ts";
-import type { RewindPoint } from "../../extensions/rewind/timeline.ts";
-import type { Snapshot } from "../../extensions/rewind/types.ts";
+import { RewindListComponent, type RewindListOptions } from "../../extensions/git/rewind/rewind-tui.ts";
+import type { RewindPoint } from "../../extensions/git/rewind/timeline.ts";
+import type { Snapshot } from "../../extensions/git/rewind/types.ts";
 
 /** A theme double whose `fg` is the identity, so text stays assertable. */
 const theme: any = { fg: (_color: string, text: string) => text };

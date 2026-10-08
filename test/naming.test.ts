@@ -16,16 +16,16 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { TODO_TOOL as todo } from "../extensions/_shared/tool-names.ts";
+import { TODO_TOOL as todo } from "../lib/tool-names.ts";
 import { TOOL_NAME as askUserQuestion } from "../extensions/ask-user-question/tools.ts";
-import { TOOL_NAME as git } from "../extensions/git/index.ts";
+import { TOOL_NAME as git } from "../extensions/git/tool/index.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
-import { TOOL_NAME as job } from "../extensions/jobs/tools.ts";
-import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan-mode/runtime.ts";
+import { TOOL_NAME as job } from "../extensions/job/tools.ts";
+import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
 import { TOOL_NAME as webSearch } from "../extensions/web-access/search/tool.ts";
-import { WORKTREE_TOOLS } from "../extensions/worktree/tools.ts";
+import { WORKTREE_TOOLS } from "../extensions/git/worktree/tools.ts";
 
 const NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
@@ -56,7 +56,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "ask-user-question", name: askUserQuestion },
 	{ extension: "git", name: git },
 	{ extension: "goal", name: goal },
-	{ extension: "jobs", name: job },
+	{ extension: "job", name: job },
 	{ extension: "plan-mode", name: ENTER_TOOL },
 	{ extension: "plan-mode", name: WRITE_PLAN_TOOL },
 	{ extension: "plan-mode", name: EXIT_TOOL },

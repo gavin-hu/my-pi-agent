@@ -1,92 +1,30 @@
 /**
- * git — a read-only git tool for Pi.
+ * git — one extension composing the read-only `git` tool with worktree
+ * isolation and rewind snapshots.
  *
- * Exposes one `git` tool with a closed set of actions (`status`, `diff`, `log`,
- * `show`, `branch`). It builds argv itself and runs git through `pi.exec`, so it
- * needs no shell and cannot be steered into a mutating subcommand. The tool is
- * annotated `readOnlyHint: true`, which lets plan mode keep git visibility even
- * though raw shell is disabled while planning.
+ * The three formerly separate extensions now live here:
+ *   - `tool.ts`     — the read-only `git` tool (`status`, `diff`, `log`,
+ *                     `show`, `branch`);
+ *   - `worktree/`   — isolated `git worktree` lifecycle and built-in tool
+ *                     re-rooting (`enter_worktree` / `exit_worktree` /
+ *                     `prune_worktrees` / `list_worktrees`, `/worktree*`);
+ *   - `rewind/`     — automatic per-prompt snapshots and `/rewind`.
+ *
+ * Worktree registers first so its built-in tool overrides keep the precedence
+ * they had when it was the first entry in the package manifest.
  *
  * Load with:  pi --extension ./extensions/git
  */
 
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
-import { resolveEffectiveCwd } from "../_shared/worktree-env.ts";
-import { formatGitResult } from "./format.ts";
-import { GitParams, buildGitArgs, type GitArgs } from "./schema.ts";
+import { registerRewind } from "./rewind/index.ts";
+import { registerGitTool } from "./tool/index.ts";
+import { canonicalize } from "./worktree/git.ts";
+import { registerWorktree } from "./worktree/index.ts";
 
-export const TOOL_NAME = "git";
-
-/** Lines of output shown in an unexpanded result. */
-const PREVIEW_LINES = 12;
-/** Local git calls are fast; cap them so a stuck invocation cannot hang a turn. */
-const TIMEOUT_MS = 30_000;
-
-export interface GitDetails {
-	action: GitArgs["action"];
-	argv: string[];
-	exitCode: number;
-}
-
-function preview(text: string, expanded: boolean): string {
-	const lines = text.split("\n");
-	if (expanded || lines.length <= PREVIEW_LINES) return text;
-	return [...lines.slice(0, PREVIEW_LINES), `… ${lines.length - PREVIEW_LINES} more lines`].join("\n");
-}
-
-export default function git(pi: ExtensionAPI): void {
-	pi.registerTool({
-		name: TOOL_NAME,
-		label: "Git",
-		description:
-			"Read-only git inspection with no shell: status, diff, log, show, and branch listing. Use it to understand " +
-			"working-tree changes, recent history, a commit, or the branch list. It cannot commit, stage, push, or run " +
-			"arbitrary git commands.",
-		promptSnippet: "Inspect git state read-only (status, diff, log, show, branch).",
-		promptGuidelines: [
-			"Use the git tool for status/diff/log/show/branch instead of a shell command.",
-			"It is read-only: it cannot commit, stage, push, or change refs.",
-		],
-		parameters: GitParams,
-		annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-		executionMode: "sequential",
-
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const args = params as GitArgs;
-			let argv: string[];
-			try {
-				argv = buildGitArgs(args);
-			} catch (error) {
-				return {
-					content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
-					details: { action: args.action, argv: [], exitCode: 1 } satisfies GitDetails,
-					isError: true,
-				};
-			}
-
-			// pi has no mutable session cwd, so the worktree extension exports the
-			// effective root as PI_WORKTREE_ROOT. Honor it so read-only git follows
-			// the isolated worktree instead of the main checkout.
-			const cwd = resolveEffectiveCwd(ctx.cwd);
-			const result = await pi.exec("git", argv, { cwd, timeout: TIMEOUT_MS, signal });
-			const { text, isError } = formatGitResult(argv, result);
-			return {
-				content: [{ type: "text", text }],
-				details: { action: args.action, argv, exitCode: result.code } satisfies GitDetails,
-				...(isError ? { isError: true } : {}),
-			};
-		},
-
-		renderCall(args, theme) {
-			const action = typeof (args as GitArgs)?.action === "string" ? (args as GitArgs).action : "";
-			return new Text(theme.fg("toolTitle", theme.bold("git ")) + theme.fg("muted", action), 0, 0);
-		},
-
-		renderResult(result, { expanded }, theme) {
-			const content = result.content[0];
-			const text = content?.type === "text" ? content.text : "";
-			return new Text(theme.fg("dim", preview(text, expanded)), 0, 0);
-		},
-	});
+export default function gitExtensions(pi: ExtensionAPI): void {
+	registerWorktree(pi, { entryPath: canonicalize(fileURLToPath(import.meta.url)) });
+	registerGitTool(pi);
+	registerRewind(pi);
 }

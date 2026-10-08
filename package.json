@@ -1,7 +1,7 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.4.0",
-  "description": "Personal Pi customizations, packaged as a Pi package: worktree, ask-user-question, todo, goal, git, rewind, plan-mode, subagent, jobs, web-access, file-browser, status-bar, and turn-separator.",
+  "description": "Personal Pi customizations, packaged as a Pi package: git (read-only git tool + worktree isolation + rewind snapshots), ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, status-bar, and turn-separator.",
   "keywords": [
     "pi-package",
     "pi",
@@ -17,6 +17,7 @@
     "rewind",
     "snapshot",
     "undo",
+    "job",
     "jobs",
     "background",
     "process",
@@ -42,15 +43,13 @@
   },
   "pi": {
     "extensions": [
-      "./extensions/worktree/index.ts",
+      "./extensions/git/index.ts",
       "./extensions/ask-user-question/index.ts",
       "./extensions/todo/index.ts",
       "./extensions/goal/index.ts",
-      "./extensions/git/index.ts",
-      "./extensions/rewind/index.ts",
-      "./extensions/plan-mode/index.ts",
+      "./extensions/plan/index.ts",
       "./extensions/subagent/index.ts",
-      "./extensions/jobs/index.ts",
+      "./extensions/job/index.ts",
       "./extensions/web-access/index.ts",
       "./extensions/file-browser/index.ts",
       "./extensions/status-bar/index.ts",
@@ -63,6 +62,7 @@
   },
   "files": [
     "extensions",
+    "lib",
     "themes",
     "assets",
     "README.md",

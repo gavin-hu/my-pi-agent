@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { onRailsSuppressed, onUpperRailChanged } from "../_shared/rails.ts";
+import { onRailsSuppressed, onUpperRailChanged } from "../../lib/rails.ts";
 import { DEFAULT_TODO_CONFIG, type TodoConfig } from "./config.ts";
 import { hasOpenTodos, reconstructTodos } from "./state.ts";
 import { TodoWidget, WIDGET_KEY } from "./tui.ts";

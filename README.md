@@ -22,15 +22,13 @@ only for the development tasks below.
 
 | Resource | Path | What it does |
 |---|---|---|
-| Extension | [`extensions/worktree/`](./extensions/worktree/) | `worktree`: isolated `git worktree` workflow — `enter_worktree` / `exit_worktree` / `prune_worktrees` / `list_worktrees`, `/worktree*`, `--worktree <name>`. |
+| Extension | [`extensions/git/`](./extensions/git/) | `git`: one extension composing read-only git inspection with worktree isolation and rewind — the `git` tool (`status`, `diff`, `log`, `show`, branch listing), the worktree workflow (`enter_worktree` / `exit_worktree` / `prune_worktrees` / `list_worktrees`, `/worktree*`, `--worktree <name>`), and per-prompt snapshots with `/rewind`. The worktree and rewind code lives in the nested [`worktree/`](./extensions/git/worktree/) and [`rewind/`](./extensions/git/rewind/) modules. |
 | Extension | [`extensions/ask-user-question/`](./extensions/ask-user-question/) | `ask_user_question`: ask the user one or more structured questions (labelled options + free-form “Other”) and wait for the answer. |
 | Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent one-line widget and `/todos`. |
 | Extension | [`extensions/goal/`](./extensions/goal/) | `goal`: a persistent session objective (`active`/`achieved`) kept in a one-line widget and restated before each turn; `/goal [text\|clear\|done]`. |
-| Extension | [`extensions/git/`](./extensions/git/) | `git`: read-only git inspection with no shell — `status`, `diff`, `log`, `show`, and branch listing, annotated `readOnlyHint` so plan mode keeps git visibility. |
-| Extension | [`extensions/rewind/`](./extensions/rewind/) | `rewind`: automatic per-prompt working-tree snapshots under `refs/pi/rewind`, plus `/rewind` to restore the code, the conversation, or both. Code rewinds never move HEAD; conversation rewinds use the session tree. |
-| Extension | [`extensions/plan-mode/`](./extensions/plan-mode/) | `plan-mode`: read-only planning via `enter_plan_mode` / `write_plan` / `exit_plan_mode`; plans are saved to `.pi/plans` and approved before execution (`--plan` to start, `/plan` toggles, `/plans` browses, `Ctrl+Alt+P`). |
+| Extension | [`extensions/plan/`](./extensions/plan/) | `plan`: read-only planning via `enter_plan_mode` / `write_plan` / `exit_plan_mode`; plans are saved to `.pi/plans` and approved before execution (`--plan` to start, `/plan` toggles, `/plans` browses, `Ctrl+Alt+P`). |
 | Extension | [`extensions/subagent/`](./extensions/subagent/) | `subagent`: delegate a task to a specialized agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) running in its own `pi` process — single, parallel (max 8/4), or chained via `{previous}`, with optional user/project markdown agents. |
-| Extension | [`extensions/jobs/`](./extensions/jobs/) | `jobs`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸ N` running / `✗ N` failure chips) with sanitized log tails and shutdown/reconcile lifecycle. |
+| Extension | [`extensions/job/`](./extensions/job/) | `job`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸ N` running / `✗ N` failure chips) with sanitized log tails and shutdown/reconcile lifecycle. |
 | Extension | [`extensions/web-access/`](./extensions/web-access/) | `web-access`: keyless web access with two tools — `web_search` (DuckDuckGo Instant Answers + Wikipedia fallback) and `web_fetch` (fetch a URL and read readable text, with paging, `find`, and an SSRF guard); native `fetch`, one `web-access.json`. |
 | Extension | [`extensions/file-browser/`](./extensions/file-browser/) | `file-browser`: `/serve` starts a read-only local HTTP server rooted at the working directory and opens a two-pane browser tree — listings, file views, image thumbnails, per-language icons, and a filter; `127.0.0.1` only, no dependencies. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + git state, then context gauge + usage + mode/alert + model + thinking level; width-adaptive, `/status-bar` toggles it. |
@@ -96,8 +94,8 @@ plan/worktree shape:
   `exit_plan_mode`, `ask_user_question`. The noun-first `web_search` and
   `web_fetch` mirror Claude Code's `WebSearch`/`WebFetch`.
 - A name one tool calls through `ctx.executeTool()` lives in
-  [`extensions/_shared/tool-names.ts`](./extensions/_shared/tool-names.ts), never
-  as a cross-extension import (see [`extensions/_shared/README.md`](./extensions/_shared/README.md)).
+  [`lib/tool-names.ts`](./lib/tool-names.ts), never as a cross-extension import
+  (see [`lib/README.md`](./lib/README.md)).
 - [`test/naming.test.ts`](./test/naming.test.ts) enforces the shape, uniqueness,
   verb-first ordering, and the reviewed set of names. Built-in overrides
   (`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`) reuse the built-in names and

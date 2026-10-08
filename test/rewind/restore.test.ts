@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { applyRestore, planRestore } from "../../extensions/rewind/restore.ts";
-import { createSnapshot, type SnapshotInput } from "../../extensions/rewind/snapshot.ts";
+import { applyRestore, planRestore } from "../../extensions/git/rewind/restore.ts";
+import { createSnapshot, type SnapshotInput } from "../../extensions/git/rewind/snapshot.ts";
 import { cleanup, indexFileFor, makeRepo, runGit } from "./helpers.ts";
 
 const cleanups: string[] = [];

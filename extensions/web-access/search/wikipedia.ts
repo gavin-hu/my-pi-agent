@@ -6,8 +6,8 @@
  * to scrape) and each page comes with its canonical URL.
  */
 
-import { HttpUnavailableError } from "../../_shared/http.ts";
-import type { HttpRunner } from "../../_shared/http.ts";
+import { HttpUnavailableError } from "../http.ts";
+import type { HttpRunner } from "../http.ts";
 import { asRecord, asString } from "./json.ts";
 import type { SearchResult } from "./types.ts";
 
