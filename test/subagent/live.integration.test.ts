@@ -17,6 +17,9 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 const enabled = process.env.PI_SUBAGENT_E2E === "1";
@@ -47,6 +50,45 @@ suite("subagent live end-to-end", () => {
 			if (result.error) throw result.error;
 			expect(result.status, result.stderr).toBe(0);
 			expect(result.stdout).toContain(MARKER);
+		},
+		TIMEOUT_MS,
+	);
+
+	test(
+		"discovers and runs a project-local agent",
+		() => {
+			const root = mkdtempSync(join(tmpdir(), "pi-subagent-live-"));
+			try {
+				const agentsDir = join(root, ".pi", "agents");
+				mkdirSync(agentsDir, { recursive: true });
+				writeFileSync(
+					join(agentsDir, "probe.md"),
+					`---\nname: liveprobe\ndescription: Replies with a marker\ntools: read\n---\nReply with exactly the text ${MARKER} and nothing else.\n`,
+					"utf-8",
+				);
+
+				const prompt = [
+					"You MUST call the subagent tool exactly once, with these arguments:",
+					'  agent: "liveprobe"',
+					'  agentScope: "project"',
+					`  task: "Reply with exactly the text ${MARKER} and nothing else."`,
+					"After the tool returns, output only the subagent result verbatim.",
+				].join("\n");
+
+				// `-a` trusts the temp project so the project-agent gate does not block.
+				const result = spawnSync(PI_BIN, ["--no-session", "-a", "--model", MODEL, "--thinking", "low", "-p", prompt], {
+					cwd: root,
+					encoding: "utf8",
+					timeout: TIMEOUT_MS,
+					maxBuffer: 16 * 1024 * 1024,
+				});
+
+				if (result.error) throw result.error;
+				expect(result.status, result.stderr).toBe(0);
+				expect(result.stdout).toContain(MARKER);
+			} finally {
+				rmSync(root, { recursive: true, force: true });
+			}
 		},
 		TIMEOUT_MS,
 	);

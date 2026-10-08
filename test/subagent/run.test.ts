@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
 import { runSingleAgent, type RunOptions } from "../../extensions/subagent/run.ts";
 import { getFinalOutput, getResultOutput, isFailedResult } from "../../extensions/subagent/stream.ts";
@@ -97,8 +97,24 @@ describe("runSingleAgent", () => {
 		const result = await runSingleAgent(options({ agentName: "ghost", spawn }));
 		expect(children).toHaveLength(0);
 		expect(result.exitCode).toBe(1);
+		expect(result.agentSource).toBe("unknown");
 		expect(result.stderr).toContain("Available agents");
 		expect(result.stderr).toContain("explorer");
+	});
+
+	test("resolves an agent from the supplied pool and records its source", async () => {
+		let seenPrompt = "";
+		const { spawn } = makeFakeSpawn((child) => {
+			seenPrompt = readFileSync(promptPath(child.args)!, "utf-8");
+			child.line({ type: "message_end", message: assistantMessage("done") });
+			child.close(0);
+		});
+		const custom = { name: "auditor", description: "Audits", systemPrompt: "You audit.", source: "user" as const };
+
+		const result = await runSingleAgent(options({ agentName: "auditor", agents: [custom], spawn }));
+		expect(result.exitCode).toBe(0);
+		expect(result.agentSource).toBe("user");
+		expect(seenPrompt).toContain("You audit.");
 	});
 
 	test("aborts the child and throws", async () => {

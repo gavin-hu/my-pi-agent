@@ -5,6 +5,7 @@
  */
 
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
+import type { AgentConfig } from "./agents.ts";
 import type { RunOptions } from "./run.ts";
 import { MAX_CONCURRENCY, PER_TASK_OUTPUT_CAP, type SubagentArgs } from "./schema.ts";
 import {
@@ -21,6 +22,8 @@ import type { DispatchDefaults, OnUpdateCallback, SingleResult, SubagentDetails 
 export interface ModeContext {
 	run: (options: RunOptions) => Promise<SingleResult>;
 	args: SubagentArgs;
+	/** Resolved agent pool passed to every run. */
+	agents?: readonly AgentConfig[];
 	defaults: DispatchDefaults;
 	defaultCwd: string;
 	signal?: AbortSignal;
@@ -31,7 +34,7 @@ export interface ModeContext {
 
 /** Sequential chain: each step's `{previous}` is the prior step's final output. */
 export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<SubagentDetails>> {
-	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails } = ctx;
+	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents } = ctx;
 	const chain = args.chain ?? [];
 	const results: SingleResult[] = [];
 	let previous = "";
@@ -50,6 +53,7 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 			defaultCwd,
 			defaults,
 			agentName: step.agent,
+			agents,
 			task,
 			cwd: step.cwd,
 			step: i + 1,
@@ -83,7 +87,7 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 
 /** Independent tasks with bounded concurrency, reporting running/done progress. */
 export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult<SubagentDetails>> {
-	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails } = ctx;
+	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents } = ctx;
 	const tasks = args.tasks ?? [];
 	const allResults: SingleResult[] = tasks.map((task) => createResult(task.agent, task.task));
 
@@ -102,6 +106,7 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 			defaultCwd,
 			defaults,
 			agentName: task.agent,
+			agents,
 			task: task.task,
 			cwd: task.cwd,
 			signal,
@@ -140,11 +145,12 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 
 /** One agent + task. */
 export async function runSingleMode(ctx: ModeContext): Promise<AgentToolResult<SubagentDetails>> {
-	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails } = ctx;
+	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents } = ctx;
 	const result = await run({
 		defaultCwd,
 		defaults,
 		agentName: args.agent ?? "",
+		agents,
 		task: args.task ?? "",
 		cwd: args.cwd,
 		signal,

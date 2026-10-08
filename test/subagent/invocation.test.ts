@@ -33,12 +33,19 @@ describe("buildAgentArgs", () => {
 
 	test("passes the tool allowlist and the appended system prompt", () => {
 		const args = buildAgentArgs(explorer, "t", {}, "/tmp/prompt.md");
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,bash");
+		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls");
 		expect(valueAfter(args, "--append-system-prompt")).toBe("/tmp/prompt.md");
 	});
 
-	test("omits --tools for an agent that inherits every tool", () => {
-		const args = buildAgentArgs(worker, "t", {}, null);
+	test("passes the researcher's web tool allowlist", () => {
+		const researcher = getAgent("researcher")!;
+		const args = buildAgentArgs(researcher, "t", {}, null);
+		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,web_search,web_fetch");
+	});
+
+	test("omits --tools for an agent with no allowlist", () => {
+		const inherit = { ...worker, tools: undefined };
+		const args = buildAgentArgs(inherit, "t", {}, null);
 		expect(args).not.toContain("--tools");
 		expect(args).not.toContain("--append-system-prompt");
 	});

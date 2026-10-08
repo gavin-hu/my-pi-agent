@@ -15,7 +15,7 @@ export function emptyUsage(): UsageStats {
 
 /** A fresh result for one subagent run; `exitCode: -1` marks it still running. */
 export function createResult(agent: string, task: string, extra: Partial<SingleResult> = {}): SingleResult {
-	return { agent, task, exitCode: -1, messages: [], stderr: "", usage: emptyUsage(), ...extra };
+	return { agent, agentSource: "unknown", task, exitCode: -1, messages: [], stderr: "", usage: emptyUsage(), ...extra };
 }
 
 /** Parse one stdout line; returns undefined for blank or malformed lines. */

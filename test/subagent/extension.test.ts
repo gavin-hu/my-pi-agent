@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import subagent, { TOOL_NAME } from "../../extensions/subagent/index.ts";
 import type { RunOptions } from "../../extensions/subagent/run.ts";
@@ -119,6 +122,101 @@ describe("subagent parallel mode", () => {
 		});
 		expect(result.content[0].text).toContain("1/2 succeeded");
 		expect(result.content[0].text).toContain("[planner] failed");
+	});
+});
+
+describe("subagent project agents", () => {
+	/** A temp repo whose `.pi/agents` holds one project agent. */
+	function projectRepo(): string {
+		const root = mkdtempSync(join(tmpdir(), "pi-subagent-ctx-"));
+		const agentsDir = join(root, ".pi", "agents");
+		mkdirSync(agentsDir, { recursive: true });
+		writeFileSync(join(agentsDir, "auditor.md"), "---\nname: auditor\ndescription: Audits\n---\nYou audit.\n", "utf-8");
+		return root;
+	}
+
+	function projectCtx(root: string, trusted: boolean, onConfirm: () => void): any {
+		return {
+			cwd: root,
+			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+			thinkingLevel: "medium",
+			hasUI: true,
+			isProjectTrusted: () => trusted,
+			ui: {
+				confirm: async () => {
+					onConfirm();
+					return false;
+				},
+			},
+		};
+	}
+
+	test("asks before running a project agent and cancels on decline", async () => {
+		const root = projectRepo();
+		try {
+			let calls = 0;
+			let confirmed = 0;
+			const tool = register(async (options) => {
+				calls++;
+				return success(options.agentName, "ok");
+			});
+			const result = await call(
+				tool,
+				{ agent: "auditor", task: "x", agentScope: "both" },
+				projectCtx(root, false, () => confirmed++),
+			);
+			expect(confirmed).toBe(1);
+			expect(calls).toBe(0);
+			expect(result.content[0].text).toContain("not approved");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("refuses project agents without a UI for an untrusted project", async () => {
+		const root = projectRepo();
+		try {
+			let calls = 0;
+			const tool = register(async (options) => {
+				calls++;
+				return success(options.agentName, "ok");
+			});
+			const headless: any = {
+				cwd: root,
+				model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+				thinkingLevel: "medium",
+				hasUI: false,
+				isProjectTrusted: () => false,
+				ui: { confirm: async () => true },
+			};
+			const result = await call(tool, { agent: "auditor", task: "x", agentScope: "both" }, headless);
+			expect(calls).toBe(0);
+			expect(result.content[0].text).toContain("Refusing");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("runs a project agent without prompting for a trusted project", async () => {
+		const root = projectRepo();
+		try {
+			let calls = 0;
+			let confirmed = 0;
+			const tool = register(async (options) => {
+				calls++;
+				return success(options.agentName, "ok");
+			});
+			const result = await call(
+				tool,
+				{ agent: "auditor", task: "x", agentScope: "both" },
+				projectCtx(root, true, () => confirmed++),
+			);
+			expect(confirmed).toBe(0);
+			expect(calls).toBe(1);
+			expect(result.content[0].text).toBe("ok");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 });
 

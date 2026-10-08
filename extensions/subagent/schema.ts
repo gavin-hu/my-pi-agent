@@ -6,6 +6,7 @@
  * spawning a process.
  */
 
+import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import type { SubagentMode } from "./types.ts";
 
@@ -51,6 +52,13 @@ export const SubagentParams = Type.Object({
 		}),
 	),
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
+	agentScope: Type.Optional(
+		StringEnum(["user", "project", "both"] as const, {
+			description:
+				'Which external agent directories to load on top of the built-ins. Default: "user". Use "both" to include project-local agents.',
+			default: "user",
+		}),
+	),
 });
 
 export type SubagentArgs = Static<typeof SubagentParams>;

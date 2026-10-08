@@ -214,7 +214,9 @@ check("subagent active by default", session.getActiveToolNames().includes("subag
 check("subagent is callable", !!session.getToolDefinition("subagent"));
 check(
 	"subagent advertises its built-in agents",
-	["explorer", "planner", "reviewer", "worker"].every((name) => subagentTool?.description?.includes(name)),
+	["explorer", "planner", "reviewer", "worker", "researcher", "tester", "debugger", "documenter"].every((name) =>
+		subagentTool?.description?.includes(name),
+	),
 );
 
 // jobs loads headlessly, registers an active tool and command, and can start and

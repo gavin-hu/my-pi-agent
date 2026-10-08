@@ -10,10 +10,10 @@ and parallel research out of the main transcript.
 
 ## Non-goals
 
-- **No external agents.** Agents are built-in TypeScript constants. There is no
-  `~/.pi/agent/agents` or `.pi/agents` discovery, no `agentScope`, and no
-  project-local prompts, so a repository cannot inject an agent merely by
-  adding a file.
+- **No ambient external agents.** User agents load only when an explicit
+  `agentScope` asks for them, and project-local agents additionally require a
+  trusted project or interactive confirmation, so a repository cannot inject a
+  prompt merely by adding a file under the default scope.
 - **No in-process agent loop.** Subagents are real `pi` processes; the extension
   does not reimplement tool execution or model streaming.
 - **No pinned models.** Built-in agents set no `model`, so a subprocess inherits
@@ -30,12 +30,22 @@ agent loop and tool handling. The cost is process startup and the need to parse
 a JSON event stream, which is worth it for real delegation. The bundled
 `examples/extensions/subagent` is the reference implementation.
 
-**Built-in registry instead of markdown discovery.** Built-ins make behavior
-auditable and deterministic: the tool description, agent list, prompts, and tool
-allowlists all live in `agents.ts`. Because there is nothing to discover, the
-tool surface drops the example's `agentScope` and `confirmProjectAgents`
-parameters and the project-trust prompt; the unknown-agent error lists the fixed
-roster instead.
+**Built-in registry plus opt-in discovery.** Built-ins stay as TypeScript
+constants so behavior is auditable and deterministic: the tool description,
+prompts, and tool allowlists all live in `agents.ts`. On top of them, markdown
+files are discovered from `<agentDir>/agents` (user) and the nearest
+`.pi/agents` (project) when `agentScope` (`user` default, `project`, `both`)
+includes them. Resolution merges built-ins, then user, then project, keyed by
+name, so a local file can customize a built-in. The unknown-agent error lists
+the resolved pool.
+
+**Project agents require trust, not a model flag.** The example's
+`confirmProjectAgents` parameter is intentionally absent: a model-facing
+boolean would let the caller opt out of the gate. Instead, when `agentScope`
+includes project agents, an untrusted project is confirmed interactively (or
+refused without a UI) based only on the project's trusted state. Because
+resolution happens against the full pool, a project file that shadows a
+built-in is still caught by `source === "project"`.
 
 **Inherit model and thinking level.** `buildAgentArgs` passes `--model` from the
 agent only when set, and falls back to `ctx.model` (`provider/id`). `--thinking`
@@ -76,7 +86,7 @@ validation.
 | Name | `subagent` |
 | Exposure | `direct`, active by default |
 | Annotations | `readOnlyHint: false`, `openWorldHint: true` |
-| Params | `agent`/`task`/`cwd`, `tasks[]`, `chain[]` |
+| Params | `agent`/`task`/`cwd`, `tasks[]`, `chain[]`, `agentScope` |
 | Modes | exactly one of single, parallel, chain |
 | Limits | 8 tasks, 4 concurrent, 50 KiB/task output |
 
@@ -86,9 +96,11 @@ validation.
 SubagentDetails {
   mode: "single" | "parallel" | "chain"
   total?: number            // requested steps/tasks; may exceed results.length
-  results: SingleResult[]   // agent, task, exitCode, messages, stderr,
-                            // usage, model, stopReason, errorMessage, step,
-                            // toolErrors, startedAt, finishedAt
+  agentScope?: AgentScope   // external directories consulted
+  projectAgentsDir?: string | null
+  results: SingleResult[]   // agent, agentSource, task, exitCode, messages,
+                            // stderr, usage, model, stopReason, errorMessage,
+                            // step, toolErrors, startedAt, finishedAt
 }
 ```
 

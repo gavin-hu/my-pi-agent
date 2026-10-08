@@ -156,6 +156,9 @@ function statusSuffix(result: SingleResult, status: ResultStatus, theme: Theme):
 /** A result header line: status icon, agent, and status suffix. */
 function resultHeader(result: SingleResult, status: ResultStatus, theme: Theme, stepPrefix: string): string {
 	let header = `${statusIcon(status, theme)} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
+	if (result.agentSource && result.agentSource !== "builtin" && result.agentSource !== "unknown") {
+		header += theme.fg("dim", ` [${result.agentSource}]`);
+	}
 	if (result.step) header = `${theme.fg("muted", `${stepPrefix} ${result.step} `)}` + header;
 	return header + statusSuffix(result, status, theme);
 }

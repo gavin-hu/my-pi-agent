@@ -8,7 +8,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { BuiltinAgent } from "./agents.ts";
+import type { AgentConfig } from "./agents.ts";
 import type { DispatchDefaults } from "./types.ts";
 
 /**
@@ -40,7 +40,7 @@ export function getPiInvocation(args: string[]): { command: string; args: string
  * `null` when the agent has no prompt to append.
  */
 export function buildAgentArgs(
-	agent: BuiltinAgent,
+	agent: AgentConfig,
 	task: string,
 	defaults: DispatchDefaults,
 	systemPromptPath: string | null,

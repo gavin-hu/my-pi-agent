@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
-import { getAgent, formatAgentList } from "./agents.ts";
+import { BUILTIN_AGENTS, formatAgentList, type AgentConfig } from "./agents.ts";
 import { buildAgentArgs, getPiInvocation } from "./invocation.ts";
 import { applyEvent, createResult, parseJsonLine } from "./stream.ts";
 import type { DispatchDefaults, OnUpdateCallback, SingleResult, SpawnFn, SubagentDetails } from "./types.ts";
@@ -24,6 +24,8 @@ export interface RunOptions {
 	agentName: string;
 	task: string;
 	cwd?: string;
+	/** Resolved agent pool; defaults to the built-ins when omitted. */
+	agents?: readonly AgentConfig[];
 	/** 1-based chain step, recorded on the result. */
 	step?: number;
 	signal?: AbortSignal;
@@ -127,13 +129,18 @@ function spawnAndCollect(
  */
 export async function runSingleAgent(options: RunOptions): Promise<SingleResult> {
 	const spawn = options.spawn ?? nodeSpawn;
-	const agent = getAgent(options.agentName);
+	const pool = options.agents ?? BUILTIN_AGENTS;
+	const agent = pool.find((candidate) => candidate.name === options.agentName);
 
-	const result = createResult(options.agentName, options.task, { step: options.step, startedAt: Date.now() });
+	const result = createResult(options.agentName, options.task, {
+		agentSource: agent?.source ?? "unknown",
+		step: options.step,
+		startedAt: Date.now(),
+	});
 
 	if (!agent) {
 		result.exitCode = 1;
-		result.stderr = `Unknown agent: "${options.agentName}". Available agents: ${formatAgentList()}.`;
+		result.stderr = `Unknown agent: "${options.agentName}". Available agents: ${formatAgentList(pool)}.`;
 		return result;
 	}
 
