@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `subagent`: four new built-in agents — `researcher` (sourced web research via
+  `web_search`/`web_fetch`), `tester` (writes and runs tests), `debugger`
+  (read-only root-cause analysis), and `documenter` (docs/README/changelog) —
+  alongside the existing `explorer`, `planner`, `reviewer`, and `worker`.
+- `subagent`: optional user agents from `<agent-dir>/agents` and project agents
+  from the nearest `.pi/agents`, loaded from markdown files with `name`,
+  `description`, `tools`, and optional `model` frontmatter. The new `agentScope`
+  parameter (`user` default, `project`, `both`) selects which directories are
+  consulted. Project agents load only for `project`/`both`, and an untrusted
+  project is confirmed interactively — or refused without a UI; the model cannot
+  opt out.
 - `todo`: the `todo` tool declares an `outputSchema` and returns matching
   `structuredContent`, so codemode/scripts can read the list as data.
 - `worktree`: a disposable managed-worktree registry
@@ -18,6 +29,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `jobs`: `runtime.ts` was split into focused seams — `store.ts` (durable
+  registry), `logs.ts` (log tails), `ui.ts` (chip + widget), and `waiters.ts` —
+  leaving the runtime as composition. The `job` tool's parameters now normalize
+  to a `JobCall` discriminated union, removing the non-null assertions in the
+  tool body. No behaviour change.
+- `subagent`: every built-in agent now uses an explicit tool allowlist. `worker`
+  is scoped (`read, write, edit, bash, grep, find, ls`) so it can no longer
+  recurse into `subagent` or pick up ambient tools, and `explorer` no longer has
+  `bash`. The `researcher`, `reviewer`, `debugger`, `tester`, and `documenter`
+  prompts now state their tool boundaries more precisely.
+- `subagent`: the `planner` agent is now framed as the delegated/headless
+  planning primitive. Interactive, user-reviewed planning stays plan-mode's job
+  (which blocks `subagent`), so the two are never used together.
 - `todo`: the `todo` tool now returns a compact progress/current-item result
   instead of echoing the full list it was just given; the list stays in the
   tool-result `details` and in `/todos`.
@@ -41,6 +65,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `goal`: `/goal clear` reports "No goal set." when nothing is set instead of
+  silently succeeding, `/goal achieved` works as a synonym for `done`, and an
+  unknown status is rejected before an empty objective can mask it. `getGoal()`
+  returns a copy so callers cannot mutate the live goal without a sync.
 - `todo`: the `/todos` screen now re-renders when the list changes while it is
   open, instead of showing the snapshot captured at open.
 - `worktree`: refuse a `name` that resolves outside the managed worktree
@@ -70,6 +98,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `jobs`: the footer chip shows `▸N·✗N` when jobs are running and an unreported
   failure is waiting, instead of hiding the failure behind the running count
   (which mattered whenever the widget was hidden or disabled).
+- `jobs`: the running chip is re-published on every repaint tick, so it cannot
+  stay missing if something clears extension statuses while a job keeps running.
 - `jobs`: docs now match the rendered `✗N`/`▸N·✗N` failure chip (was documented
   as `✕N`) and no longer imply the widget header shows the latest output line.
 
