@@ -361,7 +361,7 @@ No terminal is required for any test. `bun run check` stays green.
 
 ## Open questions (resolved)
 
-1. **Name.** `ask_user_question` (snake_case, like `worktree_enter`). ✅
+1. **Name.** `ask_user_question` (snake_case, like `enter_worktree`). ✅
 2. **Multi-select in v1?** Included — `multiSelect: true`, `Space` toggles. ✅
 3. **Option shape.** `{ label, description? }` (Claude Code-style; the label is
    the value). ✅

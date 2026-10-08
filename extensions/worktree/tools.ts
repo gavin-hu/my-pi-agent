@@ -7,15 +7,27 @@ import { Type } from "typebox";
 import { enterWorktree, exitWorktree, pruneWorktrees, worktreeStatus } from "./lifecycle.ts";
 import { getActive, getInactiveOverrides } from "./runtime.ts";
 
+/**
+ * Model-facing tool names, verb-first to match Claude Code's plan/worktree tools
+ * (`EnterWorktree`/`ExitWorktree`). Exported so the naming guard test can check
+ * them without loading the extension.
+ */
+export const WORKTREE_TOOLS = {
+	enter: "enter_worktree",
+	exit: "exit_worktree",
+	prune: "prune_worktrees",
+	list: "list_worktrees",
+} as const;
+
 export function registerTools(pi: ExtensionAPI): void {
 	pi.registerTool({
-		name: "worktree_enter",
+		name: WORKTREE_TOOLS.enter,
 		label: "Enter worktree",
 		description:
 			"Use this tool ONLY when explicitly instructed to work in a git worktree, either by the user or by project " +
 			"instructions. It creates an isolated git worktree and switches the session's working directory into it, so " +
 			"edits stay isolated from the main checkout. Pass `name` to create a new worktree, or `path` to switch into an " +
-			"existing worktree. The tool errors if the session is already isolated; call worktree_exit first.",
+			"existing worktree. The tool errors if the session is already isolated; call exit_worktree first.",
 		parameters: Type.Object({
 			name: Type.Optional(
 				Type.String({
@@ -40,12 +52,12 @@ export function registerTools(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: "worktree_exit",
+		name: WORKTREE_TOOLS.exit,
 		label: "Exit worktree",
 		description:
 			"Leave the current git worktree and return to the main checkout. The worktree is removed when it is clean; " +
 			"when it has uncommitted changes or new commits the user is asked whether to keep it. Use this after merging " +
-			"or finishing work started with worktree_enter.",
+			"or finishing work started with enter_worktree.",
 		parameters: Type.Object({
 			remove: Type.Optional(Type.Boolean({ description: "Force removal (or keep when false) without prompting." })),
 			keepBranch: Type.Optional(Type.Boolean({ description: "Keep the worktree branch when removing." })),
@@ -62,7 +74,7 @@ export function registerTools(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: "worktree_prune",
+		name: WORKTREE_TOOLS.prune,
 		label: "Prune worktrees",
 		description:
 			"Remove managed git worktrees that are clean, have no new commits, are not the current worktree, are not " +
@@ -76,7 +88,7 @@ export function registerTools(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: "worktree_status",
+		name: WORKTREE_TOOLS.list,
 		label: "Worktree status",
 		description:
 			"Report whether the session is isolated in a git worktree, its path and branch, any isolation overrides that " +

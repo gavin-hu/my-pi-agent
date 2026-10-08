@@ -18,10 +18,10 @@ pi install ./ -l         # project-local
 
 ## What it does
 
-- `worktree_enter` — creates `<repo>/.pi/worktrees/<name>` on branch
+- `enter_worktree` — creates `<repo>/.pi/worktrees/<name>` on branch
   `worktree-<name>` (or enters an existing worktree by `path`) and rebinds the
   session's working root to it.
-- `worktree_exit` — returns to the main checkout. A clean worktree is removed
+- `exit_worktree` — returns to the main checkout. A clean worktree is removed
   automatically; one with uncommitted changes or new commits prompts (or is
   kept in non-interactive mode). A branch that still holds work (uncommitted
   changes, or commits not reachable from the recorded base) is never
@@ -47,7 +47,7 @@ pi install ./ -l         # project-local
 | `/worktree prune` | remove clean, unused, old managed worktrees |
 | `--worktree <name>` | enter at session start |
 
-The `worktree_status` tool is the model-facing equivalent of `/worktree`:
+The `list_worktrees` tool is the model-facing equivalent of `/worktree`:
 isolated or not, path/branch, inactive overrides, and managed worktrees.
 
 ## Configuration
@@ -92,7 +92,7 @@ path itself (for example a script or an inlined interpreter).
 
 `skipOverrides` matters when another extension owns one of the same built-in
 tool names: Pi refuses to load two extensions that register the same tool, so
-exclude the name here to load alongside it. `/worktree` and `worktree_status`
+exclude the name here to load alongside it. `/worktree` and `list_worktrees`
 list any overridden tool that is not re-rooted.
 
 Add the worktree directory to `.gitignore`:
@@ -137,7 +137,7 @@ config/secrets.json
 
 ## Pull / merge requests
 
-`worktree_enter` accepts a PR/MR reference in `name`, as does the startup flag:
+`enter_worktree` accepts a PR/MR reference in `name`, as does the startup flag:
 
 ```
 pi --worktree '#1234'
@@ -154,7 +154,7 @@ and `PI_WORKTREE_MAIN` (the main checkout) into the process environment. A child
 `pi` process — a
 subagent spawned by an extension, or any `pi` you start from a tool — inherits
 it and binds to the same worktree instead of the main checkout. The child is
-read-only with respect to lifecycle: `worktree_enter` and `worktree_exit` refuse,
+read-only with respect to lifecycle: `enter_worktree` and `exit_worktree` refuse,
 and the parent owns cleanup.
 
 Extensions can also follow changes on the `pi.events` channel
@@ -164,7 +164,7 @@ Extensions can also follow changes on the `pi.events` channel
 
 Entering a managed worktree takes a `git worktree lock` (reason
 `pi:<pid>:<session>`), so a concurrent sweep cannot remove it; exiting and
-shutdown release it. `/worktree prune` (or the `worktree_prune` tool) removes
+shutdown release it. `/worktree prune` (or the `prune_worktrees` tool) removes
 managed worktrees that are clean, have no new commits, are not the current or a
 live-locked one, and are older than `pruneAfterDays`. It releases locks whose
 owning process is gone first, and any failure keeps the worktree with a reason.
@@ -204,7 +204,7 @@ Implemented:
 - **M4** — subagent/child-process isolation via `PI_WORKTREE_ROOT` and the `worktree:changed` event;
   `git worktree lock`/`unlock` with a stale-lock-aware `/worktree prune`; packaged as a Pi package
   (`package.json` with a `pi` manifest and host packages as peers).
-- **Hardening** — `worktree_status` tool; symlink-safe containment (`blockSymlinkEscapes`);
+- **Hardening** — `list_worktrees` tool; symlink-safe containment (`blockSymlinkEscapes`);
   credential-prompt suppression for network fetches; inactive-override reporting; shell-expansion-aware
   git redirect checks; a `bun test` suite (63 tests) and CI.
 
@@ -214,7 +214,7 @@ Known limitations:
   extension owns `bash` (or another overridden name), set
   `skipOverrides: ["bash"]` so this extension does not register it; that tool
   then runs in the main checkout with **no re-rooting**, so only its absolute
-  writes are guarded (relative paths are not isolated), and `worktree_status`
+  writes are guarded (relative paths are not isolated), and `list_worktrees`
   reports it. `skipOverrides` is read when the extension loads, from the
   process working directory; reload after changing it.
 - The guard is best-effort at the shell level: command substitution, `eval`, and
@@ -223,4 +223,4 @@ Known limitations:
 - Only the model's `bash` tool is re-rooted and guarded. A shell command the
   user runs directly (`!` in the TUI / the `user_bash` event) is not re-rooted
   and still runs in the main checkout; Pi has no mutable session cwd to change
-  that. `/worktree` and `worktree_status` report the active root.
+  that. `/worktree` and `list_worktrees` report the active root.

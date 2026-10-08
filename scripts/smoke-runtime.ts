@@ -1,5 +1,5 @@
 // Real-runtime smoke test: load the package through the real Pi loader and
-// drive worktree_enter/worktree_status/worktree_exit without a model call.
+// drive enter_worktree/list_worktrees/exit_worktree without a model call.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -102,14 +102,14 @@ for (const name of ROOT_TOOL_NAMES) {
 }
 check("edit override keeps prepareArguments", !!tool("edit").prepareArguments);
 
-const entered = await call("worktree_enter", { name: "smoke" });
+const entered = await call("enter_worktree", { name: "smoke" });
 const enterText = (entered.content[0] as { text: string }).text;
 console.log(enterText.split("\n").slice(0, 4).join("\n"));
 const dir = join(work, ".pi", "worktrees", "smoke");
 check("worktree directory created", existsSync(dir));
 check("enter mentions isolation", /Entered worktree/.test(enterText));
 
-const status = await call("worktree_status", {});
+const status = await call("list_worktrees", {});
 const statusText = (status.content[0] as { text: string }).text;
 console.log(statusText);
 check("status reports isolated", /Worktree: smoke/.test(statusText));
@@ -261,7 +261,7 @@ const separatorLine = separatorRenderer?.(
 )?.render(40)[0];
 check("turn-separator renders a labeled line", !!separatorLine?.includes("turn 3"));
 
-const exited = await call("worktree_exit", { remove: true });
+const exited = await call("exit_worktree", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;
 console.log(exitText);
 check("worktree directory removed", !existsSync(dir));

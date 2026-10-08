@@ -108,7 +108,7 @@ fallback rather than the primary contract.
 are not the current or a live-locked one, and are older than `pruneAfterDays`;
 it clears stale locks first, and any failure keeps the worktree with a reason.
 
-**Never force out work.** `worktree_exit` never force-deletes a branch that
+**Never force out work.** `exit_worktree` never force-deletes a branch that
 still holds uncommitted changes or commits not reachable from the recorded base,
 even with `remove: true`. A clean worktree is created by the session and removed
 automatically; a dirty one prompts, or is kept in non-interactive mode.
@@ -126,7 +126,7 @@ createdByUs }`) and exposes `loadRegistry` / `upsertRecord` / `touchRecord` /
 (`clean|dirty|missing`, changed, ahead, behind, merged, locked, staleLock,
 lastUsedAt) from a listed worktree plus its record. `enter`/`exit` maintain
 records, prune ages by `lastUsedAt` (falling back to directory mtime), and
-`worktree_status` renders the derived marks.
+`list_worktrees` renders the derived marks.
 
 ### 2. Merge-aware cleanup + snapshot **[planned]**
 - Treat a branch fully contained in the main checkout or `origin/<default>` as
@@ -139,7 +139,7 @@ records, prune ages by `lastUsedAt` (falling back to directory mtime), and
   prompt`) that returns a dry-run preview in the tool result.
 
 ### 3. Switch + picker **[planned]**
-Allow `worktree_enter(path)` (or a new `switch`) while active: release the
+Allow `enter_worktree(path)` (or a new `switch`) while active: release the
 current binding (unlock, keep on disk) and bind the new one. Add a picker over
 the registry. Removal stays exclusive to `exit`.
 
@@ -165,7 +165,7 @@ explicitly to subagents instead of relying on inheritance.
 
 ### 7. Observability **[planned]**
 Drive the status chip from derived status (`⧉ name ↑2 ↓1 ✱`, `merged ✅`),
-refreshed on `tool_result`. `worktree_status` returns `structuredContent` via
+refreshed on `tool_result`. `list_worktrees` returns `structuredContent` via
 `outputSchema` so the model and peers can rely on it. `/worktree` becomes a
 picker over the registry.
 
@@ -188,7 +188,7 @@ start time) rather than pid alone, so pid reuse cannot pin a lock forever.
 - Replace the silent fresh-reset of a reused clean worktree with an explicit
   `--reset`, which is less surprising than a hard reset on reopen.
 - Fold `baseRefMode` into the `base` record (`{ ref, commit, mode }`).
-- Unify `/worktree` and `worktree_status` output through one renderer.
+- Unify `/worktree` and `list_worktrees` output through one renderer.
 
 ## Sequencing
 

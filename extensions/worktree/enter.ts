@@ -107,7 +107,7 @@ export async function enterWorktree(
 	}
 	if (current) {
 		throw new Error(
-			`Already working in a worktree (${worktreeLabel(current)}). Call worktree_exit before entering another.`,
+			`Already working in a worktree (${worktreeLabel(current)}). Call exit_worktree before entering another.`,
 		);
 	}
 
@@ -267,7 +267,7 @@ export async function enterWorktree(
 	ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}`, "info");
 	const summary =
 		`Entered worktree.\n${stateSummary(state)}\n\n` +
-		`Relative paths now resolve inside the worktree. When finished, call worktree_exit.` +
+		`Relative paths now resolve inside the worktree. When finished, call exit_worktree.` +
 		(copiedIncludes.length > 0 ? `\n\nCopied ${copiedIncludes.length} gitignored file(s).` : "");
 	return { state, summary };
 }

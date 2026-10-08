@@ -1,6 +1,6 @@
 /**
  * Worktree status and reporting: labels, summaries, refusal messages, and the
- * override/`worktree_status` view.
+ * override/`list_worktrees` view.
  */
 
 import { basename } from "node:path";

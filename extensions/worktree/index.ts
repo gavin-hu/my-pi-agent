@@ -2,10 +2,10 @@
  * pi-worktree — Isolated git worktrees (EnterWorktree / ExitWorktree) for Pi.
  *
  * Mimics Claude Code's worktree isolation:
- *   - `worktree_enter` creates (or enters) an isolated `git worktree` under
+ *   - `enter_worktree` creates (or enters) an isolated `git worktree` under
  *     `.pi/worktrees/<name>` on branch `worktree-<name>`, and rebinds every
  *     path-taking tool to it.
- *   - `worktree_exit` returns to the main checkout and cleans up, checking for
+ *   - `exit_worktree` returns to the main checkout and cleans up, checking for
  *     uncommitted work and unpushed commits first.
  *
  * Pi has no mutable session cwd and its built-ins capture cwd at construction,
@@ -173,7 +173,7 @@ export default function (pi: ExtensionAPI) {
 				`Do not edit files or run git against the main checkout.` +
 				(state.borrowed
 					? "\nThis worktree was inherited from the parent session; do not try to exit it."
-					: "\nUse worktree_exit to return."),
+					: "\nUse exit_worktree to return."),
 		};
 	});
 

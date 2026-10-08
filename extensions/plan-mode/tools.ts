@@ -16,15 +16,13 @@
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
+import { TOOL_NAME as TODO_TOOL } from "../todo/tools.ts";
 import { FULL_SCREEN_OVERLAY } from "../_shared/tui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
 import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, WritePlanDetails } from "./types.ts";
-
-/** Tool that records the seeded steps; plan-mode only calls it if it exists. */
-const TODO_TOOL = "todo";
 
 const ExitPlanModeParams = Type.Object({
 	plan_path: Type.String({

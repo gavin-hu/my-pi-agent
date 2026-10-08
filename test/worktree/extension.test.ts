@@ -87,11 +87,11 @@ async function boot(repo: string, options: BootOptions = {}) {
 }
 
 async function enter(pi: any, ctx: any, params: { name?: string; path?: string }) {
-	return pi.tools.get("worktree_enter").execute("enter-1", params, undefined, undefined, ctx);
+	return pi.tools.get("enter_worktree").execute("enter-1", params, undefined, undefined, ctx);
 }
 
 async function exit(pi: any, ctx: any, params: { remove?: boolean; keepBranch?: boolean } = {}) {
-	return pi.tools.get("worktree_exit").execute("exit-1", params, undefined, undefined, ctx);
+	return pi.tools.get("exit_worktree").execute("exit-1", params, undefined, undefined, ctx);
 }
 
 async function removeWorktree(repo: string, dir: string, branch: string) {
@@ -177,7 +177,7 @@ describe("extension enter / exit", () => {
 		cleanups.push(repo);
 		const { pi } = await boot(repo);
 		expect([...pi.commands.keys()]).toEqual(["worktree"]);
-		for (const name of ["worktree_enter", "worktree_exit", "worktree_prune", "worktree_status"]) {
+		for (const name of ["enter_worktree", "exit_worktree", "prune_worktrees", "list_worktrees"]) {
 			expect(pi.tools.has(name)).toBe(true);
 		}
 	});
@@ -232,7 +232,7 @@ describe("extension enter / exit", () => {
 		expect(completions("enter ")).toBeNull();
 	});
 
-	test("reports inactive overrides through worktree_status", async () => {
+	test("reports inactive overrides through list_worktrees", async () => {
 		const repo = await makeRepo("pi-wt-ext-");
 		cleanups.push(repo);
 		const builtinBash = {
@@ -244,7 +244,7 @@ describe("extension enter / exit", () => {
 			sourceInfo: { path: "builtin:bash", source: "builtin", scope: "global", origin: "top-level" },
 		};
 		const { pi, ctx } = await boot(repo, { allTools: [builtinBash] });
-		const result = await pi.tools.get("worktree_status").execute("s1", {}, undefined, undefined, ctx);
+		const result = await pi.tools.get("list_worktrees").execute("s1", {}, undefined, undefined, ctx);
 		expect(result.content[0].text).toMatch(/not active for: bash/);
 	});
 
@@ -261,7 +261,7 @@ describe("extension enter / exit", () => {
 			sourceInfo: { path: self, source: "extension", scope: "temporary", origin: "top-level" },
 		}));
 		const { pi, ctx } = await boot(repo, { allTools: tools });
-		const result = await pi.tools.get("worktree_status").execute("s1", {}, undefined, undefined, ctx);
+		const result = await pi.tools.get("list_worktrees").execute("s1", {}, undefined, undefined, ctx);
 		expect(result.content[0].text).not.toContain("not active for");
 	});
 
@@ -368,7 +368,7 @@ describe("borrowed worktree (subagent)", () => {
 		expect(ctx.statuses.get("worktree")).toContain("borrow");
 
 		// The child records the main checkout as repoRoot, not the worktree.
-		const status = await pi.tools.get("worktree_status").execute("s", {}, undefined, undefined, ctx);
+		const status = await pi.tools.get("list_worktrees").execute("s", {}, undefined, undefined, ctx);
 		expect(status.content[0].text).toContain(`main:   ${canonicalize(repo)}`);
 
 		await expect(enter(pi, ctx, { name: "x" })).rejects.toThrow(/inherited/i);
@@ -403,7 +403,7 @@ describe("prune", () => {
 
 		// Fresh boot so no worktree is current.
 		const { pi, ctx } = await boot(repo);
-		const result = await pi.tools.get("worktree_prune").execute("p1", {}, undefined, undefined, ctx);
+		const result = await pi.tools.get("prune_worktrees").execute("p1", {}, undefined, undefined, ctx);
 		const text = result.content[0].text;
 
 		expect(text).toContain(`Removed ${oldDir}`);
@@ -423,7 +423,7 @@ describe("prune edge cases", () => {
 	}
 
 	async function prune(pi: any, ctx: any): Promise<string> {
-		const result = await pi.tools.get("worktree_prune").execute("p", {}, undefined, undefined, ctx);
+		const result = await pi.tools.get("prune_worktrees").execute("p", {}, undefined, undefined, ctx);
 		return result.content[0].text;
 	}
 

@@ -25,7 +25,7 @@ export async function exitWorktree(
 	if (!state) throw new Error("Not currently in a worktree.");
 	if (state.borrowed) {
 		throw new Error(
-			"This worktree was inherited from the parent session, which owns it. Ask the parent to call worktree_exit.",
+			"This worktree was inherited from the parent session, which owns it. Ask the parent to call exit_worktree.",
 		);
 	}
 	clearConfigCache();
@@ -112,7 +112,7 @@ export async function exitWorktree(
 		}
 	} else {
 		lines.push(`Kept worktree ${state.path}`);
-		if (state.branch) lines.push(`Re-enter with worktree_enter (path: ${state.path})`);
+		if (state.branch) lines.push(`Re-enter with enter_worktree (path: ${state.path})`);
 		touchRecord(state.repoRoot, config, state.path);
 	}
 
