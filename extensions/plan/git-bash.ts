@@ -14,7 +14,7 @@
  *      backslash before an ordinary character is a literal separator, so a
  *      Windows path (`git diff -- extensions\plan`) survives, while a backslash
  *      that escapes whitespace, a quote, another backslash, or a metacharacter
- *      is still refused;
+ *      is still refused (see `lib/shell.ts`);
  *   2. each segment must start with `git` and name a read-only subcommand;
  *   3. options that can execute an external program or write a file are
  *      rejected, and dual-use subcommands (`branch`, `tag`, `remote`, `config`,
@@ -25,6 +25,8 @@
  * risking a bypass. It touches nothing on disk.
  */
 
+import { hasShellEscape } from "../../lib/shell.ts";
+
 /** Verdict from the read-only git command guard. */
 export type GitCommandVerdict = { ok: true } | { ok: false; reason: string };
 
@@ -34,14 +36,6 @@ export type GitCommandVerdict = { ok: true } | { ok: false; reason: string };
  * occurrence blocks (including inside quotes — a deliberate over-rejection).
  */
 const SHELL_META = /[;&|<>`$(){}[\]\n\r]/;
-
-/**
- * A backslash that escapes something: whitespace, a quote, another backslash, a
- * shell metacharacter, or the end of the command. A backslash before any other
- * character is a literal separator, so a Windows path (`C:\Users\x`) survives
- * the check. Pure and side-effect free.
- */
-const SHELL_ESCAPE = /\\(?=$|[\s"'\\;&|<>`$(){}[\]])/;
 
 /** `git` subcommands that only read repository state. */
 const READ_ONLY_SUBCOMMANDS = new Set([
@@ -267,7 +261,7 @@ function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
  * {@link checkReadOnlyGit}.
  */
 function checkSingleGitCommand(command: string): GitCommandVerdict {
-	if (SHELL_META.test(command) || SHELL_ESCAPE.test(command)) {
+	if (SHELL_META.test(command) || hasShellEscape(command)) {
 		return { ok: false, reason: "shell substitution and redirection are not allowed while planning." };
 	}
 
