@@ -16,6 +16,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { type AgentConfig, type AgentScope, BUILTIN_AGENTS, discoverAgents, formatAgentList } from "./agents.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
@@ -59,6 +60,7 @@ function requestedAgentNames(args: SubagentArgs): string[] {
 }
 
 export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): void {
+	if (!isExtensionEnabled("subagent")) return;
 	const run = deps.run ?? runSingleAgent;
 
 	pi.registerTool({

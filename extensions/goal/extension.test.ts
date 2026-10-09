@@ -10,12 +10,23 @@ import { emitCollect as emit, makeFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { goalContextMessage, resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { lastWidget, otherMessage } from "../../test/helpers/entries.ts";
-import { useEnv } from "../../test/helpers/env.ts";
+import { useEnv, withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
 const active = (objective: string): Goal => ({ objective, status: "active" });
 const achieved = (objective: string): Goal => ({ objective, status: "achieved" });
 
 describe("goal extension", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "goal" }, () => {
+			const { pi, tools, commands, handlers } = makeFakePi();
+			goal(pi);
+			expect(tools.size).toBe(0);
+			expect(commands.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers the tool and the /goal command", () => {
 		const { pi, tools, commands } = makeFakePi();
 		goal(pi);

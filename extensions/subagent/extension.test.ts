@@ -8,6 +8,8 @@ import { emptyUsage } from "./stream.ts";
 import type { SingleResult } from "./types.ts";
 import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 
 const temps = makeTempTracker();
@@ -43,6 +45,13 @@ function call(tool: any, params: unknown, ctx = fakeToolCtx()): Promise<any> {
 }
 
 describe("subagent registration", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "subagent" }, () => {
+			const { pi, tools } = makeFakePi();
+			subagent(pi);
+			expect(tools.size).toBe(0);
+		});
+	});
 	test("registers a direct, active tool", () => {
 		const tool = register(async (options) => success(options.agentName, "ok"));
 		expect(tool).toBeDefined();

@@ -5,6 +5,10 @@ import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { WORKTREE_TOOLS } from "./tools.ts";
 import { makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
 import { bootWorktree, emitEvent, makeWorktreePi, WORKTREE_ENTRY } from "../../test/helpers/fixtures/worktree.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import worktreeExtension from "./index.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -22,6 +26,17 @@ function foreignBash() {
 }
 
 describe("worktree registration", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "worktree" }, () => {
+			const { pi, tools, commands, flags, handlers } = createFakePi();
+			worktreeExtension(pi);
+			expect(tools.size).toBe(0);
+			expect(commands.size).toBe(0);
+			expect(flags.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers a string worktree flag", () => {
 		const { pi } = makeWorktreePi();
 		expect(pi.flags.get("worktree")?.type).toBe("string");

@@ -10,12 +10,14 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerCommands } from "./commands.ts";
 import { loadTodoConfig } from "./config.ts";
 import { createTodoRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
 export default function todo(pi: ExtensionAPI) {
+	if (!isExtensionEnabled("todo")) return;
 	const runtime = createTodoRuntime(pi);
 
 	registerTools(pi, runtime);

@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSnapshot } from "./snapshot.ts";
 import { onRailsSuppressed } from "../../lib/rails.ts";
-import { emit } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import rewindExtension from "./index.ts";
 import {
 	branchWithUser,
 	indexFileFor,
@@ -22,6 +25,15 @@ afterAll(() => cleanup(...cleanups));
 const NS = "refs/pi/rewind";
 
 describe("automatic snapshots", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "rewind" }, () => {
+			const { pi, commands, handlers } = createFakePi();
+			rewindExtension(pi);
+			expect(commands.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("takes one snapshot per prompt, before the first mutating call", async () => {
 		const repo = await makeRepo("pi-rw-ext-");
 		cleanups.push(repo);

@@ -20,6 +20,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
 import { hasPathInput } from "./path-guard.ts";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { STATUS_KEYS } from "../../lib/ui.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
@@ -76,6 +77,7 @@ function isPlanModeContext(message: AgentMessage): boolean {
 }
 
 export default function planMode(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("plan")) return;
 	const policy = createPlanPolicy(pi);
 	const runtime = createPlanRuntime(pi, policy, { entryPath: extensionEntryPath() });
 

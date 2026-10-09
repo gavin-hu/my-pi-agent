@@ -8,8 +8,10 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerDocTool } from "./tool.ts";
 
 export default function doc(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("doc")) return;
 	registerDocTool(pi);
 }

@@ -13,10 +13,12 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { createFooter } from "./footer.ts";
 import { createSnapshotReader } from "./snapshot.ts";
 
 export default function statusBar(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("status-bar")) return;
 	let enabled = true;
 	const read = createSnapshotReader();
 

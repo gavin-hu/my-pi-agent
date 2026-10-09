@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import jobs, { JOB_CONTEXT_TYPE } from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { createFakePi, emit, emitFirst, type AnyHandler } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/job.ts";
 
 const suite = makeHarnessSuite();
@@ -17,6 +19,16 @@ function setup() {
 }
 
 describe("jobs extension", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "job" }, () => {
+			const { pi, tools, commands, handlers } = createFakePi();
+			jobs(pi);
+			expect(tools.size).toBe(0);
+			expect(commands.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers the tool and the /jobs command", () => {
 		const { tools, commands } = setup();
 		expect(tools.has(TOOL_NAME)).toBe(true);

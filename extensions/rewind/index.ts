@@ -13,6 +13,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerCommands } from "./commands.ts";
 import { summarizePrompt } from "./format.ts";
 import { createSnapshotPolicy, type SnapshotPolicy } from "./policy.ts";
@@ -100,5 +101,6 @@ export function registerRewind(pi: ExtensionAPI): void {
 
 /** Pi extension entrypoint. */
 export default function rewindExtension(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("rewind")) return;
 	registerRewind(pi);
 }

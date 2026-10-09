@@ -52,6 +52,24 @@ one-off). Pi themes cannot set the terminal's background, so the live canvas
 stays your terminal's color — set it to `#0d1117` for the intended look. HTML
 exports use the theme's `export.pageBg`, so they are unaffected.
 
+## Disabling extensions
+
+Every extension in this package is on by default. Set `PI_DISABLED_EXTENSIONS`
+to a comma- or whitespace-separated list of extension names to load the package
+without them:
+
+```bash
+PI_DISABLED_EXTENSIONS=todo,job pi -e .
+```
+
+Names are the extension directories under [`extensions/`](./extensions/)
+(`worktree`, `rewind`, `ask-user-question`, `todo`, `goal`, `plan`, `subagent`,
+`job`, `web-access`, `file-browser`, `doc`, `status-bar`, `turn-separator`),
+compared case-insensitively; unknown names are ignored. This is a package-local
+switch: Pi still imports each entrypoint, but a disabled factory registers
+nothing. To drop the whole package instead, use Pi's own `--no-extensions` or a
+settings `-path` entry.
+
 ## Development
 
 ```bash

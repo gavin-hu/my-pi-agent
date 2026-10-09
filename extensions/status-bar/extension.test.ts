@@ -1,9 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import statusBar from "./index.ts";
 import { coloringTheme, emit } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/status-bar.ts";
 
 describe("status-bar extension", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "status-bar" }, () => {
+			const { pi, commands, handlers } = makeFakePi();
+			statusBar(pi);
+			expect(commands.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers the /status-bar command", () => {
 		const { pi, commands } = makeFakePi();
 		statusBar(pi);

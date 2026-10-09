@@ -6,7 +6,8 @@ import webAccess from "./index.ts";
 import { TOOL_NAME as SEARCH_TOOL } from "./search/tool.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { htmlResponse } from "../../test/helpers/fixtures/web-access.ts";
-import { tempDir, useEnv } from "../../test/helpers/env.ts";
+import { tempDir, useEnv, withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
 type AnyFn = (...args: any[]) => any;
 
@@ -23,6 +24,15 @@ beforeEach(() => {
 afterEach(() => setDefaultRunnerForTests(undefined));
 
 describe("web-access extension", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "web-access" }, () => {
+			const { pi, tools, handlers } = createFakePi();
+			webAccess(pi);
+			expect(tools.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers both tools as direct and active by default", () => {
 		const { pi, tools } = createFakePi();
 		webAccess(pi);
