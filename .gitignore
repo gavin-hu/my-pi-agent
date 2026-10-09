@@ -1,6 +1,7 @@
 node_modules/
 .pi/worktrees/
 .pi/plans/
+.pi/tmp/
 .DS_Store
 *.log
 *.tgz

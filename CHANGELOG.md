@@ -15,6 +15,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lazily with a clear install hint when missing. Formats are table-driven, so
   more are additive. `lib/path.ts` now shares `realPathOfNearest` /
   `isInsideReal` with the worktree guard.
+- `env`: `PI_DISABLED_EXTENSIONS` (comma- or whitespace-separated extension
+  names, case-insensitive) loads the package without the named extensions, so a
+  session can omit one without uninstalling it.
+
+### Changed
+
+- Every tool's transcript row was reworked for consistency: a blank line
+  separates a header from a multi-line body while single-line status rows stay
+  flush, hidden content ends with the `app.tools.expand` hint, and renderers
+  reuse `context.lastComponent` instead of allocating each frame. Per row:
+  `read_doc` leads with the format and a humanized range instead of repeating
+  the path and previews the text when expanded; `todo` shows progress and the
+  active item on the call line; `job list` renders the `/jobs` row rail and
+  `job logs` a themed tail; `subagent` separates its header from the body and
+  binds its expand hint; `plan` separates the plan body from its header;
+  `ask_user_question` lists one option line per question; `web_search` expands
+  to every title.
+- `file-browser`: the `/serve` UI fills the window — a full-height app shell
+  with independently scrolling sidebar and content panes (mobile keeps normal
+  page scroll).
+
+### Fixed
+
+- `web-access`: search answers/titles and fetched page titles/errors are
+  stripped of control characters and ANSI sequences before reaching the
+  terminal, so a page cannot restyle or corrupt it.
+- `job`: `job list` honours the expanded state (`ctrl+o`) instead of always
+  capping at eight rows; capped `todo` and `job` results now advertise the
+  expand key.
 
 ## [0.1.0] - 2026-10-09
 
