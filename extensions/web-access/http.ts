@@ -1,9 +1,10 @@
 /**
  * Native-fetch HTTP transport used by the web-access extension.
  *
- * No `curl`, no dependencies: one `fetch` call with a combined caller-signal and
- * timeout, optional request body, and a size cap. `HttpRunner` is the seam tests
- * use to avoid the network.
+ * No `curl`, no dependencies: one `fetch` call per request (with optional
+ * manual redirect handling) with a combined caller-signal and timeout, optional
+ * request body, and a size cap. `HttpRunner` is the seam tests use to avoid the
+ * network.
  */
 
 /** A request to send. */
@@ -16,6 +17,8 @@ export interface HttpRequest {
 	timeoutMs: number;
 	/** Maximum response size in bytes; larger responses raise `HttpTooLargeError`. */
 	maxBytes?: number;
+	/** Redirect handling: `"follow"` (default) or `"manual"` to inspect each hop. */
+	redirect?: "follow" | "manual";
 }
 
 export interface HttpResponse {
@@ -24,6 +27,10 @@ export interface HttpResponse {
 	contentType: string;
 	finalUrl: string;
 	sizeBytes: number;
+	/** Raw response bytes, for binary content such as PDFs. */
+	bytes?: Uint8Array;
+	/** The `Location` header, populated when `redirect: "manual"`. */
+	location?: string;
 }
 
 export type HttpRunner = (request: HttpRequest, signal?: AbortSignal) => Promise<HttpResponse>;
@@ -86,7 +93,7 @@ export function createFetchRunner(fetchImpl: typeof fetch = globalThis.fetch): H
 				headers: request.headers,
 				body: request.body,
 				signal: controller.signal,
-				redirect: "follow",
+				redirect: request.redirect ?? "follow",
 			});
 
 			const contentType = response.headers.get("content-type") ?? "";
@@ -96,13 +103,22 @@ export function createFetchRunner(fetchImpl: typeof fetch = globalThis.fetch): H
 				throw new HttpTooLargeError(request.maxBytes);
 			}
 
-			const body = await response.text();
-			const sizeBytes = new TextEncoder().encode(body).length;
-			if (request.maxBytes !== undefined && sizeBytes > request.maxBytes) {
+			const bytes = new Uint8Array(await response.arrayBuffer());
+			if (request.maxBytes !== undefined && bytes.byteLength > request.maxBytes) {
 				throw new HttpTooLargeError(request.maxBytes);
 			}
+			const body = new TextDecoder().decode(bytes);
+			const location = response.headers.get("location") ?? undefined;
 
-			return { status: response.status, body, contentType, finalUrl, sizeBytes };
+			return {
+				status: response.status,
+				body,
+				contentType,
+				finalUrl,
+				sizeBytes: bytes.byteLength,
+				bytes,
+				location,
+			};
 		} catch (error) {
 			if (timedOut) throw new HttpTimeoutError(request.timeoutMs);
 			if (signal?.aborted) throw new HttpAbortError();

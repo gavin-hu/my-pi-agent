@@ -12,7 +12,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { BUILTIN_AGENTS, formatAgentList, type AgentConfig } from "./agents.ts";
-import { buildAgentArgs, getPiInvocation } from "./invocation.ts";
+import { buildAgentArgs, getPiInvocation, READ_ONLY_NOTE } from "./invocation.ts";
 import { applyEvent, createResult, parseJsonLine } from "./stream.ts";
 import type { DispatchDefaults, OnUpdateCallback, SingleResult, SpawnFn, SubagentDetails } from "./types.ts";
 
@@ -23,11 +23,15 @@ export interface RunOptions {
 	defaults: DispatchDefaults;
 	agentName: string;
 	task: string;
+	/** Original chain step task, before `{previous}` substitution; display only. */
+	taskTemplate?: string;
 	cwd?: string;
 	/** Resolved agent pool; defaults to the built-ins when omitted. */
 	agents?: readonly AgentConfig[];
 	/** 1-based chain step, recorded on the result. */
 	step?: number;
+	/** Force the child to a read-only tool set (plan mode). */
+	readOnly?: boolean;
 	signal?: AbortSignal;
 	onUpdate?: OnUpdateCallback;
 	/** Builds the details payload for this mode from the current results. */
@@ -134,6 +138,7 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 
 	const result = createResult(options.agentName, options.task, {
 		agentSource: agent?.source ?? "unknown",
+		taskTemplate: options.taskTemplate,
 		step: options.step,
 		startedAt: Date.now(),
 	});
@@ -150,13 +155,16 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 	let tempPath: string | null = null;
 
 	try {
-		if (agent.systemPrompt.trim()) {
-			const tmp = await writePromptToTempFile(agent.name, agent.systemPrompt);
+		const systemPrompt = options.readOnly
+			? [agent.systemPrompt, READ_ONLY_NOTE].filter(Boolean).join("\n\n")
+			: agent.systemPrompt;
+		if (systemPrompt.trim()) {
+			const tmp = await writePromptToTempFile(agent.name, systemPrompt);
 			tempDir = tmp.dir;
 			tempPath = tmp.filePath;
 		}
 
-		const args = buildAgentArgs(agent, options.task, options.defaults, tempPath);
+		const args = buildAgentArgs(agent, options.task, options.defaults, tempPath, options.readOnly === true);
 		const invocation = getPiInvocation(args);
 		const outcome = await spawnAndCollect(
 			invocation.command,

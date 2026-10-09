@@ -11,6 +11,13 @@ import * as path from "node:path";
 import type { AgentConfig } from "./agents.ts";
 import type { DispatchDefaults } from "./types.ts";
 
+/** Tools a read-only delegation may use: structured readers and web readers only. */
+export const READ_ONLY_TOOLS = ["read", "grep", "find", "ls", "web_search", "web_fetch"] as const;
+
+/** Appended to a read-only agent's system prompt; the `--tools` list is the real gate. */
+export const READ_ONLY_NOTE =
+	"Read-only mode: you cannot write, edit, or run shell commands. Investigate and report findings only.";
+
 /**
  * Resolve how to launch a nested `pi` process.
  *
@@ -44,15 +51,29 @@ export function buildAgentArgs(
 	task: string,
 	defaults: DispatchDefaults,
 	systemPromptPath: string | null,
+	readOnly = false,
 ): string[] {
 	const args = ["--mode", "json", "-p", "--no-session"];
 
 	const model = agent.model ?? defaults.model;
 	if (model) args.push("--model", model);
 	if (agent.model === undefined && defaults.thinkingLevel) args.push("--thinking", defaults.thinkingLevel);
-	if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
+	if (readOnly) args.push("--tools", readOnlyTools(agent).join(","));
+	else if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
 	if (systemPromptPath) args.push("--append-system-prompt", systemPromptPath);
 
 	args.push(`Task: ${task}`);
 	return args;
+}
+
+/**
+ * The tool allowlist for a read-only run: an agent's own tools narrowed to
+ * {@link READ_ONLY_TOOLS}. An agent with no reader tools (or no declaration)
+ * falls back to the full reader set, so read-only delegation still does recon.
+ */
+export function readOnlyTools(agent: AgentConfig): string[] {
+	const allowed = new Set<string>(READ_ONLY_TOOLS);
+	const requested = agent.tools && agent.tools.length > 0 ? agent.tools : [...READ_ONLY_TOOLS];
+	const kept = requested.filter((tool) => allowed.has(tool));
+	return kept.length > 0 ? kept : [...READ_ONLY_TOOLS];
 }

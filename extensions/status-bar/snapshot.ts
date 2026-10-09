@@ -107,6 +107,7 @@ export function createSnapshotReader() {
 
 		return {
 			cwd: ctx.cwd,
+			sessionName: ctx.sessionManager.getSessionName() ?? null,
 			branch: footerData.getGitBranch(),
 			statuses: footerData.getExtensionStatuses(),
 			model,

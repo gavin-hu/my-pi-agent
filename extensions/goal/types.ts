@@ -10,11 +10,16 @@ export const GOAL_STATUSES = ["active", "achieved"] as const;
 
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
+/** What a call did, used by the result schema, details, and transcript renderer. */
+export const GOAL_ACTIONS = ["set", "achieve", "clear"] as const;
+
+export type GoalAction = (typeof GOAL_ACTIONS)[number];
+
 /** Custom-entry type used to persist a goal set outside the tool (the `/goal` command). */
 export const GOAL_ENTRY_TYPE = "goal";
 
 /** How an achieved goal renders in the persistent widget. */
-export type AchievedStyle = "collapse" | "block" | "hide";
+export type AchievedStyle = "show" | "hide";
 
 /** The single session goal. */
 export interface Goal {
@@ -26,9 +31,6 @@ export interface Goal {
 	 */
 	status: GoalStatus;
 }
-
-/** What a call did, used by the transcript renderer. */
-export type GoalAction = "set" | "achieve" | "clear";
 
 /** Structured result carried in the tool's `details` and used for reconstruction. */
 export interface GoalDetails {

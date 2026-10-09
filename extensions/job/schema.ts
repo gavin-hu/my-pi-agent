@@ -18,7 +18,11 @@ export const MAX_LABEL = 120;
 const MIN_LOG_LINES = 1;
 const MAX_LOG_LINES = 2000;
 /** Bounds for `wait.timeoutMs`. */
+const MIN_WAIT_MS = 0;
 const MAX_WAIT_MS = 600_000;
+/** Bounds for `start.timeoutMs` (how long a job may run before it is killed). */
+const MIN_JOB_TIMEOUT_MS = 1;
+const MAX_JOB_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 export const JobParams = Type.Object({
 	action: StringEnum(JOB_ACTIONS),
@@ -33,9 +37,13 @@ export const JobParams = Type.Object({
 	),
 	signal: Type.Optional(StringEnum(KILL_SIGNALS, { description: "Signal for `kill`; defaults to SIGTERM." })),
 	timeoutMs: Type.Optional(
-		Type.Integer({ minimum: 0, maximum: MAX_WAIT_MS, description: "How long `wait` blocks before returning." }),
+		Type.Integer({
+			minimum: 0,
+			maximum: MAX_JOB_TIMEOUT_MS,
+			description: "For `wait`, how long it blocks before returning; for `start`, kill the job after this many ms.",
+		}),
 	),
-	all: Type.Optional(Type.Boolean({ description: "With `clear`, remove every finished job." })),
+	all: Type.Optional(Type.Boolean({ description: "With `clear`, also remove running jobs (SIGKILL)." })),
 });
 
 export type JobArgs = Static<typeof JobParams>;
@@ -47,7 +55,15 @@ export type JobArgs = Static<typeof JobParams>;
  * non-null assertion for the required fields of a branch.
  */
 export type JobCall =
-	| { action: "start"; command: string; cwd?: string; label?: string; wake?: boolean; detached?: boolean }
+	| {
+			action: "start";
+			command: string;
+			cwd?: string;
+			label?: string;
+			wake?: boolean;
+			detached?: boolean;
+			timeoutMs?: number;
+	  }
 	| { action: "list" }
 	| { action: "status"; id: string }
 	| { action: "logs"; id: string; lines?: number }
@@ -81,6 +97,10 @@ export function normalizeCall(raw: unknown): JobCall {
 			const label = optionalString(args.label);
 			if (label && label.length > MAX_LABEL) throw new Error(`label is longer than ${MAX_LABEL} characters.`);
 			const cwd = optionalString(args.cwd);
+			const timeoutMs = typeof args.timeoutMs === "number" ? Math.round(args.timeoutMs) : undefined;
+			if (timeoutMs !== undefined && (timeoutMs < MIN_JOB_TIMEOUT_MS || timeoutMs > MAX_JOB_TIMEOUT_MS)) {
+				throw new Error(`timeoutMs must be between ${MIN_JOB_TIMEOUT_MS} and ${MAX_JOB_TIMEOUT_MS} for start.`);
+			}
 			return {
 				action: "start",
 				command,
@@ -88,6 +108,7 @@ export function normalizeCall(raw: unknown): JobCall {
 				...(cwd ? { cwd } : {}),
 				...(typeof args.wake === "boolean" ? { wake: args.wake } : {}),
 				...(typeof args.detached === "boolean" ? { detached: args.detached } : {}),
+				...(timeoutMs !== undefined ? { timeoutMs } : {}),
 			};
 		}
 		case "list":
@@ -110,8 +131,8 @@ export function normalizeCall(raw: unknown): JobCall {
 		}
 		case "wait": {
 			const timeoutMs = typeof args.timeoutMs === "number" ? Math.round(args.timeoutMs) : undefined;
-			if (timeoutMs !== undefined && (timeoutMs < 0 || timeoutMs > MAX_WAIT_MS)) {
-				throw new Error(`timeoutMs must be between 0 and ${MAX_WAIT_MS}.`);
+			if (timeoutMs !== undefined && (timeoutMs < MIN_WAIT_MS || timeoutMs > MAX_WAIT_MS)) {
+				throw new Error(`timeoutMs must be between ${MIN_WAIT_MS} and ${MAX_WAIT_MS}.`);
 			}
 			return { action: "wait", id: requireId(), ...(timeoutMs !== undefined ? { timeoutMs } : {}) };
 		}

@@ -5,8 +5,13 @@
 import * as os from "node:os";
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatTokens, sanitize } from "../../lib/format.ts";
+import { formatTokens, sanitize as sanitizeWhitespace, stripControlChars } from "../../lib/format.ts";
 import type { UsageStats } from "./types.ts";
+
+/** One-line model text: strip control characters before collapsing whitespace. */
+function sanitize(text: string): string {
+	return sanitizeWhitespace(stripControlChars(text));
+}
 
 /** Dollar cost, keeping four decimals for the sub-cent amounts these runs produce. */
 function formatCost(cost: number): string {

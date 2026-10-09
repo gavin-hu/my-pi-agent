@@ -9,10 +9,13 @@
  * Load with:  pi --extension ./extensions/file-browser
  */
 
+import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { loadConfig } from "./config.ts";
+import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { loadConfig, randomPort } from "./config.ts";
+import { createGitStatus } from "./git.ts";
 import { openInBrowser } from "./open.ts";
 import { HttpError, resolveRequestPath } from "./paths.ts";
 import { createFileServer, type FileServer } from "./server.ts";
@@ -22,6 +25,8 @@ export interface FileBrowserDeps {
 	createServer?: typeof createFileServer;
 	/** Override the browser opener (tests). */
 	open?: typeof openInBrowser;
+	/** Override session-port selection (tests). */
+	pickPort?: () => number;
 }
 
 interface RunningServer {
@@ -30,13 +35,30 @@ interface RunningServer {
 }
 
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
+	if (!isExtensionEnabled("file-browser")) return;
 	let running: RunningServer | undefined;
+	/** Random port fixed for the session after the first successful start. */
+	let sessionPort: number | undefined;
 
-	const stop = async (): Promise<boolean> => {
+	/** Publish the serve chip, or clear it with `undefined`; best-effort UI. */
+	const setServeStatus = (ctx: ExtensionContext, port: number | undefined): void => {
+		try {
+			const value =
+				port === undefined
+					? undefined
+					: `${ctx.ui.theme.fg("success", GLYPHS.serve)} ${ctx.ui.theme.fg("accent", String(port))}`;
+			ctx.ui.setStatus(STATUS_KEYS.serve, value);
+		} catch {
+			// A UI without a theme or setStatus must not break the command.
+		}
+	};
+
+	const stop = async (ctx?: ExtensionContext): Promise<boolean> => {
 		const current = running;
 		if (!current) return false;
 		running = undefined;
 		await current.server.close();
+		if (ctx) setServeStatus(ctx, undefined);
 		return true;
 	};
 
@@ -47,12 +69,15 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			return;
 		}
 		if (target === "stop") {
-			ctx.ui.notify((await stop()) ? "serve: stopped" : "serve: not running", "info");
+			ctx.ui.notify((await stop(ctx)) ? "serve: stopped" : "serve: not running", "info");
 			return;
 		}
 
 		const cwd = resolveEffectiveCwd(ctx.cwd);
 		const config = loadConfig(cwd);
+		// A pinned config port wins; otherwise one random port is fixed for the session.
+		const unpinned = config.port <= 0;
+		const port = unpinned ? (sessionPort ?? (deps.pickPort ?? randomPort)()) : config.port;
 		let root = cwd;
 		if (target) {
 			try {
@@ -69,17 +94,33 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			}
 		}
 
-		await stop();
+		let realRoot = root;
+		try {
+			realRoot = realpathSync.native(root);
+		} catch {
+			// Keep the unresolved root; the server factory reports a real failure.
+		}
+		if (running && running.root === realRoot && running.server.port === port) {
+			ctx.ui.notify(`serve: ${running.server.url} (already running)`, "info");
+			return;
+		}
+
+		await stop(ctx);
 		const create = deps.createServer ?? createFileServer;
 		try {
-			const server = await create({ root, config });
+			const server = await create({ root, config: { ...config, port }, git: createGitStatus(pi, root) });
+			if (unpinned) sessionPort = port;
 			running = { server, root: server.root };
+			setServeStatus(ctx, server.port);
 			ctx.ui.notify(`serve: ${server.root} at ${server.url}`, "info");
 			if (config.autoOpen) (deps.open ?? openInBrowser)(server.url);
 		} catch (error) {
 			const code = (error as NodeJS.ErrnoException | undefined)?.code;
 			if (code === "EADDRINUSE") {
-				ctx.ui.notify(`serve: port ${config.port} is in use; set "port": 0 in file-browser.json`, "error");
+				ctx.ui.notify(
+					`serve: port ${port} is in use; run /serve again to try another or set "port" in file-browser.json`,
+					"error",
+				);
 			} else {
 				ctx.ui.notify(`serve: ${error instanceof Error ? error.message : String(error)}`, "error");
 			}
@@ -93,7 +134,8 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		},
 	});
 
-	pi.on("session_shutdown", async () => {
-		await stop();
+	pi.on("session_shutdown", async (_event, ctx) => {
+		await stop(ctx);
+		sessionPort = undefined;
 	});
 }

@@ -26,7 +26,7 @@
  * The same bus carries dock-screen suppression. Pi mounts a `ctx.ui.custom`
  * screen in the dock's editor slot, which shares the terminal with the rails,
  * so a screen that wants the rails out of the way emits open/close and each
- * rail hides until the last screen closes. See `setRailsSuppressed`.
+ * rail hides until the last screen closes. See `withRailsSuppressed`.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -35,7 +35,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const RAIL_ORDER = ["goal", "todo"] as const;
 
 /** Identifier for one above-editor rail. */
-export type RailId = (typeof RAIL_ORDER)[number];
+type RailId = (typeof RAIL_ORDER)[number];
 
 /** EventBus channel: the rail at `id` just re-set its widget. */
 function channel(id: RailId): string {
@@ -60,7 +60,7 @@ export function onUpperRailChanged(pi: Pick<ExtensionAPI, "events">, id: RailId,
 const SCREEN_CHANNEL = "my-pi-agent/rails-screen";
 
 /** Tell the rails whether a dock screen is open. */
-export function setRailsSuppressed(pi: Pick<ExtensionAPI, "events">, suppressed: boolean): void {
+function setRailsSuppressed(pi: Pick<ExtensionAPI, "events">, suppressed: boolean): void {
 	pi.events.emit(SCREEN_CHANNEL, suppressed);
 }
 

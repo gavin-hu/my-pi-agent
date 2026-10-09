@@ -10,6 +10,7 @@
 import { createReadStream, realpathSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { ServeConfig } from "./config.ts";
+import type { GitStatusProvider } from "./git.ts";
 import { handleRequest, type ServeContext, type ServeResponse } from "./router.ts";
 
 export interface FileServer {
@@ -26,6 +27,8 @@ export interface FileServer {
 export interface FileServerOptions {
 	root: string;
 	config: ServeConfig;
+	/** Read-only git context for the page header; omitted when unavailable. */
+	git?: GitStatusProvider;
 	/** Override the request handler (tests). */
 	handler?: typeof handleRequest;
 }
@@ -60,7 +63,7 @@ async function respond(
 /** Start a read-only server rooted at `options.root` on 127.0.0.1. */
 export async function createFileServer(options: FileServerOptions): Promise<FileServer> {
 	const root = realpathSync.native(options.root);
-	const context: ServeContext = { root, config: options.config };
+	const context: ServeContext = { root, config: options.config, git: options.git };
 	const handler = options.handler ?? handleRequest;
 
 	const server = createServer((request, response) => {

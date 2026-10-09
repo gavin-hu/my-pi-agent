@@ -59,6 +59,12 @@ export const SubagentParams = Type.Object({
 			default: "user",
 		}),
 	),
+	readOnly: Type.Optional(
+		Type.Boolean({
+			description:
+				"Force every spawned agent to a read-only tool set (read/grep/find/ls and web readers only). Used by plan mode.",
+		}),
+	),
 });
 
 export type SubagentArgs = Static<typeof SubagentParams>;

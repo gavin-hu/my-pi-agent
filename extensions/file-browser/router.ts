@@ -10,6 +10,7 @@
 import { stat } from "node:fs/promises";
 import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
+import type { GitStatus, GitStatusProvider } from "./git.ts";
 import {
 	buildTree,
 	contentTypeFor,
@@ -26,6 +27,8 @@ import { HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from 
 export interface ServeContext {
 	root: string;
 	config: ServeConfig;
+	/** Read-only git context for the page header; omitted when unavailable. */
+	git?: GitStatusProvider;
 }
 
 export interface ServeResponse {
@@ -72,7 +75,17 @@ function jsonResponse(status: number, value: unknown): ServeResponse {
 }
 
 async function treeFor(ctx: ServeContext, _currentRel: string): Promise<TreeNode> {
-	return buildTree(ctx.root, _currentRel, ctx.config.treeDepth, ctx.config.maxDirEntries);
+	return buildTree(ctx.root, _currentRel, ctx.config.maxDirEntries);
+}
+
+/** Resolve the header's git context, never failing the request. */
+async function gitFor(ctx: ServeContext): Promise<GitStatus | undefined> {
+	if (!ctx.git) return undefined;
+	try {
+		return await ctx.git();
+	} catch {
+		return undefined;
+	}
 }
 
 async function errorResponse(
@@ -81,13 +94,28 @@ async function errorResponse(
 	message: string,
 	extra?: Record<string, string>,
 ): Promise<ServeResponse> {
-	let tree: TreeNode = { name: ctx.root, rel: "", isDir: true, isImage: false, kind: "directory", children: [] };
+	let tree: TreeNode = {
+		name: ctx.root,
+		rel: "",
+		isDir: true,
+		isImage: false,
+		broken: false,
+		kind: "directory",
+		children: [],
+	};
 	try {
 		tree = await treeFor(ctx, "");
 	} catch {
 		// Keep the minimal tree.
 	}
-	const body = renderErrorPage({ rootLabel: ctx.root, status, message, tree, rel: "" });
+	const body = renderErrorPage({
+		rootLabel: ctx.root,
+		status,
+		message,
+		tree,
+		rel: "",
+		git: await gitFor(ctx),
+	});
 	return { status, headers: { ...HTML_SECURITY, ...extra }, body };
 }
 
@@ -99,6 +127,7 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 
 	const listing = await listDirectory(ctx.root, rel, ctx.config.maxDirEntries);
 	const tree = await treeFor(ctx, rel);
+	const git = await gitFor(ctx);
 	return htmlResponse(
 		200,
 		renderDirectoryPage({
@@ -108,6 +137,7 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 			tree,
 			thumbnails: ctx.config.thumbnails,
 			maxThumbBytes: ctx.config.maxThumbBytes,
+			git,
 		}),
 	);
 }
@@ -121,9 +151,10 @@ async function view(ctx: ServeContext, rawRel: string): Promise<ServeResponse> {
 
 	const file = await readFileView(ctx.root, rel, ctx.config.maxFileBytes, ctx.config.maxTextLines);
 	const tree = await treeFor(ctx, rel);
+	const git = await gitFor(ctx);
 	return htmlResponse(
 		200,
-		renderFilePage({ rootLabel: ctx.root, rel, file, tree, maxFileBytes: ctx.config.maxFileBytes }),
+		renderFilePage({ rootLabel: ctx.root, rel, file, tree, maxFileBytes: ctx.config.maxFileBytes, git }),
 	);
 }
 
@@ -158,6 +189,7 @@ function treeApiEntry(entry: DirEntry): Record<string, unknown> {
 		path: entry.rel,
 		href: entry.isDir ? `/browse/${encodePath(entry.rel)}` : `/view/${encodePath(entry.rel)}`,
 		isDir: entry.isDir,
+		broken: entry.broken,
 		iconHref: iconHref(spec.icon),
 		colorClass: spec.colorClass,
 		label: spec.label,

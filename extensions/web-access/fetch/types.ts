@@ -1,39 +1,27 @@
 /**
- * Data types for the `web_fetch` tool of the web-access extension.
+ * Input types for the `web_fetch` tool.
  *
- * `details` and the codemode `structuredContent` both use `FetchResponse`, so it
- * is serialisable by construction. `text` is the returned slice (not the whole
- * page) to keep the payload bounded.
+ * The runtime output schema lives in `schema.ts`; `FetchResponse`/`FetchBatch`
+ * are derived from it there. This file holds the validated request shape that
+ * `page.ts` and `schema.ts` both consume.
  */
 
-export type FetchResponse = {
-	/** The requested URL. */
-	url: string;
-	/** The URL after redirects. */
-	finalUrl: string;
-	/** Page title, when it was HTML with one. */
-	title: string;
-	status: number;
-	contentType: string;
-	/** The returned slice of extracted text. */
-	text: string;
-	/** Total length of the extracted text, in code points. */
-	totalChars: number;
-	/** Code-point offset this slice starts at. */
-	startIndex: number;
-	/** True when more text remains after this slice. */
-	truncated: boolean;
-	/** True when the page came from the in-process cache. */
-	cached: boolean;
-	/** Passages from `find`, or an empty array. */
-	matches: { query: string; offset: number; passage: string }[];
-	/** ISO-8601 timestamp of when the fetch completed. */
-	fetchedAt: string;
-	/** Error message when this URL failed; empty otherwise. */
-	error: string;
-};
+import type { FindMode } from "./find.ts";
 
-/** The tool result: one entry per requested URL. */
-export type FetchBatch = {
-	pages: FetchResponse[];
-};
+/** A fully resolved fetch request, shared by `resolveRequest` and `runFetch`. */
+export interface FetchRequest {
+	urls: string[];
+	method: "GET" | "POST";
+	headers: Record<string, string>;
+	body?: string;
+	render?: boolean;
+	startIndex: number;
+	maxChars: number;
+	find: string[];
+	mode: FindMode;
+	contextChars: number;
+	maxMatches: number;
+	refresh: boolean;
+	/** True when the request may be served from the page cache (GET, no custom headers or body). */
+	cacheable: boolean;
+}

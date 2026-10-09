@@ -1,11 +1,14 @@
 /**
  * Terminal rendering for the plan review screen.
  *
- * `PlanViewComponent` is the scrollable read/review screen. `exit_plan_mode`
- * opens it for approval (`mode: "review"`), and the `/plans` browser opens it
- * read-only (`mode: "browse"`). It sanitizes the plan file for terminal display
- * and returns the chosen action through `onClose` so the caller can act only
- * after the screen is gone and input focus is free again.
+ * `sanitizePlanText` is exported so the transcript renderer (`tools.ts`) and
+ * the non-TUI notices (`commands.ts`) can strip control characters from plan
+ * text with the same rules the review screen uses.
+ *
+ * `PlanViewComponent` is the scrollable review screen `exit_plan_mode` opens
+ * for approval. It sanitizes the plan file for terminal display and returns the
+ * chosen action through `onClose` so the caller can act only after the screen is
+ * gone and input focus is free again.
  */
 
 import { basename } from "node:path";
@@ -22,6 +25,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
+import { stripControlChars } from "../../lib/format.ts";
 import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../../lib/tui.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
 
@@ -38,8 +42,6 @@ export interface PlanViewOptions {
 	onClose: (action: PlanViewAction, refinement?: string) => void;
 	requestRender: () => void;
 	viewportRows?: ViewportRowsSource;
-	/** `browse` opens a saved plan read-only (no approve/refine); defaults to `review`. */
-	mode?: "review" | "browse";
 	/** TUI handle for the inline refine editor; without it, `r` closes with `refine`. */
 	tui?: TUI;
 }
@@ -52,14 +54,18 @@ const CHROME_ROWS = 5;
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
 
-/** Replace control characters (including ESC and the C1 block) so model text cannot drive the terminal. */
-function sanitize(text: string): string {
-	return text.replace(/\t/g, " ".repeat(TAB_WIDTH)).replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, " ");
+/**
+ * Replace control characters (including ESC and the C1 block) and expand tabs
+ * so model-authored plan text cannot drive the terminal. Newlines are kept, so
+ * callers can still render or split the text line by line.
+ */
+export function sanitizePlanText(text: string): string {
+	return stripControlChars(text.replace(/\t/g, " ".repeat(TAB_WIDTH)));
 }
 
 /** Light markdown styling for one source line. */
 function styleLine(theme: Theme, raw: string): string {
-	const line = sanitize(raw).trimEnd();
+	const line = sanitizePlanText(raw).trimEnd();
 	if (/^\s{0,3}#{1,6}(\s|$)/.test(line)) return theme.fg("accent", theme.bold(line));
 	if (/^\s{0,3}(`{3,}|~{3,})/.test(line)) return theme.fg("dim", line);
 	const bullet = line.match(/^(\s*)([-*+]|\d+[.)])(\s+.*)$/);
@@ -92,7 +98,7 @@ function editorTheme(theme: Theme): EditorTheme {
 	};
 }
 
-/** Scrollable plan read/review screen shared by `exit_plan_mode` and `/plans`. */
+/** Scrollable plan review screen opened by `exit_plan_mode`. */
 export class PlanViewComponent implements Component {
 	private offset = 0;
 	private visible = DEFAULT_ROWS;
@@ -110,11 +116,6 @@ export class PlanViewComponent implements Component {
 
 	private get theme(): Theme {
 		return this.options.theme;
-	}
-
-	/** True when the screen is a read-only browser, not an approval prompt. */
-	private browse(): boolean {
-		return this.options.mode === "browse";
 	}
 
 	/** Styled, wrapped body lines for the given outer width. */
@@ -237,8 +238,8 @@ export class PlanViewComponent implements Component {
 		else if (matchesKey(data, Key.ctrl("d")) || data === "d") this.scroll(this.halfPage());
 		else if (matchesKey(data, Key.home) || data === "g") this.scrollTo(0);
 		else if (matchesKey(data, Key.end) || data === "G") this.scrollTo(this.maxOffset);
-		else if (data === "a" && !this.browse()) this.options.onClose("approve");
-		else if (data === "r" && !this.browse()) this.startRefine();
+		else if (data === "a") this.options.onClose("approve");
+		else if (data === "r") this.startRefine();
 	}
 
 	/** Wheel scrolling in fullscreen; regular mode leaves the wheel to the terminal. */
@@ -271,14 +272,7 @@ export class PlanViewComponent implements Component {
 		this.offset = Math.min(Math.max(0, this.offset), this.maxOffset);
 		this.updateAnchor(body);
 
-		const lines: string[] = [
-			screenHeader(
-				theme,
-				w,
-				truncateToWidth(`${this.browse() ? "Plan" : "Plan Review"} · ${title}`, Math.max(1, w - 6)),
-			),
-			"",
-		];
+		const lines: string[] = [screenHeader(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6))), ""];
 
 		const end = Math.min(body.length, this.offset + visible);
 		for (let i = this.offset; i < end; i++) lines.push(truncateToWidth(body[i].text, w));
@@ -288,25 +282,21 @@ export class PlanViewComponent implements Component {
 			lines.push("");
 			lines.push(truncateToWidth(`  ${theme.fg("muted", "Refine the plan:")}`, w));
 			for (const line of editorLines) lines.push(truncateToWidth(`  ${line}`, w));
-		}
-
-		lines.push("");
-		if (this.editing) {
-			lines.push(screenHint(theme, w, ["Enter submit", "Esc back to plan"]));
+			lines.push("");
+			lines.push(screenHint(theme, w, ["Esc back to plan", "Enter submit"]));
 		} else {
 			const scrollable = this.maxOffset > 0;
-			const percent = this.maxOffset === 0 ? 100 : Math.round((this.offset / this.maxOffset) * 100);
+			if (scrollable) {
+				const percent = Math.round((this.offset / this.maxOffset) * 100);
+				lines.push(
+					truncateToWidth(`  ${theme.fg("dim", `lines ${this.offset + 1}–${end} of ${body.length} (${percent}%)`)}`, w),
+				);
+			} else {
+				lines.push("");
+			}
 			const hints = scrollable
-				? [
-						...(this.browse() ? ["Esc close"] : ["a approve", "r refine", "Esc keep"]),
-						"↑/↓ or k/j scroll",
-						`lines ${this.offset + 1}–${end} of ${body.length} (${percent}%)`,
-						"space/b page",
-						"g/G ends",
-					]
-				: this.browse()
-					? ["Esc close"]
-					: ["a approve", "r refine", "Esc keep planning"];
+				? ["Esc keep planning", "a approve", "r refine", "↑/↓ or k/j scroll", "space/b page", "g/G ends"]
+				: ["Esc keep planning", "a approve", "r refine"];
 			lines.push(screenHint(theme, w, hints));
 		}
 		lines.push("");

@@ -9,7 +9,7 @@
  */
 
 import { normalizeTodos } from "./schema.ts";
-import type { Todo, TodoDetails, TodoStatus } from "./types.ts";
+import type { Todo, TodoDetails } from "./types.ts";
 
 /** Minimal shape of a session entry, used for runtime narrowing. */
 interface BranchEntryLike {
@@ -19,21 +19,6 @@ interface BranchEntryLike {
 		toolName?: string;
 		details?: unknown;
 	};
-}
-
-/**
- * Apply a stored list to the running value. Anything that does not re-validate
- * as a todo list is ignored, so a malformed entry cannot wipe a valid one.
- * Replay is lenient about `activeForm`: a list written before that field was
- * required still loads instead of being dropped.
- */
-function applyStoredTodos(current: Todo[], value: unknown): Todo[] {
-	if (!Array.isArray(value)) return current;
-	try {
-		return normalizeTodos(value, { requireActiveForm: false });
-	} catch {
-		return current;
-	}
 }
 
 /** The last valid list written on the branch, or an empty list. */
@@ -49,21 +34,23 @@ export function reconstructTodos(entries: Iterable<unknown>): Todo[] {
 		// A rejected call carries the unchanged list for the model to read; it is
 		// not a state write and must not be replayed as one.
 		if (details.error) continue;
-		todos = applyStoredTodos(todos, details.todos);
+		// Anything that does not re-validate as a todo list is ignored, so a
+		// malformed entry cannot wipe a valid one. Replay is lenient about
+		// `activeForm`: a list written before that field was required still loads
+		// instead of being dropped.
+		if (!Array.isArray(details.todos)) continue;
+		try {
+			todos = normalizeTodos(details.todos, { requireActiveForm: false });
+		} catch {
+			// Keep the previous list.
+		}
 	}
 	return todos;
 }
 
-/** Count of items in each status. */
-export function countByStatus(todos: Todo[]): Record<TodoStatus, number> {
-	const counts: Record<TodoStatus, number> = { pending: 0, in_progress: 0, completed: 0 };
-	for (const todo of todos) counts[todo.status]++;
-	return counts;
-}
-
 /** Number of completed items. */
 export function completedCount(todos: Todo[]): number {
-	return countByStatus(todos).completed;
+	return todos.reduce((count, todo) => (todo.status === "completed" ? count + 1 : count), 0);
 }
 
 /** True when at least one item is not completed. */

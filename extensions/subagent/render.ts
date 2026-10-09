@@ -13,11 +13,17 @@
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
-import { sanitize } from "../../lib/format.ts";
+import { sanitize as sanitizeWhitespace, stripControlChars } from "../../lib/format.ts";
+import { expandHint } from "../../lib/ui.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats, shortenPath } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
+
+/** Model text on one line: strip control characters before collapsing whitespace. */
+function sanitize(text: string): string {
+	return sanitizeWhitespace(stripControlChars(text));
+}
 
 type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
 type ResultStatus = "running" | "aborted" | "failed" | "success";
@@ -71,9 +77,10 @@ function statusColor(status: ResultStatus): "warning" | "error" | "success" {
 /** The message a failed/aborted result should show, falling back to stderr. */
 function errorDetail(result: SingleResult, status: ResultStatus, max?: number): string | undefined {
 	if (status !== "failed" && status !== "aborted") return undefined;
-	const detail = result.errorMessage || result.stderr.trim();
+	const raw = result.errorMessage || result.stderr.trim();
+	const detail = raw || (status === "failed" ? `Subprocess exited with code ${result.exitCode}.` : "");
 	if (!detail) return undefined;
-	return max === undefined ? detail : clip(sanitize(detail), max);
+	return max === undefined ? stripControlChars(detail).trim() : clip(sanitize(detail), max);
 }
 
 /** A "Error: ..." / "Aborted: ..." block, or undefined when clean. */
@@ -95,9 +102,9 @@ function hasClippedError(result: SingleResult, status: ResultStatus): boolean {
 /** The lines under a collapsed result header: error, output preview, or a placeholder. */
 function collapsedBody(result: SingleResult, status: ResultStatus, items: DisplayItem[], theme: Theme): string {
 	const error = renderError(result, status, theme, COLLAPSED_ERROR_MAX);
-	if (error) return `\n${error}`;
-	if (items.length === 0) return `\n${theme.fg("muted", status === "running" ? "(running…)" : "(no output)")}`;
-	return `\n${renderDisplayItems(items, theme, COLLAPSED_ITEM_COUNT)}`;
+	if (error) return error;
+	if (items.length === 0) return theme.fg("muted", status === "running" ? "(running…)" : "(no output)");
+	return renderDisplayItems(items, theme, COLLAPSED_ITEM_COUNT);
 }
 
 /** Whether expanding a collapsed result would reveal more than its preview. */
@@ -135,37 +142,44 @@ function formatDuration(ms: number): string {
 }
 
 /** " 12s" while running or once finished, or "" when no start time was recorded. */
-function durationSuffix(result: SingleResult, status: ResultStatus): string {
+function durationSuffix(result: SingleResult, status: ResultStatus, now: number): string {
 	if (!result.startedAt) return "";
-	const end = result.finishedAt ?? (status === "running" ? Date.now() : undefined);
+	const end = result.finishedAt ?? (status === "running" ? now : undefined);
 	if (end === undefined) return "";
 	return ` ${formatDuration(end - result.startedAt)}`;
 }
 
 /** Elapsed time plus a `[stopReason]` bracket, unless the result is clean or still running. */
-function statusSuffix(result: SingleResult, status: ResultStatus, theme: Theme): string {
+function statusSuffix(result: SingleResult, status: ResultStatus, theme: Theme, now: number): string {
 	let suffix = "";
-	const duration = durationSuffix(result, status);
+	const duration = durationSuffix(result, status, now);
 	if (duration) suffix += theme.fg("dim", duration);
-	if (result.stopReason && status !== "success" && status !== "running") {
-		suffix += ` ${theme.fg(statusColor(status), `[${result.stopReason}]`)}`;
-	}
+	const showReason = status === "failed" || status === "aborted";
+	const stop = showReason && result.stopReason && result.stopReason !== "end" ? result.stopReason : undefined;
+	const reason = stop ?? (status === "failed" ? `exit ${result.exitCode}` : undefined);
+	if (reason) suffix += ` ${theme.fg(statusColor(status), `[${reason}]`)}`;
 	return suffix;
 }
 
 /** A result header line: status icon, agent, and status suffix. */
-function resultHeader(result: SingleResult, status: ResultStatus, theme: Theme, stepPrefix: string): string {
+function resultHeader(
+	result: SingleResult,
+	status: ResultStatus,
+	theme: Theme,
+	stepPrefix: string,
+	now: number,
+): string {
 	let header = `${statusIcon(status, theme)} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
 	if (result.agentSource && result.agentSource !== "builtin" && result.agentSource !== "unknown") {
 		header += theme.fg("dim", ` [${result.agentSource}]`);
 	}
 	if (result.step) header = `${theme.fg("muted", `${stepPrefix} ${result.step} `)}` + header;
-	return header + statusSuffix(result, status, theme);
+	return header + statusSuffix(result, status, theme, now);
 }
 
 /** Prefix each line of intermediate assistant text with a muted gutter. */
 function quoteLines(text: string, theme: Theme): string {
-	return text
+	return stripControlChars(text)
 		.trim()
 		.split("\n")
 		.map((line) => theme.fg("muted", "│ ") + theme.fg("toolOutput", line))
@@ -179,7 +193,8 @@ function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, 
 	if (skipped > 0) lines.push(theme.fg("muted", `… ${skipped} earlier items`));
 	for (const item of shown) {
 		if (item.type === "text") {
-			const text = preview ? item.text.split("\n").slice(0, COLLAPSED_TEXT_LINES).join("\n") : item.text;
+			const safe = stripControlChars(item.text);
+			const text = preview ? safe.split("\n").slice(0, COLLAPSED_TEXT_LINES).join("\n") : safe;
 			lines.push(theme.fg("toolOutput", text));
 		} else {
 			lines.push(theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme, preview));
@@ -194,9 +209,22 @@ function resultLabel(result: SingleResult, index: number): string {
 	return prefix + result.agent;
 }
 
-/** Preview the requested mode and its agents. */
-export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): Component {
-	const title = theme.fg("toolTitle", theme.bold("subagent "));
+/** The call-line context: the session cwd and the slot's previous component. */
+export interface SubagentCallContext {
+	cwd?: string;
+	lastComponent?: Component;
+}
+
+/** Preview the requested mode and its agents, reusing the slot's `Text`. */
+export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: SubagentCallContext): Component {
+	const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+	text.setText(callText(args, theme, context));
+	return text;
+}
+
+/** The call-line string for the requested mode. */
+function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): string {
+	const title = theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? theme.fg("dim", "read-only ") : "");
 	const cwdNote = (cwd?: string) => {
 		if (!cwd || cwd === context?.cwd) return "";
 		return theme.fg("dim", `  in ${shortenPath(cwd)}`);
@@ -210,7 +238,7 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
 		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `… +${args.chain.length - 3} more`)}`;
-		return new Text(text, 0, 0);
+		return text;
 	}
 
 	if (args.tasks && args.tasks.length > 0) {
@@ -220,13 +248,13 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(sanitize(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
 		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `… +${args.tasks.length - 3} more`)}`;
-		return new Text(text, 0, 0);
+		return text;
 	}
 
 	const agentName = args.agent || "…";
 	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
 	text += `\n  ${theme.fg("dim", clip(sanitize(args.task ?? "…"), 60))}`;
-	return new Text(text, 0, 0);
+	return text;
 }
 
 /** Append one result's expanded block: header, error, task, output, usage. */
@@ -235,16 +263,17 @@ function addExpandedResult(
 	result: SingleResult,
 	theme: Theme,
 	mdTheme: ReturnType<typeof getMarkdownTheme>,
+	now: number,
 	isPartial = false,
 ): void {
 	const status = resultStatus(result, isPartial);
-	container.addChild(new Text(resultHeader(result, status, theme, "Step"), 0, 0));
+	container.addChild(new Text(resultHeader(result, status, theme, "Step", now), 0, 0));
 	const error = renderError(result, status, theme);
 	if (error) container.addChild(new Text(error, 0, 0));
 
 	container.addChild(new Spacer(1));
 	container.addChild(new Text(theme.fg("muted", "─── Task ───"), 0, 0));
-	container.addChild(new Text(theme.fg("dim", result.task), 0, 0));
+	container.addChild(new Text(theme.fg("dim", stripControlChars(result.taskTemplate ?? result.task)), 0, 0));
 
 	const displayItems = getDisplayItems(result.messages);
 	const lastItem = displayItems[displayItems.length - 1];
@@ -267,7 +296,7 @@ function addExpandedResult(
 	}
 	if (trailingOutput.trim()) {
 		container.addChild(new Spacer(1));
-		container.addChild(new Markdown(trailingOutput.trim(), 0, 0, mdTheme));
+		container.addChild(new Markdown(stripControlChars(trailingOutput).trim(), 0, 0, mdTheme));
 		renderedOutput = true;
 	}
 	if (!renderedOutput) {
@@ -281,27 +310,18 @@ function addExpandedResult(
 	}
 }
 
-function expandedResult(
-	result: SingleResult,
-	theme: Theme,
-	mdTheme: ReturnType<typeof getMarkdownTheme>,
-	isPartial: boolean,
-): Container {
-	const container = new Container();
-	addExpandedResult(container, result, theme, mdTheme, isPartial);
-	return container;
-}
-
-function collapsedResult(result: SingleResult, theme: Theme, isPartial: boolean): Text {
+/** The collapsed single result: header, a word, body, expand hint, and usage. */
+function collapsedSingleText(result: SingleResult, theme: Theme, isPartial: boolean, now: number): string {
 	const status = resultStatus(result, isPartial);
-	let text = resultHeader(result, status, theme, "step");
+	let text = resultHeader(result, status, theme, "step", now);
 
 	const displayItems = getDisplayItems(result.messages);
-	text += collapsedBody(result, status, displayItems, theme);
-	if (isExpandable(result, status, displayItems)) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+	// A blank line separates the header from the body, matching the multi view.
+	text += `\n\n${collapsedBody(result, status, displayItems, theme)}`;
+	if (isExpandable(result, status, displayItems)) text += `\n${expandHint(theme)}`;
 	const usage = usageLine(result);
 	if (usage) text += `\n${theme.fg("dim", usage)}`;
-	return new Text(text, 0, 0);
+	return text;
 }
 
 function summarizeResults(results: SingleResult[]) {
@@ -334,6 +354,9 @@ function multiHeader(details: SubagentDetails, theme: Theme): string {
 	const issues: string[] = [];
 	if (failed) issues.push(`${failed} failed`);
 	if (aborted) issues.push(`${aborted} aborted`);
+	if (details.mode === "chain" && running === 0 && details.results.length < total) {
+		issues.push(`stopped at step ${details.results.length}`);
+	}
 	if (issues.length) status += ` (${issues.join(", ")})`;
 
 	const bad = failed + aborted;
@@ -346,7 +369,7 @@ function multiHeader(details: SubagentDetails, theme: Theme): string {
 	return `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} · `))}${theme.fg("accent", status)}`;
 }
 
-function collapsedMulti(details: SubagentDetails, theme: Theme): Text {
+function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number): string {
 	const results = details.results;
 	const { running } = summarizeResults(results);
 	let text = multiHeader(details, theme);
@@ -357,27 +380,27 @@ function collapsedMulti(details: SubagentDetails, theme: Theme): Text {
 		const status = resultStatus(result);
 		const displayItems = getDisplayItems(result.messages);
 		if (isExpandable(result, status, displayItems)) hasHidden = true;
-		const taskNote = result.task ? theme.fg("dim", ` ${clip(sanitize(result.task), 50)}`) : "";
+		const taskText = result.taskTemplate ?? result.task;
+		const taskNote = taskText ? theme.fg("dim", ` ${clip(sanitize(taskText), 50)}`) : "";
 		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme)}`;
-		text += statusSuffix(result, status, theme);
-		text += collapsedBody(result, status, displayItems, theme);
+		text += statusSuffix(result, status, theme, now);
+		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	}
 	if (running === 0) {
 		const usage = totalUsageLine(results);
 		if (usage) text += `\n\n${theme.fg("dim", `Total: ${usage}`)}`;
 	}
-	if (running > 0 || hasHidden) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
-	return new Text(text, 0, 0);
+	if (running > 0 || hasHidden) text += `\n${expandHint(theme)}`;
+	return text;
 }
 
-function expandedMulti(details: SubagentDetails, theme: Theme): Container {
-	const container = new Container();
+function fillExpandedMulti(container: Container, details: SubagentDetails, theme: Theme, now: number): void {
 	const mdTheme = getMarkdownTheme();
 	container.addChild(new Text(multiHeader(details, theme), 0, 0));
 
 	for (const result of details.results) {
 		container.addChild(new Spacer(1));
-		addExpandedResult(container, result, theme, mdTheme);
+		addExpandedResult(container, result, theme, mdTheme, now);
 	}
 
 	const { running } = summarizeResults(details.results);
@@ -388,17 +411,17 @@ function expandedMulti(details: SubagentDetails, theme: Theme): Container {
 			container.addChild(new Text(theme.fg("dim", `Total: ${usage}`), 0, 0));
 		}
 	}
-	return container;
 }
 
-/** The subset of Pi's render context the elapsed timer needs. */
-interface ElapsedRenderContext {
+/** The subset of Pi's render context the transcript needs. */
+interface SubagentRenderContext {
 	state: Record<string, unknown>;
 	invalidate: () => void;
+	lastComponent?: Component;
 }
 
 /** Keep a 1s repaint ticking while any result is still running, so elapsed labels advance. */
-function syncElapsedTimer(running: boolean, context?: ElapsedRenderContext): void {
+function syncElapsedTimer(running: boolean, context?: SubagentRenderContext): void {
 	if (!context?.state) return;
 	const state = context.state as { elapsedTimer?: ReturnType<typeof setInterval> };
 	if (running && !state.elapsedTimer) {
@@ -413,15 +436,18 @@ function syncElapsedTimer(running: boolean, context?: ElapsedRenderContext): voi
 /** Render a subagent result, collapsed or expanded. */
 export function renderSubagentResult(
 	result: AgentToolResult<unknown>,
-	options: { expanded: boolean; isPartial?: boolean },
+	options: { expanded: boolean; isPartial?: boolean; now?: number },
 	theme: Theme,
-	context?: ElapsedRenderContext,
+	context?: SubagentRenderContext,
 ): Component {
+	const now = options.now ?? Date.now();
 	const details = result.details as SubagentDetails | undefined;
 	if (!details || details.results.length === 0) {
 		syncElapsedTimer(false, context);
 		const first = result.content[0];
-		return new Text(first?.type === "text" ? first.text : "(no output)", 0, 0);
+		const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+		text.setText(first?.type === "text" ? first.text : "(no output)");
+		return text;
 	}
 
 	// The `-1` sentinel is set while a subprocess is in flight, in every mode.
@@ -431,11 +457,22 @@ export function renderSubagentResult(
 	);
 
 	const isPartial = options.isPartial ?? false;
-	if (details.mode === "single") {
-		const single = details.results[0];
-		return options.expanded
-			? expandedResult(single, theme, getMarkdownTheme(), isPartial)
-			: collapsedResult(single, theme, isPartial);
+	if (options.expanded) {
+		const container = context?.lastComponent instanceof Container ? context.lastComponent : new Container();
+		container.clear();
+		if (details.mode === "single") {
+			addExpandedResult(container, details.results[0], theme, getMarkdownTheme(), now, isPartial);
+		} else {
+			fillExpandedMulti(container, details, theme, now);
+		}
+		return container;
 	}
-	return options.expanded ? expandedMulti(details, theme) : collapsedMulti(details, theme);
+
+	const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+	text.setText(
+		details.mode === "single"
+			? collapsedSingleText(details.results[0], theme, isPartial, now)
+			: collapsedMultiText(details, theme, now),
+	);
+	return text;
 }

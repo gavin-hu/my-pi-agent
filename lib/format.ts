@@ -14,6 +14,15 @@ export function formatTokens(count: number): string {
 	return `${Math.round(count / 1000000)}M`;
 }
 
+/**
+ * Replace terminal control characters (including ESC and the C1 block) with
+ * spaces, keeping `\n` and `\t` for callers that render multi-line text.
+ * Model-authored text must pass through this before it reaches a widget.
+ */
+export function stripControlChars(text: string): string {
+	return text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, " ");
+}
+
 /** Collapse newlines, tabs, and runs of spaces so text stays on one line. */
 export function sanitize(text: string): string {
 	return text

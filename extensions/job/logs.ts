@@ -24,16 +24,19 @@ export interface LogTail {
 	lines: string[];
 	/** True when the file was longer than the byte window. */
 	truncated: boolean;
+	/** True when earlier lines exist beyond the returned window. */
+	more: boolean;
 }
 
 /** Read a bounded, sanitized tail of `path`; a missing/unreadable file is empty. */
 export function readLogTail(path: string | undefined, lines: number): LogTail {
 	let text = "";
 	let truncated = false;
+	let start = 0;
 	try {
 		if (path && existsSync(path)) {
 			const size = statSync(path).size;
-			const start = Math.max(0, size - LOG_READ_BYTES);
+			start = Math.max(0, size - LOG_READ_BYTES);
 			truncated = start > 0;
 			const fd = openSync(path, "r");
 			try {
@@ -47,5 +50,7 @@ export function readLogTail(path: string | undefined, lines: number): LogTail {
 	} catch {
 		// A missing/unreadable log yields an empty tail.
 	}
-	return { lines: tailLines(dropTrailingBlank(sanitizeLogText(text)), lines), truncated };
+	const all = dropTrailingBlank(sanitizeLogText(text));
+	const more = start > 0 || all.length > lines;
+	return { lines: tailLines(all, lines), truncated, more };
 }

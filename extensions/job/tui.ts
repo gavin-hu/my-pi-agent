@@ -31,12 +31,14 @@ import {
 	wheelDelta,
 } from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import { expandHint } from "../../lib/ui.ts";
 import {
 	compareJobs,
 	elapsedMs,
 	formatDuration,
 	formatJobDetail,
 	jobCounts,
+	sanitizeLogLine,
 	shortLabel,
 	statusGlyph,
 	type JobCounts,
@@ -60,15 +62,73 @@ function jobRow(job: JobRecord, theme: Theme, width: number, selected = false): 
 	return truncateToWidth(`${head}${clipped}${pad} ${theme.fg("dim", elapsed)}`, width);
 }
 
+/** Input for the transcript result: a themed job list or a log tail. */
+export type JobResultInput =
+	| { kind: "list"; jobs: JobRecord[]; more: number }
+	| { kind: "logs"; lines: string[]; earlier: number };
+
+/**
+ * Transcript result block for the `job` tool: a blank line, then either the
+ * `/jobs`-style row rail (already ordered and capped by the caller) or the
+ * themed log tail. Reused across renders via `setInput`.
+ */
+export class JobResult implements Component {
+	private input: JobResultInput;
+	private theme: Theme;
+
+	constructor(input: JobResultInput, theme: Theme) {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	/** Update in place so the transcript can reuse this component across renders. */
+	setInput(input: JobResultInput, theme: Theme): void {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	invalidate(): void {}
+
+	render(width: number): string[] {
+		const w = Math.max(1, width);
+		// A leading blank line separates the result from the call header.
+		const lines: string[] = [""];
+		if (this.input.kind === "list") {
+			for (const job of this.input.jobs) lines.push(jobRow(job, this.theme, w));
+			if (this.input.more > 0) {
+				lines.push(
+					truncateToWidth(`  ${this.theme.fg("dim", `… ${this.input.more} more`)} ${expandHint(this.theme)}`, w, "…"),
+				);
+			}
+		} else {
+			if (this.input.earlier > 0) {
+				lines.push(
+					truncateToWidth(
+						`${this.theme.fg("dim", `… ${this.input.earlier} earlier lines`)} ${expandHint(this.theme)}`,
+						w,
+						"…",
+					),
+				);
+			}
+			for (const line of this.input.lines) {
+				lines.push(this.theme.fg("toolOutput", truncateToWidth(line, w, "…")));
+			}
+		}
+		return lines;
+	}
+}
+
 export interface JobListCallbacks {
 	/** Current sanitized log lines for a job, or undefined when unknown. */
-	logs(id: string): { lines: string[] } | undefined;
+	logs(id: string): { lines: string[]; more?: boolean } | undefined;
 	kill(id: string): void;
 	clear(): void;
 }
 
 /** A destructive action waiting for y/N confirmation. */
-type PendingConfirm = { kind: "kill"; id: string; label: string } | { kind: "clear"; count: number };
+type PendingConfirm =
+	| { kind: "kill"; id: string; label: string }
+	| { kind: "clear"; count: number; unreported: number };
 
 /** Dismissible `/jobs` screen: a selectable list with a focus pane and log view. */
 export class JobListComponent implements Component {
@@ -81,6 +141,9 @@ export class JobListComponent implements Component {
 	private logScroll = 0;
 	private logLines: string[] = [];
 	private logTitle = "";
+	/** Absolute log-file path of the open job, and whether earlier lines exist. */
+	private logPath: string | undefined;
+	private logMore = false;
 	private follow = true;
 	/** Pending destructive action awaiting y/N. */
 	private confirm: PendingConfirm | undefined;
@@ -99,16 +162,20 @@ export class JobListComponent implements Component {
 	invalidate(): void {}
 
 	/** Replace the log pane contents (called by the command's poll loop). */
-	setLogs(title: string, lines: string[]): void {
+	setLogs(title: string, lines: string[], meta: { more?: boolean; logPath?: string } = {}): void {
 		const titleChanged = title !== this.logTitle;
 		const linesChanged = !this.sameLines(lines);
+		const moreChanged = meta.more !== undefined && meta.more !== this.logMore;
+		const pathChanged = meta.logPath !== undefined && meta.logPath !== this.logPath;
 		this.logTitle = title;
 		this.logLines = lines;
+		if (meta.more !== undefined) this.logMore = meta.more;
+		if (meta.logPath !== undefined) this.logPath = meta.logPath;
 		if (this.follow) this.logScroll = this.maxLogScroll;
 		else this.logScroll = Math.min(this.logScroll, this.maxLogScroll);
 		// The poll fires every 500ms; skip the repaint when nothing changed so an
 		// idle log pane does not redraw (and fight the user's scroll) constantly.
-		if (titleChanged || linesChanged) this.requestRender();
+		if (titleChanged || linesChanged || moreChanged || pathChanged) this.requestRender();
 	}
 
 	private sameLines(next: string[]): boolean {
@@ -127,7 +194,7 @@ export class JobListComponent implements Component {
 	/** Re-read the open log pane from the runtime. */
 	refreshLogs(id: string): void {
 		const result = this.callbacks.logs(id);
-		if (result) this.setLogs(this.logTitle, result.lines);
+		if (result) this.setLogs(this.logTitle, result.lines, { more: result.more });
 	}
 
 	private get ordered(): JobRecord[] {
@@ -179,8 +246,10 @@ export class JobListComponent implements Component {
 		this.follow = true;
 		this.logLines = [];
 		this.logTitle = `${job.id} ${shortLabel(job)}`;
+		this.logPath = job.logPath;
+		this.logMore = false;
 		const result = this.callbacks.logs(job.id);
-		if (result) this.setLogs(this.logTitle, result.lines);
+		if (result) this.setLogs(this.logTitle, result.lines, { more: result.more, logPath: job.logPath });
 		else this.requestRender();
 	}
 
@@ -241,9 +310,13 @@ export class JobListComponent implements Component {
 				this.requestRender();
 			}
 		} else if (data === "x") {
-			const count = ordered.filter((job) => job.status !== "running").length;
-			if (count > 0) {
-				this.confirm = { kind: "clear", count };
+			const finished = ordered.filter((job) => job.status !== "running");
+			if (finished.length > 0) {
+				this.confirm = {
+					kind: "clear",
+					count: finished.length,
+					unreported: finished.filter((job) => !job.seen).length,
+				};
 				this.requestRender();
 			}
 		}
@@ -279,9 +352,12 @@ export class JobListComponent implements Component {
 	private confirmPrompt(): string {
 		const pending = this.confirm;
 		if (!pending) return "";
-		return pending.kind === "kill"
-			? `Kill ${pending.id} (${pending.label})? y/N`
-			: `Clear ${pending.count} finished job${pending.count === 1 ? "" : "s"}? y/N`;
+		if (pending.kind === "kill") return `Kill ${pending.id} (${pending.label})? y/N`;
+		const note =
+			pending.unreported > 0
+				? ` ${pending.unreported} unreported result${pending.unreported === 1 ? "" : "s"} will be discarded.`
+				: "";
+		return `Clear ${pending.count} finished job${pending.count === 1 ? "" : "s"}?${note} y/N`;
 	}
 
 	private setLogScroll(next: number): void {
@@ -365,21 +441,25 @@ export class JobListComponent implements Component {
 		lines.push(
 			this.confirm
 				? truncateToWidth(`  ${this.theme.fg("warning", this.confirmPrompt())}`, w)
-				: screenHint(this.theme, w, ["↑/↓ select", "Enter logs", "d kill", "x clear finished", "Esc close"]),
+				: screenHint(this.theme, w, ["Esc close", "↑/↓ select", "Enter logs", "d kill", "x clear finished"]),
 		);
 		lines.push("");
 		return lines;
 	}
 
 	private renderLogs(w: number): string[] {
-		// header, blank, blank-after-log, hint, blank
-		const chrome = 5;
+		// header, path, blank, blank-after-log, hint, blank
+		const chrome = 6;
 		this.visible = fitRows(this.viewportRowsSource, this.logLines.length, chrome, SCREEN_DEFAULT_ROWS);
 		this.logScroll = clampScroll(this.logScroll, this.logLines.length, this.visible);
 		if (this.follow) this.logScroll = this.maxLogScroll;
 
 		const label = this.logTitle ? `Job Logs · ${this.logTitle}` : "Job Logs";
-		const lines: string[] = [screenHeader(this.theme, w, label), ""];
+		const parts: string[] = [];
+		if (this.logPath) parts.push(sanitizeLogLine(this.logPath));
+		if (this.logMore && this.logLines.length > 0) parts.push(`showing last ${this.logLines.length} lines`);
+		const pathLine = truncateToWidth(`  ${this.theme.fg("dim", parts.join(" · "))}`, w);
+		const lines: string[] = [screenHeader(this.theme, w, label), pathLine, ""];
 		if (this.logLines.length === 0) {
 			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No output yet.")}`, w));
 		} else {
@@ -394,7 +474,7 @@ export class JobListComponent implements Component {
 			}
 		}
 		lines.push("");
-		lines.push(screenHint(this.theme, w, ["↑/↓ scroll", "g/G", "PgUp/PgDn", "Esc back"]));
+		lines.push(screenHint(this.theme, w, ["Esc back", "↑/↓ scroll", "g/G", "PgUp/PgDn"]));
 		lines.push("");
 		return lines;
 	}

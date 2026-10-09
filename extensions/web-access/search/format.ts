@@ -1,12 +1,13 @@
 /**
  * Model-facing text formatting for `web_search`.
  *
- * Renders the instant answer (when present) and the numbered results within a
+ * Renders the direct answer (when present) and the numbered results within a
  * character budget. Whole blocks are added while they fit; if the first block
  * alone overflows, the text is truncated by code point so CJK stays well-formed.
  */
 
-import type { SearchResponse } from "./types.ts";
+import { providerLabel } from "./registry.ts";
+import type { SearchResponse } from "./schema.ts";
 
 export interface FormattedResults {
 	text: string;
@@ -21,16 +22,15 @@ function truncateByCodePoint(text: string, maxChars: number): string {
 }
 
 function headerFor(response: SearchResponse): string {
-	if (response.provider === "duckduckgo") return `DuckDuckGo instant answer for "${response.query}"`;
-	if (response.provider === "wikipedia") return `Wikipedia results for "${response.query}"`;
-	return `No instant answer or Wikipedia results for "${response.query}"`;
+	if (response.provider === "none") return `No web results for "${response.query}"`;
+	return `${providerLabel(response.provider)} results for "${response.query}"`;
 }
 
 export function formatResults(response: SearchResponse, maxOutputChars: number): FormattedResults {
 	const header = headerFor(response);
 
 	if (response.provider === "none") {
-		return { text: `${header}. Use web_fetch on a known URL, or rephrase the query.`, truncated: false };
+		return { text: `${header}. Rephrase the query, or use web_fetch on a known URL.`, truncated: false };
 	}
 
 	let text = header;

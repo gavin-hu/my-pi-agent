@@ -13,6 +13,8 @@ export interface PlanModeEntry {
 export interface EnterPlanModeDetails {
 	/** Whether the user agreed to enter plan mode. */
 	entered: boolean;
+	/** True when plan mode was already enabled before this call. */
+	already?: boolean;
 	/** True when no interactive UI was available to confirm. */
 	unavailable?: boolean;
 }

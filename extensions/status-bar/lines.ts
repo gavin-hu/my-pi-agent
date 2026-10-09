@@ -1,7 +1,7 @@
 /**
  * Turn a `StatusSnapshot` into the two footer lines.
  *
- * Line 1 — identity: left `pwd · ⎇ branch`, right the worktree status.
+ * Line 1 — identity: left `pwd`, right `⎇ branch · ⑂ worktree · ⊙ serve`.
  * Line 2 — resources: left the plan/alert statuses then the context gauge and
  * usage meters, right the model and thinking level.
  *
@@ -44,6 +44,21 @@ function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string | undef
 	};
 }
 
+function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const name = snapshot.sessionName ? sanitize(snapshot.sessionName) : "";
+	if (!name) return null;
+	const short = truncateLabel(name, CONFIG.sessionLabelMax);
+	const forms = [dim(theme, name)];
+	if (short !== name) forms.push(dim(theme, short));
+	return {
+		id: "session",
+		weight: 3,
+		droppable: true,
+		separator: dim(theme, CONFIG.separators.item),
+		forms,
+	};
+}
+
 function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (!snapshot.branch) return null;
 	const detached = snapshot.branch === CONFIG.labels.detached;
@@ -52,15 +67,9 @@ function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	return {
 		id: "branch",
 		weight: 1,
-		droppable: false,
+		droppable: true,
 		separator: dim(theme, CONFIG.separators.item),
-		forms: [
-			theme.fg(color, `${icon} ${snapshot.branch}`),
-			theme.fg(color, `${CONFIG.icons.branch} ${snapshot.branch}`),
-			// The floor keeps the detached warning glyph instead of falling back
-			// to a plain branch icon, which would hide the detached state.
-			theme.fg(color, icon),
-		],
+		forms: [theme.fg(color, `${icon} ${snapshot.branch}`)],
 	};
 }
 
@@ -93,9 +102,39 @@ function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null
 	};
 }
 
+function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const raw = snapshot.statuses.get(CONFIG.serveStatusKey);
+	if (!raw) return null;
+	const icon = CONFIG.icons.serve;
+	const label = sanitize(stripAnsi(raw))
+		.replace(/^\S+\s*/, "")
+		.trim();
+	const separator = dim(theme, CONFIG.separators.item);
+	if (!label) {
+		return {
+			id: "serve",
+			weight: 3,
+			droppable: true,
+			separator,
+			forms: [theme.fg("success", icon)],
+		};
+	}
+	return {
+		id: "serve",
+		weight: 3,
+		droppable: true,
+		separator,
+		forms: [
+			`${theme.fg("success", icon)} ${theme.fg("accent", label)}`,
+			`${theme.fg("success", icon)}${theme.fg("accent", label)}`,
+			theme.fg("success", icon),
+		],
+	};
+}
+
 function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
-		.filter(([key]) => key !== CONFIG.worktreeStatusKey)
+		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.serveStatusKey)
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([key, value]) => {
 			const status = sanitize(value);
@@ -123,7 +162,8 @@ function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	const percent = snapshot.context.percent;
 	const color = contextColor(percent);
 	const percentText = theme.fg(color, formatPercent(percent));
-	const forms = CONFIG.gauge.widths.map((blocks) => {
+	const gaugeWidths: readonly number[] = percent === null ? [0] : CONFIG.gauge.widths;
+	const forms = gaugeWidths.map((blocks) => {
 		const { filled, empty } = computeGauge(percent, blocks);
 		const gauge =
 			blocks > 0
@@ -158,10 +198,7 @@ function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 		weight: 2,
 		droppable: true,
 		separator: dim(theme, CONFIG.separators.item),
-		forms: [
-			theme.fg("muted", formatCost(snapshot.usage.cost)),
-			theme.fg("muted", formatCost(snapshot.usage.cost, true)),
-		],
+		forms: [theme.fg("muted", formatCost(snapshot.usage.cost))],
 	};
 }
 
@@ -214,14 +251,15 @@ function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 }
 
 function thinkingSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	if (!snapshot.model?.reasoning || !snapshot.thinkingLevel) return null;
-	const color = thinkingColor(snapshot.thinkingLevel);
+	if (!snapshot.model?.reasoning) return null;
+	const level = snapshot.thinkingLevel ?? "off";
+	const color = thinkingColor(level);
 	return {
 		id: "thinking",
 		weight: 2,
 		droppable: true,
 		separator: dim(theme, CONFIG.separators.item),
-		forms: [theme.fg(color, snapshot.thinkingLevel)],
+		forms: [theme.fg(color, level)],
 	};
 }
 
@@ -232,8 +270,8 @@ function defined(segments: Array<Segment | null>): Segment[] {
 /** Build the identity and resources lines for a snapshot. */
 export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): LineSpec[] {
 	const line1: LineSpec = {
-		left: defined([pwdSegment(snapshot, theme, home)]),
-		right: defined([branchSegment(snapshot, theme), worktreeSegment(snapshot, theme)]),
+		left: defined([pwdSegment(snapshot, theme, home), sessionSegment(snapshot, theme)]),
+		right: defined([branchSegment(snapshot, theme), worktreeSegment(snapshot, theme), serveSegment(snapshot, theme)]),
 	};
 
 	const line2Left = defined([

@@ -16,6 +16,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { type AgentConfig, type AgentScope, BUILTIN_AGENTS, discoverAgents, formatAgentList } from "./agents.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
@@ -38,6 +39,7 @@ const DESCRIPTION = [
 	"Each subagent runs in its own process and inherits the current model and thinking level.",
 	`Built-in agents: ${AGENT_SUMMARY}.`,
 	"External agents load from `<agent-dir>/agents` and the nearest `.pi/agents`; set `agentScope` to `user`, `project`, or `both` to include them.",
+	"Set `readOnly: true` to force every spawned agent to a read-only tool set (read/grep/find/ls and web readers only); plan mode sets it automatically.",
 ].join(" ");
 
 const GUIDELINES = [
@@ -58,6 +60,7 @@ function requestedAgentNames(args: SubagentArgs): string[] {
 }
 
 export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): void {
+	if (!isExtensionEnabled("subagent")) return;
 	const run = deps.run ?? runSingleAgent;
 
 	pi.registerTool({
@@ -99,6 +102,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 				total: requestedTotal,
 				agentScope,
 				projectAgentsDir: discovery.projectAgentsDir,
+				readOnly: args.readOnly === true,
 			});
 
 			// Project agents are repository-controlled. This gate is driven only by the
@@ -153,7 +157,10 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		},
 
 		renderCall(args, theme, context) {
-			return renderSubagentCall(args as SubagentArgs, theme, { cwd: context.cwd });
+			return renderSubagentCall(args as SubagentArgs, theme, {
+				cwd: context.cwd,
+				lastComponent: context.lastComponent,
+			});
 		},
 
 		renderResult(result, options, theme, context) {

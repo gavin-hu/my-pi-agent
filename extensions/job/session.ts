@@ -1,21 +1,22 @@
 /**
  * Per-session liveness markers.
  *
- * A job registry is shared by every Pi session in a project, but a job is owned
- * by the session that started it. To tell a live owner from a dead one, each
- * session writes a small heartbeat marker (its session id, pid, and last-seen
- * time) beside the registry while it runs jobs. Reconciliation reads those
- * markers, so a new session reaps only jobs whose owner is gone instead of
- * killing every live non-detached job it finds.
+ * Each session owns one registry file per project, but a job is still owned by
+ * the session that started it. To tell a live owner from a dead one — so a new
+ * session can adopt a dead peer's records instead of reaping them blindly —
+ * each session writes a small heartbeat marker (its session id, pid, and
+ * last-seen time) beside the registry while it runs jobs. Adoption reads those
+ * markers, so a live peer's jobs are left alone and a dead peer's are taken
+ * over.
  *
  * Markers are best-effort: a missing directory or an unwritable file degrades
- * to "owner dead", which is the pre-existing conservative default. The liveness
- * rule is pure (`isSessionAlive`) so it is unit-tested without real processes.
+ * to "owner dead", which is the conservative default. The liveness rule is pure
+ * (`isSessionAlive`) so it is unit-tested without real processes.
  */
 
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { sessionMarkerPath } from "./paths.ts";
 
 /** Prefix shared by every marker file, so log/registry files are never parsed. */
 const MARKER_PREFIX = "session-";
@@ -30,15 +31,7 @@ export interface SessionMarker {
 	updatedAt: number;
 }
 
-/** Hash the session id so arbitrary characters cannot escape the directory. */
-function markerHash(sessionId: string): string {
-	return createHash("sha1").update(sessionId).digest("hex").slice(0, 16);
-}
-
-/** Path of the marker file for `sessionId` inside `dir`. */
-export function sessionMarkerPath(dir: string, sessionId: string): string {
-	return join(dir, `${MARKER_PREFIX}${markerHash(sessionId)}${MARKER_SUFFIX}`);
-}
+export { sessionMarkerPath };
 
 function parseMarker(raw: unknown): SessionMarker | undefined {
 	if (!raw || typeof raw !== "object") return undefined;

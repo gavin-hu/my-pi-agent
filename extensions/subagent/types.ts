@@ -30,6 +30,8 @@ export interface SingleResult {
 	/** Where the agent definition came from; `"unknown"` when it could not be resolved. */
 	agentSource?: AgentSource | "unknown";
 	task: string;
+	/** Original chain step task, before `{previous}` substitution; display only. */
+	taskTemplate?: string;
 	/** Process exit code; `-1` means the subprocess is still running. */
 	exitCode: number;
 	messages: Message[];
@@ -56,6 +58,8 @@ export interface SubagentDetails {
 	agentScope?: AgentScope;
 	/** Nearest project agents directory, when one was found. */
 	projectAgentsDir?: string | null;
+	/** Whether the run forced a read-only tool set (plan mode). */
+	readOnly?: boolean;
 	/**
 	 * Total steps/tasks requested, which can exceed `results.length` when a chain
 	 * stops early. Defaults to `results.length` when absent.

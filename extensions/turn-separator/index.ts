@@ -15,6 +15,7 @@
 
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { CONFIG } from "./config.ts";
 import { separatorLine } from "./format.ts";
 import type { TurnSeparatorData } from "./types.ts";
@@ -45,6 +46,7 @@ function countSeparators(entries: readonly { type: string; customType?: string }
 }
 
 export default function turnSeparator(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("turn-separator")) return;
 	pi.registerEntryRenderer<TurnSeparatorData>(CONFIG.customType, (entry, _options, theme) => {
 		const turn = entry.data?.turn;
 		if (typeof turn !== "number" || !Number.isFinite(turn)) return undefined;

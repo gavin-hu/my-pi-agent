@@ -1,9 +1,9 @@
 /**
  * Scrollable-list behavior shared by the interactive screens that re-implement
- * it (`/plans`, `/rewind`, `/todos`, `/jobs`).
+ * it (`/rewind`, `/todos`, `/jobs`).
  *
- * Each screen keeps its own layout, rows, and selection model — plans and
- * rewind use an index, jobs use a stable id, todos have no cursor at all — but
+ * Each screen keeps its own layout, rows, and selection model — rewind uses an
+ * index, jobs use a stable id, todos have no cursor at all — but
  * they all need the same arithmetic: how many rows fit, how to keep the focus
  * in view, which keys navigate, and how to render the "showing X–Y of N" row.
  * That shared part lives here so a fix or a rebinding happens once.
@@ -46,7 +46,7 @@ export function clampScroll(next: number, count: number, visible: number): numbe
 }
 
 /** Direction a navigation key asks for; `undefined` means "not a navigation key". */
-export type NavIntent = "up" | "down" | "pageUp" | "pageDown" | "home" | "end";
+type NavIntent = "up" | "down" | "pageUp" | "pageDown" | "home" | "end";
 
 /**
  * Map a raw key chunk to a navigation intent, or `undefined` for any other key.

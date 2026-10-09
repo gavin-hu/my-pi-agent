@@ -4,8 +4,8 @@
  *
  * `FULL_SCREEN_OVERLAY` is for the one surface that must own the whole terminal:
  * the plan read/review screen. Every list screen (`/todos`, `/jobs`,
- * `/rewind`, `/plans`) stays in the dock's editor slot so they match each
- * other and leave the transcript visible.
+ * `/rewind`) stays in the dock's editor slot so they match each other and
+ * leave the transcript visible.
  *
  * Screens are full-width, terminal-height-aware components. These helpers build
  * the top rule, clamp a screen's body to the terminal, and render the key-hint
@@ -54,7 +54,7 @@ export function screenHeader(theme: Theme, width: number, label: string): string
 /** A row count, or a live getter so a screen re-sizes with the terminal. */
 export type ViewportRowsSource = number | (() => number | undefined);
 
-export interface ViewportRowsOptions {
+interface ViewportRowsOptions {
 	/** Header, summary, detail, footer, and blank rows the screen spends around the body. */
 	chrome: number;
 	/** Body rows when the terminal height is unknown. */

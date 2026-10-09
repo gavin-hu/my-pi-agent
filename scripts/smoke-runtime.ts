@@ -1,16 +1,19 @@
 // Real-runtime smoke test: load the package through the real Pi loader and
 // drive enter_worktree/list_worktrees/exit_worktree without a model call.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAgentSession, DefaultResourceLoader, SessionManager } from "@earendil-works/pi-coding-agent";
-import { canonicalize } from "../extensions/git/worktree/git.ts";
-import { ROOT_TOOL_NAMES } from "../extensions/git/worktree/root-tools.ts";
+import { canonicalize } from "../extensions/worktree/git.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
+import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
+import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "../extensions/worktree/runtime.ts";
 
 const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const extensionPath = join(repo, "extensions", "git", "index.ts");
+const worktreeExtensionPath = join(repo, "extensions", "worktree", "index.ts");
+const rewindExtensionPath = join(repo, "extensions", "rewind", "index.ts");
 const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
 const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
 const goalExtensionPath = join(repo, "extensions", "goal", "index.ts");
@@ -19,9 +22,25 @@ const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const jobExtensionPath = join(repo, "extensions", "job", "index.ts");
 const webAccessExtensionPath = join(repo, "extensions", "web-access", "index.ts");
 const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
+const docExtensionPath = join(repo, "extensions", "doc", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
+
+// Point every extension's config at the temp agent dir. `lib/config.ts` reads
+// `getAgentDir()`, so this redirects the jobs registry too. A project
+// `jobs.json` under the scratch repo would be cwd-dependent and is missed once
+// the session re-roots into a worktree.
+process.env.PI_CODING_AGENT_DIR = agentDir;
+writeFileSync(join(agentDir, "jobs.json"), JSON.stringify({ registryDir: join(agentDir, "jobs") }));
+
+// The smoke may be launched from inside a worktree (for example `bun run check`
+// in a task worktree), which exports the worktree env to children. Drop it so
+// this in-process session is standalone and can enter its own scratch worktree.
+delete process.env[ENV_ROOT];
+delete process.env[ENV_BRANCH];
+delete process.env[ENV_MAIN];
+delete process.env[ENV_DISABLED_EXTENSIONS];
 
 // Scratch git repo with one commit.
 const work = mkdtempSync(join(tmpdir(), "pi-smoke-repo-"));
@@ -34,15 +53,12 @@ writeFileSync(join(work, "a.txt"), "hi\n");
 git("add", ".");
 git("commit", "-qm", "init");
 
-// Keep the jobs registry inside the smoke's temp agent dir instead of ~/.pi.
-mkdirSync(join(work, ".pi"), { recursive: true });
-writeFileSync(join(work, ".pi", "jobs.json"), JSON.stringify({ registryDir: join(agentDir, "jobs") }));
-
 const loader = new DefaultResourceLoader({
 	cwd: work,
 	agentDir,
 	additionalExtensionPaths: [
-		extensionPath,
+		worktreeExtensionPath,
+		rewindExtensionPath,
 		askExtensionPath,
 		todoExtensionPath,
 		goalExtensionPath,
@@ -51,6 +67,7 @@ const loader = new DefaultResourceLoader({
 		jobExtensionPath,
 		webAccessExtensionPath,
 		fileBrowserExtensionPath,
+		docExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
 	],
@@ -67,6 +84,11 @@ const { session } = await createAgentSession({
 	resourceLoader: loader,
 	sessionManager,
 });
+
+// `session_start` (and the other extension lifecycle events) is emitted by
+// `bindExtensions`, which the real modes call; `createAgentSession` does not.
+// Bind in print mode so the same session lifecycle the smoke exercises fires.
+await session.bindExtensions({ mode: "print" });
 
 const runner = session.extensionRunner;
 const tool = (name: string) => {
@@ -85,7 +107,7 @@ const check = (label: string, cond: boolean) => {
 
 // `findInactiveOverrides` treats a tool as ours when Pi records the extension
 // entry file as its source; verify that premise on the real registry.
-const entry = canonicalize(extensionPath);
+const entry = canonicalize(worktreeExtensionPath);
 for (const name of ROOT_TOOL_NAMES) {
 	const info = session.getAllTools().find((t) => t.name === name);
 	check(
@@ -173,11 +195,6 @@ const commandPersisted = sessionManager
 	);
 check("goal command persists a branch entry", commandPersisted);
 
-// git loads and registers a read-only tool.
-const gitTool = session.getAllTools().find((t) => t.name === "git");
-check("git tool registered", !!gitTool);
-check("git tool is read-only", gitTool?.annotations?.readOnlyHint === true);
-
 // rewind loads alongside the others: automatic per-prompt snapshots stay, the
 // old checkpoint tool and command are gone, and /rewind handles the rewind.
 const rewindTool = session.getAllTools().find((t) => t.name === "checkpoint");
@@ -226,6 +243,7 @@ check("jobs command registered", !!runner.getCommand("jobs"));
 const started = await call("job", { action: "start", command: "sleep 30", label: "smoke" });
 const startedDetails = started.details as { job?: { id?: string; status?: string } };
 check("job start returns a running job", startedDetails.job?.status === "running" && !!startedDetails.job?.id);
+check("job registry is isolated under the temp agent dir", existsSync(join(agentDir, "jobs")));
 const listedJobs = await call("job", { action: "list" });
 check("job list returns the started job", ((listedJobs.details as { jobs?: unknown[] }).jobs?.length ?? 0) >= 1);
 const killedJob = await call("job", { action: "kill", id: startedDetails.job!.id });
@@ -252,6 +270,15 @@ check("web_fetch registered", !!webFetchTool);
 check("web_fetch is direct", webFetchTool?.exposure === "direct");
 check("web_fetch active by default", session.getActiveToolNames().includes("web_fetch"));
 check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
+
+// doc loads and registers an active, direct reader. It is not executed here:
+// the optional unpdf/mammoth packages are not installed, and the extraction
+// paths are covered by unit tests with injected extractors.
+const readDocTool = session.getAllTools().find((t) => t.name === "read_doc");
+check("read_doc registered", !!readDocTool);
+check("read_doc is direct", readDocTool?.exposure === "direct");
+check("read_doc active by default", session.getActiveToolNames().includes("read_doc"));
+check("read_doc is callable", !!session.getToolDefinition("read_doc"));
 
 // serve loads headlessly and registers its command; /serve status must not
 // start a server or open a browser.

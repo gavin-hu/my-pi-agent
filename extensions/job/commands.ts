@@ -42,7 +42,10 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 									runtime.kill(id);
 								},
 								clear: () => {
-									runtime.clear(undefined, false);
+									const result = runtime.clear(undefined, false);
+									if (result.cleared > 0) {
+										ctx.ui.notify(`Cleared ${result.cleared} job${result.cleared === 1 ? "" : "s"}.`, "info");
+									}
 								},
 							},
 							() => {

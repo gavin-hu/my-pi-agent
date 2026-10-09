@@ -7,7 +7,8 @@
  * addresses. `allowPrivateHosts` opts out.
  *
  * It is defense-in-depth, not a sandbox: DNS can change between this check and
- * the request (rebinding), and `fetch` follows redirects internally.
+ * the request (rebinding). Redirect hops are re-validated by `page.ts`, which
+ * uses manual redirects, so only the DNS window remains.
  */
 
 import { lookup } from "node:dns/promises";

@@ -11,8 +11,44 @@ export type AnyHandler = (...args: any[]) => any;
 /** Identity theme so rendered text stays assertable. */
 export const fakeTheme: any = {
 	fg: (_color: string, text: string) => text,
+	bg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 };
+
+/** Theme that tags text with the requested colour, to assert colour choices. */
+export const coloringTheme: any = {
+	fg: (color: string, text: string) => `[${color}]${text}`,
+	bold: (text: string) => `[bold]${text}`,
+};
+
+/**
+ * Theme that emits real SGR codes, so a test can assert that renderer
+ * sanitization does not strip the theme's own ANSI escapes.
+ */
+export const ansiTheme: any = {
+	fg: (_color: string, text: string) => `\u001b[38;2;0;0;0m${text}\u001b[39m`,
+	bold: (text: string) => text,
+};
+
+/** A theme double that records every `fg(color, text)` call. */
+export interface RecordingTheme {
+	calls: Array<[string, string]>;
+	fg(color: string, text: string): string;
+	bold(text: string): string;
+}
+
+/** Build a theme that records colour tokens instead of styling text. */
+export function makeRecordingTheme(): RecordingTheme {
+	const calls: Array<[string, string]> = [];
+	return {
+		calls,
+		fg: (color, text) => {
+			calls.push([color, text]);
+			return text;
+		},
+		bold: (text) => text,
+	};
+}
 
 export interface FakePi {
 	pi: any;
@@ -128,6 +164,9 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		activeTools: () => [...active],
 	};
 }
+
+/** Alias for `createFakePi`; most suites only need the default double. */
+export const makeFakePi = createFakePi;
 
 /** Run every handler registered for `event`. */
 export async function emit(pi: any, event: string, payload: unknown, ctx: any): Promise<void> {

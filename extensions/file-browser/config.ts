@@ -7,10 +7,11 @@
  * cannot produce a nonsensical server.
  */
 
+import { randomInt } from "node:crypto";
 import { clampInteger, loadConfigFile } from "../../lib/config.ts";
 
 export interface ServeConfig {
-	/** TCP port on 127.0.0.1; `0` asks the OS for a free port. */
+	/** TCP port on 127.0.0.1; `0` picks one random port fixed for the session, a positive value pins it. */
 	port: number;
 	/** Open the default browser when the server starts. */
 	autoOpen: boolean;
@@ -22,8 +23,6 @@ export interface ServeConfig {
 	maxTextLines: number;
 	/** Directory entries listed before the listing is truncated. */
 	maxDirEntries: number;
-	/** Sidebar levels expanded below the root. */
-	treeDepth: number;
 	/** Render inline image thumbnails in listings. */
 	thumbnails: boolean;
 }
@@ -35,9 +34,19 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	maxThumbBytes: 5 * 1024 * 1024,
 	maxTextLines: 5000,
 	maxDirEntries: 2000,
-	treeDepth: 4,
 	thumbnails: true,
 };
+
+/** Base of the per-session port range. */
+export const PORT_BASE = 4780;
+
+/** Number of ports in the per-session range. */
+export const PORT_RANGE = 1000;
+
+/** A random port in the per-session range `PORT_BASE`–`PORT_BASE + PORT_RANGE - 1`. */
+export function randomPort(): number {
+	return PORT_BASE + randomInt(PORT_RANGE);
+}
 
 function bool(value: unknown, fallback: boolean): boolean {
 	return typeof value === "boolean" ? value : fallback;
@@ -56,7 +65,6 @@ export function normalizeConfig(
 		maxThumbBytes: clampInteger(raw.maxThumbBytes, base.maxThumbBytes, 0, 1024 * 1024 * 1024),
 		maxTextLines: clampInteger(raw.maxTextLines, base.maxTextLines, 1, 1_000_000),
 		maxDirEntries: clampInteger(raw.maxDirEntries, base.maxDirEntries, 1, 1_000_000),
-		treeDepth: clampInteger(raw.treeDepth, base.treeDepth, 0, 50),
 		thumbnails: bool(raw.thumbnails, base.thumbnails),
 	};
 }

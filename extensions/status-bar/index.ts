@@ -13,10 +13,12 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { createFooter } from "./footer.ts";
 import { createSnapshotReader } from "./snapshot.ts";
 
 export default function statusBar(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("status-bar")) return;
 	let enabled = true;
 	const read = createSnapshotReader();
 
@@ -40,12 +42,13 @@ export default function statusBar(pi: ExtensionAPI): void {
 	pi.registerCommand("status-bar", {
 		description: "Toggle the colorful status bar",
 		handler: async (_args, ctx) => {
+			if (ctx.mode !== "tui") return;
 			enabled = !enabled;
 			if (enabled) {
 				install(ctx);
 				ctx.ui.notify("Status bar enabled", "info");
 			} else {
-				if (ctx.mode === "tui") ctx.ui.setFooter(undefined);
+				ctx.ui.setFooter(undefined);
 				ctx.ui.notify("Status bar disabled", "info");
 			}
 		},

@@ -11,6 +11,7 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { STATUS_KEYS } from "../../lib/ui.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion } from "./format.ts";
@@ -39,6 +40,7 @@ export interface JobsDeps {
 }
 
 export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
+	if (!isExtensionEnabled("job")) return;
 	const runtime = deps.runtime ?? createJobsRuntime();
 	let busy = false;
 
@@ -51,8 +53,8 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	// Opt-in wake: a `wake` job finished while the agent is idle. Report *all*
 	// pending completions, not just the waking one, so a non-wake job that
 	// finished earlier is not silently marked seen and dropped.
-	const handleFinish = (job: Job): void => {
-		if (!job.wake || busy) return;
+	const handleFinish = (_job: Job): void => {
+		if (busy) return;
 		const pending = drainPending();
 		if (pending.length === 0) return;
 		try {

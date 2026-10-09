@@ -11,9 +11,10 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
-import { compareByActivity, formatCallText, formatTodoText, progressSummary, todoGlyph, todoLabel } from "./format.ts";
+import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
+import { TodoResult as TodoResultView } from "./tui.ts";
 import type { Todo, TodoDetails } from "./types.ts";
 
 export const TOOL_NAME = TODO_TOOL;
@@ -40,6 +41,20 @@ function toStructuredContent(todos: Todo[], action: "write" | "clear", error?: s
 	return content;
 }
 
+/**
+ * Build the tool result for one call. A rejected call (`error` set) carries the
+ * unchanged list so the model can retry, and is marked `isError`.
+ */
+function todoResult(todos: Todo[], action: "write" | "clear", error?: string) {
+	const details: TodoDetails = error === undefined ? { todos, action } : { todos, action, error };
+	return {
+		content: [{ type: "text" as const, text: error === undefined ? formatTodoText(todos) : `Error: ${error}` }],
+		details,
+		structuredContent: toStructuredContent(todos, action, error),
+		...(error === undefined ? {} : { isError: true as const }),
+	};
+}
+
 export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 	pi.registerTool({
 		name: TOOL_NAME,
@@ -54,6 +69,8 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			"Use todo to plan multi-step work, and update it as you go rather than only at the end.",
 			"Send the full list on every todo call; it replaces the previous list and an empty list clears it.",
 			"Keep exactly one item in_progress at a time.",
+			"Mark an item completed in the same turn you finish it, and promote the next item to in_progress in that same call, so the list never lags the work.",
+			"Update the list before starting a new step, not only after finishing one.",
 		],
 		parameters: TodoParams,
 		outputSchema: TodoResult,
@@ -67,53 +84,49 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				if (!Array.isArray(todosArg)) throw new Error("todos must be an array.");
 				const todos = normalizeTodos(todosArg);
 				runtime.setTodos(todos, ctx);
-				return {
-					content: [{ type: "text", text: formatTodoText(todos) }],
-					details: { todos, action } satisfies TodoDetails,
-					structuredContent: toStructuredContent(todos, action),
-				};
+				return todoResult(todos, action);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				const previous = runtime.getTodos();
-				return {
-					content: [{ type: "text", text: `Error: ${message}` }],
-					details: { todos: previous, action, error: message } satisfies TodoDetails,
-					structuredContent: toStructuredContent(previous, action, message),
-					isError: true,
-				};
+				return todoResult(runtime.getTodos(), action, message);
 			}
 		},
 
 		renderCall(args, theme, context) {
-			return new Text(
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
-					theme.fg("muted", formatCallText(args.todos, context.argsComplete)),
-				0,
-				0,
+					theme.fg("muted", formatCallText(args.todos as Todo[] | undefined, context.argsComplete)),
 			);
+			return text;
 		},
 
-		renderResult(result, { expanded }, theme) {
+		renderResult(result, { expanded }, theme, context) {
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as TodoDetails | undefined;
 			if (!details) {
 				const first = result.content[0];
-				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
 			}
-			if (details.error) return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+			if (details.error) {
+				text.setText(theme.fg("error", `Error: ${details.error}`));
+				return text;
+			}
 			if (details.todos.length === 0) {
-				return new Text(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared the todo list"), 0, 0);
+				text.setText(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared the todo list"));
+				return text;
 			}
 
 			// Expanded keeps the model's order; collapsed leads with active work so the
 			// in-progress item is visible, matching the widget.
 			const ordered = [...details.todos].sort(compareByActivity);
-			const shown = expanded ? details.todos : ordered.slice(0, COLLAPSED_ROWS);
-			const lines = shown.map((todo) => `${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`);
-			if (!expanded && details.todos.length > shown.length) {
-				lines.push(theme.fg("dim", `… ${details.todos.length - shown.length} more`));
-			}
-			lines.push(theme.fg("dim", progressSummary(details.todos)));
-			return new Text(lines.join("\n"), 0, 0);
+			const rows = expanded ? details.todos : ordered.slice(0, COLLAPSED_ROWS);
+			const more = expanded ? 0 : details.todos.length - rows.length;
+			const input: TodoRailInput = { rows, more };
+			const view =
+				context.lastComponent instanceof TodoResultView ? context.lastComponent : new TodoResultView(input, theme);
+			view.setInput(input, theme);
+			return view;
 		},
 	});
 }

@@ -11,7 +11,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import type { JobsConfig } from "./config.ts";
-import { pendingFailures } from "./format.ts";
+import { pendingFailures, shortLabel } from "./format.ts";
 import type { JobRecord } from "./types.ts";
 
 export interface UiController {
@@ -23,6 +23,8 @@ export interface UiController {
 	paint(): void;
 	/** Publish the footer chips (and attach `ctx` when given). */
 	setStatus(ctx?: ExtensionContext): void;
+	/** Notify the user that a job failed, when a UI is attached. */
+	notifyFailure(job: JobRecord): void;
 }
 
 export interface UiOptions {
@@ -70,6 +72,17 @@ export function createUiController(options: UiOptions): UiController {
 		}
 	};
 
+	const notifyFailure = (job: JobRecord): void => {
+		const target = ctx;
+		if (!target) return;
+		const exit = job.exitCode !== null ? ` (exit ${job.exitCode})` : "";
+		try {
+			target.ui.notify(`Job ${job.id} failed: ${shortLabel(job)}${exit}`, "error");
+		} catch {
+			// UI may be unavailable in non-interactive modes.
+		}
+	};
+
 	return {
 		attach: (next) => {
 			ctx = next;
@@ -81,5 +94,6 @@ export function createUiController(options: UiOptions): UiController {
 			setStatus();
 		},
 		setStatus,
+		notifyFailure,
 	};
 }

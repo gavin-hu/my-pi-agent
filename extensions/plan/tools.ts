@@ -18,10 +18,11 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui.ts";
+import { expandHint } from "../../lib/ui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
-import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
+import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, WritePlanDetails } from "./types.ts";
 
 const ExitPlanModeParams = Type.Object({
@@ -61,10 +62,10 @@ const ENTERED_TEXT =
 	"and call exit_plan_mode with the returned path so the user can read the file and choose. " +
 	`While planning, ${READ_ONLY_SUMMARY}.`;
 
-function preview(plan: string): string {
+function preview(plan: string): { body: string; more: number } {
 	const lines = plan.split("\n");
-	if (lines.length <= PREVIEW_LINES) return plan;
-	return [...lines.slice(0, PREVIEW_LINES), `… ${lines.length - PREVIEW_LINES} more lines`].join("\n");
+	if (lines.length <= PREVIEW_LINES) return { body: plan, more: 0 };
+	return { body: lines.slice(0, PREVIEW_LINES).join("\n"), more: lines.length - PREVIEW_LINES };
 }
 
 /** Seed the todo list with the plan's steps; returns what was recorded. */
@@ -143,7 +144,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			if (runtime.isEnabled()) {
 				return {
 					content: [{ type: "text", text: "Already in plan mode." }],
-					details: { entered: true } satisfies EnterPlanModeDetails,
+					details: { entered: true, already: true } satisfies EnterPlanModeDetails,
 				};
 			}
 			if (!ctx.hasUI) {
@@ -173,19 +174,20 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			};
 		},
 
-		renderCall(_args, theme) {
-			return new Text(
-				theme.fg("toolTitle", theme.bold(`${ENTER_TOOL} `)) + theme.fg("muted", "requested plan mode"),
-				0,
-				0,
-			);
+		renderCall(_args, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			text.setText(theme.fg("toolTitle", theme.bold(`${ENTER_TOOL} `)) + theme.fg("muted", "requested plan mode"));
+			return text;
 		},
 
-		renderResult(result, _options, theme) {
+		renderResult(result, _options, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as EnterPlanModeDetails | undefined;
-			if (details?.unavailable) return new Text(theme.fg("warning", "No UI to confirm plan mode"), 0, 0);
-			if (details?.entered) return new Text(theme.fg("success", "✓ Plan mode enabled"), 0, 0);
-			return new Text(theme.fg("muted", "Stayed in normal mode"), 0, 0);
+			if (details?.unavailable) text.setText(theme.fg("warning", "No UI to confirm plan mode"));
+			else if (details?.already) text.setText(theme.fg("muted", "Already in plan mode"));
+			else if (details?.entered) text.setText(theme.fg("success", "✓ Plan mode enabled"));
+			else text.setText(theme.fg("muted", "Stayed in normal mode"));
+			return text;
 		},
 	});
 
@@ -242,19 +244,24 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			}
 		},
 
-		renderCall(args, theme) {
+		renderCall(args, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const title = (args as Partial<WritePlanArgs>).title;
 			const suffix = title ? theme.fg("muted", title) : theme.fg("muted", "plan");
-			return new Text(theme.fg("toolTitle", theme.bold(`${WRITE_PLAN_TOOL} `)) + suffix, 0, 0);
+			text.setText(theme.fg("toolTitle", theme.bold(`${WRITE_PLAN_TOOL} `)) + suffix);
+			return text;
 		},
 
-		renderResult(result, _options, theme) {
+		renderResult(result, _options, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as WritePlanDetails | undefined;
 			if (!details) {
 				const first = result.content[0];
-				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
 			}
-			return new Text(theme.fg("success", "✓ Saved plan ") + theme.fg("muted", details.relativePath), 0, 0);
+			text.setText(theme.fg("success", "✓ Saved plan ") + theme.fg("muted", details.relativePath));
+			return text;
 		},
 	});
 
@@ -398,15 +405,19 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			};
 		},
 
-		renderCall(_args, theme) {
-			return new Text(theme.fg("toolTitle", theme.bold(`${EXIT_TOOL} `)) + theme.fg("muted", "submitted a plan"), 0, 0);
+		renderCall(_args, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			text.setText(theme.fg("toolTitle", theme.bold(`${EXIT_TOOL} `)) + theme.fg("muted", "submitted a plan"));
+			return text;
 		},
 
-		renderResult(result, { expanded }, theme) {
+		renderResult(result, { expanded }, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as ExitPlanModeDetails | undefined;
 			if (!details) {
 				const first = result.content[0];
-				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
 			}
 			const heading = details.unavailable
 				? theme.fg("warning", "No UI to approve the plan")
@@ -415,11 +426,22 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 					: details.refined
 						? theme.fg("accent", "Refining the plan")
 						: theme.fg("warning", "Plan not approved");
-			const extra = details.refined && details.refinement ? `\n${theme.fg("muted", `↳ ${details.refinement}`)}` : "";
+			const extra =
+				details.refined && details.refinement
+					? `\n${theme.fg("muted", `↳ ${sanitizePlanText(details.refinement)}`)}`
+					: "";
 			const shown = details.relativePath ?? details.planPath;
-			const path = shown ? `\n${theme.fg("muted", `📄 ${shown}`)}` : "";
-			const body = expanded ? details.plan : preview(details.plan);
-			return new Text(`${heading}${extra}${path}\n${theme.fg("dim", body)}`, 0, 0);
+			const path = shown ? `\n${theme.fg("muted", shown)}` : "";
+			const planText = sanitizePlanText(details.plan);
+			let out = `${heading}${extra}${path}`;
+			if (planText) {
+				const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
+				// A blank line separates the header block from the plan body.
+				out += `\n\n${theme.fg("toolOutput", body)}`;
+				if (more > 0) out += `\n${theme.fg("dim", `… ${more} more lines`)} ${expandHint(theme)}`;
+			}
+			text.setText(out);
+			return text;
 		},
 	});
 }

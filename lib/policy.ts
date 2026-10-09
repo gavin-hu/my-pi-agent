@@ -15,7 +15,7 @@
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
 
-export interface ReadOnlyPolicyOptions {
+interface ReadOnlyPolicyOptions {
 	/** Tools allowed regardless of annotations (structured readers, plan tracker). */
 	allow?: Iterable<string>;
 	/** Tools blocked even when annotated read-only. */
@@ -27,9 +27,9 @@ export interface ReadOnlyPolicyOptions {
 }
 
 /** How a tool would be treated in a read-only session. */
-export type ToolKind = "read-only" | "mutating";
+type ToolKind = "read-only" | "mutating";
 
-export interface BlockedCall {
+interface BlockedCall {
 	block: true;
 	reason: string;
 }

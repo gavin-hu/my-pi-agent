@@ -16,7 +16,7 @@ export interface GoalConfig {
 
 export const DEFAULT_GOAL_CONFIG: GoalConfig = { achieved: "hide" };
 
-const ACHIEVED_STYLES: readonly AchievedStyle[] = ["collapse", "block", "hide"];
+const ACHIEVED_STYLES: readonly AchievedStyle[] = ["show", "hide"];
 
 function normalizeAchieved(value: unknown, fallback: AchievedStyle): AchievedStyle {
 	const style = typeof value === "string" ? value.trim().toLowerCase() : "";

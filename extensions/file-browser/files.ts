@@ -284,28 +284,36 @@ export interface TreeNode {
 	rel: string;
 	isDir: boolean;
 	isImage: boolean;
+	/** True for a symlink whose target cannot be resolved. */
+	broken: boolean;
 	kind: EntryKind;
 	children: TreeNode[];
 }
 
 /**
- * Build the sidebar tree: the current path's ancestors are expanded, siblings
- * are shown collapsed, and `depth` caps how far below the root it descends.
+ * Build the sidebar tree: the current path's ancestors are expanded so the
+ * active item is always visible, and siblings are shown collapsed.
  */
-export async function buildTree(root: string, currentRel: string, depth: number, limit: number): Promise<TreeNode> {
-	return buildNode(root, "", currentRel, depth, basename(root) || root, limit);
+export async function buildTree(root: string, currentRel: string, limit: number): Promise<TreeNode> {
+	return buildNode(root, "", currentRel, basename(root) || root, limit);
 }
 
 async function buildNode(
 	root: string,
 	relDir: string,
 	currentRel: string,
-	depth: number,
 	label: string,
 	limit: number,
 ): Promise<TreeNode> {
-	const node: TreeNode = { name: label, rel: relDir, isDir: true, isImage: false, kind: "directory", children: [] };
-	if (depth < 0) return node;
+	const node: TreeNode = {
+		name: label,
+		rel: relDir,
+		isDir: true,
+		isImage: false,
+		broken: false,
+		kind: "directory",
+		children: [],
+	};
 	let listing: Listing;
 	try {
 		listing = await listDirectory(root, relDir, limit);
@@ -318,13 +326,14 @@ async function buildNode(
 			rel: entry.rel,
 			isDir: entry.isDir,
 			isImage: entry.isImage,
+			broken: entry.broken,
 			kind: entry.kind,
 			children: [],
 		};
 		if (entry.isDir) {
 			const onPath = currentRel === entry.rel || currentRel.startsWith(`${entry.rel}/`);
-			if (onPath && depth > 0) {
-				child.children = (await buildNode(root, entry.rel, currentRel, depth - 1, entry.name, limit)).children;
+			if (onPath) {
+				child.children = (await buildNode(root, entry.rel, currentRel, entry.name, limit)).children;
 			}
 		}
 		node.children.push(child);

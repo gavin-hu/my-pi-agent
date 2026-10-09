@@ -6,15 +6,7 @@
 
 import { extname } from "node:path";
 
-export type IconName =
-	| "folder"
-	| "file-code"
-	| "file-text"
-	| "file-image"
-	| "file-json"
-	| "file-archive"
-	| "file"
-	| "file-link";
+export type IconName = "folder" | "file-code" | "file-text" | "file-image" | "file-json" | "file-archive" | "file";
 
 export interface IconSpec {
 	icon: IconName;
@@ -33,7 +25,6 @@ export const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-
 <symbol id="i-file-image" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.3" d="M3 1.5h6l4 4V15H3zM9 1.5v4h4"/><path fill="none" stroke="currentColor" stroke-width="1.1" d="M4.5 13.5 7 10l2 2 1.5-2 1 1.5"/><circle cx="6" cy="7" r="1"/></symbol>
 <symbol id="i-file-json" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.3" d="M3 1.5h6l4 4V15H3zM9 1.5v4h4"/><path fill="none" stroke="currentColor" stroke-width="1.1" d="M6.5 8.5c-1 .5-1 3 .5 3.5-1.5.5-1.5 3-.5 3.5M9.5 8.5c1 .5 1 3-.5 3.5 1.5.5 1.5 3 .5 3.5"/></symbol>
 <symbol id="i-file-archive" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.3" d="M3 1.5h6l4 4V15H3zM9 1.5v4h4"/><path fill="none" stroke="currentColor" stroke-width="1.1" d="M7 6v2M7 9v2M7 12v1.5"/></symbol>
-<symbol id="i-file-link" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.3" d="M6.5 9.5 9.5 6.5M5 11a2.5 2.5 0 0 1 0-3.5l1.5-1.5M11 5a2.5 2.5 0 0 1 0 3.5L9.5 10"/></symbol>
 </svg>`;
 
 const IMAGE = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif"]);
@@ -121,9 +112,6 @@ export function languageOf(name: string): IconSpec {
 
 /** The icon spec for the folder category. */
 export const FOLDER_ICON: IconSpec = { icon: "folder", colorClass: "", label: "Folder" };
-
-/** The icon spec used for a symlink whose target cannot be classified. */
-export const LINK_ICON: IconSpec = { icon: "file-link", colorClass: "doc", label: "Symbolic link" };
 
 /** The `<use href>` target for an icon name. */
 export function iconHref(icon: IconName): string {

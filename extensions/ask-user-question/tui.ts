@@ -114,6 +114,13 @@ export async function askViaTui(
 		};
 		const editor = new Editor(tui, editorTheme);
 
+		// The TUI marks this component focused; forward that to the inline editor so
+		// it emits the hardware cursor marker for IME placement (see docs/tui.md).
+		let componentFocused = false;
+		const syncEditorFocus = (): void => {
+			editor.focused = componentFocused && state.editing;
+		};
+
 		const refresh = (): void => {
 			cachedWidth = undefined;
 			cachedLines = undefined;
@@ -166,6 +173,7 @@ export async function askViaTui(
 		}
 
 		function render(width: number): string[] {
+			syncEditorFocus();
 			if (cachedLines && cachedWidth === width) return cachedLines;
 
 			const lines: string[] = [];
@@ -309,6 +317,16 @@ export async function askViaTui(
 			handleInput,
 			dispose: () => {
 				signal?.removeEventListener("abort", onAbort);
+				editor.focused = false;
+			},
+			get focused() {
+				return componentFocused;
+			},
+			set focused(value: boolean) {
+				if (componentFocused === value) return;
+				componentFocused = value;
+				syncEditorFocus();
+				refresh();
 			},
 		};
 	});

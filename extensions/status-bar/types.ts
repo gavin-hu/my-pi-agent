@@ -36,6 +36,8 @@ export interface ModelInfo {
 /** Everything the bar needs, gathered once per render. */
 export interface StatusSnapshot {
 	cwd: string;
+	/** Session name set by the user, `null` when unnamed. */
+	sessionName: string | null;
 	/** Branch name, `null` when not in a repository, `"detached"` on detached HEAD. */
 	branch: string | null;
 	/** Extension status texts (from `ctx.ui.setStatus`), including `worktree`. */

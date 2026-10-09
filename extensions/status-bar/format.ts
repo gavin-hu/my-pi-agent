@@ -32,12 +32,11 @@ export type ThinkingColor =
 	| "thinkingXhigh"
 	| "thinkingMax";
 
-/** US-dollar cost. `compact` drops to one decimal place above `$0.1`, but
- *  never rounds a positive sub-cent amount down to `$0.00` — it shows `<$0.01`. */
-export function formatCost(cost: number, compact = false): string {
+/** US-dollar cost, always two decimals. A positive sub-cent amount never renders
+ *  as `$0.00` — it shows `<$0.01`, so the number is never misleading. */
+export function formatCost(cost: number): string {
 	if (cost > 0 && cost < 0.01) return "<$0.01";
-	const decimals = compact && cost >= 0.1 ? 1 : 2;
-	return `$${cost.toFixed(decimals)}`;
+	return `$${cost.toFixed(2)}`;
 }
 
 /** Rounded percentage, or `?` when the value is unknown. */
@@ -84,17 +83,20 @@ export function formatCwd(cwd: string, home: string | undefined, level: 0 | 1 | 
 /** Filled/empty block counts for a percentage across `blocks` cells. */
 export function computeGauge(percent: number | null, blocks: number): { filled: number; empty: number } {
 	if (blocks <= 0) return { filled: 0, empty: 0 };
-	const clamped = percent === null ? 0 : Math.max(0, Math.min(100, percent));
-	const filled = Math.round((clamped / 100) * blocks);
+	if (percent === null) return { filled: 0, empty: blocks };
+	const clamped = Math.max(0, Math.min(100, percent));
+	// Floor so the bar is only full at 100%; force one block for any non-zero
+	// usage so a small percentage is still visible.
+	const filled = Math.max(clamped > 0 ? 1 : 0, Math.floor((clamped / 100) * blocks));
 	return { filled, empty: blocks - filled };
 }
 
-/** Gauge color for a context percentage. */
+/** Gauge color for a context percentage. Neutral until it crosses a threshold. */
 export function contextColor(percent: number | null): FgToken {
 	if (percent === null) return "muted";
 	if (percent > CONFIG.thresholds.danger) return "error";
 	if (percent > CONFIG.thresholds.warn) return "warning";
-	return "success";
+	return "muted";
 }
 
 const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {

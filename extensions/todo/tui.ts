@@ -17,7 +17,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { clampScroll, fitRows, formatRange, navIntent, wheelDelta } from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
-import { progressCount, progressSummary, todoGlyph, todoLabel } from "./format.ts";
+import { progressCount, progressSummary, todoGlyph, todoLabel, todoRailLines, type TodoRailInput } from "./format.ts";
 import { currentTodo } from "./state.ts";
 import type { Todo } from "./types.ts";
 
@@ -29,7 +29,7 @@ const SCREEN_DEFAULT_ITEMS = 12;
 
 /** One indented item line, clipped to `width`. */
 function todoRow(todo: Todo, theme: Theme, width: number): string {
-	return truncateToWidth(`  ${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`, width);
+	return truncateToWidth(`  ${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`, width, "…");
 }
 
 /**
@@ -42,6 +42,31 @@ function todoLine(todos: Todo[], theme: Theme): string {
 	const current = currentTodo(todos);
 	if (!current) return `${head} ${theme.fg("dim", "completed")}`;
 	return `${head} ${theme.fg("dim", "·")} ${todoLabel(current, theme)}`;
+}
+
+/** Transcript result block: the indented glyph rail, wrapping at the render width. */
+export class TodoResult implements Component {
+	private input: TodoRailInput;
+	private theme: Theme;
+
+	constructor(input: TodoRailInput, theme: Theme) {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	/** Update in place so the transcript can reuse this component across renders. */
+	setInput(input: TodoRailInput, theme: Theme): void {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	invalidate(): void {}
+
+	render(width: number): string[] {
+		// The leading blank line separates the rail from the call header, matching
+		// the built-ins' header/output gap.
+		return ["", ...todoRailLines(this.input, this.theme, Math.max(1, width))];
+	}
 }
 
 /** Persistent one-line widget shown above the editor while the list has work. */
@@ -92,6 +117,15 @@ export class TodoListComponent implements Component {
 	handleInput(data: string): void {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
 			this.onClose();
+			return;
+		}
+		// `g`/`G` jump to the ends, matching the `/jobs` and plan screens.
+		if (data === "g") {
+			this.setScroll(0);
+			return;
+		}
+		if (data === "G") {
+			this.setScroll(this.maxScroll);
 			return;
 		}
 		switch (navIntent(data)) {
@@ -152,7 +186,7 @@ export class TodoListComponent implements Component {
 		}
 
 		lines.push("");
-		lines.push(screenHint(this.theme, w, ["↑/↓ or k/j scroll", "PgUp/PgDn", "Home/End", "Esc close"]));
+		lines.push(screenHint(this.theme, w, ["Esc close", "↑/↓ or k/j scroll", "PgUp/PgDn", "g/G or Home/End"]));
 		lines.push("");
 		return lines;
 	}

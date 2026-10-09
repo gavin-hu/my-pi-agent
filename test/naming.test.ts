@@ -5,7 +5,7 @@
  * ExitPlanMode, EnterWorktree, ExitWorktree, AskUserQuestion):
  *
  *   - lowercase snake_case;
- *   - a singleton tool is named for its domain (`git`, `todo`, `goal`, `job`,
+ *   - a singleton tool is named for its domain (`todo`, `goal`, `job`,
  *     `subagent`);
  *   - a multi-word tool is verb-first (`enter_worktree`, `write_plan`,
  *     `ask_user_question`), except the documented noun-first carve-outs that
@@ -18,14 +18,14 @@
 import { describe, expect, test } from "bun:test";
 import { TODO_TOOL as todo } from "../lib/tool-names.ts";
 import { TOOL_NAME as askUserQuestion } from "../extensions/ask-user-question/tools.ts";
-import { TOOL_NAME as git } from "../extensions/git/tool/index.ts";
+import { TOOL_NAME as readDoc } from "../extensions/doc/tool.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/job/tools.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
 import { TOOL_NAME as webSearch } from "../extensions/web-access/search/tool.ts";
-import { WORKTREE_TOOLS } from "../extensions/git/worktree/tools.ts";
+import { WORKTREE_TOOLS } from "../extensions/worktree/tools.ts";
 
 const NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
@@ -54,12 +54,12 @@ const LEADING_VERBS = new Set([
 /** Every tool this package registers, with the extension that owns it. */
 const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "ask-user-question", name: askUserQuestion },
-	{ extension: "git", name: git },
+	{ extension: "doc", name: readDoc },
 	{ extension: "goal", name: goal },
 	{ extension: "job", name: job },
-	{ extension: "plan-mode", name: ENTER_TOOL },
-	{ extension: "plan-mode", name: WRITE_PLAN_TOOL },
-	{ extension: "plan-mode", name: EXIT_TOOL },
+	{ extension: "plan", name: ENTER_TOOL },
+	{ extension: "plan", name: WRITE_PLAN_TOOL },
+	{ extension: "plan", name: EXIT_TOOL },
 	{ extension: "subagent", name: subagent },
 	{ extension: "todo", name: todo },
 	{ extension: "web-access", name: webFetch },
@@ -98,11 +98,11 @@ describe("extension tool naming", () => {
 			"enter_worktree",
 			"exit_plan_mode",
 			"exit_worktree",
-			"git",
 			"goal",
 			"job",
 			"list_worktrees",
 			"prune_worktrees",
+			"read_doc",
 			"subagent",
 			"todo",
 			"web_fetch",

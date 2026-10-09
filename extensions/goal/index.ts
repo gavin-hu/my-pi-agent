@@ -13,6 +13,7 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerCommands } from "./commands.ts";
 import { loadGoalConfig } from "./config.ts";
 import { createGoalRuntime } from "./runtime.ts";
@@ -40,6 +41,7 @@ function isGoalContext(message: AgentMessage): boolean {
 }
 
 export default function goal(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("goal")) return;
 	const runtime = createGoalRuntime(pi);
 
 	registerTools(pi, runtime);

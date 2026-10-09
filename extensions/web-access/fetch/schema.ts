@@ -6,6 +6,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import type { WebFetchConfig } from "./config.ts";
 import type { FindMode } from "./find.ts";
+import type { FetchRequest } from "./types.ts";
 
 const MAX_URL_LENGTH = 2048;
 export const MAX_URLS = 5;
@@ -16,6 +17,24 @@ const FIND_MODES = ["insensitive", "exact", "fuzzy"] as const;
 const DEFAULT_CONTEXT_CHARS = 200;
 const DEFAULT_MAX_MATCHES = 8;
 const MAX_FIND_TERMS = 10;
+
+const HTTP_METHODS = ["GET", "POST"] as const;
+const MAX_HEADERS = 20;
+const MAX_HEADER_VALUE = 4096;
+/** Headers that control the transport; letting the model set them would break framing or SSRF checks. */
+const BLOCKED_HEADERS = new Set([
+	"host",
+	"content-length",
+	"connection",
+	"transfer-encoding",
+	"upgrade",
+	"te",
+	"trailer",
+	"proxy-connection",
+	"proxy-authenticate",
+	"proxy-authorization",
+]);
+const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+$/;
 
 export const WebFetchParams = Type.Object({
 	url: Type.Optional(
@@ -30,6 +49,27 @@ export const WebFetchParams = Type.Object({
 			minItems: 1,
 			maxItems: MAX_URLS,
 			description: `Up to ${MAX_URLS} URLs to fetch in one call (sequentially). Each is returned as its own page; failures do not abort the others.`,
+		}),
+	),
+	method: Type.Optional(
+		StringEnum(HTTP_METHODS, {
+			description: 'HTTP method: "GET" (default) or "POST". POST is for read-style APIs such as GraphQL.',
+		}),
+	),
+	headers: Type.Optional(
+		Type.Record(Type.String(), Type.String(), {
+			description: "Extra request headers, for example an API token or Accept type. Transport headers are refused.",
+		}),
+	),
+	body: Type.Optional(
+		Type.String({
+			maxLength: 1_000_000,
+			description: "Request body for a POST. Defaults method to POST; set Content-Type via `headers`.",
+		}),
+	),
+	render: Type.Optional(
+		Type.Boolean({
+			description: "Force or forbid JS rendering for this call, overriding the renderJs config.",
 		}),
 	),
 	startIndex: Type.Optional(
@@ -69,7 +109,7 @@ export const WebFetchParams = Type.Object({
 
 export type WebFetchArgs = Static<typeof WebFetchParams>;
 
-const PageSchema = Type.Object({
+export const PageSchema = Type.Object({
 	url: Type.String(),
 	finalUrl: Type.String(),
 	title: Type.String(),
@@ -80,6 +120,7 @@ const PageSchema = Type.Object({
 	startIndex: Type.Number(),
 	truncated: Type.Boolean(),
 	cached: Type.Boolean(),
+	rendered: Type.Boolean(),
 	matches: Type.Array(Type.Object({ query: Type.String(), offset: Type.Number(), passage: Type.String() })),
 	fetchedAt: Type.String(),
 	error: Type.String(),
@@ -89,16 +130,9 @@ export const WebFetchOutput = Type.Object({
 	pages: Type.Array(PageSchema),
 });
 
-export interface FetchRequest {
-	urls: string[];
-	startIndex: number;
-	maxChars: number;
-	find: string[];
-	mode: FindMode;
-	contextChars: number;
-	maxMatches: number;
-	refresh: boolean;
-}
+/** The output shape, derived from the runtime schema so the two cannot drift. */
+export type FetchResponse = Static<typeof PageSchema>;
+export type FetchBatch = Static<typeof WebFetchOutput>;
 
 function normalizeFind(raw: unknown): string[] {
 	if (!Array.isArray(raw)) return [];
@@ -107,6 +141,29 @@ function normalizeFind(raw: unknown): string[] {
 		.map((value) => value.trim())
 		.filter(Boolean)
 		.slice(0, MAX_FIND_TERMS);
+}
+
+/** Normalize custom headers: reject transport/control headers and CRLF, cap count and size. */
+function normalizeHeaders(raw: unknown): Record<string, string> {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+	const entries = Object.entries(raw as Record<string, unknown>);
+	const headers: Record<string, string> = {};
+	let count = 0;
+	for (const [rawName, rawValue] of entries) {
+		if (typeof rawValue !== "string") continue;
+		const name = rawName.trim();
+		if (!name) continue;
+		if (!HEADER_NAME.test(name)) throw new Error(`header name "${name}" is invalid.`);
+		if (BLOCKED_HEADERS.has(name.toLowerCase())) throw new Error(`header "${name}" is not allowed.`);
+		if (/[\r\n]/.test(rawValue)) throw new Error(`header "${name}" contains an invalid character.`);
+		const value = rawValue.trim();
+		if (!value) continue;
+		if (value.length > MAX_HEADER_VALUE) throw new Error(`header "${name}" is too long.`);
+		if (count >= MAX_HEADERS) throw new Error(`at most ${MAX_HEADERS} headers are allowed.`);
+		headers[name] = value;
+		count++;
+	}
+	return headers;
 }
 
 /** Validate the arguments and clamp the optional fields. */
@@ -135,6 +192,16 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 		urls.push(candidate);
 	}
 
+	const explicitMethod = args.method === "GET" || args.method === "POST" ? args.method : undefined;
+	if (args.body !== undefined && explicitMethod === "GET") throw new Error('body requires method "POST".');
+	const method: "GET" | "POST" = explicitMethod ?? (args.body !== undefined ? "POST" : "GET");
+
+	if (typeof args.body === "string" && args.body.length > config.maxBodyChars) {
+		throw new Error(`body is longer than ${config.maxBodyChars} characters.`);
+	}
+	const headers = normalizeHeaders(args.headers);
+	const body = typeof args.body === "string" ? args.body : undefined;
+
 	const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
 	const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxOutputChars;
 	const maxChars = Math.min(config.maxOutputChars, MAX_CHARS, Math.max(MIN_CHARS, Math.round(requested)));
@@ -151,6 +218,10 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 
 	return {
 		urls,
+		method,
+		headers,
+		body,
+		render: typeof args.render === "boolean" ? args.render : undefined,
 		startIndex,
 		maxChars,
 		find: normalizeFind(args.find),
@@ -158,5 +229,6 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 		contextChars,
 		maxMatches,
 		refresh: args.refresh === true,
+		cacheable: method === "GET" && Object.keys(headers).length === 0 && body === undefined,
 	};
 }

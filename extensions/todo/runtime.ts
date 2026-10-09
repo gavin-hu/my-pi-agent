@@ -51,11 +51,7 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 	const syncWidget = (ctx?: ExtensionContext): void => {
 		if (!ctx || ctx.mode !== "tui") return;
 		lastTuiCtx = ctx;
-		if (suppressed) {
-			ctx.ui.setWidget(WIDGET_KEY, undefined);
-			return;
-		}
-		if (!shouldShow()) {
+		if (suppressed || !shouldShow()) {
 			ctx.ui.setWidget(WIDGET_KEY, undefined);
 			return;
 		}

@@ -13,14 +13,15 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component } from "@earendil-works/pi-tui";
-import { BODY_INDENT, GLYPH_GAP, goalGlyph, goalHeader, goalLine } from "./format.ts";
+import { BODY_INDENT, GLYPH_GAP } from "../../lib/ui.ts";
+import { goalGlyph, goalHeader, goalLine } from "./format.ts";
 import type { AchievedStyle, Goal } from "./types.ts";
 
 /** Widget key used with `ctx.ui.setWidget()`. */
 export const WIDGET_KEY = "goal-widget";
 
 export interface GoalWidgetOptions {
-	/** `hide` removes an achieved goal; any other value renders the one-line rail. */
+	/** `hide` removes an achieved goal; `show` renders the one-line rail. */
 	achieved?: AchievedStyle;
 }
 
@@ -69,15 +70,28 @@ export class GoalWidget implements Component {
 
 /** Transcript result block: the rail, uncapped, with the themed body. */
 export class GoalResult implements Component {
-	constructor(
-		private readonly goal: Goal,
-		private readonly body: string,
-		private readonly theme: Theme,
-	) {}
+	private goal: Goal;
+	private body: string;
+	private theme: Theme;
+
+	constructor(goal: Goal, body: string, theme: Theme) {
+		this.goal = goal;
+		this.body = body;
+		this.theme = theme;
+	}
+
+	/** Update in place so the transcript can reuse this component across renders. */
+	update(goal: Goal, body: string, theme: Theme): void {
+		this.goal = goal;
+		this.body = body;
+		this.theme = theme;
+	}
 
 	invalidate(): void {}
 
 	render(width: number): string[] {
-		return goalRailLines(this.goal, this.body, this.theme, Math.max(1, width));
+		// The leading blank line separates the rail from the call header, matching
+		// the built-ins' header/output gap.
+		return ["", ...goalRailLines(this.goal, this.body, this.theme, Math.max(1, width))];
 	}
 }

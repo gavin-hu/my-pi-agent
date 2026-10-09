@@ -53,9 +53,11 @@ export const TodoResult = Type.Object({
 
 export type TodoArgs = Static<typeof TodoParams>;
 
+const STATUS_SET: ReadonlySet<string> = new Set(TODO_STATUSES);
+
 function normalizeStatus(raw: unknown, index: number): TodoStatus {
 	const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-	if ((TODO_STATUSES as readonly string[]).includes(value)) return value as TodoStatus;
+	if (STATUS_SET.has(value)) return value as TodoStatus;
 	throw new Error(`Todo ${index + 1}: status must be one of ${TODO_STATUSES.join(", ")}.`);
 }
 

@@ -6,18 +6,13 @@
  * (achieved), with wrapped continuation rows aligned under the text. The
  * persistent widget, by contrast, is a plain label-first line
  * (`Goal · active · <objective>`) matching the `todo` and `jobs` widgets. The
- * symbols, indent, and labels live here so the renderers agree.
+ * symbols and labels live here; the rail indent constants are shared with
+ * `todo` in `lib/ui.ts`.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
 import type { Goal, GoalStatus } from "./types.ts";
-
-/** Columns before the body glyph, matching the todo widget's item indent. */
-export const BODY_INDENT = 2;
-
-/** Columns between the body glyph and the objective text. */
-export const GLYPH_GAP = 1;
 
 /** Active-goal glyph. */
 export const ACTIVE_SYMBOL = "◎";
@@ -87,16 +82,17 @@ export function previewObjective(objective: string, max = CALL_PREVIEW_WIDTH): s
 }
 
 /**
- * One-line summary for the transcript call renderer.
+ * One-line body for the transcript call renderer.
  *
+ * The renderer owns the styled `goal ` title, so this returns only the body.
  * `objective` is `undefined` while the call's arguments are still streaming,
  * which is distinct from an empty objective (a real clear). `argsComplete`
  * disambiguates the tail end of the stream.
  */
 export function formatCallText(objective: string | undefined, argsComplete = true, status?: GoalStatus): string {
-	if (objective === undefined) return argsComplete ? "goal → clear" : "goal → …";
+	if (objective === undefined) return argsComplete ? "→ clear" : "→ …";
 	const text = objective.trim();
-	if (!text) return "goal → clear";
+	if (!text) return status === "achieved" ? "→ achieve" : "→ clear";
 	const verb = status === "achieved" ? "achieve" : "set";
-	return `goal → ${verb}: ${previewObjective(text)}`;
+	return `→ ${verb}: ${previewObjective(text)}`;
 }

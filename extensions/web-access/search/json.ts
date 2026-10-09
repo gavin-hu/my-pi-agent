@@ -1,5 +1,5 @@
 /**
- * Defensive narrowing for the loosely-typed JSON the search backends return.
+ * Defensive narrowing for the loosely-typed JSON SearXNG returns.
  *
  * Every field read goes through these helpers so a missing or wrong-typed value
  * becomes `""`/`{}` instead of throwing.

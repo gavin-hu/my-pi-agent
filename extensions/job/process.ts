@@ -24,7 +24,7 @@ export interface SpawnedProcess {
 	kill(signal?: NodeJS.Signals): boolean;
 }
 
-export type SpawnFn = (command: string, options: { cwd: string }) => SpawnedProcess;
+export type SpawnFn = (command: string, options: { cwd: string; env?: NodeJS.ProcessEnv }) => SpawnedProcess;
 
 /** Whether a pid is still alive. */
 export type LivenessFn = (pid: number) => boolean;
@@ -47,6 +47,7 @@ export const defaultSpawn: SpawnFn = (command, options) =>
 		shell: true,
 		detached: process.platform !== "win32",
 		stdio: ["ignore", "pipe", "pipe"],
+		env: options.env,
 	});
 
 /** Default liveness check. EPERM means the pid exists but is owned by someone else. */

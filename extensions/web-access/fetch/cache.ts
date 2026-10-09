@@ -7,20 +7,17 @@
  * `session_shutdown` so nothing survives a session.
  */
 
-export interface CachedPage {
-	url: string;
-	finalUrl: string;
-	title: string;
-	status: number;
-	contentType: string;
-	text: string;
+import type { PageResult } from "./page.ts";
+
+/** A cached page: the extracted result plus cache bookkeeping. */
+export type CachedPage = PageResult & {
 	/** ISO-8601 timestamp of the original fetch. */
 	fetchedAt: string;
 	/** Epoch ms the entry was stored, for TTL checks. */
 	storedAt: number;
 	/** Size of `text` in bytes. */
 	bytes: number;
-}
+};
 
 const entries = new Map<string, CachedPage>();
 

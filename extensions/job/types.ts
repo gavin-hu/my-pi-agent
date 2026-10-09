@@ -18,7 +18,7 @@ export const KILL_SIGNALS = ["SIGTERM", "SIGKILL", "SIGINT"] as const;
 
 export type KillSignal = (typeof KILL_SIGNALS)[number];
 
-/** Durable state for one job, as persisted in `registry.json`. */
+/** Durable state for one job, as persisted in this session's `registry-<hash>.json`. */
 export interface JobRecord {
 	id: string;
 	/** Sanitized one-line display label; defaults to a preview of `command`. */
@@ -46,8 +46,10 @@ export interface JobRecord {
 	seen: boolean;
 	/** Cached, sanitized most recent output line (never the whole log). */
 	lastLine: string;
+	/** Absolute path of the file the job writes its exit code to (POSIX only). */
+	statusPath: string | null;
 	/** Best-effort OS start-time token, used to detect pid reuse before signaling. */
-	startToken?: string | null;
+	startToken: string | null;
 }
 
 /** In-memory job: the durable record plus whether we hold its child handle. */
@@ -61,9 +63,11 @@ export function toRecord(job: Job): JobRecord {
 	return record;
 }
 
-/** Registry file contents. */
+/** Registry file contents. One file exists per session. */
 export interface RegistryFile {
 	version: 1;
+	/** Session that owns (and is the sole writer of) this file. */
+	sessionId: string;
 	/** Next free numeric id suffix. */
 	counter: number;
 	jobs: JobRecord[];

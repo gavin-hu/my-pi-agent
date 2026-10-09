@@ -55,8 +55,10 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 			agentName: step.agent,
 			agents,
 			task,
+			taskTemplate: step.task,
 			cwd: step.cwd,
 			step: i + 1,
+			readOnly: args.readOnly,
 			signal,
 			onUpdate: chainUpdate,
 			makeDetails,
@@ -109,6 +111,7 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 			agents,
 			task: task.task,
 			cwd: task.cwd,
+			readOnly: args.readOnly,
 			signal,
 			onUpdate: (partial) => {
 				const current = partial.details?.results[0];
@@ -153,6 +156,7 @@ export async function runSingleMode(ctx: ModeContext): Promise<AgentToolResult<S
 		agents,
 		task: args.task ?? "",
 		cwd: args.cwd,
+		readOnly: args.readOnly,
 		signal,
 		onUpdate,
 		makeDetails,

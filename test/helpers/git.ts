@@ -89,3 +89,27 @@ export function cleanup(...dirs: Array<string | undefined>): void {
 		if (dir) rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 	}
 }
+
+/**
+ * Track temp dirs so a suite can clean them in one teardown instead of
+ * `try/finally` around every test. Value-only: each call returns an
+ * independent tracker owned by one test file.
+ */
+export interface TempTracker {
+	/** Register a temp dir for cleanup and return it unchanged. */
+	track<T extends string | undefined>(dir: T): T;
+	/** Remove every tracked dir. Call once from `afterAll`. */
+	flush(): void;
+}
+
+/** Build a suite-scoped temp-dir tracker. */
+export function makeTempTracker(): TempTracker {
+	const dirs: string[] = [];
+	return {
+		track: (dir) => {
+			if (dir) dirs.push(dir);
+			return dir;
+		},
+		flush: () => cleanup(...dirs.splice(0)),
+	};
+}

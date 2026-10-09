@@ -41,7 +41,14 @@ export function loadFetchConfig(cwd: string): WebFetchConfig {
 	return config;
 }
 
-/** Load both sections for a working directory. */
+/** Load both sections for a working directory, reading each config file once. */
 export function loadConfig(cwd: string): WebAccessConfig {
-	return { search: loadSearchConfig(cwd), fetch: loadFetchConfig(cwd) };
+	let search = DEFAULT_SEARCH_CONFIG;
+	let fetch = DEFAULT_FETCH_CONFIG;
+	for (const file of configFiles(cwd)) {
+		const raw = readJson(file);
+		search = normalizeSearchConfig(section(raw, "search"), search);
+		fetch = normalizeFetchConfig(section(raw, "fetch"), fetch);
+	}
+	return { search, fetch };
 }
