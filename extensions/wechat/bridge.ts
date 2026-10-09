@@ -73,6 +73,8 @@ export interface BridgeDeps {
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** Called when the server reports an expired token. */
 	onExpired?: () => void;
+	/** Called whenever the bridge starts or stops, for a status chip. */
+	onStateChange?: (running: boolean) => void;
 }
 
 export interface BridgeStatus {
@@ -133,8 +135,14 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		deps.notify?.(message, kind);
 	}
 
+	/** Report the current running state to the host, for a status chip. */
+	function publishRunning(): void {
+		deps.onStateChange?.(running);
+	}
+
 	function handleExpired(): void {
 		running = false;
+		publishRunning();
 		deps.onExpired?.();
 		notify("WeChat session expired. Run /wechat login again.", "warning");
 	}
@@ -382,6 +390,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			lastText = "";
 			typingCache.clear();
 			interaction.reset();
+			publishRunning();
 			abort = new AbortController();
 			loopPromise = loop(abort.signal).catch((error) => {
 				notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
@@ -391,6 +400,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		async close(): Promise<void> {
 			if (!running && !abort) {
 				releaseSafe();
+				publishRunning();
 				return;
 			}
 			running = false;
@@ -406,6 +416,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			active = undefined;
 			lastText = "";
 			interaction.reset();
+			publishRunning();
 			releaseSafe();
 		},
 

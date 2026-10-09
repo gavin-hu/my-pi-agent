@@ -203,6 +203,15 @@ describe("buildLines", () => {
 		expect(statuses.forms[1]).toBe("↺2");
 	});
 
+	test("renders the wechat chip in the statuses slot and compacts to its glyph", () => {
+		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.wechat, `${GLYPHS.wechat} wechat`]]) });
+		const [, line2] = buildLines(snapshot, fakeTheme, "/home/u");
+		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
+
+		expect(statuses.forms[0]).toBe(`${GLYPHS.wechat} wechat`);
+		expect(statuses.forms[1]).toBe(GLYPHS.wechat);
+	});
+
 	test("renders the jobs running and failure chips as separate segments", () => {
 		const snapshot = fullSnapshot({
 			statuses: new Map([

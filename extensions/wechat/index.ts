@@ -12,6 +12,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import { createBridge, type Bridge } from "./bridge.ts";
 import { createFetchRunner, WechatClient } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";
@@ -77,6 +78,15 @@ export default function wechat(pi: ExtensionAPI): void {
 			notify: (message, kind) => {
 				ctxRef?.ui.notify(message, kind);
 			},
+			onStateChange: (running) => {
+				const ui = ctxRef?.ui;
+				if (!ui) return;
+				try {
+					ui.setStatus(STATUS_KEYS.wechat, running ? ui.theme.fg("success", `${GLYPHS.wechat} wechat`) : undefined);
+				} catch {
+					// The chip is best-effort; a headless or themeless UI must not break start/stop.
+				}
+			},
 		});
 		if (config.remotePrompts) installAdapter(ctx, created);
 		return created;
@@ -118,6 +128,7 @@ export default function wechat(pi: ExtensionAPI): void {
 	pi.on("session_shutdown", async () => {
 		uninstallRemoteUI?.();
 		uninstallRemoteUI = undefined;
+		ctxRef?.ui.setStatus(STATUS_KEYS.wechat, undefined);
 		await bridge?.shutdown();
 		bridge = undefined;
 		ctxRef = undefined;
