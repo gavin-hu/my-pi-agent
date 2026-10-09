@@ -11,10 +11,13 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const repo = join(import.meta.dir, "..");
-const testDir = join(repo, "test");
-const extensionsDir = join(repo, "extensions");
-const libDir = join(repo, "lib");
+/** Normalise separators so path comparisons work on Windows too. */
+const posix = (p: string): string => p.replaceAll("\\", "/");
+
+const repo = posix(join(import.meta.dir, ".."));
+const testDir = posix(join(import.meta.dir, "..", "test"));
+const extensionsDir = posix(join(import.meta.dir, "..", "extensions"));
+const libDir = posix(join(import.meta.dir, "..", "lib"));
 
 /** Aggregate test names that do not map to a single source module. */
 const AGGREGATE_STEMS = new Set(["extension", "render"]);
@@ -29,7 +32,7 @@ function walkFiles(dir: string, out: string[] = []): string[] {
 	for (const name of readdirSync(dir)) {
 		const full = join(dir, name);
 		if (statSync(full).isDirectory()) walkFiles(full, out);
-		else out.push(full);
+		else out.push(posix(full));
 	}
 	return out;
 }
@@ -127,7 +130,7 @@ describe("test layout", () => {
 	test("helper files live only under test/helpers", () => {
 		const helperFiles = [extensionsDir, libDir, testDir]
 			.flatMap((root) => walkFiles(root))
-			.filter((file) => file.endsWith("/helpers.ts") && !file.startsWith(join(testDir, "helpers")));
+			.filter((file) => file.endsWith("/helpers.ts") && !file.startsWith(`${testDir}/helpers`));
 		expect(helperFiles).toEqual([]);
 	});
 
