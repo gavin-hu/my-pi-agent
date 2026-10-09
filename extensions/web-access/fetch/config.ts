@@ -1,0 +1,107 @@
+/**
+ * Configuration for the `web_fetch` half of web-access.
+ *
+ * The top-level `config.ts` reads `web-access.json` and hands the `fetch`
+ * object here; this module only validates and clamps it. Project values merge
+ * over global ones in the top-level loader.
+ */
+
+import { clampInteger, cleanString } from "../../../lib/config.ts";
+
+/** When to run the optional JS renderer. */
+export type RenderMode = "never" | "auto" | "always";
+
+export interface WebFetchConfig {
+	/** Per-request timeout in milliseconds. */
+	timeoutMs: number;
+	/** Maximum response size in bytes. */
+	maxBytes: number;
+	/** Default character budget for the returned slice. */
+	maxOutputChars: number;
+	/** User-Agent sent with requests. */
+	userAgent: string;
+	/** Accept-Language header. */
+	acceptLanguage: string;
+	/** Allow loopback/private/internal targets (disables the SSRF guard). */
+	allowPrivateHosts: boolean;
+	/** Maximum redirect hops to follow, re-validating each one. */
+	maxRedirects: number;
+	/** Maximum request body length in characters. */
+	maxBodyChars: number;
+	/** Extract text from PDF responses with the optional `unpdf` package. */
+	pdfEnabled: boolean;
+	/** When to render HTML with the optional `playwright` package. */
+	renderJs: RenderMode;
+	/** Renderer navigation timeout in milliseconds. */
+	renderTimeoutMs: number;
+	/** Playwright `waitUntil` for the renderer. */
+	renderWaitUntil: "load" | "networkidle";
+	/** In `"auto"` mode, render when the extracted text is shorter than this. */
+	renderMinChars: number;
+	/** Optional Chromium executable path for the renderer. */
+	renderExecutablePath: string;
+	/** Cache extracted pages for the session. */
+	cacheEnabled: boolean;
+	/** Cache entry lifetime in ms (0 = never expire). */
+	cacheTtlMs: number;
+	/** Maximum cached pages. */
+	cacheMaxEntries: number;
+	/** Maximum total cached text bytes. */
+	cacheMaxBytes: number;
+}
+
+export const DEFAULT_FETCH_CONFIG: WebFetchConfig = {
+	timeoutMs: 20_000,
+	maxBytes: 5_000_000,
+	maxOutputChars: 20_000,
+	userAgent: "my-pi-agent/0.1 (+https://github.com/gavin-hu/my-pi-agent)",
+	acceptLanguage: "zh-CN,zh;q=0.9,en;q=0.8",
+	allowPrivateHosts: false,
+	maxRedirects: 5,
+	maxBodyChars: 100_000,
+	pdfEnabled: true,
+	renderJs: "never",
+	renderTimeoutMs: 15_000,
+	renderWaitUntil: "load",
+	renderMinChars: 500,
+	renderExecutablePath: "",
+	cacheEnabled: true,
+	cacheTtlMs: 300_000,
+	cacheMaxEntries: 8,
+	cacheMaxBytes: 8_000_000,
+};
+
+const RENDER_MODES = ["never", "auto", "always"] as const satisfies readonly RenderMode[];
+const RENDER_WAIT = ["load", "networkidle"] as const;
+
+/** Validate and clamp a raw config object over the defaults. */
+export function normalizeFetchConfig(
+	raw: Record<string, unknown> | undefined,
+	base: WebFetchConfig = DEFAULT_FETCH_CONFIG,
+): WebFetchConfig {
+	if (!raw) return base;
+	const renderJs = cleanString(raw.renderJs, base.renderJs) as RenderMode;
+	const waitUntil = cleanString(raw.renderWaitUntil, base.renderWaitUntil);
+	return {
+		timeoutMs: clampInteger(raw.timeoutMs, base.timeoutMs, 1_000, 120_000),
+		maxBytes: clampInteger(raw.maxBytes, base.maxBytes, 1_024, 50_000_000),
+		maxOutputChars: clampInteger(raw.maxOutputChars, base.maxOutputChars, 500, 100_000),
+		userAgent: cleanString(raw.userAgent, base.userAgent),
+		acceptLanguage: cleanString(raw.acceptLanguage, base.acceptLanguage),
+		allowPrivateHosts: typeof raw.allowPrivateHosts === "boolean" ? raw.allowPrivateHosts : base.allowPrivateHosts,
+		maxRedirects: clampInteger(raw.maxRedirects, base.maxRedirects, 0, 10),
+		maxBodyChars: clampInteger(raw.maxBodyChars, base.maxBodyChars, 1_000, 1_000_000),
+		pdfEnabled: typeof raw.pdfEnabled === "boolean" ? raw.pdfEnabled : base.pdfEnabled,
+		renderJs: RENDER_MODES.includes(renderJs) ? renderJs : base.renderJs,
+		renderTimeoutMs: clampInteger(raw.renderTimeoutMs, base.renderTimeoutMs, 1_000, 120_000),
+		renderWaitUntil: (RENDER_WAIT as readonly string[]).includes(waitUntil)
+			? (waitUntil as "load" | "networkidle")
+			: base.renderWaitUntil,
+		renderMinChars: clampInteger(raw.renderMinChars, base.renderMinChars, 0, 10_000),
+		renderExecutablePath: cleanString(raw.renderExecutablePath, base.renderExecutablePath),
+		cacheEnabled: typeof raw.cacheEnabled === "boolean" ? raw.cacheEnabled : base.cacheEnabled,
+		cacheTtlMs: clampInteger(raw.cacheTtlMs, base.cacheTtlMs, 0, 3_600_000),
+		cacheMaxEntries: clampInteger(raw.cacheMaxEntries, base.cacheMaxEntries, 1, 50),
+		cacheMaxBytes: clampInteger(raw.cacheMaxBytes, base.cacheMaxBytes, 1_024, 50_000_000),
+	};
+}

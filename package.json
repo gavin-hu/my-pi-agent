@@ -1,0 +1,101 @@
+{
+  "name": "@gavin-hu/my-pi-agent",
+  "version": "0.1.0",
+  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, status-bar, and turn-separator.",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "git",
+    "worktree",
+    "todo",
+    "goal",
+    "objective",
+    "plan",
+    "subagent",
+    "agents",
+    "delegation",
+    "rewind",
+    "snapshot",
+    "undo",
+    "job",
+    "jobs",
+    "background",
+    "process",
+    "file-browser",
+    "serve",
+    "browser",
+    "web-access",
+    "status-bar",
+    "footer",
+    "turn-separator",
+    "separator",
+    "transcript"
+  ],
+  "type": "module",
+  "license": "MIT",
+  "author": "Gavin Hu",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gavin-hu/my-pi-agent.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/worktree/index.ts",
+      "./extensions/rewind/index.ts",
+      "./extensions/ask-user-question/index.ts",
+      "./extensions/todo/index.ts",
+      "./extensions/goal/index.ts",
+      "./extensions/plan/index.ts",
+      "./extensions/subagent/index.ts",
+      "./extensions/job/index.ts",
+      "./extensions/web-access/index.ts",
+      "./extensions/file-browser/index.ts",
+      "./extensions/status-bar/index.ts",
+      "./extensions/turn-separator/index.ts"
+    ],
+    "themes": [
+      "./themes/*.json"
+    ],
+    "image": "./assets/screenshot.jpg"
+  },
+  "scripts": {
+    "test": "bun test --parallel --timeout 30000",
+    "test:watch": "bun test --watch --isolate",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "transpile": "bun run scripts/transpile.ts",
+    "smoke": "bun run scripts/smoke-runtime.ts",
+    "check": "bun run format:check && bun run typecheck && bun run transpile && bun run test && bun run smoke"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-agent-core": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "playwright": "*",
+    "typebox": "*",
+    "unpdf": "*"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    },
+    "unpdf": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@earendil-works/pi-agent-core": "^1.0.4",
+    "@earendil-works/pi-ai": "^1.0.4",
+    "@earendil-works/pi-coding-agent": "^1.0.4",
+    "@earendil-works/pi-tui": "^1.0.4",
+    "@types/bun": "latest",
+    "typebox": "^1.3.27",
+    "typescript": "^5.6.0"
+  }
+}

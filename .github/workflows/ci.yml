@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Report every OS even if one fails, so a Windows-only regression is
+      # visible without re-running the whole matrix.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # format:check, typecheck, transpile, test, smoke
+      # The default shell per OS is intentional: forcing bash on Windows would
+      # reintroduce Git-Bash path conversion, which is itself platform-specific.
+      - name: Run checks
+        run: bun run check

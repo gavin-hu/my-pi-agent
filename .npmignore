@@ -1,0 +1,21 @@
+# Publish only the runtime package: extensions, lib, themes, assets, and docs.
+# Everything else is dev-only. There is no "files" allowlist in package.json,
+# because an allowlist would make this file inert.
+
+.github/
+.pi/
+test/
+scripts/
+
+# Co-located tests live next to their source under extensions/ and lib/.
+*.test.ts
+
+AGENTS.md
+biome.json
+bunfig.toml
+bun.lock
+tsconfig.json
+.gitattributes
+
+*.log
+*.tgz
