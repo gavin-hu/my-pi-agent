@@ -13,14 +13,19 @@ import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { stripControlChars } from "../../lib/format.ts";
+import { sanitize, stripControlChars } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
 import { detectFormat, supportedExtensions, unsupportedHint } from "./formats.ts";
-import { formatDoc } from "./paging.ts";
+import { formatDoc, summarizeDoc } from "./paging.ts";
 import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, type DocArgs, type DocResult } from "./schema.ts";
 
 export const TOOL_NAME = "read_doc";
+
+/** Collapse text to a single sanitized line for a transcript header. */
+function oneLine(text: string): string {
+	return sanitize(stripControlChars(text));
+}
 
 /** Resolve a request path under `root`, refusing anything that escapes it. */
 function resolveDocument(root: string, rawPath: string): string {
@@ -29,7 +34,9 @@ function resolveDocument(root: string, rawPath: string): string {
 	const candidate = isAbsolute(trimmed) ? trimmed : join(root, trimmed);
 	const abs = realPathOfNearest(candidate);
 	if (!isInsideReal(root, abs)) {
-		throw new Error(`Refusing to read "${trimmed}" outside the working directory.`);
+		throw new Error(
+			`Refusing to read "${trimmed}" outside the working directory. Copy the file under it or pass a path inside it.`,
+		);
 	}
 	return trimmed;
 }
@@ -125,10 +132,11 @@ export function registerDocTool(pi: ExtensionAPI): void {
 		},
 
 		renderCall(args, theme) {
-			const { path, startIndex } = args as DocArgs;
-			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", path ?? "");
-			if (startIndex) text += theme.fg("dim", ` (from ${startIndex})`);
-			return new Text(stripControlChars(text), 0, 0);
+			const { path, startIndex, maxChars } = args as DocArgs;
+			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(path ?? ""));
+			if (typeof startIndex === "number" && startIndex > 0) text += theme.fg("dim", ` (from ${startIndex})`);
+			if (typeof maxChars === "number") text += theme.fg("dim", ` (max ${maxChars} chars)`);
+			return new Text(text, 0, 0);
 		},
 
 		renderResult(result, _options, theme) {
@@ -136,12 +144,14 @@ export function registerDocTool(pi: ExtensionAPI): void {
 			if (!details || result.isError) {
 				const first = result.content[0];
 				const message = first?.type === "text" ? first.text : "Read failed";
-				return new Text(theme.fg("error", message.startsWith("Error:") ? message : `Error: ${message}`), 0, 0);
+				const safe = oneLine(message.startsWith("Error:") ? message : `Error: ${message}`);
+				return new Text(theme.fg("error", safe), 0, 0);
 			}
-			let text = theme.fg("muted", details.path);
-			text += theme.fg("dim", ` · ${details.format} · ${details.chars} chars`);
-			if (details.truncated) text += theme.fg("dim", ` · from ${details.startIndex}`);
-			return new Text(stripControlChars(text), 0, 0);
+			const summary = summarizeDoc(details);
+			let text = theme.fg("muted", oneLine(summary.path));
+			text += theme.fg("dim", ` · ${summary.detail}`);
+			if (summary.note) text += theme.fg(details.truncated ? "accent" : "dim", ` · ${summary.note}`);
+			return new Text(text, 0, 0);
 		},
 	});
 }
