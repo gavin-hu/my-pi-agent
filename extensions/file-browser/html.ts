@@ -80,12 +80,12 @@ const STYLES = `:root{
   --danger:#cf222e;--warn:#9a6700;}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0;background:var(--canvas);color:var(--text);font:15px/1.5 var(--ui)}
+body{display:flex;flex-direction:column;min-height:100vh;margin:0;background:var(--canvas);color:var(--text);font:15px/1.5 var(--ui)}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 a:focus-visible,button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .skip{position:absolute;left:-9999px;top:0;z-index:3;padding:8px 14px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px}
 .skip:focus{left:12px;top:12px}
-header.site{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:1px solid var(--border)}
+header.site{position:sticky;top:0;z-index:2;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border)}
 .bar{display:flex;align-items:center;gap:12px;height:56px;padding:0 24px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:0 0 8px}
 .brand{display:flex;align-items:center;gap:8px;font-weight:600}
@@ -94,10 +94,10 @@ header.site{position:sticky;top:0;z-index:2;background:var(--surface);border-bot
 .git{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap}
 .git.dirty .glyph{color:var(--warn)}
 .git .dirty-dot{color:var(--warn);font-size:9px;line-height:1}
-.shell{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 56px - 44px)}
-details.side-panel{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow-y:auto;overscroll-behavior:contain;background:var(--surface);border-right:1px solid var(--border);min-width:0}
+.shell{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:260px 1fr}
+details.side-panel{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--surface);border-right:1px solid var(--border)}
 .side-summary{display:none}
-aside.side{padding:14px 12px;min-width:0}
+aside.side{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px 12px;min-width:0}
 .filter{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:6px;background:var(--canvas);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--muted);font-size:13px}
 .filter input{border:0;background:transparent;color:var(--text);font:13px var(--mono);width:100%;outline:none}
 nav.tree{margin-top:12px;font-family:var(--mono);font-size:13px;overflow-x:auto}
@@ -113,7 +113,7 @@ nav.tree li[data-loading] .tw{opacity:.5}
 nav.tree li[data-error]>.row{color:var(--danger)}
 nav.tree li[data-error] .tw{color:var(--danger)}
 nav.tree .cat{width:16px;height:16px;flex:0 0 16px}
-main.content{padding:20px 24px;min-width:0;display:flex;flex-direction:column}
+main.content{padding:20px 24px;min-width:0;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
 nav.crumbs{font-family:var(--mono);font-size:13px;color:var(--muted);padding-bottom:10px;overflow-wrap:anywhere}
 nav.crumbs .sep{padding:0 6px}
 nav.crumbs [aria-current]{color:var(--text);font-weight:600}
@@ -155,15 +155,17 @@ pre.code .line::before{counter-increment:line;content:counter(line);display:inli
 .error-code{font:700 64px/1 var(--mono);color:var(--danger)}
 .error-page p{font-size:17px;margin:18px 0 6px}
 .error-page .detail{color:var(--muted);font-size:13.5px}
-footer.site{border-top:1px solid var(--border);color:var(--muted);font-size:12.5px;padding:14px 24px}
+footer.site{flex:0 0 auto;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px;padding:14px 24px}
 @media (max-width:720px){
   .bar{height:auto;min-height:56px;flex-wrap:wrap;padding:6px 16px;row-gap:2px}
   .brand{order:1}
   .badge{order:2;margin-left:auto}
   .git{order:3}
   .root{order:4}
-  .shell{grid-template-columns:1fr}
-  details.side-panel{position:static;max-height:none;overflow:visible;border-right:0;border-bottom:1px solid var(--border)}
+  .shell{flex:none;grid-template-columns:1fr}
+  details.side-panel{display:block;position:static;max-height:none;overflow:visible;border-right:0;border-bottom:1px solid var(--border)}
+  aside.side{flex:none;overflow:visible}
+  main.content{overflow:visible}
   .side-summary{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;list-style:none;font-family:var(--mono);font-size:13px;color:var(--muted)}
   .side-summary::-webkit-details-marker{display:none}
   .side-summary::before{content:"▸";color:var(--muted)}
