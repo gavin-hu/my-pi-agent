@@ -97,6 +97,33 @@ plus the refine editor; cancelling the editor returns to the select instead of
 being reported as "not approved". Without any UI the tools fail with an
 actionable message instead of deciding for the user.
 
+### Transcript
+
+The three tool rows reuse the transcript component, and `exit_plan_mode`
+separates the plan body from its header with a blank line; the collapse hint
+binds to `app.tools.expand` (`ctrl+o` by default).
+
+```
+enter_plan_mode requested plan mode
+✓ Plan mode enabled
+```
+
+```
+write_plan Add rate limiting
+✓ Saved plan .pi/plans/2026-10-09-1809-add-rate-limiting.md
+```
+
+```
+exit_plan_mode submitted a plan
+✓ Plan approved
+.pi/plans/2026-10-09-1809-add-rate-limiting.md
+
+# Add rate limiting
+1. Add a token bucket …
+
+… 12 more lines (ctrl+o to expand)
+```
+
 ## Security
 
 Plan mode is a **guard rail, not a sandbox**: extensions run with Pi's OS

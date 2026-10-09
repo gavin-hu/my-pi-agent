@@ -62,7 +62,7 @@ export function registerTools(pi: ExtensionAPI): void {
 			};
 		},
 
-		renderCall(args, theme) {
+		renderCall(args, theme, context) {
 			const raw = (args as Partial<AskUserQuestionArgs>).questions ?? [];
 			const count = raw.length;
 			const noun = count === 1 ? "question" : "questions";
@@ -70,19 +70,31 @@ export function registerTools(pi: ExtensionAPI): void {
 			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", `${count} ${noun}`);
 			if (headers.length > 0) text += theme.fg("dim", ` (${headers.join(", ")})`);
 
-			const options = optionSummary(raw);
-			if (options.length > 0) text += `\n${theme.fg("dim", `  Options: ${options.join(" · ")}`)}`;
-			return new Text(text, 0, 0);
+			// One indented line per question that offers options, so a long option list
+			// stays mapped to its question instead of wrapping on a single row.
+			for (const line of optionSummary(raw)) text += `\n${theme.fg("dim", `  ${line}`)}`;
+
+			const component = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			component.setText(text);
+			return component;
 		},
 
-		renderResult(result, _options, theme) {
+		renderResult(result, _options, theme, context) {
+			const component = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as AskResult | undefined;
 			if (!details) {
 				const first = result.content[0];
-				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+				component.setText(first?.type === "text" ? first.text : "");
+				return component;
 			}
-			if (details.unavailable) return new Text(theme.fg("dim", UNAVAILABLE_TEXT), 0, 0);
-			if (details.answers.length === 0) return new Text(theme.fg("warning", "Cancelled"), 0, 0);
+			if (details.unavailable) {
+				component.setText(theme.fg("dim", UNAVAILABLE_TEXT));
+				return component;
+			}
+			if (details.answers.length === 0) {
+				component.setText(theme.fg("warning", "Cancelled"));
+				return component;
+			}
 
 			const lines = details.answers.map((answer) => {
 				const header = theme.fg("accent", answer.header);
@@ -93,7 +105,8 @@ export function registerTools(pi: ExtensionAPI): void {
 				return `${theme.fg("success", "✓ ")}${header}: ${numbered}`;
 			});
 			if (details.cancelled) lines.push(theme.fg("warning", "(cancelled)"));
-			return new Text(lines.join("\n"), 0, 0);
+			component.setText(lines.join("\n"));
+			return component;
 		},
 	});
 }

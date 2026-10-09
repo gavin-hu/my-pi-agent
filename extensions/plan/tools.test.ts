@@ -370,3 +370,51 @@ describe("exit_plan_mode", () => {
 		]);
 	});
 });
+
+describe("plan transcript rendering", () => {
+	test("reuses the slot Text across renders", () => {
+		const { enter, exit, write } = setup();
+		for (const tool of [enter, write, exit]) {
+			const first = tool.renderCall({}, fakeTheme, { lastComponent: undefined });
+			const again = tool.renderCall({}, fakeTheme, { lastComponent: first });
+			expect(again).toBe(first);
+		}
+	});
+
+	test("exit_plan_mode separates the header from the plan body and hints at the bound key", () => {
+		const { exit } = setup();
+		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, i) => `${i + 1}. step`)].join("\n");
+		const lines = exit
+			.renderResult(
+				{ details: { approved: true, plan, planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" } },
+				{ expanded: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.map((line: string) => line.trimEnd());
+		expect(lines[0]).toContain("Plan approved");
+		expect(lines[1]).toBe(".pi/plans/p.md");
+		expect(lines[2]).toBe("");
+		expect(lines[3]).toBe("# Plan");
+		const text = lines.join("\n");
+		expect(text).toContain("more lines");
+		expect(text).toContain("to expand");
+	});
+
+	test("an expanded exit shows the full plan with no hint", () => {
+		const { exit } = setup();
+		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, i) => `${i + 1}. step`)].join("\n");
+		const text = exit
+			.renderResult(
+				{ details: { approved: true, plan, planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" } },
+				{ expanded: true },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("20. step");
+		expect(text).not.toContain("more lines");
+	});
+});

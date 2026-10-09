@@ -64,9 +64,15 @@ Format: user wrote: json for logs
 ```
 
 Structured details (`questions`, `answers`, `cancelled`, `unavailable`) are
-carried on the tool result and drive the transcript rendering:
+carried on the tool result and drive the transcript rendering. The call line
+lists the headers and one option line per question; the result renders one line
+per answer:
 
 ```
+ask_user_question 2 questions (Auth, Scope)
+  Auth: OAuth, Session cookies, Other
+  Scope: repo, admin, Other
+
 ✓ Auth: 1. OAuth
 ✓ Scope: 2. repo, 4. read:org
 ✓ Format: (wrote) json for logs
@@ -143,9 +149,9 @@ None in v1 — the tool is either available (a UI exists) or not.
   `"User cancelled the question."` lets the model proceed or ask in prose; only
   the no-UI path returns `isError: true`.
 - **Transcript rendering is driven by `details`.** `renderCall` summarises the
-  question count and headers; `renderResult` renders `✓ Q1 (Auth): 2. OAuth` per
-  answer, `(wrote)` for custom text, warning-colored `Cancelled`, and dim `No UI`
-  when unavailable.
+  question count and headers and lists one option line per question;
+  `renderResult` renders `✓ Auth: 1. OAuth` per answer, `(wrote)` for custom
+  text, warning-colored `Cancelled`, and dim `No UI` when unavailable.
 
 ## Files
 
