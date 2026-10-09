@@ -2,13 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import todo from "./index.ts";
+import todo, { TODO_NUDGE_CONTEXT_TYPE } from "./index.ts";
+import { TODO_NUDGE_MARKER } from "./nudge.ts";
 import { TOOL_NAME } from "./tools.ts";
 import type { Todo } from "./types.ts";
-import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
+import { emit, emitFirst, makeFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { lastWidget } from "../../test/helpers/entries.ts";
-import { resultEntry } from "../../test/helpers/fixtures/todo.ts";
+import { lastWidget, otherMessage } from "../../test/helpers/entries.ts";
+import { nudgeMessage, resultEntry } from "../../test/helpers/fixtures/todo.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
@@ -126,5 +127,90 @@ describe("todo extension", () => {
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
 		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
+	});
+});
+
+describe("todo lag reminder", () => {
+	async function started(branch: unknown[] = []) {
+		const { pi, handlers } = makeFakePi();
+		todo(pi);
+		const { ctx } = fakeCtx({ mode: "print", branch });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		return { pi, handlers, ctx };
+	}
+
+	const settle = { type: "agent_before_settle", outcome: "completed" } as const;
+	const work = { type: "tool_execution_end", toolName: "edit" } as const;
+
+	test("injects one reminder when work happened without a todo update", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		await emit(pi, "tool_execution_end", work, ctx);
+
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result.continue).toBe(true);
+		expect(result.entries).toHaveLength(1);
+		expect(result.entries[0].type).toBe("custom_message");
+		expect(result.entries[0].customType).toBe(TODO_NUDGE_CONTEXT_TYPE);
+		expect(result.entries[0].display).toBe(false);
+		expect(result.entries[0].content).toContain(TODO_NUDGE_MARKER);
+	});
+
+	test("does not remind without work", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result).toBeUndefined();
+	});
+
+	test("does not remind for read-only work", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		await emit(pi, "tool_execution_end", { type: "tool_execution_end", toolName: "read" }, ctx);
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result).toBeUndefined();
+	});
+
+	test("does not remind when every item is completed", async () => {
+		const { pi, ctx } = await started([resultEntry([completed("done")])]);
+		await emit(pi, "tool_execution_end", work, ctx);
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result).toBeUndefined();
+	});
+
+	test("reminds at most once per user turn", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		await emit(pi, "tool_execution_end", work, ctx);
+		const first = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		const second = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(first.continue).toBe(true);
+		expect(second).toBeUndefined();
+	});
+
+	test("does not remind for an aborted or failed run", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		await emit(pi, "tool_execution_end", work, ctx);
+		const result = await emitFirst(pi, "agent_before_settle", { type: "agent_before_settle", outcome: "aborted" }, ctx);
+		expect(result).toBeUndefined();
+	});
+
+	test("a new user turn clears the lag window and expires the reminder", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		await emit(pi, "tool_execution_end", work, ctx);
+		await emitFirst(pi, "agent_before_settle", settle, ctx);
+		await emit(pi, "before_agent_start", {}, ctx);
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result).toBeUndefined();
+	});
+
+	test("strips a stale reminder and keeps only the newest while active", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		// No reminder is active yet, so an old one is dropped.
+		const stripped = await emitFirst(pi, "context", { messages: [nudgeMessage(), otherMessage()] }, ctx);
+		expect(stripped.messages).toEqual([otherMessage()]);
+
+		// After a reminder, the newest is kept and older copies dropped.
+		await emit(pi, "tool_execution_end", work, ctx);
+		await emitFirst(pi, "agent_before_settle", settle, ctx);
+		const newest = nudgeMessage("newest");
+		const kept = await emitFirst(pi, "context", { messages: [nudgeMessage(), otherMessage(), newest] }, ctx);
+		expect(kept.messages).toEqual([otherMessage(), newest]);
 	});
 });

@@ -3,7 +3,10 @@
 A whole-list task tracker for Pi, modelled on Claude Code's `TodoWrite`. The
 model sends the complete list on every call; the previous list is discarded, so
 there are no ids to juggle and no add/toggle bookkeeping. The list follows the
-active session branch and is restored on `/resume` and `/tree`.
+active session branch and is restored on `/resume` and `/tree`. When a run is
+about to end after mutating work without a todo update, the extension injects
+one short reminder and forces a continuation, so the list does not silently
+drift behind the work.
 
 ```
 pi --extension ./extensions/todo    # load just this extension
@@ -26,6 +29,12 @@ pi install ./                       # install the package
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list, and stored lists are re-sanitized on replay.
+- Keeps the list honest: when a run is about to settle after mutating work
+  (`write`/`edit`/`bash`/`powershell`, or a tool declaring `readOnlyHint:
+  false`) without a todo update, it injects one hidden reminder and forces a
+  single continuation. It only fires while the list has unfinished items, at
+  most once per user turn, and is dropped on the next user turn, so a
+  reader can never trigger it.
 - Declares an `outputSchema` and returns matching `structuredContent`
   (`{ todos, action, error? }`), so codemode/scripts can read the list as data.
 
@@ -108,9 +117,10 @@ plan. The non-TUI notification prints `content` for every row.
 
 The tool works in every mode. The persistent widget and the `/todos` screen
 require interactive (`tui`) mode; RPC and non-interactive runs simply get the
-tool result. While any dock screen is open (`/todos`, `/jobs`, `/rewind`, or
-the ask-user-question questionnaire), the above-editor rails are hidden and
-return on close.
+tool result. The lag reminder is mode-independent, because it rides the agent
+boundary and not the terminal UI. While any dock screen is open (`/todos`,
+`/jobs`, `/rewind`, or the ask-user-question questionnaire), the above-editor
+rails are hidden and return on close.
 
 ## Configuration
 
@@ -141,6 +151,7 @@ on config.
 | Command | `/todos` |
 | State | tool-result `details`; rebuilt from `ctx.sessionManager.getBranch()` |
 | Lifecycle | `session_start` loads config and reconstructs; `session_tree` reconstructs; `session_shutdown` clears the widget |
+| Reminder | `tool_execution_end` marks mutating work; `agent_before_settle` injects one hidden `custom_message` (`todo-nudge`) and returns `continue: true`; `before_agent_start` clears the lag window and expires the reminder; `context` keeps only the newest current reminder |
 
 ## Design notes
 
@@ -171,6 +182,13 @@ on config.
   re-runs `setWidget` whenever a rail above it changes, keeping the stack
   `Goal / Todos`. It never announces, so the chain cannot ping-pong. See
   [`lib/rails.ts`](../../lib/rails.ts) and [`goal`](../goal/).
+- **The reminder is a bounded nudge, not a nag.** A prompt guideline cannot
+  guarantee a timely update, so the extension backs it with one forced
+  continuation. `tool_execution_end` marks a lag only for an explicit mutator
+  list plus `readOnlyHint: false` — a false positive costs a whole extra model
+  request, so an unrecognized reader is treated as harmless. `nudged` caps it at
+  one per user turn, `setTodos` clears the work flag, and `context` drops
+  the hidden message on the next user turn so it never accumulates.
 - **Content is sanitized at the boundary.** `normalizeTodos` replaces control
   characters and collapses whitespace before the length and duplicate checks,
   keeping `format.ts` free of terminal concerns and every surface to one row
@@ -192,13 +210,14 @@ on config.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: wire the runtime, tool, command, and session events. |
+| `index.ts` | Factory: wire the runtime, tool, command, reminder events, and session events. |
 | `types.ts` | `Todo`, `TodoStatus`, `TodoDetails`. |
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
 | `state.ts` | Branch reconstruction and status queries (pure). |
+| `nudge.ts` | Lag detection: mutating-tool classification, due check, reminder text (pure). |
 | `format.ts` | Model-facing and transcript text (pure). |
 | `tui.ts` | Widget and scrollable `/todos` components. |
 | `config.ts` | Widget config load/validation (`todo.json`). |
-| `runtime.ts` | Session-scoped state and widget synchronization. |
+| `runtime.ts` | Session-scoped state, lag tracking, and widget synchronization. |
 | `tools.ts` | `todo` tool registration and rendering. |
 | `commands.ts` | `/todos`. |
