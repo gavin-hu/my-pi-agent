@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { HttpRunner } from "../http.ts";
 import type { Throttle } from "./search.ts";
 import { registerSearchTool, TOOL_NAME } from "./tool.ts";
-import { createFakePi } from "../../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { jsonResponse } from "../../../test/helpers/fixtures/web-access.ts";
 import { tempDir, useEnv } from "../../../test/helpers/env.ts";
 
@@ -102,5 +102,73 @@ describe("web_search tool", () => {
 		await expect(tool.execute("call-5", { query: "   " }, undefined, undefined, ctx)).rejects.toThrow(
 			"query is required",
 		);
+	});
+});
+
+describe("web_search transcript rendering", () => {
+	function renderer() {
+		const { pi, tools } = createFakePi();
+		registerSearchTool(pi, { http: mustNotRun, throttle: noThrottle });
+		return tools.get(TOOL_NAME) as any;
+	}
+
+	test("result separates the header and sanitizes untrusted text", () => {
+		const tool = renderer();
+		const details = {
+			query: "pi",
+			provider: "duckduckgo",
+			answer: "answer\u001b[31m text",
+			results: [{ title: "Title\u001b[31m\nsecond", url: "https://x/", snippet: "" }],
+			truncated: false,
+			fetchedAt: "now",
+		};
+		const lines = tool
+			.renderResult({ details, content: [{ type: "text", text: "" }] }, { expanded: false }, fakeTheme, {
+				lastComponent: undefined,
+			})
+			.render(80)
+			.map((line: string) => line.trimEnd());
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toBe("via duckduckgo · 1 result");
+		expect(lines[2]).toContain("answer");
+		expect(lines[3]).toContain("Title");
+		expect(lines.join("\n")).not.toContain("\u001b");
+	});
+
+	test("no results and errors are single sanitized lines", () => {
+		const tool = renderer();
+		const none = tool
+			.renderResult(
+				{
+					details: { query: "z\u0007", provider: "none", answer: "", results: [], truncated: false, fetchedAt: "now" },
+					content: [{ type: "text", text: "" }],
+				},
+				{ expanded: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(none).toContain("No results for");
+		expect(none).not.toContain("\u0007");
+
+		const error = tool
+			.renderResult(
+				{ details: undefined, content: [{ type: "text", text: "boom\u001b[31m" }], isError: true },
+				{ expanded: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(error).toContain("Error: boom");
+		expect(error).not.toContain("\u001b");
+	});
+
+	test("reuses the slot Text", () => {
+		const tool = renderer();
+		const first = tool.renderCall({ query: "a" }, fakeTheme, { lastComponent: undefined });
+		const again = tool.renderCall({ query: "b" }, fakeTheme, { lastComponent: first });
+		expect(again).toBe(first);
 	});
 });

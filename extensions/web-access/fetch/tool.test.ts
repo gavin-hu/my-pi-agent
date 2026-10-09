@@ -3,7 +3,7 @@ import { cacheClear } from "./cache.ts";
 import type { HttpResponse } from "../http.ts";
 import { setDefaultRunnerForTests } from "./page.ts";
 import { registerFetchTool, TOOL_NAME } from "./tool.ts";
-import { createFakePi } from "../../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { htmlResponse } from "../../../test/helpers/fixtures/web-access.ts";
 import { tempDir, useEnv } from "../../../test/helpers/env.ts";
 
@@ -230,5 +230,69 @@ describe("web_fetch tool", () => {
 		await expect(
 			tool.execute("call-14", { url: "https://1.1.1.1/a", urls: ["https://1.1.2.2/b"] }, undefined, undefined, ctx),
 		).rejects.toThrow("either url or urls");
+	});
+});
+
+describe("web_fetch transcript rendering", () => {
+	const page = (overrides: Record<string, unknown> = {}) => ({
+		url: "https://x/",
+		finalUrl: "https://x/",
+		title: "",
+		status: 200,
+		contentType: "text/html",
+		text: "",
+		totalChars: 0,
+		startIndex: 0,
+		truncated: false,
+		cached: false,
+		rendered: false,
+		matches: [],
+		fetchedAt: "now",
+		error: "",
+		...overrides,
+	});
+
+	function renderer() {
+		const { pi, tools } = createFakePi();
+		registerFetchTool(pi);
+		return tools.get(TOOL_NAME) as any;
+	}
+
+	test("single page humanizes the char count and sanitizes the title", () => {
+		const tool = renderer();
+		const text = tool
+			.renderResult(
+				{
+					details: { pages: [page({ title: "Pi\u001b[31m\nHome", totalChars: 12345, cached: true })] },
+					content: [{ type: "text", text: "" }],
+				},
+				{ expanded: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("12k chars");
+		expect(text).toContain("(cached)");
+		expect(text).not.toContain("\u001b");
+	});
+
+	test("multi-page summary is unchanged and reuses the slot Text", () => {
+		const tool = renderer();
+		const details = { pages: [page({ cached: true }), page({ error: "Error: boom" })] };
+		const first = tool.renderResult(
+			{ details, content: [{ type: "text", text: "" }] },
+			{ expanded: false },
+			fakeTheme,
+			{ lastComponent: undefined },
+		);
+		expect(first.render(80).join("\n")).toContain("2 pages · 1 ok, 1 failed, 1 cached");
+		const again = tool.renderResult(
+			{ details, content: [{ type: "text", text: "" }] },
+			{ expanded: false },
+			fakeTheme,
+			{ lastComponent: first },
+		);
+		expect(again).toBe(first);
 	});
 });

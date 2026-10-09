@@ -11,6 +11,8 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { formatTokens } from "../../../lib/format.ts";
+import { oneLine } from "../transcript.ts";
 import { cacheGet, cacheSet } from "./cache.ts";
 import type { WebFetchConfig } from "./config.ts";
 import { findPassages } from "./find.ts";
@@ -206,21 +208,25 @@ export function registerFetchTool(pi: ExtensionAPI): void {
 			};
 		},
 
-		renderCall(args, theme) {
+		renderCall(args, theme, context) {
 			const { url, urls, find, startIndex } = args as WebFetchArgs;
-			const target = urls?.length ? `${urls.length} urls` : (url ?? "");
-			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", target);
-			if (find?.length) text += theme.fg("dim", ` find ${find.map((f) => `"${f}"`).join(", ")}`);
-			else if (startIndex) text += theme.fg("dim", ` (from ${startIndex})`);
-			return new Text(text, 0, 0);
+			const target = urls?.length ? `${urls.length} urls` : oneLine(url ?? "");
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", target);
+			if (find?.length) line += theme.fg("dim", ` find ${find.map((f) => `"${oneLine(f)}"`).join(", ")}`);
+			else if (startIndex) line += theme.fg("dim", ` (from ${startIndex})`);
+			text.setText(line);
+			return text;
 		},
 
-		renderResult(result, _options, theme) {
+		renderResult(result, _options, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as FetchBatch | undefined;
 			if (!details || result.isError) {
 				const first = result.content[0];
-				const message = first?.type === "text" ? first.text : "Fetch failed";
-				return new Text(theme.fg("error", message.startsWith("Error:") ? message : `Error: ${message}`), 0, 0);
+				const message = oneLine(first?.type === "text" ? first.text : "Fetch failed");
+				text.setText(theme.fg("error", message.startsWith("Error:") ? message : `Error: ${message}`));
+				return text;
 			}
 
 			const failed = details.pages.filter((page) => page.error).length;
@@ -228,26 +234,27 @@ export function registerFetchTool(pi: ExtensionAPI): void {
 
 			if (details.pages.length === 1) {
 				const page = details.pages[0];
-				if (page.error)
-					return new Text(
-						theme.fg("error", page.error.startsWith("Error:") ? page.error : `Error: ${page.error}`),
-						0,
-						0,
-					);
-				const label = page.title || page.finalUrl;
-				let text = theme.fg("muted", label);
-				if (page.matches.length > 0) text += theme.fg("dim", ` · ${page.matches.length} match(es)`);
-				else text += theme.fg("dim", ` · ${page.totalChars} chars`);
-				if (page.cached) text += theme.fg("dim", " (cached)");
-				else if (page.rendered) text += theme.fg("dim", " (rendered)");
-				return new Text(text, 0, 0);
+				if (page.error) {
+					const message = oneLine(page.error);
+					text.setText(theme.fg("error", message.startsWith("Error:") ? message : `Error: ${message}`));
+					return text;
+				}
+				const label = oneLine(page.title || page.finalUrl);
+				let line = theme.fg("muted", label);
+				if (page.matches.length > 0) line += theme.fg("dim", ` · ${page.matches.length} match(es)`);
+				else line += theme.fg("dim", ` · ${formatTokens(page.totalChars)} chars`);
+				if (page.cached) line += theme.fg("dim", " (cached)");
+				else if (page.rendered) line += theme.fg("dim", " (rendered)");
+				text.setText(line);
+				return text;
 			}
 
-			let text = theme.fg("muted", `${details.pages.length} pages`);
-			text += theme.fg("dim", ` · ${details.pages.length - failed} ok`);
-			if (failed > 0) text += theme.fg("error", `, ${failed} failed`);
-			if (cached > 0) text += theme.fg("dim", `, ${cached} cached`);
-			return new Text(text, 0, 0);
+			let line = theme.fg("muted", `${details.pages.length} pages`);
+			line += theme.fg("dim", ` · ${details.pages.length - failed} ok`);
+			if (failed > 0) line += theme.fg("error", `, ${failed} failed`);
+			if (cached > 0) line += theme.fg("dim", `, ${cached} cached`);
+			text.setText(line);
+			return text;
 		},
 	});
 }

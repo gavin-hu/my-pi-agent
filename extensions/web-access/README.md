@@ -43,6 +43,27 @@ web_fetch({ urls: ["https://a.example/", "https://b.example/"] })
 web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
 ```
 
+### Transcript
+
+The call line names the query or URL. The result separates the header from its
+body and sanitizes untrusted web text (answers, titles, fetched titles and
+errors) to one line before it reaches the terminal.
+
+```
+web_search "pi coding agent" (8 results)
+
+via searxng · 8 results
+Pi is a coding agent harness …
+1. Pi — a coding agent harness
+2. GitHub - earendil-works/pi
++3 more
+```
+
+```
+web_fetch https://pi.dev/
+Pi — a coding-agent component · 12k chars (cached)
+```
+
 ## Configuration
 
 Merged from `~/.pi/agent/web-access.json` (global) and
@@ -99,6 +120,10 @@ as `Authorization: Bearer <key>`; for Brave it is sent as
 
 - Fetched page text and search snippets are untrusted and may contain
   prompt-injection content; both tools return it as-is.
+- **Transcript sanitization.** The web strings the transcript draws (search
+  answers and titles, fetched page titles and errors, URLs and `find` terms) are
+  collapsed to one sanitized line before a theme colour is applied, so control
+  characters from a page cannot restyle or corrupt the terminal.
 - `web_fetch` requires http(s), rejects obvious internal hostnames, and refuses
   any host that resolves to a loopback, RFC1918, link-local, unique-local,
   multicast, or metadata address. `allowPrivateHosts: true` opts out.
@@ -269,6 +294,10 @@ but not by the full transport guard.
 - **Page cache.** [`fetch/cache.ts`](./fetch/cache.ts) is an in-process LRU/TTL
   keyed by requested URL, holding extracted pages so paging and find are a
   single fetch; entries evict by count and total bytes.
+- **Transcript sanitization and reuse.** [`transcript.ts`](./transcript.ts)
+  holds `oneLine`, shared by both tools to collapse untrusted web text to one
+  sanitized, optionally clipped line; the renderers reuse
+  `context.lastComponent` instead of allocating each render.
 
 ## Files
 
@@ -277,6 +306,7 @@ but not by the full transport guard.
 | `index.ts` | Register both tools; clear the fetch cache on shutdown |
 | `config.ts` | Nested `web-access.json` loader |
 | `http.ts` | Shared fetch runner and HTTP error types |
+| `transcript.ts` | Shared `oneLine` sanitizer for both transcript renderers |
 | `search/tool.ts` | `web_search` definition, activation, rendering |
 | `search/provider.ts` | Provider interface (`SearchProvider`, `ProviderContext`) |
 | `search/registry.ts` | Value-only provider list, `resolveProvider`, labels |

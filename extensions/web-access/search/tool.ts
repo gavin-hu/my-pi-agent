@@ -10,6 +10,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { loadSearchConfig } from "../config.ts";
+import { oneLine } from "../transcript.ts";
 import { formatResults } from "./format.ts";
 import { createThrottle, runSearch, type SearchDeps } from "./search.ts";
 import { resolveRequest, WebSearchOutput, WebSearchParams, type SearchResponse, type WebSearchArgs } from "./schema.ts";
@@ -65,33 +66,46 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			};
 		},
 
-		renderCall(args, theme) {
+		renderCall(args, theme, context) {
 			const { query, maxResults } = args as WebSearchArgs;
-			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", query ?? "");
-			if (maxResults) text += theme.fg("dim", ` (${maxResults} results)`);
-			return new Text(text, 0, 0);
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(query ?? ""));
+			if (maxResults) line += theme.fg("dim", ` (${maxResults} results)`);
+			text.setText(line);
+			return text;
 		},
 
-		renderResult(result, _options, theme) {
+		renderResult(result, _options, theme, context) {
+			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as SearchResponse | undefined;
 			if (!details || result.isError) {
 				const first = result.content[0];
 				const message = first?.type === "text" ? first.text : "Search failed";
-				return new Text(theme.fg("error", `Error: ${message}`), 0, 0);
+				text.setText(theme.fg("error", `Error: ${oneLine(message)}`));
+				return text;
 			}
 			if (details.provider === "none") {
-				return new Text(theme.fg("dim", `No results for "${details.query}".`), 0, 0);
+				text.setText(theme.fg("dim", `No results for "${oneLine(details.query)}".`));
+				return text;
 			}
 
-			const lines: string[] = [theme.fg("dim", `via ${details.provider}`)];
-			if (details.answer) lines.push(theme.fg("muted", details.answer.slice(0, 160)));
+			const count = details.results.length;
+			// A blank line separates the call header from the result body.
+			const lines: string[] = [
+				"",
+				theme.fg("dim", `via ${details.provider} · ${count} result${count === 1 ? "" : "s"}`),
+			];
+			if (details.answer) lines.push(theme.fg("muted", oneLine(details.answer, 160)));
 			const shown = details.results.slice(0, 5);
 			lines.push(
-				...shown.map((item, index) => `${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", item.title)}`),
+				...shown.map(
+					(item, index) => `${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", oneLine(item.title, 100))}`,
+				),
 			);
-			const extra = details.results.length - shown.length;
+			const extra = count - shown.length;
 			if (extra > 0) lines.push(theme.fg("dim", `+${extra} more`));
-			return new Text(lines.join("\n"), 0, 0);
+			text.setText(lines.join("\n"));
+			return text;
 		},
 	});
 }
