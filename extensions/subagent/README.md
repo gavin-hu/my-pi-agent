@@ -21,8 +21,8 @@ pi install ./                           # install the package
   never replace the built-ins silently.
 - **Three modes.** One agent, a parallel batch, or a sequential chain.
 - **Streaming.** Tool calls and progress update live in the transcript while the
-  subagent runs; `Ctrl+O` expands the full task, tool calls, Markdown output, and
-  usage.
+  subagent runs; the `app.tools.expand` key (`ctrl+o` by default) expands the
+  full task, tool calls, Markdown output, and usage.
 - **Inherited model.** Subagents use the dispatching session's model and thinking
   level unless an agent overrides them (none do).
 
@@ -186,15 +186,16 @@ child's system prompt for behavior; the tool list is the enforcement.
 
 ```
 ✓ explorer 4s
+
 → grep /retry/ in ~/src
 → read ~/src/http.ts:40-120
 Retries are configured in http.ts:64...
 2 turns ↑12.4k ↓1.1k R8.0k $0.0042 ctx:18.2k claude-sonnet-4-5
 ```
 
-**Expanded** (`Ctrl+O`): the full task, every intermediate assistant message and
-tool call, the final output rendered as Markdown, and per-step/per-task usage
-with a total.
+**Expanded** (the `app.tools.expand` key, `ctrl+o` by default): the full task,
+every intermediate assistant message and tool call, the final output rendered as
+Markdown, and per-step/per-task usage with a total.
 
 A failed or aborted result always shows its `errorMessage`, falling back to the
 subprocess `stderr`, in both the collapsed and expanded views, in every mode. A
@@ -269,6 +270,13 @@ step's `Output`.
   is pure except for an optional elapsed-time repaint, and `run.ts` takes an
   injectable `SpawnFn`, so tests can drive a scripted child process without
   launching `pi` or spending tokens.
+- **The transcript reuses its components.** `renderCall` reuses the slot's
+  `Text`; `renderResult` reuses a `Text` for the collapsed view and rebuilds a
+  reused `Container` for the expanded view via `context.lastComponent`. The
+  expand affordance binds to `app.tools.expand` (built locally from `keyText`
+  and the passed theme, so a rebind is respected and tests do not depend on the
+  global theme). The collapsed single result separates its header from the body
+  with a blank line, matching the multi view.
 - **Temp prompt file.** `--append-system-prompt` takes a path, so the agent's
   system prompt is written to a `0600` temp file and removed in `finally`; it is
   never written into the working tree.

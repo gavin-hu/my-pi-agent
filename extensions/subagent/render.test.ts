@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
+import { Container, getKeybindings, KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
 import { emptyUsage } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
@@ -220,7 +221,7 @@ describe("renderSubagentResult", () => {
 			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
 		);
 		expect(text).toContain("Error: boom");
-		expect(text).toContain("Ctrl+O to expand");
+		expect(text).toContain("to expand");
 	});
 
 	test("a single-step chain keeps its mode header", () => {
@@ -239,7 +240,7 @@ describe("renderSubagentResult", () => {
 				theme,
 			),
 		);
-		expect(text).toContain("Ctrl+O to expand");
+		expect(text).toContain("to expand");
 	});
 
 	test("expanded keeps output order when the last message has no text", () => {
@@ -299,14 +300,14 @@ describe("renderSubagentResult", () => {
 		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
 		);
-		expect(text).toContain("Ctrl+O to expand");
+		expect(text).toContain("to expand");
 	});
 
 	test("offers to expand when a multi error is truncated", () => {
 		const failed = single({ agent: "planner", exitCode: 1, stopReason: "error", stderr: "e".repeat(1000) });
 		const details: SubagentDetails = { mode: "parallel", results: [failed, single({ agent: "worker" })] };
 		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
-		expect(text).toContain("Ctrl+O to expand");
+		expect(text).toContain("to expand");
 	});
 
 	test("expanded blank output falls back to (no output)", () => {
@@ -398,5 +399,83 @@ describe("renderSubagentResult", () => {
 		);
 		expect(text).toContain("exit 1");
 		expect(text).toContain("Subprocess exited with code 1");
+	});
+});
+
+describe("spacing, keybinding, and reuse", () => {
+	const ctx = () => ({ state: {}, invalidate: () => {}, lastComponent: undefined });
+
+	test("collapsed single separates the header from the body with a blank line", () => {
+		const lines = renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, theme)
+			.render(80)
+			.map((line) => line.trimEnd());
+		expect(lines[0]).toContain("✓ explorer");
+		expect(lines[1]).toBe("");
+		expect(lines[2]).toContain("all done");
+	});
+
+	test("the expand hint follows the bound app.tools.expand key", () => {
+		const previous = getKeybindings();
+		setKeybindings(
+			new KeybindingsManager({
+				...TUI_KEYBINDINGS,
+				"app.tools.expand": { defaultKeys: "ctrl+o", description: "Toggle tool output" },
+			}),
+		);
+		try {
+			const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
+			const text = render(
+				renderSubagentResult(
+					toolResult({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] }),
+					{ expanded: false },
+					theme,
+				),
+			);
+			expect(text).toContain("ctrl+o to expand");
+		} finally {
+			setKeybindings(previous);
+		}
+	});
+
+	test("renderSubagentCall reuses the slot Text", () => {
+		const first = renderSubagentCall({ agent: "explorer", task: "a" }, theme, { lastComponent: undefined });
+		const second = renderSubagentCall({ agent: "explorer", task: "b" }, theme, { lastComponent: first });
+		expect(second).toBe(first);
+		expect(render(first)).toContain("b");
+	});
+
+	test("collapsed result reuses the slot Text", () => {
+		const first = renderSubagentResult(
+			toolResult({ mode: "single", results: [single()] }),
+			{ expanded: false },
+			theme,
+			ctx(),
+		);
+		const second = renderSubagentResult(
+			toolResult({ mode: "single", results: [single({ agent: "planner" })] }),
+			{ expanded: false },
+			theme,
+			{ ...ctx(), lastComponent: first },
+		);
+		expect(second).toBe(first);
+		expect(render(first)).toContain("planner");
+	});
+
+	test("expanded result reuses the slot Container", () => {
+		const first = renderSubagentResult(
+			toolResult({ mode: "single", results: [single()] }),
+			{ expanded: true },
+			theme,
+			ctx(),
+		);
+		expect(first).toBeInstanceOf(Container);
+		const second = renderSubagentResult(
+			toolResult({ mode: "single", results: [single({ agent: "planner" })] }),
+			{ expanded: true },
+			theme,
+			{ ...ctx(), lastComponent: first },
+		);
+		expect(second).toBe(first);
+		expect(render(first)).toContain("planner");
 	});
 });

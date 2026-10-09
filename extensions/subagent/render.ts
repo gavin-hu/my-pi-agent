@@ -10,7 +10,7 @@
  * a failed task never loses its message, regardless of how many tasks ran.
  */
 
-import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
+import { getMarkdownTheme, keyText, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
 import { sanitize as sanitizeWhitespace, stripControlChars } from "../../lib/format.ts";
@@ -22,6 +22,20 @@ import type { SingleResult, SubagentDetails } from "./types.ts";
 /** Model text on one line: strip control characters before collapsing whitespace. */
 function sanitize(text: string): string {
 	return sanitizeWhitespace(stripControlChars(text));
+}
+
+/** Keybinding id for the built-in expand toggle; never hardcode the key. */
+const EXPAND_KEYBINDING = "app.tools.expand";
+
+/**
+ * The collapsed expand affordance: the bound key in `dim` inside a `muted`
+ * parenthetical. Built locally rather than with the host `keyHint`, which
+ * colours through the global theme instead of the theme passed to the
+ * renderer. Degrades to `(to expand)` when the key is unbound.
+ */
+function expandHint(theme: Theme): string {
+	const key = keyText(EXPAND_KEYBINDING);
+	return theme.fg("muted", `(${key ? `${key} ` : ""}to expand)`);
 }
 
 type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
@@ -101,9 +115,9 @@ function hasClippedError(result: SingleResult, status: ResultStatus): boolean {
 /** The lines under a collapsed result header: error, output preview, or a placeholder. */
 function collapsedBody(result: SingleResult, status: ResultStatus, items: DisplayItem[], theme: Theme): string {
 	const error = renderError(result, status, theme, COLLAPSED_ERROR_MAX);
-	if (error) return `\n${error}`;
-	if (items.length === 0) return `\n${theme.fg("muted", status === "running" ? "(running…)" : "(no output)")}`;
-	return `\n${renderDisplayItems(items, theme, COLLAPSED_ITEM_COUNT)}`;
+	if (error) return error;
+	if (items.length === 0) return theme.fg("muted", status === "running" ? "(running…)" : "(no output)");
+	return renderDisplayItems(items, theme, COLLAPSED_ITEM_COUNT);
 }
 
 /** Whether expanding a collapsed result would reveal more than its preview. */
@@ -208,8 +222,21 @@ function resultLabel(result: SingleResult, index: number): string {
 	return prefix + result.agent;
 }
 
-/** Preview the requested mode and its agents. */
-export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): Component {
+/** The call-line context: the session cwd and the slot's previous component. */
+export interface SubagentCallContext {
+	cwd?: string;
+	lastComponent?: Component;
+}
+
+/** Preview the requested mode and its agents, reusing the slot's `Text`. */
+export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: SubagentCallContext): Component {
+	const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+	text.setText(callText(args, theme, context));
+	return text;
+}
+
+/** The call-line string for the requested mode. */
+function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): string {
 	const title = theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? theme.fg("dim", "read-only ") : "");
 	const cwdNote = (cwd?: string) => {
 		if (!cwd || cwd === context?.cwd) return "";
@@ -224,7 +251,7 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
 		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `… +${args.chain.length - 3} more`)}`;
-		return new Text(text, 0, 0);
+		return text;
 	}
 
 	if (args.tasks && args.tasks.length > 0) {
@@ -234,13 +261,13 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: {
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(sanitize(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
 		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `… +${args.tasks.length - 3} more`)}`;
-		return new Text(text, 0, 0);
+		return text;
 	}
 
 	const agentName = args.agent || "…";
 	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
 	text += `\n  ${theme.fg("dim", clip(sanitize(args.task ?? "…"), 60))}`;
-	return new Text(text, 0, 0);
+	return text;
 }
 
 /** Append one result's expanded block: header, error, task, output, usage. */
@@ -296,28 +323,18 @@ function addExpandedResult(
 	}
 }
 
-function expandedResult(
-	result: SingleResult,
-	theme: Theme,
-	mdTheme: ReturnType<typeof getMarkdownTheme>,
-	isPartial: boolean,
-	now: number,
-): Container {
-	const container = new Container();
-	addExpandedResult(container, result, theme, mdTheme, now, isPartial);
-	return container;
-}
-
-function collapsedResult(result: SingleResult, theme: Theme, isPartial: boolean, now: number): Text {
+/** The collapsed single result: header, a word, body, expand hint, and usage. */
+function collapsedSingleText(result: SingleResult, theme: Theme, isPartial: boolean, now: number): string {
 	const status = resultStatus(result, isPartial);
 	let text = resultHeader(result, status, theme, "step", now);
 
 	const displayItems = getDisplayItems(result.messages);
-	text += collapsedBody(result, status, displayItems, theme);
-	if (isExpandable(result, status, displayItems)) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+	// A blank line separates the header from the body, matching the multi view.
+	text += `\n\n${collapsedBody(result, status, displayItems, theme)}`;
+	if (isExpandable(result, status, displayItems)) text += `\n${expandHint(theme)}`;
 	const usage = usageLine(result);
 	if (usage) text += `\n${theme.fg("dim", usage)}`;
-	return new Text(text, 0, 0);
+	return text;
 }
 
 function summarizeResults(results: SingleResult[]) {
@@ -365,7 +382,7 @@ function multiHeader(details: SubagentDetails, theme: Theme): string {
 	return `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} · `))}${theme.fg("accent", status)}`;
 }
 
-function collapsedMulti(details: SubagentDetails, theme: Theme, now: number): Text {
+function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number): string {
 	const results = details.results;
 	const { running } = summarizeResults(results);
 	let text = multiHeader(details, theme);
@@ -380,18 +397,17 @@ function collapsedMulti(details: SubagentDetails, theme: Theme, now: number): Te
 		const taskNote = taskText ? theme.fg("dim", ` ${clip(sanitize(taskText), 50)}`) : "";
 		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme)}`;
 		text += statusSuffix(result, status, theme, now);
-		text += collapsedBody(result, status, displayItems, theme);
+		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	}
 	if (running === 0) {
 		const usage = totalUsageLine(results);
 		if (usage) text += `\n\n${theme.fg("dim", `Total: ${usage}`)}`;
 	}
-	if (running > 0 || hasHidden) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
-	return new Text(text, 0, 0);
+	if (running > 0 || hasHidden) text += `\n${expandHint(theme)}`;
+	return text;
 }
 
-function expandedMulti(details: SubagentDetails, theme: Theme, now: number): Container {
-	const container = new Container();
+function fillExpandedMulti(container: Container, details: SubagentDetails, theme: Theme, now: number): void {
 	const mdTheme = getMarkdownTheme();
 	container.addChild(new Text(multiHeader(details, theme), 0, 0));
 
@@ -408,17 +424,17 @@ function expandedMulti(details: SubagentDetails, theme: Theme, now: number): Con
 			container.addChild(new Text(theme.fg("dim", `Total: ${usage}`), 0, 0));
 		}
 	}
-	return container;
 }
 
-/** The subset of Pi's render context the elapsed timer needs. */
-interface ElapsedRenderContext {
+/** The subset of Pi's render context the transcript needs. */
+interface SubagentRenderContext {
 	state: Record<string, unknown>;
 	invalidate: () => void;
+	lastComponent?: Component;
 }
 
 /** Keep a 1s repaint ticking while any result is still running, so elapsed labels advance. */
-function syncElapsedTimer(running: boolean, context?: ElapsedRenderContext): void {
+function syncElapsedTimer(running: boolean, context?: SubagentRenderContext): void {
 	if (!context?.state) return;
 	const state = context.state as { elapsedTimer?: ReturnType<typeof setInterval> };
 	if (running && !state.elapsedTimer) {
@@ -435,14 +451,16 @@ export function renderSubagentResult(
 	result: AgentToolResult<unknown>,
 	options: { expanded: boolean; isPartial?: boolean; now?: number },
 	theme: Theme,
-	context?: ElapsedRenderContext,
+	context?: SubagentRenderContext,
 ): Component {
 	const now = options.now ?? Date.now();
 	const details = result.details as SubagentDetails | undefined;
 	if (!details || details.results.length === 0) {
 		syncElapsedTimer(false, context);
 		const first = result.content[0];
-		return new Text(first?.type === "text" ? first.text : "(no output)", 0, 0);
+		const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+		text.setText(first?.type === "text" ? first.text : "(no output)");
+		return text;
 	}
 
 	// The `-1` sentinel is set while a subprocess is in flight, in every mode.
@@ -452,11 +470,22 @@ export function renderSubagentResult(
 	);
 
 	const isPartial = options.isPartial ?? false;
-	if (details.mode === "single") {
-		const single = details.results[0];
-		return options.expanded
-			? expandedResult(single, theme, getMarkdownTheme(), isPartial, now)
-			: collapsedResult(single, theme, isPartial, now);
+	if (options.expanded) {
+		const container = context?.lastComponent instanceof Container ? context.lastComponent : new Container();
+		container.clear();
+		if (details.mode === "single") {
+			addExpandedResult(container, details.results[0], theme, getMarkdownTheme(), now, isPartial);
+		} else {
+			fillExpandedMulti(container, details, theme, now);
+		}
+		return container;
 	}
-	return options.expanded ? expandedMulti(details, theme, now) : collapsedMulti(details, theme, now);
+
+	const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+	text.setText(
+		details.mode === "single"
+			? collapsedSingleText(details.results[0], theme, isPartial, now)
+			: collapsedMultiText(details, theme, now),
+	);
+	return text;
 }
