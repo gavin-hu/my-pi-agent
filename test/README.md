@@ -6,12 +6,12 @@ Testing conventions for this package. Keep this file and the layout in sync;
 ## Running
 
 ```bash
-bun test                 # whole suite (parallel workers, 30s timeout)
+bun test                 # whole suite (isolated per-file globals, 30s timeout)
 bun test <path>          # one file or directory
 bun run check            # format + typecheck + transpile + test + smoke
 ```
 
-`bun test` runs each test file in its own worker process (`--parallel`), so
+`bun test` runs each test file with a fresh global object (`--isolate`), so
 `process.env` edits in one file cannot leak into another.
 `test/helpers/preload.ts` additionally snapshots and restores the tracked env
 vars (`PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`, `PI_WORKTREE_ROOT`,

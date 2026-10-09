@@ -13,7 +13,7 @@ links to, not here.
 ```bash
 bun run check   # format:check + typecheck + transpile + test + smoke
 bun run format  # biome format --write .
-bun run test    # bun test --parallel --timeout 30000
+bun run test    # bun test --isolate --timeout 30000
 ```
 
 - Run `bun run check` after code changes and fix every failure.
@@ -66,8 +66,8 @@ why.
 ## TUI design conventions
 
 Follow Pi's built-in TUI design system; do not invent a private visual
-language. Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/docs/tui.md)
-and [Themes](https://github.com/earendil-works/pi/tree/main/docs/themes.md)
+language. Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
+and [Themes](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/themes.md)
 docs are normative. In this package the shared implementation is `lib/tui.ts`
 (screen chrome), `lib/ui.ts` (glyphs and status keys), and
 `lib/list-cursor.ts` (list behaviour) — use it rather than re-deriving chrome,
@@ -141,8 +141,8 @@ user-facing content above the contributor sections.
   and command surface, Pi integration contract, design notes, and file map.
 - [`extensions/worktree/README.md`](./extensions/worktree/README.md) — the
   worktree flow used above, plus prune and include behavior.
-- [Pi docs](https://github.com/earendil-works/pi/tree/main/docs) — the package,
-  extension, and configuration contracts.
+- [Pi docs](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs)
+  — the package, extension, and configuration contracts.
 
 ## How to work
 
