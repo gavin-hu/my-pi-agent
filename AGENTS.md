@@ -13,7 +13,7 @@ links to, not here.
 ```bash
 bun run check   # format:check + typecheck + transpile + test + smoke
 bun run format  # biome format --write .
-bun run test    # bun test --isolate --timeout 30000
+bun run test    # bun test --parallel=4 --timeout 30000
 ```
 
 - Run `bun run check` after code changes and fix every failure.

@@ -102,7 +102,7 @@ factory registers nothing. To drop the whole package instead, use Pi's own
 
 ```bash
 bun install
-bun run test         # unit tests
+bun run test         # unit tests (bun test --parallel=4)
 bun run test:watch   # unit tests, watch mode
 bun run typecheck    # tsc --noEmit
 bun run format       # biome format --write .
