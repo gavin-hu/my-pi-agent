@@ -63,6 +63,49 @@ why.
 - Adding or renaming a tool also means updating `test/naming.test.ts` and the
   root `README.md` table.
 
+## TUI design conventions
+
+Follow Pi's built-in TUI design system; do not invent a private visual
+language. Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/docs/tui.md)
+and [Themes](https://github.com/earendil-works/pi/tree/main/docs/themes.md)
+docs are normative. In this package the shared implementation is `lib/tui.ts`
+(screen chrome), `lib/ui.ts` (glyphs and status keys), and
+`lib/list-cursor.ts` (list behaviour) — use it rather than re-deriving chrome,
+glyphs, or scroll math.
+
+- Prefer the host before custom code: `ctx.ui.select` / `confirm` / `input` /
+  `editor`, then `notify` / `setStatus` / `setWidget`, then the pi-tui
+  components. Reach for `ctx.ui.custom()` or a tool/entry renderer only when a
+  surface needs its own layout or input, and never build a second terminal
+  renderer.
+- Match the built-in block grammar: one leading blank line per transcript
+  block, nothing trailing (the host owns spacing); frame screens with a plain
+  `─` rule, not box corners.
+- Speak the built-in visual language: semantic `Theme` tokens only (never
+  literal ANSI or hex), `screenHint` / Pi's `keyHint` for the hint row, and the
+  shared `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead
+  of retyped literals.
+- Width is terminal columns, not string length. Use `visibleWidth`,
+  `truncateToWidth`, and `wrapTextWithAnsi`; every returned line must fit the
+  width, and width arithmetic starts from `Math.max(1, width)`.
+- Compact by default, expand for detail: label-first one-line widgets, with
+  more revealed on demand or on a dedicated screen.
+- Sanitize at the boundary: run model- or file-authored text through
+  `stripControlChars` / `sanitize` before it reaches a widget or the terminal.
+- Keyboard first, and consistent. Use `matchesKey` / `Key`, give every mouse
+  interaction a keyboard path, and keep the shared bindings: Esc closes,
+  `j` / `k` and arrows scroll, `g` / `G` and Home/End jump.
+- Components are derived and cheap. Implement `Component` with `invalidate()`,
+  update an instance in place, read live state on each render, and call
+  `requestRender()` only after state changes; never hold themed strings in
+  state unless `invalidate()` rebuilds them. A widget is derived from state,
+  never authoritative.
+- Size from the live viewport: `screenHeader`, `viewportRows`, `fitRows`, and
+  `ListCursor`, fed by a `ViewportRowsSource` (number or getter) with a sensible
+  fallback, so a resize is picked up. List screens stay docked; only the plan
+  review uses `FULL_SCREEN_OVERLAY`.
+- A TUI module gets a sibling `tui.test.ts`; see [`test/README.md`](./test/README.md).
+
 ## Extension docs
 
 Each extension has one doc, `extensions/<name>/README.md`; there is no separate
