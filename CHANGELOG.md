@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   edits, or clears a store. Project notes load and write only for a trusted
   project, text is sanitized at the boundary, and writes are read-modify-write
   under the host file-mutation queue and land atomically.
+- `doc`: `read_doc` now extracts `.xlsx` spreadsheets through the optional,
+  lazily loaded `read-excel-file` package, which Pi installs as a dependency of
+  this package. Every worksheet becomes a `[Sheet]` heading followed by
+  tab-separated rows; dates render as ISO strings, and legacy `.xls` gets a
+  conversion hint. If the package is somehow absent, the tool tells the model
+  to ask the user before installing it, then names the command.
 
 ### Fixed
 

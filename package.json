@@ -28,6 +28,8 @@
     "document",
     "pdf",
     "docx",
+    "xlsx",
+    "excel",
     "read_doc",
     "memory",
     "cross-session",
@@ -79,6 +81,9 @@
     "transpile": "bun run scripts/transpile.ts",
     "smoke": "bun run scripts/smoke-runtime.ts",
     "check": "bun run format:check && bun run typecheck && bun run transpile && bun run test && bun run smoke"
+  },
+  "dependencies": {
+    "read-excel-file": "^9.3.12"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",

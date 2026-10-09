@@ -9,18 +9,44 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { stripControlChars } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
+import { XlsxUnavailableError } from "./extract/xlsx.ts";
 import { detectFormat, supportedExtensions, unsupportedHint } from "./formats.ts";
 import { formatDoc } from "./paging.ts";
 import { formatDocCall, formatDocResult, reuseText } from "./render.ts";
 import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 
 export { TOOL_NAME } from "./schema.ts";
+
+/** This extension's package root, named in the missing-package guidance. */
+function packageRoot(): string | undefined {
+	try {
+		return resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Guidance shown when `read-excel-file` is missing. The extension never installs
+ * a package or opens its own dialog: it tells the model to ask the user first,
+ * then run the command, so the install is the user's explicit choice.
+ */
+export function xlsxMissingGuidance(): string {
+	const root = packageRoot();
+	const where = root ? ` in ${root}` : " in this package's directory";
+	return (
+		"XLSX extraction needs the 'read-excel-file' package, which this Pi package installs as a dependency. " +
+		`Ask the user first with the ask_user_question tool; only if they agree, run \`npm install read-excel-file\`${where}, ` +
+		"then call read_doc again."
+	);
+}
 
 /** Resolve a request path under `root`, refusing anything that escapes it. */
 function resolveDocument(root: string, rawPath: string): string {
@@ -59,13 +85,15 @@ export function registerDocTool(pi: ExtensionAPI): void {
 		name: TOOL_NAME,
 		label: "Read document",
 		description:
-			"Read a local PDF or DOCX file and return its extracted plain text. Output is pageable: when the result " +
+			"Read a local PDF, DOCX, or XLSX file and return its extracted plain text. Output is pageable: when the result " +
 			"is truncated, call read_doc again with the given startIndex. Formatting is lost; use the built-in read " +
 			"tool for text and image files. PDF extraction needs the optional unpdf package and DOCX the optional " +
-			"mammoth package; the error names the missing package.",
-		promptSnippet: "Read a local PDF or DOCX file as plain text, paged with startIndex/maxChars.",
+			"mammoth package; the error names the missing package. XLSX uses the read-excel-file package, which Pi " +
+			"installs with this package.",
+		promptSnippet: "Read a local PDF, DOCX, or XLSX file as plain text, paged with startIndex/maxChars.",
 		promptGuidelines: [
-			"Use read_doc for .pdf and .docx files; the built-in read tool is for text and images.",
+			"Use read_doc for .pdf, .docx, and .xlsx files; the built-in read tool is for text and images.",
+			"If read_doc reports that read-excel-file is missing, ask the user with the ask_user_question tool before installing it; never install silently.",
 			"When the result is truncated, call read_doc again with the suggested startIndex.",
 			"Extraction returns plain text only; tables, images, and formatting are dropped.",
 		],
@@ -93,7 +121,13 @@ export function registerDocTool(pi: ExtensionAPI): void {
 
 			const abs = isAbsolute(display) ? display : join(root, display);
 			const { bytes, size } = await readBytes(abs, display, config.maxFileBytes);
-			const text = await format.extract(bytes);
+			let text: string;
+			try {
+				text = await format.extract(bytes);
+			} catch (error) {
+				if (error instanceof XlsxUnavailableError) throw new Error(xlsxMissingGuidance());
+				throw error;
+			}
 
 			const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
 			const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxChars;

@@ -1,11 +1,12 @@
-# doc — read local PDF and DOCX files as text
+# doc — read local PDF, DOCX, and XLSX files as text
 
-`doc` adds a `read_doc` tool that extracts plain text from a local `.pdf` or
-`.docx` file, paged with `startIndex` / `maxChars`. PDF extraction uses the
-optional `unpdf` package and DOCX the optional `mammoth` package; both are
-loaded lazily, so the extension has no required dependencies. Reads are confined
-to the effective working directory with the same symlink-aware guard the
-built-in path tools use.
+`doc` adds a `read_doc` tool that extracts plain text from a local `.pdf`,
+`.docx`, or `.xlsx` file, paged with `startIndex` / `maxChars`. PDF extraction
+uses the optional `unpdf` package, DOCX the optional `mammoth` package, and XLSX
+the `read-excel-file` package, which Pi installs with this package. The
+extractors are loaded lazily, so the extension still loads when one is missing.
+Reads are confined to the effective working directory with the same
+symlink-aware guard the built-in path tools use.
 
 ## Quickstart
 
@@ -23,7 +24,8 @@ Then ask the model to read a document, or call the tool directly:
 ```
 
 PDF and DOCX extraction are optional. Install the package for the format you
-need; a missing one produces an error naming the command:
+need; a missing one produces an error naming the command. XLSX needs no extra
+step: `read-excel-file` is a dependency Pi installs with this package.
 
 ```bash
 npm i unpdf     # PDF
@@ -32,7 +34,7 @@ npm i mammoth   # DOCX
 
 ## What it does
 
-- Extracts plain text from `.pdf` and `.docx` files for the model to read.
+- Extracts plain text from `.pdf`, `.docx`, and `.xlsx` files for the model to read.
 - Pages long documents: when output is truncated, call again with the
   `startIndex` named in the note.
 - Slices by code point, so CJK and emoji stay well-formed.
@@ -47,7 +49,7 @@ npm i mammoth   # DOCX
 
 | Parameter | Type | Meaning |
 |---|---|---|
-| `path` | string, required, 1–4096 chars | Path to a `.pdf` or `.docx`, relative to the working directory (or absolute inside it). |
+| `path` | string, required, 1–4096 chars | Path to a `.pdf`, `.docx`, or `.xlsx`, relative to the working directory (or absolute inside it). |
 | `startIndex` | integer ≥ 0 | Code-point offset to start from. Defaults to `0`. |
 | `maxChars` | integer 200–100000 | Characters to return. Defaults to the configured `maxChars`. |
 
@@ -56,7 +58,7 @@ Result (`details` / `structuredContent`):
 | Field | Meaning |
 |---|---|
 | `path` | The requested path. |
-| `format` | The registry id: `"pdf"` or `"docx"`. |
+| `format` | The registry id: `"pdf"`, `"docx"`, or `"xlsx"`. |
 | `bytes` | File size. |
 | `chars` | Total characters in the extracted text. |
 | `startIndex` | Offset this slice started at. |
@@ -68,8 +70,11 @@ The model-facing `content` is a header (`Path:`, `Format:`, `Size:`), a blank
 line, the slice, and a truncation note when applicable.
 
 Errors are thrown for: a missing or non-file path, a path outside the root, an
-unsupported extension (with a targeted hint for legacy `.doc`), a disabled
-format, an over-size file, and a missing extractor package.
+unsupported extension (with a targeted hint for legacy `.doc` and `.xls`), a
+disabled format, an over-size file, and a missing extractor package. If
+`read-excel-file` is missing, the error tells the model to ask the user with
+`ask_user_question` and gives the install command; the extension never installs
+a package itself.
 
 ## Configuration
 
@@ -80,7 +85,7 @@ format, an over-size file, and a missing extractor package.
 |---|---|---|---|
 | `maxFileBytes` | `20971520` (20 MiB) | 1 KiB – 512 MiB | Reject larger files. |
 | `maxChars` | `40000` | 200 – 100000 | Default slice size. |
-| `formats` | `{ "pdf": true, "docx": true }` | — | Per-format on/off, merged over each registry entry's default; unknown keys are ignored. |
+| `formats` | `{ "pdf": true, "docx": true, "xlsx": true }` | — | Per-format on/off, merged over each registry entry's default; unknown keys are ignored. |
 
 ```jsonc
 // .pi/doc.json
@@ -107,9 +112,13 @@ format, an over-size file, and a missing extractor package.
 ## Extraction
 
 PDF text comes from `unpdf` (`extractText(bytes, { mergePages: true })`); DOCX
-text comes from `mammoth` (`extractRawText({ buffer })`). Both return plain,
-unformatted text: tables, images, styles, and layout are dropped. A scanned or
-image-only PDF yields little or no text and is reported as
+text comes from `mammoth` (`extractRawText({ buffer })`); XLSX text comes from
+`read-excel-file` (its default export reads every sheet). PDF and DOCX return
+plain, unformatted text: tables, images, styles, and layout are dropped. XLSX
+keeps the table shape: each worksheet becomes a `[Sheet]` heading followed by
+tab-separated rows, with dates as ISO strings; cell formatting and formulas are
+dropped (a formula shows its cached value). A scanned or image-only PDF yields
+little or no text and is reported as
 `(no extractable text; the document may be scanned or image-only)`.
 
 ## Supported formats
@@ -118,6 +127,7 @@ image-only PDF yields little or no text and is reported as
 |---|---|---|---|
 | PDF | `.pdf` | `unpdf` | yes |
 | DOCX | `.docx` | `mammoth` | yes |
+| XLSX | `.xlsx` | `read-excel-file` | yes |
 
 ## Adding a format
 
@@ -128,8 +138,10 @@ config defaults, and error listing all derive from it.
    `<Fmt>UnavailableError`, and extractor/loader test seams (mirror
    `extract/pdf.ts`).
 2. Add a `DocumentFormat` entry to `FORMATS` and widen the `id` union.
-3. If it needs a package, add it to `peerDependencies` (`"*"`) and
-   `peerDependenciesMeta` (optional) in `package.json`.
+3. If it needs a package, declare it in `package.json`: a required runtime
+   dependency goes in `dependencies` (Pi installs it with the package, as XLSX
+   does), while an optional one goes in `peerDependencies` (`"*"`) plus
+   `peerDependenciesMeta` (optional), as `unpdf` and `mammoth` do.
 4. Add `extract/<fmt>.test.ts` and extend `formats.test.ts` / `config.test.ts`.
 5. Add a row to the table above.
 
@@ -176,14 +188,17 @@ the theme's own ANSI codes stay intact.
 - No OCR: scanned or image-only PDFs return little or no text.
 - Formatting, tables, and images are not preserved.
 - No decompression or extraction timeout. `maxFileBytes` bounds the compressed
-  input, but a DOCX is a zip that can expand much larger, and complex PDFs can
-  be CPU-heavy; neither `unpdf` nor `mammoth` offers cancellation. `maxChars`
-  limits the returned slice, not peak extraction memory.
+  input, but a DOCX or XLSX is a zip that can expand much larger, and complex
+  PDFs can be CPU-heavy; none of `unpdf`, `mammoth`, or `read-excel-file`
+  offers cancellation. `maxChars` limits the returned slice, not peak
+  extraction memory.
+- XLSX drops cell formatting and styles, reads each formula's cached value, and
+  covers only `.xlsx` (legacy `.xls` gets a conversion hint).
 - Only one file per call.
 
 ## Non-goals
 
-- XLSX, PPTX, EPUB, RTF, ODT, and plain text (the registry makes new formats
+- PPTX, EPUB, RTF, ODT, and plain text (the registry makes new formats
   additive; plain text is the built-in `read`).
 - OCR of scanned documents.
 - Remote URLs (use `web_fetch`).
@@ -206,7 +221,7 @@ the theme's own ANSI codes stay intact.
 A separate tool rather than an overload of the built-in `read`: the worktree
 extension owns the built-in path tools and re-registers them, so overloading
 `read` would fight that machinery. A table-driven registry keeps the future
-XLSX/PPTX/EPUB work additive. The lazy extractors intentionally mirror
+PPTX/EPUB work additive. The lazy extractors intentionally mirror
 `web-access/fetch/pdf.ts` rather than sharing it, because extensions cannot
 import each other and the test-seam pattern needs module-level state that
 `lib/` forbids.
@@ -235,6 +250,7 @@ in one row, so repeating it would be pure duplication.
 | `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript summary (uppercase format, humanized range). |
 | `extract/pdf.ts` | Lazy `unpdf` extractor, `PdfUnavailableError`, test seams. |
 | `extract/docx.ts` | Lazy `mammoth` extractor, `DocxUnavailableError`, test seams. |
+| `extract/xlsx.ts` | Lazy `read-excel-file` extractor, `XlsxUnavailableError`, `sheetsToText` / `cellToText`, test seams. |
 
 ## Testing
 

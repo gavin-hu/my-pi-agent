@@ -16,7 +16,7 @@ export const DocParams = Type.Object({
 	path: Type.String({
 		minLength: 1,
 		maxLength: MAX_PATH_LENGTH,
-		description: "Path to a .pdf or .docx file, relative to the working directory (or absolute inside it).",
+		description: "Path to a .pdf, .docx, or .xlsx file, relative to the working directory (or absolute inside it).",
 	}),
 	startIndex: Type.Optional(
 		Type.Integer({
