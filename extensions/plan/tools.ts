@@ -18,6 +18,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui.ts";
+import { EXPAND_KEYBINDING } from "../../lib/ui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
@@ -66,9 +67,6 @@ function preview(plan: string): { body: string; more: number } {
 	if (lines.length <= PREVIEW_LINES) return { body: plan, more: 0 };
 	return { body: lines.slice(0, PREVIEW_LINES).join("\n"), more: lines.length - PREVIEW_LINES };
 }
-
-/** Keybinding id for the built-in expand toggle; never hardcode the key. */
-const EXPAND_KEYBINDING = "app.tools.expand";
 
 /** The collapsed expand affordance, built from the bound key and the passed theme. */
 function expandHint(theme: Theme): string {

@@ -15,12 +15,9 @@ import { pathToFileURL } from "node:url";
 import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, hyperlink, type Component, Text } from "@earendil-works/pi-tui";
 import { formatTokens, sanitize, stripControlChars } from "../../lib/format.ts";
-import { SEPARATORS } from "../../lib/ui.ts";
+import { EXPAND_KEYBINDING, SEPARATORS } from "../../lib/ui.ts";
 import { summarizeDoc } from "./paging.ts";
 import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
-
-/** Keybinding id for the built-in expand toggle; never hardcode the key. */
-export const EXPAND_KEYBINDING = "app.tools.expand";
 
 /** Lines of extracted text shown in the expanded preview. */
 export const PREVIEW_LINES = 20;

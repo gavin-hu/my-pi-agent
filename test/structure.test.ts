@@ -1,8 +1,10 @@
 /**
- * Layout guard for the co-located test suite.
+ * Structure and convention guard for the suite.
  *
  * Tests live next to the source they cover; `test/` holds only shared helpers
- * and the package-level contract tests. See `test/README.md`.
+ * and the package-level contract tests. Besides test-file bans, the scan
+ * enforces the TUI renderer conventions on extension/lib source. See
+ * `test/README.md`.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -150,6 +152,53 @@ describe("test conventions", () => {
 		for (const dir of SCANNED_DIRS) {
 			for (const file of walkFiles(dir)) {
 				if (file.endsWith(".test.ts")) offenders.push(...scanBans(file));
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+});
+
+/** Extension/lib source files (not `.test.ts`). */
+function sourceFiles(root: string): string[] {
+	return walkFiles(root).filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
+}
+
+/** A `renderCall(` / `renderResult(` definition at the start of a line. */
+const RENDERER_DEF = /^\s*(?:async\s+)?render(?:Call|Result)\s*\(/m;
+/** The raw expand keybinding id; import `EXPAND_KEYBINDING` from `lib/ui.ts`. */
+const RAW_EXPAND_KEY = /"app\.tools\.expand"/;
+/** A literal expand key, which ignores a rebound keybinding. */
+const LITERAL_EXPAND_KEY = /Ctrl\+O|ctrl\+o/;
+
+describe("source conventions", () => {
+	test("tool renderers reuse context.lastComponent", () => {
+		const offenders: string[] = [];
+		for (const dir of SCANNED_DIRS) {
+			for (const file of sourceFiles(dir)) {
+				const text = readFileSync(file, "utf-8");
+				if (RENDERER_DEF.test(text) && !text.includes("lastComponent")) {
+					offenders.push(`${file.slice(repo.length + 1)}: renderer does not reuse context.lastComponent`);
+				}
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+
+	test("extensions bind the expand affordance to the shared keybinding id", () => {
+		const offenders: string[] = [];
+		for (const name of dirsOf(extensionsDir)) {
+			for (const file of sourceFiles(join(extensionsDir, name))) {
+				const relative = file.slice(repo.length + 1);
+				readFileSync(file, "utf-8")
+					.split("\n")
+					.forEach((line, index) => {
+						if (RAW_EXPAND_KEY.test(line)) {
+							offenders.push(`${relative}:${index + 1}: import EXPAND_KEYBINDING from lib/ui.ts`);
+						}
+						if (LITERAL_EXPAND_KEY.test(line)) {
+							offenders.push(`${relative}:${index + 1}: use keyText(EXPAND_KEYBINDING), not a literal key`);
+						}
+					});
 			}
 		}
 		expect(offenders).toEqual([]);

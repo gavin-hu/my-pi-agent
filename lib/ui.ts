@@ -1,5 +1,6 @@
 /**
- * Shared UI vocabulary: status-chip glyphs, separators, and status keys.
+ * Shared UI vocabulary: status-chip glyphs, separators, status keys, and the
+ * expand-toggle keybinding id.
  *
  * The status-bar routes and re-renders the chips these extensions publish, so
  * the glyph and the `ctx.ui.setStatus` key must agree across both sides. Keep
@@ -42,3 +43,10 @@ export const STATUS_KEYS = {
 	serve: "serve",
 	rewind: "rewind",
 } as const;
+
+/**
+ * Keybinding id for Pi's built-in expand toggle (`ctrl+o` by default). Bind a
+ * collapse hint to it through `keyText` rather than retyping the key, so a
+ * rebound key is respected.
+ */
+export const EXPAND_KEYBINDING = "app.tools.expand";

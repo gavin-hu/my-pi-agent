@@ -14,6 +14,7 @@ import { getMarkdownTheme, keyText, type Theme } from "@earendil-works/pi-coding
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
 import { sanitize as sanitizeWhitespace, stripControlChars } from "../../lib/format.ts";
+import { EXPAND_KEYBINDING } from "../../lib/ui.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats, shortenPath } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
@@ -23,9 +24,6 @@ import type { SingleResult, SubagentDetails } from "./types.ts";
 function sanitize(text: string): string {
 	return sanitizeWhitespace(stripControlChars(text));
 }
-
-/** Keybinding id for the built-in expand toggle; never hardcode the key. */
-const EXPAND_KEYBINDING = "app.tools.expand";
 
 /**
  * The collapsed expand affordance: the bound key in `dim` inside a `muted`

@@ -119,6 +119,18 @@ of one ban with an `allow:<name>` comment when the match is genuine content
 (for example a whitespace-normalisation assertion) and not layout padding. Add
 to either only with a stated reason; do not silently widen a regex.
 
+## Source conventions (enforced)
+
+The same file scans extension and `lib/` **source** (`.ts`, not `.test.ts`) and
+fails a tool renderer that:
+
+- defines `renderCall(` / `renderResult(` without referencing
+  `context.lastComponent`;
+- hardcodes the expand key (`Ctrl+O` / `ctrl+o`) instead of binding through
+  `keyText(EXPAND_KEYBINDING)`;
+- repeats the raw `"app.tools.expand"` id instead of importing
+  `EXPAND_KEYBINDING` from `lib/ui.ts`.
+
 ## Layout
 
 Tests are co-located with the source they cover. `test/` holds only shared
