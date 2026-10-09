@@ -56,7 +56,7 @@ via searxng · 8 results
 Pi is a coding agent harness …
 1. Pi — a coding agent harness
 2. GitHub - earendil-works/pi
-+3 more
++3 more (ctrl+o to expand)
 ```
 
 ```

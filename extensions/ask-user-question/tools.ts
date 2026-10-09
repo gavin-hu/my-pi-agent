@@ -105,7 +105,8 @@ export function registerTools(pi: ExtensionAPI): void {
 				return `${theme.fg("success", "✓ ")}${header}: ${numbered}`;
 			});
 			if (details.cancelled) lines.push(theme.fg("warning", "(cancelled)"));
-			component.setText(lines.join("\n"));
+			// A blank line separates the call header from a multi-line answer body.
+			component.setText(lines.length > 1 ? `\n${lines.join("\n")}` : lines.join("\n"));
 			return component;
 		},
 	});

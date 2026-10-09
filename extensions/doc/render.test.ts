@@ -9,8 +9,8 @@ import {
 	TUI_KEYBINDINGS,
 } from "@earendil-works/pi-tui";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { EXPAND_KEYBINDING } from "../../lib/ui.ts";
-import { expandHint, formatDocCall, previewText, renderDocPath } from "./render.ts";
+import { EXPAND_KEYBINDING, expandKey } from "../../lib/ui.ts";
+import { formatDocCall, previewText, renderDocPath } from "./render.ts";
 
 beforeEach(() => {
 	// Deterministic, hyperlink-free capabilities; individual tests opt in.
@@ -47,7 +47,7 @@ describe("renderDocPath", () => {
 	});
 });
 
-describe("expandHint", () => {
+describe("expandKey", () => {
 	test("renders the bound expand key", () => {
 		const previous = getKeybindings();
 		setKeybindings(
@@ -57,7 +57,7 @@ describe("expandHint", () => {
 			}),
 		);
 		try {
-			expect(expandHint(fakeTheme)).toContain("ctrl+o");
+			expect(expandKey(fakeTheme)).toContain("ctrl+o");
 		} finally {
 			setKeybindings(previous);
 		}

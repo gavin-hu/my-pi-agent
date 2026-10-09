@@ -31,6 +31,7 @@ import {
 	wheelDelta,
 } from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import { expandHint } from "../../lib/ui.ts";
 import {
 	compareJobs,
 	elapsedMs,
@@ -95,11 +96,19 @@ export class JobResult implements Component {
 		if (this.input.kind === "list") {
 			for (const job of this.input.jobs) lines.push(jobRow(job, this.theme, w));
 			if (this.input.more > 0) {
-				lines.push(truncateToWidth(`  ${this.theme.fg("dim", `… ${this.input.more} more`)}`, w, "…"));
+				lines.push(
+					truncateToWidth(`  ${this.theme.fg("dim", `… ${this.input.more} more`)} ${expandHint(this.theme)}`, w, "…"),
+				);
 			}
 		} else {
 			if (this.input.earlier > 0) {
-				lines.push(truncateToWidth(this.theme.fg("dim", `… ${this.input.earlier} earlier lines`), w, "…"));
+				lines.push(
+					truncateToWidth(
+						`${this.theme.fg("dim", `… ${this.input.earlier} earlier lines`)} ${expandHint(this.theme)}`,
+						w,
+						"…",
+					),
+				);
 			}
 			for (const line of this.input.lines) {
 				lines.push(this.theme.fg("toolOutput", truncateToWidth(line, w, "…")));

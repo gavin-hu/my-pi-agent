@@ -170,6 +170,18 @@ describe("job transcript rendering", () => {
 		expect(again).toBe(view);
 	});
 
+	test("an expanded list shows every job with no cap hint", () => {
+		const { tool } = setup();
+		const jobs = Array.from({ length: 10 }, (_, i) => record({ id: `j${i + 1}`, label: `job ${i + 1}` }));
+		const result = { content: [{ type: "text", text: "model" }], details: { action: "list", jobs } };
+		const text = tool
+			.renderResult(result, { expanded: true, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("j10");
+		expect(text).not.toContain("more");
+	});
+
 	test("logs render a blank line, the earlier note, and themed lines", () => {
 		const { tool } = setup();
 		const logs = Array.from({ length: 12 }, (_, i) => `line ${i}`).join("\n");

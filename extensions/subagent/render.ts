@@ -10,11 +10,11 @@
  * a failed task never loses its message, regardless of how many tasks ran.
  */
 
-import { getMarkdownTheme, keyText, type Theme } from "@earendil-works/pi-coding-agent";
+import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
 import { sanitize as sanitizeWhitespace, stripControlChars } from "../../lib/format.ts";
-import { EXPAND_KEYBINDING } from "../../lib/ui.ts";
+import { expandHint } from "../../lib/ui.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats, shortenPath } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
@@ -23,17 +23,6 @@ import type { SingleResult, SubagentDetails } from "./types.ts";
 /** Model text on one line: strip control characters before collapsing whitespace. */
 function sanitize(text: string): string {
 	return sanitizeWhitespace(stripControlChars(text));
-}
-
-/**
- * The collapsed expand affordance: the bound key in `dim` inside a `muted`
- * parenthetical. Built locally rather than with the host `keyHint`, which
- * colours through the global theme instead of the theme passed to the
- * renderer. Degrades to `(to expand)` when the key is unbound.
- */
-function expandHint(theme: Theme): string {
-	const key = keyText(EXPAND_KEYBINDING);
-	return theme.fg("muted", `(${key ? `${key} ` : ""}to expand)`);
 }
 
 type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };

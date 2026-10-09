@@ -55,7 +55,8 @@ todo → 1/4 · Writing tests
 ```
 
 Progress lives on the call line, so the rail has no footer; the persistent
-widget and `/todos` still show the count.
+widget and `/todos` still show the count. A capped collapsed rail ends with
+`… N more` and the `app.tools.expand` hint.
 
 ## Tool
 

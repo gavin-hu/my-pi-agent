@@ -69,7 +69,8 @@ describe("JobResult", () => {
 	test("blank line then the log tail", () => {
 		const lines = new JobResult({ kind: "logs", lines: ["a", "b"], earlier: 5 }, fakeTheme).render(60);
 		expect(lines[0]).toBe("");
-		expect(lines[1]).toBe("… 5 earlier lines");
+		expect(lines[1]).toContain("… 5 earlier lines");
+		expect(lines[1]).toContain("to expand");
 		expect(lines[2]).toBe("a");
 		expect(lines[3]).toBe("b");
 	});

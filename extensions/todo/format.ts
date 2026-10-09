@@ -4,7 +4,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { BODY_INDENT, GLYPH_GAP } from "../../lib/ui.ts";
+import { BODY_INDENT, expandHint, GLYPH_GAP } from "../../lib/ui.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
 
@@ -136,7 +136,7 @@ export function todoRailLines(input: TodoRailInput, theme: Theme, width: number)
 		});
 	}
 	if (input.more && input.more > 0) {
-		lines.push(`${continuation}${theme.fg("dim", `… ${input.more} more`)}`);
+		lines.push(`${continuation}${theme.fg("dim", `… ${input.more} more`)} ${expandHint(theme)}`);
 	}
 	return lines.map((line) => truncateToWidth(line, w, "…"));
 }

@@ -247,7 +247,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					return text;
 				}
 				const ordered = [...details.jobs].sort(compareJobs);
-				const shown = ordered.slice(0, RESULT_ROWS);
+				const shown = options.expanded ? ordered : ordered.slice(0, RESULT_ROWS);
 				const input: JobResultInput = { kind: "list", jobs: shown, more: ordered.length - shown.length };
 				const view = context.lastComponent instanceof JobResult ? context.lastComponent : new JobResult(input, theme);
 				view.setInput(input, theme);

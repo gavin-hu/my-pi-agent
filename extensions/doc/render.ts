@@ -12,10 +12,10 @@
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, hyperlink, type Component, Text } from "@earendil-works/pi-tui";
 import { formatTokens, sanitize, stripControlChars } from "../../lib/format.ts";
-import { EXPAND_KEYBINDING, SEPARATORS } from "../../lib/ui.ts";
+import { expandKey, SEPARATORS } from "../../lib/ui.ts";
 import { summarizeDoc } from "./paging.ts";
 import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 
@@ -46,17 +46,6 @@ export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: st
 	if (!getCapabilities().hyperlinks) return styled;
 	const abs = isAbsolute(value) ? value : resolve(cwd, value);
 	return hyperlink(styled, pathToFileURL(abs).href);
-}
-
-/**
- * The collapsed expand affordance: the bound key in `dim`, or nothing when the
- * binding is unknown (e.g. a non-TUI process). Built locally rather than with
- * the host `keyHint`, which colours through the global theme instead of the
- * theme passed to the renderer.
- */
-export function expandHint(theme: Theme): string {
-	const key = keyText(EXPAND_KEYBINDING);
-	return key ? theme.fg("dim", key) : "";
 }
 
 /** First `maxLines` lines of extracted text, sanitized, plus the overflow count. */
@@ -123,7 +112,7 @@ export function formatDocResult(result: DocRenderResult, options: DocRenderOptio
 			text += `\n\n${theme.fg("toolOutput", body)}`;
 			if (moreLines > 0) text += `\n${theme.fg("muted", `... (${moreLines} more lines)`)}`;
 		} else {
-			const hint = expandHint(theme);
+			const hint = expandKey(theme);
 			if (hint) text += theme.fg("muted", SEPARATORS.item) + hint;
 		}
 	}

@@ -7,6 +7,8 @@
  * the literals here and import them, never re-type them.
  */
 
+import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
+
 /** Leading glyphs for status chips and footer segments. */
 export const GLYPHS = {
 	branch: "⎇",
@@ -50,3 +52,18 @@ export const STATUS_KEYS = {
  * rebound key is respected.
  */
 export const EXPAND_KEYBINDING = "app.tools.expand";
+
+/** The bound expand key, styled dim, or `""` when the binding is unknown. */
+export function expandKey(theme: Theme): string {
+	const key = keyText(EXPAND_KEYBINDING);
+	return key ? theme.fg("dim", key) : "";
+}
+
+/**
+ * The built-in-style expand affordance: a muted `(ctrl+o to expand)` with the
+ * key in dim. Degrades to `(to expand)` when the binding is unknown.
+ */
+export function expandHint(theme: Theme): string {
+	const key = expandKey(theme);
+	return theme.fg("muted", "(") + (key ? `${key}${theme.fg("muted", " ")}` : "") + theme.fg("muted", "to expand)");
+}

@@ -257,8 +257,10 @@ rewritten.
 - **The transcript reuses the `/jobs` grammar.** `job list` renders the same
   `jobRow` rail as the screen (running first, capped, `… N more`), `job logs`
   draws a themed tail with a `… N earlier lines` note, and single-job actions
-  draw one `formatJobOutcomeLine`. The renderers reuse `context.lastComponent`,
-  and a `wait` in progress (`options.isPartial`) renders as a `Waiting …`
+  draw one `formatJobOutcomeLine`. A capped collapsed result ends with the
+  `app.tools.expand` hint, and an expanded list shows every job. The renderers
+  reuse `context.lastComponent`, and a `wait` in progress (`options.isPartial`)
+  renders as a `Waiting …`
   warning.
 
 ## Files

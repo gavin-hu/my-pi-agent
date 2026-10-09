@@ -11,6 +11,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { loadSearchConfig } from "../config.ts";
 import { oneLine } from "../transcript.ts";
+import { expandHint } from "../../../lib/ui.ts";
 import { formatResults } from "./format.ts";
 import { createThrottle, runSearch, type SearchDeps } from "./search.ts";
 import { resolveRequest, WebSearchOutput, WebSearchParams, type SearchResponse, type WebSearchArgs } from "./schema.ts";
@@ -75,7 +76,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as SearchResponse | undefined;
 			if (!details || result.isError) {
@@ -96,14 +97,14 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 				theme.fg("dim", `via ${details.provider} · ${count} result${count === 1 ? "" : "s"}`),
 			];
 			if (details.answer) lines.push(theme.fg("muted", oneLine(details.answer, 160)));
-			const shown = details.results.slice(0, 5);
+			const shown = options.expanded ? details.results : details.results.slice(0, 5);
 			lines.push(
 				...shown.map(
 					(item, index) => `${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", oneLine(item.title, 100))}`,
 				),
 			);
 			const extra = count - shown.length;
-			if (extra > 0) lines.push(theme.fg("dim", `+${extra} more`));
+			if (extra > 0) lines.push(`${theme.fg("dim", `+${extra} more`)} ${expandHint(theme)}`);
 			text.setText(lines.join("\n"));
 			return text;
 		},

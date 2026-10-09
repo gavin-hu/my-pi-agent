@@ -135,6 +135,28 @@ describe("web_search transcript rendering", () => {
 		expect(lines.join("\n")).not.toContain("\u001b");
 	});
 
+	test("collapsed hints at the remaining results and expanded shows them", () => {
+		const tool = renderer();
+		const results = Array.from({ length: 8 }, (_, i) => ({ title: `T${i}`, url: `https://x/${i}`, snippet: "" }));
+		const details = { query: "q", provider: "searxng", answer: "", results, truncated: false, fetchedAt: "now" };
+		const withOptions = (expanded: boolean) =>
+			tool
+				.renderResult({ details, content: [{ type: "text", text: "" }] }, { expanded }, fakeTheme, {
+					lastComponent: undefined,
+				})
+				.render(80)
+				.join("\n");
+
+		const collapsed = withOptions(false);
+		expect(collapsed).toContain("+3 more");
+		expect(collapsed).toContain("to expand");
+		expect(collapsed).not.toContain("T7");
+
+		const expanded = withOptions(true);
+		expect(expanded).toContain("T7");
+		expect(expanded).not.toContain("more");
+	});
+
 	test("no results and errors are single sanitized lines", () => {
 		const tool = renderer();
 		const none = tool
