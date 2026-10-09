@@ -43,49 +43,49 @@ describe("formatDoc", () => {
 });
 
 describe("summarizeDoc", () => {
-	const summaryBase = { path: "a.pdf", format: "pdf" as const, chars: 42478, startIndex: 0 };
+	const summaryBase = { format: "pdf" as const, chars: 42478, startIndex: 0 };
 
-	test("shows the total for a complete first read", () => {
+	test("shows the humanized total for a complete first read", () => {
 		const summary = summarizeDoc({ ...summaryBase, nextIndex: 42478, truncated: false });
-		expect(summary.detail).toBe("pdf · 42478 chars");
+		expect(summary.format).toBe("PDF");
+		expect(summary.detail).toBe("42k chars");
 		expect(summary.note).toBeUndefined();
 	});
 
 	test("shows the returned range and where to continue when truncated", () => {
 		const summary = summarizeDoc({ ...summaryBase, nextIndex: 40000, truncated: true });
-		expect(summary.detail).toBe("pdf · 1–40000 of 42478 chars");
-		expect(summary.note).toBe("more at 40000");
+		expect(summary.detail).toBe("1–40k of 42k chars");
+		expect(summary.note).toBe("more at 40k");
+		expect(summary.truncated).toBe(true);
 	});
 
 	test("marks a non-first final page complete", () => {
 		const summary = summarizeDoc({ ...summaryBase, startIndex: 40000, nextIndex: 42478, truncated: false });
-		expect(summary.detail).toBe("pdf · 40001–42478 of 42478 chars");
+		expect(summary.detail).toBe("40k–42k of 42k chars");
 		expect(summary.note).toBe("complete");
 	});
 
 	test("reports an out-of-range startIndex without a bogus range", () => {
 		const summary = summarizeDoc({
-			path: "a.pdf",
 			format: "pdf",
 			chars: 3,
 			startIndex: 10,
 			nextIndex: 3,
 			truncated: false,
 		});
-		expect(summary.detail).toBe("pdf · no text at 10 of 3 chars");
+		expect(summary.detail).toBe("no text at 10 of 3 chars");
 		expect(summary.note).toBeUndefined();
 	});
 
-	test("reports an empty document", () => {
+	test("reports an empty document as having no extractable text", () => {
 		const summary = summarizeDoc({
-			path: "a.pdf",
 			format: "pdf",
 			chars: 0,
 			startIndex: 0,
 			nextIndex: 0,
 			truncated: false,
 		});
-		expect(summary.detail).toBe("pdf · 0 chars");
+		expect(summary.detail).toBe("no extractable text");
 		expect(summary.note).toBeUndefined();
 	});
 });

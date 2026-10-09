@@ -11,21 +11,16 @@
 import { readFile, stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { sanitize, stripControlChars } from "../../lib/format.ts";
+import { stripControlChars } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
 import { detectFormat, supportedExtensions, unsupportedHint } from "./formats.ts";
-import { formatDoc, summarizeDoc } from "./paging.ts";
-import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, type DocArgs, type DocResult } from "./schema.ts";
+import { formatDoc } from "./paging.ts";
+import { formatDocCall, formatDocResult, reuseText } from "./render.ts";
+import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 
-export const TOOL_NAME = "read_doc";
-
-/** Collapse text to a single sanitized line for a transcript header. */
-function oneLine(text: string): string {
-	return sanitize(stripControlChars(text));
-}
+export { TOOL_NAME } from "./schema.ts";
 
 /** Resolve a request path under `root`, refusing anything that escapes it. */
 function resolveDocument(root: string, rawPath: string): string {
@@ -131,27 +126,17 @@ export function registerDocTool(pi: ExtensionAPI): void {
 			};
 		},
 
-		renderCall(args, theme) {
-			const { path, startIndex, maxChars } = args as DocArgs;
-			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(path ?? ""));
-			if (typeof startIndex === "number" && startIndex > 0) text += theme.fg("dim", ` (from ${startIndex})`);
-			if (typeof maxChars === "number") text += theme.fg("dim", ` (max ${maxChars} chars)`);
-			return new Text(text, 0, 0);
+		renderCall(args, theme, context) {
+			const cwd = context?.cwd ?? process.cwd();
+			return reuseText(context?.lastComponent, formatDocCall(args as DocArgs, theme, { cwd }));
 		},
 
-		renderResult(result, _options, theme) {
-			const details = result.details as DocResult | undefined;
-			if (!details || result.isError) {
-				const first = result.content[0];
-				const message = first?.type === "text" ? first.text : "Read failed";
-				const safe = oneLine(message.startsWith("Error:") ? message : `Error: ${message}`);
-				return new Text(theme.fg("error", safe), 0, 0);
-			}
-			const summary = summarizeDoc(details);
-			let text = theme.fg("muted", oneLine(summary.path));
-			text += theme.fg("dim", ` · ${summary.detail}`);
-			if (summary.note) text += theme.fg(details.truncated ? "accent" : "dim", ` · ${summary.note}`);
-			return new Text(text, 0, 0);
+		renderResult(result, options, theme, context) {
+			const isError = context?.isError ?? result.isError ?? false;
+			return reuseText(
+				context?.lastComponent,
+				formatDocResult({ content: result.content, details: result.details, isError }, options, theme),
+			);
 		},
 	});
 }

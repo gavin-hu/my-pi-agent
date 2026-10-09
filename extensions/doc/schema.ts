@@ -5,6 +5,9 @@
 import { Type, type Static } from "typebox";
 import type { FormatId } from "./formats.ts";
 
+/** The tool's registered name, shared by the definition and its renderer. */
+export const TOOL_NAME = "read_doc";
+
 export const MIN_CHARS = 200;
 export const MAX_CHARS = 100_000;
 export const MAX_PATH_LENGTH = 4096;

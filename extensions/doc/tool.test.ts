@@ -138,58 +138,127 @@ describe("read_doc tool", () => {
 		).rejects.toThrow(/outside the working directory/);
 	});
 
-	test("renderResult strips control characters from the summary", () => {
-		const result = {
-			details: {
-				path: "a\u0001b.pdf",
-				format: "pdf",
-				bytes: 1,
-				chars: 1,
-				startIndex: 0,
-				nextIndex: 1,
-				truncated: false,
-				text: "x",
-			},
-			content: [{ type: "text", text: "x" }],
-		};
-		const rendered = installTool().renderResult(result, { isPartial: false }, fakeTheme).render(80).join("\n");
-		expect(rendered).toContain("a b.pdf");
+	function renderContext(overrides: Record<string, unknown> = {}): any {
+		return { cwd: fixture.root, isError: false, lastComponent: undefined, ...overrides };
+	}
+
+	test("renderResult leads with the format and humanized total, not the path", () => {
+		const rendered = installTool()
+			.renderResult(docResult({}), { isPartial: false, expanded: false }, fakeTheme, renderContext())
+			.render(80)
+			.join("\n");
+		expect(rendered).toContain("PDF · 42k chars");
+		expect(rendered).not.toContain("a.pdf");
 	});
 
 	test("keeps theme colours in the rendered summary", () => {
-		const rendered = installTool().renderResult(docResult({}), { isPartial: false }, ansiTheme).render(80).join("\n");
+		const rendered = installTool()
+			.renderResult(docResult({}), { isPartial: false, expanded: false }, ansiTheme, renderContext())
+			.render(80)
+			.join("\n");
 		expect(rendered).toContain("\u001b[38;2;0;0;0m");
 		expect(rendered).not.toContain(" [38;2;0;0;0m");
 	});
 
-	test("shows the returned range and continuation note when truncated", () => {
+	test("shows the humanized range and continuation note when truncated", () => {
 		const rendered = installTool()
-			.renderResult(docResult({ nextIndex: 40000, truncated: true }), { isPartial: false }, fakeTheme)
+			.renderResult(
+				docResult({ nextIndex: 40000, truncated: true }),
+				{ isPartial: false, expanded: false },
+				fakeTheme,
+				renderContext(),
+			)
 			.render(80)
 			.join("\n");
-		expect(rendered).toContain("1–40000 of 42478 chars");
-		expect(rendered).toContain("more at 40000");
+		expect(rendered).toContain("1–40k of 42k chars");
+		expect(rendered).toContain("more at 40k");
 	});
 
 	test("marks a non-first final page complete", () => {
 		const rendered = installTool()
-			.renderResult(docResult({ startIndex: 40000, nextIndex: 42478 }), { isPartial: false }, fakeTheme)
+			.renderResult(
+				docResult({ startIndex: 40000, nextIndex: 42478 }),
+				{ isPartial: false, expanded: false },
+				fakeTheme,
+				renderContext(),
+			)
 			.render(80)
 			.join("\n");
-		expect(rendered).toContain("40001–42478 of 42478 chars");
+		expect(rendered).toContain("40k–42k of 42k chars");
 		expect(rendered).toContain("complete");
 	});
 
-	test("renders a path with a newline on one line", () => {
-		const lines = installTool().renderCall({ path: "a\nb.pdf" }, fakeTheme).render(80);
-		expect(lines).toHaveLength(1);
-		expect(lines[0]).toContain("a b.pdf");
+	test("expands to a sanitized, line-capped preview with an overflow note", () => {
+		const text = Array.from({ length: 25 }, (_, i) => `line ${i}\u0001`).join("\n");
+		const rendered = installTool()
+			.renderResult(docResult({ text }), { isPartial: false, expanded: true }, fakeTheme, renderContext())
+			.render(200)
+			.join("\n");
+		expect(rendered).toContain("line 0");
+		expect(rendered).toContain("line 19");
+		expect(rendered).not.toContain("line 20");
+		expect(rendered).toContain("(5 more lines)");
+		expect(rendered).not.toContain("\u0001");
+	});
+
+	test("adds no expand hint when there is no extractable text", () => {
+		const rendered = installTool()
+			.renderResult(
+				docResult({ chars: 0, nextIndex: 0, text: "" }),
+				{ isPartial: false, expanded: false },
+				fakeTheme,
+				renderContext(),
+			)
+			.render(80)
+			.join("\n");
+		expect(rendered).toContain("no extractable text");
+		// No text means no expandable preview, so no hint (and no trailing separator).
+		expect(rendered).not.toMatch(/·\s*$/);
+	});
+
+	test("marks a partial result as reading", () => {
+		const rendered = installTool()
+			.renderResult(
+				{ details: undefined, content: [] },
+				{ isPartial: true, expanded: false },
+				fakeTheme,
+				renderContext(),
+			)
+			.render(80)
+			.join("\n");
+		expect(rendered).toContain("Reading...");
 	});
 
 	test("sanitizes an error message", () => {
 		const result = { isError: true, content: [{ type: "text", text: "Error: bad\u0001path" }] };
-		const rendered = installTool().renderResult(result, { isPartial: false }, fakeTheme).render(80).join("\n");
+		const rendered = installTool()
+			.renderResult(result, { isPartial: false, expanded: false }, fakeTheme, renderContext({ isError: true }))
+			.render(80)
+			.join("\n");
 		expect(rendered).toContain("bad path");
 		expect(rendered).not.toContain("\u0001");
+	});
+
+	test("reuses the previous Text component for call and result", () => {
+		const tool = installTool();
+		const call = tool.renderCall({ path: "a.pdf" }, fakeTheme, renderContext());
+		const callAgain = tool.renderCall({ path: "b.pdf" }, fakeTheme, renderContext({ lastComponent: call }));
+		expect(callAgain).toBe(call);
+		expect(call.render(80).join("\n")).toContain("b.pdf");
+
+		const result = tool.renderResult(docResult({}), { isPartial: false, expanded: false }, fakeTheme, renderContext());
+		const resultAgain = tool.renderResult(
+			docResult({}),
+			{ isPartial: false, expanded: false },
+			fakeTheme,
+			renderContext({ lastComponent: result }),
+		);
+		expect(resultAgain).toBe(result);
+	});
+
+	test("renders a path with a newline on one line", () => {
+		const lines = installTool().renderCall({ path: "a\nb.pdf" }, fakeTheme, renderContext()).render(80);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("a b.pdf");
 	});
 });

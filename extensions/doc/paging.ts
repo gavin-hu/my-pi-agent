@@ -6,6 +6,7 @@
  * the clean slice; the text adds a header and any truncation note.
  */
 
+import { formatTokens } from "../../lib/format.ts";
 import type { FormatId } from "./formats.ts";
 
 export interface DocPageInput {
@@ -61,7 +62,6 @@ export function formatDoc(input: DocPageInput): FormattedDoc {
 
 /** Inputs for `summarizeDoc`, the fields the transcript summary reads. */
 export interface DocSummaryInput {
-	path: string;
 	format: FormatId;
 	/** Total characters in the extracted text. */
 	chars: number;
@@ -70,29 +70,43 @@ export interface DocSummaryInput {
 	truncated: boolean;
 }
 
-/** Theme-free transcript summary: the path, the range detail, and any note. */
+/** Theme-free transcript summary: the format, the range detail, and any note. */
 export interface DocSummary {
-	/** Muted heading, normally the requested path. */
-	path: string;
-	/** Range detail, e.g. `docx · 1–40000 of 42478 chars`. */
+	/** Uppercase format id, e.g. `PDF`. */
+	format: string;
+	/** Range detail, e.g. `1–40k of 42k chars`. */
 	detail: string;
 	/** `more at N` when truncated, `complete` for a non-first final page. */
 	note?: string;
+	/** Whether more text remains; the renderer colours the note with this. */
+	truncated: boolean;
 }
 
 /**
  * Describe a `read_doc` result for the transcript, without theme colours.
  *
- * A complete first read shows the total; a paged read shows the returned range
- * so a truncated result is never mistaken for the whole document.
+ * Counts are humanized. A complete first read shows the total; a paged read
+ * shows the returned range so a truncated result is never mistaken for the
+ * whole document.
  */
 export function summarizeDoc(input: DocSummaryInput): DocSummary {
-	const prefix = `${input.format} · `;
-	if (input.chars === 0) return { path: input.path, detail: `${prefix}0 chars` };
-	if (input.startIndex <= 0 && !input.truncated) return { path: input.path, detail: `${prefix}${input.chars} chars` };
-	if (input.nextIndex <= input.startIndex) {
-		return { path: input.path, detail: `${prefix}no text at ${input.startIndex} of ${input.chars} chars` };
+	const format = input.format.toUpperCase();
+	if (input.chars === 0) return { format, detail: "no extractable text", truncated: false };
+	if (input.startIndex >= input.chars) {
+		return {
+			format,
+			detail: `no text at ${formatTokens(input.startIndex)} of ${formatTokens(input.chars)} chars`,
+			truncated: false,
+		};
 	}
-	const range = `${prefix}${input.startIndex + 1}–${input.nextIndex} of ${input.chars} chars`;
-	return { path: input.path, detail: range, note: input.truncated ? `more at ${input.nextIndex}` : "complete" };
+	if (input.startIndex <= 0 && !input.truncated) {
+		return { format, detail: `${formatTokens(input.chars)} chars`, truncated: false };
+	}
+	const range = `${formatTokens(input.startIndex + 1)}–${formatTokens(input.nextIndex)} of ${formatTokens(input.chars)} chars`;
+	return {
+		format,
+		detail: range,
+		note: input.truncated ? `more at ${formatTokens(input.nextIndex)}` : "complete",
+		truncated: input.truncated,
+	};
 }

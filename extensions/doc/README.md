@@ -99,8 +99,10 @@ format, an over-size file, and a missing extractor package.
   it exactly as to the built-in `read`.
 - **Size-capped.** Files larger than `maxFileBytes` are rejected before reading.
 - **Untrusted text.** Extracted document text is treated as untrusted: it is
-  returned as model-facing `content` and data, and the transcript renderer draws
-  only a sanitized summary (path, format, character count), never the raw text.
+  returned as model-facing `content` and data. The collapsed transcript draws
+  only a sanitized summary; the expanded transcript draws a sanitized,
+  line-capped preview (`PREVIEW_LINES`). Control characters are stripped before
+  a theme colour is applied, so raw document bytes never reach the terminal.
 
 ## Extraction
 
@@ -138,12 +140,24 @@ config defaults, and error listing all derive from it.
 
 The tool behaves identically in `tui`, RPC, JSON, and print modes; it has no
 widgets or status output. `renderCall` / `renderResult` affect only the
-interactive transcript (and HTML exports). The transcript summary is a single
-sanitized line: `path · format · N–M of T chars`, plus `more at N` when the
-slice is truncated or `complete` for a non-first final page, so a partial read
-never looks like the whole document. Extracted text is never drawn; the
-transcript sanitizes each data field before applying theme colours, so the
-theme's own ANSI codes stay intact.
+interactive transcript (and HTML exports).
+
+The call line carries the path (`~`-shortened, OSC-8 linked when the terminal
+supports it) and any paging options. The result line drops the path — it is
+already on the call line — and leads with the format and a humanized range:
+
+```
+read_doc ~/docs/spec.pdf (from 40k, max 80k)
+PDF · 1–40k of 42k chars · more at 40k · ctrl+o
+```
+
+Collapsed rows end with the expand key (`app.tools.expand`) when there is text
+to preview. Expanded rows append a sanitized, line-capped preview
+(`PREVIEW_LINES` = 20) of the extracted text, with `... (N more lines)` when the
+text is longer; a read with no extractable text shows the summary only. Errors
+render as a single sanitized `error` line, and a partial (streaming) result as
+`Reading...`. Extracted text is sanitized before a theme colour is applied, so
+the theme's own ANSI codes stay intact.
 
 ## Limitations
 
@@ -169,10 +183,10 @@ theme's own ANSI codes stay intact.
 | Aspect | Contract |
 |---|---|
 | Registration | `doc(pi)` in `index.ts` calls `registerDocTool(pi)`, which registers `read_doc`. The factory only registers. |
-| Tool | `read_doc`, `exposure: "direct"`, `defaultActive: true`, default (`parallel`) execution, `annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult`. |
+| Tool | `read_doc`, `exposure: "direct"`, `defaultActive: true`, default (`parallel`) execution, `annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult` (reuse `context.lastComponent`; read `context.cwd` and `context.isError`). |
 | State | None persisted. Per-result state lives in the tool-result `details` / `structuredContent`; the renderer reads only that. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks: the tool opens no resources, and extractor packages load lazily per call. |
-| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigFile` (`lib/config.ts`), `stripControlChars` / `sanitize` (`lib/format.ts`). |
+| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigFile` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/ui.ts`). |
 | Config | `doc.json` via `loadConfigFile` (`~/.pi/agent`, `<cwd>/.pi`). |
 
 ## Design notes
@@ -185,16 +199,28 @@ XLSX/PPTX/EPUB work additive. The lazy extractors intentionally mirror
 import each other and the test-seam pattern needs module-level state that
 `lib/` forbids.
 
+The renderer reuses `context.lastComponent` (`Text.setText`) and binds the
+expand hint to `app.tools.expand`. It builds that hint locally rather than with
+the host `keyHint`, which colours through the global theme instead of the theme
+passed to the renderer, so the renderer stays testable and works in non-TUI
+modes. Path shortening lives in `render.ts` (not `lib/`): `lib/` helpers are for
+two or more extensions, and the built-in-style `~`/boundary rule here is
+doc-only.
+
+The result line deliberately omits the path: Pi stacks the call and result lines
+in one row, so repeating it would be pure duplication.
+
 ## Files
 
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory; registers the tool. |
 | `formats.ts` | `DocumentFormat`, the `FORMATS` registry, `FormatId`, `detectFormat`, `supportedExtensions`, `unsupportedHint`. |
-| `tool.ts` | `TOOL_NAME`, the tool definition, handler, path guard, and renderers. |
-| `schema.ts` | `DocParams`, `DocOutput`, limits, result type. |
+| `tool.ts` | The tool definition, handler, path guard, and renderer wiring. Re-exports `TOOL_NAME`. |
+| `render.ts` | Theme-aware transcript formatting: call/result lines, `~` + OSC-8 path, expand hint, sanitized preview, `Text` reuse. |
+| `schema.ts` | `TOOL_NAME`, `DocParams`, `DocOutput`, limits, result type. |
 | `config.ts` | `DocConfig`, registry-derived defaults, `normalizeConfig`, `loadConfig`, `isFormatEnabled`. |
-| `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript range summary. |
+| `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript summary (uppercase format, humanized range). |
 | `extract/pdf.ts` | Lazy `unpdf` extractor, `PdfUnavailableError`, test seams. |
 | `extract/docx.ts` | Lazy `mammoth` extractor, `DocxUnavailableError`, test seams. |
 
