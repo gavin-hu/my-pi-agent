@@ -7,6 +7,7 @@ import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 
 function repoExec(root: string) {
 	return async (command: string, args: string[]) =>
@@ -343,6 +344,17 @@ describe("exit_plan_mode", () => {
 		expect(result.details.refinement).toBe("use a hand-written lexer");
 		expect(result.content[0].text).toContain("use a hand-written lexer");
 		expect(runtime.isEnabled()).toBe(true);
+	});
+
+	test("uses dialogs on a remote turn instead of the review screen", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+
+		const { ctx, customCalls } = remoteCtx({ cwd: root, select: "Approve and execute" });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details.approved).toBe(true);
+		expect(customCalls).toEqual([]);
 	});
 
 	// The review sizes itself to the whole terminal, so it must be an overlay.

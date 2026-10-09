@@ -366,3 +366,76 @@ describe("bridge sendToOwner", () => {
 		expect(await bridge.sendToOwner("hello")).toEqual({ ok: false, error: "WeChat bridge is not started." });
 	});
 });
+
+/**
+ * A client that delivers one inbound message, then holds the poll open until the
+ * test pushes the next one, so a prompt can be answered deterministically.
+ */
+function controllableClient(): {
+	client: WechatClient;
+	sent: Array<{ to: string; text: string; contextToken?: string }>;
+	deliver: (message: WeixinMessage) => void;
+} {
+	const sent: Array<{ to: string; text: string; contextToken?: string }> = [];
+	let deliver: ((message: WeixinMessage) => void) | undefined;
+	let first = true;
+	const client = {
+		getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+			if (first) {
+				first = false;
+				return updates([inbound("ping")]);
+			}
+			return await new Promise<UpdatesResponse>((resolve) => {
+				deliver = (message) => resolve(updates([message]));
+				signal?.addEventListener("abort", () => resolve({ ret: 0, msgs: [], buf: "c" }), { once: true });
+			});
+		},
+		sendMessage: async (_account: BotCredentials, args: { to: string; text: string; contextToken?: string }) => {
+			sent.push(args);
+			return { ret: 0 };
+		},
+		getConfig: async () => ({ ret: 0 }),
+		sendTyping: async () => ({ ret: 0 }),
+		downloadCdn: async () => {
+			throw new Error("no media");
+		},
+	} as unknown as WechatClient;
+	return {
+		client,
+		sent,
+		deliver: (message) => deliver?.(message),
+	};
+}
+
+describe("bridge remote prompts", () => {
+	test("sends a dialog to WeChat and consumes the reply as an answer", async () => {
+		const { client, sent, deliver } = controllableClient();
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A", "B"] });
+		await waitFor(() => sent.length >= 1 && bridge.status().promptPending);
+		expect(sent[0]?.text).toContain("Pick");
+
+		deliver(inbound("2"));
+		expect(await answer).toEqual({ kind: "value", value: "B" });
+		// The reply answered the prompt instead of starting a new turn.
+		expect(injected.length).toBe(1);
+		await bridge.close();
+	});
+
+	test("resolves a pending prompt as cancelled when the bridge closes", async () => {
+		const { client, sent } = controllableClient();
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel().request({ kind: "confirm", title: "Sure?" });
+		await waitFor(() => sent.length >= 1 && bridge.status().promptPending);
+		await bridge.close();
+		expect(await answer).toEqual({ kind: "cancelled" });
+	});
+});

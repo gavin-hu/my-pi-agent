@@ -4,6 +4,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { askHuman } from "../../lib/interaction.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";
@@ -47,12 +48,15 @@ export function registerTools(pi: ExtensionAPI): void {
 			const questions = normalizeQuestions((params as AskUserQuestionArgs).questions);
 
 			let result: AskResult;
-			if (ctx.mode === "tui") {
-				result = await withRailsSuppressed(pi, () => askViaTui(ctx, questions, signal));
-			} else if (ctx.hasUI) {
-				result = await askViaDialogs(dialogUI(ctx), questions, signal);
-			} else {
+			if (!ctx.hasUI) {
 				result = unavailableResult(questions);
+			} else {
+				// A remote-answered turn falls back to dialogs; only a local TUI turn uses
+				// the full-screen questionnaire.
+				result = await askHuman(ctx, {
+					custom: () => withRailsSuppressed(pi, () => askViaTui(ctx, questions, signal)),
+					dialogs: () => askViaDialogs(dialogUI(ctx), questions, signal),
+				});
 			}
 
 			return {

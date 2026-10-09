@@ -23,6 +23,9 @@ pi install ./                        # install the package
   `send_wechat` tool lets the model message the owner proactively.
 - **Typing indicator** — the native typing status is set while an inbound turn is
   being generated (`typingIndicator`, on by default).
+- **Remote prompts** — interactive confirmations raised during a WeChat turn
+  (`ask_user_question`, plan approval) are sent to WeChat and answered there;
+  turns started at the terminal keep the TUI (`remotePrompts`, on by default).
 - **Owner-only by default** — only the account owner (who scanned the login QR)
   can drive the agent; `allowedPeers` opts in others.
 - **Session-bound** — the bridge runs while the Pi session is alive and only
@@ -48,6 +51,20 @@ pi install ./                        # install the package
 | `rpc` | `/wechat start`/`stop`/`status` work; `login` needs the TUI (the QR screen is unavailable over RPC). |
 | `json`, `print` | Ephemeral; `start` is refused, and no UI is available. |
 
+## Remote prompts
+
+A dialog raised while a WeChat turn is in flight is forwarded to the sender:
+
+- `select` — a numbered list; reply with a number, the option text, or any other
+  text for the free-form “Other” entry.
+- `confirm` — reply 是/否 (or yes/no).
+- `input` / `editor` — reply with the text.
+- Reply 取消 (or cancel) to dismiss.
+
+The reply is consumed as the answer and never starts a turn of its own; a turn
+started at the terminal keeps the normal TUI. Set `remotePrompts: false` to
+disable forwarding. See [Design notes](#design-notes) for the mechanism.
+
 ## Configuration
 
 `<agent-dir>/wechat.json` overridden by `<cwd>/.pi/wechat.json` (project wins):
@@ -61,7 +78,8 @@ pi install ./                        # install the package
   "channelVersion": "0.1.0", // sent as base_info.channel_version
   "cdnBaseUrl": "https://novac2c.cdn.weixin.qq.com/c2c", // CDN media base
   "maxMediaBytes": 20971520, // inbound media larger than this is skipped
-  "typingIndicator": true    // show typing while a turn is generated
+  "typingIndicator": true,   // show typing while a turn is generated
+  "remotePrompts": true      // answer interactive dialogs on WeChat during a WeChat turn
 }
 ```
 
@@ -93,6 +111,10 @@ files), and `poller.lock` (stops two sessions polling one account).
 - Inbound **video** is not handled, and there is no group-chat support. Voice is
   handled only through the server-provided transcript.
 - Outbound media is not supported; `send_wechat` sends text only.
+- Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`).
+  A third-party extension that renders a full-screen `ctx.ui.custom` component
+  cannot be answered over WeChat; a WeChat turn sends it no UI and it should fall
+  back to dialogs (see the shared `askHuman` helper).
 - A peer can only be replied to after they have messaged first (the protocol
   supplies a `context_token` only then).
 
@@ -107,8 +129,9 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 |---|---|
 | Command | `pi.registerCommand("wechat", …)` — `login`, `start`, `stop`, `status`, `logout`. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
-| Events | `session_start` (record the live context); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop). |
+| Events | `session_start` (record the live context, re-point the UI adapter); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop, uninstall adapter). |
 | Injection | `pi.sendUserMessage(content)` — a string, or text/image blocks for inbound media; always triggers a turn, and the bridge only injects when idle. |
+| UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs, marking it via `lib/interaction.ts`; `askHuman` in that lib routes rich components vs dialogs. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
 | Lifecycle | The factory only registers. No I/O starts on load; `/wechat start` starts the poll loop and `session_shutdown` closes it. |
 
@@ -125,6 +148,15 @@ reaches the session's tools.
 Media and typing stay at the boundary: downloads go to a fixed CDN with a size
 cap, filenames are sanitized before use, and typing is best-effort. The send tool
 is owner-only so untrusted generated text cannot be aimed at another account.
+
+Remote prompts reuse Pi's only in-process UI seam: there is no extension-facing
+way to replace `ctx.ui`, so `remote-ui.ts` wraps the **shared** `ctx.ui` object
+(`runner.uiContext`) and delegates to the saved originals when no WeChat turn is
+in flight. The contract lives in `lib/interaction.ts`; `ask_user_question` and
+plan mode call `askHuman`, which prefers a rich component only for a local TUI
+turn. This depends on an unstated host detail, so it fails closed (prompts simply
+stay local) rather than corrupting state; a future Pi UI-delegate API replaces
+`remote-ui.ts` alone.
 
 ## Files
 
@@ -144,6 +176,9 @@ is owner-only so untrusted generated text cannot be aimed at another account.
 | `state.ts` | `state.json` (cursor, owner, per-peer tokens). |
 | `lock.ts` | Poller lockfile. |
 | `format.ts` | Sanitize, chunk, and label helpers. |
+| `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
+| `prompt.ts` | Pure prompt formatting and reply parsing. |
+| `remote-ui.ts` | The host-UI adapter: wraps the shared `ctx.ui` dialogs and installs the remote-turn marker. |
 | `types.ts` | Wire and domain types. |
 
 ## Testing

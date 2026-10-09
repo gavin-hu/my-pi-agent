@@ -4,6 +4,7 @@ import { TOOL_NAME } from "./tools.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
+import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
 /** A `pi` double with the requested active tools. */
@@ -65,6 +66,23 @@ describe("ask_user_question extension", () => {
 		expect(result.isError).toBe(true);
 		expect(result.details.unavailable).toBe(true);
 		expect(result.content[0].text).toContain("No interactive UI available");
+	});
+
+	test("answers through dialogs on a remote turn instead of the TUI component", async () => {
+		const pi = newPi();
+		askUserQuestion(pi);
+		const tool = pi.tools.get(TOOL_NAME);
+		const { ctx, customCalls, selects } = remoteCtx({ select: "A" });
+		const result = await tool.execute(
+			"call-3",
+			{ questions: [{ question: "Which one?", options: [{ label: "A" }, { label: "B" }] }] },
+			undefined,
+			undefined,
+			ctx,
+		);
+		expect(customCalls).toEqual([]);
+		expect(selects).toHaveLength(1);
+		expect(result.details.answers[0].values).toEqual(["A"]);
 	});
 
 	test("rejects invalid input with a thrown error", async () => {

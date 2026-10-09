@@ -26,6 +26,8 @@ export interface WechatConfig {
 	maxMediaBytes: number;
 	/** Send a typing indicator while an inbound turn is being generated. */
 	typingIndicator: boolean;
+	/** Route interactive dialogs raised during a WeChat turn back to WeChat. */
+	remotePrompts: boolean;
 }
 
 export const DEFAULT_CONFIG: WechatConfig = {
@@ -37,6 +39,7 @@ export const DEFAULT_CONFIG: WechatConfig = {
 	cdnBaseUrl: "https://novac2c.cdn.weixin.qq.com/c2c",
 	maxMediaBytes: 20 * 1024 * 1024,
 	typingIndicator: true,
+	remotePrompts: true,
 };
 
 /** A cleaned, slash-free base URL. */
@@ -78,6 +81,9 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	}
 	if (typeof raw.typingIndicator === "boolean") {
 		config.typingIndicator = raw.typingIndicator;
+	}
+	if (typeof raw.remotePrompts === "boolean") {
+		config.remotePrompts = raw.remotePrompts;
 	}
 	return config;
 }

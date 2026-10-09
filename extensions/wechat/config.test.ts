@@ -26,6 +26,11 @@ describe("normalizeConfig", () => {
 		expect(config.botAgent.length).toBe(256);
 	});
 
+	test("accepts only a boolean remotePrompts", () => {
+		expect(normalizeConfig({ remotePrompts: false }, DEFAULT_CONFIG).remotePrompts).toBe(false);
+		expect(normalizeConfig({ remotePrompts: "yes" }, DEFAULT_CONFIG).remotePrompts).toBe(true);
+	});
+
 	test("clamps maxMediaBytes into range", () => {
 		const low = normalizeConfig({ maxMediaBytes: 1 }, DEFAULT_CONFIG);
 		const high = normalizeConfig({ maxMediaBytes: 999 * 1024 * 1024 }, DEFAULT_CONFIG);

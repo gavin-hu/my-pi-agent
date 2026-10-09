@@ -82,9 +82,14 @@ ask_user_question 2 questions (Auth, Scope)
 
 | Mode | Behavior |
 |---|---|
-| Interactive TUI | Full tabbed questionnaire with descriptions, multi-select, and an inline editor |
+| Interactive TUI (local turn) | Full tabbed questionnaire with descriptions, multi-select, and an inline editor |
 | RPC (`hasUI`) | Forwarded dialogs: `select` per question, `input` for “Other”/free-form, `editor` for multi-select |
+| Remote turn (WeChat) | Same forwarded dialogs, routed to the remote channel by the `ctx.ui` adapter; the full-screen component is skipped |
 | `print` / `json` | The tool is registered inactive (`defaultActive: false`) and never switched on; if invoked anyway it returns a clear error telling the model to ask in prose |
+
+Whether a turn uses the rich component or dialogs is decided by
+`askHuman(ctx, { custom, dialogs })` from `lib/interaction.ts`, not by reading
+`ctx.mode`; a remote-answered turn reports no custom-UI support.
 
 ## Configuration
 
@@ -136,6 +141,11 @@ None in v1 — the tool is either available (a UI exists) or not.
 - **A `QuestionUI` seam for the fallback.** The dialog driver depends on a small
   `select`/`input`/`editor` interface rather than `ctx`, so it is unit-testable
   with a fake and reusable by another host.
+- **Capability, not mode.** `execute()` calls `askHuman` so a remote-answered
+  turn takes the dialog path while a local TUI turn keeps the component. Adding a
+  new rich interaction means supplying both `custom` and `dialogs` thunks to
+  `askHuman`; interaction built only from standard dialogs supports remote turns
+  for free.
 - **A pure state machine behind the TUI.** `tui-state.ts` holds a reducer
   (`reduce(state, action) → { state, effect }`) so navigation, toggling, tab
   movement, and submit gating are tested without a terminal; `tui.ts` only maps
