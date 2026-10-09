@@ -19,6 +19,7 @@ export const GLYPHS = {
 	jobsRunning: "▸",
 	jobsFailure: "✗",
 	serve: "⊙",
+	wechat: "✆",
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
@@ -44,6 +45,7 @@ export const STATUS_KEYS = {
 	jobsFailure: "jobs-failure",
 	serve: "serve",
 	rewind: "rewind",
+	wechat: "wechat",
 } as const;
 
 /**

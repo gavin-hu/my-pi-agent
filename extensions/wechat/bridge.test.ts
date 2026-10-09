@@ -259,6 +259,28 @@ describe("bridge", () => {
 		expect(bridge.status().open).toBe(true);
 		await bridge.close();
 	});
+
+	test("reports running state changes for a status chip", async () => {
+		const { client } = makeClient([]);
+		const states: boolean[] = [];
+		const { deps } = makeDeps(client, { onStateChange: (running) => states.push(running) });
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(states).toEqual([true]);
+		await bridge.close();
+		expect(states).toEqual([true, false]);
+	});
+
+	test("reports stopped when the session expires", async () => {
+		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
+		const states: boolean[] = [];
+		const { deps } = makeDeps(client, { onStateChange: (running) => states.push(running) });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => states.includes(false));
+		expect(states).toEqual([true, false]);
+		await bridge.close();
+	});
 });
 
 describe("bridge media", () => {

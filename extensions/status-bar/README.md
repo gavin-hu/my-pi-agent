@@ -141,8 +141,9 @@ rather than showing a wrong value.
   visible as the meters drop.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line; the bar splits them by meaning (`worktree`
-  and `serve` are location, plan/alert is mode). This is why it must render
-  `getExtensionStatuses()` at all.
+  and `serve` are location, plan/alert is mode). The [wechat](../wechat/)
+  extension publishes `✆ wechat` while its bridge runs, joining the mode/alert
+  slot; this is why the bar must render `getExtensionStatuses()` at all.
 - **Serve joins the git state.** The `⊙ <port>` chip is routed beside `⎇` branch
   and `⑂` worktree rather than after `pwd`, so the left zone stays the
   filesystem identity (path + session name) and every "where am I / what is
