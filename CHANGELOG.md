@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `todo`: when a run is about to settle after mutating work (`write`, `edit`,
+  `bash`, `powershell`, or a tool declaring `readOnlyHint: false`) without a
+  todo update, the extension injects one hidden reminder and forces a single
+  continuation, so the list does not drift behind the work. It fires only while
+  the list has unfinished items, at most once per user turn, and is dropped
+  on the next user turn.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
