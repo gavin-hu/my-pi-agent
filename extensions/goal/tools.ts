@@ -99,26 +99,38 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			return new Text(
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
 					theme.fg("muted", formatCallText(args.objective, context.argsComplete, args.status)),
-				0,
-				0,
 			);
+			return text;
 		},
 
-		renderResult(result, { expanded }, theme) {
+		renderResult(result, { expanded }, theme, context) {
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as GoalDetails | undefined;
 			if (!details) {
 				const first = result.content[0];
-				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
 			}
-			if (details.error) return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+			if (details.error) {
+				text.setText(theme.fg("error", `Error: ${details.error}`));
+				return text;
+			}
 			if (!details.goal) {
 				// A neutral marker, deliberately not the achieved `✓`.
-				return new Text(theme.fg("dim", "⊘ ") + theme.fg("muted", "Cleared the goal"), 0, 0);
+				text.setText(theme.fg("dim", "⊘ ") + theme.fg("muted", "Cleared the goal"));
+				return text;
 			}
-			return new GoalResultView(details.goal, resultBody(details.goal, expanded, theme), theme);
+			const body = resultBody(details.goal, expanded, theme);
+			const view =
+				context.lastComponent instanceof GoalResultView
+					? context.lastComponent
+					: new GoalResultView(details.goal, body, theme);
+			view.update(details.goal, body, theme);
+			return view;
 		},
 	});
 }

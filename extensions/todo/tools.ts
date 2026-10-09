@@ -11,7 +11,7 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
-import { compareByActivity, formatCallText, formatTodoText } from "./format.ts";
+import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
 import { TodoResult as TodoResultView } from "./tui.ts";
@@ -92,23 +92,29 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			return new Text(
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
-					theme.fg("muted", formatCallText(args.todos, context.argsComplete)),
-				0,
-				0,
+					theme.fg("muted", formatCallText(args.todos as Todo[] | undefined, context.argsComplete)),
 			);
+			return text;
 		},
 
-		renderResult(result, { expanded }, theme) {
+		renderResult(result, { expanded }, theme, context) {
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as TodoDetails | undefined;
 			if (!details) {
 				const first = result.content[0];
-				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
 			}
-			if (details.error) return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+			if (details.error) {
+				text.setText(theme.fg("error", `Error: ${details.error}`));
+				return text;
+			}
 			if (details.todos.length === 0) {
-				return new Text(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared the todo list"), 0, 0);
+				text.setText(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared the todo list"));
+				return text;
 			}
 
 			// Expanded keeps the model's order; collapsed leads with active work so the
@@ -116,7 +122,11 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			const ordered = [...details.todos].sort(compareByActivity);
 			const rows = expanded ? details.todos : ordered.slice(0, COLLAPSED_ROWS);
 			const more = expanded ? 0 : details.todos.length - rows.length;
-			return new TodoResultView({ all: details.todos, rows, more }, theme);
+			const input: TodoRailInput = { rows, more };
+			const view =
+				context.lastComponent instanceof TodoResultView ? context.lastComponent : new TodoResultView(input, theme);
+			view.setInput(input, theme);
+			return view;
 		},
 	});
 }

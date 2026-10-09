@@ -34,11 +34,35 @@ describe("todo formatting", () => {
 		expect(formatTodoText([])).toBe("Todo list cleared.");
 	});
 
-	test("formatCallText summarizes the call", () => {
+	test("formatCallText shows progress and the active item", () => {
 		expect(formatCallText([])).toBe("→ clear list");
-		expect(formatCallText([{ content: "Only" }])).toBe("→ 1 item: Only");
-		expect(formatCallText([{ content: "First" }, { content: "Second" }])).toBe("→ 2 items: First, …");
 		expect(formatCallText(undefined)).toBe("→ clear list");
+		expect(formatCallText([{ content: "Only", status: "pending" }])).toBe("→ 0/1 · Only");
+		expect(
+			formatCallText([
+				{ content: "Done", status: "completed" },
+				{ content: "Work", status: "in_progress", activeForm: "Working" },
+				{ content: "Next", status: "pending" },
+			]),
+		).toBe("→ 1/3 · Working");
+	});
+
+	test("formatCallText falls back to the first pending item", () => {
+		expect(
+			formatCallText([
+				{ content: "First", status: "pending" },
+				{ content: "Second", status: "pending" },
+			]),
+		).toBe("→ 0/2 · First");
+	});
+
+	test("formatCallText marks a finished list completed", () => {
+		expect(
+			formatCallText([
+				{ content: "A", status: "completed" },
+				{ content: "B", status: "completed" },
+			]),
+		).toBe("→ 2/2 · completed");
 	});
 
 	test("formatCallText distinguishes a streaming call from a clear", () => {
@@ -46,41 +70,40 @@ describe("todo formatting", () => {
 		expect(formatCallText([], false)).toBe("→ clear list");
 	});
 
-	test("formatCallText clips a long first item", () => {
-		const text = formatCallText([{ content: "x".repeat(80) }]);
-		expect(visibleWidth(text)).toBe(visibleWidth("→ 1 item: ") + 40);
+	test("formatCallText clips a long active item", () => {
+		const text = formatCallText([{ content: "x".repeat(80), status: "in_progress", activeForm: "x".repeat(80) }]);
+		expect(visibleWidth(text)).toBe(visibleWidth("→ 0/1 · ") + 40);
 		expect(text.endsWith("…")).toBe(true);
 	});
 
 	test("formatCallText never exceeds the preview width on wide glyphs", () => {
-		const text = formatCallText([{ content: "あ".repeat(39) + "い" }]);
-		expect(visibleWidth(text)).toBeLessThanOrEqual(visibleWidth("→ 1 item: ") + 40);
+		const text = formatCallText([{ content: "あ".repeat(39) + "い", status: "pending" }]);
+		expect(visibleWidth(text)).toBeLessThanOrEqual(visibleWidth("→ 0/1 · ") + 40);
 	});
 });
 
 describe("todoRailLines", () => {
 	test("indents each row and leads it with the status glyph", () => {
-		expect(todoRailLines({ all: todos, rows: todos }, fakeTheme, 60)).toEqual([
+		expect(todoRailLines({ rows: todos }, fakeTheme, 60)).toEqual([
 			"  ✓ Write schema",
 			"  ◐ Writing tests",
 			"  ○ Ship it",
-			"    1/3 completed",
 		]);
 	});
 
 	test("wraps a long label with continuation rows under the text column", () => {
 		const long: Todo[] = [{ content: "x".repeat(40), status: "pending" }];
-		const lines = todoRailLines({ all: long, rows: long }, fakeTheme, 20);
+		const lines = todoRailLines({ rows: long }, fakeTheme, 20);
 		expect(lines[0]).toBe(`  ○ ${"x".repeat(16)}`);
 		expect(lines[1]?.startsWith("    ")).toBe(true);
 		expect(lines[1]?.trimStart()).not.toContain("○");
 		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 	});
 
-	test("reports capped rows and the progress footer", () => {
-		const all: Todo[] = Array.from({ length: 8 }, (_, i) => ({ content: `item ${i}`, status: "pending" as const }));
-		const lines = todoRailLines({ all, rows: all.slice(0, 6), more: 2 }, fakeTheme, 60);
-		expect(lines.at(-2)).toMatch(/^ {4}… 2 more$/);
-		expect(lines.at(-1)).toMatch(/^ {4}0\/8 completed$/);
+	test("reports capped rows without a progress footer", () => {
+		const rows: Todo[] = Array.from({ length: 6 }, (_, i) => ({ content: `item ${i}`, status: "pending" as const }));
+		const lines = todoRailLines({ rows, more: 2 }, fakeTheme, 60);
+		expect(lines.at(-1)).toMatch(/^ {4}… 2 more$/);
+		expect(lines.some((line) => line.includes("completed"))).toBe(false);
 	});
 });

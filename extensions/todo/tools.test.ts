@@ -135,19 +135,47 @@ describe("todo tool", () => {
 
 	test("streaming call shows a pending label, not a clear", () => {
 		const { tool } = setup();
-		const text = tool.renderCall({}, theme, { argsComplete: false }).render(80).join("\n");
+		const text = tool.renderCall({}, theme, { argsComplete: false, lastComponent: undefined }).render(80).join("\n");
 		expect(text).toContain("todo → …");
 		expect(text).not.toContain("clear list");
 	});
 
-	test("the call line names the tool exactly once", () => {
+	test("the call line shows progress and the active item, naming the tool once", () => {
 		const { tool } = setup();
 		const text = tool
-			.renderCall({ todos: [{ content: "Write schema" }, { content: "Write tests" }] }, theme, { argsComplete: true })
+			.renderCall(
+				{
+					todos: [
+						{ content: "Write schema", status: "completed" },
+						{ content: "Write tests", status: "in_progress", activeForm: "Writing tests" },
+					],
+				},
+				theme,
+				{ argsComplete: true, lastComponent: undefined },
+			)
 			.render(80)
 			.join("\n");
-		expect(text).toContain("todo → 2 items: Write schema, …");
+		expect(text).toContain("todo → 1/2 · Writing tests");
 		expect(text).not.toContain("todo todo");
+	});
+
+	test("reuses the call Text and the result view across renders", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		const callComponent = tool.renderCall({ todos: [{ content: "A", status: "pending" }] }, theme, {
+			argsComplete: true,
+			lastComponent: undefined,
+		});
+		const callAgain = tool.renderCall({ todos: [{ content: "B", status: "pending" }] }, theme, {
+			argsComplete: true,
+			lastComponent: callComponent,
+		});
+		expect(callAgain).toBe(callComponent);
+
+		const result = await call(tool, { todos: [{ content: "A", status: "pending" }] }, ctx);
+		const view = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined });
+		const viewAgain = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: view });
+		expect(viewAgain).toBe(view);
 	});
 
 	test("collapsed result leads with active work", async () => {

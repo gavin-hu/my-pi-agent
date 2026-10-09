@@ -241,10 +241,11 @@ describe("goal tool", () => {
 			.renderResult(result, { expanded: true, isPartial: false }, theme, { argsComplete: true })
 			.render(40);
 
-		expect(lines.length).toBeGreaterThan(2);
-		expect(lines[0]).toBe("Goal · achieved");
-		expect(lines[1]).toStartWith("  ✓ ");
-		expect(lines.slice(2).every((line: string) => line.startsWith("    "))).toBe(true);
+		expect(lines.length).toBeGreaterThan(3);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toBe("Goal · achieved");
+		expect(lines[2]).toStartWith("  ✓ ");
+		expect(lines.slice(3).every((line: string) => line.startsWith("    "))).toBe(true);
 	});
 
 	test("renders a clear with a neutral marker, not the achieved check", async () => {
@@ -275,6 +276,25 @@ describe("goal tool", () => {
 		const text = tool.renderCall({ objective: "Ship the parser" }, theme, { argsComplete: true }).render(80).join("\n");
 		expect(text).toContain("goal → set: Ship the parser");
 		expect(text).not.toContain("goal goal");
+	});
+
+	test("reuses the call Text and the result view across renders", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		const callComponent = tool.renderCall({ objective: "Ship it" }, theme, {
+			argsComplete: true,
+			lastComponent: undefined,
+		});
+		const callAgain = tool.renderCall({ objective: "Ship it more" }, theme, {
+			argsComplete: true,
+			lastComponent: callComponent,
+		});
+		expect(callAgain).toBe(callComponent);
+
+		const result = await call(tool, { objective: "Ship it" }, ctx);
+		const view = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined });
+		const viewAgain = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: view });
+		expect(viewAgain).toBe(view);
 	});
 
 	test("a rejected achieve reports the attempted action", async () => {

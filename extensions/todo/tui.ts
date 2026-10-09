@@ -46,15 +46,26 @@ function todoLine(todos: Todo[], theme: Theme): string {
 
 /** Transcript result block: the indented glyph rail, wrapping at the render width. */
 export class TodoResult implements Component {
-	constructor(
-		private readonly input: TodoRailInput,
-		private readonly theme: Theme,
-	) {}
+	private input: TodoRailInput;
+	private theme: Theme;
+
+	constructor(input: TodoRailInput, theme: Theme) {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	/** Update in place so the transcript can reuse this component across renders. */
+	setInput(input: TodoRailInput, theme: Theme): void {
+		this.input = input;
+		this.theme = theme;
+	}
 
 	invalidate(): void {}
 
 	render(width: number): string[] {
-		return todoRailLines(this.input, this.theme, Math.max(1, width));
+		// The leading blank line separates the rail from the call header, matching
+		// the built-ins' header/output gap.
+		return ["", ...todoRailLines(this.input, this.theme, Math.max(1, width))];
 	}
 }
 

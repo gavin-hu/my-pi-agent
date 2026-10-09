@@ -39,19 +39,23 @@ Todos · 1/3 · Writing the tests
 `/todos` is the expanded view and keeps the model's list order (use it to see
 the plan as written).
 
-In the transcript, the call line names the tool once and the result keeps the
-shared `✓` / `◐` / `○` rail used by the goal result. Collapsed, it leads with
-active work; expanded, it keeps the submitted order:
+In the transcript, the call line pairs progress with the active item
+(`todo → 1/4 · Writing tests`), and the result keeps the shared
+`✓` / `◐` / `○` rail used by the goal result, separated from the call line by a
+blank line. Collapsed, it leads with active work; expanded, it keeps the
+submitted order:
 
 ```
-todo → 4 items: Write schema, …
+todo → 1/4 · Writing tests
 
   ◐ Writing tests
   ○ Ship it
   ○ Write docs
   ✓ Write schema
-  1/4 completed
 ```
+
+Progress lives on the call line, so the rail has no footer; the persistent
+widget and `/todos` still show the count.
 
 ## Tool
 
@@ -176,7 +180,12 @@ on config.
   orders by status via `compareByActivity` so active work is never hidden. The
   transcript result draws the same indented glyph rail as the goal result
   (`BODY_INDENT` / `GLYPH_GAP` from [`lib/ui.ts`](../../lib/ui.ts)), wrapping
-  long items with continuation rows aligned under the text.
+  long items with continuation rows aligned under the text. Progress lives on
+  the call line, so the rail carries no footer.
+- **The transcript reuses its components.** `renderCall` reuses the slot's
+  `Text`, and `renderResult` reuses the `TodoResult` view via
+  `context.lastComponent`, updating each in place instead of allocating on every
+  render — the built-in pattern.
 
 ## Files
 

@@ -76,12 +76,21 @@ describe("GoalWidget", () => {
 });
 
 describe("GoalResult", () => {
-	test("renders the rail uncapped with the themed body", () => {
+	test("blank line then the rail uncapped with the themed body", () => {
 		const body = theme.fg("text", "line one ".repeat(20).trim());
 		const lines = new GoalResult(active, body, theme).render(40);
-		expect(lines[0]).toBe("Goal · active");
-		expect(lines[1].startsWith("  ◎ ")).toBe(true);
-		expect(lines.length).toBeGreaterThan(3);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toBe("Goal · active");
+		expect(lines[2].startsWith("  ◎ ")).toBe(true);
+		expect(lines.length).toBeGreaterThan(4);
 		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(40);
+	});
+
+	test("updates in place for reuse", () => {
+		const view = new GoalResult(active, theme.fg("text", "one"), theme);
+		view.update(achieved, theme.fg("text", "two"), theme);
+		const lines = view.render(40);
+		expect(lines[1]).toBe("Goal · achieved");
+		expect(lines.join("\n")).toContain("two");
 	});
 });
