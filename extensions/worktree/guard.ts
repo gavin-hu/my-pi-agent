@@ -14,13 +14,8 @@
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { isInside, isInsideReal, realPathOfNearest } from "../../lib/path.ts";
+import { isShellEscapable } from "../../lib/shell.ts";
 import type { WorktreeConfig } from "./config.ts";
-
-/**
- * Characters a backslash escapes in a shell. A backslash before anything else
- * is a literal separator, so a Windows path (`C:\\Users\\x`) survives tokenizing.
- */
-const ESCAPABLE = /[\s"'\\$`;&|<>()]/;
 
 export interface GuardBlock {
 	block: true;
@@ -107,7 +102,7 @@ function splitSegments(command: string): string[] {
 			current += ch;
 			if (ch === "\\" && quote === '"' && i + 1 < command.length) {
 				const next = command[i + 1];
-				if (ESCAPABLE.test(next)) current += command[++i];
+				if (isShellEscapable(next)) current += command[++i];
 			} else if (ch === quote) {
 				quote = null;
 			}
@@ -165,7 +160,7 @@ function tokenize(segment: string): ShellWord[] {
 		if (quote) {
 			if (ch === "\\" && quote === '"' && i + 1 < segment.length) {
 				const next = segment[i + 1];
-				if (ESCAPABLE.test(next)) current += segment[++i];
+				if (isShellEscapable(next)) current += segment[++i];
 				else current += ch;
 			} else if (ch === quote) {
 				quote = null;
@@ -185,7 +180,7 @@ function tokenize(segment: string): ShellWord[] {
 		} else if (ch === "\\" && i + 1 < segment.length) {
 			started = true;
 			const next = segment[i + 1];
-			if (ESCAPABLE.test(next)) current += segment[++i];
+			if (isShellEscapable(next)) current += segment[++i];
 			else current += ch;
 		} else {
 			started = true;
@@ -255,7 +250,7 @@ function readShellWord(text: string, start: number): { raw: string; end: number 
 		if (quote) {
 			if (ch === "\\" && quote === '"' && i + 1 < text.length) {
 				const next = text[i + 1];
-				if (ESCAPABLE.test(next)) {
+				if (isShellEscapable(next)) {
 					raw += next;
 					i += 2;
 				} else {
@@ -280,7 +275,7 @@ function readShellWord(text: string, start: number): { raw: string; end: number 
 		}
 		if (ch === "\\" && i + 1 < text.length) {
 			const next = text[i + 1];
-			if (ESCAPABLE.test(next)) {
+			if (isShellEscapable(next)) {
 				raw += next;
 				i += 2;
 			} else {
