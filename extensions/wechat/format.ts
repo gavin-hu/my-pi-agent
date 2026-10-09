@@ -4,6 +4,8 @@
  */
 
 import { stripControlChars } from "../../lib/format.ts";
+import { sanitizeFileName } from "./media.ts";
+import type { CDNMedia, MediaRef, MessageItem } from "./types.ts";
 
 /**
  * Prepare inbound WeChat text before it becomes a user turn: strip terminal
@@ -37,4 +39,38 @@ export function chunkText(text: string, max: number): string[] {
 /** Drop the `@im.wechat` suffix from a peer id for a compact label. */
 export function peerLabel(peer: string): string {
 	return peer.replace(/@im\.wechat$/i, "");
+}
+
+/** Whether a media reference has something to download. */
+function hasMedia(ref: CDNMedia | undefined): ref is CDNMedia {
+	return !!ref && (!!ref.encrypt_query_param || !!ref.full_url);
+}
+
+/**
+ * Split an inbound `item_list` into text and downloadable media.
+ *
+ * Text items and voice transcripts are combined and sanitized (both are
+ * untrusted). Images and files with a usable CDN reference become {@link MediaRef}
+ * entries; video and unknown items are ignored. A media-only message yields an
+ * empty `text`.
+ */
+export function parseInbound(itemList: MessageItem[] | undefined): { text: string; media: MediaRef[] } {
+	const parts: string[] = [];
+	const media: MediaRef[] = [];
+	for (const item of itemList ?? []) {
+		if (item.type === 1 && typeof item.text_item?.text === "string") {
+			parts.push(item.text_item.text);
+		} else if (item.type === 3 && typeof item.voice_item?.text === "string") {
+			parts.push(item.voice_item.text);
+		} else if (item.type === 2 && hasMedia(item.image_item?.media)) {
+			media.push({ kind: "image", media: item.image_item.media, aeskey: item.image_item.aeskey });
+		} else if (item.type === 4 && hasMedia(item.file_item?.media)) {
+			media.push({
+				kind: "file",
+				media: item.file_item.media,
+				fileName: sanitizeFileName(item.file_item.file_name ?? "file"),
+			});
+		}
+	}
+	return { text: sanitizeInbound(parts.join("\n")), media };
 }

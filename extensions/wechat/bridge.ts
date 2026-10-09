@@ -1,29 +1,32 @@
 /**
- * The bridge: long-poll WeChat, inject inbound text as a user turn, and send the
- * assistant's reply back.
+ * The bridge: long-poll WeChat, inject inbound text and media as a user turn,
+ * and send the assistant's reply back.
  *
  * The live Pi session is the agent, so this is a thin loop. Because injected
  * messages carry no correlation id, the bridge serializes its own turns: it
  * records the peer when it injects, captures the final assistant text of that
  * run, and flushes the reply on `agent_settled` before draining the queue.
+ *
+ * Inbound images are downloaded, decrypted, and injected as model image content;
+ * inbound files are saved under the media directory and referenced by path. The
+ * model may message the owner proactively through {@link Bridge.sendToOwner}.
  */
 
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
-import { chunkText, sanitizeInbound } from "./format.ts";
+import { chunkText, parseInbound, sanitizeInbound } from "./format.ts";
 import { defaultSleep } from "./login.ts";
+import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { recordInbound } from "./state.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
 
 const BACKOFF_MS = 2000;
+/** How long a fetched typing ticket is reused. */
+const TYPING_TTL_MS = 5 * 60 * 1000;
 
-/** Extract the text of a user message, or `""` when it has none. */
-export function messageText(message: WeixinMessage): string {
-	for (const item of message.item_list ?? []) {
-		if (item.type === 1 && typeof item.text_item?.text === "string") return item.text_item.text;
-	}
-	return "";
-}
+/** Content the bridge injects: plain text or text/image blocks. */
+export type UserContent = string | (TextContent | ImageContent)[];
 
 /** Extract the concatenated text blocks of an assistant message. */
 export function assistantText(message: unknown): string | undefined {
@@ -55,7 +58,9 @@ export interface BridgeDeps {
 	/** Whether the live session has no active run. Defaults to always idle. */
 	isIdle?: () => boolean;
 	/** Inject a user turn into the live session. */
-	sendUserMessage: (text: string) => void;
+	sendUserMessage: (content: UserContent) => void;
+	/** Directory where inbound files are saved. */
+	mediaDir: () => string;
 	loadAccount: () => BotCredentials | undefined;
 	loadState: () => WechatState;
 	saveState: (state: WechatState) => void;
@@ -75,6 +80,12 @@ export interface BridgeStatus {
 	peerCount: number;
 	queued: number;
 	refused: number;
+	mediaDropped: number;
+}
+
+export interface SendResult {
+	ok: boolean;
+	error?: string;
 }
 
 export interface Bridge {
@@ -85,6 +96,8 @@ export interface Bridge {
 	capture(message: unknown): void;
 	settle(): void;
 	status(): BridgeStatus;
+	/** Message the owner proactively. Owner-only and text-only by design. */
+	sendToOwner(text: string): Promise<SendResult>;
 }
 
 function messageOf(error: unknown): string {
@@ -105,6 +118,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	let active: InboundItem | undefined;
 	let lastText = "";
 	let refused = 0;
+	let mediaDropped = 0;
+	let mediaCounter = 0;
+	const typingCache = new Map<string, { ticket?: string; checkedAt: number }>();
 
 	const isIdle = deps.isIdle ?? (() => true);
 
@@ -139,19 +155,120 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 	}
 
+	/** The typing ticket for a peer, fetched on first use and cached. */
+	async function typingTicket(peer: string, item: InboundItem): Promise<string | undefined> {
+		const cached = typingCache.get(peer);
+		const now = deps.now();
+		if (cached && now - cached.checkedAt < TYPING_TTL_MS) return cached.ticket;
+		try {
+			const response = await client?.getConfig(
+				account as BotCredentials,
+				{ ilinkUserId: peer, contextToken: item.contextToken },
+				abort?.signal,
+			);
+			typingCache.set(peer, { ticket: response?.typingTicket, checkedAt: now });
+			return response?.typingTicket;
+		} catch {
+			typingCache.set(peer, { ticket: undefined, checkedAt: now });
+			return undefined;
+		}
+	}
+
+	async function typingOn(peer: string, item: InboundItem): Promise<void> {
+		if (!deps.config.typingIndicator || !client || !account) return;
+		const ticket = await typingTicket(peer, item);
+		if (!ticket) return;
+		try {
+			await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: true }, abort?.signal);
+			// The turn may have settled while the ticket round-trip was in flight;
+			// cancel immediately so the indicator cannot get stuck on.
+			if (active !== item) {
+				await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: false }, abort?.signal);
+			}
+		} catch {
+			// Typing is best-effort.
+		}
+	}
+
+	async function typingOff(peer: string): Promise<void> {
+		if (!deps.config.typingIndicator || !client || !account) return;
+		const ticket = typingCache.get(peer)?.ticket;
+		if (!ticket) return;
+		try {
+			await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: false }, abort?.signal);
+		} catch {
+			// Typing is best-effort.
+		}
+	}
+
+	/** Download, decrypt, and turn a media reference into a content block. */
+	async function resolveMedia(item: InboundItem): Promise<(TextContent | ImageContent)[]> {
+		const blocks: (TextContent | ImageContent)[] = [];
+		for (const ref of item.media) {
+			if (!client) return blocks;
+			try {
+				const cipher = await client.downloadCdn(ref.media, abort?.signal);
+				if (cipher.byteLength > deps.config.maxMediaBytes) {
+					mediaDropped += 1;
+					notify(`WeChat media dropped: over ${deps.config.maxMediaBytes} bytes.`, "warning");
+					continue;
+				}
+				if (ref.kind === "file") {
+					if (!ref.media.aes_key) throw new Error("missing AES key");
+					const plain = decryptEcb(cipher, decodeMediaKey(ref.media.aes_key));
+					mediaCounter += 1;
+					const path = saveMedia(deps.mediaDir(), `${deps.now()}-${mediaCounter}-${ref.fileName}`, plain);
+					blocks.push({ type: "text", text: `[WeChat file: ${ref.fileName} saved to ${path}]` });
+				} else {
+					const key = ref.aeskey ?? ref.media.aes_key;
+					const plain = key ? decryptEcb(cipher, decodeMediaKey(key)) : cipher;
+					blocks.push({
+						type: "image",
+						data: Buffer.from(plain).toString("base64"),
+						mimeType: sniffImageMime(plain),
+					});
+				}
+			} catch (error) {
+				mediaDropped += 1;
+				notify(`WeChat media dropped: ${messageOf(error)}`, "warning");
+			}
+		}
+		return blocks;
+	}
+
+	/** Resolve media, then inject the turn. `active` is set before any await. */
+	async function inject(item: InboundItem): Promise<void> {
+		let content: UserContent = item.text;
+		if (item.media.length > 0) {
+			const blocks = await resolveMedia(item);
+			if (!running || active !== item) return;
+			const parts: (TextContent | ImageContent)[] = [];
+			if (item.text) parts.push({ type: "text", text: item.text });
+			parts.push(...blocks);
+			if (parts.length === 0) {
+				active = undefined;
+				pump();
+				return;
+			}
+			content = parts;
+		}
+		try {
+			deps.sendUserMessage(content);
+		} catch (error) {
+			active = undefined;
+			notify(`WeChat could not start a turn: ${messageOf(error)}`, "error");
+			pump();
+		}
+	}
+
 	function pump(): void {
 		if (!running || busy || active || !isIdle()) return;
 		const item = queue.shift();
 		if (!item) return;
 		active = item;
 		lastText = "";
-		try {
-			deps.sendUserMessage(item.text);
-		} catch (error) {
-			active = undefined;
-			notify(`WeChat could not start a turn: ${messageOf(error)}`, "error");
-			pump();
-		}
+		void typingOn(item.peer, item);
+		void inject(item);
 	}
 
 	function handleMessage(message: WeixinMessage): void {
@@ -162,14 +279,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			refused += 1;
 			return;
 		}
-		const text = sanitizeInbound(messageText(message));
-		if (!text) return;
+		const { text, media } = parseInbound(message.item_list);
+		if (!text && media.length === 0) return;
 		recordInbound(state, peer, message.context_token, deps.now());
 		deps.saveState(state);
 		queue.push({
 			peer,
 			contextToken: message.context_token ?? state.peers[peer]?.lastContextToken,
 			text,
+			media,
 		});
 		pump();
 	}
@@ -230,6 +348,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			queue = [];
 			active = undefined;
 			lastText = "";
+			typingCache.clear();
 			abort = new AbortController();
 			loopPromise = loop(abort.signal).catch((error) => {
 				notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
@@ -276,8 +395,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			const text = lastText;
 			active = undefined;
 			lastText = "";
-			if (item && text) {
-				void reply(item, text).finally(() => pump());
+			if (item) {
+				void (async () => {
+					await typingOff(item.peer);
+					if (text) await reply(item, text);
+				})().finally(() => pump());
 			} else {
 				pump();
 			}
@@ -290,7 +412,28 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				peerCount: Object.keys(state.peers).length,
 				queued: queue.length,
 				refused,
+				mediaDropped,
 			};
+		},
+
+		async sendToOwner(text: string): Promise<SendResult> {
+			if (!running || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
+			const trimmed = sanitizeInbound(text);
+			if (!trimmed) return { ok: false, error: "Nothing to send." };
+			const owner = state.ownerId ?? account.ilinkUserId;
+			const contextToken = state.peers[owner]?.lastContextToken;
+			for (const chunk of chunkText(trimmed, deps.config.maxReplyChars)) {
+				try {
+					const response = await client.sendMessage(account, { to: owner, text: chunk, contextToken }, abort?.signal);
+					if (isSessionExpired(response)) {
+						handleExpired();
+						return { ok: false, error: "WeChat session expired." };
+					}
+				} catch (error) {
+					return { ok: false, error: messageOf(error) };
+				}
+			}
+			return { ok: true };
 		},
 	};
 }

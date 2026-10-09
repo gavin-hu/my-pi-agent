@@ -4,7 +4,7 @@
  * The effective config is `<agentDir>/wechat.json` overridden by
  * `<cwd>/.pi/wechat.json`. Unknown keys are ignored and every value is clamped
  * or cleaned. Connection state is not stored here; it is controlled at runtime
- * by `/wechat open` and `/wechat close`.
+ * by `/wechat start` and `/wechat stop`.
  */
 
 import { clampInteger, cleanString, loadConfigFile } from "../../lib/config.ts";
@@ -20,6 +20,12 @@ export interface WechatConfig {
 	botAgent: string;
 	/** Plugin version sent as `base_info.channel_version`. */
 	channelVersion: string;
+	/** Base URL for CDN media downloads and uploads. */
+	cdnBaseUrl: string;
+	/** Inbound media larger than this is skipped. */
+	maxMediaBytes: number;
+	/** Send a typing indicator while an inbound turn is being generated. */
+	typingIndicator: boolean;
 }
 
 export const DEFAULT_CONFIG: WechatConfig = {
@@ -28,7 +34,15 @@ export const DEFAULT_CONFIG: WechatConfig = {
 	maxReplyChars: 4000,
 	botAgent: "pi-wechat",
 	channelVersion: "0.1.0",
+	cdnBaseUrl: "https://novac2c.cdn.weixin.qq.com/c2c",
+	maxMediaBytes: 20 * 1024 * 1024,
+	typingIndicator: true,
 };
+
+/** A cleaned, slash-free base URL. */
+function toBaseUrl(value: unknown, fallback: string): string {
+	return cleanString(value, fallback).replace(/\/+$/, "");
+}
 
 function toStringArray(value: unknown): string[] | undefined {
 	if (!Array.isArray(value)) return undefined;
@@ -55,6 +69,15 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	}
 	if (raw.channelVersion !== undefined) {
 		config.channelVersion = cleanString(raw.channelVersion, base.channelVersion);
+	}
+	if (raw.cdnBaseUrl !== undefined) {
+		config.cdnBaseUrl = toBaseUrl(raw.cdnBaseUrl, base.cdnBaseUrl);
+	}
+	if (raw.maxMediaBytes !== undefined) {
+		config.maxMediaBytes = clampInteger(raw.maxMediaBytes, base.maxMediaBytes, 1024, 100 * 1024 * 1024);
+	}
+	if (typeof raw.typingIndicator === "boolean") {
+		config.typingIndicator = raw.typingIndicator;
 	}
 	return config;
 }

@@ -1,8 +1,8 @@
 /**
- * The `/wechat` command: `login`, `open`, `close`, `status`, `logout`.
+ * The `/wechat` command: `login`, `start`, `stop`, `status`, `logout`.
  *
  * `login` renders the QR screen and stores credentials; it does not open the
- * connection. `open`/`close` control the bridge at runtime; `logout` discards
+ * connection. `start`/`stop` control the bridge at runtime; `logout` discards
  * the account.
  */
 
@@ -78,7 +78,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 	switch (result.kind) {
 		case "confirmed":
 			deps.saveAccount(result.account);
-			ctx.ui.notify(`WeChat connected as ${peerLabel(result.account.ilinkUserId)}. Run /wechat open.`);
+			ctx.ui.notify(`WeChat connected as ${peerLabel(result.account.ilinkUserId)}. Run /wechat start.`);
 			return;
 		case "expired":
 			ctx.ui.notify("WeChat QR code expired. Run /wechat login again.", "warning");
@@ -91,7 +91,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 	}
 }
 
-function runOpen(ctx: ExtensionContext, deps: CommandDeps): void {
+function runStart(ctx: ExtensionContext, deps: CommandDeps): void {
 	if (ctx.mode !== "tui" && ctx.mode !== "rpc") {
 		ctx.ui.notify("WeChat opens only in an interactive or RPC session.", "warning");
 		return;
@@ -99,20 +99,20 @@ function runOpen(ctx: ExtensionContext, deps: CommandDeps): void {
 	const bridge = deps.ensureBridge(ctx);
 	try {
 		bridge.open();
-		ctx.ui.notify("WeChat bridge open.");
+		ctx.ui.notify("WeChat bridge started.");
 	} catch (error) {
-		ctx.ui.notify(`WeChat open failed: ${messageOf(error)}`, "warning");
+		ctx.ui.notify(`WeChat start failed: ${messageOf(error)}`, "warning");
 	}
 }
 
-async function runClose(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
+async function runStop(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
 	const bridge = deps.getBridge();
 	if (!bridge) {
 		ctx.ui.notify("WeChat bridge is not initialized.");
 		return;
 	}
 	await bridge.close();
-	ctx.ui.notify("WeChat bridge closed.");
+	ctx.ui.notify("WeChat bridge stopped.");
 }
 
 function runStatus(ctx: ExtensionContext, deps: CommandDeps): void {
@@ -125,6 +125,7 @@ function runStatus(ctx: ExtensionContext, deps: CommandDeps): void {
 	if (status) {
 		parts.push(`${status.peerCount} peer(s)`, `${status.queued} queued`);
 		if (status.refused > 0) parts.push(`${status.refused} refused`);
+		if (status.mediaDropped > 0) parts.push(`${status.mediaDropped} media dropped`);
 		if (status.owner) parts.push(`owner ${peerLabel(status.owner)}`);
 	}
 	ctx.ui.notify(`wechat: ${parts.join(" · ")}`);
@@ -139,16 +140,16 @@ async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
-		description: "WeChat bridge: /wechat login | open | close | status | logout",
+		description: "WeChat bridge: /wechat login | start | stop | status | logout",
 		handler: async (args, ctx) => {
 			const [sub = "status"] = args.trim().split(/\s+/).filter(Boolean);
 			switch (sub.toLowerCase()) {
 				case "login":
 					return runLogin(ctx, deps);
-				case "open":
-					return runOpen(ctx, deps);
-				case "close":
-					return runClose(ctx, deps);
+				case "start":
+					return runStart(ctx, deps);
+				case "stop":
+					return runStop(ctx, deps);
 				case "logout":
 					return runLogout(ctx, deps);
 				default:

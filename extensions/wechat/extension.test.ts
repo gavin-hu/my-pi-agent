@@ -11,6 +11,12 @@ describe("wechat extension", () => {
 		expect(fake.commands.has("wechat")).toBe(true);
 	});
 
+	test("registers the send_wechat tool", () => {
+		const fake = createFakePi();
+		wechat(fake.pi);
+		expect(fake.tools.has("send_wechat")).toBe(true);
+	});
+
 	test("does not open the bridge on session_start", async () => {
 		await withAgentDir(async () => {
 			const fake = createFakePi();
@@ -23,22 +29,22 @@ describe("wechat extension", () => {
 		});
 	});
 
-	test("refuses to open outside tui and rpc modes", async () => {
+	test("refuses to start outside tui and rpc modes", async () => {
 		await withAgentDir(async () => {
 			const fake = createFakePi();
 			wechat(fake.pi);
 			const { ctx, notifications } = fakeCtx({ mode: "json", hasUI: false });
-			await fake.commands.get("wechat").handler("open", ctx);
+			await fake.commands.get("wechat").handler("start", ctx);
 			expect(notifications.join("\n").toLowerCase()).toContain("interactive or rpc");
 		});
 	});
 
-	test("reports a failed open when not logged in", async () => {
+	test("reports a failed start when not logged in", async () => {
 		await withAgentDir(async () => {
 			const fake = createFakePi();
 			wechat(fake.pi);
 			const { ctx, notifications } = fakeCtx();
-			await fake.commands.get("wechat").handler("open", ctx);
+			await fake.commands.get("wechat").handler("start", ctx);
 			expect(notifications.join("\n")).toContain("Not logged in");
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});

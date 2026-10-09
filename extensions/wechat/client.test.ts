@@ -96,6 +96,46 @@ describe("sendMessage", () => {
 	});
 });
 
+describe("getConfig", () => {
+	test("posts the user id and returns the typing ticket", async () => {
+		const { calls, http } = recorder([jsonResponse({ ret: 0, typing_ticket: "ticket" })]);
+		const result = await client(http).getConfig(account, { ilinkUserId: "u", contextToken: "ctx" });
+		expect(calls[0]?.url).toBe("https://base/ilink/bot/getconfig");
+		expect(calls[0]?.headers?.Authorization).toBe("Bearer tok");
+		const body = JSON.parse(calls[0]?.body ?? "{}");
+		expect(body.ilink_user_id).toBe("u");
+		expect(body.context_token).toBe("ctx");
+		expect(result.typingTicket).toBe("ticket");
+	});
+});
+
+describe("sendTyping", () => {
+	test("maps the typing boolean to status 1 and 2", async () => {
+		const { calls, http } = recorder([jsonResponse({ ret: 0 }), jsonResponse({ ret: 0 })]);
+		await client(http).sendTyping(account, { ilinkUserId: "u", typingTicket: "t", typing: true });
+		await client(http).sendTyping(account, { ilinkUserId: "u", typingTicket: "t", typing: false });
+		expect(calls[0]?.url).toBe("https://base/ilink/bot/sendtyping");
+		expect(JSON.parse(calls[0]?.body ?? "{}").status).toBe(1);
+		expect(JSON.parse(calls[1]?.body ?? "{}").status).toBe(2);
+	});
+});
+
+describe("downloadCdn", () => {
+	test("GETs the full URL and returns bytes", async () => {
+		const { calls, http } = recorder([{ status: 200, headers: {}, text: "", bytes: new Uint8Array([1, 2]) }]);
+		const bytes = await client(http).downloadCdn({ full_url: "https://cdn/f" });
+		expect(calls[0]?.method).toBe("GET");
+		expect(calls[0]?.url).toBe("https://cdn/f");
+		expect(calls[0]?.responseType).toBe("binary");
+		expect(bytes).toEqual(new Uint8Array([1, 2]));
+	});
+
+	test("throws on a non-success status", async () => {
+		const { http } = recorder([{ status: 404, headers: {}, text: "" }]);
+		await expect(client(http).downloadCdn({ encrypt_query_param: "p" }, undefined)).rejects.toBeInstanceOf(WechatError);
+	});
+});
+
 describe("transport errors", () => {
 	test("throws on a non-success status", async () => {
 		const { http } = recorder([{ status: 500, headers: {}, text: "" }]);

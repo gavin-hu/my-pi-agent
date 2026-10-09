@@ -9,7 +9,55 @@
 /** One content item inside a message (`type` 1 = text). */
 export interface MessageItem {
 	type?: number;
+	msg_id?: string;
 	text_item?: { text?: string };
+	image_item?: ImageItem;
+	voice_item?: VoiceItem;
+	file_item?: FileItem;
+	video_item?: VideoItem;
+}
+
+/** CDN media reference; `aes_key` is base64-encoded bytes in JSON. */
+export interface CDNMedia {
+	encrypt_query_param?: string;
+	aes_key?: string;
+	encrypt_type?: number;
+	/** Full download URL, preferred over a constructed one. */
+	full_url?: string;
+}
+
+/** `image_item`; `aeskey` is a raw 16-byte AES key as hex, preferred inbound. */
+export interface ImageItem {
+	media?: CDNMedia;
+	thumb_media?: CDNMedia;
+	aeskey?: string;
+	url?: string;
+	mid_size?: number;
+	thumb_size?: number;
+}
+
+/** `voice_item`; a transcript may be present in `text`. */
+export interface VoiceItem {
+	media?: CDNMedia;
+	encode_type?: number;
+	sample_rate?: number;
+	playtime?: number;
+	text?: string;
+}
+
+/** `file_item`; `len` is the plaintext byte count as a decimal string. */
+export interface FileItem {
+	media?: CDNMedia;
+	file_name?: string;
+	md5?: string;
+	len?: string;
+}
+
+/** `video_item` (typed but not downloaded by this bridge). */
+export interface VideoItem {
+	media?: CDNMedia;
+	video_size?: number;
+	play_length?: number;
 }
 
 /** An inbound Weixin message (the fields the bridge reads). */
@@ -57,7 +105,26 @@ export interface InboundItem {
 	peer: string;
 	contextToken?: string;
 	text: string;
+	media: MediaRef[];
 }
+
+/** An inbound image to download, decrypt, and attach to the turn. */
+export interface ImageRef {
+	kind: "image";
+	media: CDNMedia;
+	/** Hex key from `image_item.aeskey`, when present. */
+	aeskey?: string;
+}
+
+/** An inbound file to download, decrypt, and save for the agent. */
+export interface FileRef {
+	kind: "file";
+	media: CDNMedia;
+	fileName: string;
+}
+
+/** A downloadable inbound attachment (video is not handled). */
+export type MediaRef = ImageRef | FileRef;
 
 /** `get_bot_qrcode` response. */
 export interface QrResponse {
@@ -85,6 +152,19 @@ export interface UpdatesResponse {
 
 /** `sendmessage` response. */
 export interface SendResponse {
+	ret?: number;
+	errcode?: number;
+}
+
+/** `getconfig` response: the per-user typing ticket. */
+export interface GetConfigResponse {
+	ret?: number;
+	errcode?: number;
+	typingTicket?: string;
+}
+
+/** `sendtyping` response (the body is not relied on). */
+export interface SendTypingResponse {
 	ret?: number;
 	errcode?: number;
 }

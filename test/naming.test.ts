@@ -26,6 +26,7 @@ import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runti
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
 import { TOOL_NAME as webSearch } from "../extensions/web-access/search/tool.ts";
+import { TOOL_NAME as wechatSend } from "../extensions/wechat/tools.ts";
 import { WORKTREE_TOOLS } from "../extensions/worktree/tools.ts";
 
 const NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -66,6 +67,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "todo", name: todo },
 	{ extension: "web-access", name: webFetch },
 	{ extension: "web-access", name: webSearch },
+	{ extension: "wechat", name: wechatSend },
 	{ extension: "worktree", name: WORKTREE_TOOLS.enter },
 	{ extension: "worktree", name: WORKTREE_TOOLS.exit },
 	{ extension: "worktree", name: WORKTREE_TOOLS.prune },
@@ -106,6 +108,7 @@ describe("extension tool naming", () => {
 			"memory",
 			"prune_worktrees",
 			"read_doc",
+			"send_wechat",
 			"subagent",
 			"todo",
 			"web_fetch",

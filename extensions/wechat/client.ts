@@ -9,10 +9,23 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { BotCredentials, QrResponse, QrStatus, SendResponse, UpdatesResponse, WeixinMessage } from "./types.ts";
+import { mediaDownloadUrl } from "./media.ts";
+import type {
+	BotCredentials,
+	CDNMedia,
+	GetConfigResponse,
+	QrResponse,
+	QrStatus,
+	SendResponse,
+	SendTypingResponse,
+	UpdatesResponse,
+	WeixinMessage,
+} from "./types.ts";
 
 /** Fixed public API base used for QR login. */
 export const DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com";
+/** Fixed CDN base used when the server omits a full media URL. */
+export const DEFAULT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c";
 /** Application id sent as `iLink-App-Id`. */
 export const APP_ID = "bot";
 /** `ret`/`errcode` value meaning the bot token expired and login is required. */
@@ -24,12 +37,15 @@ export interface HttpRequest {
 	headers?: Record<string, string>;
 	body?: string;
 	signal?: AbortSignal;
+	/** `binary` returns raw bytes in `bytes`; defaults to decoded `text`. */
+	responseType?: "text" | "binary";
 }
 
 export interface HttpResponse {
 	status: number;
 	headers: Record<string, string>;
 	text: string;
+	bytes?: Uint8Array;
 }
 
 /** The HTTP seam; defaults to `fetch`, injected in tests. */
@@ -61,6 +77,9 @@ export function createFetchRunner(fetchImpl: typeof fetch = fetch): HttpRunner {
 		response.headers.forEach((value, key) => {
 			headers[key.toLowerCase()] = value;
 		});
+		if (request.responseType === "binary") {
+			return { status: response.status, headers, text: "", bytes: new Uint8Array(await response.arrayBuffer()) };
+		}
 		return { status: response.status, headers, text: await response.text() };
 	};
 }
@@ -86,6 +105,8 @@ export interface WechatClientOptions {
 	random?: () => number;
 	/** Base URL for QR requests; defaults to {@link DEFAULT_BASE_URL}. */
 	baseUrl?: string;
+	/** Base URL for CDN media; defaults to {@link DEFAULT_CDN_BASE_URL}. */
+	cdnBaseUrl?: string;
 }
 
 function parseJson(text: string): Record<string, unknown> {
@@ -117,6 +138,7 @@ export class WechatClient {
 	private readonly botAgent: string;
 	private readonly random: () => number;
 	private readonly baseUrl: string;
+	private readonly cdnBaseUrl: string;
 
 	constructor(options: WechatClientOptions) {
 		this.http = options.http;
@@ -124,6 +146,7 @@ export class WechatClient {
 		this.botAgent = options.botAgent;
 		this.random = options.random ?? Math.random;
 		this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+		this.cdnBaseUrl = options.cdnBaseUrl ?? DEFAULT_CDN_BASE_URL;
 	}
 
 	private baseInfo(): Record<string, string> {
@@ -230,6 +253,58 @@ export class WechatClient {
 		if (args.contextToken) msg.context_token = args.contextToken;
 		const data = await this.post(url, this.authHeaders(account), { msg, base_info: this.baseInfo() }, signal);
 		return { ret: asNumber(data.ret), errcode: asNumber(data.errcode) };
+	}
+
+	/** `POST /ilink/bot/getconfig` — the per-user typing ticket. */
+	async getConfig(
+		account: BotCredentials,
+		args: { ilinkUserId: string; contextToken?: string },
+		signal?: AbortSignal,
+	): Promise<GetConfigResponse> {
+		const url = `${account.baseUrl}/ilink/bot/getconfig`;
+		const body: Record<string, unknown> = { ilink_user_id: args.ilinkUserId, base_info: this.baseInfo() };
+		if (args.contextToken) body.context_token = args.contextToken;
+		const data = await this.post(url, this.authHeaders(account), body, signal);
+		return {
+			ret: asNumber(data.ret),
+			errcode: asNumber(data.errcode),
+			typingTicket: asString(data.typing_ticket),
+		};
+	}
+
+	/** `POST /ilink/bot/sendtyping` — set or cancel the typing indicator. */
+	async sendTyping(
+		account: BotCredentials,
+		args: { ilinkUserId: string; typingTicket: string; typing: boolean },
+		signal?: AbortSignal,
+	): Promise<SendTypingResponse> {
+		const url = `${account.baseUrl}/ilink/bot/sendtyping`;
+		const data = await this.post(
+			url,
+			this.authHeaders(account),
+			{
+				ilink_user_id: args.ilinkUserId,
+				typing_ticket: args.typingTicket,
+				status: args.typing ? 1 : 2,
+				base_info: this.baseInfo(),
+			},
+			signal,
+		);
+		return { ret: asNumber(data.ret), errcode: asNumber(data.errcode) };
+	}
+
+	/** `GET` a CDN media reference as raw bytes (no authorization header). */
+	async downloadCdn(ref: CDNMedia, signal?: AbortSignal): Promise<Uint8Array> {
+		const response = await this.http({
+			url: mediaDownloadUrl(ref, this.cdnBaseUrl),
+			method: "GET",
+			signal,
+			responseType: "binary",
+		});
+		if (response.status < 200 || response.status >= 300) {
+			throw new WechatError(`Weixin CDN returned HTTP ${response.status}.`, { status: response.status });
+		}
+		return response.bytes ?? new Uint8Array();
 	}
 }
 

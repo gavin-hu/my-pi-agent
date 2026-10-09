@@ -25,6 +25,23 @@ describe("normalizeConfig", () => {
 		const config = normalizeConfig({ botAgent: "x".repeat(400) }, DEFAULT_CONFIG);
 		expect(config.botAgent.length).toBe(256);
 	});
+
+	test("clamps maxMediaBytes into range", () => {
+		const low = normalizeConfig({ maxMediaBytes: 1 }, DEFAULT_CONFIG);
+		const high = normalizeConfig({ maxMediaBytes: 999 * 1024 * 1024 }, DEFAULT_CONFIG);
+		expect(low.maxMediaBytes).toBe(1024);
+		expect(high.maxMediaBytes).toBe(100 * 1024 * 1024);
+	});
+
+	test("cleans the CDN base URL of trailing slashes", () => {
+		const config = normalizeConfig({ cdnBaseUrl: "  https://cdn.example.com/c2c///  " }, DEFAULT_CONFIG);
+		expect(config.cdnBaseUrl).toBe("https://cdn.example.com/c2c");
+	});
+
+	test("only accepts a boolean typingIndicator", () => {
+		expect(normalizeConfig({ typingIndicator: false }, DEFAULT_CONFIG).typingIndicator).toBe(false);
+		expect(normalizeConfig({ typingIndicator: "yes" }, DEFAULT_CONFIG).typingIndicator).toBe(true);
+	});
 });
 
 describe("loadWechatConfig", () => {

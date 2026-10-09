@@ -3,21 +3,23 @@
  *
  * The live Pi session is the agent: an inbound WeChat message becomes a user
  * turn (`pi.sendUserMessage`), and the assistant's reply is sent back. The
- * bridge never starts on its own — `/wechat open` connects and `/wechat close`
+ * bridge never starts on its own — `/wechat start` connects and `/wechat stop`
  * disconnects; `/wechat login` authenticates. See `README.md`.
  *
  * Load with:  pi --extension ./extensions/wechat
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { createBridge, type Bridge } from "./bridge.ts";
 import { createFetchRunner, WechatClient } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";
 import { loadWechatConfig } from "./config.ts";
-import { clearCredentials, primaryAccount, saveAccount } from "./credentials.ts";
+import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
 import { readState, statePath, writeState } from "./state.ts";
+import { registerTools } from "./tools.ts";
 
 export default function wechat(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("wechat")) return;
@@ -45,7 +47,8 @@ export default function wechat(pi: ExtensionAPI): void {
 			config,
 			now: () => Date.now(),
 			isIdle: () => ctxRef?.isIdle() ?? true,
-			sendUserMessage: (text) => pi.sendUserMessage(text),
+			sendUserMessage: (content) => pi.sendUserMessage(content),
+			mediaDir: () => join(wechatDir(), "media"),
 			loadAccount: () => primaryAccount(),
 			loadState: () => readState(statePath()),
 			saveState: (state) => writeState(statePath(), state),
@@ -55,6 +58,7 @@ export default function wechat(pi: ExtensionAPI): void {
 					channelVersion: config.channelVersion,
 					botAgent: config.botAgent,
 					baseUrl: account.baseUrl,
+					cdnBaseUrl: config.cdnBaseUrl,
 				}),
 			acquireLock: () => acquireLock(lockPath(), lockDeps()),
 			refreshLock: () => refreshLock(lockPath(), lockDeps()),
@@ -78,6 +82,7 @@ export default function wechat(pi: ExtensionAPI): void {
 				http: createFetchRunner(),
 				channelVersion: config.channelVersion,
 				botAgent: config.botAgent,
+				cdnBaseUrl: config.cdnBaseUrl,
 			});
 		},
 		saveAccount,
@@ -87,6 +92,7 @@ export default function wechat(pi: ExtensionAPI): void {
 	};
 
 	registerCommands(pi, deps);
+	registerTools(pi, { getBridge: () => bridge });
 
 	pi.on("session_start", (_event, ctx) => {
 		ctxRef = ctx;
