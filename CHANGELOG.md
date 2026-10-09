@@ -107,8 +107,8 @@ one installable Pi package.
   (`start` / `list` / `status` / `logs` / `kill` / `wait` / `clear`), `/jobs`,
   and the `▸ N` running / `✗ N` failure status chips. `start.timeoutMs`
   auto-kills a job that runs past its deadline.
-- `file-browser`: `/serve` starts a read-only local HTTP server on a stable
-  per-project port, rooted at the working directory, and opens a two-pane tree
+- `file-browser`: `/serve` starts a read-only local HTTP server on a port fixed
+  for the session, rooted at the working directory, and opens a two-pane tree
   browser — a collapsible path tree, directory listings, text pages with a line
   gutter, images, and download cards, plus image thumbnails, per-language icons,
   a client-side path filter, and a git header. It binds `127.0.0.1` only.
