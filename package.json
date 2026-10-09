@@ -59,6 +59,7 @@
       "./extensions/web-access/index.ts",
       "./extensions/file-browser/index.ts",
       "./extensions/doc/index.ts",
+      "./extensions/wechat/index.ts",
       "./extensions/status-bar/index.ts",
       "./extensions/turn-separator/index.ts"
     ],
@@ -76,6 +77,9 @@
     "transpile": "bun run scripts/transpile.ts",
     "smoke": "bun run scripts/smoke-runtime.ts",
     "check": "bun run format:check && bun run typecheck && bun run transpile && bun run test && bun run smoke"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",
@@ -100,6 +104,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
+    "@types/qrcode": "^1.5.5",
     "@earendil-works/pi-agent-core": "^1.0.4",
     "@earendil-works/pi-ai": "^1.0.4",
     "@earendil-works/pi-coding-agent": "^1.0.4",
