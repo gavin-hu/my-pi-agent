@@ -223,8 +223,10 @@ describe("renderFilePage", () => {
 		expect(html).toContain('id="main"');
 		expect(html).toContain('<details class="side-panel" open>');
 		expect(html).toContain('<summary class="side-summary">');
-		expect(html).toContain("max-width:1400px");
+		expect(html).not.toContain("max-width:1400px");
 		expect(html).not.toContain("max-width:1200px");
+		expect(html).toContain("main.content{padding:20px 24px;min-width:0;display:flex;flex-direction:column}");
+		expect(html).toContain("pre.code{margin:0;padding:12px 0 16px;flex:1 1 auto;min-height:0;overflow:auto;");
 		expect(html).toContain("overscroll-behavior:contain");
 		expect(html).toContain("flex-wrap:wrap");
 		expect(html).toContain(".git .dirty-dot");
