@@ -18,6 +18,7 @@ import { registerCommands, type CommandDeps } from "./commands.ts";
 import { loadWechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
+import { installRemoteUI } from "./remote-ui.ts";
 import { readState, statePath, writeState } from "./state.ts";
 import { registerTools } from "./tools.ts";
 
@@ -26,6 +27,15 @@ export default function wechat(pi: ExtensionAPI): void {
 
 	let bridge: Bridge | undefined;
 	let ctxRef: ExtensionContext | undefined;
+	let uninstallRemoteUI: (() => void) | undefined;
+	let remotePromptsEnabled = false;
+
+	/** Point the shared UI's dialog routing at the bridge's channel. */
+	const installAdapter = (ctx: ExtensionContext, target: Bridge): void => {
+		if (!ctx.hasUI) return;
+		uninstallRemoteUI?.();
+		uninstallRemoteUI = installRemoteUI(ctx.ui, target.channel());
+	};
 
 	const lockDeps = () => ({
 		now: () => Date.now(),
@@ -43,7 +53,8 @@ export default function wechat(pi: ExtensionAPI): void {
 	const build = (ctx: ExtensionContext): Bridge => {
 		ctxRef = ctx;
 		const config = loadWechatConfig(ctx.cwd);
-		return createBridge({
+		remotePromptsEnabled = config.remotePrompts;
+		const created = createBridge({
 			config,
 			now: () => Date.now(),
 			isIdle: () => ctxRef?.isIdle() ?? true,
@@ -67,6 +78,8 @@ export default function wechat(pi: ExtensionAPI): void {
 				ctxRef?.ui.notify(message, kind);
 			},
 		});
+		if (config.remotePrompts) installAdapter(ctx, created);
+		return created;
 	};
 
 	const deps: CommandDeps = {
@@ -96,11 +109,15 @@ export default function wechat(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		ctxRef = ctx;
+		// `/reload` rebuilds the runner's UI object; re-point the adapter at it.
+		if (bridge && remotePromptsEnabled) installAdapter(ctx, bridge);
 	});
 	pi.on("agent_start", () => bridge?.setBusy(true));
 	pi.on("message_end", (event) => bridge?.capture(event.message));
 	pi.on("agent_settled", () => bridge?.settle());
 	pi.on("session_shutdown", async () => {
+		uninstallRemoteUI?.();
+		uninstallRemoteUI = undefined;
 		await bridge?.shutdown();
 		bridge = undefined;
 		ctxRef = undefined;

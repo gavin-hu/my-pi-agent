@@ -16,6 +16,7 @@
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
+import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui.ts";
 import { expandHint } from "../../lib/ui.ts";
@@ -97,30 +98,33 @@ async function reviewPlan(
 	ctx: ExtensionToolContext,
 	plan: { path: string; relativePath: string; content: string; bytes: number },
 ): Promise<PlanReviewOutcome> {
-	if (ctx.mode === "tui") {
-		const outcome = await ctx.ui.custom<PlanReviewOutcome | undefined>(
-			(tui, theme, _keybindings, done) =>
-				new PlanViewComponent({
-					plan,
-					theme,
-					onClose: (action, refinement) => done({ action, refinement }),
-					requestRender: () => tui.requestRender(),
-					viewportRows: () => tui.terminal?.rows,
-					tui,
-				}),
-			FULL_SCREEN_OVERLAY,
-		);
-		return outcome ?? { action: "keep" };
-	}
-
-	const choice = await ctx.ui.select("Plan mode — what next?", [
-		"Approve and execute",
-		"Refine the plan",
-		"Keep planning",
-	]);
-	if (choice === "Approve and execute") return { action: "approve" };
-	if (choice === "Refine the plan") return { action: "refine" };
-	return { action: "keep" };
+	return askHuman(ctx, {
+		custom: async () => {
+			const outcome = await ctx.ui.custom<PlanReviewOutcome | undefined>(
+				(tui, theme, _keybindings, done) =>
+					new PlanViewComponent({
+						plan,
+						theme,
+						onClose: (action, refinement) => done({ action, refinement }),
+						requestRender: () => tui.requestRender(),
+						viewportRows: () => tui.terminal?.rows,
+						tui,
+					}),
+				FULL_SCREEN_OVERLAY,
+			);
+			return outcome ?? { action: "keep" };
+		},
+		dialogs: async () => {
+			const choice = await ctx.ui.select("Plan mode — what next?", [
+				"Approve and execute",
+				"Refine the plan",
+				"Keep planning",
+			]);
+			if (choice === "Approve and execute") return { action: "approve" };
+			if (choice === "Refine the plan") return { action: "refine" };
+			return { action: "keep" };
+		},
+	});
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {

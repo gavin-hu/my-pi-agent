@@ -15,6 +15,7 @@
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
 import { chunkText, parseInbound, sanitizeInbound } from "./format.ts";
+import { createWechatInteractionChannel, type WechatInteractionChannel } from "./interaction.ts";
 import { defaultSleep } from "./login.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { recordInbound } from "./state.ts";
@@ -81,6 +82,8 @@ export interface BridgeStatus {
 	queued: number;
 	refused: number;
 	mediaDropped: number;
+	/** Whether a remote dialog prompt is waiting for an answer. */
+	promptPending: boolean;
 }
 
 export interface SendResult {
@@ -96,6 +99,8 @@ export interface Bridge {
 	capture(message: unknown): void;
 	settle(): void;
 	status(): BridgeStatus;
+	/** The remote interaction channel the UI adapter routes prompts through. */
+	channel(): WechatInteractionChannel;
 	/** Message the owner proactively. Owner-only and text-only by design. */
 	sendToOwner(text: string): Promise<SendResult>;
 }
@@ -154,6 +159,30 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			}
 		}
 	}
+
+	/** Send one prompt line to the peer that owns the in-flight turn. */
+	async function sendPrompt(text: string, signal?: AbortSignal): Promise<boolean> {
+		if (!client || !account || !active) return false;
+		try {
+			const response = await client.sendMessage(
+				account,
+				{ to: active.peer, text, contextToken: active.contextToken },
+				signal ?? abort?.signal,
+			);
+			if (isSessionExpired(response)) {
+				handleExpired();
+				return false;
+			}
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	const interaction = createWechatInteractionChannel({
+		send: (text, signal) => sendPrompt(text, signal),
+		activePeer: () => active?.peer,
+	});
 
 	/** The typing ticket for a peer, fetched on first use and cached. */
 	async function typingTicket(peer: string, item: InboundItem): Promise<string | undefined> {
@@ -274,12 +303,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	function handleMessage(message: WeixinMessage): void {
 		if (!isInboundMessage(message)) return;
 		const peer = message.from_user_id as string;
+		const { text, media } = parseInbound(message.item_list);
+		// A reply to a pending prompt is consumed here, before admission and
+		// queueing, so it never starts a turn of its own.
+		if (interaction.handleInbound(peer, text)) return;
 		const owner = state.ownerId ?? account?.ilinkUserId;
 		if (!isAllowedPeer(peer, owner, deps.config.allowedPeers)) {
 			refused += 1;
 			return;
 		}
-		const { text, media } = parseInbound(message.item_list);
 		if (!text && media.length === 0) return;
 		recordInbound(state, peer, message.context_token, deps.now());
 		deps.saveState(state);
@@ -349,6 +381,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			active = undefined;
 			lastText = "";
 			typingCache.clear();
+			interaction.reset();
 			abort = new AbortController();
 			loopPromise = loop(abort.signal).catch((error) => {
 				notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
@@ -372,6 +405,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			queue = [];
 			active = undefined;
 			lastText = "";
+			interaction.reset();
 			releaseSafe();
 		},
 
@@ -395,6 +429,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			const text = lastText;
 			active = undefined;
 			lastText = "";
+			interaction.reset();
 			if (item) {
 				void (async () => {
 					await typingOff(item.peer);
@@ -413,7 +448,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				queued: queue.length,
 				refused,
 				mediaDropped,
+				promptPending: interaction.hasPending(),
 			};
+		},
+
+		channel(): WechatInteractionChannel {
+			return interaction;
 		},
 
 		async sendToOwner(text: string): Promise<SendResult> {

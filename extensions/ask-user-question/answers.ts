@@ -6,8 +6,12 @@ import type { Answer, AskResult, Question, Selection } from "./types.ts";
 
 export const CANCELLED_TEXT = "User cancelled the question.";
 export const UNAVAILABLE_TEXT = "No interactive UI available; ask the user in your reply instead.";
-/** Label of the automatic free-form entry appended to every option list. */
-export const OTHER_LABEL = "Other (type something)";
+/**
+ * Label of the automatic free-form entry appended to every option list. The
+ * canonical value lives in `lib/interaction.ts` so a remote channel can recognize
+ * it without importing this extension.
+ */
+export { INTERACTION_OTHER_LABEL as OTHER_LABEL } from "../../lib/interaction.ts";
 
 /** Build one `Answer` from a driver's `Selection`. */
 export function buildAnswer(question: Question, selection: Selection): Answer {
