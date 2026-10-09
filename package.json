@@ -1,7 +1,7 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.2.0",
-  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, doc, status-bar, and turn-separator.",
+  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, doc, memory, status-bar, and turn-separator.",
   "keywords": [
     "pi-package",
     "pi",
@@ -29,6 +29,8 @@
     "pdf",
     "docx",
     "read_doc",
+    "memory",
+    "cross-session",
     "web-access",
     "status-bar",
     "footer",
@@ -59,6 +61,7 @@
       "./extensions/web-access/index.ts",
       "./extensions/file-browser/index.ts",
       "./extensions/doc/index.ts",
+      "./extensions/memory/index.ts",
       "./extensions/status-bar/index.ts",
       "./extensions/turn-separator/index.ts"
     ],

@@ -21,6 +21,7 @@ import { TOOL_NAME as askUserQuestion } from "../extensions/ask-user-question/to
 import { TOOL_NAME as readDoc } from "../extensions/doc/tool.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/job/tools.ts";
+import { TOOL_NAME as memory } from "../extensions/memory/tools.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
@@ -57,6 +58,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "doc", name: readDoc },
 	{ extension: "goal", name: goal },
 	{ extension: "job", name: job },
+	{ extension: "memory", name: memory },
 	{ extension: "plan", name: ENTER_TOOL },
 	{ extension: "plan", name: WRITE_PLAN_TOOL },
 	{ extension: "plan", name: EXIT_TOOL },
@@ -101,6 +103,7 @@ describe("extension tool naming", () => {
 			"goal",
 			"job",
 			"list_worktrees",
+			"memory",
 			"prune_worktrees",
 			"read_doc",
 			"subagent",
