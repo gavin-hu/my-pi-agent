@@ -12,7 +12,7 @@
 import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { resolveEffectiveCwd } from "../../lib/env.ts";
+import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import { loadConfig, randomPort } from "./config.ts";
 import { createGitStatus } from "./git.ts";
@@ -35,6 +35,7 @@ interface RunningServer {
 }
 
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
+	if (!isExtensionEnabled("file-browser")) return;
 	let running: RunningServer | undefined;
 	/** Random port fixed for the session after the first successful start. */
 	let sessionPort: number | undefined;

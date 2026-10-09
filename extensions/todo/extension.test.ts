@@ -9,12 +9,23 @@ import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";
 import { resultEntry } from "../../test/helpers/fixtures/todo.ts";
-import { useEnv } from "../../test/helpers/env.ts";
+import { useEnv, withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
 const pending = (content: string): Todo => ({ content, status: "pending" });
 const completed = (content: string): Todo => ({ content, status: "completed" });
 
 describe("todo extension", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "todo" }, () => {
+			const { pi, tools, commands, handlers } = makeFakePi();
+			todo(pi);
+			expect(tools.size).toBe(0);
+			expect(commands.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers the tool and the /todos command", () => {
 		const { pi, tools, commands } = makeFakePi();
 		todo(pi);

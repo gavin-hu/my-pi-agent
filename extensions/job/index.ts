@@ -11,6 +11,7 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { STATUS_KEYS } from "../../lib/ui.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion } from "./format.ts";
@@ -39,6 +40,7 @@ export interface JobsDeps {
 }
 
 export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
+	if (!isExtensionEnabled("job")) return;
 	const runtime = deps.runtime ?? createJobsRuntime();
 	let busy = false;
 

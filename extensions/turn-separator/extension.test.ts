@@ -1,9 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import turnSeparator from "./index.ts";
 import { emit, fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx, separatorEntry } from "../../test/helpers/fixtures/turn-separator.ts";
 
 describe("turn-separator extension", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "turn-separator" }, () => {
+			const { pi, renderers, handlers } = makeFakePi();
+			turnSeparator(pi);
+			expect(renderers.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers the entry renderer", () => {
 		const { pi, renderers } = makeFakePi();
 		turnSeparator(pi);

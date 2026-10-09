@@ -16,11 +16,13 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { cacheClear } from "./fetch/cache.ts";
 import { registerFetchTool } from "./fetch/tool.ts";
 import { registerSearchTool } from "./search/tool.ts";
 
 export default function webAccess(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("web-access")) return;
 	pi.on("session_shutdown", () => cacheClear());
 	registerSearchTool(pi);
 	registerFetchTool(pi);

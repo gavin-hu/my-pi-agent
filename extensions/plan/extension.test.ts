@@ -3,6 +3,8 @@ import planMode, { PLAN_MODE_MARKER } from "./index.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { SubagentParams } from "../../extensions/subagent/schema.ts";
 import { emitCollect as emit } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx, makeFakePi, planModeMessage, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { otherMessage } from "../../test/helpers/entries.ts";
 
@@ -16,6 +18,18 @@ async function enabledPi() {
 }
 
 describe("plan-mode wire-up", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "plan" }, () => {
+			const { pi, tools, commands, shortcuts, flags, handlers } = makeFakePi();
+			planMode(pi);
+			expect(tools.size).toBe(0);
+			expect(commands.size).toBe(0);
+			expect(shortcuts.size).toBe(0);
+			expect(flags.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers both tools, the command, the shortcut, and the flag", () => {
 		const { pi, tools, commands, shortcuts, flags } = makeFakePi();
 		planMode(pi);

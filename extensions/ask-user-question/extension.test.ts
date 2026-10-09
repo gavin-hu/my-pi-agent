@@ -3,6 +3,8 @@ import askUserQuestion from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
 /** A `pi` double with the requested active tools. */
 function newPi(active: string[] = [TOOL_NAME]) {
@@ -15,6 +17,15 @@ function uiCtx(hasUI: boolean) {
 }
 
 describe("ask_user_question extension", () => {
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "ask-user-question" }, () => {
+			const { pi, tools, handlers } = createFakePi();
+			askUserQuestion(pi);
+			expect(tools.size).toBe(0);
+			expect(handlers.size).toBe(0);
+		});
+	});
+
 	test("registers a model-only tool that starts inactive", () => {
 		const pi = newPi([]);
 		askUserQuestion(pi);

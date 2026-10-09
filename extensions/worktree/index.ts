@@ -23,6 +23,7 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { canonicalize, checkCheckout, repoRoot, unlockWorktree } from "./git.ts";
 import { analyzeBashCommand, guardFileTool } from "./guard.ts";
@@ -204,5 +205,6 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 
 /** Pi extension entrypoint. */
 export default function worktreeExtension(pi: ExtensionAPI): void {
+	if (!isExtensionEnabled("worktree")) return;
 	registerWorktree(pi, { entryPath: canonicalize(fileURLToPath(import.meta.url)) });
 }

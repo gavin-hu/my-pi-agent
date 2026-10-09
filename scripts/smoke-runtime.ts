@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAgentSession, DefaultResourceLoader, SessionManager } from "@earendil-works/pi-coding-agent";
 import { canonicalize } from "../extensions/worktree/git.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "../extensions/worktree/runtime.ts";
 
@@ -39,6 +40,7 @@ writeFileSync(join(agentDir, "jobs.json"), JSON.stringify({ registryDir: join(ag
 delete process.env[ENV_ROOT];
 delete process.env[ENV_BRANCH];
 delete process.env[ENV_MAIN];
+delete process.env[ENV_DISABLED_EXTENSIONS];
 
 // Scratch git repo with one commit.
 const work = mkdtempSync(join(tmpdir(), "pi-smoke-repo-"));
