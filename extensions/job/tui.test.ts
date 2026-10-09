@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { JobListComponent } from "./tui.ts";
+import { JobListComponent, JobResult } from "./tui.ts";
 import type { JobRecord } from "./types.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 
@@ -55,6 +55,31 @@ function makeComponent(
 	);
 	return { component, killed, clearedCount: () => cleared };
 }
+
+describe("JobResult", () => {
+	test("blank line then the list rail with a cap note", () => {
+		const jobs = [job({ id: "j1" }), job({ id: "j2", status: "failed", exitCode: 1, pid: null })];
+		const lines = new JobResult({ kind: "list", jobs, more: 2 }, fakeTheme).render(60);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toContain("▸ j1");
+		expect(lines[2]).toContain("✗ j2");
+		expect(lines[3]).toContain("… 2 more");
+	});
+
+	test("blank line then the log tail", () => {
+		const lines = new JobResult({ kind: "logs", lines: ["a", "b"], earlier: 5 }, fakeTheme).render(60);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toBe("… 5 earlier lines");
+		expect(lines[2]).toBe("a");
+		expect(lines[3]).toBe("b");
+	});
+
+	test("updates in place for reuse", () => {
+		const view = new JobResult({ kind: "logs", lines: ["old"], earlier: 0 }, fakeTheme);
+		view.setInput({ kind: "logs", lines: ["new"], earlier: 0 }, fakeTheme);
+		expect(view.render(60)).toEqual(["", "new"]);
+	});
+});
 
 describe("JobListComponent", () => {
 	test("d asks for confirmation before killing the selected running job", () => {

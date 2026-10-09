@@ -8,6 +8,7 @@ import {
 	formatDuration,
 	formatJobDetail,
 	formatJobList,
+	formatJobOutcomeLine,
 	formatLogs,
 	jobCounts,
 	jobOutcome,
@@ -172,6 +173,21 @@ describe("jobOutcome / formatJobDetail", () => {
 		expect(jobOutcome(job({ status: "failed", exitCode: 2 }))).toBe("exit 2");
 		expect(jobOutcome(job({ status: "killed", signal: "SIGKILL" }))).toBe("SIGKILL");
 		expect(jobOutcome(job({ status: "unknown" }))).toBe("—");
+	});
+
+	test("formatJobOutcomeLine summarizes each status", () => {
+		expect(formatJobOutcomeLine(job({ status: "running", pid: 1234 }), fakeTheme, 4200)).toBe(
+			"▸ j1 build · pid 1234 · 3.2s",
+		);
+		expect(
+			formatJobOutcomeLine(job({ status: "exited", exitCode: 0, pid: null, finishedAt: 3000 }), fakeTheme, 3000),
+		).toBe("✓ j1 build · exit 0 · 2.0s");
+		expect(
+			formatJobOutcomeLine(job({ status: "failed", exitCode: 1, pid: null, finishedAt: 3000 }), fakeTheme, 3000),
+		).toBe("✗ j1 build · exit 1 · 2.0s");
+		expect(
+			formatJobOutcomeLine(job({ status: "killed", signal: "SIGTERM", pid: null, finishedAt: 3000 }), fakeTheme, 3000),
+		).toBe("◌ j1 build · SIGTERM · 2.0s");
 	});
 
 	test("builds command, cwd+outcome+elapsed, and last lines", () => {

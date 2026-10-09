@@ -61,6 +61,54 @@ function jobRow(job: JobRecord, theme: Theme, width: number, selected = false): 
 	return truncateToWidth(`${head}${clipped}${pad} ${theme.fg("dim", elapsed)}`, width);
 }
 
+/** Input for the transcript result: a themed job list or a log tail. */
+export type JobResultInput =
+	| { kind: "list"; jobs: JobRecord[]; more: number }
+	| { kind: "logs"; lines: string[]; earlier: number };
+
+/**
+ * Transcript result block for the `job` tool: a blank line, then either the
+ * `/jobs`-style row rail (already ordered and capped by the caller) or the
+ * themed log tail. Reused across renders via `setInput`.
+ */
+export class JobResult implements Component {
+	private input: JobResultInput;
+	private theme: Theme;
+
+	constructor(input: JobResultInput, theme: Theme) {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	/** Update in place so the transcript can reuse this component across renders. */
+	setInput(input: JobResultInput, theme: Theme): void {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	invalidate(): void {}
+
+	render(width: number): string[] {
+		const w = Math.max(1, width);
+		// A leading blank line separates the result from the call header.
+		const lines: string[] = [""];
+		if (this.input.kind === "list") {
+			for (const job of this.input.jobs) lines.push(jobRow(job, this.theme, w));
+			if (this.input.more > 0) {
+				lines.push(truncateToWidth(`  ${this.theme.fg("dim", `… ${this.input.more} more`)}`, w, "…"));
+			}
+		} else {
+			if (this.input.earlier > 0) {
+				lines.push(truncateToWidth(this.theme.fg("dim", `… ${this.input.earlier} earlier lines`), w, "…"));
+			}
+			for (const line of this.input.lines) {
+				lines.push(this.theme.fg("toolOutput", truncateToWidth(line, w, "…")));
+			}
+		}
+		return lines;
+	}
+}
+
 export interface JobListCallbacks {
 	/** Current sanitized log lines for a job, or undefined when unknown. */
 	logs(id: string): { lines: string[]; more?: boolean } | undefined;

@@ -227,6 +227,23 @@ export function jobOutcome(job: JobRecord): string {
 	}
 }
 
+/** One-line outcome for a single job, themed for the transcript result. */
+export function formatJobOutcomeLine(job: JobRecord, theme: Theme, now = Date.now()): string {
+	const sep = theme.fg("dim", " · ");
+	const outcome = job.status === "failed" ? theme.fg("error", jobOutcome(job)) : theme.fg("dim", jobOutcome(job));
+	return (
+		statusGlyph(job.status, theme) +
+		" " +
+		theme.fg("accent", job.id) +
+		" " +
+		theme.fg("muted", shortLabel(job)) +
+		sep +
+		outcome +
+		sep +
+		theme.fg("dim", formatDuration(elapsedMs(job, now)))
+	);
+}
+
 /** Unstyled, sanitized detail lines for the `/jobs` focus pane. */
 export function formatJobDetail(job: JobRecord, now = Date.now()): string[] {
 	const lines = [

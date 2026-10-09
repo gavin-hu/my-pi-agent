@@ -9,9 +9,17 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { formatCallText, formatCompletion, formatJobList, formatJobStatus } from "./format.ts";
+import {
+	compareJobs,
+	formatCallText,
+	formatCompletion,
+	formatJobList,
+	formatJobOutcomeLine,
+	formatJobStatus,
+} from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs, type JobCall } from "./schema.ts";
+import { JobResult, type JobResultInput } from "./tui.ts";
 import { toRecord, type JobDetails } from "./types.ts";
 
 export const TOOL_NAME = "job";
@@ -197,32 +205,77 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 		renderCall(args, theme, context) {
 			const action = typeof args.action === "string" ? args.action : "job";
-			const text = formatCallText(action, args as Record<string, unknown>, context.argsComplete);
-			return new Text(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", text), 0, 0);
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			text.setText(
+				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
+					theme.fg("muted", formatCallText(action, args as Record<string, unknown>, context.argsComplete)),
+			);
+			return text;
 		},
 
-		renderResult(result, { expanded }, theme) {
+		renderResult(result, options, theme, context) {
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const details = result.details as JobDetails | undefined;
 			if (!details) {
 				const first = result.content[0];
-				return new Text(first?.type === "text" ? first.text : "", 0, 0);
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
 			}
-			if (details.error) return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+			if (details.error) {
+				text.setText(theme.fg("error", `Error: ${details.error}`));
+				return text;
+			}
 
-			if (details.action === "logs" && details.logs) {
-				const lines = details.logs.split("\n");
-				const shown = expanded ? lines : lines.slice(Math.max(0, lines.length - RESULT_ROWS));
-				const prefix =
-					!expanded && lines.length > shown.length
-						? theme.fg("dim", `… ${lines.length - shown.length} earlier lines\n`)
-						: "";
-				return new Text(prefix + shown.join("\n"), 0, 0);
+			if (options.isPartial) {
+				const id = details.job?.id;
+				text.setText(theme.fg("warning", id ? `Waiting on ${id}…` : "Waiting…"));
+				return text;
 			}
+
+			if (details.action === "logs" && details.logs !== undefined) {
+				const all = details.logs.split("\n");
+				const shown = options.expanded ? all : all.slice(Math.max(0, all.length - RESULT_ROWS));
+				const input: JobResultInput = { kind: "logs", lines: shown, earlier: all.length - shown.length };
+				const view = context.lastComponent instanceof JobResult ? context.lastComponent : new JobResult(input, theme);
+				view.setInput(input, theme);
+				return view;
+			}
+
 			if (details.action === "list" && details.jobs) {
-				return new Text(formatJobList(details.jobs), 0, 0);
+				if (details.jobs.length === 0) {
+					text.setText(theme.fg("muted", "No jobs."));
+					return text;
+				}
+				const ordered = [...details.jobs].sort(compareJobs);
+				const shown = ordered.slice(0, RESULT_ROWS);
+				const input: JobResultInput = { kind: "list", jobs: shown, more: ordered.length - shown.length };
+				const view = context.lastComponent instanceof JobResult ? context.lastComponent : new JobResult(input, theme);
+				view.setInput(input, theme);
+				return view;
 			}
+
+			if (details.action === "clear") {
+				const count = details.cleared ?? 0;
+				text.setText(
+					theme.fg("muted", count === 0 ? "Nothing to clear." : `Cleared ${count} job${count === 1 ? "" : "s"}.`),
+				);
+				return text;
+			}
+
+			if (details.job) {
+				let line = formatJobOutcomeLine(details.job, theme);
+				if (details.action === "wait" && details.timedOut) {
+					line += theme.fg("warning", " · still running after the timeout");
+				} else if (details.action === "wait" && details.cancelled) {
+					line += theme.fg("warning", " · wait cancelled; job still running");
+				}
+				text.setText(line);
+				return text;
+			}
+
 			const first = result.content[0];
-			return new Text(first?.type === "text" ? first.text : "", 0, 0);
+			text.setText(first?.type === "text" ? first.text : "");
+			return text;
 		},
 	});
 }

@@ -75,6 +75,32 @@ JobDetails {
 }
 ```
 
+### Transcript
+
+The call line names the action and its target. The result is themed and reuses
+the slot's component: `list` draws the same row rail as `/jobs`, `logs` draws a
+blank line and the sanitized tail, and a single-job action draws one outcome
+line.
+
+```
+job list
+
+  ▸ j1  tests                            3.2s
+  ✗ j2  build                            0.4s
+```
+
+```
+job logs j1
+
+… 412 earlier lines
+compiled successfully
+```
+
+```
+job status j1
+✓ j1 tests · exit 0 · 12.0s
+```
+
 ### Command: `/jobs`
 
 `/jobs` opens an interactive list in the TUI, and prints a text summary
@@ -228,6 +254,12 @@ rewritten.
   `registry.ts` are pure; `process.ts` and the runtime take injectable
   spawn/liveness/kill/clock functions, so the whole suite runs without
   launching a process.
+- **The transcript reuses the `/jobs` grammar.** `job list` renders the same
+  `jobRow` rail as the screen (running first, capped, `… N more`), `job logs`
+  draws a themed tail with a `… N earlier lines` note, and single-job actions
+  draw one `formatJobOutcomeLine`. The renderers reuse `context.lastComponent`,
+  and a `wait` in progress (`options.isPartial`) renders as a `Waiting …`
+  warning.
 
 ## Files
 
@@ -236,7 +268,7 @@ rewritten.
 | `index.ts` | Factory: registers the tool/command and wires events. |
 | `schema.ts` | Parameter schema and pure validation (a `JobCall` union). |
 | `config.ts` | `jobs.json` loading and clamping. |
-| `format.ts` | Pure formatting, sanitization, and duration helpers. |
+| `format.ts` | Pure formatting, sanitization, duration, and transcript outcome-line helpers. |
 | `process.ts` | Injectable spawn/liveness/kill-tree primitives. |
 | `paths.ts` | Session/marker/registry/status file-name helpers. |
 | `registry.ts` | Per-session registry load/merge, legacy migration, and pure reconciliation. |
@@ -248,7 +280,7 @@ rewritten.
 | `ui.ts` | Footer status chips. |
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `runtime.ts` | Composition: job table, handles, process events, repaint clock. |
-| `tui.ts` | The `/jobs` screen. |
+| `tui.ts` | The `/jobs` screen and the transcript `JobResult` rail. |
 | `tools.ts` | The `job` tool and its transcript rendering. |
 | `commands.ts` | The `/jobs` command. |
 | `types.ts` | Shared types. |

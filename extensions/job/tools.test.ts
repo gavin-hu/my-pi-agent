@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import jobs from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
 import { makeCtx, makeHarnessSuite, readLog } from "../../test/helpers/fixtures/job.ts";
 import { waitFor } from "../../test/helpers/process.ts";
+import type { JobRecord } from "./types.ts";
 
 const suite = makeHarnessSuite();
 const makeHarness = suite.makeHarness;
@@ -113,5 +114,142 @@ describe("job tool", () => {
 		expect(result.details.job.wake).toBe(true);
 		expect(result.details.job.detached).toBe(true);
 		expect(result.details.job.id).toBe("j1");
+	});
+});
+
+const record = (overrides: Partial<JobRecord> = {}): JobRecord => ({
+	id: "j1",
+	label: "tests",
+	command: "bun test",
+	cwd: "/work",
+	pid: 123,
+	status: "running",
+	exitCode: null,
+	signal: null,
+	startedAt: 0,
+	finishedAt: null,
+	logPath: "/tmp/j1.log",
+	detached: false,
+	wake: false,
+	sessionId: "s1",
+	seen: false,
+	lastLine: "",
+	statusPath: null,
+	startToken: null,
+	...overrides,
+});
+
+describe("job transcript rendering", () => {
+	test("call line reuses the slot Text", () => {
+		const { tool } = setup();
+		const first = tool.renderCall({ action: "start", command: "bun test" }, theme, {
+			argsComplete: true,
+			lastComponent: undefined,
+		});
+		const second = tool.renderCall({ action: "start", command: "bun test --watch" }, theme, {
+			argsComplete: true,
+			lastComponent: first,
+		});
+		expect(second).toBe(first);
+		expect(first.render(80).join("\n")).toContain("job start → bun test --watch");
+	});
+
+	test("list renders a themed rail with a cap note and reuses the view", () => {
+		const { tool } = setup();
+		const jobs = Array.from({ length: 10 }, (_, i) => record({ id: `j${i + 1}`, label: `job ${i + 1}` }));
+		const result = { content: [{ type: "text", text: "model" }], details: { action: "list", jobs } };
+		const lines = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80);
+		expect(lines[0]).toBe("");
+		expect(lines.some((line: string) => line.includes("▸ j1"))).toBe(true);
+		expect(lines.at(-1)).toContain("… 2 more");
+
+		const view = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined });
+		const again = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: view });
+		expect(again).toBe(view);
+	});
+
+	test("logs render a blank line, the earlier note, and themed lines", () => {
+		const { tool } = setup();
+		const logs = Array.from({ length: 12 }, (_, i) => `line ${i}`).join("\n");
+		const result = { content: [{ type: "text", text: "model" }], details: { action: "logs", logs, job: record() } };
+		const lines = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toContain("… 4 earlier lines");
+		expect(lines.at(-1)).toContain("line 11");
+
+		const expanded = tool
+			.renderResult(result, { expanded: true, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80);
+		expect(expanded.some((line: string) => line.includes("earlier"))).toBe(false);
+		expect(expanded).toHaveLength(1 + 12);
+	});
+
+	test("empty list and clear render a muted status", () => {
+		const { tool } = setup();
+		const empty = { content: [{ type: "text", text: "No jobs." }], details: { action: "list", jobs: [] } };
+		const emptyText = tool
+			.renderResult(empty, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(emptyText).toContain("No jobs.");
+
+		const cleared = { content: [{ type: "text", text: "Cleared 2 jobs." }], details: { action: "clear", cleared: 2 } };
+		const clearedText = tool
+			.renderResult(cleared, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(clearedText).toContain("Cleared 2 jobs.");
+	});
+
+	test("status renders a compact outcome line", () => {
+		const { tool } = setup();
+		const job = record({ id: "j1", label: "tests", status: "exited", exitCode: 0, pid: null, finishedAt: 100 });
+		const result = { content: [{ type: "text", text: "model" }], details: { action: "status", job } };
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("✓ j1 tests");
+		expect(text).toContain("exit 0");
+	});
+
+	test("wait notes a timeout", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: "model" }],
+			details: { action: "wait", job: record(), timedOut: true },
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("still running after the timeout");
+	});
+
+	test("partial renders the waiting state", () => {
+		const { tool } = setup();
+		const result = { content: [{ type: "text", text: "Waiting on j1…" }], details: { action: "wait", job: record() } };
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: true }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Waiting on j1…");
+	});
+
+	test("error renders a sanitized error line", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: "Error: no job" }],
+			details: { action: "status", error: 'no job "j9".' },
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain('Error: no job "j9".');
 	});
 });
