@@ -12,6 +12,17 @@ describe("extractPdfText", () => {
 		expect(await extractPdfText(new Uint8Array([1, 2, 3]))).toBe("len=3");
 	});
 
+	test("normalizes a Buffer to a plain Uint8Array", async () => {
+		let seen: Uint8Array | undefined;
+		setPdfExtractorForTests(async (bytes) => {
+			seen = bytes;
+			return "ok";
+		});
+		await extractPdfText(Buffer.from([1, 2, 3]));
+		expect(seen?.constructor).toBe(Uint8Array);
+		expect(Array.from(seen ?? [])).toEqual([1, 2, 3]);
+	});
+
 	test("surfaces a typed unavailable error from the loader", async () => {
 		setPdfLoaderForTests(async () => {
 			throw new PdfUnavailableError("PDF extraction requires the optional 'unpdf' package (npm i unpdf).");

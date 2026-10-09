@@ -56,9 +56,22 @@ async function loadPdfExtractor(): Promise<PdfExtractor> {
 	};
 }
 
+/**
+ * Normalize to a plain `Uint8Array`.
+ *
+ * `read_doc` reads files with `node:fs`, which returns a `Buffer`. A `Buffer` is
+ * a `Uint8Array` subclass, but `unpdf` (PDF.js) rejects it and demands a plain
+ * `Uint8Array`, so hand it a view over the same bytes instead of the subclass.
+ */
+function toPlainUint8Array(bytes: Uint8Array): Uint8Array {
+	if (bytes.constructor === Uint8Array) return bytes;
+	return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+}
+
 /** Extract plain text from PDF bytes, merging all pages. */
 export async function extractPdfText(bytes: Uint8Array): Promise<string> {
-	if (extractorOverride) return extractorOverride(bytes);
+	const data = toPlainUint8Array(bytes);
+	if (extractorOverride) return extractorOverride(data);
 	const extract = loaderOverride ? await loaderOverride() : await loadPdfExtractor();
-	return extract(bytes);
+	return extract(data);
 }
