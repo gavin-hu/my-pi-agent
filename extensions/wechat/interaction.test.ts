@@ -8,17 +8,36 @@ const CONFIRM: InteractionRequest = { kind: "confirm", title: "Sure?" };
 
 function setup(initialPeer: string | undefined = "owner") {
 	const sent: string[] = [];
+	const files: Array<{ path: string; name: string }> = [];
 	let peer: string | undefined = initialPeer;
 	const deps: WechatInteractionDeps = {
 		send: async (text) => {
 			sent.push(text);
 			return true;
 		},
+		sendFile: async (path, name) => {
+			files.push({ path, name });
+			return true;
+		},
 		activePeer: () => peer,
 	};
 	const channel = createWechatInteractionChannel(deps);
-	return { channel, sent, setPeer: (value: string | undefined) => (peer = value) };
+	return { channel, sent, files, setPeer: (value: string | undefined) => (peer = value) };
 }
+
+describe("post and postFile", () => {
+	test("post delegates to send", async () => {
+		const { channel, sent } = setup();
+		await channel.post("hello");
+		expect(sent).toEqual(["hello"]);
+	});
+
+	test("postFile delegates to sendFile", async () => {
+		const { channel, files } = setup();
+		expect(await channel.postFile("/tmp/plan.md", "plan.md")).toBe(true);
+		expect(files).toEqual([{ path: "/tmp/plan.md", name: "plan.md" }]);
+	});
+});
 
 describe("isActive", () => {
 	test("follows the active peer", () => {
@@ -73,7 +92,11 @@ describe("request", () => {
 	});
 
 	test("cancels when the send fails", async () => {
-		const deps: WechatInteractionDeps = { send: async () => false, activePeer: () => "owner" };
+		const deps: WechatInteractionDeps = {
+			send: async () => false,
+			sendFile: async () => false,
+			activePeer: () => "owner",
+		};
 		const channel = createWechatInteractionChannel(deps);
 		expect(await channel.request(SELECT)).toEqual({ kind: "cancelled" });
 	});

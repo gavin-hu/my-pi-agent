@@ -30,12 +30,14 @@ export const DEFAULT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c";
 export const APP_ID = "bot";
 /** `ret`/`errcode` value meaning the bot token expired and login is required. */
 export const SESSION_EXPIRED = -14;
+/** Total CDN upload attempts; 4xx aborts immediately, other failures retry. */
+const CDN_UPLOAD_ATTEMPTS = 3;
 
 export interface HttpRequest {
 	url: string;
 	method: "GET" | "POST";
 	headers?: Record<string, string>;
-	body?: string;
+	body?: string | Uint8Array;
 	signal?: AbortSignal;
 	/** `binary` returns raw bytes in `bytes`; defaults to decoded `text`. */
 	responseType?: "text" | "binary";
@@ -255,6 +257,60 @@ export class WechatClient {
 		return { ret: asNumber(data.ret), errcode: asNumber(data.errcode) };
 	}
 
+	/** `POST /ilink/bot/getuploadurl` — the CDN upload target for a file. */
+	async getUploadUrl(
+		account: BotCredentials,
+		args: {
+			filekey: string;
+			mediaType: number;
+			toUserId: string;
+			rawsize: number;
+			rawfilemd5: string;
+			filesize: number;
+			aeskey: string;
+		},
+		signal?: AbortSignal,
+	): Promise<{ uploadParam?: string; uploadFullUrl?: string }> {
+		const url = `${account.baseUrl}/ilink/bot/getuploadurl`;
+		const data = await this.post(
+			url,
+			this.authHeaders(account),
+			{
+				filekey: args.filekey,
+				media_type: args.mediaType,
+				to_user_id: args.toUserId,
+				rawsize: args.rawsize,
+				rawfilemd5: args.rawfilemd5,
+				filesize: args.filesize,
+				no_need_thumb: true,
+				aeskey: args.aeskey,
+				base_info: this.baseInfo(),
+			},
+			signal,
+		);
+		return { uploadParam: asString(data.upload_param), uploadFullUrl: asString(data.upload_full_url) };
+	}
+
+	/** `POST /ilink/bot/sendmessage` — send one file attachment. */
+	async sendFileMessage(
+		account: BotCredentials,
+		args: { to: string; fileName: string; len: string; media: CDNMedia; contextToken?: string },
+		signal?: AbortSignal,
+	): Promise<SendResponse> {
+		const url = `${account.baseUrl}/ilink/bot/sendmessage`;
+		const msg: Record<string, unknown> = {
+			from_user_id: "",
+			to_user_id: args.to,
+			client_id: randomUUID(),
+			message_type: 2,
+			message_state: 2,
+			item_list: [{ type: 4, file_item: { media: args.media, file_name: args.fileName, len: args.len } }],
+		};
+		if (args.contextToken) msg.context_token = args.contextToken;
+		const data = await this.post(url, this.authHeaders(account), { msg, base_info: this.baseInfo() }, signal);
+		return { ret: asNumber(data.ret), errcode: asNumber(data.errcode) };
+	}
+
 	/** `POST /ilink/bot/getconfig` — the per-user typing ticket. */
 	async getConfig(
 		account: BotCredentials,
@@ -305,6 +361,47 @@ export class WechatClient {
 			throw new WechatError(`Weixin CDN returned HTTP ${response.status}.`, { status: response.status });
 		}
 		return response.bytes ?? new Uint8Array();
+	}
+
+	/**
+	 * `POST` an encrypted payload to the CDN upload URL and return the
+	 * `x-encrypted-param` download parameter.
+	 *
+	 * Mirrors the reference policy: HTTP 200 with a non-empty header succeeds, a
+	 * 4xx aborts immediately, and any other failure is retried up to 3 times total.
+	 */
+	async uploadCdn(url: string, body: Uint8Array, signal?: AbortSignal): Promise<string> {
+		let lastError: unknown;
+		for (let attempt = 1; attempt <= CDN_UPLOAD_ATTEMPTS; attempt++) {
+			let response: HttpResponse;
+			try {
+				response = await this.http({
+					url,
+					method: "POST",
+					headers: { "Content-Type": "application/octet-stream" },
+					body,
+					signal,
+				});
+			} catch (error) {
+				if (signal?.aborted) throw error;
+				lastError = error;
+				continue;
+			}
+			if (response.status === 200) {
+				const param = response.headers["x-encrypted-param"];
+				if (param) return param;
+				lastError = new WechatError("Weixin CDN upload response missing x-encrypted-param.");
+			} else if (response.status >= 400 && response.status < 500) {
+				throw new WechatError(`Weixin CDN upload rejected with HTTP ${response.status}.`, {
+					status: response.status,
+				});
+			} else {
+				lastError = new WechatError(`Weixin CDN upload failed with HTTP ${response.status}.`, {
+					status: response.status,
+				});
+			}
+		}
+		throw lastError instanceof Error ? lastError : new WechatError("Weixin CDN upload failed.");
 	}
 }
 

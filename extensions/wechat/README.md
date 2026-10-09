@@ -67,6 +67,16 @@ The reply is consumed as the answer and never starts a turn of its own; a turn
 started at the terminal keeps the normal TUI. Set `remotePrompts: false` to
 disable forwarding. See [Design notes](#design-notes) for the mechanism.
 
+## Outbound files
+
+A remote prompt can deliver a local file first. `exit_plan_mode` uses this to
+send the plan file itself before the three choices, so WeChat sees the whole plan
+(a long one falls back to chunked text if the upload fails). The flow mirrors the
+reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
+(`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a
+`type: 4` file item. Only the plan review uses it today; images, video, and voice
+are not sent outbound.
+
 ## Configuration
 
 `<agent-dir>/wechat.json` overridden by `<cwd>/.pi/wechat.json` (project wins):
@@ -112,7 +122,8 @@ files), and `poller.lock` (stops two sessions polling one account).
   actively typing, a reply may attach to a mixed context.
 - Inbound **video** is not handled, and there is no group-chat support. Voice is
   handled only through the server-provided transcript.
-- Outbound media is not supported; `send_wechat` sends text only.
+- Outbound **files** are supported (used by the plan review); outbound images,
+  video, and voice are not, and `send_wechat` sends text only.
 - Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`).
   A third-party extension that renders a full-screen `ctx.ui.custom` component
   cannot be answered over WeChat; a WeChat turn sends it no UI and it should fall
@@ -122,7 +133,7 @@ files), and `poller.lock` (stops two sessions polling one account).
 
 ## Non-goals
 
-Outbound media, video, model-callable sends to arbitrary recipients, per-peer
+Outbound image/video/voice media, video, model-callable sends to arbitrary recipients, per-peer
 session isolation, group chats, a local quote cache, and a long-lived RPC child.
 
 ## Pi integration
@@ -133,7 +144,7 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, re-point the UI adapter); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop, uninstall adapter). |
 | Injection | `pi.sendUserMessage(content)` — a string, or text/image blocks for inbound media; always triggers a turn, and the bridge only injects when idle. |
-| UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs, marking it via `lib/interaction.ts`; `askHuman` in that lib routes rich components vs dialogs. |
+| UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
 | Status | The bridge's running state is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
 | Lifecycle | The factory only registers. No I/O starts on load; `/wechat start` starts the poll loop and `session_shutdown` closes it. |
@@ -161,6 +172,11 @@ turn. This depends on an unstated host detail, so it fails closed (prompts simpl
 stay local) rather than corrupting state; a future Pi UI-delegate API replaces
 `remote-ui.ts` alone.
 
+Outbound files use the CDN upload flow (`getuploadurl`, AES-128-ECB ciphertext,
+`x-encrypted-param`) and reuse the same AES-128-ECB and key decoders as inbound
+media; a failed upload returns false so `askHuman` can fall back to text rather
+than blocking the dialog.
+
 ## Files
 
 | File | Responsibility |
@@ -169,8 +185,9 @@ stay local) rather than corrupting state; a future Pi UI-delegate API replaces
 | `bridge.ts` | The loop: poll, queue, inject, capture, reply, media, typing, open/close, abort. |
 | `commands.ts` | `/wechat login|start|stop|status|logout`. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
-| `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, getconfig, sendtyping, CDN) with an injected runner. |
-| `media.ts` | Media key/decrypt, MIME sniff, filename sanitize, CDN URL, and save helpers. |
+| `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
+| `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
+| `outbound.ts` | Upload and send a local file: hash, encrypt, `getUploadUrl`, upload, `sendFileMessage`. |
 | `login.ts` | QR login state machine. |
 | `qrcode.ts` | QR matrix → Unicode half-block terminal lines. |
 | `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`). |

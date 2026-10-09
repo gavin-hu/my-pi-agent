@@ -15,6 +15,7 @@
 
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { basename } from "node:path";
 import { Type, type Static } from "typebox";
 import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
@@ -124,6 +125,10 @@ async function reviewPlan(
 			if (choice === "Refine the plan") return { action: "refine" };
 			return { action: "keep" };
 		},
+		// A remote turn gets the plan file up front, falling back to the full text;
+		// a local TUI turn ignores both and renders the component.
+		file: { path: plan.path, name: basename(plan.relativePath) },
+		body: plan.content,
 	});
 }
 

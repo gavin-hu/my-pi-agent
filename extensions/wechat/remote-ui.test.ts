@@ -46,6 +46,8 @@ function fakeChannel(answer: InteractionAnswer = { kind: "value", value: "remote
 			requests.push(request);
 			return next;
 		},
+		post: async () => {},
+		postFile: async () => true,
 	};
 	return {
 		channel,

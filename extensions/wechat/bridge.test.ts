@@ -1,5 +1,6 @@
 import { createCipheriv } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../../test/helpers/env.ts";
 import { waitFor } from "../../test/helpers/process.ts";
@@ -396,9 +397,11 @@ describe("bridge sendToOwner", () => {
 function controllableClient(): {
 	client: WechatClient;
 	sent: Array<{ to: string; text: string; contextToken?: string }>;
+	sentFiles: Array<{ to: string; fileName: string; len: string }>;
 	deliver: (message: WeixinMessage) => void;
 } {
 	const sent: Array<{ to: string; text: string; contextToken?: string }> = [];
+	const sentFiles: Array<{ to: string; fileName: string; len: string }> = [];
 	let deliver: ((message: WeixinMessage) => void) | undefined;
 	let first = true;
 	const client = {
@@ -416,6 +419,12 @@ function controllableClient(): {
 			sent.push(args);
 			return { ret: 0 };
 		},
+		getUploadUrl: async () => ({ uploadParam: "up" }),
+		uploadCdn: async () => "dl",
+		sendFileMessage: async (_account: BotCredentials, args: { to: string; fileName: string; len: string }) => {
+			sentFiles.push(args);
+			return { ret: 0 };
+		},
 		getConfig: async () => ({ ret: 0 }),
 		sendTyping: async () => ({ ret: 0 }),
 		downloadCdn: async () => {
@@ -425,6 +434,7 @@ function controllableClient(): {
 	return {
 		client,
 		sent,
+		sentFiles,
 		deliver: (message) => deliver?.(message),
 	};
 }
@@ -445,6 +455,32 @@ describe("bridge remote prompts", () => {
 		expect(await answer).toEqual({ kind: "value", value: "B" });
 		// The reply answered the prompt instead of starting a new turn.
 		expect(injected.length).toBe(1);
+		await bridge.close();
+	});
+
+	test("chunks a long post to the peer", async () => {
+		const { client, sent } = controllableClient();
+		const { deps, injected } = makeDeps(client, { config: { ...DEFAULT_CONFIG, maxReplyChars: 4 } });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		await bridge.channel().post("abcdefgh");
+		expect(sent.map((message) => message.text)).toEqual(["abcd", "efgh"]);
+		await bridge.close();
+	});
+
+	test("uploads and sends a file through the channel", async () => {
+		const { client, sentFiles } = controllableClient();
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const path = join(tempDir("wechat-bridge-file-"), "plan.md");
+		writeFileSync(path, "plan");
+		expect(await bridge.channel().postFile(path, "plan.md")).toBe(true);
+		expect(sentFiles[0]).toMatchObject({ to: owner, fileName: "plan.md", len: "4" });
 		await bridge.close();
 	});
 

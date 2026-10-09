@@ -351,10 +351,23 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, customCalls } = remoteCtx({ cwd: root, select: "Approve and execute" });
+		const { ctx, customCalls, files } = remoteCtx({ cwd: root, select: "Approve and execute" });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
 		expect(customCalls).toEqual([]);
+		// The plan file is sent before the choices.
+		expect(files).toEqual([{ path: planPath, name: planPath.split(/[\\/]/).pop() }]);
+	});
+
+	test("falls back to the plan text when the file cannot be sent", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+
+		const { ctx, posted, setFileResult } = remoteCtx({ cwd: root, select: "Keep planning" });
+		setFileResult(false);
+		await call(exit, { plan_path: planPath }, ctx);
+		expect(posted[0]).toContain("Do it");
 	});
 
 	// The review sizes itself to the whole terminal, so it must be an overlay.

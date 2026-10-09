@@ -7,7 +7,7 @@
  * HTTP fetch is injected through the client, and tests never touch the network.
  */
 
-import { createDecipheriv } from "node:crypto";
+import { createCipheriv, createDecipheriv } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stripControlChars } from "../../lib/format.ts";
@@ -25,6 +25,17 @@ export function decodeMediaKey(value: string): Buffer {
 export function decryptEcb(cipher: Uint8Array, key: Buffer): Buffer {
 	const decipher = createDecipheriv("aes-128-ecb", key, null);
 	return Buffer.concat([decipher.update(cipher), decipher.final()]);
+}
+
+/** Encrypt AES-128-ECB with PKCS#7 padding (the mirror of {@link decryptEcb}). */
+export function encryptEcb(plain: Uint8Array, key: Buffer): Buffer {
+	const cipher = createCipheriv("aes-128-ecb", key, null);
+	return Buffer.concat([cipher.update(plain), cipher.final()]);
+}
+
+/** Ciphertext size for AES-128-ECB with PKCS#7 padding. */
+export function aesEcbPaddedSize(plaintextSize: number): number {
+	return Math.ceil((plaintextSize + 1) / 16) * 16;
 }
 
 /** Sniff a common image MIME from magic bytes; defaults to `image/jpeg`. */
@@ -78,6 +89,23 @@ export function mediaDownloadUrl(ref: CDNMedia, cdnBaseUrl: string): string {
 	if (ref.full_url) return ref.full_url;
 	const param = ref.encrypt_query_param ?? "";
 	return `${cdnBaseUrl}/download?encrypted_query_param=${encodeURIComponent(param)}`;
+}
+
+/** Build the CDN upload URL from an `upload_param` and the `filekey`. */
+export function buildUploadUrl(cdnBaseUrl: string, uploadParam: string, filekey: string): string {
+	return `${cdnBaseUrl}/upload?encrypted_query_param=${encodeURIComponent(uploadParam)}&filekey=${encodeURIComponent(filekey)}`;
+}
+
+/** The upload target from a `getUploadUrl` result, preferring a full URL. */
+export function uploadUrlOf(
+	response: { uploadFullUrl?: string; uploadParam?: string },
+	cdnBaseUrl: string,
+	filekey: string,
+): string {
+	const full = response.uploadFullUrl?.trim();
+	if (full) return full;
+	if (response.uploadParam) return buildUploadUrl(cdnBaseUrl, response.uploadParam, filekey);
+	throw new Error("WeChat upload URL missing (need upload_full_url or upload_param).");
 }
 
 /** Write `bytes` to `dir/name`, creating `dir`, and return the full path. */
