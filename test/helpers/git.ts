@@ -20,6 +20,23 @@ export interface ExecResult {
 	killed: boolean;
 }
 
+/**
+ * Applied to every git command the helpers and tests run: a fixed committer
+ * identity, so no repo-local `git config` is needed (including the direct
+ * `execP("git", ["commit", …])` sites), and `core.autocrlf=false`, so a global
+ * `core.autocrlf=true` cannot rewrite LF blobs to CRLF on checkout and break
+ * byte-exact assertions. A per-call `env` still overrides these.
+ */
+const BASE_GIT_ENV: Record<string, string> = {
+	GIT_AUTHOR_NAME: "Test",
+	GIT_AUTHOR_EMAIL: "test@example.com",
+	GIT_COMMITTER_NAME: "Test",
+	GIT_COMMITTER_EMAIL: "test@example.com",
+	GIT_CONFIG_COUNT: "1",
+	GIT_CONFIG_KEY_0: "core.autocrlf",
+	GIT_CONFIG_VALUE_0: "false",
+};
+
 /** Promise wrapper around execFile that resolves with the exit code instead of rejecting. */
 export function execP(
 	command: string,
@@ -34,7 +51,7 @@ export function execP(
 				cwd: options?.cwd,
 				timeout: options?.timeout,
 				maxBuffer: 16 * 1024 * 1024,
-				env: { ...process.env, ...(options?.env ?? {}) },
+				env: { ...process.env, ...BASE_GIT_ENV, ...(options?.env ?? {}) },
 			},
 			(error, stdout, stderr) => {
 				const code = error
@@ -56,15 +73,10 @@ async function git(args: string[], cwd: string): Promise<ExecResult> {
 export async function makeRepo(prefix = "pi-test-"): Promise<string> {
 	const dir = mkdtempSync(join(tmpdir(), prefix));
 	await git(["init", "-q", "-b", "main"], dir);
-	await git(["config", "user.email", "test@example.com"], dir);
-	await git(["config", "user.name", "Test"], dir);
-	// Keep line endings byte-exact: a global `core.autocrlf=true` (common on
-	// Windows) would rewrite LF blobs to CRLF on checkout, so a restored file
-	// would not equal the bytes the test wrote.
-	await git(["config", "core.autocrlf", "false"], dir);
 	writeFileSync(join(dir, "README.md"), "hello\n");
 	await git(["add", "."], dir);
 	await git(["commit", "-qm", "init"], dir);
+	// The identity and `core.autocrlf=false` come from {@link BASE_GIT_ENV}.
 	// Return the long-form path so assertions and command strings match git's
 	// expanded output on Windows (os.tmpdir() may use 8.3 short names).
 	return realpathSync.native(dir);

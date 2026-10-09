@@ -11,8 +11,10 @@ bun test <path>          # one file or directory
 bun run check            # format + typecheck + transpile + test + smoke
 ```
 
-`bun test` runs each test file in its own worker process (`--parallel`), so
-`process.env` edits in one file cannot leak into another.
+`bun test` runs the suite through `bun run test` with `--parallel=4` (which
+implies `--isolate`), so each test file runs in its own worker process and
+`process.env` edits in one file cannot leak into another. The worker count is
+capped at four so the git-heavy worktree and rewind suites are not starved.
 `test/helpers/preload.ts` additionally snapshots and restores the tracked env
 vars (`PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`, `PI_WORKTREE_ROOT`,
 `PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN`) around every test.

@@ -68,7 +68,7 @@
     "image": "./assets/screenshot.jpg"
   },
   "scripts": {
-    "test": "bun test --isolate --timeout 30000",
+    "test": "bun test --parallel=4 --timeout 30000",
     "test:watch": "bun test --watch --isolate",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",

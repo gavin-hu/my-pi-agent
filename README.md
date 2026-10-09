@@ -74,7 +74,7 @@ settings `-path` entry.
 
 ```bash
 bun install
-bun run test       # unit tests (bun test --parallel)
+bun run test       # unit tests (bun test --parallel=4)
 bun run typecheck  # tsc --noEmit
 bun run format     # biome format --write .
 bun run transpile  # bun build (--no-bundle) every extension
