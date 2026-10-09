@@ -4,13 +4,17 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../../test/helpers/env.ts";
 import {
+	aesEcbPaddedSize,
+	buildUploadUrl,
 	decodeMediaKey,
 	decryptEcb,
+	encryptEcb,
 	imageExtension,
 	mediaDownloadUrl,
 	sanitizeFileName,
 	saveMedia,
 	sniffImageMime,
+	uploadUrlOf,
 } from "./media.ts";
 
 describe("decodeMediaKey", () => {
@@ -37,6 +41,50 @@ describe("decryptEcb", () => {
 		const cipher = createCipheriv("aes-128-ecb", key, null);
 		const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
 		expect(decryptEcb(encrypted, key)).toEqual(plaintext);
+	});
+});
+
+describe("encryptEcb", () => {
+	test("round-trips with decryptEcb", () => {
+		const key = Buffer.from("0123456789abcdef");
+		const plaintext = Buffer.from("wechat outbound payload");
+		expect(decryptEcb(encryptEcb(plaintext, key), key)).toEqual(plaintext);
+	});
+});
+
+describe("aesEcbPaddedSize", () => {
+	test("pads to the next 16-byte boundary, always adding one block worth", () => {
+		expect(aesEcbPaddedSize(0)).toBe(16);
+		expect(aesEcbPaddedSize(1)).toBe(16);
+		expect(aesEcbPaddedSize(15)).toBe(16);
+		expect(aesEcbPaddedSize(16)).toBe(32);
+		expect(aesEcbPaddedSize(17)).toBe(32);
+		expect(aesEcbPaddedSize(31)).toBe(32);
+		expect(aesEcbPaddedSize(32)).toBe(48);
+	});
+});
+
+describe("buildUploadUrl", () => {
+	test("encodes the upload param and filekey", () => {
+		expect(buildUploadUrl("https://cdn/c2c", "a b&c", "ff00")).toBe(
+			"https://cdn/c2c/upload?encrypted_query_param=a%20b%26c&filekey=ff00",
+		);
+	});
+});
+
+describe("uploadUrlOf", () => {
+	test("prefers the full URL", () => {
+		expect(uploadUrlOf({ uploadFullUrl: "https://up/x", uploadParam: "p" }, "https://cdn", "k")).toBe("https://up/x");
+	});
+
+	test("builds from the upload param when no full URL", () => {
+		expect(uploadUrlOf({ uploadParam: "p" }, "https://cdn/c2c", "k")).toBe(
+			"https://cdn/c2c/upload?encrypted_query_param=p&filekey=k",
+		);
+	});
+
+	test("throws when neither is present", () => {
+		expect(() => uploadUrlOf({}, "https://cdn", "k")).toThrow();
 	});
 });
 

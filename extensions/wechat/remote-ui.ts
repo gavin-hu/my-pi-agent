@@ -83,7 +83,7 @@ export function installRemoteUI(ui: ExtensionUIContext, channel: InteractionChan
 	};
 	ui.custom = custom as unknown as ExtensionUIContext["custom"];
 
-	target[INTERACTION_TURN_KEY] = () => channel.isActive();
+	target[INTERACTION_TURN_KEY] = channel;
 
 	return () => {
 		ui.select = saved.select;

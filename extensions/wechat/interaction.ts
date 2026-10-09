@@ -19,6 +19,8 @@ import { formatPrompt, parsePromptAnswer } from "./prompt.ts";
 export interface WechatInteractionDeps {
 	/** Send one text message to the owning peer; resolves false when it fails. */
 	send: (text: string, signal?: AbortSignal) => Promise<boolean>;
+	/** Send a local file to the owning peer; resolves false when it fails. */
+	sendFile: (path: string, name: string, signal?: AbortSignal) => Promise<boolean>;
 	/** The peer that owns the in-flight turn, or undefined when there is none. */
 	activePeer: () => string | undefined;
 }
@@ -60,6 +62,14 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 
 		hasPending(): boolean {
 			return pending !== undefined;
+		},
+
+		async post(text: string, signal?: AbortSignal): Promise<void> {
+			await deps.send(text, signal);
+		},
+
+		async postFile(path: string, name: string, signal?: AbortSignal): Promise<boolean> {
+			return deps.sendFile(path, name, signal);
 		},
 
 		async request(request: InteractionRequest, signal?: AbortSignal): Promise<InteractionAnswer> {

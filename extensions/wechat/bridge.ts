@@ -17,6 +17,7 @@ import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
 import { chunkText, parseInbound, sanitizeInbound } from "./format.ts";
 import { createWechatInteractionChannel, type WechatInteractionChannel } from "./interaction.ts";
 import { defaultSleep } from "./login.ts";
+import { sendLocalFile } from "./outbound.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { recordInbound } from "./state.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
@@ -168,27 +169,46 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 	}
 
-	/** Send one prompt line to the peer that owns the in-flight turn. */
+	/** Send a text message to the peer owning the in-flight turn, chunked. */
 	async function sendPrompt(text: string, signal?: AbortSignal): Promise<boolean> {
 		if (!client || !account || !active) return false;
-		try {
-			const response = await client.sendMessage(
-				account,
-				{ to: active.peer, text, contextToken: active.contextToken },
-				signal ?? abort?.signal,
-			);
-			if (isSessionExpired(response)) {
-				handleExpired();
+		for (const chunk of chunkText(text, deps.config.maxReplyChars)) {
+			try {
+				const response = await client.sendMessage(
+					account,
+					{ to: active.peer, text: chunk, contextToken: active.contextToken },
+					signal ?? abort?.signal,
+				);
+				if (isSessionExpired(response)) {
+					handleExpired();
+					return false;
+				}
+			} catch {
 				return false;
 			}
-			return true;
-		} catch {
-			return false;
 		}
+		return true;
+	}
+
+	/** Upload and send a local file to the peer owning the in-flight turn. */
+	async function sendFileToPeer(filePath: string, fileName: string, signal?: AbortSignal): Promise<boolean> {
+		if (!client || !account || !active) return false;
+		return sendLocalFile({
+			client,
+			account,
+			cdnBaseUrl: deps.config.cdnBaseUrl,
+			maxBytes: deps.config.maxMediaBytes,
+			to: active.peer,
+			contextToken: active.contextToken,
+			filePath,
+			fileName,
+			signal: signal ?? abort?.signal,
+		});
 	}
 
 	const interaction = createWechatInteractionChannel({
 		send: (text, signal) => sendPrompt(text, signal),
+		sendFile: (path, name, signal) => sendFileToPeer(path, name, signal),
 		activePeer: () => active?.peer,
 	});
 

@@ -96,9 +96,12 @@ Dialog-capable non-TUI modes (RPC) show the same three choices as a select menu
 plus the refine editor; cancelling the editor returns to the select instead of
 being reported as "not approved". A WeChat turn takes the same dialog path and
 is answered over WeChat, even though the session is in TUI mode: the choice
-comes from `askHuman(ctx, { custom, dialogs })` in `lib/interaction.ts`, not from
-`ctx.mode`. Without any UI the tools fail with an actionable message instead of
-deciding for the user.
+comes from `askHuman(ctx, { custom, dialogs, file, body })` in
+`lib/interaction.ts`, not from `ctx.mode`. A remote turn also receives the plan
+**file** first (falling back to the plan text if the upload fails) so the whole
+plan is reviewable there; RPC has no channel and still sees only the choices.
+Without any UI the tools fail with an actionable message instead of deciding for
+the user.
 
 ### Transcript
 
