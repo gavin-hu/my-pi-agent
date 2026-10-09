@@ -122,7 +122,8 @@ export function formatDocResult(result: DocRenderResult, options: DocRenderOptio
 	if (details.text.length > 0) {
 		if (options.expanded) {
 			const { body, moreLines } = previewText(details.text, PREVIEW_LINES);
-			text += `\n${theme.fg("toolOutput", body)}`;
+			// Blank line before the body, matching the built-ins' header/output gap.
+			text += `\n\n${theme.fg("toolOutput", body)}`;
 			if (moreLines > 0) text += `\n${theme.fg("muted", `... (${moreLines} more lines)`)}`;
 		} else {
 			const hint = expandHint(theme);

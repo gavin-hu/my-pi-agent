@@ -151,6 +151,18 @@ read_doc ~/docs/spec.pdf (from 40k, max 80k)
 PDF · 1–40k of 42k chars · more at 40k · ctrl+o
 ```
 
+Expanded adds a blank line before the preview body, matching the built-in
+header/output gap:
+
+```
+read_doc ~/docs/spec.pdf
+PDF · 1–40k of 42k chars · more at 40k
+
+Chapter 1
+This specification defines ...
+... (412 more lines)
+```
+
 Collapsed rows end with the expand key (`app.tools.expand`) when there is text
 to preview. Expanded rows append a sanitized, line-capped preview
 (`PREVIEW_LINES` = 20) of the extracted text, with `... (N more lines)` when the

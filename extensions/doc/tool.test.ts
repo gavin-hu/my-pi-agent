@@ -190,11 +190,14 @@ describe("read_doc tool", () => {
 
 	test("expands to a sanitized, line-capped preview with an overflow note", () => {
 		const text = Array.from({ length: 25 }, (_, i) => `line ${i}\u0001`).join("\n");
-		const rendered = installTool()
+		const lines = installTool()
 			.renderResult(docResult({ text }), { isPartial: false, expanded: true }, fakeTheme, renderContext())
 			.render(200)
-			.join("\n");
-		expect(rendered).toContain("line 0");
+			.map((line: string) => line.trimEnd());
+		const rendered = lines.join("\n");
+		expect(lines[0]).toBe("PDF · 42k chars");
+		expect(lines[1]).toBe("");
+		expect(lines[2]).toBe("line 0");
 		expect(rendered).toContain("line 19");
 		expect(rendered).not.toContain("line 20");
 		expect(rendered).toContain("(5 more lines)");
