@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { setDocxExtractorForTests } from "./extract/docx.ts";
 import { setPdfExtractorForTests } from "./extract/pdf.ts";
 import { registerDocTool, TOOL_NAME } from "./tool.ts";
-import { fakeTheme, createFakePi } from "../../test/helpers/fakes.ts";
+import { ansiTheme, fakeTheme, createFakePi } from "../../test/helpers/fakes.ts";
 import { makeDocFixture } from "../../test/helpers/fixtures/doc.ts";
 import { tempDir, useEnv } from "../../test/helpers/env.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
@@ -39,6 +39,23 @@ function installTool(): Tool {
 
 function ctxFor(cwd: string): any {
 	return { cwd, mode: "print", hasUI: false };
+}
+
+function docResult(overrides: Record<string, unknown>): any {
+	return {
+		details: {
+			path: "a.pdf",
+			format: "pdf",
+			bytes: 1,
+			chars: 42478,
+			startIndex: 0,
+			nextIndex: 42478,
+			truncated: false,
+			text: "x",
+			...overrides,
+		},
+		content: [{ type: "text", text: "x" }],
+	};
 }
 
 describe("read_doc tool", () => {
@@ -137,5 +154,42 @@ describe("read_doc tool", () => {
 		};
 		const rendered = installTool().renderResult(result, { isPartial: false }, fakeTheme).render(80).join("\n");
 		expect(rendered).toContain("a b.pdf");
+	});
+
+	test("keeps theme colours in the rendered summary", () => {
+		const rendered = installTool().renderResult(docResult({}), { isPartial: false }, ansiTheme).render(80).join("\n");
+		expect(rendered).toContain("\u001b[38;2;0;0;0m");
+		expect(rendered).not.toContain(" [38;2;0;0;0m");
+	});
+
+	test("shows the returned range and continuation note when truncated", () => {
+		const rendered = installTool()
+			.renderResult(docResult({ nextIndex: 40000, truncated: true }), { isPartial: false }, fakeTheme)
+			.render(80)
+			.join("\n");
+		expect(rendered).toContain("1–40000 of 42478 chars");
+		expect(rendered).toContain("more at 40000");
+	});
+
+	test("marks a non-first final page complete", () => {
+		const rendered = installTool()
+			.renderResult(docResult({ startIndex: 40000, nextIndex: 42478 }), { isPartial: false }, fakeTheme)
+			.render(80)
+			.join("\n");
+		expect(rendered).toContain("40001–42478 of 42478 chars");
+		expect(rendered).toContain("complete");
+	});
+
+	test("renders a path with a newline on one line", () => {
+		const lines = installTool().renderCall({ path: "a\nb.pdf" }, fakeTheme).render(80);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("a b.pdf");
+	});
+
+	test("sanitizes an error message", () => {
+		const result = { isError: true, content: [{ type: "text", text: "Error: bad\u0001path" }] };
+		const rendered = installTool().renderResult(result, { isPartial: false }, fakeTheme).render(80).join("\n");
+		expect(rendered).toContain("bad path");
+		expect(rendered).not.toContain("\u0001");
 	});
 });

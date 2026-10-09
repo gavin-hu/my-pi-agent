@@ -21,6 +21,15 @@ export const coloringTheme: any = {
 	bold: (text: string) => `[bold]${text}`,
 };
 
+/**
+ * Theme that emits real SGR codes, so a test can assert that renderer
+ * sanitization does not strip the theme's own ANSI escapes.
+ */
+export const ansiTheme: any = {
+	fg: (_color: string, text: string) => `\u001b[38;2;0;0;0m${text}\u001b[39m`,
+	bold: (text: string) => text,
+};
+
 /** A theme double that records every `fg(color, text)` call. */
 export interface RecordingTheme {
 	calls: Array<[string, string]>;

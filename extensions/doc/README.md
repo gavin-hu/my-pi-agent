@@ -108,7 +108,7 @@ PDF text comes from `unpdf` (`extractText(bytes, { mergePages: true })`); DOCX
 text comes from `mammoth` (`extractRawText({ buffer })`). Both return plain,
 unformatted text: tables, images, styles, and layout are dropped. A scanned or
 image-only PDF yields little or no text and is reported as
-`(no extractable text; possibly a scanned/image-only PDF)`.
+`(no extractable text; the document may be scanned or image-only)`.
 
 ## Supported formats
 
@@ -138,7 +138,12 @@ config defaults, and error listing all derive from it.
 
 The tool behaves identically in `tui`, RPC, JSON, and print modes; it has no
 widgets or status output. `renderCall` / `renderResult` affect only the
-interactive transcript (and HTML exports).
+interactive transcript (and HTML exports). The transcript summary is a single
+sanitized line: `path · format · N–M of T chars`, plus `more at N` when the
+slice is truncated or `complete` for a non-first final page, so a partial read
+never looks like the whole document. Extracted text is never drawn; the
+transcript sanitizes each data field before applying theme colours, so the
+theme's own ANSI codes stay intact.
 
 ## Limitations
 
@@ -167,7 +172,7 @@ interactive transcript (and HTML exports).
 | Tool | `read_doc`, `exposure: "direct"`, `defaultActive: true`, default (`parallel`) execution, `annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult`. |
 | State | None persisted. Per-result state lives in the tool-result `details` / `structuredContent`; the renderer reads only that. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks: the tool opens no resources, and extractor packages load lazily per call. |
-| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigFile` (`lib/config.ts`), `stripControlChars` (`lib/format.ts`). |
+| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigFile` (`lib/config.ts`), `stripControlChars` / `sanitize` (`lib/format.ts`). |
 | Config | `doc.json` via `loadConfigFile` (`~/.pi/agent`, `<cwd>/.pi`). |
 
 ## Design notes
@@ -189,7 +194,7 @@ import each other and the test-seam pattern needs module-level state that
 | `tool.ts` | `TOOL_NAME`, the tool definition, handler, path guard, and renderers. |
 | `schema.ts` | `DocParams`, `DocOutput`, limits, result type. |
 | `config.ts` | `DocConfig`, registry-derived defaults, `normalizeConfig`, `loadConfig`, `isFormatEnabled`. |
-| `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting. |
+| `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript range summary. |
 | `extract/pdf.ts` | Lazy `unpdf` extractor, `PdfUnavailableError`, test seams. |
 | `extract/docx.ts` | Lazy `mammoth` extractor, `DocxUnavailableError`, test seams. |
 
