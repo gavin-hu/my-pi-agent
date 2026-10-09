@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `plan`: the read-only git shell guard accepts Windows path separators (a
+  backslash before an ordinary character) instead of refusing every backslash,
+  so read-only git commands through Git Bash work on Windows. A backslash that
+  escapes a metacharacter, whitespace, a quote, another backslash, or ends the
+  command is still blocked, and `powershell` remains unavailable.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

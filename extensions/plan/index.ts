@@ -42,7 +42,7 @@ const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
 You are in plan mode: a read-only exploration mode for safe code analysis.
 
 - While planning, ${READ_ONLY_SUMMARY}.
-- Raw shell is limited to read-only git commands through bash (for example git status, git diff, git log). Several may be chained with && or a semicolon; pipes, substitution, and redirection are blocked, and powershell is not available while planning.
+- Raw shell is limited to read-only git commands through bash (for example git status, git diff, git log). Several may be chained with && or a semicolon; pipes, substitution, and redirection are blocked, and powershell is not available while planning. On native Windows bash runs through Git Bash, so these commands work there too.
 - Shell is for git only. The working directory is already the project root (do not prefix commands with cd); use the read, grep, find, and ls tools to inspect files, and exit plan mode for any other shell command.
 - Investigate the code and design a concrete plan; do not modify anything except the plan file.
 - Save the full plan with write_plan (a short title and the complete markdown), then call exit_plan_mode with the returned plan_path so the user can read the file and approve, keep planning, or ask for a refinement.
