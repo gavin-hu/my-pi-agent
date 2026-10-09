@@ -48,6 +48,13 @@ describe("checkReadOnlyGit — allowed read-only commands", () => {
 		"git status; git log --oneline -n 5",
 		"git branch && git status",
 		"git status&&git status",
+		"git status --short",
+		"git diff -- extensions\\plan",
+		"git ls-files -- extensions\\plan",
+		"git ls-files -- 'extensions\\plan'",
+		'git diff -- "C:\\repo\\src\\a.ts"',
+		"git log --oneline -- C:\\repo",
+		"git log --format='%h\\t%s'",
 	];
 	for (const command of allowed) {
 		test(`allows: ${command}`, () => {
@@ -102,6 +109,11 @@ describe("checkReadOnlyGit — blocked commands", () => {
 		"git reflog expire --all",
 		"cd /tmp",
 		"cd /tmp && git status",
+		"git diff -- C:\\repo\\src; rm -rf x",
+		"git status \\; rm -rf x",
+		"git status \\| sh",
+		"git status \\& rm",
+		"git diff -- C:\\repo\\",
 	];
 	for (const command of blocked) {
 		test(`blocks: ${command || "(empty)"}`, () => {

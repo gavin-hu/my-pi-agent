@@ -10,7 +10,11 @@
  * It is deliberately conservative and allowlist-based:
  *
  *   1. `&&`/`;` split the command into segments; each segment must contain no
- *      other shell metacharacters (no pipes, substitution, or redirection);
+ *      other shell metacharacters (no pipes, substitution, or redirection). A
+ *      backslash before an ordinary character is a literal separator, so a
+ *      Windows path (`git diff -- extensions\plan`) survives, while a backslash
+ *      that escapes whitespace, a quote, another backslash, or a metacharacter
+ *      is still refused;
  *   2. each segment must start with `git` and name a read-only subcommand;
  *   3. options that can execute an external program or write a file are
  *      rejected, and dual-use subcommands (`branch`, `tag`, `remote`, `config`,
@@ -25,12 +29,19 @@
 export type GitCommandVerdict = { ok: true } | { ok: false; reason: string };
 
 /**
- * Characters that can chain commands, substitute, redirect, escape, or form a
- * subshell. `&&`/`;` are handled as segment separators before this runs; any
- * remaining occurrence blocks (including inside quotes — a deliberate
- * over-rejection).
+ * Characters that chain commands, substitute, redirect, or form a subshell.
+ * `&&`/`;` are handled as segment separators before this runs; any remaining
+ * occurrence blocks (including inside quotes — a deliberate over-rejection).
  */
-const SHELL_META = /[;&|<>`$(){}[\]\n\r\\]/;
+const SHELL_META = /[;&|<>`$(){}[\]\n\r]/;
+
+/**
+ * A backslash that escapes something: whitespace, a quote, another backslash, a
+ * shell metacharacter, or the end of the command. A backslash before any other
+ * character is a literal separator, so a Windows path (`C:\Users\x`) survives
+ * the check. Pure and side-effect free.
+ */
+const SHELL_ESCAPE = /\\(?=$|[\s"'\\;&|<>`$(){}[\]])/;
 
 /** `git` subcommands that only read repository state. */
 const READ_ONLY_SUBCOMMANDS = new Set([
@@ -256,7 +267,7 @@ function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
  * {@link checkReadOnlyGit}.
  */
 function checkSingleGitCommand(command: string): GitCommandVerdict {
-	if (SHELL_META.test(command)) {
+	if (SHELL_META.test(command) || SHELL_ESCAPE.test(command)) {
 		return { ok: false, reason: "shell substitution and redirection are not allowed while planning." };
 	}
 

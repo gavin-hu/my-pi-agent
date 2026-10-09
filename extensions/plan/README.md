@@ -156,14 +156,17 @@ itself be a read-only git command, so a chain only combines allowed reads.
 Anything else (a non-git command, a mutating git subcommand, a piped or
 redirected command, substitution, or a conditional `||`) is blocked by a
 conservative allowlist in `git-bash.ts`. `powershell` is not allowed at all, so
-**plan mode has no shell on Windows**; there, investigation uses the structured
-tools and read-only delegation. Everything else uses `read`, `grep`, `find`,
+plan mode uses Git Bash on native Windows: the same read-only git commands work
+there, and a backslash before an ordinary character is accepted as a Windows
+path separator while a backslash that escapes a metacharacter is still refused.
+Everything else uses `read`, `grep`, `find`,
 `ls`, and the other read-only tools already available (`web_search`,
 `web_fetch`, `ask_user_question`, `todo`, `goal`).
 
 ```bash
 git status && git diff --stat     # allowed: two read-only git commands
 git status; git log --oneline -5  # allowed
+git diff -- extensions\plan      # allowed: a Windows path separator
 git status && rm -rf x            # blocked: the second segment is not git
 git status | sh                   # blocked: pipes are never allowed
 git diff > out.patch              # blocked: redirection is a write
@@ -200,8 +203,8 @@ agent file that overrides it.
 
 ## Limitations
 
-- No shell on Windows: plan-mode investigation there relies on the structured
-  tools and read-only delegation.
+- PowerShell is not available while planning. On native Windows the shell is
+  Git Bash (`bash`), which must be installed for any shell command to run.
 - The read-only guarantee is a guard rail against accidental writes, not a
   security boundary (see [Security](#security)).
 - The plans directory is the only index; there is no registry and no persisted

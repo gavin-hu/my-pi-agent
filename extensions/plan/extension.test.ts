@@ -101,6 +101,18 @@ describe("plan-mode bash and write guard", () => {
 		expect(cd.reason).toContain("read, grep, find, and ls");
 	});
 
+	test("accepts a Windows path separator in a read-only git command", async () => {
+		const { fakePi } = await enabledPi();
+		const { ctx } = fakeCtx();
+		const [allowed] = await emit(
+			fakePi.pi,
+			"tool_call",
+			{ toolName: "bash", input: { command: "git diff -- extensions\\plan" } },
+			ctx,
+		);
+		expect(allowed).toBeUndefined();
+	});
+
 	test("blocks powershell outright", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
