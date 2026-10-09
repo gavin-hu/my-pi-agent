@@ -10,23 +10,25 @@
 import { extname } from "node:path";
 import { extractDocxText } from "./extract/docx.ts";
 import { extractPdfText } from "./extract/pdf.ts";
+import { extractXlsxText } from "./extract/xlsx.ts";
 
 export interface DocumentFormat {
 	/** Stable id, also the `doc.json` `formats` key and the output `format`. */
-	id: "pdf" | "docx";
+	id: "pdf" | "docx" | "xlsx";
 	/** Human label for messages. */
 	label: string;
 	/** Lower-case extensions, with the dot, that select this format. */
 	extensions: readonly string[];
 	/** Enabled unless `doc.json` `formats[id]` says otherwise. */
 	defaultEnabled: boolean;
-	/** Lazy optional-dependency extractor; throws *UnavailableError when absent. */
+	/** Extractor; lazily loaded optional-dependency ones throw *UnavailableError when absent. */
 	extract: (bytes: Uint8Array) => Promise<string>;
 }
 
 export const FORMATS = [
 	{ id: "pdf", label: "PDF", extensions: [".pdf"], defaultEnabled: true, extract: extractPdfText },
 	{ id: "docx", label: "DOCX", extensions: [".docx"], defaultEnabled: true, extract: extractDocxText },
+	{ id: "xlsx", label: "XLSX", extensions: [".xlsx"], defaultEnabled: true, extract: extractXlsxText },
 ] as const satisfies readonly DocumentFormat[];
 
 export type FormatId = (typeof FORMATS)[number]["id"];
@@ -51,5 +53,6 @@ export function detectFormat(path: string): DocumentFormat | undefined {
 export function unsupportedHint(path: string): string | undefined {
 	const ext = extname(path).toLowerCase();
 	if (ext === ".doc") return "Legacy .doc is not supported; convert it to .docx first.";
+	if (ext === ".xls") return "Legacy .xls is not supported; convert it to .xlsx first.";
 	return undefined;
 }

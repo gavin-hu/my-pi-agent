@@ -12,10 +12,15 @@ describe("normalizeConfig", () => {
 	});
 
 	test("merges formats over registry defaults and ignores unknown or non-boolean keys", () => {
-		const config = normalizeConfig({ formats: { pdf: false, xlsx: true, docx: "no" } });
+		const config = normalizeConfig({ formats: { pdf: false, xlsx: false, docx: "no", pptx: true } });
 		expect(config.formats.pdf).toBe(false);
 		expect(config.formats.docx).toBe(true);
-		expect("xlsx" in config.formats).toBe(false);
+		expect(config.formats.xlsx).toBe(false);
+		expect("pptx" in config.formats).toBe(false);
+	});
+
+	test("enables every registered format by default", () => {
+		expect(DEFAULT_CONFIG.formats).toEqual({ pdf: true, docx: true, xlsx: true });
 	});
 
 	test("uses the registry defaults when the file is missing", () => {

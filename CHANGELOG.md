@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `doc`: `read_doc` now extracts `.xlsx` spreadsheets through the optional,
+  lazily loaded `read-excel-file` package, which Pi installs as a dependency of
+  this package. Every worksheet becomes a `[Sheet]` heading followed by
+  tab-separated rows; dates render as ISO strings, and legacy `.xls` gets a
+  conversion hint. If the package is somehow absent, the tool tells the model
+  to ask the user before installing it, then names the command.
+
 ### Fixed
 
 - `plan`: the read-only git shell guard accepts Windows path separators (a

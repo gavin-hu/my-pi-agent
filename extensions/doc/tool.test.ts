@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setDocxExtractorForTests } from "./extract/docx.ts";
 import { setPdfExtractorForTests } from "./extract/pdf.ts";
+import { setXlsxExtractorForTests, setXlsxLoaderForTests, XlsxUnavailableError } from "./extract/xlsx.ts";
 import { registerDocTool, TOOL_NAME } from "./tool.ts";
 import { ansiTheme, fakeTheme, createFakePi } from "../../test/helpers/fakes.ts";
 import { makeDocFixture } from "../../test/helpers/fixtures/doc.ts";
@@ -29,6 +30,8 @@ beforeEach(() => {
 afterEach(() => {
 	setPdfExtractorForTests(undefined);
 	setDocxExtractorForTests(undefined);
+	setXlsxExtractorForTests(undefined);
+	setXlsxLoaderForTests(undefined);
 });
 
 function installTool(): Tool {
@@ -75,6 +78,22 @@ describe("read_doc tool", () => {
 		expect(result.structuredContent).toEqual(result.details);
 	});
 
+	test("extracts an XLSX and returns matching structuredContent", async () => {
+		setXlsxExtractorForTests(async () => "[Sheet1]\na\tb");
+		fixture.write("a.xlsx", "bytes");
+
+		const result = await installTool().execute(
+			"call-1",
+			{ path: "a.xlsx" },
+			undefined,
+			undefined,
+			ctxFor(fixture.root),
+		);
+		expect(result.content[0].text).toContain("[Sheet1]");
+		expect(result.details).toMatchObject({ path: "a.xlsx", format: "xlsx", bytes: 5 });
+		expect(result.structuredContent).toEqual(result.details);
+	});
+
 	test("pages with startIndex and maxChars", async () => {
 		setPdfExtractorForTests(async () => "x".repeat(250));
 		fixture.write("paged.pdf", "x");
@@ -101,6 +120,23 @@ describe("read_doc tool", () => {
 		await expect(
 			installTool().execute("call-1", { path: "old.doc" }, undefined, undefined, ctxFor(fixture.root)),
 		).rejects.toThrow(/convert it to \.docx/);
+	});
+
+	test("gives a targeted hint for a legacy .xls file", async () => {
+		await expect(
+			installTool().execute("call-1", { path: "old.xls" }, undefined, undefined, ctxFor(fixture.root)),
+		).rejects.toThrow(/convert it to \.xlsx/);
+	});
+
+	test("guides the model to ask before installing a missing XLSX reader", async () => {
+		setXlsxLoaderForTests(async () => {
+			throw new XlsxUnavailableError("XLSX extraction requires the 'read-excel-file' package.");
+		});
+		fixture.write("missing.xlsx", "bytes");
+
+		await expect(
+			installTool().execute("call-1", { path: "missing.xlsx" }, undefined, undefined, ctxFor(fixture.root)),
+		).rejects.toThrow(/ask_user_question/);
 	});
 
 	test("rejects a format disabled in doc.json", async () => {
