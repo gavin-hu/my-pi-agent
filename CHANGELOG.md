@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `memory`: durable cross-session notes stored as human-editable markdown — a
+  global file under the agent directory and a project file under the repository
+  root's `.pi/`. The `memory` tool adds, forgets, or lists notes; stored notes
+  are injected as a hidden `[MEMORY]` context before each run; `/memory` lists,
+  edits, or clears a store. Project notes load and write only for a trusted
+  project, text is sanitized at the boundary, and writes are read-modify-write
+  under the host file-mutation queue and land atomically.
+
 ### Fixed
 
 - `plan`: the read-only git shell guard accepts Windows path separators (a

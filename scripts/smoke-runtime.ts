@@ -23,6 +23,7 @@ const jobExtensionPath = join(repo, "extensions", "job", "index.ts");
 const webAccessExtensionPath = join(repo, "extensions", "web-access", "index.ts");
 const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
 const docExtensionPath = join(repo, "extensions", "doc", "index.ts");
+const memoryExtensionPath = join(repo, "extensions", "memory", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
@@ -68,6 +69,7 @@ const loader = new DefaultResourceLoader({
 		webAccessExtensionPath,
 		fileBrowserExtensionPath,
 		docExtensionPath,
+		memoryExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
 	],
@@ -279,6 +281,15 @@ check("read_doc registered", !!readDocTool);
 check("read_doc is direct", readDocTool?.exposure === "direct");
 check("read_doc active by default", session.getActiveToolNames().includes("read_doc"));
 check("read_doc is callable", !!session.getToolDefinition("read_doc"));
+
+// memory loads and registers an active, direct tool and its command. Its
+// storage, trust gating, and injection are covered by unit tests; here we only
+// prove the factory registers cleanly in a real session.
+const memoryTool = session.getAllTools().find((t) => t.name === "memory");
+check("memory registered", !!memoryTool);
+check("memory is direct", memoryTool?.exposure === "direct");
+check("memory active by default", session.getActiveToolNames().includes("memory"));
+check("memory command registered", !!runner.getCommand("memory"));
 
 // serve loads headlessly and registers its command; /serve status must not
 // start a server or open a browser.
