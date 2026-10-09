@@ -4,6 +4,18 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `doc`: a `read_doc` tool that extracts plain text from a local `.pdf` or
+  `.docx` under the effective working directory, paged with `startIndex` /
+  `maxChars` and guarded like the built-in path tools. PDF extraction uses the
+  optional `unpdf` package and DOCX the optional `mammoth` package, both loaded
+  lazily with a clear install hint when missing. Formats are table-driven, so
+  more are additive. `lib/path.ts` now shares `realPathOfNearest` /
+  `isInsideReal` with the worktree guard.
+
 ## [0.1.0] - 2026-10-09
 
 Initial public release: a personal collection of Pi customizations packaged as

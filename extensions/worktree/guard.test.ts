@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { analyzeBashCommand, guardFileTool, isInsideReal, realPathOfNearest, resolveUnder } from "./guard.ts";
+import { analyzeBashCommand, guardFileTool, resolveUnder } from "./guard.ts";
+import { isInsideReal } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { testConfig } from "../../test/helpers/fixtures/worktree.ts";
@@ -51,6 +52,13 @@ describe("guardFileTool", () => {
 
 	test("blocks reads outside when configured", () => {
 		expect(guardFileTool("read", { path: "/main/file.txt" }, ROOT, config({ blockReadEscapes: true }))?.block).toBe(
+			true,
+		);
+	});
+
+	test("applies the same read containment to read_doc", () => {
+		expect(guardFileTool("read_doc", { path: "/main/file.pdf" }, ROOT, config())).toBeUndefined();
+		expect(guardFileTool("read_doc", { path: "/main/file.pdf" }, ROOT, config({ blockReadEscapes: true }))?.block).toBe(
 			true,
 		);
 	});
@@ -200,12 +208,5 @@ describe("symlink-safe containment", () => {
 		writeFileSync(join(root, "real.txt"), "x");
 		expect(isInsideReal(root, join(root, "real.txt"))).toBe(true);
 		expect(guardFileTool("write", { path: "real.txt" }, root, config())).toBeUndefined();
-	});
-
-	test("realPathOfNearest resolves a missing leaf through its parent", () => {
-		const base = temps.track(tempDir("pi-wt-real-"));
-		expect(realPathOfNearest(join(base, "missing", "deep.txt"))).toBe(
-			join(realpathSync.native(base), "missing", "deep.txt"),
-		);
 	});
 });

@@ -19,11 +19,13 @@
         "@earendil-works/pi-ai": "*",
         "@earendil-works/pi-coding-agent": "*",
         "@earendil-works/pi-tui": "*",
+        "mammoth": "*",
         "playwright": "*",
         "typebox": "*",
         "unpdf": "*",
       },
       "optionalPeers": [
+        "mammoth",
         "playwright",
         "unpdf",
       ],

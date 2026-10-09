@@ -21,6 +21,7 @@ const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
 const jobExtensionPath = join(repo, "extensions", "job", "index.ts");
 const webAccessExtensionPath = join(repo, "extensions", "web-access", "index.ts");
 const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
+const docExtensionPath = join(repo, "extensions", "doc", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
@@ -64,6 +65,7 @@ const loader = new DefaultResourceLoader({
 		jobExtensionPath,
 		webAccessExtensionPath,
 		fileBrowserExtensionPath,
+		docExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
 	],
@@ -266,6 +268,15 @@ check("web_fetch registered", !!webFetchTool);
 check("web_fetch is direct", webFetchTool?.exposure === "direct");
 check("web_fetch active by default", session.getActiveToolNames().includes("web_fetch"));
 check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
+
+// doc loads and registers an active, direct reader. It is not executed here:
+// the optional unpdf/mammoth packages are not installed, and the extraction
+// paths are covered by unit tests with injected extractors.
+const readDocTool = session.getAllTools().find((t) => t.name === "read_doc");
+check("read_doc registered", !!readDocTool);
+check("read_doc is direct", readDocTool?.exposure === "direct");
+check("read_doc active by default", session.getActiveToolNames().includes("read_doc"));
+check("read_doc is callable", !!session.getToolDefinition("read_doc"));
 
 // serve loads headlessly and registers its command; /serve status must not
 // start a server or open a browser.

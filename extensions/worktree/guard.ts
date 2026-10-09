@@ -11,10 +11,9 @@
  *   4. (optional) commands whose text cannot be statically verified.
  */
 
-import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
-import { isInside } from "../../lib/path.ts";
+import { isAbsolute, join, resolve } from "node:path";
+import { isInside, isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 
 /**
@@ -34,38 +33,13 @@ export function resolveUnder(root: string, path: string | undefined): string {
 	return isAbsolute(path) ? resolve(path) : resolve(root, path);
 }
 
-/**
- * Real path of `path`, resolving symlinks in the deepest existing ancestor even
- * when the leaf does not exist yet.
- */
-export function realPathOfNearest(path: string): string {
-	const absolute = resolve(path);
-	const missing: string[] = [];
-	let current = absolute;
-	while (!existsSync(current)) {
-		const parent = dirname(current);
-		if (parent === current) return absolute;
-		missing.unshift(basename(current));
-		current = parent;
-	}
-	try {
-		return join(realpathSync.native(current), ...missing);
-	} catch {
-		return absolute;
-	}
-}
-
-/** Whether `target` stays inside `root` once symlinks are resolved. */
-export function isInsideReal(root: string, target: string): boolean {
-	return isInside(realPathOfNearest(root), realPathOfNearest(target));
-}
-
 // ---------------------------------------------------------------------------
 // File tools (check 1)
 // ---------------------------------------------------------------------------
 
 const PATH_FIELD: Record<string, string> = {
 	read: "path",
+	read_doc: "path",
 	write: "path",
 	edit: "path",
 	grep: "path",
