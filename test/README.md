@@ -133,6 +133,17 @@ fails a tool renderer that:
 - repeats the raw `"app.tools.expand"` id instead of importing
   `EXPAND_KEYBINDING` from `lib/ui.ts`.
 
+## Extension boundaries (enforced)
+
+An extension never imports another extension's modules. Pi loads each extension
+in isolation, so the coupling is invisible at runtime and easy to reintroduce
+from a test. `test/structure.test.ts` scans every `.ts` file under
+`extensions/<name>/` — tests included — and fails any import that resolves into
+a different `extensions/<other>/`, in every form: `from`, a side-effect import,
+`export ... from`, or a dynamic `import()`. Share the contract instead: tool and
+parameter names in `lib/tool-names.ts`, glyphs and status keys in `lib/ui.ts`,
+everything else under `lib/`.
+
 ## Layout
 
 Tests are co-located with the source they cover. `test/` holds only shared
@@ -150,7 +161,7 @@ test/
     git.ts    platform.ts  preload.ts  clock.ts
     fixtures/<name>.ts     # extension-specific fixtures
   naming.test.ts           # package-level contract
-  structure.test.ts        # layout + banned-pattern guard
+  structure.test.ts        # layout, banned-pattern, and boundary guards
   theme.test.ts            # themes/*.json contract
 ```
 

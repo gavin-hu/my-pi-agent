@@ -207,3 +207,32 @@ describe("source conventions", () => {
 		expect(offenders).toEqual([]);
 	});
 });
+
+describe("extension boundaries", () => {
+	/** A specifier from a static import/export, a side-effect import, or a dynamic import. */
+	const MODULE_SPEC = /(?:\bfrom\b|\bimport\s*\(?)\s*["']([^"']+)["']/;
+
+	test("an extension never imports another extension's modules", () => {
+		const names = dirsOf(extensionsDir);
+		const offenders: string[] = [];
+		for (const name of names) {
+			for (const file of walkFiles(join(extensionsDir, name))) {
+				if (!file.endsWith(".ts")) continue;
+				const relative = file.slice(repo.length + 1);
+				const dir = file.slice(0, file.lastIndexOf("/"));
+				readFileSync(file, "utf-8")
+					.split("\n")
+					.forEach((line, index) => {
+						const spec = MODULE_SPEC.exec(line)?.[1];
+						if (spec === undefined || !spec.startsWith(".")) return;
+						const target = posix(join(dir, spec));
+						const owner = names.find((other) => other !== name && target.startsWith(`${extensionsDir}/${other}/`));
+						if (owner !== undefined) {
+							offenders.push(`${relative}:${index + 1}: imports extensions/${owner} (${spec}); share it through lib/`);
+						}
+					});
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+});
