@@ -1,63 +1,20 @@
 /**
- * Optional DOCX text extraction via the `mammoth` package.
+ * DOCX text extraction via `wordcraft-cli`.
  *
- * `mammoth` reads the OOXML document and returns its raw text, discarding
- * formatting. It is loaded lazily, so the extension stays dependency-free unless
- * a DOCX is actually read. Tests inject an extractor or a loader through the
- * seams below instead of installing the optional package.
+ * `wordcraft-cli text <file>` prints the document body's plain text: paragraphs
+ * separated by newlines and table cells by tabs. The CLI reads the file itself,
+ * so this module never touches the bytes.
  */
 
-/** Raised when the optional `mammoth` package is missing or unusable. */
-export class DocxUnavailableError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "DocxUnavailableError";
-	}
+import type { DocCli, DocFile } from "./cli.ts";
+
+/** Drop the single trailing newline `wordcraft-cli text` adds with `println!`. */
+export function stripTrailingNewline(stdout: string): string {
+	return stdout.replace(/\r?\n$/, "");
 }
 
-export type DocxExtractor = (bytes: Uint8Array) => Promise<string>;
-export type DocxLoader = () => Promise<DocxExtractor>;
-
-let extractorOverride: DocxExtractor | undefined;
-let loaderOverride: DocxLoader | undefined;
-
-/** Override the extractor (tests only). Pass undefined to clear. */
-export function setDocxExtractorForTests(extractor: DocxExtractor | undefined): void {
-	extractorOverride = extractor;
-}
-
-/** Override the lazy loader (tests only). Pass undefined to clear. */
-export function setDocxLoaderForTests(loader: DocxLoader | undefined): void {
-	loaderOverride = loader;
-}
-
-async function loadDocxExtractor(): Promise<DocxExtractor> {
-	let module: Record<string, unknown>;
-	try {
-		// A variable specifier keeps `tsc` from resolving the optional package's types.
-		const name = "mammoth";
-		module = (await import(name)) as Record<string, unknown>;
-	} catch {
-		throw new DocxUnavailableError("DOCX extraction requires the optional 'mammoth' package (npm i mammoth).");
-	}
-
-	const candidate = module.extractRawText ?? (module.default as Record<string, unknown> | undefined)?.extractRawText;
-	if (typeof candidate !== "function") {
-		throw new DocxUnavailableError("The installed 'mammoth' package does not export extractRawText.");
-	}
-
-	return async (bytes) => {
-		const result: unknown = await (candidate as (input: { buffer: Buffer }) => Promise<unknown>)({
-			buffer: Buffer.from(bytes),
-		});
-		const value = (result as { value?: unknown } | undefined)?.value;
-		return typeof value === "string" ? value : "";
-	};
-}
-
-/** Extract plain text from DOCX bytes. */
-export async function extractDocxText(bytes: Uint8Array): Promise<string> {
-	if (extractorOverride) return extractorOverride(bytes);
-	const extract = loaderOverride ? await loaderOverride() : await loadDocxExtractor();
-	return extract(bytes);
+/** Extract plain text from a DOCX body via `wordcraft-cli text`. */
+export async function extractDocxText(file: DocFile, cli: DocCli): Promise<string> {
+	const stdout = await cli.run("wordcraft-cli", ["text", file.path], { signal: file.signal });
+	return stripTrailingNewline(stdout);
 }

@@ -276,8 +276,8 @@ check("web_fetch active by default", session.getActiveToolNames().includes("web_
 check("web_fetch is callable", !!session.getToolDefinition("web_fetch"));
 
 // doc loads and registers an active, direct reader. It is not executed here:
-// the optional unpdf/mammoth packages are not installed, and the extraction
-// paths are covered by unit tests with injected extractors.
+// the extractor CLIs are not required to load the extension, and the extraction
+// paths are covered by unit tests with an injected DocCli.
 const readDocTool = session.getAllTools().find((t) => t.name === "read_doc");
 check("read_doc registered", !!readDocTool);
 check("read_doc is direct", readDocTool?.exposure === "direct");

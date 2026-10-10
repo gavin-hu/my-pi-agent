@@ -1,41 +1,108 @@
 /**
- * XLSX text extraction via the `read-excel-file` package.
+ * XLSX text extraction via `gridcraft-cli`.
  *
- * `read-excel-file` reads the OOXML workbook and returns every sheet as
- * `[{ sheet, data }]`, with values as `string | number | boolean | Date | null`.
- * It is a normal dependency of this package, so Pi installs it with the
- * package; the loader still imports it lazily so the extension keeps loading if
- * the package is somehow absent. Tests inject an extractor or a loader through
- * the seams below instead of parsing a real workbook.
+ * `gridcraft-cli cat` prints one sheet (the active one, or `--sheet NAME`) as an
+ * aligned table or, with `--csv`, RFC-4180 CSV. Because `cat` names no sheet and
+ * reads only one, the extractor first asks `gridcraft-cli info --json` for the
+ * sheet list and used ranges, then reads each non-empty sheet with
+ * `cat --sheet NAME --csv` and rebuilds the `[Sheet]` + tab-separated-rows text
+ * this tool has always returned. The CLI reads the file itself, so this module
+ * never touches the bytes.
  */
 
 import { stripControlChars } from "../../../lib/format.ts";
+import type { DocCli, DocFile } from "./cli.ts";
 
-/** Raised when the `read-excel-file` package is missing or unusable. */
-export class XlsxUnavailableError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "XlsxUnavailableError";
+/** One sheet as `gridcraft-cli info --json` reports it. */
+export interface SheetInfo {
+	name: string;
+	/** The sheet's used range, e.g. `A1:D20`; undefined when the sheet is empty. */
+	usedRange?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+/**
+ * Parse the `sheets` array of `gridcraft-cli info --json`.
+ *
+ * Returns `[]` for a document with no sheets; throws when the output is not the
+ * expected JSON object, so a CLI change fails loudly instead of silently
+ * returning no text. Pure.
+ */
+export function parseSheetList(json: string): SheetInfo[] {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(json);
+	} catch {
+		throw new Error("gridcraft-cli info did not return valid JSON.");
 	}
+	if (!isRecord(parsed) || !Array.isArray(parsed.sheets)) {
+		throw new Error("gridcraft-cli info did not report a sheet list.");
+	}
+	const sheets: SheetInfo[] = [];
+	for (const entry of parsed.sheets) {
+		if (!isRecord(entry) || typeof entry.name !== "string") continue;
+		const usedRange = typeof entry.usedRange === "string" ? entry.usedRange : undefined;
+		sheets.push({ name: entry.name, usedRange });
+	}
+	return sheets;
 }
 
-export type XlsxExtractor = (bytes: Uint8Array) => Promise<string>;
-export type XlsxLoader = () => Promise<XlsxExtractor>;
-
-let extractorOverride: XlsxExtractor | undefined;
-let loaderOverride: XlsxLoader | undefined;
-
-/** Override the extractor (tests only). Pass undefined to clear. */
-export function setXlsxExtractorForTests(extractor: XlsxExtractor | undefined): void {
-	extractorOverride = extractor;
+/**
+ * Parse RFC-4180 CSV as `gridcraft-cli cat --csv` writes it: quoted fields,
+ * `""` escapes, commas, and LF / CRLF / CR line endings. A trailing newline does
+ * not produce an extra row. Pure.
+ */
+export function parseCsv(text: string): string[][] {
+	const rows: string[][] = [];
+	let row: string[] = [];
+	let field = "";
+	let quoted = false;
+	let started = false;
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i];
+		if (quoted) {
+			if (ch === '"') {
+				if (text[i + 1] === '"') {
+					field += '"';
+					i++;
+				} else {
+					quoted = false;
+				}
+			} else {
+				field += ch;
+			}
+			continue;
+		}
+		if (ch === '"') {
+			quoted = true;
+			started = true;
+		} else if (ch === ",") {
+			row.push(field);
+			field = "";
+			started = true;
+		} else if (ch === "\n" || ch === "\r") {
+			if (ch === "\r" && text[i + 1] === "\n") i++;
+			row.push(field);
+			rows.push(row);
+			row = [];
+			field = "";
+			started = false;
+		} else {
+			field += ch;
+			started = true;
+		}
+	}
+	if (started) {
+		row.push(field);
+		rows.push(row);
+	}
+	return rows;
 }
 
-/** Override the lazy loader (tests only). Pass undefined to clear. */
-export function setXlsxLoaderForTests(loader: XlsxLoader | undefined): void {
-	loaderOverride = loader;
-}
-
-/** One sheet as `read-excel-file` returns it. */
+/** One sheet as the text builder consumes it. */
 interface Sheet {
 	sheet: string;
 	data: unknown[][];
@@ -49,28 +116,20 @@ function isSheet(value: unknown): value is Sheet {
 
 /**
  * One cell as plain text. Tabs and newlines collapse to spaces so a cell cannot
- * break the row/column layout, and control characters are stripped. A date at
- * midnight UTC renders as `YYYY-MM-DD`; one with a time keeps the full ISO
- * string. Pure and side-effect free.
+ * break the row/column layout, and control characters are stripped. Pure.
  */
 export function cellToText(value: unknown): string {
 	if (value === null || value === undefined) return "";
-	if (value instanceof Date) {
-		const iso = value.toISOString();
-		return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso;
-	}
-	if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
-	if (typeof value === "number") return String(value);
 	return stripControlChars(String(value))
-		.replace(/[\t\n]+/g, " ")
+		.replace(/[\t\n\r]+/g, " ")
 		.trim();
 }
 
 /**
- * Render the `read-excel-file` result as plain text: a `[<name>]` heading per
- * non-empty sheet, then tab-separated rows. Trailing empty cells and fully
- * empty rows are dropped, and sheets are separated by a blank line. Pure and
- * side-effect free; returns `""` for anything that is not a sheet array.
+ * Render sheets as plain text: a `[<name>]` heading per non-empty sheet, then
+ * tab-separated rows. Trailing empty cells and fully empty rows are dropped, and
+ * sheets are separated by a blank line. Pure; returns `""` for anything that is
+ * not a sheet array.
  */
 export function sheetsToText(value: unknown): string {
 	if (!Array.isArray(value)) return "";
@@ -91,33 +150,19 @@ export function sheetsToText(value: unknown): string {
 	return sections.join("\n\n");
 }
 
-async function loadXlsxExtractor(): Promise<XlsxExtractor> {
-	let module: Record<string, unknown>;
-	try {
-		// A variable specifier keeps `tsc` from resolving the runtime subpath.
-		const name = "read-excel-file/node";
-		module = (await import(name)) as Record<string, unknown>;
-	} catch {
-		throw new XlsxUnavailableError(
-			"XLSX extraction requires the 'read-excel-file' package, which Pi installs with this package.",
-		);
+/**
+ * Extract plain text from a workbook, one `[Sheet]` section per non-empty
+ * worksheet, via `gridcraft-cli info --json` plus one `cat --sheet --csv` per
+ * worksheet.
+ */
+export async function extractXlsxText(file: DocFile, cli: DocCli): Promise<string> {
+	const options = { signal: file.signal };
+	const info = await cli.run("gridcraft-cli", ["info", file.path, "--json"], options);
+	const sections: Array<{ sheet: string; data: unknown[][] }> = [];
+	for (const { name, usedRange } of parseSheetList(info)) {
+		if (!usedRange) continue;
+		const csv = await cli.run("gridcraft-cli", ["cat", file.path, "--sheet", name, "--csv"], options);
+		sections.push({ sheet: name, data: parseCsv(csv) });
 	}
-
-	const candidate = module.default;
-	if (typeof candidate !== "function") {
-		throw new XlsxUnavailableError("The installed 'read-excel-file' package does not export a default reader.");
-	}
-
-	return async (bytes) => {
-		const input = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
-		const result: unknown = await (candidate as (input: unknown) => Promise<unknown>)(input);
-		return sheetsToText(result);
-	};
-}
-
-/** Extract plain text from XLSX bytes, one `[Sheet]` section per worksheet. */
-export async function extractXlsxText(bytes: Uint8Array): Promise<string> {
-	if (extractorOverride) return extractorOverride(bytes);
-	const extract = loaderOverride ? await loaderOverride() : await loadXlsxExtractor();
-	return extract(bytes);
+	return sheetsToText(sections);
 }

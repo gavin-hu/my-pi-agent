@@ -8,6 +8,7 @@
  */
 
 import { extname } from "node:path";
+import type { DocExtractor } from "./extract/cli.ts";
 import { extractDocxText } from "./extract/docx.ts";
 import { extractPdfText } from "./extract/pdf.ts";
 import { extractXlsxText } from "./extract/xlsx.ts";
@@ -21,8 +22,8 @@ export interface DocumentFormat {
 	extensions: readonly string[];
 	/** Enabled unless `doc.json` `formats[id]` says otherwise. */
 	defaultEnabled: boolean;
-	/** Extractor; lazily loaded optional-dependency ones throw *UnavailableError when absent. */
-	extract: (bytes: Uint8Array) => Promise<string>;
+	/** Extractor; runs the format's CLI and throws a missing-tool error when it is absent. */
+	extract: DocExtractor;
 }
 
 export const FORMATS = [

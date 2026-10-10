@@ -15,12 +15,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   edits, or clears a store. Project notes load and write only for a trusted
   project, text is sanitized at the boundary, and writes are read-modify-write
   under the host file-mutation queue and land atomically.
-- `doc`: `read_doc` now extracts `.xlsx` spreadsheets through the optional,
-  lazily loaded `read-excel-file` package, which Pi installs as a dependency of
-  this package. Every worksheet becomes a `[Sheet]` heading followed by
-  tab-separated rows; dates render as ISO strings, and legacy `.xls` gets a
-  conversion hint. If the package is somehow absent, the tool tells the model
-  to ask the user before installing it, then names the command.
+- `doc`: `read_doc` now extracts `.xlsx` spreadsheets through the
+  `gridcraft-cli` executable. Every worksheet becomes a `[Sheet]` heading
+  followed by tab-separated rows, values use the workbook's displayed text, and
+  legacy `.xls` gets a conversion hint.
 - `todo`: when a run is about to settle after mutating work (`write`, `edit`,
   `bash`, `powershell`, or a tool declaring `readOnlyHint: false`) without a
   todo update, the extension injects one hidden reminder and forces a single
@@ -34,6 +32,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `always` keeps the whole session awake, and `/keep-awake on|off|auto|status`
   overrides it per session. Shows a `✦` status chip while held; configured
   through `keep-awake.json` (`mode`, `keepDisplay`).
+
+### Changed
+
+- `doc`: `read_doc` extracts `.pdf` and `.docx` by running `pdfcraft-cli` and
+  `wordcraft-cli` instead of the in-process `unpdf` and `mammoth` packages, and
+  `.xlsx` likewise through `gridcraft-cli`. The extension now ships no document
+  parser, a missing executable's error names its `cargo install --git …`
+  command, and `mammoth` and `read-excel-file` are no longer dependencies. The
+  tool's schema, paging, confinement, and transcript rendering are unchanged.
 
 ### Fixed
 

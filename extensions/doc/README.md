@@ -1,10 +1,9 @@
 # doc — read local PDF, DOCX, and XLSX files as text
 
 `doc` adds a `read_doc` tool that extracts plain text from a local `.pdf`,
-`.docx`, or `.xlsx` file, paged with `startIndex` / `maxChars`. PDF extraction
-uses the optional `unpdf` package, DOCX the optional `mammoth` package, and XLSX
-the `read-excel-file` package, which Pi installs with this package. The
-extractors are loaded lazily, so the extension still loads when one is missing.
+`.docx`, or `.xlsx` file, paged with `startIndex` / `maxChars`. Each format is
+extracted by an external ArtCraft command-line tool that reads the file itself:
+`pdfcraft-cli` for PDF, `wordcraft-cli` for DOCX, and `gridcraft-cli` for XLSX.
 Reads are confined to the effective working directory with the same
 symlink-aware guard the built-in path tools use.
 
@@ -16,20 +15,23 @@ pi -e .                           # the package from this checkout
 pi install ./                     # install the package for a user
 ```
 
+Install the CLI for each format you need. They are optional: the tool loads
+without them, and a read that needs a missing one fails with the install
+command in the message.
+
+```bash
+cargo install --git https://github.com/storytold/pdfcraft pdfcraft-cli   # PDF
+cargo install --git https://github.com/storytold/wordcraft wordcraft-cli # DOCX
+cargo install --git https://github.com/storytold/gridcraft gridcraft-cli # XLSX
+```
+
+Release builds are also available from each project's GitHub releases.
+
 Then ask the model to read a document, or call the tool directly:
 
 ```jsonc
 { "path": "docs/spec.pdf" }
 { "path": "docs/spec.pdf", "startIndex": 40000, "maxChars": 40000 }
-```
-
-PDF and DOCX extraction are optional. Install the package for the format you
-need; a missing one produces an error naming the command. XLSX needs no extra
-step: `read-excel-file` is a dependency Pi installs with this package.
-
-```bash
-npm i unpdf     # PDF
-npm i mammoth   # DOCX
 ```
 
 ## What it does
@@ -40,7 +42,8 @@ npm i mammoth   # DOCX
 - Slices by code point, so CJK and emoji stay well-formed.
 - Reads only inside the effective working directory, resolving symlinks so a
   link cannot escape it.
-- Loads its extractor packages on demand; the extension loads without them.
+- Runs each extractor CLI per read; the extension itself depends on no
+  extraction package.
 
 ## Tool
 
@@ -71,10 +74,9 @@ line, the slice, and a truncation note when applicable.
 
 Errors are thrown for: a missing or non-file path, a path outside the root, an
 unsupported extension (with a targeted hint for legacy `.doc` and `.xls`), a
-disabled format, an over-size file, and a missing extractor package. If
-`read-excel-file` is missing, the error tells the model to ask the user with
-`ask_user_question` and gives the install command; the extension never installs
-a package itself.
+disabled format, an over-size file, a missing extractor CLI, and a failing
+extractor. A missing CLI's error names its `cargo install --git …` command; the
+extension never installs anything itself.
 
 ## Configuration
 
@@ -94,59 +96,64 @@ a package itself.
 
 ## Security
 
-- **Local files only, no network.** The tool reads bytes from disk and never
-  opens a socket.
+- **Local files only.** The tool reads bytes from disk through the extractor
+  CLIs and never opens a socket; the CLIs work offline.
 - **Confined to the effective root.** Relative paths resolve against
   `resolveEffectiveCwd`; absolute paths are allowed only inside it. Containment
-  is symlink-aware (`isInsideReal`), so a symlink pointing outside the root is
-  refused. Under the `worktree` extension, `read_doc` is also in the worktree
-  guard's path-tool map, so `blockReadEscapes` / `blockSymlinkEscapes` apply to
-  it exactly as to the built-in `read`.
-- **Size-capped.** Files larger than `maxFileBytes` are rejected before reading.
+  is symlink-aware (`isInsideReal`), and the real, resolved path is what the CLI
+  receives. The extractor subcommands accept no `--root`, so the extension is
+  the containment boundary, not the CLI.
+- **Size-capped.** Files larger than `maxFileBytes` are rejected before any CLI
+  runs.
+- **External processes.** Each read spawns the matching CLI with the user's
+  privileges. The CLIs read the named file and may write their own preferences
+  or logs; the extension passes no other input and installs nothing.
 - **Untrusted text.** Extracted document text is treated as untrusted: it is
   returned as model-facing `content` and data. The collapsed transcript draws
   only a sanitized summary; the expanded transcript draws a sanitized,
   line-capped preview (`PREVIEW_LINES`). Control characters are stripped before
   a theme colour is applied, so raw document bytes never reach the terminal.
+- **Worktree guard.** Under the `worktree` extension, `read_doc` is in the
+  worktree guard's path-tool map, so `blockReadEscapes` / `blockSymlinkEscapes`
+  apply to it exactly as to the built-in `read`.
 
 ## Extraction
 
-PDF text comes from `unpdf` (`extractText(bytes, { mergePages: true })`); DOCX
-text comes from `mammoth` (`extractRawText({ buffer })`); XLSX text comes from
-`read-excel-file` (its default export reads every sheet). PDF and DOCX return
-plain, unformatted text: tables, images, styles, and layout are dropped. XLSX
-keeps the table shape: each worksheet becomes a `[Sheet]` heading followed by
-tab-separated rows, with dates as ISO strings; cell formatting and formulas are
-dropped (a formula shows its cached value). A scanned or image-only PDF yields
-little or no text and is reported as
-`(no extractable text; the document may be scanned or image-only)`.
+Each extractor builds a plain-text document from one CLI invocation per format:
+
+| Format | Command | Output normalization |
+|---|---|---|
+| PDF | `pdfcraft-cli text <file>` | Every page in reading order; the CLI separates pages with a line containing a form feed (`\u{c}`). `mergePdfPages` joins them with a blank line. No OCR: a scanned or image-only PDF yields little or no text and is reported as `(no extractable text; the document may be scanned or image-only)`. |
+| DOCX | `wordcraft-cli text <file>` | The body story only: paragraphs separated by newlines and table cells by tabs. Headers, footers, footnotes, and comments are not included. |
+| XLSX | `gridcraft-cli info <file> --json`, then `gridcraft-cli cat <file> --sheet <name> --csv` | `cat` reads one sheet and names none, so the extractor lists sheets and used ranges from `info --json`, then reads each non-empty sheet as RFC-4180 CSV and rebuilds the `[Sheet]` heading plus tab-separated rows. Dates and numbers use the workbook's displayed values; formulas show their computed value. Cell formatting is dropped. |
+
+The tool is pageable across the whole extracted text, so a DOCX or workbook is
+read in the same `startIndex` / `maxChars` way as a PDF.
 
 ## Supported formats
 
-| Format | Extensions | Package | Enabled by default |
+| Format | Extensions | Extractor CLI | Enabled by default |
 |---|---|---|---|
-| PDF | `.pdf` | `unpdf` | yes |
-| DOCX | `.docx` | `mammoth` | yes |
-| XLSX | `.xlsx` | `read-excel-file` | yes |
+| PDF | `.pdf` | `pdfcraft-cli` | yes |
+| DOCX | `.docx` | `wordcraft-cli` | yes |
+| XLSX | `.xlsx` | `gridcraft-cli` | yes |
 
 ## Adding a format
 
 The format table in `formats.ts` is the single source of truth; the handler,
 config defaults, and error listing all derive from it.
 
-1. Add `extensions/doc/extract/<fmt>.ts` with a lazy import, a typed
-   `<Fmt>UnavailableError`, and extractor/loader test seams (mirror
-   `extract/pdf.ts`).
-2. Add a `DocumentFormat` entry to `FORMATS` and widen the `id` union.
-3. If it needs a package, declare it in `package.json`: a required runtime
-   dependency goes in `dependencies` (Pi installs it with the package, as XLSX
-   does), while an optional one goes in `peerDependencies` (`"*"`) plus
-   `peerDependenciesMeta` (optional), as `unpdf` and `mammoth` do.
-4. Add `extract/<fmt>.test.ts` and extend `formats.test.ts` / `config.test.ts`.
+1. Add the new CLI to `extract/cli.ts` as a `CliName` with its label and
+   repository, so the install guidance is complete.
+2. Add `extensions/doc/extract/<fmt>.ts` exporting a `DocExtractor` that calls
+   `cli.run(<name>, […])` and normalizes the output. Keep the parsing in a pure,
+   exported helper so it is testable without a process.
+3. Add a `DocumentFormat` entry to `FORMATS` and widen the `id` union.
+4. Add `extract/<fmt>.test.ts` with a fake `DocCli`, and extend
+   `formats.test.ts` / `config.test.ts`.
 5. Add a row to the table above.
 
-`tool.ts`, `paging.ts`, and the config normalizer need no changes; add optional
-`DocParams` fields only if the format needs per-call options.
+`tool.ts`, `paging.ts`, and the config normalizer need no changes.
 
 ## Behaviour by mode
 
@@ -185,16 +192,17 @@ the theme's own ANSI codes stay intact.
 
 ## Limitations
 
+- The extractor CLIs are external prerequisites. Without the one for a format,
+  that format fails with an install hint.
+- XLSX extraction spawns one `info` call plus one `cat` call per non-empty
+  sheet, because `gridcraft-cli cat` reads a single sheet per invocation.
 - No OCR: scanned or image-only PDFs return little or no text.
-- Formatting, tables, and images are not preserved.
-- No decompression or extraction timeout. `maxFileBytes` bounds the compressed
-  input, but a DOCX or XLSX is a zip that can expand much larger, and complex
-  PDFs can be CPU-heavy; none of `unpdf`, `mammoth`, or `read-excel-file`
-  offers cancellation. `maxChars` limits the returned slice, not peak
-  extraction memory.
-- XLSX drops cell formatting and styles, reads each formula's cached value, and
-  covers only `.xlsx` (legacy `.xls` gets a conversion hint).
-- Only one file per call.
+- PDF and DOCX formatting, tables, and images are not preserved (XLSX keeps the
+  row/column shape but drops cell styling and formulas).
+- No extraction timeout. `maxFileBytes` bounds the input, but a complex PDF can
+  be CPU-heavy and a CLI can be slow; `maxChars` limits the returned slice, not
+  peak extraction memory.
+- Only one file per call; legacy `.doc` and `.xls` get a conversion hint.
 
 ## Non-goals
 
@@ -209,33 +217,41 @@ the theme's own ANSI codes stay intact.
 
 | Aspect | Contract |
 |---|---|
-| Registration | `doc(pi)` in `index.ts` calls `registerDocTool(pi)`, which registers `read_doc`. The factory only registers. |
+| Registration | `doc(pi)` in `index.ts` calls `registerDocTool(pi)`, which builds a `DocCli` over `pi.exec` and registers `read_doc`. The factory only registers. |
 | Tool | `read_doc`, `exposure: "direct"`, `defaultActive: true`, default (`parallel`) execution, `annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult` (reuse `context.lastComponent`; read `context.cwd` and `context.isError`). |
 | State | None persisted. Per-result state lives in the tool-result `details` / `structuredContent`; the renderer reads only that. |
-| Lifecycle | No `session_start` / `session_shutdown` hooks: the tool opens no resources, and extractor packages load lazily per call. |
-| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigFile` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/ui.ts`). |
+| Lifecycle | No `session_start` / `session_shutdown` hooks: each read spawns short-lived CLIs and holds no long-lived resources. |
+| Host seams | `pi.exec` (wrapped by `createExecRunner`), `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigFile` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/ui.ts`). |
 | Config | `doc.json` via `loadConfigFile` (`~/.pi/agent`, `<cwd>/.pi`). |
 
 ## Design notes
 
 A separate tool rather than an overload of the built-in `read`: the worktree
 extension owns the built-in path tools and re-registers them, so overloading
-`read` would fight that machinery. A table-driven registry keeps the future
-PPTX/EPUB work additive. The lazy extractors intentionally mirror
-`web-access/fetch/pdf.ts` rather than sharing it, because extensions cannot
-import each other and the test-seam pattern needs module-level state that
-`lib/` forbids.
+`read` would fight that machinery. A table-driven registry keeps future formats
+additive, and delegating extraction to the ArtCraft CLIs means the extension
+ships no PDF/DOCX/XLSX parser and benefits from each tool's own fidelity work.
 
-The renderer reuses `context.lastComponent` (`Text.setText`) and binds the
-expand hint to `app.tools.expand`. It builds that hint locally rather than with
-the host `keyHint`, which colours through the global theme instead of the theme
-passed to the renderer, so the renderer stays testable and works in non-TUI
-modes. Path shortening lives in `render.ts` (not `lib/`): `lib/` helpers are for
-two or more extensions, and the built-in-style `~`/boundary rule here is
-doc-only.
+**Missing-CLI detection is a probe, not a guess.** `pi.exec` resolves a missing
+binary as `{ code: 1, stderr: "" }` rather than throwing, which is
+indistinguishable from a crash. `createDocCli` treats a non-zero exit with a
+stderr message as a real failure, and re-checks a silent failure with
+`<cli> --version`: a failed probe becomes `CliUnavailableError` with the install
+command, and a passing probe is a plain non-zero exit. The probe runs only on
+failure, so the common path is a single spawn.
 
-The result line deliberately omits the path: Pi stacks the call and result lines
-in one row, so repeating it would be pure duplication.
+**The XLSX format is rebuilt, not passed through.** `gridcraft-cli cat` prints
+one sheet and no sheet name, which would silently drop every other worksheet.
+The extractor asks `info --json` for the sheet list and used ranges, skips empty
+sheets, and reassembles `[Sheet]` + tab rows so `read_doc`'s model-facing format
+is stable across extractor changes.
+
+The renderer is unchanged and reuses `context.lastComponent` (`Text.setText`),
+binding the expand hint to `app.tools.expand`. Path shortening lives in
+`render.ts` (not `lib/`): `lib/` helpers are for two or more extensions, and the
+built-in-style `~`/boundary rule here is doc-only. The result line deliberately
+omits the path: Pi stacks the call and result lines in one row, so repeating it
+would be pure duplication.
 
 ## Files
 
@@ -247,10 +263,11 @@ in one row, so repeating it would be pure duplication.
 | `render.ts` | Theme-aware transcript formatting: call/result lines, `~` + OSC-8 path, expand hint, sanitized preview, `Text` reuse. |
 | `schema.ts` | `TOOL_NAME`, `DocParams`, `DocOutput`, limits, result type. |
 | `config.ts` | `DocConfig`, registry-derived defaults, `normalizeConfig`, `loadConfig`, `isFormatEnabled`. |
-| `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript summary (uppercase format, humanized range). |
-| `extract/pdf.ts` | Lazy `unpdf` extractor, `PdfUnavailableError`, test seams. |
-| `extract/docx.ts` | Lazy `mammoth` extractor, `DocxUnavailableError`, test seams. |
-| `extract/xlsx.ts` | Lazy `read-excel-file` extractor, `XlsxUnavailableError`, `sheetsToText` / `cellToText`, test seams. |
+| `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript summary. |
+| `extract/cli.ts` | The process seam: `CliName`, `RunCli` / `DocCli`, `createExecRunner` / `createDocCli`, `CliUnavailableError`, `cliGuidance`, `DocFile` / `DocExtractor`. |
+| `extract/pdf.ts` | `pdfcraft-cli text` extractor and `mergePdfPages`. |
+| `extract/docx.ts` | `wordcraft-cli text` extractor and `stripTrailingNewline`. |
+| `extract/xlsx.ts` | `gridcraft-cli info` + `cat` extractor, `parseSheetList`, `parseCsv`, `cellToText`, `sheetsToText`. |
 
 ## Testing
 
@@ -258,6 +275,6 @@ in one row, so repeating it would be pure duplication.
 bun test extensions/doc
 ```
 
-Tests inject extractors through the seams, so they run without `unpdf` or
-`mammoth` and without network. `test/helpers/fixtures/doc.ts` provides the
+Tests inject a fake `DocCli` and fake `pi.exec`, so they run without the
+extractor CLIs and without network. `test/helpers/fixtures/doc.ts` provides the
 scratch root and an escape symlink.
