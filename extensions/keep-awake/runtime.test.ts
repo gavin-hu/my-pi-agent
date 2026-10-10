@@ -80,6 +80,16 @@ describe("overrides", () => {
 	});
 });
 
+describe("configure", () => {
+	test("switches the mode used by later reconciles", () => {
+		const { runtime, ctx, children } = makeHarness();
+		runtime.configure({ mode: "always", keepDisplay: false });
+		runtime.start(ctx);
+		expect(children).toHaveLength(1);
+		expect(runtime.status().mode).toBe("always");
+	});
+});
+
 describe("failures", () => {
 	test("a spawn error is recorded and not retried", async () => {
 		const { runtime, ctx, children } = makeHarness({

@@ -1,15 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { STATUS_KEYS } from "../../lib/ui.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { withEnv } from "../../test/helpers/env.ts";
+import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
 import { type KillTreeFn, makeJobSpawn } from "../../test/helpers/process.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import keepAwake from "./index.ts";
 import type { KeepAwakeDeps } from "./runtime.ts";
 
-function setup(overrides: Partial<KeepAwakeDeps> = {}) {
+function setup(overrides: Partial<KeepAwakeDeps> = {}, loadFromCwd = false) {
 	const { spawn, children } = makeJobSpawn();
 	const kills: Array<{ pid: number; signal: NodeJS.Signals }> = [];
 	const killTree: KillTreeFn = (pid, signal) => {
@@ -23,6 +25,7 @@ function setup(overrides: Partial<KeepAwakeDeps> = {}) {
 		config: DEFAULT_CONFIG,
 		...overrides,
 	};
+	if (loadFromCwd) deps.config = undefined;
 	const { pi, commands, handlers, flags } = makeFakePi();
 	keepAwake(pi, deps);
 	return { pi, commands, handlers, flags, children, kills };
@@ -70,5 +73,31 @@ describe("keep-awake extension", () => {
 		await emit(pi, "session_shutdown", { type: "session_shutdown", reason: "quit" }, ctx);
 		expect(kills).toHaveLength(1);
 		expect(ctx.statuses.has(STATUS_KEYS.keepAwake)).toBe(false);
+	});
+
+	test("loads project config from the session cwd", async () => {
+		await withAgentDir(async () => {
+			const repo = tempDir("keep-awake-repo-");
+			mkdirSync(join(repo, ".pi"), { recursive: true });
+			writeFileSync(join(repo, ".pi", "keep-awake.json"), JSON.stringify({ mode: "always" }));
+			const { pi, children } = setup({}, true);
+			const ctx = fakeCtx({ mode: "tui", cwd: repo }).ctx;
+
+			await emit(pi, "session_start", { type: "session_start", reason: "startup" }, ctx);
+			expect(children).toHaveLength(1);
+		}, "keep-awake-global-");
+	});
+
+	test("an injected config wins over the cwd file", async () => {
+		await withAgentDir(async () => {
+			const repo = tempDir("keep-awake-repo-");
+			mkdirSync(join(repo, ".pi"), { recursive: true });
+			writeFileSync(join(repo, ".pi", "keep-awake.json"), JSON.stringify({ mode: "always" }));
+			const { pi, children } = setup({ config: DEFAULT_CONFIG });
+			const ctx = fakeCtx({ mode: "tui", cwd: repo }).ctx;
+
+			await emit(pi, "session_start", { type: "session_start", reason: "startup" }, ctx);
+			expect(children).toHaveLength(0);
+		}, "keep-awake-global-");
 	});
 });

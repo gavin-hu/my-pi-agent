@@ -46,8 +46,10 @@ releases, but `setStatus` is a no-op.
 
 ## Configuration
 
-Read from `~/.pi/agent/keep-awake.json` and `<cwd>/.pi/keep-awake.json`; project
-values override global ones, and missing or malformed files are ignored.
+Read from `~/.pi/agent/keep-awake.json` and `<session-cwd>/.pi/keep-awake.json`;
+project values override global ones, and missing or malformed files are ignored.
+The effective config is loaded at `session_start` from the session's working
+directory, so a project file and a re-rooted worktree are honoured.
 
 ```json
 {
@@ -79,7 +81,7 @@ values override global ones, and missing or malformed files are ignored.
 | Events | `pi.on("session_start" / "agent_start" / "agent_settled" / "session_shutdown")` drive the state machine. |
 | Status chip | `ctx.ui.setStatus(STATUS_KEYS.keepAwake, …)`, cleared with `undefined`; `lib/ui.ts` owns the key and the `✦` glyph. |
 | State | Session-scoped in memory; nothing is appended to the session and nothing is reconstructed on resume. |
-| Config | `loadConfig(cwd)` through `lib/config.ts`; `KeepAwakeDeps.config` injects it in tests. |
+| Config | `loadConfig(cwd)` through `lib/config.ts` at `session_start` (from the session cwd); `KeepAwakeDeps.config` injects a fixed config in tests. |
 | Process seam | `extensions/keep-awake/process.ts` injects `spawn` / `killTree`, so tests never launch a real inhibitor. |
 | Modes | Active in `tui`, RPC, JSON, and print; the chip is interactive-only. |
 

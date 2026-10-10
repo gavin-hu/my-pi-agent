@@ -26,6 +26,8 @@ export interface KeepAwakeDeps {
 }
 
 export interface KeepAwakeRuntime {
+	/** Replace the effective config (for example from the session's cwd); takes effect on the next reconcile. */
+	configure(config: KeepAwakeConfig): void;
 	/** `session_start`: arm, clear the override, and reconcile. */
 	start(ctx: ExtensionContext): void;
 	/** `session_shutdown`: release the inhibitor and clear the chip. Idempotent. */
@@ -42,7 +44,7 @@ export interface KeepAwakeRuntime {
 
 /** Build a runtime backed by the default process primitives. */
 export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRuntime {
-	const config = deps.config ?? DEFAULT_CONFIG;
+	let config = deps.config ?? DEFAULT_CONFIG;
 	const platform = deps.platform ?? process.platform;
 	const piPid = deps.piPid ?? process.pid;
 	const spawn = deps.spawn ?? defaultSpawn;
@@ -138,6 +140,9 @@ export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRunti
 
 	return {
 		status: snapshot,
+		configure: (next) => {
+			config = next;
+		},
 		start: (ctx) => {
 			sessionActive = true;
 			agentRunning = false;
