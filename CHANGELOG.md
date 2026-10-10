@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-10
+
 ### Added
 
 - `memory`: durable cross-session notes stored as human-editable markdown — a
@@ -35,6 +37,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `always` keeps the whole session awake, and `/keep-awake on|off|auto|status`
   overrides it per session. Shows a `✦` status chip while held; configured
   through `keep-awake.json` (`mode`, `keepDisplay`).
+- `wechat`: a thin bridge between the live Pi session and WeChat over Tencent's
+  Weixin iLink bot API. An inbound text, image, or file becomes a real user turn
+  in that session, with images attached as model image content and files saved
+  under `<agent-dir>/wechat/media/` and referenced by path; the reply is sent
+  back with a native typing indicator. `/wechat login|start|stop|status|logout`
+  manages the connection and the `✆ wechat` status chip, the owner-only
+  `send_wechat` tool lets the model message the owner proactively, and
+  interactive confirmations raised during a WeChat turn (including plan
+  approval) are answered over WeChat. Owner-only by default (`allowedPeers`
+  opts in others), and the bridge runs only while the session is alive.
+- `extension-picker`: an `/extensions` dock screen listing every resolved Pi
+  extension across all configured packages and settings. `Space`/`Enter`
+  toggles one, writing `+pattern`/`-pattern` into the selected `settings.json`;
+  `Tab` switches the write scope between Global and Project; changes apply on
+  reload.
 
 ### Changed
 
@@ -48,6 +65,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   parser, a missing executable's error names its `cargo install --git …`
   command, and `mammoth` and `read-excel-file` are no longer dependencies. The
   tool's schema, paging, confinement, and transcript rendering are unchanged.
+- `subagent`: the running glyph animates with a braille spinner while a
+  delegated agent works.
 
 ### Fixed
 
@@ -56,6 +75,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so read-only git commands through Git Bash work on Windows. A backslash that
   escapes a metacharacter, whitespace, a quote, another backslash, or ends the
   command is still blocked, and `powershell` remains unavailable.
+- `web-access`: a paged `web_fetch` result keeps its `startIndex` hint inside its
+  character budget instead of having the batch formatter cut it, and the offset
+  is repeated as `nextIndex` in `structuredContent`. A multi-URL call keeps whole
+  pages with a `(showing K of N pages)` note rather than cutting a section
+  mid-way, and `find` reports `matchesTruncated` when `maxMatches` caps the list.
 
 ## [0.2.0] - 2026-10-09
 
@@ -233,6 +257,7 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.3.0
 [0.2.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.2.0
 [0.1.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.1.0

@@ -1,7 +1,6 @@
 # @gavin-hu/my-pi-agent
 
 [![CI](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@gavin-hu/my-pi-agent.svg)](https://www.npmjs.com/package/@gavin-hu/my-pi-agent)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 A personal collection of [Pi](https://pi.dev) customizations, packaged as one

@@ -1,6 +1,6 @@
 {
   "name": "@gavin-hu/my-pi-agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, document, memory, wechat, status-bar, and turn-separator.",
   "keywords": [
     "pi-package",
