@@ -39,6 +39,13 @@ out. Do all work on a branch in its own worktree, then merge that branch into
 - Commit format: `type(scope): summary`, scope is the extension name, with a
   short why-body for non-trivial changes.
 
+Releases are git-only; nothing is published to npm. A release is an annotated
+`vX.Y.Z` tag on `main` plus a GitHub release whose body is the changelog
+section: bump the version, move `Unreleased` under `## [X.Y.Z] - YYYY-MM-DD`,
+run `bun run check`, merge, `git tag -a vX.Y.Z`, push the branch and the tag,
+then `gh release create vX.Y.Z --title X.Y.Z --notes-file <section.md>`. The
+full steps are in [`README.md`](./README.md#release).
+
 ## Invariants
 
 Easy to get wrong, and not caught by types or tests. The linked docs explain

@@ -47,9 +47,6 @@
     "type": "git",
     "url": "https://github.com/gavin-hu/my-pi-agent.git"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "pi": {
     "extensions": [
       "./extensions/worktree/index.ts",
