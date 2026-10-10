@@ -15,6 +15,11 @@ bun run check            # format + typecheck + transpile + test + smoke
 implies `--isolate`), so each test file runs in its own worker process and
 `process.env` edits in one file cannot leak into another. The worker count is
 capped at four so the git-heavy worktree and rewind suites are not starved.
+CI runs the macOS job through `bun run check:serial` instead: a `--parallel`
+worker on macOS can drop the subprocess exit notification for its first spawn
+(`oven-sh/bun#41024`, `#39709`) and hang the first git-using test of a file until
+its timeout, which showed up as a rotating red macOS job. Use `bun run
+test:serial` to reproduce that shape locally.
 `test/helpers/preload.ts` additionally snapshots and restores the tracked env
 vars (`PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`, `PI_WORKTREE_ROOT`,
 `PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN`) around every test.
