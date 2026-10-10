@@ -36,7 +36,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `auto` (the default) engages only between `agent_start` and `agent_settled`,
   `always` keeps the whole session awake, and `/keep-awake on|off|auto|status`
   overrides it per session. Shows a `✦` status chip while held; configured
-  through `keep-awake.json` (`mode`, `keepDisplay`).
+  through `keep-awake.json` (`mode`, `keepDisplay`). Other extensions request a
+  wake hold through `lib/wake-hold.ts`, so a long poll can keep the machine
+  awake too.
 - `wechat`: a thin bridge between the live Pi session and WeChat over Tencent's
   Weixin iLink bot API. An inbound text, image, or file becomes a real user turn
   in that session, with images attached as model image content and files saved
@@ -46,7 +48,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `send_wechat` tool lets the model message the owner proactively, and
   interactive confirmations raised during a WeChat turn (including plan
   approval) are answered over WeChat. Owner-only by default (`allowedPeers`
-  opts in others), and the bridge runs only while the session is alive.
+  opts in others), and the bridge runs only while the session is alive —
+  holding the machine awake through the shared wake hold while it polls.
 - `extension-picker`: an `/extensions` dock screen listing every resolved Pi
   extension across all configured packages and settings. `Space`/`Enter`
   toggles one, writing `+pattern`/`-pattern` into the selected `settings.json`;
