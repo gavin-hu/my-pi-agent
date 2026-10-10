@@ -28,16 +28,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # macOS stalled whichever git-heavy test ran first: 30s/60s timeouts that
-      # rotated between suites (runs 38051347119 through 38062876814) while the
-      # ubuntu and windows jobs stayed green. Warm the spawn path before the
-      # suite and log what it cost, so a run says whether a slow first spawn is
-      # really the cause.
-      - name: Warm up the spawn path
-        run: bun -e 'const { execFileSync } = require("node:child_process"); const t = Date.now(); execFileSync("git", ["--version"]); console.log("git warmup ms", Date.now() - t)'
-
-      # format:check, typecheck, transpile, test, smoke
+      # oven-sh/bun#41024 (macOS) and #39709 (--isolate) remain open: a
+      # --parallel worker can drop the subprocess exit notification for its
+      # first spawn and park forever, so whichever git-heavy test runs first
+      # burns its whole timeout and a different test does it on each run. The
+      # macOS job runs the suite serially until that is fixed upstream; ubuntu
+      # and windows keep --parallel=4.
       # The default shell per OS is intentional: forcing bash on Windows would
       # reintroduce Git-Bash path conversion, which is itself platform-specific.
+      # format:check, typecheck, transpile, test, smoke
       - name: Run checks
+        if: matrix.os != 'macos-latest'
         run: bun run check
+
+      - name: Run checks (serial suite)
+        if: matrix.os == 'macos-latest'
+        run: bun run check:serial

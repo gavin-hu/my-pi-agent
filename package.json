@@ -74,13 +74,15 @@
   },
   "scripts": {
     "test": "bun test --parallel=4 --timeout 30000",
+    "test:serial": "bun test --timeout 30000",
     "test:watch": "bun test --watch --isolate",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "transpile": "bun run scripts/transpile.ts",
     "smoke": "bun run scripts/smoke-runtime.ts",
-    "check": "bun run format:check && bun run typecheck && bun run transpile && bun run test && bun run smoke"
+    "check": "bun run format:check && bun run typecheck && bun run transpile && bun run test && bun run smoke",
+    "check:serial": "bun run format:check && bun run typecheck && bun run transpile && bun run test:serial && bun run smoke"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
