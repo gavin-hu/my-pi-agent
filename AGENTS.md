@@ -39,12 +39,37 @@ out. Do all work on a branch in its own worktree, then merge that branch into
 - Commit format: `type(scope): summary`, scope is the extension name, with a
   short why-body for non-trivial changes.
 
-Releases are git-only; nothing is published to npm. A release is an annotated
-`vX.Y.Z` tag on `main` plus a GitHub release whose body is the changelog
-section: bump the version, move `Unreleased` under `## [X.Y.Z] - YYYY-MM-DD`,
-run `bun run check`, merge, `git tag -a vX.Y.Z`, push the branch and the tag,
-then `gh release create vX.Y.Z --title X.Y.Z --notes-file <section.md>`. The
-full steps are in [`README.md`](./README.md#release).
+## Release
+
+Distribution is git-only: nothing is published to npm. A release is an annotated
+`vX.Y.Z` tag on `main` plus a matching GitHub release whose body is that
+version's `CHANGELOG.md` section, heading included. Prepare it on a branch like
+any other change:
+
+1. Bump `version` in `package.json`.
+2. In `CHANGELOG.md`, move the `## [Unreleased]` entries under
+   `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
+   update the link refs at the bottom: `[X.Y.Z]` points at the new release URL
+   and `[Unreleased]` compares from `vX.Y.Z`.
+3. Run `bun run check`.
+4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
+5. Tag the merge commit and push `main` with it:
+
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin main && git push origin vX.Y.Z
+   ```
+
+6. Publish the release from that changelog section (`README.md` has the command
+   that extracts it):
+
+   ```bash
+   gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
+   ```
+
+GitHub marks the release created last as "Latest", so when an older version is
+published after a newer one, run `gh release edit vX.Y.Z --latest` on the newest
+tag.
 
 ## Invariants
 
