@@ -9,16 +9,21 @@
 
 import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
 
-/** Leading glyphs for status chips and footer segments. */
+/**
+ * Leading glyphs for status chips and footer segments.
+ *
+ * Only non-ambiguous (`East_Asian_Width=N`) and non-emoji glyphs, so a chip is
+ * one column wide in every terminal profile.
+ */
 export const GLYPHS = {
 	branch: "⎇",
 	detached: "⚠",
 	worktree: "⑂",
 	rewind: "↺",
-	plan: "≡",
+	plan: "⋮",
 	jobsRunning: "▸",
 	jobsFailure: "✗",
-	serve: "⊙",
+	serve: "◉",
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",

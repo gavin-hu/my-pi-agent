@@ -3,6 +3,7 @@ import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { fullSnapshot } from "../../test/helpers/fixtures/status-bar.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 
 /**
  * Rendering of the full bar across widths.
@@ -30,9 +31,9 @@ describe("status bar render", () => {
 		const [, line2] = render(100);
 		expect(line2).toContain("62%/200k");
 		expect(line2).toContain("$0.31");
-		expect(line2).toContain("│ ≡ plan");
+		expect(line2).toContain(`│ ${GLYPHS.plan} plan`);
 		expect(line2).toContain("opus-4.5 · high");
-		expect(line2.indexOf("│")).toBeLessThan(line2.indexOf("≡ plan"));
+		expect(line2.indexOf("│")).toBeLessThan(line2.indexOf(`${GLYPHS.plan} plan`));
 	});
 
 	for (const width of WIDTHS) {

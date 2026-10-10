@@ -7,6 +7,7 @@ import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 
 function repoExec(root: string) {
 	return async (command: string, args: string[]) =>
@@ -127,7 +128,7 @@ describe("write_plan", () => {
 		expect(details.bytes).toBeGreaterThan(0);
 		expect(result.content[0].text).toContain(details.path);
 		expect(runtime.lastPlanPath()).toBe(details.path);
-		expect(String(statusCalls.at(-1)?.text)).toContain("≡ plan");
+		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan`);
 	});
 
 	test("reports a write failure as an error result", async () => {
