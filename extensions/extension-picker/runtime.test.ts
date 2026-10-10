@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createExtensionsManagerRuntime } from "./runtime.ts";
-import { makeDiscovery, makeItem, makeStore } from "../../test/helpers/fixtures/extensions-manager.ts";
+import { makeDiscovery, makeItem, makeStore } from "../../test/helpers/fixtures/extension-picker.ts";
 
 const topLevel = (path: string) => makeItem({ path, metadata: { source: "auto", origin: "top-level", scope: "user" } });
 

@@ -10,7 +10,7 @@ import {
 	getResourcePattern,
 	nextSelectable,
 } from "./resources.ts";
-import { makeItem } from "../../test/helpers/fixtures/extensions-manager.ts";
+import { makeItem } from "../../test/helpers/fixtures/extension-picker.ts";
 import type { ResourceItem } from "./types.ts";
 
 const packageItem = (path: string): ResourceItem =>

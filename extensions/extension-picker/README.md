@@ -1,13 +1,13 @@
-# extensions-manager — list and toggle Pi extensions
+# extension-picker — list and toggle Pi extensions
 
-`extensions-manager` adds the `/extensions` command: a keyboard-driven dock
+`extension-picker` adds the `/extensions` command: a keyboard-driven dock
 screen that lists every resolved Pi extension across all configured packages
 (personal and project) and enables or disables one by writing the relevant
 `settings.json`. It reuses Pi's own settings and package resolution, so the
 list matches what a session actually loads. Changes apply on `/reload`.
 
 ```bash
-pi --extension ./extensions/extensions-manager   # load just this extension
+pi --extension ./extensions/extension-picker    # load just this extension
 pi -e .                                          # load the whole @gavin-hu/my-pi-agent package
 pi install ./                                    # install the package
 ```
@@ -118,7 +118,7 @@ keyboard path.
 
 ## Testing
 
-`bun test extensions/extensions-manager` covers the pure helpers, the toggle
+`bun test extensions/extension-picker` covers the pure helpers, the toggle
 transforms, discovery with an injected factory, the runtime state machine, the
 screen's rendering and key handling, and the command through `createFakePi` /
 `fakeCtx`.

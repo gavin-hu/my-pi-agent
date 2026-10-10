@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { createExtensionsManagerRuntime } from "./runtime.ts";
 import { ExtensionsListComponent } from "./tui.ts";
-import { makeDiscovery, makeItem, makeStore } from "../../test/helpers/fixtures/extensions-manager.ts";
+import { makeDiscovery, makeItem, makeStore } from "../../test/helpers/fixtures/extension-picker.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 
 /** Let a fire-and-forget toggle settle. */

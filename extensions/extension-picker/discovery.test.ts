@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SettingsManager } from "@earendil-works/pi-coding-agent";
 import { createResolver, discoverExtensions, type DiscoveryFactory, type ResolverManager } from "./discovery.ts";
-import { makeItem, makeStore } from "../../test/helpers/fixtures/extensions-manager.ts";
+import { makeItem, makeStore } from "../../test/helpers/fixtures/extension-picker.ts";
 
 const item = (path: string) => makeItem({ path });
 

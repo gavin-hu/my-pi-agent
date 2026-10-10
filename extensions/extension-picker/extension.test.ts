@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import extensionsManager from "./index.ts";
-import { makeDiscovery, makeItem, makeStore } from "../../test/helpers/fixtures/extensions-manager.ts";
+import extensionPicker from "./index.ts";
+import { makeDiscovery, makeItem, makeStore } from "../../test/helpers/fixtures/extension-picker.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
@@ -15,24 +15,24 @@ function discovery() {
 	return makeDiscovery({ global: [item("/agent/extensions/one.ts")] }).discovery;
 }
 
-describe("extensions-manager extension", () => {
+describe("extension-picker extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "extensions-manager" }, () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "extension-picker" }, () => {
 			const { pi, commands } = makeFakePi();
-			extensionsManager(pi);
+			extensionPicker(pi);
 			expect(commands.size).toBe(0);
 		});
 	});
 
 	test("registers the /extensions command", () => {
 		const { pi, commands } = makeFakePi();
-		extensionsManager(pi);
+		extensionPicker(pi);
 		expect(commands.has("extensions")).toBe(true);
 	});
 
 	test("prints a listing outside TUI mode", async () => {
 		const { pi, commands } = makeFakePi();
-		extensionsManager(pi, { discover: async () => discovery() });
+		extensionPicker(pi, { discover: async () => discovery() });
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
 		await commands.get("extensions").handler("", ctx);
@@ -42,7 +42,7 @@ describe("extensions-manager extension", () => {
 
 	test("opens the dock screen in TUI mode", async () => {
 		const { pi, commands } = makeFakePi();
-		extensionsManager(pi, { discover: async () => discovery() });
+		extensionPicker(pi, { discover: async () => discovery() });
 		const { ctx, customCalls } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
 
 		await commands.get("extensions").handler("", ctx);
@@ -54,7 +54,7 @@ describe("extensions-manager extension", () => {
 		const store = makeStore({ global: { extensions: [] } });
 		const built = makeDiscovery({ global: [item("/agent/extensions/one.ts")], globalStore: store }).discovery;
 		const { pi, commands } = makeFakePi();
-		extensionsManager(pi, { discover: async () => built });
+		extensionPicker(pi, { discover: async () => built });
 
 		let reloaded = 0;
 		const { ctx } = fakeCtx({

@@ -1,5 +1,5 @@
 /**
- * Builders for the extensions-manager suite.
+ * Builders for the extension-picker suite.
  *
  * `makeItem` produces a resolved extension resource; `makeStore` is an
  * in-memory `SettingsStore` that records writes; `makeDiscovery` pairs them
@@ -7,7 +7,7 @@
  */
 
 import type { PackageSource, PathMetadata } from "@earendil-works/pi-coding-agent";
-import type { Discovery, ResourceItem, Settings, SettingsStore } from "../../../extensions/extensions-manager/types.ts";
+import type { Discovery, ResourceItem, Settings, SettingsStore } from "../../../extensions/extension-picker/types.ts";
 
 export interface ItemOverrides {
 	path?: string;
