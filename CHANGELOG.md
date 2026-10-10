@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- npm publish configuration (`.npmignore` and `publishConfig`). Distribution is
+  git-only through `pi install git:github.com/gavin-hu/my-pi-agent@vX.Y.Z`, and
+  a release is an annotated `vX.Y.Z` tag plus a GitHub release.
+
 ## [0.3.0] - 2026-10-10
 
 ### Added

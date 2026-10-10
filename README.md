@@ -18,6 +18,7 @@ here.
 - [Configuration](#configuration)
   - [Disabling extensions](#disabling-extensions)
 - [Development](#development)
+  - [Release](#release)
   - [Cross-platform](#cross-platform)
 - [Contributing](#contributing)
   - [Tool naming](#tool-naming)
@@ -118,6 +119,34 @@ bun run check        # format:check + typecheck + transpile + test + smoke
 AI coding agents should read [`AGENTS.md`](./AGENTS.md) for the repo
 conventions and the worktree-based branch flow.
 
+### Release
+
+Distribution is git-only; nothing is published to npm. A release is an
+annotated `vX.Y.Z` tag on `main` plus a matching GitHub release whose body is
+the changelog section.
+
+1. Work on a branch in a worktree (see [`AGENTS.md`](./AGENTS.md)).
+2. Bump `version` in `package.json`, move the `Unreleased` entries in
+   [`CHANGELOG.md`](./CHANGELOG.md) under `## [X.Y.Z] - YYYY-MM-DD`, and update
+   the link refs at the bottom of that file.
+3. Run `bun run check`.
+4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
+5. Tag and push:
+
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin main && git push origin vX.Y.Z
+   ```
+
+6. Create the GitHub release with the changelog section as its body:
+
+   ```bash
+   gh release create vX.Y.Z --title X.Y.Z --notes-file <section.md>
+   ```
+
+GitHub marks the release created last as "Latest", so after publishing an older
+version use `gh release edit vX.Y.Z --latest` on the newest tag.
+
 ### Cross-platform
 
 The package and its checks run on Windows, macOS, and Linux; CI runs the full
@@ -160,8 +189,10 @@ plan/worktree shape:
 - `keywords: ["pi-package"]` and a `pi` manifest in `package.json`.
 - Host-provided packages (`@earendil-works/pi-*`, `typebox`) stay in
   `peerDependencies` with a `"*"` range, never in `dependencies`.
-- Publishing is selected by `.npmignore` (there is no `files` allowlist in
-  `package.json`; an allowlist would make `.npmignore` inert).
+- Distribution is git-only: users install a tag with
+  `pi install git:github.com/gavin-hu/my-pi-agent@vX.Y.Z`. There is no npm
+  publish, so `package.json` has no `files` or `publishConfig` field and the
+  repository has no `.npmignore`.
 - See the
   [Pi Packages docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
 
