@@ -101,19 +101,23 @@ describe("searchDuckDuckGo", () => {
 	test("parses a JSON response", async () => {
 		const runner: HttpRunner = () =>
 			Promise.resolve(jsonResponse({ Answer: "42", RelatedTopics: [{ FirstURL: "https://x/", Text: "X" }] }));
-		const result = await searchDuckDuckGo("q", 5, config, runner, undefined);
+		const result = await searchDuckDuckGo({ query: "q", maxResults: 5 }, config, runner, undefined);
 		expect(result.answer).toBe("42");
 		expect(result.results).toHaveLength(1);
 	});
 
 	test("throws on a non-2xx response", async () => {
 		const runner: HttpRunner = () => Promise.resolve(jsonResponse("nope", 503));
-		await expect(searchDuckDuckGo("q", 5, config, runner, undefined)).rejects.toThrow(HttpUnavailableError);
+		await expect(searchDuckDuckGo({ query: "q", maxResults: 5 }, config, runner, undefined)).rejects.toThrow(
+			HttpUnavailableError,
+		);
 	});
 
 	test("throws on invalid JSON", async () => {
 		const runner: HttpRunner = () =>
 			Promise.resolve({ status: 200, body: "<html>", contentType: "text/html", finalUrl: "", sizeBytes: 6 });
-		await expect(searchDuckDuckGo("q", 5, config, runner, undefined)).rejects.toThrow("invalid JSON");
+		await expect(searchDuckDuckGo({ query: "q", maxResults: 5 }, config, runner, undefined)).rejects.toThrow(
+			"invalid JSON",
+		);
 	});
 });

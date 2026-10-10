@@ -4,20 +4,21 @@
  * A native-fetch GET/POST with HTML turned into readable Markdown-ish text,
  * optional PDF text extraction and JS rendering, `startIndex`/`maxChars` paging,
  * `find` for passage search, and up to five URLs per call. Redirects are
- * followed with every hop SSRF-checked, and pages are cached in-process for the
- * session (cleared by `web-access/index.ts` on shutdown); the `fetch` section of
- * `web-access.json` configures it.
+ * followed with every hop SSRF-checked, and pages are cached in an instance
+ * created per registration and cleared on `session_start`/`session_shutdown`;
+ * the `fetch` section of `web-access.json` configures it.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { formatTokens } from "../../../lib/format.ts";
+import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
-import { cacheGet, cacheSet } from "./cache.ts";
+import { createPageCache, type PageCache } from "./cache.ts";
 import type { WebFetchConfig } from "./config.ts";
 import { findPassages } from "./find.ts";
 import { formatBatch, formatMatches, formatPage, type BatchSection } from "./format.ts";
-import { runFetch, type PageResult } from "./page.ts";
+import { runFetch, type FetchDeps, type PageResult } from "./page.ts";
 import {
 	MIN_CHARS,
 	resolveRequest,
@@ -32,27 +33,34 @@ import { loadFetchConfig } from "../config.ts";
 
 export const TOOL_NAME = "web_fetch";
 
+/** Extra `web_fetch` dependencies: the shared `FetchDeps` plus the page cache. */
+export interface FetchToolDeps extends FetchDeps {
+	cache?: PageCache;
+}
+
 interface LoadedPage {
 	page: PageResult;
 	cached: boolean;
 	fetchedAt: string;
 }
 
-/** Fetch one URL, serving from and populating the session cache when allowed. */
+/** Fetch one URL, serving from and populating the page cache when allowed. */
 async function loadPage(
 	url: string,
 	request: FetchRequest,
 	config: WebFetchConfig,
 	signal: AbortSignal | undefined,
+	deps: FetchDeps,
+	cache: PageCache,
 ): Promise<LoadedPage> {
 	const cacheable = config.cacheEnabled && request.cacheable && !request.refresh;
-	const cachedEntry = cacheable ? cacheGet(url, config.cacheTtlMs) : undefined;
+	const cachedEntry = cacheable ? cache.get(url, config.cacheTtlMs) : undefined;
 	if (cachedEntry) return { page: cachedEntry, cached: true, fetchedAt: cachedEntry.fetchedAt };
 
-	const page = await runFetch(url, request, config, signal);
+	const page = await runFetch(url, request, config, signal, deps);
 	const fetchedAt = new Date().toISOString();
 	if (config.cacheEnabled && request.cacheable) {
-		cacheSet(
+		cache.set(
 			url,
 			{ ...page, fetchedAt, storedAt: Date.now(), bytes: new TextEncoder().encode(page.text).length },
 			{ maxEntries: config.cacheMaxEntries, maxBytes: config.cacheMaxBytes },
@@ -69,34 +77,44 @@ function pageResult(
 	perPageChars: number,
 ): { response: FetchResponse; section: BatchSection } {
 	const { page, cached, fetchedAt } = loaded;
-	const matches =
-		request.find.length > 0
-			? findPassages(page.text, request.find, {
-					mode: request.mode,
-					contextChars: request.contextChars,
-					maxMatches: request.maxMatches,
-				})
-			: [];
+	const finding = request.find.length > 0;
+	const matches = finding
+		? findPassages(page.text, request.find, {
+				mode: request.mode,
+				contextChars: request.contextChars,
+				maxMatches: request.maxMatches,
+			})
+		: [];
+	// A full match list means the cap may have hidden further hits.
+	const matchesTruncated = finding && matches.length >= request.maxMatches;
 
-	const formatted =
-		request.find.length > 0
-			? formatMatches({
-					finalUrl: page.finalUrl,
-					title: page.title,
-					status: page.status,
-					contentType: page.contentType,
-					matches,
-					find: request.find,
-				})
-			: formatPage({
-					finalUrl: page.finalUrl,
-					title: page.title,
-					status: page.status,
-					contentType: page.contentType,
-					text: page.text,
-					startIndex: request.startIndex,
-					maxChars: perPageChars,
-				});
+	let formatted: { body: string; text: string; truncated: boolean };
+	let nextIndex: number;
+	if (finding) {
+		formatted = formatMatches({
+			finalUrl: page.finalUrl,
+			title: page.title,
+			status: page.status,
+			contentType: page.contentType,
+			matches,
+			find: request.find,
+			truncated: matchesTruncated,
+		});
+		// Find results are not paged, so the caller keeps reading from the same offset.
+		nextIndex = request.startIndex;
+	} else {
+		const paged = formatPage({
+			finalUrl: page.finalUrl,
+			title: page.title,
+			status: page.status,
+			contentType: page.contentType,
+			text: page.text,
+			startIndex: request.startIndex,
+			maxChars: perPageChars,
+		});
+		formatted = paged;
+		nextIndex = paged.nextIndex;
+	}
 
 	const response: FetchResponse = {
 		url: page.url,
@@ -105,12 +123,14 @@ function pageResult(
 		status: page.status,
 		contentType: page.contentType,
 		text: formatted.body,
-		totalChars: Array.from(page.text).length,
+		totalChars: charLength(page.text),
 		startIndex: request.startIndex,
+		nextIndex,
 		truncated: formatted.truncated,
 		cached,
 		rendered: page.rendered,
 		matches,
+		matchesTruncated,
 		fetchedAt,
 		error: "",
 	};
@@ -133,10 +153,12 @@ function errorResult(
 			text: "",
 			totalChars: 0,
 			startIndex: request.startIndex,
+			nextIndex: request.startIndex,
 			truncated: false,
 			cached: false,
 			rendered: false,
 			matches: [],
+			matchesTruncated: false,
 			fetchedAt: new Date().toISOString(),
 			error: message,
 		},
@@ -144,7 +166,28 @@ function errorResult(
 	};
 }
 
-export function registerFetchTool(pi: ExtensionAPI): void {
+/**
+ * Split the output budget across the requested URLs. Each page's section is
+ * sized to fit `perPageChars` including its header and truncation note, and the
+ * per-section overhead (`### url` plus separators) is subtracted first, so the
+ * joined batch stays inside `maxChars` and `formatBatch` never has to cut.
+ */
+function perPageBudget(request: FetchRequest): number {
+	// Reserve room for a possible "(showing K of N pages)" notice on the joined text.
+	const NOTICE_RESERVE = 32;
+	const overhead = request.urls.reduce((sum, url) => sum + charLength(url) + 7, 0) + NOTICE_RESERVE;
+	const available = Math.max(MIN_CHARS, request.maxChars - overhead);
+	return Math.max(MIN_CHARS, Math.floor(available / request.urls.length));
+}
+
+export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): void {
+	const { cache: injectedCache, ...fetchDeps } = deps;
+	const cache = injectedCache ?? createPageCache();
+	// One cache per registration: clear on start and shutdown so no page outlives a session.
+	const clearCache = () => cache.clear();
+	pi.on("session_start", clearCache);
+	pi.on("session_shutdown", clearCache);
+
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Web fetch",
@@ -173,7 +216,7 @@ export function registerFetchTool(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const config = loadFetchConfig(ctx.cwd);
 			const request = resolveRequest(params as WebFetchArgs, config);
-			const perPageChars = Math.max(MIN_CHARS, Math.floor(request.maxChars / request.urls.length));
+			const perPageChars = perPageBudget(request);
 
 			const pages: FetchResponse[] = [];
 			const sections: BatchSection[] = [];
@@ -182,7 +225,7 @@ export function registerFetchTool(pi: ExtensionAPI): void {
 				try {
 					const { response, section } = pageResult(
 						url,
-						await loadPage(url, request, config, signal),
+						await loadPage(url, request, config, signal, fetchDeps, cache),
 						request,
 						perPageChars,
 					);

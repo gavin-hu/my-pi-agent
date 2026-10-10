@@ -5,37 +5,11 @@
  * (scripts, styles, nav/footer/header, forms), prefers the largest
  * `<main>`/`<article>`, converts block structure, headings, lists, and links to
  * Markdown-ish text, decodes entities, and collapses whitespace. CJK passes
- * through unchanged.
+ * through unchanged. Entity decoding is shared with `web_search`
+ * (`../html.ts`).
  */
 
-const NAMED_ENTITIES: Record<string, string> = {
-	amp: "&",
-	lt: "<",
-	gt: ">",
-	quot: '"',
-	apos: "'",
-	nbsp: " ",
-	hellip: "…",
-	mdash: "—",
-	ndash: "–",
-};
-
-/** Decode named and numeric HTML entities. Unknown entities are left as-is. */
-export function decodeEntities(input: string): string {
-	return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (match, body: string) => {
-		if (body.startsWith("#")) {
-			const hex = body[1] === "x" || body[1] === "X";
-			const code = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
-			if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return match;
-			try {
-				return String.fromCodePoint(code);
-			} catch {
-				return match;
-			}
-		}
-		return NAMED_ENTITIES[body.toLowerCase()] ?? match;
-	});
-}
+import { decodeEntities } from "../html.ts";
 
 function stripTags(html: string): string {
 	return html.replace(/<[^>]*>/g, "");

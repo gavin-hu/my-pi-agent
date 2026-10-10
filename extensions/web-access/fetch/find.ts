@@ -13,6 +13,8 @@
  * model already receives, not the raw HTML.
  */
 
+import { toChars } from "../text.ts";
+
 export type FindMode = "insensitive" | "exact" | "fuzzy";
 
 export interface FindOptions {
@@ -106,7 +108,7 @@ function fuzzyMatches(text: string, query: string): Array<[number, number]> {
  */
 export function findPassages(text: string, queries: string[], options: FindOptions): Passage[] {
 	if (text.length === 0) return [];
-	const points = Array.from(text);
+	const points = toChars(text);
 	const results: Passage[] = [];
 	const seen = new Set<string>();
 

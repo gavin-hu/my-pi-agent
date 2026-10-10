@@ -66,8 +66,8 @@ const PROVIDER_IDS = new Set<string>(SEARCH_PROVIDER_IDS);
 
 /** A valid http(s) URL, `""` to clear, or the fallback for nonsense. */
 function endpointValue(value: unknown, fallback: string): string {
-	if (value === undefined) return fallback;
-	const candidate = typeof value === "string" ? value.trim() : "";
+	if (value === undefined || typeof value !== "string") return fallback;
+	const candidate = value.trim();
 	if (!candidate) return "";
 	return /^https?:\/\//i.test(candidate) ? candidate : fallback;
 }

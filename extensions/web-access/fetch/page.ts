@@ -5,18 +5,20 @@
  * native-fetch request with an optional method/body/headers, and routes by
  * content type: HTML through the readable extractor (optionally JS-rendered),
  * PDFs through the optional text extractor, other textual types as-is, and
- * binary types as a short note. `HttpRunner` is injectable for tests.
+ * binary types as a short note. The HTTP runner, the PDF extractor, and the JS
+ * renderer are injectable through `FetchDeps`, so no module-level state is needed.
  */
 
+import { charLength } from "../text.ts";
 import type { WebFetchConfig } from "./config.ts";
 import { extractReadable, type ExtractedPage } from "./extract.ts";
-import { extractPdfText } from "./pdf.ts";
-import { renderPage } from "./render.ts";
+import { extractPdfText, type PdfExtractor } from "./pdf.ts";
+import { renderPage, type Renderer } from "./render.ts";
 import { createFetchRunner, type HttpRunner, type HttpResponse } from "../http.ts";
 import { assertAllowedUrl } from "./ssrf.ts";
 import type { FetchRequest } from "./types.ts";
 
-class WebFetchError extends Error {
+export class WebFetchError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "WebFetchError";
@@ -25,13 +27,8 @@ class WebFetchError extends Error {
 
 export interface FetchDeps {
 	http?: HttpRunner;
-}
-
-let runnerOverride: HttpRunner | undefined;
-
-/** Override the default HTTP runner (tests only). Pass undefined to clear. */
-export function setDefaultRunnerForTests(runner: HttpRunner | undefined): void {
-	runnerOverride = runner;
+	pdf?: PdfExtractor;
+	render?: Renderer;
 }
 
 export interface PageResult {
@@ -119,6 +116,7 @@ async function resolveHtml(
 	request: FetchRequest,
 	config: WebFetchConfig,
 	signal: AbortSignal | undefined,
+	render: Renderer | undefined,
 ): Promise<{ page: ExtractedPage; rendered: boolean }> {
 	const raw =
 		request.render === undefined && config.renderJs === "auto"
@@ -127,17 +125,21 @@ async function resolveHtml(
 
 	let should = request.render === true || config.renderJs === "always";
 	if (request.render === false) should = false;
-	if (raw) should = Array.from(raw.text).length < config.renderMinChars;
+	if (raw) should = charLength(raw.text) < config.renderMinChars;
 	if (!should) return { page: raw ?? extractReadable(response.body, response.finalUrl), rendered: false };
 
 	try {
 		const html = (
-			await renderPage(response.finalUrl, {
-				timeoutMs: config.renderTimeoutMs,
-				waitUntil: config.renderWaitUntil,
-				executablePath: config.renderExecutablePath,
-				signal,
-			})
+			await renderPage(
+				response.finalUrl,
+				{
+					timeoutMs: config.renderTimeoutMs,
+					waitUntil: config.renderWaitUntil,
+					executablePath: config.renderExecutablePath,
+					signal,
+				},
+				render,
+			)
 		).html;
 		return { page: extractReadable(html, response.finalUrl), rendered: true };
 	} catch (error) {
@@ -156,7 +158,7 @@ export async function runFetch(
 	deps: FetchDeps = {},
 ): Promise<PageResult> {
 	const target = await assertAllowedUrl(url, config.allowPrivateHosts);
-	const http = deps.http ?? runnerOverride ?? createFetchRunner();
+	const http = deps.http ?? createFetchRunner();
 
 	const headers: Record<string, string> = {
 		"User-Agent": config.userAgent,
@@ -176,13 +178,13 @@ export async function runFetch(
 	let rendered = false;
 	if (isPdfType(response.contentType) && config.pdfEnabled) {
 		try {
-			text = await extractPdfText(response.bytes ?? new Uint8Array());
+			text = await extractPdfText(response.bytes ?? new Uint8Array(), deps.pdf);
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : String(error);
 			text = `(binary content: ${response.contentType || "application/pdf"}, ${response.sizeBytes} bytes; PDF text extraction failed: ${reason})`;
 		}
 	} else if (isHtmlType(response.contentType)) {
-		const resolved = await resolveHtml(response, request, config, signal);
+		const resolved = await resolveHtml(response, request, config, signal, deps.render);
 		title = resolved.page.title;
 		text = resolved.page.text;
 		rendered = resolved.rendered;

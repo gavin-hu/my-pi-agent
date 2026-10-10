@@ -20,7 +20,7 @@ export class WebSearchError extends Error {
 	}
 }
 
-export interface SearchOutcome {
+interface SearchOutcome {
 	provider: SearchProviderName;
 	answer: string;
 	results: SearchResult[];
@@ -37,7 +37,7 @@ export interface SearchDeps {
 }
 
 /** A sleeper, injectable so throttle scheduling is testable without wall time. */
-export type ThrottleSleep = (ms: number, signal?: AbortSignal) => Promise<void>;
+type ThrottleSleep = (ms: number, signal?: AbortSignal) => Promise<void>;
 
 function delay(ms: number, signal: AbortSignal | undefined): Promise<void> {
 	return new Promise((resolve, reject) => {

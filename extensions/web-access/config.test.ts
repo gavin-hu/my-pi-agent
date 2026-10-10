@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadConfig, loadFetchConfig, loadSearchConfig } from "./config.ts";
+import { loadFetchConfig, loadSearchConfig } from "./config.ts";
 import { DEFAULT_FETCH_CONFIG } from "./fetch/config.ts";
 import { DEFAULT_SEARCH_CONFIG } from "./search/config.ts";
 import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
@@ -9,9 +9,9 @@ import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
 describe("web-access config", () => {
 	test("defaults both sections when no file exists", async () => {
 		await withAgentDir(() => {
-			const config = loadConfig(tempDir("web-access-cwd-"));
-			expect(config.search).toEqual(DEFAULT_SEARCH_CONFIG);
-			expect(config.fetch).toEqual(DEFAULT_FETCH_CONFIG);
+			const cwd = tempDir("web-access-cwd-");
+			expect(loadSearchConfig(cwd)).toEqual(DEFAULT_SEARCH_CONFIG);
+			expect(loadFetchConfig(cwd)).toEqual(DEFAULT_FETCH_CONFIG);
 		}, "web-access-global-");
 	});
 
@@ -31,11 +31,10 @@ describe("web-access config", () => {
 					fetch: { maxOutputChars: 3000, allowPrivateHosts: true },
 				}),
 			);
-			const config = loadConfig(cwd);
-			expect(config.search.maxResults).toBe(5);
-			expect(config.search.language).toBe("zh-CN");
-			expect(config.fetch.maxOutputChars).toBe(5000);
-			expect(config.fetch.allowPrivateHosts).toBe(true);
+			expect(loadSearchConfig(cwd).maxResults).toBe(5);
+			expect(loadSearchConfig(cwd).language).toBe("zh-CN");
+			expect(loadFetchConfig(cwd).maxOutputChars).toBe(5000);
+			expect(loadFetchConfig(cwd).allowPrivateHosts).toBe(true);
 		}, "web-access-global-");
 	});
 
@@ -55,7 +54,8 @@ describe("web-access config", () => {
 		const cwd = tempDir("web-access-cwd-");
 		await withAgentDir((globalDir) => {
 			writeFileSync(join(globalDir, "web-access.json"), "{ not json");
-			expect(loadConfig(cwd)).toEqual({ search: DEFAULT_SEARCH_CONFIG, fetch: DEFAULT_FETCH_CONFIG });
+			expect(loadSearchConfig(cwd)).toEqual(DEFAULT_SEARCH_CONFIG);
+			expect(loadFetchConfig(cwd)).toEqual(DEFAULT_FETCH_CONFIG);
 		}, "web-access-global-");
 	});
 });

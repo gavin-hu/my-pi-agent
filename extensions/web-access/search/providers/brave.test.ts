@@ -50,7 +50,7 @@ describe("searchBrave", () => {
 			token = req.headers?.["X-Subscription-Token"];
 			return Promise.resolve(jsonResponse({ web: { results: [{ title: "Pi", url: "https://pi.dev/" }] } }));
 		};
-		const result = await searchBrave("q", 5, config, runner, undefined, "secret");
+		const result = await searchBrave({ query: "q", maxResults: 5 }, config, runner, undefined, "secret");
 		expect(token).toBe("secret");
 		expect(result.results).toHaveLength(1);
 	});
@@ -59,6 +59,6 @@ describe("searchBrave", () => {
 		const runner: HttpRunner = () => {
 			throw new Error("the runner must not be called");
 		};
-		await expect(searchBrave("q", 5, config, runner, undefined, undefined)).rejects.toThrow("API key");
+		await expect(searchBrave({ query: "q", maxResults: 5 }, config, runner, undefined)).rejects.toThrow("API key");
 	});
 });

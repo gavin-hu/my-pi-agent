@@ -20,14 +20,16 @@ pi install ./                             # or install the package
   always with no configuration required.
 - Registers `web_fetch`, which fetches one or more URLs (GET or POST) and
   returns readable text with links kept as `[text](url)`.
-- Pages long output and reports the next `startIndex`; `find` returns matching
-  passages instead of the whole page.
+- Pages long output and reports the next `startIndex` (`nextIndex` in
+  `structuredContent`); `find` returns matching passages instead of the whole
+  page, and says when the match cap hid further hits.
 - Re-validates every redirect hop against private/internal addresses, and
   refuses transport headers and oversized bodies.
 - Optionally extracts PDFs (`unpdf`) and renders JavaScript-heavy pages
   (`playwright`); both packages load lazily and are never required.
-- Caches fetched pages in-process for the session, so paging and `find` do not
-  refetch; the cache is cleared on `session_shutdown`.
+- Caches fetched pages in one in-process cache per registration, so paging and
+  `find` do not refetch; the cache is cleared on `session_start` and
+  `session_shutdown`.
 
 ## Tools
 
@@ -195,11 +197,14 @@ address. Loopback, private, link-local, and cloud-metadata addresses are refused
 | `maxMatches` | integer | 1–50 matches (default 8) |
 | `refresh` | boolean | Bypass the page cache and refetch |
 
-Long pages are paged: a truncated result reports the `startIndex` to use next.
-Fetched pages are cached in-process for the session, so paging and `find` do not
-refetch. POST responses and requests with custom headers are never cached.
-`structuredContent` is `{ pages: [...] }`, one entry per URL (with an `error`
-field when a page failed, and `rendered` when JS rendering ran).
+Long pages are paged: a truncated page names the `startIndex` to use next, inside
+its own character budget, and `structuredContent` repeats it as `nextIndex`. A
+multi-URL call keeps whole pages and reports `(showing K of N pages)` rather than
+cutting one section mid-way. Fetched pages are cached for the registration, so
+paging and `find` do not refetch. POST responses and requests with custom headers
+are never cached. `structuredContent` is `{ pages: [...] }`, one entry per URL
+(with an `error` field when a page failed, `rendered` when JS rendering ran, and
+`matchesTruncated` when `maxMatches` capped the match list).
 
 ```
 web_fetch({ url: "https://pi.dev/" })
@@ -238,8 +243,9 @@ but not by the full transport guard.
   prefers `<main>`/`<article>`, but is not a full readability engine. JS
   rendering and PDF extraction are optional (`playwright`/`unpdf`) and off unless
   installed and enabled.
-- **The page cache is in-memory and per session**; a page can be stale within a
-  session. `refresh: true` refetches, and it is cleared on `session_shutdown`.
+- **The page cache is in-memory and per registration**; a page can be stale
+  within a session. `refresh: true` refetches, and it is cleared on
+  `session_start` and `session_shutdown`.
 - **Untrusted content**: fetched page text may contain prompt-injection attempts;
   treat it as data, not instructions.
 - The SSRF guard covers every redirect hop, but DNS rebinding and the renderer's
@@ -262,14 +268,15 @@ but not by the full transport guard.
 | Execution mode | `web_search`: `sequential`; `web_fetch`: default |
 | Annotations | both `readOnlyHint: true`, `openWorldHint: true`, `destructiveHint: false` |
 | Output | `outputSchema` (`WebSearchOutput` / `WebFetchOutput`) plus matching `structuredContent` |
-| State | none in the session branch; in-process fetch page cache only (`web_search` keeps a per-instance throttle) |
-| Lifecycle | factory registers the tools; `session_shutdown` clears the fetch cache |
+| State | none in the session branch; one fetch page cache per registration (`web_search` keeps a per-instance throttle) |
+| Lifecycle | the factory only registers (`index.ts`); `registerFetchTool` owns the page cache and clears it on `session_start` and idempotent `session_shutdown` |
 
 ## Design notes
 
 - **Two self-contained halves.** `search/` and `fetch/` each own their
   `config.ts`, `schema.ts`, `types.ts`, `format.ts`, and `tool.ts`, and do not
-  import each other; `index.ts` only registers and clears the cache.
+  import each other; `index.ts` only registers. Shared text and HTML helpers
+  live at the top level (`text.ts`, `html.ts`, `transcript.ts`, `http.ts`).
 - **Shared transport.** [`http.ts`](./http.ts) holds the fetch runner
   (`HttpRunner`, `createFetchRunner`, HTTP error types), used by both halves and
   injectable for tests.
@@ -291,9 +298,21 @@ but not by the full transport guard.
   sides, and `fuzzy` scores lines by the fraction of query terms they contain
   (a spaceless CJK term expands to its characters), keeping lines ≥ 50%.
   Offsets line up with `startIndex` so a hit can be read with a second call.
-- **Page cache.** [`fetch/cache.ts`](./fetch/cache.ts) is an in-process LRU/TTL
-  keyed by requested URL, holding extracted pages so paging and find are a
-  single fetch; entries evict by count and total bytes.
+- **Injected seams, no module state.** `registerSearchTool`/`registerFetchTool`
+  take deps: the search half a runner and throttle, the fetch half a
+  `FetchDeps` (`http`, `pdf`, `render`) plus its own page cache. Nothing
+  mutable is held at module scope.
+- **The paging budget is explicit.** `formatPage` counts the header and the
+  truncation note against `maxChars`, so a paged page always carries its
+  `startIndex` hint inside the limit; `formatBatch` drops whole sections with a
+  count instead of cutting one mid-way.
+- **One JSON boundary per concern.** `search/json.ts` owns `requestJson` (status
+  check and parse error) and `collectResults` (title + http(s) URL + de-dupe), so
+  the three providers cannot drift on either.
+- **Page cache.** [`fetch/cache.ts`](./fetch/cache.ts) is a factory
+  (`createPageCache`) holding an LRU/TTL map keyed by requested URL, so paging and
+  find are a single fetch; entries evict by count and total bytes, and one
+  instance belongs to one registration.
 - **Transcript sanitization and reuse.** [`transcript.ts`](./transcript.ts)
   holds `oneLine`, shared by both tools to collapse untrusted web text to one
   sanitized, optionally clipped line; the renderers reuse
@@ -303,9 +322,11 @@ but not by the full transport guard.
 
 | File | Purpose |
 |---|---|
-| `index.ts` | Register both tools; clear the fetch cache on shutdown |
-| `config.ts` | Nested `web-access.json` loader |
+| `index.ts` | Register both tools |
+| `config.ts` | `web-access.json` loader (via `lib/config.ts`) |
 | `http.ts` | Shared fetch runner and HTTP error types |
+| `text.ts` | Shared code-point length, slice, and truncation helpers |
+| `html.ts` | Shared HTML entity decoding |
 | `transcript.ts` | Shared `oneLine` sanitizer for both transcript renderers |
 | `search/tool.ts` | `web_search` definition, activation, rendering |
 | `search/provider.ts` | Provider interface (`SearchProvider`, `ProviderContext`) |
@@ -316,18 +337,18 @@ but not by the full transport guard.
 | `search/providers/duckduckgo.ts` | Keyless Instant Answer JSON provider |
 | `search/providers/searxng.ts` | SearXNG URL builder, response parser, and client |
 | `search/providers/brave.ts` | Brave keyed JSON provider |
-| `search/json.ts` | Defensive JSON narrowing shared by the parsers |
+| `search/json.ts` | Shared provider JSON fetch (`requestJson`) and result collection |
 | `search/format.ts`, `search/types.ts` | Result text and data types |
 | `fetch/tool.ts` | `web_fetch` definition, activation, rendering |
 | `fetch/config.ts` | Fetch config type, defaults, clamping |
 | `fetch/schema.ts` | Params/output schema, `resolveRequest()` |
-| `fetch/page.ts` | Fetch + redirect-following + content-type routing, test runner seam |
+| `fetch/page.ts` | Fetch + redirect-following + content-type routing |
 | `fetch/ssrf.ts` | URL/host validation and private-address blocking |
 | `fetch/extract.ts` | HTML → title + readable text |
-| `fetch/pdf.ts` | Optional PDF text extraction via lazy `unpdf` (test seam) |
-| `fetch/render.ts` | Optional JS rendering via lazy `playwright` (test seam) |
+| `fetch/pdf.ts` | Optional PDF text extraction via lazy `unpdf` (injected via `FetchDeps`) |
+| `fetch/render.ts` | Optional JS rendering via lazy `playwright` (injected via `FetchDeps`) |
 | `fetch/find.ts` | Passage search (exact/insensitive/fuzzy) |
-| `fetch/cache.ts` | In-process LRU/TTL page cache |
+| `fetch/cache.ts` | Per-registration LRU/TTL page cache (`createPageCache`) |
 | `fetch/format.ts`, `fetch/types.ts` | Result text and data types |
 
 ## Testing
@@ -338,7 +359,9 @@ but not by the full transport guard.
 parser (DuckDuckGo, SearXNG, Brave), the orchestration pipeline and throttle,
 redirect re-validation (per-hop SSRF with literal IPs), method/header/body
 validation, the nested config merge and section isolation, extraction,
-formatting/paging, find, the cache, the SSRF guard, the optional PDF/render
-seams, and both tools' registration/execution. Tests inject the runner, throttle,
-PDF extractor, and renderer, so no network, browser, or PDF library is needed;
-the runtime smoke test only asserts registration.
+formatting/paging through the tool (including a regression test that a truncated
+page keeps its `startIndex` hint), find and its cap notice, the per-registration
+cache, the SSRF guard, the injected PDF/render dependencies, and both tools'
+registration/execution. Tests inject the runner, throttle, PDF extractor, and
+renderer through the tools' dependencies, so no network, browser, or PDF library
+is needed; the runtime smoke test only asserts registration.
