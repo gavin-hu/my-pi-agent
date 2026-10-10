@@ -39,13 +39,13 @@ describe("buildInhibitorCommand", () => {
 describe("powershellScript", () => {
 	test("requests continuous system-required state and watches the pid", () => {
 		const script = powershellScript(false, 4242);
-		expect(script).toContain("SetThreadExecutionState(0x80000001)");
+		expect(script).toContain("SetThreadExecutionState([uint32]2147483649)");
 		expect(script).toContain("Get-Process -Id 4242");
-		expect(script).not.toContain("0x80000003");
+		expect(script).not.toContain("2147483651");
 	});
 
 	test("adds ES_DISPLAY_REQUIRED when keeping the display awake", () => {
-		expect(powershellScript(true, 4242)).toContain("SetThreadExecutionState(0x80000003)");
+		expect(powershellScript(true, 4242)).toContain("SetThreadExecutionState([uint32]2147483651)");
 	});
 });
 
