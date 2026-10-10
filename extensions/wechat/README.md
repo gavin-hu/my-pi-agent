@@ -28,10 +28,6 @@ pi install ./                        # install the package
   turns started at the terminal keep the TUI (`remotePrompts`, on by default).
 - **Status chip** — while the bridge runs, the status bar shows `✆ wechat`
   (`ctx.ui.setStatus`); it clears on stop, session expiry, or shutdown.
-- **Keeps the host awake** — while the bridge polls it announces a wake hold on
-  `pi.events` (`lib/wake-hold.ts`), so `keep-awake` holds its inhibitor and a
-  sleeping machine does not stop receiving messages. The hold is released on
-  stop, expiry, and shutdown; `/keep-awake off` still wins.
 - **Owner-only by default** — only the account owner (who scanned the login QR)
   can drive the agent; `allowedPeers` opts in others.
 - **Session-bound** — the bridge runs while the Pi session is alive and only
@@ -150,7 +146,6 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 | Injection | `pi.sendUserMessage(content)` — a string, or text/image blocks for inbound media; always triggers a turn, and the bridge only injects when idle. |
 | UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
 | Status | The bridge's running state is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; the status bar renders it on line 2. |
-| Wake hold | The same `onStateChange` announces `requestWakeHold` / `releaseWakeHold` (`lib/wake-hold.ts`) on `pi.events`, so `keep-awake` can hold the machine awake while the bridge polls without importing it. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
 | Lifecycle | The factory only registers. No I/O starts on load; `/wechat start` starts the poll loop and `session_shutdown` closes it. |
 
