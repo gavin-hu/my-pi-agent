@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `gridcraft-cli` executable. Every worksheet becomes a `[Sheet]` heading
   followed by tab-separated rows, values use the workbook's displayed text, and
   legacy `.xls` gets a conversion hint.
+- `document`: `read_doc` now reads legacy `.doc`, `.odt`, and `.rtf` through the
+  same `wordcraft-cli` backend as `.docx`. All four are pageable like any other
+  format, and the legacy `.doc` conversion hint is gone.
 - `todo`: when a run is about to settle after mutating work (`write`, `edit`,
   `bash`, `powershell`, or a tool declaring `readOnlyHint: false`) without a
   todo update, the extension injects one hidden reminder and forces a single
@@ -35,6 +38,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `document`: the `doc` extension is renamed to `document` — the directory,
+  package manifest entry, `PI_DISABLED_EXTENSIONS` name, and docs. Its config
+  file is now `document.json`; an existing `doc.json` is ignored, so rename it
+  by hand. The `read_doc` tool, its schema, paging, and rendering are unchanged.
 - `doc`: `read_doc` extracts `.pdf` and `.docx` by running `pdfcraft-cli` and
   `wordcraft-cli` instead of the in-process `unpdf` and `mammoth` packages, and
   `.xlsx` likewise through `gridcraft-cli`. The extension now ships no document

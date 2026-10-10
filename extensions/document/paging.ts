@@ -19,8 +19,6 @@ export interface DocPageInput {
 }
 
 export interface FormattedDoc {
-	/** Header lines describing the file. */
-	header: string;
 	/** The requested slice of the document text. */
 	body: string;
 	/** Header, body, and any truncation note. */
@@ -39,12 +37,12 @@ export function formatDoc(input: DocPageInput): FormattedDoc {
 
 	if (total === 0) {
 		const text = `${header}\n\n(no extractable text; the document may be scanned or image-only)`;
-		return { header, body: "", text, truncated: false, nextIndex: input.startIndex, chars: 0 };
+		return { body: "", text, truncated: false, nextIndex: input.startIndex, chars: 0 };
 	}
 
 	if (input.startIndex >= total) {
 		const text = `${header}\n\n(no text at startIndex ${input.startIndex}; total ${total} characters)`;
-		return { header, body: "", text, truncated: false, nextIndex: total, chars: total };
+		return { body: "", text, truncated: false, nextIndex: total, chars: total };
 	}
 
 	const slice = points.slice(input.startIndex, input.startIndex + input.maxChars);
@@ -57,7 +55,7 @@ export function formatDoc(input: DocPageInput): FormattedDoc {
 		text += `\n\n… (truncated at ${nextIndex} of ${total} characters; call read_doc again with startIndex=${nextIndex})`;
 	}
 
-	return { header, body, text, truncated, nextIndex, chars: total };
+	return { body, text, truncated, nextIndex, chars: total };
 }
 
 /** Inputs for `summarizeDoc`, the fields the transcript summary reads. */

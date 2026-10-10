@@ -1,9 +1,9 @@
 /**
- * Configuration for the `doc` extension.
+ * Configuration for the `document` extension.
  *
  * `formats` defaults are derived from the format registry, so a new format needs
- * no config edit. Project `<cwd>/.pi/doc.json` values merge over global
- * `~/.pi/agent/doc.json` values, and every field is clamped.
+ * no config edit. Project `<cwd>/.pi/document.json` values merge over global
+ * `~/.pi/agent/document.json` values, and every field is clamped.
  */
 
 import { clampInteger, loadConfigFile } from "../../lib/config.ts";
@@ -48,7 +48,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 
 /** Effective config: global file, then project file, over the defaults. */
 export function loadConfig(cwd: string): DocConfig {
-	return loadConfigFile(cwd, "doc.json", DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigFile(cwd, "document.json", DEFAULT_CONFIG, normalizeConfig);
 }
 
 /** Whether a format is enabled in the effective config. */

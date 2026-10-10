@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import doc from "./index.ts";
+import document from "./index.ts";
 import { TOOL_NAME } from "./tool.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
-describe("doc extension", () => {
+describe("document extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "doc" }, () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "document" }, () => {
 			const { pi, tools, handlers } = createFakePi();
-			doc(pi);
+			document(pi);
 			expect(tools.size).toBe(0);
 			expect(handlers.size).toBe(0);
 		});
@@ -17,7 +17,7 @@ describe("doc extension", () => {
 
 	test("registers read_doc as a direct, active, read-only tool", () => {
 		const { pi, tools } = createFakePi();
-		doc(pi);
+		document(pi);
 
 		const tool = tools.get(TOOL_NAME);
 		expect(tool).toBeDefined();

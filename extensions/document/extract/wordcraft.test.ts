@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { DocCli } from "./cli.ts";
-import { extractDocxText, stripTrailingNewline } from "./docx.ts";
+import { extractWordcraftText, stripTrailingNewline } from "./wordcraft.ts";
 
 /** A fake CLI that returns `result` or throws it, recording the calls. */
 function fakeCli(result: string | Error, calls?: Array<{ cli: string; args: string[] }>): DocCli {
@@ -22,15 +22,15 @@ describe("stripTrailingNewline", () => {
 	});
 });
 
-describe("extractDocxText", () => {
+describe("extractWordcraftText", () => {
 	test("runs wordcraft-cli text and strips the trailing newline", async () => {
 		const calls: Array<{ cli: string; args: string[] }> = [];
-		const text = await extractDocxText({ path: "/root/a.docx" }, fakeCli("para\tcell\n", calls));
+		const text = await extractWordcraftText({ path: "/root/a.docx" }, fakeCli("para\tcell\n", calls));
 		expect(text).toBe("para\tcell");
 		expect(calls).toEqual([{ cli: "wordcraft-cli", args: ["text", "/root/a.docx"] }]);
 	});
 
 	test("propagates a CLI failure", async () => {
-		await expect(extractDocxText({ path: "/root/a.docx" }, fakeCli(new Error("boom")))).rejects.toThrow("boom");
+		await expect(extractWordcraftText({ path: "/root/a.docx" }, fakeCli(new Error("boom")))).rejects.toThrow("boom");
 	});
 });

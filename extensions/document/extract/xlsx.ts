@@ -158,7 +158,7 @@ export function sheetsToText(value: unknown): string {
 export async function extractXlsxText(file: DocFile, cli: DocCli): Promise<string> {
 	const options = { signal: file.signal };
 	const info = await cli.run("gridcraft-cli", ["info", file.path, "--json"], options);
-	const sections: Array<{ sheet: string; data: unknown[][] }> = [];
+	const sections: Sheet[] = [];
 	for (const { name, usedRange } of parseSheetList(info)) {
 		if (!usedRange) continue;
 		const csv = await cli.run("gridcraft-cli", ["cat", file.path, "--sheet", name, "--csv"], options);

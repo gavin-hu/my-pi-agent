@@ -1,12 +1,13 @@
 /**
  * The `read_doc` tool.
  *
- * Reads a local `.pdf`, `.docx`, or `.xlsx` under the effective working root and
- * returns its extracted text, pageable with `startIndex`/`maxChars`. The format
- * table in `formats.ts` decides which extractor runs; each one shells out to an
- * external CLI (`pdfcraft-cli`, `wordcraft-cli`, `gridcraft-cli`) that reads the
- * file itself. Reads are confined to the effective root with symlink-aware
- * containment, matching the worktree guard.
+ * Reads a local `.pdf`, `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx` under the
+ * effective working root and returns its extracted text, pageable with
+ * `startIndex`/`maxChars`. The format table in `formats.ts` decides which
+ * extractor runs; each one shells out to an external CLI (`pdfcraft-cli`,
+ * `wordcraft-cli`, `gridcraft-cli`) that reads the file itself. Reads are
+ * confined to the effective root with symlink-aware containment, matching the
+ * worktree guard.
  */
 
 import { stat } from "node:fs/promises";
@@ -63,13 +64,13 @@ export function registerDocTool(pi: ExtensionAPI): void {
 		name: TOOL_NAME,
 		label: "Read document",
 		description:
-			"Read a local PDF, DOCX, or XLSX file and return its extracted plain text. Output is pageable: when the result " +
+			"Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file and return its extracted plain text. Output is pageable: when the result " +
 			"is truncated, call read_doc again with the given startIndex. Formatting is lost; use the built-in read " +
-			"tool for text and image files. PDF extraction runs 'pdfcraft-cli', DOCX runs 'wordcraft-cli', and XLSX runs " +
-			"'gridcraft-cli'; each must be on PATH, and the error for a missing one names the install command.",
-		promptSnippet: "Read a local PDF, DOCX, or XLSX file as plain text, paged with startIndex/maxChars.",
+			"tool for text and image files. PDF extraction runs 'pdfcraft-cli', the word-processing formats (DOCX, DOC, ODT, RTF) run " +
+			"'wordcraft-cli', and XLSX runs 'gridcraft-cli'; each must be on PATH, and the error for a missing one names the install command.",
+		promptSnippet: "Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file as plain text, paged with startIndex/maxChars.",
 		promptGuidelines: [
-			"Use read_doc for .pdf, .docx, and .xlsx files; the built-in read tool is for text and images.",
+			"Use read_doc for .pdf, .docx, .doc, .odt, .rtf, and .xlsx files; the built-in read tool is for text and images.",
 			"read_doc extracts via 'pdfcraft-cli', 'wordcraft-cli', and 'gridcraft-cli'; if one is missing, the error names its install command.",
 			"When the result is truncated, call read_doc again with the suggested startIndex.",
 			"Extraction returns plain text only; tables, images, and formatting are dropped.",
@@ -93,7 +94,7 @@ export function registerDocTool(pi: ExtensionAPI): void {
 				throw new Error(`Unsupported document format. Supported extensions: ${supportedExtensions().join(", ")}.`);
 			}
 			if (!isFormatEnabled(config, format.id)) {
-				throw new Error(`${format.label} extraction is disabled in doc.json (formats.${format.id} = false).`);
+				throw new Error(`${format.label} extraction is disabled in document.json (formats.${format.id} = false).`);
 			}
 
 			const size = await statFile(abs, display, config.maxFileBytes);

@@ -17,6 +17,9 @@ describe("detectFormat", () => {
 	test("maps supported extensions case-insensitively", () => {
 		expect(detectFormat("a.pdf")?.id).toBe("pdf");
 		expect(detectFormat("a.DOCX")?.id).toBe("docx");
+		expect(detectFormat("a.DOC")?.id).toBe("doc");
+		expect(detectFormat("a.ODT")?.id).toBe("odt");
+		expect(detectFormat("a.RTF")?.id).toBe("rtf");
 		expect(detectFormat("a.XLSX")?.id).toBe("xlsx");
 	});
 
@@ -27,8 +30,8 @@ describe("detectFormat", () => {
 });
 
 describe("unsupportedHint", () => {
-	test("names the legacy .doc case", () => {
-		expect(unsupportedHint("old.doc")).toMatch(/\.docx/);
+	test("returns undefined for a now-supported legacy .doc", () => {
+		expect(unsupportedHint("old.doc")).toBeUndefined();
 		expect(unsupportedHint("old.pdf")).toBeUndefined();
 	});
 

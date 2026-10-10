@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerDocTool, TOOL_NAME } from "./tool.ts";
 import { ansiTheme, fakeTheme, createFakePi, type FakePiOptions } from "../../test/helpers/fakes.ts";
-import { makeDocFixture } from "../../test/helpers/fixtures/doc.ts";
+import { makeDocumentFixture } from "../../test/helpers/fixtures/document.ts";
 import { tempDir, useEnv } from "../../test/helpers/env.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 
@@ -11,7 +11,7 @@ type AnyFn = (...args: any[]) => any;
 type Tool = { execute: AnyFn; renderCall: AnyFn; renderResult: AnyFn };
 type ExecFn = NonNullable<FakePiOptions["exec"]>;
 
-const fixture = makeDocFixture();
+const fixture = makeDocumentFixture();
 const agentDir = tempDir("doc-tool-agent-");
 afterAll(() => fixture.remove());
 
@@ -114,10 +114,22 @@ describe("read_doc tool", () => {
 		).rejects.toThrow(/Unsupported document format/);
 	});
 
-	test("gives a targeted hint for a legacy .doc file", async () => {
-		await expect(
-			installTool().execute("call-1", { path: "old.doc" }, undefined, undefined, ctxFor(fixture.root)),
-		).rejects.toThrow(/convert it to \.docx/);
+	test("reads every word-processing format through wordcraft-cli", async () => {
+		const tool = installTool(cliExec({ "wordcraft-cli text": { stdout: "body\n" } }));
+		const cases = [
+			["a.docx", "docx"],
+			["a.doc", "doc"],
+			["a.odt", "odt"],
+			["a.rtf", "rtf"],
+		] as const;
+
+		for (const [path, format] of cases) {
+			fixture.write(path, "bytes");
+			const result = await tool.execute("call-1", { path }, undefined, undefined, ctxFor(fixture.root));
+			expect(result.content[0].text).toContain("body");
+			expect(result.details).toMatchObject({ path, format, bytes: 5 });
+			expect(result.structuredContent).toEqual(result.details);
+		}
 	});
 
 	test("gives a targeted hint for a legacy .xls file", async () => {
@@ -144,21 +156,21 @@ describe("read_doc tool", () => {
 		).rejects.toThrow(/bad file/);
 	});
 
-	test("rejects a format disabled in doc.json", async () => {
+	test("rejects a format disabled in document.json", async () => {
 		const cwd = tempDir("doc-tool-disabled-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "doc.json"), JSON.stringify({ formats: { pdf: false } }));
+		writeFileSync(join(cwd, ".pi", "document.json"), JSON.stringify({ formats: { pdf: false } }));
 		writeFileSync(join(cwd, "a.pdf"), "x");
 
 		await expect(
 			installTool(cliExec({})).execute("call-1", { path: "a.pdf" }, undefined, undefined, ctxFor(cwd)),
-		).rejects.toThrow(/disabled in doc\.json/);
+		).rejects.toThrow(/disabled in document\.json/);
 	});
 
 	test("rejects a file larger than the configured limit", async () => {
 		const cwd = tempDir("doc-tool-big-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "doc.json"), JSON.stringify({ maxFileBytes: 1024 }));
+		writeFileSync(join(cwd, ".pi", "document.json"), JSON.stringify({ maxFileBytes: 1024 }));
 		writeFileSync(join(cwd, "big.pdf"), "x".repeat(2048));
 
 		await expect(

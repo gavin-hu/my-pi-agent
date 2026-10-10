@@ -2,10 +2,11 @@
  * The external-CLI seam for `read_doc`.
  *
  * Each document format is extracted by an ArtCraft command-line tool that reads
- * the file itself: `pdfcraft-cli` for PDF, `wordcraft-cli` for DOCX, and
- * `gridcraft-cli` for XLSX. This module owns the process seam, the "tool
- * missing" classification, and the install guidance, so the three extractors
- * stay tiny and testable through an injected {@link DocCli}.
+ * the file itself: `pdfcraft-cli` for PDF, `wordcraft-cli` for the
+ * word-processing formats (DOCX, DOC, ODT, RTF), and `gridcraft-cli` for XLSX.
+ * This module owns the process seam, the "tool
+ * missing" classification, and the install guidance, so the extractors stay
+ * tiny and testable through an injected {@link DocCli}.
  *
  * The tools are invoked with `pi.exec`, which resolves a missing binary as
  * `{ code: 1, stderr: "" }` rather than throwing. A command that fails with a
@@ -49,7 +50,7 @@ export interface DocCli {
 /** Per-CLI wording for the model-facing install hint. */
 const CLI_INFO: Record<CliName, { noun: string; repo: string }> = {
 	"pdfcraft-cli": { noun: "PDF", repo: "storytold/pdfcraft" },
-	"wordcraft-cli": { noun: "DOCX", repo: "storytold/wordcraft" },
+	"wordcraft-cli": { noun: "DOCX/DOC/ODT/RTF", repo: "storytold/wordcraft" },
 	"gridcraft-cli": { noun: "XLSX", repo: "storytold/gridcraft" },
 };
 

@@ -20,7 +20,7 @@ describe("normalizeConfig", () => {
 	});
 
 	test("enables every registered format by default", () => {
-		expect(DEFAULT_CONFIG.formats).toEqual({ pdf: true, docx: true, xlsx: true });
+		expect(DEFAULT_CONFIG.formats).toEqual({ pdf: true, docx: true, doc: true, odt: true, rtf: true, xlsx: true });
 	});
 
 	test("uses the registry defaults when the file is missing", () => {
@@ -31,10 +31,10 @@ describe("normalizeConfig", () => {
 describe("loadConfig", () => {
 	test("project config overrides global and keeps registry defaults", async () => {
 		await withAgentDir(async (agentDir) => {
-			writeFileSync(join(agentDir, "doc.json"), JSON.stringify({ maxChars: 1000, formats: { pdf: false } }));
+			writeFileSync(join(agentDir, "document.json"), JSON.stringify({ maxChars: 1000, formats: { pdf: false } }));
 			const cwd = tempDir("doc-config-");
 			mkdirSync(join(cwd, ".pi"), { recursive: true });
-			writeFileSync(join(cwd, ".pi", "doc.json"), JSON.stringify({ formats: { pdf: true } }));
+			writeFileSync(join(cwd, ".pi", "document.json"), JSON.stringify({ formats: { pdf: true } }));
 
 			const config = loadConfig(cwd);
 			expect(config.maxChars).toBe(1000);
