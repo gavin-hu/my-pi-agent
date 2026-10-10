@@ -2,6 +2,7 @@ node_modules/
 .pi/worktrees/
 .pi/plans/
 .pi/tmp/
+.pi/settings.json
 .DS_Store
 *.log
 *.tgz
