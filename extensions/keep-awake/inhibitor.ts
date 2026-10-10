@@ -26,11 +26,15 @@ function caffeinateFlags(keepDisplay: boolean): string {
  * `ES_DISPLAY_REQUIRED` prevents display sleep.
  */
 export function powershellScript(keepDisplay: boolean, piPid: number): string {
-	const flags = ((0x80000000 | 0x00000001 | (keepDisplay ? 0x00000002 : 0)) >>> 0).toString(16);
+	// Emit an unsigned decimal cast: PowerShell parses a hex literal such as
+	// `0x80000001` as a signed Int32 (-2147483647) and refuses to marshal it into
+	// the `uint` parameter, throwing instead of setting the state. `>>> 0` keeps
+	// the flags positive and `[uint32]` makes the intent explicit.
+	const flags = (0x80000000 | 0x00000001 | (keepDisplay ? 0x00000002 : 0)) >>> 0;
 	return [
 		`$sig = '[DllImport("kernel32.dll", SetLastError=true)] public static extern uint SetThreadExecutionState(uint es);'`,
 		"$type = Add-Type -MemberDefinition $sig -Name KeepAwake -Namespace Pi -PassThru",
-		`[void]$type::SetThreadExecutionState(0x${flags})`,
+		`[void]$type::SetThreadExecutionState([uint32]${flags})`,
 		`while (Get-Process -Id ${piPid} -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 5 }`,
 	].join("; ");
 }

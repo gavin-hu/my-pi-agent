@@ -90,6 +90,65 @@ describe("configure", () => {
 	});
 });
 
+describe("holds", () => {
+	test("a hold acquires while idle and releases on its own", () => {
+		const { runtime, ctx, children, kills } = makeHarness();
+		runtime.start(ctx);
+
+		runtime.setHold("wechat", true, ctx);
+		expect(children).toHaveLength(1);
+		expect(ctx.statuses.get(STATUS_KEYS.keepAwake)).toBe(`${GLYPHS.keepAwake} hold`);
+		expect(runtime.status().holds).toEqual(["wechat"]);
+
+		runtime.setHold("wechat", false, ctx);
+		expect(kills).toHaveLength(1);
+		expect(runtime.status().holds).toEqual([]);
+	});
+
+	test("repeated requests are idempotent and one owner's release keeps another", () => {
+		const { runtime, ctx, kills } = makeHarness();
+		runtime.start(ctx);
+
+		runtime.setHold("wechat", true, ctx);
+		runtime.setHold("wechat", true, ctx);
+		runtime.setHold("job", true, ctx);
+		// One inhibitor for both owners.
+		expect(runtime.status().holds).toEqual(["wechat", "job"]);
+
+		runtime.setHold("wechat", false, ctx);
+		expect(kills).toHaveLength(0);
+		expect(runtime.status().active).toBe(true);
+
+		runtime.setHold("job", false, ctx);
+		expect(kills).toHaveLength(1);
+	});
+
+	test("off prevents a hold, and an override on still wins the label", () => {
+		const { runtime, ctx, children } = makeHarness();
+		runtime.start(ctx);
+		runtime.setOverride("off", ctx);
+
+		runtime.setHold("wechat", true, ctx);
+		expect(children).toHaveLength(0);
+		expect(runtime.status().active).toBe(false);
+		expect(ctx.statuses.get(STATUS_KEYS.keepAwake)).toBeUndefined();
+	});
+
+	test("session start and stop clear stale holds", () => {
+		const { runtime, ctx, children, kills } = makeHarness();
+		runtime.start(ctx);
+		runtime.setHold("wechat", true, ctx);
+		expect(children).toHaveLength(1);
+
+		runtime.stop(ctx);
+		expect(kills).toHaveLength(1);
+		expect(runtime.status().holds).toEqual([]);
+
+		runtime.start(ctx);
+		expect(runtime.status().holds).toEqual([]);
+	});
+});
+
 describe("failures", () => {
 	test("a spawn error is recorded and not retried", async () => {
 		const { runtime, ctx, children } = makeHarness({
