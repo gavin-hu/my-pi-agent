@@ -1,32 +1,41 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { PdfUnavailableError, extractPdfText, setPdfExtractorForTests, setPdfLoaderForTests } from "./pdf.ts";
+import { describe, expect, test } from "bun:test";
+import type { DocCli } from "./cli.ts";
+import { extractPdfText, mergePdfPages } from "./pdf.ts";
 
-afterEach(() => {
-	setPdfExtractorForTests(undefined);
-	setPdfLoaderForTests(undefined);
+/** A fake CLI that returns `result` or throws it, recording the calls. */
+function fakeCli(result: string | Error, calls?: Array<{ cli: string; args: string[] }>): DocCli {
+	return {
+		run: async (cli, args) => {
+			calls?.push({ cli, args: [...args] });
+			if (result instanceof Error) throw result;
+			return result;
+		},
+	};
+}
+
+describe("mergePdfPages", () => {
+	test("joins form-feed-separated pages with a blank line", () => {
+		expect(mergePdfPages("page one\n\f\npage two\n")).toBe("page one\n\npage two");
+	});
+
+	test("trims a blank document to nothing", () => {
+		expect(mergePdfPages("\n")).toBe("");
+	});
+
+	test("keeps a single page without separators", () => {
+		expect(mergePdfPages("only\n")).toBe("only");
+	});
 });
 
 describe("extractPdfText", () => {
-	test("uses the injected extractor", async () => {
-		setPdfExtractorForTests(async (bytes) => `len=${bytes.length}`);
-		expect(await extractPdfText(new Uint8Array([1, 2, 3]))).toBe("len=3");
+	test("runs pdfcraft-cli text and merges the pages", async () => {
+		const calls: Array<{ cli: string; args: string[] }> = [];
+		const text = await extractPdfText({ path: "/root/a.pdf" }, fakeCli("a\n\f\nb\n", calls));
+		expect(text).toBe("a\n\nb");
+		expect(calls).toEqual([{ cli: "pdfcraft-cli", args: ["text", "/root/a.pdf"] }]);
 	});
 
-	test("normalizes a Buffer to a plain Uint8Array", async () => {
-		let seen: Uint8Array | undefined;
-		setPdfExtractorForTests(async (bytes) => {
-			seen = bytes;
-			return "ok";
-		});
-		await extractPdfText(Buffer.from([1, 2, 3]));
-		expect(seen?.constructor).toBe(Uint8Array);
-		expect(Array.from(seen ?? [])).toEqual([1, 2, 3]);
-	});
-
-	test("surfaces a typed unavailable error from the loader", async () => {
-		setPdfLoaderForTests(async () => {
-			throw new PdfUnavailableError("PDF extraction requires the optional 'unpdf' package (npm i unpdf).");
-		});
-		await expect(extractPdfText(new Uint8Array())).rejects.toBeInstanceOf(PdfUnavailableError);
+	test("propagates a CLI failure", async () => {
+		await expect(extractPdfText({ path: "/root/a.pdf" }, fakeCli(new Error("boom")))).rejects.toThrow("boom");
 	});
 });

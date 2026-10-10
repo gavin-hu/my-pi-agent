@@ -1,77 +1,29 @@
 /**
- * Optional PDF text extraction via the `unpdf` package.
+ * PDF text extraction via `pdfcraft-cli`.
  *
- * `unpdf` bundles a server-friendly build of PDF.js and is loaded lazily, so the
- * extension stays dependency-free unless a PDF is actually read. Tests inject an
- * extractor or a loader through the seams below instead of installing the
- * optional package.
+ * `pdfcraft-cli text <file>` prints every page's reading-order text, one page
+ * per line group, with a line containing a form feed (`\u{c}`) before each page
+ * after the first. The extractor joins the pages into one plain-text document,
+ * matching the merged output the tool returned before. The CLI reads the file
+ * itself, so this module never touches the bytes.
  */
 
-/** Raised when the optional `unpdf` package is missing or unusable. */
-export class PdfUnavailableError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "PdfUnavailableError";
-	}
-}
-
-export type PdfExtractor = (bytes: Uint8Array) => Promise<string>;
-export type PdfLoader = () => Promise<PdfExtractor>;
-
-let extractorOverride: PdfExtractor | undefined;
-let loaderOverride: PdfLoader | undefined;
-
-/** Override the extractor (tests only). Pass undefined to clear. */
-export function setPdfExtractorForTests(extractor: PdfExtractor | undefined): void {
-	extractorOverride = extractor;
-}
-
-/** Override the lazy loader (tests only). Pass undefined to clear. */
-export function setPdfLoaderForTests(loader: PdfLoader | undefined): void {
-	loaderOverride = loader;
-}
-
-async function loadPdfExtractor(): Promise<PdfExtractor> {
-	let module: Record<string, unknown>;
-	try {
-		// A variable specifier keeps `tsc` from resolving the optional package's types.
-		const name = "unpdf";
-		module = (await import(name)) as Record<string, unknown>;
-	} catch {
-		throw new PdfUnavailableError("PDF extraction requires the optional 'unpdf' package (npm i unpdf).");
-	}
-
-	const candidate = module.extractText ?? (module.default as Record<string, unknown> | undefined)?.extractText;
-	if (typeof candidate !== "function") {
-		throw new PdfUnavailableError("The installed 'unpdf' package does not export extractText.");
-	}
-
-	return async (bytes) => {
-		const result: unknown = await (candidate as (data: Uint8Array, options?: unknown) => Promise<unknown>)(bytes, {
-			mergePages: true,
-		});
-		if (typeof result === "string") return result;
-		const text = (result as { text?: unknown } | undefined)?.text;
-		return typeof text === "string" ? text : "";
-	};
-}
+import type { DocCli, DocFile } from "./cli.ts";
 
 /**
- * Normalize to a plain `Uint8Array`.
- *
- * `read_doc` reads files with `node:fs`, which returns a `Buffer`. A `Buffer` is
- * a `Uint8Array` subclass, but `unpdf` (PDF.js) rejects it and demands a plain
- * `Uint8Array`, so hand it a view over the same bytes instead of the subclass.
+ * Split `pdfcraft-cli`'s form-feed-separated pages into blank-line-separated
+ * text. Pure; used by the extractor and asserted directly in tests.
  */
-function toPlainUint8Array(bytes: Uint8Array): Uint8Array {
-	if (bytes.constructor === Uint8Array) return bytes;
-	return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+export function mergePdfPages(stdout: string): string {
+	return stdout
+		.split("\u{c}")
+		.map((page) => page.replace(/^\n+|\n+$/g, ""))
+		.filter((page) => page !== "")
+		.join("\n\n");
 }
 
-/** Extract plain text from PDF bytes, merging all pages. */
-export async function extractPdfText(bytes: Uint8Array): Promise<string> {
-	const data = toPlainUint8Array(bytes);
-	if (extractorOverride) return extractorOverride(data);
-	const extract = loaderOverride ? await loaderOverride() : await loadPdfExtractor();
-	return extract(data);
+/** Extract plain text from every page of a PDF via `pdfcraft-cli text`. */
+export async function extractPdfText(file: DocFile, cli: DocCli): Promise<string> {
+	const stdout = await cli.run("pdfcraft-cli", ["text", file.path], { signal: file.signal });
+	return mergePdfPages(stdout);
 }

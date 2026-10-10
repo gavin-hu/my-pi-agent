@@ -1,9 +1,10 @@
 /**
  * The `doc` extension entrypoint.
  *
- * Registers `read_doc`, which extracts text from a local PDF or DOCX under the
- * effective working root. The factory only registers; the tool loads its optional
- * extractor packages lazily and holds no long-lived resources, so there is no
+ * Registers `read_doc`, which extracts text from a local PDF, DOCX, or XLSX
+ * under the effective working root by running `pdfcraft-cli`, `wordcraft-cli`,
+ * or `gridcraft-cli`. The factory only registers; each read spawns a short-lived
+ * child process and nothing long-lived is held, so there is no
  * `session_start`/`session_shutdown` lifecycle to manage.
  */
 

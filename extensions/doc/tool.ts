@@ -1,22 +1,22 @@
 /**
  * The `read_doc` tool.
  *
- * Reads a local `.pdf` or `.docx` under the effective working root and returns
- * its extracted text, pageable with `startIndex`/`maxChars`. The format table in
- * `formats.ts` decides which extractor runs; each extractor loads its optional
- * package (`unpdf`, `mammoth`) lazily. Reads are confined to the effective root
- * with symlink-aware containment, matching the worktree guard.
+ * Reads a local `.pdf`, `.docx`, or `.xlsx` under the effective working root and
+ * returns its extracted text, pageable with `startIndex`/`maxChars`. The format
+ * table in `formats.ts` decides which extractor runs; each one shells out to an
+ * external CLI (`pdfcraft-cli`, `wordcraft-cli`, `gridcraft-cli`) that reads the
+ * file itself. Reads are confined to the effective root with symlink-aware
+ * containment, matching the worktree guard.
  */
 
-import { readFile, stat } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { stat } from "node:fs/promises";
+import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { stripControlChars } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
-import { XlsxUnavailableError } from "./extract/xlsx.ts";
+import { createDocCli, createExecRunner } from "./extract/cli.ts";
 import { detectFormat, supportedExtensions, unsupportedHint } from "./formats.ts";
 import { formatDoc } from "./paging.ts";
 import { formatDocCall, formatDocResult, reuseText } from "./render.ts";
@@ -24,32 +24,8 @@ import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type DocArgs, ty
 
 export { TOOL_NAME } from "./schema.ts";
 
-/** This extension's package root, named in the missing-package guidance. */
-function packageRoot(): string | undefined {
-	try {
-		return resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-	} catch {
-		return undefined;
-	}
-}
-
-/**
- * Guidance shown when `read-excel-file` is missing. The extension never installs
- * a package or opens its own dialog: it tells the model to ask the user first,
- * then run the command, so the install is the user's explicit choice.
- */
-export function xlsxMissingGuidance(): string {
-	const root = packageRoot();
-	const where = root ? ` in ${root}` : " in this package's directory";
-	return (
-		"XLSX extraction needs the 'read-excel-file' package, which this Pi package installs as a dependency. " +
-		`Ask the user first with the ask_user_question tool; only if they agree, run \`npm install read-excel-file\`${where}, ` +
-		"then call read_doc again."
-	);
-}
-
 /** Resolve a request path under `root`, refusing anything that escapes it. */
-function resolveDocument(root: string, rawPath: string): string {
+function resolveDocument(root: string, rawPath: string): { display: string; abs: string } {
 	const trimmed = stripControlChars(rawPath.trim());
 	if (!trimmed) throw new Error("path is required.");
 	const candidate = isAbsolute(trimmed) ? trimmed : join(root, trimmed);
@@ -59,11 +35,11 @@ function resolveDocument(root: string, rawPath: string): string {
 			`Refusing to read "${trimmed}" outside the working directory. Copy the file under it or pass a path inside it.`,
 		);
 	}
-	return trimmed;
+	return { display: trimmed, abs };
 }
 
-/** Read the file and raise a model-readable error for a missing/unreadable target. */
-async function readBytes(abs: string, display: string, maxFileBytes: number): Promise<{ bytes: Buffer; size: number }> {
+/** Stat the file and raise a model-readable error for a missing/unreadable target. */
+async function statFile(abs: string, display: string, maxFileBytes: number): Promise<number> {
 	let info: Awaited<ReturnType<typeof stat>>;
 	try {
 		info = await stat(abs);
@@ -77,23 +53,24 @@ async function readBytes(abs: string, display: string, maxFileBytes: number): Pr
 	if (info.size > maxFileBytes) {
 		throw new Error(`File is ${info.size} bytes, larger than the ${maxFileBytes}-byte limit for read_doc.`);
 	}
-	return { bytes: await readFile(abs), size: info.size };
+	return info.size;
 }
 
 export function registerDocTool(pi: ExtensionAPI): void {
+	const cli = createDocCli(createExecRunner(pi));
+
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Read document",
 		description:
 			"Read a local PDF, DOCX, or XLSX file and return its extracted plain text. Output is pageable: when the result " +
 			"is truncated, call read_doc again with the given startIndex. Formatting is lost; use the built-in read " +
-			"tool for text and image files. PDF extraction needs the optional unpdf package and DOCX the optional " +
-			"mammoth package; the error names the missing package. XLSX uses the read-excel-file package, which Pi " +
-			"installs with this package.",
+			"tool for text and image files. PDF extraction runs 'pdfcraft-cli', DOCX runs 'wordcraft-cli', and XLSX runs " +
+			"'gridcraft-cli'; each must be on PATH, and the error for a missing one names the install command.",
 		promptSnippet: "Read a local PDF, DOCX, or XLSX file as plain text, paged with startIndex/maxChars.",
 		promptGuidelines: [
 			"Use read_doc for .pdf, .docx, and .xlsx files; the built-in read tool is for text and images.",
-			"If read_doc reports that read-excel-file is missing, ask the user with the ask_user_question tool before installing it; never install silently.",
+			"read_doc extracts via 'pdfcraft-cli', 'wordcraft-cli', and 'gridcraft-cli'; if one is missing, the error names its install command.",
 			"When the result is truncated, call read_doc again with the suggested startIndex.",
 			"Extraction returns plain text only; tables, images, and formatting are dropped.",
 		],
@@ -103,11 +80,11 @@ export function registerDocTool(pi: ExtensionAPI): void {
 		defaultActive: true,
 		annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
 
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const args = params as DocArgs;
 			const config = loadConfig(ctx.cwd);
 			const root = resolveEffectiveCwd(ctx.cwd);
-			const display = resolveDocument(root, args.path);
+			const { display, abs } = resolveDocument(root, args.path);
 
 			const format = detectFormat(display);
 			if (!format) {
@@ -119,15 +96,8 @@ export function registerDocTool(pi: ExtensionAPI): void {
 				throw new Error(`${format.label} extraction is disabled in doc.json (formats.${format.id} = false).`);
 			}
 
-			const abs = isAbsolute(display) ? display : join(root, display);
-			const { bytes, size } = await readBytes(abs, display, config.maxFileBytes);
-			let text: string;
-			try {
-				text = await format.extract(bytes);
-			} catch (error) {
-				if (error instanceof XlsxUnavailableError) throw new Error(xlsxMissingGuidance());
-				throw error;
-			}
+			const size = await statFile(abs, display, config.maxFileBytes);
+			const text = await format.extract({ path: abs, signal }, cli);
 
 			const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
 			const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxChars;

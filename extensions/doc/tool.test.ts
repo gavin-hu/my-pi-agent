@@ -1,17 +1,15 @@
-import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { setDocxExtractorForTests } from "./extract/docx.ts";
-import { setPdfExtractorForTests } from "./extract/pdf.ts";
-import { setXlsxExtractorForTests, setXlsxLoaderForTests, XlsxUnavailableError } from "./extract/xlsx.ts";
 import { registerDocTool, TOOL_NAME } from "./tool.ts";
-import { ansiTheme, fakeTheme, createFakePi } from "../../test/helpers/fakes.ts";
+import { ansiTheme, fakeTheme, createFakePi, type FakePiOptions } from "../../test/helpers/fakes.ts";
 import { makeDocFixture } from "../../test/helpers/fixtures/doc.ts";
 import { tempDir, useEnv } from "../../test/helpers/env.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 
 type AnyFn = (...args: any[]) => any;
 type Tool = { execute: AnyFn; renderCall: AnyFn; renderResult: AnyFn };
+type ExecFn = NonNullable<FakePiOptions["exec"]>;
 
 const fixture = makeDocFixture();
 const agentDir = tempDir("doc-tool-agent-");
@@ -27,15 +25,16 @@ beforeEach(() => {
 	useEnv({ PI_CODING_AGENT_DIR: agentDir, PI_WORKTREE_ROOT: undefined });
 });
 
-afterEach(() => {
-	setPdfExtractorForTests(undefined);
-	setDocxExtractorForTests(undefined);
-	setXlsxExtractorForTests(undefined);
-	setXlsxLoaderForTests(undefined);
-});
+/** An exec stub that answers each CLI subcommand by `<command> <first arg>`. */
+function cliExec(responses: Record<string, { stdout?: string; stderr?: string; code?: number }>): ExecFn {
+	return async (command, args) => {
+		const response = responses[`${command} ${args[0]}`] ?? { code: 1, stderr: "" };
+		return { stdout: response.stdout ?? "", stderr: response.stderr ?? "", code: response.code ?? 0, killed: false };
+	};
+}
 
-function installTool(): Tool {
-	const { pi, tools } = createFakePi();
+function installTool(exec?: ExecFn): Tool {
+	const { pi, tools } = createFakePi({ exec });
 	registerDocTool(pi);
 	return tools.get(TOOL_NAME) as Tool;
 }
@@ -63,10 +62,10 @@ function docResult(overrides: Record<string, unknown>): any {
 
 describe("read_doc tool", () => {
 	test("extracts a PDF and returns matching structuredContent", async () => {
-		setPdfExtractorForTests(async () => "hello world");
 		fixture.write("a.pdf", "bytes");
+		const tool = installTool(cliExec({ "pdfcraft-cli text": { stdout: "hello world\n" } }));
 
-		const result = await installTool().execute("call-1", { path: "a.pdf" }, undefined, undefined, ctxFor(fixture.root));
+		const result = await tool.execute("call-1", { path: "a.pdf" }, undefined, undefined, ctxFor(fixture.root));
 		expect(result.content[0].text).toContain("hello world");
 		expect(result.details).toMatchObject({
 			path: "a.pdf",
@@ -78,27 +77,26 @@ describe("read_doc tool", () => {
 		expect(result.structuredContent).toEqual(result.details);
 	});
 
-	test("extracts an XLSX and returns matching structuredContent", async () => {
-		setXlsxExtractorForTests(async () => "[Sheet1]\na\tb");
+	test("extracts an XLSX through gridcraft-cli and returns matching structuredContent", async () => {
 		fixture.write("a.xlsx", "bytes");
-
-		const result = await installTool().execute(
-			"call-1",
-			{ path: "a.xlsx" },
-			undefined,
-			undefined,
-			ctxFor(fixture.root),
+		const tool = installTool(
+			cliExec({
+				"gridcraft-cli info": { stdout: JSON.stringify({ sheets: [{ name: "Sheet1", usedRange: "A1:B1" }] }) },
+				"gridcraft-cli cat": { stdout: "a,b\n" },
+			}),
 		);
+
+		const result = await tool.execute("call-1", { path: "a.xlsx" }, undefined, undefined, ctxFor(fixture.root));
 		expect(result.content[0].text).toContain("[Sheet1]");
 		expect(result.details).toMatchObject({ path: "a.xlsx", format: "xlsx", bytes: 5 });
 		expect(result.structuredContent).toEqual(result.details);
 	});
 
 	test("pages with startIndex and maxChars", async () => {
-		setPdfExtractorForTests(async () => "x".repeat(250));
 		fixture.write("paged.pdf", "x");
+		const tool = installTool(cliExec({ "pdfcraft-cli text": { stdout: `${"x".repeat(250)}\n` } }));
 
-		const result = await installTool().execute(
+		const result = await tool.execute(
 			"call-1",
 			{ path: "paged.pdf", startIndex: 0, maxChars: 200 },
 			undefined,
@@ -128,15 +126,22 @@ describe("read_doc tool", () => {
 		).rejects.toThrow(/convert it to \.xlsx/);
 	});
 
-	test("guides the model to ask before installing a missing XLSX reader", async () => {
-		setXlsxLoaderForTests(async () => {
-			throw new XlsxUnavailableError("XLSX extraction requires the 'read-excel-file' package.");
-		});
+	test("names the install command when the CLI is missing", async () => {
 		fixture.write("missing.xlsx", "bytes");
+		const tool = installTool(cliExec({}));
 
 		await expect(
-			installTool().execute("call-1", { path: "missing.xlsx" }, undefined, undefined, ctxFor(fixture.root)),
-		).rejects.toThrow(/ask_user_question/);
+			tool.execute("call-1", { path: "missing.xlsx" }, undefined, undefined, ctxFor(fixture.root)),
+		).rejects.toThrow(/cargo install --git https:\/\/github\.com\/storytold\/gridcraft gridcraft-cli/);
+	});
+
+	test("surfaces a CLI error message", async () => {
+		fixture.write("bad.pdf", "bytes");
+		const tool = installTool(cliExec({ "pdfcraft-cli text": { code: 1, stderr: "pdfcraft-cli: bad file" } }));
+
+		await expect(
+			tool.execute("call-1", { path: "bad.pdf" }, undefined, undefined, ctxFor(fixture.root)),
+		).rejects.toThrow(/bad file/);
 	});
 
 	test("rejects a format disabled in doc.json", async () => {
@@ -144,11 +149,10 @@ describe("read_doc tool", () => {
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
 		writeFileSync(join(cwd, ".pi", "doc.json"), JSON.stringify({ formats: { pdf: false } }));
 		writeFileSync(join(cwd, "a.pdf"), "x");
-		setPdfExtractorForTests(async () => "text");
 
-		await expect(installTool().execute("call-1", { path: "a.pdf" }, undefined, undefined, ctxFor(cwd))).rejects.toThrow(
-			/disabled in doc\.json/,
-		);
+		await expect(
+			installTool(cliExec({})).execute("call-1", { path: "a.pdf" }, undefined, undefined, ctxFor(cwd)),
+		).rejects.toThrow(/disabled in doc\.json/);
 	});
 
 	test("rejects a file larger than the configured limit", async () => {
