@@ -9,20 +9,26 @@
 
 import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
 
-/** Leading glyphs for status chips and footer segments. */
+/**
+ * Leading glyphs for status chips and footer segments.
+ *
+ * Only non-ambiguous (`East_Asian_Width=N`) and non-emoji glyphs, so a chip is
+ * one column wide in every terminal profile.
+ */
 export const GLYPHS = {
 	branch: "⎇",
 	detached: "⚠",
 	worktree: "⑂",
 	rewind: "↺",
-	plan: "≡",
+	plan: "⋮",
 	jobsRunning: "▸",
 	jobsFailure: "✗",
-	serve: "⊙",
+	serve: "◉",
 	wechat: "✆",
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
+	keepAwake: "✦",
 } as const;
 
 /** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */
@@ -46,6 +52,7 @@ export const STATUS_KEYS = {
 	serve: "serve",
 	rewind: "rewind",
 	wechat: "wechat",
+	keepAwake: "keep-awake",
 } as const;
 
 /**

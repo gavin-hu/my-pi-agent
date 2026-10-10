@@ -66,7 +66,9 @@
       "./extensions/memory/index.ts",
       "./extensions/wechat/index.ts",
       "./extensions/status-bar/index.ts",
-      "./extensions/turn-separator/index.ts"
+      "./extensions/turn-separator/index.ts",
+      "./extensions/keep-awake/index.ts",
+      "./extensions/extensions-manager/index.ts"
     ],
     "themes": [
       "./themes/*.json"

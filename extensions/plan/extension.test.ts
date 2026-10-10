@@ -5,6 +5,7 @@ import { SubagentParams } from "../../extensions/subagent/schema.ts";
 import { emitCollect as emit } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import { fakeCtx, makeFakePi, planModeMessage, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { otherMessage } from "../../test/helpers/entries.ts";
 
@@ -47,7 +48,7 @@ describe("plan-mode session state", () => {
 		const { fakePi, statusCalls } = await enabledPi();
 		expect(fakePi.activeTools()).not.toContain("write");
 		expect(fakePi.activeTools()).toContain(EXIT_TOOL);
-		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: "≡ plan" });
+		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: `${GLYPHS.plan} plan` });
 	});
 
 	test("starts in plan mode with the --plan flag", async () => {

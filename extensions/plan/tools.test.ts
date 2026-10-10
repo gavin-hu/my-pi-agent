@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 
 function repoExec(root: string) {
@@ -128,7 +129,7 @@ describe("write_plan", () => {
 		expect(details.bytes).toBeGreaterThan(0);
 		expect(result.content[0].text).toContain(details.path);
 		expect(runtime.lastPlanPath()).toBe(details.path);
-		expect(String(statusCalls.at(-1)?.text)).toContain("≡ plan");
+		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan`);
 	});
 
 	test("reports a write failure as an error result", async () => {
@@ -356,7 +357,7 @@ describe("exit_plan_mode", () => {
 		expect(result.details.approved).toBe(true);
 		expect(customCalls).toEqual([]);
 		// The plan file is sent before the choices.
-		expect(files).toEqual([{ path: planPath, name: planPath.split(/[\\/]/).pop() }]);
+		expect(files).toEqual([{ path: planPath, name: basename(planPath) }]);
 	});
 
 	test("falls back to the plan text when the file cannot be sent", async () => {

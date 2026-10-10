@@ -54,12 +54,14 @@ and command surface, the Pi integration contract, and design notes.
 | Extension | [`extensions/subagent/`](./extensions/subagent/) | `subagent`: delegate a task to a specialized agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) running in its own `pi` process — single, parallel (max 8/4), or chained via `{previous}`, with optional user/project markdown agents and a `readOnly` mode that passes only reader tools to the child. |
 | Extension | [`extensions/job/`](./extensions/job/) | `job`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸ N` running / `✗ N` unreported-failure chips) with sanitized log tails and shutdown/reconcile lifecycle. |
 | Extension | [`extensions/web-access/`](./extensions/web-access/) | `web-access`: web access with two tools — `web_search` (general web search through a pluggable provider: keyless DuckDuckGo by default, optional SearXNG or Brave) and `web_fetch` (GET/POST a URL and read readable text, with paging, `find`, per-hop SSRF checks, and optional PDF/JS support); native `fetch`, one `web-access.json`. |
-| Extension | [`extensions/file-browser/`](./extensions/file-browser/) | `file-browser`: `/serve` starts a read-only local HTTP server on a stable port for the session, rooted at the working directory, and opens a two-pane browser tree — listings, file views, image thumbnails, per-language icons, and a filter; `127.0.0.1` only, no dependencies, with a `⊙ <port>` status chip. |
+| Extension | [`extensions/file-browser/`](./extensions/file-browser/) | `file-browser`: `/serve` starts a read-only local HTTP server on a stable port for the session, rooted at the working directory, and opens a two-pane browser tree — listings, file views, image thumbnails, per-language icons, and a filter; `127.0.0.1` only, no dependencies, with a `◉ <port>` status chip. |
 | Extension | [`extensions/doc/`](./extensions/doc/) | `doc`: `read_doc` extracts plain text from a local PDF, DOCX, or XLSX (optional, lazily loaded `unpdf` / `mammoth`; XLSX uses `read-excel-file`, installed with the package), paged with `startIndex`/`maxChars` and confined to the effective working directory. |
 | Extension | [`extensions/memory/`](./extensions/memory/) | `memory`: durable cross-session notes as human-editable markdown — global under the agent directory, project under the repo root's `.pi/` — added, forgotten, or listed with the `memory` tool, injected as a hidden `[MEMORY]` context before each run, and inspected, edited, or cleared with `/memory`. |
 | Extension | [`extensions/wechat/`](./extensions/wechat/) | `wechat`: a thin bridge to WeChat over the Weixin iLink bot API — the live Pi session is the agent, so inbound text, images (as model image content), and files (saved and referenced by path) become a user turn and the reply is sent back, with a typing indicator; `/wechat login\|start\|stop\|status\|logout` and the owner-only `send_wechat` tool. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + session name + git branch/worktree + serve chip, then context gauge + usage + mode/alert + model + thinking level; width-adaptive, `/status-bar` toggles it. |
 | Extension | [`extensions/turn-separator/`](./extensions/turn-separator/) | `turn-separator`: a labeled dashed line between completed turns — `agent_settled` appends an inert custom entry that an entry renderer draws as `╌╌╌ turn N ╌╌╌`; width-adaptive, TTY-only. |
+| Extension | [`extensions/keep-awake/`](./extensions/keep-awake/) | `keep-awake`: hold a transient OS inhibitor (`caffeinate` / `systemd-inhibit` / `SetThreadExecutionState`) so the machine does not sleep — `auto` (agent runs only) or `always`, `/keep-awake on\|off\|auto\|status`, and a `✦` status chip. |
+| Extension | [`extensions/extensions-manager/`](./extensions/extensions-manager/) | `extensions-manager`: `/extensions` lists every resolved Pi extension across all configured packages and enables or disables one (Global or Project settings) by writing `settings.json`; changes apply on reload. |
 | Theme | [`themes/nocturne-dark.json`](./themes/nocturne-dark.json) | `nocturne-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
 | Theme | [`themes/nocturne-light.json`](./themes/nocturne-light.json) | `nocturne-light`: the light companion (white canvas, GitHub light accents), for `nocturne-light/nocturne-dark` auto-switching. |
 
@@ -94,10 +96,11 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 Names are the extension directories under [`extensions/`](./extensions/)
 (`worktree`, `rewind`, `ask-user-question`, `todo`, `goal`, `plan`, `subagent`,
 `job`, `web-access`, `file-browser`, `doc`, `memory`, `status-bar`,
-`turn-separator`), compared case-insensitively; unknown names are ignored. This
-is a package-local switch: Pi still imports each entrypoint, but a disabled
-factory registers nothing. To drop the whole package instead, use Pi's own
-`--no-extensions` or a settings `-path` entry.
+`turn-separator`, `keep-awake`, `extensions-manager`), compared
+case-insensitively; unknown names are ignored. This is a package-local switch:
+Pi still imports each entrypoint, but a disabled factory registers nothing. To
+drop the whole package instead, use Pi's own `--no-extensions` or a settings
+`-path` entry.
 
 ## Development
 

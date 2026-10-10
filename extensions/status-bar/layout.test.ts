@@ -4,6 +4,7 @@ import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { fullSnapshot } from "../../test/helpers/fixtures/status-bar.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 
 describe("renderLine", () => {
 	test("fills the width and right-aligns the right zone", () => {
@@ -21,7 +22,7 @@ describe("renderLine", () => {
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(visibleWidth(rendered)).toBeLessThanOrEqual(100);
-		for (const text of ["≡ plan", "62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
+		for (const text of [`${GLYPHS.plan} plan`, "62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
 			expect(rendered).toContain(text);
 		}
 	});
@@ -58,7 +59,7 @@ describe("renderLine", () => {
 			for (const line of [line1, line2]) {
 				const rendered = renderLine(line, width, fakeTheme);
 				expect(visibleWidth(rendered)).toBeLessThanOrEqual(width);
-				expect(rendered).not.toMatch(/%[≡⑂⎇⚠]/);
+				expect(rendered).not.toMatch(/%[⋮⑂⎇⚠]/);
 				expect(rendered).not.toMatch(/\S│|│\S/);
 			}
 		}
@@ -81,7 +82,7 @@ describe("renderLine", () => {
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(rendered.startsWith("▰")).toBe(true);
-		expect(rendered).toContain(" │ ≡ plan");
+		expect(rendered).toContain(` │ ${GLYPHS.plan} plan`);
 	});
 
 	test("has no separator when there is no mode slot", () => {

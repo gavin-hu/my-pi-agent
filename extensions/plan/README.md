@@ -75,8 +75,8 @@ already runs read-only:
 `/plan <prompt>` never disables plan mode; only the argument-less `/plan` (or
 `Ctrl+Alt+P`) toggles. Because slash commands go through Pi directly, `/plan` is
 the toggle that works in every terminal (for example Zed's integrated terminal,
-which does not forward `Ctrl+Alt+P`). The footer shows `≡ plan` while plan mode
-is on, and `≡ plan · <plan-file>` once the model has written a plan.
+which does not forward `Ctrl+Alt+P`). The footer shows `⋮ plan` while plan mode
+is on, and `⋮ plan · <plan-file>` once the model has written a plan.
 
 ## Behaviour by mode
 

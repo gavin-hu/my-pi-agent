@@ -1,7 +1,7 @@
 /**
  * Turn a `StatusSnapshot` into the two footer lines.
  *
- * Line 1 — identity: left `pwd`, right `⎇ branch · ⑂ worktree · ⊙ serve`.
+ * Line 1 — identity: left `pwd`, right `⎇ branch · ⑂ worktree · ◉ serve`.
  * Line 2 — resources: left the plan/alert statuses then the context gauge and
  * usage meters, right the model and thinking level.
  *
