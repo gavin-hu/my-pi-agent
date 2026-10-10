@@ -138,10 +138,12 @@ the changelog section.
    git push origin main && git push origin vX.Y.Z
    ```
 
-6. Create the GitHub release with the changelog section as its body:
+6. Create the GitHub release with that changelog section (heading included) as
+   its body:
 
    ```bash
-   gh release create vX.Y.Z --title X.Y.Z --notes-file <section.md>
+   awk -v h='## [X.Y.Z]' 'index($0,h){p=1} p && /^## \[/ && !index($0,h){exit} p' CHANGELOG.md > section.md
+   gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
    ```
 
 GitHub marks the release created last as "Latest", so after publishing an older
