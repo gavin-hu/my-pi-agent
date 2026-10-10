@@ -104,4 +104,20 @@ describe("failures", () => {
 		expect(children).toHaveLength(0);
 		expect(runtime.status().unavailable).toBe("no keep-awake command for freebsd");
 	});
+
+	test("an inhibitor that exits on its own clears the chip and is not retried", async () => {
+		const { runtime, ctx, children } = makeHarness({ script: (child) => child.close(0) });
+		runtime.start(ctx);
+		runtime.agentStart(ctx);
+		expect(runtime.status().active).toBe(true);
+		await settle();
+
+		expect(runtime.status().active).toBe(false);
+		expect(runtime.status().unavailable).toBe("keep-awake inhibitor exited unexpectedly (code 0)");
+		expect(ctx.statuses.has(STATUS_KEYS.keepAwake)).toBe(false);
+
+		runtime.agentSettled(ctx);
+		runtime.agentStart(ctx);
+		expect(children).toHaveLength(1);
+	});
 });

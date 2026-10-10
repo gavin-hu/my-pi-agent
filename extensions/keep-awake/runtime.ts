@@ -109,15 +109,20 @@ export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRunti
 			unavailable = `no keep-awake command for ${platform}`;
 			return;
 		}
+		// A spawn error (missing binary) or an unexplained exit means the
+		// inhibitor is not holding; record it and stop retrying for the session.
+		const fail = (spawned: SpawnedProcess, reason: string): void => {
+			if (child !== spawned) return;
+			child = undefined;
+			unavailable = reason;
+			publish(ctx);
+		};
 		try {
 			const spawned = spawn(command, { cwd: process.cwd() });
-			// A binary that cannot start (for example a non-systemd Linux host)
-			// reports the failure here; stop retrying for the session.
-			spawned.on("error", (error: Error) => {
-				if (child !== spawned) return;
-				child = undefined;
-				unavailable = error.message;
-				publish(ctx);
+			spawned.on("error", (error: Error) => fail(spawned, error.message));
+			spawned.on("close", (code: number | null, signal: NodeJS.Signals | null) => {
+				const detail = signal ? `signal ${signal}` : `code ${code ?? "unknown"}`;
+				fail(spawned, `keep-awake inhibitor exited unexpectedly (${detail})`);
 			});
 			child = spawned;
 		} catch (error) {

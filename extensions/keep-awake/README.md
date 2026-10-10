@@ -22,8 +22,9 @@ pi install ./                            # install the package
   `session_shutdown`.
 - Releases the inhibitor and clears the chip on shutdown; teardown is
   idempotent and each command also self-terminates when Pi exits.
-- Records why it could not start (an unsupported platform or a missing binary)
-  and stays inert instead of failing the session.
+- Records why it could not start (an unsupported platform, a missing binary,
+  or an inhibitor that exits on its own) and stays inert instead of failing the
+  session or retrying.
 
 ## Commands
 
@@ -95,6 +96,10 @@ values override global ones, and missing or malformed files are ignored.
   -w`, the Linux `kill -0` loop, the PowerShell `Get-Process` loop), so a hard
   crash does not leave the machine pinned awake, even before `session_shutdown`
   runs.
+- **The chip follows the process, not intent.** The runtime observes the
+  child's `error`/`close` events, so a binary that never starts or an inhibitor
+  that dies on its own clears the chip and is reported instead of leaving a
+  stale `✦` (and is not respawned, to avoid a retry loop).
 - **Pure command builders.** `inhibitor.ts` turns a platform and two options
   into a command string with no side effects, so every platform path — including
   Windows' UTF-16LE `-EncodedCommand` — is unit-tested without a process.
