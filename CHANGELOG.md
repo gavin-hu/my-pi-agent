@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `keep-awake`: hold a transient OS inhibitor while Pi works so the machine does
+  not sleep mid-run. `caffeinate` on macOS, `systemd-inhibit` on Linux, and
+  `SetThreadExecutionState` on Windows, each self-terminating when Pi exits.
+  `auto` (the default) engages only between `agent_start` and `agent_settled`,
+  `always` keeps the whole session awake, and `/keep-awake on|off|auto|status`
+  overrides it per session. Shows a `✦` status chip while held; configured
+  through `keep-awake.json` (`mode`, `keepDisplay`).
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

@@ -25,6 +25,7 @@ const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index
 const docExtensionPath = join(repo, "extensions", "doc", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
+const keepAwakeExtensionPath = join(repo, "extensions", "keep-awake", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Point every extension's config at the temp agent dir. `lib/config.ts` reads
@@ -70,6 +71,7 @@ const loader = new DefaultResourceLoader({
 		docExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
+		keepAwakeExtensionPath,
 	],
 });
 await loader.reload();
@@ -303,6 +305,10 @@ const separatorLine = separatorRenderer?.(
 	{ fg: (_color: string, text: string) => text },
 )?.render(40)[0];
 check("turn-separator renders a labeled line", !!separatorLine?.includes("turn 3"));
+
+// keep-awake loads headlessly and registers its command; the default auto mode
+// starts no inhibitor without an agent run.
+check("keep-awake command registered", !!runner.getCommand("keep-awake"));
 
 const exited = await call("exit_worktree", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;

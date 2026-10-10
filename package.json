@@ -61,6 +61,7 @@
       "./extensions/doc/index.ts",
       "./extensions/status-bar/index.ts",
       "./extensions/turn-separator/index.ts",
+      "./extensions/keep-awake/index.ts",
       "./extensions/extensions-manager/index.ts"
     ],
     "themes": [

@@ -14,6 +14,7 @@ import {
 	thinkingColor,
 	truncateLabel,
 } from "./format.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 
 describe("formatTokens", () => {
 	test("scales across the thresholds", () => {
@@ -134,13 +135,13 @@ describe("sanitize", () => {
 
 describe("stripAnsi", () => {
 	test("removes SGR escapes but keeps the text", () => {
-		expect(stripAnsi("\x1b[33m≡ plan\x1b[39m")).toBe("≡ plan");
+		expect(stripAnsi(`\x1b[33m${GLYPHS.plan} plan\x1b[39m`)).toBe(`${GLYPHS.plan} plan`);
 	});
 });
 
 describe("compactStatus", () => {
 	test("keeps only the icon of an icon+label status", () => {
-		expect(compactStatus("≡ plan")).toBe("≡");
+		expect(compactStatus(`${GLYPHS.plan} plan`)).toBe(GLYPHS.plan);
 	});
 
 	test("keeps the count of an icon+count badge", () => {
@@ -153,18 +154,20 @@ describe("compactStatus", () => {
 	});
 
 	test("does not mistake a numeric label for a count", () => {
-		expect(compactStatus("≡ plan · 2024")).toBe("≡");
+		expect(compactStatus(`${GLYPHS.plan} plan · 2024`)).toBe(GLYPHS.plan);
 	});
 });
 
 describe("dropStatusDetail", () => {
 	test("removes a trailing detail but keeps leading styling", () => {
-		expect(dropStatusDetail("≡ plan · add-rate-limiting")).toBe("≡ plan");
-		expect(dropStatusDetail("\x1b[33m≡ plan · add-rate-limiting\x1b[39m")).toBe("\x1b[33m≡ plan\x1b[39m");
+		expect(dropStatusDetail(`${GLYPHS.plan} plan · add-rate-limiting`)).toBe(`${GLYPHS.plan} plan`);
+		expect(dropStatusDetail(`\x1b[33m${GLYPHS.plan} plan · add-rate-limiting\x1b[39m`)).toBe(
+			`\x1b[33m${GLYPHS.plan} plan\x1b[39m`,
+		);
 	});
 
 	test("leaves a status without detail untouched", () => {
-		expect(dropStatusDetail("≡ plan")).toBe("≡ plan");
+		expect(dropStatusDetail(`${GLYPHS.plan} plan`)).toBe(`${GLYPHS.plan} plan`);
 		expect(dropStatusDetail("↺ 2")).toBe("↺ 2");
 	});
 });

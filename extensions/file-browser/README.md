@@ -48,7 +48,7 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 
 ### Status
 
-While a server is running, the extension publishes a two-tone `⊙ <port>` chip
+While a server is running, the extension publishes a two-tone `◉ <port>` chip
 (a green circle-dot and a blue port) under the shared `serve` status key. The
 [`status-bar`](../status-bar/) extension routes it to line 1's right zone
 beside `⎇ branch` and `⑂ worktree`; it
