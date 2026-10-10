@@ -22,6 +22,7 @@ export const GLYPHS = {
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
+	keepAwake: "✦",
 } as const;
 
 /** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */
@@ -44,6 +45,7 @@ export const STATUS_KEYS = {
 	jobsFailure: "jobs-failure",
 	serve: "serve",
 	rewind: "rewind",
+	keepAwake: "keep-awake",
 } as const;
 
 /**

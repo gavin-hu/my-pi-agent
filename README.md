@@ -35,6 +35,7 @@ only for the development tasks below.
 | Extension | [`extensions/doc/`](./extensions/doc/) | `doc`: `read_doc` extracts plain text from a local PDF or DOCX (optional, lazily loaded `unpdf` / `mammoth`), paged with `startIndex`/`maxChars` and confined to the effective working directory. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + git state + serve chip, then context gauge + usage + mode/alert + model + thinking level; width-adaptive, `/status-bar` toggles it. |
 | Extension | [`extensions/turn-separator/`](./extensions/turn-separator/) | `turn-separator`: a labeled dashed line between completed turns — `agent_settled` appends an inert custom entry that an entry renderer draws as `╌╌╌ turn N ╌╌╌`; width-adaptive, TTY-only. |
+| Extension | [`extensions/keep-awake/`](./extensions/keep-awake/) | `keep-awake`: hold a transient OS inhibitor (`caffeinate` / `systemd-inhibit` / `SetThreadExecutionState`) so the machine does not sleep — `auto` (agent runs only) or `always`, `/keep-awake on\|off\|auto\|status`, and a `✦` status chip. |
 | Theme | [`themes/nocturne-dark.json`](./themes/nocturne-dark.json) | `nocturne-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
 | Theme | [`themes/nocturne-light.json`](./themes/nocturne-light.json) | `nocturne-light`: the light companion (white canvas, GitHub light accents), for `nocturne-light/nocturne-dark` auto-switching. |
 
@@ -64,7 +65,8 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 
 Names are the extension directories under [`extensions/`](./extensions/)
 (`worktree`, `rewind`, `ask-user-question`, `todo`, `goal`, `plan`, `subagent`,
-`job`, `web-access`, `file-browser`, `doc`, `status-bar`, `turn-separator`),
+`job`, `web-access`, `file-browser`, `doc`, `status-bar`, `turn-separator`,
+`keep-awake`),
 compared case-insensitively; unknown names are ignored. This is a package-local
 switch: Pi still imports each entrypoint, but a disabled factory registers
 nothing. To drop the whole package instead, use Pi's own `--no-extensions` or a
