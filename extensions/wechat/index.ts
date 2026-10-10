@@ -13,6 +13,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { releaseWakeHold, requestWakeHold } from "../../lib/wake-hold.ts";
 import { createBridge, type Bridge } from "./bridge.ts";
 import { createFetchRunner, WechatClient } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";
@@ -25,6 +26,9 @@ import { registerTools } from "./tools.ts";
 
 export default function wechat(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("wechat")) return;
+
+	/** Wake-hold owner id, so `keep-awake` can attribute and release this hold. */
+	const WAKE_HOLD_OWNER = "wechat";
 
 	let bridge: Bridge | undefined;
 	let ctxRef: ExtensionContext | undefined;
@@ -79,6 +83,11 @@ export default function wechat(pi: ExtensionAPI): void {
 				ctxRef?.ui.notify(message, kind);
 			},
 			onStateChange: (running) => {
+				// Keep the machine awake while the bridge polls, so a sleeping host does
+				// not silently stop receiving WeChat messages. Released on stop, expiry,
+				// and shutdown; `/keep-awake off` still wins.
+				if (running) requestWakeHold(pi, WAKE_HOLD_OWNER);
+				else releaseWakeHold(pi, WAKE_HOLD_OWNER);
 				const ui = ctxRef?.ui;
 				if (!ui) return;
 				try {
