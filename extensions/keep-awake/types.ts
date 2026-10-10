@@ -26,6 +26,8 @@ export interface KeepAwakeStatus {
 	override?: KeepAwakeOverride;
 	/** Host platform. */
 	platform: NodeJS.Platform;
+	/** Owners currently holding the machine awake through the wake-hold bus. */
+	holds: string[];
 	/** Why the inhibitor could not start, when it could not. */
 	unavailable?: string;
 }

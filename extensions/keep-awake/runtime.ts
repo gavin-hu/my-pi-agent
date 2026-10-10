@@ -2,10 +2,10 @@
  * keep-awake runtime: the state machine that decides when an OS inhibitor is
  * held, spawns it, and publishes the status chip.
  *
- * State comes from four signals — session active, agent running, the configured
- * mode, and the per-session override — and every transition calls `reconcile`,
- * which is idempotent. The status chip is derived from the runtime on each
- * reconcile; nothing else holds UI state.
+ * State comes from five signals — session active, agent running, the configured
+ * mode, the per-session override, and any external wake holds — and every
+ * transition calls `reconcile`, which is idempotent. The status chip is derived
+ * from the runtime on each reconcile; nothing else holds UI state.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -38,6 +38,8 @@ export interface KeepAwakeRuntime {
 	agentSettled(ctx: ExtensionContext): void;
 	/** Set or clear the per-session command override, then reconcile. */
 	setOverride(override: KeepAwakeOverride | undefined, ctx: ExtensionContext): void;
+	/** Add or remove an external hold (for example the WeChat bridge), then reconcile. */
+	setHold(owner: string, held: boolean, ctx: ExtensionContext): void;
 	/** Current view, for the command. */
 	status(): KeepAwakeStatus;
 }
@@ -53,6 +55,9 @@ export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRunti
 	let sessionActive = false;
 	let agentRunning = false;
 	let override: KeepAwakeOverride | undefined;
+	// Owners asking for a wake hold over the bus; a Set keeps duplicate or
+	// replayed requests idempotent and stops one owner's release clearing another.
+	const holds = new Set<string>();
 	let child: SpawnedProcess | undefined;
 	let unavailable: string | undefined;
 
@@ -60,6 +65,7 @@ export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRunti
 		active: child !== undefined,
 		mode: config.mode,
 		override,
+		holds: [...holds],
 		platform,
 		unavailable,
 	});
@@ -68,6 +74,9 @@ export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRunti
 		if (!sessionActive || unavailable) return false;
 		if (override === "off") return false;
 		if (override === "on") return true;
+		// An external hold (e.g. the WeChat bridge polling) keeps the machine
+		// awake even in `auto` mode while the agent is idle.
+		if (holds.size > 0) return true;
 		return config.mode === "always" ? true : agentRunning;
 	};
 
@@ -147,12 +156,14 @@ export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRunti
 			sessionActive = true;
 			agentRunning = false;
 			override = undefined;
+			holds.clear();
 			unavailable = undefined;
 			reconcile(ctx);
 		},
 		stop: (ctx) => {
 			sessionActive = false;
 			agentRunning = false;
+			holds.clear();
 			release();
 			publish(ctx);
 		},
@@ -166,6 +177,11 @@ export function createKeepAwakeRuntime(deps: KeepAwakeDeps = {}): KeepAwakeRunti
 		},
 		setOverride: (value, ctx) => {
 			override = value;
+			reconcile(ctx);
+		},
+		setHold: (owner, held, ctx) => {
+			if (held) holds.add(owner);
+			else holds.delete(owner);
 			reconcile(ctx);
 		},
 	};
