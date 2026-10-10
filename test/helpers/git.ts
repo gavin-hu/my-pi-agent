@@ -2,8 +2,10 @@
  * Shared git test helpers.
  *
  * `execP` is a promise wrapper around `execFile` that resolves with the exit
- * code instead of rejecting, so tests can run real git commands. `makeRepo`
- * builds a temp repository with one commit; `cleanup` removes the temp dirs.
+ * code instead of rejecting, so tests can run real git commands. It rejects only
+ * when a call stops settling at all, which the watchdog turns into a named
+ * failure. `makeRepo` builds a temp repository with one commit; `cleanup`
+ * removes the temp dirs.
  *
  * Extracted from the worktree suite so the rewind suite can share it.
  */
@@ -19,6 +21,14 @@ export interface ExecResult {
 	code: number;
 	killed: boolean;
 }
+
+/**
+ * Backstop budget for one git invocation, kept well under the suite's 30s
+ * per-test timeout so a lost subprocess exit notification surfaces as this
+ * helper's error rather than a bare test timeout. Far above any real git call
+ * in these tests, which run on throwaway temp repos.
+ */
+const EXEC_WATCHDOG_MS = 20_000;
 
 /**
  * Applied to every git command the helpers and tests run: a fixed committer
@@ -43,7 +53,9 @@ export function execP(
 	args: string[],
 	options?: { cwd?: string; timeout?: number; env?: Record<string, string | undefined> },
 ): Promise<ExecResult> {
-	return new Promise((resolve) => {
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		let watchdog: ReturnType<typeof setTimeout> | undefined;
 		const child = execFile(
 			command,
 			args,
@@ -54,6 +66,9 @@ export function execP(
 				env: { ...process.env, ...BASE_GIT_ENV, ...(options?.env ?? {}) },
 			},
 			(error, stdout, stderr) => {
+				if (settled) return;
+				settled = true;
+				if (watchdog !== undefined) clearTimeout(watchdog);
 				const code = error
 					? typeof (error as { code?: unknown }).code === "number"
 						? (error as { code: number }).code
@@ -62,6 +77,23 @@ export function execP(
 				resolve({ stdout: stdout ?? "", stderr: stderr ?? "", code, killed: Boolean(child.killed) });
 			},
 		);
+		// Backstop for a lost subprocess exit notification: bun's `test --parallel`
+		// workers on macOS can drop the one-shot exit watch (oven-sh/bun#41024,
+		// #39709), which leaves the callback above unreached forever. Settle from
+		// here instead, so the failure names the command and says whether the child
+		// had already exited, rather than burning the whole per-test timeout.
+		watchdog = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			const exited = child.exitCode !== null || child.signalCode !== null;
+			child.kill("SIGKILL");
+			reject(
+				new Error(
+					`${command} ${args.join(" ")} did not settle within ${EXEC_WATCHDOG_MS}ms ` +
+						`(childExited=${exited}${exited ? ", the exit notification was lost" : ""})`,
+				),
+			);
+		}, EXEC_WATCHDOG_MS);
 	});
 }
 

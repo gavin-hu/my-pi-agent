@@ -114,7 +114,9 @@ and fails on:
 - `mock.module(` / `mock.restore(`;
 - `process.env.<NAME> =`, `process.env[NAME] =`, or `delete process.env.*`
   (reads are allowed);
-- `setTimeout(` / `setInterval(`;
+- `setTimeout(` / `setInterval(` — the one exception is the watchdog inside
+  `test/helpers/git.ts`'s `execP`, which bounds a single git call so a lost
+  subprocess exit notification (`oven-sh/bun#41024`) cannot hang a whole test;
 - `Date.now()` / `new Date(` used for assertions;
 - padding assertions — a string literal with three or more consecutive spaces
   passed to an assertion helper;
