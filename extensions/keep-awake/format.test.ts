@@ -5,6 +5,7 @@ import type { KeepAwakeStatus } from "./types.ts";
 const status = (overrides: Partial<KeepAwakeStatus> = {}): KeepAwakeStatus => ({
 	active: false,
 	mode: "auto",
+	holds: [],
 	platform: "darwin",
 	...overrides,
 });
@@ -17,6 +18,12 @@ describe("stateLabel", () => {
 
 	test("reports a forced-on override", () => {
 		expect(stateLabel(status({ override: "on" }))).toBe("on");
+	});
+
+	test("names a hold, which can keep the machine awake while idle in auto", () => {
+		expect(stateLabel(status({ holds: ["wechat"] }))).toBe("hold");
+		// A forced-on override still wins the label.
+		expect(stateLabel(status({ override: "on", holds: ["wechat"] }))).toBe("on");
 	});
 });
 
@@ -32,6 +39,10 @@ describe("statusNotice", () => {
 	test("reports an unavailable inhibitor instead", () => {
 		expect(statusNotice(status({ unavailable: "ENOENT" }))).toBe("keep-awake: unavailable (ENOENT).");
 	});
+
+	test("lists the owners holding the machine awake", () => {
+		expect(statusNotice(status({ active: true, holds: ["wechat", "job"] }))).toContain("holds wechat, job");
+	});
 });
 
 describe("overrideNotice", () => {
@@ -40,6 +51,10 @@ describe("overrideNotice", () => {
 		expect(overrideNotice("off", status())).toContain("may sleep");
 		expect(overrideNotice(undefined, status({ mode: "always" }))).toContain("for the session");
 		expect(overrideNotice(undefined, status({ mode: "auto" }))).toContain("only while the agent is working");
+	});
+
+	test("names the holders when a hold is why auto is awake", () => {
+		expect(overrideNotice(undefined, status({ holds: ["wechat"] }))).toContain("held by wechat");
 	});
 
 	test("reports an unavailable inhibitor instead", () => {

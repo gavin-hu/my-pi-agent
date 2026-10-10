@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { STATUS_KEYS } from "../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { releaseWakeHold, requestWakeHold } from "../../lib/wake-hold.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
@@ -73,6 +74,39 @@ describe("keep-awake extension", () => {
 		await emit(pi, "session_shutdown", { type: "session_shutdown", reason: "quit" }, ctx);
 		expect(kills).toHaveLength(1);
 		expect(ctx.statuses.has(STATUS_KEYS.keepAwake)).toBe(false);
+	});
+
+	test("an external wake hold keeps the machine awake while the agent is idle", async () => {
+		const { pi, children, kills } = setup();
+		const ctx = fakeCtx({ mode: "tui" }).ctx;
+		await emit(pi, "session_start", { type: "session_start", reason: "startup" }, ctx);
+		expect(children).toHaveLength(0);
+
+		requestWakeHold(pi, "wechat");
+		expect(children).toHaveLength(1);
+		expect(ctx.statuses.get(STATUS_KEYS.keepAwake)).toBe(`${GLYPHS.keepAwake} hold`);
+
+		releaseWakeHold(pi, "wechat");
+		expect(kills).toHaveLength(1);
+		expect(ctx.statuses.has(STATUS_KEYS.keepAwake)).toBe(false);
+	});
+
+	test("a wake hold is ignored before session_start and after shutdown", async () => {
+		const { pi, children, kills } = setup();
+		const ctx = fakeCtx({ mode: "tui" }).ctx;
+
+		requestWakeHold(pi, "wechat");
+		expect(children).toHaveLength(0);
+
+		await emit(pi, "session_start", { type: "session_start", reason: "startup" }, ctx);
+		requestWakeHold(pi, "wechat");
+		expect(children).toHaveLength(1);
+
+		await emit(pi, "session_shutdown", { type: "session_shutdown", reason: "quit" }, ctx);
+		expect(kills).toHaveLength(1);
+		// A late release from another extension must not touch a dead context.
+		releaseWakeHold(pi, "wechat");
+		expect(kills).toHaveLength(1);
 	});
 
 	test("loads project config from the session cwd", async () => {
