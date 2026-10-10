@@ -144,10 +144,12 @@ the changelog section.
    ```bash
    awk -v h='## [X.Y.Z]' 'index($0,h){p=1} p && /^## \[/ && !index($0,h){exit} p' CHANGELOG.md > section.md
    gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
+   rm section.md
    ```
 
-GitHub marks the release created last as "Latest", so after publishing an older
-version use `gh release edit vX.Y.Z --latest` on the newest tag.
+GitHub marks the release with the newest creation date as "Latest", so after
+creating a release for an older version use `gh release edit vX.Y.Z --latest`
+on the newest tag. Publishing a draft does not change which release is latest.
 
 ### Cross-platform
 
