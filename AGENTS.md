@@ -20,11 +20,13 @@ bun run test    # bun test --parallel=4 --timeout 30000
 - Run any test you add or change and iterate until it passes.
 - Do not commit unless the user asks.
 
-## Git workflow (protected `main`)
+## Git workflow (`main` treated as protected)
 
-`main` is protected against direct commits: never commit while it is checked
-out. Do all work on a branch in its own worktree, then merge that branch into
-`main`. A local merge into `main` is allowed; a pull request is optional.
+Treat `main` as protected against direct commits: never commit while it is
+checked out. This is a repository convention, not a GitHub branch rule, so
+nothing rejects a stray commit or push — the discipline is on the agent. Do all
+work on a branch in its own worktree, then merge that branch into `main`. A
+local merge into `main` is allowed; a pull request is optional.
 
 - Under Pi with this package loaded, use `enter_worktree <name>` and
   `exit_worktree`. Otherwise use
@@ -53,7 +55,8 @@ any other change:
    and `[Unreleased]` compares from `vX.Y.Z`.
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
-5. Tag the merge commit and push `main` with it:
+5. Tag `main`'s HEAD (the merge commit, or the branch tip when the merge
+   fast-forwards) and push `main` with it:
 
    ```bash
    git tag -a vX.Y.Z -m "vX.Y.Z"
@@ -67,9 +70,9 @@ any other change:
    gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
    ```
 
-GitHub marks the release created last as "Latest", so when an older version is
-published after a newer one, run `gh release edit vX.Y.Z --latest` on the newest
-tag.
+GitHub marks the release with the newest creation date as "Latest", so after
+creating a release for an older version, run `gh release edit vX.Y.Z --latest`
+on the newest tag. Publishing a draft does not change which release is latest.
 
 ## Invariants
 
