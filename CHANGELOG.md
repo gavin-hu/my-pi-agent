@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- The `keep-awake` extension. It held a transient OS inhibitor (`caffeinate` /
+  `systemd-inhibit` / `SetThreadExecutionState`) with a `/keep-awake` command and
+  a `✦` status chip; the feature is no longer used.
+- The `lib/wake-hold.ts` cross-extension wake-hold contract, along with the
+  holds the WeChat bridge announced on it — `keep-awake` was the only subscriber,
+  so the mechanism had nothing left to drive.
+
 ## [0.3.1] - 2026-10-10
 
 ### Removed

@@ -64,7 +64,6 @@
       "./extensions/wechat/index.ts",
       "./extensions/status-bar/index.ts",
       "./extensions/turn-separator/index.ts",
-      "./extensions/keep-awake/index.ts",
       "./extensions/extension-picker/index.ts"
     ],
     "themes": [

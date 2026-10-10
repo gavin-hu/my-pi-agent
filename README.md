@@ -60,7 +60,6 @@ and command surface, the Pi integration contract, and design notes.
 | Extension | [`extensions/wechat/`](./extensions/wechat/) | `wechat`: a thin bridge to WeChat over the Weixin iLink bot API — the live Pi session is the agent, so inbound text, images (as model image content), and files (saved and referenced by path) become a user turn and the reply is sent back, with a typing indicator; `/wechat login\|start\|stop\|status\|logout` and the owner-only `send_wechat` tool. |
 | Extension | [`extensions/status-bar/`](./extensions/status-bar/) | `status-bar`: a two-line colorful footer — pwd + session name + git branch/worktree + serve chip, then context gauge + usage + mode/alert + model + thinking level; width-adaptive, `/status-bar` toggles it. |
 | Extension | [`extensions/turn-separator/`](./extensions/turn-separator/) | `turn-separator`: a labeled dashed line between completed turns — `agent_settled` appends an inert custom entry that an entry renderer draws as `╌╌╌ turn N ╌╌╌`; width-adaptive, TTY-only. |
-| Extension | [`extensions/keep-awake/`](./extensions/keep-awake/) | `keep-awake`: hold a transient OS inhibitor (`caffeinate` / `systemd-inhibit` / `SetThreadExecutionState`) so the machine does not sleep — `auto` (agent runs only) or `always`, `/keep-awake on\|off\|auto\|status`, and a `✦` status chip. |
 | Extension | [`extensions/extension-picker/`](./extensions/extension-picker/) | `extension-picker`: `/extensions` lists every resolved Pi extension across all configured packages and enables or disables one (Global or Project settings) by writing `settings.json`; changes apply on reload. |
 | Theme | [`themes/nocturne-dark.json`](./themes/nocturne-dark.json) | `nocturne-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
 | Theme | [`themes/nocturne-light.json`](./themes/nocturne-light.json) | `nocturne-light`: the light companion (white canvas, GitHub light accents), for `nocturne-light/nocturne-dark` auto-switching. |
@@ -96,7 +95,7 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 Names are the extension directories under [`extensions/`](./extensions/)
 (`worktree`, `rewind`, `ask-user-question`, `todo`, `goal`, `plan`, `subagent`,
 `job`, `web-access`, `file-browser`, `document`, `memory`, `status-bar`,
-`turn-separator`, `keep-awake`, `extension-picker`), compared
+`turn-separator`, `extension-picker`), compared
 case-insensitively; unknown names are ignored. This is a package-local switch:
 Pi still imports each entrypoint, but a disabled factory registers nothing. To
 drop the whole package instead, use Pi's own `--no-extensions` or a settings
