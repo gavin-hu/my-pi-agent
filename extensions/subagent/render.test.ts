@@ -205,6 +205,19 @@ describe("renderSubagentResult", () => {
 		expect(text).toContain("12s");
 	});
 
+	test("the running glyph animates on the repaint clock", () => {
+		const running = single({ exitCode: -1, messages: [], startedAt: NOW });
+		const renderAt = (now: number) =>
+			render(renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false, now }, theme));
+		const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+		const first = renderAt(NOW);
+		const second = renderAt(NOW + 1000);
+		expect(first).not.toContain("⏳");
+		expect(frames.some((frame) => first.includes(frame))).toBe(true);
+		expect(frames.some((frame) => second.includes(frame))).toBe(true);
+		expect(first).not.toBe(second);
+	});
+
 	test("an in-flight streamed parallel task shows as running, not failed", () => {
 		const streaming = single({ agent: "explorer", exitCode: -1, messages: [assistantMessage("working")] });
 		const details: SubagentDetails = { mode: "parallel", results: [streaming, single({ agent: "planner" })] };

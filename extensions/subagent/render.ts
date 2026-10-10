@@ -49,12 +49,28 @@ function hasExpandableContent(items: DisplayItem[]): boolean {
 	);
 }
 
-const STATUS_META: Record<ResultStatus, { color: "warning" | "error" | "success"; glyph: string }> = {
-	running: { color: "warning", glyph: "⏳" },
-	aborted: { color: "warning", glyph: "⊘" },
-	failed: { color: "error", glyph: "✗" },
-	success: { color: "success", glyph: "✓" },
+/** Colours per status; the running glyph is time-based, so it is not a value here. */
+const STATUS_COLOR: Record<ResultStatus, "warning" | "error" | "success"> = {
+	running: "warning",
+	aborted: "warning",
+	failed: "error",
+	success: "success",
 };
+
+/** Static glyphs for terminal states. All narrow (East_Asian_Width=N), non-emoji. */
+const STATUS_GLYPH: Record<Exclude<ResultStatus, "running">, string> = {
+	aborted: "⊘",
+	failed: "✗",
+	success: "✓",
+};
+
+/** Braille frames are narrow and uncoloured, so the running row never shifts. */
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+
+/** The glyph for a status; the running glyph advances on the 1s repaint clock. */
+function statusGlyph(status: ResultStatus, now: number): string {
+	return status === "running" ? SPINNER_FRAMES[Math.floor(now / 1000) % SPINNER_FRAMES.length] : STATUS_GLYPH[status];
+}
 
 /** Classify a result. `isPartial` marks a still-streaming single result. */
 function resultStatus(result: SingleResult, isPartial = false): ResultStatus {
@@ -64,14 +80,13 @@ function resultStatus(result: SingleResult, isPartial = false): ResultStatus {
 	return "success";
 }
 
-function statusIcon(status: ResultStatus, theme: Theme): string {
-	const meta = STATUS_META[status];
-	return theme.fg(meta.color, meta.glyph);
+function statusIcon(status: ResultStatus, theme: Theme, now: number): string {
+	return theme.fg(STATUS_COLOR[status], statusGlyph(status, now));
 }
 
 /** The color the status uses, so the `[stopReason]` bracket matches its icon. */
 function statusColor(status: ResultStatus): "warning" | "error" | "success" {
-	return STATUS_META[status].color;
+	return STATUS_COLOR[status];
 }
 
 /** The message a failed/aborted result should show, falling back to stderr. */
@@ -169,7 +184,7 @@ function resultHeader(
 	stepPrefix: string,
 	now: number,
 ): string {
-	let header = `${statusIcon(status, theme)} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
+	let header = `${statusIcon(status, theme, now)} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
 	if (result.agentSource && result.agentSource !== "builtin" && result.agentSource !== "unknown") {
 		header += theme.fg("dim", ` [${result.agentSource}]`);
 	}
@@ -335,7 +350,7 @@ function summarizeResults(results: SingleResult[]) {
 }
 
 /** Shared header for parallel/chain results, with a failure count when present. */
-function multiHeader(details: SubagentDetails, theme: Theme): string {
+function multiHeader(details: SubagentDetails, theme: Theme, now: number): string {
 	const { running, failed, aborted, succeeded } = summarizeResults(details.results);
 	const total = details.total ?? details.results.length;
 	const noun = details.mode === "chain" ? "steps" : "tasks";
@@ -362,7 +377,7 @@ function multiHeader(details: SubagentDetails, theme: Theme): string {
 	const bad = failed + aborted;
 	const icon =
 		running > 0
-			? theme.fg("warning", "⏳")
+			? theme.fg("warning", statusGlyph("running", now))
 			: bad > 0
 				? theme.fg(bad === total ? "error" : "warning", bad === total ? "✗" : "◐")
 				: theme.fg("success", "✓");
@@ -372,7 +387,7 @@ function multiHeader(details: SubagentDetails, theme: Theme): string {
 function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number): string {
 	const results = details.results;
 	const { running } = summarizeResults(results);
-	let text = multiHeader(details, theme);
+	let text = multiHeader(details, theme, now);
 
 	let hasHidden = false;
 	for (let i = 0; i < results.length; i++) {
@@ -382,7 +397,7 @@ function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number)
 		if (isExpandable(result, status, displayItems)) hasHidden = true;
 		const taskText = result.taskTemplate ?? result.task;
 		const taskNote = taskText ? theme.fg("dim", ` ${clip(sanitize(taskText), 50)}`) : "";
-		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme)}`;
+		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
 		text += statusSuffix(result, status, theme, now);
 		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	}
@@ -396,7 +411,7 @@ function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number)
 
 function fillExpandedMulti(container: Container, details: SubagentDetails, theme: Theme, now: number): void {
 	const mdTheme = getMarkdownTheme();
-	container.addChild(new Text(multiHeader(details, theme), 0, 0));
+	container.addChild(new Text(multiHeader(details, theme, now), 0, 0));
 
 	for (const result of details.results) {
 		container.addChild(new Spacer(1));

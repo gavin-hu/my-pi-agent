@@ -16,15 +16,15 @@ pi install ./                            # install the package
 Two lines, each with a left and right zone:
 
 - **Line 1 — identity:** `pwd` and the session name on the left; git state
-  (`⎇ branch · ⑂ worktree`) and the `⊙` serve chip on the right.
+  (`⎇ branch · ⑂ worktree`) and the `◉` serve chip on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
-  mode/alert slot (`≡ plan`) trailing after a `│` when present; the model and
+  mode/alert slot (`⋮ plan`) trailing after a `│` when present; the model and
   thinking level on the right. The gauge is anchored at column 0, so `%` is
   always in the same place.
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87% │ ≡ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87% │ ⋮ plan    opus-4.5 · high
 ```
 
 With no plan mode there is no mode slot, so the `│` is omitted:
@@ -40,19 +40,19 @@ fits, rather than collapsing to a bare glyph:
 
 ```
 ~/repo/project                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62% · $0.31 │ ≡ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62% · $0.31 │ ⋮ plan    opus-4.5 · high
 ```
 
 ```
 project   ⎇ main
-62% ≡   opus-4.5
+62% ⋮   opus-4.5
 ```
 
 With a named session, the name follows the path and truncates before it drops:
 
 ```
 ~/repo/project · feature-refac…   ⎇ main
-▰▰▰▰▰▰▱▱▱▱ 62% │ ≡ plan         opus-4.5
+▰▰▰▰▰▰▱▱▱▱ 62% │ ⋮ plan         opus-4.5
 ```
 
 Zero-value meters are omitted, so a fresh session shows only `?/window` instead
@@ -101,9 +101,9 @@ icons, and status keys.
 The worktree status is read from the `worktree` status key, so the
 [worktree](../worktree/) extension and the bar agree. The serve chip is read
 from the `serve` status key published by [file-browser](../file-browser/) while
-its server runs, and shows the two-tone `⊙ <port>` (green glyph, accent port).
+its server runs, and shows the two-tone `◉ <port>` (green glyph, accent port).
 The trailing slot shows plan-style alerts when present and is omitted otherwise;
-a plan chip's trailing plan file name is dropped, so the slot reads `≡ plan`
+a plan chip's trailing plan file name is dropped, so the slot reads `⋮ plan`
 even though the built-in footer keeps the name. The slot trails the meters
 after a `│`, so the context gauge always starts the line.
 
@@ -143,7 +143,7 @@ rather than showing a wrong value.
   `setStatus` value on its own line; the bar splits them by meaning (`worktree`
   and `serve` are location, plan/alert is mode). This is why it must render
   `getExtensionStatuses()` at all.
-- **Serve joins the git state.** The `⊙ <port>` chip is routed beside `⎇` branch
+- **Serve joins the git state.** The `◉ <port>` chip is routed beside `⎇` branch
   and `⑂` worktree rather than after `pwd`, so the left zone stays the
   filesystem identity (path + session name) and every "where am I / what is
   running" fact sits on line 1 right.

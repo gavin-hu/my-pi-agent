@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "./runtime.ts";
 import { fakeCtx, makeFakePi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {
 	const fake = makeFakePi({
@@ -117,7 +118,7 @@ describe("plan runtime — persistence and status", () => {
 	test("toggles the footer status", () => {
 		const { runtime, ctx, statusCalls } = setup();
 		runtime.enable(ctx);
-		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: "≡ plan" });
+		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: `${GLYPHS.plan} plan` });
 		runtime.disable(ctx);
 		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: undefined });
 	});
@@ -167,7 +168,7 @@ describe("plan runtime — persistence and status", () => {
 		runtime.enable(ctx);
 		runtime.setLastPlan(ctx, "/repo/.pi/plans/2026-10-08-1530-add-rate-limiting.md");
 		expect(runtime.lastPlanPath()).toBe("/repo/.pi/plans/2026-10-08-1530-add-rate-limiting.md");
-		expect(String(statusCalls.at(-1)?.text)).toContain("≡ plan · 2026-10-08-1530-add-rate-li");
+		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan · 2026-10-08-1530-add-rate-li`);
 	});
 
 	test("recognizes only the known control tool names", () => {
