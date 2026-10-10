@@ -6,19 +6,13 @@
  * alone overflows, the text is truncated by code point so CJK stays well-formed.
  */
 
+import { charLength, truncateChars } from "../text.ts";
 import { providerLabel } from "./registry.ts";
 import type { SearchResponse } from "./schema.ts";
 
 export interface FormattedResults {
 	text: string;
 	truncated: boolean;
-}
-
-function truncateByCodePoint(text: string, maxChars: number): string {
-	const points = Array.from(text);
-	if (points.length <= maxChars) return text;
-	if (maxChars <= 1) return "…";
-	return `${points.slice(0, maxChars - 1).join("")}…`;
 }
 
 function headerFor(response: SearchResponse): string {
@@ -47,22 +41,23 @@ export function formatResults(response: SearchResponse, maxOutputChars: number):
 	});
 
 	const included: string[] = [];
-	let size = text.length + 2;
+	let size = charLength(text) + 2;
 	let dropped = false;
 	for (const block of blocks) {
-		if (included.length > 0 && size + block.length + 2 > maxOutputChars) {
+		const blockLength = charLength(block);
+		if (included.length > 0 && size + blockLength + 2 > maxOutputChars) {
 			dropped = true;
 			break;
 		}
 		included.push(block);
-		size += block.length + 2;
+		size += blockLength + 2;
 	}
 
 	text += `\n\n${included.join("\n\n")}`;
 	if (dropped) text += `\n\n(showing ${included.length} of ${blocks.length} results)`;
 
-	if (text.length > maxOutputChars) {
-		text = truncateByCodePoint(text, maxOutputChars);
+	if (charLength(text) > maxOutputChars) {
+		text = truncateChars(text, maxOutputChars);
 		dropped = true;
 	}
 

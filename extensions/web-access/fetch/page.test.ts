@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { DEFAULT_FETCH_CONFIG } from "./config.ts";
 import type { HttpResponse, HttpRunner } from "../http.ts";
 import { runFetch } from "./page.ts";
-import { setPdfExtractorForTests } from "./pdf.ts";
-import { setRendererForTests } from "./render.ts";
+import type { PdfExtractor } from "./pdf.ts";
+import type { Renderer } from "./render.ts";
 import type { FetchRequest } from "./types.ts";
 
 const config = { ...DEFAULT_FETCH_CONFIG, timeoutMs: 5000 };
@@ -50,10 +50,6 @@ function pdfResponse(): HttpResponse {
 		sizeBytes: bytes.length,
 		bytes,
 	};
-}
-
-function withPdfExtractor(extractor: (bytes: Uint8Array) => Promise<string>): void {
-	setPdfExtractorForTests(extractor);
 }
 
 describe("runFetch redirects", () => {
@@ -119,19 +115,17 @@ describe("runFetch redirects", () => {
 describe("runFetch PDF", () => {
 	const runner: HttpRunner = () => Promise.resolve(pdfResponse());
 
-	afterEach(() => setPdfExtractorForTests(undefined));
-
 	test("extracts PDF text with the injected extractor", async () => {
-		withPdfExtractor(async () => "PDF body");
-		const page = await runFetch("https://1.1.1.1/file.pdf", baseRequest(), config, undefined, { http: runner });
+		const pdf: PdfExtractor = async () => "PDF body";
+		const page = await runFetch("https://1.1.1.1/file.pdf", baseRequest(), config, undefined, { http: runner, pdf });
 		expect(page.text).toBe("PDF body");
 	});
 
 	test("falls back to a note when extraction fails", async () => {
-		withPdfExtractor(async () => {
+		const pdf: PdfExtractor = async () => {
 			throw new Error("no unpdf");
-		});
-		const page = await runFetch("https://1.1.1.1/file.pdf", baseRequest(), config, undefined, { http: runner });
+		};
+		const page = await runFetch("https://1.1.1.1/file.pdf", baseRequest(), config, undefined, { http: runner, pdf });
 		expect(page.text).toContain("PDF text extraction failed");
 		expect(page.text).toContain("no unpdf");
 	});
@@ -158,16 +152,15 @@ describe("runFetch JS rendering", () => {
 			sizeBytes: 70,
 		} satisfies HttpResponse);
 
-	afterEach(() => setRendererForTests(undefined));
-
 	test("renders when render is true", async () => {
 		let calls = 0;
-		setRendererForTests(async () => {
+		const render: Renderer = async () => {
 			calls++;
 			return { html: "<article><p>rendered body</p></article>" };
-		});
+		};
 		const page = await runFetch("https://1.1.1.1/start", baseRequest({ render: true }), config, undefined, {
 			http: runner,
+			render,
 		});
 		expect(calls).toBe(1);
 		expect(page.rendered).toBe(true);
@@ -175,54 +168,57 @@ describe("runFetch JS rendering", () => {
 	});
 
 	test("render false overrides renderJs always", async () => {
-		setRendererForTests(async () => {
+		const render: Renderer = async () => {
 			throw new Error("must not render");
-		});
+		};
 		const page = await runFetch(
 			"https://1.1.1.1/start",
 			baseRequest({ render: false }),
 			{ ...config, renderJs: "always" },
 			undefined,
-			{
-				http: runner,
-			},
+			{ http: runner, render },
 		);
 		expect(page.rendered).toBe(false);
 	});
 
 	test("auto renders a short page", async () => {
-		setRendererForTests(async () => ({ html: "<article><p>rendered body</p></article>" }));
+		const render: Renderer = async () => ({ html: "<article><p>rendered body</p></article>" });
 		const page = await runFetch("https://1.1.1.1/start", baseRequest(), { ...config, renderJs: "auto" }, undefined, {
 			http: runner,
+			render,
 		});
 		expect(page.rendered).toBe(true);
 	});
 
 	test("auto falls back to raw HTML when the renderer fails", async () => {
-		setRendererForTests(async () => {
+		const render: Renderer = async () => {
 			throw new Error("no playwright");
-		});
+		};
 		const page = await runFetch("https://1.1.1.1/start", baseRequest(), { ...config, renderJs: "auto" }, undefined, {
 			http: runner,
+			render,
 		});
 		expect(page.rendered).toBe(false);
 		expect(page.title).toBe("App");
 	});
 
 	test("always surfaces a renderer failure", async () => {
-		setRendererForTests(async () => {
+		const render: Renderer = async () => {
 			throw new Error("no playwright");
-		});
+		};
 		await expect(
-			runFetch("https://1.1.1.1/start", baseRequest(), { ...config, renderJs: "always" }, undefined, { http: runner }),
+			runFetch("https://1.1.1.1/start", baseRequest(), { ...config, renderJs: "always" }, undefined, {
+				http: runner,
+				render,
+			}),
 		).rejects.toThrow("no playwright");
 	});
 
 	test("never does not render", async () => {
-		setRendererForTests(async () => {
+		const render: Renderer = async () => {
 			throw new Error("must not render");
-		});
-		const page = await runFetch("https://1.1.1.1/start", baseRequest(), config, undefined, { http: runner });
+		};
+		const page = await runFetch("https://1.1.1.1/start", baseRequest(), config, undefined, { http: runner, render });
 		expect(page.rendered).toBe(false);
 	});
 });

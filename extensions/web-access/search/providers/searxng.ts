@@ -7,11 +7,11 @@
  * `search.endpoint`.
  */
 
-import { HttpUnavailableError, type HttpRunner } from "../../http.ts";
-import type { SearchProvider } from "../provider.ts";
+import type { HttpRunner } from "../../http.ts";
 import type { WebSearchConfig } from "../config.ts";
-import { asRecord, asString } from "../json.ts";
-import type { SearchRequest, SearchResult } from "../types.ts";
+import { asRecord, asString, collectResults, requestJson } from "../json.ts";
+import type { ProviderResult, SearchProvider } from "../provider.ts";
+import type { SearchRequest } from "../types.ts";
 
 const HAN = /[\u3400-\u9fff\uf900-\ufaff]/;
 
@@ -21,7 +21,7 @@ export function searxngLanguageFor(query: string, configured: string): string {
 	return HAN.test(query) ? "zh-CN" : "en";
 }
 
-export interface SearxngUrlOptions {
+interface SearxngUrlOptions {
 	query: string;
 	language: string;
 	categories: string;
@@ -40,30 +40,19 @@ export function buildSearxngUrl(endpoint: string, options: SearxngUrlOptions): U
 	return url;
 }
 
-export interface SearxngParsed {
-	answer: string;
-	results: SearchResult[];
-}
-
 /** Turn a SearXNG JSON response into an answer plus de-duplicated results. */
-export function parseSearxng(json: unknown, maxResults: number): SearxngParsed {
+export function parseSearxng(json: unknown, maxResults: number): ProviderResult {
 	const data = asRecord(json);
 
 	const answers = Array.isArray(data.answers) ? data.answers.map((entry) => asString(entry)).filter(Boolean) : [];
 	const answer = answers[0] ?? "";
 
 	const raw = Array.isArray(data.results) ? data.results : [];
-	const results: SearchResult[] = [];
-	const seen = new Set<string>();
-	for (const entry of raw) {
-		const record = asRecord(entry);
-		const url = asString(record.url);
-		const title = asString(record.title);
-		if (!url || !title || seen.has(url)) continue;
-		seen.add(url);
-		results.push({ title, url, snippet: asString(record.content) });
-		if (results.length >= maxResults) break;
-	}
+	const results = collectResults(raw, maxResults, (record) => ({
+		title: asString(record.title),
+		url: asString(record.url),
+		snippet: asString(record.content),
+	}));
 
 	return { answer, results };
 }
@@ -74,8 +63,8 @@ export async function searchSearxng(
 	config: WebSearchConfig,
 	http: HttpRunner,
 	signal: AbortSignal | undefined,
-	apiKey: string | undefined,
-): Promise<SearxngParsed> {
+	apiKey?: string,
+): Promise<ProviderResult> {
 	const url = buildSearxngUrl(config.endpoint, {
 		query: request.query,
 		language: searxngLanguageFor(request.query, config.language),
@@ -89,21 +78,13 @@ export async function searchSearxng(
 	};
 	if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
-	const response = await http(
-		{ url: url.toString(), method: "GET", headers, timeoutMs: config.timeoutMs, maxBytes: config.maxBytes },
+	const parsed = await requestJson(
+		http,
+		{ url: url.toString(), headers, timeoutMs: config.timeoutMs, maxBytes: config.maxBytes },
 		signal,
+		"SearXNG",
+		"is format=json enabled on the instance?",
 	);
-	if (response.status < 200 || response.status >= 300) {
-		throw new HttpUnavailableError(`SearXNG returned HTTP ${response.status}.`);
-	}
-
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(response.body);
-	} catch {
-		throw new HttpUnavailableError("SearXNG returned invalid JSON (is format=json enabled on the instance?)");
-	}
-
 	return parseSearxng(parsed, request.maxResults);
 }
 

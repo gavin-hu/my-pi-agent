@@ -10,11 +10,12 @@
  * or nothing. Full result lists come from the SearXNG or Brave providers.
  */
 
-import { HttpUnavailableError, type HttpRunner } from "../../http.ts";
-import type { SearchProvider, ProviderResult } from "../provider.ts";
+import { decodeEntities } from "../../html.ts";
+import type { HttpRunner } from "../../http.ts";
 import type { WebSearchConfig } from "../config.ts";
-import { asRecord, asString } from "../json.ts";
-import type { SearchResult } from "../types.ts";
+import { asRecord, asString, collectResults, requestJson } from "../json.ts";
+import type { ProviderResult, SearchProvider } from "../provider.ts";
+import type { SearchRequest } from "../types.ts";
 
 const IA_ENDPOINT = "https://api.duckduckgo.com/";
 
@@ -26,17 +27,6 @@ export function buildDuckDuckGoUrl(query: string): URL {
 	url.searchParams.set("no_html", "1");
 	url.searchParams.set("skip_disambig", "1");
 	return url;
-}
-
-/** Decode the handful of HTML entities DuckDuckGo emits; unknown ones pass through. */
-function decodeEntities(text: string): string {
-	return text
-		.replace(/&lt;/gi, "<")
-		.replace(/&gt;/gi, ">")
-		.replace(/&quot;/gi, '"')
-		.replace(/&#0?39;|&apos;/gi, "'")
-		.replace(/&nbsp;/gi, " ")
-		.replace(/&amp;/gi, "&");
 }
 
 /** Strip tags, decode entities, collapse whitespace, and trim. */
@@ -62,79 +52,52 @@ export function splitTitleAndSnippet(raw: string): { title: string; snippet: str
 	return { title: text, snippet: "" };
 }
 
-/** Add one result if it has a title, an http(s) URL, and is not a duplicate. */
-function pushResult(
-	results: SearchResult[],
-	seen: Set<string>,
-	title: string,
-	url: string,
-	snippet: string,
-	maxResults: number,
-): void {
-	if (results.length >= maxResults) return;
-	if (!title || !/^https?:\/\//i.test(url) || seen.has(url)) return;
-	seen.add(url);
-	results.push({ title, url, snippet });
-}
-
 /** Turn an Instant Answer response into an answer plus de-duplicated results. */
 export function parseDuckDuckGo(json: unknown, maxResults: number): ProviderResult {
 	const data = asRecord(json);
 	const answer = [asString(data.Answer), asString(data.AbstractText), asString(data.Definition)].find(Boolean) ?? "";
 
-	const results: SearchResult[] = [];
-	const seen = new Set<string>();
-	const add = (entry: unknown) => {
-		const record = asRecord(entry);
-		const { title, snippet } = splitTitleAndSnippet(asString(record.Text));
-		pushResult(results, seen, title, asString(record.FirstURL), snippet, maxResults);
-	};
-
-	if (Array.isArray(data.Results)) for (const entry of data.Results) add(entry);
-
+	// `Results` first, then flattened `RelatedTopics`, preserving provider order.
+	const entries: unknown[] = Array.isArray(data.Results) ? [...data.Results] : [];
 	const walk = (entry: unknown) => {
 		const record = asRecord(entry);
 		if (Array.isArray(record.Topics)) {
 			for (const nested of record.Topics) walk(nested);
 		} else {
-			add(record);
+			entries.push(entry);
 		}
 	};
 	if (Array.isArray(data.RelatedTopics)) for (const topic of data.RelatedTopics) walk(topic);
+
+	const results = collectResults(entries, maxResults, (record) => {
+		const { title, snippet } = splitTitleAndSnippet(asString(record.Text));
+		return { title, url: asString(record.FirstURL), snippet };
+	});
 
 	return { answer, results };
 }
 
 /** Fetch and parse one Instant Answer search. */
 export async function searchDuckDuckGo(
-	query: string,
-	maxResults: number,
+	request: SearchRequest,
 	config: WebSearchConfig,
 	http: HttpRunner,
 	signal: AbortSignal | undefined,
+	_apiKey?: string,
 ): Promise<ProviderResult> {
-	const url = buildDuckDuckGoUrl(query);
-	const response = await http(
+	const url = buildDuckDuckGoUrl(request.query);
+	const parsed = await requestJson(
+		http,
 		{
 			url: url.toString(),
-			method: "GET",
 			headers: { Accept: "application/json", "User-Agent": config.userAgent },
 			timeoutMs: config.timeoutMs,
 			maxBytes: config.maxBytes,
 		},
 		signal,
+		"DuckDuckGo",
 	);
-	if (response.status < 200 || response.status >= 300) {
-		throw new HttpUnavailableError(`DuckDuckGo returned HTTP ${response.status}.`);
-	}
-
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(response.body);
-	} catch {
-		throw new HttpUnavailableError("DuckDuckGo returned invalid JSON.");
-	}
-	return parseDuckDuckGo(parsed, maxResults);
+	return parseDuckDuckGo(parsed, request.maxResults);
 }
 
 export const duckDuckGoProvider: SearchProvider = {
@@ -143,6 +106,6 @@ export const duckDuckGoProvider: SearchProvider = {
 	// Keyless and always available, so it is the provider of last resort.
 	isConfigured: () => true,
 	async search(ctx) {
-		return searchDuckDuckGo(ctx.request.query, ctx.request.maxResults, ctx.config, ctx.http, ctx.signal);
+		return searchDuckDuckGo(ctx.request, ctx.config, ctx.http, ctx.signal, ctx.apiKey);
 	},
 };

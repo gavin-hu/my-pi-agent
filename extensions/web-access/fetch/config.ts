@@ -11,6 +11,9 @@ import { clampInteger, cleanString } from "../../../lib/config.ts";
 /** When to run the optional JS renderer. */
 export type RenderMode = "never" | "auto" | "always";
 
+/** Hard ceiling on the returned slice, mirroring the tool parameter maximum. */
+export const MAX_OUTPUT_CHARS = 100_000;
+
 export interface WebFetchConfig {
 	/** Per-request timeout in milliseconds. */
 	timeoutMs: number;
@@ -40,7 +43,7 @@ export interface WebFetchConfig {
 	renderMinChars: number;
 	/** Optional Chromium executable path for the renderer. */
 	renderExecutablePath: string;
-	/** Cache extracted pages for the session. */
+	/** Cache extracted pages for this registration. */
 	cacheEnabled: boolean;
 	/** Cache entry lifetime in ms (0 = never expire). */
 	cacheTtlMs: number;
@@ -85,7 +88,7 @@ export function normalizeFetchConfig(
 	return {
 		timeoutMs: clampInteger(raw.timeoutMs, base.timeoutMs, 1_000, 120_000),
 		maxBytes: clampInteger(raw.maxBytes, base.maxBytes, 1_024, 50_000_000),
-		maxOutputChars: clampInteger(raw.maxOutputChars, base.maxOutputChars, 500, 100_000),
+		maxOutputChars: clampInteger(raw.maxOutputChars, base.maxOutputChars, 500, MAX_OUTPUT_CHARS),
 		userAgent: cleanString(raw.userAgent, base.userAgent),
 		acceptLanguage: cleanString(raw.acceptLanguage, base.acceptLanguage),
 		allowPrivateHosts: typeof raw.allowPrivateHosts === "boolean" ? raw.allowPrivateHosts : base.allowPrivateHosts,

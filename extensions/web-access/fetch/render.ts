@@ -3,8 +3,7 @@
  *
  * Pages that build their content client-side need a browser. `playwright` is
  * loaded lazily and only when rendering is enabled, so the extension stays
- * dependency-free otherwise. Tests inject a renderer through
- * `setRendererForTests`.
+ * dependency-free otherwise. Callers inject a renderer through `FetchDeps.render`.
  *
  * The browser has its own network stack, so it can bypass the transport SSRF
  * guard. A best-effort `page.route` interceptor aborts obvious internal targets
@@ -51,13 +50,6 @@ interface PwChromium {
 	launch(options: { headless: boolean; executablePath?: string }): Promise<PwBrowser>;
 }
 
-let rendererOverride: Renderer | undefined;
-
-/** Override the JS renderer (tests only). Pass undefined to clear. */
-export function setRendererForTests(renderer: Renderer | undefined): void {
-	rendererOverride = renderer;
-}
-
 /** True for a URL the browser should not load: non-http(s), internal hostnames, or blocked IPs. */
 export function isBlockedRenderTarget(raw: string): boolean {
 	let url: URL;
@@ -72,9 +64,9 @@ export function isBlockedRenderTarget(raw: string): boolean {
 	return isBlockedHostname(hostname);
 }
 
-/** Render `url` to HTML. Throws `RenderUnavailableError` when playwright is absent. */
-export async function renderPage(url: string, options: RenderOptions): Promise<{ html: string }> {
-	if (rendererOverride) return rendererOverride(url, options);
+/** Render `url` to HTML, using `renderer` when given. Throws `RenderUnavailableError` when playwright is absent. */
+export async function renderPage(url: string, options: RenderOptions, renderer?: Renderer): Promise<{ html: string }> {
+	if (renderer) return renderer(url, options);
 
 	let module: Record<string, unknown>;
 	try {

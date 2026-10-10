@@ -4,14 +4,13 @@
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
-import type { WebFetchConfig } from "./config.ts";
+import { MAX_OUTPUT_CHARS, type WebFetchConfig } from "./config.ts";
 import type { FindMode } from "./find.ts";
 import type { FetchRequest } from "./types.ts";
 
 const MAX_URL_LENGTH = 2048;
 export const MAX_URLS = 5;
 export const MIN_CHARS = 200;
-const MAX_CHARS = 100_000;
 
 const FIND_MODES = ["insensitive", "exact", "fuzzy"] as const;
 const DEFAULT_CONTEXT_CHARS = 200;
@@ -81,7 +80,7 @@ export const WebFetchParams = Type.Object({
 	maxChars: Type.Optional(
 		Type.Integer({
 			minimum: MIN_CHARS,
-			maximum: MAX_CHARS,
+			maximum: MAX_OUTPUT_CHARS,
 			description: "Maximum characters to return (default and ceiling: the configured maxOutputChars).",
 		}),
 	),
@@ -109,7 +108,7 @@ export const WebFetchParams = Type.Object({
 
 export type WebFetchArgs = Static<typeof WebFetchParams>;
 
-export const PageSchema = Type.Object({
+const PageSchema = Type.Object({
 	url: Type.String(),
 	finalUrl: Type.String(),
 	title: Type.String(),
@@ -118,10 +117,12 @@ export const PageSchema = Type.Object({
 	text: Type.String(),
 	totalChars: Type.Number(),
 	startIndex: Type.Number(),
+	nextIndex: Type.Number(),
 	truncated: Type.Boolean(),
 	cached: Type.Boolean(),
 	rendered: Type.Boolean(),
 	matches: Type.Array(Type.Object({ query: Type.String(), offset: Type.Number(), passage: Type.String() })),
+	matchesTruncated: Type.Boolean(),
 	fetchedAt: Type.String(),
 	error: Type.String(),
 });
@@ -204,7 +205,7 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 
 	const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
 	const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxOutputChars;
-	const maxChars = Math.min(config.maxOutputChars, MAX_CHARS, Math.max(MIN_CHARS, Math.round(requested)));
+	const maxChars = Math.min(config.maxOutputChars, Math.max(MIN_CHARS, Math.round(requested)));
 
 	const rawMode = typeof args.mode === "string" ? args.mode : "";
 	const mode: FindMode = (FIND_MODES as readonly string[]).includes(rawMode) ? (rawMode as FindMode) : "insensitive";

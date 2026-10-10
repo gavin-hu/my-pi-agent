@@ -7,10 +7,10 @@
  */
 
 import { HttpUnavailableError, type HttpRunner } from "../../http.ts";
-import type { SearchProvider, ProviderResult } from "../provider.ts";
 import { resolveSearchApiKey, type WebSearchConfig } from "../config.ts";
-import { asRecord, asString } from "../json.ts";
-import type { SearchResult } from "../types.ts";
+import { asRecord, asString, collectResults, requestJson } from "../json.ts";
+import type { ProviderResult, SearchProvider } from "../provider.ts";
+import type { SearchRequest } from "../types.ts";
 
 const BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 const BRAVE_MAX_COUNT = 20;
@@ -27,38 +27,31 @@ export function buildBraveUrl(query: string, maxResults: number): URL {
 export function parseBrave(json: unknown, maxResults: number): ProviderResult {
 	const web = asRecord(asRecord(json).web);
 	const raw = Array.isArray(web.results) ? web.results : [];
-
-	const results: SearchResult[] = [];
-	const seen = new Set<string>();
-	for (const entry of raw) {
-		const record = asRecord(entry);
-		const url = asString(record.url);
-		const title = asString(record.title);
-		if (!url || !title || seen.has(url)) continue;
-		seen.add(url);
-		results.push({ title, url, snippet: asString(record.description) });
-		if (results.length >= maxResults) break;
-	}
-
+	const results = collectResults(raw, maxResults, (record) => ({
+		title: asString(record.title),
+		url: asString(record.url),
+		snippet: asString(record.description),
+	}));
 	return { answer: "", results };
 }
 
 /** Fetch and parse one Brave web search. */
 export async function searchBrave(
-	query: string,
-	maxResults: number,
+	request: SearchRequest,
 	config: WebSearchConfig,
 	http: HttpRunner,
 	signal: AbortSignal | undefined,
-	apiKey: string | undefined,
+	apiKey?: string,
 ): Promise<ProviderResult> {
+	// Reachable only through a direct call; `runSearch` rejects an unconfigured
+	// provider before this runs.
 	if (!apiKey) throw new HttpUnavailableError("Brave search needs an API key.");
 
-	const url = buildBraveUrl(query, maxResults);
-	const response = await http(
+	const url = buildBraveUrl(request.query, request.maxResults);
+	const parsed = await requestJson(
+		http,
 		{
 			url: url.toString(),
-			method: "GET",
 			headers: {
 				Accept: "application/json",
 				"X-Subscription-Token": apiKey,
@@ -68,18 +61,9 @@ export async function searchBrave(
 			maxBytes: config.maxBytes,
 		},
 		signal,
+		"Brave",
 	);
-	if (response.status < 200 || response.status >= 300) {
-		throw new HttpUnavailableError(`Brave returned HTTP ${response.status}.`);
-	}
-
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(response.body);
-	} catch {
-		throw new HttpUnavailableError("Brave returned invalid JSON.");
-	}
-	return parseBrave(parsed, maxResults);
+	return parseBrave(parsed, request.maxResults);
 }
 
 export const braveProvider: SearchProvider = {
@@ -87,6 +71,6 @@ export const braveProvider: SearchProvider = {
 	label: "Brave",
 	isConfigured: (config) => Boolean(resolveSearchApiKey(config)),
 	async search(ctx) {
-		return searchBrave(ctx.request.query, ctx.request.maxResults, ctx.config, ctx.http, ctx.signal, ctx.apiKey);
+		return searchBrave(ctx.request, ctx.config, ctx.http, ctx.signal, ctx.apiKey);
 	},
 };

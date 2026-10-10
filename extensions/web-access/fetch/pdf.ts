@@ -2,8 +2,8 @@
  * Optional PDF text extraction via the `unpdf` package.
  *
  * `unpdf` bundles a server-friendly build of PDF.js and is loaded lazily, so the
- * extension stays dependency-free unless PDF support is actually used. Tests
- * inject an extractor through `setPdfExtractorForTests`.
+ * extension stays dependency-free unless PDF support is actually used. Callers
+ * inject an extractor through `FetchDeps.pdf`.
  */
 
 /** Raised when the optional `unpdf` package is missing or unusable. */
@@ -16,16 +16,9 @@ export class PdfUnavailableError extends Error {
 
 export type PdfExtractor = (bytes: Uint8Array) => Promise<string>;
 
-let extractorOverride: PdfExtractor | undefined;
-
-/** Override the PDF extractor (tests only). Pass undefined to clear. */
-export function setPdfExtractorForTests(extractor: PdfExtractor | undefined): void {
-	extractorOverride = extractor;
-}
-
-/** Extract plain text from PDF bytes, merging all pages. */
-export async function extractPdfText(bytes: Uint8Array): Promise<string> {
-	if (extractorOverride) return extractorOverride(bytes);
+/** Extract plain text from PDF bytes, merging all pages, using `extractor` when given. */
+export async function extractPdfText(bytes: Uint8Array, extractor?: PdfExtractor): Promise<string> {
+	if (extractor) return extractor(bytes);
 
 	let module: Record<string, unknown>;
 	try {

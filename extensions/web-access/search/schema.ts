@@ -59,7 +59,7 @@ export function resolveRequest(args: WebSearchArgs, config: WebSearchConfig): Se
 	}
 
 	const requested = typeof args.maxResults === "number" ? args.maxResults : config.maxResults;
-	const maxResults = Math.min(config.maxResults, MAX_RESULTS, Math.max(1, Math.round(requested)));
+	const maxResults = Math.min(config.maxResults, Math.max(1, Math.round(requested)));
 
 	return { query, maxResults };
 }

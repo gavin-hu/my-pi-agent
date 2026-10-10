@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { decodeEntities, extractReadable, extractTitle } from "./extract.ts";
+import { decodeEntities } from "../html.ts";
+import { extractReadable, extractTitle } from "./extract.ts";
 
 const FIXTURE = `<!doctype html>
 <html>
