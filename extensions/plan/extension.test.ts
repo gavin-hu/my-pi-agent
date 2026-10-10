@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import planMode, { PLAN_MODE_MARKER } from "./index.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
-import { SubagentParams } from "../../extensions/subagent/schema.ts";
+import { SUBAGENT_READ_ONLY_PARAM } from "../../lib/tool-names.ts";
 import { emitCollect as emit } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -135,7 +135,11 @@ describe("plan-mode bash and write guard", () => {
 	test("keeps subagent active and forces readOnly on the call", async () => {
 		const { fakePi } = await enabledPi();
 		fakePi.pi.allTools = [
-			{ name: "subagent", parameters: SubagentParams, sourceInfo: { path: "/pkg/extensions/subagent/index.ts" } },
+			{
+				name: "subagent",
+				parameters: { type: "object", properties: { [SUBAGENT_READ_ONLY_PARAM]: { type: "boolean" } } },
+				sourceInfo: { path: "/pkg/extensions/subagent/index.ts" },
+			},
 		];
 		const { ctx } = fakeCtx();
 
