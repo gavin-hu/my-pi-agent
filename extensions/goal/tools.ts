@@ -78,7 +78,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 			"Use goal to capture the session's high-level objective when starting a substantial task.",
 			"Send the complete objective on every goal call; an empty objective clears the goal.",
 			'To mark the goal achieved, resend the objective with status "achieved"; a blank objective is rejected, not a completion.',
-			"Mark the goal achieved when it is done; do not leave a finished goal active.",
+			"Mark the goal achieved once the objective is met; it then stops being restated before each turn.",
 		],
 		parameters: GoalParams,
 		outputSchema: GoalResult,

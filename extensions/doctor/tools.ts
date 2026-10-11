@@ -44,12 +44,11 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 		label: "Run doctor",
 		description:
 			"Report whether each extension in this package has what it needs at runtime: external binaries on PATH, optional npm " +
-			"packages and browsers, login/state files, and config files that fail to parse. Use it when an extension is enabled " +
-			"but appears to do nothing, before concluding a tool is broken, or after a tool reported a missing dependency. " +
-			"Read-only: it probes (`<binary> --version`, lazy imports, config parsing) and changes nothing.",
+			"packages and browsers, login/state files, and config files that fail to parse. Read-only: it probes " +
+			"(`<binary> --version`, lazy imports, config parsing) and changes nothing.",
 		promptSnippet: "Check that each extension's runtime prerequisites are met, and see what is missing.",
 		promptGuidelines: [
-			"Run doctor before telling the user an extension is broken or a feature is unavailable.",
+			"Run doctor before concluding an extension is broken: when it is enabled but appears inert, or a tool reported a missing dependency.",
 			"A `degraded` finding means reduced capability, not a failure; `missing` means an enabled extension cannot work.",
 			"Findings carry the install command or the fix in `hint`; quote that hint rather than inventing one.",
 			"Pass `extension` to focus on one extension, and `refresh` when something changed during the session.",

@@ -17,6 +17,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of silently ignored, and the install hints `document` and `web-access`
   raise come from that table too.
 
+### Changed
+
+- Put every tool's model-facing prompt on one contract: the `description`
+  states the contract, `promptGuidelines` state when and how to use it, and
+  neither repeats the other. `subagent` no longer tags agents with their
+  internal source, `job` spells out both bounds of `timeoutMs`, `plan` says
+  "the only file write is `write_plan`", and `ask-user-question` documents
+  `multiSelect`. A smoke check now requires a `promptSnippet` on every tool this
+  package registers.
+
 ### Removed
 
 - `web-access`: the optional `playwright` JavaScript-rendering path in

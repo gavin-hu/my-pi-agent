@@ -141,6 +141,28 @@ glyphs, or scroll math.
   review uses `FULL_SCREEN_OVERLAY`.
 - A TUI module gets a sibling `tui.test.ts`; see [`test/README.md`](./test/README.md).
 
+## Prompt conventions
+
+Everything an extension puts in front of the model — `description`,
+`promptSnippet`, `promptGuidelines`, parameter docs, injected context — is
+always-on context. Give each channel one job, and never restate the same
+instruction in two of them.
+
+- `description` says what the tool is and what it guarantees: contract, limits,
+  side effects, prerequisites. Not "use it when…".
+- `promptSnippet` is required on every registered tool: the one line in the
+  system prompt's Available tools list, not a copy of the description.
+- `promptGuidelines` say when, when not, and in what order: one idea per bullet,
+  imperative, never restating the description.
+- Parameter descriptions give meaning, default, and bounds only.
+- Injected context states the current facts and the single next action, stays
+  short, and is matched by `customType`, never by marker text.
+- Tool errors name the problem and the corrective action; a rejected call
+  returns the unchanged state.
+
+`scripts/smoke-runtime.ts` fails when a registered tool has an empty
+`promptSnippet` or duplicate or blank guidelines.
+
 ## Extension docs
 
 Each extension has one doc, `extensions/<name>/README.md`; there is no separate

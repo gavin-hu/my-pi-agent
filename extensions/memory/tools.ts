@@ -62,15 +62,14 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		label: "Memory",
 		description: [
 			"Save, remove, or list short durable notes that are recalled automatically in later sessions.",
-			'Notes are scoped "project" (the current repository, the default) or "global" (every project).',
-			"Stored notes are injected into context before each run, so you do not need to read them back;",
-			"use action list only to inspect a store, and pass a note's exact text to action forget to remove it.",
+			'Notes are scoped "project" (the current repository, the default) or "global" (every project); stored notes',
+			"are injected into context before each run.",
 		].join(" "),
 		promptSnippet: "Save or remove a durable note that is recalled in later sessions.",
 		promptGuidelines: [
 			"Use memory for short, durable facts the user asks you to remember; keep one fact per call.",
 			'Use scope "global" for cross-project facts and "project" (the default) for repo-specific ones.',
-			"Stored notes are injected automatically; call memory with action list only to see what is stored.",
+			"Call memory with action list only to see what is stored; the notes are already in your context.",
 			"To remove a note, pass its exact text with action forget. Bulk clearing is not available through the tool.",
 		],
 		parameters: MemoryParams,

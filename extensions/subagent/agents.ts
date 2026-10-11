@@ -449,3 +449,15 @@ export function formatAgentList(agents: readonly AgentConfig[]): string {
 	if (agents.length === 0) return "none";
 	return agents.map((agent) => `${agent.name} (${agent.source}): ${agent.description}`).join("; ");
 }
+
+/**
+ * `name — description; ...`, or `"none"`, for the model-facing tool description.
+ *
+ * Unlike {@link formatAgentList} this omits the source tag: where an agent came
+ * from is useful in an error, but it is internal metadata in the description the
+ * model reads on every call.
+ */
+export function formatAgentRoster(agents: readonly AgentConfig[]): string {
+	if (agents.length === 0) return "none";
+	return agents.map((agent) => `${agent.name} — ${agent.description}`).join("; ");
+}

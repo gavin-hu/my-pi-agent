@@ -44,7 +44,8 @@ function errorResult(
 
 const GUIDELINES = [
 	"Use `job start` for long-running or background commands (builds, test suites, dev servers, watchers) so the turn is not blocked; it returns a job id immediately.",
-	"Pass `timeoutMs` to `job start` to auto-kill a job that runs too long (SIGTERM, escalating to SIGKILL).",
+	"`timeoutMs` bounds a `job start` run (killed with SIGTERM, then SIGKILL) and a `job wait` block; `start` requires at least 1.",
+	"Set `wake: true` on `job start` to trigger one turn when that job finishes.",
 	"Poll with `job status`/`job logs`, or use `job wait` when you must have the result before continuing.",
 	"`job kill` stops a job (SIGTERM, escalating to SIGKILL); `job clear` removes finished jobs. Jobs are killed when the session ends unless started with `detached: true`.",
 ];

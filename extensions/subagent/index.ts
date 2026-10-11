@@ -17,7 +17,14 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { type AgentConfig, type AgentScope, BUILTIN_AGENTS, discoverAgents, formatAgentList } from "./agents.ts";
+import {
+	type AgentConfig,
+	type AgentScope,
+	BUILTIN_AGENTS,
+	discoverAgents,
+	formatAgentList,
+	formatAgentRoster,
+} from "./agents.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
@@ -31,13 +38,13 @@ interface SubagentDeps {
 	run?: (options: RunOptions) => Promise<SingleResult>;
 }
 
-const AGENT_SUMMARY = formatAgentList(BUILTIN_AGENTS);
+const AGENT_ROSTER = formatAgentRoster(BUILTIN_AGENTS);
 
 const DESCRIPTION = [
 	"Delegate tasks to specialized subagents with isolated context windows.",
 	"Modes: single (`agent` + `task`), parallel (`tasks` array), chain (sequential steps with a `{previous}` placeholder).",
 	"Each subagent runs in its own process and inherits the current model and thinking level.",
-	`Built-in agents: ${AGENT_SUMMARY}.`,
+	`Built-in agents: ${AGENT_ROSTER}.`,
 	"External agents load from `<agent-dir>/agents` and the nearest `.pi/agents`; set `agentScope` to `user`, `project`, or `both` to include them.",
 	"Set `readOnly: true` to force every spawned agent to a read-only tool set (read/grep/find/ls and web readers only); plan mode sets it automatically.",
 ].join(" ");
