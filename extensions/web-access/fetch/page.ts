@@ -3,17 +3,15 @@
  *
  * Validates the target and every redirect hop (SSRF guard), performs a
  * native-fetch request with an optional method/body/headers, and routes by
- * content type: HTML through the readable extractor (optionally JS-rendered),
- * PDFs through the optional text extractor, other textual types as-is, and
- * binary types as a short note. The HTTP runner, the PDF extractor, and the JS
- * renderer are injectable through `FetchDeps`, so no module-level state is needed.
+ * content type: HTML through the readable extractor, PDFs through the optional
+ * text extractor, other textual types as-is, and binary types as a short note.
+ * The HTTP runner and the PDF extractor are injectable through `FetchDeps`, so
+ * no module-level state is needed.
  */
 
-import { charLength } from "../text.ts";
 import type { WebFetchConfig } from "./config.ts";
-import { extractReadable, type ExtractedPage } from "./extract.ts";
+import { extractReadable } from "./extract.ts";
 import { extractPdfText, type PdfExtractor } from "./pdf.ts";
-import { renderPage, type Renderer } from "./render.ts";
 import { createFetchRunner, type HttpRunner, type HttpResponse } from "../http.ts";
 import { assertAllowedUrl } from "./ssrf.ts";
 import type { FetchRequest } from "./types.ts";
@@ -28,7 +26,6 @@ export class WebFetchError extends Error {
 export interface FetchDeps {
 	http?: HttpRunner;
 	pdf?: PdfExtractor;
-	render?: Renderer;
 }
 
 export interface PageResult {
@@ -38,8 +35,6 @@ export interface PageResult {
 	status: number;
 	contentType: string;
 	text: string;
-	/** True when the page HTML came from the JS renderer. */
-	rendered: boolean;
 }
 
 function isHtmlType(contentType: string): boolean {
@@ -106,49 +101,6 @@ async function fetchWithRedirects(
 	throw new WebFetchError(`Too many redirects (more than ${config.maxRedirects}).`);
 }
 
-/**
- * Decide whether to render, then return the extracted page. The raw HTML is
- * extracted once; the rendered DOM is extracted only when rendering actually
- * runs. `"auto"` falls back to the raw page when rendering fails.
- */
-async function resolveHtml(
-	response: HttpResponse,
-	request: FetchRequest,
-	config: WebFetchConfig,
-	signal: AbortSignal | undefined,
-	render: Renderer | undefined,
-): Promise<{ page: ExtractedPage; rendered: boolean }> {
-	const raw =
-		request.render === undefined && config.renderJs === "auto"
-			? extractReadable(response.body, response.finalUrl)
-			: undefined;
-
-	let should = request.render === true || config.renderJs === "always";
-	if (request.render === false) should = false;
-	if (raw) should = charLength(raw.text) < config.renderMinChars;
-	if (!should) return { page: raw ?? extractReadable(response.body, response.finalUrl), rendered: false };
-
-	try {
-		const html = (
-			await renderPage(
-				response.finalUrl,
-				{
-					timeoutMs: config.renderTimeoutMs,
-					waitUntil: config.renderWaitUntil,
-					executablePath: config.renderExecutablePath,
-					signal,
-				},
-				render,
-			)
-		).html;
-		return { page: extractReadable(html, response.finalUrl), rendered: true };
-	} catch (error) {
-		// For an explicit request or "always", surface the failure; "auto" degrades to raw HTML.
-		if (request.render === true || config.renderJs === "always") throw error;
-		return { page: raw ?? extractReadable(response.body, response.finalUrl), rendered: false };
-	}
-}
-
 /** Fetch `url` and return its extracted text. Throws `WebFetchError`/`SsrfError`/`Http*Error`. */
 export async function runFetch(
 	url: string,
@@ -175,7 +127,6 @@ export async function runFetch(
 
 	let title = "";
 	let text: string;
-	let rendered = false;
 	if (isPdfType(response.contentType) && config.pdfEnabled) {
 		try {
 			text = await extractPdfText(response.bytes ?? new Uint8Array(), deps.pdf);
@@ -184,10 +135,9 @@ export async function runFetch(
 			text = `(binary content: ${response.contentType || "application/pdf"}, ${response.sizeBytes} bytes; PDF text extraction failed: ${reason})`;
 		}
 	} else if (isHtmlType(response.contentType)) {
-		const resolved = await resolveHtml(response, request, config, signal, deps.render);
-		title = resolved.page.title;
-		text = resolved.page.text;
-		rendered = resolved.rendered;
+		const page = extractReadable(response.body, response.finalUrl);
+		title = page.title;
+		text = page.text;
 	} else if (isTextualType(response.contentType)) {
 		text = response.body;
 	} else {
@@ -201,6 +151,5 @@ export async function runFetch(
 		status: response.status,
 		contentType: response.contentType,
 		text,
-		rendered,
 	};
 }

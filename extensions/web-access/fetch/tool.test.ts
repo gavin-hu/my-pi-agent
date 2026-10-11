@@ -57,7 +57,6 @@ describe("web_fetch tool", () => {
 		expect(result.content[0].text).toContain("Hello page");
 		expect(page.title).toBe("Example");
 		expect(page.cached).toBe(false);
-		expect(page.rendered).toBe(false);
 		expect(page.error).toBe("");
 		expect(page.matches).toEqual([]);
 		expect(page.matchesTruncated).toBe(false);
@@ -313,7 +312,6 @@ describe("web_fetch transcript rendering", () => {
 		nextIndex: 0,
 		truncated: false,
 		cached: false,
-		rendered: false,
 		matches: [],
 		matchesTruncated: false,
 		fetchedAt: "now",

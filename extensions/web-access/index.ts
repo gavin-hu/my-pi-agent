@@ -6,8 +6,8 @@
  *   - `web_search`: general web search, keyless DuckDuckGo by default with
  *     optional SearXNG or Brave.
  *   - `web_fetch`: fetch a URL and return readable text, pageable and
- *     searchable, with a page cache per registration. PDF extraction and JS
- *     rendering use optional packages when installed.
+ *     searchable, with a page cache per registration. PDF extraction uses an
+ *     optional package when installed.
  *
  * Both are `direct` and active by default, and read the `search` / `fetch`
  * sections of `web-access.json` (global + project). The fetch cache is cleared

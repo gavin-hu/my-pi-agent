@@ -9,7 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `doctor`: reports whether each extension has what it needs at runtime — external
-  binaries on `PATH`, optional npm packages and the browsers they need,
+  binaries on `PATH`, optional npm packages,
   login/state files, and config files that fail to parse. Each extension declares
   its prerequisites in `lib/requirements.ts`, so the same table feeds the
   `/doctor` command, the read-only `run_doctor` tool, and one warning at session
@@ -19,6 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `web-access`: the optional `playwright` JavaScript-rendering path in
+  `web_fetch`. The `render` parameter, the `renderJs`, `renderTimeoutMs`,
+  `renderWaitUntil`, `renderMinChars`, and `renderExecutablePath` config keys,
+  the `rendered` output field, and the `playwright` prerequisite `doctor`
+  reported are gone; `unpdf` PDF extraction, paging, `find`, and the page cache
+  are unchanged.
 - The `keep-awake` extension. It held a transient OS inhibitor (`caffeinate` /
   `systemd-inhibit` / `SetThreadExecutionState`) with a `/keep-awake` command and
   a `✦` status chip; the feature is no longer used.

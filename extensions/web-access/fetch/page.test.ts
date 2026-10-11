@@ -3,7 +3,6 @@ import { DEFAULT_FETCH_CONFIG } from "./config.ts";
 import type { HttpResponse, HttpRunner } from "../http.ts";
 import { runFetch } from "./page.ts";
 import type { PdfExtractor } from "./pdf.ts";
-import type { Renderer } from "./render.ts";
 import type { FetchRequest } from "./types.ts";
 
 const config = { ...DEFAULT_FETCH_CONFIG, timeoutMs: 5000 };
@@ -139,86 +138,5 @@ describe("runFetch PDF", () => {
 			{ http: runner },
 		);
 		expect(page.text).toContain("binary content");
-	});
-});
-
-describe("runFetch JS rendering", () => {
-	const runner: HttpRunner = () =>
-		Promise.resolve({
-			status: 200,
-			body: "<html><head><title>App</title></head><body><div id=app></div></body></html>",
-			contentType: "text/html",
-			finalUrl: "https://1.1.1.1/start",
-			sizeBytes: 70,
-		} satisfies HttpResponse);
-
-	test("renders when render is true", async () => {
-		let calls = 0;
-		const render: Renderer = async () => {
-			calls++;
-			return { html: "<article><p>rendered body</p></article>" };
-		};
-		const page = await runFetch("https://1.1.1.1/start", baseRequest({ render: true }), config, undefined, {
-			http: runner,
-			render,
-		});
-		expect(calls).toBe(1);
-		expect(page.rendered).toBe(true);
-		expect(page.text).toContain("rendered body");
-	});
-
-	test("render false overrides renderJs always", async () => {
-		const render: Renderer = async () => {
-			throw new Error("must not render");
-		};
-		const page = await runFetch(
-			"https://1.1.1.1/start",
-			baseRequest({ render: false }),
-			{ ...config, renderJs: "always" },
-			undefined,
-			{ http: runner, render },
-		);
-		expect(page.rendered).toBe(false);
-	});
-
-	test("auto renders a short page", async () => {
-		const render: Renderer = async () => ({ html: "<article><p>rendered body</p></article>" });
-		const page = await runFetch("https://1.1.1.1/start", baseRequest(), { ...config, renderJs: "auto" }, undefined, {
-			http: runner,
-			render,
-		});
-		expect(page.rendered).toBe(true);
-	});
-
-	test("auto falls back to raw HTML when the renderer fails", async () => {
-		const render: Renderer = async () => {
-			throw new Error("no playwright");
-		};
-		const page = await runFetch("https://1.1.1.1/start", baseRequest(), { ...config, renderJs: "auto" }, undefined, {
-			http: runner,
-			render,
-		});
-		expect(page.rendered).toBe(false);
-		expect(page.title).toBe("App");
-	});
-
-	test("always surfaces a renderer failure", async () => {
-		const render: Renderer = async () => {
-			throw new Error("no playwright");
-		};
-		await expect(
-			runFetch("https://1.1.1.1/start", baseRequest(), { ...config, renderJs: "always" }, undefined, {
-				http: runner,
-				render,
-			}),
-		).rejects.toThrow("no playwright");
-	});
-
-	test("never does not render", async () => {
-		const render: Renderer = async () => {
-			throw new Error("must not render");
-		};
-		const page = await runFetch("https://1.1.1.1/start", baseRequest(), config, undefined, { http: runner, render });
-		expect(page.rendered).toBe(false);
 	});
 });

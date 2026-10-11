@@ -37,20 +37,10 @@ describe("normalizeFetchConfig", () => {
 		expect(config.maxBodyChars).toBe(1_000);
 	});
 
-	test("validates the render and PDF settings", () => {
-		const config = normalizeFetchConfig({
-			renderJs: "sometimes" as unknown as "never",
-			renderWaitUntil: "nonsense" as unknown as "load",
-			renderTimeoutMs: 1,
-			renderMinChars: -1,
-			pdfEnabled: "yes" as unknown as boolean,
-		});
-		expect(config.renderJs).toBe("never");
-		expect(config.renderWaitUntil).toBe("load");
-		expect(config.renderTimeoutMs).toBe(1_000);
-		expect(config.renderMinChars).toBe(0);
+	test("validates the PDF setting", () => {
+		const config = normalizeFetchConfig({ pdfEnabled: "yes" as unknown as boolean });
 		expect(config.pdfEnabled).toBe(true);
-		expect(normalizeFetchConfig({ renderJs: "always", renderWaitUntil: "networkidle" }).renderJs).toBe("always");
+		expect(normalizeFetchConfig({ pdfEnabled: false }).pdfEnabled).toBe(false);
 	});
 
 	test("keeps a custom user agent and treats blank as the default", () => {

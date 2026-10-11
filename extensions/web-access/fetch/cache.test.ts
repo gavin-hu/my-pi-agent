@@ -9,7 +9,6 @@ function page(url: string, text = "hello", storedAt = 1000): CachedPage {
 		status: 200,
 		contentType: "text/html",
 		text,
-		rendered: false,
 		fetchedAt: "2026-01-01T00:00:00.000Z",
 		storedAt,
 		bytes: new TextEncoder().encode(text).length,

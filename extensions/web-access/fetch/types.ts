@@ -14,7 +14,6 @@ export interface FetchRequest {
 	method: "GET" | "POST";
 	headers: Record<string, string>;
 	body?: string;
-	render?: boolean;
 	startIndex: number;
 	maxChars: number;
 	find: string[];

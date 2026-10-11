@@ -20,8 +20,6 @@ pi install ./                       # install the package
 - Names the file and the parse error when a config file exists but is not valid
   JSON — today those files are silently ignored by `readJson`, so a typo reads
   as "unset".
-- Checks optional npm packages past the import: `playwright` is only usable with
-  a downloaded Chromium, so `doctor` reports that separately.
 - Distinguishes "cannot work" from "reduced capability": only a missing *hard*
   requirement warns at session start, and `degraded` findings stay in the report.
 - Respects `PI_DISABLED_EXTENSIONS`: a disabled extension is reported as disabled
@@ -57,7 +55,7 @@ and every check, `r` re-probes, `Esc` closes.
 | plan | — | `git` for project-local `.pi/plans`; an interactive UI |
 | memory | — | `git` for the project-scope root |
 | file-browser | — | `git` for the branch chip; the browser opener is best-effort |
-| web-access | — | `unpdf`; `playwright` **and** its Chromium |
+| web-access | — | `unpdf` |
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
@@ -101,8 +99,6 @@ override global ones.
 - The disabled check reads `PI_DISABLED_EXTENSIONS` through `lib/env.ts`; it does
   not read Pi's own `settings.json` disable list, so an extension disabled only
   there may still be probed.
-- The `playwright` check asks the package where its Chromium lives; it does not
-  prove the browser can launch.
 - A probe proves a binary runs, not that it works: a `pdfcraft-cli` that crashes
   on a specific PDF is still `ok`.
 - Config scope is checked for `<agent-dir>/<file>.json` and `<cwd>/.pi/<file>.json`

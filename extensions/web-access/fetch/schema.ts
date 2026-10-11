@@ -66,11 +66,6 @@ export const WebFetchParams = Type.Object({
 			description: "Request body for a POST. Defaults method to POST; set Content-Type via `headers`.",
 		}),
 	),
-	render: Type.Optional(
-		Type.Boolean({
-			description: "Force or forbid JS rendering for this call, overriding the renderJs config.",
-		}),
-	),
 	startIndex: Type.Optional(
 		Type.Integer({
 			minimum: 0,
@@ -120,7 +115,6 @@ const PageSchema = Type.Object({
 	nextIndex: Type.Number(),
 	truncated: Type.Boolean(),
 	cached: Type.Boolean(),
-	rendered: Type.Boolean(),
 	matches: Type.Array(Type.Object({ query: Type.String(), offset: Type.Number(), passage: Type.String() })),
 	matchesTruncated: Type.Boolean(),
 	fetchedAt: Type.String(),
@@ -222,7 +216,6 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 		method,
 		headers,
 		body,
-		render: typeof args.render === "boolean" ? args.render : undefined,
 		startIndex,
 		maxChars,
 		find: normalizeFind(args.find),

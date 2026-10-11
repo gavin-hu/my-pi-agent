@@ -14,7 +14,6 @@
  * keeps `lib/` value-only.
  */
 
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { JsonReadResult } from "./config.ts";
 import { getPiInvocation, type PiInvocation } from "./pi-invocation.ts";
@@ -43,10 +42,6 @@ export interface ModuleCheck {
 	name: string;
 	enables: string;
 	hint: string;
-	/** Extra requirement on the loaded module, e.g. a downloaded browser. */
-	verify?: (module: Record<string, unknown>) => boolean;
-	/** What to do when `verify` fails. */
-	verifyHint?: string;
 }
 
 /** A file that must exist and, when it is JSON, parse. */
@@ -127,17 +122,9 @@ export function cliGuidance(cli: DocCliName): string {
 /** Install command for the optional PDF extractor package. */
 export const UNPDF_INSTALL = "npm i unpdf";
 
-/** Install command for the optional JS renderer package and its browser. */
-export const PLAYWRIGHT_INSTALL = "npm i playwright && npx playwright install chromium";
-
 /** Model-facing guidance when the optional `unpdf` package is absent. */
 export function pdfGuidance(): string {
 	return `PDF extraction requires the optional 'unpdf' package (${UNPDF_INSTALL}).`;
-}
-
-/** Model-facing guidance when the optional `playwright` package is absent. */
-export function renderGuidance(): string {
-	return `JS rendering requires the optional 'playwright' package (${PLAYWRIGHT_INSTALL}).`;
 }
 
 // --- The table --------------------------------------------------------------
@@ -148,21 +135,6 @@ const GIT: BinaryCheck = {
 	enables: "worktrees, rewind snapshots, project-scope memory, and the branch chip",
 	hint: "install git and make sure it is on PATH (https://git-scm.com/downloads).",
 };
-
-/**
- * `playwright` without a downloaded browser is the common failure, so the check
- * looks past the package to the browser it would launch.
- */
-function chromiumInstalled(module: Record<string, unknown>): boolean {
-	const fallback = module.default as Record<string, unknown> | undefined;
-	const chromium = (module.chromium ?? fallback?.chromium) as { executablePath?: () => string } | undefined;
-	if (typeof chromium?.executablePath !== "function") return false;
-	try {
-		return existsSync(chromium.executablePath());
-	} catch {
-		return false;
-	}
-}
 
 /** Every extension's prerequisites, keyed by directory name. */
 export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
@@ -207,18 +179,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	},
 	"web-access": {
 		configFile: "web-access.json",
-		optional: [
-			{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() },
-			{
-				kind: "module",
-				name: "playwright",
-				enables: "JS rendering in `web_fetch`",
-				hint: renderGuidance(),
-				verify: chromiumInstalled,
-				verifyHint:
-					"the playwright package is installed but its Chromium is not; run `npx playwright install chromium`.",
-			},
-		],
+		optional: [{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() }],
 	},
 	"file-browser": {
 		configFile: "file-browser.json",
@@ -334,9 +295,8 @@ async function runCheck(
 		}
 		case "module": {
 			const load = seams.loadModule ?? defaultLoadModule;
-			let module: Record<string, unknown>;
 			try {
-				module = (await load(check.name)) as Record<string, unknown>;
+				await load(check.name);
 			} catch {
 				return {
 					extension,
@@ -344,15 +304,6 @@ async function runCheck(
 					severity: failSeverity,
 					detail: `not installed — ${check.enables}`,
 					hint: check.hint,
-				};
-			}
-			if (check.verify && !check.verify(module)) {
-				return {
-					extension,
-					check: check.name,
-					severity: failSeverity,
-					detail: `installed but incomplete — ${check.enables}`,
-					hint: check.verifyHint ?? check.hint,
 				};
 			}
 			return { extension, check: check.name, severity: "ok", detail: check.enables };

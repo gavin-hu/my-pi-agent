@@ -2,7 +2,7 @@
  * The `web_fetch` tool.
  *
  * A native-fetch GET/POST with HTML turned into readable Markdown-ish text,
- * optional PDF text extraction and JS rendering, `startIndex`/`maxChars` paging,
+ * optional PDF text extraction, `startIndex`/`maxChars` paging,
  * `find` for passage search, and up to five URLs per call. Redirects are
  * followed with every hop SSRF-checked, and pages are cached in an instance
  * created per registration and cleared on `session_start`/`session_shutdown`;
@@ -128,7 +128,6 @@ function pageResult(
 		nextIndex,
 		truncated: formatted.truncated,
 		cached,
-		rendered: page.rendered,
 		matches,
 		matchesTruncated,
 		fetchedAt,
@@ -156,7 +155,6 @@ function errorResult(
 			nextIndex: request.startIndex,
 			truncated: false,
 			cached: false,
-			rendered: false,
 			matches: [],
 			matchesTruncated: false,
 			fetchedAt: new Date().toISOString(),
@@ -287,7 +285,6 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 				if (page.matches.length > 0) line += theme.fg("dim", ` · ${page.matches.length} match(es)`);
 				else line += theme.fg("dim", ` · ${formatTokens(page.totalChars)} chars`);
 				if (page.cached) line += theme.fg("dim", " (cached)");
-				else if (page.rendered) line += theme.fg("dim", " (rendered)");
 				text.setText(line);
 				return text;
 			}

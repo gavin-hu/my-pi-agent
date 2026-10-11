@@ -7,7 +7,6 @@ import {
 	pdfGuidance,
 	probeAll,
 	probeExtension,
-	renderGuidance,
 	REQUIREMENTS,
 	type ProbeSeams,
 } from "./requirements.ts";
@@ -27,7 +26,7 @@ function seams(overrides: Partial<ProbeSeams> = {}): ProbeSeams {
 		dirs: { agentDir: AGENT_DIR, cwd: CWD, configDirName: CONFIG_DIR },
 		platform: "darwin",
 		isEnabled: () => true,
-		loadModule: async () => ({ chromium: { executablePath: () => process.execPath } }),
+		loadModule: async () => ({}),
 		invocation: () => ({ command: "pi", args: ["--version"] }),
 		...overrides,
 	};
@@ -77,25 +76,6 @@ describe("optional package checks", () => {
 		);
 		expect(find(report, "unpdf")?.severity).toBe("degraded");
 		expect(find(report, "unpdf")?.hint).toContain("npm i unpdf");
-	});
-
-	test("reports playwright without a browser as incomplete", async () => {
-		const report = await probeExtension(
-			"web-access",
-			seams({ loadModule: async () => ({ chromium: { executablePath: () => "/nope/chrome" } }) }),
-		);
-		const finding = find(report, "playwright");
-		expect(finding?.severity).toBe("degraded");
-		expect(finding?.detail).toContain("installed but incomplete");
-		expect(finding?.hint).toContain("npx playwright install chromium");
-	});
-
-	test("accepts an installed package with a browser", async () => {
-		const report = await probeExtension(
-			"web-access",
-			seams({ loadModule: async () => ({ chromium: { executablePath: () => process.execPath } }) }),
-		);
-		expect(find(report, "playwright")?.severity).toBe("ok");
 	});
 });
 
@@ -223,9 +203,8 @@ describe("report shape", () => {
 });
 
 describe("install guidance", () => {
-	test("names the package install for the optional peers", () => {
+	test("names the package install for the optional peer", () => {
 		expect(pdfGuidance()).toContain("npm i unpdf");
-		expect(renderGuidance()).toContain("npx playwright install chromium");
 	});
 
 	test("names the cargo command for an extractor CLI", () => {

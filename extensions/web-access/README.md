@@ -25,8 +25,8 @@ pi install ./                             # or install the package
   page, and says when the match cap hid further hits.
 - Re-validates every redirect hop against private/internal addresses, and
   refuses transport headers and oversized bodies.
-- Optionally extracts PDFs (`unpdf`) and renders JavaScript-heavy pages
-  (`playwright`); both packages load lazily and are never required.
+- Optionally extracts PDFs (`unpdf`); the package loads lazily and is never
+  required.
 - Caches fetched pages in one in-process cache per registration, so paging and
   `find` do not refetch; the cache is cleared on `session_start` and
   `session_shutdown`.
@@ -99,11 +99,6 @@ unknown keys are ignored.
     "maxRedirects": 5,                                      // 0–10 hops, each re-validated
     "maxBodyChars": 100000,                                 // request body cap (POST)
     "pdfEnabled": true,                                     // extract PDFs (needs unpdf)
-    "renderJs": "never",                                    // "never" | "auto" | "always" (needs playwright)
-    "renderTimeoutMs": 15000,                               // 1000–120000
-    "renderWaitUntil": "load",                              // "load" | "networkidle"
-    "renderMinChars": 500,                                  // "auto" renders below this length
-    "renderExecutablePath": "",                             // optional Chromium path
     "cacheEnabled": true,
     "cacheTtlMs": 300000,                                   // 0 = never expire
     "cacheMaxEntries": 8,
@@ -133,9 +128,6 @@ as `Authorization: Bearer <key>`; for Brave it is sent as
   cannot redirect into a private address.
 - Transport headers (`Host`, `Content-Length`, `Connection`, `Transfer-Encoding`,
   and similar) are refused, and request bodies are capped.
-- The JS renderer uses the browser's own network stack, so its subresource
-  requests are guarded best-effort (`page.route` blocks known-internal targets)
-  and not by the full transport guard; DNS rebinding is a residual risk.
 
 ## `web_search`
 
@@ -188,7 +180,6 @@ address. Loopback, private, link-local, and cloud-metadata addresses are refused
 | `method` | enum | `GET` (default) \| `POST`. POST is for read-style APIs |
 | `headers` | object | Extra request headers (transport headers are refused) |
 | `body` | string | POST body; implies `method: "POST"` unless set explicitly |
-| `render` | boolean | Force/forbid JS rendering for this call, overriding `renderJs` |
 | `startIndex` | integer | Code-point offset to start from, applied to every page (default 0) |
 | `maxChars` | integer | ≥200; split across pages and capped by `maxOutputChars` |
 | `find` | string[] | 1–10 strings; return matching passages instead of the page |
@@ -203,8 +194,8 @@ multi-URL call keeps whole pages and reports `(showing K of N pages)` rather tha
 cutting one section mid-way. Fetched pages are cached for the registration, so
 paging and `find` do not refetch. POST responses and requests with custom headers
 are never cached. `structuredContent` is `{ pages: [...] }`, one entry per URL
-(with an `error` field when a page failed, `rendered` when JS rendering ran, and
-`matchesTruncated` when `maxMatches` capped the match list).
+(with an `error` field when a page failed and `matchesTruncated` when
+`maxMatches` capped the match list).
 
 ```
 web_fetch({ url: "https://pi.dev/" })
@@ -212,25 +203,19 @@ web_fetch({ url: "https://example.com/long-article", startIndex: 20000 })
 web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
 web_fetch({ urls: ["https://a.example/", "https://b.example/"] })
 web_fetch({ url: "https://api.example/graphql", method: "POST", headers: { "Content-Type": "application/json" }, body: '{"query":"{ viewer { login } }"}' })
-web_fetch({ url: "https://spa.example/", render: true })
 ```
 
 ### Optional dependencies
 
-PDF extraction and JS rendering need packages that are not installed by
-default; both are loaded lazily, so the extension stays dependency-free until
-you enable them.
+PDF extraction needs a package that is not installed by default; it is loaded
+lazily, so the extension stays dependency-free until you enable it.
 
 | Feature | Package | Enable |
 |---|---|---|
 | PDF text extraction | `unpdf` | `npm i unpdf` (on by default once installed) |
-| JS rendering | `playwright` | `npm i playwright && npx playwright install chromium`, then `"renderJs": "auto"` or `"always"` |
 
-When a package is missing, `render: true` / `renderJs: "always"` returns an
-actionable error, while `renderJs: "auto"` and the PDF path fall back to the
-plain behavior. The renderer uses the browser's own network stack, so its
-subresource requests are guarded best-effort (blocked hostnames and IP literals)
-but not by the full transport guard.
+When `unpdf` is missing, the PDF path falls back to a plain binary note naming
+the content type and size.
 
 ## Limitations
 
@@ -240,16 +225,15 @@ but not by the full transport guard.
   SearXNG or `search.apiKeyEnv` for Brave to get full web results. Result quality
   follows the engines the provider uses.
 - **Heuristic extraction**: `web_fetch` strips scripts/styles/nav/footer and
-  prefers `<main>`/`<article>`, but is not a full readability engine. JS
-  rendering and PDF extraction are optional (`playwright`/`unpdf`) and off unless
-  installed and enabled.
+  prefers `<main>`/`<article>`, but is not a full readability engine. PDF
+  extraction is optional (`unpdf`) and off unless installed.
 - **The page cache is in-memory and per registration**; a page can be stale
   within a session. `refresh: true` refetches, and it is cleared on
   `session_start` and `session_shutdown`.
 - **Untrusted content**: fetched page text may contain prompt-injection attempts;
   treat it as data, not instructions.
-- The SSRF guard covers every redirect hop, but DNS rebinding and the renderer's
-  own subresource requests are only best-effort.
+- The SSRF guard covers every redirect hop, but DNS rebinding is a residual
+  risk.
 
 ## Non-goals
 
@@ -257,8 +241,8 @@ but not by the full transport guard.
   JSON API (DuckDuckGo Instant Answer, SearXNG, or Brave). No keys are required
   for the keyless default.
 - `web_fetch` does no model call; it returns text and lets the model reason.
-- JavaScript rendering and PDF extraction exist only through optional, lazily
-  loaded packages, never as required dependencies.
+- PDF extraction exists only through the optional, lazily loaded `unpdf`
+  package, never as a required dependency.
 
 ## Pi integration
 
@@ -283,10 +267,8 @@ but not by the full transport guard.
 - **One config file, isolated sections.** `config.ts` reads the global then
   project file and validates each section with its half's normalizer; unknown
   keys and malformed files are ignored.
-- **Native fetch, no required dependencies.** PDF and JS rendering load lazily;
-  the renderer only runs under `render: true`, `"always"`, or `"auto"` when
-  extracted text is shorter than `renderMinChars`, and `"auto"` falls back to
-  raw HTML on failure.
+- **Native fetch, no required dependencies.** PDF extraction loads `unpdf`
+  lazily and falls back to a binary note when it is absent.
 - **Per-hop SSRF validation.** Redirects are followed with `redirect: "manual"`
   under one shared deadline, re-resolving and re-checking each `Location`.
 - **Pluggable search providers.** [`registry.ts`](./search/registry.ts) holds a
@@ -346,7 +328,6 @@ but not by the full transport guard.
 | `fetch/ssrf.ts` | URL/host validation and private-address blocking |
 | `fetch/extract.ts` | HTML → title + readable text |
 | `fetch/pdf.ts` | Optional PDF text extraction via lazy `unpdf` (injected via `FetchDeps`) |
-| `fetch/render.ts` | Optional JS rendering via lazy `playwright` (injected via `FetchDeps`) |
 | `fetch/find.ts` | Passage search (exact/insensitive/fuzzy) |
 | `fetch/cache.ts` | Per-registration LRU/TTL page cache (`createPageCache`) |
 | `fetch/format.ts`, `fetch/types.ts` | Result text and data types |
@@ -361,7 +342,7 @@ redirect re-validation (per-hop SSRF with literal IPs), method/header/body
 validation, the nested config merge and section isolation, extraction,
 formatting/paging through the tool (including a regression test that a truncated
 page keeps its `startIndex` hint), find and its cap notice, the per-registration
-cache, the SSRF guard, the injected PDF/render dependencies, and both tools'
-registration/execution. Tests inject the runner, throttle, PDF extractor, and
-renderer through the tools' dependencies, so no network, browser, or PDF library
-is needed; the runtime smoke test only asserts registration.
+cache, the SSRF guard, the injected PDF dependency, and both tools'
+registration/execution. Tests inject the runner, throttle, and PDF extractor
+through the tools' dependencies, so no network or PDF library is needed; the
+runtime smoke test only asserts registration.

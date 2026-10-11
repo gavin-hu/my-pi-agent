@@ -95,14 +95,10 @@
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
-    "playwright": "*",
     "typebox": "*",
     "unpdf": "*"
   },
   "peerDependenciesMeta": {
-    "playwright": {
-      "optional": true
-    },
     "unpdf": {
       "optional": true
     }

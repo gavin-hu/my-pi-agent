@@ -56,7 +56,6 @@ describe("resolveRequest", () => {
 		expect(request.method).toBe("GET");
 		expect(request.headers).toEqual({});
 		expect(request.body).toBeUndefined();
-		expect(request.render).toBeUndefined();
 		expect(request.cacheable).toBe(true);
 	});
 
@@ -86,11 +85,5 @@ describe("resolveRequest", () => {
 		expect(() => resolveRequest({ url: "https://a/", body: "x".repeat(config.maxBodyChars + 1) }, config)).toThrow(
 			"body is longer",
 		);
-	});
-
-	test("passes render through as a tri-state", () => {
-		expect(resolveRequest({ url: "https://a/", render: true }, config).render).toBe(true);
-		expect(resolveRequest({ url: "https://a/", render: false }, config).render).toBe(false);
-		expect(resolveRequest({ url: "https://a/" }, config).render).toBeUndefined();
 	});
 });
