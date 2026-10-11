@@ -16,6 +16,12 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+// The install hints live in `lib/requirements.ts` so `doctor` prints exactly what
+// a failed `read_doc` reports. Re-exported here to keep this module the single
+// import for the extractor CLI contract.
+export { cliGuidance } from "../../../lib/requirements.ts";
+import { cliGuidance } from "../../../lib/requirements.ts";
+
 /** The three extractor executables. */
 export type CliName = "pdfcraft-cli" | "wordcraft-cli" | "gridcraft-cli";
 
@@ -47,29 +53,12 @@ export interface DocCli {
 	run(cli: CliName, args: string[], options?: { signal?: AbortSignal }): Promise<string>;
 }
 
-/** Per-CLI wording for the model-facing install hint. */
-const CLI_INFO: Record<CliName, { noun: string; repo: string }> = {
-	"pdfcraft-cli": { noun: "PDF", repo: "storytold/pdfcraft" },
-	"wordcraft-cli": { noun: "DOCX/DOC/ODT/RTF", repo: "storytold/wordcraft" },
-	"gridcraft-cli": { noun: "XLSX", repo: "storytold/gridcraft" },
-};
-
 /** Raised when a needed extractor executable is not installed. */
 export class CliUnavailableError extends Error {
 	constructor(readonly cli: CliName) {
 		super(cliGuidance(cli));
 		this.name = "CliUnavailableError";
 	}
-}
-
-/** Model-facing guidance naming the install command for a missing CLI. */
-export function cliGuidance(cli: CliName): string {
-	const { noun, repo } = CLI_INFO[cli];
-	return (
-		`${noun} extraction needs the '${cli}' executable on PATH. Install it with ` +
-		`\`cargo install --git https://github.com/${repo} ${cli}\`, or a release build from ` +
-		`https://github.com/${repo}.`
-	);
 }
 
 /** Back {@link RunCli} with `pi.exec`. */

@@ -6,6 +6,8 @@
  * inject an extractor through `FetchDeps.pdf`.
  */
 
+import { pdfGuidance } from "../../../lib/requirements.ts";
+
 /** Raised when the optional `unpdf` package is missing or unusable. */
 export class PdfUnavailableError extends Error {
 	constructor(message: string) {
@@ -26,7 +28,7 @@ export async function extractPdfText(bytes: Uint8Array, extractor?: PdfExtractor
 		const name = "unpdf";
 		module = (await import(name)) as Record<string, unknown>;
 	} catch {
-		throw new PdfUnavailableError("PDF extraction requires the optional 'unpdf' package (npm i unpdf).");
+		throw new PdfUnavailableError(pdfGuidance());
 	}
 
 	const candidate = module.extractText ?? (module.default as Record<string, unknown> | undefined)?.extractText;

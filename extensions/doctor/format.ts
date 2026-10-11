@@ -1,0 +1,180 @@
+/**
+ * Pure formatting for doctor's reports.
+ *
+ * Two shapes share these helpers: the plain multi-line text every non-TUI mode
+ * shows, and the single row per extension the TUI screen renders. Nothing here
+ * touches the filesystem or the host, and every string that came from a probe (a
+ * parse error, a captured path) goes through {@link safe} — probe text can carry
+ * control characters, a parse error quotes the file's own bytes.
+ */
+
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { sanitize, stripControlChars } from "../../lib/format.ts";
+import { selectionMarker } from "../../lib/list-cursor.ts";
+import type { ExtensionReport, Finding, FindingSeverity } from "../../lib/requirements.ts";
+import { GLYPHS } from "../../lib/ui.ts";
+
+/** Strip control characters, then collapse the text to one line. */
+function safe(text: string): string {
+	return sanitize(stripControlChars(text));
+}
+
+/** Counts the report headline uses. */
+export interface ReportCounts {
+	extensions: number;
+	enabled: number;
+	missing: number;
+	degraded: number;
+}
+
+/** Tally a report set. `info` findings are notes, not problems. */
+export function countFindings(reports: readonly ExtensionReport[]): ReportCounts {
+	const findings = reports.flatMap((report) => report.findings);
+	return {
+		extensions: reports.length,
+		enabled: reports.filter((report) => report.enabled).length,
+		missing: findings.filter((finding) => finding.severity === "missing").length,
+		degraded: findings.filter((finding) => finding.severity === "degraded").length,
+	};
+}
+
+/** Whether anything in the report set needs attention. */
+export function hasProblems(reports: readonly ExtensionReport[]): boolean {
+	const counts = countFindings(reports);
+	return counts.missing > 0 || counts.degraded > 0;
+}
+
+/** The one-line headline, e.g. `doctor: 1 missing, 2 degraded across 17 extensions`. */
+export function formatHeadline(reports: readonly ExtensionReport[]): string {
+	const counts = countFindings(reports);
+	const parts: string[] = [];
+	if (counts.missing > 0) parts.push(`${counts.missing} missing`);
+	if (counts.degraded > 0) parts.push(`${counts.degraded} degraded`);
+	if (parts.length === 0) return `doctor: all ${counts.enabled} enabled extensions are ready`;
+	return `doctor: ${parts.join(", ")} across ${counts.extensions} extensions`;
+}
+
+/** One finding as `label: detail` plus an indented hint. */
+function findingLines(finding: Finding, indent: string): string[] {
+	const lines = [`${indent}${safe(finding.check)}: ${safe(finding.detail)}`];
+	if (finding.hint) lines.push(`${indent}  → ${safe(finding.hint)}`);
+	return lines;
+}
+
+/** The full multi-line report every non-TUI mode prints. */
+export function formatReport(reports: readonly ExtensionReport[]): string {
+	const lines = [formatHeadline(reports)];
+	const problems = reports.filter((report) =>
+		report.findings.some((finding) => finding.severity === "missing" || finding.severity === "degraded"),
+	);
+
+	if (problems.length === 0) {
+		const notes = reports.flatMap((report) =>
+			report.findings
+				.filter((finding) => finding.severity === "info")
+				.map((finding) => `  ${safe(report.extension)}: ${safe(finding.detail)}`),
+		);
+		if (notes.length > 0) lines.push("", "Notes:", ...notes);
+		return lines.join("\n");
+	}
+
+	for (const report of problems) {
+		lines.push("", `${safe(report.extension)}${report.enabled ? "" : " (disabled)"}`);
+		for (const finding of report.findings) {
+			if (finding.severity !== "missing" && finding.severity !== "degraded") continue;
+			lines.push(...findingLines(finding, "  "));
+		}
+	}
+	return lines.join("\n");
+}
+
+/** Every finding for one extension, including the checks that passed. */
+export function formatExtension(report: ExtensionReport): string {
+	const lines = [`${safe(report.extension)}${report.enabled ? "" : " (disabled)"}`];
+	for (const finding of report.findings) lines.push(...findingLines(finding, "  "));
+	return lines.join("\n");
+}
+
+/** The single sentence the proactive session-start warning uses. */
+export function formatWarning(findings: readonly Finding[]): string {
+	const byExtension = new Map<string, string[]>();
+	for (const finding of findings) {
+		const list = byExtension.get(finding.extension) ?? [];
+		list.push(safe(finding.check));
+		byExtension.set(finding.extension, list);
+	}
+	const parts = [...byExtension].map(([extension, checks]) => `${safe(extension)} (${checks.join(", ")})`);
+	return `doctor: missing ${parts.join("; ")} — run /doctor`;
+}
+
+/** The severity glyph, from the shared vocabulary. */
+export function severityGlyph(severity: FindingSeverity, theme: Theme): string {
+	if (severity === "missing") return theme.fg("error", GLYPHS.doctorMissing);
+	if (severity === "degraded") return theme.fg("warning", GLYPHS.doctorWarn);
+	return theme.fg("success", GLYPHS.doctorOk);
+}
+
+/** The severity that represents an extension: worst finding wins. */
+export function reportSeverity(report: ExtensionReport): FindingSeverity {
+	if (!report.enabled) return "info";
+	if (report.findings.some((finding) => finding.severity === "missing")) return "missing";
+	if (report.findings.some((finding) => finding.severity === "degraded")) return "degraded";
+	return "ok";
+}
+
+/** A short right-hand status for one extension row. */
+function reportSummary(report: ExtensionReport): string {
+	if (!report.enabled) return "disabled";
+	const missing = report.findings.filter((finding) => finding.severity === "missing").length;
+	const degraded = report.findings.filter((finding) => finding.severity === "degraded").length;
+	if (missing > 0) return `${missing} missing`;
+	if (degraded > 0) return `${degraded} degraded`;
+	return "ok";
+}
+
+/** One extension row: marker, severity glyph, name, and a summary. */
+export function extensionRow(report: ExtensionReport, theme: Theme, width: number, selected = false): string {
+	const glyph = severityGlyph(reportSeverity(report), theme);
+	const head = `${selectionMarker(theme, selected)}${glyph} `;
+	const summary = reportSummary(report);
+	const available = Math.max(1, width - visibleWidth(head) - visibleWidth(summary) - 1);
+	const name = truncateToWidth(safe(report.extension), available, "…");
+	const pad = " ".repeat(Math.max(0, available - visibleWidth(name)));
+	const tail = reportSeverity(report) === "missing" ? theme.fg("error", summary) : theme.fg("dim", summary);
+	return truncateToWidth(`${head}${name}${pad} ${tail}`, width);
+}
+
+/**
+ * The focused extension's findings, wrapped to `width` and capped at `rows`
+ * lines. Problems come first: `includeInfo` is the screen's expand toggle, and
+ * a clean extension says so rather than padding the pane with notes.
+ */
+export function detailLines(
+	report: ExtensionReport | undefined,
+	theme: Theme,
+	width: number,
+	rows: number,
+	includeInfo = false,
+): string[] {
+	if (!report) return [];
+	const budget = Math.max(1, rows);
+	const shown = includeInfo ? report.findings : report.findings.filter((finding) => finding.severity !== "info");
+	if (shown.length === 0) {
+		return [`  ${theme.fg("dim", report.enabled ? "no problems" : "disabled")}`];
+	}
+
+	const lines: string[] = [];
+	for (const finding of shown) {
+		for (const line of wrapTextWithAnsi(`${safe(finding.check)}: ${safe(finding.detail)}`, Math.max(1, width - 2))) {
+			lines.push(`  ${line}`);
+		}
+		if (finding.hint) {
+			for (const line of wrapTextWithAnsi(`→ ${safe(finding.hint)}`, Math.max(1, width - 4))) {
+				lines.push(`    ${theme.fg("dim", line)}`);
+			}
+		}
+	}
+	if (lines.length <= budget) return lines;
+	return [...lines.slice(0, budget - 1), `  ${theme.fg("dim", "…")}`];
+}

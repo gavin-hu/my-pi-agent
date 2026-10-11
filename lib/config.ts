@@ -2,6 +2,10 @@
  * Config-file helpers shared by extensions that read `~/.pi/agent/<name>.json`
  * and `<cwd>/.pi/<name>.json`. Project values override global ones; missing or
  * malformed files are ignored.
+ *
+ * `readJson` stays deliberately lenient: a malformed file must never break a
+ * session. `readJsonResult` is the reporting twin that `doctor` uses to name the
+ * file and the parse error a user would otherwise never see.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -22,15 +26,43 @@ export function cleanString(value: unknown, fallback: string): string {
 
 /** Parse a JSON object from disk, ignoring missing/malformed/non-object files. */
 export function readJson(path: string): Record<string, unknown> | undefined {
+	const result = readJsonResult(path);
+	return result.state === "ok" ? result.value : undefined;
+}
+
+/** What {@link readJsonResult} found: nothing, a usable object, or why not. */
+export type JsonReadResult =
+	| { state: "absent" }
+	| { state: "ok"; value: Record<string, unknown> }
+	| { state: "error"; error: string };
+
+/**
+ * Parse a JSON object from disk without swallowing the reason it failed.
+ *
+ * `absent` covers a missing path; `error` distinguishes a file that exists but
+ * is unreadable, not JSON, or not a JSON object — the cases {@link readJson}
+ * hides from the extension that asked for it.
+ */
+export function readJsonResult(path: string): JsonReadResult {
+	let text: string;
 	try {
-		if (!existsSync(path)) return undefined;
-		const parsed = JSON.parse(readFileSync(path, "utf-8"));
-		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-			? (parsed as Record<string, unknown>)
-			: undefined;
-	} catch {
-		return undefined;
+		if (!existsSync(path)) return { state: "absent" };
+		text = readFileSync(path, "utf-8");
+	} catch (error) {
+		return { state: "error", error: error instanceof Error ? error.message : String(error) };
 	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch (error) {
+		return { state: "error", error: error instanceof Error ? error.message : String(error) };
+	}
+
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		return { state: "error", error: "expected a JSON object at the top level" };
+	}
+	return { state: "ok", value: parsed as Record<string, unknown> };
 }
 
 /**

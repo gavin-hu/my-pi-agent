@@ -10,6 +10,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { REQUIREMENTS } from "../lib/requirements.ts";
 
 /** Normalise separators so path comparisons work on Windows too. */
 const posix = (p: string): string => p.replaceAll("\\", "/");
@@ -231,6 +232,29 @@ describe("extension boundaries", () => {
 							offenders.push(`${relative}:${index + 1}: imports extensions/${owner} (${spec}); share it through lib/`);
 						}
 					});
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+});
+
+describe("prerequisite declarations", () => {
+	test("every extension declares its runtime prerequisites", () => {
+		const undeclared = dirsOf(extensionsDir).filter((name) => REQUIREMENTS[name] === undefined);
+		expect(undeclared, "add an entry to REQUIREMENTS in lib/requirements.ts").toEqual([]);
+	});
+
+	test("a declared config file is the one the extension actually reads", () => {
+		const offenders: string[] = [];
+		for (const [name, spec] of Object.entries(REQUIREMENTS)) {
+			if (!spec.configFile) continue;
+			const configPath = join(extensionsDir, name, "config.ts");
+			if (!existsSync(configPath)) {
+				offenders.push(`${name}: declares ${spec.configFile} but has no config.ts`);
+				continue;
+			}
+			if (!readFileSync(configPath, "utf-8").includes(`"${spec.configFile}"`)) {
+				offenders.push(`${name}: config.ts does not read ${spec.configFile}`);
 			}
 		}
 		expect(offenders).toEqual([]);
