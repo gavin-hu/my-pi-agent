@@ -12,8 +12,10 @@ import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
 /**
  * Leading glyphs for status chips and footer segments.
  *
- * Only non-ambiguous (`East_Asian_Width=N`) and non-emoji glyphs, so a chip is
- * one column wide in every terminal profile.
+ * Only `East_Asian_Width=N` and non-emoji glyphs, so a chip is one column wide
+ * in every terminal profile. `visibleWidth` cannot check this: it counts an
+ * ambiguous character as one column, which is exactly what a CJK-width terminal
+ * does not, so a new glyph has to be checked against `EastAsianWidth.txt`.
  */
 export const GLYPHS = {
 	branch: "⎇",
@@ -30,7 +32,7 @@ export const GLYPHS = {
 	turnRule: "╌",
 	doctorOk: "✓",
 	doctorWarn: "!",
-	doctorMissing: "×",
+	doctorMissing: "✕",
 } as const;
 
 /** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */
