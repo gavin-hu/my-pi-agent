@@ -42,6 +42,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   holds the WeChat bridge announced on it — `keep-awake` was the only subscriber,
   so the mechanism had nothing left to drive.
 
+### Fixed
+
+- Untrusted single-line text reaches a widget through one shared boundary
+  (`lib/format.ts`'s `sanitizeLine`): `sanitize` collapsed whitespace but left
+  ESC, BEL, and the C1 block in place, and pi-tui's `truncateToWidth` keeps ANSI
+  sequences, so a filename, a prompt summary, a stored note, or the session name
+  could still send an escape to the terminal. The status bar's own strip removed
+  SGR only; it now parses away a CSI or OSC sequence too.
+- `doctor`: each extension's `git` check is described in its own terms, so
+  `file-browser` no longer reports "worktrees, rewind snapshots, project-scope
+  memory, and the branch chip" as its requirement, `document` no longer declares
+  a `git` check it never uses, and the missing-check glyph (U+2715) is no longer
+  an East-Asian-ambiguous character that some terminals draw two columns wide.
+- Config: a value that is not a number (`null`, an empty string, `true`, an
+  array) is ignored instead of clamped to the field's minimum.
+- `subagent`: launching a nested `pi` no longer reads a user argument as an entry
+  script, which broke delegation from a single-file build.
+
 ## [0.3.1] - 2026-10-10
 
 ### Removed
