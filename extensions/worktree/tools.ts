@@ -35,6 +35,10 @@ export function registerTools(pi: ExtensionAPI): void {
 			"instructions. It creates an isolated git worktree and switches the session's working directory into it, so " +
 			"edits stay isolated from the main checkout. Pass `name` to create a new worktree, or `path` to switch into an " +
 			"existing worktree. The tool errors if the session is already isolated; call exit_worktree first.",
+		promptSnippet: "Create or enter an isolated git worktree (only when explicitly instructed).",
+		promptGuidelines: [
+			"Call enter_worktree only when the user or project instructions explicitly ask for a git worktree.",
+		],
 		parameters: Type.Object({
 			name: Type.Optional(
 				Type.String({
@@ -73,6 +77,7 @@ export function registerTools(pi: ExtensionAPI): void {
 			"Leave the current git worktree and return to the main checkout. The worktree is removed when it is clean; " +
 			"when it has uncommitted changes or new commits the user is asked whether to keep it. Use this after merging " +
 			"or finishing work started with enter_worktree.",
+		promptSnippet: "Leave the current git worktree and return to the main checkout.",
 		parameters: Type.Object({
 			remove: Type.Optional(Type.Boolean({ description: "Force removal (or keep when false) without prompting." })),
 			keepBranch: Type.Optional(Type.Boolean({ description: "Keep the worktree branch when removing." })),
@@ -102,6 +107,7 @@ export function registerTools(pi: ExtensionAPI): void {
 		description:
 			"Remove managed git worktrees that are clean, have no new commits, are not the current worktree, are not " +
 			"locked by a live process, and are older than the configured pruneAfterDays. Worktrees with any work are kept.",
+		promptSnippet: "Remove clean, unused managed git worktrees older than the configured age.",
 		parameters: Type.Object({}),
 		annotations: { destructiveHint: true, openWorldHint: false },
 		executionMode: "sequential",
@@ -116,6 +122,8 @@ export function registerTools(pi: ExtensionAPI): void {
 		description:
 			"Report whether the session is isolated in a git worktree, its path and branch, any isolation overrides that " +
 			"are not active, and the managed worktrees on disk. Read-only; use it before assuming you are or are not isolated.",
+		promptSnippet: "Report whether the session is isolated in a git worktree and list managed worktrees.",
+		promptGuidelines: ["Use list_worktrees to check whether the session is isolated before assuming it is or is not."],
 		parameters: Type.Object({}),
 		annotations: { readOnlyHint: true, openWorldHint: false },
 		executionMode: "sequential",
