@@ -125,6 +125,27 @@ for (const name of ROOT_TOOL_NAMES) {
 }
 check("edit override keeps prepareArguments", !!tool("edit").prepareArguments);
 
+// Every tool this package registers ships a `promptSnippet`, or Pi leaves it out
+// of the default system prompt's "Available tools" section; the worktree tools
+// regressed this way once. Guidelines, when present, must be non-empty and
+// unique so no rule is stated twice.
+const extensionsDir = join(repo, "extensions");
+const packageTools = session
+	.getAllTools()
+	.filter((t) => t.sourceInfo?.path !== undefined && resolve(t.sourceInfo.path).startsWith(extensionsDir));
+check("package tools found", packageTools.length > 0);
+for (const info of packageTools) {
+	const def = runner.getToolDefinition(info.name) as
+		| { promptSnippet?: string; promptGuidelines?: readonly string[] }
+		| undefined;
+	check(`${info.name} has a promptSnippet`, !!def?.promptSnippet?.trim());
+	const guidelines = def?.promptGuidelines ?? [];
+	check(
+		`${info.name} guidelines are non-empty and unique`,
+		guidelines.every((line) => line.trim().length > 0) && new Set(guidelines).size === guidelines.length,
+	);
+}
+
 const entered = await call("enter_worktree", { name: "smoke" });
 const enterText = (entered.content[0] as { text: string }).text;
 console.log(enterText.split("\n").slice(0, 4).join("\n"));
