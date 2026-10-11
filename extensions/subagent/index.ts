@@ -67,7 +67,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		name: TOOL_NAME,
 		label: "Subagent",
 		description: DESCRIPTION,
-		promptSnippet: "Delegate a task to a specialized built-in subagent with an isolated context window.",
+		promptSnippet: "Delegate a task to a specialized subagent with an isolated context window.",
 		promptGuidelines: GUIDELINES,
 		parameters: SubagentParams,
 		exposure: "direct",

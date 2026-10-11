@@ -24,13 +24,13 @@ export const COLLAPSED_TEXT_LINES = 3;
 export const COLLAPSED_ERROR_MAX = 300;
 
 const TaskItem = Type.Object({
-	agent: Type.String({ description: "Name of the built-in agent to invoke" }),
+	agent: Type.String({ description: "Name of the agent to invoke" }),
 	task: Type.String({ description: "Task to delegate to the agent" }),
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process" })),
 });
 
 const ChainItem = Type.Object({
-	agent: Type.String({ description: "Name of the built-in agent to invoke" }),
+	agent: Type.String({ description: "Name of the agent to invoke" }),
 	task: Type.String({
 		description: "Task with an optional {previous} placeholder for the prior step's output",
 	}),

@@ -62,18 +62,9 @@ function extensionEntryPath(): string | undefined {
 }
 
 function isPlanModeContext(message: AgentMessage): boolean {
-	const candidate = message as AgentMessage & { customType?: string };
-	if (candidate.customType === "plan-mode-context") return true;
-	if (candidate.role !== "user") return false;
-
-	const content = candidate.content;
-	if (typeof content === "string") return content.includes(PLAN_MODE_MARKER);
-	if (Array.isArray(content)) {
-		return content.some(
-			(block) => block.type === "text" && (block as { text?: string }).text?.includes(PLAN_MODE_MARKER),
-		);
-	}
-	return false;
+	// Only the injected message carries this custom type. Matching on the marker
+	// text would also capture (and drop) a real user message that contains it.
+	return (message as AgentMessage & { customType?: string }).customType === "plan-mode-context";
 }
 
 export default function planMode(pi: ExtensionAPI): void {
