@@ -8,6 +8,7 @@ import {
 	getPackageResourcePattern,
 	getPatternEntryTarget,
 	getResourcePattern,
+	isSelf,
 	nextSelectable,
 } from "./resources.ts";
 import { makeItem } from "../../test/helpers/fixtures/extension-picker.ts";
@@ -35,6 +36,11 @@ describe("buildEntries", () => {
 	test("renders an extension in a subfolder as folder/file.ts", () => {
 		const item = makeItem({ path: "/agent/extensions/foo/index.ts" });
 		expect(getDisplayName(item)).toBe("foo/index.ts");
+	});
+
+	test("recognises this extension's own entrypoint", () => {
+		expect(isSelf(makeItem({ path: "/pkg/extensions/extension-picker/index.ts" }))).toBe(true);
+		expect(isSelf(makeItem({ path: "/pkg/extensions/todo/index.ts" }))).toBe(false);
 	});
 
 	test("keeps a flat extension as its file name", () => {

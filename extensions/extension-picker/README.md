@@ -16,6 +16,8 @@ pi install ./                                    # install the package
 
 - Lists every extension Pi resolves, grouped by source (each package, user
   settings, project settings) and sorted packages-first.
+- Omits the picker's own entrypoint, so the tool that manages the list is never
+  a row.
 - Shows whether each one is enabled (`[x]`) or disabled (`[ ]`).
 - Toggles the focused extension with `Space`/`Enter`, writing `+pattern` /
   `-pattern` into `extensions` (and package filter objects) in
@@ -42,8 +44,7 @@ pi install ./                                    # install the package
 | `g` / `G`, `Home` / `End` | Jump to the first or last extension. |
 | `Esc` / `Ctrl+C` | Close the screen. |
 
-Mouse wheel scrolling works in fullscreen mode; every action also has a
-keyboard path.
+Mouse wheel scrolling works; every action also has a keyboard path.
 
 ## Behaviour by mode
 
@@ -70,6 +71,8 @@ keyboard path.
   `pi remove`, and `pi update`.
 - Project toggles are two-state (`enable`/`disable`). Resetting an override back
   to "inherit" is done in `pi config`.
+- `extension-picker` does not list itself and cannot disable itself from the
+  screen; turn it off in `pi config` or with `PI_DISABLED_EXTENSIONS`.
 
 ## Pi integration
 
@@ -77,7 +80,7 @@ keyboard path.
 |---|---|
 | Registration | The default export registers one command; no tools, flags, widgets, or long-lived resources. |
 | Command | `pi.registerCommand("extensions")`; handler receives `ExtensionCommandContext`. |
-| Discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports of `@earendil-works/pi-coding-agent`. |
+| Discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports of `@earendil-works/pi-coding-agent`; both views drop the picker's own entrypoint. |
 | Settings writes | `SettingsManager` setter methods (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`), then `flush()`. |
 | State | The screen is derived from live runtime state; nothing is persisted outside `settings.json`. |
 | UI | `ctx.ui.custom()` in a dock (not an overlay), rails suppressed through `withRailsSuppressed`; `ctx.ui.notify()` in other modes. |

@@ -120,6 +120,14 @@ export function getGroupLabel(metadata: PathMetadata, agentDir: string): string 
 	return metadata.scope === "user" ? "User settings" : "Project settings";
 }
 
+/** Directory name of this extension, excluded from its own list. */
+export const SELF_EXTENSION_DIR = "extension-picker";
+
+/** Whether `item` is this extension's own entrypoint. */
+export function isSelf(item: ResourceItem): boolean {
+	return basename(dirname(item.path)) === SELF_EXTENSION_DIR;
+}
+
 /** Short name for one extension: `folder/file.ts` when it sits in a subfolder. */
 export function getDisplayName(item: ResourceItem): string {
 	const fileName = basename(item.path);

@@ -27,11 +27,16 @@ import type { Entry } from "./types.ts";
 /** Rows the screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 16;
 
-/** Fixed rows around the list: header, summary, blank, blank, hint, blank. */
+/**
+ * Fixed rows around the list: header, summary, blank, blank, hint, blank. The
+ * focused-detail and pending-changes rows are added on top when present.
+ */
 const CHROME = 6;
 
 export class ExtensionsListComponent implements Component {
 	private readonly cursor: ListCursor;
+	/** Serialises toggles so a rapid double press toggles twice, not once. */
+	private chain: Promise<void> = Promise.resolve();
 
 	constructor(
 		private readonly runtime: Runtime,
@@ -66,6 +71,13 @@ export class ExtensionsListComponent implements Component {
 		this.select(firstSelectable(entries));
 	}
 
+	/** Move the cursor onto an item row when the list shape changed. No repaint. */
+	private clampSelection(entries: Entry[]): void {
+		if (entries[this.cursor.selected]?.kind === "item") return;
+		const first = firstSelectable(entries);
+		if (first !== undefined) this.cursor.selected = first;
+	}
+
 	/** Move `delta` item rows, skipping group headers. */
 	private move(delta: number): void {
 		if (delta === 0) return;
@@ -90,15 +102,17 @@ export class ExtensionsListComponent implements Component {
 			return;
 		}
 		this.runtime.setScope(next);
-		this.cursor.selected = 0;
+		this.clampSelection(this.entries());
 		this.requestRender();
 	}
 
-	private async toggle(): Promise<void> {
+	private toggle(): void {
 		const item = this.currentItem();
 		if (!item) return;
-		await this.runtime.toggle(item);
-		this.requestRender();
+		this.chain = this.chain
+			.then(() => this.runtime.toggle(item))
+			.catch(() => undefined)
+			.then(() => this.requestRender());
 	}
 
 	handleInput(data: string): void {
@@ -108,7 +122,7 @@ export class ExtensionsListComponent implements Component {
 		}
 		this.ensureSelectable();
 		if (matchesKey(data, Key.space) || matchesKey(data, Key.enter)) {
-			void this.toggle();
+			this.toggle();
 			return;
 		}
 		if (matchesKey(data, Key.tab)) {
@@ -158,16 +172,21 @@ export class ExtensionsListComponent implements Component {
 
 	private summary(width: number): string {
 		const items = this.runtime.items();
-		const label = this.runtime.scope() === "global" ? "Global" : "Project";
-		const suffix = this.runtime.scope() === "global" && !this.runtime.projectAvailable() ? " (project untrusted)" : "";
-		const text = `  Scope: ${label}${suffix} · ${items.length} extension${items.length === 1 ? "" : "s"} · ${this.runtime.disabledCount()} disabled`;
-		return truncateToWidth(this.theme.fg("muted", text), width, "…");
+		const scope = this.runtime.scope() === "global" ? "Global" : "Project";
+		const untrusted = this.runtime.scope() === "global" && !this.runtime.projectAvailable();
+		const counts = `${items.length} extension${items.length === 1 ? "" : "s"} · ${this.runtime.disabledCount()} disabled`;
+		return truncateToWidth(
+			`  ${this.theme.fg("accent", scope)}${untrusted ? this.theme.fg("warning", " (project untrusted)") : ""}${this.theme.fg("muted", ` · ${counts}`)}`,
+			width,
+			"…",
+		);
 	}
 
 	private itemRow(entry: Extract<Entry, { kind: "item" }>, selected: boolean, width: number): string {
 		const checkbox = entry.item.enabled ? this.theme.fg("success", "[x]") : this.theme.fg("dim", "[ ]");
 		const label = sanitizeLine(entry.label);
-		return truncateToWidth(`${selectionMarker(this.theme, selected)}${checkbox} ${label}`, width, "…");
+		const styled = selected ? this.theme.fg("accent", label) : entry.item.enabled ? label : this.theme.fg("dim", label);
+		return truncateToWidth(`${selectionMarker(this.theme, selected)}${checkbox} ${styled}`, width, "…");
 	}
 
 	render(width: number): string[] {
@@ -183,13 +202,11 @@ export class ExtensionsListComponent implements Component {
 			return lines;
 		}
 
-		// Keep the cursor on an item row when the list shape changes.
-		if (entries[this.cursor.selected]?.kind !== "item") {
-			const first = firstSelectable(entries);
-			if (first !== undefined) this.cursor.selected = first;
-		}
+		this.clampSelection(entries);
 
-		const chrome = CHROME + (this.runtime.isDirty() ? 1 : 0);
+		const focused = entries[this.cursor.selected];
+		const detail = focused?.kind === "item" ? sanitizeLine(focused.item.path) : "";
+		const chrome = CHROME + (detail ? 1 : 0) + (this.runtime.isDirty() ? 1 : 0);
 		this.cursor.visible = fitRows(this.viewportRowsSource, entries.length, chrome, SCREEN_DEFAULT_ROWS);
 		this.cursor.sync(entries.length);
 
@@ -197,7 +214,13 @@ export class ExtensionsListComponent implements Component {
 		for (let index = start; index < end; index++) {
 			const entry = entries[index];
 			if (entry.kind === "group") {
-				lines.push(truncateToWidth(`  ${this.theme.fg("muted", entry.label)}`, w, "…"));
+				lines.push(
+					truncateToWidth(
+						`  ${this.theme.fg("muted", entry.label)} ${this.theme.fg("dim", `(${entry.count})`)}`,
+						w,
+						"…",
+					),
+				);
 			} else {
 				lines.push(this.itemRow(entry, index === this.cursor.selected, w));
 			}
@@ -206,11 +229,12 @@ export class ExtensionsListComponent implements Component {
 			lines.push(formatRange(this.theme, w, { start, end, total: entries.length }));
 		}
 
+		if (detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", detail)}`, w, "…"));
 		if (this.runtime.isDirty()) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("warning", "Pending changes · reload to apply")}`, w, "…"));
+			lines.push(truncateToWidth(`  ${this.theme.fg("warning", "Pending changes · close to apply")}`, w, "…"));
 		}
 		lines.push("");
-		lines.push(screenHint(this.theme, w, ["Esc close", "Space toggle", "Tab scope", "↑/↓ scroll", "PgUp/PgDn", "g/G"]));
+		lines.push(screenHint(this.theme, w, ["Esc close", "Space/Enter toggle", "Tab scope", "↑/↓ select", "g/G"]));
 		lines.push("");
 		return lines;
 	}

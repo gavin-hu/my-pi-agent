@@ -25,6 +25,53 @@ export function makeItem(overrides: ItemOverrides = {}): ResourceItem {
 	};
 }
 
+/**
+ * Extensions enabled by default in the maintainer's profile, used by tests to
+ * model a realistic list where most rows are disabled. This is a test/doc
+ * constant only; it does not change what Pi loads.
+ */
+export const DEFAULT_ENABLED_EXTENSIONS = [
+	"status-bar",
+	"turn-separator",
+	"plan",
+	"todo",
+	"goal",
+	"ask-user-question",
+	"worktree",
+	"job",
+] as const;
+
+/** Every extension directory in this package, for default-profile tests. */
+export const PACKAGE_EXTENSIONS = [
+	"worktree",
+	"rewind",
+	"ask-user-question",
+	"todo",
+	"goal",
+	"plan",
+	"subagent",
+	"job",
+	"web-access",
+	"file-browser",
+	"document",
+	"file-explorer",
+	"memory",
+	"wechat",
+	"status-bar",
+	"turn-separator",
+	"extension-picker",
+	"doctor",
+] as const;
+
+/** A package extension item for an extension directory name. */
+export function packageExtension(name: string, enabled: boolean): ResourceItem {
+	return makeItem({
+		path: `/pkg/extensions/${name}/index.ts`,
+		enabled,
+		metadata: { source: "npm:pkg", origin: "package", scope: "user", baseDir: "/pkg/extensions" },
+	});
+}
+
 export interface StoreCalls {
 	setExtensionPaths: string[][];
 	setPackages: PackageSource[][];

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SettingsManager } from "@earendil-works/pi-coding-agent";
 import { createResolver, discoverExtensions, type DiscoveryFactory, type ResolverManager } from "./discovery.ts";
-import { makeItem, makeStore } from "../../test/helpers/fixtures/extension-picker.ts";
+import { makeItem, makeStore, packageExtension } from "../../test/helpers/fixtures/extension-picker.ts";
 
 const item = (path: string) => makeItem({ path });
 
@@ -47,6 +47,24 @@ describe("discoverExtensions", () => {
 		expect(discovery.trusted).toBe(false);
 		expect(discovery.effective).toBe(discovery.global);
 		expect(discovery.stores.project).toBe(discovery.stores.global);
+	});
+
+	test("drops this extension's own entrypoint from both views", async () => {
+		const factory: DiscoveryFactory = {
+			global: () => ({
+				store: makeStore().store,
+				resolve: async () => [packageExtension("extension-picker", true), packageExtension("todo", true)],
+			}),
+			project: () => ({
+				store: makeStore().store,
+				resolve: async () => [packageExtension("extension-picker", true), packageExtension("todo", false)],
+			}),
+		};
+
+		const discovery = await discoverExtensions({ cwd: "/proj", agentDir: "/agent", trusted: true, factory });
+
+		expect(discovery.global.map((entry) => entry.path)).toEqual(["/pkg/extensions/todo/index.ts"]);
+		expect(discovery.effective.map((entry) => entry.path)).toEqual(["/pkg/extensions/todo/index.ts"]);
 	});
 });
 
