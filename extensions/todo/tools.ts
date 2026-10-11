@@ -62,13 +62,15 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 		description:
 			"Record and update the task list for the current work. Send the complete list on every call; it replaces the " +
 			"previous list, and an empty list clears it. Give every item a status: `pending`, `in_progress`, or " +
-			"`completed`. Keep at most one item `in_progress`, and mark items `completed` immediately after finishing " +
-			"them. Use this for multi-step work so the user can see the plan and progress.",
+			"`completed`. Keep at most one item `in_progress` and give it a present-continuous `activeForm` label; " +
+			"mark items `completed` immediately after finishing them. Use this for multi-step work so the user can see " +
+			"the plan and progress.",
 		promptSnippet: "Track a task list for the current work (whole-list replacement).",
 		promptGuidelines: [
 			"Use todo to plan multi-step work, and update it as you go rather than only at the end.",
 			"Send the full list on every todo call; it replaces the previous list and an empty list clears it.",
 			"Keep exactly one item in_progress at a time.",
+			'Give every in_progress item a present-continuous activeForm (required), e.g. "Running tests".',
 			"Mark an item completed in the same turn you finish it, and promote the next item to in_progress in that same call, so the list never lags the work.",
 			"Update the list before starting a new step, not only after finishing one.",
 		],
