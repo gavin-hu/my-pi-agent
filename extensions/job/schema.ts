@@ -40,7 +40,9 @@ export const JobParams = Type.Object({
 		Type.Integer({
 			minimum: 0,
 			maximum: MAX_JOB_TIMEOUT_MS,
-			description: "For `wait`, how long it blocks before returning; for `start`, kill the job after this many ms.",
+			description:
+				`For \`wait\`, how long it blocks before returning (${MIN_WAIT_MS}–${MAX_WAIT_MS} ms). ` +
+				`For \`start\`, kill the job after this many ms (minimum ${MIN_JOB_TIMEOUT_MS}).`,
 		}),
 	),
 	all: Type.Optional(Type.Boolean({ description: "With `clear`, also remove running jobs (SIGKILL)." })),
