@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import {
 	cliGuidance,
 	hardRequirementExtensions,
@@ -11,12 +12,19 @@ import {
 	type ProbeSeams,
 } from "./requirements.ts";
 
+/** The directories the seams resolve against, and the paths they produce. */
+const AGENT_DIR = "/agent";
+const CWD = "/repo";
+const CONFIG_DIR = ".pi";
+const agentPath = (file: string): string => join(AGENT_DIR, file);
+const projectPath = (file: string): string => join(CWD, CONFIG_DIR, file);
+
 /** Seams with everything satisfied unless a test overrides one. */
 function seams(overrides: Partial<ProbeSeams> = {}): ProbeSeams {
 	return {
 		exec: async () => ({ code: 0 }),
 		readJson: () => ({ state: "absent" }),
-		dirs: { agentDir: "/agent", cwd: "/repo", configDirName: ".pi" },
+		dirs: { agentDir: AGENT_DIR, cwd: CWD, configDirName: CONFIG_DIR },
 		platform: "darwin",
 		isEnabled: () => true,
 		loadModule: async () => ({ chromium: { executablePath: () => process.execPath } }),
@@ -94,7 +102,7 @@ describe("optional package checks", () => {
 describe("state checks", () => {
 	test("reports missing credentials with the login hint", async () => {
 		const report = await probeExtension("wechat", seams());
-		const finding = find(report, "/agent/wechat/credentials.json");
+		const finding = find(report, agentPath(join("wechat", "credentials.json")));
 		expect(finding?.severity).toBe("degraded");
 		expect(finding?.hint).toContain("/wechat login");
 	});
@@ -104,7 +112,7 @@ describe("state checks", () => {
 			"wechat",
 			seams({ readJson: () => ({ state: "error", error: "Unexpected token" }) }),
 		);
-		expect(find(report, "/agent/wechat/credentials.json")?.detail).toContain("Unexpected token");
+		expect(find(report, agentPath(join("wechat", "credentials.json")))?.detail).toContain("Unexpected token");
 	});
 });
 
@@ -119,10 +127,12 @@ describe("config checks", () => {
 			"document",
 			seams({
 				readJson: (path) =>
-					path === "/repo/.pi/document.json" ? { state: "error", error: "Unexpected token 'n'" } : { state: "absent" },
+					path === projectPath("document.json")
+						? { state: "error", error: "Unexpected token 'n'" }
+						: { state: "absent" },
 			}),
 		);
-		const finding = find(report, "/repo/.pi/document.json");
+		const finding = find(report, projectPath("document.json"));
 		expect(finding?.severity).toBe("degraded");
 		expect(finding?.detail).toContain("not valid JSON");
 		expect(finding?.detail).toContain("Unexpected token");
@@ -132,10 +142,11 @@ describe("config checks", () => {
 		const report = await probeExtension(
 			"todo",
 			seams({
-				readJson: (path) => (path === "/agent/todo.json" ? { state: "error", error: "bad json" } : { state: "absent" }),
+				readJson: (path) =>
+					path === agentPath("todo.json") ? { state: "error", error: "bad json" } : { state: "absent" },
 			}),
 		);
-		const finding = find(report, "/agent/todo.json");
+		const finding = find(report, agentPath("todo.json"));
 		expect(finding?.detail).toContain("the global config is ignored");
 	});
 });
