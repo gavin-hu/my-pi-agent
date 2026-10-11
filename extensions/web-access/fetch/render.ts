@@ -12,6 +12,7 @@
  */
 
 import { isIP } from "node:net";
+import { renderGuidance } from "../../../lib/requirements.ts";
 import { isBlockedHostname, isBlockedIp } from "./ssrf.ts";
 
 /** Raised when the optional `playwright` package is missing or unusable. */
@@ -74,9 +75,7 @@ export async function renderPage(url: string, options: RenderOptions, renderer?:
 		const name = "playwright";
 		module = (await import(name)) as Record<string, unknown>;
 	} catch {
-		throw new RenderUnavailableError(
-			"JS rendering requires the optional 'playwright' package (npm i playwright && npx playwright install chromium).",
-		);
+		throw new RenderUnavailableError(renderGuidance());
 	}
 
 	const chromium = (module.chromium ?? (module.default as Record<string, unknown> | undefined)?.chromium) as

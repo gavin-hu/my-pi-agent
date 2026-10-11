@@ -26,6 +26,7 @@ const documentExtensionPath = join(repo, "extensions", "document", "index.ts");
 const memoryExtensionPath = join(repo, "extensions", "memory", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
+const doctorExtensionPath = join(repo, "extensions", "doctor", "index.ts");
 const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
 
 // Point every extension's config at the temp agent dir. `lib/config.ts` reads
@@ -72,6 +73,7 @@ const loader = new DefaultResourceLoader({
 		memoryExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
+		doctorExtensionPath,
 	],
 });
 await loader.reload();
@@ -314,6 +316,23 @@ const separatorLine = separatorRenderer?.(
 	{ fg: (_color: string, text: string) => text },
 )?.render(40)[0];
 check("turn-separator renders a labeled line", !!separatorLine?.includes("turn 3"));
+
+// doctor loads headlessly and registers a read-only tool plus its command. It is
+// the one extension whose *probing* is executed here: `git` is the binary every
+// platform has, so it proves a real probe runs and comes back classified.
+const doctorTool = session.getAllTools().find((t) => t.name === "run_doctor");
+check("doctor registered", !!doctorTool);
+check("doctor is direct", doctorTool?.exposure === "direct");
+check("doctor active by default", session.getActiveToolNames().includes("run_doctor"));
+check("doctor command registered", !!runner.getCommand("doctor"));
+const doctorReport = await call("run_doctor", {});
+const doctorFindings = (
+	doctorReport.structuredContent as { extensions: Array<{ findings: Array<{ check: string; severity: string }> }> }
+).extensions.flatMap((report) => report.findings);
+check(
+	"doctor probes a real binary (git)",
+	doctorFindings.some((f) => f.check === "git" && f.severity === "ok"),
+);
 
 const exited = await call("exit_worktree", { remove: true });
 const exitText = (exited.content[0] as { text: string }).text;

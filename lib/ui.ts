@@ -28,6 +28,9 @@ export const GLYPHS = {
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
+	doctorOk: "✓",
+	doctorWarn: "!",
+	doctorMissing: "×",
 } as const;
 
 /** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */

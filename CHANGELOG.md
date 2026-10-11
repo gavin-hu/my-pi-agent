@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `doctor`: reports whether each extension has what it needs at runtime — external
+  binaries on `PATH`, optional npm packages and the browsers they need,
+  login/state files, and config files that fail to parse. Each extension declares
+  its prerequisites in `lib/requirements.ts`, so the same table feeds the
+  `/doctor` command, the read-only `run_doctor` tool, and one warning at session
+  start when an enabled extension cannot work. Malformed config is now named
+  instead of silently ignored, and the install hints `document` and `web-access`
+  raise come from that table too.
+
 ### Removed
 
 - The `keep-awake` extension. It held a transient OS inhibitor (`caffeinate` /
