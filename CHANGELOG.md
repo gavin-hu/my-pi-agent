@@ -19,6 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `extension-picker`: the `/extensions` list is now scannable and honest about
+  the active scope. It hides the picker's own entry, dims disabled rows, shows
+  each source group's extension count, and prints the focused extension's full
+  path. The summary leads with the accented Global/Project scope, rapid
+  `Space`/`Enter` presses toggle once each instead of dropping the second, and
+  `Tab` lands on a real row. The hint row and dirty line are reworded.
 - Put every tool's model-facing prompt on one contract: the `description`
   states the contract, `promptGuidelines` state when and how to use it, and
   neither repeats the other. `subagent` no longer tags agents with their

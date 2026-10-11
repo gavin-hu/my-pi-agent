@@ -14,6 +14,7 @@ import {
 	type ResolvedResource,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { isSelf } from "./resources.ts";
 import type { Discovery, ExtensionResolver, SettingsStore } from "./types.ts";
 
 /** One settings view: the store to write through and its resolved extensions. */
@@ -95,13 +96,17 @@ export function createDiscoveryFactory(cwd: string, agentDir: string): Discovery
  * Resolve both views. When the project is untrusted the effective view is the
  * personal one and both stores point at the global settings file, so nothing
  * can read or write project configuration.
+ *
+ * This extension's own entrypoint is dropped from every view: the picker does
+ * not list itself, so the row set, the disabled count, and the text listing all
+ * agree.
  */
 export async function discoverExtensions(deps: DiscoveryDeps): Promise<Discovery> {
 	const agentDir = deps.agentDir ?? getAgentDir();
 	const factory = deps.factory ?? createDiscoveryFactory(deps.cwd, agentDir);
 
 	const globalView = factory.global();
-	const global = await globalView.resolve();
+	const global = (await globalView.resolve()).filter((item) => !isSelf(item));
 
 	if (!deps.trusted) {
 		return {
@@ -113,7 +118,7 @@ export async function discoverExtensions(deps: DiscoveryDeps): Promise<Discovery
 	}
 
 	const projectView = factory.project();
-	const effective = await projectView.resolve();
+	const effective = (await projectView.resolve()).filter((item) => !isSelf(item));
 	return {
 		global,
 		effective,
