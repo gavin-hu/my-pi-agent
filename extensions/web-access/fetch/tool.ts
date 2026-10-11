@@ -194,11 +194,10 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		description:
 			"Fetch one or more URLs and return their readable text (HTML is converted to plain text with links " +
 			"preserved; PDFs are text-extracted when the optional unpdf package is installed). Use GET by default, or POST " +
-			"with optional headers/body for read-style APIs. Long pages are paged: if the result says it was truncated, " +
-			"call web_fetch again with the given startIndex. Pass `find` to get matching passages and their offsets " +
-			"instead of the whole page. Provide `urls` to read up to five pages in one call; a failure on one URL does " +
-			"not stop the others. Redirects are followed with every hop checked against private/internal addresses, " +
-			"which are refused.",
+			"with optional headers/body for read-style APIs. Long pages are paged with startIndex. Pass `find` to get " +
+			"matching passages and their offsets instead of the whole page. Provide `urls` to read up to five pages in " +
+			"one call; a failure on one URL does not stop the others. Redirects are followed with every hop checked " +
+			"against private/internal addresses, which are refused.",
 		promptSnippet: "Fetch one or more URLs and read their page content as text; optionally find passages.",
 		promptGuidelines: [
 			"Use web_fetch when you have a URL or need a page's full content, not just a snippet.",
