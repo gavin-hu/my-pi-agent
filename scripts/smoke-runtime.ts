@@ -23,6 +23,7 @@ const jobExtensionPath = join(repo, "extensions", "job", "index.ts");
 const webAccessExtensionPath = join(repo, "extensions", "web-access", "index.ts");
 const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
 const documentExtensionPath = join(repo, "extensions", "document", "index.ts");
+const fileExplorerExtensionPath = join(repo, "extensions", "file-explorer", "index.ts");
 const memoryExtensionPath = join(repo, "extensions", "memory", "index.ts");
 const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
 const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
@@ -70,6 +71,7 @@ const loader = new DefaultResourceLoader({
 		webAccessExtensionPath,
 		fileBrowserExtensionPath,
 		documentExtensionPath,
+		fileExplorerExtensionPath,
 		memoryExtensionPath,
 		statusBarExtensionPath,
 		turnSeparatorExtensionPath,
@@ -304,6 +306,15 @@ check("read_doc registered", !!readDocTool);
 check("read_doc is direct", readDocTool?.exposure === "direct");
 check("read_doc active by default", session.getActiveToolNames().includes("read_doc"));
 check("read_doc is callable", !!session.getToolDefinition("read_doc"));
+
+// file-explorer loads headlessly and registers its codemode tool and `open`
+// command. It is not executed here: `open_path` would launch a real OS handler,
+// and the per-platform command is covered by unit tests with an injected spawn.
+const openPathTool = session.getAllTools().find((t) => t.name === "open_path");
+check("open_path registered", !!openPathTool);
+check("open_path is codemode", openPathTool?.exposure === "codemode");
+check("open_path inactive by default", !session.getActiveToolNames().includes("open_path"));
+check("open command registered", !!runner.getCommand("open"));
 
 // memory loads and registers an active, direct tool and its command. Its
 // storage, trust gating, and injection are covered by unit tests; here we only

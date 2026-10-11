@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   start when an enabled extension cannot work. Malformed config is now named
   instead of silently ignored, and the install hints `document` and `web-access`
   raise come from that table too.
+- `file-explorer`: open or reveal a file or directory in the OS-native
+  application. `/open [path]` handles the interactive case (`/open -r <path>`
+  reveals it in the file manager), and the `codemode`-exposed `open_path` tool
+  does the same from a script; both resolve the path against the effective
+  working directory.
 
 ### Changed
 
