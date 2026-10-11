@@ -258,6 +258,15 @@ describe("plan-mode context", () => {
 		const [result] = await emit(fakePi.pi, "context", { messages: [planModeMessage(), otherMessage(), newest] }, ctx);
 		expect(result.messages).toEqual([otherMessage(), newest]);
 	});
+
+	test("keeps a real user message that quotes the marker", async () => {
+		const fakePi = makeFakePi();
+		planMode(fakePi.pi);
+		const { ctx } = fakeCtx();
+		const quoted = { role: "user", content: "why does [PLAN MODE ACTIVE] show up?" };
+		const [result] = await emit(fakePi.pi, "context", { messages: [planModeMessage(), quoted] }, ctx);
+		expect(result.messages).toEqual([quoted]);
+	});
 });
 
 describe("/plan command", () => {

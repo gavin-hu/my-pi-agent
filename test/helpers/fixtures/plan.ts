@@ -43,9 +43,9 @@ export function stateEntry(enabled: boolean): unknown {
 	return { type: "custom", customType: "plan-mode", data: { enabled } };
 }
 
-/** A user message carrying the plan-mode marker. */
+/** An injected plan-mode context message, as `before_agent_start` returns it. */
 export function planModeMessage(): unknown {
-	return { role: "user", content: "[PLAN MODE ACTIVE] investigate" };
+	return { role: "custom", customType: "plan-mode-context", content: "[PLAN MODE ACTIVE] investigate" };
 }
 
 /** A fixed local date for deterministic plan-stamp and store-clock tests. */
