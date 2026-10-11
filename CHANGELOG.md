@@ -21,6 +21,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reveals it in the file manager), and the `codemode`-exposed `open_path` tool
   does the same from a script; both resolve the path against the effective
   working directory.
+- Always-on prompt budget: `scripts/prompt-budget.ts` reports each tool's
+  model-facing size (description + parameter schema, snippet, and guidelines)
+  and `bun run prompt-budget:check` fails past a pinned ceiling; it runs as the
+  last step of `bun run check`, and `test/prompt-budget.test.ts` pins the
+  per-turn injected-context sizes.
 
 ### Changed
 
@@ -37,6 +42,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   "the only file write is `write_plan`", and `ask-user-question` documents
   `multiSelect`. A smoke check now requires a `promptSnippet` on every tool this
   package registers.
+- Trimmed the always-on model context: each tool's `description` and
+  `promptGuidelines` no longer restate each other, parameter docs and snippets
+  are shorter, `subagent`'s description lists built-in agents by name only, and
+  the plan-mode, goal, and worktree injections are shorter. The active tool set
+  is ~23% smaller (~1,000 tokens per request), and the plan-mode context is down
+  about half.
 
 ### Removed
 

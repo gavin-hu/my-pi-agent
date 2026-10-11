@@ -68,9 +68,8 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		promptSnippet: "Save or remove a durable note that is recalled in later sessions.",
 		promptGuidelines: [
 			"Use memory for short, durable facts the user asks you to remember; keep one fact per call.",
-			'Use scope "global" for cross-project facts and "project" (the default) for repo-specific ones.',
-			"Call memory with action list only to see what is stored; the notes are already in your context.",
-			"To remove a note, pass its exact text with action forget. Bulk clearing is not available through the tool.",
+			"Use action list only to see what is stored; the notes are already in context.",
+			"To remove a note, pass its exact text with action forget; bulk clearing is not available.",
 		],
 		parameters: MemoryParams,
 		outputSchema: MemoryResult,

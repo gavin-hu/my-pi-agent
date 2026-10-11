@@ -62,6 +62,18 @@ export interface WorktreeRegistration {
 	createBuiltin?: BuiltinFactory;
 }
 
+/** Prompt section describing the active worktree, shown while the session is isolated. */
+export function formatWorktreeSection(state: WorktreeState): string {
+	return (
+		`You are in an isolated git worktree; relative paths resolve there, not in the main checkout.\n` +
+		`  worktree: ${state.path}\n` +
+		`  branch:   ${state.branch ?? "(detached)"}\n` +
+		`  main:     ${state.repoRoot}\n` +
+		`Do not edit files or run git against the main checkout.` +
+		(state.borrowed ? "\nThis worktree is inherited; do not exit it." : "\nUse exit_worktree to return.")
+	);
+}
+
 export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }: WorktreeRegistration): void {
 	registerRootTools(pi, { getRoot, getSkipOverrides }, { createBuiltin });
 
@@ -174,15 +186,7 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 		event.systemPromptOptions.cwd = state.path;
 		event.systemPromptOptions.sections = {
 			...event.systemPromptOptions.sections,
-			worktree:
-				`You are working in an isolated git worktree; relative paths resolve there, not in the main checkout.\n` +
-				`  worktree: ${state.path}\n` +
-				`  branch:   ${state.branch ?? "(detached)"}\n` +
-				`  main:     ${state.repoRoot}\n` +
-				`Do not edit files or run git against the main checkout.` +
-				(state.borrowed
-					? "\nThis worktree was inherited from the parent session; do not try to exit it."
-					: "\nUse exit_worktree to return."),
+			worktree: formatWorktreeSection(state),
 		};
 	});
 

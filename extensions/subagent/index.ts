@@ -23,7 +23,7 @@ import {
 	BUILTIN_AGENTS,
 	discoverAgents,
 	formatAgentList,
-	formatAgentRoster,
+	formatAgentNames,
 } from "./agents.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
@@ -38,23 +38,20 @@ interface SubagentDeps {
 	run?: (options: RunOptions) => Promise<SingleResult>;
 }
 
-const AGENT_ROSTER = formatAgentRoster(BUILTIN_AGENTS);
+const AGENT_NAMES = formatAgentNames(BUILTIN_AGENTS);
 
 const DESCRIPTION = [
 	"Delegate tasks to specialized subagents with isolated context windows.",
-	"Modes: single (`agent` + `task`), parallel (`tasks` array), chain (sequential steps with a `{previous}` placeholder).",
-	"Each subagent runs in its own process and inherits the current model and thinking level.",
-	`Built-in agents: ${AGENT_ROSTER}.`,
-	"External agents load from `<agent-dir>/agents` and the nearest `.pi/agents`; set `agentScope` to `user`, `project`, or `both` to include them.",
-	"Set `readOnly: true` to force every spawned agent to a read-only tool set (read/grep/find/ls and web readers only); plan mode sets it automatically.",
+	"Modes: single (`agent` + `task`), parallel (`tasks`), chain (sequential, `{previous}` placeholder).",
+	"Each runs in its own process, inheriting the current model and thinking level.",
+	`Built-in agents: ${AGENT_NAMES}.`,
 ].join(" ");
 
 const GUIDELINES = [
-	"Use `subagent` to delegate broad codebase exploration, parallel research, or isolated implementation work so the main context stays small.",
-	"Prefer an `explorer` first when another agent would otherwise need to re-read many files, then pass its output to `planner` or `worker`.",
-	"Run independent tasks with `tasks` (max 8, up to 4 at once); use `chain` only when each step needs the previous step's output via `{previous}`.",
-	"Recurring background or long-running work should still use the normal tools; subagents are for one-shot delegation.",
-	"Project-local agents are repository-controlled; they load only when `agentScope` includes them, and an untrusted project requires confirmation.",
+	"Use `subagent` for broad codebase exploration, parallel research, or isolated implementation work that would bloat the main context.",
+	"Prefer `explorer` first when another agent would otherwise re-read many files, then pass its output to `planner` or `worker`.",
+	"Run independent tasks with `tasks` (max 8, up to 4 at once); use `chain` only when each step needs the previous step's output.",
+	"Project-local agents are repository-controlled and load only when `agentScope` includes them; an untrusted project requires confirmation.",
 ];
 
 /** Names referenced by a call, across all three modes. */

@@ -27,15 +27,13 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 		name: TOOL_NAME,
 		label: "Web search",
 		description:
-			"Search the web. Returns a direct answer and/or general web results (title, URL, snippet). " +
-			"Works out of the box with no configuration (DuckDuckGo); search.provider in web-access.json can select a " +
-			"self-hosted SearXNG instance or a keyed Brave search.",
-		promptSnippet: "Search the web (keyless by default; optional SearXNG or Brave).",
+			"Search the web and return an answer and/or results (title, URL, snippet). Keyless by default (DuckDuckGo) " +
+			"returns an answer and related topics rather than a general result list; `search.provider` in web-access.json " +
+			"can select a self-hosted SearXNG instance or a keyed Brave search.",
+		promptSnippet: "Search the web for current information and pages.",
 		promptGuidelines: [
 			"Use web_search to discover pages and find current information.",
-			"The keyless default returns answers and related topics, not a general result list; configure SearXNG or Brave for full results.",
-			"To change providers, set search.provider with search.endpoint (SearXNG) or search.apiKeyEnv (Brave).",
-			"Follow up with web_fetch to read a promising result.",
+			"Follow up with web_fetch to read a promising result; a snippet is rarely enough on its own.",
 		],
 		parameters: WebSearchParams,
 		outputSchema: WebSearchOutput,

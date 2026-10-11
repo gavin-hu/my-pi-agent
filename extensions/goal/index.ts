@@ -27,11 +27,8 @@ export const GOAL_CONTEXT_MARKER = "[SESSION GOAL]";
 /** Custom-entry type used for the injected context message. */
 export const GOAL_CONTEXT_TYPE = "goal-context";
 
-function buildGoalContext(goal: Goal): string {
-	return `${GOAL_CONTEXT_MARKER}
-The user set this session goal: ${goal.objective}
-
-Keep this objective in mind as you work and let it guide your priorities. Use the goal tool to update it, and mark it achieved when it is done.`;
+export function buildGoalContext(goal: Goal): string {
+	return `${GOAL_CONTEXT_MARKER}\n${goal.objective}`;
 }
 
 function isGoalContext(message: AgentMessage): boolean {

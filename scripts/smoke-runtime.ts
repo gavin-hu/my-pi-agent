@@ -1,102 +1,13 @@
 // Real-runtime smoke test: load the package through the real Pi loader and
 // drive enter_worktree/list_worktrees/exit_worktree without a model call.
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createAgentSession, DefaultResourceLoader, SessionManager } from "@earendil-works/pi-coding-agent";
 import { canonicalize } from "../extensions/worktree/git.ts";
-import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
-import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "../extensions/worktree/runtime.ts";
+import { createPackageSession, repo } from "./lib/package-session.ts";
 
-const repo = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const worktreeExtensionPath = join(repo, "extensions", "worktree", "index.ts");
-const rewindExtensionPath = join(repo, "extensions", "rewind", "index.ts");
-const askExtensionPath = join(repo, "extensions", "ask-user-question", "index.ts");
-const todoExtensionPath = join(repo, "extensions", "todo", "index.ts");
-const goalExtensionPath = join(repo, "extensions", "goal", "index.ts");
-const planExtensionPath = join(repo, "extensions", "plan", "index.ts");
-const subagentExtensionPath = join(repo, "extensions", "subagent", "index.ts");
-const jobExtensionPath = join(repo, "extensions", "job", "index.ts");
-const webAccessExtensionPath = join(repo, "extensions", "web-access", "index.ts");
-const fileBrowserExtensionPath = join(repo, "extensions", "file-browser", "index.ts");
-const documentExtensionPath = join(repo, "extensions", "document", "index.ts");
-const fileExplorerExtensionPath = join(repo, "extensions", "file-explorer", "index.ts");
-const memoryExtensionPath = join(repo, "extensions", "memory", "index.ts");
-const statusBarExtensionPath = join(repo, "extensions", "status-bar", "index.ts");
-const turnSeparatorExtensionPath = join(repo, "extensions", "turn-separator", "index.ts");
-const doctorExtensionPath = join(repo, "extensions", "doctor", "index.ts");
-const agentDir = mkdtempSync(join(tmpdir(), "pi-smoke-agent-"));
-
-// Point every extension's config at the temp agent dir. `lib/config.ts` reads
-// `getAgentDir()`, so this redirects the jobs registry too. A project
-// `jobs.json` under the scratch repo would be cwd-dependent and is missed once
-// the session re-roots into a worktree.
-process.env.PI_CODING_AGENT_DIR = agentDir;
-writeFileSync(join(agentDir, "jobs.json"), JSON.stringify({ registryDir: join(agentDir, "jobs") }));
-
-// The smoke may be launched from inside a worktree (for example `bun run check`
-// in a task worktree), which exports the worktree env to children. Drop it so
-// this in-process session is standalone and can enter its own scratch worktree.
-delete process.env[ENV_ROOT];
-delete process.env[ENV_BRANCH];
-delete process.env[ENV_MAIN];
-delete process.env[ENV_DISABLED_EXTENSIONS];
-
-// Scratch git repo with one commit.
-const work = mkdtempSync(join(tmpdir(), "pi-smoke-repo-"));
-const git = (...args: string[]) => execFileSync("git", args, { cwd: work, stdio: "pipe" }).toString();
-git("init", "-q", "-b", "main");
-git("config", "user.email", "t@t");
-git("config", "user.name", "t");
-git("config", "core.autocrlf", "false");
-writeFileSync(join(work, "a.txt"), "hi\n");
-git("add", ".");
-git("commit", "-qm", "init");
-
-const loader = new DefaultResourceLoader({
-	cwd: work,
-	agentDir,
-	additionalExtensionPaths: [
-		worktreeExtensionPath,
-		rewindExtensionPath,
-		askExtensionPath,
-		todoExtensionPath,
-		goalExtensionPath,
-		planExtensionPath,
-		subagentExtensionPath,
-		jobExtensionPath,
-		webAccessExtensionPath,
-		fileBrowserExtensionPath,
-		documentExtensionPath,
-		fileExplorerExtensionPath,
-		memoryExtensionPath,
-		statusBarExtensionPath,
-		turnSeparatorExtensionPath,
-		doctorExtensionPath,
-	],
-});
-await loader.reload();
-const loadErrors = loader.getExtensions().errors;
-if (loadErrors.length > 0) {
-	console.log("LOAD ERRORS:", loadErrors);
-	process.exit(1);
-}
-
-const sessionManager = SessionManager.inMemory(work);
-const { session } = await createAgentSession({
-	resourceLoader: loader,
-	sessionManager,
-});
-
-// `session_start` (and the other extension lifecycle events) is emitted by
-// `bindExtensions`, which the real modes call; `createAgentSession` does not.
-// Bind in print mode so the same session lifecycle the smoke exercises fires.
-await session.bindExtensions({ mode: "print" });
-
-const runner = session.extensionRunner;
+const { session, runner, sessionManager, work, agentDir, git } = await createPackageSession();
 const tool = (name: string) => {
 	const def = runner.getToolDefinition(name);
 	if (!def) throw new Error(`missing tool: ${name}`);

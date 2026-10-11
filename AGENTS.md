@@ -97,6 +97,10 @@ why.
   with a `"*"` range, never `dependencies`.
 - Adding or renaming a tool also means updating `test/naming.test.ts` and the
   root `README.md` table.
+- Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
+  `promptGuidelines`, injected context) is budgeted. Keep each channel to its
+  one job and run `bun run prompt-budget:check` (part of `bun run check`) after
+  changing any of it.
 
 ## TUI design conventions
 

@@ -50,7 +50,7 @@ returns matching `structuredContent` (`{ goal, action, error? }`, with
 | `executionMode` | `sequential` — calls share the in-memory goal. |
 | `annotations` | `idempotentHint: true` (a snapshot write), not read-only. |
 | `outputSchema` | `GoalResult` — `{ goal, action, error? }`, also returned as `structuredContent`. |
-| `promptGuidelines` | Teach the replacement/clear semantics and the mark-achieved-when-done rule, since both are easy for a model to get wrong. |
+| `promptGuidelines` | Carry the when-to-use rule and the mark-achieved-with-a-blank-objective rule; the replacement/clear semantics live in the description. |
 
 Validation (a violation returns an error result and leaves the goal unchanged):
 a known `status`, an objective of at most 2000 characters, and a non-blank

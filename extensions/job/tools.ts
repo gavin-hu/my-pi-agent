@@ -43,11 +43,9 @@ function errorResult(
 }
 
 const GUIDELINES = [
-	"Use `job start` for long-running or background commands (builds, test suites, dev servers, watchers) so the turn is not blocked; it returns a job id immediately.",
-	"`timeoutMs` bounds a `job start` run (killed with SIGTERM, then SIGKILL) and a `job wait` block; `start` requires at least 1.",
-	"Set `wake: true` on `job start` to trigger one turn when that job finishes.",
+	"Use `job start` for long-running or background commands (builds, test suites, servers, watchers) so the turn is not blocked.",
 	"Poll with `job status`/`job logs`, or use `job wait` when you must have the result before continuing.",
-	"`job kill` stops a job (SIGTERM, escalating to SIGKILL); `job clear` removes finished jobs. Jobs are killed when the session ends unless started with `detached: true`.",
+	"Use `job kill` to stop a running job and `job clear` to drop finished ones.",
 ];
 
 export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
@@ -55,10 +53,8 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 		name: TOOL_NAME,
 		label: "Job",
 		description:
-			"Manage background shell-command jobs. Actions: `start` (command, optional cwd/label/wake/detached/timeoutMs; returns a " +
-			"job id), `list`, `status` (id), `logs` (id, optional lines), `kill` (id, optional signal), `wait` (id, optional " +
-			"timeoutMs; blocks until it finishes), and `clear` (id or all finished jobs). Jobs are killed when the session " +
-			"ends unless started `detached`.",
+			"Manage background shell-command jobs. Actions: `start` (returns a job id immediately), `list`, `status`/`logs`/" +
+			"`kill`/`wait` (by id), and `clear`. Jobs are killed when the session ends unless started `detached`.",
 		promptSnippet: "Run and manage background shell-command jobs (start, list, status, logs, kill, wait, clear).",
 		promptGuidelines: GUIDELINES,
 		parameters: JobParams,

@@ -41,7 +41,7 @@ export const JobParams = Type.Object({
 			minimum: 0,
 			maximum: MAX_JOB_TIMEOUT_MS,
 			description:
-				`For \`wait\`, how long it blocks before returning (${MIN_WAIT_MS}–${MAX_WAIT_MS} ms). ` +
+				`For \`wait\`, how long it blocks (${MIN_WAIT_MS}–${MAX_WAIT_MS} ms). ` +
 				`For \`start\`, kill the job after this many ms (minimum ${MIN_JOB_TIMEOUT_MS}).`,
 		}),
 	),

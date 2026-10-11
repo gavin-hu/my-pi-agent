@@ -8,8 +8,15 @@ Testing conventions for this package. Keep this file and the layout in sync;
 ```bash
 bun test                 # whole suite (isolated per-file globals, 30s timeout)
 bun test <path>          # one file or directory
-bun run check            # format + typecheck + transpile + test + smoke
+bun run check            # format + typecheck + transpile + test + smoke + prompt budget
+bun run prompt-budget    # always-on per-tool prompt size report
 ```
+
+The always-on model-facing prompt size is budgeted. `bun run prompt-budget`
+prints a per-tool table (description + parameter schema + snippet + guidelines)
+and `bun run prompt-budget:check` fails when a ceiling is exceeded; it runs as
+the last step of `bun run check`. `test/prompt-budget.test.ts` covers the pure
+per-turn injected-context builders.
 
 `bun test` runs the suite through `bun run test` with `--parallel=4` (which
 implies `--isolate`), so each test file runs in its own worker process and
@@ -40,8 +47,8 @@ gate is stated in the test.
    never literal column padding. Use the shared `fakeTheme` and an injected
    clock for relative timestamps.
 4. **Package-level tests** (`test/naming.test.ts`, `test/structure.test.ts`,
-   `test/theme.test.ts`) — cross-cutting contracts. No extension test may
-   duplicate these.
+   `test/theme.test.ts`, `test/prompt-budget.test.ts`) — cross-cutting contracts.
+   No extension test may duplicate these.
 
 Rule of thumb: if a test needs `mock.module`, a global stub, or a real timer,
 the code under test is missing a seam. Add the seam instead of the mock.
@@ -169,6 +176,7 @@ test/
     fixtures/<name>.ts     # extension-specific fixtures
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, and boundary guards
+  prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract
 ```
 
@@ -177,7 +185,7 @@ Rules:
 - Every directory under `extensions/` contains at least one co-located test.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
-  `structure.test.ts`, and `theme.test.ts`.
+  `structure.test.ts`, `prompt-budget.test.ts`, and `theme.test.ts`.
 - A co-located test's file stem matches the source module it covers. The only
   exceptions are the documented aggregates in `structure.test.ts`.
 

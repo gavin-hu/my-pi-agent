@@ -38,19 +38,15 @@ import { registerTools } from "./tools.ts";
 /** Marker embedded in the injected prompt and used to filter stale context. */
 export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
 
-const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
-You are in plan mode: a read-only exploration mode for safe code analysis.
+/** Injected each turn while planning: the facts and the next action, not the tool contracts. */
+export const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
+You are in plan mode: read-only exploration for safe code analysis.
 
-- While planning, ${READ_ONLY_SUMMARY}.
-- Raw shell is limited to read-only git commands through bash (for example git status, git diff, git log). Several may be chained with && or a semicolon; pipes, substitution, and redirection are blocked, and powershell is not available while planning. On native Windows bash runs through Git Bash, so these commands work there too.
-- Shell is for git only. The working directory is already the project root (do not prefix commands with cd); use the read, grep, find, and ls tools to inspect files, and exit plan mode for any other shell command.
-- Investigate the code and design a concrete plan; do not modify anything except the plan file.
-- Save the full plan with write_plan (a short title and the complete markdown), then call exit_plan_mode with the returned plan_path so the user can read the file and approve, keep planning, or ask for a refinement.
-- The plan file is the source of truth: after approval, follow its steps.
-- Delegate broad exploration with subagent (for example the explorer agent). While planning it is forced to a read-only tool set, so it cannot write, edit, or run shell commands.
-- If you need to choose between approaches, use ask_user_question before finalizing the plan.
-
-If the todo tool is active, you may use it to record the planned steps, but do not start executing until the plan is approved.`;
+- Do not modify anything except the plan file: while planning, ${READ_ONLY_SUMMARY}.
+- bash is git-only: read-only commands (git status, git diff, git log) may be chained with && or ;, but pipes, substitution, and redirection are blocked and powershell is unavailable. The cwd is already the project root, so do not prefix commands with cd; use read, grep, find, and ls for files.
+- Investigate and design a concrete plan, then save it with write_plan and call exit_plan_mode with the returned plan_path for approval.
+- Delegate broad exploration with subagent; while planning it is forced read-only.
+- To choose between approaches, ask with ask_user_question before finalizing.`;
 
 /** This extension entry file, as Pi records it for our tool registrations. */
 function extensionEntryPath(): string | undefined {

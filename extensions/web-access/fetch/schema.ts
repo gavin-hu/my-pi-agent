@@ -47,29 +47,29 @@ export const WebFetchParams = Type.Object({
 		Type.Array(Type.String({ maxLength: MAX_URL_LENGTH }), {
 			minItems: 1,
 			maxItems: MAX_URLS,
-			description: `Up to ${MAX_URLS} URLs to fetch in one call (sequentially). Each is returned as its own page; failures do not abort the others.`,
+			description: `Up to ${MAX_URLS} URLs to fetch in one call; failures do not abort the others.`,
 		}),
 	),
 	method: Type.Optional(
 		StringEnum(HTTP_METHODS, {
-			description: 'HTTP method: "GET" (default) or "POST". POST is for read-style APIs such as GraphQL.',
+			description: "HTTP method; POST suits read-style APIs such as GraphQL.",
 		}),
 	),
 	headers: Type.Optional(
 		Type.Record(Type.String(), Type.String(), {
-			description: "Extra request headers, for example an API token or Accept type. Transport headers are refused.",
+			description: "Extra request headers (for example an API token). Transport headers are refused.",
 		}),
 	),
 	body: Type.Optional(
 		Type.String({
 			maxLength: 1_000_000,
-			description: "Request body for a POST. Defaults method to POST; set Content-Type via `headers`.",
+			description: "Request body for a POST; set Content-Type via `headers`.",
 		}),
 	),
 	startIndex: Type.Optional(
 		Type.Integer({
 			minimum: 0,
-			description: "Code-point offset to start from. Use this to read a truncated page in chunks.",
+			description: "Code-point offset to start from; use it to page a truncated result.",
 		}),
 	),
 	maxChars: Type.Optional(
@@ -83,8 +83,7 @@ export const WebFetchParams = Type.Object({
 		Type.Array(Type.String(), {
 			minItems: 1,
 			maxItems: MAX_FIND_TERMS,
-			description:
-				"Return passages matching these strings instead of the page text. Offsets are code points, usable as startIndex.",
+			description: "Return passages matching these strings instead of the page text; offsets are usable as startIndex.",
 		}),
 	),
 	mode: Type.Optional(StringEnum(FIND_MODES, { description: "Match mode for `find`. Defaults to insensitive." })),

@@ -54,15 +54,13 @@ export const SubagentParams = Type.Object({
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
 	agentScope: Type.Optional(
 		StringEnum(["user", "project", "both"] as const, {
-			description:
-				'Which external agent directories to load on top of the built-ins. Default: "user". Use "both" to include project-local agents.',
+			description: 'Which external agent directories to load. Default: "user"; "both" includes project-local agents.',
 			default: "user",
 		}),
 	),
 	readOnly: Type.Optional(
 		Type.Boolean({
-			description:
-				"Force every spawned agent to a read-only tool set (read/grep/find/ls and web readers only). Used by plan mode.",
+			description: "Force a read-only tool set (readers only). Plan mode sets this.",
 		}),
 	),
 });

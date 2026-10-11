@@ -7,7 +7,7 @@ import {
 	discoverAgents,
 	findNearestProjectAgentsDir,
 	formatAgentList,
-	formatAgentRoster,
+	formatAgentNames,
 	getAgent,
 	listAgents,
 	loadAgentsFromDir,
@@ -94,13 +94,11 @@ describe("built-in agents", () => {
 		expect(formatAgentList([])).toBe("none");
 	});
 
-	test("formats a roster for the model without source tags", () => {
-		const roster = formatAgentRoster(BUILTIN_AGENTS);
-		for (const agent of BUILTIN_AGENTS) expect(roster).toContain(agent.name);
-		expect(roster).not.toContain("(builtin)");
-		expect(roster).not.toContain("(user)");
-		expect(roster).not.toContain("(project)");
-		expect(formatAgentRoster([])).toBe("none");
+	test("formats agent names for the model roster", () => {
+		const names = formatAgentNames(BUILTIN_AGENTS);
+		for (const agent of BUILTIN_AGENTS) expect(names).toContain(agent.name);
+		expect(names).not.toContain(BUILTIN_AGENTS[0]!.description);
+		expect(formatAgentNames([])).toBe("none");
 	});
 });
 

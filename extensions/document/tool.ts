@@ -65,12 +65,11 @@ export function registerDocTool(pi: ExtensionAPI): void {
 		label: "Read document",
 		description:
 			"Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file and return its extracted text, pageable with " +
-			"startIndex/maxChars. PDF extraction runs 'pdfcraft-cli', the word-processing formats (DOCX, DOC, ODT, RTF) run " +
-			"'wordcraft-cli', and XLSX runs 'gridcraft-cli'; each must be on PATH, and the error for a missing one names the install command.",
-		promptSnippet: "Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file as plain text, paged with startIndex/maxChars.",
+			"startIndex/maxChars. Extraction uses pdfcraft-cli, wordcraft-cli, or gridcraft-cli by format; a missing " +
+			"binary's error names the install command.",
+		promptSnippet: "Read a PDF, DOCX, DOC, ODT, RTF, or XLSX as text, paged with startIndex/maxChars.",
 		promptGuidelines: [
-			"Use read_doc for .pdf, .docx, .doc, .odt, .rtf, and .xlsx files; the built-in read tool is for text and images.",
-			"When read_doc reports truncation, call it again with the suggested startIndex.",
+			"Use read_doc for .pdf/.docx/.doc/.odt/.rtf/.xlsx; the built-in read tool is for text and images.",
 			"Extraction returns plain text only; tables, images, and formatting are dropped.",
 		],
 		parameters: DocParams,

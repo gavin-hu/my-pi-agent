@@ -31,11 +31,11 @@ export function registerTools(pi: ExtensionAPI): void {
 			"Ask the user one or more questions and wait for their answer. Each question offers up to four labelled " +
 			"options plus a free-form 'Other' answer, and `multiSelect` allows several selections; a question with no " +
 			"options asks for free-form text.",
-		promptSnippet: "Ask the user a structured question with options and wait for the answer.",
+		promptSnippet: "Ask the user a structured question and wait for the answer.",
 		promptGuidelines: [
-			"Use ask_user_question when a decision genuinely needs the user's input — a preference, a missing requirement, or a choice between approaches — instead of guessing.",
-			"Prefer this over asking in prose when the answer is a choice, and keep questions to what you cannot infer from the code or conversation.",
-			"Ask the minimum number of questions needed; ask independent questions in one call, and make each option concrete and distinct.",
+			"Use ask_user_question when a decision needs the user's input — a preference, a missing requirement, or a choice between approaches — instead of guessing.",
+			"Prefer it over prose when the answer is a choice, and ask only what you cannot infer from the code or conversation.",
+			"Ask the minimum number of questions; ask independent questions in one call, and make each option concrete and distinct.",
 		],
 		parameters: AskUserQuestionParams,
 		exposure: "model-only",

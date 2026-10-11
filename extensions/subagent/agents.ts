@@ -451,13 +451,14 @@ export function formatAgentList(agents: readonly AgentConfig[]): string {
 }
 
 /**
- * `name — description; ...`, or `"none"`, for the model-facing tool description.
+ * Comma-separated agent names, or `"none"`, for the model-facing tool
+ * description.
  *
- * Unlike {@link formatAgentList} this omits the source tag: where an agent came
- * from is useful in an error, but it is internal metadata in the description the
- * model reads on every call.
+ * Names only: the names are self-evident (explorer, planner, reviewer…), and the
+ * full descriptions are available from {@link discoverAgents}, so they are not
+ * repeated in always-on context on every request.
  */
-export function formatAgentRoster(agents: readonly AgentConfig[]): string {
+export function formatAgentNames(agents: readonly AgentConfig[]): string {
 	if (agents.length === 0) return "none";
-	return agents.map((agent) => `${agent.name} — ${agent.description}`).join("; ");
+	return agents.map((agent) => agent.name).join(", ");
 }

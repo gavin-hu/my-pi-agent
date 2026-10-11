@@ -71,14 +71,11 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		description:
 			"Record and track the high-level objective for the current session. Send the complete objective on every call; " +
 			"it replaces the previous goal, and an empty objective clears it. Set `status` to `active` while pursuing the " +
-			"goal and `achieved` when it is done. The active goal is shown above the editor and restated to you before each " +
-			"turn so you stay on task.",
-		promptSnippet: "Record the session's high-level objective and keep it in view.",
+			"goal and `achieved` when done. It is shown above the editor and restated before each turn.",
+		promptSnippet: "Record the session's high-level objective.",
 		promptGuidelines: [
 			"Use goal to capture the session's high-level objective when starting a substantial task.",
-			"Send the complete objective on every goal call; an empty objective clears the goal.",
-			'To mark the goal achieved, resend the objective with status "achieved"; a blank objective is rejected, not a completion.',
-			"Mark the goal achieved once the objective is met; it then stops being restated before each turn.",
+			'Mark it achieved by resending the objective with status "achieved"; a blank objective clears the goal, so it is rejected as a completion.',
 		],
 		parameters: GoalParams,
 		outputSchema: GoalResult,

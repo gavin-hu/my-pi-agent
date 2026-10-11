@@ -55,14 +55,12 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		name: TOOL_NAME,
 		label: "WeChat send",
 		description: [
-			"Send a plain-text WeChat message to the account owner from the running bridge.",
-			"Use it for proactive notifications the user asked for; replies to inbound messages are sent automatically.",
+			"Send a plain-text WeChat message to the account owner from the running bridge (start it with /wechat start).",
 			"The recipient is always the owner and cannot be chosen.",
 		].join(" "),
 		promptSnippet: "Send a plain-text WeChat message to the account owner.",
 		promptGuidelines: [
 			"Use send_wechat only to message the owner proactively, not to answer an inbound WeChat message (the bridge replies automatically).",
-			"The bridge must be started with /wechat start; otherwise the tool returns an error.",
 			"Keep messages concise and do not include secrets unless the user asked for them.",
 		],
 		parameters: WechatSendParams,

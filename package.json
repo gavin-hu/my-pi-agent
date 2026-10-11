@@ -89,8 +89,10 @@
     "format:check": "biome format .",
     "transpile": "bun run scripts/transpile.ts",
     "smoke": "bun run scripts/smoke-runtime.ts",
-    "check": "bun run format:check && bun run typecheck && bun run transpile && bun run test && bun run smoke",
-    "check:serial": "bun run format:check && bun run typecheck && bun run transpile && bun run test:serial && bun run smoke"
+    "prompt-budget": "bun run scripts/prompt-budget.ts",
+    "prompt-budget:check": "bun run scripts/prompt-budget.ts --check",
+    "check": "bun run format:check && bun run typecheck && bun run transpile && bun run test && bun run smoke && bun run prompt-budget:check",
+    "check:serial": "bun run format:check && bun run typecheck && bun run transpile && bun run test:serial && bun run smoke && bun run prompt-budget:check"
   },
   "dependencies": {
     "qrcode": "^1.5.4"

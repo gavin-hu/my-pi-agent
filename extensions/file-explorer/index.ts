@@ -43,10 +43,9 @@ export default function fileExplorer(pi: ExtensionAPI, deps: FileExplorerDeps = 
 		description:
 			"Open a file or directory in the OS-native application, or reveal it in the file manager. " +
 			"The path may be relative to the working directory or absolute.",
-		promptSnippet: "Open a file or directory in the OS-native app, or reveal it in the file manager.",
+		promptSnippet: "Open or reveal a path in the OS-native app.",
 		promptGuidelines: [
 			"Use open_path when the user asks to open or reveal a file or directory in a native application.",
-			"Set reveal to true to show the containing folder instead of launching the file's default app.",
 			"Do not use open_path to read file contents; use the read tool for that.",
 		],
 		parameters: OpenPathParams,

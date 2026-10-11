@@ -137,11 +137,9 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		name: ENTER_TOOL,
 		label: "Enter plan mode",
 		description:
-			"Use this proactively before starting a non-trivial implementation task. Getting the user's sign-off on the " +
-			"approach before writing code prevents wasted effort and keeps you aligned. Entering plan mode switches you to " +
-			"read-only exploration so you can investigate and design, then save the plan with write_plan and call " +
-			"exit_plan_mode to present it for approval. Requires the user to confirm. Not needed for small or obvious changes.",
-		promptSnippet: "Ask the user to enter read-only plan mode before a non-trivial implementation task.",
+			"Enter read-only plan mode: investigate and design, then save the plan with write_plan and present it with " +
+			"exit_plan_mode. Entering switches the session's active tool set to read-only and requires the user to confirm.",
+		promptSnippet: "Ask the user to enter read-only plan mode.",
 		promptGuidelines: [
 			"Call enter_plan_mode before a non-trivial implementation task; skip it for small, obvious changes.",
 		],
@@ -206,14 +204,12 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		name: WRITE_PLAN_TOOL,
 		label: "Write plan",
 		description:
-			"Save the plan you have designed as a markdown file under .pi/plans (project root, or the agent directory " +
-			"outside a repository). The file is the plan the user reviews and approves, so write the complete plan, not a " +
-			"summary. Returns the path; pass it to exit_plan_mode. Use plan_path to overwrite the same file when refining a " +
-			"plan instead of creating a new one.",
+			"Save the plan you designed as a markdown file under .pi/plans (project root, or the agent directory outside a " +
+			"repository). Write the complete plan, not a summary; it is what the user reviews and approves. Returns the " +
+			"path to pass to exit_plan_mode; plan_path overwrites an existing file when refining.",
 		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
 		promptGuidelines: [
 			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
-			"Use a short, descriptive title; it becomes the plan file's slug.",
 		],
 		parameters: WritePlanParams,
 		defaultActive: false,
@@ -280,16 +276,10 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		name: EXIT_TOOL,
 		label: "Exit plan mode",
 		description:
-			"Present the saved plan and ask the user to approve it. Read the plan file written by write_plan, then call this " +
-			"tool with plan_path so the user can review it before choosing. On approval plan mode ends, write access is " +
-			"restored, and the plan's steps are recorded in the todo list; the user may instead keep planning or ask for a " +
-			"refinement. The plan file stays the source of truth as you execute.",
+			"Present the saved plan and ask the user to approve it. Reads the file written by write_plan, so call it with " +
+			"plan_path. On approval plan mode ends, write access returns, and the plan's steps go into the todo list; the " +
+			"user may instead keep planning or request a refinement. The plan file stays the source of truth.",
 		promptSnippet: "Present the saved plan and ask the user to approve leaving plan mode.",
-		promptGuidelines: [
-			"When plan mode is active, do not edit files; investigate and produce a plan.",
-			"Save the plan with write_plan, then call exit_plan_mode with the returned plan_path.",
-			"After approval, treat the plan file as the source of truth and follow its steps.",
-		],
 		parameters: ExitPlanModeParams,
 		defaultActive: false,
 		executionMode: "sequential",
