@@ -48,7 +48,8 @@ const ALWAYS_BLOCKED_TOOLS = ["write", "edit", ENTER_TOOL];
 /** One-clause description of the read-only guarantee, reused across prompts. */
 export const READ_ONLY_SUMMARY =
 	"write and edit are disabled, bash is limited to read-only git commands, and other mutating tools are blocked; " +
-	"subagent delegation is forced read-only, and the only write is write_plan, which saves the plan under .pi/plans";
+	"subagent delegation is forced read-only, and the only file write is write_plan (under .pi/plans, or the agent " +
+	"directory outside a repository)";
 
 /** Shown when a tool call is refused while planning. */
 export const BLOCKED_GUIDANCE = "Call exit_plan_mode and get approval before using it.";

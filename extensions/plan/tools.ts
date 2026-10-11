@@ -147,6 +147,8 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		],
 		parameters: Type.Object({}),
 		executionMode: "sequential",
+		// readOnlyHint stays true: entering plan mode changes only the session's
+		// tool set, never files or system state, so it needs no approval.
 		annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
