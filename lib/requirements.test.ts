@@ -43,6 +43,25 @@ describe("binary checks", () => {
 		expect(find(report, "git")?.severity).toBe("ok");
 	});
 
+	test("describes git in terms of the extension that needs it", async () => {
+		const expected: Record<string, string> = {
+			worktree: "worktree isolation",
+			rewind: "rewind snapshots",
+			plan: "project-local `.pi/plans` (otherwise plans land in the agent directory)",
+			"file-browser": "the branch chip",
+			memory: "project-scope memory under the repository root",
+		};
+		for (const [name, enables] of Object.entries(expected)) {
+			const report = await probeExtension(name, seams());
+			expect(find(report, "git")?.detail, name).toBe(enables);
+		}
+	});
+
+	test("declares no git check for an extension that never runs git", async () => {
+		const report = await probeExtension("document", seams());
+		expect(find(report, "git")).toBeUndefined();
+	});
+
 	test("reports a missing binary with its install hint", async () => {
 		const report = await probeExtension("document", seams({ exec: async () => ({ code: 1 }) }));
 		const finding = find(report, "pdfcraft-cli");

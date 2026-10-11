@@ -129,23 +129,29 @@ export function pdfGuidance(): string {
 
 // --- The table --------------------------------------------------------------
 
-const GIT: BinaryCheck = {
-	kind: "binary",
-	name: "git",
-	enables: "worktrees, rewind snapshots, project-scope memory, and the branch chip",
-	hint: "install git and make sure it is on PATH (https://git-scm.com/downloads).",
-};
+/**
+ * The `git` binary, described in terms of the extension that needs it. One
+ * shared sentence would name another extension's features in this one's report.
+ */
+function gitCheck(enables: string): BinaryCheck {
+	return {
+		kind: "binary",
+		name: "git",
+		enables,
+		hint: "install git and make sure it is on PATH (https://git-scm.com/downloads).",
+	};
+}
 
 /** Every extension's prerequisites, keyed by directory name. */
 export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	worktree: {
 		configFile: "worktree.json",
-		requires: [GIT],
+		requires: [gitCheck("worktree isolation")],
 		notes: ["`.worktreeinclude` symlinks need symlink support (Windows Developer Mode)."],
 	},
 	rewind: {
 		configFile: "rewind.json",
-		requires: [GIT],
+		requires: [gitCheck("rewind snapshots")],
 	},
 	"ask-user-question": {
 		notes: ["Needs an interactive UI; without one the tool stays inactive."],
@@ -157,7 +163,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		configFile: "goal.json",
 	},
 	plan: {
-		optional: [{ ...GIT, enables: "project-local `.pi/plans` (otherwise plans land in the agent directory)" }],
+		optional: [gitCheck("project-local `.pi/plans` (otherwise plans land in the agent directory)")],
 		notes: ["Needs an interactive UI to enter plan mode."],
 	},
 	subagent: {
@@ -183,7 +189,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	},
 	"file-browser": {
 		configFile: "file-browser.json",
-		optional: [GIT],
+		optional: [gitCheck("the branch chip")],
 		notes: ["The default-browser opener (`open` / `xdg-open` / `cmd`) is best-effort; the URL is printed either way."],
 	},
 	document: {
@@ -194,11 +200,10 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 			enables: `${CLI_INFO[cli].noun} extraction in \`read_doc\``,
 			hint: cliGuidance(cli),
 		})),
-		optional: [GIT],
 	},
 	memory: {
 		configFile: "memory.json",
-		optional: [{ ...GIT, enables: "project-scope memory under the repository root" }],
+		optional: [gitCheck("project-scope memory under the repository root")],
 	},
 	wechat: {
 		configFile: "wechat.json",
