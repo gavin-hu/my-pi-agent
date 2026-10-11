@@ -12,9 +12,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 
-/** Round a numeric value into `[min, max]`, falling back when not finite. */
+/**
+ * Round a numeric value into `[min, max]`, falling back when it is not a number.
+ *
+ * Only a number, or a string that says one, counts: `null`, `""`, `true`, and
+ * arrays mean "unset". Coercing those would silently clamp to `min` instead of
+ * leaving the caller's default in place.
+ */
 export function clampInteger(value: unknown, fallback: number, min: number, max: number): number {
-	const number = typeof value === "number" ? value : Number(value);
+	const number =
+		typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
 	if (!Number.isFinite(number)) return fallback;
 	return Math.min(max, Math.max(min, Math.round(number)));
 }

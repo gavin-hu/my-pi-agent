@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir } from "../test/helpers/env.ts";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+import { tempDir, withAgentDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
-import { readJson, readJsonResult } from "./config.ts";
+import { clampInteger, cleanString, loadConfigFile, readJson, readJsonResult } from "./config.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -15,6 +16,32 @@ function write(name: string, contents: string): string {
 	writeFileSync(path, contents);
 	return path;
 }
+
+describe("clampInteger", () => {
+	test("rounds into range and falls back when the value is not a number", () => {
+		expect(clampInteger(1500.4, 1000, 100, 2000)).toBe(1500);
+		expect(clampInteger(5, 1000, 100, 2000)).toBe(100);
+		expect(clampInteger("2500", 1000, 100, 2000)).toBe(2000);
+		expect(clampInteger("abc", 1000, 100, 2000)).toBe(1000);
+		expect(clampInteger(undefined, 1000, 100, 2000)).toBe(1000);
+	});
+
+	test("treats null, a blank string, a boolean, and an array as unset", () => {
+		expect(clampInteger(null, 1000, 100, 2000)).toBe(1000);
+		expect(clampInteger("   ", 1000, 100, 2000)).toBe(1000);
+		expect(clampInteger(true, 1000, 100, 2000)).toBe(1000);
+		expect(clampInteger([], 1000, 100, 2000)).toBe(1000);
+	});
+});
+
+describe("cleanString", () => {
+	test("trims a non-empty string, and falls back otherwise", () => {
+		expect(cleanString("  hi  ", "fb")).toBe("hi");
+		expect(cleanString("   ", "fb")).toBe("fb");
+		expect(cleanString(7, "fb")).toBe("fb");
+		expect(cleanString(undefined, "fb")).toBe("fb");
+	});
+});
 
 describe("readJsonResult", () => {
 	test("reports a missing file as absent, not as an error", () => {
@@ -54,5 +81,38 @@ describe("readJson", () => {
 		expect(readJson(write("bad.json", "{ not json"))).toBeUndefined();
 		expect(readJson(write("array.json", "[]"))).toBeUndefined();
 		expect(readJson(join(tempDir("pi-config-"), "nope.json"))).toBeUndefined();
+	});
+});
+
+describe("loadConfigFile", () => {
+	test("layers the base, then the global file, then the project file", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = temps.track(tempDir("pi-config-cwd-"));
+			writeFileSync(join(agentDir, "thing.json"), '{"size":2000,"mode":"global"}');
+			mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
+			writeFileSync(join(cwd, CONFIG_DIR_NAME, "thing.json"), '{"mode":"project"}');
+
+			const merged = loadConfigFile(cwd, "thing.json", { size: 1000, mode: "base" }, (raw, base) => ({
+				size: clampInteger(raw?.size, base.size, 100, 10_000),
+				mode: cleanString(raw?.mode, base.mode),
+			}));
+
+			expect(merged).toEqual({ size: 2000, mode: "project" });
+		});
+	});
+
+	test("ignores a malformed file and keeps the value already in hand", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = temps.track(tempDir("pi-config-cwd-"));
+			writeFileSync(join(agentDir, "broken.json"), "{ not json");
+			mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
+			writeFileSync(join(cwd, CONFIG_DIR_NAME, "broken.json"), "{ still not json");
+
+			const merged = loadConfigFile(cwd, "broken.json", { size: 1000 }, (raw, base) => ({
+				size: clampInteger(raw?.size, base.size, 100, 10_000),
+			}));
+
+			expect(merged).toEqual({ size: 1000 });
+		});
 	});
 });
