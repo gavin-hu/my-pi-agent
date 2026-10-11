@@ -11,6 +11,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { sanitizeLine } from "../../lib/format.ts";
 import { CONFIG } from "./config.ts";
 import {
 	compactStatus,
@@ -45,7 +46,7 @@ function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string | undef
 }
 
 function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const name = snapshot.sessionName ? sanitize(snapshot.sessionName) : "";
+	const name = snapshot.sessionName ? sanitizeLine(snapshot.sessionName) : "";
 	if (!name) return null;
 	const short = truncateLabel(name, CONFIG.sessionLabelMax);
 	const forms = [dim(theme, name)];

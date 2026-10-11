@@ -16,7 +16,7 @@ import {
 	type ExtensionAPI,
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
-import { sanitize, stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { repoRootFor } from "../../lib/git/index.ts";
 
 /** Largest memory file read into memory, in bytes. */
@@ -80,7 +80,7 @@ export function parseEntries(content: string): string[] {
 	for (const line of content.split(/\r?\n/)) {
 		const match = BULLET.exec(line);
 		if (!match) continue;
-		const text = sanitize(stripControlChars(match[1]));
+		const text = sanitizeLine(match[1]);
 		if (text) entries.push(text);
 	}
 	return entries;
@@ -109,7 +109,7 @@ export function applyForget(content: string, entry: string): FileChange {
 	let changed = false;
 	const kept = content.split(/\r?\n/).filter((line) => {
 		const match = BULLET.exec(line);
-		if (match && sanitize(stripControlChars(match[1])) === entry) {
+		if (match && sanitizeLine(match[1]) === entry) {
 			changed = true;
 			return false;
 		}

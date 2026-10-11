@@ -14,18 +14,13 @@ import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, hyperlink, type Component, Text } from "@earendil-works/pi-tui";
-import { formatTokens, sanitize, stripControlChars } from "../../lib/format.ts";
+import { formatTokens, sanitizeLine, stripControlChars } from "../../lib/format.ts";
 import { expandKey, SEPARATORS } from "../../lib/ui.ts";
 import { summarizeDoc } from "./paging.ts";
 import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 
 /** Lines of extracted text shown in the expanded preview. */
 export const PREVIEW_LINES = 20;
-
-/** Collapse text to a single sanitized line for a transcript header. */
-function oneLine(text: string): string {
-	return sanitize(stripControlChars(text));
-}
 
 /** Replace a home-directory prefix with `~`, at a path boundary. */
 function shortenHomePath(path: string): string {
@@ -40,7 +35,7 @@ function shortenHomePath(path: string): string {
 /** Render the argument path: accent, `~`-shortened, OSC-8 linked when supported. */
 export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: string): string {
 	if (typeof rawPath !== "string") return theme.fg("error", "[invalid arg]");
-	const value = oneLine(rawPath);
+	const value = sanitizeLine(rawPath);
 	if (!value) return theme.fg("toolOutput", "...");
 	const styled = theme.fg("accent", shortenHomePath(value));
 	if (!getCapabilities().hyperlinks) return styled;
@@ -96,7 +91,7 @@ export function formatDocResult(result: DocRenderResult, options: DocRenderOptio
 	if (!details || isError) {
 		const first = result.content[0];
 		const message = first?.type === "text" && first.text ? first.text : "Read failed";
-		const safe = oneLine(message.startsWith("Error:") ? message : `Error: ${message}`);
+		const safe = sanitizeLine(message.startsWith("Error:") ? message : `Error: ${message}`);
 		return theme.fg("error", safe);
 	}
 

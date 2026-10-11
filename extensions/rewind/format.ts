@@ -7,7 +7,7 @@
  */
 
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { sanitize } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import type { RestoreSummary } from "./types.ts";
 
 /** Longest prompt summary shown before truncation. */
@@ -31,7 +31,7 @@ function truncate(text: string, max = LABEL_WIDTH): string {
 export function summarizePrompt(text: string): string | undefined {
 	const line = text
 		.split(/\r?\n/)
-		.map((part) => sanitize(part))
+		.map((part) => sanitizeLine(part))
 		.find((part) => part.length > 0);
 	if (!line) return undefined;
 	return visibleWidth(line) > PROMPT_WIDTH ? `${sliceByColumn(line, 0, PROMPT_WIDTH - 1)}…` : line;
@@ -72,7 +72,7 @@ export function formatRewindRow(
 	const prefix = hasSnapshot ? `${SNAPSHOT_GLYPH} ` : "  ";
 	const suffix = `  ${formatRelativeTime(timestamp, now)}`;
 	const available = Math.max(1, width - visibleWidth(prefix) - visibleWidth(suffix));
-	const label = truncate(sanitize(summary || "(no text)"), available);
+	const label = truncate(sanitizeLine(summary || "(no text)"), available);
 	const gap = Math.max(1, width - visibleWidth(prefix) - visibleWidth(label) - visibleWidth(suffix));
 	return truncateToWidth(`${prefix}${label}${" ".repeat(gap)}${suffix}`, width);
 }

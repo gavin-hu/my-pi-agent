@@ -17,7 +17,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { sanitize } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { fitRows, formatRange, ListCursor, navIntent, selectionMarker, wheelDelta } from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
 import { buildEntries, firstSelectable, nextSelectable } from "./resources.ts";
@@ -166,7 +166,7 @@ export class ExtensionsListComponent implements Component {
 
 	private itemRow(entry: Extract<Entry, { kind: "item" }>, selected: boolean, width: number): string {
 		const checkbox = entry.item.enabled ? this.theme.fg("success", "[x]") : this.theme.fg("dim", "[ ]");
-		const label = sanitize(entry.label);
+		const label = sanitizeLine(entry.label);
 		return truncateToWidth(`${selectionMarker(this.theme, selected)}${checkbox} ${label}`, width, "…");
 	}
 

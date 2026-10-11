@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatTokens, sanitize, stripControlChars } from "./format.ts";
+import { formatTokens, sanitize, sanitizeLine, stripControlChars } from "./format.ts";
 
 describe("formatTokens", () => {
 	test("scales at each boundary", () => {
@@ -9,11 +9,34 @@ describe("formatTokens", () => {
 		expect(formatTokens(34000)).toBe("34k");
 		expect(formatTokens(2500000)).toBe("2.5M");
 	});
+
+	test("shows ? for a value that is not a number", () => {
+		expect(formatTokens(Number.NaN)).toBe("?");
+		expect(formatTokens(Number.POSITIVE_INFINITY)).toBe("?");
+	});
 });
 
 describe("sanitize", () => {
 	test("collapses newlines, tabs, and runs of spaces", () => {
 		expect(sanitize("a\nb\tc   d ")).toBe("a b c d");
+	});
+
+	test("is layout only: an escape sequence is left for the boundary to handle", () => {
+		expect(sanitize("a\u001b[31mb")).toBe("a\u001b[31mb");
+	});
+});
+
+describe("sanitizeLine", () => {
+	test("neutralizes escapes and control characters, then collapses to one line", () => {
+		expect(sanitizeLine("a\u001b[31mb\u009dc\n d ")).toBe("a [31mb c d");
+	});
+
+	test("replaces a lone control character and trims what it leaves behind", () => {
+		expect(sanitizeLine("x\u0007")).toBe("x");
+	});
+
+	test("defuses an OSC title sequence from untrusted text", () => {
+		expect(sanitizeLine("\u001b]0;title\u0007keep\ttab   here\n")).toBe("]0;title keep tab here");
 	});
 });
 

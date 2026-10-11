@@ -9,11 +9,11 @@
  */
 
 import { stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
-import { sanitize, stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 
 /** Collapse untrusted web text to one sanitized line, optionally clipped to `width` columns. */
 export function oneLine(text: string, width?: number): string {
-	const safe = sanitize(stripControlChars(text));
+	const safe = sanitizeLine(text);
 	if (width === undefined) return safe;
 	// `truncateToWidth` emits ANSI resets; strip them since the caller colourises afterwards.
 	return stripTerminalSequences(truncateToWidth(safe, width, "…"));

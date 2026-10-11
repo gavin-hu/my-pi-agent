@@ -126,7 +126,9 @@ glyphs, or scroll math.
 - Compact by default, expand for detail: label-first one-line widgets, with
   more revealed on demand or on a dedicated screen.
 - Sanitize at the boundary: run model- or file-authored text through
-  `stripControlChars` / `sanitize` before it reaches a widget or the terminal.
+  `sanitizeLine` before it reaches a widget or the terminal — it neutralizes
+  control characters and then collapses to one line. `stripControlChars` alone
+  is for multi-line text that must keep its newlines.
 - Keyboard first, and consistent. Use `matchesKey` / `Key`, give every mouse
   interaction a keyboard path, and keep the shared bindings: Esc closes,
   `j` / `k` and arrows scroll, `g` / `G` and Home/End jump.

@@ -10,14 +10,14 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { sanitize, stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { selectionMarker } from "../../lib/list-cursor.ts";
 import type { ExtensionReport, Finding, FindingSeverity } from "../../lib/requirements.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 
-/** Strip control characters, then collapse the text to one line. */
+/** Collapse probe text to one terminal-safe line. */
 function safe(text: string): string {
-	return sanitize(stripControlChars(text));
+	return sanitizeLine(text);
 }
 
 /** Counts the report headline uses. */

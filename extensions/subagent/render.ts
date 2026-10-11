@@ -13,17 +13,12 @@
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
-import { sanitize as sanitizeWhitespace, stripControlChars } from "../../lib/format.ts";
+import { stripControlChars } from "../../lib/format.ts";
 import { expandHint } from "../../lib/ui.ts";
-import { aggregateUsage, clip, formatToolCall, formatUsageStats, shortenPath } from "./format.ts";
+import { aggregateUsage, clip, formatToolCall, formatUsageStats, sanitize, shortenPath } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
-
-/** Model text on one line: strip control characters before collapsing whitespace. */
-function sanitize(text: string): string {
-	return sanitizeWhitespace(stripControlChars(text));
-}
 
 type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
 type ResultStatus = "running" | "aborted" | "failed" | "success";

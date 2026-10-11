@@ -8,7 +8,7 @@
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
-import { sanitize, stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { MEMORY_ACTIONS, MEMORY_SCOPES, type MemoryAction, type MemoryScope } from "./types.ts";
 
 /** Maximum length of one note, in characters. */
@@ -71,7 +71,7 @@ export function normalizeScope(raw: unknown): MemoryScope {
  */
 export function normalizeEntryText(raw: unknown): string {
 	if (typeof raw !== "string") throw new Error("text is required.");
-	const text = sanitize(stripControlChars(raw));
+	const text = sanitizeLine(raw);
 	if (!text) throw new Error("text is required.");
 	if (text.length > MAX_ENTRY_CHARS) throw new Error(`text is longer than ${MAX_ENTRY_CHARS} characters.`);
 	return text;

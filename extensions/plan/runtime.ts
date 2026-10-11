@@ -17,6 +17,7 @@
 import { basename, resolve } from "node:path";
 import { realpathSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { sanitizeLine } from "../../lib/format.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
@@ -80,10 +81,7 @@ function samePath(a: string, b: string): boolean {
 
 /** One terminal-safe line for the footer chip. */
 function statusName(path: string): string {
-	const name = basename(path)
-		.replace(/\.md$/i, "")
-		.replace(/[\u0000-\u001f\u007f]/g, " ")
-		.trim();
+	const name = sanitizeLine(basename(path).replace(/\.md$/i, ""));
 	if (!name) return "plan";
 	return name.length > STATUS_NAME_LENGTH ? `${name.slice(0, STATUS_NAME_LENGTH - 1)}…` : name;
 }
