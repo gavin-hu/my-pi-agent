@@ -6,7 +6,7 @@
  */
 
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { CONFIG } from "./config.ts";
 
 export { formatTokens, sanitize } from "../../lib/format.ts";
@@ -109,9 +109,15 @@ const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {
 	max: "thinkingMax",
 };
 
-/** Strip SGR color/style escapes, leaving only the visible characters. */
+/**
+ * Strip every terminal escape sequence, leaving only the visible characters.
+ *
+ * SGR alone is not enough here: this feeds width measurement and the plain-text
+ * forms of a status, so a CSI or OSC sequence left in place would be counted as
+ * columns and could still act on the terminal.
+ */
 export function stripAnsi(text: string): string {
-	return text.replace(/\x1b\[[0-9;]*m/g, "");
+	return stripTerminalSequences(text);
 }
 
 /**
@@ -119,7 +125,7 @@ export function stripAnsi(text: string): string {
  *
  * An icon plus a label (`⋮ plan`) keeps only the icon. An icon plus a bare
  * count (`↺ 2`) is a badge: it keeps the count and drops the space (`↺2`),
- * because the number is the state. SGR color is stripped first — keeping the
+ * because the number is the state. Styling is stripped first — keeping the
  * opening escape without its reset would bleed color into the rest of the line.
  * Requiring exactly two tokens (rather than "the last token is numeric") keeps
  * a numeric label like `⋮ plan · 2024` from being mistaken for a count.

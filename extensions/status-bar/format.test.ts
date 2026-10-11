@@ -137,6 +137,11 @@ describe("stripAnsi", () => {
 	test("removes SGR escapes but keeps the text", () => {
 		expect(stripAnsi(`\x1b[33m${GLYPHS.plan} plan\x1b[39m`)).toBe(`${GLYPHS.plan} plan`);
 	});
+
+	test("removes a CSI or OSC sequence, not just SGR", () => {
+		expect(stripAnsi("a\x1b[2Jb")).toBe("ab");
+		expect(stripAnsi("a\x1b]0;title\x07b")).toBe("ab");
+	});
 });
 
 describe("compactStatus", () => {

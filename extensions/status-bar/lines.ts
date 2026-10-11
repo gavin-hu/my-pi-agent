@@ -11,6 +11,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
 import { CONFIG } from "./config.ts";
 import {
@@ -23,7 +24,6 @@ import {
 	formatPercent,
 	formatTokens,
 	sanitize,
-	stripAnsi,
 	thinkingColor,
 	truncateLabel,
 } from "./format.ts";
@@ -78,7 +78,7 @@ function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null
 	const raw = snapshot.statuses.get(CONFIG.worktreeStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.worktree;
-	const label = sanitize(stripAnsi(raw))
+	const label = sanitizeLine(stripTerminalSequences(raw))
 		.replace(/^\S+\s*/, "")
 		.trim();
 	if (!label) {
@@ -107,7 +107,7 @@ function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const raw = snapshot.statuses.get(CONFIG.serveStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.serve;
-	const label = sanitize(stripAnsi(raw))
+	const label = sanitizeLine(stripTerminalSequences(raw))
 		.replace(/^\S+\s*/, "")
 		.trim();
 	const separator = dim(theme, CONFIG.separators.item);
