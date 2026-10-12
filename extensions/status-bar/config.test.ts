@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { withAgentDir } from "../../test/helpers/env.ts";
-import { DEFAULT_STATUS_BAR_CONFIG, loadStatusBarConfig, normalizeStatusBarConfig } from "./config.ts";
+import { DEFAULT_RATES, DEFAULT_STATUS_BAR_CONFIG, loadStatusBarConfig, normalizeStatusBarConfig } from "./config.ts";
 
 let cwd = "";
 
@@ -54,7 +54,7 @@ describe("normalizeStatusBarConfig", () => {
 		);
 		expect(config.currency).toEqual({ symbol: "MONE", decimals: 4 });
 		expect(normalizeStatusBarConfig({ currency: { decimals: -1 } }, DEFAULT_STATUS_BAR_CONFIG).currency).toEqual({
-			symbol: "$",
+			symbol: "¥",
 			decimals: 0,
 		});
 	});
@@ -75,7 +75,17 @@ describe("normalizeStatusBarConfig", () => {
 
 	test("drops a rate entry that states no rate at all", () => {
 		const config = normalizeStatusBarConfig({ rates: { "a/b": {}, "c/d": 5 } }, DEFAULT_STATUS_BAR_CONFIG);
-		expect(config.rates).toEqual({});
+		expect(config.rates).toEqual(DEFAULT_RATES);
+	});
+
+	test("replaces a built-in rate without disturbing the others", () => {
+		const config = normalizeStatusBarConfig(
+			{ rates: { "deepseek/deepseek-flash": { input: 1 } } },
+			DEFAULT_STATUS_BAR_CONFIG,
+		);
+		expect(config.rates["deepseek/deepseek-flash"]?.input).toBe(1);
+		expect(config.rates["deepseek/deepseek-flash"]?.output).toBe(0);
+		expect(config.rates["deepseek/deepseek-v4-pro"]).toEqual(DEFAULT_RATES["deepseek/deepseek-v4-pro"]);
 	});
 
 	test("drops a schedule stated in an unknown zone", () => {
@@ -83,7 +93,7 @@ describe("normalizeStatusBarConfig", () => {
 			{ peak: { timezone: "Mars/Olympus", windows: [{ from: "09:00", to: "12:00" }] } },
 			DEFAULT_STATUS_BAR_CONFIG,
 		);
-		expect(config.peak).toEqual({ timezone: "UTC", windows: [] });
+		expect(config.peak).toEqual({ timezone: "Asia/Shanghai", windows: [] });
 	});
 
 	test("keeps only the well-formed windows", () => {
@@ -102,6 +112,16 @@ describe("normalizeStatusBarConfig", () => {
 });
 
 describe("loadStatusBarConfig", () => {
+	test("prices DeepSeek in yuan with no file at all", () => {
+		return withAgentDir(() => {
+			const config = loadStatusBarConfig(cwd);
+			expect(config.currency).toEqual({ symbol: "¥", decimals: 2 });
+			expect(config.rates["deepseek/deepseek-flash"]).toEqual(DEFAULT_RATES["deepseek/deepseek-flash"]);
+			expect(config.peak.timezone).toBe("Asia/Shanghai");
+			expect(config.peak.windows).toHaveLength(2);
+		});
+	});
+
 	test("layers the global file, then the project file over it", () => {
 		writeConfig(join(cwd, ".pi"), "status-bar.json", { currency: { symbol: "¥" }, fallbackToRecordedCost: false });
 		return withAgentDir((agentDir) => {

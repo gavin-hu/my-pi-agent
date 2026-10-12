@@ -3,9 +3,10 @@
 Replaces Pi's built-in footer with one compact, colorful, width-adaptive bar.
 It surfaces the information this package already produces — the working
 directory and session name, git branch and worktree, plan mode, context usage,
-and cost/token totals — in one consistent place, and it can price the session
-from your own rates when Pi's catalog does not match what a provider actually
-charges.
+and cost/token totals — in one consistent place. DeepSeek is priced from the
+provider's published yuan rates and peak tariff by default, and any other model
+can be priced from your own rates when Pi's catalog does not match what a
+provider actually charges.
 
 ```
 pi --extension ./extensions/status-bar    # load just this extension
@@ -26,14 +27,18 @@ Two lines, each with a left and right zone:
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87% │ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% │ ⋮ plan    opus-4.5 · high
 ```
+
+(The examples show the default `¥` symbol. For a model the built-in table does
+not cover, the number stays Pi's recorded USD amount — see the currency note
+under [Configuration](#configuration).)
 
 With no plan mode there is no mode slot, so the `│` is omitted:
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · $0.31 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
 
 As the terminal narrows, segments shrink and drop by priority rather than
@@ -42,7 +47,7 @@ fits, rather than collapsing to a bare glyph:
 
 ```
 ~/repo/project                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62% · $0.31 │ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31 │ ⋮ plan    opus-4.5 · high
 ```
 
 ```
@@ -58,14 +63,15 @@ With a named session, the name follows the path and truncates before it drops:
 ```
 
 Zero-value meters are omitted, so a fresh session shows only `?/window` instead
-of a row of `$0.00 · ↑0 ↓0 · R0 W0`. Unknown context usage shows a muted `?`
+of a row of `¥0.00 · ↑0 ↓0 · R0 W0`. Unknown context usage shows a muted `?`
 with no gauge (known `0%` still draws the empty gauge), so unknown and zero stay
 distinct. Cost keeps the configured precision — the segment drops rather than
-rounding to a misleading `$0.3` — and a positive amount below one minor unit
-shows as `<$0.01` rather than `$0.00`.
+rounding to a misleading `¥0.3` — and a positive amount below one minor unit
+shows as `¥<0.01` rather than `¥0.00`.
 
-With a `status-bar.json` the same bar prices in your own currency, and in the
-tariff that applied when the tokens were spent:
+DeepSeek needs no config file at all: the bar prices it from the published yuan
+rates and peak tariff built into [`config.ts`](./config.ts). A
+`status-bar.json` adds models of your own, or replaces a built-in entry:
 
 ```
 ~/repo/project                                                          ⎇ main
@@ -94,10 +100,13 @@ extension reads its config:
 - `~/.pi/agent/status-bar.json` (global)
 - `<cwd>/.pi/status-bar.json` (project; overrides the global file)
 
-Both are optional. With no file the bar is exactly what it was before this
-feature — dollars, two decimals, and Pi's own recorded cost. A malformed file is
-ignored, a wrong-typed value falls back to its default, and an unknown timezone
-drops the schedule rather than the session.
+Both are optional, and neither is needed for DeepSeek. The built-in table is the
+base layer for every session: DeepSeek is priced in yuan at the published peak
+and off-peak rates, and every other model keeps Pi's recorded cost, whose number
+comes from Pi's catalog. A file can change the currency, replace a built-in
+rate, or add rates of your own. A malformed file is ignored, a wrong-typed value
+falls back to its default, and an unknown timezone drops the schedule rather
+than the session.
 
 ```json
 {
@@ -117,16 +126,19 @@ drops the schedule rather than the session.
 }
 ```
 
+That file restates the built-in defaults, so on its own it changes nothing; it
+is shown to document every key at once.
+
 | Key | Meaning |
 |---|---|
-| `currency.symbol` | Printed before the number; at most four characters. Default `$`. |
+| `currency.symbol` | Printed before the number; at most four characters. Default `¥`. |
 | `currency.decimals` | Digits after the point, 0–4. Default `2`. |
 | `fallbackToRecordedCost` | Use Pi's recorded cost for a record no rate matches. Default `true`. |
-| `rates` | Per-million-token prices in `currency`, keyed by `provider/model`. |
+| `rates` | Per-million-token prices in `currency`, keyed by `provider/model`; the built-in DeepSeek table is the base, and a key stated here replaces its entry. |
 | `rates.<key>.input` · `output` · `cacheRead` · `cacheWrite` | Rate per token class; a class left out is free. |
 | `rates.<key>.offPeakMultiplier` | Multiplier outside every peak window, 0–1. Default `1`. |
 | `peak.timezone` | The IANA zone the windows are stated in. |
-| `peak.windows` | `days` (1 = Monday … 7 = Sunday; omitted means every day), `from` inclusive, `to` exclusive, `HH:MM` local; a `to` before `from` wraps midnight. |
+| `peak.windows` | `days` (1 = Monday … 7 = Sunday; omitted means every day), `from` inclusive, `to` exclusive, `HH:MM` local; a `to` before `from` wraps midnight. An empty list means every moment is peak. |
 
 Rates merge key by key across the two files, so a project file can override one
 model without restating the rest; a key present in both is replaced, not merged
@@ -135,18 +147,25 @@ field by field. No windows means every moment is peak, so a rate with
 footer is installed, so a new session — or `/status-bar` toggled off and on —
 picks up an edit.
 
-**Mixing currencies is the one sharp edge.** A record priced from `rates` is in
-`currency.symbol` units; a record that fell back is USD from Pi's catalog. With
-`"¥"` and a partly-covered `rates` map, the total silently mixes two currencies.
-Either cover every model you use (a `"*"` catch-all helps) and set
-`fallbackToRecordedCost: false`, or keep `"$"` and treat the file purely as an
-off-peak correction.
+**Mixing currencies is the sharp edge of the built-in default.** A record priced
+from `rates` or the built-in table is in `currency.symbol` units — yuan for
+DeepSeek — while a record that fell back carries Pi's USD number under that same
+symbol. A session mixing DeepSeek with another provider therefore sums two
+currencies into one number. Either cover every model you use (a `"*"` catch-all
+helps) and set `fallbackToRecordedCost: false`, or set the symbol to `"$"` and
+treat the rates purely as an off-peak correction.
 
 ## Cost calculation
 
 Pi prices every model call from its bundled catalog in USD, and the provider API
-never returns a price. Configured rates replace that for the models they match:
+never returns a price. Built-in and configured rates replace that for the models
+they match:
 
+- **Which built-in rates.** [`config.ts`](./config.ts) ships DeepSeek's published
+  yuan prices, with the peak schedule that doubles the price during peak hours
+  ([DeepSeek's pricing page](https://api-docs.deepseek.com/quick_start/pricing)).
+  They are ordinary rate entries, so a `status-bar.json` key replaces one of
+  them, and the schedule is the default `peak` every rate is judged against.
 - **Which rate.** The most specific key wins, with the model segment outranking
   the provider one: `provider/model`, then `*/model`, then `provider/*`, then
   `*`. A segment ending in a star is a prefix match (`*/gpt-*`); equally
@@ -157,13 +176,15 @@ never returns a price. Configured rates replace that for the models they match:
   applied at the local time the tokens were actually spent: an off-peak turn
   stays off-peak when peak starts. A record with no usable timestamp is priced
   at peak, because it cannot be dated.
-- **Which source.** A record with no matching rate keeps Pi's recorded cost, or
-  contributes nothing when `fallbackToRecordedCost` is `false`.
+- **Which source.** A record with no matching rate — built-in or configured —
+  keeps Pi's recorded cost, or contributes nothing when
+  `fallbackToRecordedCost` is `false`.
 
 For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
 published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
 turn at `¥10.00` at peak and `¥5.00` off-peak. That example is worked end to end
-in [`price/price.test.ts`](./price/price.test.ts).
+in [`price/price.test.ts`](./price/price.test.ts), which also prices the built-in
+table with no config file at all.
 
 ## Content and colors
 
@@ -194,6 +215,9 @@ after a `│`, so the context gauge always starts the line.
 
 ## Limitations
 
+- **One built-in provider.** DeepSeek is the only provider with a built-in
+  table; another provider's currency and tariff have to be stated in
+  `status-bar.json`.
 - **Holidays.** A tariff that excludes public holidays — DeepSeek's peak window
   does — cannot be expressed. A weekend can, by leaving `days` 6 and 7 out.
 - **One schedule.** A single `peak` section applies to every rate. Only a rate
@@ -284,7 +308,15 @@ rather than showing a wrong value.
   snapshot is drawn (`render/`). Pricing is a pure function of records and rates
   — no session, terminal, or theme to stub — which is what lets the published
   DeepSeek example be a unit test. The recorded-cost fallback keeps the stage
-  opt-in: with no config file the totals are exactly Pi's own numbers.
+  opt-in per model: a record with no matching rate is exactly Pi's own number,
+  in Pi's catalog units. The built-in DeepSeek table is only the default value
+  of `rates`, so nothing in the pricer is provider-specific.
+- **DeepSeek is built in, not bundled as a catalog.** Its published price is in
+  yuan at two tariffs, while Pi's catalog holds one USD number per model, so an
+  unconfigured DeepSeek session showed a bill that was neither the right
+  currency nor the right amount outside peak. The table sits beside `CONFIG` as
+  the default `rates` and `peak`, which keeps config in charge and leaves the
+  pricer a pure function of records and rates.
 - **A record is dated, not the frame.** The peak schedule is evaluated against
   each entry's own timestamp, so a total is stable as the clock crosses a
   boundary — and memoizing the scan by `sessionId:leafId` stays valid.
@@ -294,7 +326,7 @@ rather than showing a wrong value.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory: install/restore the footer, `/status-bar`. |
-| `config.ts` | Bar tuning (`CONFIG`) and the `status-bar.json` schema, defaults, normalizer, and loader. |
+| `config.ts` | Bar tuning (`CONFIG`), the built-in DeepSeek rates and peak tariff, and the `status-bar.json` schema, defaults, normalizer, and loader. |
 | `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
 | `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
@@ -313,8 +345,10 @@ rather than showing a wrong value.
 reduction and model inheritance (`collect/entries`), snapshot assembly and its
 memoization (`collect/snapshot`), rate matching (`price/rates`), window parsing
 and peak evaluation in two zones (`price/schedule`), the pricing formula, the
-off-peak multiplier, and the fallback (`price/price`), the config schema, its
-clamping, and the two file layers (`config`), zone/priority assignment
+off-peak multiplier, the built-in DeepSeek table with no config file, and the
+fallback (`price/price`), the config schema, its clamping, the built-in defaults
+and their replacement, and the two file layers (`config`), zone/priority
+assignment
 (`render/lines`), the reduction, separator collapse, and right-zone folding
 across a width sweep from 6 to 120 plus wide characters (`render/layout`), exact
 golden output at fixed widths (`render/render`), and the install/skip/restore/

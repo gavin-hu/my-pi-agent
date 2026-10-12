@@ -11,9 +11,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `status-bar`: the cost segment can be calculated from your own rates.
   `status-bar.json` maps `provider/model` (with wildcards) to per-million-token
   prices in the currency you choose, with an optional peak/off-peak schedule
-  evaluated against each entry's own timestamp. A model with no configured rate
-  keeps Pi's recorded cost, so an absent file reproduces Pi's own numbers
-  exactly. Internally the extension is now a `collect → price → render`
+  evaluated against each entry's own timestamp. DeepSeek's published yuan rates
+  and peak tariff ship as the default table, so a DeepSeek session is priced
+  correctly with no file at all, while a model with no matching rate keeps Pi's
+  recorded cost. Internally the extension is now a `collect → price → render`
   pipeline.
 - `doctor`: reports whether each extension has what it needs at runtime — external
   binaries on `PATH`, optional npm packages,
@@ -36,6 +37,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `status-bar`: DeepSeek pricing is now the default rather than an opt-in, so
+  `currency` defaults to `¥` — the unit of the built-in rates. A session that
+  mixes DeepSeek with a provider the table does not cover sums yuan and dollars
+  into one number until the currency or a rate is configured. A wrong-typed
+  `peak.windows` now keeps the configured windows instead of silently flattening
+  the tariff to a single rate.
 - `extension-picker`: the `/extensions` list is now scannable and honest about
   the active scope. It hides the picker's own entry, dims disabled rows, shows
   each source group's extension count, and prints the focused extension's full

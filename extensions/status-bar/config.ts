@@ -39,15 +39,48 @@ export const CONFIG = {
 
 // --- Price configuration (status-bar.json) ----------------------------------
 
-/** What an absent `status-bar.json` means: today's behaviour, in dollars. */
-/** Rendered-currency default: dollars, matching Pi's USD catalog prices. */
-export const DEFAULT_CURRENCY: Currency = { symbol: "$", decimals: 2 };
+/** Monday to Friday, the days DeepSeek charges its peak rate. */
+const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
+
+/**
+ * Built-in rates: DeepSeek's published prices in yuan.
+ *
+ * Pi's catalog prices every call in dollars at one flat rate, which is wrong
+ * twice over for DeepSeek: the bill is in yuan, and peak hours cost double.
+ * These are the published peak figures; `DEFAULT_PEAK` supplies the tariff. A
+ * `status-bar.json` entry with the same key replaces one of these, and every
+ * other provider still falls back to Pi's recorded cost.
+ *
+ * Source: <https://api-docs.deepseek.com/quick_start/pricing>.
+ */
+export const DEFAULT_RATES: Readonly<Record<string, ModelRates>> = {
+	"deepseek/deepseek-flash": { input: 2, output: 8, cacheRead: 0.04, cacheWrite: 0, offPeakMultiplier: 0.5 },
+	"deepseek/deepseek-v4-pro": { input: 9, output: 27, cacheRead: 0.3, cacheWrite: 0, offPeakMultiplier: 0.5 },
+};
+
+/**
+ * DeepSeek's peak hours, in the zone the provider states them in: 01:00-04:00
+ * and 06:00-10:00 UTC on weekdays, which is 09:00-12:00 and 14:00-18:00 in
+ * Shanghai. Every other hour, and the whole weekend, is off-peak. Chinese
+ * public holidays are off-peak too and cannot be expressed here, so they are
+ * charged at the peak rate.
+ */
+export const DEFAULT_PEAK: PeakSchedule = {
+	timezone: "Asia/Shanghai",
+	windows: [
+		{ days: WEEKDAYS, from: 9 * 60, to: 12 * 60 },
+		{ days: WEEKDAYS, from: 14 * 60, to: 18 * 60 },
+	],
+};
+
+/** Rendered-currency default: yuan, the currency `DEFAULT_RATES` is stated in. */
+export const DEFAULT_CURRENCY: Currency = { symbol: "¥", decimals: 2 };
 
 export const DEFAULT_STATUS_BAR_CONFIG: StatusBarConfig = {
 	currency: DEFAULT_CURRENCY,
 	fallbackToRecordedCost: true,
-	rates: {},
-	peak: { timezone: "UTC", windows: [] },
+	rates: DEFAULT_RATES,
+	peak: DEFAULT_PEAK,
 };
 
 const MAX_SYMBOL_LENGTH = 4;
@@ -116,7 +149,9 @@ function peakValue(raw: unknown, base: PeakSchedule): PeakSchedule {
 	// dropped: pricing stays at peak rather than at a guessed local time.
 	if (!acceptsTimeZone(timezone)) return { timezone: base.timezone, windows: [] };
 	if (value.windows === undefined) return { timezone, windows: base.windows };
-	if (!Array.isArray(value.windows)) return { timezone, windows: [] };
+	// A wrong type is a config typo, so it keeps the windows rather than
+	// flattening the tariff to a single rate. An empty array still clears them.
+	if (!Array.isArray(value.windows)) return { timezone, windows: base.windows };
 	const windows: PeakWindow[] = [];
 	for (const entry of value.windows.slice(0, MAX_WINDOWS)) {
 		const window = parseWindow(entry);

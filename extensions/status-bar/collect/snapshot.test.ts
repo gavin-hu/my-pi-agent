@@ -67,7 +67,7 @@ describe("createSnapshotReader", () => {
 		expect(snapshot.thinkingLevel).toBe("high");
 		expect(snapshot.context).toEqual({ tokens: 124000, contextWindow: 200000, percent: 62 });
 		expect(snapshot.usage.cost).toBeCloseTo(0.01);
-		expect(snapshot.currency).toEqual({ symbol: "$", decimals: 2 });
+		expect(snapshot.currency).toEqual({ symbol: "¥", decimals: 2 });
 		expect(snapshot.cacheHitRate).toBeCloseTo(50);
 		expect(snapshot.providerCount).toBe(2);
 	});

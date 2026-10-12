@@ -29,24 +29,24 @@ describe("formatTokens", () => {
 
 describe("formatCost", () => {
 	test("always renders two decimals", () => {
-		expect(formatCost(0.31)).toBe("$0.31");
-		expect(formatCost(1)).toBe("$1.00");
-		expect(formatCost(12.5)).toBe("$12.50");
+		expect(formatCost(0.31)).toBe("¥0.31");
+		expect(formatCost(1)).toBe("¥1.00");
+		expect(formatCost(12.5)).toBe("¥12.50");
 	});
 
 	test("keeps the cents for a small nonzero cost", () => {
-		expect(formatCost(0.04)).toBe("$0.04");
-		expect(formatCost(0)).toBe("$0.00");
+		expect(formatCost(0.04)).toBe("¥0.04");
+		expect(formatCost(0)).toBe("¥0.00");
 	});
 
-	test("never renders a positive sub-cent cost as $0.00", () => {
-		expect(formatCost(0.004)).toBe("$<0.01");
+	test("never renders a positive sub-cent cost as ¥0.00", () => {
+		expect(formatCost(0.004)).toBe("¥<0.01");
 	});
 
 	test("renders another currency at its own precision", () => {
-		expect(formatCost(12.5, { symbol: "¥", decimals: 2 })).toBe("¥12.50");
-		expect(formatCost(0.004, { symbol: "¥", decimals: 2 })).toBe("¥<0.01");
-		expect(formatCost(0, { symbol: "¥", decimals: 2 })).toBe("¥0.00");
+		expect(formatCost(12.5, { symbol: "$", decimals: 2 })).toBe("$12.50");
+		expect(formatCost(0.004, { symbol: "$", decimals: 2 })).toBe("$<0.01");
+		expect(formatCost(0, { symbol: "$", decimals: 2 })).toBe("$0.00");
 		expect(formatCost(12.3456, { symbol: "$", decimals: 3 })).toBe("$12.346");
 	});
 

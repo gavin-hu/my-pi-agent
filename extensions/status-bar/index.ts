@@ -8,8 +8,9 @@
  * priority as the terminal narrows, and is only installed in interactive (`tui`)
  * sessions.
  *
- * The cost segment is priced from `status-bar.json` when it configures a rate
- * for the model, and from Pi's recorded totals otherwise.
+ * The cost segment is priced from DeepSeek's published rates by default, from
+ * `status-bar.json` where that configures a rate, and from Pi's recorded
+ * totals for every model neither covers.
  *
  * Load with:  pi --extension ./extensions/status-bar
  */

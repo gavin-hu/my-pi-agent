@@ -63,17 +63,36 @@ describe("createPricer", () => {
 	});
 
 	test("keeps a flat rate flat when no schedule is configured", () => {
-		const flat = config({ rates: { "deepseek/deepseek-flash": rate } });
+		const flat = config({
+			rates: { "deepseek/deepseek-flash": rate },
+			peak: { timezone: "UTC", windows: [] },
+		});
 		expect(createPricer(flat)([record({ input: 1_000_000, at: MONDAY_OFF_PEAK })]).cost).toBeCloseTo(2);
 	});
 
+	test("prices DeepSeek from the built-in table with no config file", () => {
+		const price = createPricer(config());
+		const tokens = { input: 1_000_000, output: 1_000_000 };
+		expect(price([record({ ...tokens, at: MONDAY_PEAK })]).cost).toBeCloseTo(10);
+		expect(price([record({ ...tokens, at: MONDAY_OFF_PEAK })]).cost).toBeCloseTo(5);
+		expect(price([record({ input: 1_000_000, cacheRead: 1_000_000, at: MONDAY_PEAK })]).cost).toBeCloseTo(2.04);
+	});
+
+	test("prices the pro model from the built-in table", () => {
+		const price = createPricer(config());
+		const totals = price([record({ model: "deepseek-v4-pro", input: 1_000_000, output: 1_000_000, at: MONDAY_PEAK })]);
+		expect(totals.cost).toBeCloseTo(36);
+	});
+
 	test("falls back to Pi's recorded cost for a model with no rate", () => {
-		expect(createPricer(config())([record({ recordedCost: 0.31 })]).cost).toBeCloseTo(0.31);
+		expect(
+			createPricer(config())([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]).cost,
+		).toBeCloseTo(0.31);
 	});
 
 	test("drops an unmatched record when the fallback is off", () => {
 		const price = createPricer(config({ fallbackToRecordedCost: false }));
-		expect(price([record({ recordedCost: 0.31 })]).cost).toBe(0);
+		expect(price([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]).cost).toBe(0);
 	});
 
 	test("honours an explicit zero rate over the recorded cost", () => {
