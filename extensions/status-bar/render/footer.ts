@@ -11,7 +11,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
-import type { FooterData, StatusSnapshot, TuiLike } from "./types.ts";
+import type { FooterData, StatusSnapshot, TuiLike } from "../types.ts";
 
 /** A two-line, width-adaptive status bar. */
 class StatusBar implements Component {

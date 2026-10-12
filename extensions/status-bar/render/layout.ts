@@ -10,8 +10,8 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { CONFIG } from "./config.ts";
-import type { LineSpec, Segment } from "./types.ts";
+import { CONFIG } from "../config.ts";
+import type { LineSpec, Segment } from "../types.ts";
 
 type Zone = "left" | "right";
 

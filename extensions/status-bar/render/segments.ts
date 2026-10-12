@@ -1,19 +1,15 @@
 /**
- * Turn a `StatusSnapshot` into the two footer lines.
+ * The individual footer segments.
  *
- * Line 1 — identity: left `pwd`, right `⎇ branch · ⑂ worktree · ◉ serve`.
- * Line 2 — resources: left the plan/alert statuses then the context gauge and
- * usage meters, right the model and thinking level.
- *
- * Each segment carries progressively shorter `forms` and a `weight`. The layout
+ * Each segment carries progressively shorter `forms` and a `weight`; the layout
  * engine advances forms and drops segments from the highest weight down, so the
  * bar degrades predictably instead of clipping arbitrary text.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../lib/format.ts";
-import { CONFIG } from "./config.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { CONFIG } from "../config.ts";
 import {
 	compactStatus,
 	computeGauge,
@@ -27,11 +23,11 @@ import {
 	thinkingColor,
 	truncateLabel,
 } from "./format.ts";
-import type { LineSpec, Segment, StatusSnapshot } from "./types.ts";
+import type { Segment, StatusSnapshot } from "../types.ts";
 
 const dim = (theme: Theme, text: string): string => theme.fg("dim", text);
 
-function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): Segment {
+export function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): Segment {
 	return {
 		id: "pwd",
 		weight: 2,
@@ -45,7 +41,7 @@ function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string | undef
 	};
 }
 
-function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const name = snapshot.sessionName ? sanitizeLine(snapshot.sessionName) : "";
 	if (!name) return null;
 	const short = truncateLabel(name, CONFIG.sessionLabelMax);
@@ -60,7 +56,7 @@ function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null 
 	};
 }
 
-function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (!snapshot.branch) return null;
 	const detached = snapshot.branch === CONFIG.labels.detached;
 	const color = detached ? "warning" : "customMessageLabel";
@@ -74,7 +70,7 @@ function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const raw = snapshot.statuses.get(CONFIG.worktreeStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.worktree;
@@ -103,7 +99,7 @@ function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null
 	};
 }
 
-function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const raw = snapshot.statuses.get(CONFIG.serveStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.serve;
@@ -133,7 +129,7 @@ function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
 		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.serveStatusKey)
 		.sort(([a], [b]) => a.localeCompare(b))
@@ -159,7 +155,7 @@ function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
+export function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	const percent = snapshot.context.percent;
 	const color = contextColor(percent);
 	const percentText = theme.fg(color, formatPercent(percent));
@@ -181,7 +177,7 @@ function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	};
 }
 
-function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (snapshot.context.contextWindow <= 0) return null;
 	return {
 		id: "window",
@@ -192,7 +188,7 @@ function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (snapshot.usage.cost === 0) return null;
 	return {
 		id: "cost",
@@ -203,7 +199,7 @@ function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { input, output } = snapshot.usage;
 	if (input === 0 && output === 0) return null;
 	const parts: string[] = [];
@@ -218,7 +214,7 @@ function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { cacheRead, cacheWrite } = snapshot.usage;
 	const cached = cacheRead > 0 || cacheWrite > 0;
 	const parts: string[] = [];
@@ -238,7 +234,7 @@ function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	};
 }
 
-function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
+export function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	const model = snapshot.model;
 	const id = model?.id ?? CONFIG.labels.noModel;
 	const provider = model && snapshot.providerCount > 1 ? `(${model.provider}) ` : "";
@@ -251,7 +247,7 @@ function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	};
 }
 
-function thinkingSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+export function thinkingSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (!snapshot.model?.reasoning) return null;
 	const level = snapshot.thinkingLevel ?? "off";
 	const color = thinkingColor(level);
@@ -262,29 +258,4 @@ function thinkingSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null
 		separator: dim(theme, CONFIG.separators.item),
 		forms: [theme.fg(color, level)],
 	};
-}
-
-function defined(segments: Array<Segment | null>): Segment[] {
-	return segments.filter((segment): segment is Segment => segment !== null);
-}
-
-/** Build the identity and resources lines for a snapshot. */
-export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): LineSpec[] {
-	const line1: LineSpec = {
-		left: defined([pwdSegment(snapshot, theme, home), sessionSegment(snapshot, theme)]),
-		right: defined([branchSegment(snapshot, theme), worktreeSegment(snapshot, theme), serveSegment(snapshot, theme)]),
-	};
-
-	const line2Left = defined([
-		contextSegment(snapshot, theme),
-		windowSegment(snapshot, theme),
-		costSegment(snapshot, theme),
-		tokensSegment(snapshot, theme),
-		cacheSegment(snapshot, theme),
-		modesSegment(snapshot, theme),
-	]);
-
-	const line2Right = defined([modelSegment(snapshot, theme), thinkingSegment(snapshot, theme)]);
-
-	return [line1, { left: line2Left, right: line2Right }];
 }

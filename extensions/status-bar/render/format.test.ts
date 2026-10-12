@@ -14,7 +14,7 @@ import {
 	thinkingColor,
 	truncateLabel,
 } from "./format.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../../lib/ui.ts";
 
 describe("formatTokens", () => {
 	test("scales across the thresholds", () => {

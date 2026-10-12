@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { fullSnapshot } from "../../test/helpers/fixtures/status-bar.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { fullSnapshot } from "../../../test/helpers/fixtures/status-bar.ts";
+import { GLYPHS } from "../../../lib/ui.ts";
 
 /**
  * Rendering of the full bar across widths.

@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { fullSnapshot } from "../../test/helpers/fixtures/status-bar.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { fullSnapshot } from "../../../test/helpers/fixtures/status-bar.ts";
+import { GLYPHS } from "../../../lib/ui.ts";
 
 describe("renderLine", () => {
 	test("fills the width and right-aligns the right zone", () => {
