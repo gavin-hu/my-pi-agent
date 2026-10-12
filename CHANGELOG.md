@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `prompt`: refine a submitted prompt before the agent acts on it. One clarifier
+  call on the session model decides whether the request is clear; when it is
+  not, structured dialogs collect the goal and answers and the agent receives
+  the original wording plus both. Configured by `prompt.json`;
+  `/prompt refine [on|off|status]` toggles it for the session, and any failure
+  or cancellation submits the original prompt unchanged.
 - `status-bar`: the cost segment can be calculated from your own rates.
   `status-bar.json` maps `provider/model` (with wildcards) to per-million-token
   prices in the currency you choose, with an optional peak/off-peak schedule

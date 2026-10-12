@@ -156,6 +156,10 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	"ask-user-question": {
 		notes: ["Needs an interactive UI; without one the tool stays inactive."],
 	},
+	prompt: {
+		configFile: "prompt.json",
+		notes: ["Needs an interactive UI (TUI or RPC) to collect answers; inert in JSON and print modes."],
+	},
 	todo: {
 		configFile: "todo.json",
 	},

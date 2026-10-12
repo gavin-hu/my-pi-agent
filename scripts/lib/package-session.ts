@@ -25,6 +25,7 @@ export const EXTENSION_PATHS = [
 	"worktree",
 	"rewind",
 	"ask-user-question",
+	"prompt",
 	"todo",
 	"goal",
 	"plan",

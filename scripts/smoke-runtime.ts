@@ -79,6 +79,10 @@ check("ask_user_question is model-only", askTool?.exposure === "model-only");
 check("ask_user_question inactive without a UI", !session.getActiveToolNames().includes("ask_user_question"));
 check("ask_user_question supports no-UI result", !!session.getToolDefinition("ask_user_question"));
 
+// prompt loads alongside the others and registers its command. Refinement runs
+// from the `input` event, which this headless smoke session does not dispatch.
+check("prompt command registered", !!runner.getCommand("prompt"));
+
 // todo loads alongside the others and works headlessly (no widget without a UI).
 const todoTool = session.getAllTools().find((t) => t.name === "todo");
 check("todo registered", !!todoTool);
