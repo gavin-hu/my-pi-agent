@@ -1,11 +1,18 @@
 /**
- * Tuning for the two-line status bar.
+ * Tuning for the two-line status bar, and the user's price configuration.
  *
- * Edit this file to change the bar's content and layout. Weights live on the
- * segments themselves (see `lines.ts`); everything shared lives here.
+ * `CONFIG` is the bar's own content and layout — weights live on the segments
+ * themselves (see `render/segments.ts`). Everything below it is
+ * `status-bar.json`: read from `~/.pi/agent/status-bar.json` and
+ * `<cwd>/.pi/status-bar.json` (project values override global) with
+ * `lib/config.ts`. Missing or malformed files are ignored, and a value of the
+ * wrong type falls back to the default instead of throwing.
  */
 
+import { clampInteger, clampNumber, cleanString, loadConfigFile } from "../../lib/config.ts";
 import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
+import { parseWindow } from "./price/schedule.ts";
+import type { Currency, ModelRates, PeakSchedule, PeakWindow, StatusBarConfig } from "./types.ts";
 
 export const CONFIG = {
 	/** Context percentage thresholds. */
@@ -29,3 +36,111 @@ export const CONFIG = {
 	/** Session-name length before the compact form truncates it. */
 	sessionLabelMax: 14,
 } as const;
+
+// --- Price configuration (status-bar.json) ----------------------------------
+
+/** What an absent `status-bar.json` means: today's behaviour, in dollars. */
+/** Rendered-currency default: dollars, matching Pi's USD catalog prices. */
+export const DEFAULT_CURRENCY: Currency = { symbol: "$", decimals: 2 };
+
+export const DEFAULT_STATUS_BAR_CONFIG: StatusBarConfig = {
+	currency: DEFAULT_CURRENCY,
+	fallbackToRecordedCost: true,
+	rates: {},
+	peak: { timezone: "UTC", windows: [] },
+};
+
+const MAX_SYMBOL_LENGTH = 4;
+const MAX_DECIMALS = 4;
+const MAX_RATE = 1_000_000;
+const MAX_RATE_KEYS = 200;
+const MAX_WINDOWS = 16;
+
+function record(value: unknown): Record<string, unknown> | undefined {
+	return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
+
+/** Whether `Intl` accepts the zone; a mistyped zone is a config typo, not a crash. */
+function acceptsTimeZone(timezone: string): boolean {
+	try {
+		const probe = new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+		return probe.resolvedOptions().timeZone !== "";
+	} catch {
+		return false;
+	}
+}
+
+function currencyValue(raw: unknown, base: Currency): Currency {
+	const value = record(raw);
+	if (!value) return base;
+	return {
+		symbol: cleanString(value.symbol, base.symbol).slice(0, MAX_SYMBOL_LENGTH),
+		decimals: clampInteger(value.decimals, base.decimals, 0, MAX_DECIMALS),
+	};
+}
+
+/** Rates merge key by key, so a project file can override one model without
+ *  restating the rest; a key present in both layers is replaced, not merged. */
+function ratesValue(raw: unknown, base: Readonly<Record<string, ModelRates>>): Readonly<Record<string, ModelRates>> {
+	const value = record(raw);
+	if (!value) return base;
+	const merged: Record<string, ModelRates> = { ...base };
+	for (const [key, entry] of Object.entries(value)) {
+		if (!(key in merged) && Object.keys(merged).length >= MAX_RATE_KEYS) break;
+		const rate = modelRatesValue(entry);
+		if (rate) merged[key] = rate;
+	}
+	return merged;
+}
+
+/** Five guarded numbers; an object stating none of them is not a rate. */
+function modelRatesValue(raw: unknown): ModelRates | null {
+	const value = record(raw);
+	if (!value) return null;
+	const fields = ["input", "output", "cacheRead", "cacheWrite", "offPeakMultiplier"] as const;
+	if (!fields.some((field) => field in value)) return null;
+	return {
+		input: clampNumber(value.input, 0, 0, MAX_RATE),
+		output: clampNumber(value.output, 0, 0, MAX_RATE),
+		cacheRead: clampNumber(value.cacheRead, 0, 0, MAX_RATE),
+		cacheWrite: clampNumber(value.cacheWrite, 0, 0, MAX_RATE),
+		offPeakMultiplier: clampNumber(value.offPeakMultiplier, 1, 0, 1),
+	};
+}
+
+function peakValue(raw: unknown, base: PeakSchedule): PeakSchedule {
+	const value = record(raw);
+	if (!value) return base;
+	const timezone = cleanString(value.timezone, base.timezone);
+	// An unknown zone makes every window meaningless, so the whole schedule is
+	// dropped: pricing stays at peak rather than at a guessed local time.
+	if (!acceptsTimeZone(timezone)) return { timezone: base.timezone, windows: [] };
+	if (value.windows === undefined) return { timezone, windows: base.windows };
+	if (!Array.isArray(value.windows)) return { timezone, windows: [] };
+	const windows: PeakWindow[] = [];
+	for (const entry of value.windows.slice(0, MAX_WINDOWS)) {
+		const window = parseWindow(entry);
+		if (window) windows.push(window);
+	}
+	return { timezone, windows };
+}
+
+/** Validate a raw config object over `base`. Total: never throws, never guesses. */
+export function normalizeStatusBarConfig(
+	raw: Record<string, unknown> | undefined,
+	base: StatusBarConfig,
+): StatusBarConfig {
+	if (!raw) return base;
+	return {
+		currency: currencyValue(raw.currency, base.currency),
+		fallbackToRecordedCost:
+			typeof raw.fallbackToRecordedCost === "boolean" ? raw.fallbackToRecordedCost : base.fallbackToRecordedCost,
+		rates: ratesValue(raw.rates, base.rates),
+		peak: peakValue(raw.peak, base.peak),
+	};
+}
+
+/** Effective price config for `cwd` (global file, then project file, over defaults). */
+export function loadStatusBarConfig(cwd: string): StatusBarConfig {
+	return loadConfigFile(cwd, "status-bar.json", DEFAULT_STATUS_BAR_CONFIG, normalizeStatusBarConfig);
+}

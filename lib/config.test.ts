@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { tempDir, withAgentDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
-import { clampInteger, cleanString, loadConfigFile, readJson, readJsonResult } from "./config.ts";
+import { clampInteger, clampNumber, cleanString, loadConfigFile, readJson, readJsonResult } from "./config.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -31,6 +31,23 @@ describe("clampInteger", () => {
 		expect(clampInteger("   ", 1000, 100, 2000)).toBe(1000);
 		expect(clampInteger(true, 1000, 100, 2000)).toBe(1000);
 		expect(clampInteger([], 1000, 100, 2000)).toBe(1000);
+	});
+});
+
+describe("clampNumber", () => {
+	test("clamps into range without rounding", () => {
+		expect(clampNumber(12.5, 0, 0, 100)).toBe(12.5);
+		expect(clampNumber(0.006, 0, 0, 100)).toBe(0.006);
+		expect(clampNumber(150.25, 0, 0, 100)).toBe(100);
+		expect(clampNumber(-1, 0, 0, 100)).toBe(0);
+		expect(clampNumber("2.5", 0, 0, 100)).toBe(2.5);
+	});
+
+	test("falls back when the value is not a number", () => {
+		expect(clampNumber("abc", 7, 0, 100)).toBe(7);
+		expect(clampNumber(undefined, 7, 0, 100)).toBe(7);
+		expect(clampNumber(null, 7, 0, 100)).toBe(7);
+		expect(clampNumber(true, 7, 0, 100)).toBe(7);
 	});
 });
 

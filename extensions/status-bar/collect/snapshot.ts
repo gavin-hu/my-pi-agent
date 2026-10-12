@@ -1,21 +1,25 @@
 /**
  * Gather the data the status bar renders.
  *
- * `createSnapshotReader` memoizes the usage scan per branch leaf, because a
+ * `createSnapshotReader` memoizes the pricing scan per branch leaf, because a
  * session can hold thousands of entries and the footer renders on every frame.
+ * The config is captured when the reader is built, so re-reading the file means
+ * building a new reader (which is what installing the footer does).
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { FooterData, StatusSnapshot } from "../types.ts";
-import { emptyUsage, scanUsage } from "./entries.ts";
+import { createPricer } from "../price/price.ts";
+import type { FooterData, StatusBarConfig, StatusSnapshot } from "../types.ts";
+import { emptyUsage, usageRecords } from "./entries.ts";
 
 /**
- * Build a reader that memoizes the usage scan by branch leaf.
+ * Build a reader that memoizes the pricing scan by branch leaf.
  *
  * Every append moves the session's leaf, so `sessionId:leafId` is enough to
  * know the totals are stale; this avoids copying the full entry list per frame.
  */
-export function createSnapshotReader() {
+export function createSnapshotReader(config: StatusBarConfig) {
+	const price = createPricer(config);
 	let key: string | null = null;
 	let usage = emptyUsage();
 	let cacheHitRate: number | null = null;
@@ -24,8 +28,9 @@ export function createSnapshotReader() {
 		const session = ctx.sessionManager;
 		const nextKey = `${session.getSessionId()}:${session.getLeafId() ?? ""}`;
 		if (nextKey !== key) {
-			const scanned = scanUsage(session.getEntries());
-			usage = scanned.usage;
+			const active = ctx.model ? { provider: ctx.model.provider, model: ctx.model.id } : undefined;
+			const scanned = usageRecords(session.getEntries(), active);
+			usage = price(scanned.records);
 			cacheHitRate = scanned.cacheHitRate;
 			key = nextKey;
 		}
@@ -50,6 +55,7 @@ export function createSnapshotReader() {
 			thinkingLevel: ctx.thinkingLevel ?? null,
 			context,
 			usage,
+			currency: config.currency,
 			cacheHitRate,
 			providerCount: footerData.getAvailableProviderCount(),
 		};

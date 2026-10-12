@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `status-bar`: the cost segment can be calculated from your own rates.
+  `status-bar.json` maps `provider/model` (with wildcards) to per-million-token
+  prices in the currency you choose, with an optional peak/off-peak schedule
+  evaluated against each entry's own timestamp. A model with no configured rate
+  keeps Pi's recorded cost, so an absent file reproduces Pi's own numbers
+  exactly. Internally the extension is now a `collect → price → render`
+  pipeline.
 - `doctor`: reports whether each extension has what it needs at runtime — external
   binaries on `PATH`, optional npm packages,
   login/state files, and config files that fail to parse. Each extension declares

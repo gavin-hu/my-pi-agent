@@ -13,8 +13,8 @@ import { GLYPHS } from "../../../lib/ui.ts";
  */
 const WIDTHS = [100, 80, 60, 40, 24, 16];
 
-function render(width: number): string[] {
-	return buildLines(fullSnapshot(), fakeTheme, "/home/u").map((line) => renderLine(line, width, fakeTheme));
+function render(width: number, snapshot = fullSnapshot()): string[] {
+	return buildLines(snapshot, fakeTheme, "/home/u").map((line) => renderLine(line, width, fakeTheme));
 }
 
 describe("status bar render", () => {
@@ -34,6 +34,12 @@ describe("status bar render", () => {
 		expect(line2).toContain(`│ ${GLYPHS.plan} plan`);
 		expect(line2).toContain("opus-4.5 · high");
 		expect(line2.indexOf("│")).toBeLessThan(line2.indexOf(`${GLYPHS.plan} plan`));
+	});
+
+	test("renders the cost in the configured currency", () => {
+		const [, line2] = render(100, fullSnapshot({ currency: { symbol: "¥", decimals: 2 } }));
+
+		expect(line2).toContain("¥0.31");
 	});
 
 	for (const width of WIDTHS) {

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { DEFAULT_STATUS_BAR_CONFIG } from "../config.ts";
+import type { StatusBarConfig } from "../types.ts";
 import { createSnapshotReader } from "./snapshot.ts";
 
 const assistant = (usage: any) => ({ type: "message", message: { role: "assistant", usage } });
@@ -34,9 +36,27 @@ const footerData: any = {
 	onBranchChange: () => () => {},
 };
 
+/** A million-token Opus call, so a configured rate lands on a round number. */
+const millionTokens = (): any =>
+	makeCtx({
+		sessionManager: {
+			getSessionId: () => "sess",
+			getLeafId: () => "leaf",
+			getSessionName: () => "my-session",
+			getEntries: () => [assistant(u(1_000_000, 0, 0, 0, 0))],
+		},
+	});
+
+const priced = (overrides: Partial<StatusBarConfig> = {}): StatusBarConfig => ({
+	...DEFAULT_STATUS_BAR_CONFIG,
+	currency: { symbol: "¥", decimals: 2 },
+	rates: { "anthropic/opus-4.5": { input: 2.5, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 } },
+	...overrides,
+});
+
 describe("createSnapshotReader", () => {
 	test("builds a full snapshot", () => {
-		const read = createSnapshotReader();
+		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
 		const snapshot = read(makeCtx(), footerData);
 
 		expect(snapshot.cwd).toBe("/home/u/repo/project");
@@ -47,23 +67,38 @@ describe("createSnapshotReader", () => {
 		expect(snapshot.thinkingLevel).toBe("high");
 		expect(snapshot.context).toEqual({ tokens: 124000, contextWindow: 200000, percent: 62 });
 		expect(snapshot.usage.cost).toBeCloseTo(0.01);
+		expect(snapshot.currency).toEqual({ symbol: "$", decimals: 2 });
 		expect(snapshot.cacheHitRate).toBeCloseTo(50);
 		expect(snapshot.providerCount).toBe(2);
 	});
 
 	test("falls back to the model context window when usage is unknown", () => {
-		const read = createSnapshotReader();
+		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
 		const snapshot = read(makeCtx({ getContextUsage: () => undefined }), footerData);
 
 		expect(snapshot.context).toEqual({ tokens: null, contextWindow: 200000, percent: null });
 	});
 
 	test("reports no model", () => {
-		const read = createSnapshotReader();
+		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
 		const snapshot = read(makeCtx({ model: undefined, getContextUsage: () => undefined }), footerData);
 
 		expect(snapshot.model).toBeNull();
 		expect(snapshot.context.contextWindow).toBe(0);
+	});
+
+	test("keeps Pi's recorded cost when no rate matches", () => {
+		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
+
+		expect(read(makeCtx(), footerData).usage.cost).toBeCloseTo(0.01);
+	});
+
+	test("prices from a configured rate and carries its currency", () => {
+		const read = createSnapshotReader(priced());
+		const snapshot = read(millionTokens(), footerData);
+
+		expect(snapshot.usage.cost).toBeCloseTo(2.5);
+		expect(snapshot.currency).toEqual({ symbol: "¥", decimals: 2 });
 	});
 
 	test("memoizes the usage scan until the branch leaf moves", () => {
@@ -79,7 +114,7 @@ describe("createSnapshotReader", () => {
 				},
 			},
 		});
-		const read = createSnapshotReader();
+		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
 
 		read(ctx, footerData);
 		read(ctx, footerData);

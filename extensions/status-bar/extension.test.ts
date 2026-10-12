@@ -1,9 +1,29 @@
 import { describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import statusBar from "./index.ts";
 import { coloringTheme, emit } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
+import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/status-bar.ts";
+
+/** A million-token Opus call, so a configured rate lands on a round number. */
+const millionTokens = (): unknown[] => [
+	{
+		type: "message",
+		timestamp: "2026-01-05T03:00:00.000Z",
+		message: {
+			role: "assistant",
+			provider: "anthropic",
+			model: "opus-4.5",
+			usage: { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
+		},
+	},
+];
+
+/** A price config for the fake session's model, in the given currency. */
+const rateConfig = (symbol: string): string =>
+	JSON.stringify({ currency: { symbol, decimals: 2 }, rates: { "anthropic/opus-4.5": { input: 2.5 } } });
 
 describe("status-bar extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
@@ -104,5 +124,37 @@ describe("status-bar extension", () => {
 		const lines = renderFooter(factory, footerData, 100);
 
 		expect(lines[0]).toContain("[");
+	});
+
+	test("prices the cost from a status-bar.json rate", async () => {
+		const { pi } = makeFakePi();
+		statusBar(pi);
+		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
+
+		await withAgentDir(async (agentDir) => {
+			writeFileSync(join(agentDir, "status-bar.json"), rateConfig("¥"));
+			await emit(pi, "session_start", { reason: "startup" }, ctx);
+		});
+
+		expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
+	});
+
+	test("re-reads the config when the bar is toggled back on", async () => {
+		const { pi, commands } = makeFakePi();
+		statusBar(pi);
+		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
+		const command = commands.get("status-bar");
+
+		await withAgentDir(async (agentDir) => {
+			const path = join(agentDir, "status-bar.json");
+			writeFileSync(path, rateConfig("$"));
+			await emit(pi, "session_start", { reason: "startup" }, ctx);
+			expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("$2.50");
+
+			await command.handler("", ctx);
+			writeFileSync(path, rateConfig("¥"));
+			await command.handler("", ctx);
+			expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
+		});
 	});
 });

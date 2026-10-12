@@ -1,0 +1,102 @@
+import { describe, expect, test } from "bun:test";
+import { DEFAULT_STATUS_BAR_CONFIG } from "../config.ts";
+import type { StatusBarConfig, UsageRecord } from "../types.ts";
+import { createPricer, tokenCost } from "./price.ts";
+
+/** 2026-01-05 is a Monday; 03:00 UTC is 11:00 in Asia/Shanghai. */
+const MONDAY_PEAK = Date.UTC(2026, 0, 5, 3);
+/** 13:00 UTC is 21:00 in Asia/Shanghai, outside every window. */
+const MONDAY_OFF_PEAK = Date.UTC(2026, 0, 5, 13);
+
+const config = (overrides: Partial<StatusBarConfig> = {}): StatusBarConfig => ({
+	...DEFAULT_STATUS_BAR_CONFIG,
+	...overrides,
+});
+
+const rate = { input: 2, output: 8, cacheRead: 0.04, cacheWrite: 0, offPeakMultiplier: 0.5 };
+
+/** A DeepSeek flash config: ¥2 / ¥8 per million, half price off-peak. */
+const deepseek = (overrides: Partial<StatusBarConfig> = {}): StatusBarConfig =>
+	config({
+		currency: { symbol: "¥", decimals: 2 },
+		rates: { "deepseek/deepseek-flash": rate },
+		peak: { timezone: "Asia/Shanghai", windows: [{ days: [1, 2, 3, 4, 5], from: 540, to: 720 }] },
+		...overrides,
+	});
+
+const record = (overrides: Partial<UsageRecord> = {}): UsageRecord => ({
+	provider: "deepseek",
+	model: "deepseek-flash",
+	input: 0,
+	output: 0,
+	cacheRead: 0,
+	cacheWrite: 0,
+	recordedCost: 0,
+	at: null,
+	isAssistant: false,
+	...overrides,
+});
+
+describe("tokenCost", () => {
+	test("prices each token class per million tokens", () => {
+		expect(tokenCost(record({ input: 1_000_000, output: 1_000_000 }), rate)).toBeCloseTo(10);
+		expect(tokenCost(record({ cacheRead: 1_000_000 }), rate)).toBeCloseTo(0.04);
+		expect(tokenCost(record({ cacheWrite: 1_000_000 }), rate)).toBeCloseTo(0);
+		expect(tokenCost(record({ input: 500_000 }), rate)).toBeCloseTo(1);
+	});
+
+	test("does not bill cache tokens as fresh input", () => {
+		expect(tokenCost(record({ input: 1_000_000, cacheRead: 1_000_000 }), rate)).toBeCloseTo(2.04);
+	});
+});
+
+describe("createPricer", () => {
+	test("matches the published DeepSeek example, peak and off-peak", () => {
+		const price = createPricer(deepseek());
+		const tokens = { input: 1_000_000, output: 1_000_000 };
+		expect(price([record({ ...tokens, at: MONDAY_PEAK })]).cost).toBeCloseTo(10);
+		expect(price([record({ ...tokens, at: MONDAY_OFF_PEAK })]).cost).toBeCloseTo(5);
+	});
+
+	test("prices an undated record at peak", () => {
+		expect(createPricer(deepseek())([record({ input: 1_000_000 })]).cost).toBeCloseTo(2);
+	});
+
+	test("keeps a flat rate flat when no schedule is configured", () => {
+		const flat = config({ rates: { "deepseek/deepseek-flash": rate } });
+		expect(createPricer(flat)([record({ input: 1_000_000, at: MONDAY_OFF_PEAK })]).cost).toBeCloseTo(2);
+	});
+
+	test("falls back to Pi's recorded cost for a model with no rate", () => {
+		expect(createPricer(config())([record({ recordedCost: 0.31 })]).cost).toBeCloseTo(0.31);
+	});
+
+	test("drops an unmatched record when the fallback is off", () => {
+		const price = createPricer(config({ fallbackToRecordedCost: false }));
+		expect(price([record({ recordedCost: 0.31 })]).cost).toBe(0);
+	});
+
+	test("honours an explicit zero rate over the recorded cost", () => {
+		const free = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 };
+		expect(createPricer(config({ rates: { "*": free } }))([record({ recordedCost: 5 })]).cost).toBe(0);
+	});
+
+	test("totals the tokens alongside the cost", () => {
+		const totals = createPricer(deepseek())([
+			record({ input: 100, output: 50, cacheRead: 25, cacheWrite: 5, at: MONDAY_PEAK }),
+		]);
+		expect(totals.input).toBe(100);
+		expect(totals.output).toBe(50);
+		expect(totals.cacheRead).toBe(25);
+		expect(totals.cacheWrite).toBe(5);
+	});
+
+	test("sums a mix of priced and recorded records", () => {
+		const price = createPricer(deepseek());
+		const totals = price([
+			record({ input: 1_000_000, at: MONDAY_PEAK }),
+			record({ provider: "openai", model: "gpt-5", recordedCost: 0.5 }),
+		]);
+		expect(totals.cost).toBeCloseTo(2.5);
+	});
+});

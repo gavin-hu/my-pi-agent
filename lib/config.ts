@@ -12,6 +12,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 
+/** A finite number, or `NaN` when the value does not say one. */
+function coerceNumber(value: unknown): number {
+	return typeof value === "number"
+		? value
+		: typeof value === "string" && value.trim() !== ""
+			? Number(value)
+			: Number.NaN;
+}
+
 /**
  * Round a numeric value into `[min, max]`, falling back when it is not a number.
  *
@@ -20,10 +29,21 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
  * leaving the caller's default in place.
  */
 export function clampInteger(value: unknown, fallback: number, min: number, max: number): number {
-	const number =
-		typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+	const number = coerceNumber(value);
 	if (!Number.isFinite(number)) return fallback;
 	return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+/**
+ * Clamp a numeric value into `[min, max]` without rounding it.
+ *
+ * Same coercion as {@link clampInteger}; use this for a fractional value such as
+ * a per-token rate, where rounding would destroy the decimals.
+ */
+export function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+	const number = coerceNumber(value);
+	if (!Number.isFinite(number)) return fallback;
+	return Math.min(max, Math.max(min, number));
 }
 
 /** A trimmed non-empty string, or the fallback. */

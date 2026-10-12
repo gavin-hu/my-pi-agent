@@ -8,19 +8,22 @@
  * priority as the terminal narrows, and is only installed in interactive (`tui`)
  * sessions.
  *
+ * The cost segment is priced from `status-bar.json` when it configures a rate
+ * for the model, and from Pi's recorded totals otherwise.
+ *
  * Load with:  pi --extension ./extensions/status-bar
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { createFooter } from "./render/footer.ts";
 import { createSnapshotReader } from "./collect/snapshot.ts";
+import { loadStatusBarConfig } from "./config.ts";
+import { createFooter } from "./render/footer.ts";
 
 export default function statusBar(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("status-bar")) return;
 	let enabled = true;
-	const read = createSnapshotReader();
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;
@@ -28,6 +31,10 @@ export default function statusBar(pi: ExtensionAPI): void {
 			ctx.ui.setFooter(undefined);
 			return;
 		}
+		// The config is read per install, so toggling the bar — or a new session —
+		// is how an edited file is picked up: nothing watches it.
+		const config = loadStatusBarConfig(ctx.cwd);
+		const read = createSnapshotReader(config);
 		ctx.ui.setFooter((tui, _theme, footerData) =>
 			createFooter(
 				tui,

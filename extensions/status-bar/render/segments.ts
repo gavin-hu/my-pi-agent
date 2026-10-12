@@ -195,7 +195,7 @@ export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | n
 		weight: 2,
 		droppable: true,
 		separator: dim(theme, CONFIG.separators.item),
-		forms: [theme.fg("muted", formatCost(snapshot.usage.cost))],
+		forms: [theme.fg("muted", formatCost(snapshot.usage.cost, snapshot.currency))],
 	};
 }
 

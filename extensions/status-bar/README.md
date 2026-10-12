@@ -3,7 +3,9 @@
 Replaces Pi's built-in footer with one compact, colorful, width-adaptive bar.
 It surfaces the information this package already produces — the working
 directory and session name, git branch and worktree, plan mode, context usage,
-and cost/token totals — in one consistent place.
+and cost/token totals — in one consistent place, and it can price the session
+from your own rates when Pi's catalog does not match what a provider actually
+charges.
 
 ```
 pi --extension ./extensions/status-bar    # load just this extension
@@ -58,9 +60,17 @@ With a named session, the name follows the path and truncates before it drops:
 Zero-value meters are omitted, so a fresh session shows only `?/window` instead
 of a row of `$0.00 · ↑0 ↓0 · R0 W0`. Unknown context usage shows a muted `?`
 with no gauge (known `0%` still draws the empty gauge), so unknown and zero stay
-distinct. Cost always keeps two decimals — the segment drops rather than
-rounding to a misleading `$0.3` — and a positive sub-cent spend shows as
-`<$0.01` rather than `$0.00`.
+distinct. Cost keeps the configured precision — the segment drops rather than
+rounding to a misleading `$0.3` — and a positive amount below one minor unit
+shows as `<$0.01` rather than `$0.00`.
+
+With a `status-bar.json` the same bar prices in your own currency, and in the
+tariff that applied when the tokens were spent:
+
+```
+~/repo/project                                                          ⎇ main
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥2.50 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
+```
 
 ## Commands
 
@@ -76,9 +86,84 @@ visible.
 
 ## Configuration
 
-There is no per-segment CLI or config-file surface; tuning lives in
-[`config.ts`](./config.ts) — thresholds, gauge glyphs and widths, separators,
-icons, and status keys.
+The bar's own content and layout are tuned in [`config.ts`](./config.ts) —
+thresholds, gauge glyphs and widths, separators, icons, and status keys. The
+price calculation is configured by a JSON file, read the way every other
+extension reads its config:
+
+- `~/.pi/agent/status-bar.json` (global)
+- `<cwd>/.pi/status-bar.json` (project; overrides the global file)
+
+Both are optional. With no file the bar is exactly what it was before this
+feature — dollars, two decimals, and Pi's own recorded cost. A malformed file is
+ignored, a wrong-typed value falls back to its default, and an unknown timezone
+drops the schedule rather than the session.
+
+```json
+{
+  "currency": { "symbol": "¥", "decimals": 2 },
+  "fallbackToRecordedCost": true,
+  "rates": {
+    "deepseek/deepseek-flash":  { "input": 2, "output": 8, "cacheRead": 0.04, "cacheWrite": 0, "offPeakMultiplier": 0.5 },
+    "deepseek/deepseek-v4-pro": { "input": 9, "output": 27, "cacheRead": 0.3, "cacheWrite": 0, "offPeakMultiplier": 0.5 }
+  },
+  "peak": {
+    "timezone": "Asia/Shanghai",
+    "windows": [
+      { "days": [1, 2, 3, 4, 5], "from": "09:00", "to": "12:00" },
+      { "days": [1, 2, 3, 4, 5], "from": "14:00", "to": "18:00" }
+    ]
+  }
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `currency.symbol` | Printed before the number; at most four characters. Default `$`. |
+| `currency.decimals` | Digits after the point, 0–4. Default `2`. |
+| `fallbackToRecordedCost` | Use Pi's recorded cost for a record no rate matches. Default `true`. |
+| `rates` | Per-million-token prices in `currency`, keyed by `provider/model`. |
+| `rates.<key>.input` · `output` · `cacheRead` · `cacheWrite` | Rate per token class; a class left out is free. |
+| `rates.<key>.offPeakMultiplier` | Multiplier outside every peak window, 0–1. Default `1`. |
+| `peak.timezone` | The IANA zone the windows are stated in. |
+| `peak.windows` | `days` (1 = Monday … 7 = Sunday; omitted means every day), `from` inclusive, `to` exclusive, `HH:MM` local; a `to` before `from` wraps midnight. |
+
+Rates merge key by key across the two files, so a project file can override one
+model without restating the rest; a key present in both is replaced, not merged
+field by field. No windows means every moment is peak, so a rate with
+`offPeakMultiplier: 0.5` and no schedule stays flat. The file is read when the
+footer is installed, so a new session — or `/status-bar` toggled off and on —
+picks up an edit.
+
+**Mixing currencies is the one sharp edge.** A record priced from `rates` is in
+`currency.symbol` units; a record that fell back is USD from Pi's catalog. With
+`"¥"` and a partly-covered `rates` map, the total silently mixes two currencies.
+Either cover every model you use (a `"*"` catch-all helps) and set
+`fallbackToRecordedCost: false`, or keep `"$"` and treat the file purely as an
+off-peak correction.
+
+## Cost calculation
+
+Pi prices every model call from its bundled catalog in USD, and the provider API
+never returns a price. Configured rates replace that for the models they match:
+
+- **Which rate.** The most specific key wins, with the model segment outranking
+  the provider one: `provider/model`, then `*/model`, then `provider/*`, then
+  `*`. A segment ending in a star is a prefix match (`*/gpt-*`); equally
+  specific keys are resolved in file order.
+- **Which formula.** `tokens × rate ÷ 1,000,000`, summed over the four token
+  classes. Cache tokens are never billed again as fresh input.
+- **Which tariff.** Each record is dated by its session entry, so a window is
+  applied at the local time the tokens were actually spent: an off-peak turn
+  stays off-peak when peak starts. A record with no usable timestamp is priced
+  at peak, because it cannot be dated.
+- **Which source.** A record with no matching rate keeps Pi's recorded cost, or
+  contributes nothing when `fallbackToRecordedCost` is `false`.
+
+For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
+published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
+turn at `¥10.00` at peak and `¥5.00` off-peak. That example is worked end to end
+in [`price/price.test.ts`](./price/price.test.ts).
 
 ## Content and colors
 
@@ -107,9 +192,27 @@ a plan chip's trailing plan file name is dropped, so the slot reads `⋮ plan`
 even though the built-in footer keeps the name. The slot trails the meters
 after a `│`, so the context gauge always starts the line.
 
+## Limitations
+
+- **Holidays.** A tariff that excludes public holidays — DeepSeek's peak window
+  does — cannot be expressed. A weekend can, by leaving `days` 6 and 7 out.
+- **One schedule.** A single `peak` section applies to every rate. Only a rate
+  with an `offPeakMultiplier` below 1 is affected by it, so two providers with
+  different time-of-day tariffs cannot both be described.
+- **No tiers, no special cache writes.** Per-request input tiers and
+  Anthropic's 2× one-hour cache write are not modelled; Pi's recorded cost
+  covers those models when no rate is configured.
+- **No FX conversion.** A fallback record is USD and is never converted into
+  the configured currency.
+- **The displayed number is the total, rounded once** — not the sum of rounded
+  records.
+
 ## Non-goals
 
-- No per-segment CLI configuration; edit `config.ts`.
+- No per-segment CLI: the bar's look lives in `config.ts`, the price in
+  `status-bar.json`.
+- No per-model cost breakdown, no `/status-bar price`, and no on-screen marker
+  for which tariff or which source produced a number.
 - No todo-count segment; the [todo](../todo/) widget already shows progress.
 - No shelling out for git ahead/behind; the footer data provider exposes only
   the branch.
@@ -126,8 +229,9 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | Command | `/status-bar` toggles the custom bar and the built-in footer (tui only; a no-op elsewhere). |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None written. The bar reads session entries (a memoized usage scan) and writes no tool-result `details` or `pi.appendEntry`. |
+| Config | `status-bar.json` from the agent directory and `<cwd>/.pi`, read through `lib/config.ts` when the footer is installed — a new session, or `/status-bar` toggled back on. Nothing watches the file. |
+| Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
+| State storage | None written. The bar reads session entries and the price config (a memoized scan) and writes no tool-result `details` or `pi.appendEntry`. |
 | Lifecycle | `session_start` installs the footer; `session_tree` reinstalls it; `session_shutdown` restores the built-in footer and disposes the branch subscription. |
 
 ## Design notes
@@ -175,24 +279,43 @@ rather than showing a wrong value.
   `getEntryCount()`, which is not exposed on the read-only session manager.
 - **TTY-only, fail-safe.** The footer is installed only in `tui` mode;
   non-interactive runs load the extension and change nothing.
+- **The price is a stage, not a branch in the renderer.** Entries are reduced to
+  usage records (`collect/`), records are priced into totals (`price/`), and the
+  snapshot is drawn (`render/`). Pricing is a pure function of records and rates
+  — no session, terminal, or theme to stub — which is what lets the published
+  DeepSeek example be a unit test. The recorded-cost fallback keeps the stage
+  opt-in: with no config file the totals are exactly Pi's own numbers.
+- **A record is dated, not the frame.** The peak schedule is evaluated against
+  each entry's own timestamp, so a total is stable as the clock crosses a
+  boundary — and memoizing the scan by `sessionId:leafId` stays valid.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory: install/restore the footer, `/status-bar`. |
-| `config.ts` | Thresholds, gauge glyphs, separators, icons, status keys. |
-| `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, footer/TUI shapes. |
-| `snapshot.ts` | Gather data; memoized usage/cost/cache scan. |
-| `format.ts` | Pure formatters (tokens, cost, cwd, gauge, colors). |
-| `lines.ts` | Snapshot → two `LineSpec`s; status routing. |
-| `layout.ts` | Width reduction and right-zone folding. |
-| `footer.ts` | `StatusBar` component and footer factory. |
+| `config.ts` | Bar tuning (`CONFIG`) and the `status-bar.json` schema, defaults, normalizer, and loader. |
+| `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
+| `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
+| `collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
+| `price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
+| `price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
+| `price/price.ts` | Records → totals: rates, peak multiplier, recorded-cost fallback. |
+| `render/format.ts` | Pure formatters (tokens, cost in the configured currency, cwd, gauge, colors). |
+| `render/segments.ts` | The segment builders: forms, weights, separators, colors. |
+| `render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
+| `render/layout.ts` | Width reduction and right-zone folding. |
+| `render/footer.ts` | `StatusBar` component and footer factory. |
 
 ## Testing
 
-`extensions/status-bar/` covers the pure formatters (`format`), the usage scan and
-snapshot assembly (`snapshot`), zone/priority assignment (`lines`), the
-reduction, separator collapse, and right-zone folding across a width sweep from
-6 to 120 plus wide characters (`layout`), exact golden output at fixed widths
-(`render`), and the install/skip/restore/toggle lifecycle (`extension`).
+`extensions/status-bar/` covers the formatters (`render/format`), entry
+reduction and model inheritance (`collect/entries`), snapshot assembly and its
+memoization (`collect/snapshot`), rate matching (`price/rates`), window parsing
+and peak evaluation in two zones (`price/schedule`), the pricing formula, the
+off-peak multiplier, and the fallback (`price/price`), the config schema, its
+clamping, and the two file layers (`config`), zone/priority assignment
+(`render/lines`), the reduction, separator collapse, and right-zone folding
+across a width sweep from 6 to 120 plus wide characters (`render/layout`), exact
+golden output at fixed widths (`render/render`), and the install/skip/restore/
+toggle lifecycle plus a config-driven price (`extension`).

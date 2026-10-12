@@ -7,7 +7,8 @@
 
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
-import { CONFIG } from "../config.ts";
+import { CONFIG, DEFAULT_CURRENCY } from "../config.ts";
+import type { Currency } from "../types.ts";
 
 export { formatTokens, sanitize } from "../../../lib/format.ts";
 
@@ -32,11 +33,18 @@ export type ThinkingColor =
 	| "thinkingXhigh"
 	| "thinkingMax";
 
-/** US-dollar cost, always two decimals. A positive sub-cent amount never renders
- *  as `$0.00` — it shows `<$0.01`, so the number is never misleading. */
-export function formatCost(cost: number): string {
-	if (cost > 0 && cost < 0.01) return "<$0.01";
-	return `$${cost.toFixed(2)}`;
+/**
+ * A cost in the configured currency, at its configured precision.
+ *
+ * A positive amount below one minor unit never renders as zero — it shows
+ * `¥<0.01` — so a small cost is never reported as free.
+ */
+export function formatCost(cost: number, currency: Currency = DEFAULT_CURRENCY): string {
+	const { symbol, decimals } = currency;
+	if (!Number.isFinite(cost) || cost <= 0) return `${symbol}${(0).toFixed(decimals)}`;
+	const minimum = 10 ** -decimals;
+	if (cost < minimum) return `${symbol}<${minimum.toFixed(decimals)}`;
+	return `${symbol}${cost.toFixed(decimals)}`;
 }
 
 /** Rounded percentage, or `?` when the value is unknown. */
