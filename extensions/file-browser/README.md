@@ -26,8 +26,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   strings, numbers, and comments colored, in the dark and light palettes:
   JavaScript/TypeScript (`js`, `mjs`, `cjs`, `jsx`, `ts`, `mts`, `cts`, `tsx`),
   JSON, CSS (`css`, `scss`, `sass`, `less`), HTML/XML and template components
-  (`html`, `htm`, `xml`, `vue`, `svelte`), and shell (`sh`, `bash`, `zsh`).
-  Other text types stay plain.
+  (`html`, `htm`, `xml`, `vue`, `svelte`), shell (`sh`, `bash`, `zsh`),
+  Python (`py`, `pyw`, `pyi`), Java, YAML (`yaml`, `yml`), and SQL. Other text
+  types stay plain.
 - **Rendered Markdown.** `.md`/`.markdown` files render as headings, lists,
   tables, code, links, and images, with a one-click **raw** view (`?raw=1`). Raw
   HTML in the source is escaped, never executed, and external images are shown
@@ -194,12 +195,12 @@ reflects only this session's server, with no cross-session sharing.
 - **Syntax highlighting.** `highlight.ts` is a first-party, escape-first
   tokenizer for the file types that dominate a repository: JavaScript and
   TypeScript, JSON, CSS (incl. SCSS/Sass/Less), HTML/XML and template
-  components, and shell. `detectLanguage` maps a filename to a tokenizer and an
-  unmapped type stays plain. `highlightLines` walks the whole file, so block
-  comments, template literals, open HTML tags, and CSS brace depth carry across
-  lines; every literal is escaped with the same `escapeHtml` the plain view
-  uses, and a line's markup is only the fixed `tok-*` classes the stylesheet
-  colors.
+  components, shell, Python, Java, YAML, and SQL. `detectLanguage` maps a
+  filename to a tokenizer and an unmapped type stays plain. `highlightLines`
+  walks the whole file, so block comments, template literals, open HTML tags,
+  CSS brace depth, and Python triple-quoted strings carry across lines; every
+  literal is escaped with the same `escapeHtml` the plain view uses, and a
+  line's markup is only the fixed `tok-*` classes the stylesheet colors.
 - **Quick open.** `/api/files` ranks the cached index with `fuzzy.ts` and
   returns the matched character positions; the client fetches on an 80 ms
   debounce and builds rows with `textContent`, so a file name cannot inject

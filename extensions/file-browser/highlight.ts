@@ -2,7 +2,8 @@
  * First-party, escape-first syntax highlighting for the serve code view.
  *
  * A deliberately small tokenizer for the file types that dominate a repository
- * (JavaScript/TypeScript, JSON, CSS, HTML/XML, and shell). It has no
+ * (JavaScript/TypeScript, JSON, CSS, HTML/XML, shell, Python, Java, YAML, and
+ * SQL). It has no
  * dependency and no third-party asset: every literal is escaped with
  * `escapeHtml` as it is emitted, so a highlighted line is exactly as safe as
  * the plain one it replaces. Only a token class name ever reaches the markup.
@@ -17,7 +18,7 @@ import { extname } from "node:path";
 import { escapeHtml } from "./escape.ts";
 
 /** The languages the first-party tokenizer understands. */
-export type HighlightLanguage = "js" | "ts" | "json" | "css" | "html" | "shell";
+export type HighlightLanguage = "js" | "ts" | "json" | "css" | "html" | "shell" | "python" | "java" | "yaml" | "sql";
 
 /** A token class; the CSS uses it as `tok-<class>`. */
 export type TokenClass = "comment" | "string" | "number" | "keyword" | "literal" | "tag" | "attr" | "prop" | "var";
@@ -46,6 +47,13 @@ const EXTENSIONS: Record<string, HighlightLanguage> = {
 	sh: "shell",
 	bash: "shell",
 	zsh: "shell",
+	py: "python",
+	pyw: "python",
+	pyi: "python",
+	java: "java",
+	yaml: "yaml",
+	yml: "yaml",
+	sql: "sql",
 };
 
 /** The highlighter language for a filename, or `undefined` for plain text. */
@@ -66,10 +74,12 @@ interface ScanState {
 	htmlComment: boolean;
 	/** Inside an HTML tag (past the tag name). */
 	htmlTag: boolean;
+	/** The active Python triple-quote delimiter (`"""` or `'''`), or `""`. */
+	tripleQuote: string;
 }
 
 function createState(): ScanState {
-	return { comment: false, template: false, depth: 0, htmlComment: false, htmlTag: false };
+	return { comment: false, template: false, depth: 0, htmlComment: false, htmlTag: false, tripleQuote: "" };
 }
 
 /** Wrap already-escaped-safe text in a token span. */
@@ -205,9 +215,20 @@ const JS_KEYWORDS = new Set([
 ]);
 
 const JS_LITERALS = new Set(["true", "false", "null", "undefined", "NaN", "Infinity"]);
+const NO_KEYWORDS = new Set<string>();
 
-/** JavaScript, TypeScript, and (with `props`) JSON. */
-function scanJs(line: string, state: ScanState, props: boolean): string {
+/** Options for the shared C-like scanner. */
+interface CLikeOptions {
+	keywords: Set<string>;
+	literals: Set<string>;
+	/** Show a string immediately followed by `:` as a property key (JSON). */
+	props?: boolean;
+	/** Highlight `@Name` annotations (Java). */
+	annotations?: boolean;
+}
+
+/** JavaScript, TypeScript, JSON, and Java. */
+function scanCLike(line: string, state: ScanState, options: CLikeOptions): string {
 	let out = "";
 	let i = 0;
 	while (i < line.length) {
@@ -247,9 +268,19 @@ function scanJs(line: string, state: ScanState, props: boolean): string {
 				return out + span("string", line.slice(i));
 			}
 			const text = line.slice(i, end + 1);
-			out += props && nextNonSpace(line, end + 1) === ":" ? span("prop", text) : span("string", text);
+			out += options.props && nextNonSpace(line, end + 1) === ":" ? span("prop", text) : span("string", text);
 			i = end + 1;
 			continue;
+		}
+		if (options.annotations && ch === "@") {
+			const start = i + 1;
+			let j = start;
+			while (j < line.length && isIdentPart(line[j])) j++;
+			if (j > start) {
+				out += span("keyword", line.slice(i, j));
+				i = j;
+				continue;
+			}
 		}
 		if (isDigit(ch) || (ch === "." && isDigit(next))) {
 			const start = i;
@@ -262,8 +293,8 @@ function scanJs(line: string, state: ScanState, props: boolean): string {
 			i++;
 			while (i < line.length && isIdentPart(line[i])) i++;
 			const word = line.slice(start, i);
-			if (JS_LITERALS.has(word)) out += span("literal", word);
-			else if (JS_KEYWORDS.has(word)) out += span("keyword", word);
+			if (options.literals.has(word)) out += span("literal", word);
+			else if (options.keywords.has(word)) out += span("keyword", word);
 			else out += escapeHtml(word);
 			continue;
 		}
@@ -272,6 +303,63 @@ function scanJs(line: string, state: ScanState, props: boolean): string {
 	}
 	return out;
 }
+
+const JAVA_KEYWORDS = new Set([
+	"abstract",
+	"assert",
+	"boolean",
+	"break",
+	"byte",
+	"case",
+	"catch",
+	"char",
+	"class",
+	"continue",
+	"default",
+	"do",
+	"double",
+	"else",
+	"enum",
+	"extends",
+	"final",
+	"finally",
+	"float",
+	"for",
+	"if",
+	"implements",
+	"import",
+	"instanceof",
+	"int",
+	"interface",
+	"long",
+	"native",
+	"new",
+	"package",
+	"private",
+	"protected",
+	"public",
+	"record",
+	"return",
+	"sealed",
+	"short",
+	"static",
+	"strictfp",
+	"super",
+	"switch",
+	"synchronized",
+	"this",
+	"throw",
+	"throws",
+	"transient",
+	"try",
+	"var",
+	"void",
+	"volatile",
+	"while",
+	"yield",
+]);
+
+const JAVA_LITERALS = new Set(["true", "false", "null"]);
 
 const CSS_AT = /^[a-z-]+/i;
 
@@ -526,10 +614,330 @@ function scanShell(line: string): string {
 	return out;
 }
 
+const PYTHON_KEYWORDS = new Set([
+	"and",
+	"as",
+	"assert",
+	"async",
+	"await",
+	"break",
+	"class",
+	"continue",
+	"def",
+	"del",
+	"elif",
+	"else",
+	"except",
+	"finally",
+	"for",
+	"from",
+	"global",
+	"if",
+	"import",
+	"in",
+	"is",
+	"lambda",
+	"match",
+	"nonlocal",
+	"not",
+	"or",
+	"pass",
+	"raise",
+	"return",
+	"try",
+	"while",
+	"with",
+	"yield",
+]);
+
+const PYTHON_LITERALS = new Set(["True", "False", "None"]);
+
+/** Python. Triple-quoted strings carry across lines. */
+function scanPython(line: string, state: ScanState): string {
+	let out = "";
+	let i = 0;
+	while (i < line.length) {
+		if (state.tripleQuote.length > 0) {
+			const end = line.indexOf(state.tripleQuote, i);
+			if (end === -1) return out + span("string", line.slice(i));
+			out += span("string", line.slice(i, end + 3));
+			state.tripleQuote = "";
+			i = end + 3;
+			continue;
+		}
+		const ch = line[i];
+		const next = line[i + 1];
+		if (ch === "#") return out + span("comment", line.slice(i));
+		if (ch === '"' || ch === "'") {
+			const triple = ch.repeat(3);
+			if (line.startsWith(triple, i)) {
+				const end = line.indexOf(triple, i + 3);
+				if (end === -1) {
+					state.tripleQuote = triple;
+					return out + span("string", line.slice(i));
+				}
+				out += span("string", line.slice(i, end + 3));
+				i = end + 3;
+				continue;
+			}
+			const end = findQuote(line, i + 1, ch);
+			if (end === -1) return out + span("string", line.slice(i));
+			out += span("string", line.slice(i, end + 1));
+			i = end + 1;
+			continue;
+		}
+		if (ch === "@") {
+			const start = i + 1;
+			let j = start;
+			while (j < line.length && isIdentPart(line[j])) j++;
+			if (j > start) {
+				out += span("keyword", line.slice(i, j));
+				i = j;
+				continue;
+			}
+		}
+		if (isDigit(ch) || (ch === "." && isDigit(next))) {
+			const start = i;
+			i = readNumber(line, i);
+			out += span("number", line.slice(start, i));
+			continue;
+		}
+		if (isIdentStart(ch)) {
+			const start = i;
+			i++;
+			while (i < line.length && isIdentPart(line[i])) i++;
+			const word = line.slice(start, i);
+			if (PYTHON_LITERALS.has(word)) out += span("literal", word);
+			else if (PYTHON_KEYWORDS.has(word)) out += span("keyword", word);
+			else out += escapeHtml(word);
+			continue;
+		}
+		out += escapeHtml(ch);
+		i++;
+	}
+	return out;
+}
+
+const YAML_LITERALS = new Set(["true", "false", "null", "yes", "no", "on", "off"]);
+
+/** YAML. A key before `:` is a property; block scalars are not carried. */
+function scanYaml(line: string): string {
+	let out = "";
+	let i = 0;
+	let head = true;
+	while (i < line.length) {
+		const ch = line[i];
+		if (ch === " " || ch === "\t") {
+			out += ch;
+			i++;
+			continue;
+		}
+		if (ch === "#") return out + span("comment", line.slice(i));
+		if (line.startsWith("---", i) || line.startsWith("...", i)) {
+			out += span("keyword", line.slice(i, i + 3));
+			i += 3;
+			head = false;
+			continue;
+		}
+		if (head && ch === "-" && (line[i + 1] === " " || line[i + 1] === undefined)) {
+			out += "-";
+			i++;
+			continue;
+		}
+		if (ch === '"' || ch === "'") {
+			const end = findQuote(line, i + 1, ch);
+			if (end === -1) return out + span("string", line.slice(i));
+			out += span("string", line.slice(i, end + 1));
+			i = end + 1;
+			head = false;
+			continue;
+		}
+		if (ch === "|" || ch === ">") {
+			let j = i + 1;
+			while (j < line.length && (line[j] === "+" || line[j] === "-" || isDigit(line[j]))) j++;
+			out += span("keyword", line.slice(i, j));
+			i = j;
+			head = false;
+			continue;
+		}
+		if (ch === "~") {
+			out += span("literal", ch);
+			i++;
+			head = false;
+			continue;
+		}
+		if (isDigit(ch) || ((ch === "-" || ch === "+") && isDigit(line[i + 1]))) {
+			const start = i;
+			i = readNumber(line, i);
+			out += span("number", line.slice(start, i));
+			head = false;
+			continue;
+		}
+		if (isIdentStart(ch)) {
+			const start = i;
+			i++;
+			while (i < line.length && (isIdentPart(line[i]) || line[i] === "." || line[i] === "-")) i++;
+			const word = line.slice(start, i);
+			if (head && nextNonSpace(line, i) === ":") out += span("prop", word);
+			else if (YAML_LITERALS.has(word)) out += span("literal", word);
+			else out += escapeHtml(word);
+			head = false;
+			continue;
+		}
+		out += escapeHtml(ch);
+		i++;
+	}
+	return out;
+}
+
+const SQL_KEYWORDS = new Set([
+	"ALL",
+	"ALTER",
+	"AND",
+	"AS",
+	"ASC",
+	"BEGIN",
+	"BETWEEN",
+	"BY",
+	"CASE",
+	"CAST",
+	"COMMIT",
+	"CONSTRAINT",
+	"CREATE",
+	"CROSS",
+	"DEFAULT",
+	"DELETE",
+	"DESC",
+	"DISTINCT",
+	"DROP",
+	"ELSE",
+	"END",
+	"EXISTS",
+	"FOREIGN",
+	"FROM",
+	"FULL",
+	"GROUP",
+	"HAVING",
+	"IN",
+	"INDEX",
+	"INNER",
+	"INSERT",
+	"INTO",
+	"IS",
+	"JOIN",
+	"KEY",
+	"LEFT",
+	"LIKE",
+	"LIMIT",
+	"NOT",
+	"OFFSET",
+	"ON",
+	"OR",
+	"ORDER",
+	"OUTER",
+	"PRIMARY",
+	"REFERENCES",
+	"RETURNING",
+	"RIGHT",
+	"ROLLBACK",
+	"SELECT",
+	"SET",
+	"TABLE",
+	"THEN",
+	"TRANSACTION",
+	"UNION",
+	"UNIQUE",
+	"UPDATE",
+	"USING",
+	"VALUES",
+	"VIEW",
+	"WHEN",
+	"WHERE",
+	"WITH",
+]);
+
+const SQL_LITERALS = new Set(["TRUE", "FALSE", "NULL"]);
+
+/** SQL. Keywords are case-insensitive; `--` and block comments are supported. */
+function scanSql(line: string, state: ScanState): string {
+	let out = "";
+	let i = 0;
+	while (i < line.length) {
+		if (state.comment) {
+			const end = line.indexOf("*/", i);
+			if (end === -1) return out + span("comment", line.slice(i));
+			out += span("comment", line.slice(i, end + 2));
+			state.comment = false;
+			i = end + 2;
+			continue;
+		}
+		const ch = line[i];
+		const next = line[i + 1];
+		if (ch === "-" && next === "-") return out + span("comment", line.slice(i));
+		if (ch === "/" && next === "*") {
+			const end = line.indexOf("*/", i + 2);
+			if (end === -1) {
+				state.comment = true;
+				return out + span("comment", line.slice(i));
+			}
+			out += span("comment", line.slice(i, end + 2));
+			i = end + 2;
+			continue;
+		}
+		if (ch === "'") {
+			// SQL escapes a quote by doubling it.
+			let j = i + 1;
+			while (j < line.length) {
+				if (line[j] !== "'") {
+					j++;
+					continue;
+				}
+				if (line[j + 1] === "'") {
+					j += 2;
+					continue;
+				}
+				break;
+			}
+			const end = j < line.length ? j + 1 : line.length;
+			out += span("string", line.slice(i, end));
+			i = end;
+			continue;
+		}
+		if (ch === '"' || ch === "`") {
+			const end = findQuote(line, i + 1, ch);
+			if (end === -1) return out + span("string", line.slice(i));
+			out += span("string", line.slice(i, end + 1));
+			i = end + 1;
+			continue;
+		}
+		if (isDigit(ch) || (ch === "." && isDigit(next))) {
+			const start = i;
+			i = readNumber(line, i);
+			out += span("number", line.slice(start, i));
+			continue;
+		}
+		if (isIdentStart(ch)) {
+			const start = i;
+			i++;
+			while (i < line.length && isIdentPart(line[i])) i++;
+			const word = line.slice(start, i);
+			const upper = word.toUpperCase();
+			if (SQL_LITERALS.has(upper)) out += span("literal", word);
+			else if (SQL_KEYWORDS.has(upper)) out += span("keyword", word);
+			else out += escapeHtml(word);
+			continue;
+		}
+		out += escapeHtml(ch);
+		i++;
+	}
+	return out;
+}
+
 /**
  * Highlight a file's lines, carrying state (block comments, template literals,
- * open HTML tags, CSS brace depth) across them. Returns one HTML string per
- * input line, without a wrapper; empty lines stay empty.
+ * open HTML tags, CSS brace depth, Python triple-quoted strings) across them.
+ * Returns one HTML string per input line, without a wrapper; empty lines stay
+ * empty.
  */
 export function highlightLines(lines: string[], language: HighlightLanguage): string[] {
 	const state = createState();
@@ -537,13 +945,25 @@ export function highlightLines(lines: string[], language: HighlightLanguage): st
 		switch (language) {
 			case "js":
 			case "ts":
-				return scanJs(line, state, false);
+				return scanCLike(line, state, { keywords: JS_KEYWORDS, literals: JS_LITERALS });
 			case "json":
-				return scanJs(line, state, true);
+				return scanCLike(line, state, { keywords: NO_KEYWORDS, literals: JS_LITERALS, props: true });
+			case "java":
+				return scanCLike(line, state, {
+					keywords: JAVA_KEYWORDS,
+					literals: JAVA_LITERALS,
+					annotations: true,
+				});
 			case "css":
 				return scanCss(line, state);
 			case "html":
 				return scanHtml(line, state);
+			case "python":
+				return scanPython(line, state);
+			case "yaml":
+				return scanYaml(line);
+			case "sql":
+				return scanSql(line, state);
 			default:
 				return scanShell(line);
 		}

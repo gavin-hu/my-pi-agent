@@ -15,6 +15,10 @@ describe("detectLanguage", () => {
 		expect(detectLanguage("theme.scss")).toBe("css");
 		expect(detectLanguage("index.html")).toBe("html");
 		expect(detectLanguage("run.sh")).toBe("shell");
+		expect(detectLanguage("script.py")).toBe("python");
+		expect(detectLanguage("Main.java")).toBe("java");
+		expect(detectLanguage("config.yml")).toBe("yaml");
+		expect(detectLanguage("query.sql")).toBe("sql");
 	});
 
 	test("returns nothing for plain or unmapped files", () => {
@@ -105,5 +109,49 @@ describe("highlightLines", () => {
 		expect(html).toContain(`<span class="tok-keyword">if</span>`);
 		expect(html).toContain(`<span class="tok-keyword">then</span>`);
 		expect(html).toContain(`<span class="tok-string">&#39;a b&#39;</span>`);
+	});
+
+	test("highlights Python keywords, literals, decorators, and comments", () => {
+		const html = highlighted(["@decorator", "def f(x):", "    return None  # done"], "python");
+		expect(html).toContain(`<span class="tok-keyword">@decorator</span>`);
+		expect(html).toContain(`<span class="tok-keyword">def</span>`);
+		expect(html).toContain(`<span class="tok-keyword">return</span>`);
+		expect(html).toContain(`<span class="tok-literal">None</span>`);
+		expect(html).toContain(`<span class="tok-comment"># done</span>`);
+	});
+
+	test("carries a Python triple-quoted string across lines", () => {
+		const html = highlighted(['x = """a', 'b"""', "y = 1"], "python");
+		expect(html).toContain(`<span class="tok-string">&quot;&quot;&quot;a</span>`);
+		expect(html).toContain(`<span class="tok-string">b&quot;&quot;&quot;</span>`);
+		expect(html).toContain(`<span class="tok-number">1</span>`);
+	});
+
+	test("highlights Java keywords, annotations, and literals", () => {
+		const html = highlighted(["@Override", "public boolean ok() { return true; }"], "java");
+		expect(html).toContain(`<span class="tok-keyword">@Override</span>`);
+		expect(html).toContain(`<span class="tok-keyword">public</span>`);
+		expect(html).toContain(`<span class="tok-keyword">return</span>`);
+		expect(html).toContain(`<span class="tok-literal">true</span>`);
+	});
+
+	test("highlights YAML keys, literals, and comments", () => {
+		const html = highlighted(["name: serve", "  - enabled: true", "count: 3 # note", "---"], "yaml");
+		expect(html).toContain(`<span class="tok-prop">name</span>`);
+		expect(html).toContain(`<span class="tok-prop">enabled</span>`);
+		expect(html).toContain(`<span class="tok-literal">true</span>`);
+		expect(html).toContain(`<span class="tok-number">3</span>`);
+		expect(html).toContain(`<span class="tok-comment"># note</span>`);
+		expect(html).toContain(`<span class="tok-keyword">---</span>`);
+	});
+
+	test("highlights SQL keywords case-insensitively and escapes doubled quotes", () => {
+		const html = highlighted(["SELECT * FROM t WHERE name = 'it''s'", "-- note", "/* block */"], "sql");
+		expect(html).toContain(`<span class="tok-keyword">SELECT</span>`);
+		expect(html).toContain(`<span class="tok-keyword">FROM</span>`);
+		expect(html).toContain(`<span class="tok-keyword">WHERE</span>`);
+		expect(html).toContain(`<span class="tok-string">&#39;it&#39;&#39;s&#39;</span>`);
+		expect(html).toContain(`<span class="tok-comment">-- note</span>`);
+		expect(html).toContain(`<span class="tok-comment">/* block */</span>`);
 	});
 });
