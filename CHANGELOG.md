@@ -8,11 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `goal`: `/goal <prompt>` refines the prompt with one clarifier call on the
-  session model, lets you confirm or edit the result, then records the goal and
-  starts a turn on it. Refinement is best-effort (a failure falls back to the
-  typed text), needs a dialog UI and a model, and a dismissed dialog cancels the
-  command. The `goal` tool remains the silent setter.
+- `goal`: `/goal <prompt>` classifies the prompt with one clarifier call on the
+  session model. A clear goal is confirmed or edited, then recorded and run. An
+  unclear goal is delegated to the agent, which asks up to three clarifying
+  questions with `ask_user_question` before recording the clarified goal itself.
+  Classification is best-effort (a failure falls back to the typed text), needs a
+  dialog UI and a model, and a dismissed dialog cancels the command. The `goal`
+  tool remains the silent setter.
 
 ### Changed
 

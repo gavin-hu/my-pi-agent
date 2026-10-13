@@ -6,13 +6,14 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Text } from "@earendil-works/pi-tui";
 import { askHuman } from "../../lib/interaction.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
+import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";
 import { AskUserQuestionParams, normalizeQuestions, type AskUserQuestionArgs } from "./schema.ts";
 import { askViaTui } from "./tui.ts";
 import type { AskResult } from "./types.ts";
 
-export const TOOL_NAME = "ask_user_question";
+export const TOOL_NAME = ASK_USER_QUESTION_TOOL;
 
 function dialogUI(ctx: ExtensionContext): QuestionUI {
 	const ui = ctx.ui;

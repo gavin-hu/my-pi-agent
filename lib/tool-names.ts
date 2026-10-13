@@ -16,6 +16,12 @@ export const TODO_TOOL = "todo";
 export const SUBAGENT_TOOL = "subagent";
 
 /**
+ * The `ask_user_question` tool. `goal` names it in the delegation prompt it
+ * sends the agent when a goal needs clarification, so the two must agree.
+ */
+export const ASK_USER_QUESTION_TOOL = "ask_user_question";
+
+/**
  * Parameter on the `subagent` tool that forces every spawned agent to a
  * read-only tool set. Plan mode sets it on every call while planning, and
  * refuses a `subagent` whose schema does not declare it.

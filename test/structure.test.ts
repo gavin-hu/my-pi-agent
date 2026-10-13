@@ -38,7 +38,13 @@ function walkFiles(dir: string, out: string[] = []): string[] {
 	return out;
 }
 
-const ROOT_TEST_FILES = new Set(["naming.test.ts", "prompt-budget.test.ts", "structure.test.ts", "theme.test.ts"]);
+const ROOT_TEST_FILES = new Set([
+	"contracts.test.ts",
+	"naming.test.ts",
+	"prompt-budget.test.ts",
+	"structure.test.ts",
+	"theme.test.ts",
+]);
 
 /**
  * Every directory whose co-located tests the banned-pattern scan covers.

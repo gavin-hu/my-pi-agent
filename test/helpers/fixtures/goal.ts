@@ -17,3 +17,15 @@ export function goalContextMessage(objective = "ship it"): unknown {
 		display: false,
 	};
 }
+
+/** The one question the clarify fixtures ask, in the clarifier's JSON shape. */
+export const SCOPE_QUESTION = {
+	header: "Scope",
+	question: "Which parser?",
+	options: [{ label: "The new one" }, { label: "The old one" }],
+};
+
+/** A clarifier JSON reply: unclear with one question unless overridden. */
+export function clarifyReply(overrides: { clear?: boolean; goal?: string; questions?: unknown[] } = {}): string {
+	return JSON.stringify({ clear: false, goal: "Add parser tests", questions: [SCOPE_QUESTION], ...overrides });
+}

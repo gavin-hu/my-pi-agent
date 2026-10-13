@@ -1,15 +1,19 @@
 /**
  * Slash commands for the goal extension.
  *
- * `/goal <prompt>` refines the prompt, lets the user confirm or edit it, then
- * sets the goal and starts the agent on it. Because the command does not produce
- * a tool result, every change is persisted as a `goal` custom entry
- * (`pi.appendEntry`) so the goal follows the session branch like a tool-set goal.
+ * `/goal <prompt>` classifies the prompt with one model call, then either lets
+ * the user confirm or edit it, or — when the goal needs clarification and the
+ * question tool is available — delegates the proposed questions to the agent,
+ * which asks them and records the clarified goal itself. Because the command
+ * does not produce a tool result, every goal it sets is persisted as a `goal`
+ * custom entry (`pi.appendEntry`) so it follows the session branch.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
+import { buildDelegateUserText } from "./clarify-prompt.ts";
+import { prepareGoalPrompt } from "./clarify.ts";
 import { formatGoalNotice } from "./format.ts";
-import { prepareGoalPrompt } from "./refine.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { normalizeGoal } from "./schema.ts";
 import { GOAL_ENTRY_TYPE, type Goal } from "./types.ts";
@@ -60,11 +64,23 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 					return;
 				}
 
-				// Refine the prompt, then let the user confirm or edit it. A dismissed
-				// dialog cancels the command; a failed or unusable refinement falls back
-				// to the typed text.
-				const outcome = await prepareGoalPrompt(ctx, typed.objective);
+				// Classify the goal, then confirm/edit it. When the clarifier asks for
+				// clarification and the question tool is available, hand the questions to
+				// the agent instead of setting the goal here. A dismissed dialog cancels
+				// the command; a failed or unusable clarification falls back to the typed
+				// text.
+				const canAsk = pi.getActiveTools().includes(ASK_USER_QUESTION_TOOL);
+				const outcome = await prepareGoalPrompt(ctx, typed.objective, canAsk);
 				if (outcome.action === "cancel") return;
+
+				if (outcome.action === "ask") {
+					ctx.ui.notify("Goal needs clarification; asking the user first.", "info");
+					const content = buildDelegateUserText(outcome.original, outcome.goal, outcome.questions);
+					// Set no goal: the agent asks, then records the clarified goal itself.
+					if (ctx.isIdle()) await pi.sendUserMessage(content);
+					else await pi.sendUserMessage(content, { deliverAs: "followUp" });
+					return;
+				}
 
 				const goal = normalizeGoal({ objective: outcome.text, status: "active" });
 				if (goal === null) {

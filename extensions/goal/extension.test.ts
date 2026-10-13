@@ -8,7 +8,7 @@ import { WIDGET_KEY } from "./tui.ts";
 import type { Goal } from "./types.ts";
 import { emitCollect as emit, makeFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
-import { goalContextMessage, resultEntry } from "../../test/helpers/fixtures/goal.ts";
+import { clarifyReply, goalContextMessage, resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { lastWidget, otherMessage } from "../../test/helpers/entries.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -200,8 +200,12 @@ describe("goal reminder", () => {
 });
 
 describe("/goal command", () => {
-	async function started(branch: unknown[] = [], ctxOptions: Partial<FakeCtxOptions> = {}) {
-		const fakePi = makeFakePi();
+	async function started(
+		branch: unknown[] = [],
+		ctxOptions: Partial<FakeCtxOptions> = {},
+		piOptions: { active?: string[] } = {},
+	) {
+		const fakePi = makeFakePi(piOptions);
 		goal(fakePi.pi);
 		const fake = fakeCtx({ mode: "print", branch, ...ctxOptions });
 		await emit(fakePi.pi, "session_start", { reason: "startup" }, fake.ctx);
@@ -262,7 +266,7 @@ describe("/goal command", () => {
 		expect(sentMessages).toHaveLength(0);
 	});
 
-	test("refines, prefills the editor, and sends the edited text", async () => {
+	test("clarifies, prefills the editor, and sends the edited text", async () => {
 		const registry = {
 			complete: async () => ({
 				stopReason: "stop",
@@ -290,6 +294,54 @@ describe("/goal command", () => {
 		});
 	});
 
+	test("delegates an unclear goal to the agent's question tool", async () => {
+		const registry = {
+			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: clarifyReply() }] }),
+		};
+		const { command, ctx, entries, sentMessages, notifications, editorCalls } = await started(
+			[],
+			{
+				mode: "rpc",
+				hasUI: true,
+				editor: "ignored",
+				extra: { model: { id: "m" }, modelRegistry: registry },
+			},
+			{ active: ["ask_user_question"] },
+		);
+
+		await command.handler("add tests to the parser", ctx);
+
+		expect(editorCalls).toHaveLength(0);
+		expect(entries).toHaveLength(0);
+		expect(notifications.at(-1)).toContain("clarification");
+		const content = sentMessages.at(-1)?.content as string;
+		expect(content).toContain("ask_user_question");
+		expect(content).toContain("Which parser?");
+		expect(content).toContain("add tests to the parser");
+	});
+
+	test("edits the proposed goal when the question tool is unavailable", async () => {
+		const registry = {
+			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: clarifyReply() }] }),
+		};
+		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "Add parser tests, new parser",
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("add tests to the parser", ctx);
+
+		expect(editorCalls[0].prefill).toBe("Add parser tests");
+		expect(entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "goal",
+			data: { goal: { objective: "Add parser tests, new parser", status: "active" } },
+		});
+		expect(sentMessages.at(-1)).toEqual({ content: "Add parser tests, new parser", options: undefined });
+	});
+
 	test("falls back to the typed text when the clarifier fails", async () => {
 		const registry = {
 			complete: async () => {
@@ -311,7 +363,7 @@ describe("/goal command", () => {
 
 	test("aborts when the editor is dismissed", async () => {
 		const registry = {
-			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "Refined goal" }] }),
+			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "Clarified goal" }] }),
 		};
 		const { command, ctx, entries, sentMessages, notifications } = await started([], {
 			mode: "rpc",
@@ -327,12 +379,12 @@ describe("/goal command", () => {
 		expect(notifications).toHaveLength(0);
 	});
 
-	test("skips refine and dialogs without a UI", async () => {
+	test("skips clarify and dialogs without a UI", async () => {
 		const calls: string[] = [];
 		const registry = {
 			complete: async () => {
 				calls.push("complete");
-				return { stopReason: "stop", content: [{ type: "text", text: "Refined goal" }] };
+				return { stopReason: "stop", content: [{ type: "text", text: "Clarified goal" }] };
 			},
 		};
 		const { command, ctx, editorCalls, sentMessages } = await started([], {
