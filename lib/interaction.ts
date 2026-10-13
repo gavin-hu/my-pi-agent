@@ -26,7 +26,7 @@ export const INTERACTION_TURN_KEY = "isRemoteTurn";
 export const INTERACTION_OTHER_LABEL = "Other (type something)";
 
 /** The four forwardable dialog kinds, mirroring `ExtensionUIContext`. */
-export type InteractionKind = "select" | "confirm" | "input" | "editor";
+type InteractionKind = "select" | "confirm" | "input" | "editor";
 
 /** A dialog prompt addressed to the human, transport-neutral. */
 export interface InteractionRequest {

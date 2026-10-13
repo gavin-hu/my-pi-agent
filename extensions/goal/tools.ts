@@ -9,7 +9,7 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { reuseText } from "../../lib/tui.ts";
 import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { GoalParams, GoalResult, normalizeGoal, type GoalArgs } from "./schema.ts";
@@ -96,7 +96,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
 					theme.fg("muted", formatCallText(args.objective, context.argsComplete, args.status)),
@@ -105,7 +105,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		},
 
 		renderResult(result, { expanded }, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			const details = result.details as GoalDetails | undefined;
 			if (!details) {
 				const first = result.content[0];

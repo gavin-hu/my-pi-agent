@@ -8,7 +8,7 @@ import { Type, type Static } from "typebox";
 export const TOOL_NAME = "open_path";
 
 /** Upper bound on a target path, matching the other path-taking tools. */
-export const MAX_PATH_LENGTH = 4096;
+const MAX_PATH_LENGTH = 4096;
 
 export const OpenPathParams = Type.Object({
 	path: Type.String({

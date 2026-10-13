@@ -7,9 +7,12 @@
  * with no JSON object is treated as a plain refined goal, so a model that
  * ignores the JSON instruction still refines.
  *
- * The question limits mirror `extensions/ask-user-question/schema.ts`, which
- * validates the same shape when the agent calls `ask_user_question`; extensions
- * cannot import each other, so the two are kept aligned by a compatibility test.
+ * The question limits are goal's own, not a mirror of
+ * `extensions/ask-user-question/schema.ts`: `MAX_QUESTIONS` is 3 here while the
+ * ask tool allows 4. Extensions cannot import each other, so the contract is
+ * one-way and checked by a compatibility test that only asserts every set
+ * `parseClarification` emits is accepted by `ask_user_question`'s validator —
+ * it does not compare constants, so a tighter local cap goes unnoticed.
  */
 
 import { sanitizeLine } from "../../lib/format.ts";

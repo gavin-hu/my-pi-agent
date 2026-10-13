@@ -9,7 +9,6 @@ import {
 	decodeMediaKey,
 	decryptEcb,
 	encryptEcb,
-	imageExtension,
 	mediaDownloadUrl,
 	sanitizeFileName,
 	saveMedia,
@@ -99,15 +98,6 @@ describe("sniffImageMime", () => {
 
 	test("defaults to jpeg for unknown bytes", () => {
 		expect(sniffImageMime(Buffer.from([1, 2, 3]))).toBe("image/jpeg");
-	});
-});
-
-describe("imageExtension", () => {
-	test("maps the known image MIME types", () => {
-		expect(imageExtension("image/png")).toBe("png");
-		expect(imageExtension("image/gif")).toBe("gif");
-		expect(imageExtension("image/webp")).toBe("webp");
-		expect(imageExtension("image/jpeg")).toBe("jpg");
 	});
 });
 

@@ -1,9 +1,9 @@
 /**
  * Terminal rendering for the plan review screen.
  *
- * `sanitizePlanText` is exported so the transcript renderer (`tools.ts`) and
- * the non-TUI notices (`commands.ts`) can strip control characters from plan
- * text with the same rules the review screen uses.
+ * `sanitizePlanText` is exported so the transcript renderer (`tools.ts`) can
+ * strip control characters from plan text with the same rules the review screen
+ * uses.
  *
  * `PlanViewComponent` is the scrollable review screen `exit_plan_mode` opens
  * for approval. The plan body is rendered by Pi's own `Markdown` component with

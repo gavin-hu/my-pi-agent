@@ -10,7 +10,6 @@ import {
 	formatPercent,
 	formatTokens,
 	sanitize,
-	stripAnsi,
 	thinkingColor,
 	truncateLabel,
 } from "./format.ts";
@@ -146,17 +145,6 @@ describe("sanitize", () => {
 	});
 });
 
-describe("stripAnsi", () => {
-	test("removes SGR escapes but keeps the text", () => {
-		expect(stripAnsi(`\x1b[33m${GLYPHS.plan} plan\x1b[39m`)).toBe(`${GLYPHS.plan} plan`);
-	});
-
-	test("removes a CSI or OSC sequence, not just SGR", () => {
-		expect(stripAnsi("a\x1b[2Jb")).toBe("ab");
-		expect(stripAnsi("a\x1b]0;title\x07b")).toBe("ab");
-	});
-});
-
 describe("compactStatus", () => {
 	test("keeps only the icon of an icon+label status", () => {
 		expect(compactStatus(`${GLYPHS.plan} plan`)).toBe(GLYPHS.plan);
@@ -169,6 +157,11 @@ describe("compactStatus", () => {
 
 	test("strips color while compacting", () => {
 		expect(compactStatus("\x1b[33m↺ 3\x1b[39m")).toBe("↺3");
+	});
+
+	test("strips a CSI or OSC sequence, not just SGR", () => {
+		expect(compactStatus("ab\x1b[2J")).toBe("ab");
+		expect(compactStatus("a\x1b]0;title\x07b")).toBe("ab");
 	});
 
 	test("does not mistake a numeric label for a count", () => {

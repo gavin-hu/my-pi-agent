@@ -1,7 +1,7 @@
 /**
  * memory — durable cross-session notes for Pi.
  *
- * Registers a single `memory` tool (`add`/`forget`/`list`), a `/memory` command,
+ * Registers a single `memory` tool (`add`/`update`/`forget`/`list`), a `/memory` command,
  * and a hidden `[MEMORY]` context injection. Notes are stored as human-editable
  * markdown in two files — global under the agent directory, project under the
  * repository root's `.pi/` — so they survive `/new`, `/resume`, and `/tree`.

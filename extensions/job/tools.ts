@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { reuseText } from "../../lib/tui.ts";
 import {
 	compareJobs,
 	formatCallText,
@@ -19,8 +19,9 @@ import {
 } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs, type JobCall } from "./schema.ts";
+import { toRecord } from "./store.ts";
 import { JobResult, type JobResultInput } from "./tui.ts";
-import { toRecord, type JobDetails } from "./types.ts";
+import type { JobDetails } from "./types.ts";
 
 export const TOOL_NAME = "job";
 
@@ -203,7 +204,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 		renderCall(args, theme, context) {
 			const action = typeof args.action === "string" ? args.action : "job";
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
 					theme.fg("muted", formatCallText(action, args as Record<string, unknown>, context.argsComplete)),
@@ -212,7 +213,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 		},
 
 		renderResult(result, options, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			const details = result.details as JobDetails | undefined;
 			if (!details) {
 				const first = result.content[0];

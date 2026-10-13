@@ -10,8 +10,9 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { formatTokens } from "../../../lib/format.ts";
+import { reuseText } from "../../../lib/tui.ts";
+import { SEPARATORS } from "../../../lib/ui.ts";
 import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
 import { createPageCache, type PageCache } from "./cache.ts";
@@ -26,7 +27,7 @@ import { loadFetchConfig } from "../config.ts";
 export const TOOL_NAME = "web_fetch";
 
 /** Extra `web_fetch` dependencies: the shared `FetchDeps` plus the page cache. */
-export interface FetchToolDeps extends FetchDeps {
+interface FetchToolDeps extends FetchDeps {
 	cache?: PageCache;
 }
 
@@ -202,7 +203,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 
 		renderCall(args, theme, context) {
 			const { url, find, startIndex } = args as WebFetchArgs;
-			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context?.lastComponent);
 			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(url ?? ""));
 			if (find?.length) line += theme.fg("dim", ` find ${find.map((f) => `"${oneLine(f)}"`).join(", ")}`);
 			else if (startIndex) line += theme.fg("dim", ` (from ${startIndex})`);
@@ -211,7 +212,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		},
 
 		renderResult(result, _options, theme, context) {
-			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context?.lastComponent);
 			const page = result.details as FetchResponse | undefined;
 			if (page?.error) {
 				const message = oneLine(page.error);
@@ -227,8 +228,8 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 
 			const label = oneLine(page.title || page.finalUrl);
 			let line = theme.fg("muted", label);
-			if (page.matches.length > 0) line += theme.fg("dim", ` · ${page.matches.length} match(es)`);
-			else line += theme.fg("dim", ` · ${formatTokens(page.totalChars)} chars`);
+			if (page.matches.length > 0) line += theme.fg("dim", `${SEPARATORS.item}${page.matches.length} match(es)`);
+			else line += theme.fg("dim", `${SEPARATORS.item}${formatTokens(page.totalChars)} chars`);
 			if (page.cached) line += theme.fg("dim", " (cached)");
 			text.setText(line);
 			return text;

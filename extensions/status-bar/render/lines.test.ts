@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { GLYPHS, STATUS_KEYS } from "../../../lib/ui.ts";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { buildLines } from "./lines.ts";
-import { stripAnsi } from "./format.ts";
 import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
 import { fullSnapshot } from "../../../test/helpers/fixtures/status-bar.ts";
 
@@ -190,7 +190,7 @@ describe("buildLines", () => {
 		);
 		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
 
-		expect(stripAnsi(statuses.forms[0])).toBe(`${GLYPHS.plan} plan`);
+		expect(stripTerminalSequences(statuses.forms[0])).toBe(`${GLYPHS.plan} plan`);
 		expect(statuses.forms[1]).toBe(GLYPHS.plan);
 	});
 

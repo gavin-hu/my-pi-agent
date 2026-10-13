@@ -14,7 +14,7 @@ import { isPeak, peakFormatter } from "./schedule.ts";
 const TOKENS_PER_MILLION = 1_000_000;
 
 /** The cost of one record's tokens at `rates`, which are per million tokens. */
-export function tokenCost(record: UsageRecord, rates: ModelRates): number {
+function tokenCost(record: UsageRecord, rates: ModelRates): number {
 	return (
 		(record.input * rates.input +
 			record.output * rates.output +

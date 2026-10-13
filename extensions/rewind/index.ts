@@ -91,7 +91,7 @@ export function registerRewind(pi: ExtensionAPI): void {
 			if (warned) return;
 			warned = true;
 			try {
-				ctx.ui.notify(`Snapshot skipped: ${(error as Error).message}`, "warning");
+				ctx.ui.notify(`Snapshot skipped: ${error instanceof Error ? error.message : String(error)}`, "warning");
 			} catch {
 				// UI may be unavailable (print/json modes).
 			}

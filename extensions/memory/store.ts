@@ -41,7 +41,7 @@ export function projectMemoryPath(cwd: string, repoRoot?: string): string {
 }
 
 /** Global store path under the agent directory. */
-export function globalMemoryPath(): string {
+function globalMemoryPath(): string {
 	return join(getAgentDir(), FILE_NAME);
 }
 
@@ -108,7 +108,7 @@ export function parseEntries(content: string): string[] {
 	return entries;
 }
 
-export interface FileChange {
+interface FileChange {
 	content: string;
 	changed: boolean;
 	/** The stored note that made `add` a duplicate, when one matched. */
@@ -205,7 +205,7 @@ function writeAtomic(path: string, content: string): void {
 	renameSync(temp, path);
 }
 
-export interface MutationResult {
+interface MutationResult {
 	entries: string[];
 	changed: boolean;
 	/** The stored note an `add` matched, when the transform reported a duplicate. */

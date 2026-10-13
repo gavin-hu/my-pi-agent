@@ -12,7 +12,7 @@ import type { WebSearchConfig } from "./config.ts";
 import type { SearchProviderId, SearchRequest, SearchResult } from "./types.ts";
 
 /** Everything a provider needs for one search. */
-export interface ProviderContext {
+interface ProviderContext {
 	request: SearchRequest;
 	config: WebSearchConfig;
 	http: HttpRunner;

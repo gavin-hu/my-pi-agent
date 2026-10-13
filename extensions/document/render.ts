@@ -12,7 +12,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { getCapabilities, hyperlink, type Component, Text } from "@earendil-works/pi-tui";
+import { getCapabilities, hyperlink } from "@earendil-works/pi-tui";
 import { formatTokens, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { expandKey, SEPARATORS } from "../../lib/ui.ts";
 import { summarizeDoc } from "./paging.ts";
@@ -34,7 +34,7 @@ export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: st
 
 /** First `maxLines` lines of extracted text, sanitized, plus the overflow count. */
 export function previewText(text: string, maxLines: number): { body: string; moreLines: number } {
-	const clean = stripControlChars(text).replace(/\t/g, "   ").replace(/\r/g, "");
+	const clean = stripControlChars(text).replace(/\t/g, "   ");
 	const lines = clean.split("\n");
 	let end = lines.length;
 	while (end > 0 && lines[end - 1] === "") end--;
@@ -102,11 +102,4 @@ export function formatDocResult(result: DocRenderResult, options: DocRenderOptio
 	}
 
 	return text;
-}
-
-/** Reuse the slot's previous `Text` component, or allocate one. */
-export function reuseText(lastComponent: Component | undefined, text: string): Text {
-	const component = lastComponent instanceof Text ? lastComponent : new Text("", 0, 0);
-	component.setText(text);
-	return component;
 }

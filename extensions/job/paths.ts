@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 /** Short, filename-safe hash of a session id (arbitrary characters cannot escape the directory). */
-export function hashSessionId(sessionId: string): string {
+function hashSessionId(sessionId: string): string {
 	return createHash("sha1").update(sessionId).digest("hex").slice(0, 16);
 }
 

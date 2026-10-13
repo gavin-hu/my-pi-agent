@@ -8,10 +8,10 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { loadSearchConfig } from "../config.ts";
 import { oneLine } from "../transcript.ts";
-import { expandHint } from "../../../lib/ui.ts";
+import { reuseText } from "../../../lib/tui.ts";
+import { expandHint, SEPARATORS } from "../../../lib/ui.ts";
 import { formatResults } from "./format.ts";
 import { createThrottle, runSearch, type SearchDeps } from "./search.ts";
 import { resolveRequest, WebSearchOutput, WebSearchParams, type SearchResponse, type WebSearchArgs } from "./schema.ts";
@@ -67,7 +67,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 
 		renderCall(args, theme, context) {
 			const { query, maxResults } = args as WebSearchArgs;
-			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context?.lastComponent);
 			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(query ?? ""));
 			if (maxResults) line += theme.fg("dim", ` (${maxResults} results)`);
 			text.setText(line);
@@ -75,7 +75,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 		},
 
 		renderResult(result, options, theme, context) {
-			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context?.lastComponent);
 			const details = result.details as SearchResponse | undefined;
 			if (!details || result.isError) {
 				const first = result.content[0];
@@ -92,7 +92,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			// A blank line separates the call header from the result body.
 			const lines: string[] = [
 				"",
-				theme.fg("dim", `via ${details.provider} · ${count} result${count === 1 ? "" : "s"}`),
+				theme.fg("dim", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`),
 			];
 			if (details.answer) lines.push(`${theme.fg("dim", "answer")} ${theme.fg("muted", oneLine(details.answer, 160))}`);
 

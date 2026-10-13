@@ -63,20 +63,6 @@ export function sniffImageMime(bytes: Uint8Array): string {
 	return "image/jpeg";
 }
 
-/** A filesystem extension for a sniffed image MIME. */
-export function imageExtension(mime: string): string {
-	switch (mime) {
-		case "image/png":
-			return "png";
-		case "image/gif":
-			return "gif";
-		case "image/webp":
-			return "webp";
-		default:
-			return "jpg";
-	}
-}
-
 /** Strip control characters and path separators, cap length, and never empty. */
 export function sanitizeFileName(name: string): string {
 	const cleaned = stripControlChars(name).replace(/[\\/]/g, "_").replace(/^\.+/, "").trim();

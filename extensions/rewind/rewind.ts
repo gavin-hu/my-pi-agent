@@ -107,7 +107,7 @@ export async function rewindTo(
 			await runtime.setStatus(ctx);
 			notes.push(formatRestoreText(restored));
 		} catch (error) {
-			ctx.ui.notify(`Rewind failed: ${(error as Error).message}`, "error");
+			ctx.ui.notify(`Rewind failed: ${error instanceof Error ? error.message : String(error)}`, "error");
 			return false;
 		}
 	}

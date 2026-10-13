@@ -27,7 +27,7 @@ import {
 } from "./store.ts";
 import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
 
-export interface MemoryRefreshResult {
+interface MemoryRefreshResult {
 	/** Scopes whose on-disk content differed and was re-read. */
 	changed: MemoryScope[];
 	/** Joinable read errors; the affected scope kept its previous entries. */
@@ -35,7 +35,7 @@ export interface MemoryRefreshResult {
 }
 
 /** Outcome of an `add`: `existing` names the stored note that matched, if any. */
-export interface AddResult {
+interface AddResult {
 	changed: boolean;
 	existing?: string;
 }

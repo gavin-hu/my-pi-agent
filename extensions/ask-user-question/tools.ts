@@ -3,10 +3,10 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { askHuman } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
+import { reuseText } from "../../lib/tui.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";
@@ -79,13 +79,13 @@ export function registerTools(pi: ExtensionAPI): void {
 			// stays mapped to its question instead of wrapping on a single row.
 			for (const line of optionSummary(raw)) text += `\n${theme.fg("dim", `  ${line}`)}`;
 
-			const component = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const component = reuseText(context?.lastComponent);
 			component.setText(text);
 			return component;
 		},
 
 		renderResult(result, _options, theme, context) {
-			const component = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const component = reuseText(context?.lastComponent);
 			const details = result.details as AskResult | undefined;
 			if (!details) {
 				const first = result.content[0];

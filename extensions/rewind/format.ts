@@ -8,6 +8,7 @@
 
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import type { RestoreSummary } from "./types.ts";
 
 /** Longest prompt summary shown before truncation. */
@@ -54,9 +55,6 @@ export function formatChangeSummary(changed: number, removed: number): string {
 	return removed > 0 ? `${changedText}, ${removed} created` : changedText;
 }
 
-/** Marks a timeline row whose point has a code snapshot to restore. */
-const SNAPSHOT_GLYPH = "◆";
-
 /**
  * Id-free row for the rewind timeline: `◆ "prompt"          2m ago`.
  * The leading glyph marks a point with a code snapshot; the time is
@@ -69,7 +67,7 @@ export function formatRewindRow(
 	now = Date.now(),
 	width = 80,
 ): string {
-	const prefix = hasSnapshot ? `${SNAPSHOT_GLYPH} ` : "  ";
+	const prefix = hasSnapshot ? `${GLYPHS.snapshot} ` : "  ";
 	const suffix = `  ${formatRelativeTime(timestamp, now)}`;
 	const available = Math.max(1, width - visibleWidth(prefix) - visibleWidth(suffix));
 	const label = truncate(sanitizeLine(summary || "(no text)"), available);

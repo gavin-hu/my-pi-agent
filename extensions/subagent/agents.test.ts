@@ -8,11 +8,12 @@ import {
 	findNearestProjectAgentsDir,
 	formatAgentList,
 	formatAgentNames,
-	getAgent,
-	listAgents,
 	loadAgentsFromDir,
 } from "./agents.ts";
 import { useEnv } from "../../test/helpers/env.ts";
+
+/** Look up a built-in agent by name for the assertions below. */
+const builtin = (name: string) => BUILTIN_AGENTS.find((agent) => agent.name === name);
 
 const tempDirs: string[] = [];
 
@@ -47,7 +48,7 @@ describe("built-in agents", () => {
 			"debugger",
 			"documenter",
 		]);
-		expect(listAgents()).toHaveLength(8);
+		expect(BUILTIN_AGENTS).toHaveLength(8);
 	});
 
 	test("every built-in has a description, system prompt, and builtin source", () => {
@@ -60,31 +61,31 @@ describe("built-in agents", () => {
 	});
 
 	test("agents use explicit allowlists, with recon and planning free of bash", () => {
-		expect(getAgent("explorer")?.tools).toEqual(["read", "grep", "find", "ls"]);
-		expect(getAgent("planner")?.tools).toEqual(["read", "grep", "find", "ls"]);
-		expect(getAgent("reviewer")?.tools).toContain("bash");
+		expect(builtin("explorer")?.tools).toEqual(["read", "grep", "find", "ls"]);
+		expect(builtin("planner")?.tools).toEqual(["read", "grep", "find", "ls"]);
+		expect(builtin("reviewer")?.tools).toContain("bash");
 		// worker is scoped so it cannot recurse into `subagent` or pick up ambient tools
-		expect(getAgent("worker")?.tools).toEqual(["read", "write", "edit", "bash", "grep", "find", "ls"]);
-		expect(getAgent("worker")?.tools).not.toContain("subagent");
+		expect(builtin("worker")?.tools).toEqual(["read", "write", "edit", "bash", "grep", "find", "ls"]);
+		expect(builtin("worker")?.tools).not.toContain("subagent");
 	});
 
 	test("the new agents have the tools their role needs", () => {
-		expect(getAgent("researcher")?.tools).toContain("web_search");
-		expect(getAgent("researcher")?.tools).toContain("web_fetch");
-		expect(getAgent("tester")?.tools).toContain("write");
-		expect(getAgent("tester")?.tools).toContain("edit");
-		expect(getAgent("tester")?.tools).toContain("bash");
-		expect(getAgent("documenter")?.tools).toContain("write");
-		expect(getAgent("documenter")?.tools).toContain("edit");
+		expect(builtin("researcher")?.tools).toContain("web_search");
+		expect(builtin("researcher")?.tools).toContain("web_fetch");
+		expect(builtin("tester")?.tools).toContain("write");
+		expect(builtin("tester")?.tools).toContain("edit");
+		expect(builtin("tester")?.tools).toContain("bash");
+		expect(builtin("documenter")?.tools).toContain("write");
+		expect(builtin("documenter")?.tools).toContain("edit");
 		// The debugger diagnoses; it should not be given write/edit.
-		expect(getAgent("debugger")?.tools).not.toContain("write");
-		expect(getAgent("debugger")?.tools).not.toContain("edit");
+		expect(builtin("debugger")?.tools).not.toContain("write");
+		expect(builtin("debugger")?.tools).not.toContain("edit");
 	});
 
 	test("looks up agents by name", () => {
-		expect(getAgent("planner")?.name).toBe("planner");
-		expect(getAgent("researcher")?.name).toBe("researcher");
-		expect(getAgent("missing")).toBeUndefined();
+		expect(builtin("planner")?.name).toBe("planner");
+		expect(builtin("researcher")?.name).toBe("researcher");
+		expect(builtin("missing")).toBeUndefined();
 	});
 
 	test("formats a pool for error messages with its sources", () => {

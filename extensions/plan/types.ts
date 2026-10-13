@@ -2,8 +2,6 @@
  * Shared types for the plan-mode extension.
  */
 
-import type { PlanStep } from "./steps.ts";
-
 /** Persisted (custom entry) plan-mode state. */
 export interface PlanModeEntry {
 	enabled: boolean;
@@ -39,10 +37,6 @@ export interface ExitPlanModeDetails {
 	planPath?: string;
 	/** Path relative to the working directory, for transcript display. */
 	relativePath?: string;
-	/** How many plan steps were seeded into the todo list. */
-	seeded?: number;
-	/** The steps extracted from the plan, whether or not `todo` accepted them. */
-	steps?: PlanStep[];
 	/** True when the user asked to refine the plan instead of approving. */
 	refined?: boolean;
 	/** The refinement the user typed, when `refined` is true. */

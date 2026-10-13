@@ -24,8 +24,8 @@ import {
 } from "./files.ts";
 import { FOLDER_ICON, iconHref, languageOf } from "./icons.ts";
 import { fuzzySearch } from "./fuzzy.ts";
-import { encodePath, renderDirectoryPage, renderErrorPage, renderFilePage } from "./html.ts";
-import { HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
+import { renderDirectoryPage, renderErrorPage, renderFilePage } from "./html.ts";
+import { encodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
 
 export interface ServeContext {
 	root: string;

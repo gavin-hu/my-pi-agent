@@ -8,6 +8,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { editorTheme } from "../../lib/tui.ts";
+import { selectionMarker } from "../../lib/list-cursor.ts";
 import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "./answers.ts";
 import {
 	allAnswered,
@@ -188,7 +189,7 @@ export async function askViaTui(
 				for (let i = 0; i < count; i++) {
 					const option = target.options[i];
 					const active = i === state.cursor;
-					const prefix = active ? theme.fg("accent", "❯ ") : "  ";
+					const prefix = selectionMarker(theme, active);
 					if (!option) {
 						const otherSelected = selection?.type === "custom";
 						const otherMarker = target.multiSelect ? `[${otherSelected ? "x" : " "}] ` : "";

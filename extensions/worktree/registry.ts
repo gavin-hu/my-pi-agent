@@ -20,7 +20,6 @@ import {
 	commitsBehind,
 	isBranchMerged,
 	isStaleLock,
-	lockOwnerPid,
 	type ManagedWorktree,
 	statusEntries,
 } from "./git.ts";
@@ -98,11 +97,6 @@ function saveRegistry(repoRoot: string, config: WorktreeConfig, registry: Worktr
 	} catch {
 		// Losing the registry only loses provenance, never a worktree.
 	}
-}
-
-export function getRecord(registry: WorktreeRegistry, path: string): WorktreeRecord | undefined {
-	const wanted = canonicalize(path);
-	return registry.worktrees.find((record) => record.path === wanted);
 }
 
 /** Insert or replace a record, preserving an existing `createdAt`. */
@@ -224,9 +218,4 @@ export async function statusOf(
 		base.merged = base.ahead === 0 || (await isBranchMerged(pi, path, "HEAD", baseRef));
 	}
 	return base;
-}
-
-/** Lock owner pid for a listing entry, when the lock reason carries one. */
-export function lockPid(entry: ManagedWorktree): number | undefined {
-	return entry.locked ? lockOwnerPid(entry.locked) : undefined;
 }

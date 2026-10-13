@@ -11,7 +11,7 @@
 import { charLength, toChars } from "../text.ts";
 import type { Passage } from "./find.ts";
 
-export interface PageFormatInput {
+interface PageFormatInput {
 	finalUrl: string;
 	title: string;
 	status: number;
@@ -22,7 +22,7 @@ export interface PageFormatInput {
 	maxChars: number;
 }
 
-export interface FormattedPage {
+interface FormattedPage {
 	/** The requested slice of the page text. */
 	body: string;
 	/** Header, body, and any truncation note. */
@@ -82,7 +82,7 @@ export function formatPage(input: PageFormatInput): FormattedPage {
 	return { body, text, truncated: true, nextIndex };
 }
 
-export interface MatchFormatInput {
+interface MatchFormatInput {
 	finalUrl: string;
 	title: string;
 	status: number;
@@ -93,7 +93,7 @@ export interface MatchFormatInput {
 	truncated: boolean;
 }
 
-export interface FormattedMatches {
+interface FormattedMatches {
 	body: string;
 	text: string;
 	/** True when the match list was capped by `maxMatches`. */

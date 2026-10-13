@@ -107,7 +107,10 @@ function spawnAndCollect(
 		});
 
 		proc.on("close", (code) => finish(code ?? 0));
-		proc.on("error", () => finish(1));
+		proc.on("error", (error) => {
+			result.stderr = String(error);
+			finish(1);
+		});
 
 		if (signal) {
 			kill = () => {

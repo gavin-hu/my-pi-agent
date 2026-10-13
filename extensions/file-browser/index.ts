@@ -31,7 +31,6 @@ export interface FileBrowserDeps {
 
 interface RunningServer {
 	server: FileServer;
-	root: string;
 }
 
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
@@ -65,7 +64,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 	const start = async (args: string, ctx: ExtensionContext): Promise<void> => {
 		const target = args.trim();
 		if (target === "status") {
-			ctx.ui.notify(running ? `serve: ${running.root} at ${running.server.url}` : "serve: not running", "info");
+			ctx.ui.notify(running ? `serve: ${running.server.root} at ${running.server.url}` : "serve: not running", "info");
 			return;
 		}
 		if (target === "stop") {
@@ -100,7 +99,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		} catch {
 			// Keep the unresolved root; the server factory reports a real failure.
 		}
-		if (running && running.root === realRoot && running.server.port === port) {
+		if (running && running.server.root === realRoot && running.server.port === port) {
 			ctx.ui.notify(`serve: ${running.server.url} (already running)`, "info");
 			return;
 		}
@@ -110,7 +109,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		try {
 			const server = await create({ root, config: { ...config, port }, git: createGitStatus(pi, root) });
 			if (unpinned) sessionPort = port;
-			running = { server, root: server.root };
+			running = { server };
 			setServeStatus(ctx, server.port);
 			ctx.ui.notify(`serve: ${server.root} at ${server.url}`, "info");
 			if (config.autoOpen) (deps.open ?? openInBrowser)(server.url);

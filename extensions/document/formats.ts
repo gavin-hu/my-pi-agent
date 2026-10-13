@@ -40,11 +40,6 @@ export const FORMATS = [
 
 export type FormatId = (typeof FORMATS)[number]["id"];
 
-/** Every registered format id, in table order. */
-export function formatIds(): readonly FormatId[] {
-	return FORMATS.map((format) => format.id);
-}
-
 /** Every supported extension, e.g. `[".pdf", ".docx"]`. */
 export function supportedExtensions(): string[] {
 	return FORMATS.flatMap((format) => [...format.extensions]);

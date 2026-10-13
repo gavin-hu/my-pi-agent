@@ -16,7 +16,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { TOOL_NAME, registerTools } from "./tools.ts";
 
-export default function askUserQuestion(pi: ExtensionAPI) {
+export default function askUserQuestion(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("ask-user-question")) return;
 	registerTools(pi);
 

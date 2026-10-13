@@ -9,9 +9,9 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
+import { reuseText } from "../../lib/tui.ts";
 import type { Bridge } from "./bridge.ts";
 
 export const TOOL_NAME = "send_wechat";
@@ -82,7 +82,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			const body = (args as { text?: unknown }).text;
 			const label = context.argsComplete && typeof body === "string" ? sanitizeLine(body) : "…";
 			text.setText(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", label));
@@ -90,7 +90,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		},
 
 		renderResult(result, _options, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			const details = result.details as { sent?: boolean; error?: string } | undefined;
 			if (details?.sent) {
 				text.setText(theme.fg("success", "sent to WeChat owner"));

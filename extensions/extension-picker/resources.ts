@@ -122,7 +122,7 @@ export function getGroupLabel(metadata: PathMetadata, agentDir: string): string 
 }
 
 /** Directory name of this extension, excluded from its own list. */
-export const SELF_EXTENSION_DIR = "extension-picker";
+const SELF_EXTENSION_DIR = "extension-picker";
 
 /** Whether `item` is this extension's own entrypoint. */
 export function isSelf(item: ResourceItem): boolean {
@@ -138,7 +138,7 @@ export function getDisplayName(item: ResourceItem): string {
 }
 
 /** Stable identity for a resource row, used to keep the cursor across renders. */
-export function itemKey(item: ResourceItem): string {
+function itemKey(item: ResourceItem): string {
 	return `${item.metadata.source}:${item.path}`;
 }
 

@@ -30,12 +30,8 @@ export function scopeLabel(scope: MemoryScope): string {
 	return scope === "global" ? "global" : "project";
 }
 
-export function entriesFor(entries: MemoryEntries, scope: MemoryScope): string[] {
-	return scope === "global" ? entries.global : entries.project;
-}
-
 /** `N project, M global` summary. */
-export function countLine(entries: MemoryEntries): string {
+function countLine(entries: MemoryEntries): string {
 	return `${entries.project.length} project, ${entries.global.length} global`;
 }
 

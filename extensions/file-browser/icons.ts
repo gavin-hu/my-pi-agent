@@ -5,6 +5,7 @@
  */
 
 import { extname } from "node:path";
+import { IMAGE_EXTENSIONS } from "./files.ts";
 
 export type IconName = "folder" | "file-code" | "file-text" | "file-image" | "file-json" | "file-archive" | "file";
 
@@ -27,7 +28,6 @@ export const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-
 <symbol id="i-file-archive" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.3" d="M3 1.5h6l4 4V15H3zM9 1.5v4h4"/><path fill="none" stroke="currentColor" stroke-width="1.1" d="M7 6v2M7 9v2M7 12v1.5"/></symbol>
 </svg>`;
 
-const IMAGE = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif"]);
 const ARCHIVE = new Set(["zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar", "jar", "war"]);
 const DOC = new Set(["md", "markdown", "txt", "rst", "adoc", "org", "log", "pdf", "doc", "docx"]);
 const CONFIG = new Set(["json", "jsonc", "json5", "yaml", "yml", "toml", "ini", "cfg", "conf", "env", "lock"]);
@@ -102,7 +102,7 @@ export function languageOf(name: string): IconSpec {
 	const ext = extname(base).replace(/^\./, "").toLowerCase();
 	const known = LANGUAGES[ext];
 	if (known) return known;
-	if (IMAGE.has(ext)) return { icon: "file-image", colorClass: "img", label: "Image" };
+	if (IMAGE_EXTENSIONS.has(ext)) return { icon: "file-image", colorClass: "img", label: "Image" };
 	if (ARCHIVE.has(ext)) return { icon: "file-archive", colorClass: "arc", label: "Archive" };
 	if (DOC.has(ext)) return { icon: "file-text", colorClass: "doc", label: "Document" };
 	if (CONFIG.has(ext)) return { icon: "file-json", colorClass: "cfg", label: "Config" };

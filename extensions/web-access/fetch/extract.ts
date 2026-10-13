@@ -9,11 +9,7 @@
  * (`../html.ts`).
  */
 
-import { decodeEntities } from "../html.ts";
-
-function stripTags(html: string): string {
-	return html.replace(/<[^>]*>/g, "");
-}
+import { decodeEntities, stripTagsAndDecode } from "../html.ts";
 
 function largestMatch(html: string, tags: string[]): string | undefined {
 	let best: string | undefined;
@@ -41,7 +37,7 @@ function resolveHref(href: string, base: string): string | undefined {
 function convertAnchors(html: string, base: string): string {
 	return html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (_whole, attributes: string, inner: string) => {
 		const href = attributes.match(/\bhref\s*=\s*"([^"]*)"/i)?.[1] ?? attributes.match(/\bhref\s*=\s*'([^']*)'/i)?.[1];
-		const text = stripTags(inner).replace(/\s+/g, " ").trim();
+		const text = stripTagsAndDecode(inner).replace(/\s+/g, " ").trim();
 		if (!text) return "";
 		const url = href ? resolveHref(href, base) : undefined;
 		return url ? `[${text}](${url})` : text;
@@ -83,10 +79,10 @@ export function extractTitle(html: string): string {
 	const og = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']*)["']/i);
 	if (og?.[1]?.trim()) return decodeEntities(og[1]).trim();
 	const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-	return title ? decodeEntities(stripTags(title[1])).replace(/\s+/g, " ").trim() : "";
+	return title ? stripTagsAndDecode(title[1]).replace(/\s+/g, " ").trim() : "";
 }
 
-export interface ExtractedPage {
+interface ExtractedPage {
 	title: string;
 	text: string;
 }
@@ -121,8 +117,7 @@ export function extractReadable(html: string, baseUrl: string): ExtractedPage {
 	let text = convertAnchors(main, baseUrl);
 	text = convertImages(text);
 	text = convertStructure(text);
-	text = stripTags(text);
-	text = decodeEntities(text);
+	text = stripTagsAndDecode(text);
 	text = collapse(text);
 
 	return { title, text };

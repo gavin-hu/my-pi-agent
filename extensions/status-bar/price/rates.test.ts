@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ModelRates } from "../types.ts";
-import { findRates, matchKey, segmentScore } from "./rates.ts";
+import { findRates } from "./rates.ts";
 
 const rate = (input: number): ModelRates => ({
 	input,
@@ -8,39 +8,6 @@ const rate = (input: number): ModelRates => ({
 	cacheRead: 0,
 	cacheWrite: 0,
 	offPeakMultiplier: 1,
-});
-
-describe("segmentScore", () => {
-	test("ranks an exact segment over a prefix, and a wildcard last", () => {
-		expect(segmentScore("opus-4.5", "opus-4.5")).toBe(2);
-		expect(segmentScore("opus-*", "opus-4.5")).toBe(1);
-		expect(segmentScore("*", "opus-4.5")).toBe(0);
-	});
-
-	test("rejects a segment that does not match", () => {
-		expect(segmentScore("gpt-*", "opus-4.5")).toBe(-1);
-		expect(segmentScore("gpt-5", "opus-4.5")).toBe(-1);
-	});
-});
-
-describe("matchKey", () => {
-	test("scores the exact key highest and the catch-all lowest", () => {
-		expect(matchKey("anthropic/opus-4.5", "anthropic", "opus-4.5")).toBe(8);
-		expect(matchKey("*/opus-4.5", "anthropic", "opus-4.5")).toBe(6);
-		expect(matchKey("anthropic/*", "anthropic", "opus-4.5")).toBe(2);
-		expect(matchKey("*", "anthropic", "opus-4.5")).toBe(0);
-	});
-
-	test("scores a pattern segment below an exact one", () => {
-		expect(matchKey("*/gpt-*", "openai", "gpt-5")).toBe(3);
-		expect(matchKey("openai/gpt-*", "openai", "gpt-5")).toBe(5);
-	});
-
-	test("rejects a key that matches neither segment", () => {
-		expect(matchKey("anthropic/opus-4.5", "deepseek", "deepseek-flash")).toBe(-1);
-		expect(matchKey("anthropic/*", "deepseek", "deepseek-flash")).toBe(-1);
-		expect(matchKey("deepseek", "deepseek", "deepseek-flash")).toBe(-1);
-	});
 });
 
 describe("findRates", () => {
@@ -75,5 +42,9 @@ describe("findRates", () => {
 	test("returns undefined when nothing matches", () => {
 		expect(findRates({ "anthropic/opus-4.5": rate(1) }, "deepseek", "deepseek-flash")).toBeUndefined();
 		expect(findRates({}, "deepseek", "deepseek-flash")).toBeUndefined();
+	});
+
+	test("rejects a bare non-wildcard key", () => {
+		expect(findRates({ deepseek: rate(1) }, "deepseek", "deepseek-flash")).toBeUndefined();
 	});
 });

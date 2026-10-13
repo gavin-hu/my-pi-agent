@@ -10,7 +10,7 @@
  * or nothing. Full result lists come from the SearXNG or Brave providers.
  */
 
-import { decodeEntities } from "../../html.ts";
+import { stripTagsAndDecode } from "../../html.ts";
 import type { HttpRunner } from "../../http.ts";
 import type { WebSearchConfig } from "../config.ts";
 import { asRecord, asString, collectResults, requestJson } from "../json.ts";
@@ -31,9 +31,7 @@ export function buildDuckDuckGoUrl(query: string): URL {
 
 /** Strip tags, decode entities, collapse whitespace, and trim. */
 export function sanitizeText(raw: string): string {
-	return decodeEntities(raw.replace(/<[^>]*>/g, " "))
-		.replace(/\s+/g, " ")
-		.trim();
+	return stripTagsAndDecode(raw, " ").replace(/\s+/g, " ").trim();
 }
 
 /**

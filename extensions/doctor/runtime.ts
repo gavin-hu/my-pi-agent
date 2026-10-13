@@ -33,7 +33,7 @@ export interface DoctorRuntime {
 	probeAll(options?: { refresh?: boolean }): Promise<ExtensionReport[]>;
 	/** The cached reports from the last probe, if any. */
 	peek(): ExtensionReport[] | undefined;
-	/** Drop the cache and forget the session cwd. */
+	/** Drop the cached reports; the configured cwd is kept. */
 	reset(): void;
 }
 

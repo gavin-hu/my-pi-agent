@@ -9,8 +9,8 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { reuseText } from "../../lib/tui.ts";
 import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
@@ -90,7 +90,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
 					theme.fg("muted", formatCallText(args.todos as Todo[] | undefined, context.argsComplete)),
@@ -99,7 +99,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 		},
 
 		renderResult(result, { expanded }, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			const details = result.details as TodoDetails | undefined;
 			if (!details) {
 				const first = result.content[0];

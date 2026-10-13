@@ -78,7 +78,7 @@ export function registerCommands(pi: ExtensionAPI): void {
 							ctx.ui.notify(error.message, "info");
 							return;
 						}
-						ctx.ui.notify(`Enter failed: ${(error as Error).message}`, "error");
+						ctx.ui.notify(`Enter failed: ${error instanceof Error ? error.message : String(error)}`, "error");
 					}
 					return;
 				}
@@ -93,7 +93,7 @@ export function registerCommands(pi: ExtensionAPI): void {
 							ctx.ui.notify(error.message, "info");
 							return;
 						}
-						ctx.ui.notify(`Exit failed: ${(error as Error).message}`, "error");
+						ctx.ui.notify(`Exit failed: ${error instanceof Error ? error.message : String(error)}`, "error");
 					}
 					return;
 				}

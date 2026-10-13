@@ -16,6 +16,7 @@
 
 import { basename, resolve } from "node:path";
 import { realpathSync } from "node:fs";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
@@ -83,7 +84,7 @@ function samePath(a: string, b: string): boolean {
 function statusName(path: string): string {
 	const name = sanitizeLine(basename(path).replace(/\.md$/i, ""));
 	if (!name) return "plan";
-	return name.length > STATUS_NAME_LENGTH ? `${name.slice(0, STATUS_NAME_LENGTH - 1)}…` : name;
+	return truncateToWidth(name, STATUS_NAME_LENGTH, "…");
 }
 
 export function createPlanRuntime(

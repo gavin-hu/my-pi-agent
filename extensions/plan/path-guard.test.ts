@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { hasPathInput, PATH_KEYS } from "./path-guard.ts";
+import { hasPathInput } from "./path-guard.ts";
 
 describe("hasPathInput", () => {
 	test("detects common path argument names", () => {
@@ -27,11 +27,6 @@ describe("hasPathInput", () => {
 		expect(hasPathInput(null)).toBe(false);
 		expect(hasPathInput("a.ts")).toBe(false);
 		expect(hasPathInput(42)).toBe(false);
-	});
-
-	test("exposes the recognized keys", () => {
-		expect(PATH_KEYS.has("path")).toBe(true);
-		expect(PATH_KEYS.has("file_path")).toBe(true);
 	});
 
 	test("finds path keys nested in objects and arrays", () => {

@@ -32,6 +32,7 @@ import {
 	findInactiveOverrides,
 	isWorktreeCancelled,
 	refusalMessage,
+	worktreeFacts,
 	worktreeLabel,
 } from "./lifecycle.ts";
 import { registerCommands } from "./commands.ts";
@@ -66,9 +67,7 @@ export interface WorktreeRegistration {
 export function formatWorktreeSection(state: WorktreeState): string {
 	return (
 		`You are in an isolated git worktree; relative paths resolve there, not in the main checkout.\n` +
-		`  worktree: ${state.path}\n` +
-		`  branch:   ${state.branch ?? "(detached)"}\n` +
-		`  main:     ${state.repoRoot}\n` +
+		`${worktreeFacts(state, "worktree", 10)}\n` +
 		`Do not edit files or run git against the main checkout.` +
 		(state.borrowed ? "\nThis worktree is inherited; do not exit it." : "\nUse exit_worktree to return.")
 	);
@@ -157,10 +156,10 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 					ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}`, "info");
 				} catch (error) {
 					if (isWorktreeCancelled(error)) {
-						ctx.ui.notify((error as Error).message, "info");
+						ctx.ui.notify(error instanceof Error ? error.message : String(error), "info");
 						return;
 					}
-					ctx.ui.notify(`Could not enter worktree: ${(error as Error).message}`, "error");
+					ctx.ui.notify(`Could not enter worktree: ${error instanceof Error ? error.message : String(error)}`, "error");
 				}
 			}
 		}

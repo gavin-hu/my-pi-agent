@@ -5,14 +5,29 @@
  * request URL.
  */
 
-import type { Dirent } from "node:fs";
+import type { Dirent, Stats } from "node:fs";
 import { readFile, readdir, stat, lstat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { HttpError } from "./paths.ts";
 
 export type EntryKind = "directory" | "text" | "image" | "binary";
 
-const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".avif"]);
+/** Image extension (no dot) to MIME type; the single source for image classification. */
+const IMAGE_MIME: Record<string, string> = {
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	gif: "image/gif",
+	webp: "image/webp",
+	svg: "image/svg+xml",
+	bmp: "image/bmp",
+	ico: "image/x-icon",
+	avif: "image/avif",
+};
+
+/** Image extensions without a leading dot. */
+export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set(Object.keys(IMAGE_MIME));
+
 const MARKDOWN_EXTS = new Set([".md", ".markdown", ".mdown", ".mkd", ".mkdn"]);
 const TEXT_EXTS = new Set([
 	".txt",
@@ -123,7 +138,7 @@ export type FileView =
 
 /** Whether the name has an image extension. */
 export function isImageName(name: string): boolean {
-	return IMAGE_EXTS.has(extname(name).toLowerCase());
+	return IMAGE_EXTENSIONS.has(extname(name).slice(1).toLowerCase());
 }
 
 /** Whether the name has a Markdown extension. */
@@ -134,7 +149,7 @@ export function isMarkdownName(name: string): boolean {
 /** Extension-based classification for listings (no file contents read). */
 export function classifyByName(name: string): EntryKind {
 	const ext = extname(name).toLowerCase();
-	if (IMAGE_EXTS.has(ext)) return "image";
+	if (IMAGE_EXTENSIONS.has(ext.slice(1))) return "image";
 	if (TEXT_EXTS.has(ext)) return "text";
 	const lower = basename(name).toLowerCase();
 	if (TEXT_NAMES.has(lower)) return "text";
@@ -169,19 +184,8 @@ export function formatSize(bytes: number): string {
 
 /** MIME type for a name; text is always served as plain text. */
 export function contentTypeFor(name: string): string {
-	const ext = extname(name).toLowerCase();
-	const map: Record<string, string> = {
-		".png": "image/png",
-		".jpg": "image/jpeg",
-		".jpeg": "image/jpeg",
-		".gif": "image/gif",
-		".webp": "image/webp",
-		".svg": "image/svg+xml",
-		".bmp": "image/bmp",
-		".ico": "image/x-icon",
-		".avif": "image/avif",
-	};
-	return map[ext] ?? "application/octet-stream";
+	const ext = extname(name).slice(1).toLowerCase();
+	return IMAGE_MIME[ext] ?? "application/octet-stream";
 }
 
 function toAbs(root: string, rel: string): string {
@@ -256,7 +260,7 @@ export async function readFileView(
 	markdownEnabled = true,
 ): Promise<FileView> {
 	const abs = toAbs(root, rel);
-	let info: Awaited<ReturnType<typeof stat>>;
+	let info: Stats;
 	try {
 		info = await stat(abs);
 	} catch {

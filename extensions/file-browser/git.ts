@@ -43,6 +43,7 @@ export function createGitStatus(
 	const now = options.now ?? (() => Date.now());
 	let cached: GitStatus | undefined;
 	let checkedAt = 0;
+	let pending: Promise<GitStatus | undefined> | undefined;
 
 	async function read(run: RunGit): Promise<GitStatus | undefined> {
 		if (!(await repoRoot(run, root))) return undefined;
@@ -55,14 +56,19 @@ export function createGitStatus(
 	}
 
 	return async () => {
+		if (pending) return pending;
 		const t = now();
 		if (checkedAt !== 0 && t - checkedAt < ttlMs) return cached;
 		checkedAt = t;
-		try {
-			cached = await read(runGit);
-		} catch {
-			cached = undefined;
-		}
-		return cached;
+		pending = read(runGit)
+			.catch(() => undefined)
+			.then((status) => {
+				cached = status;
+				return status;
+			})
+			.finally(() => {
+				pending = undefined;
+			});
+		return pending;
 	};
 }

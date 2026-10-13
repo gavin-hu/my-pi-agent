@@ -84,7 +84,6 @@ are not sent outbound.
 ```jsonc
 {
   "allowedPeers": [],        // extra peers; the owner is always allowed
-  "pollTimeoutMs": 35000,    // long-poll fallback when the server omits one
   "maxReplyChars": 4000,     // replies longer than this are split into messages
   "botAgent": "pi-wechat",   // sent as base_info.bot_agent
   "channelVersion": "0.1.0", // sent as base_info.channel_version
