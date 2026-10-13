@@ -4,7 +4,8 @@
 directory, opens the default browser at it, and prints the URL. The page is a
 two-pane file browser: a collapsible path tree on the left, directory listings
 and file views on the right, with image thumbnails, rendered Markdown,
-per-language icons, and a fuzzy quick-open palette. It is bound to `127.0.0.1`
+highlighted code, per-language icons, and a fuzzy quick-open palette. It is
+bound to `127.0.0.1`
 and ships no dependencies — `node:http` plus one small vanilla script.
 
 ```bash
@@ -21,6 +22,12 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   expansion, thumbnail fallback).
 - **Rich previews.** Text, rendered Markdown, images (thumbnails), and
   binary/over-size download cards, with per-language icons.
+- **First-party syntax highlighting.** Code files render with keywords,
+  strings, numbers, and comments colored, in the dark and light palettes:
+  JavaScript/TypeScript (`js`, `mjs`, `cjs`, `jsx`, `ts`, `mts`, `cts`, `tsx`),
+  JSON, CSS (`css`, `scss`, `sass`, `less`), HTML/XML and template components
+  (`html`, `htm`, `xml`, `vue`, `svelte`), and shell (`sh`, `bash`, `zsh`).
+  Other text types stay plain.
 - **Rendered Markdown.** `.md`/`.markdown` files render as headings, lists,
   tables, code, links, and images, with a one-click **raw** view (`?raw=1`). Raw
   HTML in the source is escaped, never executed, and external images are shown
@@ -116,6 +123,9 @@ reflects only this session's server, with no cross-session sharing.
   text, link schemes are allowlisted (`javascript:`/`data:` dropped), and an
   external image is rendered as a link, never loaded. The page CSP keeps the
   rest inert.
+- **Highlighting safety.** The highlighter escapes every literal before it
+  wraps it in a token span, so a code file's content cannot inject markup or
+  attributes; only the fixed `tok-*` class names reach the page.
 - **Caps.** `maxFileBytes` (inline rendering), `maxTextLines` (rendered lines),
   `maxThumbBytes` (thumbnails), and `maxDirEntries` (listings) bound every read.
 - **Git reads.** The header chip runs read-only git (`rev-parse`, `status
@@ -124,6 +134,10 @@ reflects only this session's server, with no cross-session sharing.
 
 ## Limitations
 
+- Syntax highlighting covers the built-in language set below; any other text
+  type renders exactly as before. State that the tokenizer does not carry
+  across lines (shell heredocs, interpolation inside a template literal) is
+  approximated rather than parsed.
 - `/serve` has no auth; a malicious local page could probe the port. The `Host`
   allowlist and the absence of CORS headers mitigate reads, and the server is
   read-only.
@@ -133,7 +147,7 @@ reflects only this session's server, with no cross-session sharing.
 ## Non-goals
 
 - No editing or writing from the browser.
-- No syntax highlighting or third-party assets: the Markdown renderer is
+- No third-party assets: the Markdown renderer and the syntax highlighter are
   first-party, and raw HTML in a Markdown file is escaped, not executed.
 - No auth and no LAN exposure: loopback only.
 - Not a general static-file server: the root is confined to the effective cwd.
@@ -177,6 +191,15 @@ reflects only this session's server, with no cross-session sharing.
   `img-src 'self' data:`). The Rendered/Raw switch is a server-side `?raw=1`
   link, so it works without JavaScript. Set `markdown: false` to fall back to
   the plain-text view.
+- **Syntax highlighting.** `highlight.ts` is a first-party, escape-first
+  tokenizer for the file types that dominate a repository: JavaScript and
+  TypeScript, JSON, CSS (incl. SCSS/Sass/Less), HTML/XML and template
+  components, and shell. `detectLanguage` maps a filename to a tokenizer and an
+  unmapped type stays plain. `highlightLines` walks the whole file, so block
+  comments, template literals, open HTML tags, and CSS brace depth carry across
+  lines; every literal is escaped with the same `escapeHtml` the plain view
+  uses, and a line's markup is only the fixed `tok-*` classes the stylesheet
+  colors.
 - **Quick open.** `/api/files` ranks the cached index with `fuzzy.ts` and
   returns the matched character positions; the client fetches on an 80 ms
   debounce and builds rows with `textContent`, so a file name cannot inject
@@ -198,6 +221,7 @@ reflects only this session's server, with no cross-session sharing.
 | `config.ts` | Config defaults, validation, global/project merge |
 | `paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
 | `escape.ts` | `escapeHtml`, the shared HTML escaping used by every renderer |
+| `highlight.ts` | First-party escape-first syntax tokenizer for the code view |
 | `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
 | `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
 | `markdown.ts` | First-party escape-first Markdown-to-HTML renderer |
@@ -213,8 +237,9 @@ reflects only this session's server, with no cross-session sharing.
 
 `extensions/file-browser/` covers the path guard (traversal, encoded, NUL, malformed,
 absolute, symlink escape and in-root symlink), file classification/listings/
-reads/tree and the quick-open file index, the fuzzy matcher, the Markdown
-renderer (blocks, inline, safety, and path resolution),
+reads/tree and the quick-open file index, the fuzzy matcher, the syntax
+highlighter (language detection, token classes, cross-line state, and
+escaping), the Markdown renderer (blocks, inline, safety, and path resolution),
 the icon mapping and sprite, HTML escaping/encoding/rendering, the client script
 and its serving, the platform browser commands with an injected spawn, the router
 (routes, `/api/tree`, `/api/files`, `?raw=1`, status codes, `Host`, `HEAD`, `/raw`

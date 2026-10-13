@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `file-browser`: code files render with first-party syntax highlighting in the
+  text view (keywords, strings, numbers, comments, and markup) for
+  JavaScript/TypeScript, JSON, CSS (incl. SCSS/Sass/Less), HTML/XML and
+  template components, and shell. The tokenizer is escape-first and
+  dependency-free, so it works without JavaScript and unmapped file types stay
+  plain.
+
 ## [0.5.1] - 2026-10-13
 
 ### Added

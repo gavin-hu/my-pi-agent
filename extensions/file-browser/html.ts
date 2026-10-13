@@ -12,6 +12,7 @@ import { GLYPHS } from "../../lib/ui.ts";
 import { escapeHtml } from "./escape.ts";
 import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "./files.ts";
 import type { GitStatus } from "./git.ts";
+import { detectLanguage, highlightLines, type HighlightLanguage } from "./highlight.ts";
 import { FOLDER_ICON, iconHref, languageOf, SPRITE, type IconSpec } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { encodePath } from "./paths.ts";
@@ -52,6 +53,8 @@ const STYLES = `:root{
   --canvas:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;
   --muted:#8b949e;--accent:#58a6ff;--accent-soft:rgba(88,166,255,.15);
   --success:#3fb950;--danger:#f85149;--warn:#d29922;
+  --tok-comment:#8b949e;--tok-string:#a5d6ff;--tok-number:#79c0ff;--tok-keyword:#ff7b72;
+  --tok-literal:#79c0ff;--tok-tag:#7ee787;--tok-attr:#79c0ff;--tok-prop:#79c0ff;--tok-var:#ffa657;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
   --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   color-scheme:dark light;
@@ -59,7 +62,9 @@ const STYLES = `:root{
 @media (prefers-color-scheme:light){:root{
   --canvas:#fff;--surface:#f6f8fa;--border:#d0d7de;--text:#1f2328;--muted:#656d76;
   --accent:#0969da;--accent-soft:rgba(9,105,218,.10);--success:#1a7f37;
-  --danger:#cf222e;--warn:#9a6700;}}
+  --danger:#cf222e;--warn:#9a6700;
+  --tok-comment:#6e7781;--tok-string:#0a3069;--tok-number:#0550ae;--tok-keyword:#cf222e;
+  --tok-literal:#0550ae;--tok-tag:#116329;--tok-attr:#0550ae;--tok-prop:#0550ae;--tok-var:#953800;}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{display:flex;flex-direction:column;min-height:100vh;margin:0;background:var(--canvas);color:var(--text);font:15px/1.5 var(--ui)}
@@ -128,6 +133,15 @@ tr.symlink .link-mark{color:var(--muted);font-size:12px}
 pre.code{margin:0;padding:12px 0 16px;flex:1 1 auto;min-height:0;overflow:auto;font:13px/1.55 var(--mono);counter-reset:line;tab-size:4}
 pre.code .line{display:block;padding:0 16px 0 0;white-space:pre;min-height:1.55em}
 pre.code .line::before{counter-increment:line;content:counter(line);display:inline-block;width:64px;padding-right:16px;text-align:right;color:var(--muted);user-select:none}
+pre.code .tok-comment{color:var(--tok-comment);font-style:italic}
+pre.code .tok-string{color:var(--tok-string)}
+pre.code .tok-number{color:var(--tok-number)}
+pre.code .tok-keyword{color:var(--tok-keyword)}
+pre.code .tok-literal{color:var(--tok-literal)}
+pre.code .tok-tag{color:var(--tok-tag)}
+pre.code .tok-attr{color:var(--tok-attr)}
+pre.code .tok-prop{color:var(--tok-prop)}
+pre.code .tok-var{color:var(--tok-var)}
 .image-frame{display:flex;flex:1 1 auto;align-items:center;justify-content:center;padding:24px;min-height:240px;background-image:linear-gradient(45deg,var(--border) 25%,transparent 25%),linear-gradient(-45deg,var(--border) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--border) 75%),linear-gradient(-45deg,transparent 75%,var(--border) 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
 .image-frame img{max-width:100%;max-height:70vh;border-radius:4px}
 .placeholder{flex:1 1 auto;padding:56px 24px;text-align:center}
@@ -373,8 +387,9 @@ function markdownBaseDir(rel: string): string {
 	return slash === -1 ? "" : rel.slice(0, slash);
 }
 
-function renderCodeLines(lines: string[]): string {
-	return lines.map((line) => `<span class="line">${line.length > 0 ? escapeHtml(line) : " "}</span>`).join("");
+function renderCodeLines(lines: string[], language?: HighlightLanguage): string {
+	const rendered = language ? highlightLines(lines, language) : lines.map((line) => escapeHtml(line));
+	return rendered.map((html) => `<span class="line">${html.length > 0 ? html : " "}</span>`).join("");
 }
 
 /** The card-head controls: Markdown mode, line wrapping, and copy actions. */
@@ -412,6 +427,7 @@ function renderFileActions(page: FilePage): string {
 export function renderFilePage(page: FilePage): string {
 	const name = page.rel.slice(page.rel.lastIndexOf("/") + 1);
 	const spec = languageOf(name);
+	const language = page.file.kind === "text" ? detectLanguage(name) : undefined;
 	const meta = `${spec.label} · ${formatSize(page.file.size)} · ${formatDate(page.file.mtimeMs)} · ${page.file.mime}`;
 	const download = `<a class="download" href="/raw/${encodePath(page.rel)}" download>download</a>`;
 	const head = `<div class="card-head">${iconMarkup(spec)}<h1>${escapeHtml(name)}</h1><span class="meta">${escapeHtml(meta)}</span><span class="spacer"></span>${renderFileActions(page)}${download}</div>`;
@@ -422,7 +438,7 @@ export function renderFilePage(page: FilePage): string {
 		content =
 			page.file.kind === "markdown" && !page.markdownRaw
 				? `<div class="md-body">${renderMarkdown(page.file.lines.join("\n"), markdownBaseDir(page.rel))}</div>`
-				: `<pre class="code"><code>${renderCodeLines(page.file.lines)}</code></pre>`;
+				: `<pre class="code"><code>${renderCodeLines(page.file.lines, language)}</code></pre>`;
 		if (page.file.truncated)
 			note = `<p class="note">Showing the first ${page.file.lines.length} of ${page.file.totalLines} lines.</p>`;
 	} else if (page.file.kind === "image") {

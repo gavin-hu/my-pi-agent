@@ -174,6 +174,23 @@ describe("renderFilePage", () => {
 		expect(html).toContain(`href="/raw/a.txt"`);
 	});
 
+	test("highlights a code file but leaves plain text alone", () => {
+		fixture = makeFixture();
+		const file = {
+			kind: "text" as const,
+			lines: ["const x = 1;"],
+			truncated: false,
+			totalLines: 1,
+			size: 12,
+			mtimeMs: MTIME_MS,
+			mime: "text/plain",
+		};
+		const js = renderFilePage({ rootLabel: fixture.root, rel: "a.js", tree, maxFileBytes: 1_000_000, file });
+		expect(js).toContain(`<span class="tok-keyword">const</span>`);
+		const txt = renderFilePage({ rootLabel: fixture.root, rel: "a.txt", tree, maxFileBytes: 1_000_000, file });
+		expect(txt).toContain(`<span class="line">const x = 1;</span>`);
+	});
+
 	test("includes the UI hardening markers", () => {
 		fixture = makeFixture();
 		const html = renderDirectoryPage({
@@ -411,6 +428,7 @@ describe("renderDirectoryPage sort and styles", () => {
 			maxThumbBytes: 0,
 		});
 		expect(html).toContain("pre.code.wrap .line{white-space:pre-wrap");
+		expect(html).toContain("pre.code .tok-keyword{color:var(--tok-keyword)}");
 		expect(html).toContain(".md-body{");
 		expect(html).toContain('.segmented .seg[aria-current="page"]');
 		expect(html).toContain(".action{display:none}");
