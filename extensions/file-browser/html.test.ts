@@ -428,7 +428,7 @@ describe("renderDirectoryPage sort and styles", () => {
 			maxThumbBytes: 0,
 		});
 		expect(html).toContain("pre.code.wrap .line{white-space:pre-wrap");
-		expect(html).toContain("pre.code .tok-keyword{color:var(--tok-keyword)}");
+		expect(html).toContain(".tok-keyword{color:var(--tok-keyword)}");
 		expect(html).toContain(".md-body{");
 		expect(html).toContain('.segmented .seg[aria-current="page"]');
 		expect(html).toContain(".action{display:none}");

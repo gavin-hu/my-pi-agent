@@ -30,9 +30,10 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   Python (`py`, `pyw`, `pyi`), Java, YAML (`yaml`, `yml`), and SQL. Other text
   types stay plain.
 - **Rendered Markdown.** `.md`/`.markdown` files render as headings, lists,
-  tables, code, links, and images, with a one-click **raw** view (`?raw=1`). Raw
-  HTML in the source is escaped, never executed, and external images are shown
-  as links rather than fetched.
+  tables, code, links, and images, with a one-click **raw** view (`?raw=1`).
+  Fenced code blocks are syntax-highlighted when the fence names a supported
+  language. Raw HTML in the source is escaped, never executed, and external
+  images are shown as links rather than fetched.
 - **Sortable listings.** The Name / Size / Modified headers sort the current
   directory, directories first, and the choice is remembered per browser.
 - **Copy and wrap.** Copy a file's root-relative path or its contents, and
@@ -191,7 +192,9 @@ reflects only this session's server, with no cross-session sharing.
   renders an external image as a link instead of loading it (the page CSP is
   `img-src 'self' data:`). The Rendered/Raw switch is a server-side `?raw=1`
   link, so it works without JavaScript. Set `markdown: false` to fall back to
-  the plain-text view.
+  the plain-text view. A fenced code block whose info string names a supported
+  language is highlighted through `highlight.ts` (either an extension or a
+  long-form alias, `fenceLanguage`); an absent or unknown language stays plain.
 - **Syntax highlighting.** `highlight.ts` is a first-party, escape-first
   tokenizer for the file types that dominate a repository: JavaScript and
   TypeScript, JSON, CSS (incl. SCSS/Sass/Less), HTML/XML and template
@@ -200,7 +203,9 @@ reflects only this session's server, with no cross-session sharing.
   walks the whole file, so block comments, template literals, open HTML tags,
   CSS brace depth, and Python triple-quoted strings carry across lines; every
   literal is escaped with the same `escapeHtml` the plain view uses, and a
-  line's markup is only the fixed `tok-*` classes the stylesheet colors.
+  line's markup is only the fixed `tok-*` classes the stylesheet colors. It
+  backs both the plain text view and fenced code blocks in the rendered
+  Markdown view.
 - **Quick open.** `/api/files` ranks the cached index with `fuzzy.ts` and
   returns the matched character positions; the client fetches on an 80 ms
   debounce and builds rows with `textContent`, so a file name cannot inject
@@ -225,7 +230,7 @@ reflects only this session's server, with no cross-session sharing.
 | `highlight.ts` | First-party escape-first syntax tokenizer for the code view |
 | `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
 | `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
-| `markdown.ts` | First-party escape-first Markdown-to-HTML renderer |
+| `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted) |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
 | `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
@@ -239,8 +244,9 @@ reflects only this session's server, with no cross-session sharing.
 `extensions/file-browser/` covers the path guard (traversal, encoded, NUL, malformed,
 absolute, symlink escape and in-root symlink), file classification/listings/
 reads/tree and the quick-open file index, the fuzzy matcher, the syntax
-highlighter (language detection, token classes, cross-line state, and
-escaping), the Markdown renderer (blocks, inline, safety, and path resolution),
+highlighter (language detection, fence aliases, token classes, cross-line
+state, and escaping), the Markdown renderer (blocks, inline, fenced-code
+highlighting, safety, and path resolution),
 the icon mapping and sprite, HTML escaping/encoding/rendering, the client script
 and its serving, the platform browser commands with an injected spawn, the router
 (routes, `/api/tree`, `/api/files`, `?raw=1`, status codes, `Host`, `HEAD`, `/raw`

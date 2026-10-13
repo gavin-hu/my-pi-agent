@@ -133,15 +133,15 @@ tr.symlink .link-mark{color:var(--muted);font-size:12px}
 pre.code{margin:0;padding:12px 0 16px;flex:1 1 auto;min-height:0;overflow:auto;font:13px/1.55 var(--mono);counter-reset:line;tab-size:4}
 pre.code .line{display:block;padding:0 16px 0 0;white-space:pre;min-height:1.55em}
 pre.code .line::before{counter-increment:line;content:counter(line);display:inline-block;width:64px;padding-right:16px;text-align:right;color:var(--muted);user-select:none}
-pre.code .tok-comment{color:var(--tok-comment);font-style:italic}
-pre.code .tok-string{color:var(--tok-string)}
-pre.code .tok-number{color:var(--tok-number)}
-pre.code .tok-keyword{color:var(--tok-keyword)}
-pre.code .tok-literal{color:var(--tok-literal)}
-pre.code .tok-tag{color:var(--tok-tag)}
-pre.code .tok-attr{color:var(--tok-attr)}
-pre.code .tok-prop{color:var(--tok-prop)}
-pre.code .tok-var{color:var(--tok-var)}
+.tok-comment{color:var(--tok-comment);font-style:italic}
+.tok-string{color:var(--tok-string)}
+.tok-number{color:var(--tok-number)}
+.tok-keyword{color:var(--tok-keyword)}
+.tok-literal{color:var(--tok-literal)}
+.tok-tag{color:var(--tok-tag)}
+.tok-attr{color:var(--tok-attr)}
+.tok-prop{color:var(--tok-prop)}
+.tok-var{color:var(--tok-var)}
 .image-frame{display:flex;flex:1 1 auto;align-items:center;justify-content:center;padding:24px;min-height:240px;background-image:linear-gradient(45deg,var(--border) 25%,transparent 25%),linear-gradient(-45deg,var(--border) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--border) 75%),linear-gradient(-45deg,transparent 75%,var(--border) 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
 .image-frame img{max-width:100%;max-height:70vh;border-radius:4px}
 .placeholder{flex:1 1 auto;padding:56px 24px;text-align:center}

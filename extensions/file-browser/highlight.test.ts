@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { detectLanguage, highlightLines, type HighlightLanguage } from "./highlight.ts";
+import { detectLanguage, fenceLanguage, highlightLines, type HighlightLanguage } from "./highlight.ts";
 
 /** Highlight and join lines so token assertions read as one string. */
 function highlighted(lines: string[], language: HighlightLanguage): string {
@@ -25,6 +25,24 @@ describe("detectLanguage", () => {
 		expect(detectLanguage("a.txt")).toBeUndefined();
 		expect(detectLanguage("README.md")).toBeUndefined();
 		expect(detectLanguage("Makefile")).toBeUndefined();
+	});
+});
+
+describe("fenceLanguage", () => {
+	test("maps extension-style and long-form fence tokens", () => {
+		expect(fenceLanguage("ts")).toBe("ts");
+		expect(fenceLanguage("typescript")).toBe("ts");
+		expect(fenceLanguage(".py")).toBe("python");
+		expect(fenceLanguage("Python3")).toBe("python");
+		expect(fenceLanguage("bash")).toBe("shell");
+		expect(fenceLanguage("postgresql")).toBe("sql");
+		expect(fenceLanguage("yml")).toBe("yaml");
+	});
+
+	test("ignores the rest of the info string and unknown tokens", () => {
+		expect(fenceLanguage("ts title=x.ts")).toBe("ts");
+		expect(fenceLanguage("")).toBeUndefined();
+		expect(fenceLanguage("mystery")).toBeUndefined();
 	});
 });
 

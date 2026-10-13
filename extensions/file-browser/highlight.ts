@@ -62,6 +62,35 @@ export function detectLanguage(name: string): HighlightLanguage | undefined {
 	return EXTENSIONS[extname(base).replace(/^\./, "").toLowerCase()];
 }
 
+/** Long-form and extra aliases used in fenced code blocks, not filenames. */
+const FENCE_ALIASES: Record<string, HighlightLanguage> = {
+	javascript: "js",
+	node: "js",
+	typescript: "ts",
+	shell: "shell",
+	shellscript: "shell",
+	console: "shell",
+	python: "python",
+	python3: "python",
+	yaml: "yaml",
+	svg: "html",
+	postgres: "sql",
+	postgresql: "sql",
+	mysql: "sql",
+	sqlite: "sql",
+};
+
+/**
+ * The highlighter language for a fenced code block's info string, or
+ * `undefined` when the fence has no language or an unknown one. Accepts both
+ * extension-style (`ts`) and long-form (`typescript`) tokens, ignoring the
+ * rest of the info string.
+ */
+export function fenceLanguage(info: string): HighlightLanguage | undefined {
+	const token = (info.trim().split(/\s+/)[0] ?? "").replace(/^\./, "").toLowerCase();
+	return token.length > 0 ? (EXTENSIONS[token] ?? FENCE_ALIASES[token]) : undefined;
+}
+
 /** Mutable carry state; only the fields a language uses are read or written. */
 interface ScanState {
 	/** Inside a block comment. */

@@ -13,12 +13,13 @@
  * External images are rendered as links (the page CSP is `img-src 'self' data:`)
  * and non-http(s) schemes such as `javascript:` are dropped.
  *
- * Kept free of the page renderer: it imports only `escape.ts` and `paths.ts`, so
- * `html.ts` can compose it without a module cycle.
+ * Kept free of the page renderer: it imports only `escape.ts`, `highlight.ts`,
+ * and `paths.ts`, so `html.ts` can compose it without a module cycle.
  */
 
 import { posix } from "node:path";
 import { escapeHtml } from "./escape.ts";
+import { fenceLanguage, highlightLines } from "./highlight.ts";
 import { encodePath } from "./paths.ts";
 
 const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
@@ -171,7 +172,9 @@ function renderFence(lines: string[], start: number, fence: Fence): [string, num
 	}
 	const language = fence.info.split(/\s+/)[0] ?? "";
 	const cls = language ? ` class="language-${escapeHtml(language)}"` : "";
-	return [`<pre class="md-code"><code${cls}>${escapeHtml(body.join("\n"))}</code></pre>`, i];
+	const highlighter = fenceLanguage(fence.info);
+	const code = highlighter ? highlightLines(body, highlighter).join("\n") : escapeHtml(body.join("\n"));
+	return [`<pre class="md-code"><code${cls}>${code}</code></pre>`, i];
 }
 
 function matchHeading(line: string): { level: number; text: string } | undefined {

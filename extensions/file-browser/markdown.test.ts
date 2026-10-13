@@ -14,10 +14,31 @@ describe("renderMarkdown blocks", () => {
 		expect(renderMarkdown("one\\\ntwo")).toBe("<p>one<br>\ntwo</p>");
 	});
 
-	test("renders fenced code with a language and escapes the body", () => {
+	test("highlights fenced code with a known language and escapes the body", () => {
 		const html = renderMarkdown("```js\nconst x = 1 < 2;\n```");
-		expect(html).toBe('<pre class="md-code"><code class="language-js">const x = 1 &lt; 2;</code></pre>');
+		expect(html).toBe(
+			'<pre class="md-code"><code class="language-js"><span class="tok-keyword">const</span> x = <span class="tok-number">1</span> &lt; <span class="tok-number">2</span>;</code></pre>',
+		);
 		expect(renderMarkdown("```\nplain\n```")).toBe('<pre class="md-code"><code>plain</code></pre>');
+	});
+
+	test("leaves an unknown fence language unhighlighted", () => {
+		expect(renderMarkdown("```mystery\nconst x = 1;\n```")).toBe(
+			'<pre class="md-code"><code class="language-mystery">const x = 1;</code></pre>',
+		);
+	});
+
+	test("resolves a long-form fence language and carries state across its lines", () => {
+		const html = renderMarkdown("```typescript\n/* note\ndone */\nconst x = 1;\n```");
+		expect(html).toContain('<span class="tok-comment">/* note</span>');
+		expect(html).toContain('<span class="tok-comment">done */</span>');
+		expect(html).toContain('<span class="tok-keyword">const</span>');
+	});
+
+	test("escapes a highlighted fence body so it cannot inject markup", () => {
+		const html = renderMarkdown('```js\nconst a = "</span><img src=x>";\n```');
+		expect(html).toContain("&lt;/span&gt;&lt;img");
+		expect(html).not.toContain("<img");
 	});
 
 	test("renders thematic breaks", () => {
