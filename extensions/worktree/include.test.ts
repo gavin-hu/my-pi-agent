@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ const cleanups: string[] = [];
 
 afterAll(() => cleanup(...cleanups));
 
-describe("globToRegExp / isIncluded", () => {
+describe.skipIf(!runSlowSuites)("globToRegExp / isIncluded", () => {
 	test("basename patterns match at any depth", () => {
 		expect(isIncluded(".env", ["*.env"])).toBe(true);
 		expect(isIncluded("nested/.env", ["*.env"])).toBe(true);
@@ -57,7 +58,7 @@ describe("globToRegExp / isIncluded", () => {
 	});
 });
 
-describe("includePatterns", () => {
+describe.skipIf(!runSlowSuites)("includePatterns", () => {
 	test("reads .worktreeinclude and ignores comments", async () => {
 		const repo = await makeRepo("pi-wt-inc-");
 		cleanups.push(repo);
@@ -72,7 +73,7 @@ describe("includePatterns", () => {
 	});
 });
 
-describe("copyIncludes", () => {
+describe.skipIf(!runSlowSuites)("copyIncludes", () => {
 	let repo: string;
 	let target: string;
 

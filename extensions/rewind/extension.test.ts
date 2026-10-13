@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,7 +25,7 @@ afterAll(() => cleanup(...cleanups));
 
 const NS = "refs/pi/rewind";
 
-describe("automatic snapshots", () => {
+describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "rewind" }, () => {
 			const { pi, commands, handlers } = createFakePi();
@@ -214,7 +215,7 @@ describe("automatic snapshots", () => {
 	});
 });
 
-describe("temp index lifecycle", () => {
+describe.skipIf(!runSlowSuites)("temp index lifecycle", () => {
 	test("session shutdown removes this process's temp index", async () => {
 		const repo = await makeRepo("pi-rw-index-shutdown-");
 		cleanups.push(repo);

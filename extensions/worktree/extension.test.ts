@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
@@ -25,7 +26,7 @@ function foreignBash() {
 	};
 }
 
-describe("worktree registration", () => {
+describe.skipIf(!runSlowSuites)("worktree registration", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "worktree" }, () => {
 			const { pi, tools, commands, flags, handlers } = createFakePi();
@@ -69,7 +70,7 @@ describe("worktree registration", () => {
 	});
 });
 
-describe("worktree session lifecycle", () => {
+describe.skipIf(!runSlowSuites)("worktree session lifecycle", () => {
 	test("warns at session start when another source owns a root tool", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-life-"));
 		const { ctx } = await bootWorktree(repo, { allTools: [foreignBash()] });

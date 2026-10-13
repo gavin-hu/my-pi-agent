@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,7 +16,7 @@ function worktreePath(repo: string, name: string): string {
 	return canonicalize(join(repo, ".pi", "worktrees", name));
 }
 
-describe("enterWorktree", () => {
+describe.skipIf(!runSlowSuites)("enterWorktree", () => {
 	test("enters a new worktree and records it in state and the registry", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-enter-"));
 		const harness = await bootWorktree(repo);
@@ -72,7 +73,7 @@ describe("enterWorktree", () => {
 	});
 });
 
-describe("borrowed worktree (subagent)", () => {
+describe.skipIf(!runSlowSuites)("borrowed worktree (subagent)", () => {
 	test("binds to the inherited root and refuses to change it", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-borrow-"));
 

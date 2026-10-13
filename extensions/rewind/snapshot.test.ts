@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createSnapshot } from "./snapshot.ts";
@@ -10,7 +11,7 @@ afterAll(() => cleanup(...cleanups));
 
 const NS = "refs/pi/rewind";
 
-describe("createSnapshot", () => {
+describe.skipIf(!runSlowSuites)("createSnapshot", () => {
 	let repo: string;
 
 	beforeAll(async () => {

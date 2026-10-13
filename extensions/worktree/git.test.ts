@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,7 +47,7 @@ function stubPi(route: (args: string[]) => { stdout?: string; stderr?: string; c
 
 afterAll(() => cleanup(...cleanups));
 
-describe("git helpers", () => {
+describe.skipIf(!runSlowSuites)("git helpers", () => {
 	let repo: string;
 
 	beforeAll(async () => {
@@ -198,7 +199,7 @@ describe("git helpers", () => {
 	});
 });
 
-describe("base ref and remote", () => {
+describe.skipIf(!runSlowSuites)("base ref and remote", () => {
 	let repo: string;
 	let remote: string;
 
@@ -245,7 +246,7 @@ describe("base ref and remote", () => {
 	});
 });
 
-describe("parsePrReference", () => {
+describe.skipIf(!runSlowSuites)("parsePrReference", () => {
 	test("parses #N", () => {
 		expect(parsePrReference("#1234")).toEqual({ number: 1234, host: "other" });
 	});

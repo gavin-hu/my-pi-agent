@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { touchRecord } from "./registry.ts";
@@ -37,7 +38,7 @@ async function prune(repo: string): Promise<string> {
 	return result.content[0].text;
 }
 
-describe("pruneWorktrees", () => {
+describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 	test("removes an aged clean worktree and keeps a recent one", async () => {
 		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-");
 		temps.track(repo);

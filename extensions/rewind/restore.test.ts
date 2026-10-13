@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyRestore, planRestore } from "./restore.ts";
@@ -9,7 +10,7 @@ import { indexFileFor, runGit, snapshotInput } from "../../test/helpers/fixtures
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
 
-describe("rewind", () => {
+describe.skipIf(!runSlowSuites)("rewind", () => {
 	let repo: string;
 
 	beforeAll(async () => {

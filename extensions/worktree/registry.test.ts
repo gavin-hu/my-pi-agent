@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -37,7 +38,7 @@ function record(path: string, overrides: Partial<WorktreeRecord> = {}): Worktree
 	};
 }
 
-describe("registry store", () => {
+describe.skipIf(!runSlowSuites)("registry store", () => {
 	test("loads empty when the file is missing", () => {
 		const repo = temp();
 		expect(loadRegistry(repo, testConfig())).toEqual({ version: 1, worktrees: [] });
@@ -100,7 +101,7 @@ describe("registry store", () => {
 	});
 });
 
-describe("statusOf", () => {
+describe.skipIf(!runSlowSuites)("statusOf", () => {
 	async function worktree(): Promise<{ repo: string; dir: string }> {
 		const { repo, remote } = await makeRepoWithRemote("pi-wt-status-");
 		temps.push(repo, remote);
