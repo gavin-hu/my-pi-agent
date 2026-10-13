@@ -94,13 +94,15 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 				"",
 				theme.fg("dim", `via ${details.provider} · ${count} result${count === 1 ? "" : "s"}`),
 			];
-			if (details.answer) lines.push(theme.fg("muted", oneLine(details.answer, 160)));
+			if (details.answer) lines.push(`${theme.fg("dim", "answer")} ${theme.fg("muted", oneLine(details.answer, 160))}`);
+
 			const shown = options.expanded ? details.results : details.results.slice(0, 5);
-			lines.push(
-				...shown.map(
-					(item, index) => `${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", oneLine(item.title, 100))}`,
-				),
-			);
+			const indent = theme.fg("dim", "   ");
+			for (const [index, item] of shown.entries()) {
+				lines.push(`${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", oneLine(item.title, 100))}`);
+				lines.push(`${indent}${theme.fg("dim", oneLine(item.url, 100))}`);
+				if (options.expanded && item.snippet) lines.push(`${indent}${theme.fg("muted", oneLine(item.snippet, 160))}`);
+			}
 			const extra = count - shown.length;
 			if (extra > 0) lines.push(`${theme.fg("dim", `+${extra} more`)} ${expandHint(theme)}`);
 			text.setText(lines.join("\n"));

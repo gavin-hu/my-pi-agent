@@ -132,12 +132,17 @@ describe("web_search transcript rendering", () => {
 		expect(lines[1]).toBe("via duckduckgo · 1 result");
 		expect(lines[2]).toContain("answer");
 		expect(lines[3]).toContain("Title");
+		expect(lines[4]).toContain("https://x/");
 		expect(lines.join("\n")).not.toContain("\u001b");
 	});
 
 	test("collapsed hints at the remaining results and expanded shows them", () => {
 		const tool = renderer();
-		const results = Array.from({ length: 8 }, (_, i) => ({ title: `T${i}`, url: `https://x/${i}`, snippet: "" }));
+		const results = Array.from({ length: 8 }, (_, i) => ({
+			title: `T${i}`,
+			url: `https://x/${i}`,
+			snippet: `S${i}`,
+		}));
 		const details = { query: "q", provider: "searxng", answer: "", results, truncated: false, fetchedAt: "now" };
 		const withOptions = (expanded: boolean) =>
 			tool
@@ -148,12 +153,16 @@ describe("web_search transcript rendering", () => {
 				.join("\n");
 
 		const collapsed = withOptions(false);
+		expect(collapsed).toContain("https://x/0");
 		expect(collapsed).toContain("+3 more");
 		expect(collapsed).toContain("to expand");
 		expect(collapsed).not.toContain("T7");
+		expect(collapsed).not.toContain("S0");
 
 		const expanded = withOptions(true);
 		expect(expanded).toContain("T7");
+		expect(expanded).toContain("https://x/7");
+		expect(expanded).toContain("S7");
 		expect(expanded).not.toContain("more");
 	});
 

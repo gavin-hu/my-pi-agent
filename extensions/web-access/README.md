@@ -3,7 +3,7 @@
 One extension, two tools, keyless and dependency-free (native `fetch`, no
 `curl`): `web_search` runs general web search through a pluggable provider
 (keyless DuckDuckGo by default; optional SearXNG or Brave), and `web_fetch`
-reads one or more URLs as text. Both are `direct` and active by default, and
+reads a URL as text. Both are `direct` and active by default, and
 read one config file, `web-access.json`.
 
 ```
@@ -18,7 +18,7 @@ pi install ./                             # or install the package
   keyless DuckDuckGo by default, or a self-hosted SearXNG instance / keyed Brave
   search. Returns titles, URLs, snippets, and a direct answer when available,
   always with no configuration required.
-- Registers `web_fetch`, which fetches one or more URLs (GET or POST) and
+- Registers `web_fetch`, which fetches a URL (GET or POST) and
   returns readable text with links kept as `[text](url)`.
 - Pages long output and reports the next `startIndex` (`nextIndex` in
   `structuredContent`); `find` returns matching passages instead of the whole
@@ -36,12 +36,11 @@ pi install ./                             # or install the package
 | Tool | What it does |
 |---|---|
 | `web_search` | General web search; keyless by default, SearXNG or Brave optional. |
-| `web_fetch` | Fetch URLs and return readable text, pageable and searchable. |
+| `web_fetch` | Fetch a URL and return readable text, pageable and searchable. |
 
 ```
 web_search({ query: "pi coding agent" })
 web_fetch({ url: "https://pi.dev/" })
-web_fetch({ urls: ["https://a.example/", "https://b.example/"] })
 web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
 ```
 
@@ -49,15 +48,19 @@ web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
 
 The call line names the query or URL. The result separates the header from its
 body and sanitizes untrusted web text (answers, titles, fetched titles and
-errors) to one line before it reaches the terminal.
+errors) to one line before it reaches the terminal. A search result labels its
+answer and lists one URL per result; expanding reveals snippets and the full
+result list.
 
 ```
 web_search "pi coding agent" (8 results)
 
 via searxng · 8 results
-Pi is a coding agent harness …
+answer Pi is a coding agent harness …
 1. Pi — a coding agent harness
+   https://pi.dev/
 2. GitHub - earendil-works/pi
+   https://github.com/earendil-works/pi
 +3 more (ctrl+o to expand)
 ```
 
@@ -166,7 +169,7 @@ web_search({ query: "python list comprehension", maxResults: 3 })
 
 ## `web_fetch`
 
-GETs (or POSTs) one or more http(s) URLs and returns readable text. HTML becomes
+GETs (or POSTs) an http(s) URL and returns readable text. HTML becomes
 plain text with links kept as `[text](url)`; JSON/text/XML is returned as-is;
 PDFs are text-extracted when the optional `unpdf` package is installed; other
 binary content is reported by type and size. Redirects are followed manually and
@@ -175,13 +178,12 @@ address. Loopback, private, link-local, and cloud-metadata addresses are refused
 
 | Parameter | Type | Notes |
 |---|---|---|
-| `url` | string | Absolute http(s) URL, required unless `urls` is given |
-| `urls` | string[] | 1–5 URLs fetched sequentially in one call |
+| `url` | string | Absolute http(s) URL, required |
 | `method` | enum | `GET` (default) \| `POST`. POST is for read-style APIs |
 | `headers` | object | Extra request headers (transport headers are refused) |
 | `body` | string | POST body; implies `method: "POST"` unless set explicitly |
-| `startIndex` | integer | Code-point offset to start from, applied to every page (default 0) |
-| `maxChars` | integer | ≥200; split across pages and capped by `maxOutputChars` |
+| `startIndex` | integer | Code-point offset to start from (default 0) |
+| `maxChars` | integer | ≥200; capped by `maxOutputChars` |
 | `find` | string[] | 1–10 strings; return matching passages instead of the page |
 | `mode` | enum | `insensitive` (default) \| `exact` \| `fuzzy` |
 | `contextChars` | integer | 0–2000 chars of context per match (default 200) |
@@ -189,19 +191,16 @@ address. Loopback, private, link-local, and cloud-metadata addresses are refused
 | `refresh` | boolean | Bypass the page cache and refetch |
 
 Long pages are paged: a truncated page names the `startIndex` to use next, inside
-its own character budget, and `structuredContent` repeats it as `nextIndex`. A
-multi-URL call keeps whole pages and reports `(showing K of N pages)` rather than
-cutting one section mid-way. Fetched pages are cached for the registration, so
-paging and `find` do not refetch. POST responses and requests with custom headers
-are never cached. `structuredContent` is `{ pages: [...] }`, one entry per URL
-(with an `error` field when a page failed and `matchesTruncated` when
-`maxMatches` capped the match list).
+its own character budget, and `structuredContent` repeats it as `nextIndex`.
+Fetched pages are cached for the registration, so paging and `find` do not
+refetch. POST responses and requests with custom headers are never cached.
+`structuredContent` is the page object, with an `error` field when the fetch
+failed and `matchesTruncated` when `maxMatches` capped the match list.
 
 ```
 web_fetch({ url: "https://pi.dev/" })
 web_fetch({ url: "https://example.com/long-article", startIndex: 20000 })
 web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
-web_fetch({ urls: ["https://a.example/", "https://b.example/"] })
 web_fetch({ url: "https://api.example/graphql", method: "POST", headers: { "Content-Type": "application/json" }, body: '{"query":"{ viewer { login } }"}' })
 ```
 
@@ -286,8 +285,7 @@ the content type and size.
   mutable is held at module scope.
 - **The paging budget is explicit.** `formatPage` counts the header and the
   truncation note against `maxChars`, so a paged page always carries its
-  `startIndex` hint inside the limit; `formatBatch` drops whole sections with a
-  count instead of cutting one mid-way.
+  `startIndex` hint inside the limit.
 - **One JSON boundary per concern.** `search/json.ts` owns `requestJson` (status
   check and parse error) and `collectResults` (title + http(s) URL + de-dupe), so
   the three providers cannot drift on either.
