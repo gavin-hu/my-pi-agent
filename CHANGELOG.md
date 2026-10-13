@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `file-browser`: `.md`/`.markdown` files render as formatted Markdown
+  (headings, lists, tables, code, links, images) with a server-rendered
+  Rendered/Raw switch (`/view/<rel>?raw=1`). The renderer is first-party and
+  escape-first, so raw HTML and unsafe URL schemes (`javascript:`, `data:`) are
+  neutralized and external images are shown as links instead of loaded.
+- `file-browser`: directory listings sort by Name/Size/Modified (directories
+  first) and the choice is remembered per browser.
+- `file-browser`: file pages copy the root-relative path or the file contents,
+  and text/raw views toggle line wrapping.
+
 ### Fixed
 
 - `job`: the transcript no longer renders the model-facing `logs` header as

@@ -66,6 +66,29 @@ describe("routing", () => {
 		expect(text(file)).toContain("hello");
 	});
 
+	test("renders Markdown with a raw toggle and honors the disabled config", async () => {
+		const rendered = await handleRequest(context(), "GET", "/view/sub/b.md", {});
+		expect(rendered.status).toBe(200);
+		expect(text(rendered)).toContain("<h1>hi</h1>");
+		expect(text(rendered)).toContain('href="/view/sub/b.md?raw=1"');
+
+		const raw = await handleRequest(context(), "GET", "/view/sub/b.md?raw=1", {});
+		expect(text(raw)).toContain('<pre class="code">');
+		expect(text(raw)).not.toContain("<h1>hi</h1>");
+
+		const disabled = await handleRequest(context({ markdown: false }), "GET", "/view/sub/b.md", {});
+		expect(text(disabled)).toContain('<pre class="code">');
+		expect(text(disabled)).not.toContain("<h1>hi</h1>");
+	});
+
+	test("marks listing rows with sort keys", async () => {
+		const response = await handleRequest(context(), "GET", "/", {});
+		const html = text(response);
+		expect(html).toContain('data-sort="name"');
+		expect(html).toContain('data-dir="1"');
+		expect(html).toContain("data-mtime=");
+	});
+
 	test("serves /app.js, a 204 favicon, and the tree API", async () => {
 		const app = await handleRequest(context(), "GET", "/app.js", {});
 		expect(app.status).toBe(200);

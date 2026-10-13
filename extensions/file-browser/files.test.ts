@@ -7,6 +7,7 @@ import {
 	contentTypeFor,
 	formatSize,
 	isImageName,
+	isMarkdownName,
 	isProbablyText,
 	listDirectory,
 	readFileView,
@@ -42,6 +43,14 @@ describe("isImageName", () => {
 		expect(isImageName("a.PNG")).toBe(true);
 		expect(isImageName("a.svg")).toBe(true);
 		expect(isImageName("a.txt")).toBe(false);
+	});
+});
+
+describe("isMarkdownName", () => {
+	test("matches Markdown extensions case-insensitively", () => {
+		expect(isMarkdownName("README.md")).toBe(true);
+		expect(isMarkdownName("notes.MARKDOWN")).toBe(true);
+		expect(isMarkdownName("a.txt")).toBe(false);
 	});
 });
 
@@ -122,6 +131,12 @@ describe("readFileView", () => {
 		expect((await readFileView(fixture.root, "image.png", 1_000_000, 100)).kind).toBe("image");
 		expect((await readFileView(fixture.root, "bin.dat", 1_000_000, 100)).kind).toBe("binary");
 		expect((await readFileView(fixture.root, "big.txt", 10, 100)).kind).toBe("tooLarge");
+	});
+
+	test("returns a markdown view that can be disabled", async () => {
+		fixture = makeFixture();
+		expect((await readFileView(fixture.root, "sub/b.md", 1_000_000, 100)).kind).toBe("markdown");
+		expect((await readFileView(fixture.root, "sub/b.md", 1_000_000, 100, false)).kind).toBe("text");
 	});
 });
 

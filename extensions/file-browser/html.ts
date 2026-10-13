@@ -9,34 +9,16 @@
  */
 
 import { GLYPHS } from "../../lib/ui.ts";
+import { escapeHtml } from "./escape.ts";
 import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "./files.ts";
 import type { GitStatus } from "./git.ts";
 import { FOLDER_ICON, iconHref, languageOf, SPRITE, type IconSpec } from "./icons.ts";
+import { renderMarkdown } from "./markdown.ts";
+import { encodePath } from "./paths.ts";
+
+export { escapeHtml, encodePath };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** Escape text for an HTML text node or double-quoted attribute. */
-export function escapeHtml(value: string): string {
-	return value.replace(/[&<>"']/g, (char) => {
-		switch (char) {
-			case "&":
-				return "&amp;";
-			case "<":
-				return "&lt;";
-			case ">":
-				return "&gt;";
-			case '"':
-				return "&quot;";
-			default:
-				return "&#39;";
-		}
-	});
-}
-
-/** Percent-encode each path segment, keeping `/` separators. */
-export function encodePath(rel: string): string {
-	return rel.split("/").filter(Boolean).map(encodeURIComponent).join("/");
-}
 
 /** A short local date like `Oct 8 20:31`. */
 export function formatDate(ms: number): string {
@@ -173,7 +155,43 @@ footer.site{flex:0 0 auto;border-top:1px solid var(--border);color:var(--muted);
   details.side-panel[open]>aside.side{max-height:45vh;overflow-y:auto;overscroll-behavior:contain}
   .when,.thumb{display:none}
 }
-@media (prefers-reduced-motion:no-preference){tbody tr{transition:background .08s ease}}`;
+@media (prefers-reduced-motion:no-preference){tbody tr{transition:background .08s ease}}
+table.listing th.size,table.listing th.when{text-align:right}
+th .sort{appearance:none;border:0;background:none;color:inherit;font:inherit;padding:0;cursor:pointer}
+th .sort:hover{color:var(--accent)}
+th[aria-sort] .sort{color:var(--text);font-weight:600}
+th[aria-sort="ascending"] .sort::after{content:" ▲";font-size:9px;color:var(--accent)}
+th[aria-sort="descending"] .sort::after{content:" ▼";font-size:9px;color:var(--accent)}
+.card-head .actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.action,.seg{appearance:none;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font:12.5px var(--ui);padding:5px 10px;cursor:pointer}
+.action:hover,.seg:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+.action[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.segmented{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.segmented .seg{border:0;border-radius:0}
+.segmented .seg+.seg{border-left:1px solid var(--border)}
+.segmented .seg[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.md-body{flex:1 1 auto;min-height:0;overflow:auto;padding:6px 20px 20px;line-height:1.6;overflow-wrap:anywhere}
+.md-body>*:first-child{margin-top:0}
+.md-body h1,.md-body h2,.md-body h3,.md-body h4,.md-body h5,.md-body h6{margin:1.4em 0 .6em;line-height:1.25}
+.md-body h1,.md-body h2{padding-bottom:.3em;border-bottom:1px solid var(--border)}
+.md-body h1{font-size:1.7em}.md-body h2{font-size:1.4em}.md-body h3{font-size:1.2em}
+.md-body p,.md-body ul,.md-body ol,.md-body blockquote,.md-body table,.md-body pre{margin:0 0 1em}
+.md-body ul,.md-body ol{padding-left:1.6em}
+.md-body li{margin:.25em 0}
+.md-body li.task{list-style:none;margin-left:-1.4em}
+.md-body .md-check{color:var(--success)}
+.md-body blockquote{margin-left:0;padding:0 1em;border-left:3px solid var(--border);color:var(--muted)}
+.md-body code{font-family:var(--mono);font-size:.9em;background:var(--canvas);border:1px solid var(--border);border-radius:4px;padding:.1em .35em}
+.md-body pre.md-code{background:var(--canvas);border:1px solid var(--border);border-radius:6px;padding:12px 14px;overflow:auto}
+.md-body pre.md-code code{background:none;border:0;padding:0}
+.md-body .md-table{border-collapse:collapse;width:100%;font-size:.95em}
+.md-body .md-table th,.md-body .md-table td{border:1px solid var(--border);padding:6px 10px}
+.md-body .md-table thead th{background:var(--surface)}
+.md-body .md-left{text-align:left}.md-body .md-center{text-align:center}.md-body .md-right{text-align:right}
+.md-body .md-img{max-width:100%;height:auto;border-radius:4px}
+.md-body hr{border:0;border-top:1px solid var(--border);margin:1.4em 0}
+pre.code.wrap{overflow-x:hidden}
+pre.code.wrap .line{white-space:pre-wrap;overflow-wrap:anywhere}`;
 
 export interface Layout {
 	title: string;
@@ -200,7 +218,7 @@ export function renderLayout(layout: Layout): string {
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<noscript><style>.filter{display:none}.tw.toggle{visibility:hidden}</style></noscript>
+<noscript><style>.filter{display:none}.tw.toggle{visibility:hidden}.action{display:none}</style></noscript>
 ${SPRITE}
 <header class="site"><div class="bar">
   <span class="brand"><span class="dot"></span>serve</span>
@@ -286,7 +304,8 @@ function renderRow(entry: DirEntry, maxThumbBytes: number, thumbnails: boolean):
 	const mark = entry.isSymlink
 		? `<span class="link-mark" title="${entry.broken ? "broken symbolic link" : "symbolic link"}">↩</span>`
 		: "";
-	return `<tr${classes ? ` class="${classes}"` : ""} data-name="${escapeHtml(entry.name)}" data-path="${escapeHtml(entry.rel)}"><td><span class="name">${visual}${link}${mark}</span></td><td class="size">${entry.isDir ? "—" : escapeHtml(formatSize(entry.size))}</td><td class="when">${entry.isDir ? "—" : escapeHtml(formatDate(entry.mtimeMs))}</td></tr>`;
+	const attrs = `data-name="${escapeHtml(entry.name)}" data-path="${escapeHtml(entry.rel)}" data-dir="${entry.isDir ? "1" : "0"}" data-size="${entry.size}" data-mtime="${Math.round(entry.mtimeMs)}"`;
+	return `<tr${classes ? ` class="${classes}"` : ""} ${attrs}><td><span class="name">${visual}${link}${mark}</span></td><td class="size">${entry.isDir ? "—" : escapeHtml(formatSize(entry.size))}</td><td class="when">${entry.isDir ? "—" : escapeHtml(formatDate(entry.mtimeMs))}</td></tr>`;
 }
 
 export interface DirectoryPage {
@@ -303,7 +322,7 @@ export interface DirectoryPage {
 export function renderDirectoryPage(page: DirectoryPage): string {
 	let body = `<table class="listing">
 <caption>${escapeHtml(page.rel || "/")}</caption>
-<thead><tr><th scope="col">Name</th><th scope="col" class="size">Size</th><th scope="col" class="when">Modified</th></tr></thead>
+<thead><tr><th scope="col" aria-sort="ascending"><button type="button" class="sort" data-sort="name" title="Sort by name">Name</button></th><th scope="col" class="size"><button type="button" class="sort" data-sort="size" title="Sort by size">Size</button></th><th scope="col" class="when"><button type="button" class="sort" data-sort="mtime" title="Sort by modified time">Modified</button></th></tr></thead>
 <tbody>
 ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.thumbnails)).join("\n")}
 </tbody>
@@ -331,23 +350,66 @@ export interface FilePage {
 	tree: TreeNode;
 	maxFileBytes: number;
 	git?: GitStatus;
+	/** Show the Markdown source instead of the rendered HTML. */
+	markdownRaw?: boolean;
 }
 
-/** Render a file page (text, image, binary, or over-size). */
+/** The root-relative directory of a file, for resolving its Markdown links. */
+function markdownBaseDir(rel: string): string {
+	const slash = rel.lastIndexOf("/");
+	return slash === -1 ? "" : rel.slice(0, slash);
+}
+
+function renderCodeLines(lines: string[]): string {
+	return lines.map((line) => `<span class="line">${line.length > 0 ? escapeHtml(line) : " "}</span>`).join("");
+}
+
+/** The card-head controls: Markdown mode, line wrapping, and copy actions. */
+function renderFileActions(page: FilePage): string {
+	const isMarkdown = page.file.kind === "markdown";
+	const rawHref = `/raw/${encodePath(page.rel)}`;
+	const viewHref = `/view/${encodePath(page.rel)}`;
+	const groups: string[] = [];
+	if (isMarkdown) {
+		const rendered = page.markdownRaw
+			? `<a class="seg" href="${viewHref}">rendered</a>`
+			: `<a class="seg" href="${viewHref}" aria-current="page">rendered</a>`;
+		const raw = page.markdownRaw
+			? `<a class="seg" href="${viewHref}?raw=1" aria-current="page">raw</a>`
+			: `<a class="seg" href="${viewHref}?raw=1">raw</a>`;
+		groups.push(`<span class="segmented" role="group" aria-label="Markdown view">${rendered}${raw}</span>`);
+	}
+	if (page.file.kind === "text" || (isMarkdown && page.markdownRaw)) {
+		groups.push(
+			`<button type="button" class="action" id="wrap-toggle" aria-pressed="false" title="Toggle line wrapping">wrap</button>`,
+		);
+	}
+	if (page.file.kind === "text" || isMarkdown) {
+		groups.push(
+			`<button type="button" class="action" data-copy="content" data-href="${escapeHtml(rawHref)}" title="Copy the file contents">copy</button>`,
+		);
+	}
+	groups.push(
+		`<button type="button" class="action" data-copy="path" data-value="${escapeHtml(page.rel)}" title="Copy the root-relative path">copy path</button>`,
+	);
+	return `<span class="actions">${groups.join("")}</span>`;
+}
+
+/** Render a file page (text, Markdown, image, binary, or over-size). */
 export function renderFilePage(page: FilePage): string {
 	const name = page.rel.slice(page.rel.lastIndexOf("/") + 1);
 	const spec = languageOf(name);
 	const meta = `${spec.label} · ${formatSize(page.file.size)} · ${formatDate(page.file.mtimeMs)} · ${page.file.mime}`;
 	const download = `<a class="download" href="/raw/${encodePath(page.rel)}" download>download</a>`;
-	const head = `<div class="card-head">${iconMarkup(spec)}<h1>${escapeHtml(name)}</h1><span class="meta">${escapeHtml(meta)}</span><span class="spacer"></span>${download}</div>`;
+	const head = `<div class="card-head">${iconMarkup(spec)}<h1>${escapeHtml(name)}</h1><span class="meta">${escapeHtml(meta)}</span><span class="spacer"></span>${renderFileActions(page)}${download}</div>`;
 
 	let content: string;
 	let note = "";
-	if (page.file.kind === "text") {
-		const lines = page.file.lines
-			.map((line) => `<span class="line">${line.length > 0 ? escapeHtml(line) : " "}</span>`)
-			.join("");
-		content = `<pre class="code"><code>${lines}</code></pre>`;
+	if (page.file.kind === "text" || page.file.kind === "markdown") {
+		content =
+			page.file.kind === "markdown" && !page.markdownRaw
+				? `<div class="md-body">${renderMarkdown(page.file.lines.join("\n"), markdownBaseDir(page.rel))}</div>`
+				: `<pre class="code"><code>${renderCodeLines(page.file.lines)}</code></pre>`;
 		if (page.file.truncated)
 			note = `<p class="note">Showing the first ${page.file.lines.length} of ${page.file.totalLines} lines.</p>`;
 	} else if (page.file.kind === "image") {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
+import { HttpError, encodePath, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
 import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
 
 let fixture: Fixture | undefined;
@@ -62,6 +62,14 @@ describe("resolveDecodedPath", () => {
 		const resolved = await resolveDecodedPath(fixture.root, "a.txt");
 		expect(resolved).toBe(join(fixture.root, "a.txt"));
 		await expect(resolveDecodedPath(fixture.root, "../x")).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe("encodePath", () => {
+	test("encodes segments but keeps separators", () => {
+		expect(encodePath("sub/a b#c.ts")).toBe("sub/a%20b%23c.ts");
+		expect(encodePath("")).toBe("");
+		expect(encodePath("a/b c/d&e.txt")).toBe("a/b%20c/d%26e.txt");
 	});
 });
 

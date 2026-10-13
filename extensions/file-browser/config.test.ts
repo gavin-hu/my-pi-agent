@@ -22,3 +22,11 @@ describe("normalizeConfig port", () => {
 		expect(normalizeConfig({ port: 70000 }).port).toBe(65535);
 	});
 });
+
+describe("normalizeConfig markdown", () => {
+	test("defaults to rendering and accepts a boolean", () => {
+		expect(DEFAULT_CONFIG.markdown).toBe(true);
+		expect(normalizeConfig({ markdown: false }).markdown).toBe(false);
+		expect(normalizeConfig({ markdown: "no" }).markdown).toBe(true);
+	});
+});

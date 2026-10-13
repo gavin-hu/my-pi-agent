@@ -3,9 +3,9 @@
 `/serve` starts a **read-only** HTTP server rooted at the effective working
 directory, opens the default browser at it, and prints the URL. The page is a
 two-pane file browser: a collapsible path tree on the left, directory listings
-and file views on the right, with image thumbnails and per-language icons. It is
-bound to `127.0.0.1` and ships no dependencies — `node:http` plus one small
-vanilla script.
+and file views on the right, with image thumbnails, rendered Markdown, and
+per-language icons. It is bound to `127.0.0.1` and ships no dependencies —
+`node:http` plus one small vanilla script.
 
 ```bash
 pi --extension ./extensions/file-browser   # load just this extension
@@ -19,8 +19,16 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 - **Two-pane UI.** A server-rendered tree, directory listings, and file pages,
   progressively enhanced by one first-party script (filter, lazy tree
   expansion, thumbnail fallback).
-- **Rich previews.** Text, images (thumbnails), and binary/over-size download
-  cards, with per-language icons.
+- **Rich previews.** Text, rendered Markdown, images (thumbnails), and
+  binary/over-size download cards, with per-language icons.
+- **Rendered Markdown.** `.md`/`.markdown` files render as headings, lists,
+  tables, code, links, and images, with a one-click **raw** view (`?raw=1`). Raw
+  HTML in the source is escaped, never executed, and external images are shown
+  as links rather than fetched.
+- **Sortable listings.** The Name / Size / Modified headers sort the current
+  directory, directories first, and the choice is remembered per browser.
+- **Copy and wrap.** Copy a file's root-relative path or its contents, and
+  toggle line wrapping for text and raw views.
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
 - **Git context.** A read-only header chip shows the checked-out branch (or
   detached head) and a dirty marker, and reflows on narrow screens.
@@ -60,7 +68,8 @@ reflects only this session's server, with no cross-session sharing.
 | Route | Result |
 |---|---|
 | `/`, `/browse[/<rel>]` | tree + directory listing |
-| `/view/<rel>` | tree + file page (text, image, binary, or over-size) |
+| `/view/<rel>` | tree + file page (text, Markdown, image, binary, or over-size) |
+| `/view/<rel>?raw=1` | raw Markdown/text source instead of the rendered view |
 | `/raw/<rel>` | raw bytes, streamed; downloads and image sources |
 | `/api/tree?path=<rel>` | JSON children for lazy tree expansion |
 | `/app.js` | the first-party client script |
@@ -79,7 +88,8 @@ reflects only this session's server, with no cross-session sharing.
   "maxThumbBytes": 5242880,  // larger images get an icon, not a thumbnail
   "maxTextLines": 5000,      // rendered lines before truncation
   "maxDirEntries": 2000,     // listed entries before truncation
-  "thumbnails": true
+  "thumbnails": true,
+  "markdown": true           // render Markdown files as formatted HTML
 }
 ```
 
@@ -97,6 +107,10 @@ reflects only this session's server, with no cross-session sharing.
 - **CSP.** Pages allow only same-origin scripts and inline styles; `/raw` uses
   `default-src 'none'; script-src 'none'; sandbox` plus `nosniff`, so a served
   SVG/HTML file cannot execute.
+- **Markdown safety.** Rendered Markdown is escape-first: raw HTML is shown as
+  text, link schemes are allowlisted (`javascript:`/`data:` dropped), and an
+  external image is rendered as a link, never loaded. The page CSP keeps the
+  rest inert.
 - **Caps.** `maxFileBytes` (inline rendering), `maxTextLines` (rendered lines),
   `maxThumbBytes` (thumbnails), and `maxDirEntries` (listings) bound every read.
 - **Git reads.** The header chip runs read-only git (`rev-parse`, `status
@@ -114,7 +128,8 @@ reflects only this session's server, with no cross-session sharing.
 ## Non-goals
 
 - No editing or writing from the browser.
-- No syntax highlighting, markdown rendering, or third-party assets.
+- No syntax highlighting or third-party assets: the Markdown renderer is
+  first-party, and raw HTML in a Markdown file is escaped, not executed.
 - No auth and no LAN exposure: loopback only.
 - Not a general static-file server: the root is confined to the effective cwd.
 
@@ -143,10 +158,20 @@ reflects only this session's server, with no cross-session sharing.
 - **Progressive UI.** The page is server-rendered HTML with an inline style
   block and inline SVG icons. `client.ts` enhances it: the filter hides
   non-matching rows while keeping ancestors, disclosure triangles lazily
-  `fetch("/api/tree")`, and broken thumbnails fall back to the category icon.
-  Without JS, the tree shows the current path's ancestors and navigation is
-  ordinary links. The palette follows `nocturne-dark`/`nocturne-light` via
+  `fetch("/api/tree")`, broken thumbnails fall back to the category icon, the
+  listing headers sort in place, the wrap toggle is remembered, and the copy
+  buttons use the clipboard. Without JS the page still browses and renders
+  Markdown, and the JS-only controls (filter, disclosure, actions) are hidden.
+  The palette follows `nocturne-dark`/`nocturne-light` via
   `prefers-color-scheme`.
+- **Markdown rendering.** `markdown.ts` is a first-party, escape-first renderer
+  for the constructs that show up in repository READMEs. It emits only a known
+  tag set, escapes every literal character, allowlists URL schemes (dropping
+  `javascript:`/`data:`), rewrites local links and images to `/view`/`/raw`, and
+  renders an external image as a link instead of loading it (the page CSP is
+  `img-src 'self' data:`). The Rendered/Raw switch is a server-side `?raw=1`
+  link, so it works without JavaScript. Set `markdown: false` to fall back to
+  the plain-text view.
 - **Streaming responses.** The server streams `filePath` responses and
   suppresses bodies for `HEAD`, so large `/raw` files are not buffered.
 - **Root confinement over feature breadth.** The root is deliberately confined
@@ -159,12 +184,14 @@ reflects only this session's server, with no cross-session sharing.
 |---|---|
 | `index.ts` | `/serve` command, running-server closure, shutdown cleanup |
 | `config.ts` | Config defaults, validation, global/project merge |
-| `paths.ts` | Decode, resolve, and `realpath`-containment guard |
-| `files.ts` | Classification, listings, text reads, sidebar tree |
+| `paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
+| `escape.ts` | `escapeHtml`, the shared HTML escaping used by every renderer |
+| `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
+| `markdown.ts` | First-party escape-first Markdown-to-HTML renderer |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
-| `client.ts` | The `/app.js` source (tree toggle, filter, thumbnail fallback) |
-| `html.ts` | Page renderers and the inline CSS |
+| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy) |
+| `html.ts` | Page renderers, sortable headers, and the inline CSS |
 | `router.ts` | Pure request handler |
 | `server.ts` | `node:http` server |
 | `open.ts` | Cross-platform browser opener |
@@ -173,10 +200,11 @@ reflects only this session's server, with no cross-session sharing.
 
 `extensions/file-browser/` covers the path guard (traversal, encoded, NUL, malformed,
 absolute, symlink escape and in-root symlink), file classification/listings/
-reads/tree, the icon mapping and sprite, HTML escaping/encoding/rendering, the
-client script and its serving, the platform browser commands with an injected
-spawn, the router (routes, `/api/tree`, status codes, `Host`, `HEAD`, `/raw`
-headers) without a socket, a real `127.0.0.1:0` server, the session-port
-lifecycle (fixed on first start, reused, and re-rolled after a conflict), the
-git status provider (branch, dirty, detached, non-repo, failure, and TTL
-cache), and the command lifecycle with injected seams.
+reads/tree, the Markdown renderer (blocks, inline, safety, and path resolution),
+the icon mapping and sprite, HTML escaping/encoding/rendering, the client script
+and its serving, the platform browser commands with an injected spawn, the router
+(routes, `/api/tree`, `?raw=1`, status codes, `Host`, `HEAD`, `/raw` headers)
+without a socket, a real `127.0.0.1:0` server, the session-port lifecycle (fixed
+on first start, reused, and re-rolled after a conflict), the git status provider
+(branch, dirty, detached, non-repo, failure, and TTL cache), and the command
+lifecycle with injected seams.

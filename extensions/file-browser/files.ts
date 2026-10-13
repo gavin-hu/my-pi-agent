@@ -13,6 +13,7 @@ import { HttpError } from "./paths.ts";
 export type EntryKind = "directory" | "text" | "image" | "binary";
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".avif"]);
+const MARKDOWN_EXTS = new Set([".md", ".markdown", ".mdown", ".mkd", ".mkdn"]);
 const TEXT_EXTS = new Set([
 	".txt",
 	".md",
@@ -115,6 +116,7 @@ export interface FileMeta {
 
 export type FileView =
 	| (FileMeta & { kind: "text"; lines: string[]; truncated: boolean; totalLines: number })
+	| (FileMeta & { kind: "markdown"; lines: string[]; truncated: boolean; totalLines: number })
 	| (FileMeta & { kind: "image" })
 	| (FileMeta & { kind: "binary" })
 	| (FileMeta & { kind: "tooLarge" });
@@ -122,6 +124,11 @@ export type FileView =
 /** Whether the name has an image extension. */
 export function isImageName(name: string): boolean {
 	return IMAGE_EXTS.has(extname(name).toLowerCase());
+}
+
+/** Whether the name has a Markdown extension. */
+export function isMarkdownName(name: string): boolean {
+	return MARKDOWN_EXTS.has(extname(name).toLowerCase());
 }
 
 /** Extension-based classification for listings (no file contents read). */
@@ -246,6 +253,7 @@ export async function readFileView(
 	rel: string,
 	maxFileBytes: number,
 	maxTextLines: number,
+	markdownEnabled = true,
 ): Promise<FileView> {
 	const abs = toAbs(root, rel);
 	let info: Awaited<ReturnType<typeof stat>>;
@@ -270,13 +278,12 @@ export async function readFileView(
 
 	const allLines = buffer.toString("utf-8").split(/\r\n|\r|\n/);
 	const truncated = allLines.length > maxTextLines;
-	return {
-		kind: "text",
-		...meta,
-		lines: truncated ? allLines.slice(0, maxTextLines) : allLines,
-		truncated,
-		totalLines: allLines.length,
-	};
+	const lines = truncated ? allLines.slice(0, maxTextLines) : allLines;
+	const kind = markdownEnabled && isMarkdownName(rel) ? "markdown" : "text";
+	if (kind === "markdown") {
+		return { kind: "markdown", ...meta, lines, truncated, totalLines: allLines.length };
+	}
+	return { kind: "text", ...meta, lines, truncated, totalLines: allLines.length };
 }
 
 export interface TreeNode {

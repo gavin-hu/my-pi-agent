@@ -25,6 +25,8 @@ export interface ServeConfig {
 	maxDirEntries: number;
 	/** Render inline image thumbnails in listings. */
 	thumbnails: boolean;
+	/** Render Markdown files as formatted HTML instead of plain text. */
+	markdown: boolean;
 }
 
 export const DEFAULT_CONFIG: ServeConfig = {
@@ -35,6 +37,7 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	maxTextLines: 5000,
 	maxDirEntries: 2000,
 	thumbnails: true,
+	markdown: true,
 };
 
 /** Base of the per-session port range. */
@@ -66,6 +69,7 @@ export function normalizeConfig(
 		maxTextLines: clampInteger(raw.maxTextLines, base.maxTextLines, 1, 1_000_000),
 		maxDirEntries: clampInteger(raw.maxDirEntries, base.maxDirEntries, 1, 1_000_000),
 		thumbnails: bool(raw.thumbnails, base.thumbnails),
+		markdown: bool(raw.markdown, base.markdown),
 	};
 }
 

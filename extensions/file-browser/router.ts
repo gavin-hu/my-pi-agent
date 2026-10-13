@@ -123,7 +123,7 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 	const abs = await resolveRequestPath(ctx.root, rawRel);
 	const rel = relativePath(ctx.root, abs);
 	const info = await stat(abs).catch(() => undefined);
-	if (!info || !info.isDirectory()) return view(ctx, rawRel);
+	if (!info || !info.isDirectory()) return view(ctx, rawRel, false);
 
 	const listing = await listDirectory(ctx.root, rel, ctx.config.maxDirEntries);
 	const tree = await treeFor(ctx, rel);
@@ -142,19 +142,27 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 	);
 }
 
-async function view(ctx: ServeContext, rawRel: string): Promise<ServeResponse> {
+async function view(ctx: ServeContext, rawRel: string, raw: boolean): Promise<ServeResponse> {
 	const abs = await resolveRequestPath(ctx.root, rawRel);
 	const rel = relativePath(ctx.root, abs);
 	const info = await stat(abs).catch(() => undefined);
 	if (info?.isDirectory()) return browse(ctx, rawRel);
 	if (!info) throw new HttpError(404, "That path does not exist.");
 
-	const file = await readFileView(ctx.root, rel, ctx.config.maxFileBytes, ctx.config.maxTextLines);
+	const file = await readFileView(ctx.root, rel, ctx.config.maxFileBytes, ctx.config.maxTextLines, ctx.config.markdown);
 	const tree = await treeFor(ctx, rel);
 	const git = await gitFor(ctx);
 	return htmlResponse(
 		200,
-		renderFilePage({ rootLabel: ctx.root, rel, file, tree, maxFileBytes: ctx.config.maxFileBytes, git }),
+		renderFilePage({
+			rootLabel: ctx.root,
+			rel,
+			file,
+			tree,
+			maxFileBytes: ctx.config.maxFileBytes,
+			git,
+			markdownRaw: raw,
+		}),
 	);
 }
 
@@ -246,7 +254,8 @@ export async function handleRequest(
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
 		if (pathname === "/" || pathname === "/browse" || pathname === "/browse/") return await browse(ctx, "");
 		if (pathname.startsWith("/browse/")) return await browse(ctx, pathname.slice("/browse/".length));
-		if (pathname.startsWith("/view/")) return await view(ctx, pathname.slice("/view/".length));
+		if (pathname.startsWith("/view/"))
+			return await view(ctx, pathname.slice("/view/".length), search.get("raw") === "1");
 		if (pathname.startsWith("/raw/")) return await raw(ctx, pathname.slice("/raw/".length));
 		return errorResponse(ctx, 404, "That page does not exist.");
 	} catch (error) {

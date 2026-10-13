@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Listing, TreeNode } from "./files.ts";
-import { encodePath, escapeHtml, formatDate, renderBreadcrumbs, renderDirectoryPage, renderFilePage } from "./html.ts";
+import { formatDate, renderBreadcrumbs, renderDirectoryPage, renderFilePage } from "./html.ts";
 import { makeFixture, localTimeMs, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
 
 /** A fixed mtime so date rendering is deterministic. */
@@ -35,19 +35,6 @@ const tree: TreeNode = {
 		{ name: 'a"<b>.txt', rel: 'a"<b>.txt', isDir: false, isImage: false, broken: false, kind: "text", children: [] },
 	],
 };
-
-describe("escapeHtml", () => {
-	test("escapes every HTML-significant character", () => {
-		expect(escapeHtml(`<a href="x">&'`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
-	});
-});
-
-describe("encodePath", () => {
-	test("encodes segments but keeps separators", () => {
-		expect(encodePath("sub/a b#c.ts")).toBe("sub/a%20b%23c.ts");
-		expect(encodePath("")).toBe("");
-	});
-});
 
 describe("formatDate", () => {
 	test("formats a timestamp", () => {
@@ -312,5 +299,120 @@ describe("renderFilePage", () => {
 			file: { kind: "image", size: 68, mtimeMs: MTIME_MS, mime: "image/png" },
 		});
 		expect(html).toContain(`<img src="/raw/image.png"`);
+	});
+
+	test("renders a Markdown page with a raw toggle and copy actions", () => {
+		fixture = makeFixture();
+		const html = renderFilePage({
+			rootLabel: fixture.root,
+			rel: "sub/b.md",
+			tree,
+			maxFileBytes: 1_000_000,
+			file: {
+				kind: "markdown",
+				lines: ["# hi", "", "some **bold** text"],
+				truncated: false,
+				totalLines: 3,
+				size: 30,
+				mtimeMs: MTIME_MS,
+				mime: "application/octet-stream",
+			},
+		});
+		expect(html).toContain('<div class="md-body">');
+		expect(html).toContain("<h1>hi</h1>");
+		expect(html).toContain("<strong>bold</strong>");
+		expect(html).toContain('href="/view/sub/b.md?raw=1"');
+		expect(html).toContain('data-copy="content"');
+		expect(html).toContain('data-value="sub/b.md"');
+		expect(html).not.toContain('id="wrap-toggle"');
+	});
+
+	test("renders raw Markdown with a wrap toggle and a rendered link", () => {
+		fixture = makeFixture();
+		const html = renderFilePage({
+			rootLabel: fixture.root,
+			rel: "sub/b.md",
+			tree,
+			maxFileBytes: 1_000_000,
+			markdownRaw: true,
+			file: {
+				kind: "markdown",
+				lines: ["# hi"],
+				truncated: false,
+				totalLines: 1,
+				size: 5,
+				mtimeMs: MTIME_MS,
+				mime: "application/octet-stream",
+			},
+		});
+		expect(html).toContain('<pre class="code">');
+		expect(html).toContain('id="wrap-toggle"');
+		expect(html).toContain('href="/view/sub/b.md"');
+		expect(html).not.toContain('class="md-body"');
+	});
+});
+
+describe("renderDirectoryPage sort and styles", () => {
+	test("marks rows with sort keys and headers as sortable", () => {
+		fixture = makeFixture();
+		const html = renderDirectoryPage({
+			rootLabel: fixture.root,
+			rel: "",
+			listing: {
+				entries: [
+					{
+						name: "sub",
+						rel: "sub",
+						isDir: true,
+						isSymlink: false,
+						broken: false,
+						size: 0,
+						mtimeMs: MTIME_MS,
+						kind: "directory",
+						isImage: false,
+					},
+					{
+						name: "a.txt",
+						rel: "a.txt",
+						isDir: false,
+						isSymlink: false,
+						broken: false,
+						size: 12,
+						mtimeMs: MTIME_MS,
+						kind: "text",
+						isImage: false,
+					},
+				],
+				total: 2,
+				truncated: false,
+			},
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		});
+		expect(html).toContain('data-sort="name"');
+		expect(html).toContain('data-sort="size"');
+		expect(html).toContain('data-sort="mtime"');
+		expect(html).toContain('aria-sort="ascending"');
+		expect(html).toContain('data-dir="1"');
+		expect(html).toContain('data-dir="0"');
+		expect(html).toContain('data-size="12"');
+		expect(html).toContain(`data-mtime="${MTIME_MS}"`);
+	});
+
+	test("ships the markdown, sort, wrap, and action styles", () => {
+		fixture = makeFixture();
+		const html = renderDirectoryPage({
+			rootLabel: fixture.root,
+			rel: "",
+			listing: { entries: [], total: 0, truncated: false },
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		});
+		expect(html).toContain("pre.code.wrap .line{white-space:pre-wrap");
+		expect(html).toContain(".md-body{");
+		expect(html).toContain('.segmented .seg[aria-current="page"]');
+		expect(html).toContain(".action{display:none}");
 	});
 });

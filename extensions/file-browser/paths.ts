@@ -34,6 +34,15 @@ export function decodePath(raw: string): string {
 	return decoded;
 }
 
+/** Percent-encode each path segment, keeping `/` separators. */
+export function encodePath(rel: string): string {
+	return rel
+		.split("/")
+		.filter(Boolean)
+		.map((segment) => encodeURIComponent(segment))
+		.join("/");
+}
+
 function isMissing(error: unknown): boolean {
 	const code = (error as NodeJS.ErrnoException | undefined)?.code;
 	return code === "ENOENT" || code === "ENOTDIR";

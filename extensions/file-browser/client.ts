@@ -196,5 +196,117 @@ export const CLIENT_JS = `(function () {
 			if (fallback) fallback.hidden = false;
 		});
 	});
+
+	var store = {
+		get: function (key) {
+			try { return window.localStorage.getItem(key); } catch (error) { return null; }
+		},
+		set: function (key, value) {
+			try { window.localStorage.setItem(key, value); } catch (error) { /* private mode */ }
+		}
+	};
+
+	var sortButtons = Array.prototype.slice.call(document.querySelectorAll("table.listing th .sort"));
+
+	function setSort(key, direction, remember) {
+		sortButtons.forEach(function (button) {
+			var th = button.closest("th");
+			if (!th) return;
+			if (button.getAttribute("data-sort") === key) th.setAttribute("aria-sort", direction);
+			else th.removeAttribute("aria-sort");
+		});
+		rows.sort(function (a, b) {
+			var dirA = a.getAttribute("data-dir") === "1" ? 0 : 1;
+			var dirB = b.getAttribute("data-dir") === "1" ? 0 : 1;
+			if (dirA !== dirB) return dirA - dirB;
+			var result;
+			if (key === "size" || key === "mtime") {
+				result = Number(a.getAttribute("data-" + key)) - Number(b.getAttribute("data-" + key));
+			} else {
+				result = (a.getAttribute("data-name") || "")
+					.toLowerCase()
+					.localeCompare((b.getAttribute("data-name") || "").toLowerCase());
+			}
+			if (result === 0) result = (a.getAttribute("data-name") || "").localeCompare(b.getAttribute("data-name") || "");
+			return direction === "descending" ? -result : result;
+		});
+		var tbody = rows.length > 0 ? rows[0].parentElement : null;
+		if (tbody) rows.forEach(function (row) { tbody.appendChild(row); });
+		if (remember) store.set("serve-sort", key + ":" + direction);
+	}
+
+	if (sortButtons.length > 0) {
+		var savedSort = store.get("serve-sort");
+		var savedParts = savedSort ? savedSort.split(":") : [];
+		if (savedParts.length === 2) setSort(savedParts[0], savedParts[1] === "descending" ? "descending" : "ascending", false);
+		sortButtons.forEach(function (button) {
+			button.addEventListener("click", function () {
+				var th = button.closest("th");
+				var direction = th && th.getAttribute("aria-sort") === "ascending" ? "descending" : "ascending";
+				setSort(button.getAttribute("data-sort") || "name", direction, true);
+			});
+		});
+	}
+
+	var wrapButton = document.getElementById("wrap-toggle");
+	var code = document.querySelector("pre.code");
+	function applyWrap(on) {
+		if (!code) return;
+		if (on) code.classList.add("wrap");
+		else code.classList.remove("wrap");
+		if (wrapButton) {
+			wrapButton.setAttribute("aria-pressed", on ? "true" : "false");
+			wrapButton.textContent = on ? "no wrap" : "wrap";
+		}
+	}
+	if (wrapButton && code) {
+		var wrapOn = store.get("serve-wrap") === "1";
+		applyWrap(wrapOn);
+		wrapButton.addEventListener("click", function () {
+			wrapOn = !code.classList.contains("wrap");
+			applyWrap(wrapOn);
+			store.set("serve-wrap", wrapOn ? "1" : "0");
+		});
+	}
+
+	function copyText(value) {
+		if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(value);
+		return new Promise(function (resolve, reject) {
+			var area = document.createElement("textarea");
+			area.value = value;
+			area.setAttribute("readonly", "");
+			area.style.position = "fixed";
+			area.style.opacity = "0";
+			document.body.appendChild(area);
+			area.select();
+			try { document.execCommand("copy"); resolve(); }
+			catch (error) { reject(error); }
+			finally { document.body.removeChild(area); }
+		});
+	}
+
+	function flash(button, label) {
+		var original = button.textContent;
+		button.textContent = label;
+		window.setTimeout(function () { button.textContent = original; }, 1200);
+	}
+
+	Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (button) {
+		button.addEventListener("click", function () {
+			var source;
+			if (button.getAttribute("data-copy") === "path") {
+				source = Promise.resolve(button.getAttribute("data-value") || "");
+			} else {
+				source = fetch(button.getAttribute("data-href") || "").then(function (response) {
+					if (!response.ok) throw new Error("copy failed");
+					return response.text();
+				});
+			}
+			source
+				.then(function (text) { return copyText(text); })
+				.then(function () { flash(button, "copied"); })
+				.catch(function () { flash(button, "failed"); });
+		});
+	});
 })();
 `;

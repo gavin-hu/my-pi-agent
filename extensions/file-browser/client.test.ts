@@ -45,6 +45,21 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("(max-width: 720px)");
 	});
 
+	test("sorts listings and remembers the choice", () => {
+		expect(CLIENT_JS).toContain("data-sort");
+		expect(CLIENT_JS).toContain("aria-sort");
+		expect(CLIENT_JS).toContain("serve-sort");
+		expect(CLIENT_JS).toContain('getAttribute("data-dir")');
+	});
+
+	test("toggles wrapping and copies with a clipboard fallback", () => {
+		expect(CLIENT_JS).toContain("serve-wrap");
+		expect(CLIENT_JS).toContain("wrap-toggle");
+		expect(CLIENT_JS).toContain("[data-copy]");
+		expect(CLIENT_JS).toContain("navigator.clipboard");
+		expect(CLIENT_JS).toContain("execCommand");
+	});
+
 	test("is served as a no-store script", async () => {
 		fixture = makeFixture();
 		const response = await handleRequest({ root: fixture.root, config: DEFAULT_CONFIG }, "GET", "/app.js", {});
