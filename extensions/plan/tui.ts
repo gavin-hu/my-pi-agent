@@ -6,28 +6,36 @@
  * text with the same rules the review screen uses.
  *
  * `PlanViewComponent` is the scrollable review screen `exit_plan_mode` opens
- * for approval. It sanitizes the plan file for terminal display and returns the
- * chosen action through `onClose` so the caller can act only after the screen is
- * gone and input focus is free again.
+ * for approval. The plan body is rendered by Pi's own `Markdown` component with
+ * the active Markdown theme, so headings, lists, code, links, and quotes match
+ * the rest of the application; plan-authored control characters are stripped
+ * first so the file cannot drive the terminal. Task checkboxes are recolored,
+ * a step-progress row sits under the header, and the footer colors the primary
+ * actions. It returns the chosen action through `onClose` so the caller can act
+ * only after the screen is gone and input focus is free again.
  */
 
 import { basename } from "node:path";
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	Editor,
 	type EditorTheme,
 	Key,
+	Markdown,
 	matchesKey,
 	truncateToWidth,
-	wrapTextWithAnsi,
+	visibleWidth,
 	type Component,
+	type MarkdownTheme,
 	type TUI,
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { stripControlChars } from "../../lib/format.ts";
-import { screenHeader, screenHint, viewportRows, type ViewportRowsSource } from "../../lib/tui.ts";
+import { screenHeader, screenHint, viewportRows, type ScreenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
+import { extractPlanSteps, type PlanStep } from "./steps.ts";
 
 /** What the user chose from the read/review screen. */
 export type PlanViewAction = "approve" | "refine" | "keep";
@@ -44,13 +52,28 @@ export interface PlanViewOptions {
 	viewportRows?: ViewportRowsSource;
 	/** TUI handle for the inline refine editor; without it, `r` closes with `refine`. */
 	tui?: TUI;
+	/** Markdown theme for the body; defaults to Pi's active theme. */
+	markdownTheme?: MarkdownTheme;
 }
 
 /** Rows the screen shows when the terminal height is unknown. */
 const DEFAULT_ROWS = 20;
-/** Header, blanks, and footer rows around a non-empty plan. */
+/** Header, blanks, footer, and trailing rows around a non-empty plan. */
 const CHROME_ROWS = 5;
-
+/** Narrowest width where Markdown's 2-column padding still fits the body. */
+const MIN_PADDED_WIDTH = 6;
+/** Left/right body padding, matching the rest of the screen chrome. */
+const BODY_PADDING = 2;
+/** Segments in the step-progress and scroll gauges. */
+const GAUGE_SEGMENTS = 10;
+/** Footer hints shared by the review and the inline editor's primary actions. */
+const PRIMARY_HINTS: ScreenHint[] = [
+	"Esc keep planning",
+	{ text: "a approve", color: "success" },
+	{ text: "r refine", color: "accent" },
+];
+/** Scroll keys appended to the review footer while the plan overflows. */
+const SCROLL_HINTS: ScreenHint[] = ["↑/↓ or k/j scroll", "space/b page", "g/G ends"];
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
 
@@ -63,25 +86,54 @@ export function sanitizePlanText(text: string): string {
 	return stripControlChars(text.replace(/\t/g, " ".repeat(TAB_WIDTH)));
 }
 
-/** Light markdown styling for one source line. */
-function styleLine(theme: Theme, raw: string): string {
-	const line = sanitizePlanText(raw).trimEnd();
-	if (/^\s{0,3}#{1,6}(\s|$)/.test(line)) return theme.fg("accent", theme.bold(line));
-	if (/^\s{0,3}(`{3,}|~{3,})/.test(line)) return theme.fg("dim", line);
-	const bullet = line.match(/^(\s*)([-*+]|\d+[.)])(\s+.*)$/);
-	if (bullet) return `${bullet[1]}${theme.fg("accent", bullet[2])}${bullet[3]}`;
-	return line;
+/** A task checkbox in a list marker: `- [x] `, `1. [ ] `. */
+const TASK_MARKER = /^([-*+]|\d+[.)])(\s+)(\[([ xX])\])(\s*)$/;
+/** Task-checkbox markers; three columns wide so list wrapping stays aligned. */
+const TASK_BOX = { done: "[✓]", pending: "[ ]" } as const;
+
+/**
+ * Wrap the Markdown theme so task checkboxes read at a glance: done steps get a
+ * `success` check, pending steps a `dim` box. The replacement keeps the marker's
+ * visible width (`[✓]` and `[ ]` are both three columns), so wrapped list
+ * continuation lines stay aligned.
+ */
+function planMarkdownTheme(theme: Theme, base: MarkdownTheme): MarkdownTheme {
+	return {
+		...base,
+		listBullet: (text) => {
+			const match = TASK_MARKER.exec(text);
+			if (!match) return base.listBullet(text);
+			const [, bullet, gap, , mark, trail] = match;
+			const box = mark.toLowerCase() === "x" ? theme.fg("success", TASK_BOX.done) : theme.fg("dim", TASK_BOX.pending);
+			return `${base.listBullet(`${bullet}${gap}`)}${box}${trail}`;
+		},
+	};
 }
 
-/** One display line: the styled text plus the source line it wrapped from. */
-interface BodyLine {
-	text: string;
-	source: number;
+/** A fixed-width gauge: `fillSegments` (rounded) in `fill`, the rest dim. */
+function gauge(theme: Theme, fillSegments: number, fill: "accent" | "success"): string {
+	const count = Math.min(GAUGE_SEGMENTS, Math.max(0, Math.round(fillSegments)));
+	return (
+		theme.fg(fill, GLYPHS.gaugeFull.repeat(count)) + theme.fg("dim", GLYPHS.gaugeEmpty.repeat(GAUGE_SEGMENTS - count))
+	);
 }
 
-/** Human title for the header: the file name without its extension or stamp. */
-function displayTitle(fileName: string): string {
-	return planTitle(fileName);
+/** Step progress under the header: a gauge plus `n/m steps done`. */
+function progressRow(theme: Theme, width: number, done: number, total: number): string {
+	const count = theme.fg(done > 0 ? "success" : "dim", `${done}/${total}`);
+	const label = theme.fg("muted", total === 1 ? "step done" : "steps done");
+	return truncateToWidth(`  ${gauge(theme, (done / total) * GAUGE_SEGMENTS, "success")}  ${count} ${label}`, width);
+}
+
+/** Scroll position below the body: a gauge, the percent, and the visible range. */
+function scrollRow(theme: Theme, width: number, offset: number, end: number, total: number): string {
+	const maxOffset = Math.max(0, total - (end - offset));
+	const percent = maxOffset > 0 ? Math.round((offset / maxOffset) * 100) : 100;
+	const head = `${gauge(theme, (percent / 100) * GAUGE_SEGMENTS, "accent")} ${theme.fg("accent", `${percent}%`)}`;
+	const range = theme.fg("dim", `lines ${offset + 1}–${end} of ${total}`);
+	const full = `  ${head}  ${range}`;
+	// Drop the range before the gauge on a narrow terminal.
+	return truncateToWidth(visibleWidth(full) <= width ? full : `  ${head}`, width);
 }
 
 /** Minimal editor theme for the inline refine input. */
@@ -103,58 +155,49 @@ export class PlanViewComponent implements Component {
 	private offset = 0;
 	private visible = DEFAULT_ROWS;
 	private maxOffset = 0;
-	/** Wrapped lines are expensive to build, so they are cached per width. */
-	private cache: { width: number; lines: BodyLine[] } | null = null;
-	/** Source line (and wrap offset) the view starts at, so a resize keeps its place. */
-	private anchor: { source: number; within: number } | null = null;
+	/** Rendered Markdown lines, cached per width. */
+	private cache: { width: number; lines: string[] } | null = null;
+	/** The Markdown renderer and the padding it was built for. */
+	private markdown: { padding: number; component: Markdown } | null = null;
+	/**
+	 * Top-level steps the plan will seed into `todo` (extracted once), for the
+	 * progress row; the same extraction approval uses.
+	 */
+	private readonly steps: PlanStep[];
 	/** True while the inline refine editor owns the keyboard. */
 	private editing = false;
 	/** The inline refine editor, built lazily once a TUI handle is available. */
 	private editor: Editor | null = null;
 
-	constructor(private readonly options: PlanViewOptions) {}
+	constructor(private readonly options: PlanViewOptions) {
+		this.steps = extractPlanSteps(options.plan.content);
+	}
 
 	private get theme(): Theme {
 		return this.options.theme;
 	}
 
-	/** Styled, wrapped body lines for the given outer width. */
-	private body(width: number): BodyLine[] {
+	/** Styled, width-safe Markdown body lines for the given outer width. */
+	private body(width: number): string[] {
 		if (this.cache?.width === width) return this.cache.lines;
-		const inner = Math.max(1, width - 2);
-		const out: BodyLine[] = [];
-		const source = this.options.plan.content.split("\n");
-		for (let index = 0; index < source.length; index++) {
-			const raw = source[index];
-			for (const line of wrapTextWithAnsi(styleLine(this.theme, raw), inner)) {
-				out.push({ text: `  ${line}`, source: index });
-			}
+		const padding = width >= MIN_PADDED_WIDTH ? BODY_PADDING : 0;
+		if (!this.markdown || this.markdown.padding !== padding) {
+			const base = this.options.markdownTheme ?? getMarkdownTheme();
+			this.markdown = {
+				padding,
+				component: new Markdown(
+					sanitizePlanText(this.options.plan.content),
+					padding,
+					0,
+					planMarkdownTheme(this.theme, base),
+				),
+			};
 		}
-		this.cache = { width, lines: out };
-		return out;
-	}
-
-	/** Re-place the view after a width change so the same source line stays on top. */
-	private reanchor(body: BodyLine[]): void {
-		if (!this.anchor) return;
-		const { source, within } = this.anchor;
-		const start = body.findIndex((line) => line.source === source);
-		if (start < 0) return;
-		let count = 0;
-		while (start + count < body.length && body[start + count].source === source) count++;
-		this.offset = Math.min(start + Math.min(within, count - 1), this.maxOffset);
-	}
-
-	/** Remember which source line and wrap position the view currently starts at. */
-	private updateAnchor(body: BodyLine[]): void {
-		const top = body[this.offset];
-		if (!top) {
-			this.anchor = null;
-			return;
-		}
-		let within = 0;
-		for (let i = this.offset - 1; i >= 0 && body[i].source === top.source; i--) within++;
-		this.anchor = { source: top.source, within };
+		// Markdown pads every line to the full width for backgrounds; this screen
+		// draws no background, so the padding is dropped.
+		const lines = this.markdown.component.render(width).map((line) => truncateToWidth(line.trimEnd(), width));
+		this.cache = { width, lines };
+		return lines;
 	}
 
 	/** Move the view to an absolute body line, clamped to the plan. */
@@ -251,6 +294,8 @@ export class PlanViewComponent implements Component {
 
 	invalidate(): void {
 		this.cache = null;
+		// Rebuild the Markdown renderer so a theme change is picked up.
+		this.markdown = null;
 		this.editor?.invalidate();
 	}
 
@@ -258,24 +303,34 @@ export class PlanViewComponent implements Component {
 		const theme = this.theme;
 		const w = Math.max(1, width);
 		const plan = this.options.plan;
-		const title = displayTitle(basename(plan.path));
+		const title = planTitle(basename(plan.path));
 
-		const cachedWidth = this.cache?.width;
+		const previousWidth = this.cache?.width;
 		const body = plan.content.trim() ? this.body(w) : [];
 		const editorLines = this.editing ? (this.editor?.render(Math.max(1, w - 2)) ?? []) : [];
 		const editorRows = editorLines.length > 0 ? editorLines.length + 2 : 0;
-		const chrome = CHROME_ROWS + (body.length === 0 ? 1 : 0) + editorRows;
+		const hasSteps = this.steps.length > 0;
+		const chrome = CHROME_ROWS + (hasSteps ? 1 : 0) + (body.length === 0 ? 1 : 0) + editorRows;
 		const visible = viewportRows(this.options.viewportRows, { chrome, fallback: DEFAULT_ROWS });
 		this.visible = visible;
-		this.maxOffset = Math.max(0, body.length - visible);
-		if (cachedWidth !== undefined && cachedWidth !== w) this.reanchor(body);
-		this.offset = Math.min(Math.max(0, this.offset), this.maxOffset);
-		this.updateAnchor(body);
+		const maxOffset = Math.max(0, body.length - visible);
+		// Markdown has no source-line map, so a resize keeps the offset's fraction
+		// of the plan: the reader stays at roughly the same place.
+		if (previousWidth !== undefined && previousWidth !== w && this.maxOffset > 0 && maxOffset > 0) {
+			this.offset = Math.round((this.offset / this.maxOffset) * maxOffset);
+		}
+		this.maxOffset = maxOffset;
+		this.offset = Math.min(Math.max(0, this.offset), maxOffset);
 
-		const lines: string[] = [screenHeader(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6))), ""];
+		const lines: string[] = [screenHeader(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6)))];
+		if (hasSteps) {
+			const done = this.steps.filter((step) => step.status === "completed").length;
+			lines.push(progressRow(theme, w, done, this.steps.length));
+		}
+		lines.push("");
 
 		const end = Math.min(body.length, this.offset + visible);
-		for (let i = this.offset; i < end; i++) lines.push(truncateToWidth(body[i].text, w));
+		for (let i = this.offset; i < end; i++) lines.push(body[i]);
 		if (body.length === 0) lines.push(truncateToWidth(`  ${theme.fg("dim", "This plan is empty.")}`, w));
 
 		if (this.editing) {
@@ -283,20 +338,11 @@ export class PlanViewComponent implements Component {
 			lines.push(truncateToWidth(`  ${theme.fg("muted", "Refine the plan:")}`, w));
 			for (const line of editorLines) lines.push(truncateToWidth(`  ${line}`, w));
 			lines.push("");
-			lines.push(screenHint(theme, w, ["Esc back to plan", "Enter submit"]));
+			lines.push(screenHint(theme, w, ["Esc back to plan", { text: "Enter submit", color: "success" }]));
 		} else {
-			const scrollable = this.maxOffset > 0;
-			if (scrollable) {
-				const percent = Math.round((this.offset / this.maxOffset) * 100);
-				lines.push(
-					truncateToWidth(`  ${theme.fg("dim", `lines ${this.offset + 1}–${end} of ${body.length} (${percent}%)`)}`, w),
-				);
-			} else {
-				lines.push("");
-			}
-			const hints = scrollable
-				? ["Esc keep planning", "a approve", "r refine", "↑/↓ or k/j scroll", "space/b page", "g/G ends"]
-				: ["Esc keep planning", "a approve", "r refine"];
+			if (this.maxOffset > 0) lines.push(scrollRow(theme, w, this.offset, end, body.length));
+			else lines.push("");
+			const hints: ScreenHint[] = this.maxOffset > 0 ? [...PRIMARY_HINTS, ...SCROLL_HINTS] : PRIMARY_HINTS;
 			lines.push(screenHint(theme, w, hints));
 		}
 		lines.push("");

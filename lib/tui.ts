@@ -16,7 +16,7 @@
  * in, and the viewport options are explicit.
  */
 
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type OverlayOptions } from "@earendil-works/pi-tui";
 import { SEPARATORS } from "./ui.ts";
 
@@ -74,17 +74,27 @@ export function viewportRows(source: ViewportRowsSource | undefined, options: Vi
 }
 
 /**
- * A dim, two-space-indented key-hint footer, joined with ` · `. Hints are added
- * while they fit, so a narrow terminal drops whole keys instead of truncating
- * one in half. The first hint is always kept; the result is clipped to `width`.
+ * One key-hint entry: plain dim text, or text in a chosen semantic color so a
+ * primary action (approve, submit) stands out from the scroll hints.
  */
-export function screenHint(theme: Theme, width: number, hints: string[]): string {
+export type ScreenHint = string | { text: string; color?: ThemeColor };
+
+/**
+ * A two-space-indented key-hint footer, joined with ` · `. Plain hints are dim;
+ * an object hint uses its color (dim when omitted). Hints are added while they
+ * fit, so a narrow terminal drops whole keys instead of truncating one in half.
+ * The first hint is always kept; the result is clipped to `width`.
+ */
+export function screenHint(theme: Theme, width: number, hints: ScreenHint[]): string {
 	const target = Math.max(1, width);
-	const kept: string[] = [];
+	const render = (hint: ScreenHint): string =>
+		typeof hint === "string" ? theme.fg("dim", hint) : theme.fg(hint.color ?? "dim", hint.text);
+	const separator = theme.fg("dim", SEPARATORS.item);
+	const kept: ScreenHint[] = [];
 	for (const hint of hints) {
-		const candidate = [...kept, hint].join(SEPARATORS.item);
+		const candidate = [...kept, hint].map(render).join(separator);
 		if (kept.length > 0 && visibleWidth(`  ${candidate}`) > target) break;
 		kept.push(hint);
 	}
-	return truncateToWidth(`  ${theme.fg("dim", kept.join(SEPARATORS.item))}`, target);
+	return truncateToWidth(`  ${kept.map(render).join(separator)}`, target);
 }
