@@ -74,6 +74,28 @@ export function readMemoryFile(path: string): string {
 	return readFileSync(path, "utf-8");
 }
 
+/** Coarse identity of a store file, for cheap change detection. */
+export interface MemoryFileStamp {
+	mtimeMs: number;
+	size: number;
+}
+
+/** Freshness stamp for a store file; `undefined` when it is missing or unstattable. */
+export function memoryFileStamp(path: string): MemoryFileStamp | undefined {
+	try {
+		const info = statSync(path);
+		return { mtimeMs: info.mtimeMs, size: info.size };
+	} catch {
+		return undefined;
+	}
+}
+
+/** Whether two stamps describe the same file state. */
+export function sameStamp(a: MemoryFileStamp | undefined, b: MemoryFileStamp | undefined): boolean {
+	if (a === undefined || b === undefined) return a === b;
+	return a.mtimeMs === b.mtimeMs && a.size === b.size;
+}
+
 /** Note text of every bullet line, sanitized to one terminal-safe line. */
 export function parseEntries(content: string): string[] {
 	const entries: string[] = [];

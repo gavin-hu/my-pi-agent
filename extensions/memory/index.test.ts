@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { utimesSync } from "node:fs";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
 import { memorySuite, type MemorySuite } from "../../test/helpers/fixtures/memory.ts";
 import memory from "./index.ts";
+import { MAX_MEMORY_BYTES } from "./store.ts";
 import { TOOL_NAME } from "./tools.ts";
 
 let suite: MemorySuite;
@@ -126,5 +128,60 @@ describe("memory extension", () => {
 		suite.setConfirm(true);
 		await suite.pi.commands.get("memory").handler("clear global", suite.ctx);
 		expect(suite.read("global")).not.toContain("- one");
+	});
+
+	test("picks up an external edit before the next run", async () => {
+		suite.write("project", "- old fact\n");
+		await suite.start();
+
+		suite.write("project", "- a fresh external fact\n");
+		const [result] = await suite.emit("before_agent_start", {});
+		expect(result.message.content).toContain("- a fresh external fact");
+		expect(result.message.content).not.toContain("- old fact");
+	});
+
+	test("picks up an external edit through the tool", async () => {
+		await suite.start();
+
+		suite.write("project", "- external list fact\n");
+		const listed = await tool().execute("1", { action: "list" }, undefined, undefined);
+		expect(listed.details.project).toContain("external list fact");
+	});
+
+	test("picks up a same-size external edit when the mtime advances", async () => {
+		suite.write("project", "- a\n");
+		await suite.start();
+
+		suite.write("project", "- b\n");
+		// Jump the mtime far from the loaded stamp without the wall clock: utimesSync
+		// treats a number as seconds since the epoch.
+		utimesSync(suite.projectPath, 1_000, 1_000);
+		const [result] = await suite.emit("before_agent_start", {});
+		expect(result.message.content).toContain("- b");
+	});
+
+	test("a self-write is not reported by /memory reload", async () => {
+		await suite.start();
+
+		await tool().execute("1", { action: "add", text: "mine" }, undefined, undefined);
+		await suite.pi.commands.get("memory").handler("reload", suite.ctx);
+		expect(suite.notices.at(-1)).toBe("Memory is already up to date.");
+	});
+
+	test("/memory reload reports an external change", async () => {
+		await suite.start();
+
+		suite.write("global", "- external global\n");
+		await suite.pi.commands.get("memory").handler("reload", suite.ctx);
+		expect(suite.notices.at(-1)).toMatch(/Reloaded global memory/);
+	});
+
+	test("an unreadable external file keeps the last good view", async () => {
+		suite.write("project", "- keep\n");
+		await suite.start();
+
+		suite.write("project", "a".repeat(MAX_MEMORY_BYTES + 1));
+		const [result] = await suite.emit("before_agent_start", {});
+		expect(result.message.content).toContain("- keep");
 	});
 });

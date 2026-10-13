@@ -27,7 +27,7 @@ function notify(ctx: ExtensionCommandContext, message: string, kind: "info" | "w
 export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 	pi.registerCommand("memory", {
 		description:
-			"Show, edit, or clear durable memory: /memory [list | path | edit [project|global] | clear [project|global]]",
+			"Show, edit, reload, or clear durable memory: /memory [list | path | reload | edit [project|global] | clear [project|global]]",
 		handler: async (args, ctx) => {
 			const [sub = "list", scopeArg] = args.trim().split(/\s+/);
 			const scope = parseScope(scopeArg);
@@ -41,6 +41,20 @@ export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void
 					}
 					const trust = runtime.trusted() ? "trusted" : "untrusted (read-only)";
 					notify(ctx, `Project: ${paths.project} [${trust}]\nGlobal:  ${paths.global}`);
+					return;
+				}
+				case "reload": {
+					const result = runtime.refresh();
+					if (result.warning) {
+						notify(ctx, `Memory reloaded with a problem: ${result.warning}`, "warning");
+						return;
+					}
+					notify(
+						ctx,
+						result.changed.length > 0
+							? `Reloaded ${result.changed.map(scopeLabel).join(", ")} memory.`
+							: "Memory is already up to date.",
+					);
 					return;
 				}
 				case "edit": {
