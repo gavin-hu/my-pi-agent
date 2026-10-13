@@ -100,7 +100,7 @@ export interface ExtensionReport {
 // say the same thing. Formatting only: no extension-specific logic.
 
 /** Install command for the optional PDF extractor package. */
-export const UNPDF_INSTALL = "npm i unpdf";
+const UNPDF_INSTALL = "npm i unpdf";
 
 /** Model-facing guidance when the optional `unpdf` package is absent. */
 export function pdfGuidance(): string {

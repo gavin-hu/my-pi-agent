@@ -148,46 +148,45 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		notify("WeChat session expired. Run /wechat login again.", "warning");
 	}
 
-	async function reply(item: InboundItem, text: string): Promise<void> {
-		if (!client || !account) return;
+	/**
+	 * Send `text` to one peer in `maxReplyChars` chunks, stopping at the first
+	 * failed chunk. A session expiry is handled here; a thrown transport error is
+	 * handed to `onError` so each caller can report it its own way.
+	 */
+	async function sendChunked(
+		to: string,
+		contextToken: string | undefined,
+		text: string,
+		signal: AbortSignal | undefined,
+		onError: (error: unknown) => void,
+	): Promise<boolean> {
+		if (!client || !account) return false;
 		for (const chunk of chunkText(text, deps.config.maxReplyChars)) {
 			try {
-				const response = await client.sendMessage(
-					account,
-					{ to: item.peer, text: chunk, contextToken: item.contextToken },
-					abort?.signal,
-				);
-				if (isSessionExpired(response)) {
-					handleExpired();
-					return;
-				}
-			} catch (error) {
-				if (abort?.signal.aborted) return;
-				notify(`WeChat reply failed: ${messageOf(error)}`, "warning");
-				return;
-			}
-		}
-	}
-
-	/** Send a text message to the peer owning the in-flight turn, chunked. */
-	async function sendPrompt(text: string, signal?: AbortSignal): Promise<boolean> {
-		if (!client || !account || !active) return false;
-		for (const chunk of chunkText(text, deps.config.maxReplyChars)) {
-			try {
-				const response = await client.sendMessage(
-					account,
-					{ to: active.peer, text: chunk, contextToken: active.contextToken },
-					signal ?? abort?.signal,
-				);
+				const response = await client.sendMessage(account, { to, text: chunk, contextToken }, signal);
 				if (isSessionExpired(response)) {
 					handleExpired();
 					return false;
 				}
-			} catch {
+			} catch (error) {
+				onError(error);
 				return false;
 			}
 		}
 		return true;
+	}
+
+	async function reply(item: InboundItem, text: string): Promise<void> {
+		await sendChunked(item.peer, item.contextToken, text, abort?.signal, (error) => {
+			if (abort?.signal.aborted) return;
+			notify(`WeChat reply failed: ${messageOf(error)}`, "warning");
+		});
+	}
+
+	/** Send a text message to the peer owning the in-flight turn, chunked. */
+	async function sendPrompt(text: string, signal?: AbortSignal): Promise<boolean> {
+		if (!active) return false;
+		return sendChunked(active.peer, active.contextToken, text, signal ?? abort?.signal, () => {});
 	}
 
 	/** Upload and send a local file to the peer owning the in-flight turn. */
@@ -217,9 +216,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		const cached = typingCache.get(peer);
 		const now = deps.now();
 		if (cached && now - cached.checkedAt < TYPING_TTL_MS) return cached.ticket;
+		if (!client || !account) return undefined;
 		try {
-			const response = await client?.getConfig(
-				account as BotCredentials,
+			const response = await client.getConfig(
+				account,
 				{ ilinkUserId: peer, contextToken: item.contextToken },
 				abort?.signal,
 			);
@@ -354,9 +354,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 	async function loop(signal: AbortSignal): Promise<void> {
 		while (running && !signal.aborted) {
+			if (!client || !account) break;
 			let response;
 			try {
-				response = await client?.getUpdates(account as BotCredentials, state.cursor, signal);
+				response = await client.getUpdates(account, state.cursor, signal);
 			} catch (error) {
 				if (signal.aborted || !running) break;
 				notify(`WeChat poll failed: ${messageOf(error)}`, "warning");

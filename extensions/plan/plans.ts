@@ -14,10 +14,11 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../../lib/git/index.ts";
+import { isInside, isInsideReal } from "../../lib/path.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
 export const MAX_PLAN_BYTES = 256 * 1024;
@@ -83,12 +84,6 @@ export function stamp(date: Date): string {
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
 }
 
-/** Whether `path` resolves strictly inside `dir`. */
-export function isWithin(dir: string, path: string): boolean {
-	const rel = relative(resolve(dir), resolve(path));
-	return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
-}
-
 /** A plan file name: markdown and not a dotfile, so the self-ignore file is never a target. */
 function isPlanFileName(path: string): boolean {
 	const name = basename(path);
@@ -96,13 +91,14 @@ function isPlanFileName(path: string): boolean {
 }
 
 /**
- * Whether `path` may be read, written, or deleted as a plan. Beyond the lexical
- * containment in {@link isWithin}, this rejects dotfiles (including the
- * directory's own `.gitignore`) and resolves symlinks, so a link placed inside
- * the plans directory cannot redirect a read or write outside it.
+ * Whether `path` may be read, written, or deleted as a plan. Beyond lexical
+ * containment (shared with the other path guards through `lib/path.ts`), this
+ * rejects dotfiles (including the directory's own `.gitignore`) and resolves
+ * symlinks, so a link placed inside the plans directory cannot redirect a read
+ * or write outside it.
  */
 function isContainedPlan(dir: string, path: string): boolean {
-	if (!isWithin(dir, path) || !isPlanFileName(path)) return false;
+	if (!isInside(dir, path) || !isPlanFileName(path)) return false;
 	try {
 		// A symlink itself must never be the target; a missing file is a new plan.
 		if (lstatSync(path).isSymbolicLink()) return false;
@@ -110,13 +106,7 @@ function isContainedPlan(dir: string, path: string): boolean {
 		// Missing (ENOENT) is expected; any other error falls through to the
 		// real-path check, which rejects the path if it cannot be resolved.
 	}
-	try {
-		const realDir = realpathSync.native(dir);
-		const realParent = realpathSync.native(dirname(path));
-		return realParent === realDir || isWithin(realDir, realParent);
-	} catch {
-		return false;
-	}
+	return isInsideReal(dir, dirname(path));
 }
 
 /** Keep plan files out of git (and so out of rewind snapshots) without touching the project. */

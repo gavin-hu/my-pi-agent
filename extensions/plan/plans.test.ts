@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlink
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { createPlanStore, isWithin, MAX_PLAN_BYTES, planTitle, slugify, stamp } from "./plans.ts";
+import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp } from "./plans.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { fixedPlanDate } from "../../test/helpers/fixtures/plan.ts";
@@ -59,23 +59,6 @@ describe("slugify", () => {
 describe("stamp", () => {
 	test("formats local YYYY-MM-DD-HHmm", () => {
 		expect(stamp(FIXED)).toBe("2026-10-08-1530");
-	});
-});
-
-describe("isWithin", () => {
-	test("accepts a nested path and rejects traversal", () => {
-		const dir = join(tmpdir(), "plans");
-		expect(isWithin(dir, join(dir, "a.md"))).toBe(true);
-		expect(isWithin(dir, join(dir, "..", "escape.md"))).toBe(false);
-		expect(isWithin(dir, dir)).toBe(false);
-	});
-
-	test("accepts an in-tree sibling whose name starts with ..", () => {
-		const dir = join(tmpdir(), "plans");
-		// `..notes` is inside: only `..` and `../` escape. A naive prefix check
-		// would reject it.
-		expect(isWithin(dir, join(dir, "..notes"))).toBe(true);
-		expect(isWithin(dir, join(dir, "..", "plans2"))).toBe(false);
 	});
 });
 

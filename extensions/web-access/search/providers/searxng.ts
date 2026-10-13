@@ -58,7 +58,7 @@ export function parseSearxng(json: unknown, maxResults: number): ProviderResult 
 }
 
 /** Search SearXNG for one request, returning the answer and results. */
-export async function searchSearxng(
+async function searchSearxng(
 	request: SearchRequest,
 	config: WebSearchConfig,
 	http: HttpRunner,

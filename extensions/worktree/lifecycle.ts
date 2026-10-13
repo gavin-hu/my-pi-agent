@@ -10,10 +10,5 @@ export { WorktreeCancelledError, isWorktreeCancelled } from "./errors.ts";
 export { enterWorktree, type EnterOptions } from "./enter.ts";
 export { exitWorktree, type ExitOptions } from "./exit.ts";
 export { pruneWorktrees } from "./prune.ts";
-export {
-	findInactiveOverrides,
-	refusalMessage,
-	stateSummary,
-	worktreeLabel,
-	worktreeStatus,
-} from "./status.ts";
+export { findInactiveOverrides } from "./root-tools.ts";
+export { refusalMessage, stateSummary, worktreeFacts, worktreeLabel, worktreeStatus } from "./status.ts";

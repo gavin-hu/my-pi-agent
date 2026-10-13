@@ -199,6 +199,7 @@ when consolidating.
 | `store.ts` | Paths, parse/read, file stamps, add/update/forget/clear transforms, atomic queued write. |
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
+| `errors.ts` | `messageOf`, the shared error-text extraction for the tool and command. |
 | `tools.ts` | `registerTool("memory", …)`. |
 | `commands.ts` | `registerCommand("memory", …)`. |
 

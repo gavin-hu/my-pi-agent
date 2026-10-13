@@ -160,10 +160,10 @@ export function formatCompletion(job: JobRecord, now = Date.now()): string {
 
 /** Transcript call text for the `job` tool. */
 export function formatCallText(action: string, args: Record<string, unknown>, argsComplete = true): string {
-	const target = typeof args.id === "string" && args.id ? args.id : undefined;
+	const target = typeof args.id === "string" && args.id ? sanitizeLogLine(args.id) : undefined;
 	switch (action) {
 		case "start": {
-			const command = typeof args.command === "string" ? args.command.trim() : "";
+			const command = typeof args.command === "string" ? sanitizeLogLine(args.command.trim()) : "";
 			if (!command) return argsComplete ? "start" : "start …";
 			const preview = truncateToWidth(command, MAX_DISPLAY_LABEL, "…");
 			return `start → ${preview}`;

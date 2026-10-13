@@ -89,9 +89,10 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 
 			const resolution = resolveMode(args);
 			if ("error" in resolution) {
+				const roster = discoverAgents(ctx.cwd, args.agentScope ?? "user").agents;
 				return {
 					content: [
-						{ type: "text" as const, text: `${resolution.error} Available agents: ${formatAgentList(BUILTIN_AGENTS)}` },
+						{ type: "text" as const, text: `${resolution.error} Available agents: ${formatAgentList(roster)}` },
 					],
 					details: { mode: "single", results: [] } satisfies SubagentDetails,
 				};

@@ -62,7 +62,8 @@ export function registerTools(pi: ExtensionAPI): void {
 				};
 			} catch (error) {
 				if (isWorktreeCancelled(error)) {
-					return { content: [{ type: "text", text: (error as Error).message }], details: { cancelled: true } };
+					const message = error instanceof Error ? error.message : String(error);
+					return { content: [{ type: "text", text: message }], details: { cancelled: true } };
 				}
 				throw error;
 			}
@@ -96,7 +97,8 @@ export function registerTools(pi: ExtensionAPI): void {
 				};
 			} catch (error) {
 				if (isWorktreeCancelled(error)) {
-					return { content: [{ type: "text", text: (error as Error).message }], details: { cancelled: true } };
+					const message = error instanceof Error ? error.message : String(error);
+					return { content: [{ type: "text", text: message }], details: { cancelled: true } };
 				}
 				throw error;
 			}

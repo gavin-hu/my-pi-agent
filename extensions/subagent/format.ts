@@ -2,16 +2,10 @@
  * Pure formatting helpers shared by the transcript renderers.
  */
 
-import * as os from "node:os";
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatTokens, sanitizeLine } from "../../lib/format.ts";
+import { formatTokens, sanitizeLine, shortenPath } from "../../lib/format.ts";
 import type { UsageStats } from "./types.ts";
-
-/** One-line model text: the shared terminal-safe boundary (`lib/format.ts`). */
-export function sanitize(text: string): string {
-	return sanitizeLine(text);
-}
 
 /** Dollar cost, keeping four decimals for the sub-cent amounts these runs produce. */
 function formatCost(cost: number): string {
@@ -48,17 +42,6 @@ export function aggregateUsage(results: { usage: UsageStats }[]): Partial<UsageS
 	return total;
 }
 
-/** Replace the home directory prefix with `~`, matching a path boundary.
- *  Separators are normalized so a Windows home (`C:\\Users\\x`) still matches a
- *  path written with forward slashes, and the result reads uniformly in the UI. */
-export function shortenPath(p: string): string {
-	const normalize = (value: string): string => value.replace(/\\/g, "/");
-	const home = normalize(os.homedir()).replace(/\/+$/, "");
-	const path = normalize(p);
-	if (path === home) return "~";
-	return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
-}
-
 /** Display-width-aware truncation with a trailing ellipsis (keeps wide chars/surrogates intact). */
 export function clip(value: string, max: number): string {
 	// `truncateToWidth` emits ANSI resets; strip them since we colorize afterwards.
@@ -91,9 +74,9 @@ export function formatToolCall(
 
 	switch (toolName) {
 		case "bash":
-			return fg("muted", "$ ") + fg("toolOutput", clip(sanitize(String(a.command ?? "…")), preview ? 60 : 200));
+			return fg("muted", "$ ") + fg("toolOutput", clip(sanitizeLine(String(a.command ?? "…")), preview ? 60 : 200));
 		case "read": {
-			const rawPath = clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
+			const rawPath = clipPath(shortenPath(sanitizeLine(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
 			const offset = a.offset as number | undefined;
 			const limit = a.limit as number | undefined;
 			let text = fg("accent", rawPath);
@@ -105,7 +88,7 @@ export function formatToolCall(
 			return fg("muted", "read ") + text;
 		}
 		case "write": {
-			const rawPath = clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
+			const rawPath = clipPath(shortenPath(sanitizeLine(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
 			const content = String(a.content ?? "");
 			const lines = content.split("\n").length;
 			const text = fg("muted", "write ") + fg("accent", rawPath);
@@ -114,24 +97,25 @@ export function formatToolCall(
 		case "edit":
 			return (
 				fg("muted", "edit ") +
-				fg("accent", clipPath(shortenPath(sanitize(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200)) +
+				fg("accent", clipPath(shortenPath(sanitizeLine(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200)) +
 				fg("dim", " (diff)")
 			);
 		case "ls":
 			return (
-				fg("muted", "ls ") + fg("accent", clipPath(shortenPath(sanitize(String(a.path ?? "."))), preview ? 60 : 200))
+				fg("muted", "ls ") +
+				fg("accent", clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 60 : 200))
 			);
 		case "find":
 			return (
 				fg("muted", "find ") +
-				fg("accent", clip(sanitize(String(a.pattern ?? "*")), preview ? 40 : 120)) +
-				fg("dim", ` in ${clipPath(shortenPath(sanitize(String(a.path ?? "."))), preview ? 40 : 120)}`)
+				fg("accent", clip(sanitizeLine(String(a.pattern ?? "*")), preview ? 40 : 120)) +
+				fg("dim", ` in ${clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 40 : 120)}`)
 			);
 		case "grep":
 			return (
 				fg("muted", "grep ") +
-				fg("accent", `/${clip(sanitize(String(a.pattern ?? "")), preview ? 40 : 120)}/`) +
-				fg("dim", ` in ${clipPath(shortenPath(sanitize(String(a.path ?? "."))), preview ? 40 : 120)}`)
+				fg("accent", `/${clip(sanitizeLine(String(a.pattern ?? "")), preview ? 40 : 120)}/`) +
+				fg("dim", ` in ${clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 40 : 120)}`)
 			);
 		default: {
 			const json = JSON.stringify(a);

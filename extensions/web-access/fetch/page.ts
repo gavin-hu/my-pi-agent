@@ -23,6 +23,19 @@ export class WebFetchError extends Error {
 	}
 }
 
+/** Credentials that must not follow a cross-origin redirect (Fetch-spec behavior). */
+const SENSITIVE_REDIRECT_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);
+
+/** Drop sensitive headers when a redirect leaves the original origin. */
+function redirectHeaders(current: string, origin: string, headers: Record<string, string>): Record<string, string> {
+	if (new URL(current).origin === origin) return headers;
+	const filtered: Record<string, string> = {};
+	for (const [name, value] of Object.entries(headers)) {
+		if (!SENSITIVE_REDIRECT_HEADERS.has(name.toLowerCase())) filtered[name] = value;
+	}
+	return filtered;
+}
+
 export interface FetchDeps {
 	http?: HttpRunner;
 	pdf?: PdfExtractor;
@@ -66,6 +79,7 @@ async function fetchWithRedirects(
 	signal: AbortSignal | undefined,
 ): Promise<HttpResponse> {
 	const deadline = Date.now() + config.timeoutMs;
+	const origin = target.origin;
 	let current = target.toString();
 	let method: "GET" | "POST" = request.method;
 	let body = request.body;
@@ -78,7 +92,7 @@ async function fetchWithRedirects(
 			{
 				url: current,
 				method,
-				headers: request.headers,
+				headers: redirectHeaders(current, origin, request.headers),
 				body,
 				redirect: "manual",
 				timeoutMs: remaining,

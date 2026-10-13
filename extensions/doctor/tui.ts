@@ -70,7 +70,7 @@ export class DoctorScreen implements Component {
 			this.options.done();
 			return;
 		}
-		if (data === "r") {
+		if (matchesKey(data, "r")) {
 			this.refresh();
 			return;
 		}

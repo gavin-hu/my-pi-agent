@@ -64,10 +64,13 @@ export const extractXlsxText: DocExtractor = async (file) => {
 	const bytes = await readDocBytes(file);
 	const { Workbook } = await import("exceljs");
 	const workbook = new Workbook();
-	// exceljs types `load` against the ArrayBuffer-like Buffer it declares itself,
-	// so hand it the exact bytes rather than a Node Buffer view.
-	const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-	await workbook.xlsx.load(data);
+	// `readDocBytes` copies into a fresh `Uint8Array`, so its buffer is exactly
+	// the file bytes; narrow it for exceljs, which types `load` as ArrayBuffer.
+	const { buffer } = bytes;
+	if (!(buffer instanceof ArrayBuffer)) {
+		throw new Error("XLSX extraction requires an ArrayBuffer-backed file.");
+	}
+	await workbook.xlsx.load(buffer);
 	file.signal?.throwIfAborted();
 
 	const sheets: Sheet[] = [];

@@ -17,6 +17,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { clampScroll, fitRows, formatRange, navIntent, wheelDelta } from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import { BODY_INDENT } from "../../lib/ui.ts";
 import { progressCount, progressSummary, todoGlyph, todoLabel, todoRailLines, type TodoRailInput } from "./format.ts";
 import { currentTodo } from "./state.ts";
 import type { Todo } from "./types.ts";
@@ -29,7 +30,8 @@ const SCREEN_DEFAULT_ITEMS = 12;
 
 /** One indented item line, clipped to `width`. */
 function todoRow(todo: Todo, theme: Theme, width: number): string {
-	return truncateToWidth(`  ${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`, width, "…");
+	const indent = " ".repeat(BODY_INDENT);
+	return truncateToWidth(`${indent}${todoGlyph(todo, theme)} ${todoLabel(todo, theme)}`, width, "…");
 }
 
 /**

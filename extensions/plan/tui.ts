@@ -1,9 +1,9 @@
 /**
  * Terminal rendering for the plan review screen.
  *
- * `sanitizePlanText` is exported so the transcript renderer (`tools.ts`) and
- * the non-TUI notices (`commands.ts`) can strip control characters from plan
- * text with the same rules the review screen uses.
+ * `sanitizePlanText` is exported so the transcript renderer (`tools.ts`) can
+ * strip control characters from plan text with the same rules the review screen
+ * uses.
  *
  * `PlanViewComponent` is the scrollable review screen `exit_plan_mode` opens
  * for approval. The plan body is rendered by Pi's own `Markdown` component with
@@ -19,7 +19,6 @@ import { basename } from "node:path";
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	Editor,
-	type EditorTheme,
 	Key,
 	Markdown,
 	matchesKey,
@@ -32,7 +31,14 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { stripControlChars } from "../../lib/format.ts";
-import { screenHeader, screenHint, viewportRows, type ScreenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import {
+	editorTheme,
+	screenHeader,
+	screenHint,
+	viewportRows,
+	type ScreenHint,
+	type ViewportRowsSource,
+} from "../../lib/tui.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
@@ -134,20 +140,6 @@ function scrollRow(theme: Theme, width: number, offset: number, end: number, tot
 	const full = `  ${head}  ${range}`;
 	// Drop the range before the gauge on a narrow terminal.
 	return truncateToWidth(visibleWidth(full) <= width ? full : `  ${head}`, width);
-}
-
-/** Minimal editor theme for the inline refine input. */
-function editorTheme(theme: Theme): EditorTheme {
-	return {
-		borderColor: (text) => theme.fg("borderMuted", text),
-		selectList: {
-			selectedPrefix: (text) => theme.fg("accent", text),
-			selectedText: (text) => theme.fg("accent", text),
-			description: (text) => theme.fg("muted", text),
-			scrollInfo: (text) => theme.fg("dim", text),
-			noMatch: (text) => theme.fg("warning", text),
-		},
-	};
 }
 
 /** Scrollable plan review screen opened by `exit_plan_mode`. */

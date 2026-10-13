@@ -434,16 +434,6 @@ export function discoverAgents(cwd: string, scope: AgentScope, userDir?: string)
 	return { agents: Array.from(pool.values()), projectAgentsDir };
 }
 
-/** Look up one built-in agent by name. */
-export function getAgent(name: string): AgentConfig | undefined {
-	return BUILTIN_AGENTS.find((agent) => agent.name === name);
-}
-
-/** All built-in agents, in display order. */
-export function listAgents(): AgentConfig[] {
-	return [...BUILTIN_AGENTS];
-}
-
 /** `name (source): description; ...`, or `"none"`, for error messages. */
 export function formatAgentList(agents: readonly AgentConfig[]): string {
 	if (agents.length === 0) return "none";

@@ -2,22 +2,21 @@
  * Slash commands for the memory extension.
  *
  * `/memory` shows the store, `/memory path` prints the two file paths,
- * `/memory edit [scope]` opens the multi-line editor, and `/memory clear
- * [scope]` empties a store after a confirmation. Bulk deletion lives only here,
- * behind a confirm — the model cannot wipe memory in one call.
+ * `/memory reload` re-reads the stores, `/memory edit [scope]` opens the
+ * multi-line editor, and `/memory clear [scope]` empties a store after a
+ * confirmation. Bulk deletion lives only here, behind a confirm — the model
+ * cannot wipe memory in one call.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { messageOf } from "./errors.ts";
 import { formatNotice, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";
-import type { MemoryScope } from "./types.ts";
-
-function messageOf(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
+import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
 
 function parseScope(raw: string | undefined): MemoryScope {
-	return raw?.trim().toLowerCase() === "global" ? "global" : "project";
+	const value = raw?.trim().toLowerCase();
+	return MEMORY_SCOPES.find((scope) => scope === value) ?? "project";
 }
 
 function notify(ctx: ExtensionCommandContext, message: string, kind: "info" | "warning" = "info"): void {
@@ -26,7 +25,6 @@ function notify(ctx: ExtensionCommandContext, message: string, kind: "info" | "w
 
 /** `/memory` subcommands and the scope argument accepted by `edit`/`clear`. */
 const MEMORY_SUBCOMMANDS = ["list", "path", "reload", "edit", "clear"];
-const MEMORY_SCOPES = ["project", "global"];
 
 /** Subcommand on the first token, scope on the second for `edit`/`clear`. */
 function completeMemoryArg(prefix: string): Array<{ value: string; label: string }> | null {

@@ -10,7 +10,7 @@
 import type { ModelRates } from "../types.ts";
 
 /** One segment's score against a value: exact 2, prefix 1, wildcard 0, no match -1. */
-export function segmentScore(pattern: string, value: string): number {
+function segmentScore(pattern: string, value: string): number {
 	if (pattern === "*") return 0;
 	if (pattern.endsWith("*")) return value.startsWith(pattern.slice(0, -1)) ? 1 : -1;
 	return pattern === value ? 2 : -1;
@@ -22,7 +22,7 @@ export function segmentScore(pattern: string, value: string): number {
  * The model segment dominates: the score is weighted so every model score
  * outranks any provider score.
  */
-export function matchKey(key: string, provider: string, model: string): number {
+function matchKey(key: string, provider: string, model: string): number {
 	const parts = key.split("/");
 	if (parts.length === 1) return key === "*" ? 0 : -1;
 	if (parts.length !== 2) return -1;

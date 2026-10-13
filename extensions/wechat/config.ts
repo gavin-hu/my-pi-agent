@@ -12,8 +12,6 @@ import { clampInteger, cleanString, loadConfigFile } from "../../lib/config.ts";
 export interface WechatConfig {
 	/** Extra peers allowed to drive the agent; the owner is always allowed. */
 	allowedPeers: string[];
-	/** Fallback long-poll timeout when the server omits one. */
-	pollTimeoutMs: number;
 	/** Replies longer than this are split into multiple messages. */
 	maxReplyChars: number;
 	/** Observability identifier sent as `base_info.bot_agent`. */
@@ -32,7 +30,6 @@ export interface WechatConfig {
 
 export const DEFAULT_CONFIG: WechatConfig = {
 	allowedPeers: [],
-	pollTimeoutMs: 35000,
 	maxReplyChars: 4000,
 	botAgent: "pi-wechat",
 	channelVersion: "0.1.0",
@@ -61,9 +58,6 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	if (!raw) return config;
 	const peers = toStringArray(raw.allowedPeers);
 	if (peers) config.allowedPeers = peers;
-	if (raw.pollTimeoutMs !== undefined) {
-		config.pollTimeoutMs = clampInteger(raw.pollTimeoutMs, base.pollTimeoutMs, 1000, 120000);
-	}
 	if (raw.maxReplyChars !== undefined) {
 		config.maxReplyChars = clampInteger(raw.maxReplyChars, base.maxReplyChars, 1, 20000);
 	}

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_STATUS_BAR_CONFIG } from "../config.ts";
 import type { StatusBarConfig, UsageRecord } from "../types.ts";
-import { createPricer, tokenCost } from "./price.ts";
+import { createPricer } from "./price.ts";
 
 /** 2026-01-05 is a Monday; 03:00 UTC is 11:00 in Asia/Shanghai. */
 const MONDAY_PEAK = Date.UTC(2026, 0, 5, 3);
@@ -37,20 +37,19 @@ const record = (overrides: Partial<UsageRecord> = {}): UsageRecord => ({
 	...overrides,
 });
 
-describe("tokenCost", () => {
-	test("prices each token class per million tokens", () => {
-		expect(tokenCost(record({ input: 1_000_000, output: 1_000_000 }), rate)).toBeCloseTo(10);
-		expect(tokenCost(record({ cacheRead: 1_000_000 }), rate)).toBeCloseTo(0.04);
-		expect(tokenCost(record({ cacheWrite: 1_000_000 }), rate)).toBeCloseTo(0);
-		expect(tokenCost(record({ input: 500_000 }), rate)).toBeCloseTo(1);
-	});
-
-	test("does not bill cache tokens as fresh input", () => {
-		expect(tokenCost(record({ input: 1_000_000, cacheRead: 1_000_000 }), rate)).toBeCloseTo(2.04);
-	});
-});
-
 describe("createPricer", () => {
+	test("bills each token class at its own rate", () => {
+		const price = createPricer(
+			config({
+				rates: { "*": { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, offPeakMultiplier: 1 } },
+				peak: { timezone: "UTC", windows: [] },
+			}),
+		);
+		expect(
+			price([record({ input: 1_000_000, output: 1_000_000, cacheRead: 1_000_000, cacheWrite: 1_000_000 })]).cost,
+		).toBeCloseTo(10);
+	});
+
 	test("matches the published DeepSeek example, peak and off-peak", () => {
 		const price = createPricer(deepseek());
 		const tokens = { input: 1_000_000, output: 1_000_000 };

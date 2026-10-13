@@ -13,6 +13,7 @@ import { discoverExtensions, type DiscoveryDeps } from "./discovery.ts";
 import { formatListing } from "./resources.ts";
 import { createExtensionsManagerRuntime } from "./runtime.ts";
 import { ExtensionsListComponent } from "./tui.ts";
+import type { Discovery } from "./types.ts";
 
 /** Host seams, injected by tests. */
 export interface CommandDeps {
@@ -27,7 +28,13 @@ export function registerCommands(pi: ExtensionAPI, deps: CommandDeps = {}): void
 		handler: async (_args, ctx) => {
 			const cwd = ctx.cwd ?? process.cwd();
 			const agentDir = getAgentDir();
-			const discovery = await discover({ cwd, agentDir, trusted: ctx.isProjectTrusted() });
+			let discovery: Discovery;
+			try {
+				discovery = await discover({ cwd, agentDir, trusted: ctx.isProjectTrusted() });
+			} catch (error) {
+				ctx.ui.notify(`Could not list extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
+				return;
+			}
 			const runtime = createExtensionsManagerRuntime({
 				discovery,
 				cwd,

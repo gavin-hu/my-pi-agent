@@ -2,6 +2,7 @@
  * Answer normalization and model-facing formatting (pure).
  */
 
+import { sanitizeLine } from "../../lib/format.ts";
 import type { Answer, AskResult, Question, Selection } from "./types.ts";
 
 export const CANCELLED_TEXT = "User cancelled the question.";
@@ -87,7 +88,7 @@ export interface CallQuestion {
 
 /** Display headers with positional defaults (`Q1`, `Q2`, …). */
 export function questionHeaders(questions: CallQuestion[]): string[] {
-	return questions.map((question, i) => question?.header?.trim() || `Q${i + 1}`);
+	return questions.map((question, i) => sanitizeLine(question?.header?.trim() || `Q${i + 1}`));
 }
 
 /** One `Header: a, b, Other` summary per question that offers options. */
@@ -95,7 +96,10 @@ export function optionSummary(questions: CallQuestion[]): string[] {
 	return questions
 		.map((question, i) => ({ question, header: question?.header?.trim() || `Q${i + 1}` }))
 		.filter(({ question }) => (question?.options?.length ?? 0) > 0)
-		.map(({ question, header }) => `${header}: ${question.options?.map((option) => option.label).join(", ")}, Other`);
+		.map(({ question, header }) => {
+			const labels = question.options?.map((option) => sanitizeLine(option.label)).join(", ");
+			return `${sanitizeLine(header)}: ${labels}, Other`;
+		});
 }
 
 /** One-line summary of the questions, used by the transcript call renderer. */

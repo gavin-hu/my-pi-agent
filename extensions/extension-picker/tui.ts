@@ -216,7 +216,7 @@ export class ExtensionsListComponent implements Component {
 			if (entry.kind === "group") {
 				lines.push(
 					truncateToWidth(
-						`  ${this.theme.fg("muted", entry.label)} ${this.theme.fg("dim", `(${entry.count})`)}`,
+						`  ${this.theme.fg("muted", sanitizeLine(entry.label))} ${this.theme.fg("dim", `(${entry.count})`)}`,
 						w,
 						"…",
 					),

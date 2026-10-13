@@ -10,7 +10,8 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { reuseText } from "../../lib/tui.ts";
+import { messageOf } from "./errors.ts";
 import { formatCallText, formatResultText, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";
 import {
@@ -24,10 +25,6 @@ import {
 import type { MemoryDetails, MemoryScope } from "./types.ts";
 
 export const TOOL_NAME = "memory";
-
-function messageOf(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
 
 /** JSON-safe mirror of the details for `structuredContent`. */
 function toStructuredContent(details: MemoryDetails): Record<string, JsonValue> {
@@ -78,8 +75,6 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		],
 		parameters: MemoryParams,
 		outputSchema: MemoryResult,
-		exposure: "direct",
-		defaultActive: true,
 		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
 		executionMode: "sequential",
 
@@ -141,7 +136,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			const body = formatCallText(
 				args as { action?: unknown; text?: unknown; to?: unknown; scope?: unknown },
 				context.argsComplete,
@@ -151,7 +146,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		},
 
 		renderResult(result, { expanded }, theme, context) {
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context.lastComponent);
 			const details = result.details as MemoryDetails | undefined;
 			if (!details) {
 				const first = result.content[0];

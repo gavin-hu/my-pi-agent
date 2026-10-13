@@ -38,6 +38,20 @@ export function persistState(appendEntry: (customType: string, data?: unknown) =
 	appendEntry(STATE_ENTRY, state);
 }
 
+/** Full-shape check so a stale or hand-edited entry cannot flow into checkout logic. */
+function isWorktreeState(value: unknown): value is WorktreeState {
+	if (!value || typeof value !== "object") return false;
+	const state = value as Record<string, unknown>;
+	return (
+		typeof state.active === "boolean" &&
+		typeof state.path === "string" &&
+		typeof state.repoRoot === "string" &&
+		typeof state.baseRef === "string" &&
+		(state.baseRefMode === "fresh" || state.baseRefMode === "head") &&
+		typeof state.createdByUs === "boolean"
+	);
+}
+
 /** Reconstruct the last recorded worktree state from the active branch. */
 export function loadState(ctx: ExtensionContext): WorktreeState | undefined {
 	const entries = ctx.sessionManager.getBranch();
@@ -45,10 +59,7 @@ export function loadState(ctx: ExtensionContext): WorktreeState | undefined {
 	for (const entry of entries) {
 		const candidate = entry as { type?: string; customType?: string; data?: unknown };
 		if (candidate.type !== "custom" || candidate.customType !== STATE_ENTRY) continue;
-		const data = candidate.data as WorktreeState | undefined;
-		if (data && typeof data === "object" && typeof data.path === "string") {
-			found = data;
-		}
+		if (isWorktreeState(candidate.data)) found = candidate.data;
 	}
 	return found;
 }

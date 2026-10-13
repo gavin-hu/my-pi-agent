@@ -13,29 +13,32 @@ import { stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
+import { reuseText } from "../../lib/tui.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
 import type { DocExtractor } from "./extract/file.ts";
 import { detectFormat, supportedExtensions, unsupportedHint, type FormatId } from "./formats.ts";
 import { formatDoc } from "./paging.ts";
-import { formatDocCall, formatDocResult, reuseText } from "./render.ts";
+import { formatDocCall, formatDocResult } from "./render.ts";
 import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 
 export { TOOL_NAME } from "./schema.ts";
 
 /** Resolve a request path under `root`, refusing anything that escapes it. */
 function resolveDocument(root: string, rawPath: string): { display: string; abs: string } {
-	const trimmed = stripControlChars(rawPath.trim());
+	// Resolve on the raw path; sanitize only the displayed/error strings, so a
+	// pathological control character cannot hide a path or forge a transcript line.
+	const trimmed = rawPath.trim();
 	if (!trimmed) throw new Error("path is required.");
 	const candidate = isAbsolute(trimmed) ? trimmed : join(root, trimmed);
 	const abs = realPathOfNearest(candidate);
 	if (!isInsideReal(root, abs)) {
 		throw new Error(
-			`Refusing to read "${trimmed}" outside the working directory. Copy the file under it or pass a path inside it.`,
+			`Refusing to read "${sanitizeLine(trimmed)}" outside the working directory (${sanitizeLine(shortenPath(root))}). Copy the file under it or pass a path inside it.`,
 		);
 	}
-	return { display: trimmed, abs };
+	return { display: sanitizeLine(trimmed), abs };
 }
 
 /** Stat the file and raise a model-readable error for a missing/unreadable target. */
@@ -132,15 +135,16 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 
 		renderCall(args, theme, context) {
 			const cwd = context?.cwd ?? process.cwd();
-			return reuseText(context?.lastComponent, formatDocCall(args as DocArgs, theme, { cwd }));
+			const text = reuseText(context?.lastComponent);
+			text.setText(formatDocCall(args as DocArgs, theme, { cwd }));
+			return text;
 		},
 
 		renderResult(result, options, theme, context) {
 			const isError = context?.isError ?? result.isError ?? false;
-			return reuseText(
-				context?.lastComponent,
-				formatDocResult({ content: result.content, details: result.details, isError }, options, theme),
-			);
+			const text = reuseText(context?.lastComponent);
+			text.setText(formatDocResult({ content: result.content, details: result.details, isError }, options, theme));
+			return text;
 		},
 	});
 }

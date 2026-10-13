@@ -23,7 +23,7 @@ export function asRecord(value: unknown): Record<string, unknown> {
 }
 
 /** A provider JSON GET: the URL, headers, and limits; the method is always GET. */
-export interface JsonRequest {
+interface JsonRequest {
 	url: string;
 	headers: Record<string, string>;
 	timeoutMs: number;

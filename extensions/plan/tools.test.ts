@@ -248,7 +248,6 @@ describe("exit_plan_mode", () => {
 
 		expect(result.details.approved).toBe(true);
 		expect(result.details.planPath).toBe(planPath);
-		expect(result.details.seeded).toBe(3);
 		expect(runtime.isEnabled()).toBe(false);
 		expect(activeTools()).toContain("write");
 		expect(activeTools()).not.toContain(EXIT_TOOL);
@@ -287,7 +286,6 @@ describe("exit_plan_mode", () => {
 		setExecuteError(true);
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
-		expect(result.details.seeded).toBe(0);
 	});
 
 	test("returns the user's refinement and stays in plan mode", async () => {

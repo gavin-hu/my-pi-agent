@@ -7,7 +7,7 @@
 
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readJson } from "../../lib/config.ts";
+import { clampInteger, cleanString, readJson } from "../../lib/config.ts";
 
 export interface WorktreeGuardConfig {
 	/** Block write/edit whose resolved path leaves the active worktree. Default: true */
@@ -60,20 +60,50 @@ export const DEFAULT_CONFIG: WorktreeConfig = {
 	},
 };
 
-function merge(base: WorktreeConfig, next: Partial<WorktreeConfig> | undefined): WorktreeConfig {
-	if (!next) return base;
+function booleanOr(value: unknown, fallback: boolean): boolean {
+	return typeof value === "boolean" ? value : fallback;
+}
+
+/** Keep only trimmed, non-empty strings from an untrusted array. */
+function stringList(value: unknown, fallback: string[]): string[] {
+	if (!Array.isArray(value)) return fallback;
+	return value
+		.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+		.map((item) => item.trim());
+}
+
+function normalizeGuard(raw: unknown, base: WorktreeGuardConfig): WorktreeGuardConfig {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return base;
+	const value = raw as Record<string, unknown>;
 	return {
-		...base,
-		...next,
-		guard: { ...base.guard, ...(next.guard ?? {}) },
-		include: next.include ?? base.include,
-		skipOverrides: next.skipOverrides ?? base.skipOverrides,
+		blockFileEscapes: booleanOr(value.blockFileEscapes, base.blockFileEscapes),
+		blockReadEscapes: booleanOr(value.blockReadEscapes, base.blockReadEscapes),
+		blockGitRedirects: booleanOr(value.blockGitRedirects, base.blockGitRedirects),
+		blockSymlinkEscapes: booleanOr(value.blockSymlinkEscapes, base.blockSymlinkEscapes),
+		blockUnparsableCommands: booleanOr(value.blockUnparsableCommands, base.blockUnparsableCommands),
+	};
+}
+
+/** Normalize one merged config object over the running base. */
+export function normalizeConfig(raw: Record<string, unknown> | undefined, base: WorktreeConfig): WorktreeConfig {
+	if (!raw) return base;
+	return {
+		dir: cleanString(raw.dir, base.dir),
+		baseRef: raw.baseRef === "head" || raw.baseRef === "fresh" ? raw.baseRef : base.baseRef,
+		branchPrefix: cleanString(raw.branchPrefix, base.branchPrefix),
+		fetchRemote: booleanOr(raw.fetchRemote, base.fetchRemote),
+		fetchTimeoutMs: clampInteger(raw.fetchTimeoutMs, base.fetchTimeoutMs, 0, 600_000),
+		onExit: raw.onExit === "ask" || raw.onExit === "keep" || raw.onExit === "remove" ? raw.onExit : base.onExit,
+		pruneAfterDays: clampInteger(raw.pruneAfterDays, base.pruneAfterDays, 0, 3650),
+		include: stringList(raw.include, base.include),
+		skipOverrides: stringList(raw.skipOverrides, base.skipOverrides),
+		guard: normalizeGuard(raw.guard, base.guard),
 	};
 }
 
 /** Load the effective config for a repository root. */
 export function loadConfig(repoRoot: string, agentDir: string = getAgentDir()): WorktreeConfig {
-	let config = merge(DEFAULT_CONFIG, readJson(join(agentDir, "worktree.json")) as Partial<WorktreeConfig>);
-	config = merge(config, readJson(join(repoRoot, CONFIG_DIR_NAME, "worktree.json")) as Partial<WorktreeConfig>);
+	let config = normalizeConfig(readJson(join(agentDir, "worktree.json")), DEFAULT_CONFIG);
+	config = normalizeConfig(readJson(join(repoRoot, CONFIG_DIR_NAME, "worktree.json")), config);
 	return config;
 }

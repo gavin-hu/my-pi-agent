@@ -10,7 +10,7 @@ import { clampInteger, cleanString } from "../../../lib/config.ts";
 import { SEARCH_PROVIDER_IDS, type SearchProviderId } from "./types.ts";
 
 /** `"auto"` picks the first configured provider; a named id forces one. */
-export type SearchProviderChoice = "auto" | SearchProviderId;
+type SearchProviderChoice = "auto" | SearchProviderId;
 
 export interface WebSearchConfig {
 	/** `"auto"`, or the backend id to force (even when it is not configured). */

@@ -23,10 +23,10 @@ import { registerTools } from "./tools.ts";
 /** Custom-entry type used for the injected lag reminder. */
 export const TODO_NUDGE_CONTEXT_TYPE = "todo-nudge";
 
-function isTodoNudge(message: AgentMessage): boolean {
+function isTodoNudge(message: AgentMessage): message is AgentMessage & { customType: string } {
 	// Match on the custom type, not the marker text: a real user message that
 	// quotes the marker must not be dropped.
-	return (message as AgentMessage & { customType?: string }).customType === TODO_NUDGE_CONTEXT_TYPE;
+	return "customType" in message && message.customType === TODO_NUDGE_CONTEXT_TYPE;
 }
 
 export default function todo(pi: ExtensionAPI) {
@@ -38,7 +38,7 @@ export default function todo(pi: ExtensionAPI) {
 
 	// Load the widget config once per session, before the first reconstruction.
 	const startSession = (ctx: ExtensionContext): void => {
-		runtime.setConfig(loadTodoConfig(ctx.cwd ?? process.cwd()));
+		runtime.setConfig(loadTodoConfig(ctx.cwd));
 		runtime.reconstruct(ctx);
 	};
 

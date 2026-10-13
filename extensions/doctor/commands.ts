@@ -15,7 +15,8 @@ import { DoctorScreen } from "./tui.ts";
 
 /** The report text for a set of reports, narrowed when one extension was named. */
 function reportText(name: string | undefined, reports: readonly ExtensionReport[]): string {
-	return name ? formatExtension(reports[0] as ExtensionReport) : formatReport(reports);
+	const first = reports[0];
+	return name && first ? formatExtension(first) : formatReport(reports);
 }
 
 /** Register the `/doctor` command. */

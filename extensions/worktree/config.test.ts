@@ -59,4 +59,16 @@ describe("loadConfig", () => {
 
 		expect(loadConfig(repo, globalDir)).toEqual(DEFAULT_CONFIG);
 	});
+
+	test("coerces a malformed nested guard to the defaults", () => {
+		const globalDir = tempDir("worktree-global-");
+		const repo = tempDir("worktree-repo-");
+		mkdirSync(join(repo, ".pi"), { recursive: true });
+		writeFileSync(join(globalDir, "worktree.json"), JSON.stringify({ guard: "nope" }));
+		writeFileSync(join(repo, ".pi", "worktree.json"), JSON.stringify({ guard: { blockFileEscapes: "yes" } }));
+
+		// A non-object guard falls back wholesale; a non-boolean flag keeps the
+		// base value, so no malformed value can reach the guard checks.
+		expect(loadConfig(repo, globalDir).guard).toEqual(DEFAULT_CONFIG.guard);
+	});
 });

@@ -51,13 +51,26 @@ export async function planRestore(deps: RestoreDeps, input: RestoreInput): Promi
 	if (busy) {
 		return { ok: false, reason: `a git ${busy} is in progress; finish or abort it before restoring.` };
 	}
+	const { cur, added, changed } = await previewRestore(deps, input);
+	const diff = await diffStat(deps.runGit, input.root, input.target.commit, cur);
+	return { ok: true, plan: { diff, changed, removed: added.length } };
+}
+
+/**
+ * Stage the working tree into the temporary index and compare it against the
+ * snapshot. `cur` is the staged commit, `added` the paths created since the
+ * snapshot, and `changed` the tracked files modified or deleted.
+ */
+async function previewRestore(
+	deps: RestoreDeps,
+	input: RestoreInput,
+): Promise<{ cur: string; added: string[]; changed: number }> {
 	// Compare tree-to-tree, so untracked files captured in the snapshot are not
 	// mistaken for deletions against the real index.
 	const cur = await treeFromWorkingTree(deps.runGit, input.root, input.indexFile, input.target.includeUntracked);
 	const added = await addedPaths(deps.runGit, input.root, input.target.commit, cur);
 	const changed = await changedCount(deps.runGit, input.root, input.target.commit, cur, "MD");
-	const diff = await diffStat(deps.runGit, input.root, input.target.commit, cur);
-	return { ok: true, plan: { diff, changed, removed: added.length } };
+	return { cur, added, changed };
 }
 
 /** Delete a path under `root`, refusing to escape it or remove a directory. */
@@ -74,9 +87,7 @@ function deleteFile(root: string, relative: string): void {
 
 /** Apply the restore. Recomputes the removal set immediately before mutating. */
 export async function applyRestore(deps: RestoreDeps, input: RestoreInput): Promise<RestoreSummary> {
-	const cur = await treeFromWorkingTree(deps.runGit, input.root, input.indexFile, input.target.includeUntracked);
-	const added = await addedPaths(deps.runGit, input.root, input.target.commit, cur);
-	const changed = await changedCount(deps.runGit, input.root, input.target.commit, cur, "MD");
+	const { added, changed } = await previewRestore(deps, input);
 
 	await readTreeReset(deps.runGit, input.root, input.target.commit, input.indexFile);
 	for (const path of added) deleteFile(input.root, path);

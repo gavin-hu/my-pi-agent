@@ -8,7 +8,6 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { loadConfig } from "./config.ts";
 import { canonicalize, type CheckoutCheck, defaultBranch, listManagedWorktrees, repoRoot } from "./git.ts";
 import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
-import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { getActive, getInactiveOverrides } from "./runtime.ts";
 import type { WorktreeState } from "./state.ts";
 
@@ -16,14 +15,29 @@ export function worktreeLabel(state: WorktreeState): string {
 	return state.name ?? basename(state.path);
 }
 
+/**
+ * The worktree/path/branch/main fact block shared by the status summary and
+ * the injected prompt section. `pathLabel` and `column` preserve each
+ * surface's existing alignment; `beforeMain` lets the status summary keep its
+ * `base` line in place without duplicating the block.
+ */
+export function worktreeFacts(
+	state: WorktreeState,
+	pathLabel: string,
+	column: number,
+	beforeMain: string[] = [],
+): string {
+	return [
+		`  ${`${pathLabel}:`.padEnd(column)}${state.path}`,
+		`  ${"branch:".padEnd(column)}${state.branch ?? "(detached)"}`,
+		...beforeMain,
+		`  ${"main:".padEnd(column)}${state.repoRoot}`,
+	].join("\n");
+}
+
 export function stateSummary(state: WorktreeState): string {
-	return (
-		`Worktree: ${worktreeLabel(state)}\n` +
-		`  path:   ${state.path}\n` +
-		`  branch: ${state.branch ?? "(detached)"}\n` +
-		`  base:   ${state.baseRef} (${state.baseRefMode})\n` +
-		`  main:   ${state.repoRoot}`
-	);
+	const base = `  base:   ${state.baseRef} (${state.baseRefMode})`;
+	return `Worktree: ${worktreeLabel(state)}\n${worktreeFacts(state, "path", 8, [base])}`;
 }
 
 /** Actionable message for a worktree the session refuses to restore. */
@@ -42,28 +56,6 @@ export function refusalMessage(check: CheckoutCheck, path: string, cwd: string):
 		`Refusing to use ${path} as a worktree: ${check.detail} ` +
 		`Its binding was cleared and the session continues in ${cwd}. The directory may hold work; salvage it before removing.`
 	);
-}
-
-/**
- * Find overridden tools that did not take effect, so their behavior is not
- * re-rooted into the worktree. Pi keeps the first registration per tool name
- * and refuses an extension that duplicates another extension's tool, so a
- * non-builtin source that is not us is unexpected but reported anyway.
- *
- * `self` is the extension entry file: Pi records it as the source of every
- * tool the extension registers, so it must be passed by `index.ts` rather than
- * derived from this module's own location.
- */
-export function findInactiveOverrides(pi: ExtensionAPI, self: string | undefined): string[] {
-	const inactive: string[] = [];
-	for (const name of ROOT_TOOL_NAMES) {
-		const info = pi.getAllTools().find((entry) => entry.name === name);
-		if (!info) continue;
-		const path = info.sourceInfo?.path;
-		const isOurs = path && !path.startsWith("builtin:") && (!self || canonicalize(path) === self);
-		if (!isOurs) inactive.push(name);
-	}
-	return inactive;
 }
 
 /** Compact marks for one managed worktree in the status list. */
@@ -106,7 +98,7 @@ export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): P
 	if (root) {
 		const config = loadConfig(root);
 		const managed = await listManagedWorktrees(pi, root, config);
-		const { registry } = reconcileRegistry(root, config, managed);
+		const { registry } = reconcileRegistry(root, config, managed, { persist: false });
 		const baseBranch = await defaultBranch(pi, root);
 		const baseRef = baseBranch ? `origin/${baseBranch}` : undefined;
 		lines.push("", `Managed worktrees (${managed.length}):`);

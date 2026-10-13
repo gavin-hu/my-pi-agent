@@ -12,36 +12,6 @@
  * only refuses a tool, and the known readers are allow-listed by the caller.
  */
 
-/** Argument names that commonly name a filesystem path. */
-export const PATH_KEYS: ReadonlySet<string> = new Set([
-	"path",
-	"paths",
-	"file",
-	"files",
-	"file_path",
-	"filePath",
-	"filename",
-	"filenames",
-	"dir",
-	"directory",
-	"folder",
-	"folders",
-	"target",
-	"targets",
-	"source",
-	"sources",
-	"destination",
-	"dest",
-	"root",
-	"cwd",
-	"glob",
-	"globs",
-	"include",
-	"includes",
-	"exclude",
-	"excludes",
-]);
-
 /**
  * Words that mark a key as path-carrying. A key is split on camelCase and
  * non-alphanumerics, so `outputDir`, `file_path`, and `SourceFiles` all match.
@@ -87,9 +57,8 @@ function hasString(value: unknown): boolean {
 	return typeof value === "string" || (Array.isArray(value) && value.some((item) => typeof item === "string"));
 }
 
-/** Whether a key names a filesystem path, by exact name or by its words. */
+/** Whether a key names a filesystem path by one of its words. */
 function pathLikeKey(key: string): boolean {
-	if (PATH_KEYS.has(key)) return true;
 	const words = key
 		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
 		.toLowerCase()

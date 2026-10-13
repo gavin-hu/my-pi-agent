@@ -4,7 +4,7 @@
  * Two shapes share these helpers: the plain multi-line text every non-TUI mode
  * shows, and the single row per extension the TUI screen renders. Nothing here
  * touches the filesystem or the host, and every string that came from a probe (a
- * parse error, a captured path) goes through {@link safe} — probe text can carry
+ * parse error, a captured path) goes through {@link sanitizeLine} — probe text can carry
  * control characters, a parse error quotes the file's own bytes.
  */
 
@@ -15,17 +15,17 @@ import { selectionMarker } from "../../lib/list-cursor.ts";
 import type { ExtensionReport, Finding, FindingSeverity } from "../../lib/requirements.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 
-/** Collapse probe text to one terminal-safe line. */
-function safe(text: string): string {
-	return sanitizeLine(text);
-}
-
 /** Counts the report headline uses. */
 export interface ReportCounts {
 	extensions: number;
 	enabled: number;
 	missing: number;
 	degraded: number;
+}
+
+/** Whether a finding means the extension cannot fully do its job. */
+export function isProblemSeverity(severity: FindingSeverity): boolean {
+	return severity === "missing" || severity === "degraded";
 }
 
 /** Tally a report set. `info` findings are notes, not problems. */
@@ -57,32 +57,30 @@ export function formatHeadline(reports: readonly ExtensionReport[]): string {
 
 /** One finding as `label: detail` plus an indented hint. */
 function findingLines(finding: Finding, indent: string): string[] {
-	const lines = [`${indent}${safe(finding.check)}: ${safe(finding.detail)}`];
-	if (finding.hint) lines.push(`${indent}  → ${safe(finding.hint)}`);
+	const lines = [`${indent}${sanitizeLine(finding.check)}: ${sanitizeLine(finding.detail)}`];
+	if (finding.hint) lines.push(`${indent}  → ${sanitizeLine(finding.hint)}`);
 	return lines;
 }
 
 /** The full multi-line report every non-TUI mode prints. */
 export function formatReport(reports: readonly ExtensionReport[]): string {
 	const lines = [formatHeadline(reports)];
-	const problems = reports.filter((report) =>
-		report.findings.some((finding) => finding.severity === "missing" || finding.severity === "degraded"),
-	);
+	const problems = reports.filter((report) => report.findings.some((finding) => isProblemSeverity(finding.severity)));
 
 	if (problems.length === 0) {
 		const notes = reports.flatMap((report) =>
 			report.findings
 				.filter((finding) => finding.severity === "info")
-				.map((finding) => `  ${safe(report.extension)}: ${safe(finding.detail)}`),
+				.map((finding) => `  ${sanitizeLine(report.extension)}: ${sanitizeLine(finding.detail)}`),
 		);
 		if (notes.length > 0) lines.push("", "Notes:", ...notes);
 		return lines.join("\n");
 	}
 
 	for (const report of problems) {
-		lines.push("", `${safe(report.extension)}${report.enabled ? "" : " (disabled)"}`);
+		lines.push("", `${sanitizeLine(report.extension)}${report.enabled ? "" : " (disabled)"}`);
 		for (const finding of report.findings) {
-			if (finding.severity !== "missing" && finding.severity !== "degraded") continue;
+			if (!isProblemSeverity(finding.severity)) continue;
 			lines.push(...findingLines(finding, "  "));
 		}
 	}
@@ -91,7 +89,7 @@ export function formatReport(reports: readonly ExtensionReport[]): string {
 
 /** Every finding for one extension, including the checks that passed. */
 export function formatExtension(report: ExtensionReport): string {
-	const lines = [`${safe(report.extension)}${report.enabled ? "" : " (disabled)"}`];
+	const lines = [`${sanitizeLine(report.extension)}${report.enabled ? "" : " (disabled)"}`];
 	for (const finding of report.findings) lines.push(...findingLines(finding, "  "));
 	return lines.join("\n");
 }
@@ -101,10 +99,10 @@ export function formatWarning(findings: readonly Finding[]): string {
 	const byExtension = new Map<string, string[]>();
 	for (const finding of findings) {
 		const list = byExtension.get(finding.extension) ?? [];
-		list.push(safe(finding.check));
+		list.push(sanitizeLine(finding.check));
 		byExtension.set(finding.extension, list);
 	}
-	const parts = [...byExtension].map(([extension, checks]) => `${safe(extension)} (${checks.join(", ")})`);
+	const parts = [...byExtension].map(([extension, checks]) => `${sanitizeLine(extension)} (${checks.join(", ")})`);
 	return `doctor: missing ${parts.join("; ")} — run /doctor`;
 }
 
@@ -139,7 +137,7 @@ export function extensionRow(report: ExtensionReport, theme: Theme, width: numbe
 	const head = `${selectionMarker(theme, selected)}${glyph} `;
 	const summary = reportSummary(report);
 	const available = Math.max(1, width - visibleWidth(head) - visibleWidth(summary) - 1);
-	const name = truncateToWidth(safe(report.extension), available, "…");
+	const name = truncateToWidth(sanitizeLine(report.extension), available, "…");
 	const pad = " ".repeat(Math.max(0, available - visibleWidth(name)));
 	const tail = reportSeverity(report) === "missing" ? theme.fg("error", summary) : theme.fg("dim", summary);
 	return truncateToWidth(`${head}${name}${pad} ${tail}`, width);
@@ -166,11 +164,14 @@ export function detailLines(
 
 	const lines: string[] = [];
 	for (const finding of shown) {
-		for (const line of wrapTextWithAnsi(`${safe(finding.check)}: ${safe(finding.detail)}`, Math.max(1, width - 2))) {
+		for (const line of wrapTextWithAnsi(
+			`${sanitizeLine(finding.check)}: ${sanitizeLine(finding.detail)}`,
+			Math.max(1, width - 2),
+		)) {
 			lines.push(`  ${line}`);
 		}
 		if (finding.hint) {
-			for (const line of wrapTextWithAnsi(`→ ${safe(finding.hint)}`, Math.max(1, width - 4))) {
+			for (const line of wrapTextWithAnsi(`→ ${sanitizeLine(finding.hint)}`, Math.max(1, width - 4))) {
 				lines.push(`    ${theme.fg("dim", line)}`);
 			}
 		}

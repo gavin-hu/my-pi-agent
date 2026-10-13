@@ -118,7 +118,12 @@ export async function waitForLogin(client: WechatClient, qr: QrResponse, options
 				break;
 			}
 			default:
-				await options.sleep(interval, options.signal);
+				try {
+					await options.sleep(interval, options.signal);
+				} catch {
+					// An aborted sleep (Esc during the inter-poll wait) is a cancel, not a failure.
+					return { kind: "cancelled" };
+				}
 		}
 	}
 	return { kind: "cancelled" };

@@ -8,6 +8,7 @@
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { sanitizeLine } from "../../lib/format.ts";
 import { TODO_STATUSES, type Todo, type TodoStatus } from "./types.ts";
 
 /** Maximum number of items in one list. */
@@ -61,21 +62,6 @@ function normalizeStatus(raw: unknown, index: number): TodoStatus {
 	throw new Error(`Todo ${index + 1}: status must be one of ${TODO_STATUSES.join(", ")}.`);
 }
 
-/**
- * Make model text safe to render on one terminal line.
- *
- * Control characters (including ESC) are replaced with spaces so they cannot
- * move the cursor or inject styling, and any whitespace run (newlines, tabs,
- * repeated spaces) collapses to a single space. The result has no embedded
- * newlines, which every surface relies on for its one-line-per-item layout.
- */
-function sanitizeText(raw: string): string {
-	return raw
-		.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-}
-
 /** Options for {@link normalizeTodos}. */
 export interface NormalizeOptions {
 	/**
@@ -90,7 +76,7 @@ export interface NormalizeOptions {
  * Validate and normalize the model's list.
  *
  * Content and `activeForm` are sanitized to a single safe line (see
- * `sanitizeText`). Rejects an empty description, an unknown status, duplicate
+ * `sanitizeLine`). Rejects an empty description, an unknown status, duplicate
  * content, an over-long field, more than one `in_progress` item, and — unless
  * `options.requireActiveForm` is `false` — an `in_progress` item without a
  * non-blank `activeForm`. `activeForm` is dropped when blank.
@@ -107,7 +93,7 @@ export function normalizeTodos(raw: unknown, options: NormalizeOptions = {}): To
 
 	for (let i = 0; i < raw.length; i++) {
 		const item = (raw[i] ?? {}) as Partial<Todo>;
-		const content = typeof item.content === "string" ? sanitizeText(item.content) : "";
+		const content = typeof item.content === "string" ? sanitizeLine(item.content) : "";
 		if (!content) throw new Error(`Todo ${i + 1}: content is required.`);
 		if (content.length > MAX_CONTENT) {
 			throw new Error(`Todo ${i + 1}: content is longer than ${MAX_CONTENT} characters.`);
@@ -120,7 +106,7 @@ export function normalizeTodos(raw: unknown, options: NormalizeOptions = {}): To
 		const status = normalizeStatus(item.status, i);
 		if (status === "in_progress") inProgress++;
 
-		const activeForm = typeof item.activeForm === "string" ? sanitizeText(item.activeForm) : "";
+		const activeForm = typeof item.activeForm === "string" ? sanitizeLine(item.activeForm) : "";
 		if (activeForm.length > MAX_CONTENT) {
 			throw new Error(`Todo ${i + 1}: activeForm is longer than ${MAX_CONTENT} characters.`);
 		}

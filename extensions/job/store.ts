@@ -12,10 +12,10 @@
  */
 
 import { join, resolve } from "node:path";
-import { loadRegistries, registryDirFor, saveRegistry } from "./registry.ts";
+import { REGISTRY_VERSION, loadRegistries, registryDirFor, saveRegistry } from "./registry.ts";
 import { listReservedIds, pruneReservations, releaseReservation, reserveId } from "./reservations.ts";
 import { statusPathFor } from "./paths.ts";
-import { toRecord, type Job, type JobRecord } from "./types.ts";
+import type { Job, JobRecord } from "./types.ts";
 
 export interface JobStore {
 	/** The registry/log directory in use. */
@@ -77,7 +77,7 @@ export function createJobStore(initialDir = registryDirFor(process.cwd())): JobS
 				// Only this session's records are ours to write; peer records live in
 				// their own files and are read back on the next load.
 				const own = [...jobs].filter((job) => job.sessionId === sessionId);
-				saveRegistry(dir, { version: 1, sessionId, counter, jobs: own.map(toRecord) });
+				saveRegistry(dir, { version: REGISTRY_VERSION, sessionId, counter, jobs: own.map(toRecord) });
 			} catch {
 				// Registry persistence is best-effort; a job still works in-process.
 			}
@@ -87,6 +87,12 @@ export function createJobStore(initialDir = registryDirFor(process.cwd())): JobS
 		statusPath: (id) => statusPathFor(dir, id),
 		safeStatusPath: (job) => safeArtifact(job.statusPath ?? undefined, join(dir, `${job.id}.status`)),
 	};
+}
+
+/** Strip runtime-only fields for persistence. */
+export function toRecord(job: Job): JobRecord {
+	const { owned: _owned, ...record } = job;
+	return record;
 }
 
 /** The absolute path only when it equals `expected` inside the registry dir. */

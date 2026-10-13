@@ -10,7 +10,7 @@ import { charLength, truncateChars } from "../text.ts";
 import { providerLabel } from "./registry.ts";
 import type { SearchResponse } from "./schema.ts";
 
-export interface FormattedResults {
+interface FormattedResults {
 	text: string;
 	truncated: boolean;
 }

@@ -6,15 +6,9 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import {
-	Editor,
-	type EditorTheme,
-	Key,
-	matchesKey,
-	truncateToWidth,
-	visibleWidth,
-	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
+import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { editorTheme } from "../../lib/tui.ts";
+import { selectionMarker } from "../../lib/list-cursor.ts";
 import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "./answers.ts";
 import {
 	allAnswered,
@@ -102,17 +96,7 @@ export async function askViaTui(
 		signal?.addEventListener("abort", onAbort, { once: true });
 		if (signal?.aborted) onAbort();
 
-		const editorTheme: EditorTheme = {
-			borderColor: (text) => theme.fg("accent", text),
-			selectList: {
-				selectedPrefix: (text) => theme.fg("accent", text),
-				selectedText: (text) => theme.fg("accent", text),
-				description: (text) => theme.fg("muted", text),
-				scrollInfo: (text) => theme.fg("dim", text),
-				noMatch: (text) => theme.fg("warning", text),
-			},
-		};
-		const editor = new Editor(tui, editorTheme);
+		const editor = new Editor(tui, editorTheme(theme));
 
 		// The TUI marks this component focused; forward that to the inline editor so
 		// it emits the hardware cursor marker for IME placement (see docs/tui.md).
@@ -205,7 +189,7 @@ export async function askViaTui(
 				for (let i = 0; i < count; i++) {
 					const option = target.options[i];
 					const active = i === state.cursor;
-					const prefix = active ? theme.fg("accent", "❯ ") : "  ";
+					const prefix = selectionMarker(theme, active);
 					if (!option) {
 						const otherSelected = selection?.type === "custom";
 						const otherMarker = target.multiSelect ? `[${otherSelected ? "x" : " "}] ` : "";

@@ -41,8 +41,8 @@ export function readLogTail(path: string | undefined, lines: number): LogTail {
 			const fd = openSync(path, "r");
 			try {
 				const buffer = Buffer.alloc(size - start);
-				readSync(fd, buffer, 0, buffer.length, start);
-				text = buffer.toString("utf8");
+				const bytesRead = readSync(fd, buffer, 0, buffer.length, start);
+				text = buffer.subarray(0, bytesRead).toString("utf8");
 			} finally {
 				closeSync(fd);
 			}

@@ -8,20 +8,13 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { missingFindings } from "../../lib/requirements.ts";
-import { formatExtension, formatReport } from "./format.ts";
+import { reuseText } from "../../lib/tui.ts";
+import { formatExtension, formatReport, isProblemSeverity } from "./format.ts";
 import type { DoctorRuntime } from "./runtime.ts";
 import { DoctorOutput, DoctorParams, TOOL_NAME, type DoctorArgs, type DoctorStructured } from "./schema.ts";
 
 export { TOOL_NAME };
-
-/** Reuse the result component across renders, as every TUI tool must. */
-function reuseText(last: unknown, text: string): Text {
-	const component = last instanceof Text ? last : new Text("", 0, 0);
-	component.setText(text);
-	return component;
-}
 
 /** Transcript summary: the headline plus each problem, capped. */
 function summaryLines(structured: DoctorStructured | undefined, limit = 6): string[] {
@@ -29,7 +22,7 @@ function summaryLines(structured: DoctorStructured | undefined, limit = 6): stri
 	const lines = [structured.headline];
 	const problems = structured.extensions.flatMap((extension) =>
 		extension.findings
-			.filter((finding) => finding.severity === "missing" || finding.severity === "degraded")
+			.filter((finding) => isProblemSeverity(finding.severity))
 			.map((finding) => `${extension.extension}: ${finding.check} — ${finding.detail}`),
 	);
 	for (const problem of problems.slice(0, limit)) lines.push(`  ${problem}`);
@@ -70,7 +63,8 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 				);
 			}
 
-			const text = args.extension ? formatExtension(selected[0]!) : formatReport(selected);
+			const single = args.extension ? selected[0] : undefined;
+			const text = single ? formatExtension(single) : formatReport(selected);
 			const structured: DoctorStructured = {
 				headline: text.split("\n")[0] ?? "",
 				missing: missingFindings(selected).length,
@@ -98,13 +92,17 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 		renderCall(args, theme, context) {
 			const input = args as DoctorArgs;
 			const scope = `${input.extension ? ` ${input.extension}` : ""}${input.refresh ? " (refresh)" : ""}`;
-			return reuseText(context?.lastComponent, `${theme.fg("toolTitle", "doctor")}${theme.fg("dim", scope)}`);
+			const text = reuseText(context?.lastComponent);
+			text.setText(`${theme.fg("toolTitle", "doctor")}${theme.fg("dim", scope)}`);
+			return text;
 		},
 
 		renderResult(result, _options, theme, context) {
 			const structured = result.details as DoctorStructured | undefined;
 			const tone = (structured?.missing ?? 0) > 0 ? "error" : (structured?.degraded ?? 0) > 0 ? "warning" : "success";
-			return reuseText(context?.lastComponent, theme.fg(tone, summaryLines(structured).join("\n")));
+			const text = reuseText(context?.lastComponent);
+			text.setText(theme.fg(tone, summaryLines(structured).join("\n")));
+			return text;
 		},
 	});
 }

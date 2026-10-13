@@ -84,14 +84,14 @@ export function registerRewind(pi: ExtensionAPI): void {
 			if (snapshotTakenForRun) return;
 			if (!policyFor(root).shouldSnapshot(event.toolName)) return;
 
-			snapshotTakenForRun = true;
 			await runtime.snapshot(ctx, { reason: "auto", prompt: pendingPrompt });
+			snapshotTakenForRun = true;
 			await runtime.setStatus(ctx);
 		} catch (error) {
 			if (warned) return;
 			warned = true;
 			try {
-				ctx.ui.notify(`Snapshot skipped: ${(error as Error).message}`, "warning");
+				ctx.ui.notify(`Snapshot skipped: ${error instanceof Error ? error.message : String(error)}`, "warning");
 			} catch {
 				// UI may be unavailable (print/json modes).
 			}

@@ -8,6 +8,7 @@
  * cannot inject escapes, crash reconstruction, or wipe a valid list.
  */
 
+import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { normalizeTodos } from "./schema.ts";
 import type { Todo, TodoDetails } from "./types.ts";
 
@@ -28,7 +29,7 @@ export function reconstructTodos(entries: Iterable<unknown>): Todo[] {
 		const entry = raw as BranchEntryLike;
 		if (entry?.type !== "message") continue;
 		const message = entry.message;
-		if (message?.role !== "toolResult" || message.toolName !== "todo") continue;
+		if (message?.role !== "toolResult" || message.toolName !== TODO_TOOL) continue;
 		const details = message.details as TodoDetails | undefined;
 		if (!details || details.todos === undefined) continue;
 		// A rejected call carries the unchanged list for the model to read; it is

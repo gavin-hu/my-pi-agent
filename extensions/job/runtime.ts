@@ -52,9 +52,9 @@ import {
 	touchSessionMarker,
 } from "./session.ts";
 import { STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
-import { toRecord, type Job, type JobRecord, type JobStatus, type KillSignal } from "./types.ts";
+import { type Job, type JobRecord, type JobStatus, type KillSignal } from "./types.ts";
 import { createUiController } from "./ui.ts";
-import { createJobStore } from "./store.ts";
+import { createJobStore, toRecord } from "./store.ts";
 import { createWaiters } from "./waiters.ts";
 
 /** Characters of sanitized log sent to the model. */
@@ -327,6 +327,22 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 	};
 
+	/** Clear a handle's timers, optionally close its log stream, and drop it. */
+	const disposeHandle = (id: string, options: { endStream: boolean }): void => {
+		const handle = handles.get(id);
+		if (!handle) return;
+		if (handle.killTimer) clearTimeout(handle.killTimer);
+		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
+		if (options.endStream) {
+			try {
+				handle.stream.end();
+			} catch {
+				// Already closed.
+			}
+		}
+		handles.delete(id);
+	};
+
 	const onChunk = (id: string, chunk: Buffer): void => {
 		const handle = handles.get(id);
 		const job = jobs.get(id);
@@ -350,18 +366,11 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const handle = handles.get(id);
 		const job = jobs.get(id);
 		if (!handle || !job || job.status !== "running") return;
-		if (handle.killTimer) clearTimeout(handle.killTimer);
-		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
 		// Commit any buffered output, including a final line without a newline.
 		consume(handle, job);
 		const tail = sanitizeLogLine(handle.pending);
 		if (tail) job.lastLine = tail;
-		try {
-			handle.stream.end();
-		} catch {
-			// Already closed.
-		}
-		handles.delete(id);
+		disposeHandle(id, { endStream: true });
 
 		const status: JobStatus = signal ? "killed" : code === 0 ? "exited" : "failed";
 		settle(job, { status, exitCode: signal ? null : code, signal });
@@ -413,16 +422,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		// so reset all session state before re-reading the registry.
 		disposed = false;
 		stopClock();
-		for (const handle of handles.values()) {
-			if (handle.killTimer) clearTimeout(handle.killTimer);
-			if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
-			try {
-				handle.stream.end();
-			} catch {
-				// Already closed.
-			}
-		}
-		handles.clear();
+		for (const id of [...handles.keys()]) disposeHandle(id, { endStream: true });
 		waiters.resolveAll();
 		lastPaint = 0;
 
@@ -678,10 +678,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			};
 			const resolveWaiter = (): void => finish(false, false);
 			const onAbort = (): void => finish(false, true);
-			const timer =
-				timeoutMs === undefined
-					? setTimeout(() => finish(true, false), DEFAULT_WAIT_MS)
-					: setTimeout(() => finish(true, false), timeoutMs);
+			const timer = setTimeout(() => finish(true, false), timeoutMs ?? DEFAULT_WAIT_MS);
 
 			remove = waiters.add(id, resolveWaiter);
 			if (signal?.aborted) onAbort();
@@ -720,17 +717,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 					}
 				}
 				// Drop the handle too: the child will not deliver a `close` we want.
-				const handle = handles.get(job.id);
-				if (handle) {
-					if (handle.killTimer) clearTimeout(handle.killTimer);
-					if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
-					try {
-						handle.stream.end();
-					} catch {
-						// Already closed.
-					}
-					handles.delete(job.id);
-				}
+				disposeHandle(job.id, { endStream: true });
 			}
 			jobs.delete(job.id);
 			waiters.resolve(job.id);
@@ -766,16 +753,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		for (const job of running) {
 			if (jobs.get(job.id)?.status === "running") kill(job.id, "SIGKILL");
 		}
-		for (const handle of handles.values()) {
-			if (handle.killTimer) clearTimeout(handle.killTimer);
-			if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
-			try {
-				handle.stream.end();
-			} catch {
-				// Already closed.
-			}
-		}
-		handles.clear();
+		for (const id of [...handles.keys()]) disposeHandle(id, { endStream: true });
 		waiters.resolveAll();
 		persist();
 		removeSessionMarker(store.directory(), sessionId);

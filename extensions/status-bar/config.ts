@@ -12,6 +12,7 @@
 import { clampInteger, clampNumber, cleanString, loadConfigFile } from "../../lib/config.ts";
 import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
 import { parseWindow } from "./price/schedule.ts";
+import { asRecord } from "./record.ts";
 import type { Currency, ModelRates, PeakSchedule, PeakWindow, StatusBarConfig } from "./types.ts";
 
 export const CONFIG = {
@@ -89,10 +90,6 @@ const MAX_RATE = 1_000_000;
 const MAX_RATE_KEYS = 200;
 const MAX_WINDOWS = 16;
 
-function record(value: unknown): Record<string, unknown> | undefined {
-	return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
-}
-
 /** Whether `Intl` accepts the zone; a mistyped zone is a config typo, not a crash. */
 function acceptsTimeZone(timezone: string): boolean {
 	try {
@@ -104,7 +101,7 @@ function acceptsTimeZone(timezone: string): boolean {
 }
 
 function currencyValue(raw: unknown, base: Currency): Currency {
-	const value = record(raw);
+	const value = asRecord(raw);
 	if (!value) return base;
 	return {
 		symbol: cleanString(value.symbol, base.symbol).slice(0, MAX_SYMBOL_LENGTH),
@@ -115,7 +112,7 @@ function currencyValue(raw: unknown, base: Currency): Currency {
 /** Rates merge key by key, so a project file can override one model without
  *  restating the rest; a key present in both layers is replaced, not merged. */
 function ratesValue(raw: unknown, base: Readonly<Record<string, ModelRates>>): Readonly<Record<string, ModelRates>> {
-	const value = record(raw);
+	const value = asRecord(raw);
 	if (!value) return base;
 	const merged: Record<string, ModelRates> = { ...base };
 	for (const [key, entry] of Object.entries(value)) {
@@ -128,7 +125,7 @@ function ratesValue(raw: unknown, base: Readonly<Record<string, ModelRates>>): R
 
 /** Five guarded numbers; an object stating none of them is not a rate. */
 function modelRatesValue(raw: unknown): ModelRates | null {
-	const value = record(raw);
+	const value = asRecord(raw);
 	if (!value) return null;
 	const fields = ["input", "output", "cacheRead", "cacheWrite", "offPeakMultiplier"] as const;
 	if (!fields.some((field) => field in value)) return null;
@@ -142,7 +139,7 @@ function modelRatesValue(raw: unknown): ModelRates | null {
 }
 
 function peakValue(raw: unknown, base: PeakSchedule): PeakSchedule {
-	const value = record(raw);
+	const value = asRecord(raw);
 	if (!value) return base;
 	const timezone = cleanString(value.timezone, base.timezone);
 	// An unknown zone makes every window meaningless, so the whole schedule is

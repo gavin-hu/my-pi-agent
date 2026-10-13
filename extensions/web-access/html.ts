@@ -18,6 +18,11 @@ const NAMED_ENTITIES: Record<string, string> = {
 	ndash: "–",
 };
 
+/** Strip tags (replacing each with `separator`) and decode entities. */
+export function stripTagsAndDecode(html: string, separator = ""): string {
+	return decodeEntities(html.replace(/<[^>]*>/g, separator));
+}
+
 /** Decode named and numeric HTML entities. Unknown entities are left as-is. */
 export function decodeEntities(input: string): string {
 	return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (match, body: string) => {

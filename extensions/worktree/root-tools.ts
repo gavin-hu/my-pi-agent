@@ -30,6 +30,7 @@ import {
 	createReadToolDefinition,
 	createWriteToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { canonicalize } from "./git.ts";
 
 export const ROOT_TOOL_NAMES = ["read", "write", "edit", "bash", "grep", "find", "ls"] as const;
 export type RootToolName = (typeof ROOT_TOOL_NAMES)[number];
@@ -136,4 +137,26 @@ export function registerRootTools(pi: ExtensionAPI, host: RootToolHost, deps: Ro
 			},
 		});
 	}
+}
+
+/**
+ * Find overridden tools that did not take effect, so their behavior is not
+ * re-rooted into the worktree. Pi keeps the first registration per tool name
+ * and refuses an extension that duplicates another extension's tool, so a
+ * non-builtin source that is not us is unexpected but reported anyway.
+ *
+ * `self` is the extension entry file: Pi records it as the source of every
+ * tool the extension registers, so it must be passed by `index.ts` rather than
+ * derived from this module's own location.
+ */
+export function findInactiveOverrides(pi: ExtensionAPI, self: string | undefined): string[] {
+	const inactive: string[] = [];
+	for (const name of ROOT_TOOL_NAMES) {
+		const info = pi.getAllTools().find((entry) => entry.name === name);
+		if (!info) continue;
+		const path = info.sourceInfo?.path;
+		const isOurs = path && !path.startsWith("builtin:") && (!self || canonicalize(path) === self);
+		if (!isOurs) inactive.push(name);
+	}
+	return inactive;
 }

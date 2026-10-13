@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isPeak, parseTimeOfDay, parseWindow, peakFormatter } from "./schedule.ts";
+import { isPeak, parseWindow, peakFormatter } from "./schedule.ts";
 
 /** The DeepSeek peak windows: 09:00-12:00 and 14:00-18:00, Monday to Friday. */
 const deepseek = {
@@ -16,7 +16,7 @@ const utc = (year: number, month: number, day: number, hour: number, minute = 0)
 
 describe("parseWindow", () => {
 	test("reads a window, defaulting the days to every day", () => {
-		expect(parseWindow({ from: "09:00", to: "12:00" })).toEqual({ days: [1, 2, 3, 4, 5, 6, 7], from: 540, to: 720 });
+		expect(parseWindow({ from: " 09:00 ", to: "12:00" })).toEqual({ days: [1, 2, 3, 4, 5, 6, 7], from: 540, to: 720 });
 		expect(parseWindow({ days: [5, 1, 1], from: "22:00", to: "02:00" })).toEqual({ days: [1, 5], from: 1320, to: 120 });
 	});
 
@@ -24,18 +24,11 @@ describe("parseWindow", () => {
 		expect(parseWindow({ from: "9:5", to: "12:00" })).toBeNull();
 		expect(parseWindow({ from: "09:60", to: "12:00" })).toBeNull();
 		expect(parseWindow({ from: "09:00", to: "09:00" })).toBeNull();
+		expect(parseWindow({ from: "24:00", to: "12:00" })).toBeNull();
+		expect(parseWindow({ from: 540, to: "12:00" })).toBeNull();
 		expect(parseWindow({ days: [8], from: "09:00", to: "12:00" })).toBeNull();
 		expect(parseWindow("09:00-12:00")).toBeNull();
 		expect(parseWindow(undefined)).toBeNull();
-	});
-});
-
-describe("parseTimeOfDay", () => {
-	test("reads a time, and rejects anything else", () => {
-		expect(parseTimeOfDay("00:00")).toBe(0);
-		expect(parseTimeOfDay(" 23:59 ")).toBe(1439);
-		expect(parseTimeOfDay("24:00")).toBeNull();
-		expect(parseTimeOfDay(540)).toBeNull();
 	});
 });
 

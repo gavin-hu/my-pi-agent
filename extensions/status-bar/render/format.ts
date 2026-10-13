@@ -6,22 +6,12 @@
  */
 
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
+import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { CONFIG, DEFAULT_CURRENCY } from "../config.ts";
 import type { Currency } from "../types.ts";
 
 export { formatTokens, sanitize } from "../../../lib/format.ts";
-
-/** Foreground theme tokens the bar uses. A subset of the theme's `ThemeColor`. */
-export type FgToken =
-	| "dim"
-	| "muted"
-	| "accent"
-	| "success"
-	| "error"
-	| "warning"
-	| "customMessageLabel"
-	| ThinkingColor;
 
 /** Theme tokens for the reasoning-effort indicator. */
 export type ThinkingColor =
@@ -100,7 +90,7 @@ export function computeGauge(percent: number | null, blocks: number): { filled: 
 }
 
 /** Gauge color for a context percentage. Neutral until it crosses a threshold. */
-export function contextColor(percent: number | null): FgToken {
+export function contextColor(percent: number | null): ThemeColor {
 	if (percent === null) return "muted";
 	if (percent > CONFIG.thresholds.danger) return "error";
 	if (percent > CONFIG.thresholds.warn) return "warning";
@@ -118,17 +108,6 @@ const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {
 };
 
 /**
- * Strip every terminal escape sequence, leaving only the visible characters.
- *
- * SGR alone is not enough here: this feeds width measurement and the plain-text
- * forms of a status, so a CSI or OSC sequence left in place would be counted as
- * columns and could still act on the terminal.
- */
-export function stripAnsi(text: string): string {
-	return stripTerminalSequences(text);
-}
-
-/**
  * Compact a status to its icon form for a narrow bar.
  *
  * An icon plus a label (`⋮ plan`) keeps only the icon. An icon plus a bare
@@ -139,7 +118,7 @@ export function stripAnsi(text: string): string {
  * a numeric label like `⋮ plan · 2024` from being mistaken for a count.
  */
 export function compactStatus(status: string): string {
-	const tokens = stripAnsi(status).trim().split(/\s+/).filter(Boolean);
+	const tokens = stripTerminalSequences(status).trim().split(/\s+/).filter(Boolean);
 	const icon = tokens[0] ?? "";
 	return tokens.length === 2 && /^\d+$/.test(tokens[1]) ? `${icon}${tokens[1]}` : icon;
 }
@@ -157,7 +136,7 @@ export function dropStatusDetail(status: string): string {
 
 /** Truncate to `max` display columns, counting wide characters correctly. */
 export function truncateLabel(label: string, max: number): string {
-	return stripAnsi(truncateToWidth(label, max, "…"));
+	return stripTerminalSequences(truncateToWidth(label, max, "…"));
 }
 
 /** Theme token for a reasoning-effort level. Mirrors Pi's own mapping; the

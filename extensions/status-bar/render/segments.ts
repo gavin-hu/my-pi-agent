@@ -27,6 +27,16 @@ import type { Segment, StatusSnapshot } from "../types.ts";
 
 const dim = (theme: Theme, text: string): string => theme.fg("dim", text);
 
+/**
+ * The label part of a themed status chip: strip its escape sequences, sanitize
+ * it to one safe line, then drop the leading icon.
+ */
+function chipLabel(raw: string): string {
+	return sanitizeLine(stripTerminalSequences(raw))
+		.replace(/^\S+\s*/, "")
+		.trim();
+}
+
 export function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): Segment {
 	return {
 		id: "pwd",
@@ -74,9 +84,7 @@ export function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment
 	const raw = snapshot.statuses.get(CONFIG.worktreeStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.worktree;
-	const label = sanitizeLine(stripTerminalSequences(raw))
-		.replace(/^\S+\s*/, "")
-		.trim();
+	const label = chipLabel(raw);
 	if (!label) {
 		return {
 			id: "worktree",
@@ -103,9 +111,7 @@ export function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 	const raw = snapshot.statuses.get(CONFIG.serveStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.serve;
-	const label = sanitizeLine(stripTerminalSequences(raw))
-		.replace(/^\S+\s*/, "")
-		.trim();
+	const label = chipLabel(raw);
 	const separator = dim(theme, CONFIG.separators.item);
 	if (!label) {
 		return {

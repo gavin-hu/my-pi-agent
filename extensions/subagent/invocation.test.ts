@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { getAgent } from "./agents.ts";
+import { BUILTIN_AGENTS } from "./agents.ts";
 import { buildAgentArgs, getPiInvocation } from "./invocation.ts";
 
-const explorer = getAgent("explorer")!;
-const planner = getAgent("planner")!;
-const worker = getAgent("worker")!;
+/** Look up a built-in agent by name for the fixtures below. */
+const builtin = (name: string) => BUILTIN_AGENTS.find((agent) => agent.name === name)!;
+
+const explorer = builtin("explorer");
+const planner = builtin("planner");
+const worker = builtin("worker");
 
 function valueAfter(args: string[], flag: string): string | undefined {
 	const index = args.indexOf(flag);
@@ -38,7 +41,7 @@ describe("buildAgentArgs", () => {
 	});
 
 	test("passes the researcher's web tool allowlist", () => {
-		const researcher = getAgent("researcher")!;
+		const researcher = builtin("researcher");
 		const args = buildAgentArgs(researcher, "t", {}, null);
 		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,web_search,web_fetch");
 	});

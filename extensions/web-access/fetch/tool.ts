@@ -10,8 +10,9 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { formatTokens } from "../../../lib/format.ts";
+import { reuseText } from "../../../lib/tui.ts";
+import { SEPARATORS } from "../../../lib/ui.ts";
 import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
 import { createPageCache, type PageCache } from "./cache.ts";
@@ -26,7 +27,7 @@ import { loadFetchConfig } from "../config.ts";
 export const TOOL_NAME = "web_fetch";
 
 /** Extra `web_fetch` dependencies: the shared `FetchDeps` plus the page cache. */
-export interface FetchToolDeps extends FetchDeps {
+interface FetchToolDeps extends FetchDeps {
 	cache?: PageCache;
 }
 
@@ -69,11 +70,12 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 		? findPassages(page.text, request.find, {
 				mode: request.mode,
 				contextChars: request.contextChars,
-				maxMatches: request.maxMatches,
+				maxMatches: request.maxMatches + 1,
 			})
 		: [];
-	// A full match list means the cap may have hidden further hits.
-	const matchesTruncated = finding && matches.length >= request.maxMatches;
+	// Request one extra so a full list proves more hits exist; only the cap is shown.
+	const matchesTruncated = finding && matches.length > request.maxMatches;
+	const visibleMatches = matchesTruncated ? matches.slice(0, request.maxMatches) : matches;
 
 	let formatted: { body: string; text: string; truncated: boolean };
 	let nextIndex: number;
@@ -83,7 +85,7 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 			title: page.title,
 			status: page.status,
 			contentType: page.contentType,
-			matches,
+			matches: visibleMatches,
 			find: request.find,
 			truncated: matchesTruncated,
 		});
@@ -115,7 +117,7 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 		nextIndex,
 		truncated: formatted.truncated,
 		cached,
-		matches,
+		matches: visibleMatches,
 		matchesTruncated,
 		fetchedAt,
 		error: "",
@@ -173,6 +175,9 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		exposure: "direct",
 		defaultActive: true,
 		annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+		// The page cache is shared in-memory state created per registration, so
+		// sibling calls must not run concurrently (matches web_search's throttle).
+		executionMode: "sequential",
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const config = loadFetchConfig(ctx.cwd);
@@ -198,7 +203,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 
 		renderCall(args, theme, context) {
 			const { url, find, startIndex } = args as WebFetchArgs;
-			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context?.lastComponent);
 			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(url ?? ""));
 			if (find?.length) line += theme.fg("dim", ` find ${find.map((f) => `"${oneLine(f)}"`).join(", ")}`);
 			else if (startIndex) line += theme.fg("dim", ` (from ${startIndex})`);
@@ -207,7 +212,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		},
 
 		renderResult(result, _options, theme, context) {
-			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text = reuseText(context?.lastComponent);
 			const page = result.details as FetchResponse | undefined;
 			if (page?.error) {
 				const message = oneLine(page.error);
@@ -223,8 +228,8 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 
 			const label = oneLine(page.title || page.finalUrl);
 			let line = theme.fg("muted", label);
-			if (page.matches.length > 0) line += theme.fg("dim", ` · ${page.matches.length} match(es)`);
-			else line += theme.fg("dim", ` · ${formatTokens(page.totalChars)} chars`);
+			if (page.matches.length > 0) line += theme.fg("dim", `${SEPARATORS.item}${page.matches.length} match(es)`);
+			else line += theme.fg("dim", `${SEPARATORS.item}${formatTokens(page.totalChars)} chars`);
 			if (page.cached) line += theme.fg("dim", " (cached)");
 			text.setText(line);
 			return text;

@@ -13,14 +13,15 @@
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
-import { stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
+import { reuseText } from "../../lib/tui.ts";
 import { expandHint } from "../../lib/ui.ts";
-import { aggregateUsage, clip, formatToolCall, formatUsageStats, sanitize, shortenPath } from "./format.ts";
+import { aggregateUsage, clip, formatToolCall, formatUsageStats } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
 
-type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
+type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, unknown> };
 type ResultStatus = "running" | "aborted" | "failed" | "success";
 
 /** Text and tool-call parts of every assistant message, in order. */
@@ -90,7 +91,7 @@ function errorDetail(result: SingleResult, status: ResultStatus, max?: number): 
 	const raw = result.errorMessage || result.stderr.trim();
 	const detail = raw || (status === "failed" ? `Subprocess exited with code ${result.exitCode}.` : "");
 	if (!detail) return undefined;
-	return max === undefined ? stripControlChars(detail).trim() : clip(sanitize(detail), max);
+	return max === undefined ? stripControlChars(detail).trim() : clip(sanitizeLine(detail), max);
 }
 
 /** A "Error: ..." / "Aborted: ..." block, or undefined when clean. */
@@ -105,7 +106,7 @@ function renderError(result: SingleResult, status: ResultStatus, theme: Theme, m
 function hasClippedError(result: SingleResult, status: ResultStatus): boolean {
 	const full = errorDetail(result, status);
 	if (!full) return false;
-	const clean = sanitize(full);
+	const clean = sanitizeLine(full);
 	return clip(clean, COLLAPSED_ERROR_MAX) !== clean;
 }
 
@@ -227,7 +228,7 @@ export interface SubagentCallContext {
 
 /** Preview the requested mode and its agents, reusing the slot's `Text`. */
 export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: SubagentCallContext): Component {
-	const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+	const text = reuseText(context?.lastComponent);
 	text.setText(callText(args, theme, context));
 	return text;
 }
@@ -244,7 +245,7 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 		let text = title + theme.fg("accent", `chain · ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
 			const step = args.chain[i];
-			const clean = sanitize(step.task.replace(/\{previous\}/g, ""));
+			const clean = sanitizeLine(step.task.replace(/\{previous\}/g, ""));
 			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
 		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `… +${args.chain.length - 3} more`)}`;
@@ -255,7 +256,7 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 		let text = title + theme.fg("accent", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
 			const task = args.tasks[i];
-			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(sanitize(task.task), 40)}`)}${cwdNote(task.cwd)}`;
+			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
 		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `… +${args.tasks.length - 3} more`)}`;
 		return text;
@@ -263,7 +264,7 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 
 	const agentName = args.agent || "…";
 	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
-	text += `\n  ${theme.fg("dim", clip(sanitize(args.task ?? "…"), 60))}`;
+	text += `\n  ${theme.fg("dim", clip(sanitizeLine(args.task ?? "…"), 60))}`;
 	return text;
 }
 
@@ -391,7 +392,7 @@ function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number)
 		const displayItems = getDisplayItems(result.messages);
 		if (isExpandable(result, status, displayItems)) hasHidden = true;
 		const taskText = result.taskTemplate ?? result.task;
-		const taskNote = taskText ? theme.fg("dim", ` ${clip(sanitize(taskText), 50)}`) : "";
+		const taskNote = taskText ? theme.fg("dim", ` ${clip(sanitizeLine(taskText), 50)}`) : "";
 		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
 		text += statusSuffix(result, status, theme, now);
 		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
@@ -455,7 +456,7 @@ export function renderSubagentResult(
 	if (!details || details.results.length === 0) {
 		syncElapsedTimer(false, context);
 		const first = result.content[0];
-		const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+		const text = reuseText(context?.lastComponent);
 		text.setText(first?.type === "text" ? first.text : "(no output)");
 		return text;
 	}
@@ -478,7 +479,7 @@ export function renderSubagentResult(
 		return container;
 	}
 
-	const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+	const text = reuseText(context?.lastComponent);
 	text.setText(
 		details.mode === "single"
 			? collapsedSingleText(details.results[0], theme, isPartial, now)

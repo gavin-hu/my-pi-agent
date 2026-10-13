@@ -17,8 +17,6 @@ import { FOLDER_ICON, iconHref, languageOf, SPRITE, type IconSpec } from "./icon
 import { renderMarkdown } from "./markdown.ts";
 import { encodePath } from "./paths.ts";
 
-export { escapeHtml, encodePath };
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** A short local date like `Oct 8 20:31`. */
@@ -229,7 +227,7 @@ body.palette-open{overflow:hidden}
 .palette-option mark{background:transparent;color:var(--warn);font-weight:600}
 .palette-status{margin:0;padding:8px 16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}`;
 
-export interface Layout {
+interface Layout {
 	title: string;
 	rootLabel: string;
 	tree: TreeNode;
@@ -241,7 +239,7 @@ export interface Layout {
 }
 
 /** A full two-pane page. */
-export function renderLayout(layout: Layout): string {
+function renderLayout(layout: Layout): string {
 	return `<!doctype html>
 <html lang="en">
 <head>

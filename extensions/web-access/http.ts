@@ -8,7 +8,7 @@
  */
 
 /** A request to send. */
-export interface HttpRequest {
+interface HttpRequest {
 	url: string;
 	method?: "GET" | "POST";
 	headers?: Record<string, string>;

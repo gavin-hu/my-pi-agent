@@ -9,7 +9,7 @@
  */
 
 import { homedir } from "node:os";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, type PathMetadata } from "@earendil-works/pi-coding-agent";
 import type { Entry, ResourceItem } from "./types.ts";
 
@@ -94,10 +94,11 @@ export function resolveLocalSource(source: string, baseDir: string): string {
 /** Display path for a group header: the home directory becomes `~`. */
 function formatBaseDir(baseDir: string): string {
 	const home = homedir();
+	const homePrefix = home.endsWith(sep) ? home : `${home}${sep}`;
 	const display =
 		baseDir === home
 			? "~"
-			: baseDir.startsWith(home)
+			: baseDir.startsWith(homePrefix)
 				? `~${baseDir.slice(home.length).replaceAll("\\", "/")}`
 				: baseDir.replaceAll("\\", "/");
 	return display.endsWith("/") ? display : `${display}/`;
@@ -121,7 +122,7 @@ export function getGroupLabel(metadata: PathMetadata, agentDir: string): string 
 }
 
 /** Directory name of this extension, excluded from its own list. */
-export const SELF_EXTENSION_DIR = "extension-picker";
+const SELF_EXTENSION_DIR = "extension-picker";
 
 /** Whether `item` is this extension's own entrypoint. */
 export function isSelf(item: ResourceItem): boolean {
@@ -137,7 +138,7 @@ export function getDisplayName(item: ResourceItem): string {
 }
 
 /** Stable identity for a resource row, used to keep the cursor across renders. */
-export function itemKey(item: ResourceItem): string {
+function itemKey(item: ResourceItem): string {
 	return `${item.metadata.source}:${item.path}`;
 }
 

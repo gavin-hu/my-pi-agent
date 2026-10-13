@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { aggregateUsage, clip, clipPath, formatToolCall, formatUsageStats, shortenPath } from "./format.ts";
+import { aggregateUsage, clip, clipPath, formatToolCall, formatUsageStats } from "./format.ts";
 import { fakeTheme } from "../../test/helpers/fixtures/subagent.ts";
 
 describe("formatUsageStats", () => {
@@ -30,22 +28,6 @@ describe("aggregateUsage", () => {
 		]);
 		expect(total).toMatchObject({ input: 11, output: 22, cacheRead: 33, cacheWrite: 44, turns: 3 });
 		expect(total.cost).toBeCloseTo(0.75);
-	});
-});
-
-describe("shortenPath", () => {
-	test("replaces the home prefix only", () => {
-		const home = homedir();
-		expect(shortenPath(join(home, "projects", "x"))).toBe("~/projects/x");
-		expect(shortenPath("/tmp/x")).toBe("/tmp/x");
-	});
-
-	test("does not shorten a sibling path sharing the prefix", () => {
-		const home = homedir();
-		const normalize = (value: string): string => value.replace(/\\/g, "/");
-		// A sibling directory whose name merely starts with the home string.
-		expect(shortenPath(`${home}-backup/x`)).toBe(normalize(`${home}-backup/x`));
-		expect(shortenPath(home)).toBe("~");
 	});
 });
 

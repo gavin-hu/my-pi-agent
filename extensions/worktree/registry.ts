@@ -20,7 +20,6 @@ import {
 	commitsBehind,
 	isBranchMerged,
 	isStaleLock,
-	lockOwnerPid,
 	type ManagedWorktree,
 	statusEntries,
 } from "./git.ts";
@@ -100,11 +99,6 @@ function saveRegistry(repoRoot: string, config: WorktreeConfig, registry: Worktr
 	}
 }
 
-export function getRecord(registry: WorktreeRegistry, path: string): WorktreeRecord | undefined {
-	const wanted = canonicalize(path);
-	return registry.worktrees.find((record) => record.path === wanted);
-}
-
 /** Insert or replace a record, preserving an existing `createdAt`. */
 export function upsertRecord(repoRoot: string, config: WorktreeConfig, record: WorktreeRecord): void {
 	const registry = loadRegistry(repoRoot, config);
@@ -141,12 +135,14 @@ export function removeRecord(repoRoot: string, config: WorktreeConfig, path: str
 /**
  * Reconcile the registry against the worktrees git currently reports: drop
  * records whose checkout is gone, and synthesize records for managed worktrees
- * that have none. Persists only when something changed.
+ * that have none. Persists only when something changed, and only when
+ * `options.persist` is not `false` (the read-only status path passes `false`).
  */
 export function reconcileRegistry(
 	repoRoot: string,
 	config: WorktreeConfig,
 	managed: ManagedWorktree[],
+	options: { persist?: boolean } = {},
 ): { registry: WorktreeRegistry; changed: boolean } {
 	const registry = loadRegistry(repoRoot, config);
 	const live = new Set(managed.map((entry) => canonicalize(entry.path)));
@@ -177,7 +173,7 @@ export function reconcileRegistry(
 	}
 
 	registry.worktrees = next.sort((a, b) => a.path.localeCompare(b.path));
-	if (changed) saveRegistry(repoRoot, config, registry);
+	if (changed && options.persist !== false) saveRegistry(repoRoot, config, registry);
 	return { registry, changed };
 }
 
@@ -222,9 +218,4 @@ export async function statusOf(
 		base.merged = base.ahead === 0 || (await isBranchMerged(pi, path, "HEAD", baseRef));
 	}
 	return base;
-}
-
-/** Lock owner pid for a listing entry, when the lock reason carries one. */
-export function lockPid(entry: ManagedWorktree): number | undefined {
-	return entry.locked ? lockOwnerPid(entry.locked) : undefined;
 }

@@ -10,9 +10,8 @@ describe("normalizeConfig", () => {
 		expect(normalizeConfig(undefined, DEFAULT_CONFIG)).toEqual(DEFAULT_CONFIG);
 	});
 
-	test("clamps pollTimeoutMs and maxReplyChars into range", () => {
-		const config = normalizeConfig({ pollTimeoutMs: 5, maxReplyChars: 999999 }, DEFAULT_CONFIG);
-		expect(config.pollTimeoutMs).toBe(1000);
+	test("clamps maxReplyChars into range", () => {
+		const config = normalizeConfig({ maxReplyChars: 999999 }, DEFAULT_CONFIG);
 		expect(config.maxReplyChars).toBe(20000);
 	});
 

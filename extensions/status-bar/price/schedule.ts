@@ -7,6 +7,7 @@
  * reuses it across a branch, keeping this module pure and cheap to call.
  */
 
+import { asRecord } from "../record.ts";
 import type { PeakSchedule, PeakWindow } from "../types.ts";
 
 const TIME_OF_DAY = /^(\d{1,2}):(\d{2})$/;
@@ -23,10 +24,6 @@ const WEEKDAYS: Readonly<Record<string, number>> = {
 	Sat: 6,
 	Sun: 7,
 };
-
-function record(value: unknown): Record<string, unknown> | undefined {
-	return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
-}
 
 /**
  * Weekday numbers for a window.
@@ -49,7 +46,7 @@ function parseDays(raw: unknown): readonly number[] | null {
 }
 
 /** Minutes since midnight for a `HH:MM` string, or `null`. */
-export function parseTimeOfDay(raw: unknown): number | null {
+function parseTimeOfDay(raw: unknown): number | null {
 	if (typeof raw !== "string") return null;
 	const match = TIME_OF_DAY.exec(raw.trim());
 	if (!match) return null;
@@ -65,7 +62,7 @@ export function parseTimeOfDay(raw: unknown): number | null {
  * A `to` equal to `from` states no duration, so it is treated as malformed.
  */
 export function parseWindow(raw: unknown): PeakWindow | null {
-	const value = record(raw);
+	const value = asRecord(raw);
 	if (!value) return null;
 	const days = parseDays(value.days);
 	const from = parseTimeOfDay(value.from);
