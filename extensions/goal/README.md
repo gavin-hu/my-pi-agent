@@ -39,8 +39,10 @@ pi install ./                       # install the package
   vague to act on, up to three clarifying questions. A clear goal is confirmed or
   edited; an unclear one is handed to the agent to ask with
   [`ask_user_question`](../ask-user-question/) before the agent records the
-  clarified goal. The step is best-effort and needs a dialog UI plus a model; the
-  `goal` tool stays the silent setter.
+  clarified goal. `/goal set <prompt>` reuses that step but records without
+  starting a turn, and `/goal edit` changes the current goal in place. The step
+  is best-effort and needs a dialog UI plus a model; the `goal` tool stays the
+  silent setter.
 
 ## Tool
 
@@ -81,7 +83,9 @@ entry; `reconstructGoal` replays both entry kinds in branch order.
 | Command | What it does |
 |---|---|
 | `/goal` | Show the current goal, or the command usage when none is set. |
-| `/goal <prompt>` | Classify `<prompt>` with one model call. A clear goal opens in a confirm/edit dialog; an unclear one with questions is delegated to the agent's `ask_user_question` tool, after which the agent records the clarified goal. |
+| `/goal <prompt>` | Classify `<prompt>` with one model call, then set the goal and start the run. A clear goal opens in a confirm/edit dialog; an unclear one with questions is delegated to the agent's `ask_user_question` tool, after which the agent records the clarified goal. |
+| `/goal set <prompt>` | The same classify and confirm/edit step, but record the goal without starting a run. |
+| `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
 | `/goal done` (or `/goal achieved`) | Mark the current goal achieved. |
 | `/goal clear` | Clear the goal. |
 | `/goal help` (or `-h` / `--help`) | Show the command usage. |
@@ -96,6 +100,9 @@ the confirm/edit dialog instead. A delegated goal is not set by the command: the
 agent asks the questions, then records the clarified objective with the `goal`
 tool. A plain-text clarifier reply is still accepted and treated as a clear
 rewrite, so a model that ignores the JSON instruction still clarifies.
+`/goal set <prompt>` follows the same path but stops before the run; a delegated
+record-only goal tells the agent not to start the work. A bare `/goal set` and
+`/goal edit` need a dialog UI — without one they show the usage instead.
 
 ## Behaviour by mode
 
@@ -149,7 +156,7 @@ on config.
 | Aspect | Detail |
 |---|---|
 | Tool | `goal` (direct, active by default) |
-| Command | `/goal` — show, clarify+set+run, done/achieved, or clear |
+| Command | `/goal` — show, clarify+set+run, record (`set`/`edit`), done/achieved, or clear |
 | Execution mode | `sequential` — calls share the in-memory goal |
 | Annotations | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
 | Output schema | `GoalResult` — `{ goal, action, error? }`, returned as `details` and `structuredContent` |
@@ -167,10 +174,12 @@ on config.
   `status: "achieved"` is rejected, so "mark done" can never be mistaken for
   "forget" and a rejected call cannot half-apply. Marking achieved keeps the
   record and stops the reminder, which a single empty-clear cannot express.
-- **The command classifies, then runs or delegates.** `/goal <prompt>` is the
-  user-driven path: one clarifier call (`clarify-prompt.ts` + `clarify.ts`) returns
+- **The command classifies, then runs, records, or delegates.** `/goal <prompt>`
+  is the user-driven path: one clarifier call (`clarify-prompt.ts` + `clarify.ts`) returns
   `{ clear, goal, questions }`. A clear goal opens a prefilled `ctx.ui.editor`,
-  then `pi.sendUserMessage` sets and runs it. An unclear goal is delegated to the
+  then `pi.sendUserMessage` sets and runs it. `/goal set` reuses the same step but
+  skips the send, and `/goal set` (bare) or `/goal edit` opens the editor
+  prefilled with the current goal. An unclear goal is delegated to the
   agent, which asks the questions with `ask_user_question` and records the
   clarified goal itself; the command cannot call that `model-only` tool directly
   and never sets a half-formed goal. Classification is best-effort (a failure

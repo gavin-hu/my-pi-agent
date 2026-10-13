@@ -259,6 +259,104 @@ describe("/goal command", () => {
 		expect(sentMessages.at(-1)).toEqual({ content: "ship the parser", options: undefined });
 	});
 
+	test("records a goal without starting a run with /goal set", async () => {
+		const { command, ctx, notifications, entries, sentMessages } = await started();
+		await command.handler("set ship the parser", ctx);
+		expect(notifications.at(-1)).toBe("Goal set (active): ship the parser");
+		expect(entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "goal",
+			data: { goal: { objective: "ship the parser", status: "active" } },
+		});
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("records without running when /goal set clarifies through the editor", async () => {
+		const registry = {
+			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "Refactor the parser" }] }),
+		};
+		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "Refactor the parser to stream input",
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("set refactor the parser", ctx);
+
+		expect(editorCalls[0].prefill).toBe("Refactor the parser");
+		expect(entries.at(-1)?.data).toEqual({
+			goal: { objective: "Refactor the parser to stream input", status: "active" },
+		});
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("a bare /goal set prefills the current goal and saves without running", async () => {
+		const { command, ctx, entries, sentMessages, editorCalls } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "new goal",
+		});
+
+		await command.handler("set", ctx);
+
+		expect(editorCalls[0].prefill).toBe("old goal");
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "new goal", status: "active" } });
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("/goal edit opens the current goal and saves without running", async () => {
+		const { command, ctx, entries, sentMessages, editorCalls } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "old goal, with tests",
+		});
+
+		await command.handler("edit", ctx);
+
+		expect(editorCalls[0].prefill).toBe("old goal");
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "old goal, with tests", status: "active" } });
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("cancels a bare /goal set when the editor is dismissed", async () => {
+		const { command, ctx, entries, sentMessages, notifications } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			editor: undefined,
+		});
+
+		await command.handler("set", ctx);
+
+		expect(entries).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
+		expect(notifications).toHaveLength(0);
+	});
+
+	test("shows usage for a bare /goal set without a UI", async () => {
+		const { command, ctx, notifications } = await started();
+		await command.handler("set", ctx);
+		expect(notifications.at(-1)).toContain("/goal set");
+	});
+
+	test("delegates an unclear record-only goal without starting the work", async () => {
+		const registry = {
+			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: clarifyReply() }] }),
+		};
+		const { command, ctx, sentMessages } = await started(
+			[],
+			{ mode: "rpc", hasUI: true, editor: "ignored", extra: { model: { id: "m" }, modelRegistry: registry } },
+			{ active: ["ask_user_question"] },
+		);
+
+		await command.handler("set add tests to the parser", ctx);
+
+		const content = sentMessages.at(-1)?.content as string;
+		expect(content).toContain("ask_user_question");
+		expect(content).toContain("do not start the work yet");
+		expect(content).not.toContain("begin the work");
+	});
+
 	test("submits the prompt as a follow-up while the agent is busy", async () => {
 		const { command, ctx, sentMessages } = await started([], { isIdle: () => false });
 		await command.handler("ship the parser", ctx);

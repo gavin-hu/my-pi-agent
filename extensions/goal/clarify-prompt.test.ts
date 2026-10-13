@@ -40,4 +40,14 @@ describe("buildDelegateUserText", () => {
 		expect(text).toContain('"question":"Anything to add?"');
 		expect(text).not.toContain('"options"');
 	});
+
+	test("defaults to starting the work", () => {
+		expect(buildDelegateUserText("g", "g", [])).toContain("begin the work");
+	});
+
+	test("tells the agent not to start work for a record-only goal", () => {
+		const text = buildDelegateUserText("add parser tests", "Add parser tests", [SCOPE_QUESTION], { run: false });
+		expect(text).toContain("do not start the work yet");
+		expect(text).not.toContain("begin the work");
+	});
 });

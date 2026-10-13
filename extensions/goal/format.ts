@@ -80,7 +80,8 @@ export function formatGoalNotice(goal: Goal): string {
  * claims the goal is unset.
  */
 export const GOAL_HELP = [
-	"Set a goal with /goal <what you want to accomplish>.",
+	"Set a goal with /goal <what you want to accomplish> and start working on it.",
+	"/goal set <prompt> records the goal without starting work; /goal edit changes the current goal.",
 	"/goal done  ·  /goal clear  ·  /goal help",
 ].join("\n");
 

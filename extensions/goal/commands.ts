@@ -18,12 +18,16 @@ import type { GoalRuntime } from "./runtime.ts";
 import { normalizeGoal } from "./schema.ts";
 import { GOAL_ENTRY_TYPE, type Goal } from "./types.ts";
 
+/** Title of the record-only edit dialog, spelling out both exits. */
+const EDIT_TITLE = "Goal — Enter to save, Esc to cancel";
+
 export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 	const persist = (goal: Goal | null): void => pi.appendEntry(GOAL_ENTRY_TYPE, { goal });
 
 	pi.registerCommand("goal", {
 		description:
-			"Set the session goal and start working on it, or show/clear/complete it: /goal [prompt | clear | done | help]",
+			"Set the session goal and start working on it, or show/record/edit/clear/complete it: " +
+			"/goal [prompt | set [prompt] | edit | clear | done | help]",
 		handler: async (args, ctx) => {
 			const input = args.trim();
 
@@ -61,8 +65,51 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				return;
 			}
 
+			// `/goal set [prompt]` records without starting a turn; `/goal edit` (and a
+			// bare `/goal set`) opens the editor prefilled with the current goal. An
+			// empty editor submission is a cancel, not a clear.
+			let recordOnly = false;
+			let prompt = input;
+			if (keyword === "edit" || keyword === "set") {
+				recordOnly = true;
+				prompt = "";
+			} else if (keyword.startsWith("set ")) {
+				recordOnly = true;
+				prompt = input.slice(4).trim();
+			}
+
+			const setGoal = async (goal: Goal, run: boolean): Promise<void> => {
+				runtime.setGoal(goal, ctx);
+				persist(goal);
+				ctx.ui.notify(`Goal set (active): ${goal.objective}`, "info");
+				if (!run) return;
+				// Set the goal before the turn so the reminder it injects carries it.
+				// `expandPromptTemplates` stays off: the goal is literal text.
+				if (ctx.isIdle()) await pi.sendUserMessage(goal.objective);
+				else await pi.sendUserMessage(goal.objective, { deliverAs: "followUp" });
+			};
+
 			try {
-				const typed = normalizeGoal({ objective: input, status: "active" });
+				// A bare `set`/`edit` has no prompt to classify: edit the current goal
+				// directly. Without a dialog UI there is nothing to open.
+				if (recordOnly && !prompt) {
+					if (!ctx.hasUI) {
+						ctx.ui.notify(GOAL_HELP, "info");
+						return;
+					}
+					const current = runtime.getGoal();
+					const edited = await ctx.ui.editor(EDIT_TITLE, current?.objective ?? "");
+					if (edited === undefined) return;
+					const goal = normalizeGoal({ objective: edited, status: "active" });
+					if (goal === null) {
+						ctx.ui.notify("Goal not set: the prompt is empty.", "warning");
+						return;
+					}
+					await setGoal(goal, false);
+					return;
+				}
+
+				const typed = normalizeGoal({ objective: prompt, status: "active" });
 				if (typed === null) {
 					ctx.ui.notify("No goal set.", "info");
 					return;
@@ -79,7 +126,9 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 
 				if (outcome.action === "ask") {
 					ctx.ui.notify("Goal needs clarification; asking the user first.", "info");
-					const content = buildDelegateUserText(outcome.original, outcome.goal, outcome.questions);
+					const content = buildDelegateUserText(outcome.original, outcome.goal, outcome.questions, {
+						run: !recordOnly,
+					});
 					// Set no goal: the agent asks, then records the clarified goal itself.
 					if (ctx.isIdle()) await pi.sendUserMessage(content);
 					else await pi.sendUserMessage(content, { deliverAs: "followUp" });
@@ -93,14 +142,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 					return;
 				}
 
-				runtime.setGoal(goal, ctx);
-				persist(goal);
-				ctx.ui.notify(`Goal set (active): ${goal.objective}`, "info");
-
-				// Set the goal before the turn so the reminder it injects carries it.
-				// `expandPromptTemplates` stays off: the goal is literal text.
-				if (ctx.isIdle()) await pi.sendUserMessage(goal.objective);
-				else await pi.sendUserMessage(goal.objective, { deliverAs: "followUp" });
+				await setGoal(goal, !recordOnly);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				ctx.ui.notify(`Goal not set: ${message}`, "warning");

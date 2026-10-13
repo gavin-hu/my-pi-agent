@@ -69,9 +69,16 @@ function delegateQuestions(questions: readonly ClarifyQuestion[]) {
  *
  * The `/goal` command cannot call the `model-only` question tool itself, so
  * when the goal is unclear it hands the proposed questions to the running agent,
- * which asks them and then records the clarified goal with the `goal` tool.
+ * which asks them and then records the clarified goal with the `goal` tool. When
+ * `run` is false (a record-only `/goal set`), the agent is told not to start the
+ * work after recording.
  */
-export function buildDelegateUserText(original: string, goal: string, questions: readonly ClarifyQuestion[]): string {
+export function buildDelegateUserText(
+	original: string,
+	goal: string,
+	questions: readonly ClarifyQuestion[],
+	options: { run?: boolean } = {},
+): string {
 	const lines = ["The session goal the user just asked for is not specific enough to record yet:", "", original];
 	if (goal) lines.push("", `A likely goal: ${goal}`);
 	lines.push(
@@ -80,7 +87,9 @@ export function buildDelegateUserText(original: string, goal: string, questions:
 		"",
 		JSON.stringify({ questions: delegateQuestions(questions) }),
 		"",
-		`Then record the clarified objective with the goal tool (status "active") and begin the work.`,
+		options.run === false
+			? `Then record the clarified objective with the goal tool (status "active"); do not start the work yet.`
+			: `Then record the clarified objective with the goal tool (status "active") and begin the work.`,
 	);
 	return lines.join("\n");
 }
