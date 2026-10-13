@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -9,7 +10,7 @@ import { runGit } from "../../test/helpers/fixtures/rewind.ts";
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
 
-describe("createTempIndexStore", () => {
+describe.skipIf(!runSlowSuites)("createTempIndexStore", () => {
 	test("pathFor creates the pi dir and returns a stable per-process path", async () => {
 		const repo = await makeRepo("pi-rw-index-path-");
 		cleanups.push(repo);

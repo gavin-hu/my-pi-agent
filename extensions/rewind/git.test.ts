@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +20,7 @@ import { indexFileFor, runGit } from "../../test/helpers/fixtures/rewind.ts";
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
 
-describe("git plumbing", () => {
+describe.skipIf(!runSlowSuites)("git plumbing", () => {
 	let repo: string;
 
 	beforeAll(async () => {

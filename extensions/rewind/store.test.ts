@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { commitTree, revParse, updateRef } from "./git.ts";
 import { createSnapshot } from "./snapshot.ts";
 import {
@@ -35,7 +36,7 @@ function meta(overrides: Partial<SnapshotMeta> = {}): SnapshotMeta {
 	};
 }
 
-describe("metadata encoding", () => {
+describe.skipIf(!runSlowSuites)("metadata encoding", () => {
 	test("refFor and idFromRef round-trip", () => {
 		expect(refFor(NS, "abc")).toBe(`${NS}/abc`);
 		expect(idFromRef(NS, `${NS}/abc`)).toBe("abc");
@@ -71,7 +72,7 @@ describe("metadata encoding", () => {
 	});
 });
 
-describe("ref-backed storage", () => {
+describe.skipIf(!runSlowSuites)("ref-backed storage", () => {
 	let repo: string;
 
 	beforeAll(async () => {

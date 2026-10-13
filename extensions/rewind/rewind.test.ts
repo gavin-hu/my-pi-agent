@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,7 +18,7 @@ afterAll(() => cleanup(...cleanups));
 
 const setup = () => setupRewind([WRITE_TOOL]);
 
-describe("/rewind command", () => {
+describe.skipIf(!runSlowSuites)("/rewind command", () => {
 	test("conversation-only moves the session and leaves files alone", async () => {
 		const repo = await makeRepo("pi-rw-cmd-talk-");
 		cleanups.push(repo);

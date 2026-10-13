@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { WORKTREE_TOOLS } from "./tools.ts";
@@ -12,7 +13,7 @@ function worktreePath(repo: string, name: string): string {
 	return join(repo, ".pi", "worktrees", name);
 }
 
-describe("exitWorktree", () => {
+describe.skipIf(!runSlowSuites)("exitWorktree", () => {
 	test("removes a clean worktree and its branch", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo);

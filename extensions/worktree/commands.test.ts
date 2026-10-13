@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
@@ -17,7 +18,7 @@ async function withHarness(prefix = "pi-wt-cmd-"): Promise<{ harness: WorktreeHa
 	return { harness, repo };
 }
 
-describe("/worktree command", () => {
+describe.skipIf(!runSlowSuites)("/worktree command", () => {
 	test("reports not in a worktree for the bare command and status", async () => {
 		const { harness } = await withHarness();
 		await harness.command("");
@@ -57,7 +58,7 @@ describe("/worktree command", () => {
 	});
 });
 
-describe("/worktree completion", () => {
+describe.skipIf(!runSlowSuites)("/worktree completion", () => {
 	function completions(harness: WorktreeHarness, prefix: string): any {
 		return harness.pi.commands.get("worktree").getArgumentCompletions(prefix);
 	}
