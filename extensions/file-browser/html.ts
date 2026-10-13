@@ -191,7 +191,19 @@ th[aria-sort="descending"] .sort::after{content:" ▼";font-size:9px;color:var(-
 .md-body .md-img{max-width:100%;height:auto;border-radius:4px}
 .md-body hr{border:0;border-top:1px solid var(--border);margin:1.4em 0}
 pre.code.wrap{overflow-x:hidden}
-pre.code.wrap .line{white-space:pre-wrap;overflow-wrap:anywhere}`;
+pre.code.wrap .line{white-space:pre-wrap;overflow-wrap:anywhere}
+.quick-open{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin-bottom:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);font:13px var(--ui);cursor:pointer}
+.quick-open:hover{border-color:var(--accent);color:var(--accent)}
+.quick-open kbd{font:11px var(--mono);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+body.palette-open{overflow:hidden}
+.palette-backdrop{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;background:rgba(0,0,0,.45)}
+.palette{display:flex;flex-direction:column;width:min(640px,100%);max-height:70vh;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.palette-input{border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);font:15px var(--mono);padding:14px 16px;outline:none}
+.palette-list{list-style:none;margin:0;padding:6px;overflow-y:auto}
+.palette-option{font:13px var(--mono);color:var(--text);padding:6px 10px;border-radius:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.palette-option[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+.palette-option mark{background:transparent;color:var(--warn);font-weight:600}
+.palette-status{margin:0;padding:8px 16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}`;
 
 export interface Layout {
 	title: string;
@@ -218,7 +230,7 @@ export function renderLayout(layout: Layout): string {
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<noscript><style>.filter{display:none}.tw.toggle{visibility:hidden}.action{display:none}</style></noscript>
+<noscript><style>.filter{display:none}.tw.toggle{visibility:hidden}.action{display:none}.quick-open{display:none}</style></noscript>
 ${SPRITE}
 <header class="site"><div class="bar">
   <span class="brand"><span class="dot"></span>serve</span>
@@ -230,6 +242,7 @@ ${SPRITE}
   <details class="side-panel" open>
     <summary class="side-summary">Files</summary>
     <aside class="side">
+      <button type="button" class="quick-open" id="quick-open" aria-haspopup="dialog"><span>quick open</span><kbd>/</kbd></button>
       <label class="filter">⌕ <input id="filter" type="search" placeholder="filter paths…" aria-label="Filter paths"></label>
       <nav class="tree" aria-label="File tree">${renderTree(layout.tree, layout.currentRel)}</nav>
       <p class="tree-empty" id="tree-empty" hidden>No matches.</p>

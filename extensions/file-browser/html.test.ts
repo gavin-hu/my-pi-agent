@@ -415,4 +415,21 @@ describe("renderDirectoryPage sort and styles", () => {
 		expect(html).toContain('.segmented .seg[aria-current="page"]');
 		expect(html).toContain(".action{display:none}");
 	});
+
+	test("ships the quick-open trigger and palette styles", () => {
+		fixture = makeFixture();
+		const html = renderDirectoryPage({
+			rootLabel: fixture.root,
+			rel: "",
+			listing: { entries: [], total: 0, truncated: false },
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		});
+		expect(html).toContain('id="quick-open"');
+		expect(html).toContain('aria-haspopup="dialog"');
+		expect(html).toContain(".quick-open{display:none}");
+		expect(html).toContain(".palette-backdrop{");
+		expect(html).toContain('.palette-option[aria-selected="true"]');
+	});
 });

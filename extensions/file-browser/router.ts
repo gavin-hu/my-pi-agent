@@ -12,15 +12,18 @@ import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
 import type { GitStatus, GitStatusProvider } from "./git.ts";
 import {
+	buildFileIndex,
 	buildTree,
 	contentTypeFor,
 	isImageName,
 	listDirectory,
 	readFileView,
 	type DirEntry,
+	type FileIndexProvider,
 	type TreeNode,
 } from "./files.ts";
 import { FOLDER_ICON, iconHref, languageOf } from "./icons.ts";
+import { fuzzySearch } from "./fuzzy.ts";
 import { encodePath, renderDirectoryPage, renderErrorPage, renderFilePage } from "./html.ts";
 import { HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
 
@@ -29,6 +32,8 @@ export interface ServeContext {
 	config: ServeConfig;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
+	/** Cached quick-open file index; built on demand when omitted. */
+	index?: FileIndexProvider;
 }
 
 export interface ServeResponse {
@@ -40,6 +45,9 @@ export interface ServeResponse {
 }
 
 const HOST_PATTERN = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
+
+/** Most palette rows the client will render for one query. */
+const RESULT_LIMIT = 50;
 
 const HTML_SECURITY: Record<string, string> = {
 	"Content-Type": "text/html; charset=utf-8",
@@ -213,6 +221,13 @@ async function treeApi(ctx: ServeContext, decodedPath: string): Promise<ServeRes
 	return jsonResponse(200, { path: rel, entries: listing.entries.map(treeApiEntry) });
 }
 
+/** Fuzzy file search for the quick-open palette, over the cached index. */
+async function filesApi(ctx: ServeContext, query: string): Promise<ServeResponse> {
+	const index = ctx.index ? await ctx.index() : await buildFileIndex(ctx.root, ctx.config.maxIndexEntries);
+	const results = fuzzySearch(query, index.files, RESULT_LIMIT);
+	return jsonResponse(200, { query, total: index.files.length, truncated: index.truncated, results });
+}
+
 /**
  * Handle one request. `method` and `headers` are the raw HTTP values; `rawUrl`
  * is the request target (path plus optional query).
@@ -252,6 +267,7 @@ export async function handleRequest(
 		}
 		if (pathname === "/favicon.ico") return { status: 204, headers: { ...HTML_SECURITY }, body: "" };
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
+		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");
 		if (pathname === "/" || pathname === "/browse" || pathname === "/browse/") return await browse(ctx, "");
 		if (pathname.startsWith("/browse/")) return await browse(ctx, pathname.slice("/browse/".length));
 		if (pathname.startsWith("/view/"))

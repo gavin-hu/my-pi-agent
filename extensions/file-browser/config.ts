@@ -27,6 +27,8 @@ export interface ServeConfig {
 	thumbnails: boolean;
 	/** Render Markdown files as formatted HTML instead of plain text. */
 	markdown: boolean;
+	/** Files collected for the quick-open index before it is truncated. */
+	maxIndexEntries: number;
 }
 
 export const DEFAULT_CONFIG: ServeConfig = {
@@ -38,6 +40,7 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	maxDirEntries: 2000,
 	thumbnails: true,
 	markdown: true,
+	maxIndexEntries: 20000,
 };
 
 /** Base of the per-session port range. */
@@ -70,6 +73,7 @@ export function normalizeConfig(
 		maxDirEntries: clampInteger(raw.maxDirEntries, base.maxDirEntries, 1, 1_000_000),
 		thumbnails: bool(raw.thumbnails, base.thumbnails),
 		markdown: bool(raw.markdown, base.markdown),
+		maxIndexEntries: clampInteger(raw.maxIndexEntries, base.maxIndexEntries, 1, 1_000_000),
 	};
 }
 

@@ -17,6 +17,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first) and the choice is remembered per browser.
 - `file-browser`: file pages copy the root-relative path or the file contents,
   and text/raw views toggle line wrapping.
+- `file-browser`: a quick-open palette (`/` or `Ctrl/Cmd+K`, or the sidebar
+  button) fuzzy-searches a capped index of the served tree and opens the chosen
+  file. The index skips `.git`, `node_modules`, and symlinks, is bounded by
+  `maxIndexEntries`, and is cached per server; results highlight the matched
+  characters and the palette is keyboard- and screen-reader-accessible.
 
 ### Fixed
 

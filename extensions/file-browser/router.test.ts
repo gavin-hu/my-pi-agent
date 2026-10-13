@@ -89,6 +89,28 @@ describe("routing", () => {
 		expect(html).toContain("data-mtime=");
 	});
 
+	test("serves the quick-open file search as ranked JSON", async () => {
+		const response = await handleRequest(context(), "GET", "/api/files?q=b.md", {});
+		expect(response.status).toBe(200);
+		expect(response.headers["Content-Type"]).toContain("application/json");
+		const payload = JSON.parse(text(response)) as {
+			total: number;
+			truncated: boolean;
+			results: Array<{ path: string; positions: number[] }>;
+		};
+		expect(payload.total).toBeGreaterThan(0);
+		expect(payload.truncated).toBe(false);
+		expect(payload.results[0]?.path).toBe("sub/b.md");
+		expect(payload.results[0]?.positions).toHaveLength(4);
+	});
+
+	test("returns no results for an empty query but reports the index size", async () => {
+		const response = await handleRequest(context(), "GET", "/api/files?q=", {});
+		const payload = JSON.parse(text(response)) as { results: unknown[]; total: number };
+		expect(payload.results).toEqual([]);
+		expect(payload.total).toBeGreaterThan(0);
+	});
+
 	test("serves /app.js, a 204 favicon, and the tree API", async () => {
 		const app = await handleRequest(context(), "GET", "/app.js", {});
 		expect(app.status).toBe(200);

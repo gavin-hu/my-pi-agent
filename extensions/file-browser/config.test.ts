@@ -30,3 +30,11 @@ describe("normalizeConfig markdown", () => {
 		expect(normalizeConfig({ markdown: "no" }).markdown).toBe(true);
 	});
 });
+
+describe("normalizeConfig maxIndexEntries", () => {
+	test("defaults and clamps to at least one", () => {
+		expect(DEFAULT_CONFIG.maxIndexEntries).toBe(20000);
+		expect(normalizeConfig({ maxIndexEntries: 5 }).maxIndexEntries).toBe(5);
+		expect(normalizeConfig({ maxIndexEntries: 0 }).maxIndexEntries).toBe(1);
+	});
+});

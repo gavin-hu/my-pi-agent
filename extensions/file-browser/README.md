@@ -3,9 +3,9 @@
 `/serve` starts a **read-only** HTTP server rooted at the effective working
 directory, opens the default browser at it, and prints the URL. The page is a
 two-pane file browser: a collapsible path tree on the left, directory listings
-and file views on the right, with image thumbnails, rendered Markdown, and
-per-language icons. It is bound to `127.0.0.1` and ships no dependencies —
-`node:http` plus one small vanilla script.
+and file views on the right, with image thumbnails, rendered Markdown,
+per-language icons, and a fuzzy quick-open palette. It is bound to `127.0.0.1`
+and ships no dependencies — `node:http` plus one small vanilla script.
 
 ```bash
 pi --extension ./extensions/file-browser   # load just this extension
@@ -29,6 +29,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   directory, directories first, and the choice is remembered per browser.
 - **Copy and wrap.** Copy a file's root-relative path or its contents, and
   toggle line wrapping for text and raw views.
+- **Quick open.** `/` (or `Ctrl/Cmd+K`, or the sidebar button) opens a fuzzy
+  path finder over a capped index of the tree, with keyboard navigation and a
+  highlighted match; Enter opens the file.
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
 - **Git context.** A read-only header chip shows the checked-out branch (or
   detached head) and a dirty marker, and reflows on narrow screens.
@@ -72,6 +75,7 @@ reflects only this session's server, with no cross-session sharing.
 | `/view/<rel>?raw=1` | raw Markdown/text source instead of the rendered view |
 | `/raw/<rel>` | raw bytes, streamed; downloads and image sources |
 | `/api/tree?path=<rel>` | JSON children for lazy tree expansion |
+| `/api/files?q=<query>` | JSON fuzzy path matches for the quick-open palette |
 | `/app.js` | the first-party client script |
 | `/favicon.ico` | `204` (the icon is a data URI) |
 
@@ -89,7 +93,8 @@ reflects only this session's server, with no cross-session sharing.
   "maxTextLines": 5000,      // rendered lines before truncation
   "maxDirEntries": 2000,     // listed entries before truncation
   "thumbnails": true,
-  "markdown": true           // render Markdown files as formatted HTML
+  "markdown": true,          // render Markdown files as formatted HTML
+  "maxIndexEntries": 20000   // files collected for quick open before truncation
 }
 ```
 
@@ -161,8 +166,8 @@ reflects only this session's server, with no cross-session sharing.
   `fetch("/api/tree")`, broken thumbnails fall back to the category icon, the
   listing headers sort in place, the wrap toggle is remembered, and the copy
   buttons use the clipboard. Without JS the page still browses and renders
-  Markdown, and the JS-only controls (filter, disclosure, actions) are hidden.
-  The palette follows `nocturne-dark`/`nocturne-light` via
+  Markdown, and the JS-only controls (filter, disclosure, actions, quick open)
+  are hidden. The palette follows `nocturne-dark`/`nocturne-light` via
   `prefers-color-scheme`.
 - **Markdown rendering.** `markdown.ts` is a first-party, escape-first renderer
   for the constructs that show up in repository READMEs. It emits only a known
@@ -172,6 +177,13 @@ reflects only this session's server, with no cross-session sharing.
   `img-src 'self' data:`). The Rendered/Raw switch is a server-side `?raw=1`
   link, so it works without JavaScript. Set `markdown: false` to fall back to
   the plain-text view.
+- **Quick open.** `/api/files` ranks the cached index with `fuzzy.ts` and
+  returns the matched character positions; the client fetches on an 80 ms
+  debounce and builds rows with `textContent`, so a file name cannot inject
+  markup. The index skips `.git`, `node_modules`, and symlinks, is capped by
+  `maxIndexEntries`, and is cached per server for 10 s by `createFileIndex`. The
+  palette is a `dialog`/`combobox`/`listbox` with `aria-activedescendant` and
+  `Esc` / arrow / `Enter` handling.
 - **Streaming responses.** The server streams `filePath` responses and
   suppresses bodies for `HEAD`, so large `/raw` files are not buffered.
 - **Root confinement over feature breadth.** The root is deliberately confined
@@ -187,10 +199,11 @@ reflects only this session's server, with no cross-session sharing.
 | `paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
 | `escape.ts` | `escapeHtml`, the shared HTML escaping used by every renderer |
 | `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
+| `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
 | `markdown.ts` | First-party escape-first Markdown-to-HTML renderer |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
-| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy) |
+| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
 | `html.ts` | Page renderers, sortable headers, and the inline CSS |
 | `router.ts` | Pure request handler |
 | `server.ts` | `node:http` server |
@@ -200,10 +213,12 @@ reflects only this session's server, with no cross-session sharing.
 
 `extensions/file-browser/` covers the path guard (traversal, encoded, NUL, malformed,
 absolute, symlink escape and in-root symlink), file classification/listings/
-reads/tree, the Markdown renderer (blocks, inline, safety, and path resolution),
+reads/tree and the quick-open file index, the fuzzy matcher, the Markdown
+renderer (blocks, inline, safety, and path resolution),
 the icon mapping and sprite, HTML escaping/encoding/rendering, the client script
 and its serving, the platform browser commands with an injected spawn, the router
-(routes, `/api/tree`, `?raw=1`, status codes, `Host`, `HEAD`, `/raw` headers)
+(routes, `/api/tree`, `/api/files`, `?raw=1`, status codes, `Host`, `HEAD`, `/raw`
+headers)
 without a socket, a real `127.0.0.1:0` server, the session-port lifecycle (fixed
 on first start, reused, and re-rolled after a conflict), the git status provider
 (branch, dirty, detached, non-repo, failure, and TTL cache), and the command

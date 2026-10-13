@@ -60,6 +60,16 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("execCommand");
 	});
 
+	test("wires the quick-open palette", () => {
+		expect(CLIENT_JS).toContain('"/api/files?q="');
+		expect(CLIENT_JS).toContain("palette-option");
+		expect(CLIENT_JS).toContain("aria-activedescendant");
+		expect(CLIENT_JS).toContain("quick-open");
+		expect(CLIENT_JS).toContain('"role", "dialog"');
+		expect(CLIENT_JS).toContain('event.key === "Escape"');
+		expect(CLIENT_JS).toContain("metaKey");
+	});
+
 	test("is served as a no-store script", async () => {
 		fixture = makeFixture();
 		const response = await handleRequest({ root: fixture.root, config: DEFAULT_CONFIG }, "GET", "/app.js", {});

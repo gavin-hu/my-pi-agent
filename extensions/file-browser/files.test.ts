@@ -2,9 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+	buildFileIndex,
 	buildTree,
 	classifyByName,
 	contentTypeFor,
+	createFileIndex,
 	formatSize,
 	isImageName,
 	isMarkdownName,
@@ -182,5 +184,48 @@ describe("buildTree", () => {
 		const tree = await buildTree(fixture.root, "dangling", 100);
 		const node = tree.children.find((child) => child.name === "dangling");
 		expect(node?.broken).toBe(true);
+	});
+});
+
+describe("buildFileIndex", () => {
+	test("collects nested files as posix paths and excludes directories", async () => {
+		fixture = makeFixture();
+		const index = await buildFileIndex(fixture.root, 1000);
+		expect(index.files).toContain("a.txt");
+		expect(index.files).toContain("sub/b.md");
+		expect(index.files).not.toContain("sub");
+		expect(index.truncated).toBe(false);
+	});
+
+	test("skips .git, node_modules, and symlinks", async () => {
+		fixture = makeFixture();
+		mkdirSync(join(fixture.root, ".git"), { recursive: true });
+		writeFileSync(join(fixture.root, ".git", "config"), "x\n");
+		mkdirSync(join(fixture.root, "node_modules", "pkg"), { recursive: true });
+		writeFileSync(join(fixture.root, "node_modules", "pkg", "index.js"), "x\n");
+		const index = await buildFileIndex(fixture.root, 1000);
+		expect(index.files.some((path) => path.startsWith(".git/"))).toBe(false);
+		expect(index.files.some((path) => path.startsWith("node_modules/"))).toBe(false);
+		expect(index.files).not.toContain("link.txt");
+	});
+
+	test("caps the index and reports truncation", async () => {
+		fixture = makeFixture();
+		const index = await buildFileIndex(fixture.root, 2);
+		expect(index.files).toHaveLength(2);
+		expect(index.truncated).toBe(true);
+	});
+});
+
+describe("createFileIndex", () => {
+	test("reuses the walk within the TTL and rebuilds after it", async () => {
+		fixture = makeFixture();
+		let clock = 0;
+		const index = createFileIndex(fixture.root, 1000, { ttlMs: 100, now: () => clock });
+		await index();
+		writeFileSync(join(fixture.root, "new.txt"), "x\n");
+		expect((await index()).files).not.toContain("new.txt");
+		clock = 200;
+		expect((await index()).files).toContain("new.txt");
 	});
 });
