@@ -6,6 +6,7 @@ import {
 	applyAdd,
 	applyClear,
 	applyForget,
+	applyUpdate,
 	MAX_MEMORY_BYTES,
 	memoryFileStamp,
 	mutateMemoryFile,
@@ -86,6 +87,25 @@ describe("applyForget", () => {
 	test("reports no change when nothing matches", () => {
 		const content = "- one\n";
 		expect(applyForget(content, "missing")).toEqual({ content, changed: false });
+	});
+});
+
+describe("applyUpdate", () => {
+	test("replaces an exact note in place, keeping the marker and prose", () => {
+		const result = applyUpdate("intro\n  * old note\n- other\n", "old note", "new note");
+		expect(result.changed).toBe(true);
+		expect(result.content).toBe("intro\n  * new note\n- other\n");
+	});
+
+	test("replaces every exact match", () => {
+		const result = applyUpdate("- old\n- keep\n- old\n", "old", "new");
+		expect(result.content).toBe("- new\n- keep\n- new\n");
+	});
+
+	test("reports no change when nothing matches or the note is unchanged", () => {
+		const content = "- one\n";
+		expect(applyUpdate(content, "missing", "two")).toEqual({ content, changed: false });
+		expect(applyUpdate(content, "one", "one")).toEqual({ content, changed: false });
 	});
 });
 

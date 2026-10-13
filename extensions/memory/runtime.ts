@@ -15,6 +15,7 @@ import {
 	applyAdd,
 	applyClear,
 	applyForget,
+	applyUpdate,
 	memoryFileStamp,
 	mutateMemoryFile,
 	parseEntries,
@@ -51,6 +52,7 @@ export interface MemoryRuntime {
 	write(scope: MemoryScope, content: string): Promise<void>;
 	/** Returns whether the store changed. */
 	add(scope: MemoryScope, entry: string): Promise<boolean>;
+	update(scope: MemoryScope, from: string, to: string): Promise<boolean>;
 	forget(scope: MemoryScope, entry: string): Promise<boolean>;
 	clear(scope: MemoryScope): Promise<boolean>;
 	/** Drop cached state on shutdown. */
@@ -163,6 +165,12 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		async forget(scope, entry) {
 			requireTrusted(scope);
 			const result = await mutateMemoryFile(pathFor(scope), (content) => applyForget(content, entry));
+			commit(scope, result.entries);
+			return result.changed;
+		},
+		async update(scope, from, to) {
+			requireTrusted(scope);
+			const result = await mutateMemoryFile(pathFor(scope), (content) => applyUpdate(content, from, to));
 			commit(scope, result.entries);
 			return result.changed;
 		},

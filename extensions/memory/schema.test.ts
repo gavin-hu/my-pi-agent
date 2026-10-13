@@ -4,6 +4,7 @@ import { MAX_ENTRY_CHARS, normalizeAction, normalizeEntryText, normalizeScope } 
 describe("memory schema", () => {
 	test("normalizeAction accepts the known actions and rejects others", () => {
 		expect(normalizeAction("add")).toBe("add");
+		expect(normalizeAction("update")).toBe("update");
 		expect(normalizeAction(" FORGET ")).toBe("forget");
 		expect(() => normalizeAction("delete")).toThrow(/action must be/);
 	});
@@ -22,5 +23,10 @@ describe("memory schema", () => {
 		expect(() => normalizeEntryText("   ")).toThrow(/text is required/);
 		expect(() => normalizeEntryText(123)).toThrow(/text is required/);
 		expect(() => normalizeEntryText("x".repeat(MAX_ENTRY_CHARS + 1))).toThrow(/longer than/);
+	});
+
+	test("normalizeEntryText names the field it validates", () => {
+		expect(() => normalizeEntryText(undefined, "to")).toThrow(/to is required/);
+		expect(() => normalizeEntryText("x".repeat(MAX_ENTRY_CHARS + 1), "to")).toThrow(/to is longer than/);
 	});
 });

@@ -11,7 +11,7 @@ export const MEMORY_SCOPES = ["project", "global"] as const;
 export type MemoryScope = (typeof MEMORY_SCOPES)[number];
 
 /** What a call did, used by the result schema, details, and transcript renderer. */
-export const MEMORY_ACTIONS = ["add", "forget", "list"] as const;
+export const MEMORY_ACTIONS = ["add", "update", "forget", "list"] as const;
 
 export type MemoryAction = (typeof MEMORY_ACTIONS)[number];
 
@@ -27,8 +27,10 @@ export interface MemoryDetails {
 	project: string[];
 	global: string[];
 	changed: boolean;
-	/** The note added or forgotten, when the call named one. */
+	/** The note added, forgotten, or replaced (the previous text, for `update`). */
 	entry?: string;
+	/** The replacement note, for `update`. */
+	to?: string;
 	/** Model-readable validation message when the call was rejected. */
 	error?: string;
 }

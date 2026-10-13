@@ -45,14 +45,19 @@ export function countLine(entries: MemoryEntries): string {
  * action, and `→ …` while the arguments are still streaming.
  */
 export function formatCallText(
-	args: { action?: unknown; text?: unknown; scope?: unknown },
+	args: { action?: unknown; text?: unknown; to?: unknown; scope?: unknown },
 	argsComplete = true,
 ): string {
 	const action = typeof args.action === "string" ? args.action.toLowerCase() : "";
 	if (action === "list") return "→ list";
-	if (action !== "add" && action !== "forget") return argsComplete ? "" : "→ …";
+	if (action !== "add" && action !== "forget" && action !== "update") return argsComplete ? "" : "→ …";
 	const scope = scopeLabel(args.scope === "global" ? "global" : "project");
 	const text = typeof args.text === "string" ? args.text.trim() : "";
+	if (action === "update") {
+		const to = typeof args.to === "string" ? args.to.trim() : "";
+		if (!text) return `→ update (${scope})`;
+		return to ? `→ update (${scope}): ${text} → ${to}` : `→ update (${scope}): ${text}`;
+	}
 	return text ? `→ ${action} (${scope}): ${text}` : `→ ${action} (${scope})`;
 }
 
@@ -79,6 +84,10 @@ export function formatResultText(details: MemoryDetails, expanded = false): stri
 			return details.changed
 				? `Added to ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}\nNow ${countLine(entries)}.`
 				: `Already in ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}`;
+		case "update":
+			return details.changed
+				? `Updated ${scopeLabel(details.scope)} memory: ${details.entry ?? ""} → ${details.to ?? ""}\nNow ${countLine(entries)}.`
+				: `Already set in ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}`;
 		case "forget":
 			return `Removed from ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}\nNow ${countLine(entries)}.`;
 	}

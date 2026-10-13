@@ -140,6 +140,22 @@ export function applyForget(content: string, entry: string): FileChange {
 	return changed ? { content: endWithNewline(kept.join("\n")), changed: true } : { content, changed: false };
 }
 
+/** Bullet line as marker, note, and trailing whitespace. */
+const BULLET_PARTS = /^(\s*[-*]\s+)(.+?)(\s*)$/;
+
+/** Replace every bullet whose note matches `from` exactly, keeping marker and prose. */
+export function applyUpdate(content: string, from: string, to: string): FileChange {
+	if (from === to) return { content, changed: false };
+	let changed = false;
+	const lines = content.split(/\r?\n/).map((line) => {
+		const match = BULLET_PARTS.exec(line);
+		if (!match || sanitizeLine(match[2]) !== from) return line;
+		changed = true;
+		return `${match[1]}${to}${match[3]}`;
+	});
+	return changed ? { content: lines.join("\n"), changed: true } : { content, changed: false };
+}
+
 /** Remove every note, keeping the header and any prose. */
 export function applyClear(content: string): FileChange {
 	let changed = false;

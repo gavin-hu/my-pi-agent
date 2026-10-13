@@ -23,6 +23,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   palettes and remembers the choice per browser (`localStorage`); until it is
   used the palette follows the system `prefers-color-scheme`, and a pre-paint
   `/theme.js` script applies the saved choice to avoid a flash.
+- `memory`: stored notes are re-read when their file changes on disk (an
+  mtime/size check before every read) and `/memory reload` forces a refresh, so
+  a hand edit or another session lands without a restart.
+- `memory`: the tool gains an `update` action that replaces an exact note in
+  place, in one mutation, instead of the forget-then-add gap; `to` carries the
+  replacement, a non-matching `text` is rejected without writing, and an
+  update to the same text is a no-op.
 
 ### Changed
 
