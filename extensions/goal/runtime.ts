@@ -80,6 +80,9 @@ export function createGoalRuntime(pi?: Pick<ExtensionAPI, "events">): GoalRuntim
 		},
 		clear: (ctx) => {
 			goal = null;
+			// Drop the cached context so a later rails event cannot set a widget on a
+			// context that `session_shutdown` has already invalidated.
+			lastTuiCtx = undefined;
 			if (!ctx) return;
 			if (ctx.mode === "tui") ctx.ui.setWidget(WIDGET_KEY, undefined);
 		},

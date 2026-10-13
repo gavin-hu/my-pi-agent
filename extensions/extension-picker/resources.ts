@@ -9,7 +9,7 @@
  */
 
 import { homedir } from "node:os";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, type PathMetadata } from "@earendil-works/pi-coding-agent";
 import type { Entry, ResourceItem } from "./types.ts";
 
@@ -94,10 +94,11 @@ export function resolveLocalSource(source: string, baseDir: string): string {
 /** Display path for a group header: the home directory becomes `~`. */
 function formatBaseDir(baseDir: string): string {
 	const home = homedir();
+	const homePrefix = home.endsWith(sep) ? home : `${home}${sep}`;
 	const display =
 		baseDir === home
 			? "~"
-			: baseDir.startsWith(home)
+			: baseDir.startsWith(homePrefix)
 				? `~${baseDir.slice(home.length).replaceAll("\\", "/")}`
 				: baseDir.replaceAll("\\", "/");
 	return display.endsWith("/") ? display : `${display}/`;

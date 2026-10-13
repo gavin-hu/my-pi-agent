@@ -5,6 +5,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { askHuman } from "../../lib/interaction.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
@@ -101,11 +102,14 @@ export function registerTools(pi: ExtensionAPI): void {
 			}
 
 			const lines = details.answers.map((answer) => {
-				const header = theme.fg("accent", answer.header);
+				const header = theme.fg("accent", sanitizeLine(answer.header));
 				if (answer.wasCustom) {
-					return `${theme.fg("success", "✓ ")}${header}: ${theme.fg("muted", "(wrote) ")}${answer.values.join("; ")}`;
+					const values = answer.values.map((value) => sanitizeLine(value)).join("; ");
+					return `${theme.fg("success", "✓ ")}${header}: ${theme.fg("muted", "(wrote) ")}${values}`;
 				}
-				const numbered = answer.labels.map((label, i) => `${answer.indices?.[i] ?? "?"}. ${label}`).join(", ");
+				const numbered = answer.labels
+					.map((label, i) => `${answer.indices?.[i] ?? "?"}. ${sanitizeLine(label)}`)
+					.join(", ");
 				return `${theme.fg("success", "✓ ")}${header}: ${numbered}`;
 			});
 			if (details.cancelled) lines.push(theme.fg("warning", "(cancelled)"));

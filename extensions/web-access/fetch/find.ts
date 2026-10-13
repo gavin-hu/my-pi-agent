@@ -55,9 +55,32 @@ function passageAround(points: string[], start: number, end: number, contextChar
 }
 
 function substringMatches(text: string, query: string, insensitive: boolean): Array<[number, number]> {
-	const haystack = insensitive ? text.toLowerCase() : text;
-	const needle = insensitive ? query.toLowerCase() : query;
-	if (!needle) return [];
+	if (!query) return [];
+	if (!insensitive) {
+		const hits: Array<[number, number]> = [];
+		let from = 0;
+		while (hits.length < 1000) {
+			const at = text.indexOf(query, from);
+			if (at < 0) break;
+			hits.push([at, at + query.length]);
+			from = at + Math.max(1, query.length);
+		}
+		return hits;
+	}
+	const haystack = text.toLowerCase();
+	// Case folding can change length (e.g. `İ` -> `i̇`), which would shift every
+	// index; fall back to a case-insensitive regex that indexes the original text.
+	if (haystack.length !== text.length) {
+		const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const hits: Array<[number, number]> = [];
+		for (const match of text.matchAll(new RegExp(escaped, "giu"))) {
+			if (hits.length >= 1000) break;
+			const at = match.index ?? 0;
+			hits.push([at, at + match[0].length]);
+		}
+		return hits;
+	}
+	const needle = query.toLowerCase();
 	const hits: Array<[number, number]> = [];
 	let from = 0;
 	while (hits.length < 1000) {

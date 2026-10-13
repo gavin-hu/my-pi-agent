@@ -106,7 +106,7 @@ export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): P
 	if (root) {
 		const config = loadConfig(root);
 		const managed = await listManagedWorktrees(pi, root, config);
-		const { registry } = reconcileRegistry(root, config, managed);
+		const { registry } = reconcileRegistry(root, config, managed, { persist: false });
 		const baseBranch = await defaultBranch(pi, root);
 		const baseRef = baseBranch ? `origin/${baseBranch}` : undefined;
 		lines.push("", `Managed worktrees (${managed.length}):`);

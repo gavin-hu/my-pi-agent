@@ -13,7 +13,7 @@ import { stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
 import type { DocExtractor } from "./extract/file.ts";
@@ -26,16 +26,18 @@ export { TOOL_NAME } from "./schema.ts";
 
 /** Resolve a request path under `root`, refusing anything that escapes it. */
 function resolveDocument(root: string, rawPath: string): { display: string; abs: string } {
-	const trimmed = stripControlChars(rawPath.trim());
+	// Resolve on the raw path; sanitize only the displayed/error strings, so a
+	// pathological control character cannot hide a path or forge a transcript line.
+	const trimmed = rawPath.trim();
 	if (!trimmed) throw new Error("path is required.");
 	const candidate = isAbsolute(trimmed) ? trimmed : join(root, trimmed);
 	const abs = realPathOfNearest(candidate);
 	if (!isInsideReal(root, abs)) {
 		throw new Error(
-			`Refusing to read "${trimmed}" outside the working directory. Copy the file under it or pass a path inside it.`,
+			`Refusing to read "${sanitizeLine(trimmed)}" outside the working directory. Copy the file under it or pass a path inside it.`,
 		);
 	}
-	return { display: trimmed, abs };
+	return { display: sanitizeLine(trimmed), abs };
 }
 
 /** Stat the file and raise a model-readable error for a missing/unreadable target. */

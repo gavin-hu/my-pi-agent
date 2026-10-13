@@ -17,6 +17,7 @@ import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-codi
 import { Text } from "@earendil-works/pi-tui";
 import { basename } from "node:path";
 import { Type, type Static } from "typebox";
+import { sanitizeLine } from "../../lib/format.ts";
 import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui.ts";
@@ -254,7 +255,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		renderCall(args, theme, context) {
 			const text = context?.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			const title = (args as Partial<WritePlanArgs>).title;
-			const suffix = title ? theme.fg("muted", title) : theme.fg("muted", "plan");
+			const suffix = title ? theme.fg("muted", sanitizeLine(title)) : theme.fg("muted", "plan");
 			text.setText(theme.fg("toolTitle", theme.bold(`${WRITE_PLAN_TOOL} `)) + suffix);
 			return text;
 		},

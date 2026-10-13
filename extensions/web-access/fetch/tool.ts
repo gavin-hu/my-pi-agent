@@ -69,11 +69,12 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 		? findPassages(page.text, request.find, {
 				mode: request.mode,
 				contextChars: request.contextChars,
-				maxMatches: request.maxMatches,
+				maxMatches: request.maxMatches + 1,
 			})
 		: [];
-	// A full match list means the cap may have hidden further hits.
-	const matchesTruncated = finding && matches.length >= request.maxMatches;
+	// Request one extra so a full list proves more hits exist; only the cap is shown.
+	const matchesTruncated = finding && matches.length > request.maxMatches;
+	const visibleMatches = matchesTruncated ? matches.slice(0, request.maxMatches) : matches;
 
 	let formatted: { body: string; text: string; truncated: boolean };
 	let nextIndex: number;
@@ -83,7 +84,7 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 			title: page.title,
 			status: page.status,
 			contentType: page.contentType,
-			matches,
+			matches: visibleMatches,
 			find: request.find,
 			truncated: matchesTruncated,
 		});
@@ -115,7 +116,7 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 		nextIndex,
 		truncated: formatted.truncated,
 		cached,
-		matches,
+		matches: visibleMatches,
 		matchesTruncated,
 		fetchedAt,
 		error: "",
@@ -173,6 +174,9 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		exposure: "direct",
 		defaultActive: true,
 		annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+		// The page cache is shared in-memory state created per registration, so
+		// sibling calls must not run concurrently (matches web_search's throttle).
+		executionMode: "sequential",
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const config = loadFetchConfig(ctx.cwd);

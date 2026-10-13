@@ -141,12 +141,14 @@ export function removeRecord(repoRoot: string, config: WorktreeConfig, path: str
 /**
  * Reconcile the registry against the worktrees git currently reports: drop
  * records whose checkout is gone, and synthesize records for managed worktrees
- * that have none. Persists only when something changed.
+ * that have none. Persists only when something changed, and only when
+ * `options.persist` is not `false` (the read-only status path passes `false`).
  */
 export function reconcileRegistry(
 	repoRoot: string,
 	config: WorktreeConfig,
 	managed: ManagedWorktree[],
+	options: { persist?: boolean } = {},
 ): { registry: WorktreeRegistry; changed: boolean } {
 	const registry = loadRegistry(repoRoot, config);
 	const live = new Set(managed.map((entry) => canonicalize(entry.path)));
@@ -177,7 +179,7 @@ export function reconcileRegistry(
 	}
 
 	registry.worktrees = next.sort((a, b) => a.path.localeCompare(b.path));
-	if (changed) saveRegistry(repoRoot, config, registry);
+	if (changed && options.persist !== false) saveRegistry(repoRoot, config, registry);
 	return { registry, changed };
 }
 
