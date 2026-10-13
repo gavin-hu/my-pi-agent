@@ -47,6 +47,7 @@ export const MemoryResult = Type.Object({
 	changed: Type.Boolean(),
 	entry: Type.Optional(Type.String()),
 	to: Type.Optional(Type.String()),
+	existing: Type.Optional(Type.String()),
 	error: Type.Optional(Type.String()),
 });
 

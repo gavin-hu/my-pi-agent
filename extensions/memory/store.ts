@@ -111,6 +111,22 @@ export function parseEntries(content: string): string[] {
 export interface FileChange {
 	content: string;
 	changed: boolean;
+	/** The stored note that made `add` a duplicate, when one matched. */
+	existing?: string;
+}
+
+/**
+ * Comparison key for near-duplicate detection: case-folded, whitespace-collapsed
+ * (via `sanitizeLine`), and with trailing sentence punctuation removed.
+ * Deliberately conservative: it folds only presentation differences (case, runs
+ * of whitespace, a trailing `.`/`!`/`?`/`,`/`;`/`:`), never word order, stemming,
+ * or internal punctuation, so two distinct facts are never merged.
+ */
+export function duplicateKey(text: string): string {
+	return sanitizeLine(text)
+		.toLowerCase()
+		.replace(/[.!?,;:]+$/, "")
+		.trim();
 }
 
 function endWithNewline(text: string): string {
@@ -118,9 +134,17 @@ function endWithNewline(text: string): string {
 	return trimmed ? `${trimmed}\n` : "";
 }
 
-/** Append a note, unless it is already present. */
+/**
+ * Append a note, unless it is already present — exactly or as a near-duplicate.
+ * A duplicate is a no-op that reports the stored note in `existing`, so the
+ * caller can point at `update` instead of storing a reworded copy.
+ */
 export function applyAdd(content: string, entry: string): FileChange {
-	if (parseEntries(content).includes(entry)) return { content, changed: false };
+	const entries = parseEntries(content);
+	if (entries.includes(entry)) return { content, changed: false, existing: entry };
+	const key = duplicateKey(entry);
+	const existing = entries.find((note) => duplicateKey(note) === key);
+	if (existing !== undefined) return { content, changed: false, existing };
 	const trimmed = content.replace(/\s+$/, "");
 	const next = trimmed ? `${trimmed}\n- ${entry}\n` : `${HEADER}\n\n- ${entry}\n`;
 	return { content: next, changed: true };
@@ -184,6 +208,8 @@ function writeAtomic(path: string, content: string): void {
 export interface MutationResult {
 	entries: string[];
 	changed: boolean;
+	/** The stored note an `add` matched, when the transform reported a duplicate. */
+	existing?: string;
 }
 
 /**
@@ -197,6 +223,9 @@ export async function mutateMemoryFile(
 	return withFileMutationQueue(path, async () => {
 		const result = transform(readMemoryFile(path));
 		if (result.changed) writeAtomic(path, result.content);
-		return { entries: parseEntries(result.content), changed: result.changed };
+		const entries = parseEntries(result.content);
+		return result.existing === undefined
+			? { entries, changed: result.changed }
+			: { entries, changed: result.changed, existing: result.existing };
 	});
 }

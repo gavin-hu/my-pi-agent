@@ -7,6 +7,7 @@ import {
 	applyClear,
 	applyForget,
 	applyUpdate,
+	duplicateKey,
 	MAX_MEMORY_BYTES,
 	memoryFileStamp,
 	mutateMemoryFile,
@@ -72,6 +73,30 @@ describe("applyAdd", () => {
 		const duplicate = applyAdd(added.content, "one");
 		expect(duplicate.changed).toBe(false);
 		expect(duplicate.content).toBe(added.content);
+		expect(duplicate.existing).toBe("one");
+	});
+
+	test("is a no-op for a near-duplicate and reports the stored note", () => {
+		const content = "- Use tabs\n";
+		for (const variant of ["use tabs", "Use tabs.", "USE TABS!!"]) {
+			const result = applyAdd(content, variant);
+			expect(result.changed).toBe(false);
+			expect(result.content).toBe(content);
+			expect(result.existing).toBe("Use tabs");
+		}
+	});
+
+	test("appends a note that merely shares a prefix or stem", () => {
+		const content = "- Use tabs\n";
+		expect(applyAdd(content, "Use tabs before committing").changed).toBe(true);
+		expect(applyAdd(content, "Tab width is four").changed).toBe(true);
+	});
+});
+
+describe("duplicateKey", () => {
+	test("folds case, whitespace, and trailing punctuation only", () => {
+		expect(duplicateKey("Use  Tabs.")).toBe(duplicateKey("use tabs"));
+		expect(duplicateKey("one, two")).not.toBe(duplicateKey("one two"));
 	});
 });
 

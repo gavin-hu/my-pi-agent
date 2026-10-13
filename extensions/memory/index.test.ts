@@ -107,6 +107,18 @@ describe("memory extension", () => {
 		expect(result.details.project).toContain("keep");
 	});
 
+	test("a reworded add is a no-op that names the stored note", async () => {
+		suite.write("project", "- Use tabs\n");
+		await suite.start();
+
+		const result = await tool().execute("1", { action: "add", text: "use tabs." }, undefined, undefined);
+		expect(result.isError).toBeUndefined();
+		expect(result.details.changed).toBe(false);
+		expect(result.details.existing).toBe("Use tabs");
+		expect(result.structuredContent.existing).toBe("Use tabs");
+		expect(suite.read("project")).toBe("- Use tabs\n");
+	});
+
 	test("/memory reports the store", async () => {
 		suite.write("global", "- one\n");
 		await suite.start();

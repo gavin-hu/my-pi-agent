@@ -49,6 +49,12 @@ describe("memory text", () => {
 		expect(formatResultText(details({ action: "add", changed: false, entry: "x" }))).toContain(
 			"Already in project memory",
 		);
+		expect(formatResultText(details({ action: "add", changed: false, entry: "use tabs", existing: "Use tabs" }))).toBe(
+			"Already in project memory (near-duplicate): Use tabs",
+		);
+		expect(formatResultText(details({ action: "add", changed: false, entry: "x", existing: "x" }))).toBe(
+			"Already in project memory: x",
+		);
 		expect(formatResultText(details({ action: "forget", changed: true, entry: "x" }))).toContain(
 			"Removed from project memory: x",
 		);

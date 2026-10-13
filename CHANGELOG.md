@@ -30,6 +30,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   place, in one mutation, instead of the forget-then-add gap; `to` carries the
   replacement, a non-matching `text` is rejected without writing, and an
   update to the same text is a no-op.
+- `memory`: `add` now skips a note that is already stored, comparing under a
+  conservative key (case, whitespace runs, and trailing sentence punctuation)
+  and returning the stored text as `existing`, so re-stating a fact in new words
+  no longer grows the store.
 
 ### Changed
 

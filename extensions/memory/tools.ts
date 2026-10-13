@@ -1,10 +1,11 @@
 /**
  * Model-facing registration for the `memory` tool.
  *
- * One singleton tool with an action switch, like `job`: `add` and `forget`
- * mutate one scope, `list` reads both. Validation failures come back as an error
- * result carrying the unchanged notes, so the model can retry without
- * corrupting a store.
+ * One singleton tool with an action switch, like `job`: `add`, `update`, and
+ * `forget` mutate one scope, `list` reads both. Validation failures come back as
+ * an error result carrying the unchanged notes, so the model can retry without
+ * corrupting a store. An `add` that duplicates an existing note is a no-op that
+ * names the stored note.
  */
 
 import type { JsonValue } from "@earendil-works/pi-ai";
@@ -39,6 +40,7 @@ function toStructuredContent(details: MemoryDetails): Record<string, JsonValue> 
 	};
 	if (details.entry !== undefined) content.entry = details.entry;
 	if (details.to !== undefined) content.to = details.to;
+	if (details.existing !== undefined) content.existing = details.existing;
 	if (details.error !== undefined) content.error = details.error;
 	return content;
 }
@@ -64,7 +66,8 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		description: [
 			"Save, change, remove, or list short durable notes that are recalled automatically in later sessions.",
 			'Notes are scoped "project" (the current repository, the default) or "global" (every project); stored notes',
-			"are injected into context before each run.",
+			"are injected into context before each run. Adding a note that already exists, ignoring case and trailing",
+			"punctuation, is a no-op.",
 		].join(" "),
 		promptSnippet: "Save, change, or remove a durable note that is recalled in later sessions.",
 		promptGuidelines: [
@@ -100,8 +103,15 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 				}
 				const text = normalizeEntryText(args.text);
 				if (action === "add") {
-					const changed = await runtime.add(scope, text);
-					return memoryResult({ action, scope, ...runtime.entries(), changed, entry: text });
+					const result = await runtime.add(scope, text);
+					return memoryResult({
+						action,
+						scope,
+						...runtime.entries(),
+						changed: result.changed,
+						entry: text,
+						...(result.existing === undefined ? {} : { existing: result.existing }),
+					});
 				}
 				if (action === "update") {
 					const to = normalizeEntryText(args.to, "to");
