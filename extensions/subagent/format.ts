@@ -2,10 +2,9 @@
  * Pure formatting helpers shared by the transcript renderers.
  */
 
-import * as os from "node:os";
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatTokens, sanitizeLine } from "../../lib/format.ts";
+import { formatTokens, sanitizeLine, shortenPath } from "../../lib/format.ts";
 import type { UsageStats } from "./types.ts";
 
 /** One-line model text: the shared terminal-safe boundary (`lib/format.ts`). */
@@ -46,17 +45,6 @@ export function aggregateUsage(results: { usage: UsageStats }[]): Partial<UsageS
 		total.turns += usage.turns;
 	}
 	return total;
-}
-
-/** Replace the home directory prefix with `~`, matching a path boundary.
- *  Separators are normalized so a Windows home (`C:\\Users\\x`) still matches a
- *  path written with forward slashes, and the result reads uniformly in the UI. */
-export function shortenPath(p: string): string {
-	const normalize = (value: string): string => value.replace(/\\/g, "/");
-	const home = normalize(os.homedir()).replace(/\/+$/, "");
-	const path = normalize(p);
-	if (path === home) return "~";
-	return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
 /** Display-width-aware truncation with a trailing ellipsis (keeps wide chars/surrogates intact). */

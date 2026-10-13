@@ -5,6 +5,8 @@
  * strings a renderer shows.
  */
 
+import { homedir } from "node:os";
+
 /** Compact token count: `999`, `1.0k`, `12k`, `1.5M`, `12M`. `?` when not a number. */
 export function formatTokens(count: number): string {
 	if (!Number.isFinite(count)) return "?";
@@ -54,4 +56,18 @@ export function sanitize(text: string): string {
  */
 export function sanitizeLine(text: string): string {
 	return sanitize(stripControlChars(text));
+}
+
+/**
+ * Replace a home-directory prefix with `~`, matching at a path boundary so
+ * `/home/bob` does not shorten `/home/bobby`. Separators are normalized to `/`
+ * so a Windows home (`C:\Users\x`) still matches a forward-slash path and the
+ * result reads uniformly in the UI.
+ */
+export function shortenPath(path: string): string {
+	const normalized = path.replace(/\\/g, "/");
+	const home = homedir().replace(/\\/g, "/").replace(/\/+$/, "");
+	if (!home) return normalized;
+	if (normalized === home) return "~";
+	return normalized.startsWith(`${home}/`) ? `~${normalized.slice(home.length)}` : normalized;
 }

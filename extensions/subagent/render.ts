@@ -13,9 +13,9 @@
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
-import { stripControlChars } from "../../lib/format.ts";
+import { shortenPath, stripControlChars } from "../../lib/format.ts";
 import { expandHint } from "../../lib/ui.ts";
-import { aggregateUsage, clip, formatToolCall, formatUsageStats, sanitize, shortenPath } from "./format.ts";
+import { aggregateUsage, clip, formatToolCall, formatUsageStats, sanitize } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";

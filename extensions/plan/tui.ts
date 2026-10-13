@@ -19,7 +19,6 @@ import { basename } from "node:path";
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	Editor,
-	type EditorTheme,
 	Key,
 	Markdown,
 	matchesKey,
@@ -32,7 +31,14 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { stripControlChars } from "../../lib/format.ts";
-import { screenHeader, screenHint, viewportRows, type ScreenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import {
+	editorTheme,
+	screenHeader,
+	screenHint,
+	viewportRows,
+	type ScreenHint,
+	type ViewportRowsSource,
+} from "../../lib/tui.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
 import { extractPlanSteps, type PlanStep } from "./steps.ts";
@@ -134,20 +140,6 @@ function scrollRow(theme: Theme, width: number, offset: number, end: number, tot
 	const full = `  ${head}  ${range}`;
 	// Drop the range before the gauge on a narrow terminal.
 	return truncateToWidth(visibleWidth(full) <= width ? full : `  ${head}`, width);
-}
-
-/** Minimal editor theme for the inline refine input. */
-function editorTheme(theme: Theme): EditorTheme {
-	return {
-		borderColor: (text) => theme.fg("borderMuted", text),
-		selectList: {
-			selectedPrefix: (text) => theme.fg("accent", text),
-			selectedText: (text) => theme.fg("accent", text),
-			description: (text) => theme.fg("muted", text),
-			scrollInfo: (text) => theme.fg("dim", text),
-			noMatch: (text) => theme.fg("warning", text),
-		},
-	};
 }
 
 /** Scrollable plan review screen opened by `exit_plan_mode`. */

@@ -17,7 +17,7 @@
  */
 
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, type OverlayOptions } from "@earendil-works/pi-tui";
+import { Text, truncateToWidth, visibleWidth, type EditorTheme, type OverlayOptions } from "@earendil-works/pi-tui";
 import { SEPARATORS } from "./ui.ts";
 
 /**
@@ -97,4 +97,27 @@ export function screenHint(theme: Theme, width: number, hints: ScreenHint[]): st
 		kept.push(hint);
 	}
 	return truncateToWidth(`  ${kept.map(render).join(separator)}`, target);
+}
+
+/**
+ * Reuse the previous render's `Text` component when it is one, so a tool
+ * renderer updates in place instead of allocating on every render. Every
+ * extension's `renderCall`/`renderResult` uses this idiom.
+ */
+export function reuseText(last: unknown, initial = ""): Text {
+	return last instanceof Text ? last : new Text(initial, 0, 0);
+}
+
+/** Minimal editor theme for an extension-owned inline editor, on semantic tokens. */
+export function editorTheme(theme: Theme): EditorTheme {
+	return {
+		borderColor: (text) => theme.fg("borderMuted", text),
+		selectList: {
+			selectedPrefix: (text) => theme.fg("accent", text),
+			selectedText: (text) => theme.fg("accent", text),
+			description: (text) => theme.fg("muted", text),
+			scrollInfo: (text) => theme.fg("dim", text),
+			noMatch: (text) => theme.fg("warning", text),
+		},
+	};
 }

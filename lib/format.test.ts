@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { formatTokens, sanitize, sanitizeLine, stripControlChars } from "./format.ts";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { formatTokens, sanitize, sanitizeLine, shortenPath, stripControlChars } from "./format.ts";
 
 describe("formatTokens", () => {
 	test("scales at each boundary", () => {
@@ -47,5 +49,21 @@ describe("stripControlChars", () => {
 
 	test("keeps newlines and tabs for multi-line rendering", () => {
 		expect(stripControlChars("a\nb\tc")).toBe("a\nb\tc");
+	});
+});
+
+describe("shortenPath", () => {
+	test("replaces the home prefix only", () => {
+		const home = homedir();
+		expect(shortenPath(join(home, "projects", "x"))).toBe("~/projects/x");
+		expect(shortenPath("/tmp/x")).toBe("/tmp/x");
+	});
+
+	test("does not shorten a sibling path sharing the prefix", () => {
+		const home = homedir();
+		const normalize = (value: string): string => value.replace(/\\/g, "/");
+		// A sibling directory whose name merely starts with the home string.
+		expect(shortenPath(`${home}-backup/x`)).toBe(normalize(`${home}-backup/x`));
+		expect(shortenPath(home)).toBe("~");
 	});
 });

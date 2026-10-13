@@ -9,12 +9,11 @@
  * text. Every field is sanitized before a theme colour is applied.
  */
 
-import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, hyperlink, type Component, Text } from "@earendil-works/pi-tui";
-import { formatTokens, sanitizeLine, stripControlChars } from "../../lib/format.ts";
+import { formatTokens, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { expandKey, SEPARATORS } from "../../lib/ui.ts";
 import { summarizeDoc } from "./paging.ts";
 import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
@@ -22,22 +21,12 @@ import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 /** Lines of extracted text shown in the expanded preview. */
 export const PREVIEW_LINES = 20;
 
-/** Replace a home-directory prefix with `~`, at a path boundary. */
-function shortenHomePath(path: string): string {
-	const normalize = (value: string): string => value.replace(/\\/g, "/");
-	const home = normalize(homedir()).replace(/\/+$/, "");
-	if (!home) return path;
-	const normalized = normalize(path);
-	if (normalized === home) return "~";
-	return normalized.startsWith(`${home}/`) ? `~${normalized.slice(home.length)}` : path;
-}
-
 /** Render the argument path: accent, `~`-shortened, OSC-8 linked when supported. */
 export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: string): string {
 	if (typeof rawPath !== "string") return theme.fg("error", "[invalid arg]");
 	const value = sanitizeLine(rawPath);
 	if (!value) return theme.fg("toolOutput", "...");
-	const styled = theme.fg("accent", shortenHomePath(value));
+	const styled = theme.fg("accent", shortenPath(value));
 	if (!getCapabilities().hyperlinks) return styled;
 	const abs = isAbsolute(value) ? value : resolve(cwd, value);
 	return hyperlink(styled, pathToFileURL(abs).href);
