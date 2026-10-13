@@ -38,6 +38,7 @@ describe("buildInjection", () => {
 describe("memory text", () => {
 	test("formatCallText names the action, scope, and note", () => {
 		expect(formatCallText({ action: "add", scope: "global", text: "x" })).toBe("→ add (global): x");
+		expect(formatCallText({ action: "update", scope: "global", text: "a", to: "b" })).toBe("→ update (global): a → b");
 		expect(formatCallText({ action: "list" })).toBe("→ list");
 	});
 
@@ -50,6 +51,15 @@ describe("memory text", () => {
 		);
 		expect(formatResultText(details({ action: "forget", changed: true, entry: "x" }))).toContain(
 			"Removed from project memory: x",
+		);
+	});
+
+	test("formatResultText reports update and a no-op update", () => {
+		expect(
+			formatResultText(details({ action: "update", changed: true, entry: "a", to: "b", project: ["b"] })),
+		).toContain("Updated project memory: a → b");
+		expect(formatResultText(details({ action: "update", changed: false, entry: "a", to: "a" }))).toContain(
+			"Already set in project memory: a",
 		);
 	});
 

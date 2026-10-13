@@ -16,16 +16,22 @@ export const MAX_ENTRY_CHARS = 500;
 
 export const MemoryParams = Type.Object({
 	action: StringEnum(MEMORY_ACTIONS, {
-		description: "Add a durable note, forget an existing note, or list what is stored.",
+		description: "Add a durable note, update an existing note, forget a note, or list what is stored.",
 	}),
 	text: Type.Optional(
 		Type.String({
-			description: "The note to add, or the exact existing note to forget. Required for add and forget.",
+			description:
+				"The note to add, or the exact existing note to update or forget. Required for add, update, and forget.",
+		}),
+	),
+	to: Type.Optional(
+		Type.String({
+			description: "The replacement note for update. Required for update.",
 		}),
 	),
 	scope: Type.Optional(
 		StringEnum(MEMORY_SCOPES, {
-			description: 'Which store to change: "project" (the default) or "global". Used by add and forget.',
+			description: 'Which store to change: "project" (the default) or "global". Used by add, update, and forget.',
 		}),
 	),
 });
@@ -40,6 +46,7 @@ export const MemoryResult = Type.Object({
 	global: Type.Array(Type.String()),
 	changed: Type.Boolean(),
 	entry: Type.Optional(Type.String()),
+	to: Type.Optional(Type.String()),
 	error: Type.Optional(Type.String()),
 });
 
@@ -69,10 +76,10 @@ export function normalizeScope(raw: unknown): MemoryScope {
  * to one space, matching `goal`'s one-line rule, so a stored note can never
  * inject terminal sequences when it is injected or rendered.
  */
-export function normalizeEntryText(raw: unknown): string {
-	if (typeof raw !== "string") throw new Error("text is required.");
+export function normalizeEntryText(raw: unknown, field = "text"): string {
+	if (typeof raw !== "string") throw new Error(`${field} is required.`);
 	const text = sanitizeLine(raw);
-	if (!text) throw new Error("text is required.");
-	if (text.length > MAX_ENTRY_CHARS) throw new Error(`text is longer than ${MAX_ENTRY_CHARS} characters.`);
+	if (!text) throw new Error(`${field} is required.`);
+	if (text.length > MAX_ENTRY_CHARS) throw new Error(`${field} is longer than ${MAX_ENTRY_CHARS} characters.`);
 	return text;
 }

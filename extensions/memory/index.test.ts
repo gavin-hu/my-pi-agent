@@ -184,4 +184,49 @@ describe("memory extension", () => {
 		const [result] = await suite.emit("before_agent_start", {});
 		expect(result.message.content).toContain("- keep");
 	});
+
+	test("updates a note through the tool", async () => {
+		await suite.start();
+		await tool().execute("1", { action: "add", text: "old note" }, undefined, undefined);
+
+		const updated = await tool().execute(
+			"2",
+			{ action: "update", text: "old note", to: "new note" },
+			undefined,
+			undefined,
+		);
+		expect(updated.details.changed).toBe(true);
+		expect(updated.details.to).toBe("new note");
+		expect(suite.read("project")).toContain("- new note");
+		expect(suite.read("project")).not.toContain("- old note");
+	});
+
+	test("a non-matching update is an error carrying the unchanged notes", async () => {
+		suite.write("project", "- keep\n");
+		await suite.start();
+
+		const result = await tool().execute("1", { action: "update", text: "absent", to: "x" }, undefined, undefined);
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toMatch(/No project memory note matches/);
+		expect(result.details.project).toContain("keep");
+	});
+
+	test("updating a note to itself is a success no-op", async () => {
+		await suite.start();
+		await tool().execute("1", { action: "add", text: "same" }, undefined, undefined);
+
+		const result = await tool().execute("2", { action: "update", text: "same", to: "same" }, undefined, undefined);
+		expect(result.isError).toBeUndefined();
+		expect(result.details.changed).toBe(false);
+		expect(suite.read("project")).toContain("- same");
+	});
+
+	test("rejects a project update for an untrusted project", async () => {
+		suite.setTrusted(false);
+		await suite.start();
+
+		const result = await tool().execute("1", { action: "update", text: "a", to: "b" }, undefined, undefined);
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toMatch(/untrusted/);
+	});
 });

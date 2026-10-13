@@ -15,8 +15,8 @@ pi install ./                         # install the package
 
 ## What it does
 
-- Registers one model-callable tool, `memory`, with three actions: `add` a note,
-  `forget` an exact note, or `list` what is stored.
+- Registers one model-callable tool, `memory`, with four actions: `add` a note,
+  `update` an exact note, `forget` an exact note, or `list` what is stored.
 - Keeps two stores, both plain markdown with one bullet per note:
 
   | Scope | File |
@@ -39,14 +39,15 @@ pi install ./                         # install the package
 
 `memory` is a singleton tool with an action switch (like `job`). It declares an
 `outputSchema` and returns matching `structuredContent`
-(`{ action, scope, project, global, changed, entry?, error? }`).
+(`{ action, scope, project, global, changed, entry?, to?, error? }`).
 
 | Field | Value |
 |---|---|
 | `name` | `memory` |
-| `action` | `add` \| `forget` \| `list` |
-| `text` | The note to add, or the exact note to forget. Required for `add`/`forget`. |
-| `scope` | `project` (default) or `global`. Used by `add`/`forget`. |
+| `action` | `add` \| `update` \| `forget` \| `list` |
+| `text` | The note to add, or the exact note to update or forget. Required for `add`/`update`/`forget`. |
+| `to` | The replacement note for `update`. Required for `update`. |
+| `scope` | `project` (default) or `global`. Used by `add`/`update`/`forget`. |
 | `exposure` | `direct` (default). |
 | `executionMode` | `sequential` — calls share the cached stores. |
 | `annotations` | `readOnlyHint: false`, `destructiveHint: true` (forget deletes), `idempotentHint: true`, `openWorldHint: false`. |
@@ -54,14 +55,16 @@ pi install ./                         # install the package
 
 Validation happens before anything is written (a violation returns an error
 result carrying the unchanged notes, never a half-apply): a known action; a
-non-blank `text` of at most 500 characters for `add`/`forget`; an exact match for
-`forget`; and `project` scope only for a trusted project.
+non-blank `text` of at most 500 characters for `add`/`update`/`forget`; a
+non-blank `to` of at most 500 characters for `update`; an exact match for
+`update`/`forget`; and `project` scope only for a trusted project.
 
 Notes are normalized to a single line: control characters (including `ESC`)
 become spaces and whitespace runs collapse to one space, so a note cannot inject
 terminal sequences when it is injected or rendered. Matching is exact on the
-trimmed text; `add` of an existing note is a no-op, and `forget` removes every
-exact match.
+trimmed text; `add` of an existing note is a no-op, `update` replaces every
+exact match of `text` with `to` in place (a no-op when they are equal), and
+`forget` removes every exact match.
 
 ## Commands
 
@@ -122,6 +125,9 @@ skill. Mitigations:
   mtime tick is only caught by `/memory reload`; a store that becomes unreadable
   (symlinked or over the size cap) keeps its last good view until fixed.
 - Matching for `forget` is exact and case-sensitive.
+- `update` replaces every exact match of `text`; a replacement that already
+exists under a different note can leave a duplicate. Forget the old note first
+when consolidating.
 - Only one note per line; multi-line notes are collapsed to a single line.
 
 ## Non-goals
@@ -173,7 +179,7 @@ skill. Mitigations:
 | `types.ts` | `MemoryScope`, `MemoryAction`, `MemoryDetails`, the context type. |
 | `config.ts` | Defaults and `memory.json` loading/clamping. |
 | `schema.ts` | TypeBox params/result and pure validation of action, scope, and text. |
-| `store.ts` | Paths, parse/read, file stamps, add/forget/clear transforms, atomic queued write. |
+| `store.ts` | Paths, parse/read, file stamps, add/update/forget/clear transforms, atomic queued write. |
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
 | `tools.ts` | `registerTool("memory", …)`. |
@@ -184,5 +190,5 @@ skill. Mitigations:
 `bun test extensions/memory` covers the pure store transforms, file stamps,
 schema and config validation, formatting/injection truncation, and the extension
 surface (registration, `session_start` loading, injection and dedup, external-edit
-refresh, `/memory reload`, trust gating, and the `/memory` command) through the
-`test/helpers/fixtures/memory.ts` suite harness.
+refresh, `/memory reload`, update and trust gating, and the `/memory` command)
+through the `test/helpers/fixtures/memory.ts` suite harness.

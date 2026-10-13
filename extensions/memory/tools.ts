@@ -38,6 +38,7 @@ function toStructuredContent(details: MemoryDetails): Record<string, JsonValue> 
 		changed: details.changed,
 	};
 	if (details.entry !== undefined) content.entry = details.entry;
+	if (details.to !== undefined) content.to = details.to;
 	if (details.error !== undefined) content.error = details.error;
 	return content;
 }
@@ -61,15 +62,16 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		name: TOOL_NAME,
 		label: "Memory",
 		description: [
-			"Save, remove, or list short durable notes that are recalled automatically in later sessions.",
+			"Save, change, remove, or list short durable notes that are recalled automatically in later sessions.",
 			'Notes are scoped "project" (the current repository, the default) or "global" (every project); stored notes',
 			"are injected into context before each run.",
 		].join(" "),
-		promptSnippet: "Save or remove a durable note that is recalled in later sessions.",
+		promptSnippet: "Save, change, or remove a durable note that is recalled in later sessions.",
 		promptGuidelines: [
 			"Use memory for short, durable facts the user asks you to remember; keep one fact per call.",
 			"Use action list only to see what is stored; the notes are already in context.",
 			"To remove a note, pass its exact text with action forget; bulk clearing is not available.",
+			"To change a note, use action update with its exact text and the replacement in to; do not forget and re-add.",
 		],
 		parameters: MemoryParams,
 		outputSchema: MemoryResult,
@@ -101,6 +103,20 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 					const changed = await runtime.add(scope, text);
 					return memoryResult({ action, scope, ...runtime.entries(), changed, entry: text });
 				}
+				if (action === "update") {
+					const to = normalizeEntryText(args.to, "to");
+					if (text === to) {
+						return memoryResult({ action, scope, ...runtime.entries(), changed: false, entry: text, to });
+					}
+					const changed = await runtime.update(scope, text, to);
+					if (!changed) {
+						return memoryResult(
+							{ action, scope, ...runtime.entries(), changed: false, entry: text, to },
+							`No ${scopeLabel(scope)} memory note matches: ${text}`,
+						);
+					}
+					return memoryResult({ action, scope, ...runtime.entries(), changed, entry: text, to });
+				}
 				const changed = await runtime.forget(scope, text);
 				if (!changed) {
 					return memoryResult(
@@ -116,7 +132,10 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 
 		renderCall(args, theme, context) {
 			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
-			const body = formatCallText(args as { action?: unknown; text?: unknown; scope?: unknown }, context.argsComplete);
+			const body = formatCallText(
+				args as { action?: unknown; text?: unknown; to?: unknown; scope?: unknown },
+				context.argsComplete,
+			);
 			text.setText(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", body));
 			return text;
 		},
