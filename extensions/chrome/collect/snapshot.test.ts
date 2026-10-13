@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_STATUS_BAR_CONFIG } from "../config.ts";
-import type { StatusBarConfig } from "../types.ts";
+import { DEFAULT_CHROME_CONFIG } from "../config.ts";
+import type { ChromeConfig } from "../types.ts";
 import { createSnapshotReader } from "./snapshot.ts";
 
 const assistant = (usage: any) => ({ type: "message", message: { role: "assistant", usage } });
@@ -47,8 +47,8 @@ const millionTokens = (): any =>
 		},
 	});
 
-const priced = (overrides: Partial<StatusBarConfig> = {}): StatusBarConfig => ({
-	...DEFAULT_STATUS_BAR_CONFIG,
+const priced = (overrides: Partial<ChromeConfig> = {}): ChromeConfig => ({
+	...DEFAULT_CHROME_CONFIG,
 	currency: { symbol: "¥", decimals: 2 },
 	rates: { "anthropic/opus-4.5": { input: 2.5, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 } },
 	...overrides,
@@ -56,7 +56,7 @@ const priced = (overrides: Partial<StatusBarConfig> = {}): StatusBarConfig => ({
 
 describe("createSnapshotReader", () => {
 	test("builds a full snapshot", () => {
-		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
+		const read = createSnapshotReader(DEFAULT_CHROME_CONFIG);
 		const snapshot = read(makeCtx(), footerData);
 
 		expect(snapshot.cwd).toBe("/home/u/repo/project");
@@ -73,14 +73,14 @@ describe("createSnapshotReader", () => {
 	});
 
 	test("falls back to the model context window when usage is unknown", () => {
-		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
+		const read = createSnapshotReader(DEFAULT_CHROME_CONFIG);
 		const snapshot = read(makeCtx({ getContextUsage: () => undefined }), footerData);
 
 		expect(snapshot.context).toEqual({ tokens: null, contextWindow: 200000, percent: null });
 	});
 
 	test("reports no model", () => {
-		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
+		const read = createSnapshotReader(DEFAULT_CHROME_CONFIG);
 		const snapshot = read(makeCtx({ model: undefined, getContextUsage: () => undefined }), footerData);
 
 		expect(snapshot.model).toBeNull();
@@ -88,7 +88,7 @@ describe("createSnapshotReader", () => {
 	});
 
 	test("keeps Pi's recorded cost when no rate matches", () => {
-		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
+		const read = createSnapshotReader(DEFAULT_CHROME_CONFIG);
 
 		expect(read(makeCtx(), footerData).usage.cost).toBeCloseTo(0.01);
 	});
@@ -114,7 +114,7 @@ describe("createSnapshotReader", () => {
 				},
 			},
 		});
-		const read = createSnapshotReader(DEFAULT_STATUS_BAR_CONFIG);
+		const read = createSnapshotReader(DEFAULT_CHROME_CONFIG);
 
 		read(ctx, footerData);
 		read(ctx, footerData);

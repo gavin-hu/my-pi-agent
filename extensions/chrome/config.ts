@@ -3,17 +3,25 @@
  *
  * `CONFIG` is the bar's own content and layout — weights live on the segments
  * themselves (see `render/segments.ts`). Everything below it is
- * `status-bar.json`: read from `~/.pi/agent/status-bar.json` and
- * `<cwd>/.pi/status-bar.json` (project values override global) with
+ * `chrome.json`: read from `~/.pi/agent/chrome.json` and
+ * `<cwd>/.pi/chrome.json` (project values override global) with
  * `lib/config.ts`. Missing or malformed files are ignored, and a value of the
  * wrong type falls back to the default instead of throwing.
  */
 
 import { clampInteger, clampNumber, cleanString, loadConfigFile } from "../../lib/config.ts";
-import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
+import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
 import { parseWindow } from "./price/schedule.ts";
 import { asRecord } from "./record.ts";
-import type { Currency, ModelRates, PeakSchedule, PeakWindow, StatusBarConfig } from "./types.ts";
+import type {
+	Currency,
+	EditorConfig,
+	HeaderConfig,
+	ModelRates,
+	PeakSchedule,
+	PeakWindow,
+	ChromeConfig,
+} from "./types.ts";
 
 export const CONFIG = {
 	/** Context percentage thresholds. */
@@ -36,9 +44,19 @@ export const CONFIG = {
 	worktreeLabelMax: 14,
 	/** Session-name length before the compact form truncates it. */
 	sessionLabelMax: 14,
+	/** Header chrome: the key hints shown right-aligned, resolved live. */
+	header: {
+		hints: [
+			{ action: "app.model.select", label: "model" },
+			{ action: "app.thinking.cycle", label: "level" },
+			{ action: EXPAND_KEYBINDING, label: "tools" },
+		] as ReadonlyArray<{ action: string; label: string }>,
+	},
+	/** Editor chrome: the badge's leading glyph. */
+	editor: { badgeGlyph: GLYPHS.plan },
 } as const;
 
-// --- Price configuration (status-bar.json) ----------------------------------
+// --- Price configuration (chrome.json) ----------------------------------
 
 /** Monday to Friday, the days DeepSeek charges its peak rate. */
 const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
@@ -49,7 +67,7 @@ const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
  * Pi's catalog prices every call in dollars at one flat rate, which is wrong
  * twice over for DeepSeek: the bill is in yuan, and peak hours cost double.
  * These are the published peak figures; `DEFAULT_PEAK` supplies the tariff. A
- * `status-bar.json` entry with the same key replaces one of these, and every
+ * `chrome.json` entry with the same key replaces one of these, and every
  * other provider still falls back to Pi's recorded cost.
  *
  * Source: <https://api-docs.deepseek.com/quick_start/pricing>.
@@ -77,11 +95,19 @@ export const DEFAULT_PEAK: PeakSchedule = {
 /** Rendered-currency default: yuan, the currency `DEFAULT_RATES` is stated in. */
 export const DEFAULT_CURRENCY: Currency = { symbol: "¥", decimals: 2 };
 
-export const DEFAULT_STATUS_BAR_CONFIG: StatusBarConfig = {
+/** Header default: Pi's `Pi` wordmark, version, and key hints. */
+export const DEFAULT_HEADER: HeaderConfig = { mark: "wordmark", showVersion: true, showHints: true };
+
+/** Editor default: the themed badge is on. */
+export const DEFAULT_EDITOR: EditorConfig = { badge: true };
+
+export const DEFAULT_CHROME_CONFIG: ChromeConfig = {
 	currency: DEFAULT_CURRENCY,
 	fallbackToRecordedCost: true,
 	rates: DEFAULT_RATES,
 	peak: DEFAULT_PEAK,
+	header: DEFAULT_HEADER,
+	editor: DEFAULT_EDITOR,
 };
 
 const MAX_SYMBOL_LENGTH = 4;
@@ -158,10 +184,7 @@ function peakValue(raw: unknown, base: PeakSchedule): PeakSchedule {
 }
 
 /** Validate a raw config object over `base`. Total: never throws, never guesses. */
-export function normalizeStatusBarConfig(
-	raw: Record<string, unknown> | undefined,
-	base: StatusBarConfig,
-): StatusBarConfig {
+export function normalizeChromeConfig(raw: Record<string, unknown> | undefined, base: ChromeConfig): ChromeConfig {
 	if (!raw) return base;
 	return {
 		currency: currencyValue(raw.currency, base.currency),
@@ -169,10 +192,30 @@ export function normalizeStatusBarConfig(
 			typeof raw.fallbackToRecordedCost === "boolean" ? raw.fallbackToRecordedCost : base.fallbackToRecordedCost,
 		rates: ratesValue(raw.rates, base.rates),
 		peak: peakValue(raw.peak, base.peak),
+		header: headerValue(raw.header, base.header),
+		editor: editorValue(raw.editor, base.editor),
 	};
 }
 
+/** A mark outside the three known values keeps the base mark. */
+function headerValue(raw: unknown, base: HeaderConfig): HeaderConfig {
+	const value = asRecord(raw);
+	if (!value) return base;
+	const mark = value.mark === "wordmark" || value.mark === "logo" || value.mark === "none" ? value.mark : base.mark;
+	return {
+		mark,
+		showVersion: typeof value.showVersion === "boolean" ? value.showVersion : base.showVersion,
+		showHints: typeof value.showHints === "boolean" ? value.showHints : base.showHints,
+	};
+}
+
+function editorValue(raw: unknown, base: EditorConfig): EditorConfig {
+	const value = asRecord(raw);
+	if (!value) return base;
+	return { badge: typeof value.badge === "boolean" ? value.badge : base.badge };
+}
+
 /** Effective price config for `cwd` (global file, then project file, over defaults). */
-export function loadStatusBarConfig(cwd: string): StatusBarConfig {
-	return loadConfigFile(cwd, "status-bar.json", DEFAULT_STATUS_BAR_CONFIG, normalizeStatusBarConfig);
+export function loadChromeConfig(cwd: string): ChromeConfig {
+	return loadConfigFile(cwd, "chrome.json", DEFAULT_CHROME_CONFIG, normalizeChromeConfig);
 }

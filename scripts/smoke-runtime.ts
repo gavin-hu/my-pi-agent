@@ -267,9 +267,9 @@ check("serve command registered", !!serveCommand);
 if (serveCommand) await serveCommand.handler("status", runner.createCommandContext());
 check("serve status runs without starting a server", !!serveCommand);
 
-// status-bar loads headlessly and registers its toggle command; it installs no
+// chrome loads headlessly and registers its toggle command; it installs no
 // tools and only paints the footer in interactive mode.
-check("status-bar command registered", !!runner.getCommand("status-bar"));
+check("chrome command registered", !!runner.getCommand("chrome"));
 
 // turn-separator loads headlessly and registers its entry renderer; separators
 // are only appended in interactive sessions.

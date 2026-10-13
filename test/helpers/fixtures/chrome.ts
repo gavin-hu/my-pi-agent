@@ -1,5 +1,5 @@
 import { GLYPHS, STATUS_KEYS } from "../../../lib/ui.ts";
-import type { StatusSnapshot } from "../../../extensions/status-bar/types.ts";
+import type { StatusSnapshot } from "../../../extensions/chrome/types.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../fakes.ts";
 
 export { emit, fakeTheme } from "../fakes.ts";
@@ -11,7 +11,7 @@ export interface FakePi {
 	handlers: Map<string, AnyHandler[]>;
 }
 
-/** Minimal `ExtensionAPI` double covering what the status-bar extension uses. */
+/** Minimal `ExtensionAPI` double covering what the chrome extension uses. */
 export function makeFakePi(options: { settings?: any } = {}): FakePi {
 	const fake = createFakePi({ settings: options.settings });
 	return { pi: fake.pi, commands: fake.commands, handlers: fake.handlers };
@@ -36,13 +36,17 @@ export interface FakeFooterCtx {
 	ctx: any;
 	footerData: any;
 	footers: any[];
+	headers: any[];
+	editors: any[];
 	notifications: string[];
 	statuses: Map<string, string>;
 }
 
-/** Minimal `ExtensionContext` double for footer install/restore tests. */
+/** Minimal `ExtensionContext` double for header/editor/footer install tests. */
 export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 	const footers: any[] = [];
+	const headers: any[] = [];
+	const editors: any[] = [];
 	const notifications: string[] = [];
 	const statuses = new Map<string, string>(options.statuses ?? []);
 	const cwd = options.cwd ?? "/home/u/repo/project";
@@ -74,11 +78,13 @@ export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 		ui: {
 			theme: fakeTheme,
 			setFooter: (factory: any) => footers.push(factory),
+			setHeader: (factory: any) => headers.push(factory),
+			setEditorComponent: (factory: any) => editors.push(factory),
 			notify: (message: string) => notifications.push(message),
 		},
 	};
 
-	return { ctx, footerData, footers, notifications, statuses };
+	return { ctx, footerData, footers, headers, editors, notifications, statuses };
 }
 
 /** Render a footer factory into its two lines. */

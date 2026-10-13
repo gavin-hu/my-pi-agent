@@ -2,7 +2,7 @@
  * Shared UI vocabulary: status-chip glyphs, separators, status keys, and the
  * expand-toggle keybinding id.
  *
- * The status-bar routes and re-renders the chips these extensions publish, so
+ * The chrome routes and re-renders the chips these extensions publish, so
  * the glyph and the `ctx.ui.setStatus` key must agree across both sides. Keep
  * the literals here and import them, never re-type them.
  */

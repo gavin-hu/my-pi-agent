@@ -59,7 +59,7 @@ and every check, `r` re-probes, `Esc` closes.
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
-| status-bar, turn-separator | — | TUI only |
+| chrome, turn-separator | — | TUI only |
 | ask-user-question | — | needs an interactive UI |
 | extension-picker | — | project scope needs a trusted project |
 
