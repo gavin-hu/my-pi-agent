@@ -28,6 +28,8 @@ pi install ./                         # install the package
   Pi runs from a subdirectory and shared across git worktrees.
 - Injects the stored notes as a hidden `[MEMORY]` context message before each
   run, bounded by a byte cap, so the model recalls them without being asked.
+- Re-reads each store when its file changes on disk (compared by mtime and size),
+  so an external edit lands in the same session without a restart.
 - Exposes `/memory` to list the store, print the file paths, open the multi-line
   editor, or clear a scope.
 - Loads and writes the project store only when the project is trusted, sanitizes
@@ -67,6 +69,7 @@ exact match.
 |---|---|
 | `/memory` or `/memory list` | Notify the stored notes and counts. |
 | `/memory path` | Notify the two file paths and whether the project store is trusted. |
+| `/memory reload` | Re-read the stores from disk and report what changed. |
 | `/memory edit [project\|global]` | Open the multi-line editor prefilled with the file and save the result. |
 | `/memory clear [project\|global]` | Clear a scope after a confirmation. |
 
@@ -114,8 +117,10 @@ skill. Mitigations:
 
 - Notes are injected whole (bounded), so a very large store is truncated with a
   `(+N more; use the memory tool)` tail rather than summarized.
-- External edits made while a session is open are not picked up until the next
-  session start; use `/memory edit` or the tool to stay in sync.
+- External edits to a store are picked up automatically by an mtime/size check
+  before the next injection or tool call. A same-size edit within one filesystem
+  mtime tick is only caught by `/memory reload`; a store that becomes unreadable
+  (symlinked or over the size cap) keeps its last good view until fixed.
 - Matching for `forget` is exact and case-sensitive.
 - Only one note per line; multi-line notes are collapsed to a single line.
 
@@ -133,7 +138,7 @@ skill. Mitigations:
 | Contract | Detail |
 |---|---|
 | Registration | The default export registers the `memory` tool, the `/memory` command, and four event listeners; nothing long-lived. |
-| Events | `session_start` loads config and both stores; `before_agent_start` injects the `[MEMORY]` message; `context` keeps only the newest injection; `session_shutdown` clears the cache. |
+| Events | `session_start` loads config and both stores; `before_agent_start` injects the `[MEMORY]` message; `context` keeps only the newest injection; `session_shutdown` clears the cache. The runtime refreshes both stores from their file stamps whenever the notes are read. |
 | Tool | `exposure: "direct"`, `executionMode: "sequential"`, `annotations` and `outputSchema` as above. |
 | State | External markdown, **not** branch state: the tool result's `details`/`structuredContent` mirror the call but the notes are read from disk and survive independently of `/resume` and `/tree`. |
 | UI | `ctx.ui.notify`, `editor`, and `confirm`, guarded by `ctx.hasUI`; no custom component. |
@@ -154,6 +159,11 @@ skill. Mitigations:
 - **Read-modify-write under a queue.** Host `withFileMutationQueue` serializes
   writers for the same file, and each write lands atomically via a temp file and
   rename; `executionMode: "sequential"` keeps in-process calls ordered as well.
+- **Stamped cache, not a watcher.** The session cache is validated against each
+  file's `(mtimeMs, size)` stamp before every read, matching the worktree cache's
+  freshness check rather than holding an `fs.watch` handle. A mutation adopts the
+  fresh on-disk stamp, so a self-write is not mistaken for an external change, and
+  a failed re-read keeps the last good view instead of breaking the run.
 
 ## Files
 
@@ -163,16 +173,16 @@ skill. Mitigations:
 | `types.ts` | `MemoryScope`, `MemoryAction`, `MemoryDetails`, the context type. |
 | `config.ts` | Defaults and `memory.json` loading/clamping. |
 | `schema.ts` | TypeBox params/result and pure validation of action, scope, and text. |
-| `store.ts` | Paths, parse/read, add/forget/clear transforms, atomic queued write. |
-| `runtime.ts` | Session cache of both stores; trust gating; mutations. |
+| `store.ts` | Paths, parse/read, file stamps, add/forget/clear transforms, atomic queued write. |
+| `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
 | `tools.ts` | `registerTool("memory", …)`. |
 | `commands.ts` | `registerCommand("memory", …)`. |
 
 ## Testing
 
-`bun test extensions/memory` covers the pure store transforms, schema and config
-validation, formatting/injection truncation, and the extension surface
-(registration, `session_start` loading, injection and dedup, trust gating, and
-the `/memory` command) through the `test/helpers/fixtures/memory.ts` suite
-harness.
+`bun test extensions/memory` covers the pure store transforms, file stamps,
+schema and config validation, formatting/injection truncation, and the extension
+surface (registration, `session_start` loading, injection and dedup, external-edit
+refresh, `/memory reload`, trust gating, and the `/memory` command) through the
+`test/helpers/fixtures/memory.ts` suite harness.

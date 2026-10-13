@@ -7,10 +7,12 @@ import {
 	applyClear,
 	applyForget,
 	MAX_MEMORY_BYTES,
+	memoryFileStamp,
 	mutateMemoryFile,
 	parseEntries,
 	projectMemoryPath,
 	readMemoryFile,
+	sameStamp,
 } from "./store.ts";
 
 let dir = "";
@@ -118,6 +120,30 @@ describe("readMemoryFile", () => {
 		const link = join(dir, "memory.md");
 		symlinkSync(target, link);
 		expect(() => readMemoryFile(link)).toThrow(/symlinked/);
+	});
+});
+
+describe("memoryFileStamp", () => {
+	test("is undefined for a missing file", () => {
+		expect(memoryFileStamp(join(dir, "memory.md"))).toBeUndefined();
+	});
+
+	test("reflects the file size and changes when the content changes", () => {
+		const path = join(dir, "memory.md");
+		writeFileSync(path, "- one\n");
+		const first = memoryFileStamp(path);
+		expect(first).toBeDefined();
+		expect(first?.size).toBe(Buffer.byteLength("- one\n"));
+
+		writeFileSync(path, "- one\n- two\n");
+		expect(sameStamp(memoryFileStamp(path), first)).toBe(false);
+	});
+
+	test("sameStamp compares missing and present stamps", () => {
+		expect(sameStamp(undefined, undefined)).toBe(true);
+		expect(sameStamp({ mtimeMs: 1, size: 1 }, undefined)).toBe(false);
+		expect(sameStamp({ mtimeMs: 1, size: 1 }, { mtimeMs: 1, size: 1 })).toBe(true);
+		expect(sameStamp({ mtimeMs: 1, size: 1 }, { mtimeMs: 1, size: 2 })).toBe(false);
 	});
 });
 
