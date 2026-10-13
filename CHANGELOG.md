@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `goal`: a bare `/goal` with no goal set shows the command usage instead of
+  only `No goal set.`, and `/goal help` (or `-h` / `--help`) shows it at any
+  time, so a first-time user can discover how to set and manage a goal without
+  the README.
 - `file-browser`: code files render with first-party syntax highlighting in the
   text view, and fenced code blocks in the rendered Markdown view are
   highlighted too (keywords, strings, numbers, comments, and markup) for

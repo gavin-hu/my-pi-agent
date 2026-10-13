@@ -13,7 +13,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { buildDelegateUserText } from "./clarify-prompt.ts";
 import { prepareGoalPrompt } from "./clarify.ts";
-import { formatGoalNotice } from "./format.ts";
+import { formatGoalNotice, GOAL_HELP } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { normalizeGoal } from "./schema.ts";
 import { GOAL_ENTRY_TYPE, type Goal } from "./types.ts";
@@ -23,17 +23,21 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 
 	pi.registerCommand("goal", {
 		description:
-			"Set the session goal and start working on it, or show/clear/complete it: /goal [prompt | clear | done]",
+			"Set the session goal and start working on it, or show/clear/complete it: /goal [prompt | clear | done | help]",
 		handler: async (args, ctx) => {
 			const input = args.trim();
 
 			if (!input) {
 				const goal = runtime.getGoal();
-				ctx.ui.notify(goal ? formatGoalNotice(goal) : "No goal set.", "info");
+				ctx.ui.notify(goal ? formatGoalNotice(goal) : GOAL_HELP, "info");
 				return;
 			}
 
 			const keyword = input.toLowerCase();
+			if (keyword === "help" || keyword === "-h" || keyword === "--help") {
+				ctx.ui.notify(GOAL_HELP, "info");
+				return;
+			}
 			if (keyword === "clear") {
 				if (!runtime.getGoal()) {
 					ctx.ui.notify("No goal set.", "info");

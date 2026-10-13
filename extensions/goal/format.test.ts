@@ -6,6 +6,7 @@ import {
 	formatCallText,
 	formatGoalNotice,
 	formatGoalText,
+	GOAL_HELP,
 	goalHeader,
 	goalLine,
 	goalObjective,
@@ -67,6 +68,15 @@ describe("model-facing text", () => {
 	test("notices describe both states", () => {
 		expect(formatGoalNotice(active)).toBe("Goal (active): Ship the parser");
 		expect(formatGoalNotice(achieved)).toBe("Goal achieved: Ship the parser");
+	});
+
+	test("help names the set form and the verbs", () => {
+		expect(GOAL_HELP).toContain("/goal <what you want to accomplish>");
+		expect(GOAL_HELP).toContain("/goal done");
+		expect(GOAL_HELP).toContain("/goal clear");
+		expect(GOAL_HELP).toContain("/goal help");
+		// No control characters or ANSI; it goes straight to `notify`.
+		expect(GOAL_HELP).not.toContain("\u001b");
 	});
 });
 

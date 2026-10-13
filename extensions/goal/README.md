@@ -80,10 +80,11 @@ entry; `reconstructGoal` replays both entry kinds in branch order.
 
 | Command | What it does |
 |---|---|
-| `/goal` | Show the current goal (or report that none is set). |
+| `/goal` | Show the current goal, or the command usage when none is set. |
 | `/goal <prompt>` | Classify `<prompt>` with one model call. A clear goal opens in a confirm/edit dialog; an unclear one with questions is delegated to the agent's `ask_user_question` tool, after which the agent records the clarified goal. |
 | `/goal done` (or `/goal achieved`) | Mark the current goal achieved. |
 | `/goal clear` | Clear the goal. |
+| `/goal help` (or `-h` / `--help`) | Show the command usage. |
 
 `/goal <prompt>` classifies only when a dialog UI and a session model are present
 (TUI or RPC). In print and JSON mode the typed text is set and run unchanged. A

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import goal, { GOAL_CONTEXT_MARKER } from "./index.ts";
+import { GOAL_HELP } from "./format.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
 import type { Goal } from "./types.ts";
@@ -217,10 +218,26 @@ describe("/goal command", () => {
 		};
 	}
 
-	test("reports when no goal is set", async () => {
+	test("shows usage when no goal is set", async () => {
 		const { command, ctx, notifications } = await started();
 		await command.handler("", ctx);
-		expect(notifications.at(-1)).toBe("No goal set.");
+		expect(notifications.at(-1)).toBe(GOAL_HELP);
+	});
+
+	test("shows the goal, not usage, when one is set", async () => {
+		const { command, ctx, notifications } = await started([resultEntry(active("ship it"))]);
+		await command.handler("", ctx);
+		expect(notifications.at(-1)).toBe("Goal (active): ship it");
+	});
+
+	test("shows usage for /goal help with or without a goal", async () => {
+		const none = await started();
+		await none.command.handler("help", none.ctx);
+		expect(none.notifications.at(-1)).toBe(GOAL_HELP);
+
+		const some = await started([resultEntry(active("ship it"))]);
+		await some.command.handler("--help", some.ctx);
+		expect(some.notifications.at(-1)).toBe(GOAL_HELP);
 	});
 
 	test("clearing an unset goal is a no-op with a report", async () => {

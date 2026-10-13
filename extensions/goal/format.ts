@@ -74,6 +74,16 @@ export function formatGoalNotice(goal: Goal): string {
 	return goal.status === "achieved" ? `Goal achieved: ${goal.objective}` : `Goal (active): ${goal.objective}`;
 }
 
+/**
+ * First-run usage shown by a bare `/goal` with no goal set, and by
+ * `/goal help`. A goal may already exist when `help` is used, so it never
+ * claims the goal is unset.
+ */
+export const GOAL_HELP = [
+	"Set a goal with /goal <what you want to accomplish>.",
+	"/goal done  ·  /goal clear  ·  /goal help",
+].join("\n");
+
 /** Truncate an objective to `max` display columns, appending `…` when cut. */
 export function previewObjective(objective: string, max = CALL_PREVIEW_WIDTH): string {
 	// `strict` drops a wide grapheme that would cross the boundary, so the
