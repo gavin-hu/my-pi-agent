@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_FETCH_CONFIG } from "./config.ts";
-import { MAX_URLS, resolveRequest } from "./schema.ts";
+import { resolveRequest, type WebFetchArgs } from "./schema.ts";
 
 const config = { ...DEFAULT_FETCH_CONFIG, maxOutputChars: 5000 };
 
 describe("resolveRequest", () => {
 	test("accepts a single url", () => {
 		const request = resolveRequest({ url: "https://example.com/" }, config);
-		expect(request.urls).toEqual(["https://example.com/"]);
+		expect(request.url).toBe("https://example.com/");
 		expect(request.startIndex).toBe(0);
 		expect(request.maxChars).toBe(5000);
 		expect(request.mode).toBe("insensitive");
@@ -17,23 +17,14 @@ describe("resolveRequest", () => {
 		expect(request.refresh).toBe(false);
 	});
 
-	test("accepts urls, trimming and de-duplicating", () => {
-		const request = resolveRequest({ urls: [" https://a/ ", "https://b/", "https://a/"] }, config);
-		expect(request.urls).toEqual(["https://a/", "https://b/"]);
-	});
-
-	test("rejects both url and urls", () => {
-		expect(() => resolveRequest({ url: "https://a/", urls: ["https://b/"] }, config)).toThrow("either url or urls");
+	test("trims the url", () => {
+		const request = resolveRequest({ url: " https://a/ " }, config);
+		expect(request.url).toBe("https://a/");
 	});
 
 	test("rejects no url", () => {
-		expect(() => resolveRequest({}, config)).toThrow("url is required");
-		expect(() => resolveRequest({ urls: ["  "] }, config)).toThrow("url is required");
-	});
-
-	test("rejects too many urls", () => {
-		const urls = Array.from({ length: MAX_URLS + 1 }, (_, i) => `https://h${i}/`);
-		expect(() => resolveRequest({ urls }, config)).toThrow(`At most ${MAX_URLS}`);
+		expect(() => resolveRequest({} as WebFetchArgs, config)).toThrow("url is required");
+		expect(() => resolveRequest({ url: "  " }, config)).toThrow("url is required");
 	});
 
 	test("rejects an over-long url", () => {

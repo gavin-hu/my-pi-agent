@@ -9,7 +9,6 @@ import type { FindMode } from "./find.ts";
 import type { FetchRequest } from "./types.ts";
 
 const MAX_URL_LENGTH = 2048;
-export const MAX_URLS = 5;
 export const MIN_CHARS = 200;
 
 const FIND_MODES = ["insensitive", "exact", "fuzzy"] as const;
@@ -36,20 +35,11 @@ const BLOCKED_HEADERS = new Set([
 const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+$/;
 
 export const WebFetchParams = Type.Object({
-	url: Type.Optional(
-		Type.String({
-			minLength: 1,
-			maxLength: MAX_URL_LENGTH,
-			description: "Absolute http(s) URL to fetch. Provide either `url` or `urls`.",
-		}),
-	),
-	urls: Type.Optional(
-		Type.Array(Type.String({ maxLength: MAX_URL_LENGTH }), {
-			minItems: 1,
-			maxItems: MAX_URLS,
-			description: `Up to ${MAX_URLS} URLs to fetch in one call; failures do not abort the others.`,
-		}),
-	),
+	url: Type.String({
+		minLength: 1,
+		maxLength: MAX_URL_LENGTH,
+		description: "Absolute http(s) URL to fetch.",
+	}),
 	method: Type.Optional(
 		StringEnum(HTTP_METHODS, {
 			description: "HTTP method; POST suits read-style APIs such as GraphQL.",
@@ -102,7 +92,7 @@ export const WebFetchParams = Type.Object({
 
 export type WebFetchArgs = Static<typeof WebFetchParams>;
 
-const PageSchema = Type.Object({
+export const WebFetchOutput = Type.Object({
 	url: Type.String(),
 	finalUrl: Type.String(),
 	title: Type.String(),
@@ -120,13 +110,8 @@ const PageSchema = Type.Object({
 	error: Type.String(),
 });
 
-export const WebFetchOutput = Type.Object({
-	pages: Type.Array(PageSchema),
-});
-
 /** The output shape, derived from the runtime schema so the two cannot drift. */
-export type FetchResponse = Static<typeof PageSchema>;
-export type FetchBatch = Static<typeof WebFetchOutput>;
+export type FetchResponse = Static<typeof WebFetchOutput>;
 
 function normalizeFind(raw: unknown): string[] {
 	if (!Array.isArray(raw)) return [];
@@ -162,29 +147,9 @@ function normalizeHeaders(raw: unknown): Record<string, string> {
 
 /** Validate the arguments and clamp the optional fields. */
 export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): FetchRequest {
-	const single = typeof args.url === "string" ? args.url.trim() : "";
-	const list = Array.isArray(args.urls)
-		? args.urls
-				.filter((value): value is string => typeof value === "string")
-				.map((value) => value.trim())
-				.filter(Boolean)
-		: [];
-
-	if (single && list.length > 0) throw new Error("provide either url or urls, not both.");
-	const candidates = single ? [single] : list;
-	if (candidates.length === 0) throw new Error("url is required.");
-	if (candidates.length > MAX_URLS) throw new Error(`At most ${MAX_URLS} urls are allowed.`);
-	if (candidates.some((value) => value.length > MAX_URL_LENGTH)) {
-		throw new Error(`each url must be at most ${MAX_URL_LENGTH} characters.`);
-	}
-
-	const seen = new Set<string>();
-	const urls: string[] = [];
-	for (const candidate of candidates) {
-		if (seen.has(candidate)) continue;
-		seen.add(candidate);
-		urls.push(candidate);
-	}
+	const url = typeof args.url === "string" ? args.url.trim() : "";
+	if (!url) throw new Error("url is required.");
+	if (url.length > MAX_URL_LENGTH) throw new Error(`url must be at most ${MAX_URL_LENGTH} characters.`);
 
 	const explicitMethod = args.method === "GET" || args.method === "POST" ? args.method : undefined;
 	if (args.body !== undefined && explicitMethod === "GET") throw new Error('body requires method "POST".');
@@ -211,7 +176,7 @@ export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): Fetc
 		typeof args.maxMatches === "number" ? Math.min(50, Math.max(1, Math.round(args.maxMatches))) : DEFAULT_MAX_MATCHES;
 
 	return {
-		urls,
+		url,
 		method,
 		headers,
 		body,

@@ -5,9 +5,7 @@
  * and the truncation note — within `maxChars`. The header and the note are
  * counted against the budget up front, so the "call web_fetch again with
  * startIndex=" instruction always survives inside the limit.
- * `formatMatches` renders find-in-page passages with their offsets, and
- * `formatBatch` joins whole sections, dropping whole pages rather than cutting
- * one mid-way, so no section loses its continuation hint.
+ * `formatMatches` renders find-in-page passages with their offsets.
  */
 
 import { charLength, toChars } from "../text.ts";
@@ -116,35 +114,4 @@ export function formatMatches(input: MatchFormatInput): FormattedMatches {
 	let text = `${header}\n\n${body}`;
 	if (input.truncated) text += `\n\n(first ${input.matches.length} matches; raise maxMatches for more)`;
 	return { body, text, truncated: input.truncated };
-}
-
-export interface BatchSection {
-	url: string;
-	/** Per-page formatted text (header + body, or an ERROR line). */
-	text: string;
-}
-
-/**
- * Join per-page sections as one `### url` block each, within a code-point
- * budget. Whole sections are included while they fit within `maxChars`; when
- * some do not, the result ends with a count, so a drop is never silent and no
- * section is left half-rendered.
- */
-export function formatBatch(sections: BatchSection[], maxChars: number): { text: string } {
-	const blocks = sections.map((section) => `### ${section.url}\n${section.text}`);
-	const included: string[] = [];
-	let size = 0;
-	for (const block of blocks) {
-		const cost = charLength(block) + (included.length > 0 ? 2 : 0);
-		// The first block is always kept, even if it alone exceeds the budget.
-		if (included.length > 0 && size + cost > maxChars) break;
-		included.push(block);
-		size += cost;
-	}
-
-	let text = included.join("\n\n");
-	if (included.length < blocks.length) {
-		text += `\n\n(showing ${included.length} of ${blocks.length} pages)`;
-	}
-	return { text };
 }

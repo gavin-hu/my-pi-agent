@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatBatch, formatPage } from "./format.ts";
+import { formatPage } from "./format.ts";
 
 function input(overrides: Partial<Parameters<typeof formatPage>[0]> = {}) {
 	return {
@@ -75,39 +75,5 @@ describe("formatPage", () => {
 	test("omits the title line when there is no title", () => {
 		const result = formatPage(input({ title: "" }));
 		expect(result.text).not.toContain("Title:");
-	});
-});
-
-describe("formatBatch", () => {
-	test("joins sections under a heading per url", () => {
-		const result = formatBatch(
-			[
-				{ url: "https://a/", text: "Title: A\n\nbody a" },
-				{ url: "https://b/", text: "ERROR: HTTP 404" },
-			],
-			10_000,
-		);
-		expect(result.text).toContain("### https://a/\nTitle: A");
-		expect(result.text).toContain("### https://b/\nERROR: HTTP 404");
-		expect(result.text).not.toContain("showing");
-	});
-
-	test("drops whole sections with a count instead of cutting one mid-way", () => {
-		const result = formatBatch(
-			[
-				{ url: "https://a/", text: "A".repeat(50) },
-				{ url: "https://b/", text: "B".repeat(50) },
-			],
-			80,
-		);
-		expect(result.text).toContain("### https://a/");
-		expect(result.text).not.toContain("### https://b/");
-		expect(result.text).toContain("(showing 1 of 2 pages)");
-	});
-
-	test("keeps a single over-budget section rather than returning nothing", () => {
-		const result = formatBatch([{ url: "https://a/", text: "A".repeat(500) }], 20);
-		expect(result.text).toContain("### https://a/");
-		expect(result.text).not.toContain("showing");
 	});
 });

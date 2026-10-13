@@ -9,7 +9,7 @@ const config = { ...DEFAULT_FETCH_CONFIG, timeoutMs: 5000 };
 
 function baseRequest(overrides: Partial<FetchRequest> = {}): FetchRequest {
 	return {
-		urls: ["https://1.1.1.1/start"],
+		url: "https://1.1.1.1/start",
 		method: "GET",
 		headers: {},
 		startIndex: 0,
