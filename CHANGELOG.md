@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `job`: the transcript no longer renders the model-facing `logs` header as
+  output; the rail shows the sanitized tail, and a job with no output yet shows
+  `No output yet.`
+- `job`: a `kill` result confirms the signal sent (`· SIGTERM sent`) instead of
+  redisplaying the job's pre-kill running row.
+
+### Changed
+
+- `job`: `start` results badge `detached` and `wake`, so the job's lifetime and
+  wake behaviour are visible without reading the arguments.
+
 ## [0.5.0] - 2026-10-13
 
 ### Added

@@ -61,6 +61,10 @@ describe("job tool", () => {
 		const result = await call({ action: "logs", id: "j1", lines: 5 });
 		expect(result.content[0].text).toContain("second");
 		expect(result.content[0].text).not.toContain("\u001b");
+		// The transcript reads `details.logs`, so it must carry the sanitized tail,
+		// not the model-facing header block.
+		expect(result.details.logs).toContain("second");
+		expect(result.details.logs).not.toContain("output:");
 	});
 
 	test("kill signals the process", async () => {
@@ -68,6 +72,7 @@ describe("job tool", () => {
 		await call({ action: "start", command: "sleep 1" });
 		const result = await call({ action: "kill", id: "j1", signal: "SIGTERM" });
 		expect(result.details.signalled).toBe(true);
+		expect(result.details.signal).toBe("SIGTERM");
 		expect(h.kills[0].signal).toBe("SIGTERM");
 	});
 
@@ -215,6 +220,44 @@ describe("job transcript rendering", () => {
 			.render(80)
 			.join("\n");
 		expect(clearedText).toContain("Cleared 2 jobs.");
+	});
+
+	test("empty logs render a muted note", () => {
+		const { tool } = setup();
+		const result = { content: [{ type: "text", text: "model" }], details: { action: "logs", logs: "", job: record() } };
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("No output yet.");
+	});
+
+	test("kill confirms the signal instead of the stale running row", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: "model" }],
+			details: { action: "kill", job: record({ status: "running", pid: 321 }), signalled: true, signal: "SIGKILL" },
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("j1");
+		expect(text).toContain("SIGKILL sent");
+	});
+
+	test("start surfaces detached and wake badges", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: "model" }],
+			details: { action: "start", job: record({ status: "running", detached: true, wake: true }) },
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("detached");
+		expect(text).toContain("wake");
 	});
 
 	test("status renders a compact outcome line", () => {

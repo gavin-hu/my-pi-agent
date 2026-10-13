@@ -87,6 +87,8 @@ export interface JobDetails {
 	cleared?: number;
 	/** True when `kill` sent a signal but the process had not yet closed. */
 	signalled?: boolean;
+	/** Signal sent by `kill`; defaults to SIGTERM. */
+	signal?: KillSignal;
 	/** True when `wait` hit its timeout. */
 	timedOut?: boolean;
 	/** True when `wait` was cancelled by the tool's abort signal. */

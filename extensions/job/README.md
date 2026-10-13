@@ -69,6 +69,7 @@ JobDetails {
   truncated?: boolean
   cleared?: number
   signalled?: boolean       // kill sent a signal to a running job
+  signal?: KillSignal       // signal sent by kill (SIGTERM/SIGKILL/SIGINT)
   timedOut?: boolean        // wait hit its timeout
   cancelled?: boolean       // wait was aborted; job still running
   error?: string
@@ -80,7 +81,9 @@ JobDetails {
 The call line names the action and its target. The result is themed and reuses
 the slot's component: `list` draws the same row rail as `/jobs`, `logs` draws a
 blank line and the sanitized tail, and a single-job action draws one outcome
-line.
+line. A `kill` that sent a signal appends it (`· SIGTERM sent`) instead of
+showing the job's pre-kill running state, a `start` badges `detached` and
+`wake`, and a `logs` call on a job with no output yet renders `No output yet.`
 
 ```
 job list
@@ -257,7 +260,8 @@ rewritten.
 - **The transcript reuses the `/jobs` grammar.** `job list` renders the same
   `jobRow` rail as the screen (running first, capped, `… N more`), `job logs`
   draws a themed tail with a `… N earlier lines` note, and single-job actions
-  draw one `formatJobOutcomeLine`. A capped collapsed result ends with the
+  draw one `formatJobOutcomeLine` (plus a signal note on `kill` and
+  `detached`/`wake` badges on `start`). A capped collapsed result ends with the
   `app.tools.expand` hint, and an expanded list shows every job. The renderers
   reuse `context.lastComponent`, and a `wait` in progress (`options.isPartial`)
   renders as a `Waiting …`

@@ -119,7 +119,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 							details: {
 								action: "logs",
 								job: toRecord(result.job),
-								logs: result.text,
+								logs: result.lines.join("\n"),
 								truncated: result.truncated,
 							} satisfies JobDetails,
 						};
@@ -144,6 +144,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 								action: "kill",
 								job: toRecord(job),
 								signalled: wasRunning,
+								signal: call.signal ?? "SIGTERM",
 							} satisfies JobDetails,
 						};
 					}
@@ -230,7 +231,11 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 			}
 
 			if (details.action === "logs" && details.logs !== undefined) {
-				const all = details.logs.split("\n");
+				const all = details.logs === "" ? [] : details.logs.split("\n");
+				if (all.length === 0) {
+					text.setText(theme.fg("muted", "No output yet."));
+					return text;
+				}
 				const shown = options.expanded ? all : all.slice(Math.max(0, all.length - RESULT_ROWS));
 				const input: JobResultInput = { kind: "logs", lines: shown, earlier: all.length - shown.length };
 				const view = context.lastComponent instanceof JobResult ? context.lastComponent : new JobResult(input, theme);
@@ -265,6 +270,13 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					line += theme.fg("warning", " · still running after the timeout");
 				} else if (details.action === "wait" && details.cancelled) {
 					line += theme.fg("warning", " · wait cancelled; job still running");
+				} else if (details.action === "kill" && details.signalled) {
+					line += theme.fg("warning", ` · ${details.signal ?? "SIGTERM"} sent`);
+				} else if (details.action === "start") {
+					const badges: string[] = [];
+					if (details.job.detached) badges.push("detached");
+					if (details.job.wake) badges.push("wake");
+					if (badges.length > 0) line += theme.fg("dim", ` · ${badges.join(" · ")}`);
 				}
 				text.setText(line);
 				return text;
