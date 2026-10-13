@@ -79,10 +79,6 @@ check("ask_user_question is model-only", askTool?.exposure === "model-only");
 check("ask_user_question inactive without a UI", !session.getActiveToolNames().includes("ask_user_question"));
 check("ask_user_question supports no-UI result", !!session.getToolDefinition("ask_user_question"));
 
-// prompt loads alongside the others and registers its command. Refinement runs
-// from the `input` event, which this headless smoke session does not dispatch.
-check("prompt command registered", !!runner.getCommand("prompt"));
-
 // todo loads alongside the others and works headlessly (no widget without a UI).
 const todoTool = session.getAllTools().find((t) => t.name === "todo");
 check("todo registered", !!todoTool);
@@ -121,19 +117,24 @@ const clearedGoalDetails = clearedGoal.details as { goal: unknown; action: strin
 check("goal clears", clearedGoalDetails.goal === null && clearedGoalDetails.action === "clear");
 
 // The /goal command cannot return a tool result, so it persists a custom entry
-// that branch reconstruction replays.
+// that branch reconstruction replays. Drive `done` rather than a prompt: a
+// prompt would set the goal and then start a turn, which this headless session
+// has no model for.
 const goalCommand = runner.getCommand("goal");
 check("goal command registered", !!goalCommand);
 if (!goalCommand) throw new Error("missing goal command");
 const commandCtx = runner.createCommandContext();
-await goalCommand.handler("smoke via command", commandCtx);
+check("goal command context has no UI", commandCtx.hasUI === false);
+await call("goal", { objective: "smoke via command" });
+await goalCommand.handler("done", commandCtx);
 const commandPersisted = sessionManager
 	.getBranch()
 	.some(
 		(entry) =>
 			entry.type === "custom" &&
 			entry.customType === "goal" &&
-			(entry.data as { goal?: { objective?: string } }).goal?.objective === "smoke via command",
+			(entry.data as { goal?: { objective?: string; status?: string } }).goal?.objective === "smoke via command" &&
+			(entry.data as { goal?: { objective?: string; status?: string } }).goal?.status === "achieved",
 	);
 check("goal command persists a branch entry", commandPersisted);
 

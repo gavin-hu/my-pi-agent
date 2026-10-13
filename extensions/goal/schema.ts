@@ -8,6 +8,7 @@
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { sanitizeLine } from "../../lib/format.ts";
 import { GOAL_ACTIONS, GOAL_STATUSES, type Goal, type GoalStatus } from "./types.ts";
 
 /** Maximum length of the objective. */
@@ -43,21 +44,6 @@ export const GoalResult = Type.Object({
 
 export type GoalArgs = Static<typeof GoalParams>;
 
-/**
- * Make model text safe to render on one terminal line.
- *
- * Control characters (including ESC) become spaces so they cannot move the
- * cursor or inject styling, and any whitespace run (newlines, tabs, repeated
- * spaces) collapses to a single space. The widget assumes a single logical
- * line and wraps it itself.
- */
-function sanitizeObjective(raw: string): string {
-	return raw
-		.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-}
-
 function normalizeStatus(raw: unknown): GoalStatus {
 	if (raw === undefined) return "active";
 	const value = typeof raw === "string" ? raw.trim().toLowerCase() : undefined;
@@ -80,7 +66,9 @@ export function normalizeGoal(raw: unknown): Goal | null {
 	// Validate the status first so an unknown value is rejected even when the
 	// objective is empty (a clear), matching the documented contract.
 	const status = normalizeStatus(args.status);
-	const objective = typeof args.objective === "string" ? sanitizeObjective(args.objective) : "";
+	// `sanitizeLine` is the shared boundary for model text: control characters
+	// become spaces and the result collapses to one line.
+	const objective = typeof args.objective === "string" ? sanitizeLine(args.objective) : "";
 	if (!objective) {
 		// An empty objective is the clear signal — but only for an active/default
 		// goal. "Achieved" is a transition that must carry the objective it
@@ -111,7 +99,7 @@ export function normalizeStoredGoal(value: unknown): Goal | null {
 	const goal = value as Partial<Goal>;
 	if (typeof goal.objective !== "string") return null;
 	if (goal.status !== "active" && goal.status !== "achieved") return null;
-	const objective = sanitizeObjective(goal.objective);
+	const objective = sanitizeLine(goal.objective);
 	if (!objective || objective.length > MAX_OBJECTIVE) return null;
 	return { objective, status: goal.status };
 }

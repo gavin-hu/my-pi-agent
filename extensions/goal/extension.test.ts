@@ -7,7 +7,7 @@ import { TOOL_NAME } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
 import type { Goal } from "./types.ts";
 import { emitCollect as emit, makeFakePi } from "../../test/helpers/fakes.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
+import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { goalContextMessage, resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { lastWidget, otherMessage } from "../../test/helpers/entries.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
@@ -200,12 +200,17 @@ describe("goal reminder", () => {
 });
 
 describe("/goal command", () => {
-	async function started(branch: unknown[] = []) {
-		const { pi, commands, entries } = makeFakePi();
-		goal(pi);
-		const fake = fakeCtx({ mode: "print", branch });
-		await emit(pi, "session_start", { reason: "startup" }, fake.ctx);
-		return { command: commands.get("goal"), entries, ...fake };
+	async function started(branch: unknown[] = [], ctxOptions: Partial<FakeCtxOptions> = {}) {
+		const fakePi = makeFakePi();
+		goal(fakePi.pi);
+		const fake = fakeCtx({ mode: "print", branch, ...ctxOptions });
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, fake.ctx);
+		return {
+			command: fakePi.commands.get("goal"),
+			entries: fakePi.entries,
+			sentMessages: fakePi.sentMessages,
+			...fake,
+		};
 	}
 
 	test("reports when no goal is set", async () => {
@@ -221,8 +226,8 @@ describe("/goal command", () => {
 		expect(entries).toHaveLength(0);
 	});
 
-	test("sets a goal and persists it as a branch entry", async () => {
-		const { command, ctx, notifications, entries } = await started();
+	test("sets a goal, persists it, and starts the run", async () => {
+		const { command, ctx, notifications, entries, sentMessages } = await started();
 		await command.handler("  ship the parser  ", ctx);
 		expect(notifications.at(-1)).toBe("Goal set (active): ship the parser");
 		expect(entries.at(-1)).toEqual({
@@ -230,6 +235,115 @@ describe("/goal command", () => {
 			customType: "goal",
 			data: { goal: { objective: "ship the parser", status: "active" } },
 		});
+		expect(sentMessages.at(-1)).toEqual({ content: "ship the parser", options: undefined });
+	});
+
+	test("submits the prompt as a follow-up while the agent is busy", async () => {
+		const { command, ctx, sentMessages } = await started([], { isIdle: () => false });
+		await command.handler("ship the parser", ctx);
+		expect(sentMessages.at(-1)).toEqual({ content: "ship the parser", options: { deliverAs: "followUp" } });
+	});
+
+	test("does not send a prompt when clearing or completing", async () => {
+		const done = await started([resultEntry(active("ship it"))]);
+		await done.command.handler("done", done.ctx);
+		expect(done.sentMessages).toHaveLength(0);
+
+		const cleared = await started([resultEntry(active("ship it"))]);
+		await cleared.command.handler("clear", cleared.ctx);
+		expect(cleared.sentMessages).toHaveLength(0);
+	});
+
+	test("does not send a prompt when validation fails", async () => {
+		const { command, ctx, notifications, entries, sentMessages } = await started();
+		await command.handler("x".repeat(5000), ctx);
+		expect(notifications.at(-1)).toContain("Goal not set:");
+		expect(entries).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("refines, prefills the editor, and sends the edited text", async () => {
+		const registry = {
+			complete: async () => ({
+				stopReason: "stop",
+				content: [{ type: "text", text: "Refactor the parser to stream input" }],
+			}),
+		};
+		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "Refactor the parser to stream input, with tests",
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("refactor the parser", ctx);
+
+		expect(editorCalls[0].prefill).toBe("Refactor the parser to stream input");
+		expect(entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "goal",
+			data: { goal: { objective: "Refactor the parser to stream input, with tests", status: "active" } },
+		});
+		expect(sentMessages.at(-1)).toEqual({
+			content: "Refactor the parser to stream input, with tests",
+			options: undefined,
+		});
+	});
+
+	test("falls back to the typed text when the clarifier fails", async () => {
+		const registry = {
+			complete: async () => {
+				throw new Error("provider exploded");
+			},
+		};
+		const { command, ctx, sentMessages, editorCalls } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "refactor the parser",
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("refactor the parser", ctx);
+
+		expect(editorCalls[0].prefill).toBe("refactor the parser");
+		expect(sentMessages.at(-1)).toEqual({ content: "refactor the parser", options: undefined });
+	});
+
+	test("aborts when the editor is dismissed", async () => {
+		const registry = {
+			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "Refined goal" }] }),
+		};
+		const { command, ctx, entries, sentMessages, notifications } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			editor: undefined,
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("refactor the parser", ctx);
+
+		expect(entries).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
+		expect(notifications).toHaveLength(0);
+	});
+
+	test("skips refine and dialogs without a UI", async () => {
+		const calls: string[] = [];
+		const registry = {
+			complete: async () => {
+				calls.push("complete");
+				return { stopReason: "stop", content: [{ type: "text", text: "Refined goal" }] };
+			},
+		};
+		const { command, ctx, editorCalls, sentMessages } = await started([], {
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("ship the parser", ctx);
+
+		expect(calls).toHaveLength(0);
+		expect(editorCalls).toHaveLength(0);
+		expect(sentMessages.at(-1)?.content).toBe("ship the parser");
 	});
 
 	test("clears a goal and persists the clear", async () => {

@@ -51,6 +51,8 @@ export interface FakeCtxResult {
 	selects: string[][];
 	navigations: string[];
 	editorSets: string[];
+	/** Editor dialogs opened, in call order, with their title and prefill. */
+	editorCalls: Array<{ title: string; prefill?: string }>;
 	customCalls: any[];
 	setConfirm(value: boolean | undefined): void;
 	setSelect(value: string | undefined | Array<string | undefined>): void;
@@ -79,6 +81,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 	const selects: string[][] = [];
 	const navigations: string[] = [];
 	const editorSets: string[] = [];
+	const editorCalls: Array<{ title: string; prefill?: string }> = [];
 	const customCalls: any[] = [];
 
 	let confirmResult = options.confirm;
@@ -129,7 +132,10 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 				selects.push(labels);
 				return takeSelect();
 			},
-			editor: async () => takeEditor(),
+			editor: async (title: string, prefill?: string) => {
+				editorCalls.push({ title, prefill });
+				return takeEditor();
+			},
 			input: async () => options.input,
 			getEditorText: () => "",
 			setEditorText: (text: string) => {
@@ -157,6 +163,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		navigations,
 		editorSets,
 		selects,
+		editorCalls,
 		customCalls,
 	};
 
@@ -174,6 +181,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		selects,
 		navigations,
 		editorSets,
+		editorCalls,
 		customCalls,
 		setConfirm: (value) => {
 			confirmResult = value;

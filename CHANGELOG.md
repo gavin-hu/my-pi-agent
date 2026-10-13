@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `goal`: `/goal <prompt>` refines the prompt with one clarifier call on the
+  session model, lets you confirm or edit the result, then records the goal and
+  starts a turn on it. Refinement is best-effort (a failure falls back to the
+  typed text), needs a dialog UI and a model, and a dismissed dialog cancels the
+  command. The `goal` tool remains the silent setter.
+
+### Changed
+
+- `goal`: `/goal <prompt>` now sets the goal *and* starts the agent on it,
+  instead of only recording the objective.
+
+### Removed
+
+- `prompt`: removed the extension. Ordinary user prompts are no longer refined,
+  and the structured question/answer flow and `prompt.json` are gone; prompt
+  refinement now happens only for `/goal <prompt>`.
+
 ## [0.4.0] - 2026-10-12
 
 ### Added
