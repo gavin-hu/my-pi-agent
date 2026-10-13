@@ -28,10 +28,14 @@ nothing rejects a stray commit or push — the discipline is on the agent. Do al
 work on a branch in its own worktree, then merge that branch into `main`. A
 local merge into `main` is allowed; a pull request is optional.
 
-- Under Pi with this package loaded, use `enter_worktree <name>` and
-  `exit_worktree`. Otherwise use
+- **Start every task in a worktree.** Under Pi with this package loaded, use
+  `enter_worktree <name>`; otherwise
   `git worktree add .pi/worktrees/<name> -b worktree-<name>`. One worktree per
   task; keep the `main` checkout clean.
+- **Ask before ending the task.** When the work is done, ask the user how to
+  reconcile the branch (commit, merge, keep, or discard) and only call
+  `exit_worktree` (or `git worktree remove`) after they decide. Never exit on
+  your own initiative, so uncommitted work is not discarded without a choice.
 - Before committing: run `bun run check`, check `git status`, and stage explicit
   paths. Never `git add -A` / `git add .`.
 - Never `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, or
