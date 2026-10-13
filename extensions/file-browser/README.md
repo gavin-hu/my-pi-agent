@@ -38,6 +38,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   directory, directories first, and the choice is remembered per browser.
 - **Copy and wrap.** Copy a file's root-relative path or its contents, and
   toggle line wrapping for text and raw views.
+- **Theme toggle.** A header button switches between the dark and light
+  palettes and remembers the choice per browser; until it is used, the palette
+  follows the system `prefers-color-scheme`.
 - **Quick open.** `/` (or `Ctrl/Cmd+K`, or the sidebar button) opens a fuzzy
   path finder over a capped index of the tree, with keyboard navigation and a
   highlighted match; Enter opens the file.
@@ -86,6 +89,7 @@ reflects only this session's server, with no cross-session sharing.
 | `/api/tree?path=<rel>` | JSON children for lazy tree expansion |
 | `/api/files?q=<query>` | JSON fuzzy path matches for the quick-open palette |
 | `/app.js` | the first-party client script |
+| `/theme.js` | the pre-paint theme bootstrap |
 | `/favicon.ico` | `204` (the icon is a data URI) |
 
 ## Configuration
@@ -183,8 +187,10 @@ reflects only this session's server, with no cross-session sharing.
   listing headers sort in place, the wrap toggle is remembered, and the copy
   buttons use the clipboard. Without JS the page still browses and renders
   Markdown, and the JS-only controls (filter, disclosure, actions, quick open)
-  are hidden. The palette follows `nocturne-dark`/`nocturne-light` via
-  `prefers-color-scheme`.
+  are hidden. The palette defaults to `nocturne-dark`/`nocturne-light` via
+  `prefers-color-scheme` and an explicit choice sets `data-theme` on the root:
+  `/theme.js` applies the saved choice in the head before first paint, and the
+  header toggle flips and stores it (`serve-theme` in `localStorage`).
 - **Markdown rendering.** `markdown.ts` is a first-party, escape-first renderer
   for the constructs that show up in repository READMEs. It emits only a known
   tag set, escapes every literal character, allowlists URL schemes (dropping
@@ -233,7 +239,7 @@ reflects only this session's server, with no cross-session sharing.
 | `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted) |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
-| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
+| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) and the `/theme.js` bootstrap |
 | `html.ts` | Page renderers, sortable headers, and the inline CSS |
 | `router.ts` | Pure request handler |
 | `server.ts` | `node:http` server |

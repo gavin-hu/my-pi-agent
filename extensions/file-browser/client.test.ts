@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { CLIENT_JS } from "./client.ts";
+import { CLIENT_JS, THEME_JS, THEME_STORAGE_KEY } from "./client.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import { handleRequest } from "./router.ts";
 import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
@@ -60,6 +60,14 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("execCommand");
 	});
 
+	test("toggles the theme and remembers the choice", () => {
+		expect(CLIENT_JS).toContain(THEME_STORAGE_KEY);
+		expect(CLIENT_JS).toContain("theme-toggle");
+		expect(CLIENT_JS).toContain("theme-glyph");
+		expect(CLIENT_JS).toContain('setAttribute("data-theme"');
+		expect(CLIENT_JS).toContain("(prefers-color-scheme: light)");
+	});
+
 	test("wires the quick-open palette", () => {
 		expect(CLIENT_JS).toContain('"/api/files?q="');
 		expect(CLIENT_JS).toContain("palette-option");
@@ -77,5 +85,15 @@ describe("CLIENT_JS", () => {
 		expect(response.headers["Content-Type"]).toContain("text/javascript");
 		expect(response.headers["Cache-Control"]).toBe("no-store");
 		expect(response.body).toBe(CLIENT_JS);
+	});
+
+	test("serves the theme bootstrap before paint", async () => {
+		fixture = makeFixture();
+		const response = await handleRequest({ root: fixture.root, config: DEFAULT_CONFIG }, "GET", "/theme.js", {});
+		expect(response.status).toBe(200);
+		expect(response.headers["Content-Type"]).toContain("text/javascript");
+		expect(response.body).toBe(THEME_JS);
+		expect(THEME_JS).toContain(THEME_STORAGE_KEY);
+		expect(THEME_JS).toContain("data-theme");
 	});
 });

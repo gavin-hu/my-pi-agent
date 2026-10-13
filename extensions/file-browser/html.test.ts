@@ -218,7 +218,11 @@ describe("renderFilePage", () => {
 			maxThumbBytes: 0,
 		});
 		expect(html).toContain('<meta name="color-scheme" content="dark light">');
-		expect(html).toContain("color-scheme:dark light");
+		expect(html).toContain("color-scheme:dark;");
+		expect(html).toContain(':root[data-theme="light"]');
+		expect(html).toContain(":root:not([data-theme])");
+		expect(html).toContain('id="theme-toggle"');
+		expect(html).toContain('src="/theme.js"');
 		expect(html).toContain("table-layout:fixed");
 		expect(html).toContain('<button type="button" class="tw toggle" aria-expanded="true"');
 		expect(html).toContain('<span class="tw spacer" aria-hidden="true"></span>');
@@ -432,6 +436,7 @@ describe("renderDirectoryPage sort and styles", () => {
 		expect(html).toContain(".md-body{");
 		expect(html).toContain('.segmented .seg[aria-current="page"]');
 		expect(html).toContain(".action{display:none}");
+		expect(html).toContain(".theme-toggle{");
 	});
 
 	test("ships the quick-open trigger and palette styles", () => {
