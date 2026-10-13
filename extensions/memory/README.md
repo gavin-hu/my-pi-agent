@@ -17,6 +17,8 @@ pi install ./                         # install the package
 
 - Registers one model-callable tool, `memory`, with four actions: `add` a note,
   `update` an exact note, `forget` an exact note, or `list` what is stored.
+  `add` is a no-op when the note already exists, ignoring case and trailing
+  punctuation, so re-stating a fact in new words does not grow the store.
 - Keeps two stores, both plain markdown with one bullet per note:
 
   | Scope | File |
@@ -39,7 +41,7 @@ pi install ./                         # install the package
 
 `memory` is a singleton tool with an action switch (like `job`). It declares an
 `outputSchema` and returns matching `structuredContent`
-(`{ action, scope, project, global, changed, entry?, to?, error? }`).
+(`{ action, scope, project, global, changed, entry?, to?, existing?, error? }`).
 
 | Field | Value |
 |---|---|
@@ -61,10 +63,21 @@ non-blank `to` of at most 500 characters for `update`; an exact match for
 
 Notes are normalized to a single line: control characters (including `ESC`)
 become spaces and whitespace runs collapse to one space, so a note cannot inject
-terminal sequences when it is injected or rendered. Matching is exact on the
-trimmed text; `add` of an existing note is a no-op, `update` replaces every
-exact match of `text` with `to` in place (a no-op when they are equal), and
-`forget` removes every exact match.
+terminal sequences when it is injected or rendered. `update` and `forget` match
+the trimmed text exactly; `update` replaces every exact match of `text` with `to`
+in place (a no-op when they are equal), and `forget` removes every exact match.
+`add` skips a note that is already present — exactly, or as a near-duplicate
+under the comparison key below — returning the stored note in `existing`, so the
+model can call `update` instead of storing a reworded copy.
+
+### Near-duplicate guard
+
+`add` compares the new note against every stored note under a conservative key:
+`sanitizeLine` (collapse whitespace, drop control characters), lowercase, then
+strip trailing `.`/`!`/`?`/`,`/`;`/`:`. A note that matches is not stored; the
+result reports the stored text in `existing`. The key never folds word order,
+stemming, or internal punctuation, so distinct facts that merely share a prefix
+or stem both survive.
 
 ## Commands
 
@@ -125,6 +138,10 @@ skill. Mitigations:
   mtime tick is only caught by `/memory reload`; a store that becomes unreadable
   (symlinked or over the size cap) keeps its last good view until fixed.
 - Matching for `forget` is exact and case-sensitive.
+- The near-duplicate guard on `add` is deliberately conservative: it folds
+  case, whitespace runs, and trailing sentence punctuation only, never word
+  order, stemming, or internal punctuation. Two paraphrases can therefore still
+  both be stored; use `update` to consolidate them.
 - `update` replaces every exact match of `text`; a replacement that already
 exists under a different note can leave a duplicate. Forget the old note first
 when consolidating.
@@ -187,8 +204,9 @@ when consolidating.
 
 ## Testing
 
-`bun test extensions/memory` covers the pure store transforms, file stamps,
-schema and config validation, formatting/injection truncation, and the extension
-surface (registration, `session_start` loading, injection and dedup, external-edit
+`bun test extensions/memory` covers the pure store transforms (including the
+near-duplicate comparison key and the `add` guard), file stamps, schema and
+config validation, formatting/injection truncation, and the extension surface
+(registration, `session_start` loading, injection and dedup, external-edit
 refresh, `/memory reload`, update and trust gating, and the `/memory` command)
 through the `test/helpers/fixtures/memory.ts` suite harness.

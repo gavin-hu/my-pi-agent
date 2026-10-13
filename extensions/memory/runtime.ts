@@ -34,6 +34,12 @@ export interface MemoryRefreshResult {
 	warning?: string;
 }
 
+/** Outcome of an `add`: `existing` names the stored note that matched, if any. */
+export interface AddResult {
+	changed: boolean;
+	existing?: string;
+}
+
 export interface MemoryRuntime {
 	/** Resolve paths and load notes for a session; returns a warning message, if any. */
 	load(cwd: string, trusted: boolean): Promise<string | undefined>;
@@ -50,8 +56,8 @@ export interface MemoryRuntime {
 	raw(scope: MemoryScope): string;
 	/** Replace one store's raw text, for `/memory edit`. */
 	write(scope: MemoryScope, content: string): Promise<void>;
-	/** Returns whether the store changed. */
-	add(scope: MemoryScope, entry: string): Promise<boolean>;
+	/** Returns whether the store changed, and the matched note for a duplicate. */
+	add(scope: MemoryScope, entry: string): Promise<AddResult>;
 	update(scope: MemoryScope, from: string, to: string): Promise<boolean>;
 	forget(scope: MemoryScope, entry: string): Promise<boolean>;
 	clear(scope: MemoryScope): Promise<boolean>;
@@ -160,7 +166,9 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 			requireTrusted(scope);
 			const result = await mutateMemoryFile(pathFor(scope), (content) => applyAdd(content, entry));
 			commit(scope, result.entries);
-			return result.changed;
+			return result.existing === undefined
+				? { changed: result.changed }
+				: { changed: result.changed, existing: result.existing };
 		},
 		async forget(scope, entry) {
 			requireTrusted(scope);

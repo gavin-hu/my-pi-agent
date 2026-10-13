@@ -31,6 +31,8 @@ export interface MemoryDetails {
 	entry?: string;
 	/** The replacement note, for `update`. */
 	to?: string;
+	/** The stored note an `add` matched as a duplicate, when it did. */
+	existing?: string;
 	/** Model-readable validation message when the call was rejected. */
 	error?: string;
 }

@@ -81,9 +81,13 @@ export function formatResultText(details: MemoryDetails, expanded = false): stri
 				...listLines("global", entries.global, expanded),
 			].join("\n");
 		case "add":
-			return details.changed
-				? `Added to ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}\nNow ${countLine(entries)}.`
-				: `Already in ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}`;
+			if (details.changed) {
+				return `Added to ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}\nNow ${countLine(entries)}.`;
+			}
+			if (details.existing !== undefined && details.existing !== details.entry) {
+				return `Already in ${scopeLabel(details.scope)} memory (near-duplicate): ${details.existing}`;
+			}
+			return `Already in ${scopeLabel(details.scope)} memory: ${details.existing ?? details.entry ?? ""}`;
 		case "update":
 			return details.changed
 				? `Updated ${scopeLabel(details.scope)} memory: ${details.entry ?? ""} → ${details.to ?? ""}\nNow ${countLine(entries)}.`
