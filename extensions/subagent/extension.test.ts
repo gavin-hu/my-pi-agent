@@ -57,7 +57,7 @@ describe("subagent registration", () => {
 		expect(tool).toBeDefined();
 		expect(tool.exposure).toBe("direct");
 		expect(tool.defaultActive).toBe(true);
-		expect(tool.annotations).toEqual({ readOnlyHint: false, openWorldHint: true });
+		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
 	});
 });
 

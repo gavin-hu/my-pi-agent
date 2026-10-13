@@ -147,7 +147,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		executionMode: "sequential",
 		// readOnlyHint stays true: entering plan mode changes only the session's
 		// tool set, never files or system state, so it needs no approval.
-		annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+		annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			if (runtime.isEnabled()) {
@@ -283,7 +283,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		parameters: ExitPlanModeParams,
 		defaultActive: false,
 		executionMode: "sequential",
-		annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+		annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const planPath = (params as ExitPlanModeArgs).plan_path.trim();

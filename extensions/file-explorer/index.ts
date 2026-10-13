@@ -51,6 +51,9 @@ export default function fileExplorer(pi: ExtensionAPI, deps: FileExplorerDeps = 
 		parameters: OpenPathParams,
 		outputSchema: OpenPathOutput,
 		exposure: "codemode",
+		// `readOnlyHint: false` even though opening a path writes nothing: the
+		// tool launches an external application, and plan mode allows tools by
+		// this hint, so opening must stay behind the normal policy.
 		annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -68,6 +71,13 @@ export default function fileExplorer(pi: ExtensionAPI, deps: FileExplorerDeps = 
 
 	pi.registerCommand("open", {
 		description: "Open a file or directory in the native app (/open . or /open -r src)",
+		getArgumentCompletions: (prefix) => {
+			const text = prefix.trimStart();
+			// Only the leading `-r` flag is completed; the path is left to the user.
+			if (!text.startsWith("-") || text.includes(" ")) return null;
+			const items = ["-r"].filter((option) => option.startsWith(text));
+			return items.length > 0 ? items.map((value) => ({ value: `${value} `, label: "reveal in file manager" })) : null;
+		},
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			const reveal = /^-r\b/.test(trimmed);

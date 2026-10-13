@@ -76,7 +76,9 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		parameters: SubagentParams,
 		exposure: "direct",
 		defaultActive: true,
-		annotations: { readOnlyHint: false, openWorldHint: true },
+		// Deliberately no `executionMode`: sibling subagent calls are independent
+		// (each spawns its own child process), so they stay parallel by default.
+		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const args = params as SubagentArgs;

@@ -18,8 +18,10 @@ import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "../../extensions/worktree/runtim
 export const repo = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
 /**
- * Extensions the scripts load. `wechat` and `extension-picker` are excluded:
- * they need network/UI and register nothing the scripts exercise.
+ * Extensions the scripts load. `extension-picker` is excluded: it needs UI and
+ * registers no tools. `wechat` is included so its `send_wechat` tool is held to
+ * the same prompt and annotation checks as the rest; its network work stays
+ * lazy until `/wechat start`.
  */
 export const EXTENSION_PATHS = [
 	"worktree",
@@ -35,6 +37,7 @@ export const EXTENSION_PATHS = [
 	"document",
 	"file-explorer",
 	"memory",
+	"wechat",
 	"status-bar",
 	"turn-separator",
 	"doctor",
