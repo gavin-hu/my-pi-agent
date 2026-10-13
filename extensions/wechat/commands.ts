@@ -138,9 +138,23 @@ async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 	ctx.ui.notify("WeChat logged out.");
 }
 
+const WECHAT_SUBCOMMANDS = ["login", "start", "stop", "status", "logout"];
+
+/** Complete the single wechat subcommand; anything after it is not tab-completed. */
+function completeSubcommand(
+	prefix: string,
+	options: readonly string[],
+): Array<{ value: string; label: string }> | null {
+	const text = prefix.trimStart();
+	if (text.includes(" ")) return null;
+	const items = options.filter((option) => option.startsWith(text));
+	return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
+}
+
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
 		description: "WeChat bridge: /wechat login | start | stop | status | logout",
+		getArgumentCompletions: (prefix) => completeSubcommand(prefix, WECHAT_SUBCOMMANDS),
 		handler: async (args, ctx) => {
 			const [sub = "status"] = args.trim().split(/\s+/).filter(Boolean);
 			switch (sub.toLowerCase()) {

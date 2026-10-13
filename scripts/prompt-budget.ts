@@ -46,9 +46,13 @@ export interface Ceilings {
 /**
  * Pinned ceilings. Set from the measured post-cleanup footprint with ~10%
  * headroom; raise deliberately when adding a tool or a genuinely new fact.
+ *
+ * `totalActive` was raised from 15_800 to 17_200 when `send_wechat` (always
+ * active, previously unmeasured because the package scripts skipped wechat)
+ * joined the measured set and the worktree tools gained their usage guidance.
  */
 export const PROMPT_CEILINGS: Ceilings = {
-	totalActive: 15_800,
+	totalActive: 17_200,
 	perTool: 2_500,
 	snippet: 110,
 	guideline: 200,

@@ -43,6 +43,16 @@ describe("file-browser extension", () => {
 		expect(commands.has("serve")).toBe(true);
 	});
 
+	test("completes the serve subcommands", () => {
+		const { pi, commands } = createFakePi();
+		fileBrowser(pi);
+		const complete = (prefix: string): string[] =>
+			(commands.get("serve").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
+		expect(complete("")).toEqual(["status", "stop"]);
+		expect(complete("stat")).toEqual(["status"]);
+		expect(complete("status ")).toEqual([]);
+	});
+
 	test("reports not running before a start", async () => {
 		const { pi } = createFakePi();
 		fileBrowser(pi);

@@ -128,7 +128,13 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 	};
 
 	pi.registerCommand("serve", {
-		description: "Serve the working directory in a local browser (read-only)",
+		description: "Serve the working directory in a local browser (read-only): /serve [path | status | stop]",
+		getArgumentCompletions: (prefix) => {
+			const text = prefix.trimStart();
+			if (text.includes(" ")) return null;
+			const items = ["status", "stop"].filter((option) => option.startsWith(text));
+			return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
+		},
 		handler: async (args, ctx) => {
 			await start(args, ctx);
 		},

@@ -173,6 +173,32 @@ instruction in two of them.
 `scripts/smoke-runtime.ts` fails when a registered tool has an empty
 `promptSnippet` or duplicate or blank guidelines.
 
+## Tool surface conventions
+
+The non-prompt fields of a tool definition are a contract a permission
+extension and the plan-mode policy read, so keep them uniform across
+extensions.
+
+- `annotations`: declare `readOnlyHint` and `openWorldHint` on every tool. A
+  mutating tool (`readOnlyHint: false`) also declares `destructiveHint`;
+  `idempotentHint` is omitted on a read-only tool because it only describes
+  repeating a mutation. Missing hints default to the restrictive MCP values, so
+  leaving one out is never a safe shortcut.
+- `executionMode`: set `"sequential"` on a tool that mutates session, UI, or
+  in-memory runtime state, or whose calls are order-dependent. Omit it (the host
+  default, parallel) when calls are independent, such as reads or processes each
+  call spawns itself.
+- `exposure` / `defaultActive`: set them only when they differ from the default
+  (`direct`, active on registration) — `model-only`, `codemode`, and a tool
+  activated later from `session_start` say so explicitly.
+- `outputSchema`: declare it exactly when the result carries a
+  `structuredContent` mirror; the two are one contract.
+- A command that takes subcommands or flags implements
+  `getArgumentCompletions` for them.
+
+`scripts/smoke-runtime.ts` enforces the annotation rule over every tool the
+package registers.
+
 ## Extension docs
 
 Each extension has one doc, `extensions/<name>/README.md`; there is no separate

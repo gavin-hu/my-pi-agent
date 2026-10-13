@@ -35,6 +35,16 @@ describe("goal extension", () => {
 		expect(commands.has("goal")).toBe(true);
 	});
 
+	test("completes the goal keywords but leaves a free-form prompt alone", () => {
+		const { pi, commands } = makeFakePi();
+		goal(pi);
+		const complete = (prefix: string): string[] =>
+			(commands.get("goal").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
+		expect(complete("")).toEqual(["set", "edit", "clear", "done", "help"]);
+		expect(complete("e")).toEqual(["edit"]);
+		expect(complete("fix the bug")).toEqual([]);
+	});
+
 	test("reconstructs the goal from the branch on session start", async () => {
 		const { pi, commands } = makeFakePi();
 		goal(pi);

@@ -38,6 +38,16 @@ describe("memory extension", () => {
 		expect(suite.pi.commands.has("memory")).toBe(true);
 	});
 
+	test("completes memory subcommands and edit/clear scopes", () => {
+		const complete = (prefix: string): string[] =>
+			(suite.pi.commands.get("memory").getArgumentCompletions(prefix) ?? []).map(
+				(item: { label: string }) => item.label,
+			);
+		expect(complete("")).toEqual(["list", "path", "reload", "edit", "clear"]);
+		expect(complete("edit ")).toEqual(["project", "global"]);
+		expect(complete("clear g")).toEqual(["global"]);
+	});
+
 	test("injects stored notes before a run", async () => {
 		suite.write("project", "- repo fact\n");
 		suite.write("global", "- global fact\n");

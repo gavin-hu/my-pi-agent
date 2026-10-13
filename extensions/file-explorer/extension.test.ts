@@ -47,6 +47,15 @@ describe("file-explorer extension", () => {
 		expect(commands.has("open")).toBe(true);
 	});
 
+	test("completes the /open -r flag", () => {
+		const { pi, commands } = createFakePi();
+		fileExplorer(pi);
+		const complete = (prefix: string): string[] =>
+			(commands.get("open").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
+		expect(complete("-")).toEqual(["reveal in file manager"]);
+		expect(complete("src")).toEqual([]);
+	});
+
 	test("open_path opens the resolved target and returns structured details", async () => {
 		const { pi, tools } = createFakePi();
 		const { calls, open } = recordingLauncher();

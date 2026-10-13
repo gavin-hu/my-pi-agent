@@ -21,6 +21,28 @@ import { GOAL_ENTRY_TYPE, type Goal } from "./types.ts";
 /** Title of the record-only edit dialog, spelling out both exits. */
 const EDIT_TITLE = "Goal — Enter to save, Esc to cancel";
 
+/** Completion values for the goal keywords: `set`/`edit` take a further argument. */
+const GOAL_COMPLETIONS = [
+	{ value: "set ", label: "set" },
+	{ value: "edit ", label: "edit" },
+	{ value: "clear", label: "clear" },
+	{ value: "done", label: "done" },
+	{ value: "help", label: "help" },
+];
+
+/**
+ * Complete the leading keyword only. `/goal <prompt>` is free-form, so a prefix
+ * that matches no keyword yields nothing rather than a misleading suggestion;
+ * once the prefix contains a space (or the start of the prompt does not look
+ * like a keyword) the argument is left to the user.
+ */
+function completeGoalArg(prefix: string): Array<{ value: string; label: string }> | null {
+	const text = prefix.trimStart();
+	if (text.includes(" ")) return null;
+	const items = GOAL_COMPLETIONS.filter((item) => item.label.startsWith(text));
+	return items.length > 0 ? items : null;
+}
+
 export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 	const persist = (goal: Goal | null): void => pi.appendEntry(GOAL_ENTRY_TYPE, { goal });
 
@@ -28,6 +50,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		description:
 			"Set the session goal and start working on it, or show/record/edit/clear/complete it: " +
 			"/goal [prompt | set [prompt] | edit | clear | done | help]",
+		getArgumentCompletions: completeGoalArg,
 		handler: async (args, ctx) => {
 			const input = args.trim();
 

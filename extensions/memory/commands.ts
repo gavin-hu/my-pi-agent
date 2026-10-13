@@ -24,10 +24,27 @@ function notify(ctx: ExtensionCommandContext, message: string, kind: "info" | "w
 	ctx.ui.notify(message, kind);
 }
 
+/** `/memory` subcommands and the scope argument accepted by `edit`/`clear`. */
+const MEMORY_SUBCOMMANDS = ["list", "path", "reload", "edit", "clear"];
+const MEMORY_SCOPES = ["project", "global"];
+
+/** Subcommand on the first token, scope on the second for `edit`/`clear`. */
+function completeMemoryArg(prefix: string): Array<{ value: string; label: string }> | null {
+	const [sub = "", argument] = prefix.trimStart().split(/\s+/);
+	if (argument !== undefined) {
+		if (sub !== "edit" && sub !== "clear") return null;
+		const scopes = MEMORY_SCOPES.filter((scope) => scope.startsWith(argument));
+		return scopes.length > 0 ? scopes.map((value) => ({ value, label: value })) : null;
+	}
+	const items = MEMORY_SUBCOMMANDS.filter((option) => option.startsWith(sub));
+	return items.length > 0 ? items.map((value) => ({ value: `${value} `, label: value })) : null;
+}
+
 export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 	pi.registerCommand("memory", {
 		description:
 			"Show, edit, reload, or clear durable memory: /memory [list | path | reload | edit [project|global] | clear [project|global]]",
+		getArgumentCompletions: completeMemoryArg,
 		handler: async (args, ctx) => {
 			const [sub = "list", scopeArg] = args.trim().split(/\s+/);
 			const scope = parseScope(scopeArg);

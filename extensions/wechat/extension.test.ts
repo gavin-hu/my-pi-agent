@@ -11,6 +11,16 @@ describe("wechat extension", () => {
 		expect(fake.commands.has("wechat")).toBe(true);
 	});
 
+	test("completes the wechat subcommands", () => {
+		const fake = createFakePi();
+		wechat(fake.pi);
+		const complete = (prefix: string): string[] =>
+			(fake.commands.get("wechat").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
+		expect(complete("")).toEqual(["login", "start", "stop", "status", "logout"]);
+		expect(complete("st")).toEqual(["start", "stop", "status"]);
+		expect(complete("start ")).toEqual([]);
+	});
+
 	test("registers the send_wechat tool", () => {
 		const fake = createFakePi();
 		wechat(fake.pi);

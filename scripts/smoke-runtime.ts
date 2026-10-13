@@ -59,6 +59,25 @@ for (const info of packageTools) {
 	);
 }
 
+// Annotations are a permission contract, so enforce one shape (see AGENTS.md,
+// "Tool surface conventions"): every package tool declares `readOnlyHint` and
+// `openWorldHint`; a mutating tool also declares `destructiveHint`; a read-only
+// tool has no `idempotentHint` (it only describes repeating a mutation). The
+// root-tool overrides spread the host definition, whose hints are the host's.
+const overrides = new Set<string>(ROOT_TOOL_NAMES);
+for (const info of packageTools.filter((tool) => !overrides.has(tool.name))) {
+	const annotations = (runner.getToolDefinition(info.name) as { annotations?: Record<string, unknown> } | undefined)
+		?.annotations;
+	check(`${info.name} declares readOnlyHint`, typeof annotations?.readOnlyHint === "boolean");
+	check(`${info.name} declares openWorldHint`, typeof annotations?.openWorldHint === "boolean");
+	if (annotations?.readOnlyHint === false) {
+		check(`${info.name} declares destructiveHint`, typeof annotations.destructiveHint === "boolean");
+	}
+	if (annotations?.readOnlyHint === true) {
+		check(`${info.name} omits idempotentHint`, annotations.idempotentHint === undefined);
+	}
+}
+
 const entered = await call("enter_worktree", { name: "smoke" });
 const enterText = (entered.content[0] as { text: string }).text;
 console.log(enterText.split("\n").slice(0, 4).join("\n"));
