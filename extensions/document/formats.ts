@@ -8,9 +8,12 @@
  */
 
 import { extname } from "node:path";
-import type { DocExtractor } from "./extract/cli.ts";
+import type { DocExtractor } from "./extract/file.ts";
+import { extractDocText } from "./extract/doc.ts";
+import { extractDocxText } from "./extract/docx.ts";
+import { extractOdtText } from "./extract/odt.ts";
 import { extractPdfText } from "./extract/pdf.ts";
-import { extractWordcraftText } from "./extract/wordcraft.ts";
+import { extractRtfText } from "./extract/rtf.ts";
 import { extractXlsxText } from "./extract/xlsx.ts";
 
 export interface DocumentFormat {
@@ -22,16 +25,16 @@ export interface DocumentFormat {
 	extensions: readonly string[];
 	/** Enabled unless `document.json` `formats[id]` says otherwise. */
 	defaultEnabled: boolean;
-	/** Extractor; runs the format's CLI and throws a missing-tool error when it is absent. */
+	/** Extractor; runs the format's parser and throws a readable error when it fails. */
 	extract: DocExtractor;
 }
 
 export const FORMATS = [
 	{ id: "pdf", label: "PDF", extensions: [".pdf"], defaultEnabled: true, extract: extractPdfText },
-	{ id: "docx", label: "DOCX", extensions: [".docx"], defaultEnabled: true, extract: extractWordcraftText },
-	{ id: "doc", label: "DOC", extensions: [".doc"], defaultEnabled: true, extract: extractWordcraftText },
-	{ id: "odt", label: "ODT", extensions: [".odt"], defaultEnabled: true, extract: extractWordcraftText },
-	{ id: "rtf", label: "RTF", extensions: [".rtf"], defaultEnabled: true, extract: extractWordcraftText },
+	{ id: "docx", label: "DOCX", extensions: [".docx"], defaultEnabled: true, extract: extractDocxText },
+	{ id: "doc", label: "DOC", extensions: [".doc"], defaultEnabled: true, extract: extractDocText },
+	{ id: "odt", label: "ODT", extensions: [".odt"], defaultEnabled: true, extract: extractOdtText },
+	{ id: "rtf", label: "RTF", extensions: [".rtf"], defaultEnabled: true, extract: extractRtfText },
 	{ id: "xlsx", label: "XLSX", extensions: [".xlsx"], defaultEnabled: true, extract: extractXlsxText },
 ] as const satisfies readonly DocumentFormat[];
 

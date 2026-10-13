@@ -20,6 +20,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   escape-first and dependency-free, so it works without JavaScript and unmapped
   file types or fence languages stay plain.
 
+### Changed
+
+- `document`: `read_doc` extracts every format in process instead of shelling
+  out to the `pdfcraft-cli` / `wordcraft-cli` / `gridcraft-cli` executables. PDF
+  uses `unpdf`, DOCX `mammoth`, legacy DOC `word-extractor`, ODT `fflate` plus
+  `fast-xml-parser`, RTF `rtf-parser`, and XLSX `exceljs`. The libraries ship as
+  dependencies and load lazily on first read, so `read_doc` needs no per-format
+  install step, `doctor` no longer probes for the three binaries, and every
+  format keeps the same paged output.
+
 ## [0.5.1] - 2026-10-13
 
 ### Added

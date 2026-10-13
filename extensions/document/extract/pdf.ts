@@ -1,29 +1,25 @@
 /**
- * PDF text extraction via `pdfcraft-cli`.
+ * PDF text extraction via the `unpdf` package.
  *
- * `pdfcraft-cli text <file>` prints every page's reading-order text, one page
- * per line group, with a line containing a form feed (`\u{c}`) before each page
- * after the first. The extractor joins the pages into one plain-text document,
- * matching the merged output the tool returned before. The CLI reads the file
- * itself, so this module never touches the bytes.
+ * `unpdf` bundles a server-friendly build of PDF.js. `extractText` with
+ * `mergePages: true` returns every page's reading-order text joined with a blank
+ * line, so a page break reads as a paragraph break. No OCR: a scanned or
+ * image-only PDF yields little or no text.
  */
 
-import type { DocCli, DocFile } from "./cli.ts";
+import { readDocBytes, type DocExtractor } from "./file.ts";
 
-/**
- * Split `pdfcraft-cli`'s form-feed-separated pages into blank-line-separated
- * text. Pure; used by the extractor and asserted directly in tests.
- */
-export function mergePdfPages(stdout: string): string {
-	return stdout
-		.split("\u{c}")
-		.map((page) => page.replace(/^\n+|\n+$/g, ""))
-		.filter((page) => page !== "")
-		.join("\n\n");
+/** Pull the merged text out of `unpdf`'s `{ totalPages, text }` result. Pure. */
+export function pdfTextFromResult(result: unknown): string {
+	if (typeof result === "string") return result;
+	const text = (result as { text?: unknown } | undefined)?.text;
+	return typeof text === "string" ? text : "";
 }
 
-/** Extract plain text from every page of a PDF via `pdfcraft-cli text`. */
-export async function extractPdfText(file: DocFile, cli: DocCli): Promise<string> {
-	const stdout = await cli.run("pdfcraft-cli", ["text", file.path], { signal: file.signal });
-	return mergePdfPages(stdout);
-}
+/** Extract text from every page of a PDF. */
+export const extractPdfText: DocExtractor = async (file) => {
+	const bytes = await readDocBytes(file);
+	const module = await import("unpdf");
+	const result: unknown = await module.extractText(bytes, { mergePages: true });
+	return pdfTextFromResult(result).replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+};

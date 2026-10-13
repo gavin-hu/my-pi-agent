@@ -1,41 +1,34 @@
-import { describe, expect, test } from "bun:test";
-import type { DocCli } from "./cli.ts";
-import { extractPdfText, mergePdfPages } from "./pdf.ts";
+import { afterAll, describe, expect, test } from "bun:test";
+import { join } from "node:path";
+import { extractPdfText, pdfTextFromResult } from "./pdf.ts";
+import { makeDocumentFixture } from "../../../test/helpers/fixtures/document.ts";
+import { buildPdf } from "../../../test/helpers/fixtures/documents.ts";
 
-/** A fake CLI that returns `result` or throws it, recording the calls. */
-function fakeCli(result: string | Error, calls?: Array<{ cli: string; args: string[] }>): DocCli {
-	return {
-		run: async (cli, args) => {
-			calls?.push({ cli, args: [...args] });
-			if (result instanceof Error) throw result;
-			return result;
-		},
-	};
-}
+const fixture = makeDocumentFixture();
+afterAll(() => fixture.remove());
 
-describe("mergePdfPages", () => {
-	test("joins form-feed-separated pages with a blank line", () => {
-		expect(mergePdfPages("page one\n\f\npage two\n")).toBe("page one\n\npage two");
+describe("pdfTextFromResult", () => {
+	test("reads the text field of a merged result", () => {
+		expect(pdfTextFromResult({ totalPages: 2, text: "body" })).toBe("body");
 	});
 
-	test("trims a blank document to nothing", () => {
-		expect(mergePdfPages("\n")).toBe("");
+	test("accepts a bare string", () => {
+		expect(pdfTextFromResult("body")).toBe("body");
 	});
 
-	test("keeps a single page without separators", () => {
-		expect(mergePdfPages("only\n")).toBe("only");
+	test("returns an empty string for anything else", () => {
+		expect(pdfTextFromResult(undefined)).toBe("");
+		expect(pdfTextFromResult({})).toBe("");
 	});
 });
 
 describe("extractPdfText", () => {
-	test("runs pdfcraft-cli text and merges the pages", async () => {
-		const calls: Array<{ cli: string; args: string[] }> = [];
-		const text = await extractPdfText({ path: "/root/a.pdf" }, fakeCli("a\n\f\nb\n", calls));
-		expect(text).toBe("a\n\nb");
-		expect(calls).toEqual([{ cli: "pdfcraft-cli", args: ["text", "/root/a.pdf"] }]);
+	test("extracts the text of a real one-page PDF", async () => {
+		const path = fixture.write("read.pdf", buildPdf("Hello PDF"));
+		expect(await extractPdfText({ path })).toContain("Hello PDF");
 	});
 
-	test("propagates a CLI failure", async () => {
-		await expect(extractPdfText({ path: "/root/a.pdf" }, fakeCli(new Error("boom")))).rejects.toThrow("boom");
+	test("propagates a read error", async () => {
+		await expect(extractPdfText({ path: join(fixture.root, "missing.pdf") })).rejects.toThrow();
 	});
 });

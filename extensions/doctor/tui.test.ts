@@ -7,7 +7,7 @@ import { DoctorScreen } from "./tui.ts";
 /** A screen over a fixed report set, with its callbacks recorded. */
 function screen(
 	reports = [
-		makeReport("document", [makeFinding("pdfcraft-cli", "missing", "not found on PATH", "cargo install ...")]),
+		makeReport("worktree", [makeFinding("git", "missing", "not found on PATH", "install git")]),
 		makeReport("todo", [makeFinding("todo.json", "ok")]),
 		makeReport("status-bar", [makeFinding("platform", "info", "TUI only")]),
 	],
@@ -35,7 +35,7 @@ describe("DoctorScreen", () => {
 		const { component } = screen();
 		const lines = component.render(60);
 		expect(lines[0]).toContain("doctor");
-		expect(lines.join("\n")).toContain("document");
+		expect(lines.join("\n")).toContain("worktree");
 		expect(lines.join("\n")).toContain("todo");
 		expect(lines.join("\n")).toContain("status-bar");
 		expect(lines.at(-1)).toContain("Esc close");
@@ -52,7 +52,7 @@ describe("DoctorScreen", () => {
 
 	test("shows the focused extension's findings in the detail pane", () => {
 		const { component } = screen();
-		expect(component.render(70).join("\n")).toContain("pdfcraft-cli");
+		expect(component.render(70).join("\n")).toContain("git");
 		component.handleInput("j");
 		expect(component.render(70).join("\n")).toContain("todo.json");
 	});

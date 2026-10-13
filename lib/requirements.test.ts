@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
-	cliGuidance,
 	hardRequirementExtensions,
 	missingFindings,
 	pdfGuidance,
@@ -63,11 +62,11 @@ describe("binary checks", () => {
 	});
 
 	test("reports a missing binary with its install hint", async () => {
-		const report = await probeExtension("document", seams({ exec: async () => ({ code: 1 }) }));
-		const finding = find(report, "pdfcraft-cli");
+		const report = await probeExtension("rewind", seams({ exec: async () => ({ code: 1 }) }));
+		const finding = find(report, "git");
 		expect(finding?.severity).toBe("missing");
 		expect(finding?.detail).toContain("not found on PATH");
-		expect(finding?.hint).toContain("cargo install --git https://github.com/storytold/pdfcraft");
+		expect(finding?.hint).toContain("install git");
 	});
 
 	test("treats a throwing exec seam as a missing binary", async () => {
@@ -214,7 +213,6 @@ describe("report shape", () => {
 	test("missingFindings keeps only enabled extensions' hard failures", async () => {
 		const reports = await probeAll(seams({ exec: async () => ({ code: 1 }) }));
 		const names = new Set(missingFindings(reports).map((finding) => finding.extension));
-		expect(names.has("document")).toBe(true);
 		expect(names.has("rewind")).toBe(true);
 		// `plan` needs git only for project-local plans, so it stays out of the warning set.
 		expect(names.has("plan")).toBe(false);
@@ -225,16 +223,10 @@ describe("install guidance", () => {
 	test("names the package install for the optional peer", () => {
 		expect(pdfGuidance()).toContain("npm i unpdf");
 	});
-
-	test("names the cargo command for an extractor CLI", () => {
-		expect(cliGuidance("gridcraft-cli")).toContain(
-			"cargo install --git https://github.com/storytold/gridcraft gridcraft-cli",
-		);
-	});
 });
 
 describe("hard requirement extensions", () => {
 	test("lists exactly the extensions that can warn at session start", () => {
-		expect(hardRequirementExtensions().sort()).toEqual(["document", "rewind", "subagent", "worktree"]);
+		expect(hardRequirementExtensions().sort()).toEqual(["rewind", "subagent", "worktree"]);
 	});
 });

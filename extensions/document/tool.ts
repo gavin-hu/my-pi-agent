@@ -4,10 +4,9 @@
  * Reads a local `.pdf`, `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx` under the
  * effective working root and returns its extracted text, pageable with
  * `startIndex`/`maxChars`. The format table in `formats.ts` decides which
- * extractor runs; each one shells out to an external CLI (`pdfcraft-cli`,
- * `wordcraft-cli`, `gridcraft-cli`) that reads the file itself. Reads are
- * confined to the effective root with symlink-aware containment, matching the
- * worktree guard.
+ * in-process extractor runs; no external tools are required. Reads are confined
+ * to the effective root with symlink-aware containment, matching the worktree
+ * guard.
  */
 
 import { stat } from "node:fs/promises";
@@ -17,8 +16,8 @@ import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { stripControlChars } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
-import { createDocCli, createExecRunner } from "./extract/cli.ts";
-import { detectFormat, supportedExtensions, unsupportedHint } from "./formats.ts";
+import type { DocExtractor } from "./extract/file.ts";
+import { detectFormat, supportedExtensions, unsupportedHint, type FormatId } from "./formats.ts";
 import { formatDoc } from "./paging.ts";
 import { formatDocCall, formatDocResult, reuseText } from "./render.ts";
 import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
@@ -57,16 +56,18 @@ async function statFile(abs: string, display: string, maxFileBytes: number): Pro
 	return info.size;
 }
 
-export function registerDocTool(pi: ExtensionAPI): void {
-	const cli = createDocCli(createExecRunner(pi));
+/** Per-format extractor overrides, for tests; the format table supplies the rest. */
+export interface DocToolDeps {
+	extractors?: Partial<Record<FormatId, DocExtractor>>;
+}
 
+export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void {
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Read document",
 		description:
 			"Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file and return its extracted text, pageable with " +
-			"startIndex/maxChars. Extraction uses pdfcraft-cli, wordcraft-cli, or gridcraft-cli by format; a missing " +
-			"binary's error names the install command.",
+			"startIndex/maxChars. Extraction runs in process, so no external tools are needed.",
 		promptSnippet: "Read a PDF, DOCX, DOC, ODT, RTF, or XLSX as text, paged with startIndex/maxChars.",
 		promptGuidelines: [
 			"Use read_doc for .pdf/.docx/.doc/.odt/.rtf/.xlsx; the built-in read tool is for text and images.",
@@ -95,7 +96,8 @@ export function registerDocTool(pi: ExtensionAPI): void {
 			}
 
 			const size = await statFile(abs, display, config.maxFileBytes);
-			const text = await format.extract({ path: abs, signal }, cli);
+			const extractor = deps.extractors?.[format.id] ?? format.extract;
+			const text = await extractor({ path: abs, signal });
 
 			const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
 			const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxChars;

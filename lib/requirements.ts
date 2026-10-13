@@ -99,26 +99,6 @@ export interface ExtensionReport {
 // Moved here from the extensions that raise it, so `doctor` and the tool error
 // say the same thing. Formatting only: no extension-specific logic.
 
-/** The three `document` extractor executables. */
-export type DocCliName = "pdfcraft-cli" | "wordcraft-cli" | "gridcraft-cli";
-
-/** Per-CLI wording for the model-facing install hint. */
-const CLI_INFO: Record<DocCliName, { noun: string; repo: string }> = {
-	"pdfcraft-cli": { noun: "PDF", repo: "storytold/pdfcraft" },
-	"wordcraft-cli": { noun: "DOCX/DOC/ODT/RTF", repo: "storytold/wordcraft" },
-	"gridcraft-cli": { noun: "XLSX", repo: "storytold/gridcraft" },
-};
-
-/** Model-facing guidance naming the install command for a missing CLI. */
-export function cliGuidance(cli: DocCliName): string {
-	const { noun, repo } = CLI_INFO[cli];
-	return (
-		`${noun} extraction needs the '${cli}' executable on PATH. Install it with ` +
-		`\`cargo install --git https://github.com/${repo} ${cli}\`, or a release build from ` +
-		`https://github.com/${repo}.`
-	);
-}
-
 /** Install command for the optional PDF extractor package. */
 export const UNPDF_INSTALL = "npm i unpdf";
 
@@ -194,12 +174,6 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	},
 	document: {
 		configFile: "document.json",
-		requires: (["pdfcraft-cli", "wordcraft-cli", "gridcraft-cli"] as const).map((cli) => ({
-			kind: "binary" as const,
-			name: cli,
-			enables: `${CLI_INFO[cli].noun} extraction in \`read_doc\``,
-			hint: cliGuidance(cli),
-		})),
 	},
 	"file-explorer": {
 		notes: [

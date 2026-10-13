@@ -17,8 +17,8 @@ import {
 } from "./format.ts";
 
 const ok = makeReport("todo", [makeFinding("todo.json", "ok")]);
-const missing = makeReport("document", [
-	makeFinding("pdfcraft-cli", "missing", "not found on PATH — PDF extraction", "cargo install --git ... pdfcraft-cli"),
+const missing = makeReport("worktree", [
+	makeFinding("git", "missing", "not found on PATH — worktree isolation", "install git"),
 ]);
 
 describe("counts and headline", () => {
@@ -45,8 +45,8 @@ describe("counts and headline", () => {
 describe("report text", () => {
 	test("lists only the extensions with problems, with their hints", () => {
 		const text = formatReport([ok, missing]);
-		expect(text).toContain("pdfcraft-cli: not found on PATH");
-		expect(text).toContain("→ cargo install");
+		expect(text).toContain("git: not found on PATH");
+		expect(text).toContain("→ install git");
 		expect(text).not.toContain("todo");
 	});
 
@@ -57,18 +57,18 @@ describe("report text", () => {
 	});
 
 	test("shows every finding — including passing checks — for one extension", () => {
-		const text = formatExtension(makeReport("document", [makeFinding("git", "ok"), ...missing.findings]));
-		expect(text).toContain("document");
+		const text = formatExtension(makeReport("worktree", [makeFinding("git", "ok"), ...missing.findings]));
+		expect(text).toContain("worktree");
 		expect(text).toContain("git: git detail");
-		expect(text).toContain("pdfcraft-cli");
+		expect(text).toContain("git");
 	});
 
 	test("names the extension and the fix in the proactive warning", () => {
-		expect(formatWarning(missing.findings)).toBe("doctor: missing document (pdfcraft-cli) — run /doctor");
+		expect(formatWarning(missing.findings)).toBe("doctor: missing worktree (git) — run /doctor");
 	});
 
 	test("sanitizes anything a probe produced", () => {
-		const nasty = makeReport("document", [makeFinding("pdfcraft-cli", "missing", "failed\u001b[31m\u0007 to start")]);
+		const nasty = makeReport("worktree", [makeFinding("git", "missing", "failed\u001b[31m\u0007 to start")]);
 		expect(formatReport([nasty])).not.toContain("\u001b");
 		expect(formatReport([nasty])).not.toContain("\u0007");
 	});
@@ -100,7 +100,7 @@ describe("rows and detail", () => {
 	});
 
 	test("wraps detail to the width and caps it at the row budget", () => {
-		const long = makeReport("document", [makeFinding("pdfcraft-cli", "missing", "x".repeat(200))]);
+		const long = makeReport("worktree", [makeFinding("git", "missing", "x".repeat(200))]);
 		const lines = detailLines(long, fakeTheme, 40, 3);
 		expect(lines.length).toBe(3);
 		expect(lines.at(-1)).toContain("…");
@@ -109,7 +109,7 @@ describe("rows and detail", () => {
 
 	test("shows the hint indented under its finding", () => {
 		const lines = detailLines(missing, fakeTheme, 60, 4);
-		expect(lines.join("\n")).toContain("→ cargo install");
+		expect(lines.join("\n")).toContain("→ install git");
 	});
 
 	test("shows notes only once the screen is expanded", () => {

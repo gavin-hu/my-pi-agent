@@ -50,7 +50,7 @@ and every check, `r` re-probes, `Esc` closes.
 |---|---|---|
 | worktree | `git` | `.worktreeinclude` symlinks need symlink support |
 | rewind | `git` | — |
-| document | `pdfcraft-cli`, `wordcraft-cli`, `gridcraft-cli` | `document.json` |
+| document | — | — |
 | subagent | a runnable nested `pi` | project-local agents need a trusted project |
 | plan | — | `git` for project-local `.pi/plans`; an interactive UI |
 | memory | — | `git` for the project-scope root |
@@ -99,8 +99,8 @@ override global ones.
 - The disabled check reads `PI_DISABLED_EXTENSIONS` through `lib/env.ts`; it does
   not read Pi's own `settings.json` disable list, so an extension disabled only
   there may still be probed.
-- A probe proves a binary runs, not that it works: a `pdfcraft-cli` that crashes
-  on a specific PDF is still `ok`.
+- A probe proves a binary runs, not that it works: a `git` that crashes on a
+  specific repository is still `ok`.
 - Config scope is checked for `<agent-dir>/<file>.json` and `<cwd>/.pi/<file>.json`
   only; a `jobs.json` `registryDir` override is not followed.
 

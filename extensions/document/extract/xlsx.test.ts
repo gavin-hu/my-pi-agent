@@ -1,80 +1,21 @@
-import { describe, expect, test } from "bun:test";
-import type { DocCli } from "./cli.ts";
-import { cellToText, extractXlsxText, parseCsv, parseSheetList, sheetsToText } from "./xlsx.ts";
+import { afterAll, describe, expect, test } from "bun:test";
+import { Workbook } from "exceljs";
+import { cellToText, extractXlsxText, sheetsToText } from "./xlsx.ts";
+import { makeDocumentFixture } from "../../../test/helpers/fixtures/document.ts";
 
-/** A fake CLI driven by a handler, recording every call. */
-function fakeCli(handler: (cli: string, args: string[]) => string): {
-	cli: DocCli;
-	calls: Array<{ cli: string; args: string[] }>;
-} {
-	const calls: Array<{ cli: string; args: string[] }> = [];
-	return {
-		calls,
-		cli: {
-			run: async (cli, args) => {
-				calls.push({ cli, args: [...args] });
-				return handler(cli, args);
-			},
-		},
-	};
+const fixture = makeDocumentFixture();
+afterAll(() => fixture.remove());
+
+/** Write a real workbook with the given sheet name → rows, returning its bytes. */
+async function buildXlsx(sheets: Record<string, unknown[][]>): Promise<Uint8Array> {
+	const workbook = new Workbook();
+	for (const [name, rows] of Object.entries(sheets)) {
+		const worksheet = workbook.addWorksheet(name);
+		for (const row of rows) worksheet.addRow(row);
+	}
+	const buffer = await workbook.xlsx.writeBuffer();
+	return new Uint8Array(buffer as ArrayBuffer);
 }
-
-describe("parseSheetList", () => {
-	test("reads names and used ranges", () => {
-		expect(parseSheetList(JSON.stringify({ sheets: [{ name: "A", usedRange: "A1:B2" }, { name: "B" }] }))).toEqual([
-			{ name: "A", usedRange: "A1:B2" },
-			{ name: "B", usedRange: undefined },
-		]);
-	});
-
-	test("ignores entries without a string name", () => {
-		expect(parseSheetList(JSON.stringify({ sheets: [{ usedRange: "A1" }, { name: 1 }] }))).toEqual([]);
-	});
-
-	test("returns nothing for a document with no sheets", () => {
-		expect(parseSheetList(JSON.stringify({ sheets: [] }))).toEqual([]);
-	});
-
-	test("throws on invalid JSON", () => {
-		expect(() => parseSheetList("nope")).toThrow(/valid JSON/);
-	});
-
-	test("throws when the sheet list is missing", () => {
-		expect(() => parseSheetList("{}")).toThrow(/sheet list/);
-	});
-});
-
-describe("parseCsv", () => {
-	test("splits plain rows and drops the final newline", () => {
-		expect(parseCsv("a,b\n1,2\n")).toEqual([
-			["a", "b"],
-			["1", "2"],
-		]);
-	});
-
-	test("keeps a quoted comma", () => {
-		expect(parseCsv('"a,b",c\n')).toEqual([["a,b", "c"]]);
-	});
-
-	test("unescapes doubled quotes", () => {
-		expect(parseCsv('"a""b"\n')).toEqual([['a"b']]);
-	});
-
-	test("keeps newlines inside quotes", () => {
-		expect(parseCsv('"a\nb",c\n')).toEqual([["a\nb", "c"]]);
-	});
-
-	test("handles CRLF and a missing final newline", () => {
-		expect(parseCsv("a,b\r\n1,2")).toEqual([
-			["a", "b"],
-			["1", "2"],
-		]);
-	});
-
-	test("returns no rows for empty input", () => {
-		expect(parseCsv("")).toEqual([]);
-	});
-});
 
 describe("cellToText", () => {
 	const cases: ReadonlyArray<readonly [string, unknown, string]> = [
@@ -138,36 +79,26 @@ describe("sheetsToText", () => {
 });
 
 describe("extractXlsxText", () => {
-	test("reads each non-empty sheet and rebuilds [Sheet] + tab rows", async () => {
-		const info = JSON.stringify({
-			sheets: [
-				{ name: "One", usedRange: "A1:B2" },
-				{ name: "Empty", usedRange: null },
-				{ name: "Two", usedRange: "A1:A1" },
+	test("reads every non-empty sheet and rebuilds [Sheet] + tab rows", async () => {
+		const bytes = await buildXlsx({
+			One: [
+				["a", "b"],
+				[1, 2],
 			],
+			Two: [["z"]],
 		});
-		const { cli, calls } = fakeCli((_cli, args) => {
-			if (args[0] === "info") return info;
-			if (args[3] === "One") return "a,b\n1,2\n";
-			if (args[3] === "Two") return "z\n";
-			return "";
-		});
-
-		const text = await extractXlsxText({ path: "/root/a.xlsx" }, cli);
-		expect(text).toBe("[One]\na\tb\n1\t2\n\n[Two]\nz");
-		expect(calls).toEqual([
-			{ cli: "gridcraft-cli", args: ["info", "/root/a.xlsx", "--json"] },
-			{ cli: "gridcraft-cli", args: ["cat", "/root/a.xlsx", "--sheet", "One", "--csv"] },
-			{ cli: "gridcraft-cli", args: ["cat", "/root/a.xlsx", "--sheet", "Two", "--csv"] },
-		]);
+		const path = fixture.write("read.xlsx", bytes);
+		expect(await extractXlsxText({ path })).toBe("[One]\na\tb\n1\t2\n\n[Two]\nz");
 	});
 
-	test("propagates a CLI failure", async () => {
-		const cli: DocCli = {
-			run: async () => {
-				throw new Error("boom");
-			},
-		};
-		await expect(extractXlsxText({ path: "/root/a.xlsx" }, cli)).rejects.toThrow("boom");
+	test("uses a formula's computed value as its displayed text", async () => {
+		const bytes = await buildXlsx({ Calc: [["1", "2", { formula: "A1+B1", result: 3 }]] });
+		const path = fixture.write("calc.xlsx", bytes);
+		expect(await extractXlsxText({ path })).toBe("[Calc]\n1\t2\t3");
+	});
+
+	test("propagates a parse error for a file that is not a workbook", async () => {
+		const path = fixture.write("bad.xlsx", "not a zip");
+		await expect(extractXlsxText({ path })).rejects.toThrow();
 	});
 });

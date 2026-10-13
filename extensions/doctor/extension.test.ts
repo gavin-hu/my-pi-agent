@@ -30,7 +30,7 @@ describe("proactive probe", () => {
 		await start();
 		expect(notices).toHaveLength(1);
 		expect(notices[0]?.kind).toBe("warning");
-		expect(notices[0]?.message).toContain("document");
+		expect(notices[0]?.message).toContain("worktree");
 		expect(notices[0]?.message).toContain("run /doctor");
 	});
 
@@ -74,12 +74,12 @@ describe("run_doctor", () => {
 		const result = await tool.execute("call-1", {}, undefined, undefined, ctx);
 
 		expect(result.structuredContent.missing).toBeGreaterThan(0);
-		expect(result.content[0].text).toContain("pdfcraft-cli");
+		expect(result.content[0].text).toContain("worktree");
 		expect(result.details.headline).toContain("doctor:");
-		const document = result.structuredContent.extensions.find(
-			(entry: { extension: string }) => entry.extension === "document",
+		const rewind = result.structuredContent.extensions.find(
+			(entry: { extension: string }) => entry.extension === "rewind",
 		);
-		expect(document.findings.some((finding: { hint?: string }) => finding.hint?.includes("cargo install"))).toBe(true);
+		expect(rewind.findings.some((finding: { hint?: string }) => finding.hint?.includes("install git"))).toBe(true);
 	});
 
 	test("reports one extension when asked", async () => {
