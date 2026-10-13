@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   template components, shell, Python, Java, YAML, and SQL. The tokenizer is
   escape-first and dependency-free, so it works without JavaScript and unmapped
   file types or fence languages stay plain.
+- `file-browser`: a header theme toggle switches between the dark and light
+  palettes and remembers the choice per browser (`localStorage`); until it is
+  used the palette follows the system `prefers-color-scheme`, and a pre-paint
+  `/theme.js` script applies the saved choice to avoid a flash.
 
 ### Changed
 

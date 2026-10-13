@@ -49,6 +49,14 @@ function hrefFor(entry: { rel: string; isDir: boolean }): string {
 	return entry.isDir ? `/browse/${encodePath(entry.rel)}` : `/view/${encodePath(entry.rel)}`;
 }
 
+/** The light palette, shared by the explicit `data-theme` and the system media query. */
+const LIGHT_TOKENS = `  --canvas:#fff;--surface:#f6f8fa;--border:#d0d7de;--text:#1f2328;--muted:#656d76;
+  --accent:#0969da;--accent-soft:rgba(9,105,218,.10);--success:#1a7f37;
+  --danger:#cf222e;--warn:#9a6700;
+  --tok-comment:#6e7781;--tok-string:#0a3069;--tok-number:#0550ae;--tok-keyword:#cf222e;
+  --tok-literal:#0550ae;--tok-tag:#116329;--tok-attr:#0550ae;--tok-prop:#0550ae;--tok-var:#953800;
+  color-scheme:light;`;
+
 const STYLES = `:root{
   --canvas:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;
   --muted:#8b949e;--accent:#58a6ff;--accent-soft:rgba(88,166,255,.15);
@@ -57,14 +65,13 @@ const STYLES = `:root{
   --tok-literal:#79c0ff;--tok-tag:#7ee787;--tok-attr:#79c0ff;--tok-prop:#79c0ff;--tok-var:#ffa657;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
   --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  color-scheme:dark light;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme:light){:root{
-  --canvas:#fff;--surface:#f6f8fa;--border:#d0d7de;--text:#1f2328;--muted:#656d76;
-  --accent:#0969da;--accent-soft:rgba(9,105,218,.10);--success:#1a7f37;
-  --danger:#cf222e;--warn:#9a6700;
-  --tok-comment:#6e7781;--tok-string:#0a3069;--tok-number:#0550ae;--tok-keyword:#cf222e;
-  --tok-literal:#0550ae;--tok-tag:#116329;--tok-attr:#0550ae;--tok-prop:#0550ae;--tok-var:#953800;}}
+:root[data-theme="light"]{
+${LIGHT_TOKENS}}
+:root[data-theme="dark"]{color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme]){
+${LIGHT_TOKENS}}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{display:flex;flex-direction:column;min-height:100vh;margin:0;background:var(--canvas);color:var(--text);font:15px/1.5 var(--ui)}
@@ -156,8 +163,9 @@ footer.site{flex:0 0 auto;border-top:1px solid var(--border);color:var(--muted);
   .bar{height:auto;min-height:56px;flex-wrap:wrap;padding:6px 16px;row-gap:2px}
   .brand{order:1}
   .badge{order:2;margin-left:auto}
-  .git{order:3}
-  .root{order:4}
+  .theme-toggle{order:3}
+  .git{order:4}
+  .root{order:5}
   .shell{flex:none;grid-template-columns:1fr}
   details.side-panel{display:block;position:static;max-height:none;overflow:visible;border-right:0;border-bottom:1px solid var(--border)}
   aside.side{flex:none;overflow:visible}
@@ -180,6 +188,8 @@ th[aria-sort="descending"] .sort::after{content:" ▼";font-size:9px;color:var(-
 .action,.seg{appearance:none;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font:12.5px var(--ui);padding:5px 10px;cursor:pointer}
 .action:hover,.seg:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 .action[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.theme-toggle{min-width:36px;text-align:center;line-height:1}
+.theme-toggle .theme-glyph{font-size:14px}
 .segmented{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
 .segmented .seg{border:0;border-radius:0}
 .segmented .seg+.seg{border-left:1px solid var(--border)}
@@ -241,6 +251,7 @@ export function renderLayout(layout: Layout): string {
 <title>${escapeHtml(layout.title)}</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%2358a6ff'/%3E%3C/svg%3E">
 <style>${STYLES}</style>
+<script src="/theme.js"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -251,6 +262,7 @@ ${SPRITE}
   <span class="root">${escapeHtml(layout.rootLabel)}</span>
   ${renderGit(layout.git)}
   <span class="badge">read-only</span>
+  <button type="button" class="action theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light and dark theme"><span class="theme-glyph" aria-hidden="true">☾</span></button>
 </div></header>
 <div class="shell">
   <details class="side-panel" open>

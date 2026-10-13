@@ -116,6 +116,10 @@ describe("routing", () => {
 		expect(app.status).toBe(200);
 		expect(app.headers["Content-Type"]).toContain("text/javascript");
 
+		const theme = await handleRequest(context(), "GET", "/theme.js", {});
+		expect(theme.status).toBe(200);
+		expect(theme.headers["Content-Type"]).toContain("text/javascript");
+
 		const icon = await handleRequest(context(), "GET", "/favicon.ico", {});
 		expect(icon.status).toBe(204);
 

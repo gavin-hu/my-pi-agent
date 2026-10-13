@@ -11,9 +11,20 @@
  * and `bun build --no-bundle` needs no separate asset.
  */
 
+/** localStorage key for the browser's explicit light/dark choice. */
+export const THEME_STORAGE_KEY = "serve-theme";
+
+/**
+ * A tiny head script that applies the saved theme before the body is painted,
+ * so an explicit choice does not flash the system theme on load. It shares the
+ * storage key with the toggle in `CLIENT_JS`.
+ */
+export const THEME_JS = `(function(){try{var t=localStorage.getItem("${THEME_STORAGE_KEY}");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();`;
+
 export const CLIENT_JS = `(function () {
 	"use strict";
 
+	var THEME_KEY = "${THEME_STORAGE_KEY}";
 	var tree = document.querySelector("nav.tree");
 	var filter = document.getElementById("filter");
 	var rows = Array.prototype.slice.call(document.querySelectorAll("table.listing tbody tr"));
@@ -205,6 +216,50 @@ export const CLIENT_JS = `(function () {
 			try { window.localStorage.setItem(key, value); } catch (error) { /* private mode */ }
 		}
 	};
+
+	// Theme: follow the system until the user toggles, then remember the choice.
+	var themeButton = document.getElementById("theme-toggle");
+
+	function systemTheme() {
+		return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+	}
+
+	function storedTheme() {
+		var value = store.get(THEME_KEY);
+		return value === "light" || value === "dark" ? value : null;
+	}
+
+	function effectiveTheme() {
+		return document.documentElement.getAttribute("data-theme") || systemTheme();
+	}
+
+	function renderTheme(theme) {
+		if (!themeButton) return;
+		var glyph = themeButton.querySelector(".theme-glyph");
+		if (glyph) glyph.textContent = theme === "light" ? "\\u2600" : "\\u263E";
+		var label = theme === "light" ? "Switch to dark theme" : "Switch to light theme";
+		themeButton.setAttribute("aria-label", label);
+		themeButton.title = label;
+	}
+
+	if (themeButton) {
+		var explicitTheme = storedTheme();
+		renderTheme(explicitTheme || effectiveTheme());
+		themeButton.addEventListener("click", function () {
+			var next = effectiveTheme() === "light" ? "dark" : "light";
+			document.documentElement.setAttribute("data-theme", next);
+			store.set(THEME_KEY, next);
+			renderTheme(next);
+		});
+		if (!explicitTheme && window.matchMedia) {
+			var themeQuery = window.matchMedia("(prefers-color-scheme: light)");
+			var syncTheme = function () {
+				if (!storedTheme()) renderTheme(systemTheme());
+			};
+			if (themeQuery.addEventListener) themeQuery.addEventListener("change", syncTheme);
+			else if (themeQuery.addListener) themeQuery.addListener(syncTheme);
+		}
+	}
 
 	var sortButtons = Array.prototype.slice.call(document.querySelectorAll("table.listing th .sort"));
 
