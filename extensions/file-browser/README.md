@@ -70,7 +70,7 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 
 While a server is running, the extension publishes a two-tone `◉ <port>` chip
 (a green circle-dot and a blue port) under the shared `serve` status key. The
-[`status-bar`](../status-bar/) extension routes it to line 1's right zone
+[`chrome`](../chrome/) extension routes it to line 1's right zone
 beside `⎇ branch` and `⑂ worktree`; it
 is cleared on stop and on `session_shutdown`. The chip is session-local: it
 reflects only this session's server, with no cross-session sharing.

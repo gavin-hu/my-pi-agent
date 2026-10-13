@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `chrome`: a themed TUI header, an editor badge, and the two-line footer
+  formerly shipped as `status-bar`. The header recolors Pi's brand mark,
+  version, and key hints from the active theme (no added data); the editor's
+  top border shows a themed `bash` / thinking-level badge; and
+  `/chrome [header|editor|footer|status]` toggles each surface. `chrome`
+  replaces `status-bar` and renames its config file
+  `status-bar.json` → `chrome.json`.
+
 - `goal`: a bare `/goal` with no goal set shows the command usage instead of
   only `No goal set.`, and `/goal help` (or `-h` / `--help`) shows it at any
   time, so a first-time user can discover how to set and manage a goal without

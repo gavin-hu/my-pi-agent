@@ -3,7 +3,7 @@ import { GLYPHS, STATUS_KEYS } from "../../../lib/ui.ts";
 import { buildLines } from "./lines.ts";
 import { stripAnsi } from "./format.ts";
 import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
-import { fullSnapshot } from "../../../test/helpers/fixtures/status-bar.ts";
+import { fullSnapshot } from "../../../test/helpers/fixtures/chrome.ts";
 
 const ids = (segments: Array<{ id: string }>) => segments.map((segment) => segment.id);
 

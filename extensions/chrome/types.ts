@@ -1,5 +1,5 @@
 /**
- * Shared types for the status-bar extension.
+ * Shared types for the chrome extension.
  *
  * The bar is built in three stages: a `StatusSnapshot` gathers the data, the
  * snapshot becomes `LineSpec`s of `Segment`s, and the layout engine renders
@@ -44,14 +44,34 @@ export interface PeakSchedule {
 	windows: readonly PeakWindow[];
 }
 
+/** Header appearance configuration (`chrome.json` → `header`). */
+export interface HeaderConfig {
+	/** Brand mark: a `Pi` wordmark, a themed block mark, or nothing. */
+	mark: "wordmark" | "logo" | "none";
+	/** Show Pi's version next to the mark. */
+	showVersion: boolean;
+	/** Show the right-aligned key-hint row. */
+	showHints: boolean;
+}
+
+/** Editor appearance configuration (`chrome.json` → `editor`). */
+export interface EditorConfig {
+	/** Draw the themed mode/thinking badge in the editor's top border. */
+	badge: boolean;
+}
+
 /** Everything the price calculation is configured with. */
-export interface StatusBarConfig {
+export interface ChromeConfig {
 	currency: Currency;
 	/** Fall back to Pi's recorded cost for a record that no rate matches. */
 	fallbackToRecordedCost: boolean;
 	/** Rates keyed by `provider/model`, matched through wildcards. */
 	rates: Readonly<Record<string, ModelRates>>;
 	peak: PeakSchedule;
+	/** Header appearance. */
+	header: HeaderConfig;
+	/** Editor appearance. */
+	editor: EditorConfig;
 }
 
 /** One usage-bearing session entry, reduced to what pricing needs. */

@@ -57,7 +57,7 @@ export function createUiController(options: UiOptions): UiController {
 			const jobs = [...getJobs()];
 			const running = jobs.filter((job) => job.status === "running").length;
 			const unseenFailures = pendingFailures(jobs).length;
-			// A space before the count keeps the compact status-bar form (`▸2`),
+			// A space before the count keeps the compact chrome form (`▸2`),
 			// while the two chips stay separate segments in the full form.
 			target.ui.setStatus(
 				STATUS_KEYS.jobs,

@@ -9,7 +9,7 @@ function screen(
 	reports = [
 		makeReport("worktree", [makeFinding("git", "missing", "not found on PATH", "install git")]),
 		makeReport("todo", [makeFinding("todo.json", "ok")]),
-		makeReport("status-bar", [makeFinding("platform", "info", "TUI only")]),
+		makeReport("chrome", [makeFinding("platform", "info", "TUI only")]),
 	],
 ) {
 	const calls = { render: 0, refresh: 0, done: 0 };
@@ -37,7 +37,7 @@ describe("DoctorScreen", () => {
 		expect(lines[0]).toContain("doctor");
 		expect(lines.join("\n")).toContain("worktree");
 		expect(lines.join("\n")).toContain("todo");
-		expect(lines.join("\n")).toContain("status-bar");
+		expect(lines.join("\n")).toContain("chrome");
 		expect(lines.at(-1)).toContain("Esc close");
 	});
 
@@ -78,7 +78,7 @@ describe("DoctorScreen", () => {
 	});
 
 	test("toggles between problems-only and every check on enter", () => {
-		const { component } = screen([makeReport("status-bar", [makeFinding("platform", "info", "TUI only")])]);
+		const { component } = screen([makeReport("chrome", [makeFinding("platform", "info", "TUI only")])]);
 		expect(component.render(60).join("\n")).not.toContain("TUI only");
 		component.handleInput("\r");
 		expect(component.render(60).join("\n")).toContain("TUI only");

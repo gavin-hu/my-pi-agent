@@ -198,8 +198,8 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		],
 		notes: ["Logging in needs the interactive terminal UI."],
 	},
-	"status-bar": {
-		configFile: "status-bar.json",
+	chrome: {
+		configFile: "chrome.json",
 		notes: ["TUI only; inert in RPC, JSON, and print modes."],
 	},
 	"turn-separator": {

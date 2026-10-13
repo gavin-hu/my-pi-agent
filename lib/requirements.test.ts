@@ -199,7 +199,7 @@ describe("report shape", () => {
 	});
 
 	test("carries expected platform notes as info", async () => {
-		const report = await probeExtension("status-bar", seams());
+		const report = await probeExtension("chrome", seams());
 		const note = report.findings.find((finding) => finding.check === "platform");
 		expect(note?.severity).toBe("info");
 		expect(note?.detail).toContain("TUI only");

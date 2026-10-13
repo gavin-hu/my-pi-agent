@@ -51,9 +51,9 @@ describe("report text", () => {
 	});
 
 	test("lists notes when nothing is wrong", () => {
-		const text = formatReport([makeReport("status-bar", [makeFinding("platform", "info", "TUI only")])]);
+		const text = formatReport([makeReport("chrome", [makeFinding("platform", "info", "TUI only")])]);
 		expect(text).toContain("Notes:");
-		expect(text).toContain("status-bar: TUI only");
+		expect(text).toContain("chrome: TUI only");
 	});
 
 	test("shows every finding — including passing checks — for one extension", () => {
@@ -113,7 +113,7 @@ describe("rows and detail", () => {
 	});
 
 	test("shows notes only once the screen is expanded", () => {
-		const report = makeReport("status-bar", [makeFinding("platform", "info", "TUI only")]);
+		const report = makeReport("chrome", [makeFinding("platform", "info", "TUI only")]);
 		expect(detailLines(report, fakeTheme, 60, 4).join("\n")).toContain("no problems");
 		expect(detailLines(report, fakeTheme, 60, 4, true).join("\n")).toContain("TUI only");
 	});

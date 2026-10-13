@@ -35,7 +35,7 @@ export const EXTENSION_PATHS = [
 	"document",
 	"file-explorer",
 	"memory",
-	"status-bar",
+	"chrome",
 	"turn-separator",
 	"doctor",
 ].map((name) => join(repo, "extensions", name, "index.ts"));
