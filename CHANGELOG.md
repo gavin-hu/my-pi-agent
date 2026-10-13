@@ -18,6 +18,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `job`: `start` results badge `detached` and `wake`, so the job's lifetime and
   wake behaviour are visible without reading the arguments.
+- `plan`: the review screen renders the plan with Pi's Markdown theme (headings,
+  lists, code, links, quotes) and colors task checkboxes (`[✓]` done, `[ ]`
+  pending). A step-progress gauge row shows `n/m steps done`, the scroll row is
+  a gauge with the position and line range, and the footer colors the
+  approve/refine actions.
 
 ## [0.5.0] - 2026-10-13
 

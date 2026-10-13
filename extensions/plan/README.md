@@ -82,12 +82,20 @@ is on, and `⋮ plan · <plan-file>` once the model has written a plan.
 
 The review screen is TUI-only. `exit_plan_mode` opens `PlanViewComponent`: a
 scrollable, width-safe view of the plan with approve/refine/keep in the footer.
+The body is rendered with Pi's own `Markdown` component and `getMarkdownTheme()`,
+so headings, lists, inline code, code blocks, links, and quotes carry the active
+theme's colors; task items get a `success` `[✓]` (done) or `dim` `[ ]` (pending)
+marker. A step-progress row sits under the header — a gauge plus `n/m steps done`
+— whenever the plan has top-level list steps (the same ones approval seeds into
+`todo`), and the footer colors the primary actions (`a approve` in `success`,
+`r refine` in `accent`).
 `a` ends plan mode, restores write access, and seeds `todo`; `r` keeps the plan
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
 model the plan was not approved. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
 `PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. When the plan overflows,
-the visible range and percent get their own dim row above the hints; hints are
+a gauge row above the hints shows the scroll position, the percent, and the
+visible line range (the range drops first on a narrow terminal); hints are
 dropped whole as the terminal narrows, and each footer leads with its safe exit
 (`Esc keep planning` in the review, `Esc back to plan` in the inline editor) so
 the exit survives even when only one hint fits.
@@ -244,7 +252,10 @@ agent file that overrides it.
 - **Review the file, decide in a screen.** The plan is a file, so it is the
   artifact already on screen. `ctx.ui.confirm()` is a non-scrollable selector
   that pushes buttons off-screen for a long plan, so the TUI gets a scrollable
-  review screen and dialog-capable modes get a `select` plus editor.
+  review screen and dialog-capable modes get a `select` plus editor. The screen
+  renders the body with Pi's `Markdown` component so the plan reads like any
+  other markdown in the app; the plan text is sanitized before it reaches the
+  renderer, so only the theme's own ANSI survives.
 - **`write_plan` is the only write.** It is not the builtin `write`, so the
   capability policy and path backstop stay intact; a `plan_path` must name a
   markdown non-dotfile whose real parent resolves inside the plans directory,
@@ -278,7 +289,7 @@ agent file that overrides it.
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, and `exit_plan_mode`. |
 | `commands.ts` | `/plan` (enter, optional task). |
-| `tui.ts` | `PlanViewComponent` (scrollable plan + approve/refine/keep). |
+| `tui.ts` | `PlanViewComponent` (Markdown body, step progress, scroll gauge, approve/refine/keep). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
-| `../../lib/tui.ts` | Shared screen header and viewport-row helpers. |
+| `../../lib/tui.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
+import { coloringTheme, fakeMarkdownTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import type { StoredPlan } from "./plans.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 
 const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
 
@@ -20,16 +21,23 @@ function render(component: PlanViewComponent, width: number): string[] {
 	return component.render(width);
 }
 
-function setup(
-	content = "# Plan\n1. Read the parser\n2. Add a tokenizer",
-	options: { rows?: number; tui?: unknown } = {},
-) {
+interface SetupOptions {
+	rows?: number;
+	tui?: unknown;
+	theme?: any;
+	markdownTheme?: any;
+	path?: string;
+}
+
+function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", options: SetupOptions = {}) {
 	const actions: PlanViewAction[] = [];
 	const refinements: Array<string | undefined> = [];
 	let renders = 0;
+	const theme = options.theme ?? fakeTheme;
 	const component = new PlanViewComponent({
-		plan: plan(content),
-		theme: fakeTheme,
+		plan: plan(content, options.path),
+		theme,
+		markdownTheme: options.markdownTheme ?? fakeMarkdownTheme(theme),
 		onClose: (action, refinement) => {
 			actions.push(action);
 			refinements.push(refinement);
@@ -43,26 +51,32 @@ function setup(
 	return { component, actions, refinements, renders: () => renders };
 }
 
+/** Percent shown in the scroll row, or -1 when there is none. */
+function percent(lines: string[]): number {
+	const match = /(\d+)%/.exec(lines.join("\n"));
+	return match ? Number(match[1]) : -1;
+}
+
 describe("PlanViewComponent — render", () => {
 	test("stays within the terminal width", () => {
 		const { component } = setup();
-		for (const width of [20, 40, 80, 1]) {
+		for (const width of [80, 40, 20, 7, 6, 5, 4, 3, 2, 1]) {
 			for (const line of render(component, width)) {
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 			}
 		}
 	});
 
-	test("shows the title but no subtitle row", () => {
+	test("shows the title, step progress, and body without the file path", () => {
 		const { component } = setup();
 		const lines = render(component, 80);
 		const text = lines.join("\n");
 		expect(text).toContain("Plan Review");
 		expect(text).toContain("demo");
 		expect(text).not.toContain(".pi/plans/2026-10-08-1530-demo.md");
-		expect(text).not.toContain("2 steps");
-		expect(lines[1]).toBe("");
-		expect(lines[2]).toContain("Plan");
+		expect(lines[1]).toContain("0/2");
+		expect(lines[2]).toBe("");
+		expect(lines[3]).toContain("Plan");
 	});
 
 	test("renders the plan body and the key hints", () => {
@@ -84,6 +98,7 @@ describe("PlanViewComponent — render", () => {
 		const { component } = setup("");
 		const text = render(component, 80).join("\n");
 		expect(text).toContain("This plan is empty.");
+		expect(text).not.toContain("steps done");
 	});
 
 	test("expands tabs and strips line-breaking control characters", () => {
@@ -95,7 +110,7 @@ describe("PlanViewComponent — render", () => {
 			expect(line).not.toContain("\u009b");
 			expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 		}
-		expect(lines.join("\n")).toContain("a    b cd"); // allow:padding assertion
+		expect(lines.join("\n").replace(/\s+/g, " ")).toContain("a b cd");
 	});
 
 	test("shortens the header title and keeps it on narrow terminals", () => {
@@ -105,6 +120,32 @@ describe("PlanViewComponent — render", () => {
 		expect(full).toContain("demo");
 		expect(full).not.toContain("2026-10-08-1530");
 		expect(render(component, 20)[0]).toContain("Plan Review");
+	});
+
+	test("shows a step-progress gauge with the done count", () => {
+		const { component } = setup("1. First\n2. Second\n3. [x] Done");
+		const text = render(component, 80).join("\n");
+		expect(text).toContain("1/3");
+		expect(text).toContain("steps done");
+		expect(text).toContain(GLYPHS.gaugeFull);
+		expect(text).toContain(GLYPHS.gaugeEmpty);
+	});
+
+	test("colors task checkboxes by state", () => {
+		const theme = coloringTheme;
+		const { component } = setup("- [x] Done task\n- [ ] Pending task", {
+			theme,
+			markdownTheme: fakeMarkdownTheme(theme),
+		});
+		const text = render(component, 80).join("\n");
+		expect(text).toContain("[success][✓]");
+		expect(text).toContain("[dim][ ]");
+	});
+
+	test("renders headings through the injected Markdown theme", () => {
+		const theme = coloringTheme;
+		const { component } = setup("# Title\n\n1. Step", { theme, markdownTheme: fakeMarkdownTheme(theme) });
+		expect(render(component, 80).join("\n")).toContain("[mdHeading]");
 	});
 });
 
@@ -183,17 +224,27 @@ describe("PlanViewComponent — scrolling", () => {
 		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
 	});
 
-	test("shows a scroll position only when the plan overflows", () => {
+	test("shows a scroll gauge only when the plan overflows", () => {
 		const scrolled = setup(manyLines, { rows: 20 });
 		render(scrolled.component, 80);
-		expect(render(scrolled.component, 80).join("\n")).toContain("(0%)");
+		let text = render(scrolled.component, 80).join("\n");
+		expect(text).toContain("lines 1–15 of 60");
+		expect(text).toContain("0%");
 		scrolled.component.handleInput(END);
-		expect(render(scrolled.component, 80).join("\n")).toContain("(100%)");
+		text = render(scrolled.component, 80).join("\n");
+		expect(text).toContain("100%");
+		expect(text).toContain("lines 46–60 of 60");
 
 		const fits = setup();
-		const text = render(fits.component, 80).join("\n");
-		expect(text).not.toContain("of");
-		expect(text).not.toContain("↑↓");
+		expect(render(fits.component, 80).join("\n")).not.toContain("lines ");
+	});
+
+	test("drops the scroll range before the gauge on a narrow terminal", () => {
+		const { component } = setup(manyLines, { rows: 24 });
+		const row = render(component, 20).at(-3) ?? "";
+		expect(row).toContain("0%");
+		expect(row).toContain(GLYPHS.gaugeEmpty);
+		expect(row).not.toContain("lines");
 	});
 
 	test("shows only the footer hints that fit", () => {
@@ -218,6 +269,14 @@ describe("PlanViewComponent — scrolling", () => {
 		expect(hint).not.toContain("a approve");
 	});
 
+	test("colors the approve and refine hints", () => {
+		const theme = coloringTheme;
+		const { component } = setup(undefined, { theme, markdownTheme: fakeMarkdownTheme(theme) });
+		const hint = render(component, 80).at(-2) ?? "";
+		expect(hint).toContain("[success]a approve");
+		expect(hint).toContain("[accent]r refine");
+	});
+
 	test("rebuilds wrapped lines after invalidate", () => {
 		const { component } = setup(manyLines, { rows: 20 });
 		render(component, 80);
@@ -225,18 +284,15 @@ describe("PlanViewComponent — scrolling", () => {
 		expect(render(component, 80).join("\n")).toContain("Line 1");
 	});
 
-	test("a width change keeps the same source line on top", () => {
-		const content = Array.from({ length: 40 }, (_, i) => `Line ${i + 1} ${"x".repeat(40)}`).join("\n");
-		const { component } = setup(content, { rows: 12 });
+	test("a resize keeps the reading position", () => {
+		const content = Array.from({ length: 60 }, (_, i) => `Line ${i + 1} ${"x".repeat(40)}`).join("\n");
+		const { component } = setup(content, { rows: 16 });
 		render(component, 40);
-		for (let i = 0; i < 7; i++) component.handleInput(DOWN);
-		// Walk to the next source-line boundary so the check does not depend on wrap counts.
-		let guard = 0;
-		while (guard++ < 20 && !/^\s*Line \d+ /i.test(render(component, 40)[2] ?? "")) component.handleInput(DOWN);
-		const before = /\d+/.exec(render(component, 40)[2] ?? "")?.[0];
-		expect(before).toBeDefined();
-		expect(before).not.toBe("1");
-		expect(render(component, 120)[2] ?? "").toContain(`Line ${before} `);
+		component.handleInput("d");
+		const before = percent(render(component, 40));
+		expect(before).toBeGreaterThan(0);
+		const after = percent(render(component, 120));
+		expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
 	});
 });
 

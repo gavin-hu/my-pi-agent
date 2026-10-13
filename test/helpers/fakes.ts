@@ -6,6 +6,8 @@
  * helpers wrap it to expose the maps their tests inspect.
  */
 
+import type { MarkdownTheme } from "@earendil-works/pi-tui";
+
 export type AnyHandler = (...args: any[]) => any;
 
 /** Identity theme so rendered text stays assertable. */
@@ -14,6 +16,29 @@ export const fakeTheme: any = {
 	bg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 };
+
+/**
+ * Markdown theme double. With the default identity `fakeTheme` the rendered
+ * plan stays plain text; pass {@link coloringTheme} to assert color choices.
+ */
+export function fakeMarkdownTheme(theme: any = fakeTheme): MarkdownTheme {
+	return {
+		heading: (text) => theme.fg("mdHeading", text),
+		link: (text) => theme.fg("mdLink", text),
+		linkUrl: (text) => theme.fg("mdLinkUrl", text),
+		code: (text) => theme.fg("mdCode", text),
+		codeBlock: (text) => theme.fg("mdCodeBlock", text),
+		codeBlockBorder: (text) => theme.fg("mdCodeBlockBorder", text),
+		quote: (text) => theme.fg("mdQuote", text),
+		quoteBorder: (text) => theme.fg("mdQuoteBorder", text),
+		hr: (text) => theme.fg("mdHr", text),
+		listBullet: (text) => theme.fg("mdListBullet", text),
+		bold: (text) => theme.bold(text),
+		italic: (text) => text,
+		underline: (text) => text,
+		strikethrough: (text) => text,
+	};
+}
 
 /** Theme that tags text with the requested colour, to assert colour choices. */
 export const coloringTheme: any = {

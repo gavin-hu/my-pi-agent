@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { screenHeader, screenHint, viewportRows } from "./tui.ts";
-import { fakeTheme } from "../test/helpers/fakes.ts";
+import { coloringTheme, fakeTheme } from "../test/helpers/fakes.ts";
 
 describe("viewportRows", () => {
 	const options = { chrome: 7, fallback: 12 };
@@ -61,5 +61,11 @@ describe("screenHint", () => {
 	test("still returns the first hint when it alone overflows", () => {
 		const line = screenHint(fakeTheme, 4, ["alpha", "beta"]);
 		expect(visibleWidth(line)).toBeLessThanOrEqual(4);
+	});
+
+	test("colors a primary hint while plain hints stay dim", () => {
+		const line = screenHint(coloringTheme, 80, ["Esc close", { text: "a approve", color: "success" }]);
+		expect(line).toContain("[dim]Esc close");
+		expect(line).toContain("[success]a approve");
 	});
 });
