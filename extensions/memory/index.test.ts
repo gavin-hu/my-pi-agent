@@ -155,11 +155,18 @@ describe("memory extension", () => {
 		expect(suite.read("project")).toBe("- Use tabs\n");
 	});
 
-	test("/memory reports the store", async () => {
+	test("/memory reports the store outside the TUI", async () => {
+		suite.write("global", "- one\n");
+		await suite.start();
+		await suite.pi.commands.get("memory").handler("", { ...suite.ctx, mode: "print" });
+		expect(suite.notices.at(-1)).toContain("one");
+	});
+
+	test("bare /memory opens the picker in the TUI", async () => {
 		suite.write("global", "- one\n");
 		await suite.start();
 		await suite.pi.commands.get("memory").handler("", suite.ctx);
-		expect(suite.notices.at(-1)).toContain("one");
+		expect(suite.ctx.customCalls).toHaveLength(1);
 	});
 
 	test("/memory list is recognized and reports the store", async () => {

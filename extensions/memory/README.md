@@ -32,8 +32,10 @@ pi install ./                         # install the package
   run, bounded by a byte cap, so the model recalls them without being asked.
 - Re-reads each store when its file changes on disk (compared by mtime and size),
   so an external edit lands in the same session without a restart.
-- Exposes `/memory` to list the store, print the file paths, open the multi-line
-  editor, or clear a scope.
+- Exposes `/memory`: in the TUI it opens a picker to add, edit, or forget a
+  single note, filter by scope, and reload; elsewhere it lists the store.
+  `/memory path`, `edit`, and `clear` print the file paths, open the multi-line
+  editor, and clear a scope.
 - Loads and writes the project store only when the project is trusted, sanitizes
   every note to one terminal-safe line, and writes atomically.
 
@@ -83,7 +85,8 @@ or stem both survive.
 
 | Command | What it does |
 |---|---|
-| `/memory` or `/memory list` | Notify the stored notes and counts. |
+| `/memory` | In the TUI, open the picker (add, edit, or forget a note; `s`/Tab filters by scope; `r` reloads). Other modes notify the stored notes. |
+| `/memory list` | Notify the stored notes and counts. |
 | `/memory path` | Notify the two file paths and whether the project store is trusted. |
 | `/memory reload` | Re-read the stores from disk and report what changed. |
 | `/memory edit [project\|global]` | Open the multi-line editor prefilled with the file and save the result. |
@@ -95,10 +98,11 @@ memory in one call.
 ## Behaviour by mode
 
 The tool and the context injection work in every mode (`tui`, `rpc`, `json`,
-`print`). The interactive-only parts of `/memory` (`edit`, `clear`) require
-`ctx.hasUI`; in JSON and print sessions the command reports that editing needs an
-interactive session. Memory itself is external state, so it is not reconstructed
-from the session tree and tree navigation does not change it.
+`print`). The picker opened by a bare `/memory` requires `ctx.mode === "tui"`, and
+`/memory edit` and `/memory clear` require `ctx.hasUI`; in JSON and print sessions
+the command reports that the interactive form needs a TUI session. Memory itself is
+external state, so it is not reconstructed from the session tree and tree
+navigation does not change it.
 
 ## Configuration
 
@@ -164,7 +168,7 @@ when consolidating.
 | Events | `session_start` loads config and both stores; `before_agent_start` injects the `[MEMORY]` message; `context` keeps only the newest injection; `session_shutdown` clears the cache. The runtime refreshes both stores from their file stamps whenever the notes are read. |
 | Tool | `exposure: "direct"`, `executionMode: "sequential"`, `annotations` and `outputSchema` as above. |
 | State | External markdown, **not** branch state: the tool result's `details`/`structuredContent` mirror the call but the notes are read from disk and survive independently of `/resume` and `/tree`. |
-| UI | `ctx.ui.notify`, `editor`, and `confirm`, guarded by `ctx.hasUI`; no custom component. |
+| UI | `ctx.ui.notify`, `editor`, and `confirm`, guarded by `ctx.hasUI`, plus the `/memory` picker (`ctx.ui.custom`) in the TUI. |
 | Plan mode | Blocked — `plan`'s read-only policy allows only `readOnlyHint` tools, so memory cannot be mutated while planning; recall still works. |
 
 ## Design notes
@@ -200,6 +204,7 @@ when consolidating.
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
 | `errors.ts` | `messageOf`, the shared error-text extraction for the tool and command. |
+| `tui.ts` | The `/memory` picker component (note list, inline editor, scope filter). |
 | `tools.ts` | `registerTool("memory", …)`. |
 | `commands.ts` | `registerCommand("memory", …)`. |
 
@@ -207,7 +212,9 @@ when consolidating.
 
 `bun test extensions/memory` covers the pure store transforms (including the
 near-duplicate comparison key and the `add` guard), file stamps, schema and
-config validation, formatting/injection truncation, and the extension surface
-(registration, `session_start` loading, injection and dedup, external-edit
-refresh, `/memory reload`, update and trust gating, and the `/memory` command)
-through the `test/helpers/fixtures/memory.ts` suite harness.
+config validation, formatting/injection truncation, the `/memory` picker
+(`tui.test.ts`: rendering, navigation, scope filter, inline add/edit, forget
+confirm, trust), and the extension surface (registration, `session_start`
+loading, injection and dedup, external-edit refresh, `/memory reload`, update
+and trust gating, and the `/memory` command) through the
+`test/helpers/fixtures/memory.ts` suite harness.

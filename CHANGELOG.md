@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `memory`: an interactive `/memory` picker in the TUI. A bare `/memory` opens a
+  dock screen listing both stores, with `j`/`k` (and the wheel) to move, `s`/Tab
+  to filter by scope, `Enter`/`e` to edit a note inline, `a` to add one, `d` to
+  forget one behind a `y/N` confirm, and `r` to reload. Other modes and
+  `/memory list` keep the plain listing.
+
 ### Changed
 
 - Distribution: releases are published to npm as well as tagged in git. The

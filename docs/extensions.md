@@ -120,8 +120,8 @@ Command: `/rewind`.
 Durable cross-session notes as human-editable markdown: global notes under the
 agent directory, project notes under the repo root's `.pi/`. Add, update, or
 forget notes, and list what is stored; an active note set is injected as a
-hidden `[MEMORY]` context before each run. `/memory` inspects, edits, or clears
-them.
+hidden `[MEMORY]` context before each run. `/memory` opens a picker to add,
+edit, or forget a single note (and otherwise lists, edits, or clears them).
 
 Tool: `memory`. Command: `/memory`.
 
