@@ -135,23 +135,53 @@ describe("bytefly extension", () => {
 		expect(notifications).toHaveLength(0);
 	});
 
-	test("toggles the footer with no argument", async () => {
+	test("toggles the whole chrome with no argument", async () => {
 		const { pi, commands } = makeFakePi();
 		bytefly(pi);
-		const { ctx, footers, notifications } = fakeFooterCtx({ mode: "tui" });
+		const { ctx, footers, headers, notifications } = fakeFooterCtx({ mode: "tui" });
 		const command = commands.get("bytefly");
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await command.handler("", ctx);
 		expect(footers.at(-1)).toBeUndefined();
+		expect(headers.at(-1)).toBeUndefined();
 		expect(notifications.at(-1)).toBe("bytefly off");
 
 		await command.handler("", ctx);
 		expect(typeof footers.at(-1)).toBe("function");
+		expect(typeof headers.at(-1)).toBe("function");
 		expect(notifications.at(-1)).toBe("bytefly on");
 	});
 
-	test("reports the footer status with the status subcommand", async () => {
+	test("toggles only the header with the header subcommand", async () => {
+		const { pi, commands } = makeFakePi();
+		bytefly(pi);
+		const { ctx, footers, headers, notifications } = fakeFooterCtx({ mode: "tui" });
+		const command = commands.get("bytefly");
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		await command.handler("header", ctx);
+
+		expect(headers.at(-1)).toBeUndefined();
+		expect(typeof footers.at(-1)).toBe("function");
+		expect(notifications.at(-1)).toBe("bytefly header off");
+	});
+
+	test("toggles only the footer with the footer subcommand", async () => {
+		const { pi, commands } = makeFakePi();
+		bytefly(pi);
+		const { ctx, footers, headers, notifications } = fakeFooterCtx({ mode: "tui" });
+		const command = commands.get("bytefly");
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		await command.handler("footer", ctx);
+
+		expect(footers.at(-1)).toBeUndefined();
+		expect(typeof headers.at(-1)).toBe("function");
+		expect(notifications.at(-1)).toBe("bytefly footer off");
+	});
+
+	test("reports the header and footer state with the status subcommand", async () => {
 		const { pi, commands } = makeFakePi();
 		bytefly(pi);
 		const { ctx, notifications } = fakeFooterCtx({ mode: "tui" });
@@ -159,7 +189,7 @@ describe("bytefly extension", () => {
 
 		await command.handler("status", ctx);
 
-		expect(notifications.at(-1)).toBe("bytefly: on");
+		expect(notifications.at(-1)).toBe("bytefly: header on, footer on");
 	});
 
 	test("completes the subcommands", () => {
@@ -167,8 +197,9 @@ describe("bytefly extension", () => {
 		bytefly(pi);
 		const command = commands.get("bytefly");
 
-		expect(command.getArgumentCompletions("").map((item: any) => item.value)).toEqual(["status"]);
+		expect(command.getArgumentCompletions("").map((item: any) => item.value)).toEqual(["footer", "header", "status"]);
 		expect(command.getArgumentCompletions("st").map((item: any) => item.value)).toEqual(["status"]);
+		expect(command.getArgumentCompletions("h").map((item: any) => item.value)).toEqual(["header"]);
 		expect(command.getArgumentCompletions("zzz")).toBeNull();
 	});
 

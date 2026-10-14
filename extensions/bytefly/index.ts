@@ -8,7 +8,7 @@
  * The header, footer, and turn rule are installed only in interactive (`tui`)
  * sessions; the picker and doctor work in every mode. The footer is priced
  * from DeepSeek's published rates by default and from `bytefly.json`
- * otherwise, and is toggled with `/bytefly [status]`.
+ * otherwise, and `/bytefly [header|footer|status]` toggles the chrome.
  *
  * Load with:  pi --extension ./extensions/bytefly
  */
@@ -33,8 +33,8 @@ export interface ByteflyDeps {
 export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void {
 	if (!isExtensionEnabled("bytefly")) return;
 
-	registerHeader(pi);
-	registerFooter(pi);
+	const header = registerHeader(pi);
+	registerFooter(pi, { header });
 	registerTurnSeparator(pi);
 	registerExtensionsCommand(pi, deps.extensions);
 	registerDoctor(pi, deps.doctor);

@@ -85,6 +85,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: `/bytefly` now toggles the whole bytefly chrome — the header and
+  the footer together — instead of only the footer. `/bytefly header` and
+  `/bytefly footer` toggle one surface, `/bytefly status` reports both, and the
+  subcommands still complete with Tab.
+
 - `file-browser` is renamed `file-browse` everywhere: the extension directory
   and `pi.extensions` path, the package description and keywords, the
   `PI_DISABLED_EXTENSIONS` name, and the config file (`file-browser.json` is now
