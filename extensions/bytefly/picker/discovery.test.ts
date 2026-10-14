@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SettingsManager } from "@earendil-works/pi-coding-agent";
 import { createResolver, discoverExtensions, type DiscoveryFactory, type ResolverManager } from "./discovery.ts";
-import { makeItem, makeStore, packageExtension } from "../../test/helpers/fixtures/extension-picker.ts";
+import { makeItem, makeStore, packageExtension } from "../../../test/helpers/fixtures/picker.ts";
 
 const item = (path: string) => makeItem({ path });
 
@@ -49,15 +49,15 @@ describe("discoverExtensions", () => {
 		expect(discovery.stores.project).toBe(discovery.stores.global);
 	});
 
-	test("drops this extension's own entrypoint from both views", async () => {
+	test("drops the picker host's own entrypoint from both views", async () => {
 		const factory: DiscoveryFactory = {
 			global: () => ({
 				store: makeStore().store,
-				resolve: async () => [packageExtension("extension-picker", true), packageExtension("todo", true)],
+				resolve: async () => [packageExtension("bytefly", true), packageExtension("todo", true)],
 			}),
 			project: () => ({
 				store: makeStore().store,
-				resolve: async () => [packageExtension("extension-picker", true), packageExtension("todo", false)],
+				resolve: async () => [packageExtension("bytefly", true), packageExtension("todo", false)],
 			}),
 		};
 

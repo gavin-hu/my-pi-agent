@@ -97,9 +97,9 @@ export function createDiscoveryFactory(cwd: string, agentDir: string): Discovery
  * personal one and both stores point at the global settings file, so nothing
  * can read or write project configuration.
  *
- * This extension's own entrypoint is dropped from every view: the picker does
- * not list itself, so the row set, the disabled count, and the text listing all
- * agree.
+ * `bytefly`'s entrypoint — the extension that hosts this picker — is dropped
+ * from every view, so the picker does not list itself and the row set, the
+ * disabled count, and the text listing all agree.
  */
 export async function discoverExtensions(deps: DiscoveryDeps): Promise<Discovery> {
 	const agentDir = deps.agentDir ?? getAgentDir();

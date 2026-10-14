@@ -1,11 +1,12 @@
-# bytefly — the TUI footer and turn rule
+# bytefly — the TUI footer, turn rule, and extensions picker
 
-`bytefly` owns the terminal chrome this package adds: one compact, colorful,
-width-adaptive two-line footer, and a labeled rule that marks each completed
-turn in the transcript. Pi's own header is left untouched. DeepSeek is priced
-from the provider's published yuan rates and peak tariff by default, and any
-other model can be priced from your own rates when Pi's catalog does not match
-what a provider actually charges.
+`bytefly` owns the terminal chrome and configuration surfaces this package
+adds: one compact, colorful, width-adaptive two-line footer, a labeled rule that
+marks each completed turn in the transcript, and the `/extensions` picker that
+lists and toggles every resolved Pi extension. Pi's own header is left
+untouched. DeepSeek is priced from the provider's published yuan rates and peak
+tariff by default, and any other model can be priced from your own rates when
+Pi's catalog does not match what a provider actually charges.
 
 ```
 pi --extension ./extensions/bytefly   # load just this extension
@@ -15,8 +16,8 @@ pi install ./                         # install the package
 
 ## What it does
 
-The extension owns two surfaces: the footer, and the rule between completed
-turns. Pi's own header is left in place.
+The extension owns three surfaces: the footer, the rule between completed turns,
+and the `/extensions` picker. Pi's own header is left in place.
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -85,20 +86,28 @@ entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcri
 [Turn separator](#turn-separator). No config file is needed and there is no
 command.
 
+**Extensions picker.** `/extensions` opens a keyboard-driven dock list of every
+Pi extension the session resolves — across personal settings and, when trusted,
+the project — and writes a `+pattern` / `-pattern` toggle into the matching
+`settings.json`; see [Extensions picker](#extensions-picker). There is no
+config file, and changes apply on reload.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `/bytefly` | Toggle the footer on or off. |
 | `/bytefly status` | Report whether the footer is on. |
+| `/extensions` | Open the extensions picker in the TUI, or print the grouped list elsewhere. |
 
 The `status` subcommand completes with Tab.
 
 ## Behaviour by mode
 
-Both surfaces are installed only in interactive (`tui`) sessions. In RPC, JSON,
-and print modes the extension loads, registers `/bytefly`, and neither paints
-the footer nor appends a separator.
+The footer and the turn rule are installed only in interactive (`tui`)
+sessions; `/bytefly` is a no-op elsewhere. The picker is available in every
+mode: in `tui` it opens the dock screen, while in RPC, JSON, and print modes
+`/extensions` prints the same grouped list and does not toggle.
 
 ## Configuration
 
@@ -170,6 +179,14 @@ symbol. A session mixing DeepSeek with another provider therefore sums two
 currencies into one number. Either cover every model you use (a `"*"` catch-all
 helps) and set `fallbackToRecordedCost: false`, or set the symbol to `"$"` and
 treat the rates purely as an off-peak correction.
+
+## Security
+
+- Project settings are only read or written when the project is trusted
+  (`ctx.isProjectTrusted()`); an untrusted session offers Global scope only.
+- Discovery never installs or fetches a package: missing sources are skipped.
+- The picker registers no model-facing tool, so the model cannot change resource
+  configuration.
 
 ## Cost calculation
 
@@ -261,8 +278,51 @@ it:
 - There is no runtime command; the glyph, label prefix, padding, and colors are
   tuned in [`separator/config.ts`](./separator/config.ts).
 
+## Extensions picker
+
+`/extensions` is a keyboard-driven dock list of every extension Pi resolves for
+the session, so the list matches what actually loads. It reuses Pi's own settings
+and package resolution (`SettingsManager` plus `DefaultPackageManager` with
+`onMissing: "skip"`), so opening the screen never installs or fetches a package.
+
+- Lists every resolved extension, grouped by source (each package, user
+  settings, project settings), sorted packages-first and then by display name.
+- Omits `bytefly` itself, so the tool that manages the list is never a row.
+  Turn the footer off with `/bytefly`; use `pi config` to disable bytefly
+  entirely.
+- Shows whether each one is enabled (`[x]`) or disabled (`[ ]`).
+- Toggles the focused extension with `Space` / `Enter`, writing `+pattern` /
+  `-pattern` into `extensions` (and package filter objects) in the active
+  scope.
+- Switches the write scope with `Tab`: **Global** (personal
+  `settings.json`) or **Project** (`.pi/settings.json`, only when the project
+  is trusted).
+- Offers a reload after pending changes, so the new selection takes effect
+  without leaving the session.
+
+### Keys
+
+| Key | Effect |
+|---|---|
+| `Space` / `Enter` | Toggle the focused extension. |
+| `Tab` | Switch between Global and Project scope. |
+| `↑`/`↓`, `j`/`k` | Move the selection. |
+| `PgUp`/`PgDn` | Move a page. |
+| `g` / `G`, `Home` / `End` | Jump to the first or last extension. |
+| `Esc` / `Ctrl+C` | Close the screen. |
+
+Mouse wheel scrolling works; every action also has a keyboard path.
+
 ## Limitations
 
+- **The picker manages only the `extensions` resource type.** Skills, prompts,
+  and themes are handled by Pi's own `pi config`.
+- **Built-in extensions are not listed** (`builtin:mcp`, `builtin:codemode`, …):
+  their authoritative names are not exposed to extensions. Use `pi config`.
+- **Packages are not installed, removed, or updated here**; use `pi install`,
+  `pi remove`, and `pi update`.
+- **Project toggles are two-state** (`enable`/`disable`). Resetting an override
+  back to "inherit" is done in `pi config`.
 - **One built-in provider.** DeepSeek is the only provider with a built-in
   table; another provider's currency and tariff have to be stated in
   `bytefly.json`.
@@ -303,10 +363,13 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. Pi's header is not touched. |
 | Command | `/bytefly [status]` toggles the footer and reports its state (tui only; a no-op elsewhere), with Tab completion. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
+| Picker command | `pi.registerCommand("extensions")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
+| Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
+| Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. A legacy `chrome.json` is migrated to `bytefly.json` on load. Nothing watches the file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the one-time config migration and the inert separator entries. The bytefly reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it renames a legacy `chrome.json` to `bytefly.json` and appends `bytefly-separator` entries excluded from LLM context. |
+| State storage | None besides the one-time config migration and the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it renames a legacy `chrome.json` to `bytefly.json` and appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. |
 | Lifecycle | `session_start` installs the footer; `session_tree` reinstalls; `session_shutdown` restores Pi's built-in footer and disposes the branch subscription. |
 
 ## Design notes
@@ -373,12 +436,22 @@ rather than showing a wrong value.
 - **A record is dated, not the frame.** The peak schedule is evaluated against
   each entry's own timestamp, so a total is stable as the clock crosses a
   boundary — and memoizing the scan by `sessionId:leafId` stays valid.
+- **The picker reuses Pi's resolution; only the toggle is ported.** Reading
+  `SettingsManager` and `DefaultPackageManager` (public exports) makes the list
+  match what Pi loads; the `+`/`-` pattern arithmetic is a trimmed port of Pi's
+  config selector, kept pure and separately tested so a future drift is easy to
+  diff.
+- **Two picker views, one write scope.** Personal (`global`) and effective
+  (`project`) resources are resolved separately, mirroring `pi config`; the
+  screen shows the view for the active scope and writes through the matching
+  store. A project package override is written with `autoload: false`, so it
+  filters the personal entry instead of replacing it.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: install/restore the footer, `/bytefly`, and register the turn separator. |
+| `index.ts` | Factory: install/restore the footer, register `/bytefly` and `/extensions`, and register the turn separator. |
 | `config.ts` | Bar tuning (`CONFIG`), the built-in DeepSeek rates and peak tariff, and the `bytefly.json` schema, defaults, normalizer, loader, and `chrome.json` migration. |
 | `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
 | `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
@@ -396,6 +469,13 @@ rather than showing a wrong value.
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
 | `separator/format.ts` | Pure `separatorLabel` / `separatorParts` / `separatorLine`. |
 | `separator/types.ts` | `TurnSeparatorData`, `SeparatorParts`. |
+| `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`) and row types. |
+| `picker/resources.ts` | Pure grouping, labels, display names, pattern helpers, text listing. |
+| `picker/toggle.ts` | Pure next-settings transforms for global and project toggles. |
+| `picker/discovery.ts` | Host wiring: builds the global and effective views from Pi's managers. |
+| `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence. |
+| `picker/tui.ts` | `ExtensionsListComponent`, the dock screen. |
+| `picker/commands.ts` | `/extensions`: TUI path and text fallback. |
 
 ## Testing
 
@@ -415,4 +495,9 @@ across a width sweep from 6 to 120 plus wide characters (`render/layout`), exact
 golden output at fixed widths (`render/render`), and the install/skip/restore/
 toggle lifecycle plus a config-driven price (`extension`). The turn separator
 is covered by its pure formatting (`separator/format`) and its
-register/append/render/disable lifecycle (`separator/register`).
+register/append/render/disable lifecycle (`separator/register`). The picker is
+covered by the pure helpers (`picker/resources`), the toggle transforms
+(`picker/toggle`), discovery with an injected factory (`picker/discovery`), the
+runtime state machine (`picker/runtime`), the screen's rendering and key
+handling (`picker/tui`), and the command through the bytefly factory
+(`picker/commands`).

@@ -17,11 +17,11 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../lib/format.ts";
-import { fitRows, formatRange, ListCursor, navIntent, selectionMarker, wheelDelta } from "../../lib/list-cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { fitRows, formatRange, ListCursor, navIntent, selectionMarker, wheelDelta } from "../../../lib/list-cursor.ts";
+import { screenHeader, screenHint, type ViewportRowsSource } from "../../../lib/tui.ts";
 import { buildEntries, firstSelectable, nextSelectable } from "./resources.ts";
-import type { ExtensionsManagerRuntime as Runtime } from "./runtime.ts";
+import type { ExtensionsPickerRuntime as Runtime } from "./runtime.ts";
 import type { Entry } from "./types.ts";
 
 /** Rows the screen shows when the terminal height is unknown. */

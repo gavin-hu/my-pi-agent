@@ -8,10 +8,10 @@
  */
 
 import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../../lib/rails.ts";
+import { withRailsSuppressed } from "../../../lib/rails.ts";
 import { discoverExtensions, type DiscoveryDeps } from "./discovery.ts";
 import { formatListing } from "./resources.ts";
-import { createExtensionsManagerRuntime } from "./runtime.ts";
+import { createExtensionsPickerRuntime } from "./runtime.ts";
 import { ExtensionsListComponent } from "./tui.ts";
 import type { Discovery } from "./types.ts";
 
@@ -20,7 +20,7 @@ export interface CommandDeps {
 	discover?: (deps: DiscoveryDeps) => Promise<Awaited<ReturnType<typeof discoverExtensions>>>;
 }
 
-export function registerCommands(pi: ExtensionAPI, deps: CommandDeps = {}): void {
+export function registerExtensionsCommand(pi: ExtensionAPI, deps: CommandDeps = {}): void {
 	const discover = deps.discover ?? discoverExtensions;
 
 	pi.registerCommand("extensions", {
@@ -35,7 +35,7 @@ export function registerCommands(pi: ExtensionAPI, deps: CommandDeps = {}): void
 				ctx.ui.notify(`Could not list extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
 				return;
 			}
-			const runtime = createExtensionsManagerRuntime({
+			const runtime = createExtensionsPickerRuntime({
 				discovery,
 				cwd,
 				agentDir,

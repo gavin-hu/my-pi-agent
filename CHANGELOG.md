@@ -25,6 +25,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   thinking level on line 2; `/bytefly [status]` toggles it. The display name,
   command, extension directory, and config file are all `bytefly` now, and a
   legacy `chrome.json` is migrated to `bytefly.json` on load.
+- `bytefly`: absorbs the `/extensions` picker, formerly the
+  `extension-picker` extension. `/extensions` lists every resolved Pi
+  extension across all configured packages and enables or disables one (Global
+  or Project settings) by writing `settings.json`; changes apply on reload. The
+  footer, turn rule, and picker now share one disable switch
+  (`PI_DISABLED_EXTENSIONS=bytefly`), and `bytefly` is omitted from its own
+  list.
 
 - `goal`: a bare `/goal` with no goal set shows the command usage instead of
   only `No goal set.`, and `/goal help` (or `-h` / `--help`) shows it at any
@@ -96,6 +103,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   separators recorded as `turn-separator` no longer render, and
   `PI_DISABLED_EXTENSIONS=turn-separator` no longer suppresses the rule; use
   `bytefly` instead.
+- `extension-picker`: absorbed into `bytefly`, which now owns the
+  `/extensions` command and the picker's discovery, toggle, and dock screen.
+  The retired `PI_DISABLED_EXTENSIONS=extension-picker` name no longer has an
+  effect; use `bytefly`, `/bytefly`, or `pi config`.
 
 ### Fixed
 
@@ -125,8 +136,8 @@ rendering, so model-authored control characters cannot reach the terminal.
   consistently with the expanded view.
 - `doctor`: a disabled extension shows a neutral `∅` instead of a green check,
   and a degraded row's summary is colored `warning` to match its glyph.
-- `extension-picker`: the dirty line reads `Saved · reload to apply`, since each
-  toggle is already persisted and only a reload is pending.
+- `bytefly`: the picker's dirty line reads `Saved · reload to apply`, since
+  each toggle is already persisted and only a reload is pending.
 - `bytefly`: `/bytefly status` reports `on`/`off` instead of `footer`/`disabled`.
 - `rewind`: the list no longer over-reserves a row, unselected rows use `muted`
   so the code-snapshot marker reads, and the hint names the navigation keys.

@@ -267,10 +267,12 @@ check("serve command registered", !!serveCommand);
 if (serveCommand) await serveCommand.handler("status", runner.createCommandContext());
 check("serve status runs without starting a server", !!serveCommand);
 
-// bytefly loads headlessly and registers its toggle command and the separator
-// entry renderer; it installs no tools, the retired turn-separator type is no
-// longer registered, and separators are only appended in interactive sessions.
+// bytefly loads headlessly and registers its toggle command, the /extensions
+// picker command, and the separator entry renderer; it installs no tools, the
+// retired turn-separator type is no longer registered, and separators are only
+// appended in interactive sessions.
 check("bytefly command registered", !!runner.getCommand("bytefly"));
+check("bytefly /extensions command registered", !!runner.getCommand("extensions"));
 check("retired turn-separator renderer is gone", runner.getEntryRenderer("turn-separator") === undefined);
 
 const separatorRenderer = runner.getEntryRenderer("bytefly-separator") as

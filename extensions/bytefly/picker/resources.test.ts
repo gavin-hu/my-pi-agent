@@ -11,7 +11,7 @@ import {
 	isSelf,
 	nextSelectable,
 } from "./resources.ts";
-import { makeItem } from "../../test/helpers/fixtures/extension-picker.ts";
+import { makeItem } from "../../../test/helpers/fixtures/picker.ts";
 import type { ResourceItem } from "./types.ts";
 
 const packageItem = (path: string): ResourceItem =>
@@ -38,8 +38,8 @@ describe("buildEntries", () => {
 		expect(getDisplayName(item)).toBe("foo/index.ts");
 	});
 
-	test("recognises this extension's own entrypoint", () => {
-		expect(isSelf(makeItem({ path: "/pkg/extensions/extension-picker/index.ts" }))).toBe(true);
+	test("recognises the picker host's own entrypoint", () => {
+		expect(isSelf(makeItem({ path: "/pkg/extensions/bytefly/index.ts" }))).toBe(true);
 		expect(isSelf(makeItem({ path: "/pkg/extensions/todo/index.ts" }))).toBe(false);
 	});
 

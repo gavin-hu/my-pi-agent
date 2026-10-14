@@ -1,10 +1,12 @@
 /**
- * bytefly — a two-line, width-adaptive TUI footer.
+ * bytefly — the package's terminal chrome: a two-line, width-adaptive TUI
+ * footer, the transcript turn rule, and the `/extensions` picker.
  *
  * The footer is priced from DeepSeek's published rates by default and from
  * `bytefly.json` otherwise. Pi's own header is left untouched.
  *
- * The footer is installed only in interactive (`tui`) sessions and toggled with
+ * The footer and the turn rule are installed only in interactive (`tui`)
+ * sessions; the picker prints a listing elsewhere. The footer is toggled with
  * `/bytefly [status]`.
  *
  * Load with:  pi --extension ./extensions/bytefly
@@ -15,16 +17,27 @@ import { homedir } from "node:os";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { createSnapshotReader } from "./collect/snapshot.ts";
 import { loadByteflyConfig } from "./config.ts";
+import { type CommandDeps, registerExtensionsCommand } from "./picker/commands.ts";
 import { createFooter } from "./render/footer.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
 
-export default function bytefly(pi: ExtensionAPI): void {
+/** Host seams, injected by tests. */
+export interface ByteflyDeps {
+	/** Seams for the `/extensions` picker, which shares this factory. */
+	extensions?: CommandDeps;
+}
+
+export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void {
 	if (!isExtensionEnabled("bytefly")) return;
 	let enabled = true;
 
 	// The transcript turn rule is a separate surface with its own renderer and
 	// listener; it is unconditional while bytefly loads.
 	registerTurnSeparator(pi);
+
+	// The `/extensions` picker is a command-only surface: in a terminal it opens
+	// a dock screen, elsewhere it prints the same list.
+	registerExtensionsCommand(pi, deps.extensions);
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;

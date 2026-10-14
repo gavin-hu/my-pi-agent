@@ -70,7 +70,6 @@
       "./extensions/memory/index.ts",
       "./extensions/wechat/index.ts",
       "./extensions/bytefly/index.ts",
-      "./extensions/extension-picker/index.ts",
       "./extensions/doctor/index.ts"
     ],
     "themes": [

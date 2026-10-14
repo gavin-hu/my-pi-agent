@@ -121,10 +121,14 @@ export function getGroupLabel(metadata: PathMetadata, agentDir: string): string 
 	return metadata.scope === "user" ? "User settings" : "Project settings";
 }
 
-/** Directory name of this extension, excluded from its own list. */
-const SELF_EXTENSION_DIR = "extension-picker";
+/**
+ * Directory name of the host extension, excluded from its own list. The picker
+ * lives in `bytefly`, so `bytefly` is the one entry it does not list: the tool
+ * that manages the list is never a row.
+ */
+const SELF_EXTENSION_DIR = "bytefly";
 
-/** Whether `item` is this extension's own entrypoint. */
+/** Whether `item` is the picker host's own entrypoint. */
 export function isSelf(item: ResourceItem): boolean {
 	return basename(dirname(item.path)) === SELF_EXTENSION_DIR;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createExtensionsManagerRuntime } from "./runtime.ts";
-import { makeDiscovery, makeItem, makeStore } from "../../test/helpers/fixtures/extension-picker.ts";
+import { createExtensionsPickerRuntime } from "./runtime.ts";
+import { makeDiscovery, makeItem, makeStore } from "../../../test/helpers/fixtures/picker.ts";
 
 const topLevel = (path: string) => makeItem({ path, metadata: { source: "auto", origin: "top-level", scope: "user" } });
 
@@ -14,7 +14,7 @@ describe("runtime toggling", () => {
 	test("writes a top-level global disable pattern and flips the item", async () => {
 		const store = makeStore({ global: { extensions: [] } });
 		const { discovery } = makeDiscovery({ global: [topLevel("/agent/extensions/a.ts")], globalStore: store });
-		const runtime = createExtensionsManagerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		const item = runtime.items()[0];
 		await runtime.toggle(item);
@@ -29,7 +29,7 @@ describe("runtime toggling", () => {
 	test("writes a package filter through setPackages", async () => {
 		const store = makeStore({ packages: ["npm:pkg"] });
 		const { discovery } = makeDiscovery({ global: [packageItem("/pkg/extensions/b.ts")], globalStore: store });
-		const runtime = createExtensionsManagerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		await runtime.toggle(runtime.items()[0]);
 
@@ -41,7 +41,7 @@ describe("runtime toggling", () => {
 		store.failFlush(new Error("disk full"));
 		const errors: string[] = [];
 		const { discovery } = makeDiscovery({ global: [topLevel("/agent/extensions/a.ts")], globalStore: store });
-		const runtime = createExtensionsManagerRuntime({
+		const runtime = createExtensionsPickerRuntime({
 			discovery,
 			cwd: "/proj",
 			agentDir: "/agent",
@@ -64,7 +64,7 @@ describe("runtime scope", () => {
 			effective: [topLevel("/proj/extensions/p.ts")],
 			trusted: true,
 		});
-		const runtime = createExtensionsManagerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		expect(runtime.items()[0].path).toBe("/agent/extensions/a.ts");
 		runtime.setScope("project");
@@ -73,7 +73,7 @@ describe("runtime scope", () => {
 
 	test("refuses the project scope when the project is untrusted", () => {
 		const { discovery } = makeDiscovery({ global: [topLevel("/agent/extensions/a.ts")], trusted: false });
-		const runtime = createExtensionsManagerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		runtime.setScope("project");
 

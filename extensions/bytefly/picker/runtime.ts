@@ -1,5 +1,5 @@
 /**
- * Stateful core of the extensions manager, independent of rendering.
+ * Stateful core of the extensions picker, independent of rendering.
  *
  * Owns the active write scope and the live copies of both resource views,
  * computes toggles through the pure `toggle.ts` helpers, and persists them
@@ -18,7 +18,7 @@ export interface RuntimeDeps {
 	onError?: (message: string) => void;
 }
 
-export interface ExtensionsManagerRuntime {
+export interface ExtensionsPickerRuntime {
 	scope(): WriteScope;
 	setScope(scope: WriteScope): void;
 	items(): ResourceItem[];
@@ -34,7 +34,7 @@ function storeFor(discovery: Discovery, scope: WriteScope): SettingsStore {
 	return scope === "global" ? discovery.stores.global : discovery.stores.project;
 }
 
-export function createExtensionsManagerRuntime(deps: RuntimeDeps): ExtensionsManagerRuntime {
+export function createExtensionsPickerRuntime(deps: RuntimeDeps): ExtensionsPickerRuntime {
 	const { discovery, cwd, agentDir } = deps;
 	let scope: WriteScope = "global";
 	let dirty = false;

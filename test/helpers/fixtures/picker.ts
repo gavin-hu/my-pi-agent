@@ -1,5 +1,5 @@
 /**
- * Builders for the extension-picker suite.
+ * Builders for the bytefly extensions-picker suite.
  *
  * `makeItem` produces a resolved extension resource; `makeStore` is an
  * in-memory `SettingsStore` that records writes; `makeDiscovery` pairs them
@@ -7,7 +7,7 @@
  */
 
 import type { PackageSource, PathMetadata } from "@earendil-works/pi-coding-agent";
-import type { Discovery, ResourceItem, Settings, SettingsStore } from "../../../extensions/extension-picker/types.ts";
+import type { Discovery, ResourceItem, Settings, SettingsStore } from "../../../extensions/bytefly/picker/types.ts";
 
 export interface ItemOverrides {
 	path?: string;
@@ -57,7 +57,6 @@ export const PACKAGE_EXTENSIONS = [
 	"memory",
 	"wechat",
 	"bytefly",
-	"extension-picker",
 	"doctor",
 ] as const;
 

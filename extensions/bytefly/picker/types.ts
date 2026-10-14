@@ -1,5 +1,5 @@
 /**
- * Shared types and host seams for the extensions manager.
+ * Shared types and host seams for the extensions picker.
  *
  * The manager only lists and toggles the `extensions` resource type. Every
  * host capability it needs is behind a small interface here so the pure logic

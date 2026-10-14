@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { createExtensionsManagerRuntime } from "./runtime.ts";
+import { createExtensionsPickerRuntime } from "./runtime.ts";
 import { ExtensionsListComponent } from "./tui.ts";
 import {
 	DEFAULT_ENABLED_EXTENSIONS,
@@ -9,8 +9,8 @@ import {
 	makeStore,
 	PACKAGE_EXTENSIONS,
 	packageExtension,
-} from "../../test/helpers/fixtures/extension-picker.ts";
-import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+} from "../../../test/helpers/fixtures/picker.ts";
+import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 
 /** Let a fire-and-forget toggle settle. */
 const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -36,7 +36,7 @@ function build(options: {
 		globalStore: store,
 		trusted: options.trusted ?? true,
 	});
-	const runtime = createExtensionsManagerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+	const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 	let closed = 0;
 	const notices: string[] = [];
 	const component = new ExtensionsListComponent(
@@ -172,7 +172,7 @@ describe("ExtensionsListComponent styling and default profile", () => {
 
 	test("renders the default profile with only its enabled set checked", () => {
 		const enabled = new Set<string>(DEFAULT_ENABLED_EXTENSIONS);
-		const items = PACKAGE_EXTENSIONS.filter((name) => name !== "extension-picker").map((name) =>
+		const items = PACKAGE_EXTENSIONS.filter((name) => name !== "bytefly").map((name) =>
 			packageExtension(name, enabled.has(name)),
 		);
 		const { component } = build({ items });
@@ -180,7 +180,7 @@ describe("ExtensionsListComponent styling and default profile", () => {
 		const lines = component.render(60);
 		const text = lines.join("\n");
 
-		expect(text).toContain("[x] bytefly/index.ts");
+		expect(text).toContain("[x] plan/index.ts");
 		expect(text).toContain("[ ] rewind/index.ts");
 		expect(lines.every((line) => visibleWidth(line) <= 60)).toBe(true);
 	});

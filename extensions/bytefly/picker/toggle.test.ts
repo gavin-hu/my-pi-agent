@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { nextGlobalPackages, nextProjectPackages, nextProjectTopLevelList, nextTopLevelList } from "./toggle.ts";
-import { makeItem } from "../../test/helpers/fixtures/extension-picker.ts";
+import { makeItem } from "../../../test/helpers/fixtures/picker.ts";
 
 describe("nextTopLevelList", () => {
 	test("replaces an existing pattern of either sign and appends the new one", () => {

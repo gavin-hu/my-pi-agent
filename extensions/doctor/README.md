@@ -60,9 +60,8 @@ hint shows `refreshing…` and a second `r` is ignored, so probes cannot stack.
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
-| bytefly | — | TUI only |
+| bytefly | — | TUI only for the footer and turn rule; the picker's project scope needs a trusted project |
 | ask-user-question | — | needs an interactive UI |
-| extension-picker | — | project scope needs a trusted project |
 
 Every extension that reads a config file also gets the malformed-JSON check.
 
@@ -128,8 +127,8 @@ override global ones.
 - **Declarations live in `lib/`, probes live in the extension, presentation is a
   third layer.** An extension cannot import another extension's modules, so the
   only legal home for a shared prerequisite table is `lib/requirements.ts`. When
-  another extension needs the same answer (an `extension-picker` readiness
-  column, say), it imports the same table rather than re-deriving it.
+  another extension needs the same answer (a picker readiness column, say), it
+  imports the same table rather than re-deriving it.
 - **The install hint has one home.** `document` and `web-access` format their
   tool errors from the same entries `doctor` prints, so a user reads the same
   command whether a tool failed or the report named it.
