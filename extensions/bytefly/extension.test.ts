@@ -109,8 +109,11 @@ describe("bytefly extension", () => {
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		const component = headers.at(-1)({ requestRender: () => {} }, fakeTheme);
+		const lines = component.render(80);
 
-		expect(component.render(80).join("\n")).toContain("Pi v");
+		expect(lines).toHaveLength(6);
+		expect(lines[0]).toContain("Pi v");
+		expect(lines[1]).toContain("enhanced by bytefly");
 	});
 
 	test("restores the built-in footer on shutdown", async () => {

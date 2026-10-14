@@ -9,6 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isAppleTerminalSession } from "@earendil-works/pi-tui";
 import { createHeader, type HeaderView } from "./component.ts";
 import { HEADER_CONFIG } from "./config.ts";
 
@@ -24,7 +25,10 @@ export interface HeaderSurface {
 
 /** Register the install/restore lifecycle for the custom header. */
 export function registerHeader(pi: ExtensionAPI): HeaderSurface {
-	const view = (): HeaderView => ({ mark: HEADER_CONFIG.mark, showVersion: HEADER_CONFIG.showVersion });
+	// Half blocks misalign in Apple Terminal, so the mark falls back to a wordmark
+	// there, mirroring Pi's own built-in header.
+	const halfBlocks = !isAppleTerminalSession();
+	const view = (): HeaderView => ({ showVersion: HEADER_CONFIG.showVersion, halfBlocks });
 	let enabled = true;
 
 	const apply = (ctx: ExtensionContext): void => {

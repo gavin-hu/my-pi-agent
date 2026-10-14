@@ -86,10 +86,18 @@ export function expandKey(theme: Theme): string {
 }
 
 /**
+ * Pi's key-hint format: the key dim, its description muted. An unbound key
+ * (`""`) yields `""`, so a hint never prints a stray description.
+ */
+export function keyHintText(theme: Theme, key: string, description: string): string {
+	return key ? theme.fg("dim", key) + theme.fg("muted", ` ${description}`) : "";
+}
+
+/**
  * The built-in-style expand affordance: a muted `(ctrl+o to expand)` with the
  * key in dim. Degrades to `(to expand)` when the binding is unknown.
  */
 export function expandHint(theme: Theme): string {
-	const key = expandKey(theme);
-	return theme.fg("muted", "(") + (key ? `${key}${theme.fg("muted", " ")}` : "") + theme.fg("muted", "to expand)");
+	const hint = keyHintText(theme, keyText(EXPAND_KEYBINDING), "to expand)");
+	return theme.fg("muted", "(") + (hint || theme.fg("muted", "to expand)"));
 }

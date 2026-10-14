@@ -7,8 +7,8 @@ import {
 	TUI_KEYBINDINGS,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
-import { fakeTheme } from "../test/helpers/fakes.ts";
-import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS, expandHint, expandKey } from "./ui.ts";
+import { coloringTheme, fakeTheme } from "../test/helpers/fakes.ts";
+import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS, expandHint, expandKey, keyHintText } from "./ui.ts";
 
 describe("GLYPHS", () => {
 	test("every glyph is exactly one visible column", () => {
@@ -76,5 +76,15 @@ describe("expandKey / expandHint", () => {
 		} finally {
 			setKeybindings(previous);
 		}
+	});
+});
+
+describe("keyHintText", () => {
+	test("renders the key dim and the description muted", () => {
+		expect(keyHintText(coloringTheme, "escape", "to interrupt")).toBe("[dim]escape[muted] to interrupt");
+	});
+
+	test("renders nothing for an unbound key", () => {
+		expect(keyHintText(fakeTheme, "", "to interrupt")).toBe("");
 	});
 });

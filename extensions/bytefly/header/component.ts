@@ -1,40 +1,48 @@
 /**
  * The custom header component installed with `ctx.ui.setHeader()`.
  *
- * It reproduces Pi's built-in header identity — the brand mark and the version
- * — and draws the mark from the active theme's tokens rather than the fixed
- * brand palette, so the header follows the bytefly themes. Themed strings are
- * built in `render` from a live theme getter, so a theme change needs no
- * rebuild, and every line is truncated to the width it is given.
+ * It draws bytefly's nameplate: a two-tone mark beside the agent identity (Pi
+ * and its version) and the chrome identity (the tagline, bytefly, and its
+ * version), a `─` rule, and a grouped help block. The mark is theme-colored and
+ * falls back to a wordmark where half blocks do not render, the help keys are
+ * resolved live from Pi's keybindings, and every line is truncated to the width
+ * it is given.
  */
 
-import { VERSION, type Theme } from "@earendil-works/pi-coding-agent";
+import { keyText, type Theme, VERSION } from "@earendil-works/pi-coding-agent";
 import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { HEADER_CONFIG } from "./config.ts";
+import { screenHint } from "../../../lib/tui.ts";
+import { keyHintText } from "../../../lib/ui.ts";
+import { HEADER_CONFIG, type HelpEntry } from "./config.ts";
 
-/** How the header's brand mark is drawn. */
-export type HeaderMark = "wordmark" | "logo" | "none";
-
-/** The header's shape. */
+/** The header's shape, resolved once per apply so `render` stays cheap. */
 export interface HeaderView {
-	mark: HeaderMark;
+	/** Print Pi's version on the agent line. */
 	showVersion: boolean;
+	/** Whether the terminal renders half blocks; false draws the wordmark instead. */
+	halfBlocks: boolean;
 }
 
-/** A two-line half-block mark, themed from the configured tokens. */
-function logoLines(theme: Theme): string[] {
+/** The mark block is four columns on both rows, so the identity column aligns. */
+const MARK_WIDTH = 4;
+
+/** Pad a themed mark line to the block width with plain spaces. */
+function markBlock(line: string): string {
+	return line + " ".repeat(Math.max(0, MARK_WIDTH - visibleWidth(line)));
+}
+
+/** The two mark lines: the half-block logo, or the wordmark where it will not render. */
+function markLines(theme: Theme, halfBlocks: boolean): [string, string] {
 	const { markColor, markAccent } = HEADER_CONFIG;
-	return [`${theme.fg(markColor, "█▀█")} `, `${theme.fg(markColor, "█▀")} ${theme.fg(markAccent, "█")}`];
+	if (halfBlocks) return [theme.fg(markColor, "█▀█"), theme.fg(markAccent, "█▀ █")];
+	return [theme.fg(markColor, "P") + theme.fg(markAccent, "i"), ""];
 }
 
-/** The logo reduced to two letters, in the same two tones. */
-function wordmark(theme: Theme): string {
-	return theme.fg(HEADER_CONFIG.markColor, "P") + theme.fg(HEADER_CONFIG.markAccent, "i");
-}
-
-/** Left padding, clamped so a narrow terminal still has one usable column. */
-function padding(width: number): string {
-	return " ".repeat(Math.min(HEADER_CONFIG.padX, Math.max(0, width - 1)));
+/** One help entry split into the text to print and its description. */
+function helpParts(entry: HelpEntry): { key: string; description: string } {
+	return "binding" in entry
+		? { key: keyText(entry.binding), description: entry.description }
+		: { key: entry.raw, description: entry.description };
 }
 
 /** The themed header component. */
@@ -53,26 +61,48 @@ export class ByteflyHeader implements Component {
 		const w = Math.max(1, width);
 		const theme = this.getTheme();
 		const view = this.view();
-		const pad = padding(w);
-		const version = view.showVersion && this.version ? theme.fg(HEADER_CONFIG.versionColor, `v${this.version}`) : "";
+		const { padX, nameColor, versionColor, chromeTagline, chromeName, chromeVersion, help } = HEADER_CONFIG;
+		const pad = " ".repeat(Math.min(padX, Math.max(0, w - 1)));
+		const [markTop, markBottom] = markLines(theme, view.halfBlocks);
 
-		if (view.mark === "logo") {
-			const [top, bottom] = logoLines(theme);
-			// The version rides the mark's first line, so the block reads as one header.
-			const head = version ? `${top}${version}` : top;
-			const lines = [truncateToWidth(`${pad}${head}`, w, ""), truncateToWidth(`${pad}${bottom}`, w, "")];
-			if (version && visibleWidth(`${pad}${top}${version}`) > w) {
-				// Shed the version before clipping the mark itself.
-				lines[0] = truncateToWidth(`${pad}${top}`, w, "");
-			}
-			return lines;
-		}
+		const agent =
+			view.showVersion && this.version
+				? `${theme.fg(nameColor, HEADER_CONFIG.appName)} ${theme.fg(versionColor, `v${this.version}`)}`
+				: theme.fg(nameColor, HEADER_CONFIG.appName);
+		const chrome = `${theme.fg(versionColor, chromeTagline)} ${theme.fg(nameColor, chromeName)}`;
+		const chromeVersioned = chromeVersion ? `${chrome} ${theme.fg(versionColor, `v${chromeVersion}`)}` : chrome;
 
-		const mark = view.mark === "none" ? "" : wordmark(theme);
-		let text = mark && version ? `${mark}${HEADER_CONFIG.gap}${version}` : mark || version;
-		// Shed the version before touching the mark.
-		if (mark && visibleWidth(`${pad}${text}`) > w) text = mark;
-		return [truncateToWidth(`${pad}${text}`, w, "")];
+		// The identity rows shed as one block: chrome version, chrome line, agent.
+		const states: Array<readonly [string, string]> = [
+			[agent, chromeVersioned],
+			[agent, chrome],
+			[agent, ""],
+			["", ""],
+		];
+		const lineWidth = (cell: string): number => pad.length + MARK_WIDTH + (cell ? 1 + visibleWidth(cell) : 0);
+		const [agentCell, chromeCell] = states.find(([a, c]) => Math.max(lineWidth(a), lineWidth(c)) <= w) ?? ["", ""];
+
+		return [
+			this.identityLine(pad, markTop, agentCell, w),
+			this.identityLine(pad, markBottom, chromeCell, w),
+			`${pad}${theme.fg("borderMuted", "─".repeat(Math.max(0, w - pad.length)))}`,
+			...help.map((row) => this.helpLine(theme, w, row)),
+		];
+	}
+
+	/** A nameplate row: the padded mark, a gutter, then the identity cell if it survived. */
+	private identityLine(pad: string, mark: string, cell: string, width: number): string {
+		const line = cell ? `${pad}${markBlock(mark)} ${cell}` : `${pad}${markBlock(mark)}`;
+		return truncateToWidth(line.replace(/ +$/, ""), width, "");
+	}
+
+	/** One help group: whole entries only, dropped as the width runs out. */
+	private helpLine(theme: Theme, width: number, row: readonly HelpEntry[]): string {
+		const hints = row
+			.map(helpParts)
+			.filter((part) => part.key)
+			.map((part) => keyHintText(theme, part.key, part.description));
+		return hints.length > 0 ? screenHint(theme, width, hints) : "";
 	}
 }
 

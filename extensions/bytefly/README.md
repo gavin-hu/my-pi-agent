@@ -21,19 +21,28 @@ pi install ./                         # install the package
 The extension owns five surfaces: the startup header, the footer, the rule
 between completed turns, the `/extensions` picker, and the `/doctor` report.
 
-**Header.** Pi's brand mark and version, drawn from the active theme's tokens
-(`accent` and `warning`, plus `dim` for the version) instead of the fixed brand
-palette, so the mark follows `bytefly-dark` and `bytefly-light`. The content is
-Pi's own — only the styling and spacing change, tuned in
-[`header/config.ts`](./header/config.ts) — and it is installed only in
-interactive (`tui`) sessions.
+**Header.** A nameplate: a two-tone half-block mark from the active theme's
+`accent` / `warning` tokens, the agent identity (`Pi` and its version), the
+chrome identity (`enhanced by bytefly` and the package version), a `─` rule, and
+a grouped help block. The help keys resolve live from Pi's keybindings, so a
+rebound key shows the user's chord; the identity and help text are `muted`/`dim`
+so the mark keeps the eye. It is installed only in interactive (`tui`) sessions,
+and on terminals that cannot render half blocks the mark falls back to a
+two-tone `Pi` wordmark.
 
 ```
- Pi v1.2.0
+ █▀█  Pi v1.2.0
+ █▀ █ enhanced by bytefly v0.5.1
+ ─────────────────────────────────────────────────
+  escape to interrupt · ctrl+c to clear · ctrl+d to exit
+  ctrl+o more · ctrl+t to think · ctrl+l models · ctrl+g editor
+  / commands · ! bash · /bytefly chrome · /doctor checks
 ```
 
-(The default is the two-tone `Pi` wordmark; set `mark: "logo"` for the two-line
-half-block logo, or `mark: "none"` to show only the version.)
+As the terminal narrows, the identity sheds the chrome version, then the chrome
+line, then the agent name, and the help rows drop whole keys, so nothing wraps or
+clips mid-word. The mark, tokens, identity, and grouped help are tuned in
+[`header/config.ts`](./header/config.ts).
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -139,9 +148,11 @@ when there is no UI.
 
 ## Configuration
 
-The header's own styling and layout are tuned in [`header/config.ts`](./header/config.ts) —
-the mark and version tokens, and the padding and gap. The footer's content and
-layout are tuned in [`footer/config.ts`](./footer/config.ts) — thresholds, gauge
+The header is tuned in [`header/config.ts`](./header/config.ts) — the mark and
+identity theme tokens, the padding and tagline, and the grouped help entries
+(each naming a Pi keybinding resolved live or a raw command prefix). The footer's
+content and layout are tuned in [`footer/config.ts`](./footer/config.ts) —
+thresholds, gauge
 glyphs and widths, separators, icons, and status keys. The turn separator has no
 JSON either: its glyph, label prefix, padding, and colors are tuned in
 [`separator/config.ts`](./separator/config.ts). The price
@@ -471,7 +482,7 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and version are drawn from the active theme's tokens. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. |
 | Command | `/bytefly [header|footer|status]` toggles the header and footer together (no argument) or one surface, and reports their state (tui only; a no-op elsewhere), with Tab completion. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
@@ -489,12 +500,12 @@ rather than showing a wrong value.
 
 ## Design notes
 
-- **The header keeps Pi's content and only recolors it.** Pi's built-in brand
-  colors are fixed, so the mark ignores the active theme; bytefly's header
-  reproduces the mark and version and draws them from `accent`/`warning`/`dim`,
-  which is what makes the optional `bytefly-dark` and `bytefly-light` themes
-  read as one system. It adds no session or model data — that is the footer's
-  job.
+- **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
+  fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
+  mark from `accent`/`warning` and pairs it with the agent identity, the chrome
+  identity, and a grouped help block. It adds no session or model data — that is
+  the footer's job — and it stays a fixed four-plus rows so the startup
+  transcript never reflows.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".
@@ -594,8 +605,8 @@ price calculation), `separator/`, `picker/`, and `doctor/`.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Composition root: the disable guard and the five `register*` calls. |
-| `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark, theme tokens, padding, gap. |
-| `header/component.ts` | `ByteflyHeader`: the themed brand-mark and version component, plus its factory. |
+| `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity tokens, padding, tagline, and the grouped help entries. |
+| `header/component.ts` | `ByteflyHeader`: the mark, identity rows, rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header, exposes its enabled state, and owns its session lifecycle. |
 | `footer/register.ts` | Installs/restores the footer, registers `/bytefly [header|footer|status]`, and owns its session lifecycle. |
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |

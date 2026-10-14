@@ -85,6 +85,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the startup header is a nameplate instead of a recolor of Pi's.
+  It draws a two-tone half-block mark from the `accent` / `warning` tokens beside
+  the agent identity (`Pi vX.Y.Z`) and the chrome identity
+  (`enhanced by bytefly vX.Y.Z`, read from the package manifest), then a `─` rule
+  and a grouped help block whose keys resolve live from Pi's keybindings (so a
+  rebound key shows the user's chord). It is a fixed height, sheds the chrome
+  version, the chrome line, then the agent name as the terminal narrows, drops
+  whole help keys rather than clipping one, and falls back to a two-tone `Pi`
+  wordmark on terminals that cannot render half blocks.
+
 - `bytefly`: `/bytefly` now toggles the whole bytefly chrome — the header and
   the footer together — instead of only the footer. `/bytefly header` and
   `/bytefly footer` toggle one surface, `/bytefly status` reports both, and the

@@ -1,12 +1,43 @@
-import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+	getKeybindings,
+	KeybindingsManager,
+	setKeybindings,
+	TUI_KEYBINDINGS,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { ByteflyHeader, createHeader, type HeaderView } from "./component.ts";
+import { HEADER_CONFIG } from "./config.ts";
+
+/** The app keybindings the header resolves, with Pi's default chords. */
+const APP_BINDINGS = {
+	"app.interrupt": { defaultKeys: "escape", description: "Cancel or abort" },
+	"app.clear": { defaultKeys: "ctrl+c", description: "Clear editor" },
+	"app.exit": { defaultKeys: "ctrl+d", description: "Exit when editor is empty" },
+	"app.suspend": { defaultKeys: "ctrl+z", description: "Suspend to background" },
+	"app.tools.expand": { defaultKeys: "ctrl+o", description: "Toggle tool output" },
+	"app.thinking.toggle": { defaultKeys: "ctrl+t", description: "Toggle thinking blocks" },
+	"app.model.select": { defaultKeys: "ctrl+l", description: "Open model selector" },
+	"app.editor.external": { defaultKeys: "ctrl+g", description: "Open external editor" },
+} as const;
+
+/** The full chrome identity on the second row, with the package's own version. */
+const chrome = `enhanced by bytefly v${HEADER_CONFIG.chromeVersion}`;
+
+let previous: ReturnType<typeof getKeybindings>;
+beforeEach(() => {
+	previous = getKeybindings();
+	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
+});
+afterEach(() => {
+	setKeybindings(previous);
+});
 
 /** A view with overrides, so each test states only what it exercises. */
 const view = (overrides: Partial<HeaderView> = {}): HeaderView => ({
-	mark: "wordmark",
 	showVersion: true,
+	halfBlocks: true,
 	...overrides,
 });
 
@@ -19,45 +50,94 @@ function header(viewValue: HeaderView = view(), version = "1.2.0"): ByteflyHeade
 }
 
 describe("ByteflyHeader", () => {
-	test("renders the wordmark and version", () => {
-		expect(header().render(80)).toEqual([" Pi v1.2.0"]);
+	test("renders the mark, identity, rule, and grouped help", () => {
+		expect(header().render(80)).toEqual([
+			" █▀█  Pi v1.2.0",
+			` █▀ █ ${chrome}`,
+			` ${"─".repeat(79)}`,
+			"  escape to interrupt · ctrl+c to clear · ctrl+d to exit · ctrl+z to suspend",
+			"  ctrl+o more · ctrl+t to think · ctrl+l models · ctrl+g editor",
+			"  / commands · ! bash · /bytefly chrome · /doctor checks",
+		]);
 	});
 
-	test("renders only the version when the mark is none", () => {
-		expect(header(view({ mark: "none" })).render(80)).toEqual([" v1.2.0"]);
+	test("starts both identity cells at the same column", () => {
+		const lines = header().render(80);
+		expect(lines[0]?.indexOf("Pi v1.2.0")).toBe(lines[1]?.indexOf("enhanced by"));
 	});
 
-	test("omits the version when disabled", () => {
-		expect(header(view({ showVersion: false })).render(80)).toEqual([" Pi"]);
+	test("drops the Pi version when showVersion is off", () => {
+		expect(header(view({ showVersion: false })).render(80)[0]).toBe(" █▀█  Pi");
 	});
 
-	test("renders the two-line mark with the version on its first line", () => {
-		expect(header(view({ mark: "logo" })).render(80)).toEqual([" █▀█ v1.2.0", " █▀ █"]);
+	test("falls back to the wordmark when half blocks do not render", () => {
+		const lines = header(view({ halfBlocks: false })).render(80);
+
+		expect(lines[0]).toContain("Pi");
+		expect(lines[0]).not.toContain("█");
+		expect(lines[0]?.indexOf("Pi v1.2.0")).toBe(6);
+		expect(lines[1]).toContain(chrome);
+		expect(lines[1]?.indexOf("enhanced by")).toBe(6);
 	});
 
-	test("sheds the version before truncating the mark", () => {
-		expect(header().render(5)).toEqual([" Pi"]);
-		expect(header(view({ mark: "logo" })).render(5)).toEqual([" █▀█ ", " █▀ █"]);
+	test("omits a help row whose keybindings are all unbound", () => {
+		setKeybindings(new KeybindingsManager(TUI_KEYBINDINGS));
+		const lines = header().render(80);
+
+		expect(lines[3]).toBe("");
+		expect(lines[4]).toBe("");
+		expect(lines[5]).toBe("  / commands · ! bash · /bytefly chrome · /doctor checks");
 	});
 
-	test("every line fits the requested width", () => {
-		for (const width of [1, 2, 4, 8, 20, 40, 80]) {
-			for (const mark of ["wordmark", "logo", "none"] as const) {
-				for (const line of header(view({ mark })).render(width)) {
+	test("resolves a chord live, so a rebound key shows up", () => {
+		setKeybindings(
+			new KeybindingsManager({
+				...TUI_KEYBINDINGS,
+				...APP_BINDINGS,
+				"app.exit": { defaultKeys: "ctrl+x", description: "Exit when editor is empty" },
+			}),
+		);
+		const line = header().render(80)[3] ?? "";
+
+		expect(line).toContain("ctrl+x to exit");
+		expect(line).not.toContain("ctrl+d");
+	});
+
+	test("sheds the chrome version, then the chrome line, then the agent", () => {
+		expect(header().render(25)[1]).toBe(" █▀ █ enhanced by bytefly");
+		expect(header().render(20)[0]).toBe(" █▀█  Pi v1.2.0");
+		expect(header().render(20)[1]).toBe(" █▀ █");
+		expect(header().render(10)[0]).toBe(" █▀█");
+		expect(header().render(10)[1]).toBe(" █▀ █");
+	});
+
+	test("every line fits the requested width at any size", () => {
+		for (const width of [1, 2, 4, 5, 14, 15, 24, 25, 31, 32, 45, 80]) {
+			for (const halfBlocks of [true, false]) {
+				const lines = header(view({ halfBlocks })).render(width);
+				expect(lines).toHaveLength(6);
+				for (const line of lines) {
 					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 				}
 			}
 		}
 	});
 
-	test("colors the mark and version from the active theme", () => {
-		const component = new ByteflyHeader(
+	test("colors the mark, identity, rule, and help from the active theme", () => {
+		const lines = new ByteflyHeader(
 			() => coloringTheme,
 			() => view(),
 			"1.2.0",
-		);
+		).render(80);
 
-		expect(component.render(80)[0]).toBe(" [accent]P[warning]i [dim]v1.2.0");
+		expect(lines[0]).toContain("[accent]█▀█");
+		expect(lines[0]).toContain("[muted]Pi");
+		expect(lines[0]).toContain("[dim]v1.2.0");
+		expect(lines[1]).toContain("[warning]█▀ █");
+		expect(lines[1]).toContain("[muted]bytefly");
+		expect(lines[2]).toContain("[borderMuted]");
+		expect(lines[3]).toContain("[dim]escape");
+		expect(lines[3]).toContain("[muted] to interrupt");
 	});
 
 	test("reads the live theme on every render", () => {
@@ -68,9 +148,9 @@ describe("ByteflyHeader", () => {
 			"1.2.0",
 		);
 
-		expect(component.render(80)).toEqual([" Pi v1.2.0"]);
+		expect(component.render(80)[0]).toBe(" █▀█  Pi v1.2.0");
 		theme = coloringTheme;
-		expect(component.render(80)[0]).toContain("[accent]P");
+		expect(component.render(80)[0]).toContain("[accent]█▀█");
 	});
 });
 
@@ -82,6 +162,6 @@ describe("bytefly header factory", () => {
 		);
 
 		expect(typeof factory).toBe("function");
-		expect(factory({ requestRender: () => {} } as any, fakeTheme).render(80)).toHaveLength(1);
+		expect(factory({ requestRender: () => {} } as any, fakeTheme).render(80)).toHaveLength(6);
 	});
 });
