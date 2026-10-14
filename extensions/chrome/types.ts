@@ -44,14 +44,6 @@ export interface PeakSchedule {
 	windows: readonly PeakWindow[];
 }
 
-/** Header appearance configuration (`chrome.json` → `header`). */
-export interface HeaderConfig {
-	/** Brand mark: a `Pi` wordmark, a themed block mark, or nothing. */
-	mark: "wordmark" | "logo" | "none";
-	/** Show Pi's version next to the mark. */
-	showVersion: boolean;
-}
-
 /** Everything the price calculation is configured with. */
 export interface ChromeConfig {
 	currency: Currency;
@@ -60,8 +52,6 @@ export interface ChromeConfig {
 	/** Rates keyed by `provider/model`, matched through wildcards. */
 	rates: Readonly<Record<string, ModelRates>>;
 	peak: PeakSchedule;
-	/** Header appearance. */
-	header: HeaderConfig;
 }
 
 /** One usage-bearing session entry, reduced to what pricing needs. */

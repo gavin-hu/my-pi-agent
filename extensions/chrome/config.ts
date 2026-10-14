@@ -13,7 +13,7 @@ import { clampInteger, clampNumber, cleanString, loadConfigFile } from "../../li
 import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
 import { parseWindow } from "./price/schedule.ts";
 import { asRecord } from "./record.ts";
-import type { Currency, HeaderConfig, ModelRates, PeakSchedule, PeakWindow, ChromeConfig } from "./types.ts";
+import type { Currency, ModelRates, PeakSchedule, PeakWindow, ChromeConfig } from "./types.ts";
 
 export const CONFIG = {
 	/** Context percentage thresholds. */
@@ -77,15 +77,11 @@ export const DEFAULT_PEAK: PeakSchedule = {
 /** Rendered-currency default: yuan, the currency `DEFAULT_RATES` is stated in. */
 export const DEFAULT_CURRENCY: Currency = { symbol: "¥", decimals: 2 };
 
-/** Header default: Pi's `Pi` wordmark and version. */
-export const DEFAULT_HEADER: HeaderConfig = { mark: "wordmark", showVersion: true };
-
 export const DEFAULT_CHROME_CONFIG: ChromeConfig = {
 	currency: DEFAULT_CURRENCY,
 	fallbackToRecordedCost: true,
 	rates: DEFAULT_RATES,
 	peak: DEFAULT_PEAK,
-	header: DEFAULT_HEADER,
 };
 
 const MAX_SYMBOL_LENGTH = 4;
@@ -170,18 +166,6 @@ export function normalizeChromeConfig(raw: Record<string, unknown> | undefined, 
 			typeof raw.fallbackToRecordedCost === "boolean" ? raw.fallbackToRecordedCost : base.fallbackToRecordedCost,
 		rates: ratesValue(raw.rates, base.rates),
 		peak: peakValue(raw.peak, base.peak),
-		header: headerValue(raw.header, base.header),
-	};
-}
-
-/** A mark outside the three known values keeps the base mark. */
-function headerValue(raw: unknown, base: HeaderConfig): HeaderConfig {
-	const value = asRecord(raw);
-	if (!value) return base;
-	const mark = value.mark === "wordmark" || value.mark === "logo" || value.mark === "none" ? value.mark : base.mark;
-	return {
-		mark,
-		showVersion: typeof value.showVersion === "boolean" ? value.showVersion : base.showVersion,
 	};
 }
 
