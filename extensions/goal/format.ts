@@ -81,7 +81,8 @@ export function formatGoalNotice(goal: Goal): string {
  */
 export const GOAL_HELP = [
 	"Set a goal with /goal <what you want to accomplish> and start working on it.",
-	"/goal set <prompt> records the goal without starting work; /goal edit changes the current goal.",
+	"/goal raw <prompt> records your words verbatim, without confirming them first.",
+	"/goal set <prompt> records the goal without starting work; /goal edit [<prompt>] changes it.",
 	"/goal done  ·  /goal clear  ·  /goal help",
 ].join("\n");
 

@@ -1,33 +1,39 @@
 /**
- * Host orchestration for the goal clarify step: the nested clarifier call, its
- * cancellable TUI loader, and the confirm/edit dialog.
+ * Host orchestration for the goal comprehension step: the nested clarifier
+ * calls, their cancellable TUI loaders, the in-command questionnaire, and the
+ * confirm/edit dialog.
  *
- * The flow never throws and never half-applies: a failed, timed-out, cancelled,
- * or unusable clarification falls back to the text the user typed, and a
- * dismissed confirm/edit dialog cancels the whole command.
+ * The loop's target is understanding what the user wants. The first call asks
+ * the model whether it understands the goal and, if not, what it needs to know;
+ * the command asks those questions through host dialogs; a second call folds the
+ * answers into the final restatement; the editor lets the user confirm or
+ * correct it. The flow never throws and never half-applies: a failed,
+ * timed-out, cancelled, or unusable comprehension falls back to the text the
+ * user typed, and a dismissed dialog cancels the whole command.
  */
 
 import { BorderedLoader, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { type Clarification, type ClarifyQuestion, parseClarification } from "./clarify-parse.ts";
-import { buildClarifyMessages } from "./clarify-prompt.ts";
+import type { UserMessage } from "@earendil-works/pi-ai";
+import { type Clarification, type ClarifyAnswer, type ClarifyQuestion, parseClarification } from "./clarify-parse.ts";
+import { buildClarifyMessages, buildRefineMessages } from "./clarify-prompt.ts";
 
-/** Bound on the clarifier model call, in milliseconds. */
-export const CLARIFY_TIMEOUT_MS = 30_000;
+/** Bound on each clarifier model call, in milliseconds. */
+const CLARIFY_TIMEOUT_MS = 30_000;
 
 /** The slice of the context the clarify step reads. */
 export type ClarifyContext = Pick<ExtensionContext, "mode" | "ui" | "signal" | "hasUI" | "model" | "modelRegistry">;
 
-/** Loader text shown while the clarifier runs. */
-const LOADER_MESSAGE = "Clarifying goal…";
+/** Loader text shown while the comprehension call runs. */
+const LOADER_MESSAGE = "Understanding goal…";
 
-/** The confirm/edit dialog title, spelling out both exits. */
-const EDITOR_TITLE = "Goal prompt — Enter to accept, Esc to cancel";
+/** Loader text shown while the goal is restated from the answers. */
+const REFINE_LOADER_MESSAGE = "Updating the goal…";
 
-/** What {@link prepareGoalPrompt} decided: use this text, ask before setting, or cancel. */
-export type GoalPromptOutcome =
-	| { action: "use"; text: string }
-	| { action: "ask"; original: string; goal: string; questions: ClarifyQuestion[] }
-	| { action: "cancel" };
+/** The confirm/edit dialog title, reading as a confirmation of understanding. */
+const EDITOR_TITLE = "Confirm the goal — Enter to save, Esc to cancel";
+
+/** What {@link prepareGoalPrompt} decided: use this text, or cancel. */
+export type GoalPromptOutcome = { action: "use"; text: string } | { action: "cancel" };
 
 /**
  * Run `fn` behind a cancellable spinner in interactive mode, and directly
@@ -37,7 +43,7 @@ export type GoalPromptOutcome =
  * cancellation and failure alike. The loader covers only the model call: a
  * dialog cannot be shown while it owns the editor slot.
  */
-export async function withLoader<T>(
+async function withLoader<T>(
 	ctx: Pick<ClarifyContext, "mode" | "ui" | "signal">,
 	message: string,
 	fn: (signal: AbortSignal | undefined) => Promise<T>,
@@ -70,28 +76,30 @@ function assistantText(response: { content?: unknown }): string {
 }
 
 /** Runs a nested operation, optionally behind the TUI loader. */
-export type CompleterRun = <T>(fn: (signal: AbortSignal | undefined) => Promise<T>) => Promise<T | undefined>;
+type CompleterRun = <T>(fn: (signal: AbortSignal | undefined) => Promise<T>) => Promise<T | undefined>;
 
 /** The context slice the completer needs. */
 type CompleterContext = Pick<ExtensionContext, "model" | "modelRegistry" | "signal">;
 
 /**
- * Build the clarifier caller.
+ * Build one clarifier caller.
  *
- * The call runs through `run` (the loader wrapper) with an `AbortController`
- * aborted on timeout, on the session signal, or when the loader is cancelled.
- * Any throw becomes `undefined`, so a provider failure never blocks the command.
+ * `buildMessages` produces the request; the call runs through `run` (the loader
+ * wrapper) with an `AbortController` aborted on timeout, on the session signal,
+ * or when the loader is cancelled. Any throw becomes `undefined`, so a provider
+ * failure never blocks the command.
  */
-export function createCompleter(
+function createCompleter(
 	ctx: CompleterContext,
 	timeoutMs: number,
 	run: CompleterRun,
-): (text: string) => Promise<string | undefined> {
-	return async (text) => {
+	buildMessages: () => { systemPrompt: string; messages: UserMessage[] },
+): () => Promise<string | undefined> {
+	return async () => {
 		const model = ctx.model;
 		if (!model) return undefined;
 
-		const { systemPrompt, messages } = buildClarifyMessages(text);
+		const { systemPrompt, messages } = buildMessages();
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), timeoutMs);
 		const onAbort = () => controller.abort();
@@ -116,41 +124,102 @@ export function createCompleter(
 	};
 }
 
+/** Run one clarifier call behind its loader and return the raw reply. */
+async function completeOnce(
+	ctx: ClarifyContext,
+	loaderMessage: string,
+	buildMessages: () => { systemPrompt: string; messages: UserMessage[] },
+): Promise<string | undefined> {
+	return createCompleter(ctx, CLARIFY_TIMEOUT_MS, (run) => withLoader(ctx, loaderMessage, run), buildMessages)();
+}
+
 /**
- * One clarifier call on the session model, parsed into a {@link Clarification}.
+ * One comprehension call on the session model, parsed into a
+ * {@link Clarification}.
  *
  * Returns `undefined` when there is no dialog UI or no model, or when the call
  * fails, times out, is cancelled, or returns nothing usable.
  */
 export async function clarifyGoalPrompt(ctx: ClarifyContext, text: string): Promise<Clarification | undefined> {
 	if (!ctx.hasUI || !ctx.model) return undefined;
-	const complete = createCompleter(ctx, CLARIFY_TIMEOUT_MS, (run) => withLoader(ctx, LOADER_MESSAGE, run));
-	return parseClarification(await complete(text));
+	return parseClarification(await completeOnce(ctx, LOADER_MESSAGE, () => buildClarifyMessages(text)));
 }
 
 /**
- * Prepare the goal text for `/goal <prompt>`: classify, then confirm, edit, or
- * delegate the clarifying questions.
+ * Ask the clarifier's questions through host dialogs, one at a time.
+ *
+ * A question with options uses a selector; a free-form question uses a text
+ * input. Resolves `undefined` when any dialog is dismissed, so the caller cancels
+ * the whole command; an empty answer is skipped.
+ */
+async function askQuestions(
+	ctx: Pick<ClarifyContext, "ui">,
+	questions: readonly ClarifyQuestion[],
+): Promise<ClarifyAnswer[] | undefined> {
+	const answers: ClarifyAnswer[] = [];
+	for (const question of questions) {
+		const answer =
+			question.options.length > 0
+				? await ctx.ui.select(
+						question.question,
+						question.options.map((option) => option.label),
+					)
+				: await ctx.ui.input(question.question);
+		if (answer === undefined) return undefined;
+		const trimmed = answer.trim();
+		if (trimmed) answers.push({ question: question.question, answer: trimmed });
+	}
+	return answers;
+}
+
+/**
+ * Fold the user's answers into the final restatement of the goal.
+ *
+ * Returns `undefined` on any failure, so the caller falls back to the first
+ * restatement.
+ */
+async function refineWithAnswers(
+	ctx: ClarifyContext,
+	original: string,
+	goal: string,
+	answers: readonly ClarifyAnswer[],
+): Promise<string | undefined> {
+	const reply = await completeOnce(ctx, REFINE_LOADER_MESSAGE, () => buildRefineMessages(original, goal, answers));
+	return parseClarification(reply)?.goal || undefined;
+}
+
+/** Open the confirm/edit dialog, or cancel when it is dismissed. */
+async function editOrCancel(ctx: ClarifyContext, prefill: string): Promise<GoalPromptOutcome> {
+	const edited = await ctx.ui.editor(EDITOR_TITLE, prefill);
+	return edited === undefined ? { action: "cancel" } : { action: "use", text: edited };
+}
+
+/**
+ * Run the understanding loop for `/goal <prompt>`: comprehend, ask what is
+ * missing, re-comprehend, then let the user confirm or correct the goal.
  *
  * Without a dialog UI or a model the typed text is used unchanged, so the
- * command never blocks on clarification in print or JSON mode. When the
- * clarifier is unclear and `canAsk` (the question tool is available), the
- * questions are returned for the caller to delegate to the agent; otherwise the
- * proposed goal opens in the confirm/edit dialog. A dismissed dialog cancels the
+ * command never blocks on the loop in print or JSON mode. A failed comprehension
+ * keeps the typed text with a notice; a dismissed question or editor cancels the
  * command.
  */
-export async function prepareGoalPrompt(
-	ctx: ClarifyContext,
-	typed: string,
-	canAsk: boolean,
-): Promise<GoalPromptOutcome> {
+export async function prepareGoalPrompt(ctx: ClarifyContext, typed: string): Promise<GoalPromptOutcome> {
 	if (!ctx.hasUI || !ctx.model) return { action: "use", text: typed };
-	const clarification = await clarifyGoalPrompt(ctx, typed);
 
-	if (clarification && !clarification.clear && canAsk) {
-		return { action: "ask", original: typed, goal: clarification.goal, questions: clarification.questions };
+	const clarification = await clarifyGoalPrompt(ctx, typed);
+	if (!clarification) {
+		ctx.ui.notify("Could not confirm the goal; keeping your wording.", "info");
+		return editOrCancel(ctx, typed);
 	}
 
-	const edited = await ctx.ui.editor(EDITOR_TITLE, clarification?.goal || typed);
-	return edited === undefined ? { action: "cancel" } : { action: "use", text: edited };
+	let proposed = clarification.goal || typed;
+	if (!clarification.understood && clarification.questions.length > 0) {
+		const answers = await askQuestions(ctx, clarification.questions);
+		if (answers === undefined) return { action: "cancel" };
+		if (answers.length > 0) {
+			const refined = await refineWithAnswers(ctx, typed, proposed, answers);
+			if (refined) proposed = refined;
+		}
+	}
+	return editOrCancel(ctx, proposed);
 }

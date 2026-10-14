@@ -4,15 +4,11 @@
  * The clarifier is a model, so its answer is untrusted input: this module
  * extracts the JSON object, validates every field, and routes each string
  * through `sanitizeLine` before it can reach a dialog or the terminal. A reply
- * with no JSON object is treated as a plain refined goal, so a model that
- * ignores the JSON instruction still refines.
+ * with no JSON object is treated as a plain restatement of the goal, so a model
+ * that ignores the JSON instruction still yields an understanding.
  *
- * The question limits are goal's own, not a mirror of
- * `extensions/ask-user-question/schema.ts`: `MAX_QUESTIONS` is 3 here while the
- * ask tool allows 4. Extensions cannot import each other, so the contract is
- * one-way and checked by a compatibility test that only asserts every set
- * `parseClarification` emits is accepted by `ask_user_question`'s validator —
- * it does not compare constants, so a tighter local cap goes unnoticed.
+ * The limits are goal's own: at most {@link MAX_QUESTIONS} questions, each with
+ * an optional small set of options. They are not tied to any other extension.
  */
 
 import { sanitizeLine } from "../../lib/format.ts";
@@ -40,13 +36,19 @@ export interface ClarifyQuestion {
 	options: ClarifyOption[];
 }
 
-/** The clarifier's parsed reply. */
+/** One answer the user gave to a clarifying question. */
+export interface ClarifyAnswer {
+	question: string;
+	answer: string;
+}
+
+/** The clarifier's parsed reply: its understanding of the user's goal. */
 export interface Clarification {
-	/** True when the goal is specific enough to record without questions. */
-	clear: boolean;
-	/** One-sentence statement of the goal the clarifier believes the user wants, or `""`. */
+	/** True when the goal is understood well enough to record without questions. */
+	understood: boolean;
+	/** One-sentence restatement of the goal, in the user's terms, or `""`. */
 	goal: string;
-	/** Questions to ask, already clamped and sanitized. Empty when `clear`. */
+	/** Questions to ask, already clamped and sanitized. Empty when `understood`. */
 	questions: ClarifyQuestion[];
 }
 
@@ -166,10 +168,10 @@ function normalizeQuestions(raw: unknown): ClarifyQuestion[] {
  * Parse the clarifier's reply into a {@link Clarification}, or `undefined` when
  * there is nothing usable.
  *
- * A JSON object with a boolean `clear` drives the result; when `clear` is false
- * the questions are clamped and sanitized. A reply with no JSON object is
- * treated as a plain refined goal (`clear`). When no question survives, the
- * reply is clear.
+ * A JSON object with a boolean `understood` drives the result; when `understood`
+ * is false the questions are clamped and sanitized. A reply with no JSON object
+ * is treated as a plain restatement (`understood`). When no question survives,
+ * the reply is understood.
  */
 export function parseClarification(raw: string | undefined): Clarification | undefined {
 	if (typeof raw !== "string") return undefined;
@@ -177,16 +179,16 @@ export function parseClarification(raw: string | undefined): Clarification | und
 	if (found) {
 		if (value && typeof value === "object" && !Array.isArray(value)) {
 			const record = value as Record<string, unknown>;
-			if (typeof record.clear === "boolean") {
+			if (typeof record.understood === "boolean") {
 				const goal = toObjective(clean(record.goal));
-				const questions = record.clear ? [] : normalizeQuestions(record.questions);
-				const clear = record.clear || questions.length === 0;
-				return { clear, goal, questions: clear ? [] : questions };
+				const questions = record.understood ? [] : normalizeQuestions(record.questions);
+				const understood = record.understood || questions.length === 0;
+				return { understood, goal, questions: understood ? [] : questions };
 			}
 		}
 		// Braces were present but yielded no usable clarification.
 		return undefined;
 	}
 	const goal = parsePlainGoal(raw);
-	return goal === undefined ? undefined : { clear: true, goal, questions: [] };
+	return goal === undefined ? undefined : { understood: true, goal, questions: [] };
 }

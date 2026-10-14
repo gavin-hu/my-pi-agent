@@ -42,6 +42,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conservative key (case, whitespace runs, and trailing sentence punctuation)
   and returning the stored text as `existing`, so re-stating a fact in new words
   no longer grows the store.
+- `goal`: `/goal raw <prompt>` records the typed words verbatim and starts the
+  run, skipping the comprehension step, for when the user already knows exactly
+  what they want.
 
 ### Changed
 
@@ -52,6 +55,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   dependencies and load lazily on first read, so `read_doc` needs no per-format
   install step, `doctor` no longer probes for the three binaries, and every
   format keeps the same paged output.
+- `goal`: `/goal <prompt>` now establishes a shared understanding of the goal
+  instead of rewriting the prompt. The model restates the goal as it understands
+  it and, when it cannot yet, the command asks its questions directly through
+  host dialogs (`select` / `input`); a second model call folds the answers into
+  the final restatement, which the user confirms or corrects in the editor. The
+  `ask_user_question` delegation is gone, so the handoff can no longer be lost.
+
+### Fixed
+
+- `goal`: `/goal edit <text>` and `/goal set <text>` record the text without
+  starting a run; previously `edit <text>` fell through to the free-form prompt
+  path and started the work on the literal string.
+- `goal`: replacing an active goal with `/goal <prompt>`, `/goal raw <prompt>`,
+  or `/goal set <text>` now asks for confirmation first.
+- `goal`: a failed or unusable comprehension call tells the user it is keeping
+  their wording, instead of silently prefilling the editor.
+- `goal`: a live goal is re-appended as a `goal` entry after compaction, so it
+  survives a branch whose tool-result details were summarized away.
+- `goal`: `/goal done` on an already achieved goal is a no-op with an info
+  notice instead of re-persisting the entry.
 
 ## [0.5.1] - 2026-10-13
 

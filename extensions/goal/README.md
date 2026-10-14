@@ -34,15 +34,15 @@ pi install ./                       # install the package
   `goal` session entry, so either way the goal follows the active session branch
   and survives `/resume` and `/tree` — abandoned branches never leak into the
   current goal.
-- Classifies the goal prompt before recording it: `/goal <prompt>` asks the
-  session model for one clear, actionable rewrite and, when the goal is too
-  vague to act on, up to three clarifying questions. A clear goal is confirmed or
-  edited; an unclear one is handed to the agent to ask with
-  [`ask_user_question`](../ask-user-question/) before the agent records the
-  clarified goal. `/goal set <prompt>` reuses that step but records without
-  starting a turn, and `/goal edit` changes the current goal in place. The step
-  is best-effort and needs a dialog UI plus a model; the `goal` tool stays the
-  silent setter.
+- Understands the goal before recording it: `/goal <prompt>` asks the session
+  model to restate the goal as it understands it and, when it cannot yet, to ask
+  up to three questions — which the command asks directly through host dialogs
+  (`select` / `input`). The model then folds the answers into the final
+  restatement, and the user confirms or corrects it in the editor. `/goal set
+  <prompt>` reuses the loop but records without starting a turn, `/goal edit`
+  changes the current goal in place, and `/goal raw <prompt>` records the typed
+  words verbatim. The loop is best-effort and needs a dialog UI plus a model; the
+  `goal` tool stays the silent setter.
 
 ## Tool
 
@@ -83,36 +83,33 @@ entry; `reconstructGoal` replays both entry kinds in branch order.
 | Command | What it does |
 |---|---|
 | `/goal` | Show the current goal, or the command usage when none is set. |
-| `/goal <prompt>` | Classify `<prompt>` with one model call, then set the goal and start the run. A clear goal opens in a confirm/edit dialog; an unclear one with questions is delegated to the agent's `ask_user_question` tool, after which the agent records the clarified goal. |
-| `/goal set <prompt>` | The same classify and confirm/edit step, but record the goal without starting a run. |
+| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, re-comprehend, then confirm/edit — and start the run. Replacing a live goal is confirmed first. |
+| `/goal raw <prompt>` | Skip the loop: record the typed words verbatim and start the run. |
+| `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. |
 | `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
-| `/goal done` (or `/goal achieved`) | Mark the current goal achieved. |
+| `/goal done` (or `/goal achieved`) | Mark the current goal achieved (idempotent). |
 | `/goal clear` | Clear the goal. |
 | `/goal help` (or `-h` / `--help`) | Show the command usage. |
 
-`/goal <prompt>` classifies only when a dialog UI and a session model are present
-(TUI or RPC). In print and JSON mode the typed text is set and run unchanged. A
-failed, timed-out, or unusable clarification falls back to the typed text;
-dismissing the confirm/edit dialog cancels the command, changing nothing. When
-the clarifier is unclear, the goal is delegated only if `ask_user_question` is
-active (its extension is loaded with a UI); otherwise the proposed goal opens in
-the confirm/edit dialog instead. A delegated goal is not set by the command: the
-agent asks the questions, then records the clarified objective with the `goal`
-tool. A plain-text clarifier reply is still accepted and treated as a clear
-rewrite, so a model that ignores the JSON instruction still clarifies.
-`/goal set <prompt>` follows the same path but stops before the run; a delegated
-record-only goal tells the agent not to start the work. A bare `/goal set` and
-`/goal edit` need a dialog UI — without one they show the usage instead.
+`/goal <prompt>` runs the loop only when a dialog UI and a session model are
+present (TUI or RPC). In print and JSON mode the typed text is set and run
+unchanged. A plain-text clarifier reply is treated as a restatement, so a model
+that ignores the JSON instruction still works; a failed, timed-out, or unusable
+comprehension notices the user and keeps the typed text; and a dismissed
+question or editor cancels the command, changing nothing. The questions are asked
+one at a time with `ctx.ui.select` (for a question with options) and
+`ctx.ui.input` (for a free-form one); the command never calls
+`ask_user_question`. A bare `/goal set` and `/goal edit` need a dialog UI —
+without one they show the usage instead. `/goal raw` never needs one.
 
 ## Behaviour by mode
 
 The tool works in every mode. The persistent widget requires interactive
 (`tui`) mode; the reminder and the `/goal` command work everywhere. The
-`/goal <prompt>` classify step uses a cancellable `tui` spinner in interactive
-mode and the host dialogs in RPC; in print and JSON mode it is skipped and the
-typed text is sent. When it delegates clarification, the questions are asked by
-the running agent through `ask_user_question`, so they use that extension's
-questionnaire. The widget is always a single line; the transcript result
+`/goal <prompt>` runs the loop: each model call uses a cancellable `tui` spinner
+in interactive mode and runs directly in RPC; the questions and the confirm step
+are host dialogs, forwarded by RPC. In print and JSON mode the loop is skipped
+and the typed text is sent. The widget is always a single line; the transcript result
 keeps the full glyph rail, separated from the call line by a blank line:
 
 ```
@@ -149,22 +146,22 @@ on config.
 - No per-field edit tool; the model resends the whole goal.
 - No automatic completion detection; the model (or `/goal done`) decides.
 - No interception of ordinary user prompts — only the text passed to
-  `/goal <prompt>` is clarified.
+  `/goal <prompt>` is understood.
 
 ## Pi integration
 
 | Aspect | Detail |
 |---|---|
 | Tool | `goal` (direct, active by default) |
-| Command | `/goal` — show, clarify+set+run, record (`set`/`edit`), done/achieved, or clear |
+| Command | `/goal` — show, understand+set+run, record (`set`/`edit`), verbatim (`raw`), done/achieved, or clear |
 | Execution mode | `sequential` — calls share the in-memory goal |
 | Annotations | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
 | Output schema | `GoalResult` — `{ goal, action, error? }`, returned as `details` and `structuredContent` |
-| State storage | tool-result `details` plus a `pi.appendEntry("goal", { goal })` custom entry for command-set goals |
-| Lifecycle hooks | `session_start` (load config, reconstruct), `session_tree` (reconstruct), `session_shutdown` (clear widget); `before_agent_start` (inject `goal-context`), `context` (filter stale/duplicate reminders) |
+| State storage | tool-result `details` plus a `pi.appendEntry("goal", { goal })` custom entry for command-set goals, re-appended after compaction |
+| Lifecycle hooks | `session_start` (load config, reconstruct), `session_tree` (reconstruct), `session_compact` (re-append the goal so it survives compaction), `session_shutdown` (clear widget); `before_agent_start` (inject `goal-context`), `context` (filter stale/duplicate reminders) |
 | UI | `ctx.ui.setWidget` one-line rail in `tui` mode; coordinated through `pi.events` so it stays the top rail |
-| Classify model call | `ctx.modelRegistry.complete` on the session model, 30 s timeout, `cacheRetention: "none"`; skipped without a dialog UI or a model; its usage is not counted in session totals |
-| Clarification | When the goal is unclear, `/goal` sends the agent a delegation prompt naming `ask_user_question`; the agent asks, then sets the goal with the `goal` tool. No extra state is stored by the command. |
+| Model calls | Up to two `ctx.modelRegistry.complete` calls on the session model (comprehend, then re-comprehend), each with a 30 s timeout and `cacheRetention: "none"`; skipped without a dialog UI or a model; their usage is not counted in session totals |
+| Questions | When the goal is not yet understood, the command asks the model's questions through `ctx.ui.select` / `ctx.ui.input` and passes the answers to the re-comprehension call. No cross-extension tool is used. |
 
 ## Design notes
 
@@ -174,19 +171,18 @@ on config.
   `status: "achieved"` is rejected, so "mark done" can never be mistaken for
   "forget" and a rejected call cannot half-apply. Marking achieved keeps the
   record and stops the reminder, which a single empty-clear cannot express.
-- **The command classifies, then runs, records, or delegates.** `/goal <prompt>`
-  is the user-driven path: one clarifier call (`clarify-prompt.ts` + `clarify.ts`) returns
-  `{ clear, goal, questions }`. A clear goal opens a prefilled `ctx.ui.editor`,
-  then `pi.sendUserMessage` sets and runs it. `/goal set` reuses the same step but
-  skips the send, and `/goal set` (bare) or `/goal edit` opens the editor
-  prefilled with the current goal. An unclear goal is delegated to the
-  agent, which asks the questions with `ask_user_question` and records the
-  clarified goal itself; the command cannot call that `model-only` tool directly
-  and never sets a half-formed goal. Classification is best-effort (a failure
-  falls back to the typed text) and a dismissed dialog cancels the command, so
-  nothing is half-applied. No conversation history is sent: the clarifier must
-  not invent scope the user did not state. The `goal` tool remains the model's
-  silent setter.
+- **The command runs the understanding loop.** `/goal <prompt>` is the
+  user-driven path: one comprehension call (`clarify-prompt.ts` + `clarify.ts`)
+  returns `{ understood, goal, questions }`. An understood goal opens a prefilled
+  `ctx.ui.editor`, then `pi.sendUserMessage` sets and runs it. A not-understood
+  goal has its questions asked through host dialogs and its answers folded into
+  the goal by a second model call, then confirmed in the editor. `/goal set`
+  reuses the loop but skips the send; a bare `/goal set` or `/goal edit` opens
+  the editor prefilled with the current goal; and `/goal raw` skips the loop
+  entirely. The loop is best-effort (a failure keeps the typed text) and a
+  dismissed dialog cancels the command, so nothing is half-applied. No
+  conversation history is sent: the model must not invent scope the user did not
+  state. The `goal` tool remains the model's silent setter.
 - **State in `details` and a custom entry.** A `goal` tool call stores the goal
   in its result's `details`; the `/goal` command appends a `goal` custom entry
   (`pi.appendEntry`). `reconstructGoal` replays both in branch order, last
@@ -222,9 +218,9 @@ on config.
 | `index.ts` | Factory: wire the runtime, tool, command, reminder, and session events. |
 | `types.ts` | `Goal`, `GoalStatus`, `GoalDetails`. |
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
-| `clarify-prompt.ts` | Clarifier system prompt, message builders, and the delegation text (pure). |
-| `clarify-parse.ts` | Parse the `{ clear, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
-| `clarify.ts` | Clarifier model call, cancellable loader, and the confirm/edit dialog (host). |
+| `clarify-prompt.ts` | Comprehension and re-comprehension prompts plus their message builders (pure). |
+| `clarify-parse.ts` | Parse the `{ understood, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
+| `clarify.ts` | The two model calls, their cancellable loaders, the in-command questionnaire, and the confirm/edit dialog (host). |
 | `state.ts` | Branch reconstruction (pure). |
 | `format.ts` | Model-facing and terminal text plus the transcript `◎` / `✓` symbols and the rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (`goal.json`). |
@@ -236,7 +232,7 @@ on config.
 ## Testing
 
 Unit tests cover config, validation/normalization, branch reconstruction,
-prompt clarification (parse and flow), formatting, the TUI renderers, and the
+prompt comprehension (parse and flow), formatting, the TUI renderers, and the
 tool/extension wiring:
 
 ```bash

@@ -14,7 +14,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createReadOnlyPolicy, type ReadOnlyPolicy } from "../../lib/policy.ts";
-import { SUBAGENT_TOOL } from "../../lib/tool-names.ts";
+import { ASK_USER_QUESTION_TOOL, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { ENTER_TOOL } from "./runtime.ts";
 
 /**
@@ -30,7 +30,7 @@ export const PLAN_SAFE_TOOLS = [
 	"todo",
 	"goal",
 	"bash",
-	"ask_user_question",
+	ASK_USER_QUESTION_TOOL,
 	"web_search",
 	"web_fetch",
 ];

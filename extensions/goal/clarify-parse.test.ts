@@ -50,38 +50,40 @@ describe("parseClarification plain-text fallback", () => {
 });
 
 describe("parseClarification JSON reply", () => {
-	test("reads a clear reply", () => {
-		expect(parseClarification(JSON.stringify({ clear: true, goal: "Refactor the parser", questions: [] }))).toEqual({
-			clear: true,
+	test("reads an understood reply", () => {
+		expect(
+			parseClarification(JSON.stringify({ understood: true, goal: "Refactor the parser", questions: [] })),
+		).toEqual({
+			understood: true,
 			goal: "Refactor the parser",
 			questions: [],
 		});
 	});
 
-	test("keeps questions from an unclear reply", () => {
+	test("keeps questions from a not-understood reply", () => {
 		expect(parseClarification(clarifyReply())).toEqual({
-			clear: false,
+			understood: false,
 			goal: "Add parser tests",
 			questions: [SCOPE_QUESTION],
 		});
 	});
 
 	test("unwraps a fenced JSON reply", () => {
-		const reply = `\`\`\`json\n${JSON.stringify({ clear: true, goal: "Ship it", questions: [] })}\n\`\`\``;
+		const reply = `\`\`\`json\n${JSON.stringify({ understood: true, goal: "Ship it", questions: [] })}\n\`\`\``;
 		expect(parseClarification(reply)?.goal).toBe("Ship it");
 	});
 
-	test("treats a plain-text reply as a clear refined goal", () => {
+	test("treats a plain-text reply as an understood restatement", () => {
 		expect(parseClarification("```\nRefactor the parser\n```")).toEqual({
-			clear: true,
+			understood: true,
 			goal: "Refactor the parser",
 			questions: [],
 		});
 	});
 
-	test("treats unclear with no usable question as clear", () => {
+	test("treats not-understood with no usable question as understood", () => {
 		expect(parseClarification(clarifyReply({ questions: [{ question: "" }] }))).toEqual({
-			clear: true,
+			understood: true,
 			goal: "Add parser tests",
 			questions: [],
 		});
@@ -89,7 +91,7 @@ describe("parseClarification JSON reply", () => {
 
 	test("sanitizes, clamps, and deduplicates questions", () => {
 		const reply = JSON.stringify({
-			clear: false,
+			understood: false,
 			goal: "Ship it",
 			questions: [
 				{
@@ -112,7 +114,7 @@ describe("parseClarification JSON reply", () => {
 		});
 		const result = parseClarification(reply);
 		if (!result) throw new Error("expected a clarification");
-		expect(result.clear).toBe(false);
+		expect(result.understood).toBe(false);
 		expect(result.questions).toHaveLength(MAX_QUESTIONS);
 		// Header clipped to 12 characters; question collapsed to one line.
 		expect(result.questions[0].header).toBe("A very long");

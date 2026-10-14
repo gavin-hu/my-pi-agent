@@ -16,8 +16,8 @@ export const TODO_TOOL = "todo";
 export const SUBAGENT_TOOL = "subagent";
 
 /**
- * The `ask_user_question` tool. `goal` names it in the delegation prompt it
- * sends the agent when a goal needs clarification, so the two must agree.
+ * The `ask_user_question` tool. The extension names itself with it, and the
+ * `plan` and `rewind` read-only policies list it, so all three must agree.
  */
 export const ASK_USER_QUESTION_TOOL = "ask_user_question";
 

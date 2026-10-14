@@ -18,7 +18,7 @@ import { registerCommands } from "./commands.ts";
 import { loadGoalConfig } from "./config.ts";
 import { createGoalRuntime } from "./runtime.ts";
 import { isActiveGoal } from "./state.ts";
-import type { Goal } from "./types.ts";
+import { GOAL_ENTRY_TYPE, type Goal } from "./types.ts";
 import { registerTools } from "./tools.ts";
 
 /** Marker embedded in the injected prompt, so it is recognizable in the transcript. */
@@ -53,6 +53,14 @@ export default function goal(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => startSession(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.reconstruct(ctx));
 	pi.on("session_shutdown", (_event, ctx) => runtime.clear(ctx));
+
+	// Compaction can drop the tool-result entry that carries the goal, so re-assert
+	// it on the retained side of the branch. `reconstructGoal` replays custom
+	// entries last-wins, so a duplicate is harmless.
+	pi.on("session_compact", () => {
+		const goal = runtime.getGoal();
+		if (goal) pi.appendEntry(GOAL_ENTRY_TYPE, { goal });
+	});
 
 	// Restate the goal at the start of each turn while it is active.
 	pi.on("before_agent_start", () => {

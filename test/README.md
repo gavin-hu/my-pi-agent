@@ -55,8 +55,8 @@ gate is stated in the test.
    never literal column padding. Use the shared `fakeTheme` and an injected
    clock for relative timestamps.
 4. **Package-level tests** (`test/naming.test.ts`, `test/structure.test.ts`,
-   `test/theme.test.ts`, `test/prompt-budget.test.ts`, `test/contracts.test.ts`) —
-   cross-cutting contracts. No extension test may duplicate these.
+   `test/theme.test.ts`, `test/prompt-budget.test.ts`) — cross-cutting contracts.
+   No extension test may duplicate these.
 
 Rule of thumb: if a test needs `mock.module`, a global stub, or a real timer,
 the code under test is missing a seam. Add the seam instead of the mock.
@@ -183,7 +183,6 @@ test/
     git.ts    platform.ts  preload.ts  clock.ts
     fixtures/<name>.ts     # extension-specific fixtures
   naming.test.ts           # package-level contract
-  contracts.test.ts        # cross-extension contracts
   structure.test.ts        # layout, banned-pattern, and boundary guards
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract
@@ -194,8 +193,7 @@ Rules:
 - Every directory under `extensions/` contains at least one co-located test.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
-  `structure.test.ts`, `prompt-budget.test.ts`, `theme.test.ts`, and
-  `contracts.test.ts`.
+  `structure.test.ts`, `prompt-budget.test.ts`, and `theme.test.ts`.
 - A co-located test's file stem matches the source module it covers. The only
   exceptions are the documented aggregates in `structure.test.ts`.
 
