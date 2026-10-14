@@ -199,7 +199,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		notes: ["Logging in needs the interactive terminal UI."],
 	},
 	bytefly: {
-		configFiles: ["bytefly.json", "doctor.json"],
+		configFiles: ["bytefly.json"],
 		notes: [
 			"TUI only for the header, footer, and turn rule; `/extensions` prints a listing and `/doctor` prints its report in RPC, JSON, and print modes.",
 			"The `/extensions` picker writes through Pi's own settings; project scope requires a trusted project.",

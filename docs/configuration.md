@@ -22,8 +22,7 @@ that fails to parse.
 
 | Extension | File | Notes |
 |---|---|---|
-| [`bytefly`](../extensions/bytefly/) | `bytefly.json` | Per-model price rates with an optional peak/off-peak schedule, plus the opt-in `notify` section for OS notifications. |
-| [`bytefly`](../extensions/bytefly/) | `doctor.json` | Diagnostics settings. |
+| [`bytefly`](../extensions/bytefly/) | `bytefly.json` | Per-model price rates with an optional peak/off-peak schedule, the opt-in `notify` section for OS notifications, and the `doctor` section for diagnostics settings. |
 | [`document`](../extensions/document/) | `document.json` | Read limits and defaults. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse.json` | Server port and page limits. |
 | [`goal`](../extensions/goal/) | `goal.json` | Widget behaviour, such as keeping an achieved goal visible. |

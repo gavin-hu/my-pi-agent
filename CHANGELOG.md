@@ -22,6 +22,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the doctor settings moved from `doctor.json` into the `doctor`
+  section of `bytefly.json`, so one file carries price, notify, and doctor
+  configuration. Breaking: `doctor.json` is no longer read.
 - Distribution: releases are published to npm as well as tagged in git. The
   package declares `publishConfig.access: public` and a `files` allowlist
   (extensions, lib, themes, assets; tests excluded), and the docs document both

@@ -35,7 +35,7 @@ describe("proactive probe", () => {
 
 	test("stays quiet when proactive checks are disabled", async () => {
 		await withAgentDir(async (dir) => {
-			writeFileSync(join(dir, "doctor.json"), JSON.stringify({ proactive: false }));
+			writeFileSync(join(dir, "bytefly.json"), JSON.stringify({ doctor: { proactive: false } }));
 			const { start, notices } = bootDoctor({ exec: failingExec });
 			await start();
 			expect(notices).toEqual([]);

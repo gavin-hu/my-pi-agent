@@ -261,12 +261,19 @@ value in one never reaches the other.
 A `notify` section is read at `session_start`, so a new session or `/reload`
 picks up an edit.
 
-### `doctor.json`
+### The `doctor` section
 
-The doctor surface has its own file, read the same way:
+The doctor surface reads the same `bytefly.json`, under its own `doctor` key:
 
-- `~/.pi/agent/doctor.json` (global)
-- `<cwd>/.pi/doctor.json` (project; overrides the global file)
+```json
+{
+  "doctor": {
+    "proactive": true,
+    "timeoutMs": 2000,
+    "skip": []
+  }
+}
+```
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -274,8 +281,9 @@ The doctor surface has its own file, read the same way:
 | `timeoutMs` | `2000` | Per-probe timeout for one spawned command, clamped to 100–30000. |
 | `skip` | `[]` | Extension names to leave out of every report. |
 
-A malformed `doctor.json` is ignored like every other config file — and named
-by the report `doctor` produces.
+A malformed `bytefly.json` is ignored like every other config file — and named
+by the report `doctor` produces. The section is read at `session_start`, so a
+new session or `/reload` picks up an edit.
 
 ## Security
 
@@ -455,7 +463,7 @@ as text.
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
-| bytefly | — | TUI only for the header, footer, and turn rule; the picker's project scope needs a trusted project; `bytefly.json` and `doctor.json` |
+| bytefly | — | TUI only for the header, footer, and turn rule; the picker's project scope needs a trusted project; `bytefly.json` |
 | question | — | needs an interactive UI |
 
 Every extension that reads a config file also gets the malformed-JSON check:
@@ -599,10 +607,10 @@ rather than showing a wrong value.
 | Doctor command | `pi.registerCommand("doctor")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
 | Doctor probes | `run_doctor` and `/doctor` share the session cache; `/doctor refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the footer's price section is read when the footer is installed (a new session, or `/bytefly` toggled back on) and the `notify` section at `session_start`. `doctor.json` is read at `session_start`. Nothing watches either file. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the footer's price section is read when the footer is installed (a new session, or `/bytefly` toggled back on), and the `notify` and `doctor` sections at `session_start`. Nothing watches the file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
-| Lifecycle | `session_start` installs the header and footer, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `doctor.json`'s `proactive` is on, and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
+| Lifecycle | `session_start` installs the header and footer, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on, and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
 
 ## Design notes
 
@@ -755,7 +763,7 @@ price calculation), `separator/`, `picker/`, `doctor/`, and `notify/`.
 | `doctor/tools.ts` | The `run_doctor` tool and its renderers. |
 | `doctor/commands.ts` | The `/doctor` command and its TUI wiring. |
 | `doctor/schema.ts` | Tool parameters and the structured output schema. |
-| `doctor/config.ts` | `DEFAULT_CONFIG`, `normalizeConfig`, `loadConfig` for `doctor.json`. |
+| `doctor/config.ts` | `DEFAULT_CONFIG`, `normalizeConfig`, `loadConfig` for the `doctor` section of `bytefly.json`. |
 | `doctor/format.ts` | Pure report text, rows, glyphs, and the proactive warning sentence. |
 | `doctor/tui.ts` | `DoctorScreen`, the docked list screen with its detail pane. |
 | `notify/types.ts` | `NotifyConfig`, `NotifyMethod`, and the method list. |
