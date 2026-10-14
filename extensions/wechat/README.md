@@ -37,13 +37,15 @@ pi install ./                        # install the package
 
 | Command | Effect |
 |---|---|
-| `/wechat login` | QR login; on scan, stores credentials (does not start the connection). |
+| `/wechat login` | QR login; on scan, stores credentials and starts the bridge. |
 | `/wechat start` | Start the bridge: long-poll and forward messages to the agent. |
 | `/wechat stop` | Stop the bridge; credentials and cursor are kept. |
 | `/wechat status` | Show account, open/closed, peer count, and queue depth. |
 | `/wechat logout` | Confirm, then clear credentials and stop the bridge. |
 
-`login` and `start` are separate: `login` authenticates, `start` connects.
+`login` connects in one step; `/wechat start` reconnects after `/wechat stop`
+(or if the automatic connect failed, for example because another session holds
+the poller lock).
 
 ## Behaviour by mode
 
@@ -146,7 +148,7 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 | UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
 | Status | The bridge's running state is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
-| Lifecycle | The factory only registers. No I/O starts on load; `/wechat start` starts the poll loop and `session_shutdown` closes it. |
+| Lifecycle | The factory only registers. No I/O starts on load; `/wechat login` or `/wechat start` starts the poll loop and `session_shutdown` closes it. |
 
 ## Design notes
 

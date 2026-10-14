@@ -89,6 +89,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pending). A step-progress gauge row shows `n/m steps done`, the scroll row is
   a gauge with the position and line range, and the footer colors the
   approve/refine actions.
+- `wechat`: `/wechat login` now starts the bridge on a confirmed scan instead
+  of leaving the user to discover and run a second `/wechat start`. That command
+  remains for reconnecting after `/wechat stop` or when the automatic connect
+  fails (for example, another session holds the poller lock).
 
 ## [0.5.0] - 2026-10-13
 

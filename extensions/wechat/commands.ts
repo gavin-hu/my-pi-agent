@@ -1,9 +1,8 @@
 /**
  * The `/wechat` command: `login`, `start`, `stop`, `status`, `logout`.
  *
- * `login` renders the QR screen and stores credentials; it does not open the
- * connection. `start`/`stop` control the bridge at runtime; `logout` discards
- * the account.
+ * `login` renders the QR screen, stores credentials, and connects in one step.
+ * `start`/`stop` control the bridge at runtime; `logout` discards the account.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -29,6 +28,38 @@ export interface CommandDeps {
 
 function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * React to a finished login. A confirmed scan stores the account and starts the
+ * bridge immediately, so `/wechat login` is the only command needed to go
+ * online; `/wechat start` still reconnects after a `/wechat stop`.
+ */
+export function finishLogin(result: LoginOutcome, ctx: ExtensionContext, deps: CommandDeps): void {
+	switch (result.kind) {
+		case "confirmed": {
+			deps.saveAccount(result.account);
+			const label = peerLabel(result.account.ilinkUserId);
+			try {
+				deps.ensureBridge(ctx).open();
+				ctx.ui.notify(`WeChat connected as ${label} and the bridge is running.`);
+			} catch (error) {
+				ctx.ui.notify(
+					`WeChat connected as ${label}, but the bridge did not start: ${messageOf(error)}. Run /wechat start.`,
+					"warning",
+				);
+			}
+			return;
+		}
+		case "expired":
+			ctx.ui.notify("WeChat QR code expired. Run /wechat login again.", "warning");
+			return;
+		case "error":
+			ctx.ui.notify(`WeChat login failed: ${result.message}`, "error");
+			return;
+		case "cancelled":
+			return;
+	}
 }
 
 async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
@@ -75,20 +106,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		});
 	});
 
-	switch (result.kind) {
-		case "confirmed":
-			deps.saveAccount(result.account);
-			ctx.ui.notify(`WeChat connected as ${peerLabel(result.account.ilinkUserId)}. Run /wechat start.`);
-			return;
-		case "expired":
-			ctx.ui.notify("WeChat QR code expired. Run /wechat login again.", "warning");
-			return;
-		case "error":
-			ctx.ui.notify(`WeChat login failed: ${result.message}`, "error");
-			return;
-		case "cancelled":
-			return;
-	}
+	finishLogin(result, ctx, deps);
 }
 
 function runStart(ctx: ExtensionContext, deps: CommandDeps): void {
