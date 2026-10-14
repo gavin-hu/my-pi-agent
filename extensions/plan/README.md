@@ -253,9 +253,9 @@ agent file that overrides it.
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
 in the default browser on `127.0.0.1`. The page is a review surface: a sticky
-header with the plan title, path, step progress, comment count, theme toggle,
-and Save/Close; a sticky **section outline** on the left; and the plan beside a
-**right-hand comment rail**. Every block has a **+ Comment** action, and
+header with the plan title, comment count, theme toggle, and Save/Close; a
+sticky **section outline** on the left; and the plan beside a **right-hand
+comment rail**. Every block has a **+ Comment** action, and
 selecting text opens the composer for that block with the selection quoted.
 **Save feedback** writes the comments into the plan file and returns them to the
 model.

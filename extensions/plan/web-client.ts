@@ -17,7 +17,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
 
   var dataNode = document.getElementById("review-data");
-  var fallback = { blocks: [], annotations: [], steps: { done: 0, total: 0 }, outline: [], code: {}, token: "" };
+  var fallback = { blocks: [], annotations: [], outline: [], code: {}, token: "" };
   var data = fallback;
   if (dataNode && dataNode.textContent) {
     try { data = JSON.parse(dataNode.textContent); } catch (error) { data = fallback; }
@@ -34,9 +34,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
   var commentCount = document.getElementById("comment-count");
-  var stepsEl = document.getElementById("steps");
-  var stepsFill = document.getElementById("steps-fill");
-  var stepsLabel = document.getElementById("steps-label");
 
   function el(tag, className) {
     var node = document.createElement(tag);
@@ -273,7 +270,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function updateCount() {
     if (!commentCount) return;
     var count = annotations.length;
-    commentCount.textContent = count === 0 ? "No comments yet \u2014 select text to comment" : count + (count === 1 ? " comment" : " comments");
+    commentCount.textContent = count === 0 ? "No comments" : count + (count === 1 ? " comment" : " comments");
+    commentCount.title = count === 0 ? "Select text or hover a block to add a comment" : "Review comments";
   }
 
   function observeSections() {
@@ -360,16 +358,11 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   function renderHeader() {
     var titleEl = document.getElementById("plan-title");
-    var pathEl = document.getElementById("plan-path");
-    if (titleEl && data.title) titleEl.textContent = data.title;
-    if (pathEl && data.relativePath) pathEl.textContent = data.relativePath;
-    if (data.title) document.title = "Plan review \u00b7 " + data.title;
-    var steps = data.steps || {};
-    if (stepsEl && steps.total) {
-      stepsEl.hidden = false;
-      if (stepsFill) stepsFill.style.width = Math.round((steps.done / steps.total) * 100) + "%";
-      if (stepsLabel) stepsLabel.textContent = steps.done + "/" + steps.total + " steps";
+    if (titleEl && data.title) {
+      titleEl.textContent = data.title;
+      titleEl.title = data.title;
     }
+    if (data.title) document.title = "Plan review \u00b7 " + data.title;
   }
 
   function lockActions() {
