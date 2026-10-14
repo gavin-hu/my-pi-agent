@@ -91,7 +91,7 @@ console.log(statusText);
 check("status reports isolated", /Worktree: smoke/.test(statusText));
 check("status reports no inactive overrides", !/not active for/.test(statusText));
 
-// ask-user-question loads alongside worktree and gates itself on UI availability.
+// question loads alongside worktree and gates itself on UI availability.
 const askTool = session.getAllTools().find((t) => t.name === "ask_user_question");
 check("ask_user_question registered", !!askTool);
 check("ask_user_question is model-only", askTool?.exposure === "model-only");

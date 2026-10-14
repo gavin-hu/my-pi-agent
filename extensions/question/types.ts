@@ -1,5 +1,5 @@
 /**
- * Shared types for the ask-user-question extension.
+ * Shared types for the question extension.
  *
  * "Raw" types describe what the model sends. "Question" is the validated,
  * defaulted form the UI drivers work with. A `Selection` is what a driver

@@ -119,7 +119,7 @@ The tool works in every mode. The persistent widget and the `/todos` screen
 require interactive (`tui`) mode; RPC and non-interactive runs simply get the
 tool result. The lag reminder is mode-independent, because it rides the agent
 boundary and not the terminal UI. While any dock screen is open (`/todos`,
-`/jobs`, `/rewind`, or the ask-user-question questionnaire), the above-editor
+`/jobs`, `/rewind`, or the `question` questionnaire), the above-editor
 rails are hidden and return on close.
 
 ## Configuration

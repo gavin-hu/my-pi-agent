@@ -1,13 +1,13 @@
-# ask-user-question — structured questions for Pi
+# question — structured questions for Pi
 
 A single model-facing tool, `ask_user_question`, that lets the model ask the
 human one or more structured questions mid-turn and wait for typed answers.
 Modelled on Claude Code's `AskUserQuestion`.
 
 ```
-pi --extension ./extensions/ask-user-question   # load just this extension
-pi -e .                                         # load the whole @gavin-hu/my-pi-agent package
-pi install ./                                   # install the package
+pi --extension ./extensions/question   # load just this extension
+pi -e .                                # load the whole @gavin-hu/my-pi-agent package
+pi install ./                          # install the package
 ```
 
 ## What it does
@@ -180,7 +180,7 @@ None in v1 — the tool is either available (a UI exists) or not.
 ## Testing
 
 ```bash
-bun test extensions/ask-user-question
+bun test extensions/question
 bun run check
 ```
 

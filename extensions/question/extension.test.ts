@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import askUserQuestion from "./index.ts";
+import question from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
@@ -17,11 +17,11 @@ function uiCtx(hasUI: boolean) {
 	return fakeCtx({ mode: hasUI ? "tui" : "print", hasUI }).ctx;
 }
 
-describe("ask_user_question extension", () => {
+describe("question extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "ask-user-question" }, () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "question" }, () => {
 			const { pi, tools, handlers } = createFakePi();
-			askUserQuestion(pi);
+			question(pi);
 			expect(tools.size).toBe(0);
 			expect(handlers.size).toBe(0);
 		});
@@ -29,7 +29,7 @@ describe("ask_user_question extension", () => {
 
 	test("registers a model-only tool that starts inactive", () => {
 		const pi = newPi([]);
-		askUserQuestion(pi);
+		question(pi);
 		const tool = pi.tools.get(TOOL_NAME);
 		expect(tool).toBeDefined();
 		expect(tool.exposure).toBe("model-only");
@@ -40,21 +40,21 @@ describe("ask_user_question extension", () => {
 
 	test("activates the tool when the session has a UI", async () => {
 		const pi = newPi([]);
-		askUserQuestion(pi);
+		question(pi);
 		await emit(pi, "session_start", { reason: "startup" }, uiCtx(true));
 		expect(pi.getActiveTools()).toContain(TOOL_NAME);
 	});
 
 	test("leaves the tool inactive when the session has no UI", async () => {
 		const pi = newPi([]);
-		askUserQuestion(pi);
+		question(pi);
 		await emit(pi, "session_start", { reason: "startup" }, uiCtx(false));
 		expect(pi.getActiveTools()).not.toContain(TOOL_NAME);
 	});
 
 	test("degrades to an error result without a UI", async () => {
 		const pi = newPi();
-		askUserQuestion(pi);
+		question(pi);
 		const tool = pi.tools.get(TOOL_NAME);
 		const result = await tool.execute(
 			"call-1",
@@ -70,7 +70,7 @@ describe("ask_user_question extension", () => {
 
 	test("answers through dialogs on a remote turn instead of the TUI component", async () => {
 		const pi = newPi();
-		askUserQuestion(pi);
+		question(pi);
 		const tool = pi.tools.get(TOOL_NAME);
 		const { ctx, customCalls, selects } = remoteCtx({ select: "A" });
 		const result = await tool.execute(
@@ -87,7 +87,7 @@ describe("ask_user_question extension", () => {
 
 	test("rejects invalid input with a thrown error", async () => {
 		const pi = newPi();
-		askUserQuestion(pi);
+		question(pi);
 		const tool = pi.tools.get(TOOL_NAME);
 		await expect(tool.execute("call-2", { questions: [] }, undefined, undefined, uiCtx(false))).rejects.toThrow(
 			"At least one question",

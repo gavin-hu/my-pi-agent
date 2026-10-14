@@ -17,7 +17,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { TODO_TOOL as todo } from "../lib/tool-names.ts";
-import { TOOL_NAME as askUserQuestion } from "../extensions/ask-user-question/tools.ts";
+import { TOOL_NAME as askUserQuestion } from "../extensions/question/tools.ts";
 import { TOOL_NAME as readDoc } from "../extensions/document/tool.ts";
 import { TOOL_NAME as runDoctor } from "../extensions/bytefly/doctor/tools.ts";
 import { TOOL_NAME as openPath } from "../extensions/file-open/schema.ts";
@@ -58,7 +58,7 @@ const LEADING_VERBS = new Set([
 
 /** Every tool this package registers, with the extension that owns it. */
 const REGISTERED: Array<{ extension: string; name: string }> = [
-	{ extension: "ask-user-question", name: askUserQuestion },
+	{ extension: "question", name: askUserQuestion },
 	{ extension: "document", name: readDoc },
 	{ extension: "bytefly", name: runDoctor },
 	{ extension: "file-open", name: openPath },

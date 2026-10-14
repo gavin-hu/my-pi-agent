@@ -133,7 +133,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		configFiles: ["rewind.json"],
 		requires: [gitCheck("rewind snapshots")],
 	},
-	"ask-user-question": {
+	question: {
 		notes: ["Needs an interactive UI; without one the tool stays inactive."],
 	},
 	todo: {

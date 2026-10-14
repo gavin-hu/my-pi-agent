@@ -123,7 +123,7 @@ The renderer reuses the slot's component (`context.lastComponent`) rather than
 rebuilding it each render. Achieved goals are hidden from the widget by default
 (restore the dimmed line with `achieved: "show"`), and they are no longer
 restated to the model. While a dock screen is open (`/todos`, `/jobs`,
-`/rewind`, or the ask-user-question questionnaire), the rail is hidden and
+`/rewind`, or the `question` questionnaire), the rail is hidden and
 returns on close.
 
 ## Configuration

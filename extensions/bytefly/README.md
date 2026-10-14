@@ -388,7 +388,7 @@ as text.
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
 | bytefly | — | TUI only for the footer and turn rule; the picker's project scope needs a trusted project; `bytefly.json` and `doctor.json` |
-| ask-user-question | — | needs an interactive UI |
+| question | — | needs an interactive UI |
 
 Every extension that reads a config file also gets the malformed-JSON check:
 the file and the parse error are named instead of being silently ignored. The

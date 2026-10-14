@@ -45,7 +45,7 @@ export type GoalPromptOutcome = { action: "use"; text: string } | { action: "can
  * dialog cannot be shown while it owns the editor slot, and it deliberately
  * leaves the above-editor rails visible — it is only a few lines tall, and
  * hiding the goal and todo for a transient call would just flicker. A full dock
- * screen (the ask-user-question questionnaire) is what suppresses the rails.
+ * screen (the `question` questionnaire) is what suppresses the rails.
  */
 async function withLoader<T>(
 	ctx: Pick<ClarifyContext, "mode" | "ui" | "signal">,

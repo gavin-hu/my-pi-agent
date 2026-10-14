@@ -97,6 +97,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `file-open`: the `file-explorer` extension is renamed to `file-open` — the
   directory, package manifest entry, `PI_DISABLED_EXTENSIONS` name, and docs.
   The `/open` command, its `open_path` tool, and its schema are unchanged.
+- `question`: the `ask-user-question` extension is renamed to `question` — the
+  directory, package manifest entry, `PI_DISABLED_EXTENSIONS` name, and docs.
+  The `ask_user_question` tool and its schema are unchanged.
 - `goal`: `/goal <prompt>` now establishes a shared understanding of the goal
   instead of rewriting the prompt. The model restates the goal as it understands
   it and, when it cannot yet, the command asks its questions directly through

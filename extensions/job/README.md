@@ -125,7 +125,7 @@ jobs first then recent finished jobs, and a focused detail pane (command, cwd,
 outcome, and the last output line). Selection is tracked by job id, so the live
 re-sort cannot move the cursor or switch the open log out from under the user.
 Any dock screen (`/todos`, `/jobs`, `/rewind`, or the
-ask-user-question questionnaire) hides the above-editor goal/todo rails for its
+`question` questionnaire) hides the above-editor goal/todo rails for its
 lifetime and restores them on close.
 
 ## Behaviour by mode

@@ -25,7 +25,7 @@ export const repo = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 export const EXTENSION_PATHS = [
 	"worktree",
 	"rewind",
-	"ask-user-question",
+	"question",
 	"todo",
 	"goal",
 	"plan",

@@ -47,7 +47,7 @@ and command surface, the Pi integration contract, and design notes.
 |---|---|---|
 | Extension | [`extensions/worktree/`](./extensions/worktree/) | `worktree`: isolated `git worktree` lifecycle — `enter_worktree` / `exit_worktree` / `prune_worktrees` / `list_worktrees`, `/worktree*`, and `--worktree <name>`, re-rooting the built-in path tools and guarding escapes. |
 | Extension | [`extensions/rewind/`](./extensions/rewind/) | `rewind`: automatic per-prompt snapshots under `refs/pi/rewind` plus `/rewind` to restore code, conversation, or both, and a `↺ N` status chip. |
-| Extension | [`extensions/ask-user-question/`](./extensions/ask-user-question/) | `ask_user_question`: ask the user one or more structured questions (labelled options + free-form "Other") and wait for the answer. |
+| Extension | [`extensions/question/`](./extensions/question/) | `question`: ask the user one or more structured questions (labelled options + free-form "Other") and wait for the answer. |
 | Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent one-line widget and `/todos`. |
 | Extension | [`extensions/goal/`](./extensions/goal/) | `goal`: a persistent session objective (`active`/`achieved`) kept in a one-line widget and restated before each turn; `/goal <prompt>` establishes a shared understanding of the goal (restate, ask, confirm), sets it, and starts the run, while `/goal raw` records the words verbatim and `/goal set`/`edit` record without running and `clear`/`done` only change state. |
 | Extension | [`extensions/plan/`](./extensions/plan/) | `plan`: read-only planning via `enter_plan_mode` / `write_plan` / `exit_plan_mode`, with `set_plan_step` keeping an approved plan current; plans follow a documented outline, are saved to `.pi/plans`, and are reviewed (with heading jumps) before execution (`--plan` to start, `/plan` toggles, `Ctrl+Alt+P`); `subagent` delegation is forced read-only and `powershell` is blocked. |
@@ -92,7 +92,7 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 ```
 
 Names are the extension directories under [`extensions/`](./extensions/)
-(`worktree`, `rewind`, `ask-user-question`, `todo`, `goal`, `plan`,
+(`worktree`, `rewind`, `question`, `todo`, `goal`, `plan`,
 `subagent`, `job`, `web-access`, `file-browse`, `document`, `file-open`,
 `memory`, `bytefly`), compared
 case-insensitively; unknown names are ignored. This is a package-local switch:

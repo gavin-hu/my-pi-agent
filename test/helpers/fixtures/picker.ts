@@ -30,21 +30,13 @@ export function makeItem(overrides: ItemOverrides = {}): ResourceItem {
  * model a realistic list where most rows are disabled. This is a test/doc
  * constant only; it does not change what Pi loads.
  */
-export const DEFAULT_ENABLED_EXTENSIONS = [
-	"bytefly",
-	"plan",
-	"todo",
-	"goal",
-	"ask-user-question",
-	"worktree",
-	"job",
-] as const;
+export const DEFAULT_ENABLED_EXTENSIONS = ["bytefly", "plan", "todo", "goal", "question", "worktree", "job"] as const;
 
 /** Every extension directory in this package, for default-profile tests. */
 export const PACKAGE_EXTENSIONS = [
 	"worktree",
 	"rewind",
-	"ask-user-question",
+	"question",
 	"todo",
 	"goal",
 	"plan",
