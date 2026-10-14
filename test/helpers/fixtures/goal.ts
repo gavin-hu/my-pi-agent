@@ -20,12 +20,34 @@ export function goalContextMessage(objective = "ship it"): unknown {
 
 /** The one question the clarify fixtures ask, in the clarifier's JSON shape. */
 export const SCOPE_QUESTION = {
-	header: "Scope",
 	question: "Which parser?",
 	options: [{ label: "The new one" }, { label: "The old one" }],
 };
 
-/** A clarifier JSON reply: unclear with one question unless overridden. */
-export function clarifyReply(overrides: { clear?: boolean; goal?: string; questions?: unknown[] } = {}): string {
-	return JSON.stringify({ clear: false, goal: "Add parser tests", questions: [SCOPE_QUESTION], ...overrides });
+/** A clarifier JSON reply: not understood with one question unless overridden. */
+export function clarifyReply(overrides: { understood?: boolean; goal?: string; questions?: unknown[] } = {}): string {
+	return JSON.stringify({ understood: false, goal: "Add parser tests", questions: [SCOPE_QUESTION], ...overrides });
+}
+
+/**
+ * A model-registry double for the goal clarifier.
+ *
+ * Returns each reply in turn (the last repeats), and records every request's user
+ * text so a test can assert the calls and the answers they carried.
+ */
+export function clarifyRegistry(replies: Array<string | undefined>): { calls: string[]; registry: unknown } {
+	const calls: string[] = [];
+	let index = 0;
+	return {
+		calls,
+		registry: {
+			complete: async (_model: unknown, context: { messages: Array<{ content: Array<{ text: string }> }> }) => {
+				calls.push(context.messages[0].content[0].text);
+				const text = replies[Math.min(index, replies.length - 1)];
+				index += 1;
+				if (text === undefined) return { stopReason: "aborted", content: [] };
+				return { stopReason: "stop", content: [{ type: "text", text }] };
+			},
+		},
+	};
 }

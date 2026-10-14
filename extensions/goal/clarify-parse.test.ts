@@ -33,6 +33,10 @@ describe("parseClarification plain-text fallback", () => {
 		);
 	});
 
+	test("treats a restatement with incidental braces as plain text", () => {
+		expect(goalOf("Refactor {the parser} to stream")).toBe("Refactor {the parser} to stream");
+	});
+
 	test("returns undefined for a missing, empty, or blank reply", () => {
 		expect(parseClarification(undefined)).toBeUndefined();
 		expect(parseClarification("")).toBeUndefined();
@@ -50,38 +54,45 @@ describe("parseClarification plain-text fallback", () => {
 });
 
 describe("parseClarification JSON reply", () => {
-	test("reads a clear reply", () => {
-		expect(parseClarification(JSON.stringify({ clear: true, goal: "Refactor the parser", questions: [] }))).toEqual({
-			clear: true,
+	test("reads an understood reply", () => {
+		expect(
+			parseClarification(JSON.stringify({ understood: true, goal: "Refactor the parser", questions: [] })),
+		).toEqual({
+			understood: true,
 			goal: "Refactor the parser",
 			questions: [],
 		});
 	});
 
-	test("keeps questions from an unclear reply", () => {
+	test("keeps questions from a not-understood reply", () => {
 		expect(parseClarification(clarifyReply())).toEqual({
-			clear: false,
+			understood: false,
 			goal: "Add parser tests",
 			questions: [SCOPE_QUESTION],
 		});
 	});
 
 	test("unwraps a fenced JSON reply", () => {
-		const reply = `\`\`\`json\n${JSON.stringify({ clear: true, goal: "Ship it", questions: [] })}\n\`\`\``;
+		const reply = `\`\`\`json\n${JSON.stringify({ understood: true, goal: "Ship it", questions: [] })}\n\`\`\``;
 		expect(parseClarification(reply)?.goal).toBe("Ship it");
 	});
 
-	test("treats a plain-text reply as a clear refined goal", () => {
+	test("keeps a JSON object when trailing prose contains a brace", () => {
+		const reply = `{"understood": true, "goal": "Use } carefully", "questions": []} — done }`;
+		expect(parseClarification(reply)).toEqual({ understood: true, goal: "Use } carefully", questions: [] });
+	});
+
+	test("treats a plain-text reply as an understood restatement", () => {
 		expect(parseClarification("```\nRefactor the parser\n```")).toEqual({
-			clear: true,
+			understood: true,
 			goal: "Refactor the parser",
 			questions: [],
 		});
 	});
 
-	test("treats unclear with no usable question as clear", () => {
+	test("treats not-understood with no usable question as understood", () => {
 		expect(parseClarification(clarifyReply({ questions: [{ question: "" }] }))).toEqual({
-			clear: true,
+			understood: true,
 			goal: "Add parser tests",
 			questions: [],
 		});
@@ -89,11 +100,10 @@ describe("parseClarification JSON reply", () => {
 
 	test("sanitizes, clamps, and deduplicates questions", () => {
 		const reply = JSON.stringify({
-			clear: false,
+			understood: false,
 			goal: "Ship it",
 			questions: [
 				{
-					header: "A very long header indeed",
 					question: "First?\nsecond line",
 					options: [
 						{ label: "One" },
@@ -104,18 +114,17 @@ describe("parseClarification JSON reply", () => {
 						{ label: "Five" },
 					],
 				},
-				{ header: "Same", question: "Second?", options: [] },
-				{ header: "Same", question: "Third?", options: [{ label: "Only one" }] },
+				{ question: "Second?", options: [] },
+				{ question: "Third?", options: [{ label: "Only one" }] },
 				{ question: "Fourth?" },
 				{ question: "Fifth?" },
 			],
 		});
 		const result = parseClarification(reply);
 		if (!result) throw new Error("expected a clarification");
-		expect(result.clear).toBe(false);
+		expect(result.understood).toBe(false);
 		expect(result.questions).toHaveLength(MAX_QUESTIONS);
-		// Header clipped to 12 characters; question collapsed to one line.
-		expect(result.questions[0].header).toBe("A very long");
+		// Question collapsed to one line.
 		expect(result.questions[0].question).toBe("First? second line");
 		// Duplicate label dropped; a fifth option dropped.
 		expect(result.questions[0].options).toEqual([
@@ -124,20 +133,8 @@ describe("parseClarification JSON reply", () => {
 			{ label: "Three" },
 			{ label: "Four" },
 		]);
-		// A duplicate header is renumbered, and a lone option becomes free-form.
-		expect(result.questions[1].header).toBe("Same");
-		expect(result.questions[2].header).toBe("Q3");
+		// A lone option is dropped, leaving a free-form question.
 		expect(result.questions[2].options).toEqual([]);
-	});
-
-	test("renumbers a header that collides with the fallback", () => {
-		const reply = clarifyReply({
-			questions: [
-				{ header: "Q2", question: "First?", options: [{ label: "A" }, { label: "B" }] },
-				{ header: "Q2", question: "Second?", options: [{ label: "A" }, { label: "B" }] },
-			],
-		});
-		expect(parseClarification(reply)?.questions.map((q) => q.header)).toEqual(["Q2", "Q3"]);
 	});
 
 	test("returns undefined for a missing, empty, or unparseable reply", () => {

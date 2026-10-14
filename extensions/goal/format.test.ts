@@ -72,6 +72,8 @@ describe("model-facing text", () => {
 
 	test("help names the set form and the verbs", () => {
 		expect(GOAL_HELP).toContain("/goal <what you want to accomplish>");
+		expect(GOAL_HELP).toContain("/goal raw <prompt>");
+		expect(GOAL_HELP).toContain("/goal edit");
 		expect(GOAL_HELP).toContain("/goal done");
 		expect(GOAL_HELP).toContain("/goal clear");
 		expect(GOAL_HELP).toContain("/goal help");

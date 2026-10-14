@@ -1,24 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { clarifyReply, SCOPE_QUESTION } from "../../test/helpers/fixtures/goal.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
+import { clarifyRegistry, clarifyReply, SCOPE_QUESTION } from "../../test/helpers/fixtures/goal.ts";
+import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { clarifyGoalPrompt, prepareGoalPrompt } from "./clarify.ts";
 
 const model = { id: "test-model" };
 
-/** A model-registry double that returns `text` and records the clarifier requests. */
-function registryReturning(text: string | undefined): { calls: string[]; registry: unknown } {
-	const calls: string[] = [];
-	return {
-		calls,
-		registry: {
-			complete: async (_model: unknown, context: { messages: Array<{ content: Array<{ text: string }> }> }) => {
-				calls.push(context.messages[0].content[0].text);
-				if (text === undefined) return { stopReason: "aborted", content: [] };
-				return { stopReason: "stop", content: [{ type: "text", text }] };
-			},
-		},
-	};
-}
+/** A registry that returns one reply. */
+const registryReturning = (text: string | undefined) => clarifyRegistry([text]);
 
 /** A throwing registry, to prove a provider failure never escapes. */
 function throwingRegistry(): unknown {
@@ -32,23 +20,32 @@ function throwingRegistry(): unknown {
 /** A context with UI and a model, in RPC mode so no loader is needed. */
 function clarifyCtx(
 	registry: unknown,
-	options: { editor?: string | undefined; model?: unknown; hasUI?: boolean; mode?: string } = {},
+	options: {
+		editor?: string | undefined;
+		select?: string | undefined;
+		input?: string | undefined;
+		model?: unknown;
+		hasUI?: boolean;
+		mode?: string;
+	} = {},
 ) {
 	return fakeCtx({
 		mode: options.mode ?? "rpc",
 		hasUI: options.hasUI ?? true,
 		editor: options.editor,
+		select: options.select,
+		input: options.input,
 		extra: { model: "model" in options ? options.model : model, modelRegistry: registry },
-	});
+	} as FakeCtxOptions);
 }
 
 describe("clarifyGoalPrompt", () => {
-	test("parses a plain-text reply as a clear goal", async () => {
+	test("parses a plain-text reply as an understood goal", async () => {
 		const { calls, registry } = registryReturning("```\nRefactor the parser\n```");
 		const { ctx } = clarifyCtx(registry);
 
 		expect(await clarifyGoalPrompt(ctx, "refactor the parser")).toEqual({
-			clear: true,
+			understood: true,
 			goal: "Refactor the parser",
 			questions: [],
 		});
@@ -56,11 +53,11 @@ describe("clarifyGoalPrompt", () => {
 		expect(calls[0]).toContain("refactor the parser");
 	});
 
-	test("parses a JSON reply into a clarification with questions", async () => {
+	test("parses a JSON reply with questions as not understood", async () => {
 		const { ctx } = clarifyCtx(registryReturning(clarifyReply()).registry);
 
 		expect(await clarifyGoalPrompt(ctx, "add parser tests")).toEqual({
-			clear: false,
+			understood: false,
 			goal: "Add parser tests",
 			questions: [SCOPE_QUESTION],
 		});
@@ -97,96 +94,133 @@ describe("clarifyGoalPrompt", () => {
 });
 
 describe("prepareGoalPrompt", () => {
-	test("prefills the editor with the clarification and uses the edited text", async () => {
+	test("prefills the editor with an understood restatement and uses the edited text", async () => {
 		const { registry } = registryReturning("Refactor the parser to stream input");
 		const { ctx, editorCalls } = clarifyCtx(registry, { editor: "Refactor the parser to stream input, with tests" });
 
-		const outcome = await prepareGoalPrompt(ctx, "refactor the parser", false);
+		const outcome = await prepareGoalPrompt(ctx, "refactor the parser");
 
 		expect(outcome).toEqual({ action: "use", text: "Refactor the parser to stream input, with tests" });
 		expect(editorCalls).toHaveLength(1);
 		expect(editorCalls[0].prefill).toBe("Refactor the parser to stream input");
 	});
 
-	test("delegates the questions when the clarifier is unclear and asking is available", async () => {
-		const { ctx, editorCalls } = clarifyCtx(registryReturning(clarifyReply()).registry, { editor: "ignored" });
-
-		const outcome = await prepareGoalPrompt(ctx, "add parser tests", true);
-
-		expect(outcome).toEqual({
-			action: "ask",
-			original: "add parser tests",
-			goal: "Add parser tests",
-			questions: [SCOPE_QUESTION],
+	test("asks the model's questions, refines the goal, and prefills the editor with it", async () => {
+		const { calls, registry } = clarifyRegistry([clarifyReply(), "Add parser tests for the new parser"]);
+		const { ctx, editorCalls, selects, notices } = clarifyCtx(registry, {
+			select: "The new one",
+			editor: "Add parser tests for the new parser, in CI",
 		});
-		expect(editorCalls).toHaveLength(0);
+
+		const outcome = await prepareGoalPrompt(ctx, "add parser tests");
+
+		expect(outcome).toEqual({ action: "use", text: "Add parser tests for the new parser, in CI" });
+		expect(selects).toEqual([["The new one", "The old one"]]);
+		expect(calls).toHaveLength(2);
+		expect(calls[1]).toContain("The new one");
+		expect(editorCalls[0].prefill).toBe("Add parser tests for the new parser");
+		expect(notices).toHaveLength(0);
 	});
 
-	test("falls back to the editor with the proposed goal when asking is unavailable", async () => {
-		const { ctx, editorCalls } = clarifyCtx(registryReturning(clarifyReply()).registry, {
-			editor: "Add parser tests, new parser",
+	test("uses a free-form input for a question without options", async () => {
+		const { calls, registry } = clarifyRegistry([
+			clarifyReply({ questions: [{ question: "Anything to add?" }] }),
+			"Ship the parser",
+		]);
+		const { ctx, selects } = clarifyCtx(registry, { input: "the new parser", editor: "Ship the parser" });
+
+		const outcome = await prepareGoalPrompt(ctx, "ship the parser");
+
+		expect(outcome).toEqual({ action: "use", text: "Ship the parser" });
+		expect(selects).toHaveLength(0);
+		expect(calls[1]).toContain("the new parser");
+	});
+
+	test("notices and keeps the first restatement when the refine call fails", async () => {
+		const { registry } = clarifyRegistry([clarifyReply(), ""]);
+		const { ctx, editorCalls, notices } = clarifyCtx(registry, {
+			select: "The new one",
+			editor: "Add parser tests",
 		});
 
-		const outcome = await prepareGoalPrompt(ctx, "add parser tests", false);
+		const outcome = await prepareGoalPrompt(ctx, "add parser tests");
 
-		expect(outcome).toEqual({ action: "use", text: "Add parser tests, new parser" });
+		expect(outcome).toEqual({ action: "use", text: "Add parser tests" });
 		expect(editorCalls[0].prefill).toBe("Add parser tests");
+		expect(notices.at(-1)?.message).toContain("Could not update the goal from your answers");
 	});
 
-	test("prefills the editor with a clear JSON goal", async () => {
-		const reply = JSON.stringify({ clear: true, goal: "Refactor the parser", questions: [] });
-		const { ctx, editorCalls } = clarifyCtx(registryReturning(reply).registry, {
-			editor: "Refactor the parser, with tests",
-		});
+	test("sanitizes a free-form answer before the refine call", async () => {
+		const { calls, registry } = clarifyRegistry([
+			clarifyReply({ questions: [{ question: "Anything to add?" }] }),
+			"Ship the parser",
+		]);
+		const { ctx } = clarifyCtx(registry, { input: "keep\nit\u001b[31mfast", editor: "Ship the parser" });
 
-		expect(await prepareGoalPrompt(ctx, "refactor the parser", true)).toEqual({
-			action: "use",
-			text: "Refactor the parser, with tests",
-		});
-		expect(editorCalls[0].prefill).toBe("Refactor the parser");
+		await prepareGoalPrompt(ctx, "ship the parser");
+
+		expect(calls[1]).toContain("keep it [31mfast");
+		expect(calls[1]).not.toContain("\u001b");
 	});
 
-	test("falls back to the typed text when the clarifier produces nothing usable", async () => {
-		const { registry } = registryReturning(undefined);
-		const { ctx, editorCalls } = clarifyCtx(registry, { editor: "refactor the parser" });
+	test("cancels with a notice when a question dialog is dismissed", async () => {
+		const { registry } = clarifyRegistry([clarifyReply()]);
+		const { ctx, editorCalls, notices } = clarifyCtx(registry, { select: undefined, editor: "ignored" });
 
-		const outcome = await prepareGoalPrompt(ctx, "refactor the parser", false);
-
-		expect(outcome).toEqual({ action: "use", text: "refactor the parser" });
-		expect(editorCalls[0].prefill).toBe("refactor the parser");
-	});
-
-	test("falls back to the typed text when the provider throws", async () => {
-		const { ctx } = clarifyCtx(throwingRegistry(), { editor: "refactor the parser" });
-		expect(await prepareGoalPrompt(ctx, "refactor the parser", false)).toEqual({
-			action: "use",
-			text: "refactor the parser",
-		});
+		expect(await prepareGoalPrompt(ctx, "add parser tests")).toEqual({ action: "cancel" });
+		expect(editorCalls).toHaveLength(0);
+		expect(notices.at(-1)?.message).toBe("Goal not set.");
 	});
 
 	test("cancels when the editor is dismissed", async () => {
 		const { registry } = registryReturning("Refactor the parser");
 		const { ctx } = clarifyCtx(registry, { editor: undefined });
-		expect(await prepareGoalPrompt(ctx, "refactor the parser", false)).toEqual({ action: "cancel" });
+		expect(await prepareGoalPrompt(ctx, "refactor the parser")).toEqual({ action: "cancel" });
 	});
 
-	test("skips clarify and the editor without a dialog UI", async () => {
-		const { calls, registry } = registryReturning("Refactor the parser");
-		const { ctx, editorCalls } = clarifyCtx(registry, { hasUI: false, mode: "print", editor: "ignored" });
+	test("notices and keeps the typed text when the provider throws", async () => {
+		const { ctx, editorCalls, notices } = clarifyCtx(throwingRegistry(), { editor: "refactor the parser" });
 
-		expect(await prepareGoalPrompt(ctx, "refactor the parser", true)).toEqual({
+		const outcome = await prepareGoalPrompt(ctx, "refactor the parser");
+
+		expect(outcome).toEqual({ action: "use", text: "refactor the parser" });
+		expect(notices.at(-1)?.message).toContain("Could not confirm the goal");
+		expect(editorCalls[0].prefill).toBe("refactor the parser");
+	});
+
+	test("notices and keeps the typed text when the clarifier produces nothing usable", async () => {
+		const { registry } = registryReturning(undefined);
+		const { ctx, notices } = clarifyCtx(registry, { editor: "refactor the parser" });
+
+		const outcome = await prepareGoalPrompt(ctx, "refactor the parser");
+
+		expect(outcome).toEqual({ action: "use", text: "refactor the parser" });
+		expect(notices.at(-1)?.message).toContain("Could not confirm the goal");
+	});
+
+	test("skips comprehension and the dialogs without a dialog UI", async () => {
+		const { calls, registry } = registryReturning("Refactor the parser");
+		const { ctx, editorCalls, selects } = clarifyCtx(registry, {
+			hasUI: false,
+			mode: "print",
+			editor: "ignored",
+			select: "ignored",
+		});
+
+		expect(await prepareGoalPrompt(ctx, "refactor the parser")).toEqual({
 			action: "use",
 			text: "refactor the parser",
 		});
 		expect(calls).toHaveLength(0);
 		expect(editorCalls).toHaveLength(0);
+		expect(selects).toHaveLength(0);
 	});
 
-	test("skips clarify and the editor without a model", async () => {
+	test("skips comprehension and the dialogs without a model", async () => {
 		const { calls, registry } = registryReturning("Refactor the parser");
 		const { ctx, editorCalls } = clarifyCtx(registry, { model: undefined, editor: "ignored" });
 
-		expect(await prepareGoalPrompt(ctx, "refactor the parser", true)).toEqual({
+		expect(await prepareGoalPrompt(ctx, "refactor the parser")).toEqual({
 			action: "use",
 			text: "refactor the parser",
 		});

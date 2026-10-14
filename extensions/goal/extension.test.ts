@@ -9,7 +9,7 @@ import { WIDGET_KEY } from "./tui.ts";
 import type { Goal } from "./types.ts";
 import { emitCollect as emit, makeFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
-import { clarifyReply, goalContextMessage, resultEntry } from "../../test/helpers/fixtures/goal.ts";
+import { clarifyRegistry, clarifyReply, goalContextMessage, resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { lastWidget, otherMessage } from "../../test/helpers/entries.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -40,7 +40,7 @@ describe("goal extension", () => {
 		goal(pi);
 		const complete = (prefix: string): string[] =>
 			(commands.get("goal").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
-		expect(complete("")).toEqual(["set", "edit", "clear", "done", "help"]);
+		expect(complete("")).toEqual(["set", "edit", "raw", "clear", "done", "help"]);
 		expect(complete("e")).toEqual(["edit"]);
 		expect(complete("fix the bug")).toEqual([]);
 	});
@@ -110,6 +110,32 @@ describe("goal extension", () => {
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await emit(pi, "session_shutdown", {}, ctx);
 		expect(widgetCalls.at(-1)).toEqual({ key: WIDGET_KEY, content: undefined });
+	});
+
+	test("re-appends a live goal after compaction", async () => {
+		const { pi, entries } = makeFakePi();
+		goal(pi);
+		const { ctx } = fakeCtx({ mode: "tui", branch: [resultEntry(active("ship it"))] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		await emit(pi, "session_compact", {}, ctx);
+
+		expect(entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "goal",
+			data: { goal: active("ship it") },
+		});
+	});
+
+	test("does not append a goal after compaction when none is set", async () => {
+		const { pi, entries } = makeFakePi();
+		goal(pi);
+		const { ctx } = fakeCtx({ mode: "tui", branch: [] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		await emit(pi, "session_compact", {}, ctx);
+
+		expect(entries).toHaveLength(0);
 	});
 
 	test("honors a project config that hides achieved goals", async () => {
@@ -211,12 +237,8 @@ describe("goal reminder", () => {
 });
 
 describe("/goal command", () => {
-	async function started(
-		branch: unknown[] = [],
-		ctxOptions: Partial<FakeCtxOptions> = {},
-		piOptions: { active?: string[] } = {},
-	) {
-		const fakePi = makeFakePi(piOptions);
+	async function started(branch: unknown[] = [], ctxOptions: Partial<FakeCtxOptions> = {}) {
+		const fakePi = makeFakePi();
 		goal(fakePi.pi);
 		const fake = fakeCtx({ mode: "print", branch, ...ctxOptions });
 		await emit(fakePi.pi, "session_start", { reason: "startup" }, fake.ctx);
@@ -269,6 +291,58 @@ describe("/goal command", () => {
 		expect(sentMessages.at(-1)).toEqual({ content: "ship the parser", options: undefined });
 	});
 
+	test("confirms before replacing an active goal", async () => {
+		const { command, ctx, entries, sentMessages, notifications } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			confirm: false,
+		});
+
+		await command.handler("ship the parser", ctx);
+
+		expect(notifications.at(-1)).toBe("Goal unchanged.");
+		expect(entries).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("replaces the active goal when the confirmation is accepted", async () => {
+		const { command, ctx, entries, sentMessages } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			confirm: true,
+		});
+
+		await command.handler("ship the parser", ctx);
+
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "active" } });
+		expect(sentMessages).toHaveLength(1);
+	});
+
+	test("does not guard the bare record-only edit", async () => {
+		const { command, ctx, editorCalls } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "new goal",
+		});
+
+		await command.handler("edit", ctx);
+
+		expect(editorCalls[0].prefill).toBe("old goal");
+	});
+
+	test("does not guard an explicit record-only set with text", async () => {
+		const { command, ctx, entries, notifications } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			confirm: undefined,
+		});
+
+		await command.handler("set ship the parser", ctx);
+
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "active" } });
+		expect(notifications.at(-1)).toBe("Goal set (active): ship the parser");
+	});
+
 	test("records a goal without starting a run with /goal set", async () => {
 		const { command, ctx, notifications, entries, sentMessages } = await started();
 		await command.handler("set ship the parser", ctx);
@@ -281,10 +355,40 @@ describe("/goal command", () => {
 		expect(sentMessages).toHaveLength(0);
 	});
 
+	test("/goal edit <text> records the text without starting a run", async () => {
+		const { command, ctx, entries, sentMessages } = await started();
+		await command.handler("edit ship the parser", ctx);
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "active" } });
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("/goal raw <text> records and runs without comprehension", async () => {
+		const { calls, registry } = clarifyRegistry(["ignored"]);
+		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			editor: "ignored",
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("raw ship the parser", ctx);
+
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "active" } });
+		expect(sentMessages.at(-1)).toEqual({ content: "ship the parser", options: undefined });
+		expect(calls).toHaveLength(0);
+		expect(editorCalls).toHaveLength(0);
+	});
+
+	test("/goal raw without text shows the usage", async () => {
+		const { command, ctx, notifications, entries, sentMessages } = await started();
+		await command.handler("raw", ctx);
+		expect(notifications.at(-1)).toBe(GOAL_HELP);
+		expect(entries).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
+	});
+
 	test("records without running when /goal set clarifies through the editor", async () => {
-		const registry = {
-			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "Refactor the parser" }] }),
-		};
+		const { registry } = clarifyRegistry(["Refactor the parser"]);
 		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
 			mode: "rpc",
 			hasUI: true,
@@ -349,22 +453,42 @@ describe("/goal command", () => {
 		expect(notifications.at(-1)).toContain("/goal set");
 	});
 
-	test("delegates an unclear record-only goal without starting the work", async () => {
-		const registry = {
-			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: clarifyReply() }] }),
-		};
-		const { command, ctx, sentMessages } = await started(
-			[],
-			{ mode: "rpc", hasUI: true, editor: "ignored", extra: { model: { id: "m" }, modelRegistry: registry } },
-			{ active: ["ask_user_question"] },
-		);
+	test("asks the model's questions in-command and records the refined goal", async () => {
+		const { calls, registry } = clarifyRegistry([clarifyReply(), "Add parser tests for the new parser"]);
+		const { command, ctx, entries, sentMessages, editorCalls, selects } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			select: "The new one",
+			editor: "Add parser tests for the new parser, in CI",
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
 
-		await command.handler("set add tests to the parser", ctx);
+		await command.handler("add tests to the parser", ctx);
 
-		const content = sentMessages.at(-1)?.content as string;
-		expect(content).toContain("ask_user_question");
-		expect(content).toContain("do not start the work yet");
-		expect(content).not.toContain("begin the work");
+		expect(calls).toHaveLength(2);
+		expect(selects).toEqual([["The new one", "The old one"]]);
+		expect(editorCalls[0].prefill).toBe("Add parser tests for the new parser");
+		expect(entries.at(-1)?.data).toEqual({
+			goal: { objective: "Add parser tests for the new parser, in CI", status: "active" },
+		});
+		expect(sentMessages.at(-1)).toEqual({ content: "Add parser tests for the new parser, in CI", options: undefined });
+	});
+
+	test("cancels an unclear goal when a question dialog is dismissed", async () => {
+		const { registry } = clarifyRegistry([clarifyReply()]);
+		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
+			mode: "rpc",
+			hasUI: true,
+			select: undefined,
+			editor: "ignored",
+			extra: { model: { id: "m" }, modelRegistry: registry },
+		});
+
+		await command.handler("add tests to the parser", ctx);
+
+		expect(entries).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
+		expect(editorCalls).toHaveLength(0);
 	});
 
 	test("submits the prompt as a follow-up while the agent is busy", async () => {
@@ -392,12 +516,7 @@ describe("/goal command", () => {
 	});
 
 	test("clarifies, prefills the editor, and sends the edited text", async () => {
-		const registry = {
-			complete: async () => ({
-				stopReason: "stop",
-				content: [{ type: "text", text: "Refactor the parser to stream input" }],
-			}),
-		};
+		const { registry } = clarifyRegistry(["Refactor the parser to stream input"]);
 		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
 			mode: "rpc",
 			hasUI: true,
@@ -419,36 +538,8 @@ describe("/goal command", () => {
 		});
 	});
 
-	test("delegates an unclear goal to the agent's question tool", async () => {
-		const registry = {
-			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: clarifyReply() }] }),
-		};
-		const { command, ctx, entries, sentMessages, notifications, editorCalls } = await started(
-			[],
-			{
-				mode: "rpc",
-				hasUI: true,
-				editor: "ignored",
-				extra: { model: { id: "m" }, modelRegistry: registry },
-			},
-			{ active: ["ask_user_question"] },
-		);
-
-		await command.handler("add tests to the parser", ctx);
-
-		expect(editorCalls).toHaveLength(0);
-		expect(entries).toHaveLength(0);
-		expect(notifications.at(-1)).toContain("clarification");
-		const content = sentMessages.at(-1)?.content as string;
-		expect(content).toContain("ask_user_question");
-		expect(content).toContain("Which parser?");
-		expect(content).toContain("add tests to the parser");
-	});
-
-	test("edits the proposed goal when the question tool is unavailable", async () => {
-		const registry = {
-			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: clarifyReply() }] }),
-		};
+	test("prefills the editor with the first restatement when the goal is understood", async () => {
+		const { registry } = clarifyRegistry(["Add parser tests"]);
 		const { command, ctx, entries, sentMessages, editorCalls } = await started([], {
 			mode: "rpc",
 			hasUI: true,
@@ -487,9 +578,7 @@ describe("/goal command", () => {
 	});
 
 	test("aborts when the editor is dismissed", async () => {
-		const registry = {
-			complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "Clarified goal" }] }),
-		};
+		const { registry } = clarifyRegistry(["Clarified goal"]);
 		const { command, ctx, entries, sentMessages, notifications } = await started([], {
 			mode: "rpc",
 			hasUI: true,
@@ -505,13 +594,7 @@ describe("/goal command", () => {
 	});
 
 	test("skips clarify and dialogs without a UI", async () => {
-		const calls: string[] = [];
-		const registry = {
-			complete: async () => {
-				calls.push("complete");
-				return { stopReason: "stop", content: [{ type: "text", text: "Clarified goal" }] };
-			},
-		};
+		const { calls, registry } = clarifyRegistry(["Clarified goal"]);
 		const { command, ctx, editorCalls, sentMessages } = await started([], {
 			extra: { model: { id: "m" }, modelRegistry: registry },
 		});
@@ -539,6 +622,13 @@ describe("/goal command", () => {
 			customType: "goal",
 			data: { goal: { objective: "ship it", status: "achieved" } },
 		});
+	});
+
+	test("marking an already achieved goal done again is a no-op", async () => {
+		const { command, ctx, notifications, entries } = await started([resultEntry(achieved("ship it"))]);
+		await command.handler("done", ctx);
+		expect(notifications.at(-1)).toBe("Goal already achieved: ship it");
+		expect(entries).toHaveLength(0);
 	});
 
 	test("accepts the achieved keyword as a synonym for done", async () => {
