@@ -8,7 +8,7 @@ installable Pi package. Pi discovers every extension and theme through the `pi`
 manifest in [`package.json`](./package.json), so it loads only what is declared
 here.
 
-![The Pi TUI with the extensions, status bar, and turn separators from this package loaded](./assets/screenshot.jpg)
+![The Pi TUI with the bytefly header logo, chrome, loaded extensions list, turn separator, and status bar](./assets/bytefly.png)
 
 ## Contents
 
