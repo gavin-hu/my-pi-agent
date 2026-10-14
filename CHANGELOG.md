@@ -18,9 +18,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `set_plan_step` tool marks a step `pending` or `completed` in the approved
   plan file in place, so the artifact stays current as the work is done.
 
+- `bytefly`: the startup header is bytefly's again, restoring the surface the
+  `chrome` extension dropped. It reproduces Pi's built-in identity — the brand
+  mark and the version — and recolors the mark from the active theme's tokens
+  (`accent` / `warning`) instead of the fixed brand palette, so it follows the
+  `bytefly-dark` and `bytefly-light` themes. It is installed only in
+  interactive (`tui`) sessions and restored on shutdown; the content is
+  unchanged and the look is tuned in `header/config.ts`.
+
 - `bytefly`: the two-line, width-adaptive footer formerly shipped as
-  `status-bar` and then `chrome`, replacing Pi's built-in footer while leaving
-  its header alone. The footer keeps pwd + session name + git branch/worktree +
+  `status-bar` and then `chrome`, replacing Pi's built-in footer. The footer
+  keeps pwd + session name + git branch/worktree +
   browse chip on line 1 and the context gauge + usage + mode/alert + model +
   thinking level on line 2; `/bytefly [status]` toggles it. The display name,
   command, extension directory, and config file are all `bytefly` now.

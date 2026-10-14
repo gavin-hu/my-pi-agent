@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import bytefly from "./index.ts";
-import { coloringTheme, emit } from "../../test/helpers/fakes.ts";
+import { coloringTheme, emit, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/bytefly.ts";
@@ -69,6 +69,48 @@ describe("bytefly extension", () => {
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
 		expect(footers).toHaveLength(0);
+	});
+
+	test("installs the header on session start in interactive mode", async () => {
+		const { pi } = makeFakePi();
+		bytefly(pi);
+		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		expect(headers).toHaveLength(1);
+		expect(typeof headers[0]).toBe("function");
+	});
+
+	test("does not install the header outside interactive mode", async () => {
+		const { pi } = makeFakePi();
+		bytefly(pi);
+		const { ctx, headers } = fakeFooterCtx({ mode: "print" });
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		expect(headers).toHaveLength(0);
+	});
+
+	test("restores the built-in header on shutdown", async () => {
+		const { pi } = makeFakePi();
+		bytefly(pi);
+		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
+
+		await emit(pi, "session_shutdown", {}, ctx);
+
+		expect(headers.at(-1)).toBeUndefined();
+	});
+
+	test("renders the brand mark through the installed header factory", async () => {
+		const { pi } = makeFakePi();
+		bytefly(pi);
+		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		const component = headers.at(-1)({ requestRender: () => {} }, fakeTheme);
+
+		expect(component.render(80).join("\n")).toContain("Pi v");
 	});
 
 	test("restores the built-in footer on shutdown", async () => {

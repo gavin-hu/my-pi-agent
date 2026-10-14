@@ -201,7 +201,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	bytefly: {
 		configFiles: ["bytefly.json", "doctor.json"],
 		notes: [
-			"TUI only for the footer and turn rule; `/extensions` prints a listing and `/doctor` prints its report in RPC, JSON, and print modes.",
+			"TUI only for the header, footer, and turn rule; `/extensions` prints a listing and `/doctor` prints its report in RPC, JSON, and print modes.",
 			"The `/extensions` picker writes through Pi's own settings; project scope requires a trusted project.",
 			"`/doctor`'s list screen and the proactive missing-prerequisite warning need an interactive UI.",
 		],

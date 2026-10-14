@@ -1,13 +1,14 @@
 /**
- * bytefly — the package's terminal chrome and diagnostics, composed from four
- * feature folders: `footer/` (the two-line, width-adaptive status bar with its
- * price calculation), `separator/` (the transcript turn rule), `picker/` (the
- * `/extensions` manager), and `doctor/` (`/doctor` and `run_doctor`).
+ * bytefly — the package's terminal chrome and diagnostics, composed from five
+ * feature folders: `header/` (the themed startup mark and version), `footer/`
+ * (the two-line, width-adaptive status bar with its price calculation),
+ * `separator/` (the transcript turn rule), `picker/` (the `/extensions`
+ * manager), and `doctor/` (`/doctor` and `run_doctor`).
  *
- * The footer and the turn rule are installed only in interactive (`tui`)
- * sessions; the picker and doctor work in every mode. Pi's own header is left
- * untouched. The footer is priced from DeepSeek's published rates by default
- * and from `bytefly.json` otherwise, and is toggled with `/bytefly [status]`.
+ * The header, footer, and turn rule are installed only in interactive (`tui`)
+ * sessions; the picker and doctor work in every mode. The footer is priced
+ * from DeepSeek's published rates by default and from `bytefly.json`
+ * otherwise, and is toggled with `/bytefly [status]`.
  *
  * Load with:  pi --extension ./extensions/bytefly
  */
@@ -16,6 +17,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { type DoctorDeps, registerDoctor } from "./doctor/register.ts";
 import { registerFooter } from "./footer/register.ts";
+import { registerHeader } from "./header/register.ts";
 import { type CommandDeps, registerExtensionsCommand } from "./picker/commands.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
 
@@ -31,6 +33,7 @@ export interface ByteflyDeps {
 export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void {
 	if (!isExtensionEnabled("bytefly")) return;
 
+	registerHeader(pi);
 	registerFooter(pi);
 	registerTurnSeparator(pi);
 	registerExtensionsCommand(pi, deps.extensions);

@@ -46,6 +46,7 @@ export interface FakeFooterCtx {
 	ctx: any;
 	footerData: any;
 	footers: any[];
+	headers: any[];
 	notifications: string[];
 	statuses: Map<string, string>;
 }
@@ -53,6 +54,7 @@ export interface FakeFooterCtx {
 /** Minimal `ExtensionContext` double for footer install tests. */
 export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 	const footers: any[] = [];
+	const headers: any[] = [];
 	const notifications: string[] = [];
 	const statuses = new Map<string, string>(options.statuses ?? []);
 	const cwd = options.cwd ?? "/home/u/repo/project";
@@ -84,11 +86,12 @@ export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 		ui: {
 			theme: fakeTheme,
 			setFooter: (factory: any) => footers.push(factory),
+			setHeader: (factory: any) => headers.push(factory),
 			notify: (message: string) => notifications.push(message),
 		},
 	};
 
-	return { ctx, footerData, footers, notifications, statuses };
+	return { ctx, footerData, footers, headers, notifications, statuses };
 }
 
 /** Render a footer factory into its two lines. */

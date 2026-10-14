@@ -1,14 +1,14 @@
-# bytefly — the TUI footer, turn rule, extensions picker, and doctor
+# bytefly — the TUI header, footer, turn rule, extensions picker, and doctor
 
 `bytefly` owns the terminal chrome, configuration, and diagnostics surfaces
-this package adds: one compact, colorful, width-adaptive two-line footer, a
-labeled rule that marks each completed turn in the transcript, the
-`/extensions` picker that lists and toggles every resolved Pi extension, and
-the `/doctor` surface that reports whether each extension has what it needs.
-Pi's own header is left untouched. DeepSeek is priced from the provider's
-published yuan rates and peak tariff by default, and any other model can be
-priced from your own rates when Pi's catalog does not match what a provider
-actually charges.
+this package adds: one themed startup header that recolors Pi's brand mark and
+version, one compact, colorful, width-adaptive two-line footer, a labeled rule
+that marks each completed turn in the transcript, the `/extensions` picker that
+lists and toggles every resolved Pi extension, and the `/doctor` surface that
+reports whether each extension has what it needs. DeepSeek is priced from the
+provider's published yuan rates and peak tariff by default, and any other model
+can be priced from your own rates when Pi's catalog does not match what a
+provider actually charges.
 
 ```
 pi --extension ./extensions/bytefly   # load just this extension
@@ -18,9 +18,22 @@ pi install ./                         # install the package
 
 ## What it does
 
-The extension owns four surfaces: the footer, the rule between completed turns,
-the `/extensions` picker, and the `/doctor` report. Pi's own header is left in
-place.
+The extension owns five surfaces: the startup header, the footer, the rule
+between completed turns, the `/extensions` picker, and the `/doctor` report.
+
+**Header.** Pi's brand mark and version, drawn from the active theme's tokens
+(`accent` and `warning`, plus `dim` for the version) instead of the fixed brand
+palette, so the mark follows `bytefly-dark` and `bytefly-light`. The content is
+Pi's own — only the styling and spacing change, tuned in
+[`header/config.ts`](./header/config.ts) — and it is installed only in
+interactive (`tui`) sessions.
+
+```
+ Pi v1.2.0
+```
+
+(The default is the two-tone `Pi` wordmark; set `mark: "logo"` for the two-line
+half-block logo, or `mark: "none"` to show only the version.)
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -114,7 +127,7 @@ The `status` subcommand completes with Tab.
 
 ## Behaviour by mode
 
-The footer and the turn rule are installed only in interactive (`tui`)
+The header, footer, and turn rule are installed only in interactive (`tui`)
 sessions; `/bytefly` is a no-op elsewhere. The picker is available in every
 mode: in `tui` it opens the dock screen, while in RPC, JSON, and print modes
 `/extensions` prints the same grouped list and does not toggle. `/doctor` probes
@@ -124,10 +137,12 @@ when there is no UI.
 
 ## Configuration
 
-The footer's own content and layout are tuned in [`footer/config.ts`](./footer/config.ts) —
-thresholds, gauge glyphs and widths, separators, icons, and status keys. The
-turn separator has no JSON either: its glyph, label prefix, padding, and colors
-are tuned in [`separator/config.ts`](./separator/config.ts). The price
+The header's own styling and layout are tuned in [`header/config.ts`](./header/config.ts) —
+the mark and version tokens, and the padding and gap. The footer's content and
+layout are tuned in [`footer/config.ts`](./footer/config.ts) — thresholds, gauge
+glyphs and widths, separators, icons, and status keys. The turn separator has no
+JSON either: its glyph, label prefix, padding, and colors are tuned in
+[`separator/config.ts`](./separator/config.ts). The price
 calculation is configured by a JSON file, read the way every other extension
 reads its config:
 
@@ -383,7 +398,7 @@ as text.
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
-| bytefly | — | TUI only for the footer and turn rule; the picker's project scope needs a trusted project; `bytefly.json` and `doctor.json` |
+| bytefly | — | TUI only for the header, footer, and turn rule; the picker's project scope needs a trusted project; `bytefly.json` and `doctor.json` |
 | question | — | needs an interactive UI |
 
 Every extension that reads a config file also gets the malformed-JSON check:
@@ -437,8 +452,8 @@ the same entry in `lib/requirements.ts`, so the two cannot drift.
 - No todo-count segment; the [todo](../todo/) widget already shows progress.
 - No shelling out for git ahead/behind; the footer data provider exposes only
   the branch.
-- No header customization: Pi's built-in header is kept as is. The footer owns
-  the session, model, and working-directory data.
+- No session or model data in the header: it shows Pi's brand mark and version
+  only. The footer owns the session, model, and working-directory data.
 - No auto-fix: `doctor` reports the install command; it never runs it.
 - No aggregation of runtime failures: a tool that errored earlier in the session
   is not a prerequisite problem, and `doctor` does not pretend to know about it.
@@ -454,7 +469,8 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. Pi's header is not touched. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and version are drawn from the active theme's tokens. |
+| Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. |
 | Command | `/bytefly [status]` toggles the footer and reports its state (tui only; a no-op elsewhere), with Tab completion. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Picker command | `pi.registerCommand("extensions")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
@@ -467,10 +483,16 @@ rather than showing a wrong value.
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. `doctor.json` is read at `session_start`. Nothing watches either file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. |
-| Lifecycle | `session_start` installs the footer and points the doctor runtime at the session cwd, probing the extensions with hard requirements when `doctor.json`'s `proactive` is on; `session_tree` reinstalls the footer; `session_shutdown` restores Pi's built-in footer, disposes the branch subscription, and drops doctor's cached findings. |
+| Lifecycle | `session_start` installs the header and footer and points the doctor runtime at the session cwd, probing the extensions with hard requirements when `doctor.json`'s `proactive` is on; `session_tree` reinstalls the header and footer; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, and drops doctor's cached findings. |
 
 ## Design notes
 
+- **The header keeps Pi's content and only recolors it.** Pi's built-in brand
+  colors are fixed, so the mark ignores the active theme; bytefly's header
+  reproduces the mark and version and draws them from `accent`/`warning`/`dim`,
+  which is what makes the optional `bytefly-dark` and `bytefly-light` themes
+  read as one system. It adds no session or model data — that is the footer's
+  job.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".
@@ -564,14 +586,15 @@ rather than showing a wrong value.
 
 ## Files
 
-## Files
-
-The four surfaces are folders: `footer/` (the status bar and its price
-calculation), `separator/`, `picker/`, and `doctor/`.
+The five surfaces are folders: `header/`, `footer/` (the status bar and its
+price calculation), `separator/`, `picker/`, and `doctor/`.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Composition root: the disable guard and the four `register*` calls. |
+| `index.ts` | Composition root: the disable guard and the five `register*` calls. |
+| `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark, theme tokens, padding, gap. |
+| `header/component.ts` | `ByteflyHeader`: the themed brand-mark and version component, plus its factory. |
+| `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
 | `footer/register.ts` | Installs/restores the footer, registers `/bytefly`, and owns its session lifecycle. |
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |
 | `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
@@ -612,7 +635,8 @@ calculation), `separator/`, `picker/`, and `doctor/`.
 ## Testing
 
 `extensions/bytefly/` covers the install/restore/toggle lifecycle
-(`extension`),
+(`extension`), the header's rendering, width shedding, and live theme
+(`header/component`),
 the formatters (`footer/render/format`), the status-chip transforms
 (`footer/render/status`), entry
 reduction and model inheritance (`footer/collect/entries`), snapshot assembly
