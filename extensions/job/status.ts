@@ -16,6 +16,9 @@ import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
 /** Environment variable carrying the status-file path to the wrapped shell. */
 export const STATUS_ENV = "PI_JOB_STATUS_FILE";
 
+/** Environment variable carrying the log-file path to a detached job's shell. */
+export const LOG_ENV = "PI_JOB_LOG_FILE";
+
 /** Bytes read from a status file; an exit code is at most a few digits. */
 const STATUS_READ_BYTES = 64;
 
@@ -28,9 +31,18 @@ const STATUS_READ_BYTES = 64;
  */
 const EXIT_TRAP = `trap '__pi_job_status=$?; printf "%s" "$__pi_job_status" > "$PI_JOB_STATUS_FILE"' EXIT`;
 
-/** Wrap `command` so a POSIX shell records its exit status; a no-op on Windows. */
-export function withExitTrap(command: string, isWindows: boolean): string {
-	return isWindows ? command : `${EXIT_TRAP}\n${command}`;
+/**
+ * Wrap `command` so a POSIX shell records its exit status; a no-op on Windows.
+ *
+ * With `redirectToLog`, the shell also points its own stdout/stderr at the log
+ * file, so a detached job writes the log directly and keeps doing so after this
+ * process exits. The path travels in the environment, so it is never quoted
+ * into the command.
+ */
+export function withExitTrap(command: string, isWindows: boolean, redirectToLog = false): string {
+	if (isWindows) return command;
+	const redirect = redirectToLog ? `exec >> "$${LOG_ENV}" 2>&1\n` : "";
+	return `${redirect}${EXIT_TRAP}\n${command}`;
 }
 
 /** Read a status file as an integer exit code, or undefined when absent/invalid. */

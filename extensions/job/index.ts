@@ -47,23 +47,22 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
 
-	/** Drain every unreported completion; returns them so the caller can report. */
-	const drainPending = (): JobRecord[] => runtime.takePending();
-
 	// Opt-in wake: a `wake` job finished while the agent is idle. Report *all*
 	// pending completions, not just the waking one, so a non-wake job that
 	// finished earlier is not silently marked seen and dropped.
 	const handleFinish = (_job: Job): void => {
 		if (busy) return;
-		const pending = drainPending();
+		const pending = runtime.pendingCompletions();
 		if (pending.length === 0) return;
 		try {
 			pi.sendMessage(
 				{ customType: JOB_CONTEXT_TYPE, content: buildContext(pending), display: false },
 				{ triggerTurn: true },
 			);
+			// Mark only once the send succeeded; a throw leaves them for the next turn.
+			runtime.markReported(pending.map((job) => job.id));
 		} catch {
-			// Waking is best-effort; the note is still delivered next turn.
+			// Waking is best-effort; the next turn still reports the completion.
 		}
 	};
 
@@ -89,8 +88,9 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 
 	// Report completions to the model at the start of the next turn.
 	pi.on("before_agent_start", (_event, ctx) => {
-		const pending = drainPending();
+		const pending = runtime.pendingCompletions();
 		if (pending.length === 0) return undefined;
+		runtime.markReported(pending.map((job) => job.id));
 		runtime.setStatus(ctx);
 		return {
 			message: { customType: JOB_CONTEXT_TYPE, content: buildContext(pending), display: false },

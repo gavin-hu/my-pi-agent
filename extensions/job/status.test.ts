@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { readExitStatus, STATUS_ENV, withExitTrap } from "./status.ts";
+import { LOG_ENV, readExitStatus, STATUS_ENV, withExitTrap } from "./status.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 
@@ -23,6 +23,14 @@ describe("withExitTrap", () => {
 		expect(program).toContain("trap ");
 		expect(program).toContain("EXIT");
 		expect(program.endsWith("bun test")).toBe(true);
+	});
+
+	test("redirects a detached job's own output to the log file when asked", () => {
+		const program = withExitTrap("bun test", false, true);
+		expect(program.startsWith(`exec >> "$${LOG_ENV}" 2>&1\n`)).toBe(true);
+		expect(program.endsWith("bun test")).toBe(true);
+		expect(withExitTrap("bun test", false)).not.toContain("exec >>");
+		expect(withExitTrap("bun test", true, true)).toBe("bun test");
 	});
 });
 

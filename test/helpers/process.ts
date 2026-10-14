@@ -22,6 +22,12 @@ export class JobChild extends EventEmitter implements SpawnedProcess {
 	signals: string[] = [];
 	command = "";
 	cwd = "";
+	options: { cwd: string; env?: NodeJS.ProcessEnv; detachOutput?: boolean } | undefined;
+	unrefed = false;
+
+	unref(): void {
+		this.unrefed = true;
+	}
 
 	kill(signal: NodeJS.Signals = "SIGTERM"): boolean {
 		this.killed = true;
@@ -57,6 +63,7 @@ export function makeJobSpawn(script?: (child: JobChild) => void): FakeJobSpawn {
 		const child = new JobChild();
 		child.command = command;
 		child.cwd = options.cwd;
+		child.options = options;
 		children.push(child);
 		queueMicrotask(() => script?.(child));
 		return child;

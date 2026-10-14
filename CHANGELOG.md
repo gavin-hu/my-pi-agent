@@ -143,6 +143,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `job`: a `detached` POSIX job now writes its own output straight to its log
+  file and is unrefed, so it keeps logging and survives the session ending
+  instead of losing output (and risking SIGPIPE) when the parent's pipe closes.
+- `job`: the durable registry is keyed by the session cwd rather than the active
+  worktree root, so entering or leaving a worktree mid-session no longer moves
+  the registry out from under the jobs already recorded there.
+- `job`: a `wake` completion is marked reported only after the wake send
+  succeeds, so a failed send no longer drops it from the next turn.
 - `worktree`: the `PI_WORKTREE_*` environment is re-exported when a session
   restores a worktree and cleared on session shutdown, so peer extensions and
   child processes no longer follow a stale or non-isolated root after `/new`,
