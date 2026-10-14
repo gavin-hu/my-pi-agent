@@ -31,7 +31,7 @@ export function makeItem(overrides: ItemOverrides = {}): ResourceItem {
  * constant only; it does not change what Pi loads.
  */
 export const DEFAULT_ENABLED_EXTENSIONS = [
-	"chrome",
+	"bytefly",
 	"turn-separator",
 	"plan",
 	"todo",
@@ -57,7 +57,7 @@ export const PACKAGE_EXTENSIONS = [
 	"file-explorer",
 	"memory",
 	"wechat",
-	"chrome",
+	"bytefly",
 	"turn-separator",
 	"extension-picker",
 	"doctor",

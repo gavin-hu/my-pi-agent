@@ -267,9 +267,9 @@ check("serve command registered", !!serveCommand);
 if (serveCommand) await serveCommand.handler("status", runner.createCommandContext());
 check("serve status runs without starting a server", !!serveCommand);
 
-// chrome loads headlessly and registers its toggle command; it installs no
+// bytefly loads headlessly and registers its toggle command; it installs no
 // tools and only paints the header and footer in interactive mode.
-check("chrome command registered", !!runner.getCommand("chrome"));
+check("bytefly command registered", !!runner.getCommand("bytefly"));
 
 // turn-separator loads headlessly and registers its entry renderer; separators
 // are only appended in interactive sessions.

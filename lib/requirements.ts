@@ -198,8 +198,8 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		],
 		notes: ["Logging in needs the interactive terminal UI."],
 	},
-	chrome: {
-		configFile: "chrome.json",
+	bytefly: {
+		configFile: "bytefly.json",
 		notes: ["TUI only; inert in RPC, JSON, and print modes."],
 	},
 	"turn-separator": {

@@ -9,7 +9,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { createPricer } from "../price/price.ts";
-import type { FooterData, ChromeConfig, StatusSnapshot } from "../types.ts";
+import type { FooterData, ByteflyConfig, StatusSnapshot } from "../types.ts";
 import { emptyUsage, usageRecords } from "./entries.ts";
 
 /**
@@ -18,7 +18,7 @@ import { emptyUsage, usageRecords } from "./entries.ts";
  * Every append moves the session's leaf, so `sessionId:leafId` is enough to
  * know the totals are stale; this avoids copying the full entry list per frame.
  */
-export function createSnapshotReader(config: ChromeConfig) {
+export function createSnapshotReader(config: ByteflyConfig) {
 	const price = createPricer(config);
 	let key: string | null = null;
 	let usage = emptyUsage();

@@ -3,7 +3,7 @@ import { GLYPHS, STATUS_KEYS } from "../../../lib/ui.ts";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { buildLines } from "./lines.ts";
 import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
-import { fullSnapshot } from "../../../test/helpers/fixtures/chrome.ts";
+import { fullSnapshot } from "../../../test/helpers/fixtures/bytefly.ts";
 
 const ids = (segments: Array<{ id: string }>) => segments.map((segment) => segment.id);
 

@@ -1,5 +1,5 @@
 import { GLYPHS, STATUS_KEYS } from "../../../lib/ui.ts";
-import type { StatusSnapshot } from "../../../extensions/chrome/types.ts";
+import type { StatusSnapshot } from "../../../extensions/bytefly/types.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../fakes.ts";
 
 export { emit, fakeTheme } from "../fakes.ts";
@@ -11,7 +11,7 @@ export interface FakePi {
 	handlers: Map<string, AnyHandler[]>;
 }
 
-/** Minimal `ExtensionAPI` double covering what the chrome extension uses. */
+/** Minimal `ExtensionAPI` double covering what the bytefly extension uses. */
 export function makeFakePi(options: { settings?: any } = {}): FakePi {
 	const fake = createFakePi({ settings: options.settings });
 	return { pi: fake.pi, commands: fake.commands, handlers: fake.handlers };

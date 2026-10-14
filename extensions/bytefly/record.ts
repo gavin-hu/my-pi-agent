@@ -1,5 +1,5 @@
 /**
- * JSON guard shared by the chrome footer's config and price modules.
+ * JSON guard shared by the bytefly footer's config and price modules.
  *
  * A config file is untrusted input: every field is validated from `unknown`,
  * and a non-object (including an array) means "unset" rather than throwing.

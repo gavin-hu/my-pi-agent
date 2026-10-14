@@ -180,7 +180,7 @@ describe("ExtensionsListComponent styling and default profile", () => {
 		const lines = component.render(60);
 		const text = lines.join("\n");
 
-		expect(text).toContain("[x] chrome/index.ts");
+		expect(text).toContain("[x] bytefly/index.ts");
 		expect(text).toContain("[ ] rewind/index.ts");
 		expect(lines.every((line) => visibleWidth(line) <= 60)).toBe(true);
 	});
