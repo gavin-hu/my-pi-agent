@@ -62,9 +62,15 @@ ${WEB_COMPONENTS_CSS}
 .review-bar{align-items:center;gap:var(--space-2) var(--space-4)}
 .review-bar .bf-brand{flex:0 0 auto}
 .review-heading{display:flex;align-items:center;flex:1 1 160px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
-.review-title{display:block;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-title{display:block;flex:1 1 auto;min-width:0;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-status{display:inline-flex;align-items:center;gap:var(--space-3);flex:0 0 auto}
 .review-controls{display:inline-flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
+.bf-app{--review-top:57px}
+.bf-app__body--single{grid-template-columns:minmax(0,1fr)}
+@media (min-width:1181px){
+.bf-app__sidebar{position:sticky;top:var(--review-top);align-self:start;max-height:calc(100vh - var(--review-top))}
+.bf-app__sidebar .bf-panel{flex:1 1 auto;min-height:0}
+}
 .review-nav{min-width:0}
 .review-nav ul{list-style:none;margin:0;padding:0}
 .review-nav a{display:block;padding:4px 8px;border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm);line-height:var(--lh-snug);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -121,6 +127,15 @@ ${WEB_COMPONENTS_CSS}
  */
 export function renderReviewPage(data: ReviewPageData): string {
 	const island = JSON.stringify(data).replace(/</g, "\\u003c");
+	const hasOutline = data.outline.length > 0;
+	const bodyClass = hasOutline ? "bf-app__body" : "bf-app__body bf-app__body--single";
+	const outlinePanel = hasOutline
+		? `<details class="bf-app__sidebar review-outline" open>
+<summary class="bf-panel__summary">Sections</summary>
+<nav class="bf-panel review-nav" aria-label="Plan sections"><ul id="outline-list"></ul></nav>
+</details>
+`
+		: "";
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -143,12 +158,8 @@ ${themeToggle()}
 </div>
 </div></header>
 <div class="bf-status" id="status" role="status" aria-live="polite"></div>
-<div class="bf-app__body">
-<details class="bf-app__sidebar review-outline" open>
-<summary class="bf-panel__summary">Sections</summary>
-<nav class="bf-panel review-nav" aria-label="Plan sections"><ul id="outline-list"></ul></nav>
-</details>
-<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
+<div class="${bodyClass}">
+${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
 <script type="application/json" id="review-data">${island}</script>
 <script src="/client.js" defer></script>

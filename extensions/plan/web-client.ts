@@ -197,7 +197,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       chip.textContent = "\u201c" + quote + "\u201d";
       box.appendChild(chip);
     }
-    var area = el("textarea");
+    var area = el("textarea", "bf-textarea");
     area.placeholder = "Leave feedback on this part of the plan";
     area.setAttribute("aria-label", "Comment");
     box.appendChild(area);
@@ -219,7 +219,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function startEdit(card, index) {
     var annotation = annotations[index];
     card.textContent = "";
-    var area = el("textarea");
+    var area = el("textarea", "bf-textarea");
     area.value = annotation.comment;
     area.setAttribute("aria-label", "Edit comment");
     card.appendChild(area);
@@ -282,7 +282,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     Array.prototype.forEach.call(outlineList.querySelectorAll("a"), function (link) {
       links[link.getAttribute("data-id")] = link;
     });
-    var headings = Array.prototype.slice.call(planEl.querySelectorAll(".block[id]"));
+    var headings = Array.prototype.slice.call(planEl.querySelectorAll(".bf-block[id]"));
     if (headings.length === 0) return;
     sectionObserver = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
@@ -310,8 +310,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       li.appendChild(link);
       outlineList.appendChild(li);
     });
-    var panel = document.querySelector(".review-outline");
-    if (panel && items.length === 0) panel.hidden = true;
   }
 
   function renderPlan() {

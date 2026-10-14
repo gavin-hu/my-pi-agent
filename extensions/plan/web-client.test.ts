@@ -52,6 +52,11 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain("IntersectionObserver");
 	});
 
+	test("observes the renamed blocks and styles the comment textareas", () => {
+		expect(REVIEW_CLIENT_JS).toContain(".bf-block[id]");
+		expect(REVIEW_CLIENT_JS).toContain('"bf-textarea"');
+	});
+
 	test("copies server-highlighted code through a DOM allowlist", () => {
 		expect(REVIEW_CLIENT_JS).toContain("DOMParser");
 		expect(REVIEW_CLIENT_JS).toContain("tok-");
