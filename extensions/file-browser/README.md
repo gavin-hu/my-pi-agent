@@ -187,8 +187,10 @@ reflects only this session's server, with no cross-session sharing.
   listing headers sort in place, the wrap toggle is remembered, and the copy
   buttons use the clipboard. Without JS the page still browses and renders
   Markdown, and the JS-only controls (filter, disclosure, actions, quick open)
-  are hidden. The palette defaults to `nocturne-dark`/`nocturne-light` via
-  `prefers-color-scheme` and an explicit choice sets `data-theme` on the root:
+  are hidden; the sort buttons lose their pointer so they do not look live. The
+  palette is a self-contained, GitHub-inspired light/dark set whose canvas and
+  accent match the `nocturne-dark`/`nocturne-light` themes; it follows
+  `prefers-color-scheme` until an explicit choice sets `data-theme` on the root:
   `/theme.js` applies the saved choice in the head before first paint, and the
   header toggle flips and stores it (`serve-theme` in `localStorage`).
 - **Markdown rendering.** `markdown.ts` is a first-party, escape-first renderer

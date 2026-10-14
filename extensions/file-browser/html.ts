@@ -77,6 +77,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 a:focus-visible,button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .skip{position:absolute;left:-9999px;top:0;z-index:3;padding:8px 14px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px}
 .skip:focus{left:12px;top:12px}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 header.site{position:sticky;top:0;z-index:2;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border)}
 .bar{display:flex;align-items:center;gap:12px;height:56px;padding:0 24px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:0 0 8px}
@@ -97,6 +98,7 @@ nav.tree ul{list-style:none;margin:0;padding-left:14px}
 nav.tree>ul{padding-left:0}
 nav.tree .row{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;white-space:nowrap}
 nav.tree .row:hover{background:var(--accent-soft)}
+nav.tree .row:focus-within{background:var(--accent-soft)}
 nav.tree .row[aria-current]{background:var(--accent-soft);color:var(--text);font-weight:600}
 nav.tree .tw{position:relative;appearance:none;background:none;border:0;padding:0;margin:0;width:12px;height:16px;flex:0 0 12px;font:inherit;line-height:1;text-align:center;color:var(--muted);cursor:pointer}
 nav.tree .tw.toggle::after{content:"";position:absolute;inset:-6px -3px}
@@ -112,10 +114,11 @@ nav.crumbs [aria-current]{color:var(--text);font-weight:600}
 table.listing{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
 th.size,td.size{width:96px}
 th.when,td.when{width:140px}
-caption{text-align:left;font-size:12px;color:var(--muted);padding-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+.page-title{margin:0 0 12px;font:600 20px var(--ui)}
 th{font-weight:500;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px}
 td{padding:6px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 tbody tr:hover{background:var(--accent-soft)}
+tbody tr:focus-within{background:var(--accent-soft)}
 .name{display:flex;align-items:center;gap:10px;min-width:0}
 .name a{flex:1 1 auto;min-width:0;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat{width:16px;height:16px;flex:0 0 16px;color:var(--accent)}
@@ -253,7 +256,8 @@ function renderLayout(layout: Layout): string {
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<noscript><style>.filter{display:none}.tw.toggle{visibility:hidden}.action{display:none}.quick-open{display:none}</style></noscript>
+<p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
+<noscript><style>.filter{display:none}.tw.toggle{visibility:hidden}.action{display:none}.quick-open{display:none}th .sort{pointer-events:none;cursor:default}</style></noscript>
 ${SPRITE}
 <header class="site"><div class="bar">
   <span class="brand"><span class="dot"></span>serve</span>
@@ -277,7 +281,7 @@ ${SPRITE}
 ${layout.main}
   </main>
 </div>
-<footer class="site"><div class="wrap">served from ${escapeHtml(layout.rootLabel)} · read-only · ${layout.footerNote}</div></footer>
+<footer class="site">served from ${escapeHtml(layout.rootLabel)} · read-only · ${layout.footerNote}</footer>
 <script src="/app.js" defer></script>
 </body>
 </html>
@@ -357,8 +361,9 @@ export interface DirectoryPage {
 
 /** Render a directory listing page. */
 export function renderDirectoryPage(page: DirectoryPage): string {
-	let body = `<table class="listing">
-<caption>${escapeHtml(page.rel || "/")}</caption>
+	const folderName = page.rel ? page.rel.slice(page.rel.lastIndexOf("/") + 1) : "/";
+	const heading = `<h1 class="page-title" id="page-title">${escapeHtml(folderName)}</h1>`;
+	let body = `<table class="listing" aria-labelledby="page-title">
 <thead><tr><th scope="col" aria-sort="ascending"><button type="button" class="sort" data-sort="name" title="Sort by name">Name</button></th><th scope="col" class="size"><button type="button" class="sort" data-sort="size" title="Sort by size">Size</button></th><th scope="col" class="when"><button type="button" class="sort" data-sort="mtime" title="Sort by modified time">Modified</button></th></tr></thead>
 <tbody>
 ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.thumbnails)).join("\n")}
@@ -374,7 +379,7 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		tree: page.tree,
 		currentRel: page.rel,
 		breadcrumbs: renderBreadcrumbs(page.rel),
-		main: `    ${body}`,
+		main: `    ${heading}\n    ${body}`,
 		footerNote: `${page.listing.total} entr${page.listing.total === 1 ? "y" : "ies"}`,
 		git: page.git,
 	});

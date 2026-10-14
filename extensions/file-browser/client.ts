@@ -343,6 +343,8 @@ export const CLIENT_JS = `(function () {
 	function flash(button, label) {
 		var original = button.textContent;
 		button.textContent = label;
+		var status = document.getElementById("copy-status");
+		if (status) status.textContent = label === "copied" ? "Copied to clipboard" : "Copy failed";
 		window.setTimeout(function () { button.textContent = original; }, 1200);
 	}
 
@@ -410,6 +412,7 @@ export const CLIENT_JS = `(function () {
 		paletteInput.setAttribute("aria-autocomplete", "list");
 		paletteInput.setAttribute("autocomplete", "off");
 		paletteInput.setAttribute("placeholder", "Type a file path…");
+		paletteInput.setAttribute("aria-label", "Quick open a file");
 		paletteList = document.createElement("ul");
 		paletteList.className = "palette-list";
 		paletteList.id = "palette-list";

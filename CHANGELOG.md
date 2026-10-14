@@ -123,6 +123,12 @@ rendering, so model-authored control characters cannot reach the terminal.
 - `goal`, `todo`, `memory`, `wechat`: a tool error line sanitizes its message
   before rendering, matching `job` and `subagent`, so a probe- or
   model-authored control character cannot reach the terminal through an error.
+- `file-browser`: a directory page has an `<h1>` (the table is labelled by it),
+  listing and tree rows show a focus ring and not only hover, the sort buttons
+  are made non-interactive under `noscript`, the copy buttons announce
+  `Copied to clipboard` / `Copy failed` through a live region, and the
+  quick-open input has its own label. The README now describes the served
+  palette accurately instead of claiming the `nocturne` themes.
 
 ## [0.5.1] - 2026-10-13
 

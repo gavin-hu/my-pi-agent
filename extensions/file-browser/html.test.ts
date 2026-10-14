@@ -229,6 +229,11 @@ describe("renderFilePage", () => {
 		expect(html).toContain('id="tree-empty"');
 		expect(html).toContain('href="#main"');
 		expect(html).toContain('id="main"');
+		expect(html).toContain('class="page-title"');
+		expect(html).toContain(":focus-within");
+		expect(html).toContain("th .sort{pointer-events:none");
+		expect(html).toContain('id="copy-status"');
+		expect(html).toContain(".sr-only{");
 		expect(html).toContain('<details class="side-panel" open>');
 		expect(html).toContain('<summary class="side-summary">');
 		expect(html).not.toContain("max-width:1400px");
