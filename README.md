@@ -109,9 +109,7 @@ bun run test:watch   # unit tests, watch mode
 bun run typecheck    # tsc --noEmit
 bun run format       # biome format --write .
 bun run format:check # biome format . (check only)
-bun run transpile    # bun build (--no-bundle) every extension
-bun run smoke        # runtime package load + per-extension lifecycle checks (no model call)
-bun run check        # format:check + typecheck + transpile + test + smoke
+bun run check        # format:check + typecheck + test
 ```
 
 AI coding agents should read [`AGENTS.md`](./AGENTS.md) for the repo

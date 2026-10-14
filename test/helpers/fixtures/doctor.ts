@@ -6,8 +6,7 @@
  * loads an optional package, or touches the real agent directory.
  *
  * `loadModule` and `invocation` default to satisfied stubs for the same reason;
- * the real wiring for those two seams is covered by `lib/requirements.test.ts`
- * and the smoke run.
+ * the real wiring for those two seams is covered by `lib/requirements.test.ts`.
  */
 
 import { registerDoctor } from "../../../extensions/bytefly/doctor/register.ts";

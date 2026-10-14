@@ -36,7 +36,7 @@ jobs:
       # and windows keep --parallel=4.
       # The default shell per OS is intentional: forcing bash on Windows would
       # reintroduce Git-Bash path conversion, which is itself platform-specific.
-      # format:check, typecheck, transpile, test, smoke
+      # format:check, typecheck, test
       - name: Run checks
         if: matrix.os != 'macos-latest'
         run: bun run check

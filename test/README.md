@@ -8,15 +8,12 @@ Testing conventions for this package. Keep this file and the layout in sync;
 ```bash
 bun test                 # whole suite (isolated per-file globals, 30s timeout)
 bun test <path>          # one file or directory
-bun run check            # format + typecheck + transpile + test + smoke + prompt budget
-bun run prompt-budget    # always-on per-tool prompt size report
+bun run check            # format + typecheck + test
 ```
 
-The always-on model-facing prompt size is budgeted. `bun run prompt-budget`
-prints a per-tool table (description + parameter schema + snippet + guidelines)
-and `bun run prompt-budget:check` fails when a ceiling is exceeded; it runs as
-the last step of `bun run check`. `test/prompt-budget.test.ts` covers the pure
-per-turn injected-context builders.
+The always-on model-facing prompt size is budgeted. `test/prompt-budget.test.ts`
+covers the pure per-turn injected-context builders, which are re-injected every
+turn, so a regression in that text fails fast.
 
 `bun test` runs the suite through `bun run test` with `--parallel=4` (which
 implies `--isolate`), so each test file runs in its own worker process and

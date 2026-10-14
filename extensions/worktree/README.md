@@ -267,8 +267,7 @@ use, falling back to directory mtime for a worktree with no record.
 
 ```bash
 bun test          # unit + real-git tests
-bun run smoke     # real-runtime load + enter/status/exit via the Pi SDK
-bun run check     # typecheck + transpile + tests + smoke
+bun run check     # format:check + typecheck + tests
 bun run test:watch
 ```
 

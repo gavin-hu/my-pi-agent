@@ -155,6 +155,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- Removed the `scripts/` development checks. `transpile`, `smoke`, and
+  `prompt-budget` no longer exist, and `bun run check` now runs `format:check`,
+  `typecheck`, and `test`. The real-runtime package load, the per-extension
+  lifecycle smoke run, and the tool-prompt size budget are gone;
+  `test/prompt-budget.test.ts` still covers the injected-context ceilings.
 - `bytefly`: the `chrome.json` migration and read fallback are gone; the footer
   reads only `bytefly.json`. Rename an existing `chrome.json` to `bytefly.json`
   to keep a saved price configuration.

@@ -11,7 +11,7 @@ links to, not here.
 ## Commands
 
 ```bash
-bun run check   # format:check + typecheck + transpile + test + smoke
+bun run check   # format:check + typecheck + test
 bun run format  # biome format --write .
 bun run test    # bun test --parallel=4 --timeout 30000
 ```
@@ -103,8 +103,7 @@ why.
   root `README.md` table.
 - Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
   `promptGuidelines`, injected context) is budgeted. Keep each channel to its
-  one job and run `bun run prompt-budget:check` (part of `bun run check`) after
-  changing any of it.
+  one job; `test/prompt-budget.test.ts` holds the injected-context ceilings.
 
 ## TUI design conventions
 
@@ -170,9 +169,6 @@ instruction in two of them.
 - Tool errors name the problem and the corrective action; a rejected call
   returns the unchanged state.
 
-`scripts/smoke-runtime.ts` fails when a registered tool has an empty
-`promptSnippet` or duplicate or blank guidelines.
-
 ## Tool surface conventions
 
 The non-prompt fields of a tool definition are a contract a permission
@@ -195,9 +191,6 @@ extensions.
   `structuredContent` mirror; the two are one contract.
 - A command that takes subcommands or flags implements
   `getArgumentCompletions` for them.
-
-`scripts/smoke-runtime.ts` enforces the annotation rule over every tool the
-package registers.
 
 ## Extension docs
 

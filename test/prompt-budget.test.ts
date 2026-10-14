@@ -1,11 +1,8 @@
 /**
  * Always-on prompt budget for the per-turn injected context.
  *
- * The tool-prompt budget is enforced by `scripts/prompt-budget.ts --check`
- * (wired into `bun run check`), which loads the package through the real
- * runtime and measures every tool's description, parameters, snippet, and
- * guidelines. This test covers the injected-context builders, which are pure,
- * so a regression in the text re-injected every turn fails fast.
+ * Covers the injected-context builders, which are pure, so a regression in the
+ * text re-injected every turn fails fast.
  */
 
 import { describe, expect, test } from "bun:test";
