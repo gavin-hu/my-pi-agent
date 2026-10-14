@@ -38,8 +38,8 @@ export interface DoctorScreenOptions {
 	rows: () => number | undefined;
 	theme: Theme;
 	requestRender: () => void;
-	/** Re-probe with `refresh` and update `reports`. */
-	refresh: () => void;
+	/** Re-probe with `refresh` and update `reports`. May be async; awaited before the busy state clears. */
+	refresh: () => void | Promise<void>;
 	/** Close the screen. */
 	done: () => void;
 }
@@ -48,6 +48,8 @@ export interface DoctorScreenOptions {
 export class DoctorScreen implements Component {
 	private readonly cursor: ListCursor;
 	private showAll = false;
+	/** True while a re-probe is in flight, so `r` does not stack probes. */
+	private refreshing = false;
 
 	constructor(private readonly options: DoctorScreenOptions) {
 		this.cursor = new ListCursor(() => this.options.requestRender());
@@ -55,10 +57,18 @@ export class DoctorScreen implements Component {
 
 	invalidate(): void {}
 
-	/** Re-probe and drop back to the compact detail view. */
-	refresh(): void {
+	/** Re-probe once; a second request while one is in flight is ignored. */
+	async refresh(): Promise<void> {
+		if (this.refreshing) return;
+		this.refreshing = true;
 		this.showAll = false;
-		this.options.refresh();
+		this.options.requestRender();
+		try {
+			await this.options.refresh();
+		} finally {
+			this.refreshing = false;
+			this.options.requestRender();
+		}
 	}
 
 	private count(): number {
@@ -71,7 +81,7 @@ export class DoctorScreen implements Component {
 			return;
 		}
 		if (matchesKey(data, "r")) {
-			this.refresh();
+			void this.refresh();
 			return;
 		}
 		if (matchesKey(data, Key.enter)) {
@@ -130,7 +140,7 @@ export class DoctorScreen implements Component {
 				"Esc close",
 				"↑/↓ select",
 				this.showAll ? "Enter problems" : "Enter all checks",
-				"r refresh",
+				this.refreshing ? "refreshing…" : "r refresh",
 			]),
 		);
 		return lines;

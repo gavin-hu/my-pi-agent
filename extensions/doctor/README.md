@@ -36,7 +36,8 @@ pi install ./                       # install the package
 
 The TUI screen lists one row per extension with a severity glyph and shows the
 focused extension's findings underneath. `Enter` switches between problems only
-and every check, `r` re-probes, `Esc` closes.
+and every check, `r` re-probes, `Esc` closes. While a re-probe is in flight the
+hint shows `refreshing…` and a second `r` is ignored, so probes cannot stack.
 
 ## Tool
 

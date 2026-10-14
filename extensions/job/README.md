@@ -113,11 +113,12 @@ the screen: `↑`/`↓` or `j`/`k` select, `PgUp`/`PgDn` page, `Home`/`End` jump
 `Enter`/`l` opens the log pane, `d` (or `K`) kills the selected running job,
 `x` clears finished jobs, `Esc`/`q` closes. `d` and `x` ask for a `y`/`N`
 confirmation before acting, so a stray key cannot kill a build; when `x` would
-drop an unreported result, the prompt says how many. In the log pane, `↑`/`↓`,
-`PgUp`/`PgDn`, `Home`/`End`, and `g`/`G` scroll; the view follows the tail
-until you scroll up, and `Esc`/`Backspace`/`q` returns to the list. The pane's
-subheader names the job's log file and notes when only a bounded tail is
-loaded.
+drop an unreported result, the prompt says how many. A `d` on a finished job (or
+an `x` with nothing finished) says so instead of doing nothing. In the log pane,
+`↑`/`↓`, `PgUp`/`PgDn`, `Home`/`End`, and `g`/`G` scroll; the view follows the
+tail until you scroll up, and `Esc`/`Backspace`/`q` returns to the list. The
+pane's subheader names the job's log file, notes when only a bounded tail is
+loaded, and shows whether the view is `following` the tail or `paused`.
 
 The screen shows a counts summary (`N jobs · R running · F failed`), running
 jobs first then recent finished jobs, and a focused detail pane (command, cwd,

@@ -20,7 +20,8 @@ on.
 
 - Multiple questions: a tab bar, per-question answered indicators, and a Submit
   tab that refuses to submit until every question is answered.
-- `multiSelect: true`: `Space` toggles options, `Enter` confirms the set.
+- `multiSelect: true`: `Space` toggles options, `Enter` confirms the set. On the
+  `Other` row `Space` opens the editor, like `Enter`.
 - `Esc` cancels; the model receives “User cancelled the question.” and can
   continue or ask in prose.
 

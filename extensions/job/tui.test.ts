@@ -100,11 +100,19 @@ describe("JobListComponent", () => {
 		expect(component.render(60).join("\n")).not.toContain("Kill j1");
 	});
 
-	test("d does nothing for a finished job", () => {
+	test("d on a finished job reports it and never kills", () => {
 		const { component, killed } = makeComponent([job({ status: "exited" })], {});
 		component.handleInput("d");
+		expect(component.render(60).join("\n")).toContain("j1 already exited");
 		component.handleInput("y");
 		expect(killed).toEqual([]);
+	});
+
+	test("x with nothing finished says so", () => {
+		const { component, clearedCount } = makeComponent([job({ status: "running" })], {});
+		component.handleInput("x");
+		expect(component.render(60).join("\n")).toContain("No finished jobs to clear.");
+		expect(clearedCount()).toBe(0);
 	});
 
 	test("x asks for confirmation before clearing finished jobs", () => {
@@ -177,6 +185,15 @@ describe("JobListComponent", () => {
 		component.handleInput("l");
 		expect(component.currentLogId()).toBe("j1");
 		expect(component.render(40).join("\n")).toContain("line two");
+	});
+
+	test("shows whether the log pane follows the tail or is paused", () => {
+		const lines = Array.from({ length: 30 }, (_, i) => `line ${i}`);
+		const { component } = makeComponent([job()], { logs: () => ({ lines }) });
+		component.handleInput("l");
+		expect(component.render(80).join("\n")).toContain("following");
+		component.handleInput("\u001b[A"); // scroll up one line
+		expect(component.render(80).join("\n")).toContain("paused");
 	});
 
 	test("the log header names the job", () => {

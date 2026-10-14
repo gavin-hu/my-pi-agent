@@ -147,6 +147,8 @@ export class JobListComponent implements Component {
 	private follow = true;
 	/** Pending destructive action awaiting y/N. */
 	private confirm: PendingConfirm | undefined;
+	/** Transient feedback shown in place of the hint, e.g. a no-op action. */
+	private notice: string | undefined;
 	/** Rows shown at once; recomputed from the terminal height on every render. */
 	private visible = SCREEN_DEFAULT_ROWS;
 
@@ -280,6 +282,11 @@ export class JobListComponent implements Component {
 			this.onClose();
 			return;
 		}
+		// Any other key dismisses a prior notice, so it does not linger.
+		if (this.notice !== undefined) {
+			this.notice = undefined;
+			this.requestRender();
+		}
 		const ordered = this.ordered;
 		const index = this.indexOfSelected(ordered);
 		switch (navIntent(data)) {
@@ -305,10 +312,14 @@ export class JobListComponent implements Component {
 		if (matchesKey(data, Key.enter) || data === "l") this.openLogs();
 		else if (data === "d" || data === "K") {
 			const job = ordered[index];
-			if (job && job.status === "running") {
+			if (!job) return;
+			if (job.status === "running") {
 				this.confirm = { kind: "kill", id: job.id, label: shortLabel(job) };
-				this.requestRender();
+			} else {
+				// A finished job has nothing to kill; say so instead of a silent no-op.
+				this.notice = `${job.id} already ${job.status}; nothing to kill.`;
 			}
+			this.requestRender();
 		} else if (data === "x") {
 			const finished = ordered.filter((job) => job.status !== "running");
 			if (finished.length > 0) {
@@ -317,8 +328,10 @@ export class JobListComponent implements Component {
 					count: finished.length,
 					unreported: finished.filter((job) => !job.seen).length,
 				};
-				this.requestRender();
+			} else {
+				this.notice = "No finished jobs to clear.";
 			}
+			this.requestRender();
 		}
 	}
 
@@ -441,7 +454,16 @@ export class JobListComponent implements Component {
 		lines.push(
 			this.confirm
 				? truncateToWidth(`  ${this.theme.fg("warning", this.confirmPrompt())}`, w)
-				: screenHint(this.theme, w, ["Esc close", "↑/↓ select", "Enter logs", "d kill", "x clear finished"]),
+				: this.notice
+					? truncateToWidth(`  ${this.theme.fg("muted", this.notice)}`, w)
+					: screenHint(this.theme, w, [
+							"Esc close",
+							"↑/↓ or j/k select",
+							"Enter or l logs",
+							"d or K kill",
+							"x clear finished",
+							"PgUp/PgDn",
+						]),
 		);
 		lines.push("");
 		return lines;
@@ -458,6 +480,8 @@ export class JobListComponent implements Component {
 		const parts: string[] = [];
 		if (this.logPath) parts.push(sanitizeLogLine(this.logPath));
 		if (this.logMore && this.logLines.length > 0) parts.push(`showing last ${this.logLines.length} lines`);
+		// Say whether the pane follows the tail or the user has scrolled away from it.
+		if (this.logLines.length > 0) parts.push(this.follow ? "following" : "paused");
 		const pathLine = truncateToWidth(`  ${this.theme.fg("dim", parts.join(" · "))}`, w);
 		const lines: string[] = [screenHeader(this.theme, w, label), pathLine, ""];
 		if (this.logLines.length === 0) {
@@ -474,7 +498,7 @@ export class JobListComponent implements Component {
 			}
 		}
 		lines.push("");
-		lines.push(screenHint(this.theme, w, ["Esc back", "↑/↓ scroll", "g/G", "PgUp/PgDn"]));
+		lines.push(screenHint(this.theme, w, ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"]));
 		lines.push("");
 		return lines;
 	}

@@ -54,11 +54,10 @@ export function registerCommands(pi: ExtensionAPI, runtime: DoctorRuntime): void
 							rows: () => tui.terminal?.rows,
 							theme,
 							requestRender: () => tui.requestRender(),
-							refresh: () => {
-								void runtime.probeAll({ refresh: true }).then((next) => {
-									current = name ? next.filter((report) => report.extension === name) : next;
-									tui.requestRender();
-								});
+							refresh: async () => {
+								const next = await runtime.probeAll({ refresh: true });
+								current = name ? next.filter((report) => report.extension === name) : next;
+								tui.requestRender();
 							},
 							done,
 						}),

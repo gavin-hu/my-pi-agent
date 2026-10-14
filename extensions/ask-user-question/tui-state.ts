@@ -115,7 +115,8 @@ function changeTab(state: TuiState, delta: number): { state: TuiState; effect: E
 }
 
 function toggleCurrent(state: TuiState, question: Question): { state: TuiState; effect: Effect } {
-	if (state.cursor >= question.options.length) return { state, effect: { type: "none" } }; // "Other" opens on Enter
+	// The "Other" row opens the editor on Enter or Space, rather than a silent no-op.
+	if (state.cursor >= question.options.length) return openEditor(state, question);
 	const existing = state.selections[question.id];
 	const current: Selection =
 		existing?.type === "options" ? existing : { type: "options", values: [], labels: [], indices: [] };

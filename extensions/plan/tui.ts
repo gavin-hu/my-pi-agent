@@ -326,7 +326,10 @@ export class PlanViewComponent implements Component {
 		if (body.length === 0) lines.push(truncateToWidth(`  ${theme.fg("dim", "This plan is empty.")}`, w));
 
 		if (this.editing) {
-			lines.push("");
+			// Keep the scroll position visible while editing: the body above is still
+			// clipped, so the reader needs to know where they are.
+			if (this.maxOffset > 0) lines.push(scrollRow(theme, w, this.offset, end, body.length));
+			else lines.push("");
 			lines.push(truncateToWidth(`  ${theme.fg("muted", "Refine the plan:")}`, w));
 			for (const line of editorLines) lines.push(truncateToWidth(`  ${line}`, w));
 			lines.push("");

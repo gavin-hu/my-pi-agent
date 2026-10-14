@@ -110,6 +110,16 @@ rendering, so model-authored control characters cannot reach the terminal.
 - `chrome`: the session name is bracketed and `muted` (was `dim`), the branch
   uses a neutral token (was the unrelated `customMessageLabel`), and a missing
   model reads `no model` in `muted` (was an accent-coloured `no-model`).
+- `job`: `d` on a finished job and `x` with nothing finished now say so instead
+  of a silent no-op; the log pane subheader shows whether the view is
+  `following` the tail or `paused`; the list and log hints name their working
+  aliases.
+- `doctor`: a re-probe shows `refreshing…` and a second `r` is ignored while one
+  is in flight, so probes cannot stack.
+- `plan`: the scroll gauge stays visible while the inline refine editor is open,
+  since the body above it is still clipped.
+- `ask_user_question`: `Space` on the `Other` row opens the editor instead of a
+  silent no-op.
 
 ## [0.5.1] - 2026-10-13
 

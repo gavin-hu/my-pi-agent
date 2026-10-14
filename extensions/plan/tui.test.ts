@@ -331,6 +331,16 @@ describe("PlanViewComponent — inline refine", () => {
 		expect(text).toContain("Esc back to plan");
 	});
 
+	test("keeps the scroll gauge visible while editing", () => {
+		const manyLines = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join("\n");
+		const { component } = setup(manyLines, { rows: 20, tui });
+		render(component, 80);
+		component.handleInput("r");
+		const text = render(component, 80).join("\n");
+		expect(text).toContain("Refine the plan:");
+		expect(text).toMatch(/lines \d+–\d+ of \d+/);
+	});
+
 	test("leads the refine footer with the safe exit on a narrow screen", () => {
 		const { component } = setup(undefined, { tui });
 		render(component, 80);

@@ -103,6 +103,16 @@ describe("multi-select", () => {
 		expect(state.selections.q1).toEqual({ type: "options", values: ["OAuth"], labels: ["OAuth"], indices: [1] });
 	});
 
+	test("Space on Other opens the editor instead of a silent no-op", () => {
+		const multi = question({ multiSelect: true });
+		let state = initialState([multi]);
+		state = step(state, "down").state;
+		state = step(state, "down").state; // onto "Other"
+		const opened = step(state, "space");
+		expect(opened.effect).toEqual({ type: "openEditor" });
+		expect(opened.state.editing).toBe(true);
+	});
+
 	test("toggling every option off clears the selection", () => {
 		const multi = question({ multiSelect: true });
 		let state = step(initialState([multi]), "space").state;

@@ -95,7 +95,9 @@ does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
 model the plan was not approved. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
 `PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. When the plan overflows,
 a gauge row above the hints shows the scroll position, the percent, and the
-visible line range (the range drops first on a narrow terminal); hints are
+visible line range (the range drops first on a narrow terminal); the gauge stays
+visible while the refine editor is open, since the body above is still clipped.
+Hints are
 dropped whole as the terminal narrows, and each footer leads with its safe exit
 (`Esc keep planning` in the review, `Esc back to plan` in the inline editor) so
 the exit survives even when only one hint fits.

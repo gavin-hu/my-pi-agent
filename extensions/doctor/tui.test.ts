@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { settle } from "../../test/helpers/process.ts";
 import { makeFinding, makeReport } from "../../test/helpers/fixtures/doctor.ts";
 import { DoctorScreen } from "./tui.ts";
 
@@ -75,6 +76,31 @@ describe("DoctorScreen", () => {
 		const { component, calls } = screen();
 		component.handleInput("r");
 		expect(calls.refresh).toBe(1);
+	});
+
+	test("shows a busy marker and ignores a second refresh while one is in flight", async () => {
+		let finish: () => void = () => {};
+		let refreshes = 0;
+		const component = new DoctorScreen({
+			reports: () => [],
+			rows: () => 24,
+			theme: fakeTheme,
+			requestRender: () => {},
+			refresh: () => {
+				refreshes += 1;
+				return new Promise<void>((resolve) => {
+					finish = resolve;
+				});
+			},
+			done: () => {},
+		});
+		component.handleInput("r");
+		component.handleInput("r"); // ignored while one is in flight
+		expect(refreshes).toBe(1);
+		expect(component.render(80).join("\n")).toContain("refreshing");
+		finish();
+		await settle();
+		expect(component.render(80).join("\n")).not.toContain("refreshing");
 	});
 
 	test("toggles between problems-only and every check on enter", () => {
