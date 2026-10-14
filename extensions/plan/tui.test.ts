@@ -296,6 +296,50 @@ describe("PlanViewComponent — scrolling", () => {
 	});
 });
 
+describe("PlanViewComponent — sections", () => {
+	const sectioned = Array.from({ length: 132 }, (_, i) => (i % 12 === 0 ? `## Section ${i / 12}` : `line ${i}`)).join(
+		"\n",
+	);
+
+	/** The scroll row, one above the hint row and the trailing blank. */
+	const scrollLine = (component: PlanViewComponent): string => render(component, 80).at(-3) ?? "";
+
+	test("shows the current section and jumps to the next and previous", () => {
+		const { component } = setup(sectioned, { rows: 20 });
+		expect(scrollLine(component)).toContain(`${GLYPHS.plan} Section 0`);
+
+		component.handleInput("n");
+		expect(scrollLine(component)).toContain(`${GLYPHS.plan} Section 1`);
+
+		component.handleInput("n");
+		expect(scrollLine(component)).toContain(`${GLYPHS.plan} Section 2`);
+
+		component.handleInput("p");
+		expect(scrollLine(component)).toContain(`${GLYPHS.plan} Section 1`);
+	});
+
+	test("p at the first section stays at the top", () => {
+		const { component } = setup(sectioned, { rows: 20 });
+		component.handleInput("p");
+		expect(scrollLine(component)).toContain(`${GLYPHS.plan} Section 0`);
+	});
+
+	test("offers the section-jump hint only when the plan has sections", () => {
+		const withSections = setup(sectioned, { rows: 20 });
+		expect(render(withSections.component, 120).join("\n")).toContain("n/p section");
+
+		const plain = setup(Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join("\n"), { rows: 20 });
+		expect(render(plain.component, 120).join("\n")).not.toContain("n/p section");
+		expect(scrollLine(plain.component)).not.toContain(GLYPHS.plan);
+	});
+
+	test("ignores section jumps when the plan fits", () => {
+		const { component } = setup("## Only\n\nshort", { rows: 40 });
+		component.handleInput("n");
+		expect(render(component, 80).join("\n")).toContain("Only");
+	});
+});
+
 describe("PlanViewComponent — actions", () => {
 	test("a approves, r refines, Esc keeps planning", () => {
 		const approve = setup();

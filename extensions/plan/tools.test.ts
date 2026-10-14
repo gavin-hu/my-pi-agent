@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { createPlanPolicy } from "./policy.ts";
-import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
+import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { GLYPHS } from "../../lib/ui.ts";
@@ -32,6 +32,7 @@ function setup() {
 		enter: fake.tools.get(ENTER_TOOL),
 		exit: fake.tools.get(EXIT_TOOL),
 		write: fake.tools.get(WRITE_PLAN_TOOL),
+		setStep: fake.tools.get(SET_PLAN_STEP_TOOL),
 	};
 }
 
@@ -49,6 +50,11 @@ async function savePlan(write: any, ctx: any, content: string): Promise<string> 
 	const result = await call(write, { title: "Test plan", content }, ctx);
 	expect(result.isError).toBeUndefined();
 	return (result.details as { path: string }).path;
+}
+
+/** Approve a saved plan through the real tool, leaving plan mode. */
+async function approvePlan(exit: any, planPath: string, cwd: string) {
+	await call(exit, { plan_path: planPath }, fakeCtx({ select: "Approve and execute", cwd }).ctx);
 }
 
 describe("enter_plan_mode", () => {
@@ -264,6 +270,8 @@ describe("exit_plan_mode", () => {
 		});
 		expect(result.content[0].text).toContain("test-plan.md");
 		expect(result.content[0].text).toContain("source of truth");
+		expect(result.content[0].text).toContain("1. [ ] Read the parser");
+		expect(result.content[0].text).toContain(SET_PLAN_STEP_TOOL);
 	});
 
 	test("accepts a plan_path relative to the working directory", async () => {
@@ -395,10 +403,95 @@ describe("exit_plan_mode", () => {
 	});
 });
 
+describe("set_plan_step", () => {
+	test("ticks a step off in an approved plan and reports progress", async () => {
+		const { enter, exit, write, setStep, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two\n3. Three");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(setStep, { plan_path: planPath, step: 2, status: "completed" }, ctx);
+		const details = result.details as { done: number; total: number; status: string };
+
+		expect(result.isError).toBeUndefined();
+		expect(details.done).toBe(1);
+		expect(details.total).toBe(3);
+		expect(readFileSync(planPath, "utf-8")).toBe("1. One\n2. [x] Two\n3. Three");
+	});
+
+	test("refuses an out-of-range step and leaves the file unchanged", async () => {
+		const { enter, exit, write, setStep, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(setStep, { plan_path: planPath, step: 5, status: "completed" }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain("out of range");
+		expect(readFileSync(planPath, "utf-8")).toBe("- One");
+	});
+
+	test("refuses a plan outside the plans directory", async () => {
+		const { enter, setStep, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		runtime.disable(fakeCtx({ cwd: root }).ctx);
+		writeFileSync(join(root, "secret.md"), "- One");
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(setStep, { plan_path: join(root, "secret.md"), step: 1, status: "completed" }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(readFileSync(join(root, "secret.md"), "utf-8")).toBe("- One");
+	});
+
+	test("refuses while still in plan mode", async () => {
+		const { enter, write, setStep, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(setStep, { plan_path: planPath, step: 1, status: "completed" }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(runtime.isEnabled()).toBe(true);
+		expect(readFileSync(planPath, "utf-8")).toBe("- One");
+	});
+
+	test("is active by default and annotated as a reversible mutation", () => {
+		const { setStep } = setup();
+		expect(setStep.defaultActive).toBeUndefined();
+		expect(setStep.annotations).toMatchObject({ readOnlyHint: false, idempotentHint: true });
+	});
+
+	test("renders the completion state", () => {
+		const { setStep } = setup();
+		const component = setStep.renderResult(
+			{
+				details: {
+					path: "/x/.pi/plans/p.md",
+					relativePath: ".pi/plans/p.md",
+					step: 2,
+					status: "completed",
+					done: 2,
+					total: 5,
+				},
+			},
+			{ expanded: false },
+			fakeTheme,
+		);
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Step 2 done");
+		expect(text).toContain("2/5");
+	});
+});
+
 describe("plan transcript rendering", () => {
 	test("reuses the slot Text across renders", () => {
-		const { enter, exit, write } = setup();
-		for (const tool of [enter, write, exit]) {
+		const { enter, exit, write, setStep } = setup();
+		for (const tool of [enter, write, exit, setStep]) {
 			const first = tool.renderCall({}, fakeTheme, { lastComponent: undefined });
 			const again = tool.renderCall({}, fakeTheme, { lastComponent: first });
 			expect(again).toBe(first);

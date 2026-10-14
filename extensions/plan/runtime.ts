@@ -30,6 +30,8 @@ export const EXIT_TOOL = "exit_plan_mode";
 export const ENTER_TOOL = "enter_plan_mode";
 /** Tool the model calls to save the plan artifact. */
 export const WRITE_PLAN_TOOL = "write_plan";
+/** Tool the model calls to keep an approved plan's steps current. */
+export const SET_PLAN_STEP_TOOL = "set_plan_step";
 /** Custom-entry type used for persistence. */
 export const STATE_TYPE = "plan-mode";
 

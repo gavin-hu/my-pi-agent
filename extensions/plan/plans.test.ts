@@ -217,6 +217,38 @@ describe("createPlanStore — containment", () => {
 	});
 });
 
+describe("createPlanStore — setStep", () => {
+	test("ticks off a step and returns the rewritten plan", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "1. One\n2. Two" });
+
+		const updated = await store.setStep(root, file.path, 2, "completed");
+		expect(updated.content).toBe("1. One\n2. [x] Two");
+		expect(readFileSync(file.path, "utf-8")).toBe("1. One\n2. [x] Two");
+	});
+
+	test("rejects an out-of-range step without touching the file", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "- One" });
+
+		await expect(store.setStep(root, file.path, 3, "completed")).rejects.toThrow(/out of range/);
+		expect(readFileSync(file.path, "utf-8")).toBe("- One");
+	});
+
+	test("rejects a missing or outside plan", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		writeFileSync(join(root, "outside.md"), "- One");
+
+		await expect(store.setStep(root, join(root, ".pi", "plans", "nope.md"), 1, "completed")).rejects.toThrow(
+			/No plan file/,
+		);
+		await expect(store.setStep(root, join(root, "outside.md"), 1, "completed")).rejects.toThrow(/No plan file/);
+	});
+});
+
 describe("planTitle", () => {
 	test("drops the extension and the timestamp prefix", () => {
 		expect(planTitle("2026-10-08-1530-add-rate-limiting.md")).toBe("add-rate-limiting");

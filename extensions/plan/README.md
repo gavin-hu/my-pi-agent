@@ -34,6 +34,16 @@ pi --plan                          # start in plan mode
   `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` (or `<agent-dir>/plans`
   outside a repository). The plans directory is self-ignoring, so plan files
   never show up as untracked files or in `rewind` snapshots.
+- **A shape that reads.** `write_plan` documents a canonical outline — a
+  `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
+  `## Risks`, and `## Verification` — and the model is guided to follow it. This
+  is guidance only: any markdown is accepted, stored, and rendered as written.
+- **Trackable steps.** Steps are written as `- [ ]` checkboxes; the review
+  screen gauges them and approval seeds them into `todo`.
+- **A navigable review.** The review screen splits the body at its headings,
+  names the section you are in, and jumps between sections with `n`/`p`.
+- **Kept current.** After approval, `set_plan_step` flips a step's checkbox in
+  the file, so the plan mirrors what has actually been done.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
 - **The file is the source of truth.** On approval the model follows the plan
@@ -51,8 +61,9 @@ pi --plan                          # start in plan mode
 | Tool | Active | Purpose |
 |---|---|---|
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
-| `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
+| `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
 | `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. |
+| `set_plan_step` | normal mode | Keep an approved plan current: set one top-level step (`step`, 1-based, in the order `exit_plan_mode` listed) to `pending` or `completed`, in place. Only the checkbox changes. |
 
 ### Commands and flags
 
@@ -93,7 +104,9 @@ marker. A step-progress row sits under the header — a gauge plus `n/m steps do
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
 model the plan was not approved. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
-`PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. When the plan overflows,
+`PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. Press `n`/`p` to jump to
+the next or previous heading; the scroll row names the current section when the
+plan has more than one. When the plan overflows,
 a gauge row above the hints shows the scroll position, the percent, and the
 visible line range (the range drops first on a narrow terminal); the gauge stays
 visible while the refine editor is open, since the body above is still clipped.
@@ -229,15 +242,16 @@ agent file that overrides it.
 ## Non-goals
 
 - **Not a sandbox.** Extensions share Pi's OS permissions.
-- **No progress tracker.** Plan mode does not own completion state; `todo`
-  does.
+- **No progress tracker of record.** `todo` owns completion state; the plan
+  file only mirrors it (`set_plan_step`), and plan mode does not read completion
+  back out.
 - **No auto-execution.** Approval hands control back to the model.
 
 ## Pi integration
 
 | Integration point | How |
 |---|---|
-| Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`); no `outputSchema`/`structuredContent`. |
+| Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_step` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepDetails`); no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
 | State | Enabled flag persisted with `pi.appendEntry("plan-mode", { enabled })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
@@ -266,6 +280,18 @@ agent file that overrides it.
   `ctx`, so a listener could not refresh the todo widget; calling the real tool
   runs its validation and widget sync and needs no change to `todo`. Only
   top-level list items become steps.
+- **The outline guides, it does not enforce.** `write_plan` documents the
+  canonical shape in its description and stores whatever markdown it is given;
+  no section is required and nothing is rewritten. That keeps the model free to
+  adapt the document while making the common case consistent and scannable.
+- **Sections are rendered one at a time.** Pi's `Markdown` exposes no
+  source-line map, so `tui.ts` splits the body at its headings and renders each
+  section separately. That gives exact offsets for the current-section label and
+  `n`/`p`; the single-section case is byte-for-byte the old render.
+- **`set_plan_step` is a second contained write.** It changes only a step's
+  checkbox, in an existing markdown plan inside the plans directory
+  (`isContainedPlan`), and refuses while plan mode is on — so the read-only
+  guarantee and the path backstop are unchanged.
 - **Direction: enforce capabilities at the tool boundary.** (1) A shared
   default-deny policy classifies every call as read-only or mutating instead of
   maintaining a mutator list. (2) Read-only delegation is enforced in the child
@@ -283,15 +309,15 @@ agent file that overrides it.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Wiring: tools, command, flag, shortcut, events, context injection. |
-| `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`. |
+| `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read. |
-| `steps.ts` | `extractPlanSteps` (pure). |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/`setStep`. |
+| `steps.ts` | Plan-document structure (pure): the outline, step extraction, heading sections, and the checkbox edit. |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
-| `tools.ts` | `enter_plan_mode`, `write_plan`, and `exit_plan_mode`. |
+| `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step`. |
 | `commands.ts` | `/plan` (enter, optional task). |
-| `tui.ts` | `PlanViewComponent` (Markdown body, step progress, scroll gauge, approve/refine/keep). |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, step progress, scroll gauge, approve/refine/keep). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../../lib/tui.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |

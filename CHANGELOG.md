@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: the plan document is now shaped and trackable. `write_plan` documents
+  a canonical outline (a `# <Title>`, then `## Goal`, `## Context`,
+  `## Approach`, `## Steps`, `## Risks`, `## Verification`) and guides the model
+  to follow it, with steps written as `- [ ]` checkboxes so the review gauge and
+  the seeded todo list are meaningful. Guidance only: any markdown is accepted
+  and rendered as written. The review screen splits the body at its headings,
+  names the current section, and jumps between sections with `n`/`p`; a new
+  `set_plan_step` tool marks a step `pending` or `completed` in the approved
+  plan file in place, so the artifact stays current as the work is done.
+
 - `chrome`: the two-line, width-adaptive footer formerly shipped as
   `status-bar`, replacing Pi's built-in footer while leaving its header alone.
   The footer keeps pwd + session name + git branch/worktree + serve chip on
@@ -46,6 +56,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   what they want.
 
 ### Changed
+
+- `plan`: `write_plan`'s description and `content` parameter document the
+  outline; `exit_plan_mode` numbers the steps it seeds into `todo` and tells the
+  model to tick each one off with `set_plan_step` (which is itself refused while
+  plan mode is on, so the read-only guarantee is unchanged).
 
 - `document`: `read_doc` extracts every format in process instead of shelling
   out to the `pdfcraft-cli` / `wordcraft-cli` / `gridcraft-cli` executables. PDF

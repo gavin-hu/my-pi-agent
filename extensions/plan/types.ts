@@ -27,6 +27,22 @@ export interface WritePlanDetails {
 	bytes: number;
 }
 
+/** Structured result carried in `set_plan_step`'s `details`. */
+export interface SetPlanStepDetails {
+	/** Absolute path of the plan file that was updated. */
+	path: string;
+	/** Path relative to the working directory, for transcript display. */
+	relativePath: string;
+	/** The 1-based step number that was set. */
+	step: number;
+	/** The step's new status. */
+	status: "pending" | "completed";
+	/** Completed steps after the update. */
+	done: number;
+	/** Total top-level steps in the plan. */
+	total: number;
+}
+
 /** Structured result carried in `exit_plan_mode`'s `details`. */
 export interface ExitPlanModeDetails {
 	/** Whether the user approved the plan. */

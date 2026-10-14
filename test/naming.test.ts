@@ -24,7 +24,7 @@ import { TOOL_NAME as openPath } from "../extensions/file-explorer/schema.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/job/tools.ts";
 import { TOOL_NAME as memory } from "../extensions/memory/tools.ts";
-import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runtime.ts";
+import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
 import { TOOL_NAME as webSearch } from "../extensions/web-access/search/tool.ts";
@@ -68,6 +68,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "plan", name: ENTER_TOOL },
 	{ extension: "plan", name: WRITE_PLAN_TOOL },
 	{ extension: "plan", name: EXIT_TOOL },
+	{ extension: "plan", name: SET_PLAN_STEP_TOOL },
 	{ extension: "subagent", name: subagent },
 	{ extension: "todo", name: todo },
 	{ extension: "web-access", name: webFetch },
@@ -116,6 +117,7 @@ describe("extension tool naming", () => {
 			"read_doc",
 			"run_doctor",
 			"send_wechat",
+			"set_plan_step",
 			"subagent",
 			"todo",
 			"web_fetch",

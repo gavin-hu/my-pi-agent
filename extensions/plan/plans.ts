@@ -19,6 +19,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../../lib/git/index.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
+import { extractPlanSteps, setStepStatus, type PlanStep } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
 export const MAX_PLAN_BYTES = 256 * 1024;
@@ -55,6 +56,8 @@ export interface PlanStore {
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
+	/** Set a top-level step's checkbox in an existing plan. Throws when the file or step is invalid. */
+	setStep(cwd: string, planPath: string, step: number, status: PlanStep["status"]): Promise<StoredPlan>;
 }
 
 /** Timestamp prefix the plan store adds to file names. */
@@ -216,5 +219,28 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 	};
 
-	return { dirFor, write, read };
+	const setStep = async (
+		cwd: string,
+		planPath: string,
+		step: number,
+		status: PlanStep["status"],
+	): Promise<StoredPlan> => {
+		const plan = await read(cwd, planPath);
+		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
+		const updated = setStepStatus(plan.content, step, status);
+		if (!updated) {
+			const total = extractPlanSteps(plan.content).length;
+			const range = total === 0 ? "it has no steps" : `valid steps are 1 to ${total}`;
+			throw new Error(`Step ${step} is out of range; ${range}.`);
+		}
+		writeFileSync(plan.path, updated.plan, "utf-8");
+		return {
+			path: plan.path,
+			relativePath: plan.relativePath,
+			content: updated.plan,
+			bytes: Buffer.byteLength(updated.plan, "utf-8"),
+		};
+	};
+
+	return { dirFor, write, read, setStep };
 }

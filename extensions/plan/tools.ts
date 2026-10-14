@@ -6,13 +6,16 @@
  * returns its path. `exit_plan_mode` reads that file back, presents it for
  * approval (a scrollable review screen in the TUI, a select dialog elsewhere),
  * and on approval seeds the `todo` tool with the plan's steps (through
- * `ctx.executeTool`, so the todo widget and validation run normally). The file
- * is the source of truth: the model executes from it.
+ * `ctx.executeTool`, so the todo widget and validation run normally).
+ * `set_plan_step` then keeps the file current: after approval the model ticks
+ * each step off in place as it finishes it. The file is the source of truth:
+ * the model executes from it.
  *
  * Without an interactive UI the approval tools fail with an actionable message
  * instead of deciding for the user.
  */
 
+import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { basename } from "node:path";
 import { Type, type Static } from "typebox";
@@ -22,10 +25,10 @@ import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY, reuseText } from "../../lib/tui.ts";
 import { expandHint } from "../../lib/ui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
-import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
-import { extractPlanSteps, type PlanStep } from "./steps.ts";
+import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
+import { PLAN_OUTLINE, extractPlanSteps, type PlanStep } from "./steps.ts";
 import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
-import type { EnterPlanModeDetails, ExitPlanModeDetails, WritePlanDetails } from "./types.ts";
+import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepDetails, WritePlanDetails } from "./types.ts";
 
 const ExitPlanModeParams = Type.Object({
 	plan_path: Type.String({
@@ -39,7 +42,7 @@ const WritePlanParams = Type.Object({
 		description: 'Short title for the plan, used as the file-name slug, e.g. "Add rate limiting".',
 	}),
 	content: Type.String({
-		description: "The complete plan as markdown, including every step, so the user can read and judge it.",
+		description: "The complete plan as markdown in the documented outline, including every step.",
 	}),
 	plan_path: Type.Optional(
 		Type.String({
@@ -49,8 +52,22 @@ const WritePlanParams = Type.Object({
 	),
 });
 
+const SetPlanStepParams = Type.Object({
+	plan_path: Type.String({
+		description: "Path to the approved plan file, as returned by write_plan or exit_plan_mode.",
+	}),
+	step: Type.Integer({
+		minimum: 1,
+		description: "1-based step number, in the order the plan was approved.",
+	}),
+	status: StringEnum(["pending", "completed"] as const, {
+		description: "The step's new state.",
+	}),
+});
+
 type ExitPlanModeArgs = Static<typeof ExitPlanModeParams>;
 type WritePlanArgs = Static<typeof WritePlanParams>;
+type SetPlanStepArgs = Static<typeof SetPlanStepParams>;
 
 /** Lines of plan shown in an unexpanded result. */
 const PREVIEW_LINES = 8;
@@ -205,8 +222,9 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		label: "Write plan",
 		description:
 			"Save the plan you designed as a markdown file under .pi/plans (project root, or the agent directory outside a " +
-			"repository). Write the complete plan, not a summary; it is what the user reviews and approves. Returns the " +
-			"path to pass to exit_plan_mode; plan_path overwrites an existing file when refining.",
+			"repository). Write the complete plan, not a summary, in this outline so it is consistent and scannable:\n\n" +
+			`${PLAN_OUTLINE}\n\n` +
+			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining.",
 		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
 		promptGuidelines: [
 			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
@@ -380,13 +398,15 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			const { recorded, steps } = await seedTodos(ctx, file.content);
 			const listing =
 				steps.length > 0
-					? `\n\n${steps.map((step) => `- [${step.status === "completed" ? "x" : " "}] ${step.content}`).join("\n")}`
+					? `\n\n${steps
+							.map((step, index) => `${index + 1}. [${step.status === "completed" ? "x" : " "}] ${step.content}`)
+							.join("\n")}`
 					: "";
 			const tail =
 				recorded > 0
-					? ` Recorded ${recorded} step${recorded === 1 ? "" : "s"} in the todo list; mark each completed as you finish it.`
+					? ` Recorded ${recorded} step${recorded === 1 ? "" : "s"} in the todo list. As you finish each step, mark it done there and tick it off in the file with ${SET_PLAN_STEP_TOOL}.`
 					: steps.length > 0
-						? " The todo tool is unavailable; keep these steps in mind as you work."
+						? ` The todo tool is unavailable; keep these steps in mind and tick them off with ${SET_PLAN_STEP_TOOL} as you go.`
 						: " If the todo tool is available, record the steps with it before you start.";
 			return {
 				content: [
@@ -440,6 +460,85 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 				if (more > 0) out += `\n${theme.fg("dim", `… ${more} more lines`)} ${expandHint(theme)}`;
 			}
 			text.setText(out);
+			return text;
+		},
+	});
+
+	pi.registerTool({
+		name: SET_PLAN_STEP_TOOL,
+		label: "Set plan step",
+		description:
+			"Keep an approved plan file current by setting one top-level step's checkbox in place. The step number matches " +
+			"the order the plan was approved in. Only the checkbox changes; the step text is left as written. Call it as you " +
+			"finish (or reopen) each step so the file mirrors reality.",
+		promptSnippet: "Tick a step off in the approved plan file.",
+		promptGuidelines: [
+			"After a plan is approved, call set_plan_step as you complete each step so the plan file stays current.",
+		],
+		parameters: SetPlanStepParams,
+		executionMode: "sequential",
+		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const args = params as SetPlanStepArgs;
+			if (runtime.isEnabled()) {
+				return {
+					content: [{ type: "text", text: "Not while planning; refine the plan with write_plan instead." }],
+					details: undefined,
+					isError: true,
+				};
+			}
+			try {
+				const plan = await runtime.plans.setStep(ctx.cwd, args.plan_path, args.step, args.status);
+				const steps = extractPlanSteps(plan.content);
+				const done = steps.filter((step) => step.status === "completed").length;
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Step ${args.step} is ${args.status} (${done}/${steps.length} done) in ${plan.relativePath}.`,
+						},
+					],
+					details: {
+						path: plan.path,
+						relativePath: plan.relativePath,
+						step: args.step,
+						status: args.status,
+						done,
+						total: steps.length,
+					} satisfies SetPlanStepDetails,
+				};
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return {
+					content: [{ type: "text", text: `Could not update the plan: ${message}` }],
+					details: undefined,
+					isError: true,
+				};
+			}
+		},
+
+		renderCall(args, theme, context) {
+			const text = reuseText(context?.lastComponent);
+			const step = (args as Partial<SetPlanStepArgs>).step;
+			const suffix = theme.fg("muted", step === undefined ? "a step" : `step ${step}`);
+			text.setText(theme.fg("toolTitle", theme.bold(`${SET_PLAN_STEP_TOOL} `)) + suffix);
+			return text;
+		},
+
+		renderResult(result, _options, theme, context) {
+			const text = reuseText(context?.lastComponent);
+			const details = result.details as SetPlanStepDetails | undefined;
+			if (!details) {
+				const first = result.content[0];
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
+			}
+			const heading =
+				details.status === "completed"
+					? theme.fg("success", `✓ Step ${details.step} done`)
+					: theme.fg("muted", `Step ${details.step} reopened`);
+			text.setText(heading + theme.fg("dim", ` · ${details.done}/${details.total}`));
 			return text;
 		},
 	});

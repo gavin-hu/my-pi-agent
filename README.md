@@ -50,7 +50,7 @@ and command surface, the Pi integration contract, and design notes.
 | Extension | [`extensions/ask-user-question/`](./extensions/ask-user-question/) | `ask_user_question`: ask the user one or more structured questions (labelled options + free-form "Other") and wait for the answer. |
 | Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent one-line widget and `/todos`. |
 | Extension | [`extensions/goal/`](./extensions/goal/) | `goal`: a persistent session objective (`active`/`achieved`) kept in a one-line widget and restated before each turn; `/goal <prompt>` establishes a shared understanding of the goal (restate, ask, confirm), sets it, and starts the run, while `/goal raw` records the words verbatim and `/goal set`/`edit` record without running and `clear`/`done` only change state. |
-| Extension | [`extensions/plan/`](./extensions/plan/) | `plan`: read-only planning via `enter_plan_mode` / `write_plan` / `exit_plan_mode`; plans are saved to `.pi/plans` and approved before execution (`--plan` to start, `/plan` toggles, `Ctrl+Alt+P`); `subagent` delegation is forced read-only and `powershell` is blocked. |
+| Extension | [`extensions/plan/`](./extensions/plan/) | `plan`: read-only planning via `enter_plan_mode` / `write_plan` / `exit_plan_mode`, with `set_plan_step` keeping an approved plan current; plans follow a documented outline, are saved to `.pi/plans`, and are reviewed (with heading jumps) before execution (`--plan` to start, `/plan` toggles, `Ctrl+Alt+P`); `subagent` delegation is forced read-only and `powershell` is blocked. |
 | Extension | [`extensions/subagent/`](./extensions/subagent/) | `subagent`: delegate a task to a specialized agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) running in its own `pi` process — single, parallel (max 8/4), or chained via `{previous}`, with optional user/project markdown agents and a `readOnly` mode that passes only reader tools to the child. |
 | Extension | [`extensions/job/`](./extensions/job/) | `job`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸ N` running / `✗ N` unreported-failure chips) with sanitized log tails and shutdown/reconcile lifecycle. |
 | Extension | [`extensions/web-access/`](./extensions/web-access/) | `web-access`: web access with two tools — `web_search` (general web search through a pluggable provider: keyless DuckDuckGo by default, optional SearXNG or Brave) and `web_fetch` (GET/POST a URL and read readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support); native `fetch`, one `web-access.json`. |
@@ -179,7 +179,7 @@ plan/worktree shape:
   `memory`.
 - A multi-word tool is verb-first: `enter_worktree`, `exit_worktree`,
   `prune_worktrees`, `list_worktrees`, `enter_plan_mode`, `write_plan`,
-  `exit_plan_mode`, `ask_user_question`, `read_doc`. The noun-first `web_search`
+  `exit_plan_mode`, `set_plan_step`, `ask_user_question`, `read_doc`. The noun-first `web_search`
   and `web_fetch` mirror Claude Code's `WebSearch`/`WebFetch`.
 - A name one tool calls through `ctx.executeTool()` lives in
   [`lib/tool-names.ts`](./lib/tool-names.ts), never as a cross-extension import
