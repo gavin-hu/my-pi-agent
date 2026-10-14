@@ -40,6 +40,9 @@
     "job": {
       "$ref": "#/$defs/job"
     },
+    "watch": {
+      "$ref": "#/$defs/watch"
+    },
     "web-access": {
       "$ref": "#/$defs/webAccess"
     },
@@ -425,6 +428,54 @@
         "registryDir": {
           "type": "string",
           "description": "Registry directory override; empty means the default under the agent dir."
+        }
+      }
+    },
+    "watch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "showStatus": {
+          "type": "boolean",
+          "default": true
+        },
+        "wakeOnMatch": {
+          "type": "boolean",
+          "default": false
+        },
+        "maxWatchers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 20
+        },
+        "maxMatches": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "default": 200
+        },
+        "maxLogLines": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "default": 500
+        },
+        "matchLines": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000,
+          "default": 50
+        },
+        "pollMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 60000,
+          "default": 500
         }
       }
     },

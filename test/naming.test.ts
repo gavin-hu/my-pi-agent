@@ -26,6 +26,7 @@ import { TOOL_NAME as job } from "../extensions/job/tools.ts";
 import { TOOL_NAME as memory } from "../extensions/memory/tools.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
+import { TOOL_NAME as watch } from "../extensions/watch/tools.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
 import { TOOL_NAME as webSearch } from "../extensions/web-access/search/tool.ts";
 import { TOOL_NAME as wechatSend } from "../extensions/wechat/tools.ts";
@@ -71,6 +72,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "plan", name: SET_PLAN_STEP_TOOL },
 	{ extension: "subagent", name: subagent },
 	{ extension: "todo", name: todo },
+	{ extension: "watch", name: watch },
 	{ extension: "web-access", name: webFetch },
 	{ extension: "web-access", name: webSearch },
 	{ extension: "wechat", name: wechatSend },
@@ -120,6 +122,7 @@ describe("extension tool naming", () => {
 			"set_plan_step",
 			"subagent",
 			"todo",
+			"watch",
 			"web_fetch",
 			"web_search",
 			"write_plan",

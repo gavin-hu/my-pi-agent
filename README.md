@@ -6,7 +6,7 @@
 
 Plan before you act, delegate the work, keep the main checkout clean, and carry
 context across sessions. `my-pi-agent` is a single [Pi](https://pi.dev) package
-that adds fifteen extensions and two themes — install the pack, turn off what
+that adds sixteen extensions and two themes — install the pack, turn off what
 you do not want, and keep using Pi unchanged.
 
 ![The Pi TUI with the bytefly header logo, chrome, loaded extensions list, turn separator, and status bar](./assets/bytefly.png)
@@ -64,7 +64,7 @@ Then, from inside Pi:
 
 ## What you get
 
-Fifteen extensions and two themes, grouped by what you are trying to do. Each
+Sixteen extensions and two themes, grouped by what you are trying to do. Each
 extension's own `README.md` has the full tool and command surface.
 
 ### Plan and delegate
@@ -77,6 +77,7 @@ extension's own `README.md` has the full tool and command surface.
 | [`goal`](./extensions/goal/) | `goal`, `/goal` | A persistent session objective, kept in a widget and restated before each turn. |
 | [`question`](./extensions/question/) | `ask_user_question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
 | [`job`](./extensions/job/) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
+| [`watch`](./extensions/watch/) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
 
 ### Keep your work safe
 

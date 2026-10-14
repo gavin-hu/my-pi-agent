@@ -89,6 +89,19 @@ Tool: `job`. Command: `/jobs`.
 
 [Full README](../extensions/job/README.md)
 
+### watch
+
+Tail a file or a command's merged output and match each new line against a
+regular expression, with an optional exclude list and case-insensitive matching
+by default. A `⊚ N` chip shows running watchers and `! N` shows unreported
+matches; matching lines are sanitized, alerted, and reported to the model at the
+next turn, or wake a turn immediately when a watcher was added `wake: true`.
+Watchers are session-only and stopped on session shutdown.
+
+Tool: `watch`. Command: `/watch`.
+
+[Full README](../extensions/watch/README.md)
+
 ## Keep your work safe
 
 ### worktree

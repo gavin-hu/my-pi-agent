@@ -44,6 +44,7 @@ repository root rather than the active working directory.
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
 | [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
+| [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
 | [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
 | [`rewind`](../extensions/rewind/) | `rewind` | Snapshot scope and retention. |
 | [`todo`](../extensions/todo/) | `todo` | Widget behaviour. |

@@ -18,6 +18,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   input mid-run. Settings live in the `notify` section of `bytefly.json`, and
   delivery picks an OSC 777/99 sequence or a platform notifier (`osascript`,
   `notify-send`, a Windows toast).
+- `watch`: tail a file or a command's merged output and match each new line
+  against a regular expression (with an optional exclude list, case-insensitive
+  by default). Matching lines are sanitized, alerted, and reported to the model
+  at the next turn, or wake a turn immediately with `wake: true`. The `watch`
+  tool has `add`, `list`, `status`, `matches`, `logs`, `stop`, and `clear`; a
+  `⊚ N`/`! N` chip pair shows running watchers and unreported matches, and
+  `/watch` opens a dock screen to read matches, stop, and clear. Watchers are
+  session-only. Configuration lives in the `watch` section of `bytefly.json`.
 - `memory`: an interactive `/memory` picker in the TUI. A bare `/memory` opens a
   dock screen listing both stores, with `j`/`k` (and the wheel) to move, `s`/Tab
   to filter by scope, `Enter`/`e` to edit a note inline, `a` to add one, `d` to

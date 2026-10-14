@@ -156,6 +156,12 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 			"`ps` is used for the pid-reuse guard and is POSIX-only.",
 		],
 	},
+	watch: {
+		notes: [
+			"A command watcher spawns a shell; its process tree is killed when the watcher stops or the session ends.",
+			"File watchers poll, so a line can take up to `watch.pollMs` to surface.",
+		],
+	},
 	"web-access": {
 		optional: [{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() }],
 	},

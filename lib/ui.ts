@@ -67,6 +67,8 @@ export const STATUS_KEYS = {
 	planMode: "plan-mode",
 	jobs: "jobs",
 	jobsFailure: "jobs-failure",
+	watch: "watch",
+	watchMatches: "watch-matches",
 	browse: "browse",
 	rewind: "rewind",
 	wechat: "wechat",
