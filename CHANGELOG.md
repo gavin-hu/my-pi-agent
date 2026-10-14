@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-14
+
 ### Fixed
 
 - `memory`: `/memory list` is handled as an explicit subcommand instead of
@@ -720,7 +722,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.6.1
 [0.6.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.6.0
 [0.5.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.5.1
 [0.5.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.5.0
