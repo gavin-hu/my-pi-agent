@@ -183,7 +183,7 @@ describe("goal tool", () => {
 			.render(80)
 			.join("\n");
 		expect(text).toContain("Goal · active");
-		expect(text).toContain("  ◎ Ship the parser");
+		expect(text).toContain("  ⊚ Ship the parser");
 	});
 
 	test("renderResult shows an achieved goal and expands the objective", async () => {

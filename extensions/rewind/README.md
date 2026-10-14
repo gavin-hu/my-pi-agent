@@ -21,7 +21,7 @@ pi install ./                        # install the package
 - Takes **one automatic snapshot per user prompt**, before the prompt's first
   mutating tool call. A read-only prompt snapshots nothing.
 - `/rewind` lists **every user prompt on the active branch** (newest first), each
-  marked `◆` when a code snapshot was captured for it.
+  marked `⬥` when a code snapshot was captured for it.
 - Picking a point asks what to restore: **Code and conversation**,
   **Conversation only**, or **Code only**.
   - *Code* rewrites the working tree to the snapshot and is itself undoable

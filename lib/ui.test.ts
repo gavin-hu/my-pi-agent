@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { eastAsianWidthType } from "get-east-asian-width";
 import {
 	getKeybindings,
 	KeybindingsManager,
@@ -13,6 +14,13 @@ describe("GLYPHS", () => {
 	test("every glyph is exactly one visible column", () => {
 		for (const [name, glyph] of Object.entries(GLYPHS)) {
 			expect(visibleWidth(glyph), name).toBe(1);
+		}
+	});
+
+	test("no glyph is ambiguous- or wide-width, so a CJK profile cannot drift", () => {
+		const wide = new Set(["ambiguous", "wide", "fullwidth"]);
+		for (const [name, glyph] of Object.entries(GLYPHS)) {
+			expect(wide.has(eastAsianWidthType(glyph.codePointAt(0) ?? 0)), `${name}=${glyph}`).toBe(false);
 		}
 	});
 

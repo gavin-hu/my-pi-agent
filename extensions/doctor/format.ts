@@ -108,10 +108,10 @@ export function formatWarning(findings: readonly Finding[]): string {
 
 /** The severity glyph, from the shared vocabulary. */
 export function severityGlyph(severity: FindingSeverity, theme: Theme): string {
-	if (severity === "missing") return theme.fg("error", GLYPHS.doctorMissing);
-	if (severity === "degraded") return theme.fg("warning", GLYPHS.doctorWarn);
-	if (severity === "info") return theme.fg("dim", GLYPHS.doctorDisabled);
-	return theme.fg("success", GLYPHS.doctorOk);
+	if (severity === "missing") return theme.fg("error", GLYPHS.cross);
+	if (severity === "degraded") return theme.fg("warning", GLYPHS.warn);
+	if (severity === "info") return theme.fg("dim", GLYPHS.disabled);
+	return theme.fg("success", GLYPHS.check);
 }
 
 /** The severity that represents an extension: worst finding wins. */

@@ -10,6 +10,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { reuseText } from "../../lib/tui.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { GoalParams, GoalResult, normalizeGoal, type GoalArgs } from "./schema.ts";
@@ -117,8 +118,8 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				return text;
 			}
 			if (!details.goal) {
-				// A neutral marker, deliberately not the achieved `✓`.
-				text.setText(theme.fg("dim", "⊘ ") + theme.fg("muted", "Cleared the goal"));
+				// A neutral marker, deliberately not the achieved check.
+				text.setText(theme.fg("dim", `${GLYPHS.stopped} `) + theme.fg("muted", "Cleared the goal"));
 				return text;
 			}
 			const body = resultBody(details.goal, expanded, theme);

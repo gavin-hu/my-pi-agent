@@ -2,7 +2,7 @@
  * Terminal rendering for the rewind timeline.
  *
  * `RewindListComponent` is the selectable screen `/rewind` opens in the TUI.
- * Rows are id-free and width-safe: a leading `◆` marks a prompt that has a code
+ * Rows are id-free and width-safe: a leading `⬥` marks a prompt that has a code
  * snapshot, and the focused row's detail line says whether code will be
  * restored. The component resolves the chosen point through `onClose`, so the
  * scope dialog runs only after the screen is gone and input focus is free.
@@ -19,6 +19,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { fitRows, formatRange, ListCursor, navIntent, selectionMarker, wheelDelta } from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+import { SEPARATORS } from "../../lib/ui.ts";
 import { formatRewindDetail, formatRewindRow } from "./format.ts";
 import type { RewindPoint } from "./timeline.ts";
 
@@ -104,7 +105,7 @@ export class RewindListComponent implements Component {
 			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No prompts on this branch yet.")}`, w));
 		} else {
 			const count = `${this.points.length} prompt${this.points.length === 1 ? "" : "s"}`;
-			lines.push(truncateToWidth(`  ${this.theme.fg("muted", `${count} · newest first`)}`, w));
+			lines.push(truncateToWidth(`  ${this.theme.fg("muted", `${count}${SEPARATORS.item}newest first`)}`, w));
 			lines.push("");
 			const cursor = this.cursor;
 			const focused = this.points[cursor.selected];

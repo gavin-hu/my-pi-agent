@@ -8,8 +8,9 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
-import { editorTheme } from "../../lib/tui.ts";
 import { selectionMarker } from "../../lib/list-cursor.ts";
+import { editorTheme, screenHint } from "../../lib/tui.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "./answers.ts";
 import {
 	allAnswered,
@@ -215,19 +216,19 @@ export async function askViaTui(
 				for (let i = 0; i < questions.length; i++) {
 					const answered = state.selections[questions[i].id] !== undefined;
 					const active = i === state.tab;
-					const text = ` ${answered ? "■" : "□"} ${sanitizeLine(questions[i].header)} `;
+					const text = ` ${answered ? GLYPHS.boxOn : GLYPHS.boxOff} ${sanitizeLine(questions[i].header)} `;
 					const styled = active
 						? theme.bg("selectedBg", theme.fg("text", text))
 						: theme.fg(answered ? "success" : "muted", text);
 					// Keep the leading hint glued to the first tab so it never wraps alone.
-					cells.push(cells.length === 0 ? `${theme.fg("muted", "← ")}${styled} ` : `${styled} `);
+					cells.push(cells.length === 0 ? `${theme.fg("muted", `${GLYPHS.prev} `)}${styled} ` : `${styled} `);
 				}
 				const canSubmit = allAnswered(state);
-				const submitText = " ✓ Submit ";
+				const submitText = ` ${GLYPHS.check} Submit `;
 				const submitStyled = submitTab
 					? theme.bg("selectedBg", theme.fg("text", submitText))
 					: theme.fg(canSubmit ? "success" : "dim", submitText);
-				cells.push(`${submitStyled} →`);
+				cells.push(`${submitStyled} ${GLYPHS.next}`);
 				for (const tabLine of layoutCells(cells, Math.max(1, renderWidth - 1))) lines.push(` ${tabLine}`);
 				lines.push("");
 			}
@@ -244,7 +245,7 @@ export async function askViaTui(
 				}
 				lines.push("");
 				if (state.message) addWithPrefix(" ", theme.fg("warning", state.message));
-				addWithPrefix(" ", theme.fg("dim", "Enter to submit · Esc to go back"));
+				lines.push(screenHint(theme, renderWidth, ["Enter to submit", "Esc to go back"]));
 			} else if (submitTab) {
 				addWithPrefix(" ", theme.fg("accent", theme.bold("Ready to submit")));
 				lines.push("");
@@ -271,13 +272,14 @@ export async function askViaTui(
 				renderOptions(question);
 				lines.push("");
 				if (state.message) addWithPrefix(" ", theme.fg("warning", state.message));
-				const help =
+				const hints =
 					optionCount(question) === 0
-						? "Enter to type an answer · Esc cancel"
+						? ["Enter to type an answer", "Esc cancel"]
 						: question.multiSelect
-							? "↑/↓ move · Space toggle · Enter confirm · Esc cancel"
-							: "↑/↓ choose · Enter select · Esc cancel";
-				addWithPrefix(" ", theme.fg("dim", `${isMulti ? "Tab/←→ navigate · " : ""}${help}`));
+							? ["↑/↓ move", "Space toggle", "Enter confirm", "Esc cancel"]
+							: ["↑/↓ choose", "Enter select", "Esc cancel"];
+				if (isMulti) hints.unshift(`Tab/${GLYPHS.prev}${GLYPHS.next} navigate`);
+				lines.push(screenHint(theme, renderWidth, hints));
 				if (question.multiSelect) {
 					const selection = state.selections[question.id];
 					if (selection?.type === "options" && selection.labels.length > 0) {

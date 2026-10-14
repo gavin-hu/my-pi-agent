@@ -53,9 +53,9 @@ describe("goalRailLines", () => {
 	test("aligns wrapped continuation rows under the text", () => {
 		const lines = goalRailLines(active, "one two three four five six", theme, 20);
 		expect(lines[0]).toBe("Goal · active");
-		expect(lines[1]).toBe("  ◎ one two three");
+		expect(lines[1]).toBe("  ⊚ one two three");
 		expect(lines[2].startsWith("    ")).toBe(true);
-		expect(lines[2]).not.toContain("◎");
+		expect(lines[2]).not.toContain("⊚");
 	});
 });
 
@@ -81,7 +81,7 @@ describe("GoalResult", () => {
 		const lines = new GoalResult(active, body, theme).render(40);
 		expect(lines[0]).toBe("");
 		expect(lines[1]).toBe("Goal · active");
-		expect(lines[2].startsWith("  ◎ ")).toBe(true);
+		expect(lines[2].startsWith("  ⊚ ")).toBe(true);
 		expect(lines.length).toBeGreaterThan(4);
 		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(40);
 	});

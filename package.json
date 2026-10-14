@@ -119,6 +119,7 @@
     "@earendil-works/pi-coding-agent": "^1.0.4",
     "@earendil-works/pi-tui": "^1.0.4",
     "@types/bun": "latest",
+    "get-east-asian-width": "^1.6.0",
     "typebox": "^1.3.27",
     "typescript": "^5.6.0"
   }

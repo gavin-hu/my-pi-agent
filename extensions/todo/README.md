@@ -50,16 +50,16 @@ the plan as written).
 
 In the transcript, the call line pairs progress with the active item
 (`todo → 1/4 · Writing tests`), and the result keeps the shared
-`✓` / `◐` / `○` rail used by the goal result, separated from the call line by a
+`✓` / `◒` / `◌` rail used by the goal result, separated from the call line by a
 blank line. Collapsed, it leads with active work; expanded, it keeps the
 submitted order:
 
 ```
 todo → 1/4 · Writing tests
 
-  ◐ Writing tests
-  ○ Ship it
-  ○ Write docs
+  ◒ Writing tests
+  ◌ Ship it
+  ◌ Write docs
   ✓ Write schema
 ```
 

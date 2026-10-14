@@ -83,10 +83,10 @@ describe("rows and detail", () => {
 	});
 
 	test("uses the shared severity glyphs", () => {
-		expect(severityGlyph("missing", fakeTheme)).toBe(GLYPHS.doctorMissing);
-		expect(severityGlyph("degraded", fakeTheme)).toBe(GLYPHS.doctorWarn);
-		expect(severityGlyph("ok", fakeTheme)).toBe(GLYPHS.doctorOk);
-		expect(severityGlyph("info", fakeTheme)).toBe(GLYPHS.doctorDisabled);
+		expect(severityGlyph("missing", fakeTheme)).toBe(GLYPHS.cross);
+		expect(severityGlyph("degraded", fakeTheme)).toBe(GLYPHS.warn);
+		expect(severityGlyph("ok", fakeTheme)).toBe(GLYPHS.check);
+		expect(severityGlyph("info", fakeTheme)).toBe(GLYPHS.disabled);
 	});
 
 	test("keeps every row inside the width", () => {

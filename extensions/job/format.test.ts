@@ -187,7 +187,7 @@ describe("jobOutcome / formatJobDetail", () => {
 		).toBe("✗ j1 build · exit 1 · 2.0s");
 		expect(
 			formatJobOutcomeLine(job({ status: "killed", signal: "SIGTERM", pid: null, finishedAt: 3000 }), fakeTheme, 3000),
-		).toBe("◌ j1 build · SIGTERM · 2.0s");
+		).toBe("⊝ j1 build · SIGTERM · 2.0s");
 	});
 
 	test("builds command, cwd+outcome+elapsed, and last lines", () => {

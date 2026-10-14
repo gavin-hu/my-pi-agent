@@ -2,7 +2,7 @@
  * Model-facing and transcript text for the goal (pure).
  *
  * The transcript result is drawn as a glyph rail shared with `todo`: a header
- * line (`Goal · active`) and an indented body row led by `◎` (active) or `✓`
+ * line (`Goal · active`) and an indented body row led by `⊚` (active) or `✓`
  * (achieved), with wrapped continuation rows aligned under the text. The
  * persistent widget, by contrast, is a plain label-first line
  * (`Goal · active · <objective>`) matching the `todo` and `jobs` widgets. The
@@ -12,12 +12,13 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
+import { GLYPHS } from "../../lib/ui.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 
 /** Active-goal glyph. */
-export const ACTIVE_SYMBOL = "◎";
+export const ACTIVE_SYMBOL = GLYPHS.target;
 /** Achieved-goal glyph. */
-export const ACHIEVED_SYMBOL = "✓";
+export const ACHIEVED_SYMBOL = GLYPHS.check;
 
 /** Longest objective preview shown in the transcript call line. */
 const CALL_PREVIEW_WIDTH = 48;

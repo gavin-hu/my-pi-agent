@@ -12,7 +12,7 @@ const todos: Todo[] = [
 
 describe("todo formatting", () => {
 	test("formatTodoList marks each status", () => {
-		expect(formatTodoList(todos)).toBe(["1. ✓ Write schema", "2. ◐ Write tests", "3. ○ Ship it"].join("\n"));
+		expect(formatTodoList(todos)).toBe(["1. ✓ Write schema", "2. ◒ Write tests", "3. ◌ Ship it"].join("\n"));
 	});
 
 	test("formatTodoList handles an empty list", () => {
@@ -86,17 +86,17 @@ describe("todoRailLines", () => {
 	test("indents each row and leads it with the status glyph", () => {
 		expect(todoRailLines({ rows: todos }, fakeTheme, 60)).toEqual([
 			"  ✓ Write schema",
-			"  ◐ Writing tests",
-			"  ○ Ship it",
+			"  ◒ Writing tests",
+			"  ◌ Ship it",
 		]);
 	});
 
 	test("wraps a long label with continuation rows under the text column", () => {
 		const long: Todo[] = [{ content: "x".repeat(40), status: "pending" }];
 		const lines = todoRailLines({ rows: long }, fakeTheme, 20);
-		expect(lines[0]).toBe(`  ○ ${"x".repeat(16)}`);
+		expect(lines[0]).toBe(`  ◌ ${"x".repeat(16)}`);
 		expect(lines[1]?.startsWith("    ")).toBe(true);
-		expect(lines[1]?.trimStart()).not.toContain("○");
+		expect(lines[1]?.trimStart()).not.toContain("◌");
 		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 	});
 

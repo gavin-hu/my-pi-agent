@@ -61,8 +61,8 @@ describe("askViaTui render", () => {
 	test("renders tabs and a Submit tab for multiple questions", () => {
 		const second: Question = { ...withOptions, id: "q2", header: "Scope", question: "Which scopes?" };
 		const text = harness([withOptions, second]).render().join("\n");
-		expect(text).toContain("□ Auth");
-		expect(text).toContain("□ Scope");
+		expect(text).toContain("◻ Auth");
+		expect(text).toContain("◻ Scope");
 		expect(text).toContain("✓ Submit");
 	});
 
@@ -121,7 +121,7 @@ describe("askViaTui render", () => {
 			expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
 			const submitLine = lines.find((line) => line.includes("Submit"));
 			expect(submitLine).toBeDefined();
-			expect(submitLine).toContain("→");
+			expect(submitLine).toContain("›");
 			// A tab must not be broken across two lines: each header appears exactly once.
 			for (const header of headers) {
 				expect(lines.filter((line) => line.includes(header))).toHaveLength(1);

@@ -80,15 +80,15 @@ export function elapsedMs(job: JobRecord, now: number): number {
 export function statusGlyph(status: JobStatus, theme: Theme): string {
 	switch (status) {
 		case "exited":
-			return theme.fg("success", "✓");
+			return theme.fg("success", GLYPHS.check);
 		case "failed":
 			return theme.fg("error", GLYPHS.jobsFailure);
 		case "killed":
-			return theme.fg("muted", "◌");
+			return theme.fg("muted", GLYPHS.killed);
 		case "unknown":
-			return theme.fg("dim", "?");
+			return theme.fg("dim", GLYPHS.unknown);
 		default:
-			return theme.fg("accent", "▸");
+			return theme.fg("accent", GLYPHS.jobsRunning);
 	}
 }
 

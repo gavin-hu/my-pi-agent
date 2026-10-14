@@ -7,6 +7,7 @@ import { askHuman } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { reuseText } from "../../lib/tui.ts";
+import { GLYPHS } from "../../lib/ui.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";
@@ -105,12 +106,12 @@ export function registerTools(pi: ExtensionAPI): void {
 				const header = theme.fg("accent", sanitizeLine(answer.header));
 				if (answer.wasCustom) {
 					const values = answer.values.map((value) => sanitizeLine(value)).join("; ");
-					return `${theme.fg("success", "✓ ")}${header}: ${theme.fg("muted", "(wrote) ")}${values}`;
+					return `${theme.fg("success", `${GLYPHS.check} `)}${header}: ${theme.fg("muted", "(wrote) ")}${values}`;
 				}
 				const numbered = answer.labels
 					.map((label, i) => `${answer.indices?.[i] ?? "?"}. ${sanitizeLine(label)}`)
 					.join(", ");
-				return `${theme.fg("success", "✓ ")}${header}: ${numbered}`;
+				return `${theme.fg("success", `${GLYPHS.check} `)}${header}: ${numbered}`;
 			});
 			if (details.cancelled) lines.push(theme.fg("warning", "(cancelled)"));
 			// A blank line separates the call header from a multi-line answer body.

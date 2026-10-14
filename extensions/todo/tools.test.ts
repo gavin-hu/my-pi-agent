@@ -190,7 +190,7 @@ describe("todo tool", () => {
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
 			.render(80)
 			.join("\n");
-		expect(text).toContain("◐ current");
+		expect(text).toContain("◒ current");
 	});
 
 	test("works without a UI context", async () => {

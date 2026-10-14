@@ -12,29 +12,41 @@ import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
 /**
  * Leading glyphs for status chips and footer segments.
  *
- * Only `East_Asian_Width=N` and non-emoji glyphs, so a chip is one column wide
- * in every terminal profile. `visibleWidth` cannot check this: it counts an
- * ambiguous character as one column, which is exactly what a CJK-width terminal
- * does not, so a new glyph has to be checked against `EastAsianWidth.txt`.
+ * Every glyph is a single terminal column in every profile: narrow or neutral
+ * `East_Asian_Width`, never ambiguous, wide, or fullwidth, and never emoji. A
+ * CJK-width profile renders an ambiguous glyph two columns wide, which drifts a
+ * chip, a rail, or a footer row; `visibleWidth` cannot catch that (it counts an
+ * ambiguous character as one column), so `lib/ui.test.ts` checks the width class
+ * directly. Add a new glyph only after checking it against `EastAsianWidth.txt`.
  */
 export const GLYPHS = {
 	branch: "⎇",
 	detached: "⚠",
 	worktree: "⑂",
 	rewind: "↺",
-	snapshot: "◆",
+	snapshot: "⬥",
 	plan: "⋮",
 	jobsRunning: "▸",
 	jobsFailure: "✗",
+	stopped: "⊘",
 	serve: "◉",
 	wechat: "✆",
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
-	doctorOk: "✓",
-	doctorWarn: "!",
-	doctorMissing: "✕",
-	doctorDisabled: "∅",
+	check: "✓",
+	warn: "!",
+	cross: "✕",
+	disabled: "∅",
+	half: "◒",
+	pending: "◌",
+	target: "⊚",
+	killed: "⊝",
+	unknown: "?",
+	boxOn: "◼",
+	boxOff: "◻",
+	prev: "‹",
+	next: "›",
 } as const;
 
 /** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */

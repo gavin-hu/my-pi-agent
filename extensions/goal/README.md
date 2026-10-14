@@ -116,7 +116,7 @@ keeps the full glyph rail, separated from the call line by a blank line:
 goal → set: Refactor the parser to support streaming input
 
 Goal · active
-  ◎ Refactor the parser to support streaming input and ship it with tests
+  ⊚ Refactor the parser to support streaming input and ship it with tests
 ```
 
 The renderer reuses the slot's component (`context.lastComponent`) rather than
@@ -205,7 +205,7 @@ on config.
 - **One-line widget, achieved hidden by default.** The rail follows the
   `todo` grammar (`Goal · active · <objective>`): accent label leads, status
   follows, no prefixed glyph, clipped to the terminal. The transcript keeps the
-  multi-line `◎` / `✓` rail. `achieved: "show"` restores the dimmed line; config
+  multi-line `⊚` / `✓` rail. `achieved: "show"` restores the dimmed line; config
   only affects presentation.
 - **Sanitize at the boundary.** `normalizeGoal` and `parseClarification` both route
   model text through `lib/format.ts`'s `sanitizeLine`, so an embedded newline
@@ -222,7 +222,7 @@ on config.
 | `clarify-parse.ts` | Parse the `{ understood, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
 | `clarify.ts` | The two model calls, their cancellable loaders, the in-command questionnaire, and the confirm/edit dialog (host). |
 | `state.ts` | Branch reconstruction (pure). |
-| `format.ts` | Model-facing and terminal text plus the transcript `◎` / `✓` symbols and the rail vocabulary (pure). |
+| `format.ts` | Model-facing and terminal text plus the transcript `⊚` / `✓` symbols and the rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (`goal.json`). |
 | `tui.ts` | The persistent goal widget and the transcript result rail. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |

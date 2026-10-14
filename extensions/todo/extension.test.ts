@@ -45,7 +45,7 @@ describe("todo extension", () => {
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await commands.get("todos").handler("", ctx);
 
-		expect(notifications.at(-1)).toContain("1. ○ two");
+		expect(notifications.at(-1)).toContain("1. ◌ two");
 		expect(notifications.at(-1)).not.toContain("one");
 	});
 

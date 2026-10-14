@@ -15,15 +15,15 @@ describe("TodoResult", () => {
 		expect(new TodoResult({ rows: todos }, theme).render(60)).toEqual([
 			"",
 			"  ✓ Write schema",
-			"  ◐ Writing tests",
-			"  ○ Ship it",
+			"  ◒ Writing tests",
+			"  ◌ Ship it",
 		]);
 	});
 
 	test("updates in place for reuse", () => {
 		const view = new TodoResult({ rows: todos }, theme);
 		view.setInput({ rows: [{ content: "Only", status: "pending" }] }, theme);
-		expect(view.render(60)).toEqual(["", "  ○ Only"]);
+		expect(view.render(60)).toEqual(["", "  ◌ Only"]);
 	});
 });
 

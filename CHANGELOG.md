@@ -60,6 +60,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   host dialogs (`select` / `input`); a second model call folds the answers into
   the final restatement, which the user confirms or corrects in the editor. The
   `ask_user_question` delegation is gone, so the handoff can no longer be lost.
+- `lib/ui.ts`: every shared `GLYPHS` entry is now narrow or neutral
+  `East_Asian_Width` — the snapshot marker is `⬥` (was the ambiguous `◆`) — and
+  a new test asserts the width class, since `visibleWidth` cannot. Status glyphs
+  in `job`, `subagent`, `todo`, `goal`, and `plan` now route through `GLYPHS`
+  instead of retyping `○`/`◐`/`◎`/`✓`/`✗`, so a CJK-width terminal no longer
+  renders them two columns wide.
+- `ask_user_question`: the answer hints render through the shared `screenHint`,
+  so a narrow terminal drops whole keys instead of wrapping or clipping one.
 
 ### Fixed
 

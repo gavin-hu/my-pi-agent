@@ -15,7 +15,7 @@ import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
 import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { reuseText } from "../../lib/tui.ts";
-import { expandHint } from "../../lib/ui.ts";
+import { expandHint, GLYPHS } from "../../lib/ui.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
@@ -53,11 +53,11 @@ const STATUS_COLOR: Record<ResultStatus, "warning" | "error" | "success"> = {
 	success: "success",
 };
 
-/** Static glyphs for terminal states. All narrow (East_Asian_Width=N), non-emoji. */
+/** Static glyphs for terminal states, from the shared narrow-glyph vocabulary. */
 const STATUS_GLYPH: Record<Exclude<ResultStatus, "running">, string> = {
-	aborted: "⊘",
-	failed: "✗",
-	success: "✓",
+	aborted: GLYPHS.stopped,
+	failed: GLYPHS.jobsFailure,
+	success: GLYPHS.check,
 };
 
 /** Braille frames are narrow and uncoloured, so the running row never shifts. */
@@ -377,8 +377,8 @@ function multiHeader(details: SubagentDetails, theme: Theme, now: number): strin
 		running > 0
 			? theme.fg("warning", statusGlyph("running", now))
 			: bad > 0
-				? theme.fg(bad === total ? "error" : "warning", bad === total ? "✗" : "◐")
-				: theme.fg("success", "✓");
+				? theme.fg(bad === total ? "error" : "warning", bad === total ? GLYPHS.jobsFailure : GLYPHS.half)
+				: theme.fg("success", GLYPHS.check);
 	return `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} · `))}${theme.fg("accent", status)}`;
 }
 

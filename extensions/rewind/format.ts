@@ -56,7 +56,7 @@ export function formatChangeSummary(changed: number, removed: number): string {
 }
 
 /**
- * Id-free row for the rewind timeline: `◆ "prompt"          2m ago`.
+ * Id-free row for the rewind timeline: `⬥ "prompt"          2m ago`.
  * The leading glyph marks a point with a code snapshot; the time is
  * right-aligned so the whole row never exceeds `width`.
  */

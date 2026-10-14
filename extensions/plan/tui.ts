@@ -95,7 +95,7 @@ export function sanitizePlanText(text: string): string {
 /** A task checkbox in a list marker: `- [x] `, `1. [ ] `. */
 const TASK_MARKER = /^([-*+]|\d+[.)])(\s+)(\[([ xX])\])(\s*)$/;
 /** Task-checkbox markers; three columns wide so list wrapping stays aligned. */
-const TASK_BOX = { done: "[✓]", pending: "[ ]" } as const;
+const TASK_BOX = { done: `[${GLYPHS.check}]`, pending: "[ ]" } as const;
 
 /**
  * Wrap the Markdown theme so task checkboxes read at a glance: done steps get a

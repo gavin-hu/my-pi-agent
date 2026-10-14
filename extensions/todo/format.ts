@@ -4,7 +4,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { BODY_INDENT, expandHint, GLYPH_GAP } from "../../lib/ui.ts";
+import { BODY_INDENT, expandHint, GLYPH_GAP, GLYPHS } from "../../lib/ui.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
 
@@ -21,9 +21,9 @@ const CALL_PREVIEW_WIDTH = 40;
 
 /** Plain status glyph per status; `todoGlyph` adds the theme color. */
 const STATUS_GLYPH: Record<TodoStatus, string> = {
-	pending: "○",
-	in_progress: "◐",
-	completed: "✓",
+	pending: GLYPHS.pending,
+	in_progress: GLYPHS.half,
+	completed: GLYPHS.check,
 };
 
 /** Themed status glyph, shared by the widget and the transcript renderer. */
