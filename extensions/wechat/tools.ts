@@ -11,7 +11,7 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
-import { reuseText } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui.ts";
 import type { Bridge } from "./bridge.ts";
 
 export const TOOL_NAME = "send_wechat";
@@ -91,12 +91,18 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 
 		renderResult(result, _options, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = result.details as { sent?: boolean; error?: string } | undefined;
+			const details = toolDetails<{ sent?: boolean; error?: string }>(result.details);
 			if (details?.sent) {
 				text.setText(theme.fg("success", "sent to WeChat owner"));
 				return text;
 			}
-			text.setText(theme.fg("error", `Error: ${sanitizeLine(details?.error ?? "send failed")}`));
+			if (details?.error) {
+				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+				return text;
+			}
+			// Pi's rejection result carries `{}`; show its message instead.
+			const first = result.content[0];
+			text.setText(first?.type === "text" ? first.text : theme.fg("error", "Error: send failed"));
 			return text;
 		},
 	});

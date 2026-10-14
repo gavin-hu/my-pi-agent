@@ -10,7 +10,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { reuseText } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
@@ -108,7 +108,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 
 		renderResult(result, { expanded }, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = result.details as GoalDetails | undefined;
+			const details = toolDetails<GoalDetails>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				text.setText(first?.type === "text" ? first.text : "");

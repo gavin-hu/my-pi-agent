@@ -154,6 +154,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reminder, so a run that changed nothing is not forced into an extra request.
 - `plan`: an approved plan whose steps the `todo` tool rejects now reports that
   tool's reason in the approval message instead of claiming it is unavailable.
+- `goal`, `todo`, `memory`, `wechat`, `question`, `subagent`, `bytefly/doctor`,
+  `plan`: a tool call Pi rejects before `execute` — argument validation or a
+  permission block, which arrives as `details: {}` — now renders the host's
+  message instead of a misleading clear, a blank result, or a renderer throw.
 - `goal`: `/goal edit <text>` and `/goal set <text>` record the text without
   starting a run; previously `edit <text>` fell through to the free-form prompt
   path and started the work on the literal string.
@@ -161,8 +165,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now asks for confirmation first.
 - `goal`: a failed or unusable comprehension call tells the user it is keeping
   their wording, instead of silently prefilling the editor.
-- `goal`: a live goal is re-appended as a `goal` entry after compaction, so it
-  survives a branch whose tool-result details were summarized away.
 - `goal`: `/goal done` on an already achieved goal is a no-op with an info
   notice instead of re-persisting the entry.
 - `goal`: a restatement containing braces is kept as plain text instead of being

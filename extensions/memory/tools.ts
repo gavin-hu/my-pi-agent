@@ -11,7 +11,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { reuseText } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui.ts";
 import { messageOf } from "./errors.ts";
 import { formatCallText, formatResultText, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";
@@ -148,7 +148,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 
 		renderResult(result, { expanded }, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = result.details as MemoryDetails | undefined;
+			const details = toolDetails<MemoryDetails>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				text.setText(first?.type === "text" ? first.text : "");

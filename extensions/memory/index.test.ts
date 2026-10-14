@@ -36,6 +36,19 @@ describe("memory extension", () => {
 		expect(text).not.toContain("\u001b");
 	});
 
+	test("renderResult falls back to the message for a host-rejected call", () => {
+		const result = {
+			content: [{ type: "text", text: 'Validation failed for tool "memory"' }],
+			details: {},
+			isError: true,
+		};
+		const text = tool()
+			.renderResult(result, { expanded: false, isPartial: false }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Validation failed for tool");
+	});
+
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "memory" }, () => {
 			const { pi, tools, commands, handlers } = makeFakePi();

@@ -108,6 +108,21 @@ export function reuseText(last: unknown, initial = ""): Text {
 	return last instanceof Text ? last : new Text(initial, 0, 0);
 }
 
+/**
+ * A tool result's own `details`, or `undefined` when it is Pi's rejection
+ * result.
+ *
+ * Pi validates a call before `execute`; a validation failure or a permission
+ * block returns `{ content, details: {}, isError: true }` with the reason only
+ * in `content`. A tool's own details always carries at least one field, so an
+ * empty object marks that rejection. Renderers use this to fall back to the
+ * message instead of reading an empty object as state.
+ */
+export function toolDetails<T extends object>(details: unknown): T | undefined {
+	if (typeof details !== "object" || details === null) return undefined;
+	return Object.keys(details).length > 0 ? (details as T) : undefined;
+}
+
 /** Minimal editor theme for an extension-owned inline editor, on semantic tokens. */
 export function editorTheme(theme: Theme): EditorTheme {
 	return {
