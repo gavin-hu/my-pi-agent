@@ -49,7 +49,7 @@ Requires a working [Pi](https://pi.dev) installation.
 
 ```bash
 pi install git:github.com/gavin-hu/my-pi-agent             # install for your Pi
-pi install git:github.com/gavin-hu/my-pi-agent@v0.6.1      # pin a release
+pi install git:github.com/gavin-hu/my-pi-agent@v0.7.0      # pin a release
 pi install ./ -l                                           # project-local (.pi/settings.json)
 pi -e .                                                    # try it for one run
 ```

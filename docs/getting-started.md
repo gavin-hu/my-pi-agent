@@ -19,7 +19,7 @@ build step to run the package.
 pi install git:github.com/gavin-hu/my-pi-agent
 
 # Pin a release (recommended for a stable setup)
-pi install git:github.com/gavin-hu/my-pi-agent@v0.6.1
+pi install git:github.com/gavin-hu/my-pi-agent@v0.7.0
 
 # Project-local install (.pi/settings.json in the current project)
 pi install ./ -l
