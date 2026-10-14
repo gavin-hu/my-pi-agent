@@ -75,6 +75,9 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 - `confirm` — reply 是/否 (or yes/no).
 - `input` / `editor` — reply with the text.
 - Reply 取消 (or cancel) to dismiss.
+- Hints are bilingual (Chinese and English). A reply that cannot be read
+  re-sends the prompt with a short “didn’t recognize that” notice instead of
+  repeating it silently.
 
 The reply is consumed as the answer and never starts a turn of its own; a turn
 started at the terminal keeps the normal TUI. Set `remotePrompts: false` to

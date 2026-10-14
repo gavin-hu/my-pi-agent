@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { INTERACTION_OTHER_LABEL, type InteractionRequest } from "../../lib/interaction.ts";
-import { formatPrompt, parsePromptAnswer } from "./prompt.ts";
+import { formatPrompt, parsePromptAnswer, RETRY_NOTICE } from "./prompt.ts";
 
 function request(
 	partial: Partial<InteractionRequest> & Pick<InteractionRequest, "kind" | "title">,
@@ -16,6 +16,19 @@ describe("formatPrompt", () => {
 		expect(text).toContain("2. B");
 		expect(text).toContain("3. Other (type something)");
 		expect(text).toContain("取消");
+	});
+
+	test("carries bilingual hints so either reader can answer", () => {
+		const text = formatPrompt(request({ kind: "select", title: "Pick", options: ["A", "B", INTERACTION_OTHER_LABEL] }));
+		expect(text).toContain("回复编号");
+		expect(text).toContain("Reply with a number");
+		expect(text).toContain("cancel");
+	});
+
+	test("prepends the retry notice only when asked", () => {
+		const confirm = request({ kind: "confirm", title: "Sure?" });
+		expect(formatPrompt(confirm)).not.toContain("didn't recognize");
+		expect(formatPrompt(confirm, { retry: true }).startsWith(RETRY_NOTICE)).toBe(true);
 	});
 
 	test("includes the confirm body", () => {

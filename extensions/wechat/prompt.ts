@@ -2,7 +2,9 @@
  * Pure rendering and parsing of remote dialog prompts (no I/O).
  *
  * A prompt is rendered to a WeChat message by {@link formatPrompt}; the reply is
- * interpreted by {@link parsePromptAnswer}. The parser is deliberately total:
+ * interpreted by {@link parsePromptAnswer}. Hints are bilingual (Chinese and
+ * English) so either reader can answer, and {@link formatPrompt} can prepend a
+ * short notice when a reply was not understood. The parser is deliberately total:
  * anything it cannot resolve reports `retry`, and free text on a `select` becomes
  * the {@link INTERACTION_OTHER_LABEL} option so the caller can collect it once.
  */
@@ -18,10 +20,17 @@ export type PromptParse =
 	| { kind: "cancelled" }
 	| { kind: "retry" };
 
-const SELECT_HINT = "回复编号或选项文字;回复其它内容视为「Other」。回复「取消」跳过。";
-const CONFIRM_HINT = "回复「是」或「否」。";
-const INPUT_HINT = "直接回复内容;回复「取消」跳过。";
-const EDITOR_HINT = "把内容作为一条消息发回;回复「取消」取消。";
+const SELECT_HINT =
+	"回复编号或选项文字；其它内容作为自定义回答；回复「取消」或 cancel 跳过。\n" +
+	"Reply with a number or the option text; anything else becomes your own answer; reply cancel to dismiss.";
+const CONFIRM_HINT = "回复「是」或「否」。\nReply yes or no.";
+const INPUT_HINT = "直接回复内容；回复「取消」或 cancel 跳过。\nReply with the text; reply cancel to skip.";
+const EDITOR_HINT =
+	"把内容作为一条消息发回；回复「取消」或 cancel 取消。\nSend the text as one message; reply cancel to cancel.";
+
+/** Sent ahead of a re-prompt when a reply could not be interpreted. */
+export const RETRY_NOTICE =
+	"没有识别到有效回复，请重新回答。\nSorry, I didn't recognize that reply — please answer again.";
 
 const CANCEL_WORDS = new Set(["取消", "cancel", "quit", "exit"]);
 const YES_WORDS = new Set(["是", "y", "yes", "1", "确认", "ok", "好", "对"]);
@@ -31,8 +40,13 @@ function lines(parts: Array<string | undefined>): string {
 	return parts.filter((part): part is string => part !== undefined && part !== "").join("\n");
 }
 
-/** Render a dialog prompt as a WeChat message body. */
-export function formatPrompt(request: InteractionRequest): string {
+/** Render a dialog prompt as a WeChat message body, optionally after a retry. */
+export function formatPrompt(request: InteractionRequest, options: { retry?: boolean } = {}): string {
+	const body = promptBody(request);
+	return options.retry ? `${RETRY_NOTICE}\n\n${body}` : body;
+}
+
+function promptBody(request: InteractionRequest): string {
 	switch (request.kind) {
 		case "select": {
 			const options = (request.options ?? []).map((label, index) => `${index + 1}. ${label}`);

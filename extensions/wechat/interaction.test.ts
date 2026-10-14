@@ -116,11 +116,12 @@ describe("handleInbound", () => {
 		expect(channel.handleInbound("owner", "hi")).toBe(false);
 	});
 
-	test("re-prompts on a retry and keeps waiting", async () => {
+	test("re-prompts with a notice on a retry and keeps waiting", async () => {
 		const { channel, sent } = setup();
 		const answer = channel.request(CONFIRM);
 		expect(channel.handleInbound("owner", "maybe")).toBe(true);
 		expect(sent).toHaveLength(2);
+		expect(sent[1]).toContain("didn't recognize");
 		expect(channel.handleInbound("owner", "是")).toBe(true);
 		expect(await answer).toEqual({ kind: "confirmed", confirmed: true });
 	});

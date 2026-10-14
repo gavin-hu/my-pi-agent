@@ -104,7 +104,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			const parsed = parsePromptAnswer(current.request, text);
 			switch (parsed.kind) {
 				case "retry":
-					void deps.send(formatPrompt(current.request));
+					void deps.send(formatPrompt(current.request, { retry: true }));
 					return true;
 				case "other":
 					other = parsed.text;

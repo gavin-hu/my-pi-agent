@@ -257,6 +257,9 @@ rendering, so model-authored control characters cannot reach the terminal.
   error-colored `✆ wechat expired` status chip instead of the chip vanishing,
   and `/wechat start` / `/wechat status` route the user to the one-step
   `/wechat login` recovery. An explicit stop or logout clears it.
+- `wechat`: remote-prompt hints are bilingual (Chinese and English), and an
+  unrecognized reply now re-sends the prompt with a short “didn’t recognize
+  that” notice instead of repeating it silently.
 
 ## [0.5.0] - 2026-10-13
 
