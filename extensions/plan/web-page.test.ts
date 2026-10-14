@@ -49,6 +49,12 @@ describe("renderReviewPage", () => {
 		expect(html).toContain('href="#plan"');
 	});
 
+	test("drops the outline column when the plan has no headings", () => {
+		const html = page({ outline: [] });
+		expect(html).toContain("bf-app__body--single");
+		expect(html).not.toContain('id="outline-list"');
+	});
+
 	test("carries the review data in a JSON island", () => {
 		const data = island(page({ code: { "2": ['<span class="tok-keyword">const</span>'] } }));
 		expect(data.title).toBe("Add rate limiting");
