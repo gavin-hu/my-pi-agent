@@ -100,6 +100,52 @@ export function screenHint(theme: Theme, width: number, hints: ScreenHint[]): st
 }
 
 /**
+ * The sections of a docked list screen, assembled by {@link dockListFrame}.
+ * `body`, `range`, and `detail` lines are built (and truncated) by the caller;
+ * the frame only places them.
+ */
+export interface DockListFrame {
+	/** Semantic theme for the header rule and the hint row. */
+	theme: Theme;
+	/** Body width in columns. */
+	width: number;
+	/** The header label, e.g. `Extensions`. */
+	title: string;
+	/** A summary line under the header; a blank line follows it. */
+	summary?: string;
+	/** The list rows, or the screen's single empty-state line. */
+	body: string[];
+	/** A scroll-range row printed after the body. */
+	range?: string;
+	/** Focused-row footnotes printed after the range. */
+	detail?: string[];
+	/** The key-hint row. */
+	hint: string;
+}
+
+/**
+ * Assemble a docked list screen: the `─` header rule, an optional summary and
+ * its blank line, the body, an optional range row, optional detail rows, and
+ * the blank-line-padded key-hint footer.
+ *
+ * This is the convention `/extensions` shares with `/jobs` and `/todos`.
+ * `/doctor` (no summary, no trailing blank, range last) and `/rewind` (a blank
+ * after the header and no blank before the hint) place their blanks
+ * differently, so they stay hand-rolled rather than changing their output to
+ * fit this helper.
+ */
+export function dockListFrame(frame: DockListFrame): string[] {
+	const width = Math.max(1, frame.width);
+	const lines: string[] = [screenHeader(frame.theme, width, frame.title)];
+	if (frame.summary !== undefined) lines.push(frame.summary, "");
+	lines.push(...frame.body);
+	if (frame.range !== undefined) lines.push(frame.range);
+	if (frame.detail !== undefined) lines.push(...frame.detail);
+	lines.push("", frame.hint, "");
+	return lines;
+}
+
+/**
  * Reuse the previous render's `Text` component when it is one, so a tool
  * renderer updates in place instead of allocating on every render. Every
  * extension's `renderCall`/`renderResult` uses this idiom.

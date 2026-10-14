@@ -83,6 +83,9 @@ export class RewindListComponent implements Component {
 
 	invalidate(): void {}
 
+	// Kept off `dockListFrame`: `/rewind` leads with a blank after the header and
+	// has no blank before the hint, so the shared frame would change its output.
+	// Its blank-line convention is deliberately local.
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const lines: string[] = [screenHeader(this.theme, w, "Rewind"), ""];

@@ -97,6 +97,9 @@ export class DoctorScreen implements Component {
 		return scrollList(event, this.cursor, this.count());
 	}
 
+	// Kept off `dockListFrame`: `/doctor` has no summary, prints the range after
+	// the detail, and has no trailing blank, so the shared frame would change its
+	// output. Its blank-line convention is deliberately local.
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const reports = this.options.reports();
