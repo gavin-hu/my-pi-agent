@@ -152,6 +152,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and falls back to the error message.
 - `todo`: a failed or blocked tool call no longer counts as work for the lag
   reminder, so a run that changed nothing is not forced into an extra request.
+- `plan`: an approved plan whose steps the `todo` tool rejects now reports that
+  tool's reason in the approval message instead of claiming it is unavailable.
 - `goal`: `/goal edit <text>` and `/goal set <text>` record the text without
   starting a run; previously `edit <text>` fell through to the free-form prompt
   path and started the work on the literal string.
