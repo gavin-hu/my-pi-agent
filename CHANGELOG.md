@@ -143,6 +143,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: exiting plan mode after navigating the session tree now restores the
+  tools of the branch it was left on rather than the previous branch's, so
+  `write`/`edit` are not lost and a tool the target branch never had is not
+  re-activated.
 - `todo`: the lag reminder now appends to the boundary's proposed entries
   instead of replacing them, so it no longer discards another extension's pending
   `agent_before_settle` entries (and is no longer discarded by one that runs

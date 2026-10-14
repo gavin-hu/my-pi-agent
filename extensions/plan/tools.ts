@@ -245,7 +245,9 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		parameters: WritePlanParams,
 		defaultActive: false,
 		executionMode: "sequential",
-		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+		// destructiveHint is true because plan_path overwrites an existing plan
+		// file; a plain write creates a new one.
+		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (!runtime.isEnabled()) {
@@ -314,6 +316,8 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 		parameters: ExitPlanModeParams,
 		defaultActive: false,
 		executionMode: "sequential",
+		// readOnlyHint stays true: it writes no files, and the review dialog inside
+		// execute is the human gate, so an outer prompt would only double-ask.
 		annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

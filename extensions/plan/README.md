@@ -253,7 +253,7 @@ agent file that overrides it.
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_step` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepDetails`); no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
-| State | Enabled flag persisted with `pi.appendEntry("plan-mode", { enabled })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status. |
 
@@ -300,9 +300,10 @@ agent file that overrides it.
   shell is removed except the narrow read-only git allowlist in `git-bash.ts`;
   no general shell parser. (4) A recursive path guard blocks hint-carrying tools
   that take a file path unless they are known plan-safe readers.
-- **State is a custom entry.** `{ enabled }` is excluded from model context and
-  reconstructed on start and tree navigation; the `--plan` flag only applies
-  when the branch has no persisted entry, so a later disable survives
+- **State is a custom entry.** `{ enabled, removed }` is excluded from model
+  context and reconstructed on start and tree navigation, so exiting plan mode
+  restores the tools the branch it was left on hid; the `--plan` flag only
+  applies when the branch has no persisted entry, so a later disable survives
   `/resume`.
 
 ## Files
