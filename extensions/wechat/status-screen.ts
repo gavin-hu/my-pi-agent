@@ -4,8 +4,8 @@
  * `connectionOf`, `statusView`, `statusLine`, and `statusBody` are pure, so the
  * wording, fields, and width safety are unit-tested; `StatusScreenComponent` is
  * the TUI mounted by `runStatus`. The screen is a control surface: it shows the
- * live connection state and closes with an action (`login`, `start`, `stop`) so
- * the command can run it after the screen is gone and input focus is free.
+ * live connection state and closes with an action (`login`, `close`) so the
+ * command can run it after the screen is gone and input focus is free.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -19,7 +19,7 @@ import type { BotCredentials } from "./types.ts";
 export type StatusConnection = "open" | "expired" | "closed";
 
 /** What the status screen closed with. */
-export type StatusAction = "close" | "login" | "start" | "stop";
+export type StatusAction = "close" | "login";
 
 /** The facts the status screen and the one-line summary render. */
 export interface StatusView {
@@ -104,7 +104,10 @@ export function statusBody(view: StatusView, theme: Theme, width: number): strin
 	if (view.connection === "expired") {
 		lines.push("");
 		lines.push(`  ${theme.fg("error", "Session expired — press l to log in again.")}`);
-	} else if (view.connection === "closed" && !view.account) {
+	} else if (view.connection === "closed" && view.account) {
+		lines.push("");
+		lines.push(`  ${theme.fg("muted", "Not connected — press l to log in again.")}`);
+	} else if (view.connection === "closed") {
 		lines.push("");
 		lines.push(`  ${theme.fg("muted", "Run /wechat login to connect an account.")}`);
 	}
@@ -126,12 +129,7 @@ export class StatusScreenComponent implements Component {
 	constructor(private readonly options: StatusScreenOptions) {}
 
 	private hints(): ScreenHint[] {
-		const { connection } = this.options.view();
-		const hints: ScreenHint[] = ["Esc close", { text: "l login", color: "accent" }];
-		if (connection === "open") hints.push("s stop");
-		else if (connection === "closed") hints.push({ text: "s start", color: "success" });
-		hints.push("r refresh");
-		return hints;
+		return ["Esc close", { text: "l login", color: "accent" }, "r refresh"];
 	}
 
 	handleInput(data: string): void {
@@ -141,13 +139,6 @@ export class StatusScreenComponent implements Component {
 		}
 		if (data === "l") {
 			this.options.onClose("login");
-			return;
-		}
-		if (data === "s") {
-			const { connection } = this.options.view();
-			if (connection === "open") this.options.onClose("stop");
-			else if (connection === "closed") this.options.onClose("start");
-			// An expired session has no start/stop; `l` is the only useful action.
 			return;
 		}
 		if (data === "r") this.options.requestRender();

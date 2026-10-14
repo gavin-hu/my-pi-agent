@@ -32,39 +32,58 @@ pi install ./                        # install the package
   reconnects or `/wechat stop` dismisses it; it clears on shutdown.
 - **Owner-only by default** — only the account owner (who scanned the login QR)
   can drive the agent; `allowedPeers` opts in others.
-- **Session-bound** — the bridge runs while the Pi session is alive and only
-  when started; `/wechat stop` stops it.
+- **Session-bound** — the bridge runs while an account is stored and the Pi
+  session is alive; it starts on `session_start` and `/wechat logout` clears the
+  account and stops it.
 
 ## Commands
 
 | Command | Effect |
 |---|---|
 | `/wechat login` | QR login; on scan, stores credentials and starts the bridge. |
-| `/wechat start` | Start the bridge: long-poll and forward messages to the agent. |
-| `/wechat stop` | Stop the bridge; credentials and cursor are kept. |
-| `/wechat status` | TUI: a status/control screen. Elsewhere: a one-line summary. |
+| `/wechat new` | Start a fresh session (also dispatched by an inbound `/new`). |
+| `/wechat status` | TUI: a status screen. Elsewhere: a one-line summary. |
 | `/wechat logout` | Confirm, then clear credentials and stop the bridge. |
 
-`login` connects in one step; `/wechat start` reconnects after `/wechat stop`
-(or if the automatic connect failed, for example because another session holds
-the poller lock).
+The bridge starts automatically on `session_start` (and after `login`) whenever
+an account is stored, so there is no start/stop command: the account is the
+on/off switch. `/wechat logout` is the only way to stop polling, and it discards
+the credentials.
 
-A session that expires while running keeps the `✆ wechat expired` chip: it is
-not reopened by `/wechat start`, `/wechat status` reports it and points at the
-fix, and `/wechat login` is the one-step recovery.
+A session that expires while running keeps the `✆ wechat expired` chip:
+`/wechat status` reports it and points at the fix, and `/wechat login` is the
+one-step recovery.
 
 In the TUI, `/wechat status` opens a control screen with the account, connection
 state, owner, activity counters, and any pending remote prompt. Keys: `l` log in
-or reconnect, `s` start a closed bridge or stop an open one, `r` refresh, and Esc
-closes. Outside the TUI the command stays a one-line notification.
+or reconnect, `r` refresh, and Esc closes. Outside the TUI the command stays a
+one-line notification.
+
+## Slash commands
+
+A peer can type a slash command in the chat. The bridge intercepts it before it
+becomes a turn, so a command never reaches the model unless it is unknown.
+
+| Command | Kind | Effect |
+|---|---|---|
+| `/new` | action | Start a fresh session; the bridge reconnects on the new session. |
+
+- **Snippets** expand a predefined body into the user turn (typing, queueing,
+  and reply capture are unchanged); none is registered yet.
+- **Actions** run locally and answer on WeChat without starting a turn.
+- Matching is exact on the first token and case-insensitive; an unknown `/foo`
+  (or a path-like `/usr/...`) falls through to the model as ordinary text, and a
+  message carrying media is never treated as a command.
+- `/new` is owner-only: an extra `allowedPeers` peer that sends it is refused
+  like any other unauthorized sender.
 
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Everything, including the QR login screen and the `/wechat status` control screen (`ctx.ui.custom`). |
-| `rpc` | `/wechat start`/`stop`/`status` work; `status` prints the one-line summary, and `login` needs the TUI (the QR screen is unavailable over RPC). |
-| `json`, `print` | Ephemeral; `start` is refused, and no UI is available. |
+| `tui` | Everything, including the QR login screen and the `/wechat status` screen (`ctx.ui.custom`). |
+| `rpc` | The bridge auto-starts and `status` prints the one-line summary; `login` needs the TUI (the QR screen is unavailable over RPC). |
+| `json`, `print` | Ephemeral; the bridge does not auto-start and no UI is available. |
 
 ## Remote prompts
 
@@ -145,6 +164,10 @@ files), and `poller.lock` (stops two sessions polling one account).
   back to dialogs (see the shared `askHuman` helper).
 - A peer can only be replied to after they have messaged first (the protocol
   supplies a `context_token` only then).
+- Slash commands are fixed built-ins; there is no user-defined snippet or action
+  list yet, and only `/new` is registered.
+- There is no pause. The bridge runs whenever an account is stored, and
+  `/wechat logout` is the only way to stop it (and it discards the credentials).
 
 ## Non-goals
 
@@ -155,14 +178,15 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 
 | Integration point | Detail |
 |---|---|
-| Command | `pi.registerCommand("wechat", …)` — `login`, `start`, `stop`, `status`, `logout`. |
+| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
-| Events | `session_start` (record the live context, re-point the UI adapter); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop, uninstall adapter). |
+| Events | `session_start` (record the live context, re-point the UI adapter, auto-start the bridge when an account exists); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop, uninstall adapter). |
+| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. `/new` is an owner-only action wired through `pi.sendUserMessage("/wechat new", { expandPromptTemplates: true })`. |
 | Injection | `pi.sendUserMessage(content)` — a string, or text/image blocks for inbound media; always triggers a turn, and the bridge only injects when idle. |
 | UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
-| Lifecycle | The factory only registers. No I/O starts on load; `/wechat login` or `/wechat start` starts the poll loop and `session_shutdown` closes it. |
+| Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. |
 
 ## Design notes
 
@@ -192,6 +216,15 @@ Outbound files use the CDN upload flow (`getuploadurl`, AES-128-ECB ciphertext,
 media; a failed upload returns false so `askHuman` can fall back to text rather
 than blocking the dialog.
 
+The lifecycle is derived from the stored account rather than an explicit
+start/stop command: `session_start` opens the bridge while credentials exist and
+`session_shutdown` closes it. That is also what lets an inbound `/new` reconnect:
+starting a new session tears down and reloads extensions, so the new session's
+`session_start` reopens the bridge. `/new` reaches `newSession` through a
+registered extension command (`/wechat new`) dispatched with
+`expandPromptTemplates`, the only host-sanctioned way for a poll callback to get
+a command context.
+
 ## Files
 
 | File | Responsibility |
@@ -215,6 +248,7 @@ than blocking the dialog.
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
 | `prompt.ts` | Pure prompt formatting and reply parsing. |
 | `remote-ui.ts` | The host-UI adapter: wraps the shared `ctx.ui` dialogs and installs the remote-turn marker. |
+| `slash.ts` | Inbound slash commands: the built-in registry (`/new`) and the pure parse/lookup/expand helpers. |
 | `types.ts` | Wire and domain types. |
 
 ## Testing

@@ -20,6 +20,7 @@ import { loadWechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
 import { installRemoteUI } from "./remote-ui.ts";
+import { SLASH_COMMANDS } from "./slash.ts";
 import { readState, statePath, writeState } from "./state.ts";
 import { registerTools } from "./tools.ts";
 
@@ -77,6 +78,10 @@ export default function wechat(pi: ExtensionAPI): void {
 			isIdle: () => ctxRef?.isIdle() ?? true,
 			sendUserMessage: (content) => pi.sendUserMessage(content),
 			mediaDir: () => join(wechatDir(), "media"),
+			slashCommands: SLASH_COMMANDS,
+			sessionControls: () => ({
+				newSession: () => pi.sendUserMessage("/wechat new", { expandPromptTemplates: true }),
+			}),
 			loadAccount: () => primaryAccount(),
 			loadState: () => readState(statePath()),
 			saveState: (state) => writeState(statePath(), state),
@@ -108,6 +113,19 @@ export default function wechat(pi: ExtensionAPI): void {
 		return created;
 	};
 
+	/** Bring the bridge up on a new session while an account is stored. */
+	const autoStart = (ctx: ExtensionContext): void => {
+		if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
+		if (!primaryAccount()) return;
+		if (bridge?.status().open) return;
+		try {
+			const target = bridge ?? build(ctx);
+			target.open();
+		} catch (error) {
+			ctx.ui.notify(`WeChat did not connect: ${error instanceof Error ? error.message : String(error)}`, "warning");
+		}
+	};
+
 	const deps: CommandDeps = {
 		getBridge: () => bridge,
 		ensureBridge: (ctx) => {
@@ -137,6 +155,9 @@ export default function wechat(pi: ExtensionAPI): void {
 		ctxRef = ctx;
 		// `/reload` rebuilds the runner's UI object; re-point the adapter at it.
 		if (bridge && remotePromptsEnabled) installAdapter(ctx, bridge);
+		// Stored credentials mean the bridge should be polling, so a new session
+		// (startup, reload, `/new`, resume, fork) reconnects it without a command.
+		autoStart(ctx);
 	});
 	pi.on("agent_start", () => bridge?.setBusy(true));
 	pi.on("message_end", (event) => bridge?.capture(event.message));

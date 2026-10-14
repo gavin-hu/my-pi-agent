@@ -1,11 +1,13 @@
 /**
- * The `/wechat` command: `login`, `start`, `stop`, `status`, `logout`.
+ * The `/wechat` command: `login`, `new`, `status`, `logout`.
  *
- * `login` renders the QR screen, stores credentials, and connects in one step.
- * `start`/`stop` control the bridge at runtime; `logout` discards the account.
+ * `login` renders the QR screen, stores credentials, and connects in one step;
+ * the bridge otherwise auto-starts on `session_start` while an account exists.
+ * `new` starts a fresh session (an inbound `/new` dispatches it), and `logout`
+ * discards the account and stops the bridge.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
@@ -110,35 +112,13 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 	finishLogin(result, ctx, deps);
 }
 
-export function runStart(ctx: ExtensionContext, deps: CommandDeps): void {
-	if (ctx.mode !== "tui" && ctx.mode !== "rpc") {
-		ctx.ui.notify("WeChat opens only in an interactive or RPC session.", "warning");
-		return;
-	}
-	const status = deps.getBridge()?.status();
-	// Starting an expired session would just re-poll once and expire again, so
-	// route the user to the one command that recovers it.
-	if (status && !status.open && status.expired) {
-		ctx.ui.notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
-		return;
-	}
-	const bridge = deps.ensureBridge(ctx);
-	try {
-		bridge.open();
-		ctx.ui.notify("WeChat bridge started.");
-	} catch (error) {
-		ctx.ui.notify(`WeChat start failed: ${messageOf(error)}`, "warning");
-	}
-}
-
-async function runStop(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
-	const bridge = deps.getBridge();
-	if (!bridge) {
-		ctx.ui.notify("WeChat bridge is not initialized.");
-		return;
-	}
-	await bridge.close();
-	ctx.ui.notify("WeChat bridge stopped.");
+/**
+ * Start a fresh session. Reachable as `/wechat new` from the terminal and
+ * dispatched by the inbound `/new` command; the new `session_start` auto-opens
+ * the bridge again because the account is stored.
+ */
+export async function runNew(ctx: ExtensionCommandContext): Promise<void> {
+	await ctx.newSession();
 }
 
 async function runStatus(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
@@ -161,10 +141,6 @@ async function runStatus(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 	switch (action) {
 		case "login":
 			return runLogin(ctx, deps);
-		case "start":
-			return runStart(ctx, deps);
-		case "stop":
-			return runStop(ctx, deps);
 		default:
 			return;
 	}
@@ -177,7 +153,7 @@ async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 	ctx.ui.notify("WeChat logged out.");
 }
 
-const WECHAT_SUBCOMMANDS = ["login", "start", "stop", "status", "logout"];
+const WECHAT_SUBCOMMANDS = ["login", "new", "status", "logout"];
 
 /** Complete the single wechat subcommand; anything after it is not tab-completed. */
 function completeSubcommand(
@@ -192,17 +168,15 @@ function completeSubcommand(
 
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
-		description: "WeChat bridge: /wechat login | start | stop | status | logout",
+		description: "WeChat bridge: /wechat login | new | status | logout",
 		getArgumentCompletions: (prefix) => completeSubcommand(prefix, WECHAT_SUBCOMMANDS),
 		handler: async (args, ctx) => {
 			const [sub = "status"] = args.trim().split(/\s+/).filter(Boolean);
 			switch (sub.toLowerCase()) {
 				case "login":
 					return runLogin(ctx, deps);
-				case "start":
-					return runStart(ctx, deps);
-				case "stop":
-					return runStop(ctx, deps);
+				case "new":
+					return runNew(ctx);
 				case "logout":
 					return runLogout(ctx, deps);
 				default:

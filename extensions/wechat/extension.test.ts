@@ -17,9 +17,9 @@ describe("wechat extension", () => {
 		wechat(fake.pi);
 		const complete = (prefix: string): string[] =>
 			(fake.commands.get("wechat").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
-		expect(complete("")).toEqual(["login", "start", "stop", "status", "logout"]);
-		expect(complete("st")).toEqual(["start", "stop", "status"]);
-		expect(complete("start ")).toEqual([]);
+		expect(complete("")).toEqual(["login", "new", "status", "logout"]);
+		expect(complete("n")).toEqual(["new"]);
+		expect(complete("new ")).toEqual([]);
 	});
 
 	test("registers the send_wechat tool", () => {
@@ -28,7 +28,7 @@ describe("wechat extension", () => {
 		expect(fake.tools.has("send_wechat")).toBe(true);
 	});
 
-	test("does not open the bridge on session_start", async () => {
+	test("does not open the bridge when no account is stored", async () => {
 		await withAgentDir(async () => {
 			const fake = createFakePi();
 			wechat(fake.pi);
@@ -47,27 +47,6 @@ describe("wechat extension", () => {
 			const { ctx, customCalls } = fakeCtx({ custom: "close" });
 			await fake.commands.get("wechat").handler("status", ctx);
 			expect(customCalls.length).toBe(1);
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("refuses to start outside tui and rpc modes", async () => {
-		await withAgentDir(async () => {
-			const fake = createFakePi();
-			wechat(fake.pi);
-			const { ctx, notifications } = fakeCtx({ mode: "json", hasUI: false });
-			await fake.commands.get("wechat").handler("start", ctx);
-			expect(notifications.join("\n").toLowerCase()).toContain("interactive or rpc");
-		});
-	});
-
-	test("reports a failed start when not logged in", async () => {
-		await withAgentDir(async () => {
-			const fake = createFakePi();
-			wechat(fake.pi);
-			const { ctx, notifications } = fakeCtx();
-			await fake.commands.get("wechat").handler("start", ctx);
-			expect(notifications.join("\n")).toContain("Not logged in");
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});
 	});
