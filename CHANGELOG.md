@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-14
+
 ### Added
 
 - `plan`: the plan document is now shaped and trackable. `write_plan` documents
@@ -152,6 +154,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   over-long chain is rejected before any process starts.
 - `goal`: `/goal` argument completion now offers `achieved` and `-h`/`--help`,
   which the parser already accepted.
+- `wechat`: `/wechat login` now starts the bridge on a confirmed scan instead
+  of leaving the user to discover and run a second `/wechat start`. That command
+  remains for reconnecting after `/wechat stop` or when the automatic connect
+  fails (for example, another session holds the poller lock).
+- `wechat`: a session that expires while the bridge is running keeps an
+  error-colored `✆ wechat expired` status chip instead of the chip vanishing,
+  and `/wechat start` / `/wechat status` route the user to the one-step
+  `/wechat login` recovery. An explicit stop or logout clears it.
+- `wechat`: remote-prompt hints are bilingual (Chinese and English), and an
+  unrecognized reply now re-sends the prompt with a short “didn’t recognize
+  that” notice instead of repeating it silently.
+- `web-access`: `web_fetch` takes a single required `url` again. The `urls[]`
+  batch, `formatBatch`, and the `{ pages: [...] }` output wrapper are gone, so
+  one call renders one page without a `### <url>` heading; `web_search` now
+  labels its answer, shows one URL per result, and keeps a snippet hidden until
+  the result is expanded.
 
 ### Removed
 
@@ -272,6 +290,9 @@ rendering, so model-authored control characters cannot reach the terminal.
   `Copied to clipboard` / `Copy failed` through a live region, and the
   quick-open input has its own label. The README now describes the served
   palette accurately instead of claiming the `nocturne` themes.
+- `web-access`: `web_fetch` drops credentials when a redirect leaves the
+  original origin, matching the Fetch spec, so an `Authorization`, `Cookie`, or
+  `Proxy-Authorization` header is no longer forwarded to another host.
 
 ## [0.5.1] - 2026-10-13
 
@@ -309,17 +330,6 @@ rendering, so model-authored control characters cannot reach the terminal.
   pending). A step-progress gauge row shows `n/m steps done`, the scroll row is
   a gauge with the position and line range, and the footer colors the
   approve/refine actions.
-- `wechat`: `/wechat login` now starts the bridge on a confirmed scan instead
-  of leaving the user to discover and run a second `/wechat start`. That command
-  remains for reconnecting after `/wechat stop` or when the automatic connect
-  fails (for example, another session holds the poller lock).
-- `wechat`: a session that expires while the bridge is running keeps an
-  error-colored `✆ wechat expired` status chip instead of the chip vanishing,
-  and `/wechat start` / `/wechat status` route the user to the one-step
-  `/wechat login` recovery. An explicit stop or logout clears it.
-- `wechat`: remote-prompt hints are bilingual (Chinese and English), and an
-  unrecognized reply now re-sends the prompt with a short “didn’t recognize
-  that” notice instead of repeating it silently.
 
 ## [0.5.0] - 2026-10-13
 
@@ -704,7 +714,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.6.0
 [0.5.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.5.1
 [0.5.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.5.0
 [0.4.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.4.0
