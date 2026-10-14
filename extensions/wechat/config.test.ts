@@ -54,8 +54,8 @@ describe("loadWechatConfig", () => {
 			const cwd = tempDir("wechat-cwd-");
 			mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
 			writeFileSync(
-				join(cwd, CONFIG_DIR_NAME, "wechat.json"),
-				JSON.stringify({ maxReplyChars: 12, allowedPeers: ["p"] }),
+				join(cwd, CONFIG_DIR_NAME, "bytefly.json"),
+				JSON.stringify({ wechat: { maxReplyChars: 12, allowedPeers: ["p"] } }),
 			);
 			const config = loadWechatConfig(cwd);
 			expect(config.maxReplyChars).toBe(12);

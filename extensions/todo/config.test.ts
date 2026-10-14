@@ -27,17 +27,17 @@ describe("loadTodoConfig", () => {
 	test("merges global then project, with project winning", async () => {
 		const repo = tempDir("todo-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(repo, ".pi", "todo.json"), JSON.stringify({ hideWhenComplete: true }));
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ todo: { hideWhenComplete: true } }));
 
 		await withAgentDir((globalDir) => {
-			writeFileSync(join(globalDir, "todo.json"), JSON.stringify({ hideWhenComplete: false }));
+			writeFileSync(join(globalDir, "bytefly.json"), JSON.stringify({ todo: { hideWhenComplete: false } }));
 			expect(loadTodoConfig(repo).hideWhenComplete).toBe(true);
 		}, "todo-global-");
 	});
 
 	test("ignores malformed files", async () => {
 		await withAgentDir((globalDir) => {
-			writeFileSync(join(globalDir, "todo.json"), "{ not json");
+			writeFileSync(join(globalDir, "bytefly.json"), "{ not json");
 			expect(loadTodoConfig(tempDir("todo-repo-"))).toEqual(DEFAULT_TODO_CONFIG);
 		}, "todo-global-");
 	});

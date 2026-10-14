@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { REQUIREMENTS } from "../lib/requirements.ts";
+import { SHARED_CONFIG_FILE } from "../lib/config.ts";
 
 /** Normalise separators so path comparisons work on Windows too. */
 const posix = (p: string): string => p.replaceAll("\\", "/");
@@ -261,9 +262,13 @@ describe("prerequisite declarations", () => {
 					offenders.push(`${name}: declares ${file} but has no config.ts`);
 					continue;
 				}
-				if (!sources.some((source) => readFileSync(source, "utf-8").includes(`"${file}"`))) {
-					offenders.push(`${name}: no config.ts reads ${file}`);
-				}
+				const literal = sources.some((source) => readFileSync(source, "utf-8").includes(`"${file}"`));
+				// The shared document is read through `loadConfigSection`, so a section
+				// loader is the evidence, not the bare filename.
+				const shared =
+					file === SHARED_CONFIG_FILE &&
+					sources.some((source) => readFileSync(source, "utf-8").includes("loadConfigSection("));
+				if (!literal && !shared) offenders.push(`${name}: no config.ts reads ${file}`);
 			}
 		}
 		expect(offenders).toEqual([]);

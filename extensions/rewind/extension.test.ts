@@ -207,7 +207,7 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		const repo = await makeRepo("pi-rw-ext-off-");
 		cleanups.push(repo);
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(repo, ".pi", "rewind.json"), JSON.stringify({ autoSnapshots: false }));
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ rewind: { autoSnapshots: false } }));
 		const fake = setup();
 		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
 		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);

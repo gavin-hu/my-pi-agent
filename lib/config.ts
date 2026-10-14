@@ -1,15 +1,18 @@
 /**
- * Config-file helpers shared by extensions that read `~/.pi/agent/<name>.json`
- * and `<cwd>/.pi/<name>.json`. Project values override global ones; missing or
- * malformed files are ignored.
+ * Config-file helpers shared by extensions.
+ *
+ * Most settings live in one shared document, `bytefly.json`, under the agent
+ * directory and `<cwd>/.pi`: each extension owns a top-level section (bytefly
+ * itself owns `price`, `notify`, and `doctor`), and project values override
+ * global ones. A missing or malformed file is ignored.
  *
  * `readJson` stays deliberately lenient: a malformed file must never break a
  * session. `readJsonResult` is the reporting twin that `doctor` uses to name the
  * file and the parse error a user would otherwise never see.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 
 /** A finite number, or `NaN` when the value does not say one. */
@@ -108,15 +111,76 @@ export function readJsonResult(path: string): JsonReadResult {
 /**
  * Load an effective config: `base`, then the global file, then the project file.
  * `normalize` validates/clamps the merged object over the running base.
+ * `agentDir` defaults to Pi's agent directory; `worktree` resolves it explicitly.
  */
 export function loadConfigFile<T>(
 	cwd: string,
 	fileName: string,
 	base: T,
 	normalize: (raw: Record<string, unknown> | undefined, base: T) => T,
+	agentDir: string = getAgentDir(),
 ): T {
 	let config = base;
-	config = normalize(readJson(join(getAgentDir(), fileName)), config);
+	config = normalize(readJson(join(agentDir, fileName)), config);
 	config = normalize(readJson(join(cwd, CONFIG_DIR_NAME, fileName)), config);
 	return config;
+}
+
+// --- The shared document ----------------------------------------------------
+
+/** The one JSON file every extension reads: `bytefly.json`. */
+export const SHARED_CONFIG_FILE = "bytefly.json";
+
+/** A top-level section of a config document, or `undefined` when it is absent or not an object. */
+export function configSection(
+	raw: Record<string, unknown> | undefined,
+	key: string,
+): Record<string, unknown> | undefined {
+	return asRecord(raw?.[key]);
+}
+
+/** Options for {@link loadConfigSection}. */
+export interface SectionOptions {
+	/** Agent directory override; `worktree` resolves it explicitly. */
+	agentDir?: string;
+}
+
+/**
+ * Load one top-level section of the shared document: `base`, then the global
+ * file's section, then the project file's section. Each later layer is
+ * normalized over the previous, so a normalizer's own merge rules (such as
+ * `rates` key by key) still hold.
+ */
+export function loadConfigSection<T>(
+	cwd: string,
+	section: string,
+	base: T,
+	normalize: (raw: Record<string, unknown> | undefined, base: T) => T,
+	options: SectionOptions = {},
+): T {
+	return loadConfigFile(
+		cwd,
+		SHARED_CONFIG_FILE,
+		base,
+		(raw, running) => normalize(configSection(raw, section), running),
+		options.agentDir,
+	);
+}
+
+/**
+ * Merge `value` under `section` in the document at `path`, preserving every
+ * other section and top-level key. Creates the file and its directory.
+ */
+export function writeConfigSection(path: string, section: string, value: unknown): void {
+	const document = readJson(path) ?? {};
+	document[section] = value;
+	writeConfigFile(path, document);
+}
+
+/** Write a whole config document atomically (sibling temp file, then rename). */
+export function writeConfigFile(path: string, document: Record<string, unknown>): void {
+	mkdirSync(dirname(path), { recursive: true });
+	const temp = `${path}.${process.pid}.tmp`;
+	writeFileSync(temp, `${JSON.stringify(document, null, 2)}\n`, "utf-8");
+	renameSync(temp, path);
 }

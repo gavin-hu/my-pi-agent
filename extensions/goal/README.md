@@ -26,7 +26,8 @@ pi install ./                       # install the package
 
   Once achieved the goal is hidden from the widget by default, matching a
   completed todo list; the transcript keeps the record. Set `achieved: "show"`
-  in `.pi/goal.json` to keep drawing the dimmed line instead.
+  in the `goal` section of `bytefly.json` to keep drawing the dimmed line
+  instead.
 
 - Restates an **active** goal to the model before each turn (an invisible
   `[SESSION GOAL]` message), so it stays on task across long tool sequences.
@@ -128,15 +129,15 @@ returns on close.
 
 ## Configuration
 
-The widget presentation is configurable from `~/.pi/agent/goal.json` and
-`<cwd>/.pi/goal.json` (project values override global):
+The widget presentation is configurable from the `goal` section of the shared
+`bytefly.json` (global document, then project document, project wins):
 
 | Key | Default | Meaning |
 |---|---|---|
 | `achieved` | `"hide"` | How an achieved goal renders in the one-line widget: `show` draws the dim line, `hide` removes it. |
 
-Malformed files and invalid values are ignored, and goal behavior never depends
-on config.
+Malformed documents and invalid values are ignored, and goal behavior never
+depends on config.
 
 ## Non-goals
 
@@ -223,7 +224,7 @@ on config.
 | `clarify.ts` | The two model calls, their cancellable loaders, the in-command questionnaire, and the confirm/edit dialog (host). |
 | `state.ts` | Branch reconstruction (pure). |
 | `format.ts` | Model-facing and terminal text plus the transcript `⊚` / `✓` symbols and the rail vocabulary (pure). |
-| `config.ts` | Widget config load/validation (`goal.json`). |
+| `config.ts` | Widget config load/validation (the `goal` section of `bytefly.json`). |
 | `tui.ts` | The persistent goal widget and the transcript result rail. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `goal` tool registration and rendering. |

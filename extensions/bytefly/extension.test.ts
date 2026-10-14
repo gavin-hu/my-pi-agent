@@ -23,7 +23,9 @@ const millionTokens = (): unknown[] => [
 
 /** A price config for the fake session's model, in the given currency. */
 const rateConfig = (symbol: string): string =>
-	JSON.stringify({ currency: { symbol, decimals: 2 }, rates: { "anthropic/opus-4.5": { input: 2.5 } } });
+	JSON.stringify({
+		price: { currency: { symbol, decimals: 2 }, rates: { "anthropic/opus-4.5": { input: 2.5 } } },
+	});
 
 describe("bytefly extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {

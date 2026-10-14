@@ -12,24 +12,24 @@ describe("normalizeConfig", () => {
 		expect(normalizeConfig(undefined, DEFAULT_CONFIG)).toEqual(DEFAULT_CONFIG);
 	});
 
-	test("returns the base when the doctor section is absent", () => {
-		expect(normalizeConfig({ rate: 2 }, DEFAULT_CONFIG)).toEqual(DEFAULT_CONFIG);
+	test("returns the base for an empty section", () => {
+		expect(normalizeConfig({}, DEFAULT_CONFIG)).toEqual(DEFAULT_CONFIG);
 	});
 
 	test("takes a boolean proactive flag", () => {
-		expect(normalizeConfig(file({ proactive: false }), DEFAULT_CONFIG).proactive).toBe(false);
-		expect(normalizeConfig(file({ proactive: "no" }), DEFAULT_CONFIG).proactive).toBe(true);
+		expect(normalizeConfig({ proactive: false }, DEFAULT_CONFIG).proactive).toBe(false);
+		expect(normalizeConfig({ proactive: "no" }, DEFAULT_CONFIG).proactive).toBe(true);
 	});
 
 	test("clamps the probe timeout and rejects nonsense", () => {
-		expect(normalizeConfig(file({ timeoutMs: 50 }), DEFAULT_CONFIG).timeoutMs).toBe(100);
-		expect(normalizeConfig(file({ timeoutMs: 999_999 }), DEFAULT_CONFIG).timeoutMs).toBe(30_000);
-		expect(normalizeConfig(file({ timeoutMs: "soon" }), DEFAULT_CONFIG).timeoutMs).toBe(DEFAULT_CONFIG.timeoutMs);
+		expect(normalizeConfig({ timeoutMs: 50 }, DEFAULT_CONFIG).timeoutMs).toBe(100);
+		expect(normalizeConfig({ timeoutMs: 999_999 }, DEFAULT_CONFIG).timeoutMs).toBe(30_000);
+		expect(normalizeConfig({ timeoutMs: "soon" }, DEFAULT_CONFIG).timeoutMs).toBe(DEFAULT_CONFIG.timeoutMs);
 	});
 
 	test("keeps only usable skip names", () => {
-		expect(normalizeConfig(file({ skip: ["wechat", "", 7, "  "] }), DEFAULT_CONFIG).skip).toEqual(["wechat"]);
-		expect(normalizeConfig(file({ skip: "wechat" }), DEFAULT_CONFIG).skip).toEqual([]);
+		expect(normalizeConfig({ skip: ["wechat", "", 7, "  "] }, DEFAULT_CONFIG).skip).toEqual(["wechat"]);
+		expect(normalizeConfig({ skip: "wechat" }, DEFAULT_CONFIG).skip).toEqual([]);
 	});
 });
 

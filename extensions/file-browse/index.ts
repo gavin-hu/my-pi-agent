@@ -120,7 +120,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			const code = (error as NodeJS.ErrnoException | undefined)?.code;
 			if (code === "EADDRINUSE") {
 				ctx.ui.notify(
-					`browse: port ${port} is in use; run /browse again to try another or set "port" in file-browse.json`,
+					`browse: port ${port} is in use; run /browse again to try another or set "port" in the bytefly.json file-browse section`,
 					"error",
 				);
 			} else {

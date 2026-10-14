@@ -34,9 +34,9 @@ describe("normalizeMemoryConfig", () => {
 describe("loadMemoryConfig", () => {
 	test("merges the global file then the project file", () => {
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "memory.json"), JSON.stringify({ maxInjectBytes: 1024 }));
+		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ memory: { maxInjectBytes: 1024 } }));
 		return withAgentDir((agentDir) => {
-			writeFileSync(join(agentDir, "memory.json"), JSON.stringify({ inject: false }));
+			writeFileSync(join(agentDir, "bytefly.json"), JSON.stringify({ memory: { inject: false } }));
 			const config = loadMemoryConfig(cwd);
 			expect(config.inject).toBe(false);
 			expect(config.maxInjectBytes).toBe(1024);
@@ -45,7 +45,7 @@ describe("loadMemoryConfig", () => {
 
 	test("ignores malformed files", () => {
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "memory.json"), "{ not json");
+		writeFileSync(join(cwd, ".pi", "bytefly.json"), "{ not json");
 		return withAgentDir(() => {
 			expect(loadMemoryConfig(cwd)).toEqual(DEFAULT_MEMORY_CONFIG);
 		});

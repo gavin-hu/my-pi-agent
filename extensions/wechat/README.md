@@ -114,9 +114,11 @@ are not sent outbound.
 
 ## Configuration
 
-`<agent-dir>/wechat.json` overridden by `<cwd>/.pi/wechat.json` (project wins):
+The `wechat` section of the shared `bytefly.json`, the global document
+overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
 
 ```jsonc
+// bytefly.json → "wechat"
 {
   "allowedPeers": [],        // extra peers; the owner is always allowed
   "maxReplyChars": 4000,     // replies longer than this are split into messages
@@ -240,7 +242,7 @@ a command context.
 | `qrcode.ts` | QR matrix → Unicode half-block terminal lines. |
 | `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`). |
 | `status-screen.ts` | The `/wechat status` screen (`ctx.ui.custom`) and the pure one-line/body renderers. |
-| `config.ts` | `wechat.json` loading and normalization. |
+| `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `credentials.ts` | `credentials.json` (`0600`, multi-account). |
 | `state.ts` | `state.json` (cursor, owner, per-peer tokens). |
 | `lock.ts` | Poller lockfile. |

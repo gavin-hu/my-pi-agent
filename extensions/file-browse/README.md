@@ -94,10 +94,11 @@ reflects only this session's server, with no cross-session sharing.
 
 ## Configuration
 
-`~/.pi/agent/file-browse.json` merged with `<cwd>/.pi/file-browse.json`
-(project wins):
+The `file-browse` section of the shared `bytefly.json`, merged from the global
+document and the project document (project wins):
 
 ```jsonc
+// bytefly.json → "file-browse"
 {
   "port": 0,                 // 0 = one random port fixed for the session
   "autoOpen": true,          // open the browser on start; false for headless

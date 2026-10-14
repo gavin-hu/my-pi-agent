@@ -105,9 +105,9 @@ the theme's own ANSI codes stay intact.
 
 ## Configuration
 
-`document.json`, loaded from `~/.pi/agent/document.json` then
-`<cwd>/.pi/document.json` (project wins), each merged over the defaults and
-clamped:
+The `document` section of the shared `bytefly.json`, loaded from
+`~/.pi/agent/bytefly.json` then `<cwd>/.pi/bytefly.json` (project wins), each
+merged over the defaults and clamped:
 
 | Key | Default | Clamp | Meaning |
 |---|---|---|---|
@@ -116,11 +116,12 @@ clamped:
 | `formats` | `{ "pdf": true, "docx": true, "doc": true, "odt": true, "rtf": true, "xlsx": true }` | — | Per-format on/off, merged over each registry entry's default; unknown keys are ignored. |
 
 ```jsonc
-// .pi/document.json
+// bytefly.json → "document"
 { "maxChars": 80000, "formats": { "docx": false } }
 ```
 
-An existing `doc.json` is ignored; rename it to `document.json`.
+`doc.json` is not read, and neither is the old per-extension `document.json`;
+run `bun run config:migrate` to move a `document.json` into the shared file.
 
 ## Security
 
@@ -217,8 +218,8 @@ config defaults, and error listing all derive from it.
 | Tool | `read_doc`, `exposure: "direct"`, `defaultActive: true`, default (`parallel`) execution, `annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult` (reuse `context.lastComponent`; read `context.cwd` and `context.isError`). |
 | State | None persisted. Per-result state lives in the tool-result `details` / `structuredContent`; the renderer reads only that. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks: each read imports a parser, runs it, and holds no long-lived resources. |
-| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigFile` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/ui.ts`). |
-| Config | `document.json` via `loadConfigFile` (`~/.pi/agent`, `<cwd>/.pi`). |
+| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigSection` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/ui.ts`). |
+| Config | The `document` section of the shared `bytefly.json` via `loadConfigSection` (`~/.pi/agent`, `<cwd>/.pi`). |
 
 ## Design notes
 

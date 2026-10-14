@@ -22,15 +22,17 @@ const agentDir = tempDir("web-access-search-agent-");
 const cwd = tempDir("web-access-search-cwd-");
 mkdirSync(join(cwd, ".pi"), { recursive: true });
 writeFileSync(
-	join(cwd, ".pi", "web-access.json"),
-	JSON.stringify({ search: { provider: "searxng", endpoint: "https://searx.test", minIntervalMs: 0 } }),
+	join(cwd, ".pi", "bytefly.json"),
+	JSON.stringify({
+		"web-access": { search: { provider: "searxng", endpoint: "https://searx.test", minIntervalMs: 0 } },
+	}),
 );
 const emptyCwd = tempDir("web-access-search-empty-cwd-");
 const forcedCwd = tempDir("web-access-search-forced-cwd-");
 mkdirSync(join(forcedCwd, ".pi"), { recursive: true });
 writeFileSync(
-	join(forcedCwd, ".pi", "web-access.json"),
-	JSON.stringify({ search: { provider: "searxng", minIntervalMs: 0 } }),
+	join(forcedCwd, ".pi", "bytefly.json"),
+	JSON.stringify({ "web-access": { search: { provider: "searxng", minIntervalMs: 0 } } }),
 );
 const ctx: any = { cwd, mode: "tui", hasUI: true };
 const emptyCtx: any = { cwd: emptyCwd, mode: "tui", hasUI: true };

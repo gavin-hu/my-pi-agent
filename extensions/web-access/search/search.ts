@@ -82,10 +82,10 @@ function describe(error: unknown): string {
 /** A model-readable reason a forced provider cannot run. */
 function notConfigured(id: SearchProviderId): string {
 	if (id === "searxng") {
-		return 'No SearXNG endpoint configured. Set "search.endpoint" in web-access.json (for example http://localhost:8080).';
+		return 'No SearXNG endpoint configured. Set "web-access.search.endpoint" in bytefly.json (for example http://localhost:8080).';
 	}
 	if (id === "brave") {
-		return 'Brave search needs an API key. Set "search.apiKeyEnv" (preferred) or "search.apiKey" in web-access.json.';
+		return 'Brave search needs an API key. Set "web-access.search.apiKeyEnv" (preferred) or "web-access.search.apiKey" in bytefly.json.';
 	}
 	return `The "${id}" search provider is not configured.`;
 }

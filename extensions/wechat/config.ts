@@ -1,13 +1,13 @@
 /**
- * Loading and normalizing `wechat.json`.
+ * Loading and normalizing the `wechat` section of the shared `bytefly.json`.
  *
- * The effective config is `<agentDir>/wechat.json` overridden by
- * `<cwd>/.pi/wechat.json`. Unknown keys are ignored and every value is clamped
- * or cleaned. Connection state is not stored here; it is controlled at runtime
- * by `/wechat start` and `/wechat stop`.
+ * The effective config is the global section overridden by the project
+ * section. Unknown keys are ignored and every value is clamped or cleaned.
+ * Connection state is not stored here; it is controlled at runtime by
+ * `/wechat start` and `/wechat stop`.
  */
 
-import { clampInteger, cleanString, loadConfigFile } from "../../lib/config.ts";
+import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";
 
 export interface WechatConfig {
 	/** Extra peers allowed to drive the agent; the owner is always allowed. */
@@ -82,7 +82,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	return config;
 }
 
-/** The effective config for `cwd`. */
+/** The effective config from the shared `wechat` section. */
 export function loadWechatConfig(cwd: string): WechatConfig {
-	return loadConfigFile(cwd, "wechat.json", DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigSection(cwd, "wechat", DEFAULT_CONFIG, normalizeConfig);
 }

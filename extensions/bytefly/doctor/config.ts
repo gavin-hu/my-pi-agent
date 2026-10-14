@@ -1,17 +1,15 @@
 /**
  * Configuration for bytefly's doctor surface.
  *
- * Read from the `doctor` section of `bytefly.json` — the same file the footer's
- * price calculation and the notify capability read, under `~/.pi/agent/` and
- * `<cwd>/.pi` with project values winning. Each section is parsed by its own
- * normalizer, so a wrong-typed value under `doctor` never reaches the price or
- * notify sections. A malformed file is ignored like everywhere else — `doctor`
- * is the extension that *reports* that, so it must not depend on parsing cleanly
- * itself.
+ * Read from the top-level `doctor` section of the shared `bytefly.json` — the
+ * same document the footer's price calculation and the notify capability read,
+ * under `~/.pi/agent/` and `<cwd>/.pi` with project values winning. A malformed
+ * document is
+ * ignored like everywhere else — `doctor` is the extension that *reports* that,
+ * so it must not depend on parsing cleanly itself.
  */
 
-import { asRecord, clampInteger, loadConfigFile } from "../../../lib/config.ts";
-import { BYTEFLY_CONFIG_FILE } from "../config.ts";
+import { clampInteger, loadConfigSection } from "../../../lib/config.ts";
 
 /** How long a single probe may take before it counts as unusable. */
 const DEFAULT_TIMEOUT_MS = 2_000;
@@ -31,20 +29,19 @@ export const DEFAULT_CONFIG: DoctorConfig = {
 	skip: [],
 };
 
-/** Validate the `doctor` object over `base`. Total: never throws, never guesses. */
+/** Validate the `doctor` section over `base`. Total: never throws, never guesses. */
 export function normalizeConfig(raw: Record<string, unknown> | undefined, base: DoctorConfig): DoctorConfig {
-	const value = asRecord(raw?.doctor);
-	if (!value) return base;
+	if (!raw) return base;
 	return {
-		proactive: typeof value.proactive === "boolean" ? value.proactive : base.proactive,
-		timeoutMs: clampInteger(value.timeoutMs, base.timeoutMs, 100, 30_000),
-		skip: Array.isArray(value.skip)
-			? value.skip.filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+		proactive: typeof raw.proactive === "boolean" ? raw.proactive : base.proactive,
+		timeoutMs: clampInteger(raw.timeoutMs, base.timeoutMs, 100, 30_000),
+		skip: Array.isArray(raw.skip)
+			? raw.skip.filter((name): name is string => typeof name === "string" && name.trim().length > 0)
 			: base.skip,
 	};
 }
 
-/** Effective doctor config for `cwd` (defaults, then the global file, then the project file). */
+/** Effective doctor config for `cwd` (defaults, then the shared `doctor` section, then env). */
 export function loadConfig(cwd: string): DoctorConfig {
-	return loadConfigFile(cwd, BYTEFLY_CONFIG_FILE, DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigSection(cwd, "doctor", DEFAULT_CONFIG, normalizeConfig);
 }

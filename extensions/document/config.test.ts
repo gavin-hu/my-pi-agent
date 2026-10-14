@@ -31,10 +31,13 @@ describe("normalizeConfig", () => {
 describe("loadConfig", () => {
 	test("project config overrides global and keeps registry defaults", async () => {
 		await withAgentDir(async (agentDir) => {
-			writeFileSync(join(agentDir, "document.json"), JSON.stringify({ maxChars: 1000, formats: { pdf: false } }));
+			writeFileSync(
+				join(agentDir, "bytefly.json"),
+				JSON.stringify({ document: { maxChars: 1000, formats: { pdf: false } } }),
+			);
 			const cwd = tempDir("doc-config-");
 			mkdirSync(join(cwd, ".pi"), { recursive: true });
-			writeFileSync(join(cwd, ".pi", "document.json"), JSON.stringify({ formats: { pdf: true } }));
+			writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ document: { formats: { pdf: true } } }));
 
 			const config = loadConfig(cwd);
 			expect(config.maxChars).toBe(1000);

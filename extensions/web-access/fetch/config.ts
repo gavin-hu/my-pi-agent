@@ -1,7 +1,8 @@
 /**
  * Configuration for the `web_fetch` half of web-access.
  *
- * The top-level `config.ts` reads `web-access.json` and hands the `fetch`
+ * The top-level `config.ts` reads the `web-access` section of `bytefly.json`
+ * and hands the `fetch`
  * object here; this module only validates and clamps it. Project values merge
  * over global ones in the top-level loader.
  */

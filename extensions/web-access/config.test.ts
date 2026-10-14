@@ -19,16 +19,18 @@ describe("web-access config", () => {
 		const cwd = tempDir("web-access-cwd-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
 		writeFileSync(
-			join(cwd, ".pi", "web-access.json"),
-			JSON.stringify({ search: { maxResults: 5 }, fetch: { maxOutputChars: 5000 } }),
+			join(cwd, ".pi", "bytefly.json"),
+			JSON.stringify({ "web-access": { search: { maxResults: 5 }, fetch: { maxOutputChars: 5000 } } }),
 		);
 
 		await withAgentDir((globalDir) => {
 			writeFileSync(
-				join(globalDir, "web-access.json"),
+				join(globalDir, "bytefly.json"),
 				JSON.stringify({
-					search: { maxResults: 3, language: "zh-CN" },
-					fetch: { maxOutputChars: 3000, allowPrivateHosts: true },
+					"web-access": {
+						search: { maxResults: 3, language: "zh-CN" },
+						fetch: { maxOutputChars: 3000, allowPrivateHosts: true },
+					},
 				}),
 			);
 			expect(loadSearchConfig(cwd).maxResults).toBe(5);
@@ -42,7 +44,10 @@ describe("web-access config", () => {
 		const cwd = tempDir("web-access-cwd-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
 		// A fetch key placed in the search section must not leak into either.
-		writeFileSync(join(cwd, ".pi", "web-access.json"), JSON.stringify({ search: { allowPrivateHosts: true } }));
+		writeFileSync(
+			join(cwd, ".pi", "bytefly.json"),
+			JSON.stringify({ "web-access": { search: { allowPrivateHosts: true } } }),
+		);
 
 		await withAgentDir(() => {
 			expect(loadSearchConfig(cwd).maxResults).toBe(DEFAULT_SEARCH_CONFIG.maxResults);
@@ -53,7 +58,7 @@ describe("web-access config", () => {
 	test("ignores malformed files", async () => {
 		const cwd = tempDir("web-access-cwd-");
 		await withAgentDir((globalDir) => {
-			writeFileSync(join(globalDir, "web-access.json"), "{ not json");
+			writeFileSync(join(globalDir, "bytefly.json"), "{ not json");
 			expect(loadSearchConfig(cwd)).toEqual(DEFAULT_SEARCH_CONFIG);
 			expect(loadFetchConfig(cwd)).toEqual(DEFAULT_FETCH_CONFIG);
 		}, "web-access-global-");

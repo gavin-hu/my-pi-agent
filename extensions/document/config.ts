@@ -2,11 +2,12 @@
  * Configuration for the `document` extension.
  *
  * `formats` defaults are derived from the format registry, so a new format needs
- * no config edit. Project `<cwd>/.pi/document.json` values merge over global
- * `~/.pi/agent/document.json` values, and every field is clamped.
+ * no config edit. The `document` section of the shared `bytefly.json` is read
+ * from the global document and the project document (project wins), and every
+ * field is clamped.
  */
 
-import { clampInteger, loadConfigFile } from "../../lib/config.ts";
+import { clampInteger, loadConfigSection } from "../../lib/config.ts";
 import { FORMATS, type FormatId } from "./formats.ts";
 
 export interface DocConfig {
@@ -46,9 +47,9 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	};
 }
 
-/** Effective config: global file, then project file, over the defaults. */
+/** Effective config from the shared `document` section (defaults, global, project, env). */
 export function loadConfig(cwd: string): DocConfig {
-	return loadConfigFile(cwd, "document.json", DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigSection(cwd, "document", DEFAULT_CONFIG, normalizeConfig);
 }
 
 /** Whether a format is enabled in the effective config. */

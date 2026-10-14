@@ -3,7 +3,7 @@
  *
  * General web search through a pluggable provider. The keyless DuckDuckGo
  * provider is the default; SearXNG (self-hosted JSON) and Brave (keyed JSON) can
- * be selected through the `search` section of `web-access.json`. Registered by
+ * be selected through the `web-access.search` section of `bytefly.json`. Registered by
  * `web-access/index.ts`.
  */
 
@@ -28,7 +28,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 		label: "Web search",
 		description:
 			"Search the web and return an answer and/or results (title, URL, snippet). Keyless by default (DuckDuckGo) " +
-			"returns an answer and related topics rather than a general result list; `search.provider` in web-access.json " +
+			"returns an answer and related topics rather than a general result list; `web-access.search.provider` in bytefly.json " +
 			"can select a self-hosted SearXNG instance or a keyed Brave search.",
 		promptSnippet: "Search the web for current information and pages.",
 		promptGuidelines: [

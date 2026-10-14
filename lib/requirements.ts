@@ -15,7 +15,7 @@
  */
 
 import { join } from "node:path";
-import type { JsonReadResult } from "./config.ts";
+import { type JsonReadResult, SHARED_CONFIG_FILE } from "./config.ts";
 import { getPiInvocation, type PiInvocation } from "./pi-invocation.ts";
 
 /** How a check came out. Only `missing` is worth interrupting a session for. */
@@ -125,23 +125,17 @@ function gitCheck(enables: string): BinaryCheck {
 /** Every extension's prerequisites, keyed by directory name. */
 export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	worktree: {
-		configFiles: ["worktree.json"],
 		requires: [gitCheck("worktree isolation")],
 		notes: ["`.worktreeinclude` symlinks need symlink support (Windows Developer Mode)."],
 	},
 	rewind: {
-		configFiles: ["rewind.json"],
 		requires: [gitCheck("rewind snapshots")],
 	},
 	question: {
 		notes: ["Needs an interactive UI; without one the tool stays inactive."],
 	},
-	todo: {
-		configFiles: ["todo.json"],
-	},
-	goal: {
-		configFiles: ["goal.json"],
-	},
+	todo: {},
+	goal: {},
 	plan: {
 		optional: [gitCheck("project-local `.pi/plans` (otherwise plans land in the agent directory)")],
 		notes: ["Needs an interactive UI to enter plan mode."],
@@ -157,24 +151,19 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		notes: ["Project-local agents require a trusted project."],
 	},
 	job: {
-		configFiles: ["jobs.json"],
 		notes: [
 			"Windows: no POSIX `EXIT` trap, so a reattached job's status stays `unknown`.",
 			"`ps` is used for the pid-reuse guard and is POSIX-only.",
 		],
 	},
 	"web-access": {
-		configFiles: ["web-access.json"],
 		optional: [{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() }],
 	},
 	"file-browse": {
-		configFiles: ["file-browse.json"],
 		optional: [gitCheck("the branch chip")],
 		notes: ["The default-browser opener (`open` / `xdg-open` / `cmd`) is best-effort; the URL is printed either way."],
 	},
-	document: {
-		configFiles: ["document.json"],
-	},
+	document: {},
 	"file-open": {
 		notes: [
 			"The `/open` command and its notification need an interactive UI; the `open_path` tool works without one.",
@@ -182,11 +171,9 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		],
 	},
 	memory: {
-		configFiles: ["memory.json"],
 		optional: [gitCheck("project-scope memory under the repository root")],
 	},
 	wechat: {
-		configFiles: ["wechat.json"],
 		optional: [
 			{
 				kind: "state",
@@ -199,7 +186,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		notes: ["Logging in needs the interactive terminal UI."],
 	},
 	bytefly: {
-		configFiles: ["bytefly.json"],
+		configFiles: [SHARED_CONFIG_FILE],
 		notes: [
 			"TUI only for the header, footer, and turn rule; `/extensions` prints a listing and `/doctor` prints its report in RPC, JSON, and print modes.",
 			"The `/extensions` picker writes through Pi's own settings; project scope requires a trusted project.",

@@ -166,35 +166,44 @@ content and layout are tuned in [`footer/config.ts`](./footer/config.ts) —
 thresholds, gauge
 glyphs and widths, separators, icons, and status keys. The turn separator has no
 JSON either: its glyph, label prefix, padding, and colors are tuned in
-[`separator/config.ts`](./separator/config.ts). The price
-calculation is configured by a JSON file, read the way every other extension
-reads its config:
+[`separator/config.ts`](./separator/config.ts).
 
-- `~/.pi/agent/bytefly.json` (global)
-- `<cwd>/.pi/bytefly.json` (project; overrides the global file)
+Everything JSON-configurable lives in `bytefly.json`, one shared document with a
+top-level section per extension (see [Configuration](../../docs/configuration.md)).
+It is read from the global document, then `<cwd>/.pi/bytefly.json`. The old
+per-extension files
+(`document.json`, `jobs.json`, …) are no longer read; run
+`bun run config:migrate` to move them into the shared document.
 
-Both are optional, and neither is needed for DeepSeek. The built-in table is the
-base layer for every session: DeepSeek is priced in yuan at the published peak
-and off-peak rates, and every other model keeps Pi's recorded cost, whose number
-comes from Pi's catalog. A file can change the currency, replace a built-in
-rate, or add rates of your own. A malformed file is ignored, a wrong-typed value
-falls back to its default, and an unknown timezone drops the schedule rather
-than the session.
+The price
+calculation is configured by the `price` section of the shared `bytefly.json`
+(see [Configuration](../../docs/configuration.md)), read from
+`~/.pi/agent/bytefly.json`, then `<cwd>/.pi/bytefly.json` (project wins).
+
+Both documents are optional, and neither is needed for DeepSeek. The built-in
+table is the base layer for every session: DeepSeek is priced in yuan at the
+published peak and off-peak rates, and every other model keeps Pi's recorded
+cost, whose number comes from Pi's catalog. A document can change the currency,
+replace a built-in rate, or add rates of your own. A malformed document is
+ignored, a wrong-typed value falls back to its default, and an unknown timezone
+drops the schedule rather than the session.
 
 ```json
 {
-  "currency": { "symbol": "¥", "decimals": 2 },
-  "fallbackToRecordedCost": true,
-  "rates": {
-    "deepseek/deepseek-flash":  { "input": 2, "output": 8, "cacheRead": 0.04, "cacheWrite": 0, "offPeakMultiplier": 0.5 },
-    "deepseek/deepseek-v4-pro": { "input": 9, "output": 27, "cacheRead": 0.3, "cacheWrite": 0, "offPeakMultiplier": 0.5 }
-  },
-  "peak": {
-    "timezone": "Asia/Shanghai",
-    "windows": [
-      { "days": [1, 2, 3, 4, 5], "from": "09:00", "to": "12:00" },
-      { "days": [1, 2, 3, 4, 5], "from": "14:00", "to": "18:00" }
-    ]
+  "price": {
+    "currency": { "symbol": "¥", "decimals": 2 },
+    "fallbackToRecordedCost": true,
+    "rates": {
+      "deepseek/deepseek-flash":  { "input": 2, "output": 8, "cacheRead": 0.04, "cacheWrite": 0, "offPeakMultiplier": 0.5 },
+      "deepseek/deepseek-v4-pro": { "input": 9, "output": 27, "cacheRead": 0.3, "cacheWrite": 0, "offPeakMultiplier": 0.5 }
+    },
+    "peak": {
+      "timezone": "Asia/Shanghai",
+      "windows": [
+        { "days": [1, 2, 3, 4, 5], "from": "09:00", "to": "12:00" },
+        { "days": [1, 2, 3, 4, 5], "from": "14:00", "to": "18:00" }
+      ]
+    }
   }
 }
 ```
@@ -213,12 +222,12 @@ is shown to document every key at once.
 | `peak.timezone` | The IANA zone the windows are stated in. |
 | `peak.windows` | `days` (1 = Monday … 7 = Sunday; omitted means every day), `from` inclusive, `to` exclusive, `HH:MM` local; a `to` before `from` wraps midnight. An empty list means every moment is peak. |
 
-Rates merge key by key across the two files, so a project file can override one
-model without restating the rest; a key present in both is replaced, not merged
-field by field. No windows means every moment is peak, so a rate with
-`offPeakMultiplier: 0.5` and no schedule stays flat. The file is read when the
-footer is installed, so a new session — or `/bytefly` toggled off and on —
-picks up an edit.
+Rates merge key by key across the two documents, so a project document can
+override one model without restating the rest; a key present in both is replaced,
+not merged field by field. No windows means every moment is peak, so a rate with
+`offPeakMultiplier: 0.5` and no schedule stays flat. The `price` section is read
+when the footer is installed, so a new session — or `/bytefly` toggled off and on
+— picks up an edit.
 
 **Mixing currencies is the sharp edge of the built-in default.** A record priced
 from `rates` or the built-in table is in `currency.symbol` units — yuan for
@@ -230,7 +239,8 @@ treat the rates purely as an off-peak correction.
 
 ### The `notify` section
 
-The notify capability reads the same `bytefly.json`, under its own `notify` key.
+The notify capability reads the same shared `bytefly.json`, under its own
+top-level `notify` key.
 It is **off by default**; `enabled: true` is the whole setup needed for an
 unattended run, and the three trigger flags then narrow what is announced. The
 price section and the notify section are parsed independently, so a wrong-typed
@@ -263,7 +273,8 @@ picks up an edit.
 
 ### The `doctor` section
 
-The doctor surface reads the same `bytefly.json`, under its own `doctor` key:
+The doctor surface reads the same shared `bytefly.json`, under its own top-level
+`doctor` key:
 
 ```json
 {
@@ -551,8 +562,8 @@ control-free line before it reaches an escape sequence or a shell argument.
   only there may still be probed.
 - **A probe proves a binary runs, not that it works:** a `git` that crashes on a
   specific repository is still `ok`.
-- **Config scope is checked for `<agent-dir>/<file>.json` and
-  `<cwd>/.pi/<file>.json` only**; a `jobs.json` `registryDir` override is not
+- **Config scope is checked for `<agent-dir>/bytefly.json` and
+  `<cwd>/.pi/bytefly.json` only**; a `job.registryDir` override is not
   followed.
 - **Notifications are not focus-aware.** They fire whether or not the terminal
   has focus, and once per trigger rather than once per unseen event. There is
@@ -607,7 +618,7 @@ rather than showing a wrong value.
 | Doctor command | `pi.registerCommand("doctor")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
 | Doctor probes | `run_doctor` and `/doctor` share the session cache; `/doctor refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the footer's price section is read when the footer is installed (a new session, or `/bytefly` toggled back on), and the `notify` and `doctor` sections at `session_start`. Nothing watches the file. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read when the footer is installed (a new session, or `/bytefly` toggled back on), and the `notify` and `doctor` sections at `session_start`. Nothing watches the document. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
 | Lifecycle | `session_start` installs the header and footer, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on, and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
@@ -726,7 +737,6 @@ price calculation), `separator/`, `picker/`, `doctor/`, and `notify/`.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Composition root: the disable guard and the six `register*` calls. |
-| `config.ts` | The shared `bytefly.json` file name; each section is parsed by its own loader. |
 | `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity tokens, padding, tagline, and the grouped help entries. |
 | `header/component.ts` | `ByteflyHeader`: the mark, identity rows, rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header, exposes its enabled state, and owns its session lifecycle. |
@@ -736,7 +746,7 @@ price calculation), `separator/`, `picker/`, `doctor/`, and `notify/`.
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
 | `footer/price/types.ts` | `Currency`, `ModelRates`, `PeakWindow`/`PeakSchedule`, `ByteflyConfig`. |
-| `footer/price/config.ts` | `bytefly.json` schema, defaults, built-in DeepSeek rates/tariff, normalizer, loader. |
+| `footer/price/config.ts` | The `price` section of `bytefly.json`: schema, defaults, built-in DeepSeek rates/tariff, normalizer, loader. |
 | `footer/price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
 | `footer/price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
 | `footer/price/price.ts` | Records → totals: rates, peak multiplier, recorded-cost fallback. |

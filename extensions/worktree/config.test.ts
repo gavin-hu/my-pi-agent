@@ -20,12 +20,12 @@ describe("loadConfig", () => {
 		const repo = tempDir("worktree-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
 		writeFileSync(
-			join(globalDir, "worktree.json"),
-			JSON.stringify({ baseRef: "head", pruneAfterDays: 30, guard: { blockReadEscapes: true } }),
+			join(globalDir, "bytefly.json"),
+			JSON.stringify({ worktree: { baseRef: "head", pruneAfterDays: 30, guard: { blockReadEscapes: true } } }),
 		);
 		writeFileSync(
-			join(repo, ".pi", "worktree.json"),
-			JSON.stringify({ branchPrefix: "wt-", guard: { blockGitRedirects: false } }),
+			join(repo, ".pi", "bytefly.json"),
+			JSON.stringify({ worktree: { branchPrefix: "wt-", guard: { blockGitRedirects: false } } }),
 		);
 
 		const config = loadConfig(repo, globalDir);
@@ -42,8 +42,11 @@ describe("loadConfig", () => {
 		const globalDir = tempDir("worktree-global-");
 		const repo = tempDir("worktree-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(globalDir, "worktree.json"), JSON.stringify({ include: ["a", "b"], skipOverrides: ["bash"] }));
-		writeFileSync(join(repo, ".pi", "worktree.json"), JSON.stringify({ include: ["c"] }));
+		writeFileSync(
+			join(globalDir, "bytefly.json"),
+			JSON.stringify({ worktree: { include: ["a", "b"], skipOverrides: ["bash"] } }),
+		);
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ worktree: { include: ["c"] } }));
 
 		const config = loadConfig(repo, globalDir);
 		expect(config.include).toEqual(["c"]);
@@ -54,8 +57,8 @@ describe("loadConfig", () => {
 		const globalDir = tempDir("worktree-global-");
 		const repo = tempDir("worktree-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(globalDir, "worktree.json"), "{ not json");
-		writeFileSync(join(repo, ".pi", "worktree.json"), "{ also not json");
+		writeFileSync(join(globalDir, "bytefly.json"), "{ not json");
+		writeFileSync(join(repo, ".pi", "bytefly.json"), "{ also not json");
 
 		expect(loadConfig(repo, globalDir)).toEqual(DEFAULT_CONFIG);
 	});
@@ -64,8 +67,11 @@ describe("loadConfig", () => {
 		const globalDir = tempDir("worktree-global-");
 		const repo = tempDir("worktree-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(globalDir, "worktree.json"), JSON.stringify({ guard: "nope" }));
-		writeFileSync(join(repo, ".pi", "worktree.json"), JSON.stringify({ guard: { blockFileEscapes: "yes" } }));
+		writeFileSync(join(globalDir, "bytefly.json"), JSON.stringify({ worktree: { guard: "nope" } }));
+		writeFileSync(
+			join(repo, ".pi", "bytefly.json"),
+			JSON.stringify({ worktree: { guard: { blockFileEscapes: "yes" } } }),
+		);
 
 		// A non-object guard falls back wholesale; a non-boolean flag keeps the
 		// base value, so no malformed value can reach the guard checks.

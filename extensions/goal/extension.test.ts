@@ -116,7 +116,7 @@ describe("goal extension", () => {
 		const globalDir = mkdtempSync(join(tmpdir(), "goal-ext-global-"));
 		const repo = mkdtempSync(join(tmpdir(), "goal-ext-repo-"));
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(repo, ".pi", "goal.json"), JSON.stringify({ achieved: "hide" }));
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ goal: { achieved: "hide" } }));
 		// The preload restores PI_CODING_AGENT_DIR after the test.
 		useEnv({ PI_CODING_AGENT_DIR: globalDir });
 

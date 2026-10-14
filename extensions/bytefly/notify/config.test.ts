@@ -26,14 +26,14 @@ describe("normalizeNotifyConfig", () => {
 		expect(normalizeNotifyConfig(undefined, DEFAULT_NOTIFY_CONFIG)).toEqual(DEFAULT_NOTIFY_CONFIG);
 	});
 
-	test("is off by default and keeps the base with no notify section", () => {
+	test("is off by default and keeps the base for an empty section", () => {
 		expect(DEFAULT_NOTIFY_CONFIG.enabled).toBe(false);
-		expect(normalizeNotifyConfig({ currency: { symbol: "$" } }, DEFAULT_NOTIFY_CONFIG)).toEqual(DEFAULT_NOTIFY_CONFIG);
+		expect(normalizeNotifyConfig({}, DEFAULT_NOTIFY_CONFIG)).toEqual(DEFAULT_NOTIFY_CONFIG);
 	});
 
 	test("reads each flag and falls back on a wrong type", () => {
 		const config = normalizeNotifyConfig(
-			{ notify: { enabled: true, turnFinished: false, needsInput: "yes", jobFinished: true } },
+			{ enabled: true, turnFinished: false, needsInput: "yes", jobFinished: true },
 			DEFAULT_NOTIFY_CONFIG,
 		);
 		expect(config.enabled).toBe(true);
@@ -43,16 +43,14 @@ describe("normalizeNotifyConfig", () => {
 	});
 
 	test("accepts a known method and rejects an unknown one", () => {
-		expect(normalizeNotifyConfig({ notify: { method: "notify-send" } }, DEFAULT_NOTIFY_CONFIG).method).toBe(
-			"notify-send",
-		);
-		expect(normalizeNotifyConfig({ notify: { method: "carrier-pigeon" } }, DEFAULT_NOTIFY_CONFIG).method).toBe("auto");
+		expect(normalizeNotifyConfig({ method: "notify-send" }, DEFAULT_NOTIFY_CONFIG).method).toBe("notify-send");
+		expect(normalizeNotifyConfig({ method: "carrier-pigeon" }, DEFAULT_NOTIFY_CONFIG).method).toBe("auto");
 	});
 
 	test("trims the title and clamps it to forty characters", () => {
-		expect(normalizeNotifyConfig({ notify: { title: "  Deploy  " } }, DEFAULT_NOTIFY_CONFIG).title).toBe("Deploy");
-		expect(normalizeNotifyConfig({ notify: { title: "x".repeat(80) } }, DEFAULT_NOTIFY_CONFIG).title).toHaveLength(40);
-		expect(normalizeNotifyConfig({ notify: { title: "   " } }, DEFAULT_NOTIFY_CONFIG).title).toBe("Pi");
+		expect(normalizeNotifyConfig({ title: "  Deploy  " }, DEFAULT_NOTIFY_CONFIG).title).toBe("Deploy");
+		expect(normalizeNotifyConfig({ title: "x".repeat(80) }, DEFAULT_NOTIFY_CONFIG).title).toHaveLength(40);
+		expect(normalizeNotifyConfig({ title: "   " }, DEFAULT_NOTIFY_CONFIG).title).toBe("Pi");
 	});
 });
 

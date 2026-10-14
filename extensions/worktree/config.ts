@@ -1,13 +1,13 @@
 /**
  * Configuration for the worktree extension.
  *
- * Merged from ~/.pi/agent/worktree.json (global) and <repo>/.pi/worktree.json
- * (project). Project values win.
+ * The `worktree` section of the shared `bytefly.json`, merged from
+ * `~/.pi/agent/bytefly.json` (global, through the agent directory) and
+ * `<repo>/.pi/bytefly.json` (project). Project values win.
  */
 
-import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { clampInteger, cleanString, readJson } from "../../lib/config.ts";
+import { cleanString, clampInteger, loadConfigSection } from "../../lib/config.ts";
 
 export interface WorktreeGuardConfig {
 	/** Block write/edit whose resolved path leaves the active worktree. Default: true */
@@ -103,7 +103,5 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 
 /** Load the effective config for a repository root. */
 export function loadConfig(repoRoot: string, agentDir: string = getAgentDir()): WorktreeConfig {
-	let config = normalizeConfig(readJson(join(agentDir, "worktree.json")), DEFAULT_CONFIG);
-	config = normalizeConfig(readJson(join(repoRoot, CONFIG_DIR_NAME, "worktree.json")), config);
-	return config;
+	return loadConfigSection(repoRoot, "worktree", DEFAULT_CONFIG, normalizeConfig, { agentDir });
 }

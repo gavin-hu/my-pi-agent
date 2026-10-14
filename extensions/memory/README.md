@@ -106,8 +106,9 @@ navigation does not change it.
 
 ## Configuration
 
-`memory.json`, read from `~/.pi/agent/memory.json` then `<cwd>/.pi/memory.json`
-(project values override global; missing or malformed files are ignored):
+The `memory` section of the shared `bytefly.json`, read from the global
+document then the project document (project values override global; missing or
+malformed documents are ignored):
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -198,7 +199,7 @@ when consolidating.
 |---|---|
 | `index.ts` | Factory: guard, register tool/command, session wiring and injection. |
 | `types.ts` | `MemoryScope`, `MemoryAction`, `MemoryDetails`, the context type. |
-| `config.ts` | Defaults and `memory.json` loading/clamping. |
+| `config.ts` | Defaults and the `memory` section of `bytefly.json` loading/clamping. |
 | `schema.ts` | TypeBox params/result and pure validation of action, scope, and text. |
 | `store.ts` | Paths, parse/read, file stamps, add/update/forget/clear transforms, atomic queued write. |
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |

@@ -16,7 +16,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | Module | Responsibility |
 |---|---|
 | [`browser.ts`](./browser.ts) | Cross-platform default-browser opener shared by `file-browse` and `plan`: pure `browserCommand(url, platform)` plus best-effort `openInBrowser(url, { platform, spawn })` with an injectable spawn. |
-| [`config.ts`](./config.ts) | `~/.pi/agent/<name>.json` + `<cwd>/.pi/<name>.json` loading, with `clampInteger` / `clampNumber` / `cleanString` / `asRecord` / `readJson` / `readJsonResult` and the `loadConfigFile` merge. |
+| [`config.ts`](./config.ts) | Config loading, two ways: `loadConfigFile` for a whole file, and the shared `bytefly.json` (`SHARED_CONFIG_FILE`) via `configSection` / `loadConfigSection` (global, then project), plus the atomic `writeConfigFile` / `writeConfigSection`. Includes `clampInteger` / `clampNumber` / `cleanString` / `asRecord` / `readJson` / `readJsonResult`. |
 | [`env.ts`](./env.ts) | Env-var contracts shared across extensions: the worktree environment (`ENV_ROOT`, `worktreeRoot`, `resolveEffectiveCwd`) used by worktree, file-browse, job, and rewind, plus `isExtensionEnabled` / `ENV_DISABLED_EXTENSIONS` for the package-wide disable list. |
 | [`escape.ts`](./escape.ts) | `escapeHtml`: the single HTML text/attribute escape used by the browse page renderers and the Markdown and syntax highlighters. |
 | [`events.ts`](./events.ts) | Inter-extension `pi.events` channels and payloads: `JOB_FINISHED_CHANNEL` and `JobFinishedEvent`, published by `job` and consumed by bytefly's notify capability. |

@@ -1,10 +1,11 @@
 /**
- * The `bytefly.json` price configuration: schema, defaults, and loader.
+ * The price section of the shared `bytefly.json`: schema, defaults, and loader.
  *
- * Read from `~/.pi/agent/bytefly.json` and `<cwd>/.pi/bytefly.json` (project
- * values override global) through the shared `loadConfigFile`. Missing or
- * malformed files are ignored, and a value of the wrong type falls back to the
- * default instead of throwing.
+ * Read from the top-level `price` section of `~/.pi/agent/bytefly.json` and
+ * `<cwd>/.pi/bytefly.json` (project values override global) through the shared
+ * `loadConfigSection`.
+ * Missing or malformed documents are ignored, and a value of the wrong type
+ * falls back to the default instead of throwing.
  *
  * The built-in table is DeepSeek's published yuan pricing, with the peak
  * schedule that doubles the price during peak hours. It is the default value of
@@ -12,8 +13,7 @@
  * and tariff are stated in `bytefly.json`.
  */
 
-import { asRecord, clampInteger, clampNumber, cleanString, loadConfigFile } from "../../../../lib/config.ts";
-import { BYTEFLY_CONFIG_FILE } from "../../config.ts";
+import { asRecord, clampInteger, clampNumber, cleanString, loadConfigSection } from "../../../../lib/config.ts";
 import { parseWindow } from "./schedule.ts";
 import type { ByteflyConfig, Currency, ModelRates, PeakSchedule, PeakWindow } from "./types.ts";
 
@@ -146,7 +146,7 @@ export function normalizeByteflyConfig(raw: Record<string, unknown> | undefined,
 	};
 }
 
-/** Effective price config for `cwd` (defaults, then the global file, then the project file). */
+/** Effective price config for `cwd` (defaults, then the shared `price` section over global, project, and env). */
 export function loadByteflyConfig(cwd: string): ByteflyConfig {
-	return loadConfigFile(cwd, BYTEFLY_CONFIG_FILE, DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig);
+	return loadConfigSection(cwd, "price", DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig);
 }

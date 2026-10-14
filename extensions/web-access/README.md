@@ -4,7 +4,7 @@ One extension, two tools, keyless and dependency-free (native `fetch`, no
 `curl`): `web_search` runs general web search through a pluggable provider
 (keyless DuckDuckGo by default; optional SearXNG or Brave), and `web_fetch`
 reads a URL as text. Both are `direct` and active by default, and
-read one config file, `web-access.json`.
+read the `web-access` section of the shared `bytefly.json`.
 
 ```
 pi --extension ./extensions/web-access    # load just this extension
@@ -71,11 +71,12 @@ Pi — a coding-agent component · 12k chars (cached)
 
 ## Configuration
 
-Merged from `~/.pi/agent/web-access.json` (global) and
-`<cwd>/.pi/web-access.json` (project, wins). Missing or malformed files and
-unknown keys are ignored.
+Merged from the `web-access` section of the global `bytefly.json` and the
+project `<cwd>/.pi/bytefly.json` (project wins). Missing or malformed documents
+and unknown keys are ignored.
 
 ```jsonc
+// bytefly.json → "web-access"
 {
   "search": {
     "provider": "auto",                                    // "auto" | "duckduckgo" | "searxng" | "brave"
@@ -303,7 +304,7 @@ the content type and size.
 | File | Purpose |
 |---|---|
 | `index.ts` | Register both tools |
-| `config.ts` | `web-access.json` loader (via `lib/config.ts`) |
+| `config.ts` | The `web-access` section of `bytefly.json` loader (via `lib/config.ts`) |
 | `http.ts` | Shared fetch runner and HTTP error types |
 | `text.ts` | Shared code-point length, slice, and truncation helpers |
 | `html.ts` | Shared HTML entity decoding |

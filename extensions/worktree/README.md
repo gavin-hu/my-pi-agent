@@ -61,10 +61,11 @@ The model surface mirrors this with four tools:
 
 ## Configuration
 
-Merged from `~/.pi/agent/worktree.json` and `<repo>/.pi/worktree.json`
-(project wins):
+The `worktree` section of the shared `bytefly.json` (global document, then
+`<repo>/.pi/bytefly.json`, project wins):
 
 ```jsonc
+// bytefly.json → "worktree"
 {
   "dir": ".pi/worktrees",
   "baseRef": "fresh",        // "fresh" = remote default branch, "head" = local HEAD

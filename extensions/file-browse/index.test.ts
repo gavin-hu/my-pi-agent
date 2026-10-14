@@ -203,7 +203,7 @@ describe("file-browse extension", () => {
 	test("uses a pinned config port instead of the session port", async () => {
 		fixture = makeFixture();
 		mkdirSync(join(fixture.root, ".pi"), { recursive: true });
-		writeFileSync(join(fixture.root, ".pi", "file-browse.json"), JSON.stringify({ port: 8080 }));
+		writeFileSync(join(fixture.root, ".pi", "bytefly.json"), JSON.stringify({ "file-browse": { port: 8080 } }));
 		const { pi } = createFakePi();
 		const ports: number[] = [];
 		fileBrowser(pi, {

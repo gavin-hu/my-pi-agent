@@ -6,7 +6,7 @@
  * `find` for passage search. Redirects are followed with every hop
  * SSRF-checked, and pages are cached in an instance created per registration
  * and cleared on `session_start`/`session_shutdown`; the `fetch` section of
- * `web-access.json` configures it.
+ * `bytefly.json` (the `web-access.fetch` section) configures it.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";

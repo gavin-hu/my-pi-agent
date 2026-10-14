@@ -1,13 +1,12 @@
 /**
  * Behaviour config for the memory extension.
  *
- * Read from `~/.pi/agent/memory.json` and `<cwd>/.pi/memory.json` (project
- * values override global) with `lib/config.ts`; missing or malformed files are
- * ignored. The stored notes are markdown, not JSON — only recall behavior is
- * configured here.
+ * The `memory` section of the shared `bytefly.json` (global then project,
+ * project wins). The stored
+ * notes are markdown, not JSON — only recall behavior is configured here.
  */
 
-import { clampInteger, loadConfigFile } from "../../lib/config.ts";
+import { clampInteger, loadConfigSection } from "../../lib/config.ts";
 
 export interface MemoryConfig {
 	/** Inject stored notes before each run. */
@@ -30,7 +29,7 @@ export function normalizeMemoryConfig(raw: Record<string, unknown> | undefined, 
 	};
 }
 
-/** Effective memory config for `cwd` (global file, then project file, over defaults). */
+/** Effective memory config from the shared `memory` section (defaults, global, project, env). */
 export function loadMemoryConfig(cwd: string): MemoryConfig {
-	return loadConfigFile(cwd, "memory.json", DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig);
+	return loadConfigSection(cwd, "memory", DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig);
 }

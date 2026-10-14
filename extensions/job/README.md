@@ -138,8 +138,8 @@ notifications instead.
 
 ## Configuration
 
-Merged from `~/.pi/agent/jobs.json` (global) and `<cwd>/.pi/jobs.json`
-(project); project values win.
+The `job` section of the shared `bytefly.json` (global document, then project
+document, project wins):
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -279,7 +279,7 @@ rewritten.
 |---|---|
 | `index.ts` | Factory: registers the tool/command and wires events. |
 | `schema.ts` | Parameter schema and pure validation (a `JobCall` union). |
-| `config.ts` | `jobs.json` loading and clamping. |
+| `config.ts` | The `job` section of `bytefly.json`: loading and clamping. |
 | `format.ts` | Pure formatting, sanitization, duration, and transcript outcome-line helpers. |
 | `process.ts` | Injectable spawn/liveness/kill-tree primitives. |
 | `paths.ts` | Session/marker/registry/status file-name helpers. |

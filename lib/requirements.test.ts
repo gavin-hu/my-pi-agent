@@ -116,21 +116,21 @@ describe("state checks", () => {
 
 describe("config checks", () => {
 	test("says nothing when no config file exists", async () => {
-		const report = await probeExtension("document", seams());
+		const report = await probeExtension("bytefly", seams());
 		expect(report.findings.some((finding) => finding.check.endsWith(".json"))).toBe(false);
 	});
 
 	test("names a malformed project config and the parse error", async () => {
 		const report = await probeExtension(
-			"document",
+			"bytefly",
 			seams({
 				readJson: (path) =>
-					path === projectPath("document.json")
+					path === projectPath("bytefly.json")
 						? { state: "error", error: "Unexpected token 'n'" }
 						: { state: "absent" },
 			}),
 		);
-		const finding = find(report, projectPath("document.json"));
+		const finding = find(report, projectPath("bytefly.json"));
 		expect(finding?.severity).toBe("degraded");
 		expect(finding?.detail).toContain("not valid JSON");
 		expect(finding?.detail).toContain("Unexpected token");
@@ -138,13 +138,13 @@ describe("config checks", () => {
 
 	test("distinguishes the global and project scopes", async () => {
 		const report = await probeExtension(
-			"todo",
+			"bytefly",
 			seams({
 				readJson: (path) =>
-					path === agentPath("todo.json") ? { state: "error", error: "bad json" } : { state: "absent" },
+					path === agentPath("bytefly.json") ? { state: "error", error: "bad json" } : { state: "absent" },
 			}),
 		);
-		const finding = find(report, agentPath("todo.json"));
+		const finding = find(report, agentPath("bytefly.json"));
 		expect(finding?.detail).toContain("the global config is ignored");
 	});
 });

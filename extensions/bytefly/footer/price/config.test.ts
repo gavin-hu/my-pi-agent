@@ -118,9 +118,11 @@ describe("loadByteflyConfig", () => {
 	});
 
 	test("layers the global file, then the project file over it", () => {
-		writeConfig(join(cwd, ".pi"), "bytefly.json", { currency: { symbol: "¥" }, fallbackToRecordedCost: false });
+		writeConfig(join(cwd, ".pi"), "bytefly.json", {
+			price: { currency: { symbol: "¥" }, fallbackToRecordedCost: false },
+		});
 		return withAgentDir((agentDir) => {
-			writeConfig(agentDir, "bytefly.json", { currency: { symbol: "€", decimals: 3 } });
+			writeConfig(agentDir, "bytefly.json", { price: { currency: { symbol: "€", decimals: 3 } } });
 			const config = loadByteflyConfig(cwd);
 			expect(config.currency).toEqual({ symbol: "¥", decimals: 3 });
 			expect(config.fallbackToRecordedCost).toBe(false);
@@ -129,11 +131,11 @@ describe("loadByteflyConfig", () => {
 
 	test("merges rates key by key, the project file replacing a shared key", () => {
 		writeConfig(join(cwd, ".pi"), "bytefly.json", {
-			rates: { shared: { input: 1 }, "only-project": { input: 3 } },
+			price: { rates: { shared: { input: 1 }, "only-project": { input: 3 } } },
 		});
 		return withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", {
-				rates: { shared: { input: 2, output: 5 }, "only-global": { input: 7 } },
+				price: { rates: { shared: { input: 2, output: 5 }, "only-global": { input: 7 } } },
 			});
 			const config = loadByteflyConfig(cwd);
 			expect(config.rates.shared).toEqual({
@@ -149,10 +151,10 @@ describe("loadByteflyConfig", () => {
 	});
 
 	test("keeps the global windows when a project file only overrides the zone", () => {
-		writeConfig(join(cwd, ".pi"), "bytefly.json", { peak: { timezone: "UTC" } });
+		writeConfig(join(cwd, ".pi"), "bytefly.json", { price: { peak: { timezone: "UTC" } } });
 		return withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", {
-				peak: { timezone: "Asia/Shanghai", windows: [{ from: "09:00", to: "12:00" }] },
+				price: { peak: { timezone: "Asia/Shanghai", windows: [{ from: "09:00", to: "12:00" }] } },
 			});
 			const config = loadByteflyConfig(cwd);
 			expect(config.peak.timezone).toBe("UTC");
@@ -161,10 +163,10 @@ describe("loadByteflyConfig", () => {
 	});
 
 	test("replaces the windows when a project file states them", () => {
-		writeConfig(join(cwd, ".pi"), "bytefly.json", { peak: { windows: [{ from: "09:00", to: "12:00" }] } });
+		writeConfig(join(cwd, ".pi"), "bytefly.json", { price: { peak: { windows: [{ from: "09:00", to: "12:00" }] } } });
 		return withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", {
-				peak: { timezone: "UTC", windows: [{ from: "10:00", to: "11:00" }] },
+				price: { peak: { timezone: "UTC", windows: [{ from: "10:00", to: "11:00" }] } },
 			});
 			expect(loadByteflyConfig(cwd).peak.windows).toEqual([{ days: [1, 2, 3, 4, 5, 6, 7], from: 540, to: 720 }]);
 		});

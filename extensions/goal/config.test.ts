@@ -32,17 +32,17 @@ describe("loadGoalConfig", () => {
 	test("merges global then project, with project winning", async () => {
 		const repo = tempDir("goal-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(repo, ".pi", "goal.json"), JSON.stringify({ achieved: "hide" }));
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ goal: { achieved: "hide" } }));
 
 		await withAgentDir((globalDir) => {
-			writeFileSync(join(globalDir, "goal.json"), JSON.stringify({ achieved: "show" }));
+			writeFileSync(join(globalDir, "bytefly.json"), JSON.stringify({ goal: { achieved: "show" } }));
 			expect(loadGoalConfig(repo).achieved).toBe("hide");
 		}, "goal-global-");
 	});
 
 	test("ignores malformed files", async () => {
 		await withAgentDir((globalDir) => {
-			writeFileSync(join(globalDir, "goal.json"), "{ not json");
+			writeFileSync(join(globalDir, "bytefly.json"), "{ not json");
 			expect(loadGoalConfig(tempDir("goal-repo-"))).toEqual(DEFAULT_GOAL_CONFIG);
 		}, "goal-global-");
 	});

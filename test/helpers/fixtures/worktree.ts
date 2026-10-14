@@ -79,7 +79,7 @@ export function setWorktreeEnv(env: { root?: string; branch?: string; main?: str
 
 /**
  * Point `PI_CODING_AGENT_DIR` at a fresh temp dir so `loadConfig` never reads
- * the developer's `~/.pi/agent/worktree.json` (the reason the old suite used
+ * the developer's `~/.pi/agent/bytefly.json` (the reason the old suite used
  * `mock.module`). The preload restores the variable after every test.
  */
 function isolateAgentDir(): void {

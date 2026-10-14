@@ -1,14 +1,13 @@
 /**
  * Configuration for the browse extension.
  *
- * Merged from ~/.pi/agent/file-browse.json (global) and
- * <cwd>/.pi/file-browse.json (project). Project values win. Everything is
- * validated and clamped so a typo
- * cannot produce a nonsensical server.
+ * The `file-browse` section of the shared `bytefly.json` (global then project,
+ * project wins). Everything
+ * is validated and clamped so a typo cannot produce a nonsensical server.
  */
 
 import { randomInt } from "node:crypto";
-import { clampInteger, loadConfigFile } from "../../lib/config.ts";
+import { clampInteger, loadConfigSection } from "../../lib/config.ts";
 
 export interface ServeConfig {
 	/** TCP port on 127.0.0.1; `0` picks one random port fixed for the session, a positive value pins it. */
@@ -79,5 +78,5 @@ export function normalizeConfig(
 
 /** Load the effective config for a working directory. */
 export function loadConfig(cwd: string): ServeConfig {
-	return loadConfigFile(cwd, "file-browse.json", DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigSection(cwd, "file-browse", DEFAULT_CONFIG, normalizeConfig);
 }

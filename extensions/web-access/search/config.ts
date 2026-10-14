@@ -1,7 +1,8 @@
 /**
  * Configuration for the `web_search` half of web-access.
  *
- * The top-level `config.ts` reads `web-access.json` and hands the `search`
+ * The top-level `config.ts` reads the `web-access` section of `bytefly.json`
+ * and hands the `search`
  * object here; this module only validates and clamps it. Everything is clamped
  * so a typo cannot produce a nonsensical request.
  */

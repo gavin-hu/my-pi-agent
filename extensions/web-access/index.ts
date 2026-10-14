@@ -10,7 +10,7 @@
  *     optional package when installed.
  *
  * Both are `direct` and active by default, and read the `search` / `fetch`
- * sections of `web-access.json` (global + project). The fetch cache is cleared
+ * sections of `bytefly.json` (the `web-access` section; global + project). The fetch cache is cleared
  * on `session_start` and `session_shutdown` by `registerFetchTool`.
  *
  * Load with:  pi --extension ./extensions/web-access

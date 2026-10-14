@@ -113,7 +113,7 @@ describe("todo extension", () => {
 		const globalDir = mkdtempSync(join(tmpdir(), "todo-ext-global-"));
 		const repo = mkdtempSync(join(tmpdir(), "todo-ext-repo-"));
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(repo, ".pi", "todo.json"), JSON.stringify({ hideWhenComplete: false }));
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ todo: { hideWhenComplete: false } }));
 		// The preload restores PI_CODING_AGENT_DIR after the test.
 		useEnv({ PI_CODING_AGENT_DIR: globalDir });
 

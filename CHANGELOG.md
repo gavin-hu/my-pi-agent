@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: `bytefly.json` is the shared config document for the whole
+  package. Every extension owns a top-level section (`document`, `job`,
+  `web-access`, …; bytefly owns `price`, `notify`, and `doctor`), and
+  `assets/bytefly.schema.json` describes the document for editors.
 - `bytefly`: an opt-in notify capability that raises an OS notification when a
   full run settles, when a background `job` finishes (published on the shared
   `my-pi-agent/job-finished` event-bus channel), or when the agent asks for
@@ -22,9 +26,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `bytefly`: the doctor settings moved from `doctor.json` into the `doctor`
-  section of `bytefly.json`, so one file carries price, notify, and doctor
-  configuration. Breaking: `doctor.json` is no longer read.
+- Config: every per-extension config file (`document.json`, `file-browse.json`,
+  `goal.json`, `jobs.json`, `memory.json`, `rewind.json`, `todo.json`,
+  `web-access.json`, `wechat.json`, `worktree.json`) moved into a top-level
+  section of the shared `bytefly.json`, and bytefly's price keys moved under
+  `price`. Breaking: the old files and `doctor.json` are no longer read. Run
+  `bun run config:migrate` once per machine and repository to move them.
 - Distribution: releases are published to npm as well as tagged in git. The
   package declares `publishConfig.access: public` and a `files` allowlist
   (extensions, lib, themes, assets; tests excluded), and the docs document both

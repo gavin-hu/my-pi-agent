@@ -35,10 +35,10 @@ describe("loadConfig", () => {
 	test("merges global then project, with project winning", async () => {
 		const repo = tempDir("rewind-repo-");
 		mkdirSync(join(repo, ".pi"), { recursive: true });
-		writeFileSync(join(repo, ".pi", "rewind.json"), JSON.stringify({ max: 9 }));
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ rewind: { max: 9 } }));
 
 		await withAgentDir((globalDir) => {
-			writeFileSync(join(globalDir, "rewind.json"), JSON.stringify({ autoSnapshots: false, max: 5 }));
+			writeFileSync(join(globalDir, "bytefly.json"), JSON.stringify({ rewind: { autoSnapshots: false, max: 5 } }));
 			const config = loadConfig(repo);
 			expect(config.autoSnapshots).toBe(false);
 			expect(config.max).toBe(9);
@@ -47,7 +47,7 @@ describe("loadConfig", () => {
 
 	test("ignores malformed files", async () => {
 		await withAgentDir((globalDir) => {
-			writeFileSync(join(globalDir, "rewind.json"), "{ not json");
+			writeFileSync(join(globalDir, "bytefly.json"), "{ not json");
 			expect(loadConfig(tempDir("rewind-repo-"))).toEqual(DEFAULT_CONFIG);
 		}, "rewind-global-");
 	});

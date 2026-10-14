@@ -130,15 +130,15 @@ rails are hidden and return on close.
 
 ## Configuration
 
-The widget presentation is configurable from `~/.pi/agent/todo.json` and
-`<cwd>/.pi/todo.json` (project values override global):
+The widget presentation is configurable from the `todo` section of the shared
+`bytefly.json` (global document, then project document, project wins):
 
 | Key | Default | Meaning |
 |---|---|---|
 | `hideWhenComplete` | `true` | Hide the one-line widget once every item is completed. An empty list always hides. |
 
-Malformed files and invalid values are ignored, and todo behavior never depends
-on config.
+Malformed documents and invalid values are ignored, and todo behavior never
+depends on config.
 
 ## Non-goals
 
@@ -224,7 +224,7 @@ on config.
 | `nudge.ts` | Lag detection: mutating-tool classification, due check, reminder text (pure). |
 | `format.ts` | Model-facing and transcript text (pure). |
 | `tui.ts` | Widget and scrollable `/todos` components. |
-| `config.ts` | Widget config load/validation (`todo.json`). |
+| `config.ts` | Widget config load/validation (the `todo` section of `bytefly.json`). |
 | `runtime.ts` | Session-scoped state, lag tracking, and widget synchronization. |
 | `tools.ts` | `todo` tool registration and rendering. |
 | `commands.ts` | `/todos`. |

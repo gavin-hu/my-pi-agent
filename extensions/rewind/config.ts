@@ -1,12 +1,12 @@
 /**
  * Configuration for the rewind extension.
  *
- * Merged from `~/.pi/agent/rewind.json` (global) and
- * `<root>/.pi/rewind.json` (project). Project values win. Missing or malformed
- * files are ignored, and every value is clamped to a safe range.
+ * The `rewind` section of the shared `bytefly.json` (global then project,
+ * project wins). Missing or
+ * malformed documents are ignored, and every value is clamped to a safe range.
  */
 
-import { clampInteger, cleanString, loadConfigFile } from "../../lib/config.ts";
+import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";
 
 export interface RewindConfig {
 	/** Take one automatic snapshot per user prompt. Default: true. */
@@ -67,5 +67,5 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 
 /** Load the effective config for a repository root. */
 export function loadConfig(root: string): RewindConfig {
-	return loadConfigFile(root, "rewind.json", DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigSection(root, "rewind", DEFAULT_CONFIG, normalizeConfig);
 }

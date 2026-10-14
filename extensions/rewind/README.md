@@ -60,10 +60,11 @@ closes.
 
 ## Configuration
 
-Merged from `~/.pi/agent/rewind.json` (global) and `<root>/.pi/rewind.json`
-(project); project values win.
+The `rewind` section of the shared `bytefly.json` (global document, then
+`<root>/.pi/bytefly.json`, project wins).
 
 ```json
+// bytefly.json → "rewind"
 {
   "autoSnapshots": true,
   "max": 20,

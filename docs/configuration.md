@@ -1,40 +1,84 @@
 # Configuration
 
-Most extensions need no configuration. This page explains how settings are
-resolved and indexes the files each extension reads. The keys themselves are
+Most extensions need no configuration. Every setting that is configurable lives
+in one shared document, `bytefly.json`, under a top-level section named for the
+extension — bytefly itself owns `price`, `notify`, and `doctor`. The keys are
 documented in each extension's own `README.md`.
 
-## How config files resolve
+## How config resolves
 
-An extension that reads configuration loads the same file name from two places
-and merges them, project last:
+The same document is read from two locations and merged:
 
-1. `<agent-dir>/<name>.json` — the global file. `<agent-dir>` is Pi's agent
+1. `<agent-dir>/bytefly.json` — the global document. `<agent-dir>` is Pi's agent
    directory (`PI_CODING_AGENT_DIR`, typically `~/.pi/agent`).
-2. `<cwd>/.pi/<name>.json` — the project file. `<cwd>` is the effective working
-   directory, so this follows a `worktree` root.
+2. `<cwd>/.pi/bytefly.json` — the project document. `<cwd>` is the effective
+   working directory, so this follows a `worktree` root.
 
-Project values override global ones. Missing files and malformed JSON are
-ignored, so a broken config never blocks a session; `/doctor` reports a file
+Project values override global ones. Missing documents and malformed JSON are
+ignored, so a broken config never blocks a session; `/doctor` reports a document
 that fails to parse.
 
-## Per-extension config index
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json",
+  "version": 1,
+  "price": { "currency": { "symbol": "¥", "decimals": 2 } },
+  "notify": { "enabled": true },
+  "job": { "wakeOnFinish": true },
+  "memory": { "maxInjectBytes": 16384 }
+}
+```
 
-| Extension | File | Notes |
+`$schema` and `version` are metadata; the loaders ignore them. `version` is not
+required and defaults to `1`.
+
+## Section index
+
+One top-level key per extension. `worktree` reads its project document from the
+repository root rather than the active working directory.
+
+| Extension | Section | Covers |
 |---|---|---|
-| [`bytefly`](../extensions/bytefly/) | `bytefly.json` | Per-model price rates with an optional peak/off-peak schedule, the opt-in `notify` section for OS notifications, and the `doctor` section for diagnostics settings. |
-| [`document`](../extensions/document/) | `document.json` | Read limits and defaults. |
-| [`file-browse`](../extensions/file-browse/) | `file-browse.json` | Server port and page limits. |
-| [`goal`](../extensions/goal/) | `goal.json` | Widget behaviour, such as keeping an achieved goal visible. |
-| [`job`](../extensions/job/) | `jobs.json` | Log-tail size and other job limits. |
-| [`memory`](../extensions/memory/) | `memory.json` | Note limits. |
-| [`rewind`](../extensions/rewind/) | `rewind.json` | Snapshot scope and retention. |
-| [`todo`](../extensions/todo/) | `todo.json` | Widget behaviour. |
-| [`web-access`](../extensions/web-access/) | `web-access.json` | Search provider and fetch limits. |
-| [`wechat`](../extensions/wechat/) | `wechat.json` | Bridge and media settings. |
-| [`worktree`](../extensions/worktree/) | `worktree.json` | Worktree directory name and behaviour. |
+| [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings. |
+| [`document`](../extensions/document/) | `document` | Read limits, enabled formats. |
+| [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
+| [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
+| [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
+| [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
+| [`rewind`](../extensions/rewind/) | `rewind` | Snapshot scope and retention. |
+| [`todo`](../extensions/todo/) | `todo` | Widget behaviour. |
+| [`web-access`](../extensions/web-access/) | `web-access` | Search provider and fetch limits (`search` and `fetch` groups). |
+| [`wechat`](../extensions/wechat/) | `wechat` | Bridge and media settings. |
+| [`worktree`](../extensions/worktree/) | `worktree` | Worktree directory name and behaviour. |
 
-`plan`, `question`, `subagent`, and `file-open` read no config file.
+`plan`, `question`, `subagent`, and `file-open` read no configuration.
+
+## JSON Schema
+
+[`assets/bytefly.schema.json`](../assets/bytefly.schema.json) describes the
+document and every section. Point `$schema` at it for editor completion and
+validation:
+
+```json
+{ "$schema": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json" }
+```
+
+## Migrating from the old per-extension files
+
+Before the shared document, each extension read its own `<name>.json`
+(`document.json`, `jobs.json`, `web-access.json`, …). Run the migration once per
+machine and per repository:
+
+```bash
+bun run config:migrate --project <repo-root>   # add --dry-run to preview, --keep to keep the old files
+```
+
+It moves each legacy file into its section, moves bytefly's former top-level
+`currency`/`rates`/`peak` under `price`, stamps `version` and `$schema`, and
+deletes the legacy files. It skips an existing section and refuses to touch a
+malformed document, so it is safe to re-run.
+
+## State
 
 The `wechat` extension also keeps state under `<agent-dir>/wechat/`:
 `credentials.json` (mode `0600`, multi-account) and a message state file. This
@@ -48,7 +92,7 @@ is login state, not user configuration.
 | `PI_WORKTREE_ROOT` | `worktree` | The effective working directory while a worktree is active. |
 | `PI_WORKTREE_BRANCH` | `worktree` | The worktree's branch name. |
 | `PI_WORKTREE_MAIN` | `worktree` | The main checkout path, used by exit and prune. |
-| `PI_CODING_AGENT_DIR` | Pi | The agent directory the global config files resolve against. |
+| `PI_CODING_AGENT_DIR` | Pi | The agent directory the global config file resolves against. |
 
 `PI_WORKTREE_*` are set by the `worktree` extension for the session and its
 child processes; you normally never set them by hand.

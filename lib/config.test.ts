@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { tempDir, withAgentDir } from "../test/helpers/env.ts";
@@ -9,9 +9,14 @@ import {
 	clampInteger,
 	clampNumber,
 	cleanString,
+	configSection,
 	loadConfigFile,
+	loadConfigSection,
 	readJson,
 	readJsonResult,
+	SHARED_CONFIG_FILE,
+	writeConfigFile,
+	writeConfigSection,
 } from "./config.ts";
 
 const temps = makeTempTracker();
@@ -153,5 +158,59 @@ describe("loadConfigFile", () => {
 
 			expect(merged).toEqual({ size: 1000 });
 		});
+	});
+});
+
+describe("configSection", () => {
+	test("returns a section object and rejects a non-object", () => {
+		expect(configSection({ job: { a: 1 } }, "job")).toEqual({ a: 1 });
+		expect(configSection({ job: [1] }, "job")).toBeUndefined();
+		expect(configSection(undefined, "job")).toBeUndefined();
+		expect(configSection({}, "job")).toBeUndefined();
+	});
+});
+
+describe("loadConfigSection", () => {
+	const normalize = (raw: Record<string, unknown> | undefined, base: { size: number; mode: string }) => ({
+		size: clampInteger(raw?.size, base.size, 100, 10_000),
+		mode: cleanString(raw?.mode, base.mode),
+	});
+	const base = { size: 1000, mode: "base" };
+
+	test("layers the global section, then the project section", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = temps.track(tempDir("pi-config-section-"));
+			writeFileSync(join(agentDir, SHARED_CONFIG_FILE), '{"thing":{"size":2000,"mode":"global"}}');
+			mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
+			writeFileSync(join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE), '{"thing":{"mode":"project"}}');
+			expect(loadConfigSection(cwd, "thing", base, normalize)).toEqual({ size: 2000, mode: "project" });
+		});
+	});
+
+	test("reads a section from an explicit agent directory", () => {
+		const agentDir = temps.track(tempDir("pi-config-agent-"));
+		const cwd = temps.track(tempDir("pi-config-cwd-"));
+		writeFileSync(join(agentDir, SHARED_CONFIG_FILE), '{"thing":{"size":3000}}');
+		expect(loadConfigSection(cwd, "thing", base, normalize, { agentDir })).toEqual({ size: 3000, mode: "base" });
+	});
+});
+
+describe("writeConfigSection", () => {
+	test("writes a new document with two-space JSON and a trailing newline", () => {
+		const dir = temps.track(tempDir("pi-config-write-"));
+		const path = join(dir, "nested", SHARED_CONFIG_FILE);
+		writeConfigSection(path, "job", { maxJobs: 5 });
+		expect(readJson(path)).toEqual({ job: { maxJobs: 5 } });
+		const text = readFileSync(path, "utf-8");
+		expect(text.endsWith("\n")).toBe(true);
+		expect(text).toContain('"job": {');
+	});
+
+	test("merges a section and preserves siblings and metadata", () => {
+		const dir = temps.track(tempDir("pi-config-write-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, { version: 1, job: { a: 1 }, memory: { inject: true } });
+		writeConfigSection(path, "job", { b: 2 });
+		expect(readJson(path)).toEqual({ version: 1, job: { b: 2 }, memory: { inject: true } });
 	});
 });

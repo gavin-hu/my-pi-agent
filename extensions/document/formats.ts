@@ -17,13 +17,13 @@ import { extractRtfText } from "./extract/rtf.ts";
 import { extractXlsxText } from "./extract/xlsx.ts";
 
 export interface DocumentFormat {
-	/** Stable id, also the `document.json` `formats` key and the output `format`. */
+	/** Stable id, also the `document.formats` key in `bytefly.json` and the output `format`. */
 	id: "pdf" | "docx" | "doc" | "odt" | "rtf" | "xlsx";
 	/** Human label for messages. */
 	label: string;
 	/** Lower-case extensions, with the dot, that select this format. */
 	extensions: readonly string[];
-	/** Enabled unless `document.json` `formats[id]` says otherwise. */
+	/** Enabled unless `document.formats[id]` in `bytefly.json` says otherwise. */
 	defaultEnabled: boolean;
 	/** Extractor; runs the format's parser and throws a readable error when it fails. */
 	extract: DocExtractor;

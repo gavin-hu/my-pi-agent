@@ -1,12 +1,12 @@
 /**
  * Configuration for the jobs extension.
  *
- * Merged from `~/.pi/agent/jobs.json` (global) and `<cwd>/.pi/jobs.json`
- * (project). Project values win. Missing or malformed files are ignored, and
- * every value is clamped to a safe range.
+ * The `job` section of the shared `bytefly.json` (global then project, project
+ * wins). Missing or malformed
+ * documents are ignored, and every value is clamped to a safe range.
  */
 
-import { clampInteger, cleanString, loadConfigFile } from "../../lib/config.ts";
+import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";
 
 export interface JobsConfig {
 	/** Track jobs at all. Default: true. */
@@ -64,5 +64,5 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 
 /** Load the effective config for a working directory. */
 export function loadConfig(cwd: string): JobsConfig {
-	return loadConfigFile(cwd, "jobs.json", DEFAULT_CONFIG, normalizeConfig);
+	return loadConfigSection(cwd, "job", DEFAULT_CONFIG, normalizeConfig);
 }

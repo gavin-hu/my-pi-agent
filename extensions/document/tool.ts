@@ -95,7 +95,9 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 				throw new Error(`Unsupported document format. Supported extensions: ${supportedExtensions().join(", ")}.`);
 			}
 			if (!isFormatEnabled(config, format.id)) {
-				throw new Error(`${format.label} extraction is disabled in document.json (formats.${format.id} = false).`);
+				throw new Error(
+					`${format.label} extraction is disabled in the bytefly.json document section (document.formats.${format.id} = false).`,
+				);
 			}
 
 			const size = await statFile(abs, display, config.maxFileBytes);

@@ -159,21 +159,21 @@ describe("read_doc tool", () => {
 		).rejects.toThrow(/bad file/);
 	});
 
-	test("rejects a format disabled in document.json", async () => {
+	test("rejects a format disabled in the bytefly.json document section", async () => {
 		const cwd = tempDir("doc-tool-disabled-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "document.json"), JSON.stringify({ formats: { pdf: false } }));
+		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ document: { formats: { pdf: false } } }));
 		writeFileSync(join(cwd, "a.pdf"), "x");
 
 		await expect(installTool().execute("call-1", { path: "a.pdf" }, undefined, undefined, ctxFor(cwd))).rejects.toThrow(
-			/disabled in document\.json/,
+			/disabled in the bytefly\.json document section/,
 		);
 	});
 
 	test("rejects a file larger than the configured limit", async () => {
 		const cwd = tempDir("doc-tool-big-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "document.json"), JSON.stringify({ maxFileBytes: 1024 }));
+		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ document: { maxFileBytes: 1024 } }));
 		writeFileSync(join(cwd, "big.pdf"), "x".repeat(2048));
 
 		await expect(

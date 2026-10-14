@@ -1,12 +1,12 @@
 /**
  * Config-file support for the goal widget.
  *
- * Read from `~/.pi/agent/goal.json` and `<cwd>/.pi/goal.json`; project values
- * override global ones, and missing or malformed files are ignored. Only the
- * widget presentation is configurable — goal behavior never depends on it.
+ * The `goal` section of the shared `bytefly.json` (global then project, project
+ * wins). Only the widget
+ * presentation is configurable — goal behavior never depends on it.
  */
 
-import { loadConfigFile } from "../../lib/config.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 import type { AchievedStyle } from "./types.ts";
 
 export interface GoalConfig {
@@ -29,7 +29,7 @@ export function normalizeGoalConfig(raw: Record<string, unknown> | undefined, ba
 	return { achieved: normalizeAchieved(raw.achieved, base.achieved) };
 }
 
-/** Effective goal config for `cwd` (global file, then project file, over defaults). */
+/** Effective goal config from the shared `goal` section (defaults, global, project, env). */
 export function loadGoalConfig(cwd: string): GoalConfig {
-	return loadConfigFile(cwd, "goal.json", DEFAULT_GOAL_CONFIG, normalizeGoalConfig);
+	return loadConfigSection(cwd, "goal", DEFAULT_GOAL_CONFIG, normalizeGoalConfig);
 }
