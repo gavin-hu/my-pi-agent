@@ -9,6 +9,7 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText } from "../../lib/tui.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
@@ -114,7 +115,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				return text;
 			}
 			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${details.error}`));
+				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 			if (!details.goal) {

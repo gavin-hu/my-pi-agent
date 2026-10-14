@@ -178,6 +178,17 @@ describe("todo tool", () => {
 		expect(viewAgain).toBe(view);
 	});
 
+	test("renderResult sanitizes a rejected call's error text", () => {
+		const { tool } = setup();
+		const result = { content: [{ type: "text", text: "" }], details: { action: "set", error: "bad\u001b[31mtext" } };
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("bad");
+		expect(text).not.toContain("\u001b");
+	});
+
 	test("collapsed result leads with active work", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();

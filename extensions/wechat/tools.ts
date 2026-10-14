@@ -96,7 +96,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 				text.setText(theme.fg("success", "sent to WeChat owner"));
 				return text;
 			}
-			text.setText(theme.fg("error", `Error: ${details?.error ?? "send failed"}`));
+			text.setText(theme.fg("error", `Error: ${sanitizeLine(details?.error ?? "send failed")}`));
 			return text;
 		},
 	});

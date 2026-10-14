@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { utimesSync } from "node:fs";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { withEnv } from "../../test/helpers/env.ts";
-import { makeFakePi } from "../../test/helpers/fakes.ts";
+import { fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
 import { memorySuite, type MemorySuite } from "../../test/helpers/fixtures/memory.ts";
 import memory from "./index.ts";
 import { MAX_MEMORY_BYTES } from "./store.ts";
@@ -23,6 +23,19 @@ function tool() {
 }
 
 describe("memory extension", () => {
+	test("renderResult sanitizes a rejected call's error text", () => {
+		const result = {
+			content: [{ type: "text", text: "" }],
+			details: { action: "list", project: [], global: [], error: "bad\u001b[31mtext" },
+		};
+		const text = tool()
+			.renderResult(result, { expanded: false, isPartial: false }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("bad");
+		expect(text).not.toContain("\u001b");
+	});
+
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "memory" }, () => {
 			const { pi, tools, commands, handlers } = makeFakePi();

@@ -10,6 +10,7 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText } from "../../lib/tui.ts";
 import { messageOf } from "./errors.ts";
 import { formatCallText, formatResultText, scopeLabel } from "./format.ts";
@@ -154,7 +155,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 				return text;
 			}
 			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${details.error}`));
+				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 			text.setText(formatResultText(details, expanded));

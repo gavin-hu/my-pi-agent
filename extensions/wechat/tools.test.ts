@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import type { Bridge, SendResult } from "./bridge.ts";
 import { registerTools, TOOL_NAME } from "./tools.ts";
 
@@ -47,5 +47,20 @@ describe("send_wechat tool", () => {
 		const result = await tool.execute("id", { text: "hello" });
 		expect(result.isError).toBe(true);
 		expect(result.details).toEqual({ sent: false, error: "network down" });
+	});
+
+	test("sanitizes the error text in the renderer", () => {
+		const tool = toolFor(() => undefined);
+		const text = tool
+			.renderResult(
+				{ content: [{ type: "text", text: "" }], details: { sent: false, error: "bad\u001b[31mtext" } },
+				{ expanded: false, isPartial: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("bad");
+		expect(text).not.toContain("\u001b");
 	});
 });

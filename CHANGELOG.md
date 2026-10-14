@@ -120,6 +120,9 @@ rendering, so model-authored control characters cannot reach the terminal.
   since the body above it is still clipped.
 - `ask_user_question`: `Space` on the `Other` row opens the editor instead of a
   silent no-op.
+- `goal`, `todo`, `memory`, `wechat`: a tool error line sanitizes its message
+  before rendering, matching `job` and `subagent`, so a probe- or
+  model-authored control character cannot reach the terminal through an error.
 
 ## [0.5.1] - 2026-10-13
 
