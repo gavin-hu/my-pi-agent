@@ -190,6 +190,15 @@ describe("job runtime — finish", () => {
 		h.children[0].close(0);
 		expect(notifications).toEqual([]);
 	});
+
+	test("reports a completion to onComplete exactly once", () => {
+		const h = makeHarness();
+		const seen: Array<{ id: string; status: string; exitCode: number | null }> = [];
+		h.runtime.onComplete = (job) => seen.push({ id: job.id, status: job.status, exitCode: job.exitCode });
+		start(h);
+		h.children[0].close(2);
+		expect(seen).toEqual([{ id: "j1", status: "failed", exitCode: 2 }]);
+	});
 });
 
 describe("job runtime — kill", () => {
@@ -347,6 +356,28 @@ describe("job runtime — registry reconcile", () => {
 		await settle(60);
 		expect(h.runtime.get("j1")?.status).toBe("unknown");
 		expect(fired).toEqual(["j1"]);
+	});
+
+	test("reports a reattached job observed gone", async () => {
+		const h = makeHarness({ config: { repaintMs: 10 } });
+		const seen: string[] = [];
+		h.runtime.onComplete = (job) => seen.push(`${job.id}:${job.status}`);
+		save(h, "old", [persisted({ label: "server", command: "dev", detached: true })], 2);
+		h.runtime.load(makeCtx().ctx);
+		h.dead.add(777);
+		await settle(60);
+		expect(seen).toEqual(["j1:unknown"]);
+	});
+
+	test("does not report a reattached job with no pid to judge", async () => {
+		const h = makeHarness({ config: { repaintMs: 10 } });
+		const seen: string[] = [];
+		h.runtime.onComplete = (job) => seen.push(job.id);
+		save(h, "old", [persisted({ label: "server", command: "dev", detached: true, pid: null })], 2);
+		h.runtime.load(makeCtx().ctx);
+		await settle(60);
+		expect(h.runtime.get("j1")?.status).toBe("running");
+		expect(seen).toEqual([]);
 	});
 });
 

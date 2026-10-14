@@ -137,6 +137,12 @@ export interface JobsRuntime {
 	shutdown(): Promise<void>;
 	/** Called when a `wake` job finishes; the index triggers one turn. */
 	onFinish?: (job: Job) => void;
+	/**
+	 * Called when any job reaches a terminal state, whether it was watched to
+	 * completion or observed gone on the clock. The index bridges it to the event
+	 * bus; the runtime itself never reaches for a listener.
+	 */
+	onComplete?: (job: JobRecord) => void;
 }
 
 export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
@@ -251,18 +257,41 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	/** Recover an exit code from a job's status file, guarded by the trusted path. */
 	const exitCodeFor = (job: JobRecord): number | undefined => readExitStatus(store.safeStatusPath(job));
 
-	/** Move a record to a settled status, resolving any waiters. */
+	/** A completion listener, published from the index; `undefined` after shutdown. */
+	let onCompleteHandler: ((job: JobRecord) => void) | undefined;
+
+	/** Publish a terminal transition unless the runtime is shutting down or was reloaded. */
+	const announceComplete = (job: Job): void => {
+		if (disposed) return;
+		try {
+			onCompleteHandler?.(toRecord(job));
+		} catch {
+			// A completion listener must not break the process bookkeeping.
+		}
+	};
+
+	/** Move a record to a settled status, resolving any waiters and announcing it. */
 	const settle = (job: Job, patch: { status: JobStatus; exitCode?: number | null; signal?: string | null }): void => {
 		job.status = patch.status;
 		job.exitCode = patch.exitCode ?? null;
 		job.signal = patch.signal ?? null;
 		job.finishedAt = now();
 		waiters.resolve(job.id);
+		announceComplete(job);
 	};
 
-	/** Settle a job whose process is observed gone, recovering its exit code. */
-	const settleGoneJob = (job: Job): void => {
+	/**
+	 * Settle a job whose process is observed gone, recovering its exit code.
+	 *
+	 * Returns `true` only when the record actually left `running`: `settleGone`
+	 * keeps a record with no pid to judge unchanged, and re-announcing that on
+	 * every clock tick would be a notification storm.
+	 */
+	const settleGoneJob = (job: Job): boolean => {
 		Object.assign(job, settleGone(job, { isAlive: liveness, tokenMatches, readExitCode: exitCodeFor, now: now() }));
+		if (job.status === "running") return false;
+		announceComplete(job);
+		return true;
 	};
 
 	/** Poll reattached (unowned) jobs, which have no `close` event to observe. */
@@ -276,7 +305,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			// A live peer session owns this job; leave its state to that owner.
 			if (peer && alive) continue;
 			if (job.pid === null || !liveness(job.pid)) {
-				settleGoneJob(job);
+				// A record with no pid cannot be judged gone; leave it alone rather than
+				// announcing (and waking) on every tick.
+				if (!settleGoneJob(job)) continue;
 				// A reattached `wake` job has no `close` event, so this is the only place
 				// its completion can trigger the one wake turn.
 				wakeIfNeeded(job);
@@ -435,6 +466,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		},
 		set onFinish(handler: ((job: Job) => void) | undefined) {
 			onFinishHandler = handler;
+		},
+		get onComplete() {
+			return onCompleteHandler;
+		},
+		set onComplete(handler: ((job: JobRecord) => void) | undefined) {
+			onCompleteHandler = handler;
 		},
 	};
 

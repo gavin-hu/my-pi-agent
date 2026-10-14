@@ -50,6 +50,13 @@ describe("bytefly extension", () => {
 		expect(commands.has("doctor")).toBe(true);
 	});
 
+	test("registers the notify capability", () => {
+		const { pi, handlers } = makeFakePi();
+		bytefly(pi);
+		// `ui_prompt_start` is notify's own hook; the separator shares `agent_settled`.
+		expect(handlers.has("ui_prompt_start")).toBe(true);
+	});
+
 	test("installs the footer on session start in interactive mode", async () => {
 		const { pi } = makeFakePi();
 		bytefly(pi);

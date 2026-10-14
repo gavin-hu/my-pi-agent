@@ -199,10 +199,13 @@ DeepSeek is priced out of the box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/extensions` picker — a keyboard-driven
 list of every resolved Pi extension that enables or disables one by writing
-`settings.json` — and the diagnostics surface: `/doctor [extension] [refresh]`
+`settings.json` — the diagnostics surface: `/doctor [extension] [refresh]`
 and the read-only `run_doctor` tool report missing binaries, optional packages,
 login/state files, and config files that fail to parse, with one warning at
-session start when an enabled extension cannot work.
+session start when an enabled extension cannot work — and an opt-in notify
+capability that raises an OS notification when a run or a background job
+finishes or the agent asks for input, configured through the `notify` section of
+`bytefly.json`, for unattended runs.
 
 Tools: `run_doctor`. Commands: `/bytefly`, `/extensions`, `/doctor`.
 

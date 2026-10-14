@@ -4,6 +4,7 @@ import { TOOL_NAME } from "./tools.ts";
 import { createFakePi, emit, emitFirst, type AnyHandler } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { JOB_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/job.ts";
 
 const suite = makeHarnessSuite();
@@ -51,6 +52,16 @@ describe("jobs extension", () => {
 		expect(result?.message?.customType).toBe(JOB_CONTEXT_TYPE);
 		expect(result?.message?.content).toContain("j1");
 		expect(result?.message?.content).toContain("[BACKGROUND JOBS]");
+	});
+
+	test("publishes a finished job on the event bus", async () => {
+		const { h, pi, ctx } = setup();
+		await emit(pi, "session_start", {}, ctx);
+		const seen: unknown[] = [];
+		pi.events.on(JOB_FINISHED_CHANNEL, (data: unknown) => seen.push(data));
+		h.runtime.start({ command: "sleep 1", label: "build" }, ctx);
+		h.children[0].close(2);
+		expect(seen).toEqual([{ id: "j1", label: "build", status: "failed", exitCode: 2, signal: null }]);
 	});
 
 	test("keeps only the newest injected completion note in context", async () => {

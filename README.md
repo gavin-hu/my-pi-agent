@@ -100,7 +100,7 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`, `/extensions`, `/doctor`, `run_doctor` | A themed header and width-adaptive footer, a rule between completed turns, the `/extensions` picker, and `/doctor` diagnostics. DeepSeek is priced out of the box, and `bytefly.json` adds your own rates. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`, `/extensions`, `/doctor`, `run_doctor` | A themed header and width-adaptive footer, a rule between completed turns, the `/extensions` picker, `/doctor` diagnostics, and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` adds your own rates. |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | A GitHub-inspired dark palette and its light companion, with optional automatic light/dark switching. |
 
 ## Configuration

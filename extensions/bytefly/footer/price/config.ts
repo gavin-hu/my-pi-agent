@@ -13,6 +13,7 @@
  */
 
 import { asRecord, clampInteger, clampNumber, cleanString, loadConfigFile } from "../../../../lib/config.ts";
+import { BYTEFLY_CONFIG_FILE } from "../../config.ts";
 import { parseWindow } from "./schedule.ts";
 import type { ByteflyConfig, Currency, ModelRates, PeakSchedule, PeakWindow } from "./types.ts";
 
@@ -145,10 +146,7 @@ export function normalizeByteflyConfig(raw: Record<string, unknown> | undefined,
 	};
 }
 
-/** The config file this extension reads, under the agent directory and `<cwd>/.pi`. */
-export const CONFIG_FILE = "bytefly.json";
-
 /** Effective price config for `cwd` (defaults, then the global file, then the project file). */
 export function loadByteflyConfig(cwd: string): ByteflyConfig {
-	return loadConfigFile(cwd, CONFIG_FILE, DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig);
+	return loadConfigFile(cwd, BYTEFLY_CONFIG_FILE, DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig);
 }

@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: an opt-in notify capability that raises an OS notification when a
+  full run settles, when a background `job` finishes (published on the shared
+  `my-pi-agent/job-finished` event-bus channel), or when the agent asks for
+  input mid-run. Settings live in the `notify` section of `bytefly.json`, and
+  delivery picks an OSC 777/99 sequence or a platform notifier (`osascript`,
+  `notify-send`, a Windows toast).
 - `memory`: an interactive `/memory` picker in the TUI. A bare `/memory` opens a
   dock screen listing both stores, with `j`/`k` (and the wheel) to move, `s`/Tab
   to filter by scope, `Enter`/`e` to edit a note inline, `a` to add one, `d` to

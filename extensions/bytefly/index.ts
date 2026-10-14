@@ -1,14 +1,17 @@
 /**
- * bytefly — the package's terminal chrome and diagnostics, composed from five
+ * bytefly — the package's terminal chrome and diagnostics, composed from six
  * feature folders: `header/` (the themed startup mark and version), `footer/`
  * (the two-line, width-adaptive status bar with its price calculation),
  * `separator/` (the transcript turn rule), `picker/` (the `/extensions`
- * manager), and `doctor/` (`/doctor` and `run_doctor`).
+ * manager), `doctor/` (`/doctor` and `run_doctor`), and `notify/` (OS
+ * notifications for unattended runs).
  *
  * The header, footer, and turn rule are installed only in interactive (`tui`)
- * sessions; the picker and doctor work in every mode. The footer is priced
- * from DeepSeek's published rates by default and from `bytefly.json`
- * otherwise, and `/bytefly [header|footer|status]` toggles the chrome.
+ * sessions; the picker and doctor work in every mode, and notify works wherever
+ * the environment can deliver it. The footer is priced from DeepSeek's published
+ * rates by default and from `bytefly.json` otherwise, the same file whose
+ * `notify` section configures notifications, and `/bytefly [header|footer|status]`
+ * toggles the chrome.
  *
  * Load with:  pi --extension ./extensions/bytefly
  */
@@ -18,6 +21,7 @@ import { isExtensionEnabled } from "../../lib/env.ts";
 import { type DoctorDeps, registerDoctor } from "./doctor/register.ts";
 import { registerFooter } from "./footer/register.ts";
 import { registerHeader } from "./header/register.ts";
+import { type NotifyDeps, registerNotify } from "./notify/register.ts";
 import { type CommandDeps, registerExtensionsCommand } from "./picker/commands.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
 
@@ -27,6 +31,8 @@ export interface ByteflyDeps {
 	extensions?: CommandDeps;
 	/** Seams for the doctor surface. */
 	doctor?: DoctorDeps;
+	/** Seams for the notify capability. */
+	notify?: NotifyDeps;
 }
 
 /** Register every bytefly surface; the factory only registers. */
@@ -38,4 +44,5 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerTurnSeparator(pi);
 	registerExtensionsCommand(pi, deps.extensions);
 	registerDoctor(pi, deps.doctor);
+	registerNotify(pi, deps.notify);
 }

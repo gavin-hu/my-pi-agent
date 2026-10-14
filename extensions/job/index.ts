@@ -12,6 +12,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { JOB_FINISHED_CHANNEL, type JobFinishedEvent } from "../../lib/events.ts";
 import { STATUS_KEYS } from "../../lib/ui.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion } from "./format.ts";
@@ -32,6 +33,17 @@ function buildContext(jobs: JobRecord[]): string {
 
 function isJobContext(message: AgentMessage): boolean {
 	return (message as AgentMessage & { customType?: string }).customType === JOB_CONTEXT_TYPE;
+}
+
+/** Trim a finished record to the fields the event bus carries. */
+function toFinishedEvent(job: JobRecord): JobFinishedEvent {
+	return {
+		id: job.id,
+		label: job.label,
+		status: job.status === "running" ? "unknown" : job.status,
+		exitCode: job.exitCode,
+		signal: job.signal,
+	};
 }
 
 export interface JobsDeps {
@@ -72,6 +84,15 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 		// `shutdown` clears this; a reload or session replacement reuses the
 		// runtime, so re-arm it on every session start.
 		runtime.onFinish = handleFinish;
+		// Notify-listening extensions follow completions on the shared bus; the
+		// runtime only knows the callback, never the channel.
+		runtime.onComplete = (job) => {
+			try {
+				pi.events.emit(JOB_FINISHED_CHANNEL, toFinishedEvent(job));
+			} catch {
+				// The event bus is optional.
+			}
+		};
 	});
 
 	// Tree navigation does not change the process table; only repaint.
@@ -107,6 +128,7 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		runtime.onFinish = undefined;
+		runtime.onComplete = undefined;
 		await runtime.shutdown();
 		try {
 			ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);

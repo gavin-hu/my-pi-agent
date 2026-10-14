@@ -1,14 +1,16 @@
-# bytefly — the TUI header, footer, turn rule, extensions picker, and doctor
+# bytefly — the TUI header, footer, turn rule, extensions picker, doctor, and notifications
 
 `bytefly` owns the terminal chrome, configuration, and diagnostics surfaces
 this package adds: one themed startup header that recolors Pi's brand mark and
 version, one compact, colorful, width-adaptive two-line footer, a labeled rule
 that marks each completed turn in the transcript, the `/extensions` picker that
-lists and toggles every resolved Pi extension, and the `/doctor` surface that
-reports whether each extension has what it needs. DeepSeek is priced from the
-provider's published yuan rates and peak tariff by default, and any other model
-can be priced from your own rates when Pi's catalog does not match what a
-provider actually charges.
+lists and toggles every resolved Pi extension, the `/doctor` surface that
+reports whether each extension has what it needs, and an opt-in notify
+capability that raises an OS notification when a run finishes, a job finishes,
+or the agent asks for input. DeepSeek is priced from the provider's published
+yuan rates and peak tariff by default, and any other model can be priced from
+your own rates when Pi's catalog does not match what a provider actually
+charges.
 
 ```
 pi --extension ./extensions/bytefly   # load just this extension
@@ -123,6 +125,13 @@ config file that fails to parse — and `run_doctor` returns the same report as
 text and typed data. Only a missing *hard* requirement warns at session start;
 everything else waits in the report. See [Doctor](#doctor).
 
+**Notify.** Off by default, one `notify` section in `bytefly.json` turns on OS
+notifications for unattended runs: when a full agent run settles, when a
+background job finishes, and when the agent opens a prompt asking for input. The
+method follows the terminal (OSC 777, OSC 99, a Windows toast) or falls back to
+the platform notifier (`osascript`, `notify-send`); see
+[Notifications](#notifications).
+
 ## Commands
 
 | Command | What it does |
@@ -144,7 +153,9 @@ mode: in `tui` it opens the dock screen, while in RPC, JSON, and print modes
 `/extensions` prints the same grouped list and does not toggle. `/doctor` probes
 in every mode: in `tui` it opens its list screen, while RPC, JSON, and print
 modes print the same report, and the proactive session-start warning is skipped
-when there is no UI.
+when there is no UI. Notify runs in every mode and picks its method from the
+environment; the OSC methods need a TTY, so a print/JSON/RPC run gets an
+OS-level notification or none.
 
 ## Configuration
 
@@ -216,6 +227,39 @@ symbol. A session mixing DeepSeek with another provider therefore sums two
 currencies into one number. Either cover every model you use (a `"*"` catch-all
 helps) and set `fallbackToRecordedCost: false`, or set the symbol to `"$"` and
 treat the rates purely as an off-peak correction.
+
+### The `notify` section
+
+The notify capability reads the same `bytefly.json`, under its own `notify` key.
+It is **off by default**; `enabled: true` is the whole setup needed for an
+unattended run, and the three trigger flags then narrow what is announced. The
+price section and the notify section are parsed independently, so a wrong-typed
+value in one never reaches the other.
+
+```json
+{
+  "notify": {
+    "enabled": true,
+    "turnFinished": true,
+    "needsInput": true,
+    "jobFinished": true,
+    "method": "auto",
+    "title": "Pi"
+  }
+}
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | `false` | Master switch. A notification on every turn is intrusive, so it is opt-in. |
+| `turnFinished` | `true` | Notify when a full agent run settles and Pi waits for the next message. An aborted run is never announced. |
+| `needsInput` | `true` | Notify when the agent opens a prompt mid-run (`select`, `confirm`, `input`, `editor`, `custom`). A prompt the user typed while idle does not fire. |
+| `jobFinished` | `true` | Notify when a background `job` reaches a terminal state. |
+| `method` | `auto` | `auto`, `osascript`, `notify-send`, `toast`, `osc777`, or `osc99`. An explicit method that the environment cannot deliver is a no-op. |
+| `title` | `Pi` | Notification title, clamped to 40 characters. |
+
+A `notify` section is read at `session_start`, so a new session or `/reload`
+picks up an edit.
 
 ### `doctor.json`
 
@@ -419,6 +463,53 @@ the file and the parse error are named instead of being silently ignored. The
 install guidance a tool error shows and the hint this report prints come from
 the same entry in `lib/requirements.ts`, so the two cannot drift.
 
+## Notifications
+
+The notify capability exists for unattended runs: start a long turn, leave the
+terminal, and get a desktop notification when Pi needs you — or when it is done.
+It fires on three events, each independently switchable in the `notify` section
+of `bytefly.json` (see [Configuration](#configuration)):
+
+- **A run settled** (`agent_settled`). Pi finished the turn and waits for the
+  next message. An aborted run is skipped: interrupting with Escape means the
+  user is already at the keyboard.
+- **The agent needs input.** Pi opened a prompt while a run was active — an
+  `ask_user_question`, a plan review, a subagent approval. A prompt opened while
+  idle is a command the user just typed, so it does not fire; the run boundary
+  is what separates "the agent is asking" from "the user is asking".
+- **A background job finished.** The [job](../job/) extension announces each
+  terminal transition on the shared `pi.events` bus
+  (`my-pi-agent/job-finished`); bytefly listens and never imports it.
+
+### Delivery method
+
+`method: "auto"` (the default) chooses from the environment, terminal first so
+it works over SSH:
+
+| Detected | Method |
+|---|---|
+| `WT_SESSION` (Windows Terminal / WSL) | `toast` — a PowerShell Windows toast |
+| `KITTY_WINDOW_ID` | `osc99` |
+| `TERM_PROGRAM` is `WezTerm` / `iTerm.app`, or `GHOSTTY_RESOURCES_DIR` is set | `osc777` |
+| a plain `win32` host | `toast` |
+| a TTY on any other host | `osc777` |
+| headless macOS | `osascript` |
+| headless Linux | `notify-send` |
+
+Set `method` to any of `osc777`, `osc99`, `toast`, `osascript`, or `notify-send`
+to force one. OSC 777 reaches Ghostty, iTerm2, WezTerm, and rxvt-unicode;
+OSC 99 reaches Kitty. Off a TTY the OSC methods are a no-op — writing an escape
+sequence into captured output would corrupt it — so a headless run needs an
+OS-level method.
+
+### Text
+
+A notification body names the session (the session name, else the working
+directory's folder) so concurrent runs can be told apart, and a finished job
+adds its id, status, exit code, and label. Every piece that can carry model- or
+user-authored text — a prompt title, a job label — is sanitized to one
+control-free line before it reaches an escape sequence or a shell argument.
+
 ## Limitations
 
 - **The picker manages only the `extensions` resource type.** Skills, prompts,
@@ -455,6 +546,15 @@ the same entry in `lib/requirements.ts`, so the two cannot drift.
 - **Config scope is checked for `<agent-dir>/<file>.json` and
   `<cwd>/.pi/<file>.json` only**; a `jobs.json` `registryDir` override is not
   followed.
+- **Notifications are not focus-aware.** They fire whether or not the terminal
+  has focus, and once per trigger rather than once per unseen event. There is
+  no focus API to consult.
+- **A background job cannot ask for input.** The `needsInput` trigger is a
+  prompt raised during a run, not a process waiting on stdin: jobs are
+  fire-and-observe, so that state does not exist.
+- **An explicit `method` is honored blindly.** Point `method` at a notifier the
+  host lacks (or an OSC method off a TTY) and the notification is silently
+  dropped; only `auto` inspects the environment.
 
 ## Non-goals
 
@@ -472,6 +572,11 @@ the same entry in `lib/requirements.ts`, so the two cannot drift.
   is not a prerequisite problem, and `doctor` does not pretend to know about it.
 - No status chip for the doctor report: it is on demand plus one warning, not a
   permanent footer segment.
+- No notification for individual tool calls, message turns, or subagent steps:
+  the three triggers — a settled run, a prompt mid-run, a finished job — are the
+  whole surface.
+- No sound, action buttons, notification history, or de-duplication; a
+  notification is a fire-and-forget message, not an inbox.
 
 The built-in footer's `(auto)` auto-compact indicator and `(sub)`
 subscription-cost marker are not reachable from `ExtensionContext` (there is no
@@ -486,6 +591,7 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. |
 | Command | `/bytefly [header|footer|status]` toggles the header and footer together (no argument) or one surface, and reports their state (tui only; a no-op elsewhere), with Tab completion. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
+| Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker command | `pi.registerCommand("extensions")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
@@ -493,10 +599,10 @@ rather than showing a wrong value.
 | Doctor command | `pi.registerCommand("doctor")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
 | Doctor probes | `run_doctor` and `/doctor` share the session cache; `/doctor refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. `doctor.json` is read at `session_start`. Nothing watches either file. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the footer's price section is read when the footer is installed (a new session, or `/bytefly` toggled back on) and the `notify` section at `session_start`. `doctor.json` is read at `session_start`. Nothing watches either file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. |
-| Lifecycle | `session_start` installs the header and footer and points the doctor runtime at the session cwd, probing the extensions with hard requirements when `doctor.json`'s `proactive` is on; `session_tree` reinstalls the header and footer; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, and drops doctor's cached findings. |
+| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
+| Lifecycle | `session_start` installs the header and footer, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `doctor.json`'s `proactive` is on, and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
 
 ## Design notes
 
@@ -551,6 +657,13 @@ rather than showing a wrong value.
   `getEntryCount()`, which is not exposed on the read-only session manager.
 - **TTY-only, fail-safe.** The bytefly is installed only in `tui` mode;
   non-interactive runs load the extension and change nothing.
+- **Notify splits when, what, and how.** The trigger policy lives in
+  `notify/register.ts`, the wording in `notify/format.ts`, and the delivery in
+  `notify/dispatch.ts`, so each is testable without a terminal or a child
+  process and the sanitize-at-the-boundary rule has one home. The `job`
+  extension publishes completions on `pi.events` rather than being imported,
+  because extensions load with isolated caches and may not import each other;
+  the channel and its payload live in `lib/events.ts`.
 - **The price is a stage, not a branch in the renderer.** Entries are reduced to
   usage records (`collect/`), records are priced into totals (`price/`), and the
   snapshot is drawn (`render/`). Pricing is a pure function of records and rates
@@ -599,12 +712,13 @@ rather than showing a wrong value.
 
 ## Files
 
-The five surfaces are folders: `header/`, `footer/` (the status bar and its
-price calculation), `separator/`, `picker/`, and `doctor/`.
+The six surfaces are folders: `header/`, `footer/` (the status bar and its
+price calculation), `separator/`, `picker/`, `doctor/`, and `notify/`.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Composition root: the disable guard and the five `register*` calls. |
+| `index.ts` | Composition root: the disable guard and the six `register*` calls. |
+| `config.ts` | The shared `bytefly.json` file name; each section is parsed by its own loader. |
 | `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity tokens, padding, tagline, and the grouped help entries. |
 | `header/component.ts` | `ByteflyHeader`: the mark, identity rows, rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header, exposes its enabled state, and owns its session lifecycle. |
@@ -644,6 +758,11 @@ price calculation), `separator/`, `picker/`, and `doctor/`.
 | `doctor/config.ts` | `DEFAULT_CONFIG`, `normalizeConfig`, `loadConfig` for `doctor.json`. |
 | `doctor/format.ts` | Pure report text, rows, glyphs, and the proactive warning sentence. |
 | `doctor/tui.ts` | `DoctorScreen`, the docked list screen with its detail pane. |
+| `notify/types.ts` | `NotifyConfig`, `NotifyMethod`, and the method list. |
+| `notify/config.ts` | The `notify` section of `bytefly.json`: defaults, validation, loader. |
+| `notify/dispatch.ts` | Method selection and delivery: OSC 777/99, Windows toast, `osascript`, `notify-send`, over injected seams. |
+| `notify/format.ts` | Pure notification text: session label and the turn / input / job bodies. |
+| `notify/register.ts` | Registers the three triggers, loads the config at `session_start`, and owns the job-bus subscription. |
 
 ## Testing
 
@@ -677,4 +796,7 @@ handling (`picker/tui`), and the command through the bytefly factory
 formatting (`doctor/format`), the screen's rendering and key handling
 (`doctor/tui`), its config loader (`doctor/config`), and registration, the
 proactive warning, the session cache, and `run_doctor` through the factory
-(`doctor/register`).
+(`doctor/register`). The notify capability is covered by its section loader
+(`notify/config`), the pure text builders (`notify/format`), method selection and
+delivery over recording seams (`notify/dispatch`), and its three triggers,
+reload, and shutdown through `registerNotify` (`notify/register`).
