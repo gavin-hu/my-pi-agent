@@ -79,12 +79,13 @@
   "scripts": {
     "test": "bun test --parallel=4 --timeout 30000",
     "test:serial": "bun test --timeout 30000",
-    "test:watch": "bun test --watch --isolate",
+    "test:watch": "bun test --watch --isolate --timeout 30000",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check": "bun run format:check && bun run typecheck && bun run test",
-    "check:serial": "bun run format:check && bun run typecheck && bun run test:serial"
+    "check:serial": "bun run format:check && bun run typecheck && bun run test:serial",
+    "release:notes": "bun run scripts/release-notes.ts"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

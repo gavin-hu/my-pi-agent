@@ -68,11 +68,12 @@ Prepare it on a branch like any other change:
    git push origin main && git push origin vX.Y.Z
    ```
 
-6. Publish the release from that changelog section (`README.md` has the command
-   that extracts it):
+6. Publish the release from that changelog section:
 
    ```bash
+   bun run release:notes X.Y.Z > section.md
    gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
+   rm section.md
    ```
 
 GitHub marks the release with the newest creation date as "Latest", so after

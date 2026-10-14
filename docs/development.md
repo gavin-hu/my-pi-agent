@@ -25,6 +25,7 @@ repositories.
 | `bun run format` | `biome format --write .`. |
 | `bun run format:check` | `biome format .`, check only. |
 | `bun run check:serial` | `bun run check` with the serial suite. |
+| `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 
 ## Tests
 
@@ -92,10 +93,14 @@ changelog section.
    its body:
 
    ```bash
-   awk -v h='## [X.Y.Z]' 'index($0,h){p=1} p && /^## \[/ && !index($0,h){exit} p' CHANGELOG.md > section.md
+   bun run release:notes X.Y.Z > section.md
    gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
    rm section.md
    ```
+
+   `release:notes` prints the `## [X.Y.Z]` section (heading included) and exits
+   non-zero when that version has no changelog section, so a mistyped version
+   fails before `gh` runs.
 
 GitHub marks the release with the newest creation date as "Latest", so after
 creating a release for an older version run `gh release edit vX.Y.Z --latest` on
