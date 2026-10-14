@@ -14,6 +14,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lines; the comments come back to the model as a refinement request. The
   server is tokenized, bound to `127.0.0.1`, and closed on save, cancel, tab
   close, or session shutdown.
+- `wechat`: inbound slash commands. An admitted peer can type `/new` in the
+  chat to start a fresh session; the bridge intercepts it before it becomes a
+  turn, replies, and reconnects on the new session. The registry supports
+  snippets (a predefined body expanded into the turn) and actions (run locally,
+  with no turn), with `/new` as the only entry today.
 
 ### Changed
 
@@ -29,6 +34,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   themes, and a shared `bf-*` component, app-shell, and markup layer replaces
   the page-local CSS. The file manager, file viewer, and plan review are
   rebuilt on it, and `lib/web-theme.ts` is replaced by `lib/web/`.
+- `wechat`: the bridge now starts automatically on `session_start` while an
+  account is stored (and after `login`), so it reconnects itself across a
+  session replacement. The `/wechat status` screen no longer offers start/stop.
+
+### Removed
+
+- `wechat`: `/wechat start` and `/wechat stop`. The stored account now controls
+  the bridge lifecycle; `/wechat logout` is the only way to stop polling.
 
 ### Fixed
 

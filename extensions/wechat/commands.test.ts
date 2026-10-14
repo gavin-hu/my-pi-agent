@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import type { Bridge, BridgeStatus } from "./bridge.ts";
-import { finishLogin, runStart, type CommandDeps } from "./commands.ts";
+import { finishLogin, runNew, type CommandDeps } from "./commands.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import type { BotCredentials } from "./types.ts";
 
@@ -123,23 +123,18 @@ describe("finishLogin", () => {
 	});
 });
 
-describe("runStart", () => {
-	test("routes an expired session to /wechat login instead of reopening", () => {
-		const { deps, opens, ensured } = harness({ status: bridgeStatus({ expired: true }) });
-		const { ctx, notices } = fakeCtx();
-		runStart(ctx, deps);
-		expect(ensured()).toBe(0);
-		expect(opens()).toBe(0);
-		expect(notices.at(-1)?.kind).toBe("warning");
-		expect(notices.at(-1)?.message).toContain("/wechat login");
-	});
-
-	test("starts a bridge that is not expired", () => {
-		const { deps, opens, ensured } = harness();
-		const { ctx, notices } = fakeCtx();
-		runStart(ctx, deps);
-		expect(ensured()).toBe(1);
-		expect(opens()).toBe(1);
-		expect(notices.at(-1)?.message).toContain("started");
+describe("runNew", () => {
+	test("starts a new session through the command context", async () => {
+		let started = 0;
+		const { ctx } = fakeCtx({
+			extra: {
+				newSession: async () => {
+					started += 1;
+					return { cancelled: false };
+				},
+			},
+		});
+		await runNew(ctx);
+		expect(started).toBe(1);
 	});
 });

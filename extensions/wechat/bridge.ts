@@ -20,6 +20,15 @@ import { defaultSleep } from "./login.ts";
 import { sendLocalFile } from "./outbound.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { recordInbound } from "./state.ts";
+import {
+	expandSnippet,
+	findSlashCommand,
+	parseSlash,
+	SLASH_COMMANDS,
+	type SlashCommand,
+	type SlashContext,
+	type SlashSessionControls,
+} from "./slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
 
@@ -66,6 +75,10 @@ export interface BridgeDeps {
 	sendUserMessage: (content: UserContent) => void;
 	/** Directory where inbound files are saved. */
 	mediaDir: () => string;
+	/** Built-in inbound slash commands. Defaults to {@link SLASH_COMMANDS}. */
+	slashCommands?: readonly SlashCommand[];
+	/** Session controls for slash actions, read lazily. */
+	sessionControls?: () => SlashSessionControls | undefined;
 	loadAccount: () => BotCredentials | undefined;
 	loadState: () => WechatState;
 	saveState: (state: WechatState) => void;
@@ -135,6 +148,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	let mediaDropped = 0;
 	let mediaCounter = 0;
 	const typingCache = new Map<string, { ticket?: string; checkedAt: number }>();
+	const slashCommands = deps.slashCommands ?? SLASH_COMMANDS;
 
 	const isIdle = deps.isIdle ?? (() => true);
 
@@ -188,6 +202,28 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			if (abort?.signal.aborted) return;
 			notify(`WeChat reply failed: ${messageOf(error)}`, "warning");
 		});
+	}
+
+	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
+	async function runSlashAction(command: SlashCommand, item: InboundItem, args: string): Promise<void> {
+		if (!command.run) return;
+		const controls = deps.sessionControls?.();
+		const ctx: SlashContext = {
+			args,
+			peer: item.peer,
+			reply: (text) => reply(item, text),
+			session: controls ?? {
+				newSession: () => {
+					throw new Error("Session controls are unavailable.");
+				},
+			},
+		};
+		try {
+			await command.run(ctx);
+		} catch (error) {
+			notify(`WeChat command /${command.name} failed: ${messageOf(error)}`, "warning");
+			await reply(item, `Command /${command.name} failed.`);
+		}
 	}
 
 	/** Send a text message to the peer owning the in-flight turn, chunked. */
@@ -338,7 +374,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	function handleMessage(message: WeixinMessage): void {
 		if (!isInboundMessage(message)) return;
 		const peer = message.from_user_id as string;
-		const { text, media } = parseInbound(message.item_list);
+		const { text: rawText, media } = parseInbound(message.item_list);
+		let text = rawText;
 		// A reply to a pending prompt is consumed here, before admission and
 		// queueing, so it never starts a turn of its own.
 		if (interaction.handleInbound(peer, text)) return;
@@ -350,12 +387,31 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		if (!text && media.length === 0) return;
 		recordInbound(state, peer, message.context_token, deps.now());
 		deps.saveState(state);
-		queue.push({
+		const item: InboundItem = {
 			peer,
 			contextToken: message.context_token ?? state.peers[peer]?.lastContextToken,
 			text,
 			media,
-		});
+		};
+		// Intercept a text slash command before it becomes a turn. A message with
+		// media is never a command, so an attachment is never dropped; an unknown
+		// command falls through to the model as ordinary text.
+		const slash = media.length === 0 ? parseSlash(text) : undefined;
+		const command = slash ? findSlashCommand(slashCommands, slash.name) : undefined;
+		if (command && slash) {
+			if (command.ownerOnly && peer !== owner) {
+				refused += 1;
+				return;
+			}
+			if (command.kind === "snippet") {
+				text = expandSnippet(command, slash.args);
+				item.text = text;
+			} else {
+				void runSlashAction(command, item, slash.args);
+				return;
+			}
+		}
+		queue.push(item);
 		pump();
 	}
 

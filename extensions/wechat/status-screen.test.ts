@@ -140,6 +140,10 @@ describe("statusBody", () => {
 		expect(statusBody(view(), fakeTheme, 60).join("\n")).toContain("Run /wechat login");
 	});
 
+	test("points a closed, logged-in view at login", () => {
+		expect(statusBody(view({ account: "owner" }), fakeTheme, 60).join("\n")).toContain("press l to log in again");
+	});
+
 	test("fits every line to a narrow width", () => {
 		const built = view({ bridge: true, account: "a-very-long-account-name", connection: "open", peers: 12, queued: 3 });
 		for (const line of statusBody(built, fakeTheme, 8)) expect(visibleWidth(line)).toBeLessThanOrEqual(8);
@@ -173,20 +177,8 @@ describe("StatusScreenComponent", () => {
 		expect(actions).toEqual(["login"]);
 	});
 
-	test("stops a running bridge on s", () => {
+	test("ignores s now that there is no start/stop control", () => {
 		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
-		screen.handleInput("s");
-		expect(actions).toEqual(["stop"]);
-	});
-
-	test("starts a closed bridge on s", () => {
-		const { screen, actions } = component(view({ connection: "closed" }));
-		screen.handleInput("s");
-		expect(actions).toEqual(["start"]);
-	});
-
-	test("ignores s on an expired session", () => {
-		const { screen, actions } = component(view({ bridge: true, connection: "expired" }));
 		screen.handleInput("s");
 		expect(actions).toEqual([]);
 	});
