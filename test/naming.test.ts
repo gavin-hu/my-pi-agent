@@ -20,7 +20,7 @@ import { TODO_TOOL as todo } from "../lib/tool-names.ts";
 import { TOOL_NAME as askUserQuestion } from "../extensions/ask-user-question/tools.ts";
 import { TOOL_NAME as readDoc } from "../extensions/document/tool.ts";
 import { TOOL_NAME as runDoctor } from "../extensions/bytefly/doctor/tools.ts";
-import { TOOL_NAME as openPath } from "../extensions/file-explorer/schema.ts";
+import { TOOL_NAME as openPath } from "../extensions/file-open/schema.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/job/tools.ts";
 import { TOOL_NAME as memory } from "../extensions/memory/tools.ts";
@@ -61,7 +61,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "ask-user-question", name: askUserQuestion },
 	{ extension: "document", name: readDoc },
 	{ extension: "bytefly", name: runDoctor },
-	{ extension: "file-explorer", name: openPath },
+	{ extension: "file-open", name: openPath },
 	{ extension: "goal", name: goal },
 	{ extension: "job", name: job },
 	{ extension: "memory", name: memory },

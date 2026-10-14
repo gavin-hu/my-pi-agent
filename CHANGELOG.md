@@ -94,6 +94,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   dependencies and load lazily on first read, so `read_doc` needs no per-format
   install step, `doctor` no longer probes for the three binaries, and every
   format keeps the same paged output.
+- `file-open`: the `file-explorer` extension is renamed to `file-open` — the
+  directory, package manifest entry, `PI_DISABLED_EXTENSIONS` name, and docs.
+  The `/open` command, its `open_path` tool, and its schema are unchanged.
 - `goal`: `/goal <prompt>` now establishes a shared understanding of the goal
   instead of rewriting the prompt. The model restates the goal as it understands
   it and, when it cannot yet, the command asks its questions directly through

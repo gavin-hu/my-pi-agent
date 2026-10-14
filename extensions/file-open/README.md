@@ -1,6 +1,6 @@
-# file-explorer — open files and directories in the OS-native app
+# file-open — open files and directories in the OS-native app
 
-`file-explorer` opens a file or directory in the operating system's default
+`file-open` opens a file or directory in the operating system's default
 handler, or reveals it in the file manager. `/open` does it interactively and
 the `open_path` tool does it from a script, both resolving the path against the
 effective working directory.
@@ -8,7 +8,7 @@ effective working directory.
 ## Quickstart
 
 ```bash
-pi --extension ./extensions/file-explorer   # this extension only
+pi --extension ./extensions/file-open       # this extension only
 pi -e .                                     # the package from this checkout
 pi install ./                               # install the package for a user
 ```
@@ -104,7 +104,7 @@ JSON, and print modes; a codemode script can call it in any of them. Only the
 
 | Aspect | Contract |
 |---|---|
-| Registration | `fileExplorer(pi)` in `index.ts` registers `open_path` and the `/open` command. The factory only registers. |
+| Registration | `fileOpen(pi)` in `index.ts` registers `open_path` and the `/open` command. The factory only registers. |
 | Tool | `open_path`, `exposure: "codemode"` (inactive by default), default (`parallel`) execution, `annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }`, TypeBox `parameters` and `outputSchema`. No custom renderer. |
 | Command | `/open [path]` and `/open -r [path]`; reports through `ctx.ui.notify`. |
 | State | None persisted, and none needed: every call is independent. |

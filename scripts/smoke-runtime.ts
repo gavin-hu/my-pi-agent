@@ -242,7 +242,7 @@ check("read_doc is direct", readDocTool?.exposure === "direct");
 check("read_doc active by default", session.getActiveToolNames().includes("read_doc"));
 check("read_doc is callable", !!session.getToolDefinition("read_doc"));
 
-// file-explorer loads headlessly and registers its codemode tool and `open`
+// file-open loads headlessly and registers its codemode tool and `open`
 // command. It is not executed here: `open_path` would launch a real OS handler,
 // and the per-platform command is covered by unit tests with an injected spawn.
 const openPathTool = session.getAllTools().find((t) => t.name === "open_path");

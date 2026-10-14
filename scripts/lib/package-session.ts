@@ -34,7 +34,7 @@ export const EXTENSION_PATHS = [
 	"web-access",
 	"file-browse",
 	"document",
-	"file-explorer",
+	"file-open",
 	"memory",
 	"wechat",
 	"bytefly",
