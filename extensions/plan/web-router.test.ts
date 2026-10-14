@@ -12,10 +12,8 @@ function setup(overrides: Partial<ReviewContext> = {}) {
 		token: "tok",
 		page: async () => ({
 			title: "T",
-			relativePath: ".pi/plans/p.md",
 			blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
 			annotations: [],
-			steps: { done: 0, total: 0 },
 			outline: [],
 			code: {},
 			token: "tok",

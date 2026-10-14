@@ -41,6 +41,11 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain("/api/feedback");
 	});
 
+	test("keeps the header comment count compact", () => {
+		expect(REVIEW_CLIENT_JS).toContain('"No comments"');
+		expect(REVIEW_CLIENT_JS).toContain("commentCount.title");
+	});
+
 	test("builds the right-hand rail and the section outline", () => {
 		expect(REVIEW_CLIENT_JS).toContain('"bf-rail__cell"');
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("outline-list")');

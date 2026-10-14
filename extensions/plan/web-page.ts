@@ -41,14 +41,10 @@ export interface ReviewOutlineItem {
 export interface ReviewPageData {
 	/** Plan title, derived from the file name. */
 	title: string;
-	/** Path relative to the working directory, for the header. */
-	relativePath: string;
 	/** Source-line blocks of the feedback-stripped plan. */
 	blocks: PlanBlock[];
 	/** Feedback already stored in the file. */
 	annotations: PlanAnnotation[];
-	/** Step progress for the header. */
-	steps: { done: number; total: number };
 	/** Section outline, in document order. */
 	outline: ReviewOutlineItem[];
 	/** Highlighted HTML per line, keyed by the code block's 0-based start line. */
@@ -63,6 +59,12 @@ ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
 .bf-review{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);align-items:start;column-gap:28px;padding:var(--space-5) var(--space-6) 96px}
+.review-bar{align-items:center;gap:var(--space-2) var(--space-4)}
+.review-bar .bf-brand{flex:0 0 auto}
+.review-heading{display:flex;align-items:center;flex:1 1 160px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
+.review-title{display:block;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-status{display:inline-flex;align-items:center;gap:var(--space-3);flex:0 0 auto}
+.review-controls{display:inline-flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
 .review-nav{min-width:0}
 .review-nav ul{list-style:none;margin:0;padding:0}
 .review-nav a{display:block;padding:4px 8px;border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm);line-height:var(--lh-snug);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -102,6 +104,12 @@ ${WEB_COMPONENTS_CSS}
 @media (max-width:860px){
 .bf-review{grid-template-columns:1fr;padding:var(--space-4) 18px 80px}
 }
+@media (max-width:820px){
+.review-bar{align-items:flex-start}
+.review-heading{flex:1 1 100%;order:3;border-left:0;padding-left:0;margin-top:var(--space-1)}
+.review-controls{order:2;margin-left:auto}
+.review-status{order:4;flex:1 1 100%}
+}
 @media (prefers-reduced-motion:no-preference){.bf-block{transition:background .08s ease}}
 @media (hover:none){.bf-block__add{opacity:1}}
 `.trim();
@@ -120,16 +128,19 @@ ${docHead({ title: "Plan review", css: REVIEW_CSS })}
 </head>
 <body class="bf-app">
 <a class="skip" href="#plan">Skip to the plan</a>
-<header class="bf-app__header"><div class="bf-toolbar">
+<header class="bf-app__header"><div class="bf-toolbar review-bar">
 ${brandLockup("plan review")}
-<span class="bf-title" id="plan-title">Plan review</span>
-<span class="bf-context" id="plan-path"></span>
-<span class="bf-spacer"></span>
-<span class="bf-progress" id="steps" hidden><span class="bf-progress__track"><span class="bf-progress__fill" id="steps-fill"></span></span><span id="steps-label"></span></span>
+<div class="review-heading">
+<span class="review-title" id="plan-title">Plan review</span>
+</div>
+<div class="review-status">
 <span class="bf-chip" id="comment-count"></span>
+</div>
+<div class="review-controls">
 ${themeToggle()}
 <button type="button" class="bf-btn bf-btn--primary" id="save">Save feedback</button>
 <button type="button" class="bf-btn" id="cancel">Close</button>
+</div>
 </div></header>
 <div class="bf-status" id="status" role="status" aria-live="polite"></div>
 <div class="bf-app__body">

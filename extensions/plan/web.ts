@@ -18,7 +18,6 @@ import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { codeBody, fenceInfo, planBlocks, planHeadings } from "./blocks.ts";
 import { parseFeedback, stripFeedback, type PlanAnnotation } from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
-import { extractPlanSteps } from "./steps.ts";
 import { handleReviewRequest, type ReviewContext, type ServeResponse, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
@@ -119,7 +118,6 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			const current = (await store.read(cwd, plan.path)) ?? plan;
 			baseline = stripFeedback(current.content);
 			const blocks = planBlocks(baseline);
-			const steps = extractPlanSteps(baseline);
 			// Highlight code blocks once, at the boundary: the client copies only the
 			// tok-* spans out of the server-escaped HTML.
 			const code: Record<string, string[]> = {};
@@ -130,10 +128,8 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			}
 			return {
 				title: planTitle(basename(current.path)),
-				relativePath: current.relativePath,
 				blocks,
 				annotations: parseFeedback(current.content),
-				steps: { done: steps.filter((step) => step.status === "completed").length, total: steps.length },
 				outline: planHeadings(blocks).map((heading) => ({
 					id: `s-${heading.line}`,
 					line: heading.line,
