@@ -233,3 +233,34 @@ describe("todo lag reminder", () => {
 		expect(kept.messages).toEqual([otherMessage(), newest]);
 	});
 });
+
+describe("todo rail ordering", () => {
+	async function started() {
+		const { pi } = makeFakePi();
+		todo(pi);
+		const { ctx, widgetCalls } = fakeCtx({ mode: "tui", branch: [resultEntry([pending("one")])] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		return { pi, widgetCalls };
+	}
+
+	test("re-asserts the widget when a rail above it changes", async () => {
+		const { pi, widgetCalls } = await started();
+		const before = widgetCalls.length;
+
+		pi.events.emit("my-pi-agent/rails-changed/goal", undefined);
+
+		expect(widgetCalls.length).toBeGreaterThan(before);
+		expect(widgetCalls.at(-1)?.key).toBe("todo-widget");
+		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
+	});
+
+	test("hides while a dock screen is open and restores on close", async () => {
+		const { pi, widgetCalls } = await started();
+
+		pi.events.emit("my-pi-agent/rails-screen", true);
+		expect(widgetCalls.at(-1)).toEqual({ key: "todo-widget", content: undefined });
+
+		pi.events.emit("my-pi-agent/rails-screen", false);
+		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
+	});
+});

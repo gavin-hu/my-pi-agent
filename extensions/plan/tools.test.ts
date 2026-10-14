@@ -296,6 +296,28 @@ describe("exit_plan_mode", () => {
 		expect(result.details.approved).toBe(true);
 	});
 
+	test("reports why the todo seed failed instead of calling the tool unavailable", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Only step");
+
+		const { ctx } = fakeCtx({
+			select: "Approve and execute",
+			cwd: root,
+			extra: {
+				executeTool: async () => ({
+					isError: true,
+					toolCall: { name: "todo", arguments: {} },
+					result: { content: [{ type: "text", text: 'Validation failed for tool "todo"\n  - todos: too many' }] },
+				}),
+			},
+		});
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details.approved).toBe(true);
+		expect(result.content[0].text).toContain('Validation failed for tool "todo"');
+		expect(result.content[0].text).not.toContain("unavailable");
+	});
+
 	test("returns the user's refinement and stays in plan mode", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);

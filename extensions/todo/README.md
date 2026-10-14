@@ -78,8 +78,7 @@ widget and `/todos` still show the count. A capped collapsed rail ends with
 | `todos[].status` | `pending`, `in_progress`, or `completed`. |
 | `todos[].activeForm` | Present-continuous label, required when the item is `in_progress`. |
 
-Validation rules (a violation returns an error result and leaves the list
-unchanged):
+Validation rules (a violation leaves the list unchanged):
 
 - at most **one** item `in_progress`, and it needs a non-blank `activeForm`;
 - at most **50** items;
@@ -92,6 +91,12 @@ spaces and any whitespace run (newlines, tabs, repeated spaces) collapses to
 one space. This keeps every surface to one row per item and stops model text
 from injecting terminal sequences. An `activeForm` that sanitizes to nothing is
 dropped (and then rejected on an `in_progress` item).
+
+The tool's own checks (the semantic rules and the bounds above) return an
+`isError` result that carries the unchanged list, so the model can retry. An
+unknown `status` or a wrong argument type is rejected by Pi before `execute`
+runs, so the host's validation message is returned instead; the list is still
+unchanged.
 
 ```
 todo({ todos: [{ content: "Write the parser tests", status: "in_progress", activeForm: "Writing the parser tests" }] })

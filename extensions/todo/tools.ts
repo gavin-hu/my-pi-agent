@@ -2,9 +2,12 @@
  * Model-facing registration for the `todo` tool.
  *
  * The tool is a whole-list replacement: the model sends the complete list, and
- * the previous list is discarded. An empty list clears. Validation failures come
+ * the previous list is discarded. An empty list clears. The tool's own semantic
+ * validation (one `in_progress` item, `activeForm`, duplicates, length) comes
  * back as an error result carrying the unchanged list, so the model can retry
- * without corrupting state.
+ * without corrupting state. Argument-level failures the host rejects before
+ * `execute` (an unknown `status`, a wrong type) surface the host's message
+ * instead; the list is unchanged either way.
  */
 
 import type { JsonValue } from "@earendil-works/pi-ai";

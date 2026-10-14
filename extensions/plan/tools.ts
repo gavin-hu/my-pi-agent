@@ -88,13 +88,21 @@ function preview(plan: string): { body: string; more: number } {
 }
 
 /** Seed the todo list with the plan's steps; returns what was recorded. */
-async function seedTodos(ctx: ExtensionToolContext, plan: string): Promise<{ recorded: number; steps: PlanStep[] }> {
+async function seedTodos(
+	ctx: ExtensionToolContext,
+	plan: string,
+): Promise<{ recorded: number; steps: PlanStep[]; error?: string }> {
 	const steps = extractPlanSteps(plan);
 	if (steps.length === 0) return { recorded: 0, steps };
 	const outcome = await ctx.executeTool(TODO_TOOL, {
 		todos: steps.map((step) => ({ content: step.content, status: step.status })),
 	});
-	return { recorded: outcome.isError ? 0 : steps.length, steps };
+	if (!outcome.isError) return { recorded: steps.length, steps };
+	// The nested call fails both when the tool is unavailable and when it rejects
+	// the steps; surface its first line so the caller reports the real reason.
+	const part = outcome.result?.content?.find((entry) => entry.type === "text");
+	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
+	return { recorded: 0, steps, error: firstLine ? sanitizeLine(firstLine) : undefined };
 }
 
 /** The review choice plus the refinement the user typed in the TUI, if any. */
@@ -395,7 +403,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			}
 
 			runtime.disable(ctx);
-			const { recorded, steps } = await seedTodos(ctx, file.content);
+			const { recorded, steps, error } = await seedTodos(ctx, file.content);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps
@@ -406,7 +414,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 				recorded > 0
 					? ` Recorded ${recorded} step${recorded === 1 ? "" : "s"} in the todo list. As you finish each step, mark it done there and tick it off in the file with ${SET_PLAN_STEP_TOOL}.`
 					: steps.length > 0
-						? ` The todo tool is unavailable; keep these steps in mind and tick them off with ${SET_PLAN_STEP_TOOL} as you go.`
+						? ` Could not record the steps in the todo list${error ? `: ${error}` : ""}. Keep these steps in mind and tick them off with ${SET_PLAN_STEP_TOOL} as you go.`
 						: " If the todo tool is available, record the steps with it before you start.";
 			return {
 				content: [

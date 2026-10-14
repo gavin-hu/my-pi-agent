@@ -279,7 +279,8 @@ agent file that overrides it.
 - **Approval seeds `todo` via `ctx.executeTool`.** The event bus carries no
   `ctx`, so a listener could not refresh the todo widget; calling the real tool
   runs its validation and widget sync and needs no change to `todo`. Only
-  top-level list items become steps.
+  top-level list items become steps. A rejected seed reports the nested tool's
+  own reason in the approval message instead of failing silently.
 - **The outline guides, it does not enforce.** `write_plan` documents the
   canonical shape in its description and stores whatever markdown it is given;
   no section is required and nothing is rewritten. That keeps the model free to
