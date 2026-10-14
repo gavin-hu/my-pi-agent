@@ -70,6 +70,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `goal`: `/goal raw <prompt>` records the typed words verbatim and starts the
   run, skipping the comprehension step, for when the user already knows exactly
   what they want.
+- `wechat`: in the TUI, `/wechat status` opens a control screen instead of
+  printing one line — account, connection state, owner, activity counters, and a
+  pending remote prompt, with `l` to log in/reconnect, `s` to start or stop, and
+  `r` to refresh. Other modes keep the one-line summary.
 
 ### Changed
 

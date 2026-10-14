@@ -32,10 +32,21 @@ describe("wechat extension", () => {
 		await withAgentDir(async () => {
 			const fake = createFakePi();
 			wechat(fake.pi);
-			const { ctx, notifications } = fakeCtx();
+			const { ctx, notifications } = fakeCtx({ mode: "rpc" });
 			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
 			await fake.commands.get("wechat").handler("status", ctx);
 			expect(notifications.join("\n")).toContain("closed");
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
+	test("opens the status screen in the TUI", async () => {
+		await withAgentDir(async () => {
+			const fake = createFakePi();
+			wechat(fake.pi);
+			const { ctx, customCalls } = fakeCtx({ custom: "close" });
+			await fake.commands.get("wechat").handler("status", ctx);
+			expect(customCalls.length).toBe(1);
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});
 	});

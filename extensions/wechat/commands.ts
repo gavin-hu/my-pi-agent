@@ -13,6 +13,7 @@ import { peerLabel } from "./format.ts";
 import { defaultSleep, waitForLogin, type LoginOutcome } from "./login.ts";
 import { LoginScreenComponent, type LoginViewState } from "./login-screen.ts";
 import { qrLines } from "./qrcode.ts";
+import { statusLine, statusView, StatusScreenComponent, type StatusAction, type StatusView } from "./status-screen.ts";
 import type { BotCredentials } from "./types.ts";
 
 export interface CommandDeps {
@@ -140,19 +141,33 @@ async function runStop(ctx: ExtensionContext, deps: CommandDeps): Promise<void> 
 	ctx.ui.notify("WeChat bridge stopped.");
 }
 
-function runStatus(ctx: ExtensionContext, deps: CommandDeps): void {
-	const account = deps.primaryAccount();
-	const status = deps.getBridge()?.status();
-	const connection = status?.open ? "open" : status?.expired ? "expired" : "closed";
-	const parts = [account ? `account ${peerLabel(account.ilinkUserId)}` : "not logged in", connection];
-	if (status) {
-		parts.push(`${status.peerCount} peer(s)`, `${status.queued} queued`);
-		if (status.refused > 0) parts.push(`${status.refused} refused`);
-		if (status.mediaDropped > 0) parts.push(`${status.mediaDropped} media dropped`);
-		if (status.owner) parts.push(`owner ${peerLabel(status.owner)}`);
+async function runStatus(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
+	const view = (): StatusView => statusView(deps.primaryAccount(), deps.getBridge()?.status());
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify(statusLine(view()));
+		return;
 	}
-	const recovery = status && !status.open && status.expired ? " — run /wechat login to reconnect" : "";
-	ctx.ui.notify(`wechat: ${parts.join(" · ")}${recovery}`);
+	// The screen returns an action instead of running it, so the QR login screen
+	// is never opened while the status screen still owns input focus.
+	const action = await ctx.ui.custom<StatusAction>(
+		(tui, theme, _keybindings, done) =>
+			new StatusScreenComponent({
+				theme,
+				view,
+				onClose: done,
+				requestRender: () => tui.requestRender(),
+			}),
+	);
+	switch (action) {
+		case "login":
+			return runLogin(ctx, deps);
+		case "start":
+			return runStart(ctx, deps);
+		case "stop":
+			return runStop(ctx, deps);
+		default:
+			return;
+	}
 }
 
 async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {

@@ -42,7 +42,7 @@ pi install ./                        # install the package
 | `/wechat login` | QR login; on scan, stores credentials and starts the bridge. |
 | `/wechat start` | Start the bridge: long-poll and forward messages to the agent. |
 | `/wechat stop` | Stop the bridge; credentials and cursor are kept. |
-| `/wechat status` | Show account, open/expired/closed, peer count, and queue depth. |
+| `/wechat status` | TUI: a status/control screen. Elsewhere: a one-line summary. |
 | `/wechat logout` | Confirm, then clear credentials and stop the bridge. |
 
 `login` connects in one step; `/wechat start` reconnects after `/wechat stop`
@@ -53,12 +53,17 @@ A session that expires while running keeps the `✆ wechat expired` chip: it is
 not reopened by `/wechat start`, `/wechat status` reports it and points at the
 fix, and `/wechat login` is the one-step recovery.
 
+In the TUI, `/wechat status` opens a control screen with the account, connection
+state, owner, activity counters, and any pending remote prompt. Keys: `l` log in
+or reconnect, `s` start a closed bridge or stop an open one, `r` refresh, and Esc
+closes. Outside the TUI the command stays a one-line notification.
+
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Everything, including the QR login screen (`ctx.ui.custom`). |
-| `rpc` | `/wechat start`/`stop`/`status` work; `login` needs the TUI (the QR screen is unavailable over RPC). |
+| `tui` | Everything, including the QR login screen and the `/wechat status` control screen (`ctx.ui.custom`). |
+| `rpc` | `/wechat start`/`stop`/`status` work; `status` prints the one-line summary, and `login` needs the TUI (the QR screen is unavailable over RPC). |
 | `json`, `print` | Ephemeral; `start` is refused, and no UI is available. |
 
 ## Remote prompts
@@ -198,6 +203,7 @@ than blocking the dialog.
 | `login.ts` | QR login state machine. |
 | `qrcode.ts` | QR matrix → Unicode half-block terminal lines. |
 | `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`). |
+| `status-screen.ts` | The `/wechat status` screen (`ctx.ui.custom`) and the pure one-line/body renderers. |
 | `config.ts` | `wechat.json` loading and normalization. |
 | `credentials.ts` | `credentials.json` (`0600`, multi-account). |
 | `state.ts` | `state.json` (cursor, owner, per-peer tokens). |
