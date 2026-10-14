@@ -35,7 +35,7 @@ describe("renderReviewPage", () => {
 	test("frames the plan with an outline panel, a rail, and a progress header", () => {
 		const html = page();
 		expect(html).toContain('id="outline-list"');
-		expect(html).toContain('class="review"');
+		expect(html).toContain("bf-review");
 		expect(html).toContain('id="steps"');
 		expect(html).toContain('id="comment-count"');
 		expect(html).toContain('href="#plan"');

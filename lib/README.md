@@ -33,7 +33,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`tool-names.ts`](./tool-names.ts) | Tool names and one parameter name that more than one extension must agree on, so an orchestrating `ctx.executeTool()` call or schema probe breaks the build on a rename. |
 | [`tui.ts`](./tui.ts) | Screen chrome: `screenHeader`, `screenHint`, `dockListFrame` (the shared docked-list assembly), `viewportRows`, and `FULL_SCREEN_OVERLAY`, plus `reuseText` (per-render `Text` reuse) and `editorTheme` (inline-editor theme). |
 | [`ui.ts`](./ui.ts) | Shared UI vocabulary: `GLYPHS`, `SEPARATORS`, `STATUS_KEYS` (`ctx.ui.setStatus` keys), `EXPAND_KEYBINDING` with `expandKey` / `expandHint`, and the transcript rail `BODY_INDENT` / `GLYPH_GAP`. |
-| [`web-theme.ts`](./web-theme.ts) | The shared theme for local browser surfaces: `WEB_THEME_STORAGE_KEY`, `WEB_THEME_CSS` (GitHub-style light/dark tokens and `tok-*` colors), `WEB_BASE_CSS`, the `THEME_JS` pre-paint bootstrap, and the embeddable `THEME_TOGGLE_JS`. |
+| [`web/`](./web/) | The Bytefly web brand system shared by the browser surfaces: [`web/tokens.ts`](./web/tokens.ts) (palette derived from the Bytefly terminal themes, scales, and the `tok-*` map), [`web/base.ts`](./web/base.ts), [`web/components.ts`](./web/components.ts), [`web/layout.ts`](./web/layout.ts), [`web/runtime.ts`](./web/runtime.ts) (`WEB_THEME_STORAGE_KEY`, `THEME_JS`, `THEME_TOGGLE_JS`), [`web/markup.ts`](./web/markup.ts), and the [`web/index.ts`](./web/index.ts) barrel. |
 
 ## Conventions
 

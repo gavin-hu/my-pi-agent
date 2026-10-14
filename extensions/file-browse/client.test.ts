@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { CLIENT_JS } from "./client.ts";
-import { THEME_JS, WEB_THEME_STORAGE_KEY } from "../../lib/web-theme.ts";
+import { THEME_JS, WEB_THEME_STORAGE_KEY } from "../../lib/web/index.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import { handleRequest } from "./router.ts";
 import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
@@ -41,7 +41,7 @@ describe("CLIENT_JS", () => {
 	});
 
 	test("collapses the sidebar on narrow viewports", () => {
-		expect(CLIENT_JS).toContain("details.side-panel");
+		expect(CLIENT_JS).toContain("details.bf-app__sidebar");
 		expect(CLIENT_JS).toContain("matchMedia");
 		expect(CLIENT_JS).toContain("(max-width: 720px)");
 	});
@@ -71,7 +71,7 @@ describe("CLIENT_JS", () => {
 
 	test("wires the quick-open palette", () => {
 		expect(CLIENT_JS).toContain('"/api/files?q="');
-		expect(CLIENT_JS).toContain("palette-option");
+		expect(CLIENT_JS).toContain("bf-dialog__option");
 		expect(CLIENT_JS).toContain("aria-activedescendant");
 		expect(CLIENT_JS).toContain("quick-open");
 		expect(CLIENT_JS).toContain('"role", "dialog"');

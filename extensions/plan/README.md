@@ -260,8 +260,8 @@ selecting text opens the composer for that block with the selection quoted.
 **Save feedback** writes the comments into the plan file and returns them to the
 model.
 
-- **Shared theme.** The page uses the same tokens, base rules, and syntax-token
-  colors as `file-browse` (`lib/web-theme.ts`), follows the system light/dark
+- **Shared theme.** The page uses the same Bytefly tokens, base rules, and
+  syntax-token colors as `file-browse` (`lib/web/`), follows the system light/dark
   preference until the header toggle sets an explicit choice, and remembers that
   choice under the shared `pi-web-theme` key.
 - **Section outline.** Headings become a sticky outline with jump links and an
@@ -410,6 +410,6 @@ model.
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
-| [`../../lib/web-theme.ts`](../../lib/web-theme.ts) | Shared web theme: tokens, base rules, `tok-*` colors, the bootstrap, and the toggle wiring. |
+| [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, and shared markup. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../../lib/tui.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |

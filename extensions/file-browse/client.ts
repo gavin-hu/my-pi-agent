@@ -11,13 +11,13 @@
  * and `bun build --no-bundle` needs no separate asset.
  */
 
-import { THEME_TOGGLE_JS } from "../../lib/web-theme.ts";
+import { THEME_TOGGLE_JS } from "../../lib/web/index.ts";
 
 export const CLIENT_JS = `(function () {
 	"use strict";
-	var tree = document.querySelector("nav.tree");
+	var tree = document.querySelector("nav.bf-tree");
 	var filter = document.getElementById("filter");
-	var rows = Array.prototype.slice.call(document.querySelectorAll("table.listing tbody tr"));
+	var rows = Array.prototype.slice.call(document.querySelectorAll("table.bf-table tbody tr"));
 	var query = "";
 
 	function matches(text) {
@@ -28,7 +28,7 @@ export const CLIENT_JS = `(function () {
 
 	function svgIcon(entry) {
 		var svg = document.createElementNS(SVG_NS, "svg");
-		svg.setAttribute("class", "cat " + (entry.colorClass || ""));
+		svg.setAttribute("class", "browse-cat " + (entry.colorClass || ""));
 		svg.setAttribute("aria-hidden", "true");
 		svg.setAttribute("title", entry.label || "");
 		var use = document.createElementNS(SVG_NS, "use");
@@ -40,15 +40,15 @@ export const CLIENT_JS = `(function () {
 	function buildNode(entry) {
 		var li = document.createElement("li");
 		var row = document.createElement("div");
-		row.className = "row";
+		row.className = "bf-tree__row";
 		row.setAttribute("data-path", entry.path || "");
 		var twisty = document.createElement(entry.isDir ? "button" : "span");
-		twisty.className = "tw";
+		twisty.className = "bf-tree__tw";
 		row.appendChild(twisty);
 		row.appendChild(svgIcon(entry));
 		if (entry.isDir) {
 			li.dataset.open = "false";
-			twisty.classList.add("toggle");
+			twisty.classList.add("bf-tree__tw--toggle");
 			twisty.type = "button";
 			twisty.textContent = "\\u25B8";
 			twisty.setAttribute("aria-expanded", "false");
@@ -58,19 +58,19 @@ export const CLIENT_JS = `(function () {
 			dir.textContent = entry.name + "/";
 			row.appendChild(dir);
 		} else if (entry.broken) {
-			twisty.className = "tw spacer";
+			twisty.className = "bf-tree__tw bf-tree__tw--spacer";
 			twisty.setAttribute("aria-hidden", "true");
 			var broken = document.createElement("span");
-			broken.className = "broken";
+			broken.className = "browse-broken";
 			broken.title = "broken symbolic link";
 			broken.textContent = entry.name;
 			row.appendChild(broken);
 			var mark = document.createElement("span");
-			mark.className = "link-mark";
+			mark.className = "browse-link-mark";
 			mark.textContent = "\\u21A9";
 			row.appendChild(mark);
 		} else {
-			twisty.className = "tw spacer";
+			twisty.className = "bf-tree__tw bf-tree__tw--spacer";
 			twisty.setAttribute("aria-hidden", "true");
 			var file = document.createElement("a");
 			file.href = entry.href;
@@ -82,7 +82,7 @@ export const CLIENT_JS = `(function () {
 	}
 
 	function filterNode(li) {
-		var row = li.querySelector(":scope > .row");
+		var row = li.querySelector(":scope > .bf-tree__row");
 		var own = matches(row ? row.getAttribute("data-path") || row.textContent : "");
 		var childMatch = false;
 		Array.prototype.forEach.call(li.querySelectorAll(":scope > ul > li"), function (child) {
@@ -159,7 +159,7 @@ export const CLIENT_JS = `(function () {
 
 	if (tree) {
 		tree.addEventListener("click", function (event) {
-			var twisty = event.target.closest(".tw");
+			var twisty = event.target.closest(".bf-tree__tw");
 			if (!twisty || twisty.tagName !== "BUTTON" || !tree.contains(twisty)) return;
 			event.preventDefault();
 			var li = twisty.closest("li");
@@ -174,14 +174,14 @@ export const CLIENT_JS = `(function () {
 				applyFilter();
 				return;
 			}
-			var row = li.querySelector(":scope > .row");
+			var row = li.querySelector(":scope > .bf-tree__row");
 			var path = row ? row.getAttribute("data-path") : null;
 			if (!path) return;
 			loadChildren(li, twisty, path);
 		});
 	}
 
-	var panel = document.querySelector("details.side-panel");
+	var panel = document.querySelector("details.bf-app__sidebar");
 	if (panel && window.matchMedia) {
 		var mq = window.matchMedia("(max-width: 720px)");
 		var syncSide = function () { panel.open = !mq.matches; };
@@ -190,10 +190,10 @@ export const CLIENT_JS = `(function () {
 		else if (mq.addListener) mq.addListener(syncSide);
 	}
 
-	Array.prototype.forEach.call(document.querySelectorAll("img.thumb"), function (img) {
+	Array.prototype.forEach.call(document.querySelectorAll("img.bf-table__thumb"), function (img) {
 		img.addEventListener("error", function () {
 			img.hidden = true;
-			var fallback = img.parentElement && img.parentElement.querySelector(".cat");
+			var fallback = img.parentElement && img.parentElement.querySelector(".browse-cat");
 			if (fallback) fallback.hidden = false;
 		});
 	});
@@ -210,7 +210,7 @@ export const CLIENT_JS = `(function () {
 	// Shared theme toggle; the element contract is #theme-toggle / .theme-glyph.
 	${THEME_TOGGLE_JS}
 
-	var sortButtons = Array.prototype.slice.call(document.querySelectorAll("table.listing th .sort"));
+	var sortButtons = Array.prototype.slice.call(document.querySelectorAll("table.bf-table th .bf-sort"));
 
 	function setSort(key, direction, remember) {
 		sortButtons.forEach(function (button) {
@@ -253,11 +253,11 @@ export const CLIENT_JS = `(function () {
 	}
 
 	var wrapButton = document.getElementById("wrap-toggle");
-	var code = document.querySelector("pre.code");
+	var code = document.querySelector("pre.bf-code");
 	function applyWrap(on) {
 		if (!code) return;
-		if (on) code.classList.add("wrap");
-		else code.classList.remove("wrap");
+		if (on) code.classList.add("bf-code--wrap");
+		else code.classList.remove("bf-code--wrap");
 		if (wrapButton) {
 			wrapButton.setAttribute("aria-pressed", on ? "true" : "false");
 			wrapButton.textContent = on ? "no wrap" : "wrap";
@@ -267,7 +267,7 @@ export const CLIENT_JS = `(function () {
 		var wrapOn = store.get("browse-wrap") === "1";
 		applyWrap(wrapOn);
 		wrapButton.addEventListener("click", function () {
-			wrapOn = !code.classList.contains("wrap");
+			wrapOn = !code.classList.contains("bf-code--wrap");
 			applyWrap(wrapOn);
 			store.set("browse-wrap", wrapOn ? "1" : "0");
 		});
@@ -344,16 +344,16 @@ export const CLIENT_JS = `(function () {
 	function buildPalette() {
 		if (paletteBackdrop) return;
 		paletteBackdrop = document.createElement("div");
-		paletteBackdrop.className = "palette-backdrop";
+		paletteBackdrop.className = "bf-dialog";
 		paletteBackdrop.hidden = true;
 		var dialog = document.createElement("div");
-		dialog.className = "palette";
+		dialog.className = "bf-dialog__panel";
 		dialog.setAttribute("role", "dialog");
 		dialog.setAttribute("aria-modal", "true");
 		dialog.setAttribute("aria-label", "Quick open a file");
 		paletteInput = document.createElement("input");
 		paletteInput.type = "text";
-		paletteInput.className = "palette-input";
+		paletteInput.className = "bf-dialog__input";
 		paletteInput.id = "palette-input";
 		paletteInput.setAttribute("role", "combobox");
 		paletteInput.setAttribute("aria-expanded", "true");
@@ -363,11 +363,11 @@ export const CLIENT_JS = `(function () {
 		paletteInput.setAttribute("placeholder", "Type a file path…");
 		paletteInput.setAttribute("aria-label", "Quick open a file");
 		paletteList = document.createElement("ul");
-		paletteList.className = "palette-list";
+		paletteList.className = "bf-dialog__list";
 		paletteList.id = "palette-list";
 		paletteList.setAttribute("role", "listbox");
 		paletteStatus = document.createElement("p");
-		paletteStatus.className = "palette-status";
+		paletteStatus.className = "bf-dialog__status";
 		paletteStatus.setAttribute("role", "status");
 		dialog.appendChild(paletteInput);
 		dialog.appendChild(paletteList);
@@ -479,7 +479,7 @@ export const CLIENT_JS = `(function () {
 		paletteList.textContent = "";
 		results.forEach(function (result, index) {
 			var option = document.createElement("li");
-			option.className = "palette-option";
+			option.className = "bf-dialog__option";
 			option.id = "palette-option-" + index;
 			option.setAttribute("role", "option");
 			option.setAttribute("data-index", String(index));

@@ -23,6 +23,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The theme tokens, the pre-paint bootstrap, and the syntax highlighter move to
   `lib/` (`web-theme.ts`, `highlight.ts`, `escape.ts`) and are shared with
   `file-browse`; the light/dark choice now lives under one `pi-web-theme` key.
+- The local browser surfaces adopt the Bytefly web brand system (`lib/web/`):
+  the palette is derived from the `bytefly-dark`/`bytefly-light` terminal
+  themes, and a shared `bf-*` component, app-shell, and markup layer replaces
+  the page-local CSS. The file manager, file viewer, and plan review are
+  rebuilt on it, and `lib/web-theme.ts` is replaced by `lib/web/`.
 
 ### Fixed
 
