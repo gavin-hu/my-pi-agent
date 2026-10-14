@@ -71,9 +71,13 @@ tests.
 
 ## Release
 
-Distribution is git-only; nothing is published to npm. A release is an annotated
-`vX.Y.Z` tag on `main` plus a matching GitHub release whose body is the
-changelog section.
+Distribution is git and npm: `main` is installable as a git Pi package, and every
+release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`
+plus a matching GitHub release whose body is the changelog section.
+
+The first publish needs an authenticated npm account (`npm login`); after that
+`npm publish` uses the token in `~/.npmrc`. `publishConfig.access` is `public`,
+so the scoped package is published publicly.
 
 1. Work on a branch in a worktree (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)).
 2. Bump `version` in [`../package.json`](../package.json), move the `Unreleased`
@@ -101,6 +105,12 @@ changelog section.
    `release:notes` prints the `## [X.Y.Z]` section (heading included) and exits
    non-zero when that version has no changelog section, so a mistyped version
    fails before `gh` runs.
+
+7. Publish the npm package from the same commit:
+
+   ```bash
+   npm publish
+   ```
 
 GitHub marks the release with the newest creation date as "Latest", so after
 creating a release for an older version run `gh release edit vX.Y.Z --latest` on

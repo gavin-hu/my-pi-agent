@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Distribution: releases are published to npm as well as tagged in git. The
+  package declares `publishConfig.access: public` and a `files` allowlist
+  (extensions, lib, themes, assets; tests excluded), and the docs document both
+  sources.
+
 ## [0.7.0] - 2026-10-14
 
 ### Added

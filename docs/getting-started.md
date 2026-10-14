@@ -15,10 +15,13 @@ build step to run the package.
 ## Install
 
 ```bash
-# Personal install, tracking the default branch
+# Published release from npm
+pi install npm:@gavin-hu/my-pi-agent
+
+# Personal install from git, tracking the default branch
 pi install git:github.com/gavin-hu/my-pi-agent
 
-# Pin a release (recommended for a stable setup)
+# Pin a release (npm versions and git tags name the same version)
 pi install git:github.com/gavin-hu/my-pi-agent@v0.7.0
 
 # Project-local install (.pi/settings.json in the current project)
@@ -28,8 +31,8 @@ pi install ./ -l
 pi -e .
 ```
 
-Distribution is git-only; nothing is published to npm. A release is an annotated
-`vX.Y.Z` tag, so pinning a tag is the supported way to hold a version.
+Releases are published to npm and annotated as `vX.Y.Z` tags in git; both name
+the same version, so either source pins a stable setup.
 
 ## Verify the load
 

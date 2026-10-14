@@ -47,10 +47,12 @@ local merge into `main` is allowed; a pull request is optional.
 
 ## Release
 
-Distribution is git-only: nothing is published to npm. A release is an annotated
-`vX.Y.Z` tag on `main` plus a matching GitHub release whose body is that
-version's `CHANGELOG.md` section, heading included. This section is the source
-of truth; the user-facing copy is `docs/development.md`, so keep the two in sync.
+Distribution is git and npm: `main` is installable as a git Pi package, and every
+release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`
+plus a matching GitHub release whose body is that version's `CHANGELOG.md`
+section, heading included, and an `npm publish` of the package. This section is
+the source of truth; the user-facing copy is `docs/development.md`, so keep the
+two in sync.
 Prepare it on a branch like any other change:
 
 1. Bump `version` in `package.json`.
@@ -74,6 +76,13 @@ Prepare it on a branch like any other change:
    bun run release:notes X.Y.Z > section.md
    gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
    rm section.md
+   ```
+
+7. Publish the npm package from the same commit (`publishConfig.access` is
+   `public`; the `pi-package` keyword and `pi` manifest make it a Pi package):
+
+   ```bash
+   npm publish
    ```
 
 GitHub marks the release with the newest creation date as "Latest", so after
