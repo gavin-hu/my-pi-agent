@@ -162,6 +162,25 @@ describe("memory extension", () => {
 		expect(suite.notices.at(-1)).toContain("one");
 	});
 
+	test("/memory list is recognized and reports the store", async () => {
+		suite.write("project", "- repo note\n");
+		suite.write("global", "- global note\n");
+		await suite.start();
+		await suite.pi.commands.get("memory").handler("list", suite.ctx);
+		const last = suite.notices.at(-1) ?? "";
+		expect(last).toContain("repo note");
+		expect(last).toContain("global note");
+	});
+
+	test("/memory warns on an unknown subcommand instead of listing", async () => {
+		suite.write("global", "- one\n");
+		await suite.start();
+		await suite.pi.commands.get("memory").handler("bogus", suite.ctx);
+		const notice = suite.ctx.notices.at(-1);
+		expect(notice.message).toContain("Unknown /memory subcommand");
+		expect(notice.kind).toBe("warning");
+	});
+
 	test("/memory path reports the resolved files and trust", async () => {
 		await suite.start();
 		await suite.pi.commands.get("memory").handler("path", suite.ctx);

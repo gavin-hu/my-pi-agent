@@ -1,7 +1,7 @@
 /**
  * Slash commands for the memory extension.
  *
- * `/memory` shows the store, `/memory path` prints the two file paths,
+ * `/memory` and `/memory list` show the store, `/memory path` prints the two file paths,
  * `/memory reload` re-reads the stores, `/memory edit [scope]` opens the
  * multi-line editor, and `/memory clear [scope]` empties a store after a
  * confirmation. Bulk deletion lives only here, behind a confirm — the model
@@ -26,6 +26,9 @@ function notify(ctx: ExtensionCommandContext, message: string, kind: "info" | "w
 /** `/memory` subcommands and the scope argument accepted by `edit`/`clear`. */
 const MEMORY_SUBCOMMANDS = ["list", "path", "reload", "edit", "clear"];
 
+/** Usage line shared by the command description and the unknown-subcommand warning. */
+const MEMORY_USAGE = "/memory [list | path | reload | edit [project|global] | clear [project|global]]";
+
 /** Subcommand on the first token, scope on the second for `edit`/`clear`. */
 function completeMemoryArg(prefix: string): Array<{ value: string; label: string }> | null {
 	const [sub = "", argument] = prefix.trimStart().split(/\s+/);
@@ -40,14 +43,19 @@ function completeMemoryArg(prefix: string): Array<{ value: string; label: string
 
 export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 	pi.registerCommand("memory", {
-		description:
-			"Show, edit, reload, or clear durable memory: /memory [list | path | reload | edit [project|global] | clear [project|global]]",
+		description: `Show, edit, reload, or clear durable memory: ${MEMORY_USAGE}`,
 		getArgumentCompletions: completeMemoryArg,
 		handler: async (args, ctx) => {
-			const [sub = "list", scopeArg] = args.trim().split(/\s+/);
+			// A bare `/memory` is the list subcommand; an empty split would otherwise
+			// produce an empty subcommand and skip the `list` case.
+			const [sub = "list", scopeArg] = (args.trim() || "list").split(/\s+/);
 			const scope = parseScope(scopeArg);
 
 			switch (sub.toLowerCase()) {
+				case "list": {
+					notify(ctx, formatNotice(runtime.entries()));
+					return;
+				}
 				case "path": {
 					const paths = runtime.paths();
 					if (!paths) {
@@ -115,7 +123,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void
 					return;
 				}
 				default:
-					notify(ctx, formatNotice(runtime.entries()));
+					notify(ctx, `Unknown /memory subcommand. Use ${MEMORY_USAGE}.`, "warning");
 			}
 		},
 	});

@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `memory`: `/memory list` is handled as an explicit subcommand instead of
+  falling through to the bare-command default, and an unknown `/memory`
+  subcommand now reports a warning instead of silently listing the store.
+
 ## [0.6.0] - 2026-10-14
 
 ### Added
