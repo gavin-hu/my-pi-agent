@@ -133,7 +133,6 @@ export function registerTools(pi: ExtensionAPI): void {
 		promptGuidelines: ["Use list_worktrees to check isolation and see managed worktrees before entering or pruning."],
 		parameters: Type.Object({}),
 		annotations: { readOnlyHint: true, openWorldHint: false },
-		executionMode: "sequential",
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			const current = getActive();
 			return {

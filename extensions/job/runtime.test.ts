@@ -335,6 +335,19 @@ describe("job runtime — registry reconcile", () => {
 		await settle(60);
 		expect(h.runtime.get("j1")?.status).toBe("unknown");
 	});
+
+	test("wakes for a reattached wake job that finishes", async () => {
+		const h = makeHarness({ config: { repaintMs: 10 } });
+		const fired: string[] = [];
+		h.runtime.onFinish = (job) => fired.push(job.id);
+		save(h, "old", [persisted({ label: "server", command: "dev", detached: true, wake: true })], 2);
+		h.runtime.load(makeCtx().ctx);
+		expect(h.runtime.get("j1")?.status).toBe("running");
+		h.dead.add(777);
+		await settle(60);
+		expect(h.runtime.get("j1")?.status).toBe("unknown");
+		expect(fired).toEqual(["j1"]);
+	});
 });
 
 describe("job runtime — pending, clear, status", () => {

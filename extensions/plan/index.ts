@@ -21,7 +21,7 @@ import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
 import { hasPathInput } from "./path-guard.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
+import { ASK_USER_QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { STATUS_KEYS } from "../../lib/ui.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
 import { checkReadOnlyGit } from "./git-bash.ts";
@@ -46,7 +46,7 @@ You are in plan mode: read-only exploration for safe code analysis.
 - bash is git-only: read-only commands (git status, git diff, git log) may be chained with && or ;, but pipes, substitution, and redirection are blocked and powershell is unavailable. The cwd is already the project root, so do not prefix commands with cd; use read, grep, find, and ls for files.
 - Investigate and design a concrete plan, then save it with write_plan and call exit_plan_mode with the returned plan_path for approval.
 - Delegate broad exploration with subagent; while planning it is forced read-only.
-- To choose between approaches, ask with ask_user_question before finalizing.`;
+- To choose between approaches, ask with ${ASK_USER_QUESTION_TOOL} before finalizing.`;
 
 /** This extension entry file, as Pi records it for our tool registrations. */
 function extensionEntryPath(): string | undefined {

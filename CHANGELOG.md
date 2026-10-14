@@ -140,6 +140,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   name; `"bytefly-light/bytefly-dark"` keeps the automatic light/dark switching.
 - `subagent`: a `chain` is capped at 8 steps, matching the parallel task cap; an
   over-long chain is rejected before any process starts.
+- `goal`: `/goal` argument completion now offers `achieved` and `-h`/`--help`,
+  which the parser already accepted.
 
 ### Removed
 
@@ -171,6 +173,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the registry out from under the jobs already recorded there.
 - `job`: a `wake` completion is marked reported only after the wake send
   succeeds, so a failed send no longer drops it from the next turn.
+- `job`: a reattached `wake` job that finishes is now settled by the repaint
+  poll with its one wake turn, instead of only being reported at the next turn.
 - `worktree`: the `PI_WORKTREE_*` environment is re-exported when a session
   restores a worktree and cleared on session shutdown, so peer extensions and
   child processes no longer follow a stale or non-isolated root after `/new`,

@@ -12,6 +12,9 @@
 /** The `todo` tool, called by plan to seed the approved plan's steps. */
 export const TODO_TOOL = "todo";
 
+/** The `goal` tool, allowlisted as a reader by plan and rewind. */
+export const GOAL_TOOL = "goal";
+
 /** The `subagent` tool, which plan mode pins to read-only delegation. */
 export const SUBAGENT_TOOL = "subagent";
 

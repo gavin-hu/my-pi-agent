@@ -9,7 +9,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { reuseText } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui.ts";
 import {
 	compareJobs,
 	formatCallText,
@@ -218,7 +218,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = result.details as JobDetails | undefined;
+			const details = toolDetails<JobDetails>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				text.setText(first?.type === "text" ? first.text : "");

@@ -180,6 +180,17 @@ describe("plan runtime — persistence and status", () => {
 		expect(runtime.isControlTool("write")).toBe(false);
 	});
 
+	test("recognizes a control tool sourced from this extension", () => {
+		const fake = makeFakePi({ active: ["read"] });
+		fake.pi.allTools = [
+			{ name: EXIT_TOOL, sourceInfo: { path: "/this/index.ts" } },
+			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/this/index.ts" } },
+		];
+		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
+		expect(runtime.isControlTool(EXIT_TOOL)).toBe(true);
+		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(true);
+	});
+
 	test("rejects a control tool sourced from another extension", () => {
 		const fake = makeFakePi({ active: ["read"] });
 		fake.pi.allTools = [

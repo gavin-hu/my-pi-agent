@@ -14,7 +14,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createReadOnlyPolicy, type ReadOnlyPolicy } from "../../lib/policy.ts";
-import { ASK_USER_QUESTION_TOOL, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
+import { ASK_USER_QUESTION_TOOL, GOAL_TOOL, SUBAGENT_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { ENTER_TOOL } from "./runtime.ts";
 
 /**
@@ -27,8 +27,8 @@ export const PLAN_SAFE_TOOLS = [
 	"grep",
 	"find",
 	"ls",
-	"todo",
-	"goal",
+	TODO_TOOL,
+	GOAL_TOOL,
 	"bash",
 	ASK_USER_QUESTION_TOOL,
 	"web_search",
