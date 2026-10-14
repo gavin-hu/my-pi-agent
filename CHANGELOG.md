@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Docs: an open-source documentation structure. A grouped, end-user-first
+  `README.md`, a `CONTRIBUTING.md` and `SECURITY.md`, guides under `docs/`
+  (`getting-started`, `extensions`, `configuration`, `architecture`,
+  `development`, `security`), and GitHub issue and pull-request templates.
 - `plan`: browser review. Press `w` on the `exit_plan_mode` review screen, or
   run `/plan review [path]`, to open a plan in a loopback browser, select text
   to leave inline comments, and save them into the plan file as `> [!REVIEW]`
@@ -22,6 +26,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Docs: the extension catalog and the contributor contracts move out of the
+  root `README.md` into `docs/extensions.md`, `CONTRIBUTING.md`, and the
+  `docs/` guides; the tool-naming invariant now names `docs/extensions.md`.
 - `plan`: the browser review page is rebuilt on the shared web theme — a sticky
   header with the plan title, comment count, and theme toggle, a section
   outline, a right-hand comment rail aligned to each block, and

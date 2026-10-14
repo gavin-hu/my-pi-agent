@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Pi documentation
+    url: https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs
+    about: Extension, package, TUI, and configuration contracts for Pi itself.
+  - name: my-pi-agent documentation
+    url: https://github.com/gavin-hu/my-pi-agent/tree/main/docs
+    about: Guides for installing, configuring, and extending this package.
+  - name: Security report
+    url: https://github.com/gavin-hu/my-pi-agent/security/advisories/new
+    about: Report a vulnerability privately, not as a public issue.
