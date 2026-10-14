@@ -64,6 +64,7 @@ ${WEB_COMPONENTS_CSS}
 .review-heading{display:flex;align-items:center;flex:1 1 160px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
 .review-title{display:block;flex:1 1 auto;min-width:0;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-status{display:inline-flex;align-items:center;gap:var(--space-3);flex:0 0 auto}
+.review-status .bf-status{max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-controls{display:inline-flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
 .bf-app{--review-top:57px}
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
@@ -115,6 +116,7 @@ ${WEB_COMPONENTS_CSS}
 .review-heading{flex:1 1 100%;order:3;border-left:0;padding-left:0;margin-top:var(--space-1)}
 .review-controls{order:2;margin-left:auto}
 .review-status{order:4;flex:1 1 100%}
+.review-status .bf-status{max-width:none;white-space:normal}
 }
 @media (prefers-reduced-motion:no-preference){.bf-block{transition:background .08s ease}}
 @media (hover:none){.bf-block__add{opacity:1}}
@@ -149,6 +151,7 @@ ${brandLockup("plan review")}
 <span class="review-title" id="plan-title">Plan review</span>
 </div>
 <div class="review-status">
+<span class="bf-status" id="status" role="status" aria-live="polite"></span>
 <span class="bf-chip" id="comment-count"></span>
 </div>
 <div class="review-controls">
@@ -157,7 +160,6 @@ ${themeToggle()}
 <button type="button" class="bf-btn" id="cancel">Close</button>
 </div>
 </div></header>
-<div class="bf-status" id="status" role="status" aria-live="polite"></div>
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>

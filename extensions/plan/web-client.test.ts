@@ -38,6 +38,7 @@ describe("REVIEW_CLIENT_JS", () => {
 	test("wires the save and cancel buttons", () => {
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("save")');
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("cancel")');
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("status")');
 		expect(REVIEW_CLIENT_JS).toContain("/api/feedback");
 	});
 
