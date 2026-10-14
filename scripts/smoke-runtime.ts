@@ -268,7 +268,7 @@ if (serveCommand) await serveCommand.handler("status", runner.createCommandConte
 check("serve status runs without starting a server", !!serveCommand);
 
 // chrome loads headlessly and registers its toggle command; it installs no
-// tools and only paints the footer in interactive mode.
+// tools and only paints the header and footer in interactive mode.
 check("chrome command registered", !!runner.getCommand("chrome"));
 
 // turn-separator loads headlessly and registers its entry renderer; separators

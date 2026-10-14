@@ -45,20 +45,16 @@ describe("normalizeChromeConfig", () => {
 		expect(normalizeChromeConfig({ bar: { width: 12 } }, DEFAULT_CHROME_CONFIG)).toEqual(DEFAULT_CHROME_CONFIG);
 	});
 
-	test("normalizes the header and editor appearance", () => {
-		const config = normalizeChromeConfig(
-			{ header: { mark: "logo", showVersion: false, showHints: false }, editor: { badge: false } },
-			DEFAULT_CHROME_CONFIG,
-		);
-		expect(config.header).toEqual({ mark: "logo", showVersion: false, showHints: false });
-		expect(config.editor).toEqual({ badge: false });
+	test("normalizes the header appearance", () => {
+		const config = normalizeChromeConfig({ header: { mark: "logo", showVersion: false } }, DEFAULT_CHROME_CONFIG);
+		expect(config.header).toEqual({ mark: "logo", showVersion: false });
 	});
 
 	test("keeps the base appearance for unknown or wrong-typed values", () => {
 		expect(normalizeChromeConfig({ header: { mark: "banner" } }, DEFAULT_CHROME_CONFIG).header).toEqual(
 			DEFAULT_CHROME_CONFIG.header,
 		);
-		expect(normalizeChromeConfig({ header: "logo", editor: 7 }, DEFAULT_CHROME_CONFIG)).toEqual(DEFAULT_CHROME_CONFIG);
+		expect(normalizeChromeConfig({ header: "logo" }, DEFAULT_CHROME_CONFIG)).toEqual(DEFAULT_CHROME_CONFIG);
 	});
 
 	test("reads the currency, capped and clamped", () => {

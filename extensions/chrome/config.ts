@@ -10,18 +10,10 @@
  */
 
 import { clampInteger, clampNumber, cleanString, loadConfigFile } from "../../lib/config.ts";
-import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
+import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
 import { parseWindow } from "./price/schedule.ts";
 import { asRecord } from "./record.ts";
-import type {
-	Currency,
-	EditorConfig,
-	HeaderConfig,
-	ModelRates,
-	PeakSchedule,
-	PeakWindow,
-	ChromeConfig,
-} from "./types.ts";
+import type { Currency, HeaderConfig, ModelRates, PeakSchedule, PeakWindow, ChromeConfig } from "./types.ts";
 
 export const CONFIG = {
 	/** Context percentage thresholds. */
@@ -44,16 +36,6 @@ export const CONFIG = {
 	worktreeLabelMax: 14,
 	/** Session-name length before the compact form truncates it. */
 	sessionLabelMax: 14,
-	/** Header chrome: the key hints shown right-aligned, resolved live. */
-	header: {
-		hints: [
-			{ action: "app.model.select", label: "model" },
-			{ action: "app.thinking.cycle", label: "level" },
-			{ action: EXPAND_KEYBINDING, label: "tools" },
-		] as ReadonlyArray<{ action: string; label: string }>,
-	},
-	/** Editor chrome: the badge's leading glyph. */
-	editor: { badgeGlyph: GLYPHS.plan },
 } as const;
 
 // --- Price configuration (chrome.json) ----------------------------------
@@ -95,11 +77,8 @@ export const DEFAULT_PEAK: PeakSchedule = {
 /** Rendered-currency default: yuan, the currency `DEFAULT_RATES` is stated in. */
 export const DEFAULT_CURRENCY: Currency = { symbol: "¥", decimals: 2 };
 
-/** Header default: Pi's `Pi` wordmark, version, and key hints. */
-export const DEFAULT_HEADER: HeaderConfig = { mark: "wordmark", showVersion: true, showHints: true };
-
-/** Editor default: the themed badge is on. */
-export const DEFAULT_EDITOR: EditorConfig = { badge: true };
+/** Header default: Pi's `Pi` wordmark and version. */
+export const DEFAULT_HEADER: HeaderConfig = { mark: "wordmark", showVersion: true };
 
 export const DEFAULT_CHROME_CONFIG: ChromeConfig = {
 	currency: DEFAULT_CURRENCY,
@@ -107,7 +86,6 @@ export const DEFAULT_CHROME_CONFIG: ChromeConfig = {
 	rates: DEFAULT_RATES,
 	peak: DEFAULT_PEAK,
 	header: DEFAULT_HEADER,
-	editor: DEFAULT_EDITOR,
 };
 
 const MAX_SYMBOL_LENGTH = 4;
@@ -193,7 +171,6 @@ export function normalizeChromeConfig(raw: Record<string, unknown> | undefined, 
 		rates: ratesValue(raw.rates, base.rates),
 		peak: peakValue(raw.peak, base.peak),
 		header: headerValue(raw.header, base.header),
-		editor: editorValue(raw.editor, base.editor),
 	};
 }
 
@@ -205,14 +182,7 @@ function headerValue(raw: unknown, base: HeaderConfig): HeaderConfig {
 	return {
 		mark,
 		showVersion: typeof value.showVersion === "boolean" ? value.showVersion : base.showVersion,
-		showHints: typeof value.showHints === "boolean" ? value.showHints : base.showHints,
 	};
-}
-
-function editorValue(raw: unknown, base: EditorConfig): EditorConfig {
-	const value = asRecord(raw);
-	if (!value) return base;
-	return { badge: typeof value.badge === "boolean" ? value.badge : base.badge };
 }
 
 /** Effective price config for `cwd` (global file, then project file, over defaults). */

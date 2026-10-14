@@ -1,36 +1,32 @@
 /**
- * chrome — a themed TUI header and editor, plus a two-line footer.
+ * chrome — a themed TUI header, plus a two-line footer.
  *
- * The header reproduces Pi's built-in structure (brand mark, version, key
- * hints) and recolors it from the active theme; it adds no data. The editor is
- * Pi's `CustomEditor` with a themed badge in its top border. The footer is the
- * two-line, width-adaptive bar formerly shipped as `status-bar`, priced from
- * DeepSeek's published rates by default and from `chrome.json` otherwise.
+ * The header reproduces Pi's built-in structure (brand mark and version) and
+ * recolors it from the active theme; it adds no data. The footer is the
+ * two-line, width-adaptive bar priced from DeepSeek's published rates by
+ * default and from `chrome.json` otherwise.
  *
  * Every surface is installed only in interactive (`tui`) sessions, and each is
- * independently toggleable with `/chrome [header|editor|footer|status]`.
+ * independently toggleable with `/chrome [header|footer|status]`.
  *
  * Load with:  pi --extension ./extensions/chrome
  */
 
-import type { ExtensionAPI, ExtensionContext, KeybindingsManager } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { createSnapshotReader } from "./collect/snapshot.ts";
 import { loadChromeConfig } from "./config.ts";
 import { createFooter } from "./render/footer.ts";
-import { createEditor, createHeader, type HeaderView } from "./tui.ts";
+import { createHeader, type HeaderView } from "./tui.ts";
 
-type Surface = "header" | "editor" | "footer";
-const SURFACES: readonly Surface[] = ["header", "editor", "footer"];
+type Surface = "header" | "footer";
+const SURFACES: readonly Surface[] = ["header", "footer"];
 
 export default function chrome(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("chrome")) return;
-	const active: Record<Surface, boolean> = { header: true, editor: true, footer: true };
+	const active: Record<Surface, boolean> = { header: true, footer: true };
 	let enabled = true;
-	// Captured from the editor factory, which the host calls once when set. The
-	// header reads it live to resolve its key hints.
-	let keybindings: KeybindingsManager | undefined;
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;
@@ -41,34 +37,10 @@ export default function chrome(pi: ExtensionAPI): void {
 		const view = (): HeaderView => ({
 			mark: config.header.mark,
 			showVersion: config.header.showVersion,
-			showHints: config.header.showHints,
 		});
 
-		// Editor first: its factory captures the `KeybindingsManager` the header
-		// needs, and the host invokes the factory when it is set.
-		if (enabled && active.editor) {
-			ctx.ui.setEditorComponent(
-				createEditor(
-					() => ctx.ui.theme,
-					() => enabled && active.editor,
-					() => ctx.thinkingLevel,
-					(manager) => {
-						keybindings = manager;
-					},
-				),
-			);
-		} else {
-			ctx.ui.setEditorComponent(undefined);
-		}
-
 		if (enabled && active.header) {
-			ctx.ui.setHeader(
-				createHeader(
-					() => ctx.ui.theme,
-					view,
-					() => keybindings,
-				),
-			);
+			ctx.ui.setHeader(createHeader(() => ctx.ui.theme, view));
 		} else {
 			ctx.ui.setHeader(undefined);
 		}
@@ -89,7 +61,7 @@ export default function chrome(pi: ExtensionAPI): void {
 	};
 
 	pi.registerCommand("chrome", {
-		description: "Toggle TUI chrome: /chrome [header|editor|footer|status]",
+		description: "Toggle TUI chrome: /chrome [header|footer|status]",
 		getArgumentCompletions: (prefix: string) => {
 			const action = prefix.trim();
 			const options = [...SURFACES, "status"].filter((option) => option.startsWith(action));
@@ -117,7 +89,7 @@ export default function chrome(pi: ExtensionAPI): void {
 				ctx.ui.notify(`chrome ${enabled ? "on" : "off"}`, "info");
 				return;
 			}
-			ctx.ui.notify("usage: /chrome [header|editor|footer|status]", "warning");
+			ctx.ui.notify("usage: /chrome [header|footer|status]", "warning");
 		},
 	});
 
@@ -126,7 +98,6 @@ export default function chrome(pi: ExtensionAPI): void {
 	pi.on("session_shutdown", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 		ctx.ui.setHeader(undefined);
-		ctx.ui.setEditorComponent(undefined);
 		ctx.ui.setFooter(undefined);
 	});
 }

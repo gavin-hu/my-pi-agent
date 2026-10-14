@@ -41,17 +41,15 @@ describe("chrome extension", () => {
 		expect(commands.has("chrome")).toBe(true);
 	});
 
-	test("installs the header, editor, and footer on session start in interactive mode", async () => {
+	test("installs the header and footer on session start in interactive mode", async () => {
 		const { pi } = makeFakePi();
 		chrome(pi);
-		const { ctx, headers, editors, footers } = fakeFooterCtx({ mode: "tui" });
+		const { ctx, headers, footers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
 		expect(headers).toHaveLength(1);
 		expect(typeof headers[0]).toBe("function");
-		expect(editors).toHaveLength(1);
-		expect(typeof editors[0]).toBe("function");
 		expect(footers).toHaveLength(1);
 		expect(typeof footers[0]).toBe("function");
 	});
@@ -59,12 +57,11 @@ describe("chrome extension", () => {
 	test("does not touch the chrome outside interactive mode", async () => {
 		const { pi } = makeFakePi();
 		chrome(pi);
-		const { ctx, headers, editors, footers } = fakeFooterCtx({ mode: "print" });
+		const { ctx, headers, footers } = fakeFooterCtx({ mode: "print" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
 		expect(headers).toHaveLength(0);
-		expect(editors).toHaveLength(0);
 		expect(footers).toHaveLength(0);
 	});
 
@@ -87,25 +84,23 @@ describe("chrome extension", () => {
 	test("restores the built-in chrome on shutdown", async () => {
 		const { pi } = makeFakePi();
 		chrome(pi);
-		const { ctx, headers, editors, footers } = fakeFooterCtx({ mode: "tui" });
+		const { ctx, headers, footers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_shutdown", {}, ctx);
 
 		expect(headers.at(-1)).toBeUndefined();
-		expect(editors.at(-1)).toBeUndefined();
 		expect(footers.at(-1)).toBeUndefined();
 	});
 
 	test("does nothing when toggled outside interactive mode", async () => {
 		const { pi, commands } = makeFakePi();
 		chrome(pi);
-		const { ctx, headers, editors, footers, notifications } = fakeFooterCtx({ mode: "print" });
+		const { ctx, headers, footers, notifications } = fakeFooterCtx({ mode: "print" });
 		const command = commands.get("chrome");
 
 		await command.handler("", ctx);
 
 		expect(headers).toHaveLength(0);
-		expect(editors).toHaveLength(0);
 		expect(footers).toHaveLength(0);
 		expect(notifications).toHaveLength(0);
 	});
@@ -113,19 +108,17 @@ describe("chrome extension", () => {
 	test("toggles every surface with no argument", async () => {
 		const { pi, commands } = makeFakePi();
 		chrome(pi);
-		const { ctx, headers, editors, footers, notifications } = fakeFooterCtx({ mode: "tui" });
+		const { ctx, headers, footers, notifications } = fakeFooterCtx({ mode: "tui" });
 		const command = commands.get("chrome");
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await command.handler("", ctx);
 		expect(headers.at(-1)).toBeUndefined();
-		expect(editors.at(-1)).toBeUndefined();
 		expect(footers.at(-1)).toBeUndefined();
 		expect(notifications.at(-1)).toBe("chrome off");
 
 		await command.handler("", ctx);
 		expect(typeof headers.at(-1)).toBe("function");
-		expect(typeof editors.at(-1)).toBe("function");
 		expect(typeof footers.at(-1)).toBe("function");
 		expect(notifications.at(-1)).toBe("chrome on");
 	});
@@ -133,16 +126,15 @@ describe("chrome extension", () => {
 	test("toggles one surface with a subcommand", async () => {
 		const { pi, commands } = makeFakePi();
 		chrome(pi);
-		const { ctx, headers, editors, footers, notifications } = fakeFooterCtx({ mode: "tui" });
+		const { ctx, headers, footers, notifications } = fakeFooterCtx({ mode: "tui" });
 		const command = commands.get("chrome");
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		await command.handler("editor", ctx);
+		await command.handler("footer", ctx);
 
 		expect(typeof headers.at(-1)).toBe("function");
-		expect(typeof editors.at(-1)).toBe("undefined");
-		expect(typeof footers.at(-1)).toBe("function");
-		expect(notifications.at(-1)).toBe("chrome editor off");
+		expect(footers.at(-1)).toBeUndefined();
+		expect(notifications.at(-1)).toBe("chrome footer off");
 	});
 
 	test("reports the active surfaces with the status subcommand", async () => {
@@ -153,7 +145,7 @@ describe("chrome extension", () => {
 
 		await command.handler("status", ctx);
 
-		expect(notifications.at(-1)).toBe("chrome: header, editor, footer");
+		expect(notifications.at(-1)).toBe("chrome: header, footer");
 	});
 
 	test("completes the subcommands", () => {
@@ -161,13 +153,8 @@ describe("chrome extension", () => {
 		chrome(pi);
 		const command = commands.get("chrome");
 
-		expect(command.getArgumentCompletions("").map((item: any) => item.value)).toEqual([
-			"header",
-			"editor",
-			"footer",
-			"status",
-		]);
-		expect(command.getArgumentCompletions("ed").map((item: any) => item.value)).toEqual(["editor"]);
+		expect(command.getArgumentCompletions("").map((item: any) => item.value)).toEqual(["header", "footer", "status"]);
+		expect(command.getArgumentCompletions("fo").map((item: any) => item.value)).toEqual(["footer"]);
 		expect(command.getArgumentCompletions("zzz")).toBeNull();
 	});
 
