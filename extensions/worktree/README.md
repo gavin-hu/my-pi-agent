@@ -111,6 +111,9 @@ variable, `~user`, a backtick) is treated as escaping. File-descriptor
 duplications (`2>&1`, `>&-`), heredocs, and here-strings are not treated as
 paths, and options are only recognized in real argument position, so
 `git log --grep='--git-dir=/tmp/x'` and `git log -C` are not false positives.
+`GIT_DIR=`/`GIT_WORK_TREE=` are refused both as a command prefix and when
+exported (`export GIT_DIR=/main`), and a `sh -c`/`bash -c` sub-command is refused
+when `blockUnparsableCommands` is enabled.
 
 This guard covers the built-in file tools and these common shell forms. It
 cannot contain a program that computes and writes an absolute path itself (for

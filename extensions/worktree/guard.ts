@@ -226,7 +226,7 @@ function pathEscapes(root: string, raw: string): boolean {
 
 /** Check 4: constructs whose text does not spell out the git command that runs. */
 function looksUnparsable(command: string): boolean {
-	return /\$\(|`|\$\{!|\beval\b/.test(command);
+	return /\$\(|`|\$\{!|\beval\b|\b(?:sh|bash|zsh|dash|ksh)\s+-c\b/.test(command);
 }
 
 // ---------------------------------------------------------------------------
@@ -395,6 +395,28 @@ function envGitRedirect(root: string, words: ShellWord[]): string | undefined {
 	return undefined;
 }
 
+/** Shell builtins that export an assignment for every later command in the shell. */
+const ENV_BUILTINS = new Set(["export", "declare", "typeset", "local"]);
+
+/**
+ * An `export GIT_DIR=...` / `export GIT_WORK_TREE=...` that points outside.
+ * Unlike a command-prefix assignment, this sets the environment for the whole
+ * shell, so the later `git` segment never sees the assignment itself.
+ */
+function exportedGitRedirect(root: string, command: string): string | undefined {
+	for (const segment of splitSegments(command)) {
+		const words = tokenize(segment);
+		if (!words.some((word) => ENV_BUILTINS.has(word.text))) continue;
+		for (const word of words) {
+			const match = word.text.match(/^(GIT_DIR|GIT_WORK_TREE)=(.+)$/);
+			if (match && pathEscapes(root, match[2])) {
+				return `exported ${match[1]}=${match[2]} redirects git outside the worktree.`;
+			}
+		}
+	}
+	return undefined;
+}
+
 /** `-c core.worktree=<dir>` moves the working tree, like `--work-tree`. */
 function gitConfigRedirect(root: string, flag: string, value: string | undefined): string | undefined {
 	if (!value) return undefined;
@@ -519,6 +541,10 @@ export function analyzeBashCommand(command: string, root: string, config: Worktr
 			if (reason) {
 				return { block: true, reason: `${reason} Exit the worktree to operate on the main checkout.` };
 			}
+		}
+		const exported = exportedGitRedirect(root, command);
+		if (exported) {
+			return { block: true, reason: `${exported} Exit the worktree to operate on the main checkout.` };
 		}
 	}
 
