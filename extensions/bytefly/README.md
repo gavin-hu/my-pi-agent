@@ -118,8 +118,10 @@ everything else waits in the report. See [Doctor](#doctor).
 
 | Command | What it does |
 |---|---|
-| `/bytefly` | Toggle the footer on or off. |
-| `/bytefly status` | Report whether the footer is on. |
+| `/bytefly` | Toggle the bytefly chrome — header and footer — on or off. |
+| `/bytefly header` | Toggle the header alone. |
+| `/bytefly footer` | Toggle the footer alone. |
+| `/bytefly status` | Report whether the header and footer are on. |
 | `/extensions` | Open the extensions picker in the TUI, or print the grouped list elsewhere. |
 | `/doctor [extension] [refresh]` | Probe the extensions and show the report; in the TUI this opens a docked list screen. |
 
@@ -328,7 +330,7 @@ and package resolution (`SettingsManager` plus `DefaultPackageManager` with
 - Lists every resolved extension, grouped by source (each package, user
   settings, project settings), sorted packages-first and then by display name.
 - Omits `bytefly` itself, so the tool that manages the list is never a row.
-  Turn the footer off with `/bytefly`; use `pi config` to disable bytefly
+  Turn the chrome off with `/bytefly`; use `pi config` to disable bytefly
   entirely.
 - Shows whether each one is enabled (`[x]`) or disabled (`[ ]`).
 - Toggles the focused extension with `Space` / `Enter`, writing `+pattern` /
@@ -471,7 +473,7 @@ rather than showing a wrong value.
 |---|---|
 | Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and version are drawn from the active theme's tokens. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. |
-| Command | `/bytefly [status]` toggles the footer and reports its state (tui only; a no-op elsewhere), with Tab completion. |
+| Command | `/bytefly [header|footer|status]` toggles the header and footer together (no argument) or one surface, and reports their state (tui only; a no-op elsewhere), with Tab completion. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Picker command | `pi.registerCommand("extensions")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
@@ -594,8 +596,8 @@ price calculation), `separator/`, `picker/`, and `doctor/`.
 | `index.ts` | Composition root: the disable guard and the five `register*` calls. |
 | `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark, theme tokens, padding, gap. |
 | `header/component.ts` | `ByteflyHeader`: the themed brand-mark and version component, plus its factory. |
-| `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
-| `footer/register.ts` | Installs/restores the footer, registers `/bytefly`, and owns its session lifecycle. |
+| `header/register.ts` | Installs/restores the header, exposes its enabled state, and owns its session lifecycle. |
+| `footer/register.ts` | Installs/restores the footer, registers `/bytefly [header|footer|status]`, and owns its session lifecycle. |
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |
 | `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
