@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint, viewportRows } from "./tui.ts";
+import { dockListFrame, screenHeader, screenHint, viewportRows } from "./tui.ts";
 import { coloringTheme, fakeTheme } from "../test/helpers/fakes.ts";
 
 describe("viewportRows", () => {
@@ -67,5 +67,56 @@ describe("screenHint", () => {
 		const line = screenHint(coloringTheme, 80, ["Esc close", { text: "a approve", color: "success" }]);
 		expect(line).toContain("[dim]Esc close");
 		expect(line).toContain("[success]a approve");
+	});
+});
+
+describe("dockListFrame", () => {
+	test("assembles the header, summary, body, and hint with the shared blanks", () => {
+		const lines = dockListFrame({
+			theme: fakeTheme,
+			width: 40,
+			title: "Jobs",
+			summary: " 1 job",
+			body: ["  a", "  b"],
+			hint: "  Esc close",
+		});
+
+		expect(lines[0]).toContain("Jobs");
+		expect(lines.slice(1)).toEqual([" 1 job", "", "  a", "  b", "", "  Esc close", ""]);
+	});
+
+	test("omits the summary and its blank line when absent", () => {
+		const lines = dockListFrame({ theme: fakeTheme, width: 20, title: "Jobs", body: ["  a"], hint: "  Esc" });
+
+		expect(lines.slice(1)).toEqual(["  a", "", "  Esc", ""]);
+	});
+
+	test("places the range after the body and the detail after the range", () => {
+		const lines = dockListFrame({
+			theme: fakeTheme,
+			width: 20,
+			title: "Jobs",
+			body: ["  a"],
+			range: "  1/2",
+			detail: ["  detail"],
+			hint: "  Esc",
+		});
+
+		expect(lines.slice(1)).toEqual(["  a", "  1/2", "  detail", "", "  Esc", ""]);
+	});
+
+	test("keeps the header and hint inside the width", () => {
+		for (const width of [1, 8, 20, 80]) {
+			const lines = dockListFrame({
+				theme: fakeTheme,
+				width,
+				title: "Extensions",
+				body: [],
+				hint: screenHint(fakeTheme, width, ["Esc close"]),
+			});
+
+			expect(visibleWidth(lines[0])).toBe(Math.max(1, width));
+			expect(visibleWidth(lines.at(-2) ?? "")).toBeLessThanOrEqual(width);
+		}
 	});
 });

@@ -28,7 +28,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`requirements.ts`](./requirements.ts) | Per-extension runtime prerequisite table plus a pure `probeExtension(seams)` over injected seams (exec, config reads, optional imports): bytefly's doctor surface reports on it and the extensions that own a dependency format their errors from it. |
 | [`shell.ts`](./shell.ts) | Shell escape rule shared by the worktree isolation guard and plan mode's read-only git guard: `SHELL_ESCAPABLE`, `isShellEscapable`, `hasShellEscape`. |
 | [`tool-names.ts`](./tool-names.ts) | Tool names and one parameter name that more than one extension must agree on, so an orchestrating `ctx.executeTool()` call or schema probe breaks the build on a rename. |
-| [`tui.ts`](./tui.ts) | Screen chrome: `screenHeader`, `screenHint`, `viewportRows`, and `FULL_SCREEN_OVERLAY`, plus `reuseText` (per-render `Text` reuse) and `editorTheme` (inline-editor theme). |
+| [`tui.ts`](./tui.ts) | Screen chrome: `screenHeader`, `screenHint`, `dockListFrame` (the shared docked-list assembly), `viewportRows`, and `FULL_SCREEN_OVERLAY`, plus `reuseText` (per-render `Text` reuse) and `editorTheme` (inline-editor theme). |
 | [`ui.ts`](./ui.ts) | Shared UI vocabulary: `GLYPHS`, `SEPARATORS`, `STATUS_KEYS` (`ctx.ui.setStatus` keys), `EXPAND_KEYBINDING` with `expandKey` / `expandHint`, and the transcript rail `BODY_INDENT` / `GLYPH_GAP`. |
 
 ## Conventions

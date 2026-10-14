@@ -27,7 +27,7 @@ import {
 	selectionMarker,
 	wheelDelta,
 } from "../../../lib/list-cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../../lib/tui.ts";
+import { dockListFrame, screenHint, type ViewportRowsSource } from "../../../lib/tui.ts";
 import { buildEntries, firstSelectable, nextSelectable } from "./resources.ts";
 import type { ExtensionsPickerRuntime as Runtime } from "./runtime.ts";
 import type { Entry } from "./types.ts";
@@ -200,14 +200,17 @@ export class ExtensionsListComponent implements Component {
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const entries = this.entries();
-		const lines: string[] = [screenHeader(this.theme, w, "Extensions"), this.summary(w), ""];
+		const summary = this.summary(w);
 
 		if (entries.length === 0) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No extensions found.")}`, w));
-			lines.push("");
-			lines.push(screenHint(this.theme, w, ["Esc close"]));
-			lines.push("");
-			return lines;
+			return dockListFrame({
+				theme: this.theme,
+				width: w,
+				title: "Extensions",
+				summary,
+				body: [truncateToWidth(`  ${this.theme.fg("dim", "No extensions found.")}`, w)],
+				hint: screenHint(this.theme, w, ["Esc close"]),
+			});
 		}
 
 		this.clampSelection(entries);
@@ -219,10 +222,11 @@ export class ExtensionsListComponent implements Component {
 		this.cursor.sync(entries.length);
 
 		const { start, end } = this.cursor.window(entries.length);
+		const body: string[] = [];
 		for (let index = start; index < end; index++) {
 			const entry = entries[index];
 			if (entry.kind === "group") {
-				lines.push(
+				body.push(
 					truncateToWidth(
 						`  ${this.theme.fg("muted", sanitizeLine(entry.label))} ${this.theme.fg("dim", `(${entry.count})`)}`,
 						w,
@@ -230,20 +234,27 @@ export class ExtensionsListComponent implements Component {
 					),
 				);
 			} else {
-				lines.push(this.itemRow(entry, index === this.cursor.selected, w));
+				body.push(this.itemRow(entry, index === this.cursor.selected, w));
 			}
 		}
-		if (this.cursor.clipped(entries.length)) {
-			lines.push(formatRange(this.theme, w, { start, end, total: entries.length }));
+
+		const footnotes: string[] = [];
+		if (detail) footnotes.push(truncateToWidth(`  ${this.theme.fg("muted", detail)}`, w, "…"));
+		if (this.runtime.isDirty()) {
+			footnotes.push(truncateToWidth(`  ${this.theme.fg("warning", "Saved · reload to apply")}`, w, "…"));
 		}
 
-		if (detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", detail)}`, w, "…"));
-		if (this.runtime.isDirty()) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("warning", "Saved · reload to apply")}`, w, "…"));
-		}
-		lines.push("");
-		lines.push(screenHint(this.theme, w, ["Esc close", "Space/Enter toggle", "Tab scope", "↑/↓ select", "g/G"]));
-		lines.push("");
-		return lines;
+		return dockListFrame({
+			theme: this.theme,
+			width: w,
+			title: "Extensions",
+			summary,
+			body,
+			range: this.cursor.clipped(entries.length)
+				? formatRange(this.theme, w, { start, end, total: entries.length })
+				: undefined,
+			detail: footnotes.length > 0 ? footnotes : undefined,
+			hint: screenHint(this.theme, w, ["Esc close", "Space/Enter toggle", "Tab scope", "↑/↓ select", "g/G"]),
+		});
 	}
 }
