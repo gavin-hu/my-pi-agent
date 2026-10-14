@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose a new extension, tool, command, or behaviour.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem before the solution. A proposal that fits an
+        existing extension is usually easier to land than a new one.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you unable to do today, and in what situation?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The tool, command, or behaviour you have in mind, and how it would be invoked.
+    validations:
+      required: true
+  - type: dropdown
+    id: fit
+    attributes:
+      label: Where does it fit?
+      options:
+        - An existing extension
+        - A new extension
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches, and why they are worse.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Examples, links, or a sketch of the intended surface.
+    validations:
+      required: false

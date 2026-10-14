@@ -49,8 +49,9 @@ local merge into `main` is allowed; a pull request is optional.
 
 Distribution is git-only: nothing is published to npm. A release is an annotated
 `vX.Y.Z` tag on `main` plus a matching GitHub release whose body is that
-version's `CHANGELOG.md` section, heading included. Prepare it on a branch like
-any other change:
+version's `CHANGELOG.md` section, heading included. This section is the source
+of truth; the user-facing copy is `docs/development.md`, so keep the two in sync.
+Prepare it on a branch like any other change:
 
 1. Bump `version` in `package.json`.
 2. In `CHANGELOG.md`, move the `## [Unreleased]` entries under
@@ -100,7 +101,7 @@ why.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range, never `dependencies`.
 - Adding or renaming a tool also means updating `test/naming.test.ts` and the
-  root `README.md` table.
+  catalog in `docs/extensions.md` (and the group it belongs to in `README.md`).
 - Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
   `promptGuidelines`, injected context) is budgeted. Keep each channel to its
   one job; `test/prompt-budget.test.ts` holds the injected-context ceilings.
@@ -215,11 +216,33 @@ Each extension has one doc, `extensions/<name>/README.md`; there is no separate
 13. `## Files` — module responsibility table.
 14. `## Testing` (optional).
 
-Use Pi's vocabulary from `docs/extensions.md`, account for every mode, and keep
-user-facing content above the contributor sections.
+Use Pi's vocabulary from Pi's own `docs/extensions.md`, account for every mode,
+and keep user-facing content above the contributor sections.
+
+## Documentation layout
+
+One doc per audience. Do not duplicate across them:
+
+- `README.md` — the end-user front door: what the package is, install, the
+  grouped catalog, configuration, and links onward.
+- `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
+  for the invariants rather than restating them.
+- `docs/` — repo-level guides: `getting-started`, `extensions` (the full
+  catalog), `configuration`, `architecture`, `development`, `security`.
+- `AGENTS.md` (this file) — the machine-facing contract and the repo
+  invariants.
+- `extensions/<name>/README.md`, `lib/README.md`, `test/README.md` — the deep
+  per-area contracts.
+
+When behavior changes, update the catalog (`docs/extensions.md`), the relevant
+`docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
 
 ## Read more
 
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — setup, the branch flow, checks, and
+  commit format for human contributors.
+- [`docs/README.md`](./docs/README.md) — the index of user and contributor
+  guides.
 - [`test/README.md`](./test/README.md) — test principles, co-located layout,
   and helper conventions.
 - [`lib/README.md`](./lib/README.md) — shared helpers, host seams, module rules.

@@ -1,204 +1,152 @@
-# @gavin-hu/my-pi-agent
+# my-pi-agent
 
 [![CI](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
 
-A personal collection of [Pi](https://pi.dev) customizations, packaged as one
-installable Pi package. Pi discovers every extension and theme through the `pi`
-manifest in [`package.json`](./package.json), so it loads only what is declared
-here.
+Plan before you act, delegate the work, keep the main checkout clean, and carry
+context across sessions. `my-pi-agent` is a single [Pi](https://pi.dev) package
+that adds fifteen extensions and two themes — install the pack, turn off what
+you do not want, and keep using Pi unchanged.
 
 ![The Pi TUI with the bytefly header logo, chrome, loaded extensions list, turn separator, and status bar](./assets/bytefly.png)
 
 ## Contents
 
-- [Install](#install)
-- [What's included](#whats-included)
-  - [Themes](#themes)
+- [Why this pack](#why-this-pack)
+- [Quick start](#quick-start)
+- [What you get](#what-you-get)
 - [Configuration](#configuration)
-  - [Disabling extensions](#disabling-extensions)
-- [Development](#development)
-  - [Release](#release)
-  - [Cross-platform](#cross-platform)
+- [Documentation](#documentation)
+- [Requirements](#requirements)
 - [Contributing](#contributing)
-  - [Tool naming](#tool-naming)
-  - [Package conventions](#package-conventions)
-- [Changelog](#changelog)
 - [License](#license)
 
-## Install
+## Why this pack
+
+Pi ships a small, sharp core. This package is the layer on top for people who
+want the agent to *think first and work safely*:
+
+- **Plan, then execute.** A read-only planning mode turns a task into a reviewed
+  plan file that the agent then follows step by step.
+- **Delegate and parallelize.** Run specialist subagents in their own Pi
+  processes to explore, review, test, or implement while you keep the thread.
+- **Never wreck the checkout.** Work happens in an isolated `git worktree`, and
+  every prompt is snapshotted so a bad turn is one `/rewind` away.
+- **Remember across sessions.** Durable notes live in plain markdown that you
+  can read, edit, and version.
+- **Reach the web and your files.** Search, fetch, browse, open, and read
+  documents — all from inside the session.
+
+Everything is optional and independently toggleable. Nothing is patched or
+forked: Pi discovers the resources through the `pi` manifest in
+[`package.json`](./package.json), so the package upgrades with Pi like any
+other.
+
+## Quick start
+
+Requires a working [Pi](https://pi.dev) installation.
 
 ```bash
-pi install git:github.com/gavin-hu/my-pi-agent   # from git
-pi install ./                                    # personal, from this checkout
-pi install ./ -l                                 # project-local (.pi/settings.json)
-pi -e .                                          # try it for a single run
+pi install git:github.com/gavin-hu/my-pi-agent             # install for your Pi
+pi install git:github.com/gavin-hu/my-pi-agent@v0.6.1      # pin a release
+pi install ./ -l                                           # project-local (.pi/settings.json)
+pi -e .                                                    # try it for one run
 ```
 
-Requires a working Pi installation. Bun and the dev dependencies are needed
-only for the development tasks below.
+Then, from inside Pi:
 
-## What's included
+- `/extensions` lists every loaded extension and enables or disables one.
+- `/doctor` checks that each enabled extension has what it needs at runtime.
+- `/settings` → **Theme** selects a theme.
+- `/plan <task>` starts a task in read-only planning mode.
 
-Each extension ships its own `README.md` under its directory with the full tool
-and command surface, the Pi integration contract, and design notes.
+## What you get
 
-| Resource | Path | What it does |
+Fifteen extensions and two themes, grouped by what you are trying to do. Each
+extension's own `README.md` has the full tool and command surface.
+
+### Plan and delegate
+
+| Extension | Tools and commands | What it does |
 |---|---|---|
-| Extension | [`extensions/worktree/`](./extensions/worktree/) | `worktree`: isolated `git worktree` lifecycle — `enter_worktree` / `exit_worktree` / `prune_worktrees` / `list_worktrees`, `/worktree*`, and `--worktree <name>`, re-rooting the built-in path tools and guarding escapes. |
-| Extension | [`extensions/rewind/`](./extensions/rewind/) | `rewind`: automatic per-prompt snapshots under `refs/pi/rewind` plus `/rewind` to restore code, conversation, or both, and a `↺ N` status chip. |
-| Extension | [`extensions/question/`](./extensions/question/) | `question`: ask the user one or more structured questions (labelled options + free-form "Other") and wait for the answer. |
-| Extension | [`extensions/todo/`](./extensions/todo/) | `todo`: a TodoWrite-style task list (whole-list replacement, `pending`/`in_progress`/`completed`) with a persistent one-line widget and `/todos`. |
-| Extension | [`extensions/goal/`](./extensions/goal/) | `goal`: a persistent session objective (`active`/`achieved`) kept in a one-line widget and restated before each turn; `/goal <prompt>` establishes a shared understanding of the goal (restate, ask, confirm), sets it, and starts the run, while `/goal raw` records the words verbatim and `/goal set`/`edit` record without running and `clear`/`done` only change state. |
-| Extension | [`extensions/plan/`](./extensions/plan/) | `plan`: read-only planning via `enter_plan_mode` / `write_plan` / `exit_plan_mode`, with `set_plan_step` keeping an approved plan current; plans follow a documented outline, are saved to `.pi/plans`, and are reviewed (with heading jumps) before execution (`--plan` to start, `/plan` toggles, `Ctrl+Alt+P`); `w` on the review screen or `/plan review [path]` opens the plan in a loopback browser for inline comments that are saved back into the plan file and returned as a refinement; `subagent` delegation is forced read-only and `powershell` is blocked. |
-| Extension | [`extensions/subagent/`](./extensions/subagent/) | `subagent`: delegate a task to a specialized agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) running in its own `pi` process — single, parallel (max 8/4), or chained via `{previous}`, with optional user/project markdown agents and a `readOnly` mode that passes only reader tools to the child. |
-| Extension | [`extensions/job/`](./extensions/job/) | `job`: run long-lived shell commands in the background (`job` tool: start/list/status/logs/kill/wait/clear; `/jobs`; `▸ N` running / `✗ N` unreported-failure chips) with sanitized log tails and shutdown/reconcile lifecycle. |
-| Extension | [`extensions/web-access/`](./extensions/web-access/) | `web-access`: web access with two tools — `web_search` (general web search through a pluggable provider: keyless DuckDuckGo by default, optional SearXNG or Brave) and `web_fetch` (GET/POST a URL and read readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support); native `fetch`, one `web-access.json`. |
-| Extension | [`extensions/file-browse/`](./extensions/file-browse/) | `file-browse`: `/browse` starts a read-only local HTTP server on a stable port for the session, rooted at the working directory, and opens a two-pane browser tree — listings, rendered Markdown preview, sortable listings, copy/wrap, image thumbnails, per-language icons, a filter, and a fuzzy quick-open palette; `127.0.0.1` only, no dependencies, with a `◉ <port>` status chip. |
-| Extension | [`extensions/document/`](./extensions/document/) | `document`: `read_doc` extracts plain text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged with `startIndex`/`maxChars` and confined to the effective working directory. |
-| Extension | [`extensions/file-open/`](./extensions/file-open/) | `file-open`: open or reveal a file or directory in the OS-native application with `/open <path>` (and `/open -r <path>` for the file manager), plus the codemode `open_path` tool. |
-| Extension | [`extensions/memory/`](./extensions/memory/) | `memory`: durable cross-session notes as human-editable markdown — global under the agent directory, project under the repo root's `.pi/` — added, forgotten, or listed with the `memory` tool, injected as a hidden `[MEMORY]` context before each run, and inspected, edited, or cleared with `/memory`. |
-| Extension | [`extensions/wechat/`](./extensions/wechat/) | `wechat`: a thin bridge to WeChat over the Weixin iLink bot API — the live Pi session is the agent, so inbound text, images (as model image content), and files (saved and referenced by path) become a user turn and the reply is sent back, with a typing indicator; `/wechat login\|start\|stop\|status\|logout` and the owner-only `send_wechat` tool. |
-| Extension | [`extensions/bytefly/`](./extensions/bytefly/) | `bytefly`: the themed TUI header (Pi's brand mark and version, recolored from the active theme's tokens) and the two-line, width-adaptive footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage + mode/alert + model + thinking level), replacing Pi's built-in header and footer; `/bytefly [header|footer|status]` toggles the header and footer, DeepSeek is priced out of the box from its published yuan rates and peak tariff, and `bytefly.json` adds or overrides per-model rates with an optional peak/off-peak schedule. It also draws the labeled `╌╌╌ turn N ╌╌╌` rule between completed turns — `agent_settled` appends an inert `bytefly-separator` entry that an entry renderer draws; width-adaptive, TTY-only. It also owns the `/extensions` picker: a keyboard-driven dock list of every resolved Pi extension across all configured packages that enables or disables one (Global or Project settings) by writing `settings.json`, applying on reload. It also owns the diagnostics surface: `/doctor [extension] [refresh]` and the read-only `run_doctor` tool report whether each extension has what it needs at runtime — missing binaries, optional packages, login/state files, and config files that fail to parse — with one warning at session start when an enabled extension cannot work. |
-| Theme | [`themes/bytefly-dark.json`](./themes/bytefly-dark.json) | `bytefly-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
-| Theme | [`themes/bytefly-light.json`](./themes/bytefly-light.json) | `bytefly-light`: the light companion (white canvas, GitHub light accents), for `bytefly-light/bytefly-dark` auto-switching. |
+| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_step`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `.pi/plans`, and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments. |
+| [`subagent`](./extensions/subagent/) | `subagent` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, or chained. |
+| [`todo`](./extensions/todo/) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
+| [`goal`](./extensions/goal/) | `goal`, `/goal` | A persistent session objective, kept in a widget and restated before each turn. |
+| [`question`](./extensions/question/) | `ask_user_question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
+| [`job`](./extensions/job/) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
 
-More extensions, skills, and prompts can be added under the conventional
-directories and listed in the `pi` manifest.
+### Keep your work safe
 
-### Themes
+| Extension | Tools and commands | What it does |
+|---|---|---|
+| [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree*`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
+| [`rewind`](./extensions/rewind/) | `/rewind`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind` and restore code, conversation, or both. |
+| [`memory`](./extensions/memory/) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run. |
 
-Select `bytefly-dark` or `bytefly-light` through `/settings` → **Theme**, or
-use automatic light/dark switching with
-`"theme": "bytefly-light/bytefly-dark"` (`pi --use-theme bytefly-dark` for a
-one-off). Pi themes cannot set the terminal's background, so the live canvas
-stays your terminal's color — set it to `#0d1117` for the intended look. HTML
-exports use the theme's `export.pageBg`, so they are unaffected.
+### Reach the world
+
+| Extension | Tools and commands | What it does |
+|---|---|---|
+| [`web-access`](./extensions/web-access/) | `web_search`, `web_fetch` | Search the web (keyless DuckDuckGo by default, optional SearXNG or Brave) and fetch a page as readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support. |
+| [`file-browse`](./extensions/file-browse/) | `/browse` | Start a loopback, read-only file browser rooted at the working directory, with Markdown preview and a fuzzy quick-open palette. |
+| [`document`](./extensions/document/) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
+| [`file-open`](./extensions/file-open/) | `/open`, `open_path` | Open or reveal a file or directory in the OS-native application. |
+| [`wechat`](./extensions/wechat/) | `/wechat`, `send_wechat` | Bridge a WeChat chat to the live session over the Weixin iLink bot API; inbound text, images, and files become turns. |
+
+### Chrome and upkeep
+
+| Extension | Tools and commands | What it does |
+|---|---|---|
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`, `/extensions`, `/doctor`, `run_doctor` | A themed header and width-adaptive footer, a rule between completed turns, the `/extensions` picker, and `/doctor` diagnostics. DeepSeek is priced out of the box, and `bytefly.json` adds your own rates. |
+| [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | A GitHub-inspired dark palette and its light companion, with optional automatic light/dark switching. |
 
 ## Configuration
 
 Most extensions need no configuration. Those that read settings load
-`<agent-dir>/<name>.json` and `<cwd>/.pi/<name>.json`; each extension's
-`README.md` lists the keys it accepts.
+`<agent-dir>/<name>.json` merged with `<cwd>/.pi/<name>.json`; each extension's
+`README.md` lists its keys, and [`docs/configuration.md`](./docs/configuration.md)
+indexes them.
 
-### Disabling extensions
-
-Every extension in this package is on by default. Set `PI_DISABLED_EXTENSIONS`
-to a comma- or whitespace-separated list of extension names to load the package
-without them:
+Every extension is on by default. To load the pack without some of them, set
+`PI_DISABLED_EXTENSIONS` to a comma- or whitespace-separated list of extension
+names (the directory names under [`extensions/`](./extensions/)):
 
 ```bash
 PI_DISABLED_EXTENSIONS=todo,job pi -e .
 ```
 
-Names are the extension directories under [`extensions/`](./extensions/)
-(`worktree`, `rewind`, `question`, `todo`, `goal`, `plan`,
-`subagent`, `job`, `web-access`, `file-browse`, `document`, `file-open`,
-`memory`, `bytefly`), compared
-case-insensitively; unknown names are ignored. This is a package-local switch:
-Pi still imports each entrypoint, but a disabled factory registers nothing. To
-drop the whole package instead, use Pi's own `--no-extensions` or a settings
-`-path` entry.
+Names are compared case-insensitively and unknown names are ignored. This only
+stops the factories from registering; to drop the whole package, use Pi's
+`--no-extensions` or remove the package from your settings.
 
-## Development
+## Documentation
 
-```bash
-bun install
-bun run test         # unit tests (bun test --parallel=4)
-bun run test:watch   # unit tests, watch mode
-bun run typecheck    # tsc --noEmit
-bun run format       # biome format --write .
-bun run format:check # biome format . (check only)
-bun run check        # format:check + typecheck + test
-```
+| Guide | What it covers |
+|---|---|
+| [Getting started](./docs/getting-started.md) | Requirements, install options, verifying the load, themes. |
+| [Extensions](./docs/extensions.md) | The full catalog of every extension and theme. |
+| [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
+| [Architecture](./docs/architecture.md) | How the package, its extensions, and `lib/` fit together. |
+| [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
+| [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 
-AI coding agents should read [`AGENTS.md`](./AGENTS.md) for the repo
-conventions and the worktree-based branch flow.
+## Requirements
 
-### Release
-
-Distribution is git-only; nothing is published to npm. A release is an
-annotated `vX.Y.Z` tag on `main` plus a matching GitHub release whose body is
-the changelog section.
-
-1. Work on a branch in a worktree (see [`AGENTS.md`](./AGENTS.md)).
-2. Bump `version` in `package.json`, move the `Unreleased` entries in
-   [`CHANGELOG.md`](./CHANGELOG.md) under `## [X.Y.Z] - YYYY-MM-DD`, and update
-   the link refs at the bottom of that file.
-3. Run `bun run check`.
-4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
-5. Tag and push:
-
-   ```bash
-   git tag -a vX.Y.Z -m "vX.Y.Z"
-   git push origin main && git push origin vX.Y.Z
-   ```
-
-6. Create the GitHub release with that changelog section (heading included) as
-   its body:
-
-   ```bash
-   awk -v h='## [X.Y.Z]' 'index($0,h){p=1} p && /^## \[/ && !index($0,h){exit} p' CHANGELOG.md > section.md
-   gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
-   rm section.md
-   ```
-
-GitHub marks the release with the newest creation date as "Latest", so after
-creating a release for an older version use `gh release edit vX.Y.Z --latest`
-on the newest tag. Publishing a draft does not change which release is latest.
-
-### Cross-platform
-
-The package and its checks run on Windows, macOS, and Linux; CI runs the full
-`bun run check` on all three. `git` must be on `PATH`. Symlink-dependent tests
-skip automatically when the host cannot create symlinks (unprivileged Windows
-without Developer Mode), so an unprivileged Windows checkout still passes with a
-few skips instead of failures.
-
-Extensions are plain TypeScript loaded by Pi through `jiti`, so there is no
-build step to run an extension. `@earendil-works/pi-*` and `typebox` are
-`peerDependencies` supplied by the Pi host; they are installed as dev
-dependencies here only for typechecking and tests.
+- **Pi** — a working installation; `my-pi-agent` is a package, not a fork.
+- **OS** — Windows, macOS, and Linux; the full check suite runs on all three in
+  CI.
+- **git** on `PATH` for the `worktree` and `rewind` extensions; everything else
+  degrades or disables cleanly, and `/doctor` tells you what is missing.
+- Optional runtime pieces (for example a browser for HTML exports) are reported
+  per extension by `/doctor`.
 
 ## Contributing
 
-See [`AGENTS.md`](./AGENTS.md) for the worktree-based branch flow and the
-repository invariants. This package follows these contracts:
-
-### Tool naming
-
-Model-facing tools are lowercase `snake_case` and follow Claude Code's
-plan/worktree shape:
-
-- A singleton tool is named for its domain: `todo`, `goal`, `job`, `subagent`,
-  `memory`.
-- A multi-word tool is verb-first: `enter_worktree`, `exit_worktree`,
-  `prune_worktrees`, `list_worktrees`, `enter_plan_mode`, `write_plan`,
-  `exit_plan_mode`, `set_plan_step`, `ask_user_question`, `read_doc`. The noun-first `web_search`
-  and `web_fetch` mirror Claude Code's `WebSearch`/`WebFetch`.
-- A name one tool calls through `ctx.executeTool()` lives in
-  [`lib/tool-names.ts`](./lib/tool-names.ts), never as a cross-extension import
-  (see [`lib/README.md`](./lib/README.md)).
-- [`test/naming.test.ts`](./test/naming.test.ts) enforces the shape, uniqueness,
-  verb-first ordering, and the reviewed set of names. Built-in overrides
-  (`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`) reuse the built-in names and
-  are excluded.
-
-### Package conventions
-
-- `keywords: ["pi-package"]` and a `pi` manifest in `package.json`.
-- Host-provided packages (`@earendil-works/pi-*`, `typebox`) stay in
-  `peerDependencies` with a `"*"` range, never in `dependencies`.
-- Distribution is git-only: users install a tag with
-  `pi install git:github.com/gavin-hu/my-pi-agent@vX.Y.Z`. There is no npm
-  publish, so `package.json` has no `files` or `publishConfig` field and the
-  repository has no `.npmignore`.
-- See the
-  [Pi Packages docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
-
-## Changelog
-
-See [`CHANGELOG.md`](./CHANGELOG.md) for release notes.
+Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for
+the setup, the worktree branch flow, and the checks a change must pass. AI
+coding agents should read [`AGENTS.md`](./AGENTS.md).
 
 ## License
 
