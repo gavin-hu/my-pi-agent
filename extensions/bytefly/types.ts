@@ -1,5 +1,5 @@
 /**
- * Shared types for the chrome extension.
+ * Shared types for the bytefly extension.
  *
  * The bar is built in three stages: a `StatusSnapshot` gathers the data, the
  * snapshot becomes `LineSpec`s of `Segment`s, and the layout engine renders
@@ -45,7 +45,7 @@ export interface PeakSchedule {
 }
 
 /** Everything the price calculation is configured with. */
-export interface ChromeConfig {
+export interface ByteflyConfig {
 	currency: Currency;
 	/** Fall back to Pi's recorded cost for a record that no rate matches. */
 	fallbackToRecordedCost: boolean;

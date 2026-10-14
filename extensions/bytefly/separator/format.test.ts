@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { separatorLabel, separatorLine, separatorParts } from "./format.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
 
 const width = (parts: { left: string; label: string; right: string }) =>
 	visibleWidth(parts.left) + visibleWidth(parts.label) + visibleWidth(parts.right);

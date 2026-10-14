@@ -3,17 +3,25 @@
  *
  * `CONFIG` is the bar's own content and layout — weights live on the segments
  * themselves (see `render/segments.ts`). Everything below it is
- * `chrome.json`: read from `~/.pi/agent/chrome.json` and
- * `<cwd>/.pi/chrome.json` (project values override global) with
- * `lib/config.ts`. Missing or malformed files are ignored, and a value of the
- * wrong type falls back to the default instead of throwing.
+ * `bytefly.json`: read from `~/.pi/agent/bytefly.json` and
+ * `<cwd>/.pi/bytefly.json` (project values override global). Missing or
+ * malformed files are ignored, and a value of the wrong type falls back to the
+ * default instead of throwing.
+ *
+ * The extension was called `chrome` before it was released as `bytefly`. A
+ * `chrome.json` left by that name is moved to `bytefly.json` on load, and is
+ * still read in place when the directory is not writable, so a saved price
+ * configuration survives the rename.
  */
 
-import { clampInteger, clampNumber, cleanString, loadConfigFile } from "../../lib/config.ts";
+import { existsSync, renameSync } from "node:fs";
+import { join } from "node:path";
+import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { clampInteger, clampNumber, cleanString, readJson } from "../../lib/config.ts";
 import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
 import { parseWindow } from "./price/schedule.ts";
 import { asRecord } from "./record.ts";
-import type { Currency, ModelRates, PeakSchedule, PeakWindow, ChromeConfig } from "./types.ts";
+import type { Currency, ModelRates, PeakSchedule, PeakWindow, ByteflyConfig } from "./types.ts";
 
 export const CONFIG = {
 	/** Context percentage thresholds. */
@@ -40,7 +48,7 @@ export const CONFIG = {
 	sessionLabelMax: 14,
 } as const;
 
-// --- Price configuration (chrome.json) ----------------------------------
+// --- Price configuration (bytefly.json) ----------------------------------
 
 /** Monday to Friday, the days DeepSeek charges its peak rate. */
 const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
@@ -51,7 +59,7 @@ const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
  * Pi's catalog prices every call in dollars at one flat rate, which is wrong
  * twice over for DeepSeek: the bill is in yuan, and peak hours cost double.
  * These are the published peak figures; `DEFAULT_PEAK` supplies the tariff. A
- * `chrome.json` entry with the same key replaces one of these, and every
+ * `bytefly.json` entry with the same key replaces one of these, and every
  * other provider still falls back to Pi's recorded cost.
  *
  * Source: <https://api-docs.deepseek.com/quick_start/pricing>.
@@ -79,7 +87,7 @@ export const DEFAULT_PEAK: PeakSchedule = {
 /** Rendered-currency default: yuan, the currency `DEFAULT_RATES` is stated in. */
 export const DEFAULT_CURRENCY: Currency = { symbol: "¥", decimals: 2 };
 
-export const DEFAULT_CHROME_CONFIG: ChromeConfig = {
+export const DEFAULT_BYTEFLY_CONFIG: ByteflyConfig = {
 	currency: DEFAULT_CURRENCY,
 	fallbackToRecordedCost: true,
 	rates: DEFAULT_RATES,
@@ -160,7 +168,7 @@ function peakValue(raw: unknown, base: PeakSchedule): PeakSchedule {
 }
 
 /** Validate a raw config object over `base`. Total: never throws, never guesses. */
-export function normalizeChromeConfig(raw: Record<string, unknown> | undefined, base: ChromeConfig): ChromeConfig {
+export function normalizeByteflyConfig(raw: Record<string, unknown> | undefined, base: ByteflyConfig): ByteflyConfig {
 	if (!raw) return base;
 	return {
 		currency: currencyValue(raw.currency, base.currency),
@@ -171,7 +179,41 @@ export function normalizeChromeConfig(raw: Record<string, unknown> | undefined, 
 	};
 }
 
+// --- Legacy config migration ---------------------------------------------
+
+/** The config file this extension reads. */
+export const CONFIG_FILE = "bytefly.json";
+/** The name the config file had as `chrome`. */
+export const LEGACY_CONFIG_FILE = "chrome.json";
+
+/**
+ * Move a legacy `chrome.json` to `bytefly.json` in one directory, when only the
+ * legacy file exists. Best-effort: an unwritable directory keeps the legacy
+ * file, which {@link scopedConfig} then reads in place.
+ */
+function migrateLegacyConfig(dir: string): void {
+	const legacy = join(dir, LEGACY_CONFIG_FILE);
+	if (!existsSync(legacy) || existsSync(join(dir, CONFIG_FILE))) return;
+	try {
+		renameSync(legacy, join(dir, CONFIG_FILE));
+	} catch {
+		// Leave the legacy file; the fallback read below still finds it.
+	}
+}
+
+/** Raw config for one scope, preferring `bytefly.json` over a legacy `chrome.json`. */
+function scopedConfig(dir: string): Record<string, unknown> | undefined {
+	return readJson(join(dir, CONFIG_FILE)) ?? readJson(join(dir, LEGACY_CONFIG_FILE));
+}
+
 /** Effective price config for `cwd` (global file, then project file, over defaults). */
-export function loadChromeConfig(cwd: string): ChromeConfig {
-	return loadConfigFile(cwd, "chrome.json", DEFAULT_CHROME_CONFIG, normalizeChromeConfig);
+export function loadByteflyConfig(cwd: string): ByteflyConfig {
+	const agentDir = getAgentDir();
+	const projectDir = join(cwd, CONFIG_DIR_NAME);
+	migrateLegacyConfig(agentDir);
+	migrateLegacyConfig(projectDir);
+	let config = DEFAULT_BYTEFLY_CONFIG;
+	config = normalizeByteflyConfig(scopedConfig(agentDir), config);
+	config = normalizeByteflyConfig(scopedConfig(projectDir), config);
+	return config;
 }

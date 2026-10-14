@@ -1,40 +1,20 @@
 /**
- * turn-separator — a labeled dashed line between completed turns.
+ * bytefly's turn separator: a labeled rule between completed turns.
  *
  * Pi has no built-in turn separator. On every fully settled agent run
- * (`agent_settled`, one per user turn), this appends an inert custom entry that
- * is excluded from LLM context. A registered entry renderer draws it as a
+ * (`agent_settled`, one per user turn) this appends an inert custom entry that
+ * is excluded from LLM context, and a registered entry renderer draws it as a
  * centered `╌╌╌ turn N ╌╌╌` rule in the interactive transcript.
  *
  * `agent_settled` is deliberate: `turn_end` fires once per assistant message,
  * so tool-calling rounds would each get a line, while a settled run is exactly
  * one user turn.
- *
- * Load with:  pi --extension ./extensions/turn-separator
  */
 
-import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
-import { isExtensionEnabled } from "../../lib/env.ts";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SeparatorComponent } from "./component.ts";
 import { CONFIG } from "./config.ts";
-import { separatorLine } from "./format.ts";
 import type { TurnSeparatorData } from "./types.ts";
-
-/** Renders one separator entry; `turn` comes from the stored entry data. */
-class SeparatorComponent implements Component {
-	constructor(
-		private readonly turn: number,
-		private readonly theme: Theme,
-	) {}
-
-	invalidate(): void {
-		// Stateless: the line is derived from `turn` and the width passed to render.
-	}
-
-	render(width: number): string[] {
-		return separatorLine(this.turn, width, this.theme);
-	}
-}
 
 /** Count separators already on the branch, so numbering survives resume and fork. */
 function countSeparators(entries: readonly { type: string; customType?: string }[]): number {
@@ -45,8 +25,8 @@ function countSeparators(entries: readonly { type: string; customType?: string }
 	return count;
 }
 
-export default function turnSeparator(pi: ExtensionAPI): void {
-	if (!isExtensionEnabled("turn-separator")) return;
+/** Register the separator renderer and append one on every settled turn. */
+export function registerTurnSeparator(pi: ExtensionAPI): void {
 	pi.registerEntryRenderer<TurnSeparatorData>(CONFIG.customType, (entry, _options, theme) => {
 		const turn = entry.data?.turn;
 		if (typeof turn !== "number" || !Number.isFinite(turn)) return undefined;

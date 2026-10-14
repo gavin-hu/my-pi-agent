@@ -7,7 +7,7 @@
  */
 
 import { emptyUsage } from "../collect/entries.ts";
-import type { ModelRates, ChromeConfig, UsageRecord, UsageTotals } from "../types.ts";
+import type { ModelRates, ByteflyConfig, UsageRecord, UsageTotals } from "../types.ts";
 import { findRates } from "./rates.ts";
 import { isPeak, peakFormatter } from "./schedule.ts";
 
@@ -30,7 +30,7 @@ function tokenCost(record: UsageRecord, rates: ModelRates): number {
  * The returned function totals tokens as well as cost, so the bar's meters and
  * its price always describe the same set of records.
  */
-export function createPricer(config: ChromeConfig): (records: readonly UsageRecord[]) => UsageTotals {
+export function createPricer(config: ByteflyConfig): (records: readonly UsageRecord[]) => UsageTotals {
 	// Building a formatter is the expensive part, and only a schedule needs one.
 	const format = config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
 
@@ -48,7 +48,7 @@ export function createPricer(config: ChromeConfig): (records: readonly UsageReco
 }
 
 /** One record's cost: the configured rate, or Pi's recorded value. */
-function recordCost(config: ChromeConfig, format: Intl.DateTimeFormat | null, record: UsageRecord): number {
+function recordCost(config: ByteflyConfig, format: Intl.DateTimeFormat | null, record: UsageRecord): number {
 	const rates = findRates(config.rates, record.provider, record.model);
 	if (rates === undefined) return config.fallbackToRecordedCost ? record.recordedCost : 0;
 	const cost = tokenCost(record, rates);

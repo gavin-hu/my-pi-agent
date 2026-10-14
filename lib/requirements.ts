@@ -198,12 +198,9 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		],
 		notes: ["Logging in needs the interactive terminal UI."],
 	},
-	chrome: {
-		configFile: "chrome.json",
-		notes: ["TUI only; inert in RPC, JSON, and print modes."],
-	},
-	"turn-separator": {
-		notes: ["TUI only; inert in RPC, JSON, and print modes."],
+	bytefly: {
+		configFile: "bytefly.json",
+		notes: ["TUI only; footer, status routing, and turn separator; inert in RPC, JSON, and print modes."],
 	},
 	"extension-picker": {
 		notes: ["Writes through Pi's own settings; project scope requires a trusted project."],

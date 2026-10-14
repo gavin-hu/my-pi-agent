@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
-import { fullSnapshot } from "../../../test/helpers/fixtures/chrome.ts";
+import { fullSnapshot } from "../../../test/helpers/fixtures/bytefly.ts";
 import { GLYPHS } from "../../../lib/ui.ts";
 
 /**

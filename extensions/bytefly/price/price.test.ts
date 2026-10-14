@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_CHROME_CONFIG } from "../config.ts";
-import type { ChromeConfig, UsageRecord } from "../types.ts";
+import { DEFAULT_BYTEFLY_CONFIG } from "../config.ts";
+import type { ByteflyConfig, UsageRecord } from "../types.ts";
 import { createPricer } from "./price.ts";
 
 /** 2026-01-05 is a Monday; 03:00 UTC is 11:00 in Asia/Shanghai. */
@@ -8,15 +8,15 @@ const MONDAY_PEAK = Date.UTC(2026, 0, 5, 3);
 /** 13:00 UTC is 21:00 in Asia/Shanghai, outside every window. */
 const MONDAY_OFF_PEAK = Date.UTC(2026, 0, 5, 13);
 
-const config = (overrides: Partial<ChromeConfig> = {}): ChromeConfig => ({
-	...DEFAULT_CHROME_CONFIG,
+const config = (overrides: Partial<ByteflyConfig> = {}): ByteflyConfig => ({
+	...DEFAULT_BYTEFLY_CONFIG,
 	...overrides,
 });
 
 const rate = { input: 2, output: 8, cacheRead: 0.04, cacheWrite: 0, offPeakMultiplier: 0.5 };
 
 /** A DeepSeek flash config: ¥2 / ¥8 per million, half price off-peak. */
-const deepseek = (overrides: Partial<ChromeConfig> = {}): ChromeConfig =>
+const deepseek = (overrides: Partial<ByteflyConfig> = {}): ByteflyConfig =>
 	config({
 		currency: { symbol: "¥", decimals: 2 },
 		rates: { "deepseek/deepseek-flash": rate },

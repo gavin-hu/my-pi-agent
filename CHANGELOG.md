@@ -18,12 +18,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `set_plan_step` tool marks a step `pending` or `completed` in the approved
   plan file in place, so the artifact stays current as the work is done.
 
-- `chrome`: the two-line, width-adaptive footer formerly shipped as
-  `status-bar`, replacing Pi's built-in footer while leaving its header alone.
-  The footer keeps pwd + session name + git branch/worktree + serve chip on
-  line 1 and the context gauge + usage + mode/alert + model + thinking level on
-  line 2; `/chrome [status]` toggles it. `chrome` replaces `status-bar` and
-  renames its config file `status-bar.json` → `chrome.json`.
+- `bytefly`: the two-line, width-adaptive footer formerly shipped as
+  `status-bar` and then `chrome`, replacing Pi's built-in footer while leaving
+  its header alone. The footer keeps pwd + session name + git branch/worktree +
+  serve chip on line 1 and the context gauge + usage + mode/alert + model +
+  thinking level on line 2; `/bytefly [status]` toggles it. The display name,
+  command, extension directory, and config file are all `bytefly` now, and a
+  legacy `chrome.json` is migrated to `bytefly.json` on load.
 
 - `goal`: a bare `/goal` with no goal set shows the command usage instead of
   only `No goal set.`, and `/goal help` (or `-h` / `--help`) shows it at any
@@ -84,6 +85,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ask_user_question`: the answer hints render through the shared `screenHint`,
   so a narrow terminal drops whole keys instead of wrapping or clipping one.
 
+### Removed
+
+- `turn-separator`: absorbed into `bytefly`, which now draws the labeled turn
+  rule itself. The rule renders the `bytefly-separator` entry type, so
+  separators recorded as `turn-separator` no longer render, and
+  `PI_DISABLED_EXTENSIONS=turn-separator` no longer suppresses the rule; use
+  `bytefly` instead.
+
 ### Fixed
 
 - `goal`: `/goal edit <text>` and `/goal set <text>` record the text without
@@ -114,15 +123,15 @@ rendering, so model-authored control characters cannot reach the terminal.
   and a degraded row's summary is colored `warning` to match its glyph.
 - `extension-picker`: the dirty line reads `Saved · reload to apply`, since each
   toggle is already persisted and only a reload is pending.
-- `chrome`: `/chrome status` reports `on`/`off` instead of `footer`/`disabled`.
+- `bytefly`: `/bytefly status` reports `on`/`off` instead of `footer`/`disabled`.
 - `rewind`: the list no longer over-reserves a row, unselected rows use `muted`
   so the code-snapshot marker reads, and the hint names the navigation keys.
 - `plan`: the approve hint says approval also runs the plan.
-- `chrome`: a compacted status keeps its own colour instead of losing it exactly
+- `bytefly`: a compacted status keeps its own colour instead of losing it exactly
   when the bar tightens; an alert (a failed job) sorts ahead of the modes, and
   the status slot is droppable, so a narrow bar drops it rather than truncating
   the model.
-- `chrome`: the session name is bracketed and `muted` (was `dim`), the branch
+- `bytefly`: the session name is bracketed and `muted` (was `dim`), the branch
   uses a neutral token (was the unrelated `customMessageLabel`), and a missing
   model reads `no model` in `muted` (was an accent-coloured `no-model`).
 - `job`: `d` on a finished job and `x` with nothing finished now say so instead

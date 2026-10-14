@@ -1,5 +1,5 @@
 /**
- * Pure formatting for the turn-separator line.
+ * Pure formatting for bytefly's turn separator line.
  *
  * `separatorParts` decides the layout from a plain turn number and a column
  * count; `separatorLine` applies theme colors. Neither touches Pi state, so

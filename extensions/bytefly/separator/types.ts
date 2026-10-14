@@ -1,5 +1,5 @@
 /**
- * Shared types for the turn-separator extension.
+ * Shared types for bytefly's turn separator.
  *
  * The data is stored on each custom session entry, so it stays plain and
  * serialisable; the renderer reads it back when drawing the transcript.

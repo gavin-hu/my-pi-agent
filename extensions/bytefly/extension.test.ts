@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import chrome from "./index.ts";
+import bytefly from "./index.ts";
 import { coloringTheme, emit } from "../../test/helpers/fakes.ts";
 import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/chrome.ts";
+import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/bytefly.ts";
 
 /** A million-token Opus call, so a configured rate lands on a round number. */
 const millionTokens = (): unknown[] => [
@@ -25,25 +25,25 @@ const millionTokens = (): unknown[] => [
 const rateConfig = (symbol: string): string =>
 	JSON.stringify({ currency: { symbol, decimals: 2 }, rates: { "anthropic/opus-4.5": { input: 2.5 } } });
 
-describe("chrome extension", () => {
+describe("bytefly extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "chrome" }, () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
 			const { pi, commands, handlers } = makeFakePi();
-			chrome(pi);
+			bytefly(pi);
 			expect(commands.size).toBe(0);
 			expect(handlers.size).toBe(0);
 		});
 	});
 
-	test("registers the /chrome command", () => {
+	test("registers the /bytefly command", () => {
 		const { pi, commands } = makeFakePi();
-		chrome(pi);
-		expect(commands.has("chrome")).toBe(true);
+		bytefly(pi);
+		expect(commands.has("bytefly")).toBe(true);
 	});
 
 	test("installs the footer on session start in interactive mode", async () => {
 		const { pi } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -52,9 +52,9 @@ describe("chrome extension", () => {
 		expect(typeof footers[0]).toBe("function");
 	});
 
-	test("does not touch the chrome outside interactive mode", async () => {
+	test("does not install the footer outside interactive mode", async () => {
 		const { pi } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footers } = fakeFooterCtx({ mode: "print" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -64,7 +64,7 @@ describe("chrome extension", () => {
 
 	test("restores the built-in footer on shutdown", async () => {
 		const { pi } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_shutdown", {}, ctx);
@@ -74,9 +74,9 @@ describe("chrome extension", () => {
 
 	test("does nothing when toggled outside interactive mode", async () => {
 		const { pi, commands } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footers, notifications } = fakeFooterCtx({ mode: "print" });
-		const command = commands.get("chrome");
+		const command = commands.get("bytefly");
 
 		await command.handler("", ctx);
 
@@ -86,35 +86,35 @@ describe("chrome extension", () => {
 
 	test("toggles the footer with no argument", async () => {
 		const { pi, commands } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footers, notifications } = fakeFooterCtx({ mode: "tui" });
-		const command = commands.get("chrome");
+		const command = commands.get("bytefly");
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		await command.handler("", ctx);
 		expect(footers.at(-1)).toBeUndefined();
-		expect(notifications.at(-1)).toBe("chrome off");
+		expect(notifications.at(-1)).toBe("bytefly off");
 
 		await command.handler("", ctx);
 		expect(typeof footers.at(-1)).toBe("function");
-		expect(notifications.at(-1)).toBe("chrome on");
+		expect(notifications.at(-1)).toBe("bytefly on");
 	});
 
 	test("reports the footer status with the status subcommand", async () => {
 		const { pi, commands } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, notifications } = fakeFooterCtx({ mode: "tui" });
-		const command = commands.get("chrome");
+		const command = commands.get("bytefly");
 
 		await command.handler("status", ctx);
 
-		expect(notifications.at(-1)).toBe("chrome: on");
+		expect(notifications.at(-1)).toBe("bytefly: on");
 	});
 
 	test("completes the subcommands", () => {
 		const { pi, commands } = makeFakePi();
-		chrome(pi);
-		const command = commands.get("chrome");
+		bytefly(pi);
+		const command = commands.get("bytefly");
 
 		expect(command.getArgumentCompletions("").map((item: any) => item.value)).toEqual(["status"]);
 		expect(command.getArgumentCompletions("st").map((item: any) => item.value)).toEqual(["status"]);
@@ -123,7 +123,7 @@ describe("chrome extension", () => {
 
 	test("renders two footer lines through the installed factory", async () => {
 		const { pi } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", context: undefined });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
@@ -136,7 +136,7 @@ describe("chrome extension", () => {
 
 	test("reads the live theme on every render", async () => {
 		const { pi } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui" });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
@@ -147,27 +147,41 @@ describe("chrome extension", () => {
 		expect(lines[0]).toContain("[");
 	});
 
-	test("prices the cost from a chrome.json rate", async () => {
+	test("prices the cost from a bytefly.json rate", async () => {
 		const { pi } = makeFakePi();
-		chrome(pi);
+		bytefly(pi);
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
 
 		await withAgentDir(async (agentDir) => {
-			writeFileSync(join(agentDir, "chrome.json"), rateConfig("¥"));
+			writeFileSync(join(agentDir, "bytefly.json"), rateConfig("¥"));
 			await emit(pi, "session_start", { reason: "startup" }, ctx);
 		});
 
 		expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
 	});
 
-	test("re-reads the config when the chrome is toggled back on", async () => {
-		const { pi, commands } = makeFakePi();
-		chrome(pi);
+	test("migrates a legacy chrome.json when the footer installs", async () => {
+		const { pi } = makeFakePi();
+		bytefly(pi);
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
-		const command = commands.get("chrome");
 
 		await withAgentDir(async (agentDir) => {
-			const path = join(agentDir, "chrome.json");
+			writeFileSync(join(agentDir, "chrome.json"), rateConfig("¥"));
+			await emit(pi, "session_start", { reason: "startup" }, ctx);
+			expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
+			expect(existsSync(join(agentDir, "bytefly.json"))).toBe(true);
+			expect(existsSync(join(agentDir, "chrome.json"))).toBe(false);
+		});
+	});
+
+	test("re-reads the config when the footer is toggled back on", async () => {
+		const { pi, commands } = makeFakePi();
+		bytefly(pi);
+		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
+		const command = commands.get("bytefly");
+
+		await withAgentDir(async (agentDir) => {
+			const path = join(agentDir, "bytefly.json");
 			writeFileSync(path, rateConfig("$"));
 			await emit(pi, "session_start", { reason: "startup" }, ctx);
 			expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("$2.50");

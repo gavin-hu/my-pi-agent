@@ -1,20 +1,22 @@
-# chrome — a two-line, width-adaptive TUI footer
+# bytefly — the TUI footer and turn rule
 
-`chrome` owns the TUI footer this package adds: one compact, colorful,
-width-adaptive two-line bar. Pi's own header is left untouched. DeepSeek is
-priced from the provider's published yuan rates and peak tariff by default, and
-any other model can be priced from your own rates when Pi's catalog does not
-match what a provider actually charges.
+`bytefly` owns the terminal chrome this package adds: one compact, colorful,
+width-adaptive two-line footer, and a labeled rule that marks each completed
+turn in the transcript. Pi's own header is left untouched. DeepSeek is priced
+from the provider's published yuan rates and peak tariff by default, and any
+other model can be priced from your own rates when Pi's catalog does not match
+what a provider actually charges.
 
 ```
-pi --extension ./extensions/chrome    # load just this extension
+pi --extension ./extensions/bytefly   # load just this extension
 pi -e .                               # load the whole @gavin-hu/my-pi-agent package
 pi install ./                         # install the package
 ```
 
 ## What it does
 
-The extension owns one surface: the footer. Pi's own header is left in place.
+The extension owns two surfaces: the footer, and the rule between completed
+turns. Pi's own header is left in place.
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -71,36 +73,48 @@ shows as `¥<0.01` rather than `¥0.00`.
 
 DeepSeek needs no config file at all: the bar prices it from the published yuan
 rates and peak tariff built into [`config.ts`](./config.ts). A
-`chrome.json` adds models of your own, or replaces a built-in entry:
+`bytefly.json` adds models of your own, or replaces a built-in entry:
 
 ```
 ~/repo/project                                                          ⎇ main
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥2.50 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
 
+**Turn separator.** After each completed turn the extension appends an inert
+entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
+[Turn separator](#turn-separator). No config file is needed and there is no
+command.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `/chrome` | Toggle the footer on or off. |
-| `/chrome status` | Report whether the footer is on. |
+| `/bytefly` | Toggle the footer on or off. |
+| `/bytefly status` | Report whether the footer is on. |
 
 The `status` subcommand completes with Tab.
 
 ## Behaviour by mode
 
-The chrome is installed only in interactive (`tui`) sessions. In RPC, JSON, and
-print modes the extension loads, registers `/chrome`, and does nothing visible.
+Both surfaces are installed only in interactive (`tui`) sessions. In RPC, JSON,
+and print modes the extension loads, registers `/bytefly`, and neither paints
+the footer nor appends a separator.
 
 ## Configuration
 
 The footer's own content and layout are tuned in [`config.ts`](./config.ts) —
 thresholds, gauge glyphs and widths, separators, icons, and status keys. The
-price calculation is configured by a JSON file, read the way every other
-extension reads its config:
+turn separator has no JSON either: its glyph, label prefix, padding, and colors
+are tuned in [`separator/config.ts`](./separator/config.ts). The price
+calculation is configured by a JSON file, read the way every other extension
+reads its config:
 
-- `~/.pi/agent/chrome.json` (global)
-- `<cwd>/.pi/chrome.json` (project; overrides the global file)
+- `~/.pi/agent/bytefly.json` (global)
+- `<cwd>/.pi/bytefly.json` (project; overrides the global file)
+
+A `chrome.json` saved under the extension's former name is moved to
+`bytefly.json` in the same directory on load (and read in place from an
+unwritable directory), so an existing price configuration survives the rename.
 
 Both are optional, and neither is needed for DeepSeek. The built-in table is the
 base layer for every session: DeepSeek is priced in yuan at the published peak
@@ -146,7 +160,7 @@ Rates merge key by key across the two files, so a project file can override one
 model without restating the rest; a key present in both is replaced, not merged
 field by field. No windows means every moment is peak, so a rate with
 `offPeakMultiplier: 0.5` and no schedule stays flat. The file is read when the
-footer is installed, so a new session — or `/chrome` toggled off and on —
+footer is installed, so a new session — or `/bytefly` toggled off and on —
 picks up an edit.
 
 **Mixing currencies is the sharp edge of the built-in default.** A record priced
@@ -166,7 +180,7 @@ they match:
 - **Which built-in rates.** [`config.ts`](./config.ts) ships DeepSeek's published
   yuan prices, with the peak schedule that doubles the price during peak hours
   ([DeepSeek's pricing page](https://api-docs.deepseek.com/quick_start/pricing)).
-  They are ordinary rate entries, so a `chrome.json` key replaces one of
+  They are ordinary rate entries, so a `bytefly.json` key replaces one of
   them, and the schedule is the default `peak` every rate is judged against.
 - **Which rate.** The most specific key wins, with the model segment outranking
   the provider one: `provider/model`, then `*/model`, then `provider/*`, then
@@ -218,11 +232,40 @@ gauge always starts the line. It keeps each extension's own colour when it
 compacts, and it is droppable: a tight bar drops the slot rather than truncating
 the model, which sits at the end of the line.
 
+## Turn separator
+
+`agent_settled` fires once after an agent run fully settles — exactly one user
+turn — which is why it is used instead of `turn_end` (that fires once per
+assistant message, so tool-calling rounds would each get a line). On each
+settled run the extension appends an inert custom entry and a renderer draws
+it:
+
+```
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ turn 3 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+```
+
+- The turn number is `count(separators on the current branch) + 1`, so a
+  resumed or forked session continues the parent's numbering and abandoned
+  branches do not leak counts.
+- The entry is excluded from LLM context, so it costs no tokens, and it
+  survives resume and fork. It is drawn under the `bytefly-separator` custom
+  entry type.
+- The line is centered and width-adaptive: the label is filled out with the
+  glyph, and when it cannot fit the line becomes a plain dashed rule rather
+  than overflowing.
+- The rule is installed only in interactive (`tui`) sessions; RPC, JSON, and
+  print sessions append nothing.
+- Separators recorded by the retired `turn-separator` extension are not
+  rendered, and `PI_DISABLED_EXTENSIONS=turn-separator` no longer affects the
+  rule; disable the whole extension with `bytefly` instead.
+- There is no runtime command; the glyph, label prefix, padding, and colors are
+  tuned in [`separator/config.ts`](./separator/config.ts).
+
 ## Limitations
 
 - **One built-in provider.** DeepSeek is the only provider with a built-in
   table; another provider's currency and tariff have to be stated in
-  `chrome.json`.
+  `bytefly.json`.
 - **Holidays.** A tariff that excludes public holidays — DeepSeek's peak window
   does — cannot be expressed. A weekend can, by leaving `days` 6 and 7 out.
 - **One schedule.** A single `peak` section applies to every rate. Only a rate
@@ -239,8 +282,8 @@ the model, which sits at the end of the line.
 ## Non-goals
 
 - No per-segment CLI: the bar's look lives in `config.ts`, the price in
-  `chrome.json`.
-- No per-model cost breakdown, no `/chrome price`, and no on-screen marker
+  `bytefly.json`.
+- No per-model cost breakdown, no `/bytefly price`, and no on-screen marker
   for which tariff or which source produced a number.
 - No todo-count segment; the [todo](../todo/) widget already shows progress.
 - No shelling out for git ahead/behind; the footer data provider exposes only
@@ -257,12 +300,13 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the chrome is on. Pi's header is not touched. |
-| Command | `/chrome [status]` toggles the footer and reports its state (tui only; a no-op elsewhere), with Tab completion. |
+| Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. Pi's header is not touched. |
+| Command | `/bytefly [status]` toggles the footer and reports its state (tui only; a no-op elsewhere), with Tab completion. |
+| Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Config | `chrome.json` from the agent directory and `<cwd>/.pi`, read through `lib/config.ts` when the chrome is installed — a new session, or `/chrome` toggled back on. Nothing watches the file. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. A legacy `chrome.json` is migrated to `bytefly.json` on load. Nothing watches the file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None written. The chrome reads session entries and the price config (a memoized scan) and writes no tool-result `details` or `pi.appendEntry`. |
+| State storage | None besides the one-time config migration and the inert separator entries. The bytefly reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it renames a legacy `chrome.json` to `bytefly.json` and appends `bytefly-separator` entries excluded from LLM context. |
 | Lifecycle | `session_start` installs the footer; `session_tree` reinstalls; `session_shutdown` restores Pi's built-in footer and disposes the branch subscription. |
 
 ## Design notes
@@ -310,7 +354,7 @@ rather than showing a wrong value.
   part — summing token/cost totals across the session — is memoized by
   `sessionId:leafId` (every append moves the leaf), avoiding
   `getEntryCount()`, which is not exposed on the read-only session manager.
-- **TTY-only, fail-safe.** The chrome is installed only in `tui` mode;
+- **TTY-only, fail-safe.** The bytefly is installed only in `tui` mode;
   non-interactive runs load the extension and change nothing.
 - **The price is a stage, not a branch in the renderer.** Entries are reduced to
   usage records (`collect/`), records are priced into totals (`price/`), and the
@@ -334,8 +378,8 @@ rather than showing a wrong value.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: install/restore the footer; `/chrome`. |
-| `config.ts` | Bar tuning (`CONFIG`), the built-in DeepSeek rates and peak tariff, and the `chrome.json` schema, defaults, normalizer, and loader. |
+| `index.ts` | Factory: install/restore the footer, `/bytefly`, and register the turn separator. |
+| `config.ts` | Bar tuning (`CONFIG`), the built-in DeepSeek rates and peak tariff, and the `bytefly.json` schema, defaults, normalizer, loader, and `chrome.json` migration. |
 | `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
 | `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
@@ -347,10 +391,15 @@ rather than showing a wrong value.
 | `render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
 | `render/layout.ts` | Width reduction and right-zone folding. |
 | `render/footer.ts` | `StatusBar` component and footer factory. |
+| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and colors. |
+| `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
+| `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
+| `separator/format.ts` | Pure `separatorLabel` / `separatorParts` / `separatorLine`. |
+| `separator/types.ts` | `TurnSeparatorData`, `SeparatorParts`. |
 
 ## Testing
 
-`extensions/chrome/` covers the install/restore/toggle lifecycle
+`extensions/bytefly/` covers the install/restore/toggle lifecycle
 (`extension`),
 the formatters (`render/format`), entry
 reduction and model inheritance (`collect/entries`), snapshot assembly and its
@@ -358,9 +407,12 @@ memoization (`collect/snapshot`), rate matching (`price/rates`), window parsing
 and peak evaluation in two zones (`price/schedule`), the pricing formula, the
 off-peak multiplier, the built-in DeepSeek table with no config file, and the
 fallback (`price/price`), the config schema, its clamping, the built-in defaults
-and their replacement, and the two file layers (`config`), zone/priority
+and their replacement, and the two file layers (`config`), the legacy
+`chrome.json` migration (`config`), zone/priority
 assignment
 (`render/lines`), the reduction, separator collapse, and right-zone folding
 across a width sweep from 6 to 120 plus wide characters (`render/layout`), exact
 golden output at fixed widths (`render/render`), and the install/skip/restore/
-toggle lifecycle plus a config-driven price (`extension`).
+toggle lifecycle plus a config-driven price (`extension`). The turn separator
+is covered by its pure formatting (`separator/format`) and its
+register/append/render/disable lifecycle (`separator/register`).
