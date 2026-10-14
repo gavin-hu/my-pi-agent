@@ -13,7 +13,7 @@
  */
 
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { THEME_JS } from "../../lib/web-theme.ts";
+import { THEME_JS } from "../../lib/web/index.ts";
 import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
 import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
 

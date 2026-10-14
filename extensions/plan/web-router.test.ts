@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
-import { THEME_JS } from "../../lib/web-theme.ts";
+import { THEME_JS } from "../../lib/web/index.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 
 function setup(overrides: Partial<ReviewContext> = {}) {

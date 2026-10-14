@@ -188,8 +188,8 @@ reflects only this session's server, with no cross-session sharing.
   buttons use the clipboard. Without JS the page still browses and renders
   Markdown, and the JS-only controls (filter, disclosure, actions, quick open)
   are hidden; the sort buttons lose their pointer so they do not look live. The
-  palette is a self-contained, GitHub-inspired light/dark set whose canvas and
-  accent match the `bytefly-dark`/`bytefly-light` themes; it follows
+  palette is the shared Bytefly web theme (`lib/web/tokens.ts`), derived from the
+  `bytefly-dark`/`bytefly-light` terminal themes; it follows
   `prefers-color-scheme` until an explicit choice sets `data-theme` on the root:
   `/theme.js` applies the saved choice in the head before first paint, and the
   header toggle flips and stores it (`pi-web-theme` in `localStorage`, the key
@@ -237,13 +237,14 @@ reflects only this session's server, with no cross-session sharing.
 | `paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
 | [`../../lib/escape.ts`](../../lib/escape.ts) | `escapeHtml`, the shared HTML escaping used by every renderer |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer for the code view (shared with `plan`) |
+| [`../../lib/web/index.ts`](../../lib/web/index.ts) | The shared Bytefly web brand system: tokens, base, components, layout, runtime, and markup |
 | `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
 | `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
 | `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted) |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
-| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) and the `/theme.js` bootstrap |
-| `html.ts` | Page renderers, sortable headers, and the inline CSS |
+| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
+| `html.ts` | Page renderers, sortable headers, and the page-only `browse-*` CSS (the `bf-*` kit comes from `lib/web`) |
 | `router.ts` | Pure request handler |
 | `server.ts` | `node:http` server |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |

@@ -107,7 +107,7 @@ describe("renderDirectoryPage", () => {
 			maxThumbBytes: 5_000_000,
 		});
 		expect(html).toContain(`aria-current="page"`);
-		expect(html).toContain(`<img class="thumb"`);
+		expect(html).toContain(`<img class="bf-table__thumb"`);
 		expect(html).toContain("&lt;b&gt;");
 		expect(html).not.toContain(`a"<b>`);
 		expect(html).toContain("read-only");
@@ -170,7 +170,7 @@ describe("renderFilePage", () => {
 				mime: "application/octet-stream",
 			},
 		});
-		expect(html).toContain(`<span class="line">hello</span>`);
+		expect(html).toContain(`<span class="bf-code__line">hello</span>`);
 		expect(html).toContain(`href="/raw/a.txt"`);
 	});
 
@@ -188,7 +188,7 @@ describe("renderFilePage", () => {
 		const js = renderFilePage({ rootLabel: fixture.root, rel: "a.js", tree, maxFileBytes: 1_000_000, file });
 		expect(js).toContain(`<span class="tok-keyword">const</span>`);
 		const txt = renderFilePage({ rootLabel: fixture.root, rel: "a.txt", tree, maxFileBytes: 1_000_000, file });
-		expect(txt).toContain(`<span class="line">const x = 1;</span>`);
+		expect(txt).toContain(`<span class="bf-code__line">const x = 1;</span>`);
 	});
 
 	test("includes the UI hardening markers", () => {
@@ -218,38 +218,40 @@ describe("renderFilePage", () => {
 			maxThumbBytes: 0,
 		});
 		expect(html).toContain('<meta name="color-scheme" content="dark light">');
-		expect(html).toContain("color-scheme:dark;");
+		expect(html).toContain("color-scheme:dark}");
 		expect(html).toContain(':root[data-theme="light"]');
 		expect(html).toContain(":root:not([data-theme])");
 		expect(html).toContain('id="theme-toggle"');
 		expect(html).toContain('src="/theme.js"');
 		expect(html).toContain("table-layout:fixed");
-		expect(html).toContain('<button type="button" class="tw toggle" aria-expanded="true"');
-		expect(html).toContain('<span class="tw spacer" aria-hidden="true"></span>');
+		expect(html).toContain('<button type="button" class="bf-tree__tw bf-tree__tw--toggle" aria-expanded="true"');
+		expect(html).toContain('<span class="bf-tree__tw bf-tree__tw--spacer" aria-hidden="true"></span>');
 		expect(html).toContain('id="tree-empty"');
 		expect(html).toContain('href="#main"');
 		expect(html).toContain('id="main"');
-		expect(html).toContain('class="page-title"');
+		expect(html).toContain("browse-heading");
 		expect(html).toContain(":focus-within");
-		expect(html).toContain("th .sort{pointer-events:none");
+		expect(html).toContain("th .bf-sort{pointer-events:none");
 		expect(html).toContain('id="copy-status"');
 		expect(html).toContain(".sr-only{");
-		expect(html).toContain('<details class="side-panel" open>');
-		expect(html).toContain('<summary class="side-summary">');
+		expect(html).toContain('<details class="bf-app__sidebar" open>');
+		expect(html).toContain('<summary class="bf-panel__summary">');
 		expect(html).not.toContain("max-width:1400px");
 		expect(html).not.toContain("max-width:1200px");
 		expect(html).toContain(
-			"main.content{padding:20px 24px;min-width:0;min-height:0;display:flex;flex-direction:column;overflow-y:auto}",
+			".bf-app__main{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:var(--space-5) var(--space-6)}",
 		);
-		expect(html).toContain("pre.code{margin:0;padding:12px 0 16px;flex:1 1 auto;min-height:0;overflow:auto;");
-		expect(html).toContain("aside.side{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;");
-		expect(html).toContain(".shell{flex:1 1 auto;min-height:0;display:grid");
+		expect(html).toContain(
+			".bf-code{margin:0;padding:var(--space-3) 0 var(--space-4);flex:1 1 auto;min-height:0;overflow:auto;",
+		);
+		expect(html).toContain(".bf-panel{min-width:0;overflow:auto;overscroll-behavior:contain}");
+		expect(html).toContain(".bf-app__body{flex:1 1 auto;min-height:0;display:grid");
 		expect(html).toContain("overscroll-behavior:contain");
 		expect(html).toContain("flex-wrap:wrap");
-		expect(html).toContain(".git .dirty-dot");
+		expect(html).toContain(".browse-git--dirty .browse-git__glyph");
 		expect(html).toContain("<noscript>");
-		expect(html).toContain(".tw.toggle{visibility:hidden}");
-		expect(html).toContain(".tw.toggle::after");
+		expect(html).toContain(".bf-tree__tw--toggle{visibility:hidden}");
+		expect(html).toContain(".bf-tree__tw--toggle::after");
 		expect(html).toContain("li[data-loading]");
 		expect(html).toContain("li[data-error]");
 		expect(html).toContain('data-path="sub"');
@@ -267,9 +269,9 @@ describe("renderFilePage", () => {
 			maxThumbBytes: 0,
 			git: { branch: "main", dirty: true },
 		});
-		expect(html).toContain('class="git dirty"');
+		expect(html).toContain('class="bf-chip browse-git browse-git--dirty"');
 		expect(html).toContain('aria-label="git branch main, uncommitted changes"');
-		expect(html).toContain("dirty-dot");
+		expect(html).toContain("browse-dirty");
 	});
 
 	test("omits the git chip without a status", () => {
@@ -282,7 +284,7 @@ describe("renderFilePage", () => {
 			thumbnails: false,
 			maxThumbBytes: 0,
 		});
-		expect(html).not.toContain('class="git');
+		expect(html).not.toContain('class="bf-chip browse-git');
 	});
 
 	test("renders a broken symlink as a non-link", () => {
@@ -311,7 +313,7 @@ describe("renderFilePage", () => {
 			thumbnails: false,
 			maxThumbBytes: 0,
 		});
-		expect(html).toContain('class="broken" title="broken symbolic link"');
+		expect(html).toContain('class="browse-broken" title="broken symbolic link"');
 		expect(html).not.toContain('href="/view/dangling"');
 	});
 
@@ -344,7 +346,7 @@ describe("renderFilePage", () => {
 				mime: "application/octet-stream",
 			},
 		});
-		expect(html).toContain('<div class="md-body">');
+		expect(html).toContain('<div class="bf-md">');
 		expect(html).toContain("<h1>hi</h1>");
 		expect(html).toContain("<strong>bold</strong>");
 		expect(html).toContain('href="/view/sub/b.md?raw=1"');
@@ -371,10 +373,10 @@ describe("renderFilePage", () => {
 				mime: "application/octet-stream",
 			},
 		});
-		expect(html).toContain('<pre class="code">');
+		expect(html).toContain('<pre class="bf-code bf-code--numbered">');
 		expect(html).toContain('id="wrap-toggle"');
 		expect(html).toContain('href="/view/sub/b.md"');
-		expect(html).not.toContain('class="md-body"');
+		expect(html).not.toContain('class="bf-md"');
 	});
 });
 
@@ -436,12 +438,12 @@ describe("renderDirectoryPage sort and styles", () => {
 			thumbnails: false,
 			maxThumbBytes: 0,
 		});
-		expect(html).toContain("pre.code.wrap .line{white-space:pre-wrap");
+		expect(html).toContain(".bf-code--wrap .bf-code__line{white-space:pre-wrap");
 		expect(html).toContain(".tok-keyword{color:var(--tok-keyword)}");
-		expect(html).toContain(".md-body{");
-		expect(html).toContain('.segmented .seg[aria-current="page"]');
-		expect(html).toContain(".action{display:none}");
-		expect(html).toContain(".theme-toggle{");
+		expect(html).toContain(".bf-md{");
+		expect(html).toContain('.bf-segmented__item[aria-current="page"]');
+		expect(html).toContain(".bf-btn{display:none}");
+		expect(html).toContain(".bf-theme-toggle{");
 	});
 
 	test("ships the quick-open trigger and palette styles", () => {
@@ -456,8 +458,8 @@ describe("renderDirectoryPage sort and styles", () => {
 		});
 		expect(html).toContain('id="quick-open"');
 		expect(html).toContain('aria-haspopup="dialog"');
-		expect(html).toContain(".quick-open{display:none}");
-		expect(html).toContain(".palette-backdrop{");
-		expect(html).toContain('.palette-option[aria-selected="true"]');
+		expect(html).toContain(".browse-quick-open{display:none}");
+		expect(html).toContain(".bf-dialog{");
+		expect(html).toContain('.bf-dialog__option[aria-selected="true"]');
 	});
 });

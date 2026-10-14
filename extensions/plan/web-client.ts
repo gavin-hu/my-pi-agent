@@ -11,7 +11,7 @@
  * the tab is gone; the explicit buttons are the primary save/cancel path.
  */
 
-import { THEME_TOGGLE_JS } from "../../lib/web-theme.ts";
+import { THEME_TOGGLE_JS } from "../../lib/web/index.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -47,7 +47,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function setStatus(text, kind) {
     if (!statusEl) return;
     statusEl.textContent = text || "";
-    statusEl.className = kind ? "status " + kind : "status";
+    statusEl.className = kind ? "bf-status bf-status--" + kind : "bf-status";
   }
 
   function safeHref(url) {
@@ -107,11 +107,11 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function renderCode(wrap, block) {
     var body = codeBody(block.lines);
     var highlighted = data.code && data.code[String(block.start)];
-    var pre = el("pre", "code");
+    var pre = el("pre", "bf-code");
     var code = el("code");
     if (Array.isArray(highlighted)) {
       body.forEach(function (line, index) {
-        var span = el("span", "line");
+        var span = el("span", "bf-code__line");
         var html = highlighted[index];
         if (html) {
           try { copyTokens(new DOMParser().parseFromString(html, "text/html").body, span); }
@@ -152,7 +152,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         if (!match) {
           var plain = el("p"); renderInline(plain, line); wrap.appendChild(plain); return;
         }
-        var row = el("div", "li");
+        var row = el("div", "bf-block__li");
         row.style.paddingLeft = String(Math.floor(match[1].replace(/\t/g, "    ").length / 2) * 16) + "px";
         var markerText = match[2];
         var rest = match[3];
@@ -161,7 +161,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         if (box) {
           var done = box[1].toLowerCase() === "x";
           markerText = done ? "\u2713" : "\u2610";
-          marker.className = done ? "marker done" : "marker";
+          marker.className = done ? "bf-block__marker bf-block__marker--done" : "bf-block__marker";
           rest = box[2];
         }
         marker.textContent = markerText;
@@ -176,10 +176,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   }
 
   function closeComposer() {
-    var open = planEl ? planEl.querySelector(".composer") : null;
+    var open = planEl ? planEl.querySelector(".bf-composer") : null;
     if (open && open.parentNode) open.parentNode.removeChild(open);
-    Array.prototype.forEach.call(planEl ? planEl.querySelectorAll(".block.composing") : [], function (block) {
-      block.classList.remove("composing");
+    Array.prototype.forEach.call(planEl ? planEl.querySelectorAll(".bf-block--composing") : [], function (block) {
+      block.classList.remove("bf-block--composing");
     });
   }
 
@@ -193,10 +193,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   function openComposer(wrap, cell, block, quote) {
     closeComposer();
-    wrap.classList.add("composing");
-    var box = el("div", "composer");
+    wrap.classList.add("bf-block--composing");
+    var box = el("div", "bf-composer");
     if (quote) {
-      var chip = el("div", "quote-chip");
+      var chip = el("div", "bf-quote-chip");
       chip.textContent = "\u201c" + quote + "\u201d";
       box.appendChild(chip);
     }
@@ -204,10 +204,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     area.placeholder = "Leave feedback on this part of the plan";
     area.setAttribute("aria-label", "Comment");
     box.appendChild(area);
-    var row = el("div", "row");
-    var cancel = el("button"); cancel.type = "button"; cancel.className = "action"; cancel.textContent = "Cancel";
+    var row = el("div", "bf-composer__row");
+    var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
     cancel.addEventListener("click", closeComposer);
-    var add = el("button"); add.type = "button"; add.className = "action primary"; add.textContent = "Add comment";
+    var add = el("button"); add.type = "button"; add.className = "bf-btn bf-btn--primary"; add.textContent = "Add comment";
     add.addEventListener("click", function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
@@ -226,10 +226,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     area.value = annotation.comment;
     area.setAttribute("aria-label", "Edit comment");
     card.appendChild(area);
-    var row = el("div", "row");
-    var cancel = el("button"); cancel.type = "button"; cancel.className = "action"; cancel.textContent = "Cancel";
+    var row = el("div", "bf-comment__row");
+    var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
     cancel.addEventListener("click", renderPlan);
-    var apply = el("button"); apply.type = "button"; apply.className = "action primary"; apply.textContent = "Save";
+    var apply = el("button"); apply.type = "button"; apply.className = "bf-btn bf-btn--primary"; apply.textContent = "Save";
     apply.addEventListener("click", function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
@@ -243,19 +243,19 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function renderCommentCards(box, list) {
     list.forEach(function (annotation) {
       var index = annotations.indexOf(annotation);
-      var card = el("div", "comment");
+      var card = el("div", "bf-comment");
       if (annotation.quote) {
-        var quote = el("div", "quote");
+        var quote = el("div", "bf-comment__quote");
         quote.textContent = "\u201c" + annotation.quote + "\u201d";
         card.appendChild(quote);
       }
-      var body = el("div", "body");
+      var body = el("div", "bf-comment__body");
       body.textContent = annotation.comment;
       card.appendChild(body);
-      var row = el("div", "row");
-      var edit = el("button"); edit.type = "button"; edit.className = "action"; edit.textContent = "Edit";
+      var row = el("div", "bf-comment__row");
+      var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
       edit.addEventListener("click", function () { startEdit(card, index); });
-      var remove = el("button"); remove.type = "button"; remove.className = "action"; remove.textContent = "Delete";
+      var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
       remove.addEventListener("click", function () { annotations.splice(index, 1); renderPlan(); });
       row.appendChild(edit); row.appendChild(remove); card.appendChild(row);
       box.appendChild(card);
@@ -265,7 +265,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function renderComments(cell, anchor) {
     var mine = annotations.filter(function (annotation) { return annotation.anchor === anchor; });
     if (mine.length === 0) return;
-    var box = el("div", "comments");
+    var box = el("div", "bf-rail__comments");
     renderCommentCards(box, mine);
     cell.appendChild(box);
   }
@@ -312,7 +312,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       li.appendChild(link);
       outlineList.appendChild(li);
     });
-    var panel = document.querySelector(".outline-panel");
+    var panel = document.querySelector(".review-outline");
     if (panel && items.length === 0) panel.hidden = true;
   }
 
@@ -325,14 +325,14 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     blocks.forEach(function (block) {
       if (block.kind === "blank") return;
       anchored[block.start] = true;
-      var wrap = el("div", "block");
+      var wrap = el("div", "bf-block");
       wrap.setAttribute("data-line", String(block.start));
       wrap.setAttribute("data-kind", String(block.kind));
       if (block.kind === "heading") wrap.id = "s-" + block.start;
       renderBlockContent(wrap, block);
-      var cell = el("div", "rail-cell");
+      var cell = el("div", "bf-rail__cell");
       cell.setAttribute("data-line", String(block.start));
-      var add = el("button", "add");
+      var add = el("button", "bf-btn bf-btn--ghost bf-block__add");
       add.type = "button";
       add.textContent = "+ Comment";
       add.setAttribute("aria-label", "Comment on this block");
@@ -344,12 +344,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     });
     var orphans = annotations.filter(function (annotation) { return !anchored[annotation.anchor]; });
     if (orphans.length > 0) {
-      var wrap2 = el("div", "block orphans");
+      var wrap2 = el("div", "bf-block bf-rail__orphans");
       var note = el("p"); note.textContent = "Comments not attached to a current block";
       wrap2.appendChild(note);
       planEl.appendChild(wrap2);
-      var cell2 = el("div", "rail-cell");
-      var box = el("div", "comments");
+      var cell2 = el("div", "bf-rail__cell");
+      var box = el("div", "bf-rail__comments");
       renderCommentCards(box, orphans);
       cell2.appendChild(box);
       planEl.appendChild(cell2);
@@ -409,10 +409,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   document.addEventListener("mouseup", function (event) {
     if (!planEl || saved) return;
-    var wrap = event.target && event.target.closest ? event.target.closest(".block") : null;
-    if (!wrap || wrap.querySelector(".composer")) return;
+    var wrap = event.target && event.target.closest ? event.target.closest(".bf-block") : null;
+    if (!wrap || wrap.querySelector(".bf-composer")) return;
     var cell = wrap.nextElementSibling;
-    if (!cell || !cell.classList.contains("rail-cell")) return;
+    if (!cell || !cell.classList.contains("bf-rail__cell")) return;
     var quote = selectionIn(wrap);
     if (quote) openComposer(wrap, cell, { start: Number(wrap.getAttribute("data-line")), lines: [] }, quote);
   });

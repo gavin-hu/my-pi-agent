@@ -37,7 +37,7 @@ describe("routing", () => {
 			"/",
 			{},
 		);
-		expect(text(response)).toContain('class="git dirty"');
+		expect(text(response)).toContain('class="bf-chip browse-git browse-git--dirty"');
 	});
 
 	test("ignores a failing git provider", async () => {
@@ -53,7 +53,7 @@ describe("routing", () => {
 			{},
 		);
 		expect(response.status).toBe(200);
-		expect(text(response)).not.toContain('class="git');
+		expect(text(response)).not.toContain('class="bf-chip browse-git');
 	});
 
 	test("serves a nested directory and a file view", async () => {
@@ -73,11 +73,11 @@ describe("routing", () => {
 		expect(text(rendered)).toContain('href="/view/sub/b.md?raw=1"');
 
 		const raw = await handleRequest(context(), "GET", "/view/sub/b.md?raw=1", {});
-		expect(text(raw)).toContain('<pre class="code">');
+		expect(text(raw)).toContain('<pre class="bf-code bf-code--numbered">');
 		expect(text(raw)).not.toContain("<h1>hi</h1>");
 
 		const disabled = await handleRequest(context({ markdown: false }), "GET", "/view/sub/b.md", {});
-		expect(text(disabled)).toContain('<pre class="code">');
+		expect(text(disabled)).toContain('<pre class="bf-code bf-code--numbered">');
 		expect(text(disabled)).not.toContain("<h1>hi</h1>");
 	});
 

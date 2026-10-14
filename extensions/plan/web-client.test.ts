@@ -26,7 +26,7 @@ describe("REVIEW_CLIENT_JS", () => {
 	test("captures a selection as a quote", () => {
 		expect(REVIEW_CLIENT_JS).toContain("getSelection");
 		expect(REVIEW_CLIENT_JS).toContain("commonAncestorContainer");
-		expect(REVIEW_CLIENT_JS).toContain('closest(".block")');
+		expect(REVIEW_CLIENT_JS).toContain('closest(".bf-block")');
 	});
 
 	test("keeps a stream open so the server sees the tab close", () => {
@@ -42,7 +42,7 @@ describe("REVIEW_CLIENT_JS", () => {
 	});
 
 	test("builds the right-hand rail and the section outline", () => {
-		expect(REVIEW_CLIENT_JS).toContain('"rail-cell"');
+		expect(REVIEW_CLIENT_JS).toContain('"bf-rail__cell"');
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("outline-list")');
 		expect(REVIEW_CLIENT_JS).toContain("IntersectionObserver");
 	});
