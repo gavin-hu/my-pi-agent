@@ -15,7 +15,7 @@ import {
 	readFileView,
 	type TreeNode,
 } from "./files.ts";
-import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
+import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
 let fixture: Fixture | undefined;
 

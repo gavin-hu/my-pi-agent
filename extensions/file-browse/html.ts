@@ -1,5 +1,5 @@
 /**
- * HTML rendering for the serve pages.
+ * HTML rendering for the browse pages.
  *
  * Pure string building: the router reads the filesystem and hands these
  * renderers plain view models. Everything user-controlled is escaped, links are
@@ -260,7 +260,7 @@ function renderLayout(layout: Layout): string {
 <noscript><style>.filter{display:none}.tw.toggle{visibility:hidden}.action{display:none}.quick-open{display:none}th .sort{pointer-events:none;cursor:default}</style></noscript>
 ${SPRITE}
 <header class="site"><div class="bar">
-  <span class="brand"><span class="dot"></span>serve</span>
+  <span class="brand"><span class="dot"></span>browse</span>
   <span class="root">${escapeHtml(layout.rootLabel)}</span>
   ${renderGit(layout.git)}
   <span class="badge">read-only</span>
@@ -374,7 +374,7 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		body += `<p class="note">Showing the first ${page.listing.entries.length} of ${page.listing.total} entries.</p>`;
 
 	return renderLayout({
-		title: `serve · ${page.rel || "/"}`,
+		title: `browse · ${page.rel || "/"}`,
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
@@ -465,7 +465,7 @@ export function renderFilePage(page: FilePage): string {
 	}
 
 	return renderLayout({
-		title: `serve · ${page.rel}`,
+		title: `browse · ${page.rel}`,
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
@@ -488,7 +488,7 @@ export interface ErrorPage {
 /** Render a status/error page with the same chrome. */
 export function renderErrorPage(page: ErrorPage): string {
 	return renderLayout({
-		title: `serve · ${page.status}`,
+		title: `browse · ${page.status}`,
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: "",

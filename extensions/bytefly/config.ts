@@ -30,11 +30,11 @@ export const CONFIG = {
 	gauge: { full: GLYPHS.gaugeFull, empty: GLYPHS.gaugeEmpty, widths: [10, 5, 3, 0] as const },
 	/** Separators printed before grouped and other segments. */
 	separators: { group: SEPARATORS.group, item: SEPARATORS.item },
-	icons: { branch: GLYPHS.branch, detached: GLYPHS.detached, worktree: GLYPHS.worktree, serve: GLYPHS.serve },
+	icons: { branch: GLYPHS.branch, detached: GLYPHS.detached, worktree: GLYPHS.worktree, browse: GLYPHS.browse },
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
 	worktreeStatusKey: STATUS_KEYS.worktree,
-	/** Status key the file-browser extension uses; routed to line 1's right zone. */
-	serveStatusKey: STATUS_KEYS.serve,
+	/** Status key the file-browse extension uses; routed to line 1's right zone. */
+	browseStatusKey: STATUS_KEYS.browse,
 	/** Status key whose ` · detail` suffix (the plan file name) is dropped. */
 	planStatusKey: STATUS_KEYS.planMode,
 	/** Status key treated as an alert: the one that sorts to the front of the slot. */

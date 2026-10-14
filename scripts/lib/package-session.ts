@@ -32,7 +32,7 @@ export const EXTENSION_PATHS = [
 	"subagent",
 	"job",
 	"web-access",
-	"file-browser",
+	"file-browse",
 	"document",
 	"file-explorer",
 	"memory",

@@ -1,5 +1,5 @@
 /**
- * First-party, escape-first syntax highlighting for the serve code view.
+ * First-party, escape-first syntax highlighting for the browse code view.
  *
  * A deliberately small tokenizer for the file types that dominate a repository
  * (JavaScript/TypeScript, JSON, CSS, HTML/XML, shell, Python, Java, YAML, and

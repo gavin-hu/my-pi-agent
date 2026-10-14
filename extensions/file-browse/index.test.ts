@@ -6,7 +6,7 @@ import type { FileServer } from "./server.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
-import { fakeCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
+import { fakeCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
 
 const noOpen = () => {};
@@ -27,9 +27,9 @@ function fakeServer(root: string): FileServer {
 	return { url: "http://127.0.0.1:4321/", port: 4321, root, close: async () => {} };
 }
 
-describe("file-browser extension", () => {
+describe("file-browse extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "file-browser" }, () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "file-browse" }, () => {
 			const { pi, commands, handlers } = createFakePi();
 			fileBrowser(pi);
 			expect(commands.size).toBe(0);
@@ -37,17 +37,17 @@ describe("file-browser extension", () => {
 		});
 	});
 
-	test("registers the /serve command", () => {
+	test("registers the /browse command", () => {
 		const { pi, commands } = createFakePi();
 		fileBrowser(pi);
-		expect(commands.has("serve")).toBe(true);
+		expect(commands.has("browse")).toBe(true);
 	});
 
-	test("completes the serve subcommands", () => {
+	test("completes the browse subcommands", () => {
 		const { pi, commands } = createFakePi();
 		fileBrowser(pi);
 		const complete = (prefix: string): string[] =>
-			(commands.get("serve").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
+			(commands.get("browse").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
 		expect(complete("")).toEqual(["status", "stop"]);
 		expect(complete("stat")).toEqual(["status"]);
 		expect(complete("status ")).toEqual([]);
@@ -58,7 +58,7 @@ describe("file-browser extension", () => {
 		fileBrowser(pi);
 		const { ctx, notifications } = fakeCtx("/tmp/repo");
 
-		await runCommand(pi, "serve", "status", ctx);
+		await runCommand(pi, "browse", "status", ctx);
 		expect(notifications.at(-1)?.message).toContain("not running");
 	});
 
@@ -76,14 +76,14 @@ describe("file-browser extension", () => {
 		fileBrowser(pi, { createServer: (async () => started) as any, open: (url) => opened.push(url) });
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		expect(opened).toEqual(["http://127.0.0.1:4321/"]);
 		expect(notifications.at(-1)?.message).toContain("4321");
 
-		await runCommand(pi, "serve", "status", ctx);
+		await runCommand(pi, "browse", "status", ctx);
 		expect(notifications.at(-1)?.message).toContain("4321");
 
-		await runCommand(pi, "serve", "stop", ctx);
+		await runCommand(pi, "browse", "stop", ctx);
 		expect(closes).toBe(1);
 		expect(notifications.at(-1)?.message).toContain("stopped");
 	});
@@ -103,25 +103,25 @@ describe("file-browser extension", () => {
 		});
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 
 		expect(creates).toBe(1);
 		expect(opened).toEqual(["http://127.0.0.1:4321/"]);
 		expect(notifications.at(-1)?.message).toContain("already running");
 	});
 
-	test("publishes a two-tone serve chip and clears it on stop", async () => {
+	test("publishes a two-tone browse chip and clears it on stop", async () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
 		fileBrowser(pi, { createServer: (async () => fakeServer(fixture!.root)) as any, open: noOpen });
 		const { ctx, statuses } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
-		expect(statuses.get(STATUS_KEYS.serve)).toBe(`${GLYPHS.serve} 4321`);
+		await runCommand(pi, "browse", "", ctx);
+		expect(statuses.get(STATUS_KEYS.browse)).toBe(`${GLYPHS.browse} 4321`);
 
-		await runCommand(pi, "serve", "stop", ctx);
-		expect(statuses.has(STATUS_KEYS.serve)).toBe(false);
+		await runCommand(pi, "browse", "stop", ctx);
+		expect(statuses.has(STATUS_KEYS.browse)).toBe(false);
 	});
 
 	test("publishes the chip with success and accent colors", async () => {
@@ -132,8 +132,8 @@ describe("file-browser extension", () => {
 			theme: coloringTheme,
 		});
 
-		await runCommand(pi, "serve", "", ctx);
-		expect(statuses.get(STATUS_KEYS.serve)).toBe(`[success]${GLYPHS.serve} [accent]4321`);
+		await runCommand(pi, "browse", "", ctx);
+		expect(statuses.get(STATUS_KEYS.browse)).toBe(`[success]${GLYPHS.browse} [accent]4321`);
 	});
 
 	test("clears the chip on session shutdown", async () => {
@@ -142,9 +142,9 @@ describe("file-browser extension", () => {
 		fileBrowser(pi, { createServer: (async () => fakeServer(fixture!.root)) as any, open: noOpen });
 		const { ctx, statuses } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		await emit(pi, "session_shutdown", {}, ctx);
-		expect(statuses.has(STATUS_KEYS.serve)).toBe(false);
+		expect(statuses.has(STATUS_KEYS.browse)).toBe(false);
 	});
 
 	test("fixes one random port for the session across roots and restarts", async () => {
@@ -161,10 +161,10 @@ describe("file-browser extension", () => {
 		});
 		const { ctx } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
-		await runCommand(pi, "serve", "sub", ctx);
-		await runCommand(pi, "serve", "stop", ctx);
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
+		await runCommand(pi, "browse", "sub", ctx);
+		await runCommand(pi, "browse", "stop", ctx);
+		await runCommand(pi, "browse", "", ctx);
 
 		expect(ports).toEqual([4321, 4321, 4321]);
 	});
@@ -190,20 +190,20 @@ describe("file-browser extension", () => {
 		});
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		expect(notifications.at(-1)?.level).toBe("info");
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		expect(ports).toEqual([1111, 2222, 2222]);
 	});
 
 	test("uses a pinned config port instead of the session port", async () => {
 		fixture = makeFixture();
 		mkdirSync(join(fixture.root, ".pi"), { recursive: true });
-		writeFileSync(join(fixture.root, ".pi", "file-browser.json"), JSON.stringify({ port: 8080 }));
+		writeFileSync(join(fixture.root, ".pi", "file-browse.json"), JSON.stringify({ port: 8080 }));
 		const { pi } = createFakePi();
 		const ports: number[] = [];
 		fileBrowser(pi, {
@@ -216,7 +216,7 @@ describe("file-browser extension", () => {
 		});
 		const { ctx } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		expect(ports).toEqual([8080]);
 	});
 
@@ -235,7 +235,7 @@ describe("file-browser extension", () => {
 		});
 		const { ctx } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		await emit(pi, "session_shutdown", {}, ctx);
 		expect(closes).toBe(1);
 	});
@@ -253,7 +253,7 @@ describe("file-browser extension", () => {
 		});
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "", ctx);
+		await runCommand(pi, "browse", "", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
 		expect(notifications.at(-1)?.message).toContain("in use");
 	});
@@ -264,7 +264,7 @@ describe("file-browser extension", () => {
 		fileBrowser(pi, { createServer: (async () => fakeServer(fixture!.root)) as any, open: noOpen });
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
-		await runCommand(pi, "serve", "a.txt", ctx);
+		await runCommand(pi, "browse", "a.txt", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
 	});
 });

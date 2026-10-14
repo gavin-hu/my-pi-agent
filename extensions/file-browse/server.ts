@@ -1,5 +1,5 @@
 /**
- * The HTTP server for the serve extension.
+ * The HTTP server for the browse extension.
  *
  * Wraps `node:http` around the pure `handleRequest`: it resolves the root once,
  * binds `127.0.0.1`, streams `/raw` responses from disk, and exposes an

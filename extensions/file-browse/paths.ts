@@ -1,5 +1,5 @@
 /**
- * Path safety for the serve extension.
+ * Path safety for the browse extension.
  *
  * Every request path is untrusted: it is URL-decoded once, rejected when it is
  * malformed or absolute, resolved under the served root, and finally checked

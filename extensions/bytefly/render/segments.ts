@@ -109,15 +109,15 @@ export function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment
 	};
 }
 
-export function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const raw = snapshot.statuses.get(CONFIG.serveStatusKey);
+export function browseSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const raw = snapshot.statuses.get(CONFIG.browseStatusKey);
 	if (!raw) return null;
-	const icon = CONFIG.icons.serve;
+	const icon = CONFIG.icons.browse;
 	const label = chipLabel(raw);
 	const separator = dim(theme, CONFIG.separators.item);
 	if (!label) {
 		return {
-			id: "serve",
+			id: "browse",
 			weight: 3,
 			droppable: true,
 			separator,
@@ -125,7 +125,7 @@ export function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 		};
 	}
 	return {
-		id: "serve",
+		id: "browse",
 		weight: 3,
 		droppable: true,
 		separator,
@@ -144,7 +144,7 @@ function statusRank(key: string): number {
 
 export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
-		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.serveStatusKey)
+		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.browseStatusKey)
 		.sort(([a], [b]) => statusRank(a) - statusRank(b) || a.localeCompare(b))
 		.map(([key, value]) => {
 			const status = sanitize(value);

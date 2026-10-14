@@ -1,6 +1,6 @@
-# file-browser — view the working directory in a browser
+# file-browse — view the working directory in a browser
 
-`/serve` starts a **read-only** HTTP server rooted at the effective working
+`/browse` starts a **read-only** HTTP server rooted at the effective working
 directory, opens the default browser at it, and prints the URL. The page is a
 two-pane file browser: a collapsible path tree on the left, directory listings
 and file views on the right, with image thumbnails, rendered Markdown,
@@ -9,13 +9,13 @@ bound to `127.0.0.1`
 and ships no dependencies — `node:http` plus one small vanilla script.
 
 ```bash
-pi --extension ./extensions/file-browser   # load just this extension
+pi --extension ./extensions/file-browse   # load just this extension
 pi -e .                                    # load the whole @gavin-hu/my-pi-agent package
 ```
 
 ## What it does
 
-- **One-command browsing.** `/serve` starts the server, prints the URL, and
+- **One-command browsing.** `/browse` starts the server, prints the URL, and
   opens the browser (unless `autoOpen: false`).
 - **Two-pane UI.** A server-rendered tree, directory listings, and file pages,
   progressively enhanced by one first-party script (filter, lazy tree
@@ -53,16 +53,16 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 ## Commands
 
 ```bash
-/serve            start at the working directory, open the browser, print the URL
-/serve <path>     start with a subdirectory of the working directory as the root
-/serve status     print the root and URL, or "not running"
-/serve stop       stop the server
+/browse            start at the working directory, open the browser, print the URL
+/browse <path>     start with a subdirectory of the working directory as the root
+/browse status     print the root and URL, or "not running"
+/browse stop       stop the server
 ```
 
 - The root is the effective cwd, so an active `worktree` session serves the
   worktree. `<path>` must resolve inside it.
-- The port is fixed for the session: the first `/serve` picks a random port
-  in `4780`–`5779` and every later `/serve` in that session reuses it, so the
+- The port is fixed for the session: the first `/browse` picks a random port
+  in `4780`–`5779` and every later `/browse` in that session reuses it, so the
   URL stays stable across roots and restarts. Set `"port"` to pin an explicit
   port; a busy port is reported, not silently changed.
 - Starting while already running with the same root reprints the URL without
@@ -72,7 +72,7 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 ### Status
 
 While a server is running, the extension publishes a two-tone `◉ <port>` chip
-(a green circle-dot and a blue port) under the shared `serve` status key. The
+(a green circle-dot and a blue port) under the shared `browse` status key. The
 [`bytefly`](../bytefly/) extension routes it to line 1's right zone
 beside `⎇ branch` and `⑂ worktree`; it
 is cleared on stop and on `session_shutdown`. The chip is session-local: it
@@ -94,7 +94,7 @@ reflects only this session's server, with no cross-session sharing.
 
 ## Configuration
 
-`~/.pi/agent/file-browser.json` merged with `<cwd>/.pi/file-browser.json`
+`~/.pi/agent/file-browse.json` merged with `<cwd>/.pi/file-browse.json`
 (project wins):
 
 ```jsonc
@@ -144,7 +144,7 @@ reflects only this session's server, with no cross-session sharing.
   type renders exactly as before. State that the tokenizer does not carry
   across lines (shell heredocs, interpolation inside a template literal) is
   approximated rather than parsed.
-- `/serve` has no auth; a malicious local page could probe the port. The `Host`
+- `/browse` has no auth; a malicious local page could probe the port. The `Host`
   allowlist and the absence of CORS headers mitigate reads, and the server is
   read-only.
 - Serving the root exposes whatever is on disk to the local user who started it;
@@ -162,19 +162,19 @@ reflects only this session's server, with no cross-session sharing.
 
 | Integration point | How |
 |---|---|
-| Command | `/serve` registers a single command from the factory; no tools are exposed. |
+| Command | `/browse` registers a single command from the factory; no tools are exposed. |
 | State | The running server, its root, and the session port live in a module-local closure; nothing is persisted and no session entries are written. |
-| Lifecycle | The factory opens no socket; the server is created on `/serve` and closed idempotently by `/serve stop` and `session_shutdown`. |
+| Lifecycle | The factory opens no socket; the server is created on `/browse` and closed idempotently by `/browse stop` and `session_shutdown`. |
 
 ## Design notes
 
-- **Lifecycle.** `/serve` resolves `resolveEffectiveCwd(ctx.cwd)`, loads config,
+- **Lifecycle.** `/browse` resolves `resolveEffectiveCwd(ctx.cwd)`, loads config,
   selects the port, parses args, and `await createFileServer(...)`: `realpath`
   the root, bind `127.0.0.1`, await `listening`, return `{ url, port, root,
   close }`. The port is chosen once for the session: a pinned config `port`
   wins, otherwise a random port is drawn and cached after the first successful
-  bind, so later starts reuse it (a conflict is reported and the next `/serve`
-  rolls another). `/serve stop` and `session_shutdown` await the idempotent
+  bind, so later starts reuse it (a conflict is reported and the next `/browse`
+  rolls another). `/browse stop` and `session_shutdown` await the idempotent
   `close()`; `session_shutdown` also clears the cached port.
 - **Pure routing.** `handleRequest(context, method, rawUrl, headers)` validates
   method and `Host`, parses the URL, matches a route, and runs every path
@@ -192,7 +192,7 @@ reflects only this session's server, with no cross-session sharing.
   accent match the `bytefly-dark`/`bytefly-light` themes; it follows
   `prefers-color-scheme` until an explicit choice sets `data-theme` on the root:
   `/theme.js` applies the saved choice in the head before first paint, and the
-  header toggle flips and stores it (`serve-theme` in `localStorage`).
+  header toggle flips and stores it (`browse-theme` in `localStorage`).
 - **Markdown rendering.** `markdown.ts` is a first-party, escape-first renderer
   for the constructs that show up in repository READMEs. It emits only a known
   tag set, escapes every literal character, allowlists URL schemes (dropping
@@ -231,7 +231,7 @@ reflects only this session's server, with no cross-session sharing.
 
 | File | Purpose |
 |---|---|
-| `index.ts` | `/serve` command, running-server closure, shutdown cleanup |
+| `index.ts` | `/browse` command, running-server closure, shutdown cleanup |
 | `config.ts` | Config defaults, validation, global/project merge |
 | `paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
 | `escape.ts` | `escapeHtml`, the shared HTML escaping used by every renderer |
@@ -249,7 +249,7 @@ reflects only this session's server, with no cross-session sharing.
 
 ## Testing
 
-`extensions/file-browser/` covers the path guard (traversal, encoded, NUL, malformed,
+`extensions/file-browse/` covers the path guard (traversal, encoded, NUL, malformed,
 absolute, symlink escape and in-root symlink), file classification/listings/
 reads/tree and the quick-open file index, the fuzzy matcher, the syntax
 highlighter (language detection, fence aliases, token classes, cross-line

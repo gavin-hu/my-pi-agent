@@ -55,7 +55,7 @@ hint shows `refreshing…` and a second `r` is ignored, so probes cannot stack.
 | subagent | a runnable nested `pi` | project-local agents need a trusted project |
 | plan | — | `git` for project-local `.pi/plans`; an interactive UI |
 | memory | — | `git` for the project-scope root |
-| file-browser | — | `git` for the branch chip; the browser opener is best-effort |
+| file-browse | — | `git` for the branch chip; the browser opener is best-effort |
 | web-access | — | `unpdf` |
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |

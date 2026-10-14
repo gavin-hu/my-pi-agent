@@ -16,12 +16,12 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | Module | Responsibility |
 |---|---|
 | [`config.ts`](./config.ts) | `~/.pi/agent/<name>.json` + `<cwd>/.pi/<name>.json` loading, with `clampInteger` / `clampNumber` / `cleanString` / `readJson` / `readJsonResult` and the `loadConfigFile` merge. |
-| [`env.ts`](./env.ts) | Env-var contracts shared across extensions: the worktree environment (`ENV_ROOT`, `worktreeRoot`, `resolveEffectiveCwd`) used by worktree, file-browser, job, and rewind, plus `isExtensionEnabled` / `ENV_DISABLED_EXTENSIONS` for the package-wide disable list. |
+| [`env.ts`](./env.ts) | Env-var contracts shared across extensions: the worktree environment (`ENV_ROOT`, `worktreeRoot`, `resolveEffectiveCwd`) used by worktree, file-browse, job, and rewind, plus `isExtensionEnabled` / `ENV_DISABLED_EXTENSIONS` for the package-wide disable list. |
 | [`format.ts`](./format.ts) | Pure text/number formatting shared by renderers: `formatTokens`, `stripControlChars`, `sanitize`, `sanitizeLine` — the boundary for untrusted, single-line text — and `shortenPath`. |
 | [`interaction.ts`](./interaction.ts) | Turn-affinity prompt contract: the channel a remote adapter installs on `ctx.ui` under a string key, the `InteractionChannel` interface (`request` / `post` / `postFile`), and `remoteChannel` / `isRemoteTurn` / `supportsCustomUI` / `askHuman` (with an optional file/text preface) plus the shared “Other” label. |
 | [`git/`](./git/) | Shared git plumbing. [`git/runner.ts`](./git/runner.ts) is the `RunGit` seam (`createExecRunner` with timeout/env handling, `runGitOrThrow`, `GitError`); [`git/read.ts`](./git/read.ts) holds the read helpers (`repoRoot`, `repoRootFor`, `gitDir`, `revParse`, `hasCommits`, `currentBranch`); [`git/index.ts`](./git/index.ts) is the barrel. |
 | [`list-cursor.ts`](./list-cursor.ts) | Scrollable-list behavior for the `/rewind`, `/extensions`, and `/doctor` screens: `fitRows`, `keepVisible`, `clampScroll`, `navIntent`, `wheelDelta`, `selectionMarker`, `formatRange`, and the `ListCursor` state. |
-| [`path.ts`](./path.ts) | `isInside` (string containment) plus `realPathOfNearest` / `isInsideReal` (symlink-aware): the containment predicates the file-browser, worktree, and doc guards share. |
+| [`path.ts`](./path.ts) | `isInside` (string containment) plus `realPathOfNearest` / `isInsideReal` (symlink-aware): the containment predicates the file-browse, worktree, and doc guards share. |
 | [`pi-invocation.ts`](./pi-invocation.ts) | `getPiInvocation`: how to launch a nested `pi` process, shared by `subagent` and `doctor`. |
 | [`policy.ts`](./policy.ts) | `createReadOnlyPolicy`: default-deny tool classification from `readOnlyHint` + explicit allow/deny. |
 | [`rails.ts`](./rails.ts) | Above-editor widget ordering (`goal` → `todo`) and dock-screen suppression, carried on `pi.events`. |

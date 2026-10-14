@@ -1,5 +1,5 @@
 /**
- * A small, escape-first Markdown renderer for the serve file view.
+ * A small, escape-first Markdown renderer for the browse file view.
  *
  * It is deliberately not CommonMark: it covers the block and inline constructs
  * that show up in repository READMEs — headings, paragraphs, fenced code,

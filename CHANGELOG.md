@@ -21,7 +21,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `bytefly`: the two-line, width-adaptive footer formerly shipped as
   `status-bar` and then `chrome`, replacing Pi's built-in footer while leaving
   its header alone. The footer keeps pwd + session name + git branch/worktree +
-  serve chip on line 1 and the context gauge + usage + mode/alert + model +
+  browse chip on line 1 and the context gauge + usage + mode/alert + model +
   thinking level on line 2; `/bytefly [status]` toggles it. The display name,
   command, extension directory, and config file are all `bytefly` now, and a
   legacy `chrome.json` is migrated to `bytefly.json` on load.
@@ -37,14 +37,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only `No goal set.`, and `/goal help` (or `-h` / `--help`) shows it at any
   time, so a first-time user can discover how to set and manage a goal without
   the README.
-- `file-browser`: code files render with first-party syntax highlighting in the
+- `file-browse`: code files render with first-party syntax highlighting in the
   text view, and fenced code blocks in the rendered Markdown view are
   highlighted too (keywords, strings, numbers, comments, and markup) for
   JavaScript/TypeScript, JSON, CSS (incl. SCSS/Sass/Less), HTML/XML and
   template components, shell, Python, Java, YAML, and SQL. The tokenizer is
   escape-first and dependency-free, so it works without JavaScript and unmapped
   file types or fence languages stay plain.
-- `file-browser`: a header theme toggle switches between the dark and light
+- `file-browse`: a header theme toggle switches between the dark and light
   palettes and remembers the choice per browser (`localStorage`); until it is
   used the palette follows the system `prefers-color-scheme`, and a pre-paint
   `/theme.js` script applies the saved choice to avoid a flash.
@@ -64,6 +64,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   what they want.
 
 ### Changed
+
+- `file-browser` is renamed `file-browse` everywhere: the extension directory
+  and `pi.extensions` path, the package description and keywords, the
+  `PI_DISABLED_EXTENSIONS` name, and the config file (`file-browser.json` is now
+  `file-browse.json`). Its command changes from `/serve` to `/browse`, so the
+  `◉ <port>` status chip now publishes under the `browse` status key. Point a
+  saved `file-browser.json` and any `PI_DISABLED_EXTENSIONS=file-browser` at the
+  new names.
 
 - `plan`: `write_plan`'s description and `content` parameter document the
   outline; `exit_plan_mode` numbers the steps it seeds into `todo` and tells the
@@ -162,7 +170,7 @@ rendering, so model-authored control characters cannot reach the terminal.
 - `goal`, `todo`, `memory`, `wechat`: a tool error line sanitizes its message
   before rendering, matching `job` and `subagent`, so a probe- or
   model-authored control character cannot reach the terminal through an error.
-- `file-browser`: a directory page has an `<h1>` (the table is labelled by it),
+- `file-browse`: a directory page has an `<h1>` (the table is labelled by it),
   listing and tree rows show a focus ring and not only hover, the sort buttons
   are made non-interactive under `noscript`, the copy buttons announce
   `Copied to clipboard` / `Copy failed` through a live region, and the
@@ -173,16 +181,16 @@ rendering, so model-authored control characters cannot reach the terminal.
 
 ### Added
 
-- `file-browser`: `.md`/`.markdown` files render as formatted Markdown
+- `file-browse`: `.md`/`.markdown` files render as formatted Markdown
   (headings, lists, tables, code, links, images) with a server-rendered
   Rendered/Raw switch (`/view/<rel>?raw=1`). The renderer is first-party and
   escape-first, so raw HTML and unsafe URL schemes (`javascript:`, `data:`) are
   neutralized and external images are shown as links instead of loaded.
-- `file-browser`: directory listings sort by Name/Size/Modified (directories
+- `file-browse`: directory listings sort by Name/Size/Modified (directories
   first) and the choice is remembered per browser.
-- `file-browser`: file pages copy the root-relative path or the file contents,
+- `file-browse`: file pages copy the root-relative path or the file contents,
   and text/raw views toggle line wrapping.
-- `file-browser`: a quick-open palette (`/` or `Ctrl/Cmd+K`, or the sidebar
+- `file-browse`: a quick-open palette (`/` or `Ctrl/Cmd+K`, or the sidebar
   button) fuzzy-searches a capped index of the served tree and opens the chosen
   file. The index skips `.git`, `node_modules`, and symlinks, is bounded by
   `maxIndexEntries`, and is cached per server; results highlight the matched
@@ -318,7 +326,7 @@ rendering, so model-authored control characters cannot reach the terminal.
   could still send an escape to the terminal. The status bar's own strip removed
   SGR only; it now parses away a CSI or OSC sequence too.
 - `doctor`: each extension's `git` check is described in its own terms, so
-  `file-browser` no longer reports "worktrees, rewind snapshots, project-scope
+  `file-browse` no longer reports "worktrees, rewind snapshots, project-scope
   memory, and the branch chip" as its requirement, `document` no longer declares
   a `git` check it never uses, and the missing-check glyph (U+2715) is no longer
   an East-Asian-ambiguous character that some terminals draw two columns wide.
@@ -441,7 +449,7 @@ rendering, so model-authored control characters cannot reach the terminal.
   binds its expand hint; `plan` separates the plan body from its header;
   `ask_user_question` lists one option line per question; `web_search` expands
   to every title.
-- `file-browser`: the `/serve` UI fills the window — a full-height app shell
+- `file-browse`: the `/browse` UI fills the window — a full-height app shell
   with independently scrolling sidebar and content panes (mobile keeps normal
   page scroll).
 
@@ -490,7 +498,7 @@ one installable Pi package.
   (`start` / `list` / `status` / `logs` / `kill` / `wait` / `clear`), `/jobs`,
   and the `▸ N` running / `✗ N` failure status chips. `start.timeoutMs`
   auto-kills a job that runs past its deadline.
-- `file-browser`: `/serve` starts a read-only local HTTP server on a port fixed
+- `file-browse`: `/browse` starts a read-only local HTTP server on a port fixed
   for the session, rooted at the working directory, and opens a two-pane tree
   browser — a collapsible path tree, directory listings, text pages with a line
   gutter, images, and download cards, plus image thumbnails, per-language icons,
@@ -508,7 +516,7 @@ one installable Pi package.
 - `goal`: a persistent session objective (`active`/`achieved`) shown in a
   one-line rail widget and restated before each turn, with
   `/goal [text|clear|done]` and an `outputSchema`/`structuredContent` result.
-- `status-bar`: a two-line colorful footer — pwd + git state + serve chip, then
+- `status-bar`: a two-line colorful footer — pwd + git state + browse chip, then
   context gauge + usage + mode/alert + model + thinking level — toggled with
   `/status-bar`.
 - `turn-separator`: a labeled dashed line between completed turns
@@ -580,7 +588,7 @@ one installable Pi package.
   option forms, `>&file` redirects, and `git -c core.worktree=`, and no longer
   mistakes a `GIT_DIR=` argument for a redirect.
 - Cross-platform runtime paths: git's `--show-toplevel` output is canonicalized
-  to the native real path, and plan containment and the serve guard resolve
+  to the native real path, and plan containment and the browse guard resolve
   symlinks with `realpathSync.native`. A traversal check accepts an in-tree
   sibling whose name merely starts with `..` (for example `..notes`).
 - `subagent`: `shortenPath` normalizes separators before replacing the home

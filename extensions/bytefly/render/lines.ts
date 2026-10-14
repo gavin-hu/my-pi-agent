@@ -1,7 +1,7 @@
 /**
  * Turn a `StatusSnapshot` into the two footer lines.
  *
- * Line 1 — identity: left `pwd`, right `⎇ branch · ⑂ worktree · ◉ serve`.
+ * Line 1 — identity: left `pwd`, right `⎇ branch · ⑂ worktree · ◉ browse`.
  * Line 2 — resources: left the plan/alert statuses then the context gauge and
  * usage meters, right the model and thinking level.
  */
@@ -15,7 +15,7 @@ import {
 	modelSegment,
 	modesSegment,
 	pwdSegment,
-	serveSegment,
+	browseSegment,
 	sessionSegment,
 	thinkingSegment,
 	tokensSegment,
@@ -32,7 +32,7 @@ function defined(segments: Array<Segment | null>): Segment[] {
 export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): LineSpec[] {
 	const line1: LineSpec = {
 		left: defined([pwdSegment(snapshot, theme, home), sessionSegment(snapshot, theme)]),
-		right: defined([branchSegment(snapshot, theme), worktreeSegment(snapshot, theme), serveSegment(snapshot, theme)]),
+		right: defined([branchSegment(snapshot, theme), worktreeSegment(snapshot, theme), browseSegment(snapshot, theme)]),
 	};
 
 	const line2Left = defined([

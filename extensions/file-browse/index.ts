@@ -1,12 +1,12 @@
 /**
- * file-browser — view the working directory in a browser.
+ * file-browse — view the working directory in a browser.
  *
- * Registers the read-only `/serve` command. It starts a `node:http` server
+ * Registers the read-only `/browse` command. It starts a `node:http` server
  * bound to 127.0.0.1, rooted at the effective cwd, and opens the default
  * browser at a two-pane tree browser. No tool is registered; the server is
  * closed on `session_shutdown`.
  *
- * Load with:  pi --extension ./extensions/file-browser
+ * Load with:  pi --extension ./extensions/file-browse
  */
 
 import { realpathSync } from "node:fs";
@@ -34,19 +34,19 @@ interface RunningServer {
 }
 
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
-	if (!isExtensionEnabled("file-browser")) return;
+	if (!isExtensionEnabled("file-browse")) return;
 	let running: RunningServer | undefined;
 	/** Random port fixed for the session after the first successful start. */
 	let sessionPort: number | undefined;
 
-	/** Publish the serve chip, or clear it with `undefined`; best-effort UI. */
-	const setServeStatus = (ctx: ExtensionContext, port: number | undefined): void => {
+	/** Publish the browse chip, or clear it with `undefined`; best-effort UI. */
+	const setBrowseStatus = (ctx: ExtensionContext, port: number | undefined): void => {
 		try {
 			const value =
 				port === undefined
 					? undefined
-					: `${ctx.ui.theme.fg("success", GLYPHS.serve)} ${ctx.ui.theme.fg("accent", String(port))}`;
-			ctx.ui.setStatus(STATUS_KEYS.serve, value);
+					: `${ctx.ui.theme.fg("success", GLYPHS.browse)} ${ctx.ui.theme.fg("accent", String(port))}`;
+			ctx.ui.setStatus(STATUS_KEYS.browse, value);
 		} catch {
 			// A UI without a theme or setStatus must not break the command.
 		}
@@ -57,18 +57,21 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		if (!current) return false;
 		running = undefined;
 		await current.server.close();
-		if (ctx) setServeStatus(ctx, undefined);
+		if (ctx) setBrowseStatus(ctx, undefined);
 		return true;
 	};
 
 	const start = async (args: string, ctx: ExtensionContext): Promise<void> => {
 		const target = args.trim();
 		if (target === "status") {
-			ctx.ui.notify(running ? `serve: ${running.server.root} at ${running.server.url}` : "serve: not running", "info");
+			ctx.ui.notify(
+				running ? `browse: ${running.server.root} at ${running.server.url}` : "browse: not running",
+				"info",
+			);
 			return;
 		}
 		if (target === "stop") {
-			ctx.ui.notify((await stop(ctx)) ? "serve: stopped" : "serve: not running", "info");
+			ctx.ui.notify((await stop(ctx)) ? "browse: stopped" : "browse: not running", "info");
 			return;
 		}
 
@@ -83,12 +86,12 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 				root = await resolveRequestPath(cwd, target);
 			} catch (error) {
 				const message = error instanceof HttpError ? error.message : String(error);
-				ctx.ui.notify(`serve: ${message}`, "error");
+				ctx.ui.notify(`browse: ${message}`, "error");
 				return;
 			}
 			const info = await stat(root).catch(() => undefined);
 			if (!info?.isDirectory()) {
-				ctx.ui.notify(`serve: ${target} is not a folder inside the working directory`, "error");
+				ctx.ui.notify(`browse: ${target} is not a folder inside the working directory`, "error");
 				return;
 			}
 		}
@@ -100,7 +103,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			// Keep the unresolved root; the server factory reports a real failure.
 		}
 		if (running && running.server.root === realRoot && running.server.port === port) {
-			ctx.ui.notify(`serve: ${running.server.url} (already running)`, "info");
+			ctx.ui.notify(`browse: ${running.server.url} (already running)`, "info");
 			return;
 		}
 
@@ -110,24 +113,24 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			const server = await create({ root, config: { ...config, port }, git: createGitStatus(pi, root) });
 			if (unpinned) sessionPort = port;
 			running = { server };
-			setServeStatus(ctx, server.port);
-			ctx.ui.notify(`serve: ${server.root} at ${server.url}`, "info");
+			setBrowseStatus(ctx, server.port);
+			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
 			if (config.autoOpen) (deps.open ?? openInBrowser)(server.url);
 		} catch (error) {
 			const code = (error as NodeJS.ErrnoException | undefined)?.code;
 			if (code === "EADDRINUSE") {
 				ctx.ui.notify(
-					`serve: port ${port} is in use; run /serve again to try another or set "port" in file-browser.json`,
+					`browse: port ${port} is in use; run /browse again to try another or set "port" in file-browse.json`,
 					"error",
 				);
 			} else {
-				ctx.ui.notify(`serve: ${error instanceof Error ? error.message : String(error)}`, "error");
+				ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 			}
 		}
 	};
 
-	pi.registerCommand("serve", {
-		description: "Serve the working directory in a local browser (read-only): /serve [path | status | stop]",
+	pi.registerCommand("browse", {
+		description: "Browse the working directory in a local browser (read-only): /browse [path | status | stop]",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;

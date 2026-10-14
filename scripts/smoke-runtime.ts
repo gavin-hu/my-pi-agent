@@ -260,12 +260,12 @@ check("memory is direct", memoryTool?.exposure === "direct");
 check("memory active by default", session.getActiveToolNames().includes("memory"));
 check("memory command registered", !!runner.getCommand("memory"));
 
-// serve loads headlessly and registers its command; /serve status must not
+// browse loads headlessly and registers its command; /browse status must not
 // start a server or open a browser.
-const serveCommand = runner.getCommand("serve");
-check("serve command registered", !!serveCommand);
-if (serveCommand) await serveCommand.handler("status", runner.createCommandContext());
-check("serve status runs without starting a server", !!serveCommand);
+const browseCommand = runner.getCommand("browse");
+check("browse command registered", !!browseCommand);
+if (browseCommand) await browseCommand.handler("status", runner.createCommandContext());
+check("browse status runs without starting a server", !!browseCommand);
 
 // bytefly loads headlessly and registers its toggle command, the /extensions
 // picker command, and the separator entry renderer; it installs no tools, the

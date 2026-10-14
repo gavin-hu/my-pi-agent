@@ -47,7 +47,7 @@ describe("binary checks", () => {
 			worktree: "worktree isolation",
 			rewind: "rewind snapshots",
 			plan: "project-local `.pi/plans` (otherwise plans land in the agent directory)",
-			"file-browser": "the branch chip",
+			"file-browse": "the branch chip",
 			memory: "project-scope memory under the repository root",
 		};
 		for (const [name, enables] of Object.entries(expected)) {

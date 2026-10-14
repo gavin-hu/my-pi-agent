@@ -1,7 +1,7 @@
 /**
  * Path containment shared by the extensions that resolve untrusted paths.
  *
- * The file-browser serves files under a root, the worktree guards keep tool
+ * The file-browse extension serves files under a root, the worktree guards keep tool
  * calls inside the active worktree, and the doc extension reads documents under
  * the effective root; all must answer the same question — is a resolved target
  * the root itself or beneath it? Keeping the predicates here means the guards

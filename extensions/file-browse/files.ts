@@ -1,5 +1,5 @@
 /**
- * Filesystem reads for the serve extension: classification, capped directory
+ * Filesystem reads for the browse extension: classification, capped directory
  * listings, capped text reads, and the small sidebar tree. All paths are
  * absolute and already vetted by `paths.ts`; this module never touches the raw
  * request URL.

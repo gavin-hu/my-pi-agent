@@ -12,7 +12,7 @@
  */
 
 /** localStorage key for the browser's explicit light/dark choice. */
-export const THEME_STORAGE_KEY = "serve-theme";
+export const THEME_STORAGE_KEY = "browse-theme";
 
 /**
  * A tiny head script that applies the saved theme before the body is painted,
@@ -287,11 +287,11 @@ export const CLIENT_JS = `(function () {
 		});
 		var tbody = rows.length > 0 ? rows[0].parentElement : null;
 		if (tbody) rows.forEach(function (row) { tbody.appendChild(row); });
-		if (remember) store.set("serve-sort", key + ":" + direction);
+		if (remember) store.set("browse-sort", key + ":" + direction);
 	}
 
 	if (sortButtons.length > 0) {
-		var savedSort = store.get("serve-sort");
+		var savedSort = store.get("browse-sort");
 		var savedParts = savedSort ? savedSort.split(":") : [];
 		if (savedParts.length === 2) setSort(savedParts[0], savedParts[1] === "descending" ? "descending" : "ascending", false);
 		sortButtons.forEach(function (button) {
@@ -315,12 +315,12 @@ export const CLIENT_JS = `(function () {
 		}
 	}
 	if (wrapButton && code) {
-		var wrapOn = store.get("serve-wrap") === "1";
+		var wrapOn = store.get("browse-wrap") === "1";
 		applyWrap(wrapOn);
 		wrapButton.addEventListener("click", function () {
 			wrapOn = !code.classList.contains("wrap");
 			applyWrap(wrapOn);
-			store.set("serve-wrap", wrapOn ? "1" : "0");
+			store.set("browse-wrap", wrapOn ? "1" : "0");
 		});
 	}
 

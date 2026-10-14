@@ -1,5 +1,5 @@
 /**
- * Read-only git context for the serve pages.
+ * Read-only git context for the browse pages.
  *
  * The header shows the checked-out branch (or the detached head) and a dirty
  * marker. Queries go through the shared `lib/git` seams so the read-only

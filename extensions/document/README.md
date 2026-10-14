@@ -206,7 +206,7 @@ config defaults, and error listing all derive from it.
   text is the built-in `read`).
 - OCR of scanned documents.
 - Remote URLs (use `web_fetch`).
-- `file-browser` preview integration.
+- `file-browse` preview integration.
 - Writing, summarizing, or converting documents.
 
 ## Pi integration

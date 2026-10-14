@@ -1,5 +1,5 @@
 /**
- * HTML text escaping for the serve pages.
+ * HTML text escaping for the browse pages.
  *
  * The single escape used by every page renderer and by the Markdown renderer:
  * model- and file-authored text becomes safe text nodes and double-quoted

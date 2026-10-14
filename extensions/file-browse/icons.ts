@@ -1,5 +1,5 @@
 /**
- * Inline SVG icons and the per-language mapping used by the serve pages and the
+ * Inline SVG icons and the per-language mapping used by the browse pages and the
  * `/api/tree` JSON. No external icon font or image is fetched; the sprite is
  * inlined once per page and referenced with `<use>`.
  */

@@ -1,5 +1,5 @@
 /**
- * The request router for the serve extension.
+ * The request router for the browse extension.
  *
  * A request is matched to a route, every path goes through `paths.ts`, and the
  * filesystem reads are capped by config. The function returns a plain

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { HttpError, encodePath, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
-import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
+import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
 let fixture: Fixture | undefined;
 

@@ -22,7 +22,7 @@ and the `/extensions` picker. Pi's own header is left in place.
 **Footer.** Two lines, each with a left and right zone:
 
 - **Line 1 — identity:** `pwd` and the session name on the left; git state
-  (`⎇ branch · ⑂ worktree`) and the `◉` serve chip on the right.
+  (`⎇ branch · ⑂ worktree`) and the `◉` browse chip on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
   mode/alert slot (`⋮ plan`) trailing after a `│` when present; the model and
   thinking level on the right. The gauge is anchored at column 0, so `%` is
@@ -225,7 +225,7 @@ table with no config file at all.
 |---|---|---|---|
 | pwd | 1 left | dim | last |
 | session | 1 left | muted, bracketed | after worktree |
-| serve | 1 right | success glyph + accent port | first |
+| browse | 1 right | success glyph + accent port | first |
 | branch | 1 right | muted (warning when detached) | last |
 | worktree | 1 right | success | first |
 | context gauge + `%` | 2 left | muted ≤70 · warning 71–90 · error >90 | never |
@@ -238,8 +238,8 @@ table with no config file at all.
 | thinking level | 2 right | thinking token | before cost |
 
 The worktree status is read from the `worktree` status key, so the
-[worktree](../worktree/) extension and the bar agree. The serve chip is read
-from the `serve` status key published by [file-browser](../file-browser/) while
+[worktree](../worktree/) extension and the bar agree. The browse chip is read
+from the `browse` status key published by [file-browse](../file-browse/) while
 its server runs, and shows the two-tone `◉ <port>` (green glyph, accent port).
 The trailing slot shows plan-style alerts when present and is omitted otherwise;
 a plan chip's trailing plan file name is dropped, so the slot reads `⋮ plan`
@@ -383,10 +383,10 @@ rather than showing a wrong value.
   visible as the meters drop.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line; the bar splits them by meaning (`worktree`
-  and `serve` are location, plan/alert is mode). The [wechat](../wechat/)
+  and `browse` are location, plan/alert is mode). The [wechat](../wechat/)
   extension publishes `✆ wechat` while its bridge runs, joining the mode/alert
   slot; this is why the bar must render `getExtensionStatuses()` at all.
-- **Serve joins the git state.** The `◉ <port>` chip is routed beside `⎇` branch
+- **Browse joins the git state.** The `◉ <port>` chip is routed beside `⎇` branch
   and `⑂` worktree rather than after `pwd`, so the left zone stays the
   filesystem identity (path + session name) and every "where am I / what is
   running" fact sits on line 1 right.

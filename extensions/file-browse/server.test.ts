@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createConnection } from "node:net";
 import { DEFAULT_CONFIG } from "./config.ts";
 import { createFileServer, type FileServer } from "./server.ts";
-import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
+import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
 /** Whether a TCP connection to `url`'s host:port is refused, independent of any HTTP proxy. */
 function connectionRefused(url: string): Promise<boolean> {

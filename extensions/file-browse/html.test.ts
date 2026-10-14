@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Listing, TreeNode } from "./files.ts";
 import { formatDate, renderBreadcrumbs, renderDirectoryPage, renderFilePage } from "./html.ts";
-import { makeFixture, localTimeMs, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
+import { makeFixture, localTimeMs, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
 /** A fixed mtime so date rendering is deterministic. */
 const MTIME_MS = 1_700_000_000_000;

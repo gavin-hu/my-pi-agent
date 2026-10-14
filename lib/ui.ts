@@ -29,7 +29,7 @@ export const GLYPHS = {
 	jobsRunning: "▸",
 	jobsFailure: "✗",
 	stopped: "⊘",
-	serve: "◉",
+	browse: "◉",
 	wechat: "✆",
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
@@ -67,7 +67,7 @@ export const STATUS_KEYS = {
 	planMode: "plan-mode",
 	jobs: "jobs",
 	jobsFailure: "jobs-failure",
-	serve: "serve",
+	browse: "browse",
 	rewind: "rewind",
 	wechat: "wechat",
 } as const;

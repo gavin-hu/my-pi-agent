@@ -54,33 +54,33 @@ describe("buildLines", () => {
 		expect(line2.left[0].id).toBe("context");
 	});
 
-	test("routes the serve chip to line 1 right and out of the alerts", () => {
-		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.serve, `${GLYPHS.serve} 4780`]]) });
+	test("routes the browse chip to line 1 right and out of the alerts", () => {
+		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.browse, `${GLYPHS.browse} 4780`]]) });
 		const [line1, line2] = buildLines(snapshot, fakeTheme, "/home/u");
 
 		expect(ids(line1.left)).toEqual(["pwd"]);
-		expect(ids(line1.right)).toEqual(["branch", "serve"]);
+		expect(ids(line1.right)).toEqual(["branch", "browse"]);
 		expect(ids(line2.left)).not.toContain("statuses");
 	});
 
-	test("groups the serve chip with the worktree on line 1 right", () => {
+	test("groups the browse chip with the worktree on line 1 right", () => {
 		const statuses = new Map([
 			[STATUS_KEYS.worktree, `${GLYPHS.worktree} smoke`],
-			[STATUS_KEYS.serve, `${GLYPHS.serve} 4780`],
+			[STATUS_KEYS.browse, `${GLYPHS.browse} 4780`],
 		]);
 		const [line1] = buildLines(fullSnapshot({ statuses }), fakeTheme, "/home/u");
 
 		expect(ids(line1.left)).toEqual(["pwd"]);
-		expect(ids(line1.right)).toEqual(["branch", "worktree", "serve"]);
+		expect(ids(line1.right)).toEqual(["branch", "worktree", "browse"]);
 	});
 
-	test("renders the serve chip with its port and a compact form", () => {
-		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.serve, `${GLYPHS.serve} 4780`]]) });
+	test("renders the browse chip with its port and a compact form", () => {
+		const snapshot = fullSnapshot({ statuses: new Map([[STATUS_KEYS.browse, `${GLYPHS.browse} 4780`]]) });
 		const [line1] = buildLines(snapshot, fakeTheme, "/home/u");
-		const serve = line1.right.find((segment) => segment.id === "serve")!;
+		const browse = line1.right.find((segment) => segment.id === "browse")!;
 
-		expect(serve.forms).toEqual([`${GLYPHS.serve} 4780`, `${GLYPHS.serve}4780`, GLYPHS.serve]);
-		expect(serve.separator).toBe(" · ");
+		expect(browse.forms).toEqual([`${GLYPHS.browse} 4780`, `${GLYPHS.browse}4780`, GLYPHS.browse]);
+		expect(browse.separator).toBe(" · ");
 	});
 
 	test("omits zero-valued directions in the token meter", () => {

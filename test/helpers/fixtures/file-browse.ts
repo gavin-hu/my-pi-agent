@@ -20,7 +20,7 @@ export interface Fixture {
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489", "hex");
 
 export function makeFixture(): Fixture {
-	const base = mkdtempSync(join(tmpdir(), "pi-serve-"));
+	const base = mkdtempSync(join(tmpdir(), "pi-browse-"));
 	const root = join(base, "root");
 	const outside = join(base, "outside");
 	mkdirSync(join(root, "sub"), { recursive: true });

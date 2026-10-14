@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { CLIENT_JS, THEME_JS, THEME_STORAGE_KEY } from "./client.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import { handleRequest } from "./router.ts";
-import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browser.ts";
+import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
 let fixture: Fixture | undefined;
 
@@ -48,12 +48,12 @@ describe("CLIENT_JS", () => {
 	test("sorts listings and remembers the choice", () => {
 		expect(CLIENT_JS).toContain("data-sort");
 		expect(CLIENT_JS).toContain("aria-sort");
-		expect(CLIENT_JS).toContain("serve-sort");
+		expect(CLIENT_JS).toContain("browse-sort");
 		expect(CLIENT_JS).toContain('getAttribute("data-dir")');
 	});
 
 	test("toggles wrapping and copies with a clipboard fallback", () => {
-		expect(CLIENT_JS).toContain("serve-wrap");
+		expect(CLIENT_JS).toContain("browse-wrap");
 		expect(CLIENT_JS).toContain("wrap-toggle");
 		expect(CLIENT_JS).toContain("[data-copy]");
 		expect(CLIENT_JS).toContain("navigator.clipboard");
