@@ -6,6 +6,8 @@ import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
+import type { PlanAnnotation } from "./feedback.ts";
+import type { PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
@@ -17,14 +19,14 @@ function repoExec(root: string) {
 			: { stdout: "", stderr: "", code: 1 };
 }
 
-function setup() {
+function setup(web?: PlanWebReview) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
 	const fake = makeFakePi({
 		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
 		exec: repoExec(root),
 	});
 	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
-	registerTools(fake.pi, runtime);
+	registerTools(fake.pi, runtime, web);
 	return {
 		...fake,
 		runtime,
@@ -37,6 +39,36 @@ function setup() {
 }
 
 const call = (tool: any, params: unknown, ctx: any) => tool.execute("call-1", params, undefined, undefined, ctx);
+
+/** A web review controller whose session resolves with `annotations` saved. */
+function webThatSaves(annotations: PlanAnnotation[]): PlanWebReview {
+	return {
+		start: async (_cwd, plan) => ({
+			url: "http://127.0.0.1:1234/?token=tok",
+			port: 1234,
+			done: Promise.resolve({
+				status: "saved" as const,
+				plan: { ...plan, content: `${plan.content}\n> [!REVIEW] ${annotations[0]?.comment ?? ""}` },
+				annotations,
+			}),
+			close: async () => {},
+		}),
+		closeAll: async () => {},
+	};
+}
+
+/** A web review controller whose session resolves cancelled. */
+function webThatCancels(): PlanWebReview {
+	return {
+		start: async () => ({
+			url: "http://127.0.0.1:1234/?token=tok",
+			port: 1234,
+			done: Promise.resolve({ status: "cancelled" as const }),
+			close: async () => {},
+		}),
+		closeAll: async () => {},
+	};
+}
 
 /** Enter plan mode through the real tool, in a repository rooted at `cwd`. */
 async function enterPlan(enter: any, runtime: any, cwd: string) {
@@ -372,6 +404,36 @@ describe("exit_plan_mode", () => {
 		expect(result.details.refined).toBe(true);
 		expect(result.details.refinement).toBe("use a hand-written lexer");
 		expect(result.content[0].text).toContain("use a hand-written lexer");
+		expect(runtime.isEnabled()).toBe(true);
+	});
+
+	test("a browser save returns the comments as a refinement", async () => {
+		const annotations: PlanAnnotation[] = [{ anchor: 0, quote: "one", comment: "make it concrete" }];
+		const { enter, exit, write, runtime, root } = setup(webThatSaves(annotations));
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- one");
+
+		const { ctx, notifications } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details.refined).toBe(true);
+		expect(result.details.refinement).toContain("make it concrete");
+		expect(result.content[0].text).toContain("browser");
+		expect(runtime.isEnabled()).toBe(true);
+		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
+	});
+
+	test("a cancelled browser review returns to the review screen", async () => {
+		const { enter, exit, write, runtime, root } = setup(webThatCancels());
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- one");
+
+		const { ctx } = fakeCtx({ mode: "tui", cwd: root });
+		let calls = 0;
+		ctx.ui.custom = async () => (calls++ === 0 ? { action: "browser" } : { action: "keep" });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(calls).toBe(2);
+		expect(result.details.approved).toBe(false);
+		expect(result.details.refined).toBeUndefined();
 		expect(runtime.isEnabled()).toBe(true);
 	});
 

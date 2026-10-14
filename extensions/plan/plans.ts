@@ -19,6 +19,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../../lib/git/index.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
+import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
 import { extractPlanSteps, setStepStatus, type PlanStep } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
@@ -58,6 +59,8 @@ export interface PlanStore {
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
 	/** Set a top-level step's checkbox in an existing plan. Throws when the file or step is invalid. */
 	setStep(cwd: string, planPath: string, step: number, status: PlanStep["status"]): Promise<StoredPlan>;
+	/** Replace the plan's stored browser feedback. Throws when the file is missing or outside the plans directory. */
+	saveFeedback(cwd: string, planPath: string, annotations: PlanAnnotation[]): Promise<StoredPlan>;
 }
 
 /** Timestamp prefix the plan store adds to file names. */
@@ -242,5 +245,23 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		};
 	};
 
-	return { dirFor, write, read, setStep };
+	/**
+	 * Write the browser review comments into an existing plan, replacing any
+	 * feedback already stored there. The file must already be a contained plan,
+	 * so this is the same path-safe write as `setStep`.
+	 */
+	const saveFeedback = async (cwd: string, planPath: string, annotations: PlanAnnotation[]): Promise<StoredPlan> => {
+		const plan = await read(cwd, planPath);
+		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
+		const content = formatFeedback(plan.content, annotations);
+		writeFileSync(plan.path, content, "utf-8");
+		return {
+			path: plan.path,
+			relativePath: plan.relativePath,
+			content,
+			bytes: Buffer.byteLength(content, "utf-8"),
+		};
+	};
+
+	return { dirFor, write, read, setStep, saveFeedback };
 }

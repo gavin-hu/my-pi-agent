@@ -15,6 +15,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 
 | Module | Responsibility |
 |---|---|
+| [`browser.ts`](./browser.ts) | Cross-platform default-browser opener shared by `file-browse` and `plan`: pure `browserCommand(url, platform)` plus best-effort `openInBrowser(url, { platform, spawn })` with an injectable spawn. |
 | [`config.ts`](./config.ts) | `~/.pi/agent/<name>.json` + `<cwd>/.pi/<name>.json` loading, with `clampInteger` / `clampNumber` / `cleanString` / `asRecord` / `readJson` / `readJsonResult` and the `loadConfigFile` merge. |
 | [`env.ts`](./env.ts) | Env-var contracts shared across extensions: the worktree environment (`ENV_ROOT`, `worktreeRoot`, `resolveEffectiveCwd`) used by worktree, file-browse, job, and rewind, plus `isExtensionEnabled` / `ENV_DISABLED_EXTENSIONS` for the package-wide disable list. |
 | [`format.ts`](./format.ts) | Pure text/number formatting shared by renderers: `formatTokens`, `stripControlChars`, `sanitize`, `sanitizeLine` — the boundary for untrusted, single-line text — and `shortenPath`. |

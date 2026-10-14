@@ -249,6 +249,37 @@ describe("createPlanStore — setStep", () => {
 	});
 });
 
+describe("createPlanStore — saveFeedback", () => {
+	test("writes feedback into the plan and returns the updated content", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Review", content: "# Plan\n- [ ] step" });
+
+		const updated = await store.saveFeedback(root, file.path, [{ anchor: 2, comment: "too vague" }]);
+		expect(updated.content).toBe("# Plan\n- [ ] step\n> [!REVIEW] too vague");
+		expect(readFileSync(file.path, "utf-8")).toBe(updated.content);
+	});
+
+	test("replaces earlier feedback instead of accumulating", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Review", content: "- [ ] step" });
+
+		await store.saveFeedback(root, file.path, [{ anchor: 0, comment: "first" }]);
+		const updated = await store.saveFeedback(root, file.path, [{ anchor: 0, comment: "second" }]);
+		expect(updated.content).toBe("- [ ] step\n> [!REVIEW] second");
+	});
+
+	test("rejects a missing or outside plan", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		writeFileSync(join(root, "outside.md"), "- One");
+
+		await expect(store.saveFeedback(root, join(root, ".pi", "plans", "nope.md"), [])).rejects.toThrow(/No plan file/);
+		await expect(store.saveFeedback(root, join(root, "outside.md"), [])).rejects.toThrow(/No plan file/);
+	});
+});
+
 describe("planTitle", () => {
 	test("drops the extension and the timestamp prefix", () => {
 		expect(planTitle("2026-10-08-1530-add-rate-limiting.md")).toBe("add-rate-limiting");

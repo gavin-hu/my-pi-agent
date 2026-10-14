@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { browserCommand, openInBrowser } from "./open.ts";
+import { browserCommand, openInBrowser } from "./browser.ts";
 
 describe("browserCommand", () => {
 	test("uses start on Windows", () => {

@@ -44,7 +44,7 @@ import { planTitle, type StoredPlan } from "./plans.ts";
 import { extractPlanSections, extractPlanSteps, type PlanStep } from "./steps.ts";
 
 /** What the user chose from the read/review screen. */
-export type PlanViewAction = "approve" | "refine" | "keep";
+export type PlanViewAction = "approve" | "refine" | "keep" | "browser";
 
 /** A plan section's rendered start line, for navigation and the current-section label. */
 interface SectionOffset {
@@ -90,6 +90,7 @@ const PRIMARY_HINTS: ScreenHint[] = [
 	"Esc keep planning",
 	{ text: "a approve & run", color: "success" },
 	{ text: "r refine", color: "accent" },
+	{ text: "w browser", color: "accent" },
 ];
 /** Scroll keys appended to the review footer while the plan overflows. */
 const SCROLL_HINTS: ScreenHint[] = ["↑/↓ or k/j scroll", "space/b page", "g/G ends"];
@@ -334,6 +335,7 @@ export class PlanViewComponent implements Component {
 		else if (data === "p") this.jumpSection(-1);
 		else if (data === "a") this.options.onClose("approve");
 		else if (data === "r") this.startRefine();
+		else if (data === "w") this.options.onClose("browser");
 	}
 
 	/** Wheel scrolling in fullscreen; regular mode leaves the wheel to the terminal. */

@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plan`: browser review. Press `w` on the `exit_plan_mode` review screen, or
+  run `/plan review [path]`, to open a plan in a loopback browser, select text
+  to leave inline comments, and save them into the plan file as `> [!REVIEW]`
+  lines; the comments come back to the model as a refinement request. The
+  server is tokenized, bound to `127.0.0.1`, and closed on save, cancel, tab
+  close, or session shutdown.
+
 ### Fixed
 
 - `rewind`: a snapshot taken with `includeUntracked` disabled captures tracked

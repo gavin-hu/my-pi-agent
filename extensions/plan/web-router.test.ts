@@ -1,0 +1,146 @@
+import { describe, expect, test } from "bun:test";
+import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
+import type { PlanAnnotation } from "./feedback.ts";
+
+function setup(overrides: Partial<ReviewContext> = {}) {
+	const saved: PlanAnnotation[][] = [];
+	const cancelled: number[] = [];
+	let nextSave: SaveResult = { ok: true };
+	const ctx: ReviewContext = {
+		token: "tok",
+		page: async () => ({
+			title: "T",
+			relativePath: ".pi/plans/p.md",
+			blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
+			annotations: [],
+			steps: { done: 0, total: 0 },
+			token: "tok",
+		}),
+		save: async (annotations) => {
+			saved.push(annotations);
+			return nextSave;
+		},
+		onSaved: () => {},
+		onCancel: () => cancelled.push(1),
+		...overrides,
+	};
+	return {
+		ctx,
+		saved,
+		cancelled,
+		setSave: (result: SaveResult) => {
+			nextSave = result;
+		},
+	};
+}
+
+const GET = (url: string) => handleReviewRequest(setup().ctx, "GET", url, {});
+
+describe("handleReviewRequest — routes", () => {
+	test("serves the client script without a token", async () => {
+		const response = await GET("/client.js");
+		expect(response.status).toBe(200);
+		expect(response.body).toBe(REVIEW_CLIENT_JS);
+		expect(response.headers["Content-Type"]).toContain("text/javascript");
+	});
+
+	test("serves the review page with a token", async () => {
+		const response = await GET("/?token=tok");
+		expect(response.status).toBe(200);
+		expect(response.body).toContain('id="review-data"');
+		expect(response.headers["Content-Security-Policy"]).toContain("default-src 'none'");
+	});
+
+	test("rejects the page without the token", async () => {
+		expect((await GET("/")).status).toBe(403);
+	});
+
+	test("opens the event stream only with the token", async () => {
+		const response = await GET("/events?token=tok");
+		expect(response.status).toBe(200);
+		expect(response.stream).toBe(true);
+		expect(response.headers["Content-Type"]).toContain("text/event-stream");
+		expect((await GET("/events")).status).toBe(403);
+	});
+
+	test("serves a favicon", async () => {
+		expect((await GET("/favicon.ico")).status).toBe(204);
+	});
+
+	test("returns 404 for an unknown route", async () => {
+		expect((await GET("/nope?token=tok")).status).toBe(404);
+	});
+});
+
+describe("handleReviewRequest — envelope", () => {
+	test("rejects a method that is neither GET nor POST", async () => {
+		const response = await handleReviewRequest(setup().ctx, "PUT", "/?token=tok", {});
+		expect(response.status).toBe(405);
+	});
+
+	test("rejects a foreign Host header", async () => {
+		const response = await handleReviewRequest(setup().ctx, "GET", "/?token=tok", { host: "evil.example" });
+		expect(response.status).toBe(403);
+	});
+});
+
+describe("handleReviewRequest — feedback", () => {
+	test("saves valid annotations and resolves the session", async () => {
+		let resolved = 0;
+		const { ctx, saved } = setup({ onSaved: () => (resolved += 1) });
+		const response = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/feedback?token=tok",
+			{},
+			JSON.stringify({ annotations: [{ anchor: 1, comment: "note" }] }),
+		);
+		expect(response.status).toBe(200);
+		expect(saved).toEqual([[{ anchor: 1, comment: "note" }]]);
+		expect(resolved).toBe(1);
+	});
+
+	test("rejects a bad token before touching the plan", async () => {
+		const { ctx, saved } = setup();
+		const response = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/feedback?token=nope",
+			{},
+			JSON.stringify({ annotations: [] }),
+		);
+		expect(response.status).toBe(403);
+		expect(saved).toEqual([]);
+	});
+
+	test("rejects a malformed body", async () => {
+		const { ctx } = setup();
+		expect((await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", {}, "not json")).status).toBe(400);
+		expect(
+			(await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", {}, JSON.stringify({ annotations: 1 })))
+				.status,
+		).toBe(400);
+	});
+
+	test("reports a save conflict from the store", async () => {
+		const { ctx, setSave } = setup();
+		setSave({ ok: false, status: 409, message: "The plan changed." });
+		const response = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/feedback?token=tok",
+			{},
+			JSON.stringify({ annotations: [] }),
+		);
+		expect(response.status).toBe(409);
+		expect(response.body).toContain("The plan changed.");
+	});
+
+	test("cancels on request", async () => {
+		const { ctx, cancelled } = setup();
+		const response = await handleReviewRequest(ctx, "POST", "/api/cancel?token=tok", {});
+		expect(response.status).toBe(200);
+		expect(cancelled).toHaveLength(1);
+	});
+});

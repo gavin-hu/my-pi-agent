@@ -25,10 +25,12 @@ import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui.ts";
 import { expandHint } from "../../lib/ui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
+import { feedbackSummary } from "./feedback.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { PLAN_OUTLINE, extractPlanSteps, type PlanStep } from "./steps.ts";
 import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepDetails, WritePlanDetails } from "./types.ts";
+import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 
 const ExitPlanModeParams = Type.Object({
 	plan_path: Type.String({
@@ -157,7 +159,11 @@ async function reviewPlan(
 	});
 }
 
-export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
+export function registerTools(
+	pi: ExtensionAPI,
+	runtime: PlanRuntime,
+	web: PlanWebReview = createPlanWebReview(runtime.plans),
+): void {
 	pi.registerTool({
 		name: ENTER_TOOL,
 		label: "Enter plan mode",
@@ -331,7 +337,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 				};
 			}
 
-			const file = await runtime.plans.read(ctx.cwd, planPath);
+			let file = await runtime.plans.read(ctx.cwd, planPath);
 			if (!file) {
 				return {
 					content: [
@@ -365,50 +371,87 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 			}
 
 			let outcome = await reviewPlan(ctx, file);
-			// The dialog-based refine editor carries no text from the review screen; an
+			// Review, refine, and browser review all loop back here until the user
+			// approves, keeps planning, or a refinement is handed to the model. The
+			// dialog-based refine editor carries no text from the review screen, so an
 			// empty or cancelled editor returns to the review instead of being reported
 			// as "not approved".
-			while (outcome.action === "refine" && !outcome.refinement) {
-				const refinement = (await ctx.ui.editor(REFINE_PROMPT, ""))?.trim();
-				if (refinement) {
-					outcome = { action: "refine", refinement };
-					break;
+			for (;;) {
+				if (outcome.action === "browser") {
+					const session = await web.start(ctx.cwd, file).catch(() => undefined);
+					if (!session) {
+						ctx.ui.notify("Plan review: could not start the browser review server.", "error");
+						outcome = await reviewPlan(ctx, file);
+						continue;
+					}
+					ctx.ui.notify(`Plan review: opened ${session.url}`, "info");
+					const result = await session.done;
+					await session.close();
+					if (result.status === "saved") {
+						// The comments are already in the file; hand them back as a refinement so
+						// the model revises the same plan and calls exit_plan_mode again.
+						const refinement = feedbackSummary(result.annotations) || "See the review comments in the plan file.";
+						return {
+							content: [
+								{
+									type: "text",
+									text: `The user reviewed the plan in the browser and left feedback:\n${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
+								},
+							],
+							details: {
+								approved: false,
+								plan: result.plan.content,
+								planPath: result.plan.path,
+								relativePath: result.plan.relativePath,
+								refined: true,
+								refinement,
+							} satisfies ExitPlanModeDetails,
+						};
+					}
+					// Cancelled or the tab closed: re-read the file and review again.
+					file = (await runtime.plans.read(ctx.cwd, file.path)) ?? file;
+					outcome = await reviewPlan(ctx, file);
+					continue;
 				}
-				outcome = await reviewPlan(ctx, file);
-			}
-
-			if (outcome.action === "refine") {
-				const refinement = outcome.refinement ?? "";
-				return {
-					content: [
-						{
-							type: "text",
-							text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
-						},
-					],
-					details: {
-						approved: false,
-						plan: file.content,
-						planPath: file.path,
-						relativePath: file.relativePath,
-						refined: true,
-						refinement,
-					} satisfies ExitPlanModeDetails,
-				};
-			}
-
-			if (outcome.action !== "approve") {
-				return {
-					content: [
-						{ type: "text", text: "Plan not approved. Stay in plan mode, ask what to change, and revise the plan." },
-					],
-					details: {
-						approved: false,
-						plan: file.content,
-						planPath: file.path,
-						relativePath: file.relativePath,
-					} satisfies ExitPlanModeDetails,
-				};
+				if (outcome.action === "refine" && !outcome.refinement) {
+					const refinement = (await ctx.ui.editor(REFINE_PROMPT, ""))?.trim();
+					if (refinement) outcome = { action: "refine", refinement };
+					else outcome = await reviewPlan(ctx, file);
+					continue;
+				}
+				if (outcome.action === "refine") {
+					const refinement = outcome.refinement ?? "";
+					return {
+						content: [
+							{
+								type: "text",
+								text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
+							},
+						],
+						details: {
+							approved: false,
+							plan: file.content,
+							planPath: file.path,
+							relativePath: file.relativePath,
+							refined: true,
+							refinement,
+						} satisfies ExitPlanModeDetails,
+					};
+				}
+				if (outcome.action !== "approve") {
+					return {
+						content: [
+							{ type: "text", text: "Plan not approved. Stay in plan mode, ask what to change, and revise the plan." },
+						],
+						details: {
+							approved: false,
+							plan: file.content,
+							planPath: file.path,
+							relativePath: file.relativePath,
+						} satisfies ExitPlanModeDetails,
+					};
+				}
+				break;
 			}
 
 			runtime.disable(ctx);

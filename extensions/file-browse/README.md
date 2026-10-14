@@ -245,7 +245,7 @@ reflects only this session's server, with no cross-session sharing.
 | `html.ts` | Page renderers, sortable headers, and the inline CSS |
 | `router.ts` | Pure request handler |
 | `server.ts` | `node:http` server |
-| `open.ts` | Cross-platform browser opener |
+| [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |
 
 ## Testing
 

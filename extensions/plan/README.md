@@ -46,6 +46,11 @@ pi --plan                          # start in plan mode
   the file, so the plan mirrors what has actually been done.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
+- **Browser review on demand.** Press `w` on the review screen (or run
+  `/plan review [path]`) to open the plan in a local browser, select text to
+  leave inline comments, and save them back into the plan file itself as
+  `> [!REVIEW]` lines. Saved comments return to the model as a refinement
+  request.
 - **The file is the source of truth.** On approval the model follows the plan
   file's steps; refinements rewrite the same file (`write_plan` with
   `plan_path`), so the reviewed artifact is the executed artifact.
@@ -72,6 +77,7 @@ pi --plan                          # start in plan mode
 | `enter_plan_mode` tool | the model, before a non-trivial task | `ctx.ui.confirm` |
 | `/plan` | the user | immediate |
 | `/plan <prompt>` | the user, with the task | immediate |
+| `/plan review [path]` | the user, reviewing a plan in the browser | immediate |
 | `Ctrl+Alt+P` | the user | immediate |
 | `--plan` | the user, at launch | immediate |
 
@@ -88,6 +94,11 @@ already runs read-only:
 the toggle that works in every terminal (for example Zed's integrated terminal,
 which does not forward `Ctrl+Alt+P`). The footer shows `⋮ plan` while plan mode
 is on, and `⋮ plan · <plan-file>` once the model has written a plan.
+
+`/plan review` is the one reserved subcommand. Bare `/plan review` reviews the
+most recent plan; `/plan review <path>.md` (or a path with a separator) reviews
+that plan. A line that merely starts with the word — `review the auth flow` — is
+still treated as a planning task, so the subcommand never swallows one.
 
 ## Behaviour by mode
 
@@ -125,6 +136,10 @@ comes from `askHuman(ctx, { custom, dialogs, file, body })` in
 plan is reviewable there; RPC has no channel and still sees only the choices.
 Without any UI the tools fail with an actionable message instead of deciding for
 the user.
+
+Browser review is a local-turn feature: the server binds `127.0.0.1`, so a remote
+(WeChat) turn cannot reach it and `/plan review` there refuses with a notice
+instead of opening a server nobody can use.
 
 ### Transcript
 
@@ -174,6 +189,10 @@ command. The read-only guarantee is layered:
 - **Sanitized model text.** The plan file is model-authored, so `exit_plan_mode`
   strips control characters from the plan body before rendering it in the
   transcript and in non-TUI notices; a plan file cannot drive the terminal.
+- **Loopback browser review.** The review server binds `127.0.0.1` and requires a
+  random per-session token in the URL, checks the `Host` header, serves only
+  `GET`/`POST`, and caps the request body; the page renders plan and comment text
+  with DOM text nodes, never `innerHTML`, so a plan cannot script the reviewer.
 
 ## Read-only git shell
 
@@ -230,6 +249,39 @@ agent file that overrides it.
 - `readOnly` is also a normal `subagent` parameter; outside plan mode a caller
   may set it to run any agent read-only on purpose.
 
+## Browser review
+
+Press `w` on the review screen — or run `/plan review [path]` — to open the plan
+in the default browser on `127.0.0.1`. The page renders the plan's block
+structure, and every block has a **+ Comment** action; selecting text and
+clicking it attaches the selection as a quote. **Save feedback** writes the
+comments into the plan file and returns them to the model.
+
+- **The file is the store.** Each comment is written as
+  `> [!REVIEW] <comment>` on the line after the block it anchors to. Saving is
+  idempotent: the previous markers are stripped first, so a second save replaces
+  rather than appends. The browser keeps no copy of its own.
+- **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
+  source-line ranges; a comment is placed after the whole anchored block, so a
+  fenced code block is never split. A save re-checks the file against what the
+  page rendered and answers `409` (reload) if it changed underneath.
+- **Back to the model.** A save from the review screen returns `refined: true`
+  with the comments, so the model stays in plan mode and revises the same file.
+  `/plan review` sends them as a user message (a plan-mode revision or a plain
+  update, depending on the mode).
+- **Loopback and tokenized.** The server binds `127.0.0.1`, carries a random
+  per-session token in the URL, checks the `Host` header, serves only `GET` and
+  `POST`, and caps the request body. It is closed on save, cancel, tab close, or
+  `session_shutdown`.
+
+| Route | Result |
+|---|---|
+| `GET /?token=…` | the review page (a JSON data island plus `/client.js`) |
+| `GET /client.js` | the first-party client script |
+| `GET /events?token=…` | Server-Sent Events stream, used only to detect a closed tab |
+| `POST /api/feedback?token=…` | validate and write the annotations into the plan |
+| `POST /api/cancel?token=…` | end the session without saving |
+
 ## Limitations
 
 - PowerShell is not available while planning. On native Windows the shell is
@@ -238,6 +290,10 @@ agent file that overrides it.
   security boundary (see [Security](#security)).
 - The plans directory is the only index; there is no registry and no persisted
   plan metadata.
+- Browser review needs a local browser: the server is loopback-only, so a remote
+  turn cannot drive it.
+- A browser that never connects leaves the review waiting until the user
+  cancels, closes the tab, or aborts the turn.
 
 ## Non-goals
 
@@ -252,10 +308,10 @@ agent file that overrides it.
 | Integration point | How |
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_step` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepDetails`); no `outputSchema`/`structuredContent`. |
-| Commands and flags | `/plan` (toggle, or enter and send a task), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
+| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
-| Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status. |
+| Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
 
 ## Design notes
 
@@ -305,6 +361,12 @@ agent file that overrides it.
   restores the tools the branch it was left on hid; the `--plan` flag only
   applies when the branch has no persisted entry, so a later disable survives
   `/resume`.
+- **Browser comments live in the plan, not a sidecar.** A review comment is a
+  blockquote in the file the model already owns, so there is one artifact to
+  read, revise, and approve; `blocks.ts` supplies the source-line anchors the
+  existing heading-only split cannot, and the page renders text with DOM nodes
+  so review never widens the plan's trust surface. The browser opener is shared
+  through `lib/browser.ts` rather than imported from `file-browse`.
 
 ## Files
 
@@ -314,12 +376,19 @@ agent file that overrides it.
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/`setStep`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/`setStep`/`saveFeedback`. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction, heading sections, and the checkbox edit. |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step`. |
-| `commands.ts` | `/plan` (enter, optional task). |
-| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, step progress, scroll gauge, approve/refine/keep). |
+| `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, step progress, scroll gauge, approve/refine/browser/keep). |
+| `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, blanks). |
+| `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
+| `web.ts` | `createPlanWebReview`: the loopback server and the save/cancel/abort session. |
+| `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes. |
+| `web-page.ts` | The review page shell, its data island, and inline CSS. |
+| `web-client.ts` | The `/client.js` source (block rendering, inline comments, selection quotes, save/cancel). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
+| [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../../lib/tui.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |

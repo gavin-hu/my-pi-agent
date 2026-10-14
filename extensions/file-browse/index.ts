@@ -16,7 +16,7 @@ import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import { loadConfig, randomPort } from "./config.ts";
 import { createGitStatus } from "./git.ts";
-import { openInBrowser } from "./open.ts";
+import { openInBrowser } from "../../lib/browser.ts";
 import { HttpError, resolveRequestPath } from "./paths.ts";
 import { createFileServer, type FileServer } from "./server.ts";
 

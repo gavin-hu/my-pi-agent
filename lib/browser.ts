@@ -1,9 +1,11 @@
 /**
  * Opening the default browser, cross-platform.
  *
- * `browserCommand` is pure so it can be asserted per platform; `openInBrowser`
- * takes an injectable spawn so tests never launch anything. Opening is
- * best-effort: a failure is swallowed because the URL is also printed.
+ * Shared by `file-browse` (the `/browse` server) and `plan` (browser plan
+ * review). `browserCommand` is pure so it can be asserted per platform;
+ * `openInBrowser` takes an injectable spawn so tests never launch anything.
+ * Opening is best-effort: a failure is swallowed because the URL is printed
+ * too.
  */
 
 import { spawn } from "node:child_process";

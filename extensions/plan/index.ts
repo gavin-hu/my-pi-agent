@@ -34,6 +34,7 @@ import {
 } from "./policy.ts";
 import { createPlanRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
+import { createPlanWebReview } from "./web.ts";
 
 /** Marker embedded in the injected prompt and used to filter stale context. */
 export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
@@ -67,9 +68,10 @@ export default function planMode(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("plan")) return;
 	const policy = createPlanPolicy(pi);
 	const runtime = createPlanRuntime(pi, policy, { entryPath: extensionEntryPath() });
+	const web = createPlanWebReview(runtime.plans);
 
-	registerTools(pi, runtime);
-	registerCommands(pi, runtime);
+	registerTools(pi, runtime, web);
+	registerCommands(pi, runtime, web);
 
 	pi.registerFlag("plan", {
 		description: "Start in plan mode (read-only exploration)",
@@ -87,7 +89,10 @@ export default function planMode(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
-	pi.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEYS.planMode, undefined));
+	pi.on("session_shutdown", async (_event, ctx) => {
+		await web.closeAll();
+		ctx.ui.setStatus(STATUS_KEYS.planMode, undefined);
+	});
 
 	/**
 	 * Whether the registered `subagent` tool declares the read-only parameter

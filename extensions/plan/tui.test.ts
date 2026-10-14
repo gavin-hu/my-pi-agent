@@ -269,12 +269,13 @@ describe("PlanViewComponent — scrolling", () => {
 		expect(hint).not.toContain("a approve");
 	});
 
-	test("colors the approve and refine hints", () => {
+	test("colors the approve, refine, and browser hints", () => {
 		const theme = coloringTheme;
 		const { component } = setup(undefined, { theme, markdownTheme: fakeMarkdownTheme(theme) });
-		const hint = render(component, 80).at(-2) ?? "";
+		const hint = render(component, 200).at(-2) ?? "";
 		expect(hint).toContain("[success]a approve");
 		expect(hint).toContain("[accent]r refine");
+		expect(hint).toContain("[accent]w browser");
 	});
 
 	test("rebuilds wrapped lines after invalidate", () => {
@@ -341,7 +342,7 @@ describe("PlanViewComponent — sections", () => {
 });
 
 describe("PlanViewComponent — actions", () => {
-	test("a approves, r refines, Esc keeps planning", () => {
+	test("a approves, r refines, w opens the browser, Esc keeps planning", () => {
 		const approve = setup();
 		approve.component.handleInput("a");
 		expect(approve.actions).toEqual(["approve"]);
@@ -349,6 +350,10 @@ describe("PlanViewComponent — actions", () => {
 		const refine = setup();
 		refine.component.handleInput("r");
 		expect(refine.actions).toEqual(["refine"]);
+
+		const browser = setup();
+		browser.component.handleInput("w");
+		expect(browser.actions).toEqual(["browser"]);
 
 		const keep = setup();
 		keep.component.handleInput(ESCAPE);
