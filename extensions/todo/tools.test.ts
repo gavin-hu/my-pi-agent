@@ -189,6 +189,21 @@ describe("todo tool", () => {
 		expect(text).not.toContain("\u001b");
 	});
 
+	test("renderResult falls back to the message for a host-rejected call", () => {
+		const { tool } = setup();
+		// The host rejects arguments before `execute` and returns `details: {}`.
+		const result = {
+			content: [{ type: "text", text: 'Validation failed for tool "todo":\n  - todos.0.status: unknown status' }],
+			details: {},
+			isError: true,
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Validation failed for tool");
+	});
+
 	test("collapsed result leads with active work", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();

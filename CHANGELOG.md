@@ -139,6 +139,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `todo`: the lag reminder now appends to the boundary's proposed entries
+  instead of replacing them, so it no longer discards another extension's pending
+  `agent_before_settle` entries (and is no longer discarded by one that runs
+  after it).
+- `todo`: the result renderer no longer throws when a call is rejected before
+  `execute` — host argument validation and blocked calls carry `details: {}` —
+  and falls back to the error message.
+- `todo`: a failed or blocked tool call no longer counts as work for the lag
+  reminder, so a run that changed nothing is not forced into an extra request.
 - `goal`: `/goal edit <text>` and `/goal set <text>` record the text without
   starting a run; previously `edit <text>` fell through to the free-form prompt
   path and started the work on the literal string.

@@ -102,13 +102,15 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 		renderResult(result, { expanded }, theme, context) {
 			const text = reuseText(context.lastComponent);
 			const details = result.details as TodoDetails | undefined;
-			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+			if (details?.error) {
+				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
-			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+			// A call rejected before `execute` (argument validation or a permission
+			// block) carries `details: {}` with no list, so fall back to its message.
+			if (!details || !Array.isArray(details.todos)) {
+				const first = result.content[0];
+				text.setText(first?.type === "text" ? first.text : "");
 				return text;
 			}
 			if (details.todos.length === 0) {

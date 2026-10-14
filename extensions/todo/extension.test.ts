@@ -139,7 +139,7 @@ describe("todo lag reminder", () => {
 		return { pi, handlers, ctx };
 	}
 
-	const settle = { type: "agent_before_settle", outcome: "completed" } as const;
+	const settle = { type: "agent_before_settle", outcome: "completed", entries: [] } as const;
 	const work = { type: "tool_execution_end", toolName: "edit" } as const;
 
 	test("injects one reminder when work happened without a todo update", async () => {
@@ -166,6 +166,25 @@ describe("todo lag reminder", () => {
 		await emit(pi, "tool_execution_end", { type: "tool_execution_end", toolName: "read" }, ctx);
 		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
 		expect(result).toBeUndefined();
+	});
+
+	test("does not remind for a failed or blocked tool call", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		await emit(pi, "tool_execution_end", { type: "tool_execution_end", toolName: "edit", isError: true }, ctx);
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result).toBeUndefined();
+	});
+
+	test("appends the reminder to boundary entries another handler proposed", async () => {
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		await emit(pi, "tool_execution_end", work, ctx);
+		const prior = { type: "custom", customType: "other-ext", data: {} };
+		const result = await emitFirst(pi, "agent_before_settle", { ...settle, entries: [prior] }, ctx);
+		expect(result.continue).toBe(true);
+		expect(result.entries).toEqual([
+			prior,
+			expect.objectContaining({ type: "custom_message", customType: TODO_NUDGE_CONTEXT_TYPE }),
+		]);
 	});
 
 	test("does not remind when every item is completed", async () => {

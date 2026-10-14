@@ -29,12 +29,13 @@ pi install ./                       # install the package
 - Stores the list in tool-result `details`, so it follows the active session
   branch and survives `/resume` and `/tree` — abandoned branches never leak
   into the current list, and stored lists are re-sanitized on replay.
-- Keeps the list honest: when a run is about to settle after mutating work
-  (`write`/`edit`/`bash`/`powershell`, or a tool declaring `readOnlyHint:
-  false`) without a todo update, it injects one hidden reminder and forces a
-  single continuation. It only fires while the list has unfinished items, at
-  most once per user turn, and is dropped on the next user turn, so a
-  reader can never trigger it.
+- Keeps the list honest: when a run is about to settle after a successful
+  mutating tool call (`write`/`edit`/`bash`/`powershell`, or a tool declaring
+  `readOnlyHint: false`) without a todo update, it injects one hidden reminder
+  and forces a single continuation. A failed or blocked call changed nothing, so
+  it never triggers one. It only fires while the list has unfinished items, at
+  most once per user turn, and is dropped on the next user turn, so a reader can
+  never trigger it.
 - Declares an `outputSchema` and returns matching `structuredContent`
   (`{ todos, action, error? }`), so codemode/scripts can read the list as data.
 
@@ -151,7 +152,7 @@ on config.
 | Command | `/todos` |
 | State | tool-result `details`; rebuilt from `ctx.sessionManager.getBranch()` |
 | Lifecycle | `session_start` loads config and reconstructs; `session_tree` reconstructs; `session_shutdown` clears the widget |
-| Reminder | `tool_execution_end` marks mutating work; `agent_before_settle` injects one hidden `custom_message` (`todo-nudge`) and returns `continue: true`; `before_agent_start` clears the lag window and expires the reminder; `context` keeps only the newest current reminder |
+| Reminder | `tool_execution_end` marks a successful mutating call; `agent_before_settle` injects one hidden `custom_message` (`todo-nudge`) and returns `continue: true`; `before_agent_start` clears the lag window and expires the reminder; `context` keeps only the newest current reminder |
 
 ## Design notes
 
@@ -184,11 +185,12 @@ on config.
   [`lib/rails.ts`](../../lib/rails.ts) and [`goal`](../goal/).
 - **The reminder is a bounded nudge, not a nag.** A prompt guideline cannot
   guarantee a timely update, so the extension backs it with one forced
-  continuation. `tool_execution_end` marks a lag only for an explicit mutator
-  list plus `readOnlyHint: false` — a false positive costs a whole extra model
-  request, so an unrecognized reader is treated as harmless. `nudged` caps it at
-  one per user turn, `setTodos` clears the work flag, and `context` drops
-  the hidden message on the next user turn so it never accumulates.
+  continuation. `tool_execution_end` marks a lag only for a successful call by
+  an explicit mutator list plus `readOnlyHint: false` — a failed or blocked call
+  is ignored, and a false positive costs a whole extra model request, so an
+  unrecognized reader is treated as harmless. `nudged` caps it at one per user
+  turn, `setTodos` clears the work flag, and `context` drops the hidden message
+  on the next user turn so it never accumulates.
 - **Content is sanitized at the boundary.** `normalizeTodos` replaces control
   characters and collapses whitespace before the length and duplicate checks,
   keeping `format.ts` free of terminal concerns and every surface to one row

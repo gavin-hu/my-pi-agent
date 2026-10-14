@@ -54,8 +54,10 @@ export default function todo(pi: ExtensionAPI) {
 	});
 
 	// Only work that can change the working tree sets the lag flag; read-only
-	// tools and the todo call itself are ignored.
+	// tools and the todo call itself are ignored. A failed or blocked call changed
+	// nothing, so it must not force a reminder.
 	pi.on("tool_execution_end", (event) => {
+		if (event.isError) return;
 		const annotations = pi.getAllTools().find((tool) => tool.name === event.toolName)?.annotations;
 		if (isMutatingTool(event.toolName, annotations)) runtime.noteWork();
 	});
@@ -66,8 +68,12 @@ export default function todo(pi: ExtensionAPI) {
 		if (event.outcome !== "completed") return undefined;
 		if (!runtime.nudgeDue()) return undefined;
 		runtime.markNudged();
+		// Append to the boundary's proposed entries: the host replaces its
+		// accumulated list with this handler's return, so dropping `event.entries`
+		// would discard another extension's pending boundary edits.
 		return {
 			entries: [
+				...event.entries,
 				{
 					type: "custom_message",
 					customType: TODO_NUDGE_CONTEXT_TYPE,
