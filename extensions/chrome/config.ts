@@ -29,7 +29,9 @@ export const CONFIG = {
 	serveStatusKey: STATUS_KEYS.serve,
 	/** Status key whose ` · detail` suffix (the plan file name) is dropped. */
 	planStatusKey: STATUS_KEYS.planMode,
-	labels: { noModel: "no-model", detached: "detached" },
+	/** Status key treated as an alert: the one that sorts to the front of the slot. */
+	jobsFailureStatusKey: STATUS_KEYS.jobsFailure,
+	labels: { noModel: "no model", detached: "detached" },
 	/** Minimum gap kept between the left and right zones. */
 	minGap: 2,
 	/** Worktree label length before the compact form truncates it. */

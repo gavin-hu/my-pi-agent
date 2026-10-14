@@ -193,16 +193,16 @@ table with no config file at all.
 | Segment | Line / zone | Color | Drops |
 |---|---|---|---|
 | pwd | 1 left | dim | last |
-| session | 1 left | dim | after worktree |
+| session | 1 left | muted, bracketed | after worktree |
 | serve | 1 right | success glyph + accent port | first |
-| branch | 1 right | purple (warning when detached) | last |
+| branch | 1 right | muted (warning when detached) | last |
 | worktree | 1 right | success | first |
 | context gauge + `%` | 2 left | muted ≤70 · warning 71–90 · error >90 | never |
 | `/window` | 2 left | dim | before cost |
 | cost | 2 left | muted | after tokens |
 | tokens `↑in ↓out` | 2 left | dim | after cache |
 | cache `R… CH …%` | 2 left | dim | first |
-| statuses | 2 left | as emitted by each extension | last |
+| statuses | 2 left | as emitted by each extension | before the model clips |
 | model | 2 right | accent | never |
 | thinking level | 2 right | thinking token | before cost |
 
@@ -212,8 +212,11 @@ from the `serve` status key published by [file-browser](../file-browser/) while
 its server runs, and shows the two-tone `◉ <port>` (green glyph, accent port).
 The trailing slot shows plan-style alerts when present and is omitted otherwise;
 a plan chip's trailing plan file name is dropped, so the slot reads `⋮ plan`
-even though the built-in footer keeps the name. The slot trails the meters
-after a `│`, so the context gauge always starts the line.
+even though the built-in footer keeps the name. An alert (a failed job) sorts to
+the front of the slot. The slot trails the meters after a `│`, so the context
+gauge always starts the line. It keeps each extension's own colour when it
+compacts, and it is droppable: a tight bar drops the slot rather than truncating
+the model, which sits at the end of the line.
 
 ## Limitations
 
@@ -292,14 +295,16 @@ rather than showing a wrong value.
 - **Separators shrink to a single space.** Padded separators (` · `, ` │ `)
   collapse to one space before `truncateToWidth` applies, so adjacent segments
   never collide and the ellipsis never replaces a `│` with nothing after it.
-- **Statuses compact from plain text.** A themed status's compact icon form is
-  derived from the visible text, not the styled string, whose opening SGR code
-  lacks its reset and would bleed color into the rest of the line. A two-token
-  `icon count` badge (for `rewind`: `↺ 2`) compacts to `↺2`, keeping the count.
+- **Statuses compact with their colour.** A themed status's compact icon form
+  reattaches its opening and closing SGR sequences around the visible text, so a
+  red `✗1` stays red instead of losing its colour exactly when the bar tightens.
+  A two-token `icon count` badge (for `rewind`: `↺ 2`) compacts to `↺2`, keeping
+  the count. The slot sorts an alert (a failed job) ahead of the modes and is
+  droppable, so it goes before the model is clipped.
 - **Neutral by default; color means something.** Only the context gauge carries
-  status color, and it stays `muted` below 70%; cost is `muted` and
-  tokens/cache/window are `dim`, so yellow and red are reserved for the gauge
-  crossing a threshold rather than always on.
+  status color, and it stays `muted` below 70%; cost is `muted`, the session and
+  branch are `muted`, and tokens/cache/window are `dim`, so yellow and red are
+  reserved for the gauge crossing a threshold rather than always on.
 - **Data is read fresh, except the usage scan.** The component resolves the
   theme through a getter and reads a fresh snapshot each render. The expensive
   part — summing token/cost totals across the session — is memoized by

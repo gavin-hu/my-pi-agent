@@ -168,7 +168,7 @@ describe("buildLines", () => {
 		expect(byId.get("context")!.forms[0]).toContain("?");
 	});
 
-	test("strips color when compacting themed statuses", () => {
+	test("keeps color when compacting themed statuses", () => {
 		const themed = `\x1b[33m${GLYPHS.plan} plan\x1b[39m`;
 		const [, line2] = buildLines(
 			fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }),
@@ -178,7 +178,7 @@ describe("buildLines", () => {
 		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
 
 		expect(statuses.forms[0]).toContain(themed);
-		expect(statuses.forms[1]).toBe(GLYPHS.plan);
+		expect(statuses.forms[1]).toBe(`\x1b[33m${GLYPHS.plan}\x1b[39m`);
 	});
 
 	test("drops the plan file name from the plan status chip", () => {
@@ -191,7 +191,7 @@ describe("buildLines", () => {
 		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
 
 		expect(stripTerminalSequences(statuses.forms[0])).toBe(`${GLYPHS.plan} plan`);
-		expect(statuses.forms[1]).toBe(GLYPHS.plan);
+		expect(statuses.forms[1]).toBe(`\x1b[33m${GLYPHS.plan}\x1b[39m`);
 	});
 
 	test("keeps a trailing count when compacting a badge status", () => {
@@ -221,9 +221,9 @@ describe("buildLines", () => {
 		});
 		const [, line2] = buildLines(snapshot, fakeTheme, "/home/u");
 		const statuses = line2.left.find((segment) => segment.id === "statuses")!;
-		expect(statuses.forms[0]).toBe("▸ 1 · ✗ 1");
+		expect(statuses.forms[0]).toBe("✗ 1 · ▸ 1");
 		// Each chip compacts to glyph+count independently.
-		expect(statuses.forms[1]).toBe("▸1 ✗1");
+		expect(statuses.forms[1]).toBe("✗1 ▸1");
 	});
 
 	test("orders multiple statuses by key", () => {
@@ -264,7 +264,7 @@ describe("buildLines", () => {
 		const session = line1.left.find((segment) => segment.id === "session")!;
 
 		expect(ids(line1.left)).toEqual(["pwd", "session"]);
-		expect(session.forms).toEqual(["feature-refactor-session", "feature-refac…"]);
+		expect(session.forms).toEqual(["[feature-refactor-session]", "[feature-refac…]"]);
 	});
 
 	test("omits the session segment when unnamed", () => {
@@ -293,5 +293,19 @@ describe("buildLines theme tokens", () => {
 		buildLines(fullSnapshot(), theme, "/home/u");
 
 		expect(theme.calls).toContainEqual(["accent", "opus-4.5"]);
+	});
+
+	test("notes a missing model in the muted token", () => {
+		const theme = makeRecordingTheme() as any;
+		buildLines(fullSnapshot({ model: undefined }), theme, "/home/u");
+
+		expect(theme.calls).toContainEqual(["muted", "no model"]);
+	});
+
+	test("colors the branch neutrally but detached as a warning", () => {
+		const theme = makeRecordingTheme() as any;
+		buildLines(fullSnapshot(), theme, "/home/u");
+
+		expect(theme.calls).toContainEqual(["muted", `${GLYPHS.branch} main`]);
 	});
 });

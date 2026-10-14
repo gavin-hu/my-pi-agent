@@ -55,8 +55,10 @@ export function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment 
 	const name = snapshot.sessionName ? sanitizeLine(snapshot.sessionName) : "";
 	if (!name) return null;
 	const short = truncateLabel(name, CONFIG.sessionLabelMax);
-	const forms = [dim(theme, name)];
-	if (short !== name) forms.push(dim(theme, short));
+	// Brackets and a brighter token keep the session name from reading as a
+	// trailing path segment.
+	const forms = [theme.fg("muted", `[${name}]`)];
+	if (short !== name) forms.push(theme.fg("muted", `[${short}]`));
 	return {
 		id: "session",
 		weight: 3,
@@ -69,7 +71,7 @@ export function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment 
 export function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (!snapshot.branch) return null;
 	const detached = snapshot.branch === CONFIG.labels.detached;
-	const color = detached ? "warning" : "customMessageLabel";
+	const color = detached ? "warning" : "muted";
 	const icon = detached ? CONFIG.icons.detached : CONFIG.icons.branch;
 	return {
 		id: "branch",
@@ -135,10 +137,15 @@ export function serveSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 	};
 }
 
+/** Sort rank: an alert (a failed job) leads the slot; modes follow by key. */
+function statusRank(key: string): number {
+	return key === CONFIG.jobsFailureStatusKey ? 0 : 1;
+}
+
 export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
 		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.serveStatusKey)
-		.sort(([a], [b]) => a.localeCompare(b))
+		.sort(([a], [b]) => statusRank(a) - statusRank(b) || a.localeCompare(b))
 		.map(([key, value]) => {
 			const status = sanitize(value);
 			// The plan chip trails the plan file name; the slot shows the mode only.
@@ -147,15 +154,16 @@ export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 		.filter(Boolean);
 	if (others.length === 0) return null;
 	const full = others.join(dim(theme, CONFIG.separators.item));
-	// Derive the compact form from plain text: a themed status carries an
-	// opening SGR code but the reset is lost when we keep only the first token,
-	// which would bleed its color into the rest of the line. A two-token badge
-	// keeps its count (`↺ 2` -> `↺2`) instead of collapsing to a bare icon.
+	// The compact form keeps each status's own colour (see `compactStatus`); a
+	// two-token badge keeps its count (`↺ 2` -> `↺2`) instead of collapsing to a
+	// bare icon.
 	const icons = others.map((status) => compactStatus(status)).join(" ");
 	return {
 		id: "statuses",
+		// The last thing to go, but droppable: a tight bar drops the slot rather
+		// than truncating the model, which sits at the end of the line.
 		weight: 1,
-		droppable: false,
+		droppable: true,
 		separator: dim(theme, CONFIG.separators.group),
 		forms: [full, icons],
 	};
@@ -242,14 +250,23 @@ export function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 
 export function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	const model = snapshot.model;
-	const id = model?.id ?? CONFIG.labels.noModel;
-	const provider = model && snapshot.providerCount > 1 ? `(${model.provider}) ` : "";
+	if (!model) {
+		// No model selected: a muted note, not an accent-colored pseudo-model.
+		return {
+			id: "model",
+			weight: 1,
+			droppable: false,
+			separator: "",
+			forms: [theme.fg("muted", CONFIG.labels.noModel)],
+		};
+	}
+	const provider = snapshot.providerCount > 1 ? `(${model.provider}) ` : "";
 	return {
 		id: "model",
 		weight: 1,
 		droppable: false,
 		separator: "",
-		forms: [theme.fg("accent", `${provider}${id}`), theme.fg("accent", id)],
+		forms: [theme.fg("accent", `${provider}${model.id}`), theme.fg("accent", model.id)],
 	};
 }
 

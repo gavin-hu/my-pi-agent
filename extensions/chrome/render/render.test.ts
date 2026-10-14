@@ -42,6 +42,12 @@ describe("status bar render", () => {
 		expect(line2).toContain("¥0.31");
 	});
 
+	test("drops the status slot before clipping the model on a narrow bar", () => {
+		const [, line2] = render(24);
+		expect(line2).toContain("opus-4.5");
+		expect(line2).not.toContain(GLYPHS.plan);
+	});
+
 	for (const width of WIDTHS) {
 		test(`renders two lines that fit width ${width}`, () => {
 			const lines = render(width);

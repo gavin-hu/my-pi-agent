@@ -155,8 +155,8 @@ describe("compactStatus", () => {
 		expect(compactStatus("▸ 12")).toBe("▸12");
 	});
 
-	test("strips color while compacting", () => {
-		expect(compactStatus("\x1b[33m↺ 3\x1b[39m")).toBe("↺3");
+	test("preserves color while compacting", () => {
+		expect(compactStatus("\x1b[33m↺ 3\x1b[39m")).toBe("\x1b[33m↺3\x1b[39m");
 	});
 
 	test("strips a CSI or OSC sequence, not just SGR", () => {

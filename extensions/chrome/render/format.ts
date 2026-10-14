@@ -108,19 +108,24 @@ const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {
 };
 
 /**
- * Compact a status to its icon form for a narrow bar.
+ * Compact a status to its icon form for a narrow bar, keeping its own colour.
  *
  * An icon plus a label (`⋮ plan`) keeps only the icon. An icon plus a bare
  * count (`↺ 2`) is a badge: it keeps the count and drops the space (`↺2`),
- * because the number is the state. Styling is stripped first — keeping the
- * opening escape without its reset would bleed color into the rest of the line.
- * Requiring exactly two tokens (rather than "the last token is numeric") keeps
- * a numeric label like `⋮ plan · 2024` from being mistaken for a count.
+ * because the number is the state. The leading open and trailing reset SGR
+ * sequences are reattached around the compacted text, so a red `✗1` stays red
+ * instead of losing its colour exactly when the bar tightens. Requiring exactly
+ * two tokens (rather than "the last token is numeric") keeps a numeric label
+ * like `⋮ plan · 2024` from being mistaken for a count.
  */
 export function compactStatus(status: string): string {
-	const tokens = stripTerminalSequences(status).trim().split(/\s+/).filter(Boolean);
+	const prefix = status.match(/^(?:\x1b\[[0-9;]*m)*/)?.[0] ?? "";
+	const suffix = status.match(/(?:\x1b\[[0-9;]*m)+$/)?.[0] ?? "";
+	const body = status.slice(prefix.length, status.length - suffix.length);
+	const tokens = stripTerminalSequences(body).trim().split(/\s+/).filter(Boolean);
 	const icon = tokens[0] ?? "";
-	return tokens.length === 2 && /^\d+$/.test(tokens[1]) ? `${icon}${tokens[1]}` : icon;
+	const text = tokens.length === 2 && /^\d+$/.test(tokens[1]) ? `${icon}${tokens[1]}` : icon;
+	return `${prefix}${text}${suffix}`;
 }
 
 /**

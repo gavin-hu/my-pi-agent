@@ -103,6 +103,13 @@ rendering, so model-authored control characters cannot reach the terminal.
 - `rewind`: the list no longer over-reserves a row, unselected rows use `muted`
   so the code-snapshot marker reads, and the hint names the navigation keys.
 - `plan`: the approve hint says approval also runs the plan.
+- `chrome`: a compacted status keeps its own colour instead of losing it exactly
+  when the bar tightens; an alert (a failed job) sorts ahead of the modes, and
+  the status slot is droppable, so a narrow bar drops it rather than truncating
+  the model.
+- `chrome`: the session name is bracketed and `muted` (was `dim`), the branch
+  uses a neutral token (was the unrelated `customMessageLabel`), and a missing
+  model reads `no model` in `muted` (was an accent-coloured `no-model`).
 
 ## [0.5.1] - 2026-10-13
 
