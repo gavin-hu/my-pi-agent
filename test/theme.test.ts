@@ -77,8 +77,8 @@ interface Theme {
 }
 
 const THEMES = [
-	{ file: "nocturne-dark.json", name: "nocturne-dark", appearance: "dark" },
-	{ file: "nocturne-light.json", name: "nocturne-light", appearance: "light" },
+	{ file: "bytefly-dark.json", name: "bytefly-dark", appearance: "dark" },
+	{ file: "bytefly-light.json", name: "bytefly-light", appearance: "light" },
 ] as const;
 
 const isHex = (value: string) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value);

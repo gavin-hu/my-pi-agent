@@ -62,17 +62,17 @@ and command surface, the Pi integration contract, and design notes.
 | Extension | [`extensions/bytefly/`](./extensions/bytefly/) | `bytefly`: the two-line, width-adaptive TUI footer (pwd + session name + git branch/worktree + serve chip, then context gauge + usage + mode/alert + model + thinking level), replacing Pi's built-in footer while leaving its header alone; `/bytefly [status]` toggles it, DeepSeek is priced out of the box from its published yuan rates and peak tariff, and `bytefly.json` adds or overrides per-model rates with an optional peak/off-peak schedule. It also draws the labeled `╌╌╌ turn N ╌╌╌` rule between completed turns — `agent_settled` appends an inert `bytefly-separator` entry that an entry renderer draws; width-adaptive, TTY-only. |
 | Extension | [`extensions/extension-picker/`](./extensions/extension-picker/) | `extension-picker`: `/extensions` lists every resolved Pi extension across all configured packages and enables or disables one (Global or Project settings) by writing `settings.json`; changes apply on reload. |
 | Extension | [`extensions/doctor/`](./extensions/doctor/) | `doctor`: report whether each extension has what it needs at runtime — missing binaries, optional packages, login/state files, and config files that fail to parse; `/doctor [extension] [refresh]` plus the read-only `run_doctor` tool, and one warning at session start when an enabled extension cannot work. |
-| Theme | [`themes/nocturne-dark.json`](./themes/nocturne-dark.json) | `nocturne-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
-| Theme | [`themes/nocturne-light.json`](./themes/nocturne-light.json) | `nocturne-light`: the light companion (white canvas, GitHub light accents), for `nocturne-light/nocturne-dark` auto-switching. |
+| Theme | [`themes/bytefly-dark.json`](./themes/bytefly-dark.json) | `bytefly-dark`: a GitHub-inspired dark palette (deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators). |
+| Theme | [`themes/bytefly-light.json`](./themes/bytefly-light.json) | `bytefly-light`: the light companion (white canvas, GitHub light accents), for `bytefly-light/bytefly-dark` auto-switching. |
 
 More extensions, skills, and prompts can be added under the conventional
 directories and listed in the `pi` manifest.
 
 ### Themes
 
-Select `nocturne-dark` or `nocturne-light` through `/settings` → **Theme**, or
+Select `bytefly-dark` or `bytefly-light` through `/settings` → **Theme**, or
 use automatic light/dark switching with
-`"theme": "nocturne-light/nocturne-dark"` (`pi --use-theme nocturne-dark` for a
+`"theme": "bytefly-light/bytefly-dark"` (`pi --use-theme bytefly-dark` for a
 one-off). Pi themes cannot set the terminal's background, so the live canvas
 stays your terminal's color — set it to `#0d1117` for the intended look. HTML
 exports use the theme's `export.pageBg`, so they are unaffected.

@@ -84,6 +84,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   renders them two columns wide.
 - `ask_user_question`: the answer hints render through the shared `screenHint`,
   so a narrow terminal drops whole keys instead of wrapping or clipping one.
+- `themes`: `nocturne-dark` and `nocturne-light` are renamed `bytefly-dark` and
+  `bytefly-light` (file names, the `name` field, and the README selectors). An
+  existing `theme` setting or `--use-theme` value must be pointed at the new
+  name; `"bytefly-light/bytefly-dark"` keeps the automatic light/dark switching.
 
 ### Removed
 

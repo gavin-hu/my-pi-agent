@@ -189,7 +189,7 @@ reflects only this session's server, with no cross-session sharing.
   Markdown, and the JS-only controls (filter, disclosure, actions, quick open)
   are hidden; the sort buttons lose their pointer so they do not look live. The
   palette is a self-contained, GitHub-inspired light/dark set whose canvas and
-  accent match the `nocturne-dark`/`nocturne-light` themes; it follows
+  accent match the `bytefly-dark`/`bytefly-light` themes; it follows
   `prefers-color-scheme` until an explicit choice sets `data-theme` on the root:
   `/theme.js` applies the saved choice in the head before first paint, and the
   header toggle flips and stores it (`serve-theme` in `localStorage`).
