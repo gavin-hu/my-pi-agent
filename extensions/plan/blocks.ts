@@ -145,3 +145,53 @@ export function blockAt(blocks: PlanBlock[], line: number): PlanBlock | undefine
 	}
 	return candidate;
 }
+
+/** A heading in a plan, for the review page's section outline. */
+export interface PlanHeading {
+	/** 0-based source line of the heading. */
+	line: number;
+	/** Heading level, 1-6. */
+	level: number;
+	/** Heading text with inline markdown removed. */
+	text: string;
+}
+
+/** ATX heading with its captured level and raw text. */
+const HEADING_PARTS = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
+
+/** Strip the inline markdown an outline label should not show. */
+function headingText(raw: string): string {
+	return raw
+		.replace(/\*\*([^*]+)\*\*/g, "$1")
+		.replace(/\*([^*]+)\*/g, "$1")
+		.replace(/`([^`]+)`/g, "$1")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+/** The plan's headings in order, for the outline. */
+export function planHeadings(blocks: PlanBlock[]): PlanHeading[] {
+	const headings: PlanHeading[] = [];
+	for (const block of blocks) {
+		if (block.kind !== "heading") continue;
+		const match = block.lines[0]?.match(HEADING_PARTS);
+		if (!match) continue;
+		headings.push({ line: block.start, level: match[1].length, text: headingText(match[2]) });
+	}
+	return headings;
+}
+
+/** The source inside a fenced code block, without its opening and closing fence lines. */
+export function codeBody(block: PlanBlock): string[] {
+	if (block.kind !== "code") return block.lines.slice();
+	const lines = block.lines.slice();
+	if (lines.length > 0 && FENCE.test(lines[0])) lines.shift();
+	if (lines.length > 0 && FENCE.test(lines[lines.length - 1])) lines.pop();
+	return lines;
+}
+
+/** The info string after an opening fence (`ts` in ```` ```ts ````), or `""` for a plain line. */
+export function fenceInfo(line: string): string {
+	const match = line.match(/^ {0,3}(?:`{3,}|~{3,})\s*(.*?)\s*$/);
+	return match ? match[1] : "";
+}

@@ -15,6 +15,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   server is tokenized, bound to `127.0.0.1`, and closed on save, cancel, tab
   close, or session shutdown.
 
+### Changed
+
+- `plan`: the browser review page is rebuilt on the shared web theme — a sticky
+  header with a step-progress bar and theme toggle, a section outline, a
+  right-hand comment rail aligned to each block, and syntax-highlighted code.
+  The theme tokens, the pre-paint bootstrap, and the syntax highlighter move to
+  `lib/` (`web-theme.ts`, `highlight.ts`, `escape.ts`) and are shared with
+  `file-browse`; the light/dark choice now lives under one `pi-web-theme` key.
+
 ### Fixed
 
 - `rewind`: a snapshot taken with `includeUntracked` disabled captures tracked

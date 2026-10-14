@@ -52,6 +52,18 @@ describe("createPlanWebReview", () => {
 		expect(await response.text()).toContain('id="review-data"');
 	});
 
+	test("highlights a fenced code block and builds the outline", async () => {
+		const session = await start("# Plan\n\n```ts\nconst x = 1;\n```\n");
+		const html = await (await fetch(session.url)).text();
+		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
+		expect(island).not.toBeNull();
+		const data = JSON.parse(island![1]);
+		const keys = Object.keys(data.code);
+		expect(keys).toHaveLength(1);
+		expect(data.code[keys[0]].join("")).toContain("tok-keyword");
+		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan" }]);
+	});
+
 	test("rejects a request without the session token", async () => {
 		const session = await start();
 		const response = await fetch(`http://127.0.0.1:${session.port}/`);

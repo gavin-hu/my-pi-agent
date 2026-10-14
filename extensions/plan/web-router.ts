@@ -13,6 +13,7 @@
  */
 
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { THEME_JS } from "../../lib/web-theme.ts";
 import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
 import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
 
@@ -120,6 +121,7 @@ export async function handleReviewRequest(
 	}
 
 	if (pathname === "/favicon.ico") return { status: 204, headers: { ...SCRIPT_HEADERS } };
+	if (pathname === "/theme.js") return { status: 200, headers: { ...SCRIPT_HEADERS }, body: THEME_JS };
 	if (pathname === "/client.js") return { status: 200, headers: { ...SCRIPT_HEADERS }, body: REVIEW_CLIENT_JS };
 
 	if (search.get("token") !== ctx.token) return errorResponse(403, "Invalid or missing token.");

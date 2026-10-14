@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
+import { THEME_JS } from "../../lib/web-theme.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 
 function setup(overrides: Partial<ReviewContext> = {}) {
@@ -15,6 +16,8 @@ function setup(overrides: Partial<ReviewContext> = {}) {
 			blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
 			annotations: [],
 			steps: { done: 0, total: 0 },
+			outline: [],
+			code: {},
 			token: "tok",
 		}),
 		save: async (annotations) => {
@@ -43,6 +46,13 @@ describe("handleReviewRequest — routes", () => {
 		expect(response.status).toBe(200);
 		expect(response.body).toBe(REVIEW_CLIENT_JS);
 		expect(response.headers["Content-Type"]).toContain("text/javascript");
+	});
+
+	test("serves the shared theme bootstrap without a token", async () => {
+		const response = await GET("/theme.js");
+		expect(response.status).toBe(200);
+		expect(response.headers["Content-Type"]).toContain("text/javascript");
+		expect(response.body).toBe(THEME_JS);
 	});
 
 	test("serves the review page with a token", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { blockAt, planBlocks, type PlanBlockKind } from "./blocks.ts";
+import { blockAt, codeBody, fenceInfo, planBlocks, planHeadings, type PlanBlockKind } from "./blocks.ts";
 
 /** `start:end:kind` for each block, so a whole parse is one comparable list. */
 function outline(plan: string): string[] {
@@ -72,5 +72,47 @@ describe("blockAt", () => {
 
 	test("falls back to the nearest block before an unknown line", () => {
 		expect(blockAt(blocks, 99)?.start).toBe(3);
+	});
+});
+
+describe("planHeadings", () => {
+	test("collects headings with level, line, and stripped text", () => {
+		const blocks = planBlocks("# Title\n\n## **Goal**\n\n### `Code` step\n");
+		expect(planHeadings(blocks)).toEqual([
+			{ line: 0, level: 1, text: "Title" },
+			{ line: 2, level: 2, text: "Goal" },
+			{ line: 4, level: 3, text: "Code step" },
+		]);
+	});
+
+	test("ignores a heading inside a fence", () => {
+		expect(planHeadings(planBlocks("```\n# not a heading\n```"))).toEqual([]);
+	});
+
+	test("returns nothing for a plan without headings", () => {
+		expect(planHeadings(planBlocks("just text"))).toEqual([]);
+	});
+});
+
+describe("codeBody", () => {
+	test("drops the fence lines", () => {
+		const block = planBlocks("```ts\nconst x = 1;\n```")[0];
+		expect(codeBody(block)).toEqual(["const x = 1;"]);
+	});
+
+	test("keeps the body of an unterminated fence", () => {
+		expect(codeBody(planBlocks("```\nstill code")[0])).toEqual(["still code"]);
+	});
+
+	test("returns a non-code block's lines unchanged", () => {
+		expect(codeBody(planBlocks("plain text")[0])).toEqual(["plain text"]);
+	});
+});
+
+describe("fenceInfo", () => {
+	test("extracts the info string after a fence", () => {
+		expect(fenceInfo("```ts")).toBe("ts");
+		expect(fenceInfo("~~~ python")).toBe("python");
+		expect(fenceInfo("plain text")).toBe("");
 	});
 });

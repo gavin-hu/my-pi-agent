@@ -40,4 +40,21 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("cancel")');
 		expect(REVIEW_CLIENT_JS).toContain("/api/feedback");
 	});
+
+	test("builds the right-hand rail and the section outline", () => {
+		expect(REVIEW_CLIENT_JS).toContain('"rail-cell"');
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("outline-list")');
+		expect(REVIEW_CLIENT_JS).toContain("IntersectionObserver");
+	});
+
+	test("copies server-highlighted code through a DOM allowlist", () => {
+		expect(REVIEW_CLIENT_JS).toContain("DOMParser");
+		expect(REVIEW_CLIENT_JS).toContain("tok-");
+		expect(REVIEW_CLIENT_JS).not.toContain("innerHTML");
+	});
+
+	test("embeds the shared theme toggle", () => {
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("theme-toggle")');
+		expect(REVIEW_CLIENT_JS).toContain("prefers-color-scheme: light");
+	});
 });

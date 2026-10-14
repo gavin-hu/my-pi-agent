@@ -8,7 +8,8 @@
  */
 
 import { stat } from "node:fs/promises";
-import { CLIENT_JS, THEME_JS } from "./client.ts";
+import { THEME_JS } from "../../lib/web-theme.ts";
+import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
 import type { GitStatus, GitStatusProvider } from "./git.ts";
 import {

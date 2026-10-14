@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { CLIENT_JS, THEME_JS, THEME_STORAGE_KEY } from "./client.ts";
+import { CLIENT_JS } from "./client.ts";
+import { THEME_JS, WEB_THEME_STORAGE_KEY } from "../../lib/web-theme.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import { handleRequest } from "./router.ts";
 import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
@@ -61,7 +62,7 @@ describe("CLIENT_JS", () => {
 	});
 
 	test("toggles the theme and remembers the choice", () => {
-		expect(CLIENT_JS).toContain(THEME_STORAGE_KEY);
+		expect(CLIENT_JS).toContain(WEB_THEME_STORAGE_KEY);
 		expect(CLIENT_JS).toContain("theme-toggle");
 		expect(CLIENT_JS).toContain("theme-glyph");
 		expect(CLIENT_JS).toContain('setAttribute("data-theme"');
@@ -93,7 +94,7 @@ describe("CLIENT_JS", () => {
 		expect(response.status).toBe(200);
 		expect(response.headers["Content-Type"]).toContain("text/javascript");
 		expect(response.body).toBe(THEME_JS);
-		expect(THEME_JS).toContain(THEME_STORAGE_KEY);
+		expect(THEME_JS).toContain(WEB_THEME_STORAGE_KEY);
 		expect(THEME_JS).toContain("data-theme");
 	});
 });

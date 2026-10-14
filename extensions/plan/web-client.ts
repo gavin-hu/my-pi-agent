@@ -2,18 +2,22 @@
  * The browser review client, served as `/client.js`.
  *
  * Kept as one self-contained script (like `file-browse/client.ts`) with no
- * build step. It renders the plan blocks from the JSON data island using DOM
- * text nodes only — plan and comment text never becomes markup — captures a
- * selection as a comment quote, and saves the annotation list back to the
+ * build step. It renders the plan from the JSON data island using DOM text
+ * nodes only — plan and comment text never becomes markup — pairs every block
+ * with a right-hand rail cell so comments sit level with their block, renders
+ * server-highlighted code by copying only `tok-*` spans through `DOMParser`,
+ * builds the section outline, and saves the annotation list back to the
  * server. An `EventSource` keeps a connection open so the server can tell when
  * the tab is gone; the explicit buttons are the primary save/cancel path.
  */
+
+import { THEME_TOGGLE_JS } from "../../lib/web-theme.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
 
   var dataNode = document.getElementById("review-data");
-  var fallback = { blocks: [], annotations: [], steps: { done: 0, total: 0 }, token: "" };
+  var fallback = { blocks: [], annotations: [], steps: { done: 0, total: 0 }, outline: [], code: {}, token: "" };
   var data = fallback;
   if (dataNode && dataNode.textContent) {
     try { data = JSON.parse(dataNode.textContent); } catch (error) { data = fallback; }
@@ -22,11 +26,17 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
   var closed = false;
+  var sectionObserver = null;
 
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
   var saveButton = document.getElementById("save");
   var cancelButton = document.getElementById("cancel");
+  var outlineList = document.getElementById("outline-list");
+  var commentCount = document.getElementById("comment-count");
+  var stepsEl = document.getElementById("steps");
+  var stepsFill = document.getElementById("steps-fill");
+  var stepsLabel = document.getElementById("steps-label");
 
   function el(tag, className) {
     var node = document.createElement(tag);
@@ -72,6 +82,53 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     });
   }
 
+  // Copy only text and tok-* spans out of server-highlighted HTML, so a code
+  // line can never introduce markup even though it arrives as a string.
+  function copyTokens(from, to) {
+    Array.prototype.forEach.call(from.childNodes, function (node) {
+      if (node.nodeType === 3) { to.appendChild(document.createTextNode(node.nodeValue)); return; }
+      if (node.nodeType === 1 && node.tagName === "SPAN" && /^tok-/.test(node.className || "")) {
+        var span = el("span", node.className);
+        copyTokens(node, span);
+        to.appendChild(span);
+        return;
+      }
+      to.appendChild(document.createTextNode(node.textContent || ""));
+    });
+  }
+
+  function codeBody(lines) {
+    var body = Array.isArray(lines) ? lines.slice() : [];
+    if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[0])) body.shift();
+    if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[body.length - 1])) body.pop();
+    return body;
+  }
+
+  function renderCode(wrap, block) {
+    var body = codeBody(block.lines);
+    var highlighted = data.code && data.code[String(block.start)];
+    var pre = el("pre", "code");
+    var code = el("code");
+    if (Array.isArray(highlighted)) {
+      body.forEach(function (line, index) {
+        var span = el("span", "line");
+        var html = highlighted[index];
+        if (html) {
+          try { copyTokens(new DOMParser().parseFromString(html, "text/html").body, span); }
+          catch (error) { span.textContent = line; }
+        } else {
+          span.textContent = line;
+        }
+        code.appendChild(span);
+        if (index < body.length - 1) code.appendChild(document.createTextNode("\n"));
+      });
+    } else {
+      code.textContent = body.join("\n");
+    }
+    pre.appendChild(code);
+    wrap.appendChild(pre);
+  }
+
   function renderBlockContent(wrap, block) {
     var lines = Array.isArray(block.lines) ? block.lines : [];
     if (block.kind === "heading") {
@@ -82,14 +139,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       wrap.appendChild(heading);
       return;
     }
-    if (block.kind === "code") {
-      var body = lines.slice();
-      if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[0])) body.shift();
-      if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[body.length - 1])) body.pop();
-      var pre = el("pre"); var code = el("code"); code.textContent = body.join("\n");
-      pre.appendChild(code); wrap.appendChild(pre);
-      return;
-    }
+    if (block.kind === "code") { renderCode(wrap, block); return; }
     if (block.kind === "quote") {
       var quote = el("blockquote");
       renderInline(quote, lines.map(function (line) { return line.replace(/^\s*>\s?/, ""); }).join("\n"));
@@ -107,10 +157,16 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         var markerText = match[2];
         var rest = match[3];
         var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
-        if (box) { markerText = box[1].toLowerCase() === "x" ? "[x]" : "[ ]"; rest = box[2]; }
-        var marker = el("span", "marker"); marker.textContent = markerText;
-        var body2 = el("span"); renderInline(body2, rest);
-        row.appendChild(marker); row.appendChild(body2); wrap.appendChild(row);
+        var marker = el("span", "marker");
+        if (box) {
+          var done = box[1].toLowerCase() === "x";
+          markerText = done ? "\u2713" : "\u2610";
+          marker.className = done ? "marker done" : "marker";
+          rest = box[2];
+        }
+        marker.textContent = markerText;
+        var body = el("span"); renderInline(body, rest);
+        row.appendChild(marker); row.appendChild(body); wrap.appendChild(row);
       });
       return;
     }
@@ -122,6 +178,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function closeComposer() {
     var open = planEl ? planEl.querySelector(".composer") : null;
     if (open && open.parentNode) open.parentNode.removeChild(open);
+    Array.prototype.forEach.call(planEl ? planEl.querySelectorAll(".block.composing") : [], function (block) {
+      block.classList.remove("composing");
+    });
   }
 
   function selectionIn(wrap) {
@@ -132,8 +191,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     return selection.toString().replace(/\s+/g, " ").trim().slice(0, 500);
   }
 
-  function openComposer(wrap, block, quote) {
+  function openComposer(wrap, cell, block, quote) {
     closeComposer();
+    wrap.classList.add("composing");
     var box = el("div", "composer");
     if (quote) {
       var chip = el("div", "quote-chip");
@@ -141,12 +201,13 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       box.appendChild(chip);
     }
     var area = el("textarea");
-    area.placeholder = "Comment on this part of the plan";
+    area.placeholder = "Leave feedback on this part of the plan";
+    area.setAttribute("aria-label", "Comment");
     box.appendChild(area);
     var row = el("div", "row");
-    var cancel = el("button"); cancel.type = "button"; cancel.textContent = "Cancel";
+    var cancel = el("button"); cancel.type = "button"; cancel.className = "action"; cancel.textContent = "Cancel";
     cancel.addEventListener("click", closeComposer);
-    var add = el("button"); add.type = "button"; add.className = "primary"; add.textContent = "Add comment";
+    var add = el("button"); add.type = "button"; add.className = "action primary"; add.textContent = "Add comment";
     add.addEventListener("click", function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
@@ -154,7 +215,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       renderPlan();
     });
     row.appendChild(cancel); row.appendChild(add); box.appendChild(row);
-    wrap.appendChild(box);
+    cell.appendChild(box);
     area.focus();
   }
 
@@ -163,11 +224,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     card.textContent = "";
     var area = el("textarea");
     area.value = annotation.comment;
+    area.setAttribute("aria-label", "Edit comment");
     card.appendChild(area);
     var row = el("div", "row");
-    var cancel = el("button"); cancel.type = "button"; cancel.textContent = "Cancel";
+    var cancel = el("button"); cancel.type = "button"; cancel.className = "action"; cancel.textContent = "Cancel";
     cancel.addEventListener("click", renderPlan);
-    var apply = el("button"); apply.type = "button"; apply.className = "primary"; apply.textContent = "Save";
+    var apply = el("button"); apply.type = "button"; apply.className = "action primary"; apply.textContent = "Save";
     apply.addEventListener("click", function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
@@ -191,21 +253,67 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       body.textContent = annotation.comment;
       card.appendChild(body);
       var row = el("div", "row");
-      var edit = el("button"); edit.type = "button"; edit.textContent = "Edit";
+      var edit = el("button"); edit.type = "button"; edit.className = "action"; edit.textContent = "Edit";
       edit.addEventListener("click", function () { startEdit(card, index); });
-      var remove = el("button"); remove.type = "button"; remove.textContent = "Delete";
+      var remove = el("button"); remove.type = "button"; remove.className = "action"; remove.textContent = "Delete";
       remove.addEventListener("click", function () { annotations.splice(index, 1); renderPlan(); });
       row.appendChild(edit); row.appendChild(remove); card.appendChild(row);
       box.appendChild(card);
     });
   }
 
-  function renderComments(wrap, anchor) {
+  function renderComments(cell, anchor) {
     var mine = annotations.filter(function (annotation) { return annotation.anchor === anchor; });
     if (mine.length === 0) return;
     var box = el("div", "comments");
     renderCommentCards(box, mine);
-    wrap.appendChild(box);
+    cell.appendChild(box);
+  }
+
+  function updateCount() {
+    if (!commentCount) return;
+    var count = annotations.length;
+    commentCount.textContent = count === 0 ? "No comments yet \u2014 select text to comment" : count + (count === 1 ? " comment" : " comments");
+  }
+
+  function observeSections() {
+    if (sectionObserver && sectionObserver.disconnect) sectionObserver.disconnect();
+    sectionObserver = null;
+    if (!outlineList || !window.IntersectionObserver) return;
+    var links = {};
+    Array.prototype.forEach.call(outlineList.querySelectorAll("a"), function (link) {
+      links[link.getAttribute("data-id")] = link;
+    });
+    var headings = Array.prototype.slice.call(planEl.querySelectorAll(".block[id]"));
+    if (headings.length === 0) return;
+    sectionObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        Array.prototype.forEach.call(outlineList.querySelectorAll("a"), function (link) {
+          link.removeAttribute("aria-current");
+        });
+        var link = links[entry.target.id];
+        if (link) link.setAttribute("aria-current", "true");
+      });
+    }, { rootMargin: "-76px 0px -68% 0px", threshold: 0 });
+    headings.forEach(function (heading) { sectionObserver.observe(heading); });
+  }
+
+  function renderOutline() {
+    if (!outlineList) return;
+    outlineList.replaceChildren();
+    var items = Array.isArray(data.outline) ? data.outline : [];
+    items.forEach(function (item) {
+      var li = el("li", "lvl-" + item.level);
+      var link = el("a");
+      link.href = "#" + item.id;
+      link.setAttribute("data-id", item.id);
+      link.textContent = item.text;
+      li.appendChild(link);
+      outlineList.appendChild(li);
+    });
+    var panel = document.querySelector(".outline-panel");
+    if (panel && items.length === 0) panel.hidden = true;
   }
 
   function renderPlan() {
@@ -220,34 +328,48 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       var wrap = el("div", "block");
       wrap.setAttribute("data-line", String(block.start));
       wrap.setAttribute("data-kind", String(block.kind));
+      if (block.kind === "heading") wrap.id = "s-" + block.start;
       renderBlockContent(wrap, block);
-      var add = el("button", "add"); add.type = "button"; add.textContent = "+ Comment";
-      add.addEventListener("click", function () { openComposer(wrap, block, selectionIn(wrap)); });
+      var cell = el("div", "rail-cell");
+      cell.setAttribute("data-line", String(block.start));
+      var add = el("button", "add");
+      add.type = "button";
+      add.textContent = "+ Comment";
+      add.setAttribute("aria-label", "Comment on this block");
+      add.addEventListener("click", function () { openComposer(wrap, cell, block, selectionIn(wrap)); });
       wrap.appendChild(add);
-      renderComments(wrap, block.start);
       planEl.appendChild(wrap);
+      planEl.appendChild(cell);
+      renderComments(cell, block.start);
     });
     var orphans = annotations.filter(function (annotation) { return !anchored[annotation.anchor]; });
     if (orphans.length > 0) {
-      var wrap2 = el("div", "block");
-      var note = el("p"); note.textContent = "Comments not attached to a current block:";
+      var wrap2 = el("div", "block orphans");
+      var note = el("p"); note.textContent = "Comments not attached to a current block";
       wrap2.appendChild(note);
+      planEl.appendChild(wrap2);
+      var cell2 = el("div", "rail-cell");
       var box = el("div", "comments");
       renderCommentCards(box, orphans);
-      wrap2.appendChild(box);
-      planEl.appendChild(wrap2);
+      cell2.appendChild(box);
+      planEl.appendChild(cell2);
     }
+    updateCount();
+    observeSections();
   }
 
   function renderHeader() {
     var titleEl = document.getElementById("plan-title");
     var pathEl = document.getElementById("plan-path");
-    var progressEl = document.getElementById("step-progress");
     if (titleEl && data.title) titleEl.textContent = data.title;
     if (pathEl && data.relativePath) pathEl.textContent = data.relativePath;
-    var steps = data.steps || {};
-    if (progressEl && steps.total) progressEl.textContent = steps.done + "/" + steps.total + " steps done";
     if (data.title) document.title = "Plan review \u00b7 " + data.title;
+    var steps = data.steps || {};
+    if (stepsEl && steps.total) {
+      stepsEl.hidden = false;
+      if (stepsFill) stepsFill.style.width = Math.round((steps.done / steps.total) * 100) + "%";
+      if (stepsLabel) stepsLabel.textContent = steps.done + "/" + steps.total + " steps";
+    }
   }
 
   function lockActions() {
@@ -268,7 +390,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       setStatus("Saved \u2014 return to Pi to continue.", "saved");
       lockActions();
     }).catch(function (error) {
-      setStatus("Could not save: " + error.message);
+      setStatus("Could not save: " + error.message, "error");
     });
   }
 
@@ -289,8 +411,14 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (!planEl || saved) return;
     var wrap = event.target && event.target.closest ? event.target.closest(".block") : null;
     if (!wrap || wrap.querySelector(".composer")) return;
+    var cell = wrap.nextElementSibling;
+    if (!cell || !cell.classList.contains("rail-cell")) return;
     var quote = selectionIn(wrap);
-    if (quote) openComposer(wrap, { start: Number(wrap.getAttribute("data-line")), lines: [] }, quote);
+    if (quote) openComposer(wrap, cell, { start: Number(wrap.getAttribute("data-line")), lines: [] }, quote);
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeComposer();
   });
 
   window.addEventListener("beforeunload", function () {
@@ -305,7 +433,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     // The server still sees the POST; the stream is only for close detection.
   }
 
+  ${THEME_TOGGLE_JS}
+
   renderHeader();
+  renderOutline();
   renderPlan();
 })();
 `;

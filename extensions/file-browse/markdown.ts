@@ -13,13 +13,14 @@
  * External images are rendered as links (the page CSP is `img-src 'self' data:`)
  * and non-http(s) schemes such as `javascript:` are dropped.
  *
- * Kept free of the page renderer: it imports only `escape.ts`, `highlight.ts`,
- * and `paths.ts`, so `html.ts` can compose it without a module cycle.
+ * Kept free of the page renderer: it imports only `lib/escape.ts`,
+ * `lib/highlight.ts`, and `paths.ts`, so `html.ts` can compose it without a
+ * module cycle.
  */
 
 import { posix } from "node:path";
-import { escapeHtml } from "./escape.ts";
-import { fenceLanguage, highlightLines } from "./highlight.ts";
+import { escapeHtml } from "../../lib/escape.ts";
+import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { encodePath } from "./paths.ts";
 
 const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;

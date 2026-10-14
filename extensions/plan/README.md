@@ -252,10 +252,28 @@ agent file that overrides it.
 ## Browser review
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
-in the default browser on `127.0.0.1`. The page renders the plan's block
-structure, and every block has a **+ Comment** action; selecting text and
-clicking it attaches the selection as a quote. **Save feedback** writes the
-comments into the plan file and returns them to the model.
+in the default browser on `127.0.0.1`. The page is a review surface: a sticky
+header with the plan title, path, step progress, comment count, theme toggle,
+and Save/Close; a sticky **section outline** on the left; and the plan beside a
+**right-hand comment rail**. Every block has a **+ Comment** action, and
+selecting text opens the composer for that block with the selection quoted.
+**Save feedback** writes the comments into the plan file and returns them to the
+model.
+
+- **Shared theme.** The page uses the same tokens, base rules, and syntax-token
+  colors as `file-browse` (`lib/web-theme.ts`), follows the system light/dark
+  preference until the header toggle sets an explicit choice, and remembers that
+  choice under the shared `pi-web-theme` key.
+- **Section outline.** Headings become a sticky outline with jump links and an
+  active-section highlight; the panel collapses into a disclosure on narrow
+  screens.
+- **Right-hand rail.** The plan and the rail share a grid: every block is paired
+  with a rail cell, so a comment thread sits level with its block and reflows
+  with the window. Below ~860px the grid becomes one column and threads stack
+  under their block.
+- **Highlighted code.** Fenced code is tokenized by the shared
+  `lib/highlight.ts`; the client copies only text and `tok-*` spans through
+  `DOMParser`, so a code line is never parsed as markup.
 
 - **The file is the store.** Each comment is written as
   `> [!REVIEW] <comment>` on the line after the block it anchors to. Saving is
@@ -276,7 +294,8 @@ comments into the plan file and returns them to the model.
 
 | Route | Result |
 |---|---|
-| `GET /?token=…` | the review page (a JSON data island plus `/client.js`) |
+| `GET /?token=…` | the review page (a JSON data island plus `/theme.js` and `/client.js`) |
+| `GET /theme.js` | the shared pre-paint theme bootstrap |
 | `GET /client.js` | the first-party client script |
 | `GET /events?token=…` | Server-Sent Events stream, used only to detect a closed tab |
 | `POST /api/feedback?token=…` | validate and write the annotations into the plan |
@@ -384,11 +403,13 @@ comments into the plan file and returns them to the model.
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, step progress, scroll gauge, approve/refine/browser/keep). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the loopback server and the save/cancel/abort session. |
+| `web.ts` | `createPlanWebReview`: the loopback server, the section outline and code highlighting, and the save/cancel/abort session. |
 | `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes. |
-| `web-page.ts` | The review page shell, its data island, and inline CSS. |
-| `web-client.ts` | The `/client.js` source (block rendering, inline comments, selection quotes, save/cancel). |
+| `web-page.ts` | The review page shell (header, outline panel, rail grid), its data island, and inline CSS. |
+| `web-client.ts` | The `/client.js` source (block/rail rendering, outline, inline comments, selection quotes, highlighted code, save/cancel). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
+| [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
+| [`../../lib/web-theme.ts`](../../lib/web-theme.ts) | Shared web theme: tokens, base rules, `tok-*` colors, the bootstrap, and the toggle wiring. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../../lib/tui.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |

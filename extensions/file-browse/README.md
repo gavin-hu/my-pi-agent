@@ -192,7 +192,8 @@ reflects only this session's server, with no cross-session sharing.
   accent match the `bytefly-dark`/`bytefly-light` themes; it follows
   `prefers-color-scheme` until an explicit choice sets `data-theme` on the root:
   `/theme.js` applies the saved choice in the head before first paint, and the
-  header toggle flips and stores it (`browse-theme` in `localStorage`).
+  header toggle flips and stores it (`pi-web-theme` in `localStorage`, the key
+  shared with plan's review page).
 - **Markdown rendering.** `markdown.ts` is a first-party, escape-first renderer
   for the constructs that show up in repository READMEs. It emits only a known
   tag set, escapes every literal character, allowlists URL schemes (dropping
@@ -201,9 +202,9 @@ reflects only this session's server, with no cross-session sharing.
   `img-src 'self' data:`). The Rendered/Raw switch is a server-side `?raw=1`
   link, so it works without JavaScript. Set `markdown: false` to fall back to
   the plain-text view. A fenced code block whose info string names a supported
-  language is highlighted through `highlight.ts` (either an extension or a
+  language is highlighted through `lib/highlight.ts` (either an extension or a
   long-form alias, `fenceLanguage`); an absent or unknown language stays plain.
-- **Syntax highlighting.** `highlight.ts` is a first-party, escape-first
+- **Syntax highlighting.** `lib/highlight.ts` is a first-party, escape-first
   tokenizer for the file types that dominate a repository: JavaScript and
   TypeScript, JSON, CSS (incl. SCSS/Sass/Less), HTML/XML and template
   components, shell, Python, Java, YAML, and SQL. `detectLanguage` maps a
@@ -234,8 +235,8 @@ reflects only this session's server, with no cross-session sharing.
 | `index.ts` | `/browse` command, running-server closure, shutdown cleanup |
 | `config.ts` | Config defaults, validation, global/project merge |
 | `paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
-| `escape.ts` | `escapeHtml`, the shared HTML escaping used by every renderer |
-| `highlight.ts` | First-party escape-first syntax tokenizer for the code view |
+| [`../../lib/escape.ts`](../../lib/escape.ts) | `escapeHtml`, the shared HTML escaping used by every renderer |
+| [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer for the code view (shared with `plan`) |
 | `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
 | `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
 | `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted) |

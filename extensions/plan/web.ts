@@ -14,7 +14,8 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
-import { planBlocks } from "./blocks.ts";
+import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
+import { codeBody, fenceInfo, planBlocks, planHeadings } from "./blocks.ts";
 import { parseFeedback, stripFeedback, type PlanAnnotation } from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
 import { extractPlanSteps } from "./steps.ts";
@@ -117,13 +118,29 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const page = async (): Promise<ReviewPageData> => {
 			const current = (await store.read(cwd, plan.path)) ?? plan;
 			baseline = stripFeedback(current.content);
+			const blocks = planBlocks(baseline);
 			const steps = extractPlanSteps(baseline);
+			// Highlight code blocks once, at the boundary: the client copies only the
+			// tok-* spans out of the server-escaped HTML.
+			const code: Record<string, string[]> = {};
+			for (const block of blocks) {
+				if (block.kind !== "code") continue;
+				const language = fenceLanguage(fenceInfo(block.lines[0] ?? ""));
+				if (language) code[String(block.start)] = highlightLines(codeBody(block), language);
+			}
 			return {
 				title: planTitle(basename(current.path)),
 				relativePath: current.relativePath,
-				blocks: planBlocks(baseline),
+				blocks,
 				annotations: parseFeedback(current.content),
 				steps: { done: steps.filter((step) => step.status === "completed").length, total: steps.length },
+				outline: planHeadings(blocks).map((heading) => ({
+					id: `s-${heading.line}`,
+					line: heading.line,
+					level: heading.level,
+					text: heading.text,
+				})),
+				code,
 				token,
 			};
 		};

@@ -18,9 +18,11 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`browser.ts`](./browser.ts) | Cross-platform default-browser opener shared by `file-browse` and `plan`: pure `browserCommand(url, platform)` plus best-effort `openInBrowser(url, { platform, spawn })` with an injectable spawn. |
 | [`config.ts`](./config.ts) | `~/.pi/agent/<name>.json` + `<cwd>/.pi/<name>.json` loading, with `clampInteger` / `clampNumber` / `cleanString` / `asRecord` / `readJson` / `readJsonResult` and the `loadConfigFile` merge. |
 | [`env.ts`](./env.ts) | Env-var contracts shared across extensions: the worktree environment (`ENV_ROOT`, `worktreeRoot`, `resolveEffectiveCwd`) used by worktree, file-browse, job, and rewind, plus `isExtensionEnabled` / `ENV_DISABLED_EXTENSIONS` for the package-wide disable list. |
+| [`escape.ts`](./escape.ts) | `escapeHtml`: the single HTML text/attribute escape used by the browse page renderers and the Markdown and syntax highlighters. |
 | [`format.ts`](./format.ts) | Pure text/number formatting shared by renderers: `formatTokens`, `stripControlChars`, `sanitize`, `sanitizeLine` — the boundary for untrusted, single-line text — and `shortenPath`. |
 | [`interaction.ts`](./interaction.ts) | Turn-affinity prompt contract: the channel a remote adapter installs on `ctx.ui` under a string key, the `InteractionChannel` interface (`request` / `post` / `postFile`), and `remoteChannel` / `isRemoteTurn` / `supportsCustomUI` / `askHuman` (with an optional file/text preface) plus the shared “Other” label. |
 | [`git/`](./git/) | Shared git plumbing. [`git/runner.ts`](./git/runner.ts) is the `RunGit` seam (`createExecRunner` with timeout/env handling, `runGitOrThrow`, `GitError`); [`git/read.ts`](./git/read.ts) holds the read helpers (`repoRoot`, `repoRootFor`, `gitDir`, `revParse`, `hasCommits`, `currentBranch`); [`git/index.ts`](./git/index.ts) is the barrel. |
+| [`highlight.ts`](./highlight.ts) | First-party, escape-first syntax tokenizer (`detectLanguage`, `fenceLanguage`, `highlightLines`, `HighlightLanguage`, `TokenClass`) for js/ts, json, css, html, shell, python, java, yaml, and sql; shared by `file-browse` and plan's code blocks. |
 | [`list-cursor.ts`](./list-cursor.ts) | Scrollable-list behavior for the `/rewind`, `/extensions`, `/doctor`, `/todos`, and `/jobs` screens: `fitRows`, `keepVisible`, `clampScroll`, `navIntent`, `navigateList`, `navigateScroll`, `wheelDelta`, `scrollList`, `isCloseKey`, `selectionMarker`, `formatRange`, and the `ListCursor` state. |
 | [`path.ts`](./path.ts) | `isInside` (string containment) plus `realPathOfNearest` / `isInsideReal` (symlink-aware): the containment predicates the file-browse, worktree, and doc guards share. |
 | [`pi-invocation.ts`](./pi-invocation.ts) | `getPiInvocation`: how to launch a nested `pi` process, shared by `subagent` and bytefly's doctor surface. |
@@ -31,6 +33,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`tool-names.ts`](./tool-names.ts) | Tool names and one parameter name that more than one extension must agree on, so an orchestrating `ctx.executeTool()` call or schema probe breaks the build on a rename. |
 | [`tui.ts`](./tui.ts) | Screen chrome: `screenHeader`, `screenHint`, `dockListFrame` (the shared docked-list assembly), `viewportRows`, and `FULL_SCREEN_OVERLAY`, plus `reuseText` (per-render `Text` reuse) and `editorTheme` (inline-editor theme). |
 | [`ui.ts`](./ui.ts) | Shared UI vocabulary: `GLYPHS`, `SEPARATORS`, `STATUS_KEYS` (`ctx.ui.setStatus` keys), `EXPAND_KEYBINDING` with `expandKey` / `expandHint`, and the transcript rail `BODY_INDENT` / `GLYPH_GAP`. |
+| [`web-theme.ts`](./web-theme.ts) | The shared theme for local browser surfaces: `WEB_THEME_STORAGE_KEY`, `WEB_THEME_CSS` (GitHub-style light/dark tokens and `tok-*` colors), `WEB_BASE_CSS`, the `THEME_JS` pre-paint bootstrap, and the embeddable `THEME_TOGGLE_JS`. |
 
 ## Conventions
 
