@@ -51,9 +51,12 @@ gate is stated in the test.
 3. **Surface / TUI tests** — assert fields, width bounds, ordering, and glyphs,
    never literal column padding. Use the shared `fakeTheme` and an injected
    clock for relative timestamps.
-4. **Package-level tests** (`test/naming.test.ts`, `test/structure.test.ts`,
-   `test/theme.test.ts`, `test/prompt-budget.test.ts`) — cross-cutting contracts.
-   No extension test may duplicate these.
+4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
+   `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`)
+   — cross-cutting contracts. No extension test may duplicate these.
+   `release.test.ts` ties `package.json`, the newest dated changelog heading,
+   and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
+   the tag is present; the tag assertion is skipped in a clone that has none.
 
 Rule of thumb: if a test needs `mock.module`, a global stub, or a real timer,
 the code under test is missing a seam. Add the seam instead of the mock.
