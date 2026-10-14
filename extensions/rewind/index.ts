@@ -4,54 +4,30 @@
  * Takes one automatic snapshot per user prompt (before the prompt's first
  * mutating tool call) and registers the `/rewind` command. A snapshot is a git
  * commit kept under `refs/pi/rewind/<id>`; a restore rewrites the working tree
- * and index without moving HEAD, so branches, commits, and the reflog are
- * untouched. `/rewind` can also move the session tree back to the selected
- * prompt, leaving the abandoned branch intact.
+ * without moving HEAD, so branches, commits, and the reflog are untouched.
+ * `/rewind` can also move the session tree back to the selected prompt, leaving
+ * the abandoned branch intact.
  *
  * This is the `rewind` extension entrypoint: Pi calls the default export, which
- * registers the extension through {@link registerRewind}.
+ * registers the extension through {@link registerRewind}. The factory only wires
+ * events and the command; the automatic-snapshot decision lives in
+ * `snapshot-run.ts`.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerCommands } from "./commands.ts";
-import { summarizePrompt } from "./format.ts";
-import { createSnapshotPolicy, type SnapshotPolicy } from "./policy.ts";
 import { createRuntime } from "./runtime.ts";
+import { createSnapshotRun } from "./snapshot-run.ts";
 
 export function registerRewind(pi: ExtensionAPI): void {
 	const runtime = createRuntime(pi);
-	const policies = new Map<string, SnapshotPolicy>();
+	const run = createSnapshotRun(pi, runtime);
 
 	registerCommands(pi, runtime);
 
-	// One automatic snapshot per user prompt. The prompt summary is captured
-	// when the run starts; the flag flips on the first mutating call and resets
-	// on the next prompt, so a read-only prompt snapshots nothing.
-	let snapshotTakenForRun = false;
-	let pendingPrompt: string | undefined;
-	let warned = false;
-
-	const policyFor = (root: string): SnapshotPolicy => {
-		let policy = policies.get(root);
-		if (!policy) {
-			policy = createSnapshotPolicy(pi, runtime.configFor(root));
-			policies.set(root, policy);
-		}
-		return policy;
-	};
-
-	const refresh = async (ctx: ExtensionContext): Promise<void> => {
-		runtime.invalidate();
-		policies.clear();
-		await runtime.setStatus(ctx);
-	};
-
 	pi.on("session_start", async (_event, ctx) => {
-		snapshotTakenForRun = false;
-		pendingPrompt = undefined;
-		warned = false;
-		await refresh(ctx);
+		await run.refresh(ctx);
 		await runtime.sweepStaleIndexes(ctx);
 	});
 
@@ -60,42 +36,20 @@ export function registerRewind(pi: ExtensionAPI): void {
 		await runtime.setStatus(ctx);
 	});
 
-	// A new prompt begins a task: remember its summary and let the next mutating
-	// call take the run's single snapshot.
-	pi.on("before_agent_start", (event) => {
-		pendingPrompt = summarizePrompt(event.prompt);
-		snapshotTakenForRun = false;
-		warned = false;
+	// A new prompt begins a task: the run resolves its snapshot decision up
+	// front, so the `tool_call` guard can stay synchronous.
+	pi.on("before_agent_start", async (event, ctx) => {
+		await run.beginRun(event.prompt, ctx);
 	});
 
 	pi.on("session_shutdown", (_event, ctx) => {
-		pendingPrompt = undefined;
+		run.reset();
 		runtime.releaseIndexes();
 		runtime.clearStatus(ctx);
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
-		// A throw here fails the model's tool call, so every failure is swallowed.
-		try {
-			const root = await runtime.rootFor(ctx);
-			if (!root) return;
-			const config = runtime.configFor(root);
-			if (!config.autoSnapshots) return;
-			if (snapshotTakenForRun) return;
-			if (!policyFor(root).shouldSnapshot(event.toolName)) return;
-
-			await runtime.snapshot(ctx, { reason: "auto", prompt: pendingPrompt });
-			snapshotTakenForRun = true;
-			await runtime.setStatus(ctx);
-		} catch (error) {
-			if (warned) return;
-			warned = true;
-			try {
-				ctx.ui.notify(`Snapshot skipped: ${error instanceof Error ? error.message : String(error)}`, "warning");
-			} catch {
-				// UI may be unavailable (print/json modes).
-			}
-		}
+		await run.onToolCall(event.toolName, ctx);
 	});
 }
 

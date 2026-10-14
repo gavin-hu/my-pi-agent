@@ -53,18 +53,25 @@ describe.skipIf(!runSlowSuites)("rewind", () => {
 		expect((await runGit(["log", "-1", "--format=%s"], { cwd: repo })).stdout.trim()).toBe("keep");
 	});
 
-	test("leaves untracked files alone when the snapshot excluded them", async () => {
+	test("leaves untracked files alone and reverts tracked ones when the snapshot excluded them", async () => {
 		const fresh = await makeRepo("pi-rw-restore-excl-");
 		cleanups.push(fresh);
 		const snapshot = await createSnapshot(
 			{ runGit, now: () => 1000, idFactory: () => "e1" },
 			snapshotInput(fresh, { includeUntracked: false }),
 		);
+		// A tracked edit must still be captured and reverted even though the
+		// snapshot holds no untracked files. This guards the empty-tree
+		// regression, where the snapshot captured nothing and the rewind was a
+		// silent no-op.
+		writeFileSync(join(fresh, "README.md"), "tracked edit\n");
 		writeFileSync(join(fresh, "later.txt"), "later\n");
 		const plan = await planRestore({ runGit }, { root: fresh, indexFile: indexFileFor(fresh), target: snapshot });
 		expect(plan.ok && plan.plan.removed).toBe(0);
+		expect(plan.ok && plan.plan.changed).toBe(1);
 		await applyRestore({ runGit }, { root: fresh, indexFile: indexFileFor(fresh), target: snapshot });
 		expect(existsSync(join(fresh, "later.txt"))).toBe(true);
+		expect(readFileSync(join(fresh, "README.md"), "utf-8")).not.toBe("tracked edit\n");
 	});
 
 	test("refuses while a merge is in progress", async () => {

@@ -39,7 +39,14 @@ export function createRewindRunner(pi: ExtensionAPI): RunGit {
 	return (args, options) => exec(args, { timeoutMs: SNAPSHOT_TIMEOUT_MS, ...options });
 }
 
-/** Stage the working tree into a temporary index and return its tree id. */
+/**
+ * Stage the working tree into a temporary index and return its tree id.
+ *
+ * With `includeUntracked`, `add -A` stages everything in one call from an empty
+ * index. Without it the temp index must be seeded from HEAD first: `add -u`
+ * only updates paths already in the index, so on a fresh, empty index it stages
+ * nothing and `write-tree` would return the empty tree.
+ */
 export async function treeFromWorkingTree(
 	runGit: RunGit,
 	cwd: string,
@@ -47,7 +54,12 @@ export async function treeFromWorkingTree(
 	includeUntracked: boolean,
 ): Promise<string> {
 	const env = { GIT_INDEX_FILE: indexFile };
-	await run(runGit, ["add", includeUntracked ? "-A" : "-u"], { cwd, env });
+	if (includeUntracked) {
+		await run(runGit, ["add", "-A"], { cwd, env });
+	} else {
+		await run(runGit, ["read-tree", "HEAD"], { cwd, env });
+		await run(runGit, ["add", "-u"], { cwd, env });
+	}
 	return (await run(runGit, ["write-tree"], { cwd, env })).trim();
 }
 

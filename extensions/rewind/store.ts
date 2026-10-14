@@ -28,6 +28,15 @@ export function idFromRef(namespace: string, ref: string): string | undefined {
 	return ref.startsWith(prefix) && ref.length > prefix.length ? ref.slice(prefix.length) : undefined;
 }
 
+/**
+ * Whether a snapshot was taken from `root`. `refs/pi/rewind/*` lives in the
+ * shared git directory, so every worktree's snapshots are listed together and
+ * must be filtered back to the current root before they are offered or used.
+ */
+export function belongsToRoot(snapshot: Pick<Snapshot, "root">, root: string): boolean {
+	return snapshot.root === root;
+}
+
 /** The metadata stored in the commit body (everything except derived ref/commit). */
 export type SnapshotMeta = Omit<Snapshot, "ref" | "commit"> & { v: number };
 
@@ -97,7 +106,7 @@ export async function listSnapshots(
 		// Trust the ref for identity, so a rewritten message cannot alias another ref.
 		const id = idFromRef(namespace, entry.ref) ?? meta.id;
 		const snapshot: Snapshot = { ...meta, id, ref: entry.ref, commit: entry.commit };
-		if (options.root !== undefined && snapshot.root !== options.root) continue;
+		if (options.root !== undefined && !belongsToRoot(snapshot, options.root)) continue;
 		snapshots.push(snapshot);
 	}
 	snapshots.sort((a, b) => b.timestamp - a.timestamp || b.id.localeCompare(a.id));

@@ -53,6 +53,44 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		expect((await refs(repo)).length).toBe(1);
 	});
 
+	test("parallel mutating calls in one prompt take a single snapshot", async () => {
+		const repo = await makeRepo("pi-rw-ext-parallel-");
+		cleanups.push(repo);
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
+
+		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
+		writeFileSync(join(repo, "w.txt"), "x\n");
+
+		// Sibling tool calls from one assistant message can run in parallel; the
+		// run's snapshot must still be taken exactly once.
+		await Promise.all([
+			emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx),
+			emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx),
+		]);
+
+		expect((await refs(repo)).length).toBe(1);
+	});
+
+	test("a concurrent read and write still snapshot once", async () => {
+		const repo = await makeRepo("pi-rw-ext-mixed-");
+		cleanups.push(repo);
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
+
+		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
+		writeFileSync(join(repo, "w.txt"), "x\n");
+
+		await Promise.all([
+			emit(fake.pi, "tool_call", { toolName: "read", input: {} }, ctx),
+			emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx),
+		]);
+
+		expect((await refs(repo)).length).toBe(1);
+	});
+
 	test("a new prompt snapshots again", async () => {
 		const repo = await makeRepo("pi-rw-ext-prompt2-");
 		cleanups.push(repo);

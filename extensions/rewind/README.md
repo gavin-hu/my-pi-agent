@@ -3,9 +3,9 @@
 Snapshot the working tree at the start of each task and return to an earlier
 prompt from a menu — restoring the **code**, the **conversation**, or **both**.
 A snapshot is a git commit kept under `refs/pi/rewind/<id>`; restoring one
-rewrites the working tree and index **without moving HEAD**, so commits,
-branches, and the reflog are untouched. Conversation rewind uses Pi's session
-tree, so the branch you leave is not erased.
+rewrites the working tree **without touching the real index or moving HEAD**, so
+commits, branches, staged state, and the reflog are untouched. Conversation
+rewind uses Pi's session tree, so the branch you leave is not erased.
 
 This is the `rewind` extension entrypoint; it is one of two sibling git
 extensions in this package (`worktree` is the other).
@@ -123,17 +123,17 @@ commit. These refs are not branches and are not touched by `git push --all`.
 |---|---|
 | Model-facing tools | None. `/rewind` is user-driven; automatic snapshots cover the start of every task. |
 | Commands | `/rewind` (`pi.registerCommand`). |
-| Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (capture prompt summary), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
+| Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (capture the prompt and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
 | State storage | Git refs `refs/pi/rewind/<id>` with metadata in the commit body. No tool-result `details` and no `pi.appendEntry`. |
 | Lifecycle | Index paths are created lazily and released in `session_shutdown`; status chip is set on start/tree/snapshot and cleared on shutdown. |
 
 ## Design notes
 
 - **One snapshot per user prompt.** The unit is the task, not the tool call:
-  `before_agent_start` records the prompt summary and the run's first mutating
-  tool call takes the snapshot before any mutation. The run-scoped flag is set
-  synchronously before the first `await`, so parallel tool calls cannot
-  double-snapshot.
+  `before_agent_start` records the prompt summary and resolves the run's root,
+  policy, and config, so the first mutating `tool_call` takes the snapshot with a
+  fully synchronous guard. No `await` sits between that guard's check and its
+  claim, so parallel sibling calls cannot double-snapshot.
 - **The timeline comes from the session tree, not from git.** `/rewind` lists
   every user message on the active branch and pairs each with the snapshot whose
   recorded `entryId` matches, so read-only prompts appear too and the list
@@ -147,10 +147,12 @@ commit. These refs are not branches and are not touched by `git push --all`.
   ignore rules; `git stash` cannot reliably include untracked files and pollutes
   the stash list.
 - **A temporary index keeps the real index and HEAD untouched.** Staging goes
-  through `GIT_INDEX_FILE` under `.git/pi/`. Because `pi.exec` has no `env`
-  option the variable is set on `process.env`, so every staging operation is
-  serialized through one promise queue in `runtime.ts`; read-only listings are
-  not queued.
+  through `GIT_INDEX_FILE` under the worktree's own git dir (`<git-dir>/pi/`:
+  `.git/pi/` in the main checkout, `.git/worktrees/<name>/pi/` in a linked
+  worktree), so concurrent sessions never share a staging index. Because
+  `pi.exec` has no `env` option the variable is set on `process.env` for the
+  duration of a call, so every staging operation is serialized through the queue
+  in `queue.ts`; read-only listings are not queued.
 - **Rewind is `read-tree --reset -u` plus explicit untracked removal.** The
   target tree is loaded into the index and tracked tree; paths added since the
   snapshot are computed and deleted explicitly. HEAD is never passed to
@@ -172,24 +174,26 @@ commit. These refs are not branches and are not touched by `git push --all`.
   restoring another worktree's snapshot is refused. The effective root follows
   `PI_WORKTREE_ROOT` when set.
 - **Identity is fixed for internal commits.** `commit-tree` runs with
-  `-c user.name=pi -c user.email=pi@local`, so snapshots work without committer
+  `-c user.name=pi -c user.email=pi@localhost`, so snapshots work without committer
   identity configured and never depend on the user's git config.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Registrar: wire the runtime, the command, and the per-prompt snapshot events (`registerRewind`). |
+| `index.ts` | Registrar: wire the runtime, the command, and the run-state module to Pi's events (`registerRewind`). |
 | `types.ts` | `Snapshot`, `SnapshotReason`, `RestoreSummary`. |
 | `config.ts` | Config defaults and merge/normalize over `lib/config.ts`. |
 | `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes, and the production `RunGit`. |
 | `snapshot.ts` | Create a snapshot (tree from a temporary index → commit → ref). |
+| `snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
 | `restore.ts` | Plan and apply a working-tree rewind. |
 | `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `policy.ts` | Which tool calls are worth a snapshot. |
 | `temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
 | `status.ts` | The `↺ N` status chip. |
-| `runtime.ts` | Root/config caches, the serialized git queue, and the snapshot/list/plan/restore operations. |
+| `queue.ts` | The serialized git operation queue for staging calls (`GIT_INDEX_FILE`). |
+| `runtime.ts` | Root/config caches and the snapshot/list/plan/restore operations. |
 | `timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
 | `rewind.ts` | Scope choice, confirmation, and applying code + conversation rewind. |
 | `rewind-tui.ts` | The selectable, width-safe timeline component. |

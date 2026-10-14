@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `rewind`: a snapshot taken with `includeUntracked` disabled captures tracked
+  files again. The temporary index is seeded from HEAD before `git add -u`, so
+  the snapshot is no longer the empty tree (a code rewind had been a silent
+  no-op).
+- `rewind`: parallel tool calls in one prompt take a single snapshot. The run's
+  root and policy are resolved before the first tool call, so the one-snapshot
+  guard is synchronous.
+
 ## [0.6.1] - 2026-10-14
 
 ### Fixed

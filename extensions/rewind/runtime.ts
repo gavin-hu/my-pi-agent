@@ -1,21 +1,22 @@
 /**
  * Runtime services shared by the command and event wiring.
  *
- * Owns the effective root and config caches, the serialized git queue (so
- * `GIT_INDEX_FILE` mutation cannot interleave), and the snapshot/list/plan/
- * restore operations. Snapshot and restore are serialized; read-only listings
- * are not, because they never set the temporary index. The temp-index lifecycle
- * and the status chip live in their own modules.
+ * Owns the effective root and config caches and the snapshot/list/plan/restore
+ * operations. Snapshot and restore are staged through the serialized queue in
+ * `queue.ts`, because `GIT_INDEX_FILE` lives on `process.env` for the duration
+ * of a git call; read-only listings are not queued because they never set it.
+ * The temp-index lifecycle and the status chip live in their own modules.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { loadConfig, type RewindConfig } from "./config.ts";
 import { createRewindRunner, repoRoot, type RunGit } from "./git.ts";
+import { createOperationQueue } from "./queue.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { createStatusChip } from "./status.ts";
-import { listSnapshots, pruneSnapshots } from "./store.ts";
+import { belongsToRoot, listSnapshots, pruneSnapshots } from "./store.ts";
 import { createTempIndexStore } from "./temp-index.ts";
 import { lastUserEntryId } from "./timeline.ts";
 import type { Snapshot, SnapshotReason, RestoreSummary } from "./types.ts";
@@ -45,23 +46,20 @@ export interface RewindRuntime {
 	sweepStaleIndexes(ctx: ExtensionContext): Promise<void>;
 }
 
+/** Why a snapshot from another worktree cannot be used here. */
+function foreignRootReason(target: Snapshot, root: string): string {
+	return `snapshot #${target.id} was taken from ${target.root}, not ${root}.`;
+}
+
 export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 	const runGit: RunGit = createRewindRunner(pi);
 	const configCache = new Map<string, RewindConfig>();
 	const rootCache = new Map<string, string | undefined>();
 	const indexStore = createTempIndexStore(runGit);
 
-	// One queue for operations that stage through a temporary index, since
-	// `GIT_INDEX_FILE` lives on process.env for the duration of a call.
-	let tail: Promise<unknown> = Promise.resolve();
-	function enqueue<T>(fn: () => Promise<T>): Promise<T> {
-		const next = tail.then(fn, fn);
-		tail = next.then(
-			() => undefined,
-			() => undefined,
-		);
-		return next;
-	}
+	// Staging operations share one queue: `GIT_INDEX_FILE` is set process-wide
+	// for the duration of a git call, so two of them must not interleave.
+	const queue = createOperationQueue();
 
 	const effectiveCwd = (ctx: ExtensionContext): string => resolveEffectiveCwd(ctx.cwd);
 
@@ -86,7 +84,7 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 	const status = createStatusChip({ rootFor, configFor });
 
 	const snapshot = (ctx: ExtensionContext, options: SnapshotOptions): Promise<Snapshot> =>
-		enqueue(async () => {
+		queue.enqueue(async () => {
 			const root = await rootFor(ctx);
 			if (!root) throw new Error("not inside a git repository.");
 			const config = configFor(root);
@@ -113,7 +111,10 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		listSnapshots(runGit, root, configFor(root).refNamespace, { root });
 
 	const plan = (root: string, target: Snapshot): Promise<PlanResult> =>
-		enqueue(async () => planRestore({ runGit }, { root, indexFile: await indexStore.pathFor(root), target }));
+		queue.enqueue(async () => {
+			if (!belongsToRoot(target, root)) return { ok: false, reason: foreignRootReason(target, root) };
+			return planRestore({ runGit }, { root, indexFile: await indexStore.pathFor(root), target });
+		});
 
 	const restore = (
 		ctx: ExtensionContext,
@@ -121,7 +122,8 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		target: Snapshot,
 		config: RewindConfig,
 	): Promise<RestoreSummary> =>
-		enqueue(async () => {
+		queue.enqueue(async () => {
+			if (!belongsToRoot(target, root)) throw new Error(foreignRootReason(target, root));
 			const indexFile = await indexStore.pathFor(root);
 			const input: RestoreInput = { root, indexFile, target };
 			let safety: string | undefined;

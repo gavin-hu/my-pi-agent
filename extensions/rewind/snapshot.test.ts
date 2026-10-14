@@ -86,6 +86,26 @@ describe.skipIf(!runSlowSuites)("createSnapshot", () => {
 		expect(snapshot.entryId).toBe("entry-7");
 	});
 
+	test("captures tracked files but no untracked ones when includeUntracked is false", async () => {
+		const fresh = await makeRepo("pi-rw-snap-excl-");
+		cleanups.push(fresh);
+		writeFileSync(join(fresh, "README.md"), "tracked change\n");
+		writeFileSync(join(fresh, "later.txt"), "untracked\n");
+		const snapshot = await createSnapshot(
+			{ runGit, now: () => 6000, idFactory: () => "t-excl" },
+			snapshotInput(fresh, { includeUntracked: false }),
+		);
+
+		// The modified tracked file is captured with its working-tree content; a
+		// fresh temp index must be seeded from HEAD before `add -u`, or the tree
+		// would be empty.
+		expect((await runGit(["show", `${snapshot.commit}:README.md`], { cwd: fresh })).stdout).toBe("tracked change\n");
+		// The untracked file is not captured.
+		expect((await runGit(["cat-file", "-e", `${snapshot.commit}:later.txt`], { cwd: fresh })).code).not.toBe(0);
+		const tree = (await runGit(["rev-parse", `${snapshot.commit}^{tree}`], { cwd: fresh })).stdout.trim();
+		expect(tree).not.toBe("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+	});
+
 	test("refuses a repository with no commits", async () => {
 		const empty = await makeRepo("pi-rw-empty-");
 		cleanups.push(empty);

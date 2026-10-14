@@ -3,6 +3,7 @@ import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { commitTree, revParse, updateRef } from "./git.ts";
 import { createSnapshot } from "./snapshot.ts";
 import {
+	belongsToRoot,
 	deleteSnapshots,
 	encodeMessage,
 	idFromRef,
@@ -69,6 +70,11 @@ describe.skipIf(!runSlowSuites)("metadata encoding", () => {
 		const { v: _v, ...v1 } = meta();
 		expect(parseMessage(`pi-rewind: ${JSON.stringify(v1)}`)).toBeUndefined();
 		expect(parseMessage(`pi-rewind: ${JSON.stringify(meta({ v: 2 }))}`)).toBeUndefined();
+	});
+
+	test("belongsToRoot matches the recorded root", () => {
+		expect(belongsToRoot({ root: "/repo" }, "/repo")).toBe(true);
+		expect(belongsToRoot({ root: "/repo" }, "/elsewhere")).toBe(false);
 	});
 });
 
