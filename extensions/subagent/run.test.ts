@@ -80,6 +80,22 @@ describe("runSingleAgent", () => {
 		expect(isFailedResult(result)).toBe(true);
 	});
 
+	test("reports a signal-terminated child as a failure", async () => {
+		const { spawn } = makeFakeSpawn((child) => child.close(null, "SIGKILL"));
+		const result = await runSingleAgent(options({ spawn }));
+		expect(result.exitCode).toBe(1);
+		expect(isFailedResult(result)).toBe(true);
+		expect(getResultOutput(result)).toContain("SIGKILL");
+	});
+
+	test("resolves a supplied cwd against the default root", async () => {
+		const { spawn, children } = makeFakeSpawn((child) => child.close(0));
+		await runSingleAgent(options({ spawn, defaultCwd: "/repo", cwd: "sub" }));
+		expect(children[0].options?.cwd).toBe("/repo/sub");
+		await runSingleAgent(options({ spawn, defaultCwd: "/repo", cwd: "/elsewhere" }));
+		expect(children[1].options?.cwd).toBe("/elsewhere");
+	});
+
 	test("propagates a model error and its message", async () => {
 		const { spawn } = makeFakeSpawn((child) => {
 			child.line({

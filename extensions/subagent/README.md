@@ -35,8 +35,8 @@ pi install ./                           # install the package
 |---|---|
 | `agent` + `task` | Single mode: one built-in/external agent and its task. |
 | `tasks[]` | Parallel mode: independent `{agent, task, cwd?}` entries, max 8. |
-| `chain[]` | Chain mode: ordered `{agent, task, cwd?}` steps; `{previous}` is replaced by the prior step's final output. |
-| `cwd` | Optional working directory for the spawned process (single mode; per-step for the others). |
+| `chain[]` | Chain mode: ordered `{agent, task, cwd?}` steps, max 8; `{previous}` is replaced by the prior step's final output. |
+| `cwd` | Optional working directory for the spawned process (single mode; per-step for the others). A relative path resolves against the active root. |
 | `agentScope` | `user` (default), `project`, or `both` — which external agent directories to load. |
 | `readOnly` | `true` forces every spawned agent to a reader-only tool set; plan mode sets it automatically. |
 | `exposure` | `direct`, active by default. |
@@ -69,7 +69,8 @@ output remains in the tool details.
 ### Chain
 
 Runs steps in order. `{previous}` in a step's `task` is replaced by the prior
-step's final output. The chain stops at the first failing step.
+step's final output. The chain stops at the first failing step, and a chain has
+at most 8 steps (like the parallel task cap).
 
 ```json
 {
@@ -200,7 +201,9 @@ Markdown, and per-step/per-task usage with a total.
 A failed or aborted result always shows its `errorMessage`, falling back to the
 subprocess `stderr`, in both the collapsed and expanded views, in every mode. A
 failure with neither falls back to `Error: Subprocess exited with code N.` and an
-`[exit N]` bracket, so a non-zero exit is never silent. Parallel and chain
+`[exit N]` bracket, so a non-zero exit is never silent. A child terminated by a
+signal (an OOM kill, a crash) has no exit code, so it is recorded as
+`Terminated by <signal>` and reported as a failure. Parallel and chain
 headers state the failure count (`1/2 tasks (1 failed)`); a chain that stops at
 the first failing step also reports `stopped at step N`. Running tasks show an
 elapsed-time label. A result that hit tool errors appends `N tool errors` to its
@@ -238,6 +241,11 @@ step's `Output`.
 
 ## Design notes
 
+- **The child starts in the active root.** `defaultCwd` is
+  `resolveEffectiveCwd(ctx.cwd)`, so a delegated run begins in the worktree when
+  the session is isolated even though Pi's `ctx.cwd` never changes and the child
+  may not load the worktree extension; a relative per-task `cwd` resolves
+  against it.
 - **Subprocess over an in-process loop.** A separate `pi --mode json` process
   gives true isolation (own context, system prompt, tools) and reuses the host's
   full agent loop and tool handling. The cost is process startup and JSON event

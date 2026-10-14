@@ -103,8 +103,8 @@ export class SubagentChild extends EventEmitter {
 		this.stderr.emit("data", text);
 	}
 
-	close(code = 0): void {
-		this.emit("close", code);
+	close(code: number | null = 0, signal: string | null = null): void {
+		this.emit("close", code, signal);
 	}
 
 	/** Emit a spawn-time error and then a close, as Node does. */
