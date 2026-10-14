@@ -54,7 +54,7 @@ export const PACKAGE_EXTENSIONS = [
 	"web-access",
 	"file-browser",
 	"document",
-	"file-explorer",
+	"file-open",
 	"memory",
 	"wechat",
 	"chrome",

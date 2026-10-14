@@ -35,7 +35,7 @@ export const EXTENSION_PATHS = [
 	"web-access",
 	"file-browser",
 	"document",
-	"file-explorer",
+	"file-open",
 	"memory",
 	"wechat",
 	"chrome",

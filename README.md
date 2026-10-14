@@ -56,7 +56,7 @@ and command surface, the Pi integration contract, and design notes.
 | Extension | [`extensions/web-access/`](./extensions/web-access/) | `web-access`: web access with two tools — `web_search` (general web search through a pluggable provider: keyless DuckDuckGo by default, optional SearXNG or Brave) and `web_fetch` (GET/POST a URL and read readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support); native `fetch`, one `web-access.json`. |
 | Extension | [`extensions/file-browser/`](./extensions/file-browser/) | `file-browser`: `/serve` starts a read-only local HTTP server on a stable port for the session, rooted at the working directory, and opens a two-pane browser tree — listings, rendered Markdown preview, sortable listings, copy/wrap, image thumbnails, per-language icons, a filter, and a fuzzy quick-open palette; `127.0.0.1` only, no dependencies, with a `◉ <port>` status chip. |
 | Extension | [`extensions/document/`](./extensions/document/) | `document`: `read_doc` extracts plain text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged with `startIndex`/`maxChars` and confined to the effective working directory. |
-| Extension | [`extensions/file-explorer/`](./extensions/file-explorer/) | `file-explorer`: open or reveal a file or directory in the OS-native application with `/open <path>` (and `/open -r <path>` for the file manager), plus the codemode `open_path` tool. |
+| Extension | [`extensions/file-open/`](./extensions/file-open/) | `file-open`: open or reveal a file or directory in the OS-native application with `/open <path>` (and `/open -r <path>` for the file manager), plus the codemode `open_path` tool. |
 | Extension | [`extensions/memory/`](./extensions/memory/) | `memory`: durable cross-session notes as human-editable markdown — global under the agent directory, project under the repo root's `.pi/` — added, forgotten, or listed with the `memory` tool, injected as a hidden `[MEMORY]` context before each run, and inspected, edited, or cleared with `/memory`. |
 | Extension | [`extensions/wechat/`](./extensions/wechat/) | `wechat`: a thin bridge to WeChat over the Weixin iLink bot API — the live Pi session is the agent, so inbound text, images (as model image content), and files (saved and referenced by path) become a user turn and the reply is sent back, with a typing indicator; `/wechat login\|start\|stop\|status\|logout` and the owner-only `send_wechat` tool. |
 | Extension | [`extensions/chrome/`](./extensions/chrome/) | `chrome`: a themed TUI chrome — a header that recolors Pi's brand mark, version, and key hints from the active theme (no added data), an editor whose top border carries a themed `bash`/thinking-level badge, and the two-line width-adaptive footer (pwd + session name + git branch/worktree + serve chip, then context gauge + usage + mode/alert + model + thinking level); `/chrome [header|editor|footer|status]` toggles each surface, DeepSeek is priced out of the box from its published yuan rates and peak tariff, and `chrome.json` configures the header/editor and adds or overrides per-model rates with an optional peak/off-peak schedule. |
@@ -96,8 +96,8 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 
 Names are the extension directories under [`extensions/`](./extensions/)
 (`worktree`, `rewind`, `ask-user-question`, `todo`, `goal`, `plan`,
-`subagent`, `job`, `web-access`, `file-browser`, `document`, `memory`,
-`chrome`, `turn-separator`, `extension-picker`, `doctor`), compared
+`subagent`, `job`, `web-access`, `file-browser`, `document`, `file-open`,
+`memory`, `chrome`, `turn-separator`, `extension-picker`, `doctor`), compared
 case-insensitively; unknown names are ignored. This is a package-local switch:
 Pi still imports each entrypoint, but a disabled factory registers nothing. To
 drop the whole package instead, use Pi's own `--no-extensions` or a settings

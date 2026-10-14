@@ -1,7 +1,7 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.5.1",
-  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, file-explorer, document, memory, wechat, chrome, turn-separator, and doctor.",
+  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, file-open, document, memory, wechat, chrome, turn-separator, and doctor.",
   "keywords": [
     "pi-package",
     "pi",
@@ -24,7 +24,7 @@
     "file-browser",
     "serve",
     "browser",
-    "file-explorer",
+    "file-open",
     "open",
     "open_path",
     "reveal",
@@ -67,7 +67,7 @@
       "./extensions/web-access/index.ts",
       "./extensions/file-browser/index.ts",
       "./extensions/document/index.ts",
-      "./extensions/file-explorer/index.ts",
+      "./extensions/file-open/index.ts",
       "./extensions/memory/index.ts",
       "./extensions/wechat/index.ts",
       "./extensions/chrome/index.ts",

@@ -1,12 +1,12 @@
 /**
- * file-explorer — open files and directories in the OS-native app.
+ * file-open — open files and directories in the OS-native app.
  *
  * Registers the `/open` command and the `open_path` tool. The tool is
  * `codemode`-exposed, so a script (or `tool_search`) can open or reveal a path
  * without adding it to every request. Nothing is held between calls, so there is
  * no session lifecycle to manage.
  *
- * Load with:  pi --extension ./extensions/file-explorer
+ * Load with:  pi --extension ./extensions/file-open
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -14,13 +14,13 @@ import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import { openTarget, resolveTarget, type OpenMode } from "./open.ts";
 import { OpenPathOutput, OpenPathParams, TOOL_NAME, type OpenPathArgs, type OpenPathResult } from "./schema.ts";
 
-export interface FileExplorerDeps {
+export interface FileOpenDeps {
 	/** Override the OS launcher (tests). */
 	open?: typeof openTarget;
 }
 
-export default function fileExplorer(pi: ExtensionAPI, deps: FileExplorerDeps = {}): void {
-	if (!isExtensionEnabled("file-explorer")) return;
+export default function fileOpen(pi: ExtensionAPI, deps: FileOpenDeps = {}): void {
+	if (!isExtensionEnabled("file-open")) return;
 	const open = deps.open ?? openTarget;
 
 	/**
