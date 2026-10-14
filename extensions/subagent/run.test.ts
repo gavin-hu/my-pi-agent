@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { runSingleAgent, type RunOptions } from "./run.ts";
 import { getFinalOutput, getResultOutput, isFailedResult } from "./stream.ts";
@@ -91,9 +92,9 @@ describe("runSingleAgent", () => {
 	test("resolves a supplied cwd against the default root", async () => {
 		const { spawn, children } = makeFakeSpawn((child) => child.close(0));
 		await runSingleAgent(options({ spawn, defaultCwd: "/repo", cwd: "sub" }));
-		expect(children[0].options?.cwd).toBe("/repo/sub");
+		expect(children[0].options?.cwd).toBe(resolve("/repo", "sub"));
 		await runSingleAgent(options({ spawn, defaultCwd: "/repo", cwd: "/elsewhere" }));
-		expect(children[1].options?.cwd).toBe("/elsewhere");
+		expect(children[1].options?.cwd).toBe(resolve("/elsewhere"));
 	});
 
 	test("propagates a model error and its message", async () => {
