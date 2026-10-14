@@ -147,10 +147,12 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 					return;
 				}
 
-				// Replacing a live goal is the user's decision to confirm; the `goal`
-				// tool keeps its silent replacement so the model can refine.
+				// Only the free-form `/goal <prompt>` and `/goal raw <prompt>` need the
+				// guard: an explicit `set`/`edit <text>` is already an instruction to
+				// replace. The `goal` tool keeps its silent replacement so the model can
+				// refine.
 				const current = runtime.getGoal();
-				if (prompt && current?.status === "active" && ctx.hasUI) {
+				if (!recordMatch && current?.status === "active" && ctx.hasUI) {
 					const replace = await ctx.ui.confirm("Replace the active goal?", current.objective);
 					if (!replace) {
 						ctx.ui.notify("Goal unchanged.", "info");

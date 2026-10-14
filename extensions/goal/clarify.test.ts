@@ -124,7 +124,7 @@ describe("prepareGoalPrompt", () => {
 
 	test("uses a free-form input for a question without options", async () => {
 		const { calls, registry } = clarifyRegistry([
-			clarifyReply({ questions: [{ header: "Free", question: "Anything to add?" }] }),
+			clarifyReply({ questions: [{ question: "Anything to add?" }] }),
 			"Ship the parser",
 		]);
 		const { ctx, selects } = clarifyCtx(registry, { input: "the new parser", editor: "Ship the parser" });
@@ -136,12 +136,27 @@ describe("prepareGoalPrompt", () => {
 		expect(calls[1]).toContain("the new parser");
 	});
 
-	test("cancels when a question dialog is dismissed", async () => {
+	test("notices and keeps the first restatement when the refine call fails", async () => {
+		const { registry } = clarifyRegistry([clarifyReply(), ""]);
+		const { ctx, editorCalls, notices } = clarifyCtx(registry, {
+			select: "The new one",
+			editor: "Add parser tests",
+		});
+
+		const outcome = await prepareGoalPrompt(ctx, "add parser tests");
+
+		expect(outcome).toEqual({ action: "use", text: "Add parser tests" });
+		expect(editorCalls[0].prefill).toBe("Add parser tests");
+		expect(notices.at(-1)?.message).toContain("Could not update the goal from your answers");
+	});
+
+	test("cancels with a notice when a question dialog is dismissed", async () => {
 		const { registry } = clarifyRegistry([clarifyReply()]);
-		const { ctx, editorCalls } = clarifyCtx(registry, { select: undefined, editor: "ignored" });
+		const { ctx, editorCalls, notices } = clarifyCtx(registry, { select: undefined, editor: "ignored" });
 
 		expect(await prepareGoalPrompt(ctx, "add parser tests")).toEqual({ action: "cancel" });
 		expect(editorCalls).toHaveLength(0);
+		expect(notices.at(-1)?.message).toBe("Goal not set.");
 	});
 
 	test("cancels when the editor is dismissed", async () => {

@@ -215,10 +215,14 @@ export async function prepareGoalPrompt(ctx: ClarifyContext, typed: string): Pro
 	let proposed = clarification.goal || typed;
 	if (!clarification.understood && clarification.questions.length > 0) {
 		const answers = await askQuestions(ctx, clarification.questions);
-		if (answers === undefined) return { action: "cancel" };
+		if (answers === undefined) {
+			ctx.ui.notify("Goal not set.", "info");
+			return { action: "cancel" };
+		}
 		if (answers.length > 0) {
 			const refined = await refineWithAnswers(ctx, typed, proposed, answers);
 			if (refined) proposed = refined;
+			else ctx.ui.notify("Could not update the goal from your answers; edit it below.", "info");
 		}
 	}
 	return editOrCancel(ctx, proposed);

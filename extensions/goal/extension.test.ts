@@ -330,6 +330,19 @@ describe("/goal command", () => {
 		expect(editorCalls[0].prefill).toBe("old goal");
 	});
 
+	test("does not guard an explicit record-only set with text", async () => {
+		const { command, ctx, entries, notifications } = await started([resultEntry(active("old goal"))], {
+			mode: "rpc",
+			hasUI: true,
+			confirm: undefined,
+		});
+
+		await command.handler("set ship the parser", ctx);
+
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "active" } });
+		expect(notifications.at(-1)).toBe("Goal set (active): ship the parser");
+	});
+
 	test("records a goal without starting a run with /goal set", async () => {
 		const { command, ctx, notifications, entries, sentMessages } = await started();
 		await command.handler("set ship the parser", ctx);

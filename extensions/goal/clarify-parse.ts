@@ -8,7 +8,8 @@
  * that ignores the JSON instruction still yields an understanding.
  *
  * The limits are goal's own: at most {@link MAX_QUESTIONS} questions, each with
- * an optional small set of options. They are not tied to any other extension.
+ * an optional small set of labelled options. They are not tied to any other
+ * extension.
  */
 
 import { sanitizeLine } from "../../lib/format.ts";
@@ -16,8 +17,6 @@ import { MAX_OBJECTIVE } from "./schema.ts";
 
 /** Most clarifying questions kept from one clarifier reply. */
 export const MAX_QUESTIONS = 3;
-/** Maximum display width of a question header. */
-export const HEADER_MAX_WIDTH = 12;
 /** Fewest options for a question to be a choice; fewer becomes free-form. */
 export const MIN_OPTIONS = 2;
 /** Most options kept per question. */
@@ -26,12 +25,10 @@ export const MAX_OPTIONS = 4;
 /** One selectable answer the clarifier proposes. */
 export interface ClarifyOption {
 	label: string;
-	description?: string;
 }
 
 /** One clarifying question the clarifier proposes. */
 export interface ClarifyQuestion {
-	header: string;
 	question: string;
 	options: ClarifyOption[];
 }
@@ -103,24 +100,6 @@ function clean(value: unknown): string {
 	return typeof value === "string" ? sanitizeLine(value) : "";
 }
 
-/** Clip to `max` code points. */
-function clip(text: string, max: number): string {
-	const chars = Array.from(text);
-	return chars.length <= max ? text : chars.slice(0, max).join("");
-}
-
-/** A header unique among `seen`, renumbering a duplicate or missing one. */
-function uniqueHeader(candidate: string, index: number, seen: Set<string>): string {
-	let header = candidate;
-	let n = index + 1;
-	while (!header || seen.has(header.toLowerCase())) {
-		header = `Q${n}`;
-		n += 1;
-	}
-	seen.add(header.toLowerCase());
-	return header;
-}
-
 /** Sanitized options, deduplicated and capped; a lone option becomes free-form. */
 function normalizeOptions(raw: unknown): ClarifyOption[] {
 	if (!Array.isArray(raw)) return [];
@@ -134,31 +113,28 @@ function normalizeOptions(raw: unknown): ClarifyOption[] {
 		const key = label.toLowerCase();
 		if (seen.has(key)) continue;
 		seen.add(key);
-		const description = clean(record.description);
-		options.push(description ? { label, description } : { label });
+		options.push({ label });
 		if (options.length >= MAX_OPTIONS) break;
 	}
 	return options.length >= MIN_OPTIONS ? options : [];
 }
 
 /** One validated question, or `undefined` when it has no usable question text. */
-function normalizeQuestion(raw: unknown, index: number, seenHeaders: Set<string>): ClarifyQuestion | undefined {
+function normalizeQuestion(raw: unknown): ClarifyQuestion | undefined {
 	if (!raw || typeof raw !== "object") return undefined;
 	const record = raw as Record<string, unknown>;
 	const question = clean(record.question);
 	if (!question) return undefined;
-	const candidate = clip(clean(record.header), HEADER_MAX_WIDTH).trim();
-	return { header: uniqueHeader(candidate, index, seenHeaders), question, options: normalizeOptions(record.options) };
+	return { question, options: normalizeOptions(record.options) };
 }
 
 /** Validated questions, capped at {@link MAX_QUESTIONS}. */
 function normalizeQuestions(raw: unknown): ClarifyQuestion[] {
 	if (!Array.isArray(raw)) return [];
 	const questions: ClarifyQuestion[] = [];
-	const seenHeaders = new Set<string>();
 	for (const entry of raw) {
 		if (questions.length >= MAX_QUESTIONS) break;
-		const question = normalizeQuestion(entry, questions.length, seenHeaders);
+		const question = normalizeQuestion(entry);
 		if (question) questions.push(question);
 	}
 	return questions;

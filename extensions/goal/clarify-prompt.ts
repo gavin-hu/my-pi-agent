@@ -20,9 +20,8 @@ Reply with ONLY a JSON object, no prose and no code fence:
   "goal": "the goal as you understand it, in the user's own terms",
   "questions": [
     {
-      "header": "short label, at most 12 characters",
       "question": "what you need the user to tell you",
-      "options": [{ "label": "an answer", "description": "optional" }]
+      "options": [{ "label": "an answer" }]
     }
   ]
 }

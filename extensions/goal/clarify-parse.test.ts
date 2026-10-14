@@ -95,7 +95,6 @@ describe("parseClarification JSON reply", () => {
 			goal: "Ship it",
 			questions: [
 				{
-					header: "A very long header indeed",
 					question: "First?\nsecond line",
 					options: [
 						{ label: "One" },
@@ -106,8 +105,8 @@ describe("parseClarification JSON reply", () => {
 						{ label: "Five" },
 					],
 				},
-				{ header: "Same", question: "Second?", options: [] },
-				{ header: "Same", question: "Third?", options: [{ label: "Only one" }] },
+				{ question: "Second?", options: [] },
+				{ question: "Third?", options: [{ label: "Only one" }] },
 				{ question: "Fourth?" },
 				{ question: "Fifth?" },
 			],
@@ -116,8 +115,7 @@ describe("parseClarification JSON reply", () => {
 		if (!result) throw new Error("expected a clarification");
 		expect(result.understood).toBe(false);
 		expect(result.questions).toHaveLength(MAX_QUESTIONS);
-		// Header clipped to 12 characters; question collapsed to one line.
-		expect(result.questions[0].header).toBe("A very long");
+		// Question collapsed to one line.
 		expect(result.questions[0].question).toBe("First? second line");
 		// Duplicate label dropped; a fifth option dropped.
 		expect(result.questions[0].options).toEqual([
@@ -126,20 +124,8 @@ describe("parseClarification JSON reply", () => {
 			{ label: "Three" },
 			{ label: "Four" },
 		]);
-		// A duplicate header is renumbered, and a lone option becomes free-form.
-		expect(result.questions[1].header).toBe("Same");
-		expect(result.questions[2].header).toBe("Q3");
+		// A lone option is dropped, leaving a free-form question.
 		expect(result.questions[2].options).toEqual([]);
-	});
-
-	test("renumbers a header that collides with the fallback", () => {
-		const reply = clarifyReply({
-			questions: [
-				{ header: "Q2", question: "First?", options: [{ label: "A" }, { label: "B" }] },
-				{ header: "Q2", question: "Second?", options: [{ label: "A" }, { label: "B" }] },
-			],
-		});
-		expect(parseClarification(reply)?.questions.map((q) => q.header)).toEqual(["Q2", "Q3"]);
 	});
 
 	test("returns undefined for a missing, empty, or unparseable reply", () => {

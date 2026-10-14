@@ -20,7 +20,6 @@ export function goalContextMessage(objective = "ship it"): unknown {
 
 /** The one question the clarify fixtures ask, in the clarifier's JSON shape. */
 export const SCOPE_QUESTION = {
-	header: "Scope",
 	question: "Which parser?",
 	options: [{ label: "The new one" }, { label: "The old one" }],
 };

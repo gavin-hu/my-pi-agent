@@ -67,8 +67,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `goal`: `/goal edit <text>` and `/goal set <text>` record the text without
   starting a run; previously `edit <text>` fell through to the free-form prompt
   path and started the work on the literal string.
-- `goal`: replacing an active goal with `/goal <prompt>`, `/goal raw <prompt>`,
-  or `/goal set <text>` now asks for confirmation first.
+- `goal`: replacing an active goal with `/goal <prompt>` or `/goal raw <prompt>`
+  now asks for confirmation first.
 - `goal`: a failed or unusable comprehension call tells the user it is keeping
   their wording, instead of silently prefilling the editor.
 - `goal`: a live goal is re-appended as a `goal` entry after compaction, so it
