@@ -12,6 +12,8 @@ import type { SubagentMode } from "./types.ts";
 
 /** Hard cap on tasks in one parallel call. */
 export const MAX_PARALLEL_TASKS = 8;
+/** Hard cap on steps in one chain. */
+export const MAX_CHAIN_STEPS = 8;
 /** How many parallel tasks may run at once. */
 export const MAX_CONCURRENCY = 4;
 /** Model-facing bytes returned per task in parallel mode. */
@@ -49,6 +51,7 @@ export const SubagentParams = Type.Object({
 	chain: Type.Optional(
 		Type.Array(ChainItem, {
 			description: "Array of {agent, task} for sequential execution; {previous} is replaced by the prior output",
+			maxItems: MAX_CHAIN_STEPS,
 		}),
 	),
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
@@ -90,6 +93,9 @@ export function resolveMode(params: SubagentArgs): ModeResolution {
 	}
 	if (hasTasks && taskCount > MAX_PARALLEL_TASKS) {
 		return { error: `Too many parallel tasks (${taskCount}). Max is ${MAX_PARALLEL_TASKS}.` };
+	}
+	if (hasChain && chainCount > MAX_CHAIN_STEPS) {
+		return { error: `Too many chain steps (${chainCount}). Max is ${MAX_CHAIN_STEPS}.` };
 	}
 
 	return { mode: hasChain ? "chain" : hasTasks ? "parallel" : "single" };

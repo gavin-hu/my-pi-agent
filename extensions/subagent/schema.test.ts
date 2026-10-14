@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_PARALLEL_TASKS, resolveMode, SubagentParams } from "./schema.ts";
+import { MAX_CHAIN_STEPS, MAX_PARALLEL_TASKS, resolveMode, SubagentParams } from "./schema.ts";
 
 const task = (agent: string) => ({ agent, task: "do a thing" });
 
@@ -51,5 +51,14 @@ describe("resolveMode", () => {
 
 		const atCap = new Array(MAX_PARALLEL_TASKS).fill(null).map(() => task("explorer"));
 		expect(resolveMode({ tasks: atCap })).toEqual({ mode: "parallel" });
+	});
+
+	test("enforces the chain step cap even when schema validation is bypassed", () => {
+		const tooMany = new Array(MAX_CHAIN_STEPS + 1).fill(null).map(() => task("explorer"));
+		const rejected = resolveMode({ chain: tooMany });
+		expect("error" in rejected && rejected.error).toContain(`Max is ${MAX_CHAIN_STEPS}`);
+
+		const atCap = new Array(MAX_CHAIN_STEPS).fill(null).map(() => task("explorer"));
+		expect(resolveMode({ chain: atCap })).toEqual({ mode: "chain" });
 	});
 });

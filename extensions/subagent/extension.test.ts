@@ -1,19 +1,25 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import subagent, { TOOL_NAME } from "./index.ts";
 import type { RunOptions } from "./run.ts";
 import { emptyUsage } from "./stream.ts";
 import type { SingleResult } from "./types.ts";
 import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
+import { useEnv, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
+
+// The effective root is read from the environment; clear a developer's
+// worktree root so the fake ctx.cwd is used. The preload restores it afterwards.
+beforeEach(() => {
+	useEnv({ PI_WORKTREE_ROOT: undefined });
+});
 
 function success(agent: string, text: string): SingleResult {
 	return { agent, task: "t", exitCode: 0, messages: [assistantMessage(text)], stderr: "", usage: emptyUsage() };

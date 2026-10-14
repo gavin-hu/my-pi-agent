@@ -16,7 +16,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isExtensionEnabled } from "../../lib/env.ts";
+import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import {
 	type AgentConfig,
 	type AgentScope,
@@ -82,6 +82,10 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const args = params as SubagentArgs;
+			// A subagent is a fresh process and may not load the worktree extension, so
+			// it must start in the active worktree root itself rather than the parent's
+			// recorded cwd (Pi has no mutable session cwd).
+			const root = resolveEffectiveCwd(ctx.cwd);
 			const defaults: DispatchDefaults = {
 				model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 				thinkingLevel: ctx.thinkingLevel,
@@ -89,7 +93,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 
 			const resolution = resolveMode(args);
 			if ("error" in resolution) {
-				const roster = discoverAgents(ctx.cwd, args.agentScope ?? "user").agents;
+				const roster = discoverAgents(root, args.agentScope ?? "user").agents;
 				return {
 					content: [
 						{ type: "text" as const, text: `${resolution.error} Available agents: ${formatAgentList(roster)}` },
@@ -100,7 +104,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 
 			const mode = resolution.mode;
 			const agentScope: AgentScope = args.agentScope ?? "user";
-			const discovery = discoverAgents(ctx.cwd, agentScope);
+			const discovery = discoverAgents(root, agentScope);
 			const agents = discovery.agents;
 			const requestedTotal = args.chain?.length ?? args.tasks?.length ?? 1;
 			const makeDetails = (results: SingleResult[]): SubagentDetails => ({
@@ -151,7 +155,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 				run,
 				args,
 				defaults,
-				defaultCwd: ctx.cwd,
+				defaultCwd: root,
 				signal,
 				onUpdate,
 				makeDetails,

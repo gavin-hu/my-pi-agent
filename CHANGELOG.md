@@ -133,6 +133,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bytefly-light` (file names, the `name` field, and the README selectors). An
   existing `theme` setting or `--use-theme` value must be pointed at the new
   name; `"bytefly-light/bytefly-dark"` keeps the automatic light/dark switching.
+- `subagent`: a `chain` is capped at 8 steps, matching the parallel task cap; an
+  over-long chain is rejected before any process starts.
 
 ### Removed
 
@@ -151,6 +153,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `subagent`: a delegated run now starts in the active worktree root rather than
+  the parent's recorded cwd, so a subagent no longer reads or writes the main
+  checkout when the child does not load the worktree extension.
+- `subagent`: a child terminated by a signal (an OOM kill, a crash) is reported
+  as a failure naming the signal instead of a clean exit 0 with no output.
 - `job`: a `detached` POSIX job now writes its own output straight to its log
   file and is unrefed, so it keeps logging and survives the session ending
   instead of losing output (and risking SIGPIPE) when the parent's pipe closes.

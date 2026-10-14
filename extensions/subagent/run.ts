@@ -106,7 +106,16 @@ function spawnAndCollect(
 			result.stderr += chunk.toString();
 		});
 
-		proc.on("close", (code) => finish(code ?? 0));
+		proc.on("close", (code, signal) => {
+			// A signal-terminated child has `code === null`; without this it would be
+			// read as exit 0 and reported as a success with no output.
+			if (code === null && signal) {
+				result.stderr = result.stderr || `Terminated by ${signal}`;
+				finish(1);
+				return;
+			}
+			finish(code ?? 0);
+		});
 		proc.on("error", (error) => {
 			result.stderr = String(error);
 			finish(1);
@@ -169,10 +178,11 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 
 		const args = buildAgentArgs(agent, options.task, options.defaults, tempPath, options.readOnly === true);
 		const invocation = getPiInvocation(args);
+		const runCwd = options.cwd ? path.resolve(options.defaultCwd, options.cwd) : options.defaultCwd;
 		const outcome = await spawnAndCollect(
 			invocation.command,
 			invocation.args,
-			options.cwd ?? options.defaultCwd,
+			runCwd,
 			options.signal,
 			result,
 			emit,
