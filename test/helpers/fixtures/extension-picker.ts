@@ -32,7 +32,6 @@ export function makeItem(overrides: ItemOverrides = {}): ResourceItem {
  */
 export const DEFAULT_ENABLED_EXTENSIONS = [
 	"bytefly",
-	"turn-separator",
 	"plan",
 	"todo",
 	"goal",
@@ -58,7 +57,6 @@ export const PACKAGE_EXTENSIONS = [
 	"memory",
 	"wechat",
 	"bytefly",
-	"turn-separator",
 	"extension-picker",
 	"doctor",
 ] as const;

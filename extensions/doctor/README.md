@@ -60,7 +60,7 @@ hint shows `refreshing…` and a second `r` is ignored, so probes cannot stack.
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
-| bytefly, turn-separator | — | TUI only |
+| bytefly | — | TUI only |
 | ask-user-question | — | needs an interactive UI |
 | extension-picker | — | project scope needs a trusted project |
 

@@ -39,7 +39,6 @@ export const EXTENSION_PATHS = [
 	"memory",
 	"wechat",
 	"bytefly",
-	"turn-separator",
 	"doctor",
 ].map((name) => join(repo, "extensions", name, "index.ts"));
 

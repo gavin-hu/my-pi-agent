@@ -1,7 +1,7 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.5.1",
-  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, file-explorer, document, memory, wechat, bytefly, turn-separator, and doctor.",
+  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, ask-user-question, todo, goal, plan, subagent, job, web-access, file-browser, file-explorer, document, memory, wechat, bytefly, and doctor.",
   "keywords": [
     "pi-package",
     "pi",
@@ -43,7 +43,6 @@
     "web-access",
     "bytefly",
     "footer",
-    "turn-separator",
     "separator",
     "transcript"
   ],
@@ -71,7 +70,6 @@
       "./extensions/memory/index.ts",
       "./extensions/wechat/index.ts",
       "./extensions/bytefly/index.ts",
-      "./extensions/turn-separator/index.ts",
       "./extensions/extension-picker/index.ts",
       "./extensions/doctor/index.ts"
     ],

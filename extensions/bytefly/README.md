@@ -1,10 +1,11 @@
-# bytefly — a two-line, width-adaptive TUI footer
+# bytefly — the TUI footer and turn rule
 
-`bytefly` owns the TUI footer this package adds: one compact, colorful,
-width-adaptive two-line bar. Pi's own header is left untouched. DeepSeek is
-priced from the provider's published yuan rates and peak tariff by default, and
-any other model can be priced from your own rates when Pi's catalog does not
-match what a provider actually charges.
+`bytefly` owns the terminal chrome this package adds: one compact, colorful,
+width-adaptive two-line footer, and a labeled rule that marks each completed
+turn in the transcript. Pi's own header is left untouched. DeepSeek is priced
+from the provider's published yuan rates and peak tariff by default, and any
+other model can be priced from your own rates when Pi's catalog does not match
+what a provider actually charges.
 
 ```
 pi --extension ./extensions/bytefly   # load just this extension
@@ -14,7 +15,8 @@ pi install ./                         # install the package
 
 ## What it does
 
-The extension owns one surface: the footer. Pi's own header is left in place.
+The extension owns two surfaces: the footer, and the rule between completed
+turns. Pi's own header is left in place.
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -78,6 +80,11 @@ rates and peak tariff built into [`config.ts`](./config.ts). A
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥2.50 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
 
+**Turn separator.** After each completed turn the extension appends an inert
+entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
+[Turn separator](#turn-separator). No config file is needed and there is no
+command.
+
 ## Commands
 
 | Command | What it does |
@@ -89,15 +96,18 @@ The `status` subcommand completes with Tab.
 
 ## Behaviour by mode
 
-The footer is installed only in interactive (`tui`) sessions. In RPC, JSON, and
-print modes the extension loads, registers `/bytefly`, and does nothing visible.
+Both surfaces are installed only in interactive (`tui`) sessions. In RPC, JSON,
+and print modes the extension loads, registers `/bytefly`, and neither paints
+the footer nor appends a separator.
 
 ## Configuration
 
 The footer's own content and layout are tuned in [`config.ts`](./config.ts) —
 thresholds, gauge glyphs and widths, separators, icons, and status keys. The
-price calculation is configured by a JSON file, read the way every other
-extension reads its config:
+turn separator has no JSON either: its glyph, label prefix, padding, and colors
+are tuned in [`separator/config.ts`](./separator/config.ts). The price
+calculation is configured by a JSON file, read the way every other extension
+reads its config:
 
 - `~/.pi/agent/bytefly.json` (global)
 - `<cwd>/.pi/bytefly.json` (project; overrides the global file)
@@ -222,6 +232,35 @@ gauge always starts the line. It keeps each extension's own colour when it
 compacts, and it is droppable: a tight bar drops the slot rather than truncating
 the model, which sits at the end of the line.
 
+## Turn separator
+
+`agent_settled` fires once after an agent run fully settles — exactly one user
+turn — which is why it is used instead of `turn_end` (that fires once per
+assistant message, so tool-calling rounds would each get a line). On each
+settled run the extension appends an inert custom entry and a renderer draws
+it:
+
+```
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ turn 3 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+```
+
+- The turn number is `count(separators on the current branch) + 1`, so a
+  resumed or forked session continues the parent's numbering and abandoned
+  branches do not leak counts.
+- The entry is excluded from LLM context, so it costs no tokens, and it
+  survives resume and fork. It is drawn under the `bytefly-separator` custom
+  entry type.
+- The line is centered and width-adaptive: the label is filled out with the
+  glyph, and when it cannot fit the line becomes a plain dashed rule rather
+  than overflowing.
+- The rule is installed only in interactive (`tui`) sessions; RPC, JSON, and
+  print sessions append nothing.
+- Separators recorded by the retired `turn-separator` extension are not
+  rendered, and `PI_DISABLED_EXTENSIONS=turn-separator` no longer affects the
+  rule; disable the whole extension with `bytefly` instead.
+- There is no runtime command; the glyph, label prefix, padding, and colors are
+  tuned in [`separator/config.ts`](./separator/config.ts).
+
 ## Limitations
 
 - **One built-in provider.** DeepSeek is the only provider with a built-in
@@ -263,10 +302,11 @@ rather than showing a wrong value.
 |---|---|
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and the footer is on. Pi's header is not touched. |
 | Command | `/bytefly [status]` toggles the footer and reports its state (tui only; a no-op elsewhere), with Tab completion. |
+| Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. A legacy `chrome.json` is migrated to `bytefly.json` on load. Nothing watches the file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the one-time config migration. The bytefly reads session entries and the price config (a memoized scan) and writes no tool-result `details` or `pi.appendEntry`; it renames a legacy `chrome.json` to `bytefly.json`. |
+| State storage | None besides the one-time config migration and the inert separator entries. The bytefly reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it renames a legacy `chrome.json` to `bytefly.json` and appends `bytefly-separator` entries excluded from LLM context. |
 | Lifecycle | `session_start` installs the footer; `session_tree` reinstalls; `session_shutdown` restores Pi's built-in footer and disposes the branch subscription. |
 
 ## Design notes
@@ -338,7 +378,7 @@ rather than showing a wrong value.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: install/restore the footer; `/bytefly`. |
+| `index.ts` | Factory: install/restore the footer, `/bytefly`, and register the turn separator. |
 | `config.ts` | Bar tuning (`CONFIG`), the built-in DeepSeek rates and peak tariff, and the `bytefly.json` schema, defaults, normalizer, loader, and `chrome.json` migration. |
 | `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
 | `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
@@ -351,6 +391,11 @@ rather than showing a wrong value.
 | `render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
 | `render/layout.ts` | Width reduction and right-zone folding. |
 | `render/footer.ts` | `StatusBar` component and footer factory. |
+| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and colors. |
+| `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
+| `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
+| `separator/format.ts` | Pure `separatorLabel` / `separatorParts` / `separatorLine`. |
+| `separator/types.ts` | `TurnSeparatorData`, `SeparatorParts`. |
 
 ## Testing
 
@@ -368,4 +413,6 @@ assignment
 (`render/lines`), the reduction, separator collapse, and right-zone folding
 across a width sweep from 6 to 120 plus wide characters (`render/layout`), exact
 golden output at fixed widths (`render/render`), and the install/skip/restore/
-toggle lifecycle plus a config-driven price (`extension`).
+toggle lifecycle plus a config-driven price (`extension`). The turn separator
+is covered by its pure formatting (`separator/format`) and its
+register/append/render/disable lifecycle (`separator/register`).

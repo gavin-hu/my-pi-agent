@@ -16,10 +16,15 @@ import { isExtensionEnabled } from "../../lib/env.ts";
 import { createSnapshotReader } from "./collect/snapshot.ts";
 import { loadByteflyConfig } from "./config.ts";
 import { createFooter } from "./render/footer.ts";
+import { registerTurnSeparator } from "./separator/register.ts";
 
 export default function bytefly(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("bytefly")) return;
 	let enabled = true;
+
+	// The transcript turn rule is a separate surface with its own renderer and
+	// listener; it is unconditional while bytefly loads.
+	registerTurnSeparator(pi);
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;

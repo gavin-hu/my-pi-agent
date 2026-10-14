@@ -267,22 +267,22 @@ check("serve command registered", !!serveCommand);
 if (serveCommand) await serveCommand.handler("status", runner.createCommandContext());
 check("serve status runs without starting a server", !!serveCommand);
 
-// bytefly loads headlessly and registers its toggle command; it installs no
-// tools and only paints the header and footer in interactive mode.
+// bytefly loads headlessly and registers its toggle command and the separator
+// entry renderer; it installs no tools, the retired turn-separator type is no
+// longer registered, and separators are only appended in interactive sessions.
 check("bytefly command registered", !!runner.getCommand("bytefly"));
+check("retired turn-separator renderer is gone", runner.getEntryRenderer("turn-separator") === undefined);
 
-// turn-separator loads headlessly and registers its entry renderer; separators
-// are only appended in interactive sessions.
-const separatorRenderer = runner.getEntryRenderer("turn-separator") as
+const separatorRenderer = runner.getEntryRenderer("bytefly-separator") as
 	| ((entry: unknown, options: unknown, theme: unknown) => { render(width: number): string[] } | undefined)
 	| undefined;
-check("turn-separator renderer registered", typeof separatorRenderer === "function");
+check("bytefly separator renderer registered", typeof separatorRenderer === "function");
 const separatorLine = separatorRenderer?.(
-	{ type: "custom", customType: "turn-separator", data: { turn: 3 } },
+	{ type: "custom", customType: "bytefly-separator", data: { turn: 3 } },
 	{ expanded: false },
 	{ fg: (_color: string, text: string) => text },
 )?.render(40)[0];
-check("turn-separator renders a labeled line", !!separatorLine?.includes("turn 3"));
+check("bytefly separator renders a labeled line", !!separatorLine?.includes("turn 3"));
 
 // doctor loads headlessly and registers a read-only tool plus its command. It is
 // the one extension whose *probing* is executed here: `git` is the binary every

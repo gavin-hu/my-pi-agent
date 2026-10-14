@@ -70,6 +70,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ask_user_question`: the answer hints render through the shared `screenHint`,
   so a narrow terminal drops whole keys instead of wrapping or clipping one.
 
+### Removed
+
+- `turn-separator`: absorbed into `bytefly`, which now draws the labeled turn
+  rule itself. The rule renders the `bytefly-separator` entry type, so
+  separators recorded as `turn-separator` no longer render, and
+  `PI_DISABLED_EXTENSIONS=turn-separator` no longer suppresses the rule; use
+  `bytefly` instead.
+
 ### Fixed
 
 - `goal`: `/goal edit <text>` and `/goal set <text>` record the text without

@@ -9,12 +9,20 @@ export interface FakePi {
 	pi: any;
 	commands: Map<string, any>;
 	handlers: Map<string, AnyHandler[]>;
+	renderers: Map<string, any>;
+	appended: Array<{ customType: string; data?: unknown }>;
 }
 
 /** Minimal `ExtensionAPI` double covering what the bytefly extension uses. */
 export function makeFakePi(options: { settings?: any } = {}): FakePi {
 	const fake = createFakePi({ settings: options.settings });
-	return { pi: fake.pi, commands: fake.commands, handlers: fake.handlers };
+	return {
+		pi: fake.pi,
+		commands: fake.commands,
+		handlers: fake.handlers,
+		renderers: fake.renderers,
+		appended: fake.appended,
+	};
 }
 
 export interface FakeCtxOptions {
@@ -85,6 +93,11 @@ export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 export function renderFooter(factory: any, footerData: any, width = 100): string[] {
 	const component = factory({ requestRender: () => {} }, fakeTheme, footerData);
 	return component.render(width);
+}
+
+/** A separator entry as the store would return it. */
+export function separatorEntry(turn: number): unknown {
+	return { type: "custom", customType: "bytefly-separator", data: { turn } };
 }
 
 /** A snapshot with every field populated. */
