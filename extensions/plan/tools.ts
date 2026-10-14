@@ -22,7 +22,7 @@ import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
 import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
-import { FULL_SCREEN_OVERLAY, reuseText } from "../../lib/tui.ts";
+import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui.ts";
 import { expandHint } from "../../lib/ui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
@@ -216,10 +216,15 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 
 		renderResult(result, _options, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = result.details as EnterPlanModeDetails | undefined;
-			if (details?.unavailable) text.setText(theme.fg("warning", "No UI to confirm plan mode"));
-			else if (details?.already) text.setText(theme.fg("muted", "Already in plan mode"));
-			else if (details?.entered) text.setText(theme.fg("success", "✓ Plan mode enabled"));
+			const details = toolDetails<EnterPlanModeDetails>(result.details);
+			if (!details) {
+				const first = result.content[0];
+				text.setText(first?.type === "text" ? first.text : "");
+				return text;
+			}
+			if (details.unavailable) text.setText(theme.fg("warning", "No UI to confirm plan mode"));
+			else if (details.already) text.setText(theme.fg("muted", "Already in plan mode"));
+			else if (details.entered) text.setText(theme.fg("success", "✓ Plan mode enabled"));
 			else text.setText(theme.fg("muted", "Stayed in normal mode"));
 			return text;
 		},
@@ -287,7 +292,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 
 		renderResult(result, _options, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = result.details as WritePlanDetails | undefined;
+			const details = toolDetails<WritePlanDetails>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				text.setText(first?.type === "text" ? first.text : "");
@@ -440,7 +445,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 
 		renderResult(result, { expanded }, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = result.details as ExitPlanModeDetails | undefined;
+			const details = toolDetails<ExitPlanModeDetails>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				text.setText(first?.type === "text" ? first.text : "");
@@ -536,7 +541,7 @@ export function registerTools(pi: ExtensionAPI, runtime: PlanRuntime): void {
 
 		renderResult(result, _options, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = result.details as SetPlanStepDetails | undefined;
+			const details = toolDetails<SetPlanStepDetails>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				text.setText(first?.type === "text" ? first.text : "");

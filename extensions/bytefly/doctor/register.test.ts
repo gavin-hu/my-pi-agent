@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { withAgentDir } from "../../../test/helpers/env.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import { bootDoctor, failingExec } from "../../../test/helpers/fixtures/doctor.ts";
 
 describe("doctor wiring", () => {
@@ -72,6 +73,25 @@ describe("run_doctor", () => {
 			(entry: { extension: string }) => entry.extension === "rewind",
 		);
 		expect(rewind.findings.some((finding: { hint?: string }) => finding.hint?.includes("install git"))).toBe(true);
+	});
+
+	test("renders a host-rejected call from its message", () => {
+		const { fake } = bootDoctor();
+		const tool = fake.tools.get("run_doctor");
+		const text = tool
+			.renderResult(
+				{
+					content: [{ type: "text", text: 'Validation failed for tool "run_doctor"' }],
+					details: {},
+					isError: true,
+				},
+				{ expanded: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Validation failed for tool");
 	});
 
 	test("reports one extension when asked", async () => {

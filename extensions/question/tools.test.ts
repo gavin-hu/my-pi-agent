@@ -150,6 +150,24 @@ describe("ask_user_question transcript rendering", () => {
 		expect(unavailable).toContain("No interactive UI");
 	});
 
+	test("renders a host-rejected call from its message", () => {
+		const { tool } = setup();
+		const text = tool
+			.renderResult(
+				{
+					content: [{ type: "text", text: 'Validation failed for tool "ask_user_question"' }],
+					details: {},
+					isError: true,
+				},
+				{ expanded: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Validation failed for tool");
+	});
+
 	test("reuses the slot Text across renders", () => {
 		const { tool } = setup();
 		const first = tool.renderCall({ questions: [{ header: "A", options: [{ label: "x" }] }] }, fakeTheme, {

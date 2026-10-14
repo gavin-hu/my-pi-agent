@@ -112,32 +112,6 @@ describe("goal extension", () => {
 		expect(widgetCalls.at(-1)).toEqual({ key: WIDGET_KEY, content: undefined });
 	});
 
-	test("re-appends a live goal after compaction", async () => {
-		const { pi, entries } = makeFakePi();
-		goal(pi);
-		const { ctx } = fakeCtx({ mode: "tui", branch: [resultEntry(active("ship it"))] });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		await emit(pi, "session_compact", {}, ctx);
-
-		expect(entries.at(-1)).toEqual({
-			type: "custom",
-			customType: "goal",
-			data: { goal: active("ship it") },
-		});
-	});
-
-	test("does not append a goal after compaction when none is set", async () => {
-		const { pi, entries } = makeFakePi();
-		goal(pi);
-		const { ctx } = fakeCtx({ mode: "tui", branch: [] });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		await emit(pi, "session_compact", {}, ctx);
-
-		expect(entries).toHaveLength(0);
-	});
-
 	test("honors a project config that hides achieved goals", async () => {
 		const globalDir = mkdtempSync(join(tmpdir(), "goal-ext-global-"));
 		const repo = mkdtempSync(join(tmpdir(), "goal-ext-repo-"));

@@ -14,7 +14,7 @@ import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
 import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
-import { reuseText } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui.ts";
 import { expandHint, GLYPHS } from "../../lib/ui.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
@@ -454,7 +454,7 @@ export function renderSubagentResult(
 	context?: SubagentRenderContext,
 ): Component {
 	const now = options.now ?? Date.now();
-	const details = result.details as SubagentDetails | undefined;
+	const details = toolDetails<SubagentDetails>(result.details);
 	if (!details || details.results.length === 0) {
 		syncElapsedTimer(false, context);
 		const first = result.content[0];

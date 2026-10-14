@@ -157,8 +157,8 @@ on config.
 | Execution mode | `sequential` — calls share the in-memory goal |
 | Annotations | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
 | Output schema | `GoalResult` — `{ goal, action, error? }`, returned as `details` and `structuredContent` |
-| State storage | tool-result `details` plus a `pi.appendEntry("goal", { goal })` custom entry for command-set goals, re-appended after compaction |
-| Lifecycle hooks | `session_start` (load config, reconstruct), `session_tree` (reconstruct), `session_compact` (re-append the goal so it survives compaction), `session_shutdown` (clear widget); `before_agent_start` (inject `goal-context`), `context` (filter stale/duplicate reminders) |
+| State storage | tool-result `details` plus a `pi.appendEntry("goal", { goal })` custom entry for command-set goals |
+| Lifecycle hooks | `session_start` (load config, reconstruct), `session_tree` (reconstruct), `session_shutdown` (clear widget); `before_agent_start` (inject `goal-context`), `context` (filter stale/duplicate reminders) |
 | UI | `ctx.ui.setWidget` one-line rail in `tui` mode; coordinated through `pi.events` so it stays the top rail |
 | Model calls | Up to two `ctx.modelRegistry.complete` calls on the session model (comprehend, then re-comprehend), each with a 30 s timeout and `cacheRetention: "none"`; skipped without a dialog UI or a model; their usage is not counted in session totals |
 | Questions | When the goal is not yet understood, the command asks the model's questions through `ctx.ui.select` / `ctx.ui.input` and passes the answers to the re-comprehension call. No cross-extension tool is used. |

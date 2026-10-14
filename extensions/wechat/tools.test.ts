@@ -63,4 +63,23 @@ describe("send_wechat tool", () => {
 		expect(text).toContain("bad");
 		expect(text).not.toContain("\u001b");
 	});
+
+	test("renders a host-rejected call from its message", () => {
+		const tool = toolFor(() => undefined);
+		const text = tool
+			.renderResult(
+				{
+					content: [{ type: "text", text: 'Validation failed for tool "send_wechat": text is required' }],
+					details: {},
+					isError: true,
+				},
+				{ expanded: false, isPartial: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Validation failed for tool");
+		expect(text).not.toContain("send failed");
+	});
 });

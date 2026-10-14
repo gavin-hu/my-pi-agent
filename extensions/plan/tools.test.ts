@@ -557,3 +557,25 @@ describe("plan transcript rendering", () => {
 		expect(text).not.toContain("more lines");
 	});
 });
+
+describe("host-rejected results", () => {
+	const rejected = (name: string) => ({
+		content: [{ type: "text", text: `Validation failed for tool "${name}"` }],
+		details: {},
+		isError: true,
+	});
+
+	test("every plan renderer falls back to the message instead of guessing state", () => {
+		const { enter, write, exit, setStep } = setup();
+		const cases: Array<[any, string]> = [
+			[enter, "enter_plan_mode"],
+			[write, "write_plan"],
+			[exit, "exit_plan_mode"],
+			[setStep, "set_plan_step"],
+		];
+		for (const [tool, name] of cases) {
+			const text = tool.renderResult(rejected(name), { expanded: false }, fakeTheme).render(80).join("\n");
+			expect(text).toContain(`Validation failed for tool "${name}"`);
+		}
+	});
+});

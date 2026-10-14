@@ -97,6 +97,17 @@ describe("renderSubagentCall", () => {
 });
 
 describe("renderSubagentResult", () => {
+	test("falls back to the message for a host-rejected call", () => {
+		const text = render(
+			renderSubagentResult(
+				{ content: [{ type: "text", text: 'Validation failed for tool "subagent"' }], details: {}, isError: true },
+				{ expanded: false },
+				theme,
+			),
+		);
+		expect(text).toContain("Validation failed for tool");
+	});
+
 	test("collapsed single success shows output and usage", () => {
 		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, theme),

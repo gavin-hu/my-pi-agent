@@ -6,7 +6,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { askHuman } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
-import { reuseText } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
@@ -87,7 +87,7 @@ export function registerTools(pi: ExtensionAPI): void {
 
 		renderResult(result, _options, theme, context) {
 			const component = reuseText(context?.lastComponent);
-			const details = result.details as AskResult | undefined;
+			const details = toolDetails<AskResult>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				component.setText(first?.type === "text" ? first.text : "");

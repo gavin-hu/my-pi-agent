@@ -185,6 +185,21 @@ describe("goal tool", () => {
 		expect(text).not.toContain("\u001b");
 	});
 
+	test("renderResult falls back to the message for a host-rejected call", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: 'Validation failed for tool "goal": objective is required' }],
+			details: {},
+			isError: true,
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Validation failed for tool");
+		expect(text).not.toContain("Cleared the goal");
+	});
+
 	test("renderResult shows the objective block", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
