@@ -50,14 +50,6 @@ export interface HeaderConfig {
 	mark: "wordmark" | "logo" | "none";
 	/** Show Pi's version next to the mark. */
 	showVersion: boolean;
-	/** Show the right-aligned key-hint row. */
-	showHints: boolean;
-}
-
-/** Editor appearance configuration (`chrome.json` → `editor`). */
-export interface EditorConfig {
-	/** Draw the themed mode/thinking badge in the editor's top border. */
-	badge: boolean;
 }
 
 /** Everything the price calculation is configured with. */
@@ -70,8 +62,6 @@ export interface ChromeConfig {
 	peak: PeakSchedule;
 	/** Header appearance. */
 	header: HeaderConfig;
-	/** Editor appearance. */
-	editor: EditorConfig;
 }
 
 /** One usage-bearing session entry, reduced to what pricing needs. */

@@ -1,13 +1,11 @@
-# chrome — a themed TUI header and editor, plus a two-line footer
+# chrome — a themed TUI header and a two-line footer
 
 `chrome` owns the TUI chrome this package adds: a header that reproduces Pi's
-built-in structure (brand mark, version, and key hints) and recolors it from the
-active theme, an editor whose top border carries a themed `bash` /
-thinking-level badge, and one compact, colorful, width-adaptive footer. The
-header adds no session or model data. DeepSeek is priced from the provider's
-published yuan rates and peak tariff by default, and any other model can be
-priced from your own rates when Pi's catalog does not match what a provider
-actually charges.
+built-in structure (brand mark and version) and recolors it from the active
+theme, and one compact, colorful, width-adaptive footer. The header adds no
+session or model data. DeepSeek is priced from the provider's published yuan
+rates and peak tariff by default, and any other model can be priced from your
+own rates when Pi's catalog does not match what a provider actually charges.
 
 ```
 pi --extension ./extensions/chrome    # load just this extension
@@ -17,33 +15,18 @@ pi install ./                         # install the package
 
 ## What it does
 
-The extension has three independently toggleable surfaces.
+The extension has two independently toggleable surfaces.
 
-**Header.** A themed reproduction of Pi's built-in header — brand mark, version,
-and the right-aligned key hints — with every color drawn from the active theme's
-`accent`, `borderMuted`, `muted`, and `dim` tokens. It carries no session name,
-model, or working directory; the only data is Pi's own version.
-
-```
-Pi v1.2.0                              ctrl+l model · shift+tab level · ctrl+o tools
-```
-
-(A blank line precedes it; the hint row is resolved from the live keybindings
-and drops as a whole when the terminal is too narrow.)
-
-**Editor.** Pi's `CustomEditor` with a themed badge spliced into the top border,
-showing the current prompt mode:
+**Header.** A themed reproduction of Pi's built-in header — brand mark and
+version — with every color drawn from the active theme's `accent`,
+`borderMuted`, `muted`, and `dim` tokens. It carries no session name, model, or
+working directory; the only data is Pi's own version.
 
 ```
-─────────────────────────────── ⋮ bash
-! git rebase -i main
-────────────────────────────────────────
+Pi v1.2.0
 ```
 
-The badge reads `bash` while the editor text starts with `!`, the thinking level
-otherwise (`⋮ high`), and a plain `⋮` for a normal prompt. It is omitted when
-the terminal is too narrow. Text editing and every application shortcut stay in
-Pi's editor.
+(A blank line precedes it.)
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -111,9 +94,8 @@ rates and peak tariff built into [`config.ts`](./config.ts). A
 
 | Command | What it does |
 |---|---|
-| `/chrome` | Toggle all three surfaces on or off. |
+| `/chrome` | Toggle both surfaces on or off. |
 | `/chrome header` | Toggle the themed header. |
-| `/chrome editor` | Toggle the editor badge. |
 | `/chrome footer` | Toggle the two-line footer. |
 | `/chrome status` | Report which surfaces are active. |
 
@@ -126,12 +108,11 @@ print modes the extension loads, registers `/chrome`, and does nothing visible.
 
 ## Configuration
 
-The header and editor are configured through the same `chrome.json`:
+The header is configured through the same `chrome.json`:
 
 ```json
 {
-  "header": { "mark": "wordmark", "showVersion": true, "showHints": true },
-  "editor": { "badge": true }
+  "header": { "mark": "wordmark", "showVersion": true }
 }
 ```
 
@@ -139,8 +120,6 @@ The header and editor are configured through the same `chrome.json`:
 |---|---|
 | `header.mark` | `"wordmark"` (a themed `Pi`), `"logo"` (a themed block mark), or `"none"`. Default `"wordmark"`. |
 | `header.showVersion` | Show Pi's version next to the mark. Default `true`. |
-| `header.showHints` | Show the right-aligned key-hint row. Default `true`. |
-| `editor.badge` | Draw the mode/thinking badge in the editor's top border. Default `true`. |
 
 The footer's own content and layout are tuned in [`config.ts`](./config.ts) —
 thresholds, gauge glyphs and widths, separators, icons, and status keys. The
@@ -292,7 +271,6 @@ after a `│`, so the context gauge always starts the line.
   the branch.
 - The header carries no session, model, or working-directory data; those live in
   the footer.
-- The editor is visual-only — no modal or vim key modes, and no remapped keys.
 
 The built-in footer's `(auto)` auto-compact indicator and `(sub)`
 subscription-cost marker are not reachable from `ExtensionContext` (there is no
@@ -303,28 +281,21 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with `createHeader`: a component that recolors Pi's brand mark, version, and key hints from the active theme, adding no data. Installed only when `ctx.mode === "tui"` and `/chrome header` is on. |
-| Editor | `ctx.ui.setEditorComponent` with `createEditor`; the host calls the factory once when set, and it captures the `KeybindingsManager` the header resolves its hints from. `ChromeEditor extends CustomEditor`, so text editing and app shortcuts are inherited. |
+| Header | `ctx.ui.setHeader` with `createHeader`: a component that recolors Pi's brand mark and version from the active theme, adding no data. Installed only when `ctx.mode === "tui"` and `/chrome header` is on. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"` and `/chrome footer` is on. |
-| Command | `/chrome [header|editor|footer|status]` toggles each surface (tui only; a no-op elsewhere), with Tab completion. |
+| Command | `/chrome [header|footer|status]` toggles each surface (tui only; a no-op elsewhere), with Tab completion. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
 | Config | `chrome.json` from the agent directory and `<cwd>/.pi`, read through `lib/config.ts` when the chrome is installed — a new session, or `/chrome` toggled back on. Nothing watches the file. |
-| Data sources | Header: the theme and the captured `KeybindingsManager`. Editor: the live editor text and `ctx.thinkingLevel`. Footer: `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
+| Data sources | Header: the theme. Footer: `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None written. The chrome reads session entries and the price config (a memoized scan) and writes no tool-result `details` or `pi.appendEntry`. |
-| Lifecycle | `session_start` installs the editor (capturing keybindings), then the header and footer; `session_tree` reinstalls; `session_shutdown` restores all three to Pi's defaults and disposes the branch subscription. |
+| Lifecycle | `session_start` installs the header and footer; `session_tree` reinstalls; `session_shutdown` restores both to Pi's defaults and disposes the branch subscription. |
 
 ## Design notes
 
 - **Header: structure without data.** The header reproduces Pi's built-in header
   and only changes its colors. Pi's own `piLogoLines()` is not exported, so the
-  `mark: "logo"` shape is a local reproduction, and the hint row is read from
-  the `KeybindingsManager` the editor factory receives, dropping when that
-  manager is unavailable. It adds no session or model data, so a resumed or
-  forked session looks the same.
-- **Editor: extend, don't reimplement.** `ChromeEditor` extends `CustomEditor`
-  and overrides only `renderTopBorder`, splicing a badge before the top-right
-  corner. Every editing key and application shortcut is inherited, so the badge
-  cannot break input handling.
+  `mark: "logo"` shape is a local reproduction. It adds no session or model
+  data, so a resumed or forked session looks the same.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".
@@ -390,10 +361,10 @@ rather than showing a wrong value.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: install/restore the header, editor, and footer; `/chrome`. |
-| `tui.ts` | `ChromeHeader`, `ChromeEditor`, `decorateTopBorder`, and the two factories. |
-| `config.ts` | Bar tuning (`CONFIG`) plus the header/editor defaults, the built-in DeepSeek rates and peak tariff, and the `chrome.json` schema, defaults, normalizer, and loader. |
-| `types.ts` | `HeaderConfig`, `EditorConfig`, `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
+| `index.ts` | Factory: install/restore the header and footer; `/chrome`. |
+| `tui.ts` | `ChromeHeader` and the header factory. |
+| `config.ts` | Bar tuning (`CONFIG`) plus the header defaults, the built-in DeepSeek rates and peak tariff, and the `chrome.json` schema, defaults, normalizer, and loader. |
+| `types.ts` | `HeaderConfig`, `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
 | `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
 | `price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
@@ -408,8 +379,8 @@ rather than showing a wrong value.
 ## Testing
 
 `extensions/chrome/` covers the header's block shape, width bound, and
-hint/version degradation (`tui`), the editor border splice (`tui`), the install/
-restore/toggle lifecycle (`extension`),
+version degradation (`tui`), the install/restore/toggle lifecycle
+(`extension`),
 the formatters (`render/format`), entry
 reduction and model inheritance (`collect/entries`), snapshot assembly and its
 memoization (`collect/snapshot`), rate matching (`price/rates`), window parsing
