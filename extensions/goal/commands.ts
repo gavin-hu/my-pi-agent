@@ -10,7 +10,7 @@
  *
  * `/goal raw <prompt>` skips the loop and records the typed words verbatim.
  * `/goal set [<prompt>]` and `/goal edit [<prompt>]` run the loop but record
- * without starting a run.
+ * without starting a run. The argument grammar is parsed by {@link parseGoalCommand}.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -38,6 +38,46 @@ const RECORD_PATTERN = /^(set|edit)(?:\s+([\s\S]*))?$/i;
 /** `/goal raw <text>`: `text` is required. */
 const RAW_PATTERN = /^raw(?:\s+([\s\S]*))?$/i;
 
+/** One parsed `/goal` invocation. */
+export type GoalCommand =
+	| { kind: "show" } // no argument: show the goal, or the usage
+	| { kind: "usage" } // help, or `raw` with no text
+	| { kind: "clear" }
+	| { kind: "done" }
+	| { kind: "editor" } // bare set/edit: edit the current goal
+	| { kind: "record"; text: string } // set/edit <text>: comprehend, record only
+	| { kind: "raw"; text: string } // raw <text>: record verbatim and run
+	| { kind: "prompt"; text: string }; // free-form: comprehend, record, and run
+
+/**
+ * Parse `/goal`'s argument into one command.
+ *
+ * Keywords match whole words, so `setfoo` and `edit-foo` are free-form prompts,
+ * not malformed keywords. Only `help`/`clear`/`done`/`achieved` are reserved
+ * without an argument; anything else is a prompt.
+ */
+export function parseGoalCommand(input: string): GoalCommand {
+	const text = input.trim();
+	if (!text) return { kind: "show" };
+
+	const keyword = text.toLowerCase();
+	if (keyword === "help" || keyword === "-h" || keyword === "--help") return { kind: "usage" };
+	if (keyword === "clear") return { kind: "clear" };
+	if (keyword === "done" || keyword === "achieved") return { kind: "done" };
+
+	const record = RECORD_PATTERN.exec(text);
+	if (record) {
+		const objective = (record[2] ?? "").trim();
+		return objective ? { kind: "record", text: objective } : { kind: "editor" };
+	}
+	const raw = RAW_PATTERN.exec(text);
+	if (raw) {
+		const objective = (raw[1] ?? "").trim();
+		return objective ? { kind: "raw", text: objective } : { kind: "usage" };
+	}
+	return { kind: "prompt", text };
+}
+
 /**
  * Complete the leading keyword only. `/goal <prompt>` is free-form, so a prefix
  * that matches no keyword yields nothing rather than a misleading suggestion;
@@ -60,20 +100,18 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 			"/goal [prompt | raw <prompt> | set [prompt] | edit [prompt] | clear | done | help]",
 		getArgumentCompletions: completeGoalArg,
 		handler: async (args, ctx) => {
-			const input = args.trim();
+			const command = parseGoalCommand(args);
 
-			if (!input) {
+			if (command.kind === "show") {
 				const goal = runtime.getGoal();
 				ctx.ui.notify(goal ? formatGoalNotice(goal) : GOAL_HELP, "info");
 				return;
 			}
-
-			const keyword = input.toLowerCase();
-			if (keyword === "help" || keyword === "-h" || keyword === "--help") {
+			if (command.kind === "usage") {
 				ctx.ui.notify(GOAL_HELP, "info");
 				return;
 			}
-			if (keyword === "clear") {
+			if (command.kind === "clear") {
 				if (!runtime.getGoal()) {
 					ctx.ui.notify("No goal set.", "info");
 					return;
@@ -83,7 +121,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				ctx.ui.notify("Goal cleared.", "info");
 				return;
 			}
-			if (keyword === "done" || keyword === "achieved") {
+			if (command.kind === "done") {
 				const current = runtime.getGoal();
 				if (!current) {
 					ctx.ui.notify("No goal set.", "warning");
@@ -100,13 +138,6 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				return;
 			}
 
-			// `/goal set|edit [<text>]` records without running; `/goal raw <text>`
-			// records the typed words verbatim and runs. A whole-word keyword only:
-			// `setfoo` is a free-form prompt, not a malformed keyword.
-			const recordMatch = RECORD_PATTERN.exec(input);
-			const rawMatch = recordMatch ? null : RAW_PATTERN.exec(input);
-			const recordText = (recordMatch?.[2] ?? "").trim();
-
 			const setGoal = async (goal: Goal, run: boolean): Promise<void> => {
 				runtime.setGoal(goal, ctx);
 				persist(goal);
@@ -121,7 +152,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 			try {
 				// A bare `set`/`edit` has no prompt to comprehend: edit the current goal
 				// directly. Without a dialog UI there is nothing to open.
-				if (recordMatch && !recordText) {
+				if (command.kind === "editor") {
 					if (!ctx.hasUI) {
 						ctx.ui.notify(GOAL_HELP, "info");
 						return;
@@ -138,21 +169,12 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 					return;
 				}
 
-				const recordOnly = recordMatch !== null;
-				const prompt = rawMatch ? (rawMatch[1] ?? "").trim() : recordMatch ? recordText : input;
-
-				// `/goal raw` with no text is a usage error.
-				if (rawMatch && !prompt) {
-					ctx.ui.notify(GOAL_HELP, "info");
-					return;
-				}
-
 				// Only the free-form `/goal <prompt>` and `/goal raw <prompt>` need the
 				// guard: an explicit `set`/`edit <text>` is already an instruction to
 				// replace. The `goal` tool keeps its silent replacement so the model can
 				// refine.
 				const current = runtime.getGoal();
-				if (!recordMatch && current?.status === "active" && ctx.hasUI) {
+				if (command.kind !== "record" && current?.status === "active" && ctx.hasUI) {
 					const replace = await ctx.ui.confirm("Replace the active goal?", current.objective);
 					if (!replace) {
 						ctx.ui.notify("Goal unchanged.", "info");
@@ -160,14 +182,14 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 					}
 				}
 
-				const typed = normalizeGoal({ objective: prompt, status: "active" });
+				const typed = normalizeGoal({ objective: command.text, status: "active" });
 				if (typed === null) {
 					ctx.ui.notify("No goal set.", "info");
 					return;
 				}
 
 				// `/goal raw`: the user already knows what they want; record it as-is.
-				if (rawMatch) {
+				if (command.kind === "raw") {
 					await setGoal(typed, true);
 					return;
 				}
@@ -185,7 +207,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 					return;
 				}
 
-				await setGoal(goal, !recordOnly);
+				await setGoal(goal, command.kind === "prompt");
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				ctx.ui.notify(`Goal not set: ${message}`, "warning");

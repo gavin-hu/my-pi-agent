@@ -14,6 +14,7 @@
 
 import { BorderedLoader, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { UserMessage } from "@earendil-works/pi-ai";
+import { sanitizeLine } from "../../lib/format.ts";
 import { type Clarification, type ClarifyAnswer, type ClarifyQuestion, parseClarification } from "./clarify-parse.ts";
 import { buildClarifyMessages, buildRefineMessages } from "./clarify-prompt.ts";
 
@@ -41,7 +42,10 @@ export type GoalPromptOutcome = { action: "use"; text: string } | { action: "can
  *
  * Resolves `undefined` when the user cancels with Escape, so the caller treats
  * cancellation and failure alike. The loader covers only the model call: a
- * dialog cannot be shown while it owns the editor slot.
+ * dialog cannot be shown while it owns the editor slot, and it deliberately
+ * leaves the above-editor rails visible — it is only a few lines tall, and
+ * hiding the goal and todo for a transient call would just flicker. A full dock
+ * screen (the ask-user-question questionnaire) is what suppresses the rails.
  */
 async function withLoader<T>(
 	ctx: Pick<ClarifyContext, "mode" | "ui" | "signal">,
@@ -150,7 +154,8 @@ export async function clarifyGoalPrompt(ctx: ClarifyContext, text: string): Prom
  *
  * A question with options uses a selector; a free-form question uses a text
  * input. Resolves `undefined` when any dialog is dismissed, so the caller cancels
- * the whole command; an empty answer is skipped.
+ * the whole command; an empty answer is skipped. The answer is sanitized to one
+ * line, since it is folded into a model message and later the goal.
  */
 async function askQuestions(
 	ctx: Pick<ClarifyContext, "ui">,
@@ -166,8 +171,8 @@ async function askQuestions(
 					)
 				: await ctx.ui.input(question.question);
 		if (answer === undefined) return undefined;
-		const trimmed = answer.trim();
-		if (trimmed) answers.push({ question: question.question, answer: trimmed });
+		const sanitized = sanitizeLine(answer);
+		if (sanitized) answers.push({ question: question.question, answer: sanitized });
 	}
 	return answers;
 }

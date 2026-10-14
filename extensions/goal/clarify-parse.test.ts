@@ -33,6 +33,10 @@ describe("parseClarification plain-text fallback", () => {
 		);
 	});
 
+	test("treats a restatement with incidental braces as plain text", () => {
+		expect(goalOf("Refactor {the parser} to stream")).toBe("Refactor {the parser} to stream");
+	});
+
 	test("returns undefined for a missing, empty, or blank reply", () => {
 		expect(parseClarification(undefined)).toBeUndefined();
 		expect(parseClarification("")).toBeUndefined();
@@ -71,6 +75,11 @@ describe("parseClarification JSON reply", () => {
 	test("unwraps a fenced JSON reply", () => {
 		const reply = `\`\`\`json\n${JSON.stringify({ understood: true, goal: "Ship it", questions: [] })}\n\`\`\``;
 		expect(parseClarification(reply)?.goal).toBe("Ship it");
+	});
+
+	test("keeps a JSON object when trailing prose contains a brace", () => {
+		const reply = `{"understood": true, "goal": "Use } carefully", "questions": []} — done }`;
+		expect(parseClarification(reply)).toEqual({ understood: true, goal: "Use } carefully", questions: [] });
 	});
 
 	test("treats a plain-text reply as an understood restatement", () => {

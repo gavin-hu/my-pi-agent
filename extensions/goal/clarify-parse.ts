@@ -77,22 +77,55 @@ function parsePlainGoal(raw: string): string | undefined {
 }
 
 /**
- * The first `{...}` object in `text`.
+ * Index of the `}` that closes the `{` at `start`, or `-1` when it never closes.
  *
- * `found` is true whenever braces are present, so the caller can tell "no JSON
- * at all" (fall back to plain text) from "JSON that did not parse" (unusable).
+ * Brace depth is tracked outside JSON strings, so a `}` inside a value cannot end
+ * the scan early and trailing prose cannot widen it.
+ */
+function matchingBrace(text: string, start: number): number {
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+	for (let i = start; i < text.length; i++) {
+		const char = text[i];
+		if (inString) {
+			if (escaped) escaped = false;
+			else if (char === "\\") escaped = true;
+			else if (char === '"') inString = false;
+			continue;
+		}
+		if (char === '"') inString = true;
+		else if (char === "{") depth += 1;
+		else if (char === "}") {
+			depth -= 1;
+			if (depth === 0) return i;
+		}
+	}
+	return -1;
+}
+
+/**
+ * The first complete `{...}` object in `text`.
+ *
+ * A parseable object makes `found` true. When the braces do not form one, a
+ * reply that opens with `{` was trying to be JSON and is unusable (`found`
+ * true); anything else is prose, so the caller falls back to plain text. This
+ * keeps an incidental brace in a restatement from discarding it.
  */
 function extractJsonObject(text: string): { found: boolean; value?: unknown } {
-	const unfenced = text.replace(/```/g, "");
+	const unfenced = text.replace(/```/g, "").trim();
 	const start = unfenced.indexOf("{");
 	if (start === -1) return { found: false };
-	const end = unfenced.lastIndexOf("}");
-	if (end <= start) return { found: true };
-	try {
-		return { found: true, value: JSON.parse(unfenced.slice(start, end + 1)) };
-	} catch {
-		return { found: true };
+	const end = matchingBrace(unfenced, start);
+	if (end !== -1) {
+		try {
+			const value = JSON.parse(unfenced.slice(start, end + 1));
+			if (value && typeof value === "object" && !Array.isArray(value)) return { found: true, value };
+		} catch {
+			// Fall through: unparseable braces.
+		}
 	}
+	return { found: start === 0 };
 }
 
 /** A single-line, control-character-free string, or `""`. */

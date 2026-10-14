@@ -75,6 +75,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   survives a branch whose tool-result details were summarized away.
 - `goal`: `/goal done` on an already achieved goal is a no-op with an info
   notice instead of re-persisting the entry.
+- `goal`: a restatement containing braces is kept as plain text instead of being
+  mistaken for a failed JSON reply, and a `}` inside a JSON string no longer ends
+  the object early.
+- `goal`: a free-form answer is sanitized to one line before it is folded into
+  the goal.
 
 ## [0.5.1] - 2026-10-13
 

@@ -150,6 +150,19 @@ describe("prepareGoalPrompt", () => {
 		expect(notices.at(-1)?.message).toContain("Could not update the goal from your answers");
 	});
 
+	test("sanitizes a free-form answer before the refine call", async () => {
+		const { calls, registry } = clarifyRegistry([
+			clarifyReply({ questions: [{ question: "Anything to add?" }] }),
+			"Ship the parser",
+		]);
+		const { ctx } = clarifyCtx(registry, { input: "keep\nit\u001b[31mfast", editor: "Ship the parser" });
+
+		await prepareGoalPrompt(ctx, "ship the parser");
+
+		expect(calls[1]).toContain("keep it [31mfast");
+		expect(calls[1]).not.toContain("\u001b");
+	});
+
 	test("cancels with a notice when a question dialog is dismissed", async () => {
 		const { registry } = clarifyRegistry([clarifyReply()]);
 		const { ctx, editorCalls, notices } = clarifyCtx(registry, { select: undefined, editor: "ignored" });
