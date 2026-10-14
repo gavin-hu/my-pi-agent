@@ -22,9 +22,19 @@ export interface SpawnedProcess {
 	on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
 	on(event: "error", listener: (error: Error) => void): unknown;
 	kill(signal?: NodeJS.Signals): boolean;
+	/** Detach from the parent's event loop, so a background job cannot hold Pi open. */
+	unref?(): void;
 }
 
-export type SpawnFn = (command: string, options: { cwd: string; env?: NodeJS.ProcessEnv }) => SpawnedProcess;
+export type SpawnFn = (
+	command: string,
+	options: {
+		cwd: string;
+		env?: NodeJS.ProcessEnv;
+		/** The command writes its own output to the log; keep no parent pipe. */
+		detachOutput?: boolean;
+	},
+) => SpawnedProcess;
 
 /** Whether a pid is still alive. */
 export type LivenessFn = (pid: number) => boolean;
@@ -40,13 +50,14 @@ export type KillTreeFn = (pid: number, signal: NodeJS.Signals, force?: boolean) 
  */
 export type StartTokenFn = (pid: number) => string | undefined;
 
-/** Default spawn: a shell command in its own process group with piped output. */
+/** Default spawn: a shell command in its own process group. A detached job
+ * redirects its own output to the log, so it needs no pipe to this process. */
 export const defaultSpawn: SpawnFn = (command, options) =>
 	nodeSpawn(command, {
 		cwd: options.cwd,
 		shell: true,
 		detached: process.platform !== "win32",
-		stdio: ["ignore", "pipe", "pipe"],
+		stdio: options.detachOutput ? ["ignore", "ignore", "ignore"] : ["ignore", "pipe", "pipe"],
 		env: options.env,
 	});
 

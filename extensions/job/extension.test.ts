@@ -98,6 +98,20 @@ describe("jobs extension", () => {
 		expect(sent[0].message.content).toContain("j2");
 	});
 
+	test("a failed wake leaves the completion for the next turn", async () => {
+		const { h, pi, ctx } = setup();
+		pi.sendMessage = () => {
+			throw new Error("session busy");
+		};
+		await emit(pi, "session_start", {}, ctx);
+		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		h.children[0].close(0);
+
+		// The wake send threw, so the completion is still unreported.
+		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
+		expect(result?.message?.content).toContain("j1");
+	});
+
 	test("does not wake for a non-wake job", async () => {
 		const { h, pi, ctx } = setup();
 		const sent: unknown[] = [];

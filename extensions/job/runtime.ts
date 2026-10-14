@@ -51,7 +51,7 @@ import {
 	removeSessionMarker,
 	touchSessionMarker,
 } from "./session.ts";
-import { STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
+import { LOG_ENV, STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
 import { type Job, type JobRecord, type JobStatus, type KillSignal } from "./types.ts";
 import { createUiController } from "./ui.ts";
 import { createJobStore, toRecord } from "./store.ts";
@@ -102,7 +102,7 @@ export interface RuntimeOptions {
 }
 
 interface Handle {
-	stream: WriteStream;
+	stream?: WriteStream;
 	pending: string;
 	killTimer?: ReturnType<typeof setTimeout>;
 	timeoutTimer?: ReturnType<typeof setTimeout>;
@@ -126,8 +126,10 @@ export interface JobsRuntime {
 		onUpdate?: () => void,
 	): Promise<WaitResult | undefined>;
 	clear(id: string | undefined, all: boolean): { cleared: number; refused?: string };
-	/** Finished jobs not yet reported to the model; marks them seen. */
-	takePending(): JobRecord[];
+	/** Finished, unreported jobs for this session; does not mark them. */
+	pendingCompletions(): JobRecord[];
+	/** Mark jobs as reported to the model. */
+	markReported(ids: Iterable<string>): void;
 	runningCount(): number;
 	/** Publish the footer status chips. */
 	setStatus(ctx: ExtensionContext): void;
@@ -335,7 +337,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
 		if (options.endStream) {
 			try {
-				handle.stream.end();
+				handle.stream?.end();
 			} catch {
 				// Already closed.
 			}
@@ -348,7 +350,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const job = jobs.get(id);
 		if (!handle || !job) return;
 		try {
-			handle.stream.write(chunk);
+			handle.stream?.write(chunk);
 		} catch {
 			// A closed stream must not break output handling.
 		}
@@ -370,6 +372,11 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		consume(handle, job);
 		const tail = sanitizeLogLine(handle.pending);
 		if (tail) job.lastLine = tail;
+		// A detached job keeps no parent stream; read its last line from the log.
+		if (!handle.stream) {
+			const last = readLogTail(store.safeLogPath(job), 1).lines.at(-1);
+			if (last) job.lastLine = last;
+		}
 		disposeHandle(id, { endStream: true });
 
 		const status: JobStatus = signal ? "killed" : code === 0 ? "exited" : "failed";
@@ -405,7 +412,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		kill,
 		wait,
 		clear,
-		takePending,
+		pendingCompletions,
+		markReported,
 		runningCount: () => ownJobs().filter((job) => job.status === "running").length,
 		setStatus: (ctx) => ui.setStatus(ctx),
 		shutdown,
@@ -426,8 +434,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		waiters.resolveAll();
 		lastPaint = 0;
 
-		config = options.config ?? loadConfig(effectiveCwd(ctx));
-		store.setDirectory(registryDirFor(effectiveCwd(ctx), config.registryDir));
+		// The durable registry is keyed by the session's own cwd, not the active
+		// worktree root: entering or leaving a worktree mid-session must not move it
+		// out from under the records already collected here. Jobs still run in the
+		// effective root (`start` uses `effectiveCwd`).
+		config = options.config ?? loadConfig(ctx.cwd);
+		store.setDirectory(registryDirFor(ctx.cwd, config.registryDir));
 		sessionId = ctx.sessionManager.getSessionId();
 		store.setSession(sessionId);
 		ui.attach(ctx);
@@ -502,30 +514,39 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const id = store.nextId(jobs.keys());
 		const logPath = store.logPath(id);
 		const statusPath = process.platform === "win32" ? null : store.statusPath(id);
+		const detached = startOptions.detached ?? config.detachedByDefault;
+		// A detached POSIX job points its own output at the log, so it keeps logging
+		// and survives after this process ends; Windows keeps the parent pipe.
+		const detachOutput = detached && process.platform !== "win32";
 
 		// Wrap the command so a POSIX shell records its exit status; the path travels
 		// in the environment so the shell never has to quote it.
-		const program = withExitTrap(startOptions.command, process.platform === "win32");
-		const env = statusPath ? { ...process.env, [STATUS_ENV]: statusPath } : undefined;
+		const program = withExitTrap(startOptions.command, process.platform === "win32", detachOutput);
+		const env: NodeJS.ProcessEnv = { ...process.env };
+		if (statusPath) env[STATUS_ENV] = statusPath;
+		if (detachOutput) env[LOG_ENV] = logPath;
 		let process_: SpawnedProcess;
 		try {
-			process_ = spawn(program, { cwd, env });
+			process_ = spawn(program, { cwd, env, detachOutput });
 		} catch (error) {
 			// A failed spawn must not leave the reserved id behind.
 			store.releaseId(id);
 			throw error;
 		}
 		const pid = process_.pid ?? null;
+		if (detachOutput) process_.unref?.();
 		// Create the file eagerly so `logs` works before the first write, then
-		// append through a stream. Errors (for example after the session's registry
-		// is cleaned up) must not surface as unhandled stream errors.
+		// append through a stream. A detached job's shell writes the file directly.
 		try {
 			writeFileSync(logPath, "", { flag: "a" });
 		} catch {
 			// A missing directory was already handled by mkdirSync above.
 		}
-		const stream = createWriteStream(logPath, { flags: "a" });
-		stream.on("error", () => {});
+		let stream: WriteStream | undefined;
+		if (!detachOutput) {
+			stream = createWriteStream(logPath, { flags: "a" });
+			stream.on("error", () => {});
+		}
 		const job: Job = {
 			id,
 			label: sanitizeLogLine((startOptions.label ?? "").trim()) || clipLabel(startOptions.command),
@@ -539,7 +560,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			finishedAt: null,
 			logPath,
 			statusPath,
-			detached: startOptions.detached ?? config.detachedByDefault,
+			detached,
 			wake: startOptions.wake ?? config.wakeOnFinish,
 			sessionId,
 			seen: false,
@@ -573,6 +594,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const job = jobs.get(id);
 		if (!job) return undefined;
 		const tail = readLogTail(store.safeLogPath(job), lines);
+		const last = tail.lines.at(-1);
+		if (last) job.lastLine = last;
 		const formatted = formatLogs(job, tail.lines, LOG_MODEL_CHARS);
 		return {
 			job,
@@ -729,15 +752,24 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		return { cleared };
 	}
 
-	function takePending(): JobRecord[] {
+	function pendingCompletions(): JobRecord[] {
 		// Only our own (or adopted) records are persisted as seen, so only those are
 		// reported; a live peer reports its own completions.
-		const pending = [...jobs.values()].filter(
-			(job) => !job.seen && job.finishedAt !== null && job.sessionId === sessionId,
-		);
-		for (const job of pending) job.seen = true;
-		if (pending.length > 0) persist();
-		return pending.map(toRecord);
+		return [...jobs.values()]
+			.filter((job) => !job.seen && job.finishedAt !== null && job.sessionId === sessionId)
+			.map(toRecord);
+	}
+
+	function markReported(ids: Iterable<string>): void {
+		let changed = false;
+		for (const id of ids) {
+			const job = jobs.get(id);
+			if (job && !job.seen) {
+				job.seen = true;
+				changed = true;
+			}
+		}
+		if (changed) persist();
 	}
 
 	async function shutdown(): Promise<void> {

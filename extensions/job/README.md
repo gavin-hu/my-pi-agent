@@ -23,7 +23,9 @@ pi install ./                      # install the package
 - Reports finished jobs to the model at the start of the next turn, or — for
   jobs started with `wake: true` — by triggering one turn.
 - Kills session-owned jobs on shutdown so no process is left behind; start a
-  job with `detached: true` to keep it running and reattach next session.
+  job with `detached: true` to keep it running and reattach next session. A
+  detached POSIX job points its own output straight at its log file, so it keeps
+  logging after this process ends.
 
 ## Tool
 
@@ -177,7 +179,9 @@ rewritten.
   (a REPL, a debugger prompt) are out of scope.
 - **No log rotation.** Logs are append-only files; `logs` reads a bounded tail.
 - **Windows is best-effort.** Tree-kill uses `taskkill /T`; POSIX uses process
-  groups.
+  groups. A detached job only escapes the parent process on POSIX, where its
+  shell writes the log directly; on Windows it keeps the parent pipe and is
+  captured only until the session ends.
 
 ## Non-goals
 
@@ -195,7 +199,7 @@ rewritten.
 | Execution mode | `sequential` — actions share the in-memory job table. |
 | Annotations | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: true` — plan mode blocks it. |
 | `outputSchema` / `structuredContent` | None. Results return `JobDetails` in tool-result `details` only. |
-| State storage | One durable registry file per session, `~/.pi/agent/jobs/<projectKey>/registry-<sessionHash>.json`, merged from every session file on load; a dead session's records are adopted and a legacy shared `registry.json` is migrated once. Ids are reserved with an atomic `O_EXCL` `<id>.lock` before `start`, and a POSIX job's exit code is written to a per-job `.status` file. Tool results carry `JobDetails`; unreported completions arrive as hidden `job-context` messages at `before_agent_start`. |
+| State storage | One durable registry file per session, `~/.pi/agent/jobs/<projectKey>/registry-<sessionHash>.json` (keyed by the session cwd, so entering a worktree does not move it), merged from every session file on load; a dead session's records are adopted and a legacy shared `registry.json` is migrated once. Ids are reserved with an atomic `O_EXCL` `<id>.lock` before `start`, and a POSIX job's exit code is written to a per-job `.status` file. Tool results carry `JobDetails`; unreported completions arrive as hidden `job-context` messages at `before_agent_start`. |
 | Lifecycle | `session_start` loads and reconciles the registry and arms `onFinish`; `session_shutdown` kills session-owned jobs and clears both status chips. `session_tree` repaints; `agent_start`/`agent_settled` track busy; `context` prunes stale `job-context` messages. |
 
 ## Design notes

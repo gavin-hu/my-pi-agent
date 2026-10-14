@@ -1,11 +1,13 @@
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { loadRegistries, REGISTRY_VERSION, saveRegistry } from "./registry.ts";
+import { loadRegistries, projectKey, REGISTRY_VERSION, saveRegistry } from "./registry.ts";
 import { touchSessionMarker } from "./session.ts";
+import { LOG_ENV } from "./status.ts";
 import type { JobRecord } from "./types.ts";
 import { makeCtx, makeHarnessSuite, readLog, type Harness } from "../../test/helpers/fixtures/job.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
+import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 
 const suite = makeHarnessSuite();
 const makeHarness = suite.makeHarness;
@@ -336,12 +338,14 @@ describe("job runtime — registry reconcile", () => {
 });
 
 describe("job runtime — pending, clear, status", () => {
-	test("takePending returns each finished job once", () => {
+	test("pendingCompletions peeks and markReported marks", () => {
 		const h = makeHarness();
 		start(h);
 		h.children[0].close(0);
-		expect(h.runtime.takePending().map((j) => j.id)).toEqual(["j1"]);
-		expect(h.runtime.takePending()).toEqual([]);
+		expect(h.runtime.pendingCompletions().map((j) => j.id)).toEqual(["j1"]);
+		expect(h.runtime.pendingCompletions().map((j) => j.id)).toEqual(["j1"]);
+		h.runtime.markReported(["j1"]);
+		expect(h.runtime.pendingCompletions()).toEqual([]);
 	});
 
 	test("clear removes finished jobs but refuses running ones", () => {
@@ -462,5 +466,43 @@ describe("job runtime — pending, clear, status", () => {
 		expect(persistedIds(h)).toContain("j9");
 		expect(persistedIds(h)).toContain("j10");
 		expect(loadRegistries(h.dir).files.some((file) => file.sessionId === "peer")).toBe(true);
+	});
+});
+
+describe("job runtime — detached output and registry root", () => {
+	const posix = process.platform !== "win32";
+
+	test.skipIf(!posix)("gives a detached job its own output and unrefs it", () => {
+		const h = makeHarness();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		h.runtime.start({ command: "serve", detached: true }, ctx);
+		const child = h.children[0];
+		expect(child.options?.detachOutput).toBe(true);
+		expect(child.unrefed).toBe(true);
+		expect(String(child.options?.env?.[LOG_ENV])).toContain("j1.log");
+	});
+
+	test("keeps the parent pipe for a non-detached job", () => {
+		const h = makeHarness();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		h.runtime.start({ command: "sleep 1" }, ctx);
+		expect(h.children[0].options?.detachOutput).toBe(false);
+		expect(h.children[0].unrefed).toBe(false);
+	});
+
+	test("anchors the registry to the session cwd, not a worktree root set later", async () => {
+		await withAgentDir(async (agentDir) => {
+			const worktree = tempDir("pi-jobs-wt-");
+			const h = makeHarness({ config: { registryDir: undefined } });
+			const { ctx } = makeCtx({ cwd: "/repo/main" });
+			await withEnv({ PI_WORKTREE_ROOT: worktree }, async () => {
+				h.runtime.load(ctx);
+				h.runtime.start({ command: "sleep 1" }, ctx);
+			});
+			expect(existsSync(join(agentDir, "jobs", projectKey("/repo/main")))).toBe(true);
+			expect(existsSync(join(agentDir, "jobs", projectKey(worktree)))).toBe(false);
+		});
 	});
 });
