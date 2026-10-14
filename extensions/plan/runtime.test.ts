@@ -109,7 +109,9 @@ describe("plan runtime — persistence and status", () => {
 		const { runtime, ctx, entries } = setup();
 		runtime.enable(ctx);
 		runtime.enable(ctx);
-		expect(entries).toEqual([{ type: "custom", customType: STATE_TYPE, data: { enabled: true } }]);
+		expect(entries).toEqual([
+			{ type: "custom", customType: STATE_TYPE, data: { enabled: true, removed: ["write", "edit", ENTER_TOOL] } },
+		]);
 		runtime.disable(ctx);
 		expect(entries).toHaveLength(2);
 		expect(entries[1]).toEqual({ type: "custom", customType: STATE_TYPE, data: { enabled: false } });
@@ -187,5 +189,37 @@ describe("plan runtime — persistence and status", () => {
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
 		expect(runtime.isControlTool(EXIT_TOOL)).toBe(false);
 		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(false);
+	});
+});
+
+describe("plan runtime — branch restore", () => {
+	test("restores the hidden tools of the branch it left plan mode on", () => {
+		const { runtime, ctx, activeTools, pi } = setup({ active: ["read", "write", "edit"] });
+		runtime.enable(ctx); // removed = [write, edit]
+
+		// A `/tree` navigation: the host resets the active set to the target
+		// branch's declared tools before emitting `session_tree`.
+		pi.setActiveTools(["read", "grep", "job"]);
+		const treeCtx = fakeCtx({ branch: [stateEntry(true, ["write", "edit", "job"])] }).ctx;
+		runtime.restore(treeCtx);
+		runtime.disable(treeCtx);
+
+		const active = activeTools();
+		expect(active).toContain("write");
+		expect(active).toContain("edit");
+		expect(active).toContain("job");
+	});
+
+	test("a plan-off branch restore does not re-add the previous branch's hidden tools", () => {
+		const { runtime, ctx, activeTools, pi } = setup({ active: ["read", "write", "edit"] });
+		runtime.enable(ctx);
+
+		// The host restores a base set without write/edit; plan mode was off there.
+		pi.setActiveTools(["read", "grep"]);
+		const offCtx = fakeCtx({ branch: [stateEntry(false)] }).ctx;
+		runtime.restore(offCtx);
+
+		expect(activeTools()).not.toContain("write");
+		expect(activeTools()).toContain("grep");
 	});
 });

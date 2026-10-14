@@ -59,15 +59,21 @@ export interface PlanRuntime {
 	setLastPlan(ctx: ExtensionContext, path: string): void;
 }
 
-function readPersistedEnabled(ctx: ExtensionContext): boolean | undefined {
-	let enabled: boolean | undefined;
+/** The last plan-mode entry on the branch, with the tools it hid. */
+function readPersistedState(ctx: ExtensionContext): PlanModeEntry | undefined {
+	let state: PlanModeEntry | undefined;
 	for (const raw of ctx.sessionManager.getBranch()) {
-		const entry = raw as { type?: string; customType?: string; data?: PlanModeEntry };
-		if (entry.type === "custom" && entry.customType === STATE_TYPE && typeof entry.data?.enabled === "boolean") {
-			enabled = entry.data.enabled;
-		}
+		const entry = raw as { type?: string; customType?: string; data?: unknown };
+		if (entry.type !== "custom" || entry.customType !== STATE_TYPE) continue;
+		const data = entry.data as { enabled?: unknown; removed?: unknown } | null | undefined;
+		if (typeof data?.enabled !== "boolean") continue;
+		// Branch data is untrusted; keep only string tool names.
+		const removed = Array.isArray(data.removed)
+			? data.removed.filter((name): name is string => typeof name === "string")
+			: undefined;
+		state = removed ? { enabled: data.enabled, removed } : { enabled: data.enabled };
 	}
-	return enabled;
+	return state;
 }
 
 /** Compare two paths, resolving symlinks when possible so `/tmp` and `/private/tmp` match. */
@@ -110,16 +116,27 @@ export function createPlanRuntime(
 		return source === undefined || options.entryPath === undefined || samePath(source, options.entryPath);
 	};
 
-	const applyTools = (): void => {
+	/** Tools plan mode would hide from the current active set. */
+	const captureHidden = (): string[] => [
+		...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name) && !CONTROL_TOOLS.includes(name))),
+	];
+
+	/**
+	 * Apply the current mode to the active set. `addHidden` re-adds the tools a
+	 * user disable hid; a branch restore passes false, because the host has
+	 * already put the target branch's base tools back.
+	 */
+	const applyTools = (addHidden: boolean): void => {
 		const active = pi.getActiveTools();
 		if (enabled) {
 			// Keep only tools the policy considers safe to expose while read-only
 			// (structured readers and the plan/goal trackers) plus the control tools.
 			pi.setActiveTools([...new Set([...active.filter((name) => policy.isAllowed(name)), ...CONTROL_TOOLS])]);
-		} else {
-			pi.setActiveTools([...new Set([...active.filter((name) => !CONTROL_TOOLS.includes(name)), ...removedForPlan])]);
-			removedForPlan = [];
+			return;
 		}
+		const restored = addHidden ? removedForPlan : [];
+		pi.setActiveTools([...new Set([...active.filter((name) => !CONTROL_TOOLS.includes(name)), ...restored])]);
+		removedForPlan = [];
 	};
 
 	const statusText = (): string =>
@@ -131,17 +148,16 @@ export function createPlanRuntime(
 
 	const setEnabled = (next: boolean, ctx: ExtensionContext | undefined, persist: boolean): void => {
 		const changed = next !== enabled;
-		// Capture what we hide only when entering plan mode. A redundant enable (for
-		// example a `session_tree` restore while already enabled) must not recompute
-		// this from the already-filtered active set, or disabling would lose them.
-		if (changed && next) {
-			removedForPlan = [
-				...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name) && !CONTROL_TOOLS.includes(name))),
-			];
-		}
+		// Capture what we hide only when entering plan mode from a non-plan set.
+		// A redundant enable (for example a `session_tree` restore while already
+		// enabled) must not recompute this from the already-filtered active set, or
+		// disabling would lose them.
+		if (changed && next) removedForPlan = captureHidden();
 		enabled = next;
-		applyTools();
-		if (persist && changed) pi.appendEntry(STATE_TYPE, { enabled } satisfies PlanModeEntry);
+		applyTools(!next);
+		if (persist && changed) {
+			pi.appendEntry(STATE_TYPE, (next ? { enabled, removed: removedForPlan } : { enabled }) satisfies PlanModeEntry);
+		}
 		if (ctx) setStatus(ctx);
 	};
 
@@ -152,11 +168,21 @@ export function createPlanRuntime(
 		toggle: (ctx) => setEnabled(!enabled, ctx, true),
 		restore: (ctx) => {
 			lastPlanPath = undefined;
-			const restored = readPersistedEnabled(ctx);
+			const persisted = readPersistedState(ctx);
 			// `--plan` starts a fresh session in plan mode; an explicit persisted
 			// choice (including a later disable) wins over the launch flag.
-			const fromFlag = restored === undefined && pi.getFlag("plan") === true;
-			setEnabled(fromFlag || restored === true, ctx, false);
+			const fromFlag = persisted === undefined && pi.getFlag("plan") === true;
+			const next = fromFlag || persisted?.enabled === true;
+			// A branch carries the tools it hid, so adopt them for a later disable;
+			// a fresh `--plan` captures the current set instead.
+			if (next && persisted?.removed !== undefined) removedForPlan = [...persisted.removed];
+			else if (next) removedForPlan = captureHidden();
+			else removedForPlan = [];
+			enabled = next;
+			// Never re-add hidden tools on restore: the host has already restored the
+			// target branch's base set, and only a user disable should undo our hide.
+			applyTools(false);
+			if (ctx) setStatus(ctx);
 		},
 		plans,
 		isControlTool,

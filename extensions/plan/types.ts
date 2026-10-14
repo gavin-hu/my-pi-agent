@@ -5,6 +5,11 @@
 /** Persisted (custom entry) plan-mode state. */
 export interface PlanModeEntry {
 	enabled: boolean;
+	/**
+	 * Tools plan mode hid when it turned on, so a later disable can restore them.
+	 * Persisted with the branch so a `/tree` restore adopts the right list.
+	 */
+	removed?: string[];
 }
 
 /** Structured result carried in `enter_plan_mode`'s `details`. */

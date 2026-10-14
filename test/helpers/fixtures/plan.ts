@@ -39,8 +39,8 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 }
 
 /** A persisted plan-mode custom entry. */
-export function stateEntry(enabled: boolean): unknown {
-	return { type: "custom", customType: "plan-mode", data: { enabled } };
+export function stateEntry(enabled: boolean, removed?: string[]): unknown {
+	return { type: "custom", customType: "plan-mode", data: removed === undefined ? { enabled } : { enabled, removed } };
 }
 
 /** An injected plan-mode context message, as `before_agent_start` returns it. */
