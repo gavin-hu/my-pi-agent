@@ -43,7 +43,7 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-progress{display:inline-flex;align-items:center;gap:var(--space-2);font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
 .bf-progress__track{display:inline-block;width:72px;height:6px;border-radius:var(--radius-pill);background:var(--border);overflow:hidden}
 .bf-progress__fill{display:block;height:100%;background:var(--success)}
-.bf-status{min-height:20px;padding:0 var(--space-6);color:var(--muted);font-size:var(--fs-sm)}
+.bf-status{color:var(--muted);font-size:var(--fs-sm)}
 .bf-status--saved{color:var(--success)}
 .bf-status--error{color:var(--danger)}
 .bf-note{margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}

@@ -44,6 +44,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function setStatus(text, kind) {
     if (!statusEl) return;
     statusEl.textContent = text || "";
+    statusEl.title = text || "";
     statusEl.className = kind ? "bf-status bf-status--" + kind : "bf-status";
   }
 

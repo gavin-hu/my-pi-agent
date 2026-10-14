@@ -34,9 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `plan`: the browser review outline highlights the active section again (the
   observer still selected the pre-rebrand block class), the comment composer and
-  editor textareas use the shared theme, the status line aligns with the shell
-  gutter, a heading-less plan no longer collapses the review into the outline
-  column, and the outline is sticky again on wide screens.
+  editor textareas use the shared theme, the save/cancel message sits inline in
+  the header instead of a reserved full-width band, a heading-less plan no longer
+  collapses the review into the outline column, and the outline is sticky again
+  on wide screens.
 - `rewind`: a snapshot taken with `includeUntracked` disabled captures tracked
   files again. The temporary index is seeded from HEAD before `git add -u`, so
   the snapshot is no longer the empty tree (a code rewind had been a silent

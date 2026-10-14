@@ -40,6 +40,12 @@ describe("renderReviewPage", () => {
 		expect(html).toContain('class="review-controls"');
 	});
 
+	test("keeps the save status inline in the header, not a full-width band", () => {
+		const html = page();
+		expect(html).toContain('<div class="review-status">\n<span class="bf-status" id="status"');
+		expect(html).not.toContain('<div class="bf-status"');
+	});
+
 	test("frames the plan with an outline panel, a rail, and a progress header", () => {
 		const html = page();
 		expect(html).toContain('id="outline-list"');
