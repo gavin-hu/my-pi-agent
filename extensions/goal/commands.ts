@@ -30,7 +30,10 @@ const GOAL_COMPLETIONS = [
 	{ value: "raw ", label: "raw" },
 	{ value: "clear", label: "clear" },
 	{ value: "done", label: "done" },
+	{ value: "achieved", label: "achieved" },
 	{ value: "help", label: "help" },
+	{ value: "-h", label: "-h" },
+	{ value: "--help", label: "--help" },
 ];
 
 /** `/goal set <text>` and `/goal edit <text>`: `text` is optional. */

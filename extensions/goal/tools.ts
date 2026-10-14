@@ -10,6 +10,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
+import { GOAL_TOOL } from "../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../lib/tui.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
@@ -18,7 +19,7 @@ import { GoalParams, GoalResult, normalizeGoal, type GoalArgs } from "./schema.t
 import { GoalResult as GoalResultView } from "./tui.ts";
 import type { GoalAction, GoalDetails } from "./types.ts";
 
-export const TOOL_NAME = "goal";
+export const TOOL_NAME = GOAL_TOOL;
 
 /** Longest objective shown in an unexpanded transcript result. */
 const RESULT_PREVIEW_WIDTH = 72;

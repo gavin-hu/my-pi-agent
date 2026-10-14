@@ -277,6 +277,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			if (peer && alive) continue;
 			if (job.pid === null || !liveness(job.pid)) {
 				settleGoneJob(job);
+				// A reattached `wake` job has no `close` event, so this is the only place
+				// its completion can trigger the one wake turn.
+				wakeIfNeeded(job);
 				changed = true;
 				continue;
 			}
@@ -398,6 +401,16 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	};
 
 	let onFinishHandler: ((job: Job) => void) | undefined;
+
+	/** Fire the one wake turn for an unowned `wake` job that just finished. */
+	const wakeIfNeeded = (job: Job): void => {
+		if (!job.wake || disposed) return;
+		try {
+			onFinishHandler?.(job);
+		} catch {
+			// Wake is best-effort.
+		}
+	};
 
 	const runtime: JobsRuntime = {
 		get config() {

@@ -226,6 +226,9 @@ step's `Output`.
   the dispatching session's provider/model and thinking level.
 - **No persistence.** Subagent transcripts live only in the tool result details;
   they are not written to the parent session.
+- **No cost attribution to the parent session.** A subagent's tokens and cost are
+  captured in the tool result and shown in the transcript, but they belong to a
+  separate process and are not added to the dispatching session's totals.
 
 ## Pi integration
 

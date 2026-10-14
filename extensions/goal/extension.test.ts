@@ -40,7 +40,7 @@ describe("goal extension", () => {
 		goal(pi);
 		const complete = (prefix: string): string[] =>
 			(commands.get("goal").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
-		expect(complete("")).toEqual(["set", "edit", "raw", "clear", "done", "help"]);
+		expect(complete("")).toEqual(["set", "edit", "raw", "clear", "done", "achieved", "help", "-h", "--help"]);
 		expect(complete("e")).toEqual(["edit"]);
 		expect(complete("fix the bug")).toEqual([]);
 	});
