@@ -55,7 +55,7 @@ export default function chrome(pi: ExtensionAPI): void {
 			const sub = args.trim().toLowerCase();
 
 			if (sub === "status") {
-				ctx.ui.notify(`chrome: ${enabled ? "footer" : "disabled"}`, "info");
+				ctx.ui.notify(`chrome: ${enabled ? "on" : "off"}`, "info");
 				return;
 			}
 			if (sub === "") {

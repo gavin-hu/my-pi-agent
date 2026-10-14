@@ -110,6 +110,7 @@ export function formatWarning(findings: readonly Finding[]): string {
 export function severityGlyph(severity: FindingSeverity, theme: Theme): string {
 	if (severity === "missing") return theme.fg("error", GLYPHS.doctorMissing);
 	if (severity === "degraded") return theme.fg("warning", GLYPHS.doctorWarn);
+	if (severity === "info") return theme.fg("dim", GLYPHS.doctorDisabled);
 	return theme.fg("success", GLYPHS.doctorOk);
 }
 
@@ -133,13 +134,19 @@ function reportSummary(report: ExtensionReport): string {
 
 /** One extension row: marker, severity glyph, name, and a summary. */
 export function extensionRow(report: ExtensionReport, theme: Theme, width: number, selected = false): string {
-	const glyph = severityGlyph(reportSeverity(report), theme);
+	const severity = reportSeverity(report);
+	const glyph = severityGlyph(severity, theme);
 	const head = `${selectionMarker(theme, selected)}${glyph} `;
 	const summary = reportSummary(report);
 	const available = Math.max(1, width - visibleWidth(head) - visibleWidth(summary) - 1);
 	const name = truncateToWidth(sanitizeLine(report.extension), available, "…");
 	const pad = " ".repeat(Math.max(0, available - visibleWidth(name)));
-	const tail = reportSeverity(report) === "missing" ? theme.fg("error", summary) : theme.fg("dim", summary);
+	const tail =
+		severity === "missing"
+			? theme.fg("error", summary)
+			: severity === "degraded"
+				? theme.fg("warning", summary)
+				: theme.fg("dim", summary);
 	return truncateToWidth(`${head}${name}${pad} ${tail}`, width);
 }
 

@@ -34,7 +34,7 @@ export interface RewindListOptions {
 /** Rows the screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
 /** Header, summary, blanks, and footer rows around the list (excluding the optional range/detail rows). */
-const SCREEN_CHROME_ROWS = 8;
+const SCREEN_CHROME_ROWS = 7;
 
 /** Selectable, scrollable timeline of prompts opened by `/rewind`. */
 export class RewindListComponent implements Component {
@@ -126,7 +126,7 @@ export class RewindListComponent implements Component {
 					Date.now(),
 					Math.max(1, w - 2),
 				);
-				const body = selected ? this.theme.fg("accent", row) : this.theme.fg("dim", row);
+				const body = selected ? this.theme.fg("accent", row) : this.theme.fg("muted", row);
 				lines.push(truncateToWidth(selectionMarker(this.theme, selected) + body, w));
 			}
 			if (cursor.clipped(this.points.length)) {
@@ -136,7 +136,9 @@ export class RewindListComponent implements Component {
 			if (detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", detail)}`, w));
 		}
 
-		lines.push(screenHint(this.theme, w, ["Esc close", "Enter rewind"]));
+		lines.push(
+			screenHint(this.theme, w, ["Esc close", { text: "Enter choose", color: "accent" }, "↑/↓ or k/j select"]),
+		);
 		lines.push("");
 		return lines;
 	}

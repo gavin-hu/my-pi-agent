@@ -94,7 +94,8 @@ describe("ExtensionsListComponent input", () => {
 		component.handleInput(" ");
 		await settle();
 
-		expect(component.render(30).join("\n")).toContain("Pending changes");
+		const text = component.render(30).join("\n");
+		expect(text).toContain("Saved");
 	});
 
 	test("Tab warns instead of switching when the project is untrusted", () => {

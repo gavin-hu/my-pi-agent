@@ -275,8 +275,10 @@ step's `Output`.
   reused `Container` for the expanded view via `context.lastComponent`. The
   expand affordance binds to `app.tools.expand` (built locally from `keyText`
   and the passed theme, so a rebind is respected and tests do not depend on the
-  global theme). The collapsed single result separates its header from the body
-  with a blank line, matching the multi view.
+  global theme). The collapsed single result and the multi view each lead with
+  the block separator blank line, and the collapsed single result separates its
+  header from the body with a second blank line, matching the `job`/`todo`/`goal`
+  results.
 - **Temp prompt file.** `--append-system-prompt` takes a path, so the agent's
   system prompt is written to a `0600` temp file and removed in `finally`; it is
   never written into the working tree.

@@ -8,6 +8,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText } from "../../lib/tui.ts";
 import {
 	compareJobs,
@@ -207,7 +208,10 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 			const text = reuseText(context.lastComponent);
 			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
-					theme.fg("muted", formatCallText(action, args as Record<string, unknown>, context.argsComplete)),
+					theme.fg(
+						"muted",
+						sanitizeLine(formatCallText(action, args as Record<string, unknown>, context.argsComplete)),
+					),
 			);
 			return text;
 		},
@@ -221,7 +225,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				return text;
 			}
 			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${details.error}`));
+				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 

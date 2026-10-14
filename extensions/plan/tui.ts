@@ -75,7 +75,7 @@ const GAUGE_SEGMENTS = 10;
 /** Footer hints shared by the review and the inline editor's primary actions. */
 const PRIMARY_HINTS: ScreenHint[] = [
 	"Esc keep planning",
-	{ text: "a approve", color: "success" },
+	{ text: "a approve & run", color: "success" },
 	{ text: "r refine", color: "accent" },
 ];
 /** Scroll keys appended to the review footer while the plan overflows. */

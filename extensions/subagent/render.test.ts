@@ -40,6 +40,12 @@ describe("renderSubagentCall", () => {
 		expect(text).toContain("find the retry logic");
 	});
 
+	test("strips control characters from a model-supplied agent name", () => {
+		const text = render(renderSubagentCall({ agent: "explorer\u001b[31m", task: "find" }, theme));
+		expect(text).toContain("explorer");
+		expect(text).not.toContain("\u001b");
+	});
+
 	test("parallel mode shows the task count and agents", () => {
 		const text = render(
 			renderSubagentCall(
@@ -418,13 +424,14 @@ describe("renderSubagentResult", () => {
 describe("spacing, keybinding, and reuse", () => {
 	const ctx = () => ({ state: {}, invalidate: () => {}, lastComponent: undefined });
 
-	test("collapsed single separates the header from the body with a blank line", () => {
+	test("collapsed single leads with a blank and separates the header from the body", () => {
 		const lines = renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, theme)
 			.render(80)
 			.map((line) => line.trimEnd());
-		expect(lines[0]).toContain("✓ explorer");
-		expect(lines[1]).toBe("");
-		expect(lines[2]).toContain("all done");
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toContain("✓ explorer");
+		expect(lines[2]).toBe("");
+		expect(lines[3]).toContain("all done");
 	});
 
 	test("the expand hint follows the bound app.tools.expand key", () => {

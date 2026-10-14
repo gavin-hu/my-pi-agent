@@ -7,6 +7,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { sanitizeLine } from "../../lib/format.ts";
 import { editorTheme } from "../../lib/tui.ts";
 import { selectionMarker } from "../../lib/list-cursor.ts";
 import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "./answers.ts";
@@ -198,10 +199,11 @@ export async function askViaTui(
 						continue;
 					}
 					const marker = target.multiSelect ? `[${chosen.includes(i + 1) ? "x" : " "}] ` : "";
-					addWithPrefix(prefix, theme.fg(active ? "accent" : "text", `${i + 1}. ${marker}${option.label}`));
+					const label = sanitizeLine(option.label);
+					addWithPrefix(prefix, theme.fg(active ? "accent" : "text", `${i + 1}. ${marker}${label}`));
 					if (option.description) {
 						const indent = " ".repeat(visibleWidth(prefix) + String(i + 1).length + 2 + visibleWidth(marker));
-						addWithPrefix(indent, theme.fg("muted", option.description));
+						addWithPrefix(indent, theme.fg("muted", sanitizeLine(option.description)));
 					}
 				}
 			}
@@ -213,7 +215,7 @@ export async function askViaTui(
 				for (let i = 0; i < questions.length; i++) {
 					const answered = state.selections[questions[i].id] !== undefined;
 					const active = i === state.tab;
-					const text = ` ${answered ? "■" : "□"} ${questions[i].header} `;
+					const text = ` ${answered ? "■" : "□"} ${sanitizeLine(questions[i].header)} `;
 					const styled = active
 						? theme.bg("selectedBg", theme.fg("text", text))
 						: theme.fg(answered ? "success" : "muted", text);
@@ -231,7 +233,7 @@ export async function askViaTui(
 			}
 
 			if (state.editing && question) {
-				addWithPrefix(" ", theme.fg("text", question.question));
+				addWithPrefix(" ", theme.fg("text", sanitizeLine(question.question)));
 				lines.push("");
 				renderOptions(question);
 				lines.push("");
@@ -249,7 +251,7 @@ export async function askViaTui(
 				for (const target of questions) {
 					addWithPrefix(
 						" ",
-						`${theme.fg("muted", `${target.header}: `)}${theme.fg("text", describeSelection(state.selections[target.id]))}`,
+						`${theme.fg("muted", `${sanitizeLine(target.header)}: `)}${theme.fg("text", sanitizeLine(describeSelection(state.selections[target.id])))}`,
 					);
 				}
 				lines.push("");
@@ -259,12 +261,12 @@ export async function askViaTui(
 				} else {
 					const missing = questions
 						.filter((target) => state.selections[target.id] === undefined)
-						.map((target) => target.header)
+						.map((target) => sanitizeLine(target.header))
 						.join(", ");
 					addWithPrefix(" ", theme.fg("warning", `Unanswered: ${missing}`));
 				}
 			} else if (question) {
-				addWithPrefix(" ", theme.fg("text", question.question));
+				addWithPrefix(" ", theme.fg("text", sanitizeLine(question.question)));
 				lines.push("");
 				renderOptions(question);
 				lines.push("");
@@ -279,9 +281,9 @@ export async function askViaTui(
 				if (question.multiSelect) {
 					const selection = state.selections[question.id];
 					if (selection?.type === "options" && selection.labels.length > 0) {
-						addWithPrefix(" ", theme.fg("success", `Selected: ${selection.labels.join(", ")}`));
+						addWithPrefix(" ", theme.fg("success", `Selected: ${selection.labels.map(sanitizeLine).join(", ")}`));
 					} else if (selection?.type === "custom") {
-						addWithPrefix(" ", theme.fg("success", `Selected: ${selection.text}`));
+						addWithPrefix(" ", theme.fg("success", `Selected: ${sanitizeLine(selection.text)}`));
 					}
 				}
 			}

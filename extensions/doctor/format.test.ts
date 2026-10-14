@@ -86,6 +86,7 @@ describe("rows and detail", () => {
 		expect(severityGlyph("missing", fakeTheme)).toBe(GLYPHS.doctorMissing);
 		expect(severityGlyph("degraded", fakeTheme)).toBe(GLYPHS.doctorWarn);
 		expect(severityGlyph("ok", fakeTheme)).toBe(GLYPHS.doctorOk);
+		expect(severityGlyph("info", fakeTheme)).toBe(GLYPHS.doctorDisabled);
 	});
 
 	test("keeps every row inside the width", () => {

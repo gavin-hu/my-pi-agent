@@ -231,7 +231,7 @@ export class ExtensionsListComponent implements Component {
 
 		if (detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", detail)}`, w, "…"));
 		if (this.runtime.isDirty()) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("warning", "Pending changes · close to apply")}`, w, "…"));
+			lines.push(truncateToWidth(`  ${this.theme.fg("warning", "Saved · reload to apply")}`, w, "…"));
 		}
 		lines.push("");
 		lines.push(screenHint(this.theme, w, ["Esc close", "Space/Enter toggle", "Tab scope", "↑/↓ select", "g/G"]));

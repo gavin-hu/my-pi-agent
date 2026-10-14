@@ -120,7 +120,7 @@ export function formatToolCall(
 		default: {
 			const json = JSON.stringify(a);
 			const text = clip(json, preview ? 50 : 200);
-			return fg("accent", toolName) + fg("dim", ` ${text}`);
+			return fg("accent", sanitizeLine(toolName)) + fg("dim", ` ${text}`);
 		}
 	}
 }

@@ -79,6 +79,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the object early.
 - `goal`: a free-form answer is sanitized to one line before it is folded into
   the goal.
+- `ask_user_question`: question text, tab headers, option labels and
+descriptions, and the selection summary are sanitized to one safe line before
+rendering, so model-authored control characters cannot reach the terminal.
+- `job`: a model-supplied id in an error line and an unknown action in the call
+  line are sanitized before rendering.
+- `subagent`: agent and tool names are sanitized before rendering, the collapsed
+  result leads with the block separator blank line, and `Step` is capitalized
+  consistently with the expanded view.
+- `doctor`: a disabled extension shows a neutral `∅` instead of a green check,
+  and a degraded row's summary is colored `warning` to match its glyph.
+- `extension-picker`: the dirty line reads `Saved · reload to apply`, since each
+  toggle is already persisted and only a reload is pending.
+- `chrome`: `/chrome status` reports `on`/`off` instead of `footer`/`disabled`.
+- `rewind`: the list no longer over-reserves a row, unselected rows use `muted`
+  so the code-snapshot marker reads, and the hint names the navigation keys.
+- `plan`: the approve hint says approval also runs the plan.
 
 ## [0.5.1] - 2026-10-13
 

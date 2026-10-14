@@ -84,7 +84,7 @@ describe("RewindListComponent", () => {
 		}));
 
 		const short = makeComponent({ points: many, viewportRows: 15 }).render(60).join("\n");
-		expect(short).toContain("showing 1–5 of 30");
+		expect(short).toContain("showing 1–6 of 30");
 		expect(short).not.toContain("prompt 6");
 
 		const tall = makeComponent({ points: many, viewportRows: 60 }).render(60).join("\n");

@@ -159,6 +159,30 @@ describe("job transcript rendering", () => {
 		expect(first.render(80).join("\n")).toContain("job start → bun test --watch");
 	});
 
+	test("sanitizes a model-supplied id in the error line", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: "Error: no job" }],
+			details: { action: "status", error: 'no job "j1\u001b[31m".' },
+			isError: true,
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("no job");
+		expect(text).not.toContain("\u001b");
+	});
+
+	test("sanitizes an unknown action in the call line", () => {
+		const { tool } = setup();
+		const text = tool
+			.renderCall({ action: "bogus\u001b[31m" }, theme, { argsComplete: true, lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).not.toContain("\u001b");
+	});
+
 	test("list renders a themed rail with a cap note and reuses the view", () => {
 		const { tool } = setup();
 		const jobs = Array.from({ length: 10 }, (_, i) => record({ id: `j${i + 1}`, label: `job ${i + 1}` }));

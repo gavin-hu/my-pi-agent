@@ -180,9 +180,9 @@ function resultHeader(
 	stepPrefix: string,
 	now: number,
 ): string {
-	let header = `${statusIcon(status, theme, now)} ${theme.fg("toolTitle", theme.bold(result.agent))}`;
+	let header = `${statusIcon(status, theme, now)} ${theme.fg("toolTitle", theme.bold(sanitizeLine(result.agent)))}`;
 	if (result.agentSource && result.agentSource !== "builtin" && result.agentSource !== "unknown") {
-		header += theme.fg("dim", ` [${result.agentSource}]`);
+		header += theme.fg("dim", ` [${sanitizeLine(result.agentSource)}]`);
 	}
 	if (result.step) header = `${theme.fg("muted", `${stepPrefix} ${result.step} `)}` + header;
 	return header + statusSuffix(result, status, theme, now);
@@ -246,7 +246,7 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
 			const step = args.chain[i];
 			const clean = sanitizeLine(step.task.replace(/\{previous\}/g, ""));
-			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", step.agent)}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
+			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", sanitizeLine(step.agent))}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
 		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `… +${args.chain.length - 3} more`)}`;
 		return text;
@@ -256,13 +256,13 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 		let text = title + theme.fg("accent", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
 			const task = args.tasks[i];
-			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", task.agent)}${theme.fg("dim", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
+			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", sanitizeLine(task.agent))}${theme.fg("dim", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
 		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `… +${args.tasks.length - 3} more`)}`;
 		return text;
 	}
 
-	const agentName = args.agent || "…";
+	const agentName = sanitizeLine(args.agent || "…");
 	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
 	text += `\n  ${theme.fg("dim", clip(sanitizeLine(args.task ?? "…"), 60))}`;
 	return text;
@@ -324,7 +324,9 @@ function addExpandedResult(
 /** The collapsed single result: header, a word, body, expand hint, and usage. */
 function collapsedSingleText(result: SingleResult, theme: Theme, isPartial: boolean, now: number): string {
 	const status = resultStatus(result, isPartial);
-	let text = resultHeader(result, status, theme, "step", now);
+	// The leading blank line separates the result block from the call line, matching
+	// the built-in renderers and the `job`/`todo`/`goal` results.
+	let text = `\n${resultHeader(result, status, theme, "Step", now)}`;
 
 	const displayItems = getDisplayItems(result.messages);
 	// A blank line separates the header from the body, matching the multi view.
@@ -383,7 +385,7 @@ function multiHeader(details: SubagentDetails, theme: Theme, now: number): strin
 function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number): string {
 	const results = details.results;
 	const { running } = summarizeResults(results);
-	let text = multiHeader(details, theme, now);
+	let text = `\n${multiHeader(details, theme, now)}`;
 
 	let hasHidden = false;
 	for (let i = 0; i < results.length; i++) {

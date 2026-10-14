@@ -108,7 +108,7 @@ describe("chrome extension", () => {
 
 		await command.handler("status", ctx);
 
-		expect(notifications.at(-1)).toBe("chrome: footer");
+		expect(notifications.at(-1)).toBe("chrome: on");
 	});
 
 	test("completes the subcommands", () => {

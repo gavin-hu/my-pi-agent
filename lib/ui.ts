@@ -34,6 +34,7 @@ export const GLYPHS = {
 	doctorOk: "✓",
 	doctorWarn: "!",
 	doctorMissing: "✕",
+	doctorDisabled: "∅",
 } as const;
 
 /** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */

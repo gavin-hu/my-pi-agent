@@ -87,8 +87,8 @@ so headings, lists, inline code, code blocks, links, and quotes carry the active
 theme's colors; task items get a `success` `[✓]` (done) or `dim` `[ ]` (pending)
 marker. A step-progress row sits under the header — a gauge plus `n/m steps done`
 — whenever the plan has top-level list steps (the same ones approval seeds into
-`todo`), and the footer colors the primary actions (`a approve` in `success`,
-`r refine` in `accent`).
+`todo`), and the footer colors the primary actions (`a approve & run` in
+`success`, `r refine` in `accent`).
 `a` ends plan mode, restores write access, and seeds `todo`; `r` keeps the plan
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the

@@ -66,6 +66,22 @@ describe("askViaTui render", () => {
 		expect(text).toContain("✓ Submit");
 	});
 
+	test("strips control characters from model-authored text", () => {
+		const evil: Question = {
+			id: "q1",
+			header: "Auth\u001b[31m",
+			question: "Pick\u0007 one\u001b]0;pwned\u0007",
+			options: [{ label: "OAuth\u001b[0m", description: "flow\u0007" }],
+			allowOther: true,
+			multiSelect: false,
+		};
+		const second: Question = { ...evil, id: "q2", header: "Scope\u001b[0m" };
+		const text = harness([evil, second]).render().join("\n");
+		expect(text).toContain("OAuth");
+		expect(text).not.toContain("\u001b");
+		expect(text).not.toContain("\u0007");
+	});
+
 	test("opens the editor for a free-form question", () => {
 		const text = harness([freeForm]).render().join("\n");
 		expect(text).toContain("Anything else?");
