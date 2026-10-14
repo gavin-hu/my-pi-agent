@@ -7,7 +7,7 @@
  * order is `provider/model`, then `any/model`, then `provider/any`, then `*`.
  */
 
-import type { ModelRates } from "../types.ts";
+import type { ModelRates } from "./types.ts";
 
 /** One segment's score against a value: exact 2, prefix 1, wildcard 0, no match -1. */
 function segmentScore(pattern: string, value: string): number {

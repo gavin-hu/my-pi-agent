@@ -1,58 +1,14 @@
 /**
- * Shared types for the bytefly extension.
+ * The footer's data model.
  *
  * The bar is built in three stages: a `StatusSnapshot` gathers the data, the
  * snapshot becomes `LineSpec`s of `Segment`s, and the layout engine renders
- * each line for the available width.
+ * each line for the available width. Price-configuration types live in
+ * `./price/types.ts`.
  */
 
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-
-/** How a cost is rendered. */
-export interface Currency {
-	/** Printed before the number, e.g. `$` or `¥`. */
-	symbol: string;
-	/** Digits after the decimal point. */
-	decimals: number;
-}
-
-/** Per-million-token rates for one model, expressed in the configured currency. */
-export interface ModelRates {
-	input: number;
-	output: number;
-	cacheRead: number;
-	cacheWrite: number;
-	/** Multiplier applied outside every peak window; `1` means no discount. */
-	offPeakMultiplier: number;
-}
-
-/** One peak window in local time, as minutes since midnight. */
-export interface PeakWindow {
-	/** ISO weekday numbers, 1 = Monday .. 7 = Sunday. */
-	days: readonly number[];
-	/** Inclusive start, in minutes since local midnight. */
-	from: number;
-	/** Exclusive end; a value `<= from` wraps past midnight. */
-	to: number;
-}
-
-/** When a provider charges its peak rate. */
-export interface PeakSchedule {
-	/** IANA zone the windows are stated in. */
-	timezone: string;
-	/** No windows means every moment is peak, so a rate is flat. */
-	windows: readonly PeakWindow[];
-}
-
-/** Everything the price calculation is configured with. */
-export interface ByteflyConfig {
-	currency: Currency;
-	/** Fall back to Pi's recorded cost for a record that no rate matches. */
-	fallbackToRecordedCost: boolean;
-	/** Rates keyed by `provider/model`, matched through wildcards. */
-	rates: Readonly<Record<string, ModelRates>>;
-	peak: PeakSchedule;
-}
+import type { Currency } from "./price/types.ts";
 
 /** One usage-bearing session entry, reduced to what pricing needs. */
 export interface UsageRecord {

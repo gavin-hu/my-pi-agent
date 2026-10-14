@@ -1,54 +1,20 @@
 /**
- * Tuning for the two-line status bar, and the user's price configuration.
+ * The `bytefly.json` price configuration: schema, defaults, and loader.
  *
- * `CONFIG` is the bar's own content and layout — weights live on the segments
- * themselves (see `render/segments.ts`). Everything below it is
- * `bytefly.json`: read from `~/.pi/agent/bytefly.json` and
- * `<cwd>/.pi/bytefly.json` (project values override global). Missing or
+ * Read from `~/.pi/agent/bytefly.json` and `<cwd>/.pi/bytefly.json` (project
+ * values override global) through the shared `loadConfigFile`. Missing or
  * malformed files are ignored, and a value of the wrong type falls back to the
  * default instead of throwing.
  *
- * The extension was called `chrome` before it was released as `bytefly`. A
- * `chrome.json` left by that name is moved to `bytefly.json` on load, and is
- * still read in place when the directory is not writable, so a saved price
- * configuration survives the rename.
+ * The built-in table is DeepSeek's published yuan pricing, with the peak
+ * schedule that doubles the price during peak hours. It is the default value of
+ * `rates`, so nothing here is provider-specific: another provider's currency
+ * and tariff are stated in `bytefly.json`.
  */
 
-import { existsSync, renameSync } from "node:fs";
-import { join } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { clampInteger, clampNumber, cleanString, readJson } from "../../lib/config.ts";
-import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../lib/ui.ts";
-import { parseWindow } from "./price/schedule.ts";
-import { asRecord } from "./record.ts";
-import type { Currency, ModelRates, PeakSchedule, PeakWindow, ByteflyConfig } from "./types.ts";
-
-export const CONFIG = {
-	/** Context percentage thresholds. */
-	thresholds: { warn: 70, danger: 90 },
-	/** Gauge glyphs, and the block counts the gauge steps down through. */
-	gauge: { full: GLYPHS.gaugeFull, empty: GLYPHS.gaugeEmpty, widths: [10, 5, 3, 0] as const },
-	/** Separators printed before grouped and other segments. */
-	separators: { group: SEPARATORS.group, item: SEPARATORS.item },
-	icons: { branch: GLYPHS.branch, detached: GLYPHS.detached, worktree: GLYPHS.worktree, browse: GLYPHS.browse },
-	/** Status key the worktree extension uses; routed to line 1's right zone. */
-	worktreeStatusKey: STATUS_KEYS.worktree,
-	/** Status key the file-browse extension uses; routed to line 1's right zone. */
-	browseStatusKey: STATUS_KEYS.browse,
-	/** Status key whose ` · detail` suffix (the plan file name) is dropped. */
-	planStatusKey: STATUS_KEYS.planMode,
-	/** Status key treated as an alert: the one that sorts to the front of the slot. */
-	jobsFailureStatusKey: STATUS_KEYS.jobsFailure,
-	labels: { noModel: "no model", detached: "detached" },
-	/** Minimum gap kept between the left and right zones. */
-	minGap: 2,
-	/** Worktree label length before the compact form truncates it. */
-	worktreeLabelMax: 14,
-	/** Session-name length before the compact form truncates it. */
-	sessionLabelMax: 14,
-} as const;
-
-// --- Price configuration (bytefly.json) ----------------------------------
+import { asRecord, clampInteger, clampNumber, cleanString, loadConfigFile } from "../../../../lib/config.ts";
+import { parseWindow } from "./schedule.ts";
+import type { ByteflyConfig, Currency, ModelRates, PeakSchedule, PeakWindow } from "./types.ts";
 
 /** Monday to Friday, the days DeepSeek charges its peak rate. */
 const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
@@ -179,41 +145,10 @@ export function normalizeByteflyConfig(raw: Record<string, unknown> | undefined,
 	};
 }
 
-// --- Legacy config migration ---------------------------------------------
-
-/** The config file this extension reads. */
+/** The config file this extension reads, under the agent directory and `<cwd>/.pi`. */
 export const CONFIG_FILE = "bytefly.json";
-/** The name the config file had as `chrome`. */
-export const LEGACY_CONFIG_FILE = "chrome.json";
 
-/**
- * Move a legacy `chrome.json` to `bytefly.json` in one directory, when only the
- * legacy file exists. Best-effort: an unwritable directory keeps the legacy
- * file, which {@link scopedConfig} then reads in place.
- */
-function migrateLegacyConfig(dir: string): void {
-	const legacy = join(dir, LEGACY_CONFIG_FILE);
-	if (!existsSync(legacy) || existsSync(join(dir, CONFIG_FILE))) return;
-	try {
-		renameSync(legacy, join(dir, CONFIG_FILE));
-	} catch {
-		// Leave the legacy file; the fallback read below still finds it.
-	}
-}
-
-/** Raw config for one scope, preferring `bytefly.json` over a legacy `chrome.json`. */
-function scopedConfig(dir: string): Record<string, unknown> | undefined {
-	return readJson(join(dir, CONFIG_FILE)) ?? readJson(join(dir, LEGACY_CONFIG_FILE));
-}
-
-/** Effective price config for `cwd` (global file, then project file, over defaults). */
+/** Effective price config for `cwd` (defaults, then the global file, then the project file). */
 export function loadByteflyConfig(cwd: string): ByteflyConfig {
-	const agentDir = getAgentDir();
-	const projectDir = join(cwd, CONFIG_DIR_NAME);
-	migrateLegacyConfig(agentDir);
-	migrateLegacyConfig(projectDir);
-	let config = DEFAULT_BYTEFLY_CONFIG;
-	config = normalizeByteflyConfig(scopedConfig(agentDir), config);
-	config = normalizeByteflyConfig(scopedConfig(projectDir), config);
-	return config;
+	return loadConfigFile(cwd, CONFIG_FILE, DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig);
 }

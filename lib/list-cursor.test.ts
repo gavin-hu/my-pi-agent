@@ -4,9 +4,13 @@ import {
 	clampScroll,
 	fitRows,
 	formatRange,
+	isCloseKey,
 	keepVisible,
 	ListCursor,
 	navIntent,
+	navigateList,
+	navigateScroll,
+	scrollList,
 	selectionMarker,
 	wheelDelta,
 } from "./list-cursor.ts";
@@ -90,6 +94,74 @@ describe("wheelDelta", () => {
 	test("ignores a zero delta and other events", () => {
 		expect(wheelDelta({ type: "wheel", wheelDelta: 0 } as any)).toBeUndefined();
 		expect(wheelDelta({ type: "click", button: "left" } as any)).toBeUndefined();
+	});
+});
+
+describe("navigateList", () => {
+	const cursor = (): ListCursor => {
+		const c = new ListCursor(() => {});
+		c.visible = 3;
+		return c;
+	};
+
+	test("moves by one, by a page, and to the ends", () => {
+		const c = cursor();
+		expect(navigateList(DOWN, c, 10)).toBe(true);
+		expect(c.selected).toBe(1);
+		expect(navigateList(PAGE_DOWN, c, 10)).toBe(true);
+		expect(c.selected).toBe(4);
+		expect(navigateList(END, c, 10)).toBe(true);
+		expect(c.selected).toBe(9);
+		expect(navigateList(HOME, c, 10)).toBe(true);
+		expect(c.selected).toBe(0);
+	});
+
+	test("leaves a non-navigation key to the screen", () => {
+		const c = cursor();
+		expect(navigateList("d", c, 10)).toBe(false);
+		expect(c.selected).toBe(0);
+	});
+});
+
+describe("scrollList", () => {
+	test("moves the cursor by the wheel delta and marks the event handled", () => {
+		const cursor = new ListCursor(() => {});
+		expect(scrollList({ type: "wheel", wheelDelta: 2 } as any, cursor, 10)).toEqual({ handled: true });
+		expect(cursor.selected).toBe(2);
+	});
+
+	test("returns undefined for a non-wheel event", () => {
+		const cursor = new ListCursor(() => {});
+		expect(scrollList({ type: "click", button: "left" } as any, cursor, 10)).toBeUndefined();
+		expect(cursor.selected).toBe(0);
+	});
+});
+
+describe("isCloseKey", () => {
+	test("matches Escape and Ctrl+C only", () => {
+		expect(isCloseKey("\x1b")).toBe(true);
+		expect(isCloseKey("\x03")).toBe(true);
+		expect(isCloseKey("q")).toBe(false);
+		expect(isCloseKey("\r")).toBe(false);
+	});
+});
+
+describe("navigateScroll", () => {
+	test("moves by one and by a page, clamped", () => {
+		expect(navigateScroll(DOWN, 0, 10, 3)).toBe(1);
+		expect(navigateScroll(PAGE_DOWN, 0, 10, 3)).toBe(3);
+		expect(navigateScroll(PAGE_UP, 5, 10, 3)).toBe(2);
+		expect(navigateScroll(UP, 0, 10, 3)).toBe(0);
+	});
+
+	test("jumps to the ends", () => {
+		expect(navigateScroll(HOME, 5, 10, 3)).toBe(0);
+		expect(navigateScroll(END, 0, 10, 3)).toBe(7);
+		expect(navigateScroll(END, 0, 2, 5)).toBe(0);
+	});
+
+	test("returns undefined for an action key", () => {
+		expect(navigateScroll("d", 0, 10, 3)).toBeUndefined();
 	});
 });
 

@@ -7,15 +7,8 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-	Key,
-	matchesKey,
-	truncateToWidth,
-	type Component,
-	type TuiMouseEvent,
-	type TuiMouseEventResult,
-} from "@earendil-works/pi-tui";
-import { clampScroll, fitRows, formatRange, navIntent, wheelDelta } from "../../lib/list-cursor.ts";
+import { truncateToWidth, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { clampScroll, fitRows, formatRange, isCloseKey, navigateScroll, wheelDelta } from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
 import { BODY_INDENT } from "../../lib/ui.ts";
 import { progressCount, progressSummary, todoGlyph, todoLabel, todoRailLines, type TodoRailInput } from "./format.ts";
@@ -117,7 +110,7 @@ export class TodoListComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+		if (isCloseKey(data)) {
 			this.onClose();
 			return;
 		}
@@ -130,26 +123,8 @@ export class TodoListComponent implements Component {
 			this.setScroll(this.maxScroll);
 			return;
 		}
-		switch (navIntent(data)) {
-			case "up":
-				this.setScroll(this.scrollTop - 1);
-				return;
-			case "down":
-				this.setScroll(this.scrollTop + 1);
-				return;
-			case "pageUp":
-				this.setScroll(this.scrollTop - this.visible);
-				return;
-			case "pageDown":
-				this.setScroll(this.scrollTop + this.visible);
-				return;
-			case "home":
-				this.setScroll(0);
-				return;
-			case "end":
-				this.setScroll(this.maxScroll);
-				return;
-		}
+		const next = navigateScroll(data, this.scrollTop, this.todos.length, this.visible);
+		if (next !== undefined) this.setScroll(next);
 	}
 
 	/** Wheel scrolling moves the list, matching the other list screens. */

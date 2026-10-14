@@ -23,8 +23,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its header alone. The footer keeps pwd + session name + git branch/worktree +
   browse chip on line 1 and the context gauge + usage + mode/alert + model +
   thinking level on line 2; `/bytefly [status]` toggles it. The display name,
-  command, extension directory, and config file are all `bytefly` now, and a
-  legacy `chrome.json` is migrated to `bytefly.json` on load.
+  command, extension directory, and config file are all `bytefly` now.
 - `bytefly`: absorbs the `/extensions` picker, formerly the
   `extension-picker` extension. `/extensions` lists every resolved Pi
   extension across all configured packages and enables or disables one (Global
@@ -114,6 +113,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   renders them two columns wide.
 - `ask_user_question`: the answer hints render through the shared `screenHint`,
   so a narrow terminal drops whole keys instead of wrapping or clipping one.
+- `bytefly`: the extension is reorganized into feature folders. `footer/` holds
+  the status bar, its price calculation, and the `/bytefly` toggle; `separator/`,
+  `picker/`, and `doctor/` are otherwise unchanged. No configuration, command, or
+  rendering behaviour changes.
 - `themes`: `nocturne-dark` and `nocturne-light` are renamed `bytefly-dark` and
   `bytefly-light` (file names, the `name` field, and the README selectors). An
   existing `theme` setting or `--use-theme` value must be pointed at the new
@@ -121,6 +124,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `bytefly`: the `chrome.json` migration and read fallback are gone; the footer
+  reads only `bytefly.json`. Rename an existing `chrome.json` to `bytefly.json`
+  to keep a saved price configuration.
 - `turn-separator`: absorbed into `bytefly`, which now draws the labeled turn
   rule itself. The rule renders the `bytefly-separator` entry type, so
   separators recorded as `turn-separator` no longer render, and

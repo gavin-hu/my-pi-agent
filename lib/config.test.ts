@@ -4,7 +4,15 @@ import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { tempDir, withAgentDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
-import { clampInteger, clampNumber, cleanString, loadConfigFile, readJson, readJsonResult } from "./config.ts";
+import {
+	asRecord,
+	clampInteger,
+	clampNumber,
+	cleanString,
+	loadConfigFile,
+	readJson,
+	readJsonResult,
+} from "./config.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -57,6 +65,20 @@ describe("cleanString", () => {
 		expect(cleanString("   ", "fb")).toBe("fb");
 		expect(cleanString(7, "fb")).toBe("fb");
 		expect(cleanString(undefined, "fb")).toBe("fb");
+	});
+});
+
+describe("asRecord", () => {
+	test("returns a plain object as-is", () => {
+		expect(asRecord({ a: 1 })).toEqual({ a: 1 });
+		expect(asRecord({})).toEqual({});
+	});
+
+	test("returns undefined for an array, null, or a primitive", () => {
+		expect(asRecord([1, 2])).toBeUndefined();
+		expect(asRecord(null)).toBeUndefined();
+		expect(asRecord("x")).toBeUndefined();
+		expect(asRecord(undefined)).toBeUndefined();
 	});
 });
 

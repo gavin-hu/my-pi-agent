@@ -13,7 +13,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, type TuiMouseEvent } from "@earendil-works/pi-tui";
+import { Key, matchesKey, truncateToWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { viewportRows, type ViewportRowsSource } from "./tui.ts";
 
 /**
@@ -144,5 +144,79 @@ export class ListCursor {
 	/** Whether the window omits rows, so a range row is warranted. */
 	clipped(count: number): boolean {
 		return this.scrollTop > 0 || this.window(count).end < count;
+	}
+}
+
+/**
+ * Apply a standard navigation key to `cursor`, reporting whether it handled it.
+ *
+ * Screens handle their own Escape/Enter/action keys first and then hand every
+ * other key here, so the binding for arrows, `j`/`k`, PgUp/PgDn, and Home/End is
+ * defined once and stays consistent across screens. A key that is not a
+ * navigation key returns `false`, leaving it for the screen.
+ */
+export function navigateList(data: string, cursor: ListCursor, count: number): boolean {
+	switch (navIntent(data)) {
+		case "up":
+			cursor.by(-1, count);
+			return true;
+		case "down":
+			cursor.by(1, count);
+			return true;
+		case "pageUp":
+			cursor.page(-1, count);
+			return true;
+		case "pageDown":
+			cursor.page(1, count);
+			return true;
+		case "home":
+			cursor.set(0, count);
+			return true;
+		case "end":
+			cursor.set(count - 1, count);
+			return true;
+		default:
+			return false;
+	}
+}
+
+/** Move `cursor` by a mouse-wheel delta; `undefined` when the event is not a wheel. */
+export function scrollList(event: TuiMouseEvent, cursor: ListCursor, count: number): TuiMouseEventResult | undefined {
+	const delta = wheelDelta(event);
+	if (delta === undefined) return undefined;
+	cursor.by(delta, count);
+	return { handled: true };
+}
+
+/** Whether `data` is the screen-close key: Escape or Ctrl+C. */
+export function isCloseKey(data: string): boolean {
+	return matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"));
+}
+
+/**
+ * The next scroll offset for a standard navigation key, or `undefined` when
+ * `data` is not a navigation key.
+ *
+ * For a screen that scrolls a window instead of moving a cursor (`/jobs`'s log
+ * pane, `/todos`), this is the scroll-position counterpart of
+ * {@link navigateList}. `count` is the number of rows and `visible` the rows on
+ * screen; the result is clamped into `[0, max(0, count - visible)]`.
+ */
+export function navigateScroll(data: string, scrollTop: number, count: number, visible: number): number | undefined {
+	switch (navIntent(data)) {
+		case "up":
+			return clampScroll(scrollTop - 1, count, visible);
+		case "down":
+			return clampScroll(scrollTop + 1, count, visible);
+		case "pageUp":
+			return clampScroll(scrollTop - Math.max(1, visible), count, visible);
+		case "pageDown":
+			return clampScroll(scrollTop + Math.max(1, visible), count, visible);
+		case "home":
+			return 0;
+		case "end":
+			return Math.max(0, count - visible);
+		default:
+			return undefined;
 	}
 }

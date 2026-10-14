@@ -8,10 +8,10 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
-import { CONFIG, DEFAULT_CURRENCY } from "../config.ts";
-import type { Currency } from "../types.ts";
-
-export { formatTokens, sanitize } from "../../../lib/format.ts";
+import { shortenPath } from "../../../../lib/format.ts";
+import { CONFIG } from "../config.ts";
+import { DEFAULT_CURRENCY } from "../price/config.ts";
+import type { Currency } from "../price/types.ts";
 
 /** Theme tokens for the reasoning-effort indicator. */
 export type ThinkingColor =
@@ -42,24 +42,9 @@ export function formatPercent(percent: number | null): string {
 	return percent === null ? "?" : `${Math.round(percent)}%`;
 }
 
-/** Backslashes to slashes, so Windows paths shorten and split like POSIX ones. */
-function normalize(path: string): string {
-	return path.replace(/\\/g, "/");
-}
-
-/** Replace the home prefix with `~`. */
-function shortenHome(cwd: string, home: string | undefined): string {
-	if (!home) return normalize(cwd);
-	const target = normalize(cwd);
-	const root = normalize(home).replace(/\/+$/, "");
-	if (target === root) return "~";
-	if (target.startsWith(`${root}/`)) return `~${target.slice(root.length)}`;
-	return target;
-}
-
 /** The final path segment. */
 function basename(path: string): string {
-	const parts = normalize(path).split("/").filter(Boolean);
+	const parts = path.split("/").filter(Boolean);
 	return parts.at(-1) ?? path;
 }
 
@@ -68,7 +53,9 @@ function basename(path: string): string {
  * `0` = full (`~/repo/project`), `1` = `~/project`, `2` = `project`.
  */
 export function formatCwd(cwd: string, home: string | undefined, level: 0 | 1 | 2): string {
-	const shortened = shortenHome(cwd, home);
+	// `shortenPath` normalizes separators and replaces the home prefix, so the
+	// level-1/2 logic below only splits an already-normalized path.
+	const shortened = shortenPath(cwd, home);
 	if (level === 0) return shortened;
 	const base = basename(shortened);
 	if (level === 2) return base;
@@ -106,38 +93,6 @@ const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {
 	xhigh: "thinkingXhigh",
 	max: "thinkingMax",
 };
-
-/**
- * Compact a status to its icon form for a narrow bar, keeping its own colour.
- *
- * An icon plus a label (`⋮ plan`) keeps only the icon. An icon plus a bare
- * count (`↺ 2`) is a badge: it keeps the count and drops the space (`↺2`),
- * because the number is the state. The leading open and trailing reset SGR
- * sequences are reattached around the compacted text, so a red `✗1` stays red
- * instead of losing its colour exactly when the bar tightens. Requiring exactly
- * two tokens (rather than "the last token is numeric") keeps a numeric label
- * like `⋮ plan · 2024` from being mistaken for a count.
- */
-export function compactStatus(status: string): string {
-	const prefix = status.match(/^(?:\x1b\[[0-9;]*m)*/)?.[0] ?? "";
-	const suffix = status.match(/(?:\x1b\[[0-9;]*m)+$/)?.[0] ?? "";
-	const body = status.slice(prefix.length, status.length - suffix.length);
-	const tokens = stripTerminalSequences(body).trim().split(/\s+/).filter(Boolean);
-	const icon = tokens[0] ?? "";
-	const text = tokens.length === 2 && /^\d+$/.test(tokens[1]) ? `${icon}${tokens[1]}` : icon;
-	return `${prefix}${text}${suffix}`;
-}
-
-/**
- * Drop a status's trailing ` · detail` while keeping its SGR styling.
- *
- * The `plan-mode` chip carries the plan file name as detail (`⋮ plan · name`);
- * the bar shows only the mode. Matching `[^ESC]*` removes the visible suffix
- * without consuming the closing reset, so the chip's color stays balanced.
- */
-export function dropStatusDetail(status: string): string {
-	return status.replace(/ · [^\x1b]*/, "");
-}
 
 /** Truncate to `max` display columns, counting wide characters correctly. */
 export function truncateLabel(label: string, max: number): string {

@@ -66,4 +66,9 @@ describe("shortenPath", () => {
 		expect(shortenPath(`${home}-backup/x`)).toBe(normalize(`${home}-backup/x`));
 		expect(shortenPath(home)).toBe("~");
 	});
+
+	test("accepts an explicit home for a deterministic caller", () => {
+		expect(shortenPath("/home/u/repo/x", "/home/u")).toBe("~/repo/x");
+		expect(shortenPath("/other/repo", "/home/u")).toBe("/other/repo");
+	});
 });

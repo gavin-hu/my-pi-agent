@@ -18,7 +18,15 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { fitRows, formatRange, ListCursor, navIntent, selectionMarker, wheelDelta } from "../../../lib/list-cursor.ts";
+import {
+	fitRows,
+	formatRange,
+	isCloseKey,
+	ListCursor,
+	navIntent,
+	selectionMarker,
+	wheelDelta,
+} from "../../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../../lib/tui.ts";
 import { buildEntries, firstSelectable, nextSelectable } from "./resources.ts";
 import type { ExtensionsPickerRuntime as Runtime } from "./runtime.ts";
@@ -116,7 +124,7 @@ export class ExtensionsListComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+		if (isCloseKey(data)) {
 			this.onClose();
 			return;
 		}

@@ -25,8 +25,10 @@ import {
 	clampScroll,
 	fitRows,
 	formatRange,
+	isCloseKey,
 	keepVisible,
 	navIntent,
+	navigateScroll,
 	selectionMarker,
 	wheelDelta,
 } from "../../lib/list-cursor.ts";
@@ -278,7 +280,7 @@ export class JobListComponent implements Component {
 	}
 
 	private handleListInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") {
+		if (isCloseKey(data) || data === "q") {
 			this.onClose();
 			return;
 		}
@@ -349,13 +351,7 @@ export class JobListComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		if (
-			data === "n" ||
-			data === "N" ||
-			matchesKey(data, Key.escape) ||
-			matchesKey(data, Key.ctrl("c")) ||
-			data === "q"
-		) {
+		if (data === "n" || data === "N" || isCloseKey(data) || data === "q") {
 			this.confirm = undefined;
 			this.requestRender();
 		}
@@ -387,25 +383,10 @@ export class JobListComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		switch (navIntent(data)) {
-			case "up":
-				this.setLogScroll(this.logScroll - 1);
-				return;
-			case "down":
-				this.setLogScroll(this.logScroll + 1);
-				return;
-			case "pageUp":
-				this.setLogScroll(this.logScroll - this.visible);
-				return;
-			case "pageDown":
-				this.setLogScroll(this.logScroll + this.visible);
-				return;
-			case "home":
-				this.setLogScroll(0);
-				return;
-			case "end":
-				this.setLogScroll(this.maxLogScroll);
-				return;
+		const next = navigateScroll(data, this.logScroll, this.logLines.length, this.visible);
+		if (next !== undefined) {
+			this.setLogScroll(next);
+			return;
 		}
 		if (data === "g") this.setLogScroll(0);
 		else if (data === "G") this.setLogScroll(this.maxLogScroll);

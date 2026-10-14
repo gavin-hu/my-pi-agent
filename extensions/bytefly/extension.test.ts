@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import bytefly from "./index.ts";
 import { coloringTheme, emit } from "../../test/helpers/fakes.ts";
@@ -167,20 +167,6 @@ describe("bytefly extension", () => {
 		});
 
 		expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
-	});
-
-	test("migrates a legacy chrome.json when the footer installs", async () => {
-		const { pi } = makeFakePi();
-		bytefly(pi);
-		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
-
-		await withAgentDir(async (agentDir) => {
-			writeFileSync(join(agentDir, "chrome.json"), rateConfig("¥"));
-			await emit(pi, "session_start", { reason: "startup" }, ctx);
-			expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
-			expect(existsSync(join(agentDir, "bytefly.json"))).toBe(true);
-			expect(existsSync(join(agentDir, "chrome.json"))).toBe(false);
-		});
 	});
 
 	test("re-reads the config when the footer is toggled back on", async () => {

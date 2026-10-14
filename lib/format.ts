@@ -63,11 +63,14 @@ export function sanitizeLine(text: string): string {
  * `/home/bob` does not shorten `/home/bobby`. Separators are normalized to `/`
  * so a Windows home (`C:\Users\x`) still matches a forward-slash path and the
  * result reads uniformly in the UI.
+ *
+ * `home` defaults to the real home directory; pass one explicitly to keep a
+ * renderer deterministic (and testable) against an injected home.
  */
-export function shortenPath(path: string): string {
+export function shortenPath(path: string, home: string = homedir()): string {
 	const normalized = path.replace(/\\/g, "/");
-	const home = homedir().replace(/\\/g, "/").replace(/\/+$/, "");
-	if (!home) return normalized;
-	if (normalized === home) return "~";
-	return normalized.startsWith(`${home}/`) ? `~${normalized.slice(home.length)}` : normalized;
+	const root = home.replace(/\\/g, "/").replace(/\/+$/, "");
+	if (!root) return normalized;
+	if (normalized === root) return "~";
+	return normalized.startsWith(`${root}/`) ? `~${normalized.slice(root.length)}` : normalized;
 }

@@ -7,7 +7,8 @@
  */
 
 import { emptyUsage } from "../collect/entries.ts";
-import type { ModelRates, ByteflyConfig, UsageRecord, UsageTotals } from "../types.ts";
+import type { ByteflyConfig, ModelRates } from "./types.ts";
+import type { UsageRecord, UsageTotals } from "../types.ts";
 import { findRates } from "./rates.ts";
 import { isPeak, peakFormatter } from "./schedule.ts";
 

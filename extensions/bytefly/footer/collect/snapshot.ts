@@ -9,7 +9,8 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { createPricer } from "../price/price.ts";
-import type { FooterData, ByteflyConfig, StatusSnapshot } from "../types.ts";
+import type { ByteflyConfig } from "../price/types.ts";
+import type { FooterData, StatusSnapshot } from "../types.ts";
 import { emptyUsage, usageRecords } from "./entries.ts";
 
 /**

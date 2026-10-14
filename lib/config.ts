@@ -51,6 +51,19 @@ export function cleanString(value: unknown, fallback: string): string {
 	return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+/**
+ * `value` when it is a plain object, otherwise `undefined`.
+ *
+ * A JSON config field is untrusted input: this narrows it to an object without
+ * throwing on an array, `null`, or a primitive, so "unset" stays distinct from
+ * an empty object. `readJson` applies the same check to the top-level document;
+ * use this for a nested field.
+ */
+export function asRecord(value: unknown): Record<string, unknown> | undefined {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+	return value as Record<string, unknown>;
+}
+
 /** Parse a JSON object from disk, ignoring missing/malformed/non-object files. */
 export function readJson(path: string): Record<string, unknown> | undefined {
 	const result = readJsonResult(path);

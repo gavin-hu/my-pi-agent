@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { ModelRates } from "../types.ts";
+import type { ModelRates } from "./types.ts";
 import { findRates } from "./rates.ts";
 
 const rate = (input: number): ModelRates => ({

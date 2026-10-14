@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { withAgentDir } from "../../test/helpers/env.ts";
+import { withAgentDir } from "../../../../test/helpers/env.ts";
 import { DEFAULT_RATES, DEFAULT_BYTEFLY_CONFIG, loadByteflyConfig, normalizeByteflyConfig } from "./config.ts";
 
 let cwd = "";
@@ -175,39 +175,6 @@ describe("loadByteflyConfig", () => {
 		writeFileSync(join(cwd, ".pi", "bytefly.json"), "{ not json");
 		return withAgentDir(() => {
 			expect(loadByteflyConfig(cwd)).toEqual(DEFAULT_BYTEFLY_CONFIG);
-		});
-	});
-});
-
-describe("legacy chrome.json migration", () => {
-	test("moves a legacy chrome.json to bytefly.json and keeps its settings", () => {
-		writeConfig(join(cwd, ".pi"), "chrome.json", { currency: { symbol: "€", decimals: 3 } });
-		return withAgentDir(() => {
-			const config = loadByteflyConfig(cwd);
-			expect(config.currency).toEqual({ symbol: "€", decimals: 3 });
-			expect(existsSync(join(cwd, ".pi", "bytefly.json"))).toBe(true);
-			expect(existsSync(join(cwd, ".pi", "chrome.json"))).toBe(false);
-		});
-	});
-
-	test("migrates the global file independently of the project file", () => {
-		writeConfig(join(cwd, ".pi"), "bytefly.json", { fallbackToRecordedCost: false });
-		return withAgentDir((agentDir) => {
-			writeConfig(agentDir, "chrome.json", { currency: { symbol: "€", decimals: 3 } });
-			const config = loadByteflyConfig(cwd);
-			expect(config.currency).toEqual({ symbol: "€", decimals: 3 });
-			expect(config.fallbackToRecordedCost).toBe(false);
-			expect(existsSync(join(agentDir, "bytefly.json"))).toBe(true);
-			expect(existsSync(join(agentDir, "chrome.json"))).toBe(false);
-		});
-	});
-
-	test("leaves a legacy file alone when the current file already exists", () => {
-		writeConfig(join(cwd, ".pi"), "bytefly.json", { currency: { symbol: "$", decimals: 0 } });
-		writeConfig(join(cwd, ".pi"), "chrome.json", { currency: { symbol: "€", decimals: 3 } });
-		return withAgentDir(() => {
-			expect(loadByteflyConfig(cwd).currency).toEqual({ symbol: "$", decimals: 0 });
-			expect(existsSync(join(cwd, ".pi", "chrome.json"))).toBe(true);
 		});
 	});
 });

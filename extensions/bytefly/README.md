@@ -76,7 +76,7 @@ rounding to a misleading `¥0.3` — and a positive amount below one minor unit
 shows as `¥<0.01` rather than `¥0.00`.
 
 DeepSeek needs no config file at all: the bar prices it from the published yuan
-rates and peak tariff built into [`config.ts`](./config.ts). A
+rates and peak tariff built into [`footer/price/config.ts`](./footer/price/config.ts). A
 `bytefly.json` adds models of your own, or replaces a built-in entry:
 
 ```
@@ -124,7 +124,7 @@ when there is no UI.
 
 ## Configuration
 
-The footer's own content and layout are tuned in [`config.ts`](./config.ts) —
+The footer's own content and layout are tuned in [`footer/config.ts`](./footer/config.ts) —
 thresholds, gauge glyphs and widths, separators, icons, and status keys. The
 turn separator has no JSON either: its glyph, label prefix, padding, and colors
 are tuned in [`separator/config.ts`](./separator/config.ts). The price
@@ -133,10 +133,6 @@ reads its config:
 
 - `~/.pi/agent/bytefly.json` (global)
 - `<cwd>/.pi/bytefly.json` (project; overrides the global file)
-
-A `chrome.json` saved under the extension's former name is moved to
-`bytefly.json` in the same directory on load (and read in place from an
-unwritable directory), so an existing price configuration survives the rename.
 
 Both are optional, and neither is needed for DeepSeek. The built-in table is the
 base layer for every session: DeepSeek is priced in yuan at the published peak
@@ -223,7 +219,7 @@ Pi prices every model call from its bundled catalog in USD, and the provider API
 never returns a price. Built-in and configured rates replace that for the models
 they match:
 
-- **Which built-in rates.** [`config.ts`](./config.ts) ships DeepSeek's published
+- **Which built-in rates.** [`footer/price/config.ts`](./footer/price/config.ts) ships DeepSeek's published
   yuan prices, with the peak schedule that doubles the price during peak hours
   ([DeepSeek's pricing page](https://api-docs.deepseek.com/quick_start/pricing)).
   They are ordinary rate entries, so a `bytefly.json` key replaces one of
@@ -245,7 +241,7 @@ they match:
 For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
 published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
 turn at `¥10.00` at peak and `¥5.00` off-peak. That example is worked end to end
-in [`price/price.test.ts`](./price/price.test.ts), which also prices the built-in
+in [`footer/price/price.test.ts`](./footer/price/price.test.ts), which also prices the built-in
 table with no config file at all.
 
 ## Content and colors
@@ -434,7 +430,7 @@ the same entry in `lib/requirements.ts`, so the two cannot drift.
 
 ## Non-goals
 
-- No per-segment CLI: the bar's look lives in `config.ts`, the price in
+- No per-segment CLI: the bar's look lives in `footer/config.ts`, the price in
   `bytefly.json`.
 - No per-model cost breakdown, no `/bytefly price`, and no on-screen marker
   for which tariff or which source produced a number.
@@ -468,9 +464,9 @@ rather than showing a wrong value.
 | Doctor command | `pi.registerCommand("doctor")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
 | Doctor probes | `run_doctor` and `/doctor` share the session cache; `/doctor refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. A legacy `chrome.json` is migrated to `bytefly.json` on load. `doctor.json` is read at `session_start`. Nothing watches either file. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. `doctor.json` is read at `session_start`. Nothing watches either file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the one-time config migration and the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it renames a legacy `chrome.json` to `bytefly.json` and appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. |
+| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. |
 | Lifecycle | `session_start` installs the footer and points the doctor runtime at the session cwd, probing the extensions with hard requirements when `doctor.json`'s `proactive` is on; `session_tree` reinstalls the footer; `session_shutdown` restores Pi's built-in footer, disposes the branch subscription, and drops doctor's cached findings. |
 
 ## Design notes
@@ -568,21 +564,30 @@ rather than showing a wrong value.
 
 ## Files
 
+## Files
+
+The four surfaces are folders: `footer/` (the status bar and its price
+calculation), `separator/`, `picker/`, and `doctor/`.
+
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: install/restore the footer, register `/bytefly`, `/extensions`, and `/doctor`, and register the turn separator and doctor surface. |
-| `config.ts` | Bar tuning (`CONFIG`), the built-in DeepSeek rates and peak tariff, and the `bytefly.json` schema, defaults, normalizer, loader, and `chrome.json` migration. |
-| `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
-| `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
-| `collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
-| `price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
-| `price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
-| `price/price.ts` | Records → totals: rates, peak multiplier, recorded-cost fallback. |
-| `render/format.ts` | Pure formatters (tokens, cost in the configured currency, cwd, gauge, colors). |
-| `render/segments.ts` | The segment builders: forms, weights, separators, colors. |
-| `render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
-| `render/layout.ts` | Width reduction and right-zone folding. |
-| `render/footer.ts` | `StatusBar` component and footer factory. |
+| `index.ts` | Composition root: the disable guard and the four `register*` calls. |
+| `footer/register.ts` | Installs/restores the footer, registers `/bytefly`, and owns its session lifecycle. |
+| `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |
+| `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
+| `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
+| `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
+| `footer/price/types.ts` | `Currency`, `ModelRates`, `PeakWindow`/`PeakSchedule`, `ByteflyConfig`. |
+| `footer/price/config.ts` | `bytefly.json` schema, defaults, built-in DeepSeek rates/tariff, normalizer, loader. |
+| `footer/price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
+| `footer/price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
+| `footer/price/price.ts` | Records → totals: rates, peak multiplier, recorded-cost fallback. |
+| `footer/render/format.ts` | Generic formatters (tokens, cost in the configured currency, cwd, gauge, colors). |
+| `footer/render/status.ts` | Status-chip transforms: `compactStatus` and `dropStatusDetail`. |
+| `footer/render/segments.ts` | The segment builders: forms, weights, separators, colors. |
+| `footer/render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
+| `footer/render/layout.ts` | Width reduction and right-zone folding. |
+| `footer/render/footer.ts` | `StatusBar` component and footer factory. |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and colors. |
 | `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
@@ -608,19 +613,23 @@ rather than showing a wrong value.
 
 `extensions/bytefly/` covers the install/restore/toggle lifecycle
 (`extension`),
-the formatters (`render/format`), entry
-reduction and model inheritance (`collect/entries`), snapshot assembly and its
-memoization (`collect/snapshot`), rate matching (`price/rates`), window parsing
-and peak evaluation in two zones (`price/schedule`), the pricing formula, the
-off-peak multiplier, the built-in DeepSeek table with no config file, and the
-fallback (`price/price`), the config schema, its clamping, the built-in defaults
-and their replacement, and the two file layers (`config`), the legacy
-`chrome.json` migration (`config`), zone/priority
+the formatters (`footer/render/format`), the status-chip transforms
+(`footer/render/status`), entry
+reduction and model inheritance (`footer/collect/entries`), snapshot assembly
+and its memoization (`footer/collect/snapshot`), rate matching
+(`footer/price/rates`), window parsing
+and peak evaluation in two zones (`footer/price/schedule`), the pricing formula,
+the off-peak multiplier, the built-in DeepSeek table with no config file, and the
+fallback (`footer/price/price`), the config schema, its clamping, the built-in
+defaults and their replacement, and the two file layers
+(`footer/price/config`), zone/priority
 assignment
-(`render/lines`), the reduction, separator collapse, and right-zone folding
-across a width sweep from 6 to 120 plus wide characters (`render/layout`), exact
-golden output at fixed widths (`render/render`), and the install/skip/restore/
-toggle lifecycle plus a config-driven price (`extension`). The turn separator
+(`footer/render/lines`), the reduction, separator collapse, and right-zone
+folding across a width sweep from 6 to 120 plus wide characters
+(`footer/render/layout`), exact
+golden output at fixed widths (`footer/render/render`), and the install/skip/
+restore/toggle lifecycle plus a config-driven price (`extension`). The turn
+separator
 is covered by its pure formatting (`separator/format`) and its
 register/append/render/disable lifecycle (`separator/register`). The picker is
 covered by the pure helpers (`picker/resources`), the toggle transforms

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_BYTEFLY_CONFIG } from "../config.ts";
-import type { ByteflyConfig } from "../types.ts";
+import { DEFAULT_BYTEFLY_CONFIG } from "../price/config.ts";
+import type { ByteflyConfig } from "../price/types.ts";
 import { createSnapshotReader } from "./snapshot.ts";
 
 const assistant = (usage: any) => ({ type: "message", message: { role: "assistant", usage } });

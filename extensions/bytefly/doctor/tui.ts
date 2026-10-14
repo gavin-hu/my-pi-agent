@@ -19,7 +19,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { fitRows, formatRange, ListCursor, navIntent, wheelDelta } from "../../../lib/list-cursor.ts";
+import { fitRows, formatRange, ListCursor, navigateList, scrollList } from "../../../lib/list-cursor.ts";
 import { screenHeader, screenHint } from "../../../lib/tui.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import { countFindings, detailLines, extensionRow } from "./format.ts";
@@ -90,22 +90,11 @@ export class DoctorScreen implements Component {
 			return;
 		}
 
-		const intent = navIntent(data);
-		if (!intent) return;
-		const count = this.count();
-		if (intent === "up") this.cursor.by(-1, count);
-		else if (intent === "down") this.cursor.by(1, count);
-		else if (intent === "pageUp") this.cursor.page(-1, count);
-		else if (intent === "pageDown") this.cursor.page(1, count);
-		else if (intent === "home") this.cursor.set(0, count);
-		else this.cursor.set(count - 1, count);
+		navigateList(data, this.cursor, this.count());
 	}
 
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		const delta = wheelDelta(event);
-		if (delta === undefined) return undefined;
-		this.cursor.by(delta, this.count());
-		return { handled: true };
+		return scrollList(event, this.cursor, this.count());
 	}
 
 	render(width: number): string[] {

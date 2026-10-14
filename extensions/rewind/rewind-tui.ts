@@ -17,7 +17,15 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { fitRows, formatRange, ListCursor, navIntent, selectionMarker, wheelDelta } from "../../lib/list-cursor.ts";
+import {
+	fitRows,
+	formatRange,
+	isCloseKey,
+	ListCursor,
+	navigateList,
+	scrollList,
+	selectionMarker,
+} from "../../lib/list-cursor.ts";
 import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
 import { SEPARATORS } from "../../lib/ui.ts";
 import { formatRewindDetail, formatRewindRow } from "./format.ts";
@@ -54,31 +62,12 @@ export class RewindListComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+		if (isCloseKey(data)) {
 			this.options.onClose(undefined);
 			return;
 		}
 		const count = this.points.length;
-		switch (navIntent(data)) {
-			case "up":
-				this.cursor.by(-1, count);
-				return;
-			case "down":
-				this.cursor.by(1, count);
-				return;
-			case "pageUp":
-				this.cursor.page(-1, count);
-				return;
-			case "pageDown":
-				this.cursor.page(1, count);
-				return;
-			case "home":
-				this.cursor.set(0, count);
-				return;
-			case "end":
-				this.cursor.set(count - 1, count);
-				return;
-		}
+		if (navigateList(data, this.cursor, count)) return;
 		if (matchesKey(data, Key.enter) || data === "r") {
 			const point = this.points[this.cursor.selected];
 			if (point) this.options.onClose(point);
@@ -87,10 +76,7 @@ export class RewindListComponent implements Component {
 
 	/** Wheel scrolling in fullscreen moves the cursor; regular mode leaves the wheel to the terminal. */
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		const delta = wheelDelta(event);
-		if (delta === undefined) return undefined;
-		this.cursor.by(delta, this.points.length);
-		return { handled: true };
+		return scrollList(event, this.cursor, this.points.length);
 	}
 
 	dispose(): void {}

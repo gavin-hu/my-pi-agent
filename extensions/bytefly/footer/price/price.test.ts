@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_BYTEFLY_CONFIG } from "../config.ts";
-import type { ByteflyConfig, UsageRecord } from "../types.ts";
+import { DEFAULT_BYTEFLY_CONFIG } from "./config.ts";
+import type { ByteflyConfig } from "./types.ts";
+import type { UsageRecord } from "../types.ts";
 import { createPricer } from "./price.ts";
 
 /** 2026-01-05 is a Monday; 03:00 UTC is 11:00 in Asia/Shanghai. */

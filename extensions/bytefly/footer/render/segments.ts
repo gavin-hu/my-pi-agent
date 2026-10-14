@@ -8,21 +8,18 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../../lib/format.ts";
+import { formatTokens, sanitize, sanitizeLine } from "../../../../lib/format.ts";
 import { CONFIG } from "../config.ts";
 import {
-	compactStatus,
 	computeGauge,
 	contextColor,
-	dropStatusDetail,
 	formatCost,
 	formatCwd,
 	formatPercent,
-	formatTokens,
-	sanitize,
 	thinkingColor,
 	truncateLabel,
 } from "./format.ts";
+import { compactStatus, dropStatusDetail } from "./status.ts";
 import type { Segment, StatusSnapshot } from "../types.ts";
 
 const dim = (theme: Theme, text: string): string => theme.fg("dim", text);
