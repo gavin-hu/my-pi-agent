@@ -1,5 +1,6 @@
 /**
- * doctor — report whether each extension has what it needs at runtime.
+ * bytefly's doctor surface: the `run_doctor` tool, the `/doctor` command, and
+ * the proactive session-start check.
  *
  * An extension that is enabled but inert is the failure this exists to prevent:
  * a missing extractor CLI, an optional package that was never installed, a
@@ -7,12 +8,12 @@
  * `doctor` knows the answer because each extension declares its prerequisites in
  * `lib/requirements.ts`, and the same probes feed `/doctor` and `run_doctor`.
  *
- * Load with:  pi --extension ./extensions/doctor
+ * This module registers itself from bytefly's factory; it has no env guard of
+ * its own because `PI_DISABLED_EXTENSIONS=bytefly` is what disables it.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isExtensionEnabled } from "../../lib/env.ts";
-import { missingFindings } from "../../lib/requirements.ts";
+import { missingFindings } from "../../../lib/requirements.ts";
 import { registerCommands } from "./commands.ts";
 import { loadConfig } from "./config.ts";
 import { formatWarning } from "./format.ts";
@@ -24,8 +25,13 @@ export interface DoctorDeps {
 	runtime?: DoctorRuntime;
 }
 
-export default function doctor(pi: ExtensionAPI, deps: DoctorDeps = {}): void {
-	if (!isExtensionEnabled("doctor")) return;
+/**
+ * Register the doctor surface and return its runtime.
+ *
+ * Registers the read-only tool and the command, points the runtime at each
+ * session, and drops the cached findings on shutdown.
+ */
+export function registerDoctor(pi: ExtensionAPI, deps: DoctorDeps = {}): DoctorRuntime {
 	const runtime = deps.runtime ?? createDoctorRuntime(pi);
 
 	registerTools(pi, runtime);
@@ -43,4 +49,6 @@ export default function doctor(pi: ExtensionAPI, deps: DoctorDeps = {}): void {
 	});
 
 	pi.on("session_shutdown", () => runtime.reset());
+
+	return runtime;
 }

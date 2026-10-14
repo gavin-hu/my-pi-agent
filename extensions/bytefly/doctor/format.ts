@@ -10,10 +10,10 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../lib/format.ts";
-import { selectionMarker } from "../../lib/list-cursor.ts";
-import type { ExtensionReport, Finding, FindingSeverity } from "../../lib/requirements.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { selectionMarker } from "../../../lib/list-cursor.ts";
+import type { ExtensionReport, Finding, FindingSeverity } from "../../../lib/requirements.ts";
+import { GLYPHS } from "../../../lib/ui.ts";
 
 /** Counts the report headline uses. */
 export interface ReportCounts {

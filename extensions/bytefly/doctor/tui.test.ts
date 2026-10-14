@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { settle } from "../../test/helpers/process.ts";
-import { makeFinding, makeReport } from "../../test/helpers/fixtures/doctor.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { settle } from "../../../test/helpers/process.ts";
+import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { DoctorScreen } from "./tui.ts";
 
 /** A screen over a fixed report set, with its callbacks recorded. */

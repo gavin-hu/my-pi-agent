@@ -1,12 +1,14 @@
-# bytefly — the TUI footer, turn rule, and extensions picker
+# bytefly — the TUI footer, turn rule, extensions picker, and doctor
 
-`bytefly` owns the terminal chrome and configuration surfaces this package
-adds: one compact, colorful, width-adaptive two-line footer, a labeled rule that
-marks each completed turn in the transcript, and the `/extensions` picker that
-lists and toggles every resolved Pi extension. Pi's own header is left
-untouched. DeepSeek is priced from the provider's published yuan rates and peak
-tariff by default, and any other model can be priced from your own rates when
-Pi's catalog does not match what a provider actually charges.
+`bytefly` owns the terminal chrome, configuration, and diagnostics surfaces
+this package adds: one compact, colorful, width-adaptive two-line footer, a
+labeled rule that marks each completed turn in the transcript, the
+`/extensions` picker that lists and toggles every resolved Pi extension, and
+the `/doctor` surface that reports whether each extension has what it needs.
+Pi's own header is left untouched. DeepSeek is priced from the provider's
+published yuan rates and peak tariff by default, and any other model can be
+priced from your own rates when Pi's catalog does not match what a provider
+actually charges.
 
 ```
 pi --extension ./extensions/bytefly   # load just this extension
@@ -16,8 +18,9 @@ pi install ./                         # install the package
 
 ## What it does
 
-The extension owns three surfaces: the footer, the rule between completed turns,
-and the `/extensions` picker. Pi's own header is left in place.
+The extension owns four surfaces: the footer, the rule between completed turns,
+the `/extensions` picker, and the `/doctor` report. Pi's own header is left in
+place.
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -92,6 +95,12 @@ the project — and writes a `+pattern` / `-pattern` toggle into the matching
 `settings.json`; see [Extensions picker](#extensions-picker). There is no
 config file, and changes apply on reload.
 
+**Doctor.** `/doctor` reports whether each extension has what it needs at
+runtime — a binary on `PATH`, an optional package, a login/state file, or a
+config file that fails to parse — and `run_doctor` returns the same report as
+text and typed data. Only a missing *hard* requirement warns at session start;
+everything else waits in the report. See [Doctor](#doctor).
+
 ## Commands
 
 | Command | What it does |
@@ -99,6 +108,7 @@ config file, and changes apply on reload.
 | `/bytefly` | Toggle the footer on or off. |
 | `/bytefly status` | Report whether the footer is on. |
 | `/extensions` | Open the extensions picker in the TUI, or print the grouped list elsewhere. |
+| `/doctor [extension] [refresh]` | Probe the extensions and show the report; in the TUI this opens a docked list screen. |
 
 The `status` subcommand completes with Tab.
 
@@ -107,7 +117,10 @@ The `status` subcommand completes with Tab.
 The footer and the turn rule are installed only in interactive (`tui`)
 sessions; `/bytefly` is a no-op elsewhere. The picker is available in every
 mode: in `tui` it opens the dock screen, while in RPC, JSON, and print modes
-`/extensions` prints the same grouped list and does not toggle.
+`/extensions` prints the same grouped list and does not toggle. `/doctor` probes
+in every mode: in `tui` it opens its list screen, while RPC, JSON, and print
+modes print the same report, and the proactive session-start warning is skipped
+when there is no UI.
 
 ## Configuration
 
@@ -179,6 +192,22 @@ symbol. A session mixing DeepSeek with another provider therefore sums two
 currencies into one number. Either cover every model you use (a `"*"` catch-all
 helps) and set `fallbackToRecordedCost: false`, or set the symbol to `"$"` and
 treat the rates purely as an off-peak correction.
+
+### `doctor.json`
+
+The doctor surface has its own file, read the same way:
+
+- `~/.pi/agent/doctor.json` (global)
+- `<cwd>/.pi/doctor.json` (project; overrides the global file)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `proactive` | `true` | Probe the extensions with hard requirements at session start and warn once when something is missing. |
+| `timeoutMs` | `2000` | Per-probe timeout for one spawned command, clamped to 100–30000. |
+| `skip` | `[]` | Extension names to leave out of every report. |
+
+A malformed `doctor.json` is ignored like every other config file — and named
+by the report `doctor` produces.
 
 ## Security
 
@@ -313,6 +342,59 @@ and package resolution (`SettingsManager` plus `DefaultPackageManager` with
 
 Mouse wheel scrolling works; every action also has a keyboard path.
 
+## Doctor
+
+`/doctor` probes every declared extension and reports each check as `ok`,
+`missing`, `degraded`, or `info`; `run_doctor` returns the same report as text
+plus a typed `structuredContent` report. Only `missing` and `degraded` are
+problems: `missing` means an enabled extension cannot do its job, `degraded`
+means reduced capability — an optional package that is absent, a config file
+that fails to parse, a login that has not happened. `doctor` never changes
+anything and never installs anything.
+
+`/doctor <extension>` narrows the report to one extension — including the
+checks that passed — and `/doctor refresh` ignores the findings cached earlier
+in the session. In the TUI the report is a docked list screen: one row per
+extension with a severity glyph, the focused extension's findings underneath.
+`Enter` switches between problems only and every check, `r` re-probes, `Esc`
+closes; while a re-probe is in flight the hint shows `refreshing…` and a second
+`r` is ignored, so probes cannot stack. Every other mode prints the same report
+as text.
+
+### Keys
+
+| Key | Effect |
+|---|---|
+| `↑`/`↓`, `j`/`k` | Move the selection. |
+| `PgUp`/`PgDn` | Move a page. |
+| `g` / `G`, `Home` / `End` | Jump to the first or last extension. |
+| `Enter` | Toggle between problems only and every check. |
+| `r` | Re-probe. |
+| `Esc` | Close the screen. |
+
+### What is checked
+
+| Extension | Hard requirement | Optional / degraded |
+|---|---|---|
+| worktree | `git` | `.worktreeinclude` symlinks need symlink support |
+| rewind | `git` | — |
+| document | — | — |
+| subagent | a runnable nested `pi` | project-local agents need a trusted project |
+| plan | — | `git` for project-local `.pi/plans`; an interactive UI |
+| memory | — | `git` for the project-scope root |
+| file-browse | — | `git` for the branch chip; the browser opener is best-effort |
+| web-access | — | `unpdf` |
+| wechat | — | `wechat/credentials.json` (not logged in) |
+| job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
+| todo, goal | — | their config files |
+| bytefly | — | TUI only for the footer and turn rule; the picker's project scope needs a trusted project; `bytefly.json` and `doctor.json` |
+| ask-user-question | — | needs an interactive UI |
+
+Every extension that reads a config file also gets the malformed-JSON check:
+the file and the parse error are named instead of being silently ignored. The
+install guidance a tool error shows and the hint this report prints come from
+the same entry in `lib/requirements.ts`, so the two cannot drift.
+
 ## Limitations
 
 - **The picker manages only the `extensions` resource type.** Skills, prompts,
@@ -338,6 +420,17 @@ Mouse wheel scrolling works; every action also has a keyboard path.
   the configured currency.
 - **The displayed number is the total, rounded once** — not the sum of rounded
   records.
+- **`doctor` can only check what is declared.** A new extension with no
+  `REQUIREMENTS` entry is invisible to it — `test/structure.test.ts` fails on
+  exactly that, which is why the table cannot rot quietly.
+- **The disabled check reads `PI_DISABLED_EXTENSIONS`** through `lib/env.ts`; it
+  does not read Pi's own `settings.json` disable list, so an extension disabled
+  only there may still be probed.
+- **A probe proves a binary runs, not that it works:** a `git` that crashes on a
+  specific repository is still `ok`.
+- **Config scope is checked for `<agent-dir>/<file>.json` and
+  `<cwd>/.pi/<file>.json` only**; a `jobs.json` `registryDir` override is not
+  followed.
 
 ## Non-goals
 
@@ -350,6 +443,11 @@ Mouse wheel scrolling works; every action also has a keyboard path.
   the branch.
 - No header customization: Pi's built-in header is kept as is. The footer owns
   the session, model, and working-directory data.
+- No auto-fix: `doctor` reports the install command; it never runs it.
+- No aggregation of runtime failures: a tool that errored earlier in the session
+  is not a prerequisite problem, and `doctor` does not pretend to know about it.
+- No status chip for the doctor report: it is on demand plus one warning, not a
+  permanent footer segment.
 
 The built-in footer's `(auto)` auto-compact indicator and `(sub)`
 subscription-cost marker are not reachable from `ExtensionContext` (there is no
@@ -366,11 +464,14 @@ rather than showing a wrong value.
 | Picker command | `pi.registerCommand("extensions")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
+| Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`), `exposure: "direct"`, active by default, with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
+| Doctor command | `pi.registerCommand("doctor")`; `tui` opens a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. |
+| Doctor probes | `run_doctor` and `/doctor` share the session cache; `/doctor refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. A legacy `chrome.json` is migrated to `bytefly.json` on load. Nothing watches the file. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`, read when the footer is installed — a new session, or `/bytefly` toggled back on. A legacy `chrome.json` is migrated to `bytefly.json` on load. `doctor.json` is read at `session_start`. Nothing watches either file. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the one-time config migration and the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it renames a legacy `chrome.json` to `bytefly.json` and appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. |
-| Lifecycle | `session_start` installs the footer; `session_tree` reinstalls; `session_shutdown` restores Pi's built-in footer and disposes the branch subscription. |
+| State storage | None besides the one-time config migration and the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it renames a legacy `chrome.json` to `bytefly.json` and appends `bytefly-separator` entries excluded from LLM context. The picker derives its screen from live runtime state and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. |
+| Lifecycle | `session_start` installs the footer and points the doctor runtime at the session cwd, probing the extensions with hard requirements when `doctor.json`'s `proactive` is on; `session_tree` reinstalls the footer; `session_shutdown` restores Pi's built-in footer, disposes the branch subscription, and drops doctor's cached findings. |
 
 ## Design notes
 
@@ -446,12 +547,30 @@ rather than showing a wrong value.
   screen shows the view for the active scope and writes through the matching
   store. A project package override is written with `autoload: false`, so it
   filters the personal entry instead of replacing it.
+- **Doctor declarations live in `lib/`, probes in the extension, presentation in
+  a third layer.** An extension cannot import another extension's modules, so
+  the only legal home for a shared prerequisite table is `lib/requirements.ts`;
+  the report itself is a pure function of the probe results.
+- **The install hint has one home.** `document` and `web-access` format their
+  tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
+  reads the same command whether a tool failed or the report named it.
+- **The doctor is quiet by default at startup.** Only `missing` findings warn,
+  only for enabled extensions, only with a UI, and only once per session;
+  `degraded` findings — including a malformed config — wait in `/doctor`, because
+  a session that nags about an optional package is worse than one that never
+  mentions it.
+- **Probe the real thing.** `subagent`'s requirement resolves through the same
+  `getPiInvocation` the extension uses rather than re-guessing whether a `pi`
+  binary exists.
+- **The prerequisite table is data.** No I/O, no host access, no module state:
+  every probe dependency arrives as a seam, so `probeExtension` is testable with
+  no process and `lib/` stays value-only.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: install/restore the footer, register `/bytefly` and `/extensions`, and register the turn separator. |
+| `index.ts` | Factory: install/restore the footer, register `/bytefly`, `/extensions`, and `/doctor`, and register the turn separator and doctor surface. |
 | `config.ts` | Bar tuning (`CONFIG`), the built-in DeepSeek rates and peak tariff, and the `bytefly.json` schema, defaults, normalizer, loader, and `chrome.json` migration. |
 | `types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, the price config, `UsageRecord`, footer/TUI shapes. |
 | `collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
@@ -476,6 +595,14 @@ rather than showing a wrong value.
 | `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence. |
 | `picker/tui.ts` | `ExtensionsListComponent`, the dock screen. |
 | `picker/commands.ts` | `/extensions`: TUI path and text fallback. |
+| `doctor/register.ts` | Registers `run_doctor`, `/doctor`, and the proactive session-start check; returns the runtime. |
+| `doctor/runtime.ts` | Host seams, the session cache, and the two probe modes. |
+| `doctor/tools.ts` | The `run_doctor` tool and its renderers. |
+| `doctor/commands.ts` | The `/doctor` command and its TUI wiring. |
+| `doctor/schema.ts` | Tool parameters and the structured output schema. |
+| `doctor/config.ts` | `DEFAULT_CONFIG`, `normalizeConfig`, `loadConfig` for `doctor.json`. |
+| `doctor/format.ts` | Pure report text, rows, glyphs, and the proactive warning sentence. |
+| `doctor/tui.ts` | `DoctorScreen`, the docked list screen with its detail pane. |
 
 ## Testing
 
@@ -500,4 +627,8 @@ covered by the pure helpers (`picker/resources`), the toggle transforms
 (`picker/toggle`), discovery with an injected factory (`picker/discovery`), the
 runtime state machine (`picker/runtime`), the screen's rendering and key
 handling (`picker/tui`), and the command through the bytefly factory
-(`picker/commands`).
+(`picker/commands`). The doctor surface is covered by its pure report
+formatting (`doctor/format`), the screen's rendering and key handling
+(`doctor/tui`), its config loader (`doctor/config`), and registration, the
+proactive warning, the session cache, and `run_doctor` through the factory
+(`doctor/register`).

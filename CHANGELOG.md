@@ -32,6 +32,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   footer, turn rule, and picker now share one disable switch
   (`PI_DISABLED_EXTENSIONS=bytefly`), and `bytefly` is omitted from its own
   list.
+- `bytefly`: absorbs the `doctor` extension.
+  `/doctor [extension] [refresh]` and the read-only `run_doctor` tool report
+  whether each extension has what it needs at runtime — missing binaries,
+  optional packages, login/state files, and config files that fail to parse —
+  with one warning at session start when an enabled extension cannot work. The
+  list screen is TUI-only; every other mode prints the same report, and the
+  doctor config file stays `doctor.json`. Breaking: there is no separate
+  `doctor` row in the report, and `PI_DISABLED_EXTENSIONS=doctor` no longer has
+  an effect — disable the whole extension with `bytefly`.
 
 - `goal`: a bare `/goal` with no goal set shows the command usage instead of
   only `No goal set.`, and `/goal help` (or `-h` / `--help`) shows it at any

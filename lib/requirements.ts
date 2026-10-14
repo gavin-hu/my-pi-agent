@@ -65,8 +65,8 @@ export type RequirementCheck = BinaryCheck | ModuleCheck | StateCheck | Invocati
 
 /** What an extension needs, split by how badly it needs it. */
 export interface ExtensionRequirements {
-	/** Config file read through `lib/config.ts`, for the malformed-JSON check. */
-	readonly configFile?: string;
+	/** Config files read through `lib/config.ts`, for the malformed-JSON check. */
+	readonly configFiles?: readonly string[];
 	/** Unmet checks here mean the extension cannot do its job. */
 	readonly requires?: readonly RequirementCheck[];
 	/** Unmet checks here mean reduced capability. */
@@ -125,22 +125,22 @@ function gitCheck(enables: string): BinaryCheck {
 /** Every extension's prerequisites, keyed by directory name. */
 export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	worktree: {
-		configFile: "worktree.json",
+		configFiles: ["worktree.json"],
 		requires: [gitCheck("worktree isolation")],
 		notes: ["`.worktreeinclude` symlinks need symlink support (Windows Developer Mode)."],
 	},
 	rewind: {
-		configFile: "rewind.json",
+		configFiles: ["rewind.json"],
 		requires: [gitCheck("rewind snapshots")],
 	},
 	"ask-user-question": {
 		notes: ["Needs an interactive UI; without one the tool stays inactive."],
 	},
 	todo: {
-		configFile: "todo.json",
+		configFiles: ["todo.json"],
 	},
 	goal: {
-		configFile: "goal.json",
+		configFiles: ["goal.json"],
 	},
 	plan: {
 		optional: [gitCheck("project-local `.pi/plans` (otherwise plans land in the agent directory)")],
@@ -157,23 +157,23 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		notes: ["Project-local agents require a trusted project."],
 	},
 	job: {
-		configFile: "jobs.json",
+		configFiles: ["jobs.json"],
 		notes: [
 			"Windows: no POSIX `EXIT` trap, so a reattached job's status stays `unknown`.",
 			"`ps` is used for the pid-reuse guard and is POSIX-only.",
 		],
 	},
 	"web-access": {
-		configFile: "web-access.json",
+		configFiles: ["web-access.json"],
 		optional: [{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() }],
 	},
 	"file-browse": {
-		configFile: "file-browse.json",
+		configFiles: ["file-browse.json"],
 		optional: [gitCheck("the branch chip")],
 		notes: ["The default-browser opener (`open` / `xdg-open` / `cmd`) is best-effort; the URL is printed either way."],
 	},
 	document: {
-		configFile: "document.json",
+		configFiles: ["document.json"],
 	},
 	"file-explorer": {
 		notes: [
@@ -182,11 +182,11 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		],
 	},
 	memory: {
-		configFile: "memory.json",
+		configFiles: ["memory.json"],
 		optional: [gitCheck("project-scope memory under the repository root")],
 	},
 	wechat: {
-		configFile: "wechat.json",
+		configFiles: ["wechat.json"],
 		optional: [
 			{
 				kind: "state",
@@ -199,14 +199,12 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		notes: ["Logging in needs the interactive terminal UI."],
 	},
 	bytefly: {
-		configFile: "bytefly.json",
+		configFiles: ["bytefly.json", "doctor.json"],
 		notes: [
-			"TUI only for the footer and turn rule; `/extensions` also prints a listing in RPC, JSON, and print modes.",
+			"TUI only for the footer and turn rule; `/extensions` prints a listing and `/doctor` prints its report in RPC, JSON, and print modes.",
 			"The `/extensions` picker writes through Pi's own settings; project scope requires a trusted project.",
+			"`/doctor`'s list screen and the proactive missing-prerequisite warning need an interactive UI.",
 		],
-	},
-	doctor: {
-		configFile: "doctor.json",
 	},
 };
 
@@ -339,22 +337,24 @@ function scopeDir(scope: "agent" | "project", dirs: DirSeams): string {
  * the reason instead. An absent file is normal, so it is not reported.
  */
 function configFindings(extension: string, spec: ExtensionRequirements, seams: ProbeSeams): Finding[] {
-	if (!spec.configFile) return [];
-	const candidates: Array<[string, string]> = [
-		["global", join(seams.dirs.agentDir, spec.configFile)],
-		["project", join(seams.dirs.cwd, seams.dirs.configDirName, spec.configFile)],
-	];
+	const files = spec.configFiles ?? [];
 	const findings: Finding[] = [];
-	for (const [scope, path] of candidates) {
-		const result = seams.readJson(path);
-		if (result.state === "error") {
-			findings.push({
-				extension,
-				check: path,
-				severity: "degraded",
-				detail: `the ${scope} config is ignored because it is not valid JSON (${result.error})`,
-				hint: `fix or delete ${path}`,
-			});
+	for (const file of files) {
+		const candidates: Array<[string, string]> = [
+			["global", join(seams.dirs.agentDir, file)],
+			["project", join(seams.dirs.cwd, seams.dirs.configDirName, file)],
+		];
+		for (const [scope, path] of candidates) {
+			const result = seams.readJson(path);
+			if (result.state === "error") {
+				findings.push({
+					extension,
+					check: path,
+					severity: "degraded",
+					detail: `the ${scope} config is ignored because it is not valid JSON (${result.error})`,
+					hint: `fix or delete ${path}`,
+				});
+			}
 		}
 	}
 	return findings;

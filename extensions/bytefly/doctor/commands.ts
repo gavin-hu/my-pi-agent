@@ -7,8 +7,8 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../../lib/rails.ts";
-import { REQUIREMENTS, type ExtensionReport } from "../../lib/requirements.ts";
+import { withRailsSuppressed } from "../../../lib/rails.ts";
+import { REQUIREMENTS, type ExtensionReport } from "../../../lib/requirements.ts";
 import { formatExtension, formatReport, hasProblems } from "./format.ts";
 import type { DoctorRuntime } from "./runtime.ts";
 import { DoctorScreen } from "./tui.ts";

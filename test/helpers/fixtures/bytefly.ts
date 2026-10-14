@@ -7,6 +7,7 @@ export type { AnyHandler };
 
 export interface FakePi {
 	pi: any;
+	tools: Map<string, any>;
 	commands: Map<string, any>;
 	handlers: Map<string, AnyHandler[]>;
 	renderers: Map<string, any>;
@@ -18,6 +19,7 @@ export function makeFakePi(options: { settings?: any } = {}): FakePi {
 	const fake = createFakePi({ settings: options.settings });
 	return {
 		pi: fake.pi,
+		tools: fake.tools,
 		commands: fake.commands,
 		handlers: fake.handlers,
 		renderers: fake.renderers,

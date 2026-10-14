@@ -9,8 +9,8 @@
  */
 
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readJsonResult } from "../../lib/config.ts";
-import { isExtensionEnabled } from "../../lib/env.ts";
+import { readJsonResult } from "../../../lib/config.ts";
+import { isExtensionEnabled } from "../../../lib/env.ts";
 import {
 	hardRequirementExtensions,
 	probeAll as probeDeclared,
@@ -18,7 +18,7 @@ import {
 	REQUIREMENTS,
 	type ExtensionReport,
 	type ProbeSeams,
-} from "../../lib/requirements.ts";
+} from "../../../lib/requirements.ts";
 import { DEFAULT_CONFIG, type DoctorConfig } from "./config.ts";
 
 /** Seams a test may replace; everything else is built from the host. */

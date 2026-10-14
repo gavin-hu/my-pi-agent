@@ -1,5 +1,5 @@
 /**
- * Configuration for the doctor extension.
+ * Configuration for bytefly's doctor surface.
  *
  * Read from `~/.pi/agent/doctor.json` and `<cwd>/.pi/doctor.json`, project
  * values winning. A malformed file is ignored like everywhere else — `doctor`
@@ -7,7 +7,7 @@
  * cleanly itself.
  */
 
-import { clampInteger, loadConfigFile } from "../../lib/config.ts";
+import { clampInteger, loadConfigFile } from "../../../lib/config.ts";
 
 /** How long a single probe may take before it counts as unusable. */
 const DEFAULT_TIMEOUT_MS = 2_000;

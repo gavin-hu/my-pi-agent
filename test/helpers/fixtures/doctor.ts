@@ -1,21 +1,21 @@
 /**
  * Doctor test harness.
  *
- * Builds the extension over the shared `ExtensionAPI` double and an injected
- * runtime, so every probe is a fake result: no test spawns a binary, loads an
- * optional package, or touches the real agent directory.
+ * Builds bytefly's doctor surface over the shared `ExtensionAPI` double and an
+ * injected runtime, so every probe is a fake result: no test spawns a binary,
+ * loads an optional package, or touches the real agent directory.
  *
  * `loadModule` and `invocation` default to satisfied stubs for the same reason;
  * the real wiring for those two seams is covered by `lib/requirements.test.ts`
  * and the smoke run.
  */
 
-import doctor from "../../../extensions/doctor/index.ts";
+import { registerDoctor } from "../../../extensions/bytefly/doctor/register.ts";
 import {
 	createDoctorRuntime,
 	type DoctorRuntime,
 	type DoctorSeamOverrides,
-} from "../../../extensions/doctor/runtime.ts";
+} from "../../../extensions/bytefly/doctor/runtime.ts";
 import type { ExtensionReport, Finding, FindingSeverity } from "../../../lib/requirements.ts";
 import { fakeCtx } from "../context.ts";
 import { createFakePi, emit, type FakePi, type FakePiOptions } from "../fakes.ts";
@@ -41,7 +41,7 @@ export interface DoctorBootOptions {
 	cwd?: string;
 }
 
-/** Boot the doctor extension against fake seams. */
+/** Boot bytefly's doctor surface against fake seams. */
 export function bootDoctor(options: DoctorBootOptions = {}): DoctorHarness {
 	const fake = createFakePi({ exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 0 })) });
 	const runtime = createDoctorRuntime(fake.pi, {
@@ -51,7 +51,7 @@ export function bootDoctor(options: DoctorBootOptions = {}): DoctorHarness {
 			...options.seams,
 		},
 	});
-	doctor(fake.pi, { runtime });
+	registerDoctor(fake.pi, { runtime });
 
 	const session = fakeCtx({ mode: options.mode ?? "tui", hasUI: options.hasUI, cwd: options.cwd ?? "/repo" });
 	return {

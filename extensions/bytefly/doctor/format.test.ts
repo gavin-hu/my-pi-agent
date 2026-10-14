@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { GLYPHS } from "../../lib/ui.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { makeFinding, makeReport } from "../../test/helpers/fixtures/doctor.ts";
+import { GLYPHS } from "../../../lib/ui.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import {
 	countFindings,
 	detailLines,

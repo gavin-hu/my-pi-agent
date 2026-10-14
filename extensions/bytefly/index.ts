@@ -1,13 +1,14 @@
 /**
- * bytefly — the package's terminal chrome: a two-line, width-adaptive TUI
- * footer, the transcript turn rule, and the `/extensions` picker.
+ * bytefly — the package's terminal chrome and diagnostics: a two-line,
+ * width-adaptive TUI footer, the transcript turn rule, the `/extensions`
+ * picker, and the doctor surface (`/doctor` and `run_doctor`).
  *
  * The footer is priced from DeepSeek's published rates by default and from
  * `bytefly.json` otherwise. Pi's own header is left untouched.
  *
  * The footer and the turn rule are installed only in interactive (`tui`)
- * sessions; the picker prints a listing elsewhere. The footer is toggled with
- * `/bytefly [status]`.
+ * sessions; the picker and doctor print their output elsewhere. The footer is
+ * toggled with `/bytefly [status]`.
  *
  * Load with:  pi --extension ./extensions/bytefly
  */
@@ -17,6 +18,7 @@ import { homedir } from "node:os";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { createSnapshotReader } from "./collect/snapshot.ts";
 import { loadByteflyConfig } from "./config.ts";
+import { type DoctorDeps, registerDoctor } from "./doctor/register.ts";
 import { type CommandDeps, registerExtensionsCommand } from "./picker/commands.ts";
 import { createFooter } from "./render/footer.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
@@ -25,6 +27,8 @@ import { registerTurnSeparator } from "./separator/register.ts";
 export interface ByteflyDeps {
 	/** Seams for the `/extensions` picker, which shares this factory. */
 	extensions?: CommandDeps;
+	/** Seams for the doctor surface, which shares this factory. */
+	doctor?: DoctorDeps;
 }
 
 export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void {
@@ -38,6 +42,10 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	// The `/extensions` picker is a command-only surface: in a terminal it opens
 	// a dock screen, elsewhere it prints the same list.
 	registerExtensionsCommand(pi, deps.extensions);
+
+	// The doctor surface owns the read-only `run_doctor` tool, `/doctor`, and the
+	// proactive session-start check; it registers its own lifecycle hooks.
+	registerDoctor(pi, deps.doctor);
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;

@@ -19,9 +19,9 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { fitRows, formatRange, ListCursor, navIntent, wheelDelta } from "../../lib/list-cursor.ts";
-import { screenHeader, screenHint } from "../../lib/tui.ts";
-import type { ExtensionReport } from "../../lib/requirements.ts";
+import { fitRows, formatRange, ListCursor, navIntent, wheelDelta } from "../../../lib/list-cursor.ts";
+import { screenHeader, screenHint } from "../../../lib/tui.ts";
+import type { ExtensionReport } from "../../../lib/requirements.ts";
 import { countFindings, detailLines, extensionRow } from "./format.ts";
 
 /** Body rows when the terminal height is unknown. */

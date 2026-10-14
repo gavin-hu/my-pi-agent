@@ -57,7 +57,6 @@ export const PACKAGE_EXTENSIONS = [
 	"memory",
 	"wechat",
 	"bytefly",
-	"doctor",
 ] as const;
 
 /** A package extension item for an extension directory name. */

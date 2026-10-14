@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { withAgentDir } from "../../test/helpers/env.ts";
+import { withAgentDir } from "../../../test/helpers/env.ts";
 import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "./config.ts";
 
 describe("normalizeConfig", () => {

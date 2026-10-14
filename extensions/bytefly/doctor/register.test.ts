@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
-import { bootDoctor, failingExec } from "../../test/helpers/fixtures/doctor.ts";
+import { withAgentDir } from "../../../test/helpers/env.ts";
+import { bootDoctor, failingExec } from "../../../test/helpers/fixtures/doctor.ts";
 
 describe("doctor wiring", () => {
 	test("registers a read-only tool and the command", () => {
@@ -13,14 +13,6 @@ describe("doctor wiring", () => {
 		expect(tool.annotations.destructiveHint).toBe(false);
 		expect(tool.outputSchema).toBeDefined();
 		expect(fake.commands.has("doctor")).toBe(true);
-	});
-
-	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
-		await withEnv({ PI_DISABLED_EXTENSIONS: "doctor" }, () => {
-			const { fake } = bootDoctor();
-			expect(fake.tools.size).toBe(0);
-			expect(fake.commands.size).toBe(0);
-		});
 	});
 });
 

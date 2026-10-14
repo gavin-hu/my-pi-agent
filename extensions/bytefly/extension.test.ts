@@ -28,8 +28,9 @@ const rateConfig = (symbol: string): string =>
 describe("bytefly extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
-			const { pi, commands, handlers } = makeFakePi();
+			const { pi, tools, commands, handlers } = makeFakePi();
 			bytefly(pi);
+			expect(tools.size).toBe(0);
 			expect(commands.size).toBe(0);
 			expect(handlers.size).toBe(0);
 		});
@@ -39,6 +40,14 @@ describe("bytefly extension", () => {
 		const { pi, commands } = makeFakePi();
 		bytefly(pi);
 		expect(commands.has("bytefly")).toBe(true);
+	});
+
+	test("registers the doctor surface", () => {
+		const { pi, tools, commands } = makeFakePi();
+		bytefly(pi);
+		const tool = tools.get("run_doctor");
+		expect(tool?.annotations.readOnlyHint).toBe(true);
+		expect(commands.has("doctor")).toBe(true);
 	});
 
 	test("installs the footer on session start in interactive mode", async () => {

@@ -244,17 +244,20 @@ describe("prerequisite declarations", () => {
 		expect(undeclared, "add an entry to REQUIREMENTS in lib/requirements.ts").toEqual([]);
 	});
 
-	test("a declared config file is the one the extension actually reads", () => {
+	test("every declared config file is one the extension actually reads", () => {
 		const offenders: string[] = [];
 		for (const [name, spec] of Object.entries(REQUIREMENTS)) {
-			if (!spec.configFile) continue;
-			const configPath = join(extensionsDir, name, "config.ts");
-			if (!existsSync(configPath)) {
-				offenders.push(`${name}: declares ${spec.configFile} but has no config.ts`);
-				continue;
-			}
-			if (!readFileSync(configPath, "utf-8").includes(`"${spec.configFile}"`)) {
-				offenders.push(`${name}: config.ts does not read ${spec.configFile}`);
+			const declared = spec.configFiles ?? [];
+			if (declared.length === 0) continue;
+			const sources = walkFiles(join(extensionsDir, name)).filter((file) => file.endsWith("/config.ts"));
+			for (const file of declared) {
+				if (sources.length === 0) {
+					offenders.push(`${name}: declares ${file} but has no config.ts`);
+					continue;
+				}
+				if (!sources.some((source) => readFileSync(source, "utf-8").includes(`"${file}"`))) {
+					offenders.push(`${name}: no config.ts reads ${file}`);
+				}
 			}
 		}
 		expect(offenders).toEqual([]);

@@ -286,14 +286,15 @@ const separatorLine = separatorRenderer?.(
 )?.render(40)[0];
 check("bytefly separator renders a labeled line", !!separatorLine?.includes("turn 3"));
 
-// doctor loads headlessly and registers a read-only tool plus its command. It is
-// the one extension whose *probing* is executed here: `git` is the binary every
-// platform has, so it proves a real probe runs and comes back classified.
+// bytefly's doctor surface loads headlessly and registers a read-only tool plus
+// its command. It is the one surface whose *probing* is executed here: `git` is
+// the binary every platform has, so it proves a real probe runs and comes back
+// classified.
 const doctorTool = session.getAllTools().find((t) => t.name === "run_doctor");
-check("doctor registered", !!doctorTool);
-check("doctor is direct", doctorTool?.exposure === "direct");
-check("doctor active by default", session.getActiveToolNames().includes("run_doctor"));
-check("doctor command registered", !!runner.getCommand("doctor"));
+check("run_doctor registered", !!doctorTool);
+check("run_doctor is direct", doctorTool?.exposure === "direct");
+check("run_doctor active by default", session.getActiveToolNames().includes("run_doctor"));
+check("/doctor command registered", !!runner.getCommand("doctor"));
 const doctorReport = await call("run_doctor", {});
 const doctorFindings = (
 	doctorReport.structuredContent as { extensions: Array<{ findings: Array<{ check: string; severity: string }> }> }
