@@ -26,8 +26,10 @@ pi install ./                        # install the package
 - **Remote prompts** — interactive confirmations raised during a WeChat turn
   (`ask_user_question`, plan approval) are sent to WeChat and answered there;
   turns started at the terminal keep the TUI (`remotePrompts`, on by default).
-- **Status chip** — while the bridge runs, the status bar shows `✆ wechat`
-  (`ctx.ui.setStatus`); it clears on stop, session expiry, or shutdown.
+- **Status chip** — the status bar shows `✆ wechat` while the bridge runs and
+  keeps an error-colored `✆ wechat expired` after a session expiry
+  (`ctx.ui.setStatus`), so the outage stays visible until `/wechat login`
+  reconnects or `/wechat stop` dismisses it; it clears on shutdown.
 - **Owner-only by default** — only the account owner (who scanned the login QR)
   can drive the agent; `allowedPeers` opts in others.
 - **Session-bound** — the bridge runs while the Pi session is alive and only
@@ -40,12 +42,16 @@ pi install ./                        # install the package
 | `/wechat login` | QR login; on scan, stores credentials and starts the bridge. |
 | `/wechat start` | Start the bridge: long-poll and forward messages to the agent. |
 | `/wechat stop` | Stop the bridge; credentials and cursor are kept. |
-| `/wechat status` | Show account, open/closed, peer count, and queue depth. |
+| `/wechat status` | Show account, open/expired/closed, peer count, and queue depth. |
 | `/wechat logout` | Confirm, then clear credentials and stop the bridge. |
 
 `login` connects in one step; `/wechat start` reconnects after `/wechat stop`
 (or if the automatic connect failed, for example because another session holds
 the poller lock).
+
+A session that expires while running keeps the `✆ wechat expired` chip: it is
+not reopened by `/wechat start`, `/wechat status` reports it and points at the
+fix, and `/wechat login` is the one-step recovery.
 
 ## Behaviour by mode
 
@@ -146,7 +152,7 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 | Events | `session_start` (record the live context, re-point the UI adapter); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop, uninstall adapter). |
 | Injection | `pi.sendUserMessage(content)` — a string, or text/image blocks for inbound media; always triggers a turn, and the bridge only injects when idle. |
 | UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
-| Status | The bridge's running state is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; the status bar renders it on line 2. |
+| Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
 | Lifecycle | The factory only registers. No I/O starts on load; `/wechat login` or `/wechat start` starts the poll loop and `session_shutdown` closes it. |
 
@@ -183,7 +189,7 @@ than blocking the dialog.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge. |
-| `bridge.ts` | The loop: poll, queue, inject, capture, reply, media, typing, open/close, abort. |
+| `bridge.ts` | The loop: poll, queue, inject, capture, reply, media, typing, connection state, abort. |
 | `commands.ts` | `/wechat login|start|stop|status|logout`. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |

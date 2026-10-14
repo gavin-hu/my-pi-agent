@@ -247,6 +247,10 @@ rendering, so model-authored control characters cannot reach the terminal.
   of leaving the user to discover and run a second `/wechat start`. That command
   remains for reconnecting after `/wechat stop` or when the automatic connect
   fails (for example, another session holds the poller lock).
+- `wechat`: a session that expires while the bridge is running keeps an
+  error-colored `✆ wechat expired` status chip instead of the chip vanishing,
+  and `/wechat start` / `/wechat status` route the user to the one-step
+  `/wechat login` recovery. An explicit stop or logout clears it.
 
 ## [0.5.0] - 2026-10-13
 

@@ -7,6 +7,7 @@ import { waitFor } from "../../test/helpers/process.ts";
 import {
 	assistantText,
 	type BridgeDeps,
+	type BridgeState,
 	createBridge,
 	isAllowedPeer,
 	isInboundMessage,
@@ -263,24 +264,50 @@ describe("bridge", () => {
 
 	test("reports running state changes for a status chip", async () => {
 		const { client } = makeClient([]);
-		const states: boolean[] = [];
-		const { deps } = makeDeps(client, { onStateChange: (running) => states.push(running) });
+		const states: BridgeState[] = [];
+		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
 		const bridge = createBridge(deps);
 		bridge.open();
-		expect(states).toEqual([true]);
+		expect(states).toEqual(["running"]);
 		await bridge.close();
-		expect(states).toEqual([true, false]);
+		expect(states).toEqual(["running", "stopped"]);
 	});
 
-	test("reports stopped when the session expires", async () => {
+	test("reports expired instead of stopped when the session expires", async () => {
 		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
-		const states: boolean[] = [];
-		const { deps } = makeDeps(client, { onStateChange: (running) => states.push(running) });
+		const states: BridgeState[] = [];
+		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => states.includes(false));
-		expect(states).toEqual([true, false]);
+		await waitFor(() => states.includes("expired"));
+		expect(states).toEqual(["running", "expired"]);
+		expect(bridge.status()).toMatchObject({ open: false, expired: true });
 		await bridge.close();
+	});
+
+	test("clears the expired state when the bridge reopens", async () => {
+		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
+		const states: BridgeState[] = [];
+		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().expired);
+		bridge.open();
+		expect(bridge.status()).toMatchObject({ open: true, expired: false });
+		expect(states).toEqual(["running", "expired", "running"]);
+		await bridge.close();
+	});
+
+	test("clears the expired state when explicitly closed", async () => {
+		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
+		const states: BridgeState[] = [];
+		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().expired);
+		await bridge.close();
+		expect(states).toEqual(["running", "expired", "stopped"]);
+		expect(bridge.status().expired).toBe(false);
 	});
 });
 

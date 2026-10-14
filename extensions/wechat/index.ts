@@ -9,11 +9,11 @@
  * Load with:  pi --extension ./extensions/wechat
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
-import { createBridge, type Bridge } from "./bridge.ts";
+import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
 import { createFetchRunner, WechatClient } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";
 import { loadWechatConfig } from "./config.ts";
@@ -22,6 +22,22 @@ import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
 import { installRemoteUI } from "./remote-ui.ts";
 import { readState, statePath, writeState } from "./state.ts";
 import { registerTools } from "./tools.ts";
+
+/**
+ * The chip text for a bridge state: a success chip while connected, and an
+ * error chip that persists after a session expiry until the user reconnects or
+ * stops the bridge. `stopped` publishes nothing.
+ */
+export function wechatChip(theme: Theme, state: BridgeState): string | undefined {
+	switch (state) {
+		case "running":
+			return theme.fg("success", `${GLYPHS.wechat} wechat`);
+		case "expired":
+			return theme.fg("error", `${GLYPHS.wechat} wechat expired`);
+		case "stopped":
+			return undefined;
+	}
+}
 
 export default function wechat(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("wechat")) return;
@@ -78,11 +94,11 @@ export default function wechat(pi: ExtensionAPI): void {
 			notify: (message, kind) => {
 				ctxRef?.ui.notify(message, kind);
 			},
-			onStateChange: (running) => {
+			onStateChange: (state) => {
 				const ui = ctxRef?.ui;
 				if (!ui) return;
 				try {
-					ui.setStatus(STATUS_KEYS.wechat, running ? ui.theme.fg("success", `${GLYPHS.wechat} wechat`) : undefined);
+					ui.setStatus(STATUS_KEYS.wechat, wechatChip(ui.theme, state));
 				} catch {
 					// The chip is best-effort; a headless or themeless UI must not break start/stop.
 				}

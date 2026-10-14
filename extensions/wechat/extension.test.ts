@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { GLYPHS } from "../../lib/ui.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir } from "../../test/helpers/env.ts";
-import { createFakePi, emit } from "../../test/helpers/fakes.ts";
-import wechat from "./index.ts";
+import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
+import wechat, { wechatChip } from "./index.ts";
 
 describe("wechat extension", () => {
 	test("registers the /wechat command", () => {
@@ -58,5 +59,11 @@ describe("wechat extension", () => {
 			expect(notifications.join("\n")).toContain("Not logged in");
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});
+	});
+
+	test("renders a chip for every bridge state, persistent for an expiry", () => {
+		expect(wechatChip(coloringTheme, "running")).toBe(`[success]${GLYPHS.wechat} wechat`);
+		expect(wechatChip(coloringTheme, "expired")).toBe(`[error]${GLYPHS.wechat} wechat expired`);
+		expect(wechatChip(coloringTheme, "stopped")).toBeUndefined();
 	});
 });

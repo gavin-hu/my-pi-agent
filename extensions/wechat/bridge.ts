@@ -54,6 +54,9 @@ export function isInboundMessage(message: WeixinMessage): boolean {
 	return message.message_type !== 2 && typeof message.from_user_id === "string" && message.from_user_id !== "";
 }
 
+/** The bridge's connection state, published to the UI for the status chip. */
+export type BridgeState = "stopped" | "running" | "expired";
+
 export interface BridgeDeps {
 	config: WechatConfig;
 	now: () => number;
@@ -74,12 +77,14 @@ export interface BridgeDeps {
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** Called when the server reports an expired token. */
 	onExpired?: () => void;
-	/** Called whenever the bridge starts or stops, for a status chip. */
-	onStateChange?: (running: boolean) => void;
+	/** Called whenever the bridge's connection state changes, for a status chip. */
+	onStateChange?: (state: BridgeState) => void;
 }
 
 export interface BridgeStatus {
 	open: boolean;
+	/** Whether the bridge stopped because the session expired and needs a re-login. */
+	expired: boolean;
 	owner?: string;
 	peerCount: number;
 	queued: number;
@@ -116,6 +121,7 @@ function messageOf(error: unknown): string {
 export function createBridge(deps: BridgeDeps): Bridge {
 	const sleep = deps.sleep ?? defaultSleep;
 	let running = false;
+	let expired = false;
 	let busy = false;
 	let abort: AbortController | undefined;
 	let loopPromise: Promise<void> | undefined;
@@ -136,16 +142,17 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		deps.notify?.(message, kind);
 	}
 
-	/** Report the current running state to the host, for a status chip. */
-	function publishRunning(): void {
-		deps.onStateChange?.(running);
+	/** Report the current connection state to the host, for a status chip. */
+	function publishState(): void {
+		deps.onStateChange?.(running ? "running" : expired ? "expired" : "stopped");
 	}
 
 	function handleExpired(): void {
 		running = false;
-		publishRunning();
+		expired = true;
+		publishState();
 		deps.onExpired?.();
-		notify("WeChat session expired. Run /wechat login again.", "warning");
+		notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
 	}
 
 	/**
@@ -406,12 +413,13 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				deps.saveState(state);
 			}
 			running = true;
+			expired = false;
 			queue = [];
 			active = undefined;
 			lastText = "";
 			typingCache.clear();
 			interaction.reset();
-			publishRunning();
+			publishState();
 			abort = new AbortController();
 			loopPromise = loop(abort.signal).catch((error) => {
 				notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
@@ -421,10 +429,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		async close(): Promise<void> {
 			if (!running && !abort) {
 				releaseSafe();
-				publishRunning();
+				publishState();
 				return;
 			}
 			running = false;
+			expired = false;
 			abort?.abort();
 			abort = undefined;
 			try {
@@ -437,7 +446,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			active = undefined;
 			lastText = "";
 			interaction.reset();
-			publishRunning();
+			publishState();
 			releaseSafe();
 		},
 
@@ -475,6 +484,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		status(): BridgeStatus {
 			return {
 				open: running,
+				expired,
 				owner: state.ownerId ?? account?.ilinkUserId,
 				peerCount: Object.keys(state.peers).length,
 				queued: queue.length,

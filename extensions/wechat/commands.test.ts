@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import type { Bridge } from "./bridge.ts";
-import { finishLogin, type CommandDeps } from "./commands.ts";
+import type { Bridge, BridgeStatus } from "./bridge.ts";
+import { finishLogin, runStart, type CommandDeps } from "./commands.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import type { BotCredentials } from "./types.ts";
 
@@ -14,28 +14,48 @@ const account: BotCredentials = {
 	createdAt: 0,
 };
 
+function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
+	return {
+		open: false,
+		expired: false,
+		peerCount: 0,
+		queued: 0,
+		refused: 0,
+		mediaDropped: 0,
+		promptPending: false,
+		...overrides,
+	};
+}
+
 interface Harness {
 	deps: CommandDeps;
 	saved: BotCredentials[];
 	opens: () => number;
+	ensured: () => number;
 }
 
-function harness(open?: () => void): Harness {
+function harness(options: { open?: () => void; status?: BridgeStatus } = {}): Harness {
 	const saved: BotCredentials[] = [];
 	let opens = 0;
+	let ensured = 0;
+	const status = options.status ?? bridgeStatus();
 	const bridge = {
 		open: () => {
 			opens += 1;
-			open?.();
+			options.open?.();
 		},
+		status: () => status,
 	} as unknown as Bridge;
 	return {
 		deps: {
 			getBridge: () => bridge,
-			ensureBridge: () => bridge,
+			ensureBridge: () => {
+				ensured += 1;
+				return bridge;
+			},
 			loadConfig: () => DEFAULT_CONFIG,
 			createLoginClient: () => {
-				throw new Error("login client is not used by finishLogin");
+				throw new Error("login client is not used by these commands");
 			},
 			saveAccount: (value) => saved.push(value),
 			primaryAccount: () => undefined,
@@ -44,6 +64,7 @@ function harness(open?: () => void): Harness {
 		},
 		saved,
 		opens: () => opens,
+		ensured: () => ensured,
 	};
 }
 
@@ -58,8 +79,10 @@ describe("finishLogin", () => {
 	});
 
 	test("keeps the account and tells the user to start manually when connecting fails", () => {
-		const { deps, saved, opens } = harness(() => {
-			throw new Error("Another Pi session is already polling this WeChat account.");
+		const { deps, saved, opens } = harness({
+			open: () => {
+				throw new Error("Another Pi session is already polling this WeChat account.");
+			},
 		});
 		const { ctx, notices } = fakeCtx();
 		finishLogin({ kind: "confirmed", account }, ctx, deps);
@@ -97,5 +120,26 @@ describe("finishLogin", () => {
 		expect(saved).toEqual([]);
 		expect(opens()).toBe(0);
 		expect(notices).toEqual([]);
+	});
+});
+
+describe("runStart", () => {
+	test("routes an expired session to /wechat login instead of reopening", () => {
+		const { deps, opens, ensured } = harness({ status: bridgeStatus({ expired: true }) });
+		const { ctx, notices } = fakeCtx();
+		runStart(ctx, deps);
+		expect(ensured()).toBe(0);
+		expect(opens()).toBe(0);
+		expect(notices.at(-1)?.kind).toBe("warning");
+		expect(notices.at(-1)?.message).toContain("/wechat login");
+	});
+
+	test("starts a bridge that is not expired", () => {
+		const { deps, opens, ensured } = harness();
+		const { ctx, notices } = fakeCtx();
+		runStart(ctx, deps);
+		expect(ensured()).toBe(1);
+		expect(opens()).toBe(1);
+		expect(notices.at(-1)?.message).toContain("started");
 	});
 });

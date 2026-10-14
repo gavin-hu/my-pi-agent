@@ -109,9 +109,16 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 	finishLogin(result, ctx, deps);
 }
 
-function runStart(ctx: ExtensionContext, deps: CommandDeps): void {
+export function runStart(ctx: ExtensionContext, deps: CommandDeps): void {
 	if (ctx.mode !== "tui" && ctx.mode !== "rpc") {
 		ctx.ui.notify("WeChat opens only in an interactive or RPC session.", "warning");
+		return;
+	}
+	const status = deps.getBridge()?.status();
+	// Starting an expired session would just re-poll once and expire again, so
+	// route the user to the one command that recovers it.
+	if (status && !status.open && status.expired) {
+		ctx.ui.notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
 		return;
 	}
 	const bridge = deps.ensureBridge(ctx);
@@ -136,17 +143,16 @@ async function runStop(ctx: ExtensionContext, deps: CommandDeps): Promise<void> 
 function runStatus(ctx: ExtensionContext, deps: CommandDeps): void {
 	const account = deps.primaryAccount();
 	const status = deps.getBridge()?.status();
-	const parts = [
-		account ? `account ${peerLabel(account.ilinkUserId)}` : "not logged in",
-		status?.open ? "open" : "closed",
-	];
+	const connection = status?.open ? "open" : status?.expired ? "expired" : "closed";
+	const parts = [account ? `account ${peerLabel(account.ilinkUserId)}` : "not logged in", connection];
 	if (status) {
 		parts.push(`${status.peerCount} peer(s)`, `${status.queued} queued`);
 		if (status.refused > 0) parts.push(`${status.refused} refused`);
 		if (status.mediaDropped > 0) parts.push(`${status.mediaDropped} media dropped`);
 		if (status.owner) parts.push(`owner ${peerLabel(status.owner)}`);
 	}
-	ctx.ui.notify(`wechat: ${parts.join(" · ")}`);
+	const recovery = status && !status.open && status.expired ? " — run /wechat login to reconnect" : "";
+	ctx.ui.notify(`wechat: ${parts.join(" · ")}${recovery}`);
 }
 
 async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
