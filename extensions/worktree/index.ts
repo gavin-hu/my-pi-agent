@@ -43,6 +43,7 @@ import {
 	ENV_BRANCH,
 	ENV_MAIN,
 	ENV_ROOT,
+	applyWorktreeEnv,
 	clearConfigCache,
 	configFor,
 	getActive,
@@ -163,6 +164,11 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 				}
 			}
 		}
+
+		// Keep the process environment in step with the restored binding: a peer
+		// extension or a child process reads PI_WORKTREE_* (lib/env.ts), and this
+		// session may have replaced one that exported a different root.
+		applyWorktreeEnv(getActive());
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
@@ -176,6 +182,8 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 				// Shutdown must not throw.
 			}
 		}
+		// Do not leave this session's root exported for the next one in this process.
+		applyWorktreeEnv(null);
 		setStatus(ctx, undefined);
 	});
 

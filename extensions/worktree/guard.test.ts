@@ -83,6 +83,13 @@ describe("analyzeBashCommand", () => {
 		expect(analyzeBashCommand("git --git-dir /main/.git status", ROOT, config())?.block).toBe(true);
 	});
 
+	test("blocks an exported GIT_DIR/GIT_WORK_TREE that leaves the worktree", () => {
+		expect(analyzeBashCommand("export GIT_DIR=/main/.git && git status", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("export GIT_WORK_TREE=/main && git status", ROOT, config())?.block).toBe(true);
+		expect(analyzeBashCommand("export GIT_DIR=sub/.git && git status", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("export FOO=bar && git status", ROOT, config())).toBeUndefined();
+	});
+
 	test("blocks cd outside the worktree", () => {
 		expect(analyzeBashCommand("cd /etc && ls", ROOT, config())?.block).toBe(true);
 		expect(analyzeBashCommand("cd ../outside", ROOT, config())?.block).toBe(true);
@@ -99,6 +106,11 @@ describe("analyzeBashCommand", () => {
 	test("command-shape check is opt-in", () => {
 		expect(analyzeBashCommand("echo $(pwd)", ROOT, config())).toBeUndefined();
 		expect(analyzeBashCommand("echo $(pwd)", ROOT, config({ blockUnparsableCommands: true }))?.block).toBe(true);
+		expect(analyzeBashCommand("sh -c 'cd /main'", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("sh -c 'cd /main'", ROOT, config({ blockUnparsableCommands: true }))?.block).toBe(true);
+		expect(
+			analyzeBashCommand("bash -c 'git -C /main status'", ROOT, config({ blockUnparsableCommands: true }))?.block,
+		).toBe(true);
 	});
 
 	test("blocks redirects that only escape after shell expansion", () => {

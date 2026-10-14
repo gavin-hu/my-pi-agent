@@ -5,9 +5,17 @@ import { join } from "node:path";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { WORKTREE_TOOLS } from "./tools.ts";
 import { makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
-import { bootWorktree, emitEvent, makeWorktreePi, WORKTREE_ENTRY } from "../../test/helpers/fixtures/worktree.ts";
+import {
+	bootWorktree,
+	emitEvent,
+	makeFakeCtx,
+	makeWorktreePi,
+	WORKTREE_ENTRY,
+} from "../../test/helpers/fixtures/worktree.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
+import { fakeCtx as sharedFakeCtx } from "../../test/helpers/context.ts";
+import { tempDir, withEnv } from "../../test/helpers/env.ts";
+import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "./runtime.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import worktreeExtension from "./index.ts";
 
@@ -114,6 +122,24 @@ describe.skipIf(!runSlowSuites)("worktree session lifecycle", () => {
 		expect(harness.ctx.statuses.has("worktree")).toBe(false);
 	});
 
+	test("re-exports the isolated root when a session restores a worktree", async () => {
+		await withEnv({ [ENV_ROOT]: undefined, [ENV_BRANCH]: undefined, [ENV_MAIN]: undefined }, async () => {
+			const repo = temps.track(await makeRepo("pi-wt-env-"));
+			const harness = await bootWorktree(repo, { flagDefaults: { worktree: "envsync" } });
+			const path = join(repo, ".pi", "worktrees", "envsync");
+			expect(process.env[ENV_ROOT]).toBe(path);
+
+			// A replacement session in this process must not inherit the old root.
+			await emitEvent(harness.pi, "session_shutdown", {}, harness.ctx);
+			expect(process.env[ENV_ROOT]).toBeUndefined();
+
+			// Resuming the recorded branch re-exports it.
+			const resumed = sharedFakeCtx({ cwd: repo, hasUI: false, mode: "print", branch: harness.pi.entries }).ctx;
+			await emitEvent(harness.pi, "session_start", { reason: "resume" }, resumed);
+			expect(process.env[ENV_ROOT]).toBe(path);
+		});
+	});
+
 	test("injects the worktree section before the agent starts", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-life-"));
 		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "prompted" } });
@@ -127,5 +153,27 @@ describe.skipIf(!runSlowSuites)("worktree session lifecycle", () => {
 		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "rooted" } });
 		const result = await harness.pi.tools.get("read").execute("read-1", {}, undefined, undefined, harness.ctx);
 		expect(result.content[0].text).toContain(join(repo, ".pi", "worktrees", "rooted"));
+	});
+});
+
+describe("worktree env sync", () => {
+	test("clears a stale PI_WORKTREE_* at session start", async () => {
+		await withEnv({ [ENV_ROOT]: "/stale/root", [ENV_BRANCH]: "stale", [ENV_MAIN]: "/stale/main" }, async () => {
+			const { pi } = makeWorktreePi();
+			const ctx = makeFakeCtx(pi, { cwd: tempDir("pi-wt-env-") });
+			await emitEvent(pi, "session_start", { reason: "new" }, ctx);
+			expect(process.env[ENV_ROOT]).toBeUndefined();
+			expect(process.env[ENV_BRANCH]).toBeUndefined();
+			expect(process.env[ENV_MAIN]).toBeUndefined();
+		});
+	});
+
+	test("clears PI_WORKTREE_* on session shutdown", async () => {
+		await withEnv({ [ENV_ROOT]: "/stale/root", [ENV_BRANCH]: "stale", [ENV_MAIN]: "/stale/main" }, async () => {
+			const { pi } = makeWorktreePi();
+			const ctx = makeFakeCtx(pi, { cwd: tempDir("pi-wt-env-") });
+			await emitEvent(pi, "session_shutdown", {}, ctx);
+			expect(process.env[ENV_ROOT]).toBeUndefined();
+		});
 	});
 });
