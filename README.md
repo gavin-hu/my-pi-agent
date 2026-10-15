@@ -106,10 +106,12 @@ extension's own `README.md` has the full tool and command surface.
 
 ## Configuration
 
-Most extensions need no configuration. Those that read settings load
-`<agent-dir>/<name>.json` merged with `<cwd>/.pi/<name>.json`; each extension's
-`README.md` lists its keys, and [`docs/configuration.md`](./docs/configuration.md)
-indexes them.
+Most extensions need no configuration. Every setting lives in one shared
+document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and merged with
+`<cwd>/.pi/bytefly.json` (project wins), under a top-level section named for the
+extension. Each extension's `README.md` lists its keys,
+[`docs/configuration.md`](./docs/configuration.md) indexes them, and
+[`assets/bytefly.schema.json`](./assets/bytefly.schema.json) validates the file.
 
 Every extension is on by default. To load the pack without some of them, set
 `PI_DISABLED_EXTENSIONS` to a comma- or whitespace-separated list of extension
