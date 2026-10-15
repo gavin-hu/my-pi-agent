@@ -42,8 +42,9 @@ pi --plan                          # start in plan mode
   them into `todo`.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
-- **Kept current.** After approval, `set_plan_step` flips a step's checkbox in
-  the file, so the plan mirrors what has actually been done.
+- **Kept current.** After approval, `set_plan_steps` flips the checkboxes of
+  the steps you name in the file, so the plan mirrors what has actually been
+  done.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
 - **Browser review on demand.** Press `w` on the review screen (or run
@@ -68,7 +69,7 @@ pi --plan                          # start in plan mode
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
 | `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. |
-| `set_plan_step` | normal mode | Keep an approved plan current: set one top-level step (`step`, 1-based, in the order `exit_plan_mode` listed) to `pending` or `completed`, in place. Only the checkbox changes. |
+| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
 
 ### Commands and flags
 
@@ -314,7 +315,7 @@ returns them to the model.
 
 - **Not a sandbox.** Extensions share Pi's OS permissions.
 - **No progress tracker of record.** `todo` owns completion state; the plan
-  file only mirrors it (`set_plan_step`), and plan mode does not read completion
+  file only mirrors it (`set_plan_steps`), and plan mode does not read completion
   back out.
 - **No auto-execution.** Approval hands control back to the model.
 
@@ -322,7 +323,7 @@ returns them to the model.
 
 | Integration point | How |
 |---|---|
-| Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_step` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepDetails`); no `outputSchema`/`structuredContent`. |
+| Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`); no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
@@ -360,10 +361,11 @@ returns them to the model.
   source-line map, so `tui.ts` splits the body at its headings and renders each
   section separately. That gives exact offsets for the current-section label and
   `n`/`p`; the single-section case is byte-for-byte the old render.
-- **`set_plan_step` is a second contained write.** It changes only a step's
-  checkbox, in an existing markdown plan inside the plans directory
-  (`isContainedPlan`), and refuses while plan mode is on — so the read-only
-  guarantee and the path backstop are unchanged.
+- **`set_plan_steps` is a second contained write.** It changes only the named
+  steps' checkboxes, in an existing markdown plan inside the plans directory
+  (`isContainedPlan`), in a single all-or-nothing write — refusing every entry
+  if any step is out of range — and refuses while plan mode is on, so the
+  read-only guarantee and the path backstop are unchanged.
 - **Direction: enforce capabilities at the tool boundary.** (1) A shared
   default-deny policy classifies every call as read-only or mutating instead of
   maintaining a mutator list. (2) Read-only delegation is enforced in the child
@@ -394,13 +396,13 @@ returns them to the model.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Wiring: tools, command, flag, shortcut, events, context injection. |
-| `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepDetails`. |
+| `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/`setStep`/`saveFeedback`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/`setSteps`/`saveFeedback`. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction, heading sections, and the checkbox edit. |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
-| `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step`. |
+| `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, scroll gauge, approve/refine/browser/keep). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, blanks). |

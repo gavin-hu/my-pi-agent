@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { createPlanPolicy } from "./policy.ts";
-import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
+import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { PlanWebReview } from "./web.ts";
@@ -34,7 +34,7 @@ function setup(web?: PlanWebReview) {
 		enter: fake.tools.get(ENTER_TOOL),
 		exit: fake.tools.get(EXIT_TOOL),
 		write: fake.tools.get(WRITE_PLAN_TOOL),
-		setStep: fake.tools.get(SET_PLAN_STEP_TOOL),
+		setSteps: fake.tools.get(SET_PLAN_STEPS_TOOL),
 	};
 }
 
@@ -303,7 +303,7 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("test-plan.md");
 		expect(result.content[0].text).toContain("source of truth");
 		expect(result.content[0].text).toContain("1. [ ] Read the parser");
-		expect(result.content[0].text).toContain(SET_PLAN_STEP_TOOL);
+		expect(result.content[0].text).toContain(SET_PLAN_STEPS_TOOL);
 	});
 
 	test("accepts a plan_path relative to the working directory", async () => {
@@ -487,31 +487,67 @@ describe("exit_plan_mode", () => {
 	});
 });
 
-describe("set_plan_step", () => {
-	test("ticks a step off in an approved plan and reports progress", async () => {
-		const { enter, exit, write, setStep, runtime, root } = setup();
+describe("set_plan_steps", () => {
+	test("ticks steps off in an approved plan and reports progress", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two\n3. Three");
 		await approvePlan(exit, planPath, root);
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setStep, { plan_path: planPath, step: 2, status: "completed" }, ctx);
-		const details = result.details as { done: number; total: number; status: string };
+		const result = await call(
+			setSteps,
+			{
+				plan_path: planPath,
+				updates: [
+					{ step: 1, status: "completed" },
+					{ step: 3, status: "completed" },
+				],
+			},
+			ctx,
+		);
+		const details = result.details as { done: number; total: number };
 
 		expect(result.isError).toBeUndefined();
-		expect(details.done).toBe(1);
+		expect(details.done).toBe(2);
 		expect(details.total).toBe(3);
-		expect(readFileSync(planPath, "utf-8")).toBe("1. One\n2. [x] Two\n3. Three");
+		expect(result.content[0].text).toContain("Steps 1, 3 completed (2/3 done)");
+		expect(readFileSync(planPath, "utf-8")).toBe("1. [x] One\n2. Two\n3. [x] Three");
 	});
 
-	test("refuses an out-of-range step and leaves the file unchanged", async () => {
-		const { enter, exit, write, setStep, runtime, root } = setup();
+	test("reopens a step and drops its DONE marker", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- First [DONE:1]\n- Second");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(setSteps, { plan_path: planPath, updates: [{ step: 1, status: "pending" }] }, ctx);
+		const details = result.details as { done: number };
+
+		expect(result.isError).toBeUndefined();
+		expect(details.done).toBe(0);
+		expect(readFileSync(planPath, "utf-8")).toBe("- [ ] First\n- Second");
+	});
+
+	test("refuses when any step is out of range and leaves the file unchanged", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
 		await approvePlan(exit, planPath, root);
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setStep, { plan_path: planPath, step: 5, status: "completed" }, ctx);
+		const result = await call(
+			setSteps,
+			{
+				plan_path: planPath,
+				updates: [
+					{ step: 1, status: "completed" },
+					{ step: 5, status: "completed" },
+				],
+			},
+			ctx,
+		);
 
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("out of range");
@@ -519,25 +555,29 @@ describe("set_plan_step", () => {
 	});
 
 	test("refuses a plan outside the plans directory", async () => {
-		const { enter, setStep, runtime, root } = setup();
+		const { enter, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		runtime.disable(fakeCtx({ cwd: root }).ctx);
 		writeFileSync(join(root, "secret.md"), "- One");
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setStep, { plan_path: join(root, "secret.md"), step: 1, status: "completed" }, ctx);
+		const result = await call(
+			setSteps,
+			{ plan_path: join(root, "secret.md"), updates: [{ step: 1, status: "completed" }] },
+			ctx,
+		);
 
 		expect(result.isError).toBe(true);
 		expect(readFileSync(join(root, "secret.md"), "utf-8")).toBe("- One");
 	});
 
 	test("refuses while still in plan mode", async () => {
-		const { enter, write, setStep, runtime, root } = setup();
+		const { enter, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setStep, { plan_path: planPath, step: 1, status: "completed" }, ctx);
+		const result = await call(setSteps, { plan_path: planPath, updates: [{ step: 1, status: "completed" }] }, ctx);
 
 		expect(result.isError).toBe(true);
 		expect(runtime.isEnabled()).toBe(true);
@@ -545,20 +585,19 @@ describe("set_plan_step", () => {
 	});
 
 	test("is active by default and annotated as a reversible mutation", () => {
-		const { setStep } = setup();
-		expect(setStep.defaultActive).toBeUndefined();
-		expect(setStep.annotations).toMatchObject({ readOnlyHint: false, idempotentHint: true });
+		const { setSteps } = setup();
+		expect(setSteps.defaultActive).toBeUndefined();
+		expect(setSteps.annotations).toMatchObject({ readOnlyHint: false, idempotentHint: true });
 	});
 
 	test("renders the completion state", () => {
-		const { setStep } = setup();
-		const component = setStep.renderResult(
+		const { setSteps } = setup();
+		const component = setSteps.renderResult(
 			{
 				details: {
 					path: "/x/.pi/plans/p.md",
 					relativePath: ".pi/plans/p.md",
-					step: 2,
-					status: "completed",
+					updates: [{ step: 2, status: "completed" }],
 					done: 2,
 					total: 5,
 				},
@@ -574,8 +613,8 @@ describe("set_plan_step", () => {
 
 describe("plan transcript rendering", () => {
 	test("reuses the slot Text across renders", () => {
-		const { enter, exit, write, setStep } = setup();
-		for (const tool of [enter, write, exit, setStep]) {
+		const { enter, exit, write, setSteps } = setup();
+		for (const tool of [enter, write, exit, setSteps]) {
 			const first = tool.renderCall({}, fakeTheme, { lastComponent: undefined });
 			const again = tool.renderCall({}, fakeTheme, { lastComponent: first });
 			expect(again).toBe(first);
@@ -628,12 +667,12 @@ describe("host-rejected results", () => {
 	});
 
 	test("every plan renderer falls back to the message instead of guessing state", () => {
-		const { enter, write, exit, setStep } = setup();
+		const { enter, write, exit, setSteps } = setup();
 		const cases: Array<[any, string]> = [
 			[enter, "enter_plan_mode"],
 			[write, "write_plan"],
 			[exit, "exit_plan_mode"],
-			[setStep, "set_plan_step"],
+			[setSteps, "set_plan_steps"],
 		];
 		for (const [tool, name] of cases) {
 			const text = tool.renderResult(rejected(name), { expanded: false }, fakeTheme).render(80).join("\n");

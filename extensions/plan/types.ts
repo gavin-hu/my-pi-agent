@@ -2,6 +2,8 @@
  * Shared types for the plan-mode extension.
  */
 
+import type { StepUpdate } from "./steps.ts";
+
 /** Persisted (custom entry) plan-mode state. */
 export interface PlanModeEntry {
 	enabled: boolean;
@@ -32,16 +34,14 @@ export interface WritePlanDetails {
 	bytes: number;
 }
 
-/** Structured result carried in `set_plan_step`'s `details`. */
-export interface SetPlanStepDetails {
+/** Structured result carried in `set_plan_steps`'s `details`. */
+export interface SetPlanStepsDetails {
 	/** Absolute path of the plan file that was updated. */
 	path: string;
 	/** Path relative to the working directory, for transcript display. */
 	relativePath: string;
-	/** The 1-based step number that was set. */
-	step: number;
-	/** The step's new status. */
-	status: "pending" | "completed";
+	/** The checkbox changes that were applied, in call order. */
+	updates: StepUpdate[];
 	/** Completed steps after the update. */
 	done: number;
 	/** Total top-level steps in the plan. */

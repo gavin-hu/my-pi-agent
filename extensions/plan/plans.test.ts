@@ -217,15 +217,27 @@ describe("createPlanStore — containment", () => {
 	});
 });
 
-describe("createPlanStore — setStep", () => {
+describe("createPlanStore — setSteps", () => {
 	test("ticks off a step and returns the rewritten plan", async () => {
 		const root = tempDir();
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });
 		const file = await store.write(root, { title: "Steps", content: "1. One\n2. Two" });
 
-		const updated = await store.setStep(root, file.path, 2, "completed");
+		const updated = await store.setSteps(root, file.path, [{ step: 2, status: "completed" }]);
 		expect(updated.content).toBe("1. One\n2. [x] Two");
 		expect(readFileSync(file.path, "utf-8")).toBe("1. One\n2. [x] Two");
+	});
+
+	test("applies a batch in one write", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "1. One\n2. Two\n3. Three" });
+
+		const updated = await store.setSteps(root, file.path, [
+			{ step: 1, status: "completed" },
+			{ step: 3, status: "completed" },
+		]);
+		expect(updated.content).toBe("1. [x] One\n2. Two\n3. [x] Three");
 	});
 
 	test("rejects an out-of-range step without touching the file", async () => {
@@ -233,7 +245,12 @@ describe("createPlanStore — setStep", () => {
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });
 		const file = await store.write(root, { title: "Steps", content: "- One" });
 
-		await expect(store.setStep(root, file.path, 3, "completed")).rejects.toThrow(/out of range/);
+		await expect(
+			store.setSteps(root, file.path, [
+				{ step: 1, status: "completed" },
+				{ step: 3, status: "completed" },
+			]),
+		).rejects.toThrow(/out of range/);
 		expect(readFileSync(file.path, "utf-8")).toBe("- One");
 	});
 
@@ -242,10 +259,12 @@ describe("createPlanStore — setStep", () => {
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });
 		writeFileSync(join(root, "outside.md"), "- One");
 
-		await expect(store.setStep(root, join(root, ".pi", "plans", "nope.md"), 1, "completed")).rejects.toThrow(
+		await expect(
+			store.setSteps(root, join(root, ".pi", "plans", "nope.md"), [{ step: 1, status: "completed" }]),
+		).rejects.toThrow(/No plan file/);
+		await expect(store.setSteps(root, join(root, "outside.md"), [{ step: 1, status: "completed" }])).rejects.toThrow(
 			/No plan file/,
 		);
-		await expect(store.setStep(root, join(root, "outside.md"), 1, "completed")).rejects.toThrow(/No plan file/);
 	});
 });
 

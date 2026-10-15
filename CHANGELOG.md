@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `plan`: `set_plan_step` is now `set_plan_steps`. It takes an `updates` array
+  instead of a single `step`/`status` pair, so several steps can be ticked off
+  or reopened in one all-or-nothing write: nothing changes if any step is out
+  of range. Reopening a step now also drops its `[DONE:n]` marker, so the file
+  agrees with the checkbox.
+
 ## [0.7.0] - 2026-10-15
 
 ### Added

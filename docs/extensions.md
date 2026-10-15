@@ -17,7 +17,7 @@ commands, `powershell` is blocked, and mutating tools wait), `subagent` is force
 read-only, and the policy is default-deny through `lib/policy.ts`. The plan
 follows a documented outline (`# <Title>`, `## Goal`, `## Context`,
 `## Approach`, `## Steps`, `## Risks`, `## Verification`); steps are `- [ ]`
-checkboxes that approval seeds into `todo`, and `set_plan_step` keeps the file
+checkboxes that approval seeds into `todo`, and `set_plan_steps` keeps the file
 current afterward. `exit_plan_mode` presents the plan for approval, keeps
 planning, or takes a refinement; the review screen jumps between headings with
 `n`/`p`. Press `w` (or run `/plan review [path]`) to open the plan in a loopback
@@ -26,7 +26,7 @@ browser, leave inline comments, and save them back as `> [!REVIEW]` lines.
 and `Ctrl+Alt+P` is the shortcut. The enabled flag is a session entry, so
 `/resume` and `/tree` restore it.
 
-Tools: `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_step`.
+Tools: `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`.
 Commands and flags: `/plan`, `/plan <prompt>`, `/plan review [path]`,
 `Ctrl+Alt+P`, `--plan`.
 

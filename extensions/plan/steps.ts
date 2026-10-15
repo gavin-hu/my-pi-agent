@@ -166,28 +166,40 @@ export function extractPlanSteps(plan: string): PlanStep[] {
 	return topLevelItems(plan).map((item) => ({ content: elide(item.step.content), status: item.step.status }));
 }
 
-/**
- * Set the checkbox of the `step`th top-level step (1-based, matching
- * {@link extractPlanSteps}) and return the rewritten plan with the updated step,
- * or undefined when the step number is out of range. Only the marker changes: a
- * plain `1.`/`-` item gains a checkbox, an existing one is set, and the step
- * text is left exactly as written.
- */
-export function setStepStatus(
-	plan: string,
-	step: number,
-	status: "pending" | "completed",
-): { plan: string; step: PlanStep } | undefined {
-	if (!Number.isInteger(step) || step < 1) return undefined;
-	const target = topLevelItems(plan)[step - 1];
-	if (!target) return undefined;
+/** One checkbox change: a 1-based step number and the state to set. */
+export interface StepUpdate {
+	step: number;
+	status: PlanStep["status"];
+}
 
-	const existing = target.raw.match(CHECKBOX);
-	const text = existing ? existing[2] : target.raw;
-	const checkbox = status === "completed" ? "[x]" : "[ ]";
+/**
+ * Apply a batch of checkbox changes to the given top-level steps (1-based,
+ * matching {@link extractPlanSteps}) and return the rewritten plan, or
+ * undefined when any step number is out of range. All-or-nothing: every step is
+ * validated before any edit, so one bad entry changes nothing. Only the marker
+ * changes: a plain `1.`/`-` item gains a checkbox, an existing one is set, a
+ * `[DONE:n]` marker is dropped when the step is reopened, and the step text is
+ * otherwise left exactly as written. When a step appears twice, the last entry
+ * wins.
+ */
+export function setStepStatuses(plan: string, updates: StepUpdate[]): string | undefined {
+	const items = topLevelItems(plan);
+	for (const update of updates) {
+		if (!Number.isInteger(update.step) || update.step < 1 || !items[update.step - 1]) return undefined;
+	}
+
 	const lines = plan.split("\n");
-	lines[target.line] = `${" ".repeat(target.indent)}${target.lead}${checkbox} ${text}`;
-	return { plan: lines.join("\n"), step: parseStep(`${checkbox} ${text}`) };
+	for (const update of updates) {
+		const target = items[update.step - 1];
+		const existing = target.raw.match(CHECKBOX);
+		let text = existing ? existing[2] : target.raw;
+		// A reopened step must lose its marker too: the marker alone reads as
+		// completed, so keeping it would contradict the checkbox.
+		if (update.status === "pending") text = text.replace(DONE_MARKER, "").trimEnd();
+		const checkbox = update.status === "completed" ? "[x]" : "[ ]";
+		lines[target.line] = `${" ".repeat(target.indent)}${target.lead}${checkbox} ${text}`;
+	}
+	return lines.join("\n");
 }
 
 /**

@@ -6,7 +6,7 @@ import {
 	PLAN_SECTIONS,
 	extractPlanSections,
 	extractPlanSteps,
-	setStepStatus,
+	setStepStatuses,
 } from "./steps.ts";
 
 const pending = (content: string) => ({ content, status: "pending" as const });
@@ -146,41 +146,72 @@ describe("extractPlanSections", () => {
 	});
 });
 
-describe("setStepStatus", () => {
+describe("setStepStatuses", () => {
 	test("marks a numbered step done and leaves its text alone", () => {
 		const plan = ["1. Read the parser", "2. Add a tokenizer"].join("\n");
-		const result = setStepStatus(plan, 2, "completed");
-		expect(result?.plan).toBe("1. Read the parser\n2. [x] Add a tokenizer");
-		expect(result?.step).toEqual(completed("Add a tokenizer"));
+		const result = setStepStatuses(plan, [{ step: 2, status: "completed" }]);
+		expect(result).toBe("1. Read the parser\n2. [x] Add a tokenizer");
 	});
 
 	test("adds a checkbox to a plain list item", () => {
-		const result = setStepStatus("- Do the thing", 1, "completed");
-		expect(result?.plan).toBe("- [x] Do the thing");
+		expect(setStepStatuses("- Do the thing", [{ step: 1, status: "completed" }])).toBe("- [x] Do the thing");
 	});
 
 	test("returns to pending", () => {
-		const result = setStepStatus("- [x] Done", 1, "pending");
-		expect(result?.plan).toBe("- [ ] Done");
+		expect(setStepStatuses("- [x] Done", [{ step: 1, status: "pending" }])).toBe("- [ ] Done");
+	});
+
+	test("applies several steps in one pass", () => {
+		const plan = ["1. One", "2. Two", "3. Three"].join("\n");
+		const result = setStepStatuses(plan, [
+			{ step: 1, status: "completed" },
+			{ step: 3, status: "completed" },
+		]);
+		expect(result).toBe("1. [x] One\n2. Two\n3. [x] Three");
+	});
+
+	test("reopening drops a DONE marker so the file agrees with the status", () => {
+		const result = setStepStatuses("- First [DONE:1]\n- Second", [{ step: 1, status: "pending" }]);
+		expect(result).toBe("- [ ] First\n- Second");
+		expect(extractPlanSteps(result as string)).toEqual([pending("First"), pending("Second")]);
+	});
+
+	test("keeps a DONE marker when the step stays completed", () => {
+		const result = setStepStatuses("- First [DONE:1]", [{ step: 1, status: "completed" }]);
+		expect(result).toBe("- [x] First [DONE:1]");
+	});
+
+	test("a duplicate step takes the last entry", () => {
+		const result = setStepStatuses("- One", [
+			{ step: 1, status: "completed" },
+			{ step: 1, status: "pending" },
+		]);
+		expect(result).toBe("- [ ] One");
 	});
 
 	test("aligns its numbering with extractPlanSteps", () => {
 		const plan = ["1. Same", "2. same", "3. Other"].join("\n");
 		expect(extractPlanSteps(plan)).toEqual([pending("Same"), pending("Other")]);
-		const result = setStepStatus(plan, 2, "completed");
-		expect(result?.plan).toBe("1. Same\n2. same\n3. [x] Other");
+		const result = setStepStatuses(plan, [{ step: 2, status: "completed" }]);
+		expect(result).toBe("1. Same\n2. same\n3. [x] Other");
 	});
 
 	test("ignores steps inside fences", () => {
 		const plan = ["```", "- nope", "```", "- Real"].join("\n");
-		const result = setStepStatus(plan, 1, "completed");
-		expect(result?.plan).toContain("- [x] Real");
-		expect(result?.plan).toContain("- nope");
+		const result = setStepStatuses(plan, [{ step: 1, status: "completed" }]);
+		expect(result).toContain("- [x] Real");
+		expect(result).toContain("- nope");
 	});
 
-	test("returns undefined for an out-of-range or non-integer step", () => {
-		expect(setStepStatus("- One", 0, "completed")).toBeUndefined();
-		expect(setStepStatus("- One", 2, "completed")).toBeUndefined();
-		expect(setStepStatus("- One", 1.5, "completed")).toBeUndefined();
+	test("changes nothing when any step is out of range or non-integer", () => {
+		expect(setStepStatuses("- One", [{ step: 0, status: "completed" }])).toBeUndefined();
+		expect(setStepStatuses("- One", [{ step: 2, status: "completed" }])).toBeUndefined();
+		expect(setStepStatuses("- One", [{ step: 1.5, status: "completed" }])).toBeUndefined();
+		expect(
+			setStepStatuses("- One\n- Two", [
+				{ step: 1, status: "completed" },
+				{ step: 9, status: "completed" },
+			]),
+		).toBeUndefined();
 	});
 });

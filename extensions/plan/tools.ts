@@ -7,7 +7,7 @@
  * approval (a scrollable review screen in the TUI, a select dialog elsewhere),
  * and on approval seeds the `todo` tool with the plan's steps (through
  * `ctx.executeTool`, so the todo widget and validation run normally).
- * `set_plan_step` then keeps the file current: after approval the model ticks
+ * `set_plan_steps` then keeps the file current: after approval the model ticks
  * each step off in place as it finishes it. The file is the source of truth:
  * the model executes from it.
  *
@@ -26,10 +26,10 @@ import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui.ts";
 import { expandHint } from "../../lib/ui.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { feedbackSummary } from "./feedback.ts";
-import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEP_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
-import { PLAN_OUTLINE, extractPlanSteps, type PlanStep } from "./steps.ts";
+import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
+import { PLAN_OUTLINE, extractPlanSteps, type PlanStep, type StepUpdate } from "./steps.ts";
 import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
-import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepDetails, WritePlanDetails } from "./types.ts";
+import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
 import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 
 const ExitPlanModeParams = Type.Object({
@@ -54,10 +54,7 @@ const WritePlanParams = Type.Object({
 	),
 });
 
-const SetPlanStepParams = Type.Object({
-	plan_path: Type.String({
-		description: "Path to the approved plan file, as returned by write_plan or exit_plan_mode.",
-	}),
+const StepUpdateParams = Type.Object({
 	step: Type.Integer({
 		minimum: 1,
 		description: "1-based step number, in the order the plan was approved.",
@@ -67,9 +64,19 @@ const SetPlanStepParams = Type.Object({
 	}),
 });
 
+const SetPlanStepsParams = Type.Object({
+	plan_path: Type.String({
+		description: "Path to the approved plan file, as returned by write_plan or exit_plan_mode.",
+	}),
+	updates: Type.Array(StepUpdateParams, {
+		minItems: 1,
+		description: "The steps to set; each entry sets one step's checkbox, and the last entry wins for a duplicate step.",
+	}),
+});
+
 type ExitPlanModeArgs = Static<typeof ExitPlanModeParams>;
 type WritePlanArgs = Static<typeof WritePlanParams>;
-type SetPlanStepArgs = Static<typeof SetPlanStepParams>;
+type SetPlanStepsArgs = Static<typeof SetPlanStepsParams>;
 
 /** Lines of plan shown in an unexpanded result. */
 const PREVIEW_LINES = 8;
@@ -87,6 +94,21 @@ function preview(plan: string): { body: string; more: number } {
 	const lines = plan.split("\n");
 	if (lines.length <= PREVIEW_LINES) return { body: plan, more: 0 };
 	return { body: lines.slice(0, PREVIEW_LINES).join("\n"), more: lines.length - PREVIEW_LINES };
+}
+
+/** "Step 2" or "Steps 1, 2" for a set of step numbers. */
+function stepLabel(steps: number[]): string {
+	return `${steps.length === 1 ? "Step" : "Steps"} ${steps.join(", ")}`;
+}
+
+/** "Steps 1, 2 completed; step 3 reopened" for the tool's text result. */
+function describeUpdates(updates: StepUpdate[]): string {
+	const completed = updates.filter((update) => update.status === "completed").map((update) => update.step);
+	const pending = updates.filter((update) => update.status === "pending").map((update) => update.step);
+	const parts: string[] = [];
+	if (completed.length > 0) parts.push(`${stepLabel(completed)} completed`);
+	if (pending.length > 0) parts.push(`${stepLabel(pending)} reopened`);
+	return parts.join("; ");
 }
 
 /** Seed the todo list with the plan's steps; returns what was recorded. */
@@ -464,9 +486,9 @@ export function registerTools(
 					: "";
 			const tail =
 				recorded > 0
-					? ` Recorded ${recorded} step${recorded === 1 ? "" : "s"} in the todo list. As you finish each step, mark it done there and tick it off in the file with ${SET_PLAN_STEP_TOOL}.`
+					? ` Recorded ${recorded} step${recorded === 1 ? "" : "s"} in the todo list. As you finish each step, mark it done there and tick it off in the file with ${SET_PLAN_STEPS_TOOL}.`
 					: steps.length > 0
-						? ` Could not record the steps in the todo list${error ? `: ${error}` : ""}. Keep these steps in mind and tick them off with ${SET_PLAN_STEP_TOOL} as you go.`
+						? ` Could not record the steps in the todo list${error ? `: ${error}` : ""}. Keep these steps in mind and tick them off with ${SET_PLAN_STEPS_TOOL} as you go.`
 						: " If the todo tool is available, record the steps with it before you start.";
 			return {
 				content: [
@@ -525,22 +547,23 @@ export function registerTools(
 	});
 
 	pi.registerTool({
-		name: SET_PLAN_STEP_TOOL,
-		label: "Set plan step",
+		name: SET_PLAN_STEPS_TOOL,
+		label: "Set plan steps",
 		description:
-			"Keep an approved plan file current by setting one top-level step's checkbox in place. The step number matches " +
-			"the order the plan was approved in. Only the checkbox changes; the step text is left as written. Call it as you " +
-			"finish (or reopen) each step so the file mirrors reality.",
-		promptSnippet: "Tick a step off in the approved plan file.",
+			"Keep an approved plan file current by setting the checkboxes of the given top-level steps in place. Each step " +
+			"number matches the order the plan was approved in; a step can be marked completed or reopened. Only the " +
+			"checkboxes change; the step text is left as written. The file is rewritten once, and nothing changes when any " +
+			"step is out of range.",
+		promptSnippet: "Tick steps off in the approved plan file.",
 		promptGuidelines: [
-			"After a plan is approved, call set_plan_step as you complete each step so the plan file stays current.",
+			"After a plan is approved, call set_plan_steps as you complete steps so the plan file stays current.",
 		],
-		parameters: SetPlanStepParams,
+		parameters: SetPlanStepsParams,
 		executionMode: "sequential",
 		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const args = params as SetPlanStepArgs;
+			const args = params as SetPlanStepsArgs;
 			if (runtime.isEnabled()) {
 				return {
 					content: [{ type: "text", text: "Not while planning; refine the plan with write_plan instead." }],
@@ -549,24 +572,23 @@ export function registerTools(
 				};
 			}
 			try {
-				const plan = await runtime.plans.setStep(ctx.cwd, args.plan_path, args.step, args.status);
+				const plan = await runtime.plans.setSteps(ctx.cwd, args.plan_path, args.updates);
 				const steps = extractPlanSteps(plan.content);
 				const done = steps.filter((step) => step.status === "completed").length;
 				return {
 					content: [
 						{
 							type: "text",
-							text: `Step ${args.step} is ${args.status} (${done}/${steps.length} done) in ${plan.relativePath}.`,
+							text: `${describeUpdates(args.updates)} (${done}/${steps.length} done) in ${plan.relativePath}.`,
 						},
 					],
 					details: {
 						path: plan.path,
 						relativePath: plan.relativePath,
-						step: args.step,
-						status: args.status,
+						updates: args.updates,
 						done,
 						total: steps.length,
-					} satisfies SetPlanStepDetails,
+					} satisfies SetPlanStepsDetails,
 				};
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
@@ -580,24 +602,32 @@ export function registerTools(
 
 		renderCall(args, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const step = (args as Partial<SetPlanStepArgs>).step;
-			const suffix = theme.fg("muted", step === undefined ? "a step" : `step ${step}`);
-			text.setText(theme.fg("toolTitle", theme.bold(`${SET_PLAN_STEP_TOOL} `)) + suffix);
+			const updates = (args as Partial<SetPlanStepsArgs>).updates;
+			const label =
+				updates && updates.length === 1 && updates[0]?.step !== undefined
+					? `step ${updates[0].step}`
+					: updates && updates.length > 1
+						? `${updates.length} steps`
+						: "steps";
+			text.setText(theme.fg("toolTitle", theme.bold(`${SET_PLAN_STEPS_TOOL} `)) + theme.fg("muted", label));
 			return text;
 		},
 
 		renderResult(result, _options, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = toolDetails<SetPlanStepDetails>(result.details);
+			const details = toolDetails<SetPlanStepsDetails>(result.details);
 			if (!details) {
 				const first = result.content[0];
 				text.setText(first?.type === "text" ? first.text : "");
 				return text;
 			}
+			const completed = details.updates.filter((update) => update.status === "completed").map((u) => u.step);
+			const pending = details.updates.filter((update) => update.status === "pending").map((u) => u.step);
 			const heading =
-				details.status === "completed"
-					? theme.fg("success", `✓ Step ${details.step} done`)
-					: theme.fg("muted", `Step ${details.step} reopened`);
+				completed.length > 0
+					? theme.fg("success", `✓ ${stepLabel(completed)} done`) +
+						(pending.length > 0 ? theme.fg("muted", ` · ${stepLabel(pending)} reopened`) : "")
+					: theme.fg("muted", `${stepLabel(pending)} reopened`);
 			text.setText(heading + theme.fg("dim", ` · ${details.done}/${details.total}`));
 			return text;
 		},

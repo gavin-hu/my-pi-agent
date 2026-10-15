@@ -20,7 +20,7 @@ import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works
 import { repoRootFor } from "../../lib/git/index.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
 import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
-import { extractPlanSteps, setStepStatus, type PlanStep } from "./steps.ts";
+import { extractPlanSteps, setStepStatuses, type StepUpdate } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
 export const MAX_PLAN_BYTES = 256 * 1024;
@@ -57,8 +57,8 @@ export interface PlanStore {
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
-	/** Set a top-level step's checkbox in an existing plan. Throws when the file or step is invalid. */
-	setStep(cwd: string, planPath: string, step: number, status: PlanStep["status"]): Promise<StoredPlan>;
+	/** Set the given top-level steps' checkboxes in an existing plan. Throws when the file or any step is invalid. */
+	setSteps(cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan>;
 	/** Replace the plan's stored browser feedback. Throws when the file is missing or outside the plans directory. */
 	saveFeedback(cwd: string, planPath: string, annotations: PlanAnnotation[]): Promise<StoredPlan>;
 }
@@ -222,26 +222,25 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 	};
 
-	const setStep = async (
-		cwd: string,
-		planPath: string,
-		step: number,
-		status: PlanStep["status"],
-	): Promise<StoredPlan> => {
+	const setSteps = async (cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan> => {
 		const plan = await read(cwd, planPath);
 		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
-		const updated = setStepStatus(plan.content, step, status);
-		if (!updated) {
-			const total = extractPlanSteps(plan.content).length;
+		const total = extractPlanSteps(plan.content).length;
+		const outOfRange = updates.find(
+			(update) => !Number.isInteger(update.step) || update.step < 1 || update.step > total,
+		);
+		if (outOfRange) {
 			const range = total === 0 ? "it has no steps" : `valid steps are 1 to ${total}`;
-			throw new Error(`Step ${step} is out of range; ${range}.`);
+			throw new Error(`Step ${outOfRange.step} is out of range; ${range}.`);
 		}
-		writeFileSync(plan.path, updated.plan, "utf-8");
+		const updated = setStepStatuses(plan.content, updates);
+		if (!updated) throw new Error("Could not update the plan steps; pass steps from the plan file.");
+		writeFileSync(plan.path, updated, "utf-8");
 		return {
 			path: plan.path,
 			relativePath: plan.relativePath,
-			content: updated.plan,
-			bytes: Buffer.byteLength(updated.plan, "utf-8"),
+			content: updated,
+			bytes: Buffer.byteLength(updated, "utf-8"),
 		};
 	};
 
@@ -263,5 +262,5 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		};
 	};
 
-	return { dirFor, write, read, setStep, saveFeedback };
+	return { dirFor, write, read, setSteps, saveFeedback };
 }
