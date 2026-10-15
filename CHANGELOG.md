@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-15
+
 ### Added
 
 - Docs: a Simplified Chinese `README.zh-CN.md`, linked from the root `README.md`.
@@ -13,26 +15,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `[text][id]`, collapsed `[text][]`, and shortcut `[text]`, using `[id]: url`
   definitions, which are no longer shown as paragraphs — and decodes numeric and
   common named character references (`&amp;`, `&#39;`, `&copy;`) as literal text.
-
-### Changed
-
-- Docs: the root and Chinese READMEs keep one hero screenshot and move the
-  plan-review and file-browse screenshots into their extension READMEs.
-- Docs: the "pin a release" install example now pins `v0.8.0`.
-
-### Fixed
-
-- `file-browse`: rendered Markdown tables, task-list checkboxes, and images
-  are styled again. The web brand migration dropped the `md-*` rules, so tables
-  had no borders or padding, alignment was ignored, and task items kept their
-  bullet. Columns size to their content rather than filling the card.
-- `file-browse`: rendered Markdown tables follow GFM more closely. A delimiter
-  row whose cell count differs from the header's is no longer a table, so a
-  stray `---` row cannot turn prose into one; header cells carry `scope="col"`;
-  a wide table scrolls horizontally instead of wrapping; and a list item whose
-  text starts with a pipe (`- | a | b |`) stays a list.
-
-## [0.8.0] - 2026-10-15
 
 ### Changed
 
@@ -58,6 +40,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   startup help — `ctrl+d to exit (empty)`, `!!` bash without context, `ctrl+p`
   model cycling, `shift+tab` thinking cycling, `alt+enter` follow-up, and
   `ctrl+v` paste — instead of the older wording that omitted them.
+- Docs: the root and Chinese READMEs keep one hero screenshot and move the
+  plan-review and file-browse screenshots into their extension READMEs.
+- Docs: the "pin a release" install example now pins `v0.8.0`.
 
 ### Removed
 
@@ -71,6 +56,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `bytefly`: on terminals without half blocks the header's two-tone `Pi`
   wordmark no longer doubles the name (it read `Pi   Pi v1.2.0`); the wordmark
   is the app name, so only the version follows it.
+- `file-browse`: rendered Markdown tables, task-list checkboxes, and images
+  are styled again. The web brand migration dropped the `md-*` rules, so tables
+  had no borders or padding, alignment was ignored, and task items kept their
+  bullet. Columns size to their content rather than filling the card.
+- `file-browse`: rendered Markdown tables follow GFM more closely. A delimiter
+  row whose cell count differs from the header's is no longer a table, so a
+  stray `---` row cannot turn prose into one; header cells carry `scope="col"`;
+  a wide table scrolls horizontally instead of wrapping; and a list item whose
+  text starts with a pipe (`- | a | b |`) stays a list.
 
 ## [0.7.0] - 2026-10-15
 
