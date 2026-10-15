@@ -255,22 +255,22 @@ Press `w` on the review screen — or run `/plan review [path]` — to open the 
 in the default browser on `127.0.0.1`. The page is a review surface: a sticky
 header with the plan title, comment count, theme toggle, and Save/Close; a
 sticky **section outline** on the left; and the plan beside a **right-hand
-comment rail**. Every block has a **+ Comment** action, and
-selecting text opens the composer for that block with the selection quoted.
-**Save feedback** writes the comments into the plan file and returns them to the
-model.
+comment rail**. Every block has a **+ Comment** action; select text first to
+quote it. **Save feedback** writes the comments into the plan file and returns
+them to the model.
 
 - **Shared theme.** The page uses the same Bytefly tokens, base rules, and
   syntax-token colors as `file-browse` (`lib/web/`), follows the system light/dark
   preference until the header toggle sets an explicit choice, and remembers that
   choice under the shared `pi-web-theme` key.
-- **Section outline.** Headings become a sticky outline with jump links and an
-  active-section highlight; the panel collapses into a disclosure on narrow
-  screens.
+- **Section outline.** Headings become a sticky outline, labelled in the panel,
+  with jump links and an active-section highlight; the panel collapses into a
+  disclosure on narrow screens.
 - **Right-hand rail.** The plan and the rail share a grid: every block is paired
   with a rail cell, so a comment thread sits level with its block and reflows
-  with the window. Below ~860px the grid becomes one column and threads stack
-  under their block.
+  with the window. The rail is dropped while the plan has no comments, so the
+  text keeps the full width. Below ~860px the grid becomes one column and
+  threads stack under their block.
 - **Highlighted code.** Fenced code is tokenized by the shared
   `lib/highlight.ts`; the client copies only text and `tok-*` spans through
   `DOMParser`, so a code line is never parsed as markup.

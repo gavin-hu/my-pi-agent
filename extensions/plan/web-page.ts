@@ -58,7 +58,8 @@ export const REVIEW_CSS = `${WEB_BASE_CSS}
 ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
-.bf-review{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);align-items:start;column-gap:28px;padding:var(--space-5) var(--space-6) 96px}
+.bf-review{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);align-items:start;align-content:start;column-gap:28px;padding:var(--space-5) var(--space-6) 96px}
+.bf-review--no-rail{grid-template-columns:minmax(0,1fr)}
 .review-bar{align-items:center;gap:var(--space-2) var(--space-4)}
 .review-bar .bf-brand{flex:0 0 auto}
 .review-heading{display:flex;align-items:center;flex:1 1 160px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
@@ -73,6 +74,7 @@ ${WEB_COMPONENTS_CSS}
 .bf-app__sidebar .bf-panel{flex:1 1 auto;min-height:0}
 }
 .review-nav{min-width:0}
+.review-nav__title{margin:0;padding:var(--space-3) var(--space-4) var(--space-2);font:var(--fw-semibold) var(--fs-sm) var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .review-nav ul{list-style:none;margin:0;padding:0}
 .review-nav a{display:block;padding:4px 8px;border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm);line-height:var(--lh-snug);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-nav a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none}
@@ -80,7 +82,7 @@ ${WEB_COMPONENTS_CSS}
 .review-nav .lvl-2 a{padding-left:18px}
 .review-nav .lvl-3 a{padding-left:30px}
 .review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:42px}
-.bf-review>.bf-block{position:relative;padding:2px 0;border-radius:var(--radius-md)}
+.bf-review>.bf-block{position:relative;max-width:74ch;padding:2px 0;border-radius:var(--radius-md);overflow-wrap:break-word}
 .bf-block[id]{scroll-margin-top:76px}
 .bf-block:hover{background:var(--surface)}
 .bf-block h1,.bf-block h2,.bf-block h3,.bf-block h4,.bf-block h5,.bf-block h6{margin:20px 0 8px;line-height:var(--lh-tight)}
@@ -103,13 +105,18 @@ ${WEB_COMPONENTS_CSS}
 .bf-rail__comments{display:flex;flex-direction:column;gap:8px;padding:4px 0 10px}
 .bf-rail__orphans{margin:20px 0 0;padding-top:var(--space-3);border-top:1px dashed var(--border)}
 .bf-rail__orphans p{margin:0 0 8px;color:var(--muted);font-size:var(--fs-sm)}
+.bf-rail__orphans+.bf-rail__cell{margin-top:20px}
 @media (max-width:1180px){
-.bf-app__body{grid-template-columns:1fr}
+.bf-app__body{grid-template-columns:1fr;align-content:start}
 .bf-app__sidebar{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--border)}
 .review-nav{padding:4px 16px 12px}
 }
 @media (max-width:860px){
 .bf-review{grid-template-columns:1fr;padding:var(--space-4) 18px 80px}
+.bf-review>.bf-block{max-width:none}
+}
+@media (max-width:720px){
+.review-nav__title{display:none}
 }
 @media (max-width:820px){
 .review-bar{align-items:flex-start}
@@ -134,7 +141,7 @@ export function renderReviewPage(data: ReviewPageData): string {
 	const outlinePanel = hasOutline
 		? `<details class="bf-app__sidebar review-outline" open>
 <summary class="bf-panel__summary">Sections</summary>
-<nav class="bf-panel review-nav" aria-label="Plan sections"><ul id="outline-list"></ul></nav>
+<nav class="bf-panel review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 </details>
 `
 		: "";

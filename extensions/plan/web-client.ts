@@ -27,6 +27,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var saved = false;
   var closed = false;
   var sectionObserver = null;
+  var pendingQuote = null;
 
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
@@ -317,6 +318,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (!planEl) return;
     closeComposer();
     planEl.replaceChildren();
+    planEl.classList.toggle("bf-review--no-rail", annotations.length === 0);
     var blocks = Array.isArray(data.blocks) ? data.blocks : [];
     var anchored = {};
     blocks.forEach(function (block) {
@@ -333,7 +335,11 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       add.type = "button";
       add.textContent = "+ Comment";
       add.setAttribute("aria-label", "Comment on this block");
-      add.addEventListener("click", function () { openComposer(wrap, cell, block, selectionIn(wrap)); });
+      add.addEventListener("click", function () {
+        var quote = pendingQuote && pendingQuote.wrap === wrap ? pendingQuote.quote : selectionIn(wrap);
+        pendingQuote = null;
+        openComposer(wrap, cell, block, quote);
+      });
       wrap.appendChild(add);
       planEl.appendChild(wrap);
       planEl.appendChild(cell);
@@ -399,14 +405,13 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   if (saveButton) saveButton.addEventListener("click", save);
   if (cancelButton) cancelButton.addEventListener("click", cancel);
 
+  // Remember a selection made inside a block so clicking + Comment can still
+  // quote it after the button press has collapsed the selection.
   document.addEventListener("mouseup", function (event) {
     if (!planEl || saved) return;
     var wrap = event.target && event.target.closest ? event.target.closest(".bf-block") : null;
-    if (!wrap || wrap.querySelector(".bf-composer")) return;
-    var cell = wrap.nextElementSibling;
-    if (!cell || !cell.classList.contains("bf-rail__cell")) return;
-    var quote = selectionIn(wrap);
-    if (quote) openComposer(wrap, cell, { start: Number(wrap.getAttribute("data-line")), lines: [] }, quote);
+    var quote = wrap && !wrap.querySelector(".bf-composer") ? selectionIn(wrap) : "";
+    pendingQuote = wrap && quote ? { wrap: wrap, quote: quote } : null;
   });
 
   document.addEventListener("keydown", function (event) {
