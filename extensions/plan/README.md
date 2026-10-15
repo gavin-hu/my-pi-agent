@@ -250,6 +250,8 @@ agent file that overrides it.
 
 ## Browser review
 
+<img src="../../assets/plan-review.png" alt="The browser-based plan review, showing the plan's sections, a rendered code block, and an inline comment box" width="100%">
+
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
 in the default browser on `127.0.0.1`. The page is a review surface: a sticky
 header with the plan title, theme toggle, and Save/Close; a sticky **section

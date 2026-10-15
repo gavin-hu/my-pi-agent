@@ -73,8 +73,6 @@ extension's own `README.md` has the full tool and command surface.
 
 ### Plan and delegate
 
-<img src="./assets/plan-review.png" alt="The browser-based plan review, showing the plan's sections, a rendered code block, and an inline comment box" width="100%">
-
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `.pi/plans`, and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments. |
@@ -94,8 +92,6 @@ extension's own `README.md` has the full tool and command surface.
 | [`memory`](./extensions/memory/) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 
 ### Reach the world
-
-<img src="./assets/file-browse.png" alt="The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview" width="100%">
 
 | Extension | Tools and commands | What it does |
 |---|---|---|

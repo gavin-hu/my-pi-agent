@@ -8,6 +8,8 @@ highlighted code, per-language icons, and a fuzzy quick-open palette. It is
 bound to `127.0.0.1`
 and ships no dependencies — `node:http` plus one small vanilla script.
 
+<img src="../../assets/file-browse.png" alt="The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview" width="100%">
+
 ```bash
 pi --extension ./extensions/file-browse   # load just this extension
 pi -e .                                    # load the whole @gavin-hu/my-pi-agent package

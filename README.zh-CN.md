@@ -69,8 +69,6 @@ pi -e .                                                    # 试运行一次
 
 ### 规划与委派
 
-<img src="./assets/plan-review.png" alt="基于浏览器的计划审阅，显示计划的各部分、一个渲染后的代码块以及一个行内评论框" width="100%">
-
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
 | [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | 只读规划：模型先调研，把计划保存到 `.pi/plans` 下，你在写入任何内容前先批准。可在 TUI 中审阅，或在浏览器中打开以留下行内评论。 |
@@ -90,8 +88,6 @@ pi -e .                                                    # 试运行一次
 | [`memory`](./extensions/memory/) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
 
 ### 连通外部世界
-
-<img src="./assets/file-browse.png" alt="回环文件浏览器，显示路径过滤器、文件树和渲染后的 Markdown 预览" width="100%">
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
