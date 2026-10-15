@@ -6,8 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-15
+
 ### Added
 
+- Docs: an open-source documentation structure. A grouped, end-user-first
+  `README.md`, a `CONTRIBUTING.md` and `SECURITY.md`, guides under `docs/`
+  (`getting-started`, `extensions`, `configuration`, `architecture`,
+  `development`, `security`), and GitHub issue and pull-request templates.
+- `plan`: browser review. Press `w` on the `exit_plan_mode` review screen, or
+  run `/plan review [path]`, to open a plan in a loopback browser, select text
+  to leave inline comments, and save them into the plan file as `> [!REVIEW]`
+  lines; the comments come back to the model as a refinement request. The
+  server is tokenized, bound to `127.0.0.1`, and closed on save, cancel, tab
+  close, or session shutdown.
+- `wechat`: inbound slash commands. An admitted peer can type `/new` in the
+  chat to start a fresh session; the bridge intercepts it before it becomes a
+  turn, replies, and reconnects on the new session. The registry supports
+  snippets (a predefined body expanded into the turn) and actions (run locally,
+  with no turn), with `/new` as the only entry today.
 - `bytefly`: `bytefly.json` is the shared config document for the whole
   package. Every extension owns a top-level section (`document`, `job`,
   `web-access`, …; bytefly owns `price`, `notify`, and `doctor`), and
@@ -40,6 +57,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Docs: the extension catalog and the contributor contracts move out of the
+  root `README.md` into `docs/extensions.md`, `CONTRIBUTING.md`, and the
+  `docs/` guides; the tool-naming invariant now names `docs/extensions.md`.
+- `plan`: the browser review page is rebuilt on the shared web theme — a sticky
+  header with the plan title, comment count, and theme toggle, a section
+  outline, a right-hand comment rail aligned to each block, and
+  syntax-highlighted code.
+  The theme tokens, the pre-paint bootstrap, and the syntax highlighter move to
+  `lib/` (`web-theme.ts`, `highlight.ts`, `escape.ts`) and are shared with
+  `file-browse`; the light/dark choice now lives under one `pi-web-theme` key.
+- The local browser surfaces adopt the Bytefly web brand system (`lib/web/`):
+  the palette is derived from the `bytefly-dark`/`bytefly-light` terminal
+  themes, and a shared `bf-*` component, app-shell, and markup layer replaces
+  the page-local CSS. The file manager, file viewer, and plan review are
+  rebuilt on it, and `lib/web-theme.ts` is replaced by `lib/web/`.
+- `wechat`: the bridge now starts automatically on `session_start` while an
+  account is stored (and after `login`), so it reconnects itself across a
+  session replacement. The `/wechat status` screen no longer offers start/stop.
 - Config: every per-extension config file (`document.json`, `file-browse.json`,
   `goal.json`, `jobs.json`, `memory.json`, `rewind.json`, `todo.json`,
   `web-access.json`, `wechat.json`, `worktree.json`) moved into a top-level
@@ -64,68 +99,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `file-browse`: the Markdown file view fills the file card instead of capping
   at an 80ch reading measure.
 
-### Fixed
-
-- `wechat`: the removed `/wechat start` guidance no longer appears in the source
-  comments, the login-failure notice, or the `send_wechat` tool description and
-  error.
-- `plan`: the browser review no longer stretches every block to fill the window,
-  and the outline band sizes to its content.
-- `plan`: selecting text in the browser review no longer opens the comment
-  composer, so text can be copied; the selection is quoted when you click
-  **+ Comment**.
-- `file-browse`: the narrow-viewport sidebar is a working disclosure again. The
-  shared shell's media rule lost the cascade to the base `display:none`, so the
-  file tree, the path filter, and quick open were unreachable below the
-  breakpoint; the sidebar now collapses at 860px instead of 720px.
-- `file-browse`: the breadcrumb no longer repeats the page heading or card
-  title, and the header's theme toggle stays right-aligned when the toolbar
-  wraps.
-- `plan`: the review outline collapses to its `Sections` disclosure at the same
-  860px breakpoint as the shared shell (and its panel label no longer doubles
-  the summary on narrow screens).
-
-## [0.7.0] - 2026-10-14
-
-### Added
-
-- Docs: an open-source documentation structure. A grouped, end-user-first
-  `README.md`, a `CONTRIBUTING.md` and `SECURITY.md`, guides under `docs/`
-  (`getting-started`, `extensions`, `configuration`, `architecture`,
-  `development`, `security`), and GitHub issue and pull-request templates.
-- `plan`: browser review. Press `w` on the `exit_plan_mode` review screen, or
-  run `/plan review [path]`, to open a plan in a loopback browser, select text
-  to leave inline comments, and save them into the plan file as `> [!REVIEW]`
-  lines; the comments come back to the model as a refinement request. The
-  server is tokenized, bound to `127.0.0.1`, and closed on save, cancel, tab
-  close, or session shutdown.
-- `wechat`: inbound slash commands. An admitted peer can type `/new` in the
-  chat to start a fresh session; the bridge intercepts it before it becomes a
-  turn, replies, and reconnects on the new session. The registry supports
-  snippets (a predefined body expanded into the turn) and actions (run locally,
-  with no turn), with `/new` as the only entry today.
-
-### Changed
-
-- Docs: the extension catalog and the contributor contracts move out of the
-  root `README.md` into `docs/extensions.md`, `CONTRIBUTING.md`, and the
-  `docs/` guides; the tool-naming invariant now names `docs/extensions.md`.
-- `plan`: the browser review page is rebuilt on the shared web theme — a sticky
-  header with the plan title, comment count, and theme toggle, a section
-  outline, a right-hand comment rail aligned to each block, and
-  syntax-highlighted code.
-  The theme tokens, the pre-paint bootstrap, and the syntax highlighter move to
-  `lib/` (`web-theme.ts`, `highlight.ts`, `escape.ts`) and are shared with
-  `file-browse`; the light/dark choice now lives under one `pi-web-theme` key.
-- The local browser surfaces adopt the Bytefly web brand system (`lib/web/`):
-  the palette is derived from the `bytefly-dark`/`bytefly-light` terminal
-  themes, and a shared `bf-*` component, app-shell, and markup layer replaces
-  the page-local CSS. The file manager, file viewer, and plan review are
-  rebuilt on it, and `lib/web-theme.ts` is replaced by `lib/web/`.
-- `wechat`: the bridge now starts automatically on `session_start` while an
-  account is stored (and after `login`), so it reconnects itself across a
-  session replacement. The `/wechat status` screen no longer offers start/stop.
-
 ### Removed
 
 - `wechat`: `/wechat start` and `/wechat stop`. The stored account now controls
@@ -146,6 +119,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `rewind`: parallel tool calls in one prompt take a single snapshot. The run's
   root and policy are resolved before the first tool call, so the one-snapshot
   guard is synchronous.
+- `wechat`: the removed `/wechat start` guidance no longer appears in the source
+  comments, the login-failure notice, or the `send_wechat` tool description and
+  error.
+- `plan`: the browser review no longer stretches every block to fill the window,
+  and the outline band sizes to its content.
+- `plan`: selecting text in the browser review no longer opens the comment
+  composer, so text can be copied; the selection is quoted when you click
+  **+ Comment**.
+- `file-browse`: the narrow-viewport sidebar is a working disclosure again. The
+  shared shell's media rule lost the cascade to the base `display:none`, so the
+  file tree, the path filter, and quick open were unreachable below the
+  breakpoint; the sidebar now collapses at 860px instead of 720px.
+- `file-browse`: the breadcrumb no longer repeats the page heading or card
+  title, and the header's theme toggle stays right-aligned when the toolbar
+  wraps.
+- `plan`: the review outline collapses to its `Sections` disclosure at the same
+  860px breakpoint as the shared shell (and its panel label no longer doubles
+  the summary on narrow screens).
 
 ## [0.6.1] - 2026-10-14
 
