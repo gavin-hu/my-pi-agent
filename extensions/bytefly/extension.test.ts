@@ -112,7 +112,7 @@ describe("bytefly extension", () => {
 		expect(headers.at(-1)).toBeUndefined();
 	});
 
-	test("renders the brand mark through the installed header factory", async () => {
+	test("renders the nameplate through the installed header factory", async () => {
 		const { pi } = makeFakePi();
 		bytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });

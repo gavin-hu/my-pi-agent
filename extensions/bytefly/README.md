@@ -1,15 +1,15 @@
 # bytefly — the TUI header, footer, turn rule, extension screen, and notifications
 
 `bytefly` owns the terminal chrome, configuration, and diagnostics surfaces
-this package adds: one themed startup header that recolors Pi's brand mark and
-version, one compact, colorful, width-adaptive two-line footer, a labeled rule
-that marks each completed turn in the transcript, one keyboard-driven screen
-that lists every resolved Pi extension with its enable checkbox and its health,
-and an opt-in notify capability that raises an OS notification when a run
-finishes, a job finishes, or the agent asks for input. DeepSeek is priced from
-the provider's published yuan rates and peak tariff by default, and any other
-model can be priced from your own rates when Pi's catalog does not match what a
-provider actually charges.
+this package adds: one themed startup header whose two-tone nameplate carries
+the agent and chrome identities, one compact, colorful, width-adaptive two-line
+footer, a labeled rule that marks each completed turn in the transcript, one
+keyboard-driven screen that lists every resolved Pi extension with its enable
+checkbox and its health, and an opt-in notify capability that raises an OS
+notification when a run finishes, a job finishes, or the agent asks for input.
+DeepSeek is priced from the provider's published yuan rates and peak tariff by
+default, and any other model can be priced from your own rates when Pi's catalog
+does not match what a provider actually charges.
 
 ```
 pi --extension ./extensions/bytefly   # load just this extension
@@ -33,7 +33,7 @@ two-tone `Pi` wordmark.
 
 ```
  █▀█  Pi v1.2.0
- █▀ █ enhanced by bytefly v0.5.1
+ █▀ █ enhanced by bytefly v0.7.0
  ─────────────────────────────────────────────────
   escape to interrupt · ctrl+c to clear · ctrl+d to exit
   ctrl+o more · ctrl+t to think · ctrl+l models · ctrl+g editor
@@ -577,8 +577,9 @@ control-free line before it reaches an escape sequence or a shell argument.
 - No todo-count segment; the [todo](../todo/) widget already shows progress.
 - No shelling out for git ahead/behind; the footer data provider exposes only
   the branch.
-- No session or model data in the header: it shows Pi's brand mark and version
-  only. The footer owns the session, model, and working-directory data.
+- No session or model data in the header: it shows the nameplate and the grouped
+  help block only. The footer owns the session, model, and working-directory
+  data.
 - No auto-fix: `doctor` reports the install command; it never runs it.
 - No aggregation of runtime failures: a tool that errored earlier in the session
   is not a prerequisite problem, and `doctor` does not pretend to know about it.

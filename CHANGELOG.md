@@ -22,6 +22,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   or a session-tree change) instead of every time the footer is toggled back
   on, so an edit is picked up by a new session or tree change rather than a
   toggle.
+- `bytefly`: the header docs describe the current nameplate — a two-tone
+  half-block mark beside the agent and chrome identities and a grouped help
+  block — instead of the older "recolors Pi's brand mark" header, in
+  `extensions/bytefly/README.md` and `docs/extensions.md`.
 
 ### Removed
 
