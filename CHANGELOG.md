@@ -34,6 +34,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wechat`: `/wechat help`, plus `n` (new session) and `o` (log out) on the
   `/wechat` control screen, so every operator action is one key. A WeChat peer
   can type `/help` to list the chat commands.
+- Docs: `README.md` screenshots for the package chrome, the browser plan
+  review, and the loopback file browser; the `pi.image` manifest field now
+  points at `assets/bytefly-chrome.png`.
 
 ### Changed
 
