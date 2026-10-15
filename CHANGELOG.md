@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Docs: a Simplified Chinese `README.zh-CN.md`, linked from the root `README.md`.
+
+### Changed
+
+- Docs: the "pin a release" install example now pins `v0.8.0`.
+
 ## [0.8.0] - 2026-10-15
 
 ### Changed

@@ -1,5 +1,7 @@
 # my-pi-agent
 
+**English** · [简体中文](./README.zh-CN.md)
+
 [![CI](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
@@ -50,7 +52,7 @@ Requires a working [Pi](https://pi.dev) installation.
 ```bash
 pi install npm:@gavin-hu/my-pi-agent                       # install from npm
 pi install git:github.com/gavin-hu/my-pi-agent             # install from git
-pi install git:github.com/gavin-hu/my-pi-agent@v0.7.0      # pin a release
+pi install git:github.com/gavin-hu/my-pi-agent@v0.8.0      # pin a release
 pi install ./ -l                                           # project-local (.pi/settings.json)
 pi -e .                                                    # try it for one run
 ```
