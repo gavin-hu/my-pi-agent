@@ -55,6 +55,14 @@ describe("renderReviewPage", () => {
 		expect(html).toContain('href="#plan"');
 	});
 
+	test("labels the outline and lets the rail collapse when there are no comments", () => {
+		const html = page();
+		expect(html).toContain('class="review-nav__title" id="outline-title"');
+		expect(html).toContain('aria-labelledby="outline-title"');
+		expect(html).toContain("bf-review--no-rail");
+		expect(html).toContain("align-content:start");
+	});
+
 	test("drops the outline column when the plan has no headings", () => {
 		const html = page({ outline: [] });
 		expect(html).toContain("bf-app__body--single");

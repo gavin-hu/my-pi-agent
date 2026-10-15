@@ -45,6 +45,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (extensions, lib, themes, assets; tests excluded), and the docs document both
   sources.
 
+### Fixed
+
+- `plan`: the browser review no longer stretches every block to fill the window;
+  the outline band and comment rail size to their content, the rail is dropped
+  while the plan has no comments, and the plan column caps its reading width.
+- `plan`: selecting text in the browser review no longer opens the comment
+  composer, so text can be copied; the selection is quoted when you click
+  **+ Comment**.
+
 ## [0.7.0] - 2026-10-14
 
 ### Added

@@ -29,6 +29,11 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain('closest(".bf-block")');
 	});
 
+	test("remembers a selection for the + Comment button instead of opening on select", () => {
+		expect(REVIEW_CLIENT_JS).toContain("pendingQuote");
+		expect(REVIEW_CLIENT_JS).toContain('classList.toggle("bf-review--no-rail"');
+	});
+
 	test("keeps a stream open so the server sees the tab close", () => {
 		expect(REVIEW_CLIENT_JS).toContain("new EventSource(");
 		expect(REVIEW_CLIENT_JS).toContain("sendBeacon");
