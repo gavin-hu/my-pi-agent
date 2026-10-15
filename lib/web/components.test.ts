@@ -52,6 +52,25 @@ describe("web components", () => {
 		expect(WEB_COMPONENTS_CSS).not.toContain("max-width:80ch");
 	});
 
+	test("styles the Markdown extras the renderer emits", () => {
+		for (const selector of [
+			".bf-md li.task{",
+			".bf-md .md-check{",
+			".bf-md table{",
+			".bf-md th,.bf-md td{",
+			".bf-md thead th{",
+			".bf-md .md-left{",
+			".bf-md .md-center{",
+			".bf-md .md-right{",
+			".bf-md img{",
+			".bf-md hr{",
+		]) {
+			expect(WEB_COMPONENTS_CSS).toContain(selector);
+		}
+		// Columns size to their content; a fixed layout would equalize them.
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md table{border-collapse:collapse;table-layout:auto;width:auto;");
+	});
+
 	test("uses only defined custom properties", () => {
 		const used = new Set([...WEB_COMPONENTS_CSS.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((match) => match[1]));
 		for (const token of used) {

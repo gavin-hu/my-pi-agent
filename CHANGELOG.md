@@ -16,6 +16,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   plan-review and file-browse screenshots into their extension READMEs.
 - Docs: the "pin a release" install example now pins `v0.8.0`.
 
+### Fixed
+
+- `file-browse`: rendered Markdown tables, task-list checkboxes, and images
+  are styled again. The web brand migration dropped the `md-*` rules, so tables
+  had no borders or padding, alignment was ignored, and task items kept their
+  bullet. Columns size to their content rather than filling the card.
+
 ## [0.8.0] - 2026-10-15
 
 ### Changed

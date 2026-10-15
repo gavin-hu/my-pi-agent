@@ -113,6 +113,16 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-md pre{border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);overflow:auto;background:var(--canvas)}
 .bf-md pre code{background:none;border:0;padding:0}
 .bf-md blockquote{margin-left:0;padding:0 1em;border-left:3px solid var(--border);color:var(--muted)}
+.bf-md li.task{list-style:none;margin-left:-1.4em}
+.bf-md .md-check{color:var(--success)}
+.bf-md table{border-collapse:collapse;table-layout:auto;width:auto;max-width:100%;font-size:var(--fs-sm)}
+.bf-md th,.bf-md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top}
+.bf-md thead th{background:var(--surface);font-weight:var(--fw-medium)}
+.bf-md .md-left{text-align:left}
+.bf-md .md-center{text-align:center}
+.bf-md .md-right{text-align:right}
+.bf-md img{max-width:100%;height:auto;border-radius:var(--radius-sm)}
+.bf-md hr{border:0;border-top:1px solid var(--border);margin:1.4em 0}
 .bf-comment{padding:var(--space-3) var(--space-4);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius-md)}
 .bf-comment__quote{margin-bottom:var(--space-1);color:var(--muted);font-size:var(--fs-xs);overflow-wrap:anywhere}
 .bf-comment__body{white-space:pre-wrap;overflow-wrap:anywhere}
