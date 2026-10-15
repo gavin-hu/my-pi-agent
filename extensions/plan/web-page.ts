@@ -115,7 +115,7 @@ ${WEB_COMPONENTS_CSS}
 .bf-review{grid-template-columns:1fr;padding:var(--space-4) 18px 80px}
 .bf-review>.bf-block{max-width:none}
 }
-@media (max-width:720px){
+@media (max-width:860px){
 .review-nav__title{display:none}
 }
 @media (max-width:820px){

@@ -45,10 +45,10 @@ describe("formatDate", () => {
 });
 
 describe("renderBreadcrumbs", () => {
-	test("renders ancestors as links and the last segment as current", () => {
+	test("renders ancestor segments as links and stops before the current page", () => {
 		const html = renderBreadcrumbs("sub/extensions");
 		expect(html).toContain(`<a href="/browse/sub">sub</a>`);
-		expect(html).toContain(`<span aria-current="page">extensions</span>`);
+		expect(html).not.toContain("extensions</span>");
 	});
 
 	test("marks home current at the root", () => {
@@ -444,6 +444,8 @@ describe("renderDirectoryPage sort and styles", () => {
 		expect(html).toContain('.bf-segmented__item[aria-current="page"]');
 		expect(html).toContain(".bf-btn{display:none}");
 		expect(html).toContain(".bf-theme-toggle{");
+		expect(html).toContain("@media (max-width:520px)");
+		expect(html).toContain(".bf-toolbar .bf-theme-toggle{margin-left:auto}");
 	});
 
 	test("ships the quick-open trigger and palette styles", () => {

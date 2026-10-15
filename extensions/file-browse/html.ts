@@ -79,8 +79,8 @@ ${WEB_COMPONENTS_CSS}
 .browse-link-mark{color:var(--muted);font-size:var(--fs-xs)}
 .browse-when{display:none}
 body.palette-open{overflow:hidden}
-@media (max-width:720px){
-  .browse-cat.doc{color:var(--muted)}
+@media (max-width:520px){
+.bf-toolbar .bf-theme-toggle{margin-left:auto}
 }`;
 
 interface Layout {
@@ -136,20 +136,18 @@ ${layout.main}
 `;
 }
 
-/** The breadcrumb trail for a root-relative path. */
+/** The breadcrumb trail for a root-relative path, up to (not including) the current page. */
 export function renderBreadcrumbs(rel: string): string {
 	const segments = rel.split("/").filter(Boolean);
+	if (segments.length === 0) return `<span aria-current="page">home</span>`;
+	// The last segment is the current page, which the heading or card title names;
+	// the trail stops at its parent so the name is not shown twice.
 	const parts = [`<a href="/browse/">home</a>`];
 	let accumulated = "";
-	segments.forEach((segment, index) => {
+	for (const segment of segments.slice(0, -1)) {
 		accumulated = accumulated ? `${accumulated}/${segment}` : segment;
-		if (index === segments.length - 1) {
-			parts.push(`<span aria-current="page">${escapeHtml(segment)}</span>`);
-		} else {
-			parts.push(`<a href="/browse/${encodePath(accumulated)}">${escapeHtml(segment)}</a>`);
-		}
-	});
-	if (segments.length === 0) parts[0] = `<span aria-current="page">home</span>`;
+		parts.push(`<a href="/browse/${encodePath(accumulated)}">${escapeHtml(segment)}</a>`);
+	}
 	return parts.join(`<span class="bf-crumbs__sep">/</span>`);
 }
 

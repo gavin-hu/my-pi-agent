@@ -16,8 +16,8 @@ describe("web layout", () => {
 	});
 
 	test("collapses the sidebar to one column on narrow screens", () => {
-		expect(WEB_LAYOUT_CSS).toContain("@media (max-width:720px)");
+		expect(WEB_LAYOUT_CSS).toContain("@media (max-width:860px)");
 		expect(WEB_LAYOUT_CSS).toContain(".bf-app__body{flex:none;grid-template-columns:1fr}");
-		expect(WEB_LAYOUT_CSS).toContain(".bf-panel__summary{");
+		expect(WEB_LAYOUT_CSS).toContain(".bf-app__sidebar .bf-panel__summary{");
 	});
 });

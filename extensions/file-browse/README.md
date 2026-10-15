@@ -19,7 +19,8 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   opens the browser (unless `autoOpen: false`).
 - **Two-pane UI.** A server-rendered tree, directory listings, and file pages,
   progressively enhanced by one first-party script (filter, lazy tree
-  expansion, thumbnail fallback).
+  expansion, thumbnail fallback). Below 860px the tree collapses into a
+  `Files` disclosure above the listing.
 - **Rich previews.** Text, rendered Markdown, images (thumbnails), and
   binary/over-size download cards, with per-language icons.
 - **First-party syntax highlighting.** Code files render with keywords,

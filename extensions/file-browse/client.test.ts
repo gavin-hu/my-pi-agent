@@ -43,7 +43,7 @@ describe("CLIENT_JS", () => {
 	test("collapses the sidebar on narrow viewports", () => {
 		expect(CLIENT_JS).toContain("details.bf-app__sidebar");
 		expect(CLIENT_JS).toContain("matchMedia");
-		expect(CLIENT_JS).toContain("(max-width: 720px)");
+		expect(CLIENT_JS).toContain("(max-width: 860px)");
 	});
 
 	test("sorts listings and remembers the choice", () => {

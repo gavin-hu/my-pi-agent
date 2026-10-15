@@ -47,6 +47,10 @@ describe("web components", () => {
 		}
 	});
 
+	test("caps the Markdown reading measure", () => {
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md{min-width:0;max-width:80ch;");
+	});
+
 	test("uses only defined custom properties", () => {
 		const used = new Set([...WEB_COMPONENTS_CSS.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((match) => match[1]));
 		for (const token of used) {

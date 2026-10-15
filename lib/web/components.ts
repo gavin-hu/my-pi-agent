@@ -101,7 +101,7 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-code--wrap .bf-code__line{white-space:pre-wrap;overflow-wrap:anywhere}
 .bf-media{display:flex;flex:1 1 auto;align-items:center;justify-content:center;padding:var(--space-6);min-height:240px;background-image:linear-gradient(45deg,var(--border) 25%,transparent 25%),linear-gradient(-45deg,var(--border) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--border) 75%),linear-gradient(-45deg,transparent 75%,var(--border) 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
 .bf-media img{max-width:100%;max-height:70vh;border-radius:var(--radius-sm)}
-.bf-md{min-height:0;overflow:auto;padding:6px var(--space-5) var(--space-5);line-height:var(--lh-relaxed);overflow-wrap:anywhere}
+.bf-md{min-width:0;max-width:80ch;min-height:0;overflow:auto;padding:6px var(--space-5) var(--space-5);line-height:var(--lh-relaxed);overflow-wrap:anywhere}
 .bf-md>*:first-child{margin-top:0}
 .bf-md h1,.bf-md h2,.bf-md h3,.bf-md h4,.bf-md h5,.bf-md h6{margin:1.4em 0 .6em;line-height:var(--lh-tight)}
 .bf-md h1,.bf-md h2{padding-bottom:.3em;border-bottom:1px solid var(--border)}

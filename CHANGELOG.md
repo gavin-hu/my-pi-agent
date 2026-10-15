@@ -63,6 +63,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: selecting text in the browser review no longer opens the comment
   composer, so text can be copied; the selection is quoted when you click
   **+ Comment**.
+- `file-browse`: the narrow-viewport sidebar is a working disclosure again. The
+  shared shell's media rule lost the cascade to the base `display:none`, so the
+  file tree, the path filter, and quick open were unreachable below the
+  breakpoint; the sidebar now collapses at 860px instead of 720px.
+- `file-browse`: rendered Markdown caps its reading width, the breadcrumb no
+  longer repeats the page heading or card title, and the header's theme toggle
+  stays right-aligned when the toolbar wraps.
+- `plan`: the review outline collapses to its `Sections` disclosure at the same
+  860px breakpoint as the shared shell (and its panel label no longer doubles
+  the summary on narrow screens).
 
 ## [0.7.0] - 2026-10-14
 

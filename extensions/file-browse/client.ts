@@ -183,7 +183,7 @@ export const CLIENT_JS = `(function () {
 
 	var panel = document.querySelector("details.bf-app__sidebar");
 	if (panel && window.matchMedia) {
-		var mq = window.matchMedia("(max-width: 720px)");
+		var mq = window.matchMedia("(max-width: 860px)");
 		var syncSide = function () { panel.open = !mq.matches; };
 		syncSide();
 		if (mq.addEventListener) mq.addEventListener("change", syncSide);
