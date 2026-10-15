@@ -139,7 +139,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 	const descriptions: Array<[string, string]> = [
 		["bytefly", "Open the bytefly extension screen: /bytefly [extension] [refresh]"],
 		["extensions", "List and enable/disable extensions"],
-		["doctor", "Check that every extension has what it needs: /doctor [extension] [refresh]"],
+		["doctor", "Check extensions and enable or disable one: /doctor [extension] [refresh]"],
 	];
 	for (const [command, description] of descriptions) {
 		pi.registerCommand(command, { description, getArgumentCompletions: completions, handler });

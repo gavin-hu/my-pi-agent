@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { GLYPHS } from "../../../lib/ui.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeItem } from "../../../test/helpers/fixtures/picker.ts";
-import { formatHeadline, formatListing, formatRow, panelCounts } from "./format.ts";
+import { formatHeadline, formatListing, formatRow, panelCounts, summarySegments } from "./format.ts";
 import { buildPanelModel } from "./join.ts";
 
 const packageItem = (name: string, enabled = true) =>
@@ -45,14 +45,19 @@ describe("headline", () => {
 		expect(formatHeadline(model(), "global", { compact: true })).toBe("bytefly: Global · 3 ext · 1 off · 1 missing");
 	});
 
-	test("names a narrowed extension instead of counting", () => {
+	test("names a narrowed extension through the summary segments", () => {
 		const narrowed = buildPanelModel({
 			items: [packageItem("plan")],
 			reports: [makeReport("plan", [makeFinding("git", "degraded")])],
 			agentDir: "/agent",
 			filter: "plan",
 		});
-		expect(formatHeadline(narrowed, "global", { filter: "plan" })).toBe("bytefly: Global · plan only · 1 degraded");
+		expect(
+			summarySegments(narrowed, "global", { filter: "plan" })
+				.map((segment) => segment.text)
+				.join(" · "),
+		).toBe("Global · plan only · 1 degraded");
+		expect(formatHeadline(narrowed, "global")).toBe("bytefly: Global · 1 extension · 1 degraded");
 	});
 
 	test("uses the project scope label", () => {

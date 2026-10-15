@@ -30,12 +30,16 @@ export interface PanelCounts {
 	degraded: number;
 }
 
-/** Options shared by the headline and the listing. */
+/** Options for the plain-text headline and listing. */
 export interface PanelTextOptions {
-	/** Narrow the headline to one extension. */
-	filter?: string;
 	/** Abbreviate counts (`15 ext · 3 off`) for a narrow terminal. */
 	compact?: boolean;
+}
+
+/** Options for the TUI headline, which can also name a narrowed extension. */
+export interface SummaryOptions extends PanelTextOptions {
+	/** Name the narrowed extension instead of counting the list. */
+	filter?: string;
 }
 
 /** Count the rows and their problems, once per unique report. */
@@ -59,11 +63,7 @@ export function panelCounts(model: PanelModel): PanelCounts {
  * The headline segments, e.g. `Global · 15 extensions · 3 disabled · 1 missing`.
  * A narrowed model names the extension instead of counting.
  */
-export function summarySegments(
-	model: PanelModel,
-	scope: PanelScope,
-	options: PanelTextOptions = {},
-): SummarySegment[] {
+export function summarySegments(model: PanelModel, scope: PanelScope, options: SummaryOptions = {}): SummarySegment[] {
 	const counts = panelCounts(model);
 	const segments: SummarySegment[] = [{ text: scope === "global" ? "Global" : "Project", color: "accent" }];
 	if (options.filter !== undefined) {

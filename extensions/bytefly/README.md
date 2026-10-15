@@ -407,7 +407,7 @@ installs or fetches a package.
   settings, project settings), sorted packages-first and then by display name.
 - Omits `bytefly`'s own entrypoint from the picker groups, so the tool that
   manages the list is never a selectable row; its doctor report still appears in
-  the trailing `Other` group.
+  the trailing `Not resolved` group.
 - Shows whether each one is enabled (`[x]`) or disabled (`[ ]`).
 - Shows the worst severity for a reported extension (`✓` ok, `!` degraded, `✕`
   missing, `∅` disabled) and its summary; an extension with no doctor report
@@ -707,7 +707,7 @@ rather than showing a wrong value.
   name shared by more than one resource — a user `plan` beside the package's
   `plan`, or the `extensions` directory every flat file shares — claims no
   report, so no row is lent another resource's health; the unclaimed report
-  appends in the trailing `Other` group with its findings intact. Rows are keyed
+  appends in the trailing `Not resolved` group with its findings intact. Rows are keyed
   by the unique resource identity (`source:path`, or `report:<name>` for a
   report with no item) so the cursor survives a rebuild even when two rows
   share a directory name, and a row without a report shows no glyph and no

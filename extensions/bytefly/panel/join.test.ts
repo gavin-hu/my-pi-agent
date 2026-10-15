@@ -55,7 +55,7 @@ describe("buildPanelModel", () => {
 		expect(last?.report?.extension).toBe("bytefly");
 	});
 
-	test("gives no report to every resource that shares a directory name, and files it in Other", () => {
+	test("gives no report to every resource that shares a directory name, and files it under Not resolved", () => {
 		const planReport = makeReport("plan", [makeFinding("git", "missing", "no git", "install git")]);
 		const userPlan = userItem("plan");
 		const model = buildPanelModel({
@@ -72,7 +72,7 @@ describe("buildPanelModel", () => {
 		const todo = model.rows.find((row) => row.item && extensionName(row.item.path) === "todo");
 		expect(todo?.report?.extension).toBe("todo");
 
-		// The unclaimed report surfaces in `Other` with its findings intact.
+		// The unclaimed report surfaces under `Not resolved` with its findings intact.
 		expect(model.groups.at(-1)?.label).toBe(REPORT_ONLY_LABEL);
 		const other = model.rows.find((row) => !row.item);
 		expect(other?.key).toBe("report:plan");

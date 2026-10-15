@@ -8,7 +8,7 @@
  * exactly one unique resource path — two unrelated extensions can share a
  * directory name (a user `plan` beside the package's `plan`) and every flat file
  * has the shared directory `extensions`, so a colliding name claims no report.
- * The report then falls through to the trailing `Other` group rather than
+ * The report then falls through to the trailing `Not resolved` group rather than
  * lending one resource another's health.
  *
  * Row keys are the unique resource identity (`source:path`, or `report:<name>`
@@ -41,7 +41,7 @@ function reportKey(name: string): string {
 
 /** Group key and label for reports with no resolved extension item. */
 export const REPORT_ONLY_GROUP = "reported-only";
-export const REPORT_ONLY_LABEL = "Other";
+export const REPORT_ONLY_LABEL = "Not resolved";
 
 export interface PanelJoinOptions {
 	items: readonly ResourceItem[];
@@ -58,7 +58,7 @@ export function buildPanelModel(options: PanelJoinOptions): PanelModel {
 
 	// A directory name may claim a report only when exactly one unique resource
 	// path uses it. A name shared by two resources is ambiguous, so no row claims
-	// the report and it stays available to the trailing `Other` group.
+	// the report and it stays available to the trailing `Not resolved` group.
 	const pathsByName = new Map<string, Set<string>>();
 	for (const item of items) {
 		const name = extensionName(item.path);
