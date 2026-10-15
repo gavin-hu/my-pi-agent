@@ -10,14 +10,6 @@
 `my-pi-agent` 是一个 [Pi](https://pi.dev) 包，新增十六个扩展和两个主题 —— 安装
 整个包，关掉你不需要的部分，其余照常使用 Pi。
 
-## 截图
-
-<p>
-  <img src="./assets/bytefly-chrome.png" alt="一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏" width="32%">
-  <img src="./assets/plan-review.png" alt="基于浏览器的计划审阅，显示计划的各部分、一个渲染后的代码块以及一个行内评论框" width="32%">
-  <img src="./assets/file-browse.png" alt="回环文件浏览器，显示路径过滤器、文件树和渲染后的 Markdown 预览" width="32%">
-</p>
-
 ## 目录
 
 - [为什么选择这个包](#为什么选择这个包)

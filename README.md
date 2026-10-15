@@ -11,14 +11,6 @@ context across sessions. `my-pi-agent` is a single [Pi](https://pi.dev) package
 that adds sixteen extensions and two themes — install the pack, turn off what
 you do not want, and keep using Pi unchanged.
 
-## Screenshots
-
-<p>
-  <img src="./assets/bytefly-chrome.png" alt="A terminal window running the Pi TUI with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar" width="32%">
-  <img src="./assets/plan-review.png" alt="The browser-based plan review, showing the plan's sections, a rendered code block, and an inline comment box" width="32%">
-  <img src="./assets/file-browse.png" alt="The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview" width="32%">
-</p>
-
 ## Contents
 
 - [Why this pack](#why-this-pack)
