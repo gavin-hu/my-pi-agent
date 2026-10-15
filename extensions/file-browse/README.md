@@ -33,10 +33,12 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   Python (`py`, `pyw`, `pyi`), Java, YAML (`yaml`, `yml`), and SQL. Other text
   types stay plain.
 - **Rendered Markdown.** `.md`/`.markdown` files render as headings, lists,
-  tables, code, links, and images, with a one-click **raw** view (`?raw=1`).
-  Fenced code blocks are syntax-highlighted when the fence names a supported
-  language. Raw HTML in the source is escaped, never executed, and external
-  images are shown as links rather than fetched.
+  tables, code, inline and reference links, and images, with a one-click
+  **raw** view (`?raw=1`). Tables size their columns to the content and scroll
+  when wide, and named and numeric character references are decoded. Fenced code
+  blocks are syntax-highlighted when the fence names a supported language. Raw
+  HTML in the source is escaped, never executed, and external images are shown
+  as links rather than fetched.
 - **Sortable listings.** The Name / Size / Modified headers sort the current
   directory, directories first, and the choice is remembered per browser.
 - **Copy and wrap.** Copy a file's root-relative path or its contents, and
@@ -203,7 +205,10 @@ document and the project document (project wins):
   tag set, escapes every literal character, allowlists URL schemes (dropping
   `javascript:`/`data:`), rewrites local links and images to `/view`/`/raw`, and
   renders an external image as a link instead of loading it (the page CSP is
-  `img-src 'self' data:`). The Rendered/Raw switch is a server-side `?raw=1`
+  `img-src 'self' data:`). Link reference definitions (`[id]: url`), including
+  the full `[text][id]`, collapsed `[text][]`, and shortcut `[text]` forms, and
+  numeric and common named character references are resolved. The Rendered/Raw
+  switch is a server-side `?raw=1`
   link, so it works without JavaScript. Set `markdown: false` to fall back to
   the plain-text view. A fenced code block whose info string names a supported
   language is highlighted through `lib/highlight.ts` (either an extension or a

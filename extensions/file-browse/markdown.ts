@@ -3,9 +3,10 @@
  *
  * It is deliberately not CommonMark: it covers the block and inline constructs
  * that show up in repository READMEs — headings, paragraphs, fenced code,
- * blockquotes, nested and task lists, tables, code spans, emphasis, links, and
- * images. Everything is escaped and only a known set of tags is emitted; raw
- * HTML in the source is shown as text, never executed.
+ * blockquotes, nested and task lists, tables, code spans, emphasis, inline and
+ * reference links, and images. Named and numeric character references are
+ * decoded as literal text. Everything is escaped and only a known set of tags
+ * is emitted; raw HTML in the source is shown as text, never executed.
  *
  * Relative links become `/view/<path>` and relative images become `/raw/<path>`
  * so they resolve from any page URL. The `/view` and `/raw` routes re-vet the
@@ -26,10 +27,68 @@ import { encodePath } from "./paths.ts";
 const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 const SAFE_LINK_SCHEME = /^(?:https?|mailto):/i;
 const HTTP_SCHEME = /^https?:/i;
+/** A link reference definition: `[id]: dest "title"`. */
+const DEFINITION = /^ {0,3}\[([^\]]+)\]:\s*(\S+)(?:\s+["'(]([^"')]*)["')])?\s*$/;
+
+interface LinkDefinition {
+	dest: string;
+	title?: string;
+}
+
+/** Per-document render state: the resolution base and the reference definitions. */
+interface Context {
+	baseDir: string;
+	defs: Map<string, LinkDefinition>;
+}
 
 /** Render a Markdown source string to a safe HTML fragment. */
 export function renderMarkdown(source: string, baseDir = ""): string {
-	return renderBlocks(source.split(/\r\n|\r|\n/), baseDir);
+	const { defs, body } = collectDefinitions(source.split(/\r\n|\r|\n/));
+	return renderBlocks(body, { baseDir, defs });
+}
+
+/** Fold a reference label the way CommonMark does: trim, collapse, case-fold. */
+function normalizeLabel(label: string): string {
+	return label.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Lift link reference definitions out of the source before block rendering, so
+ * a `[id]: dest` line becomes a definition rather than a paragraph and can be
+ * referenced from anywhere in the document. Fences are skipped so a
+ * definition-shaped line inside code stays literal. Definitions are
+ * single-line; one inside a blockquote or list item is left in place as text.
+ */
+function collectDefinitions(lines: string[]): { defs: Map<string, LinkDefinition>; body: string[] } {
+	const defs = new Map<string, LinkDefinition>();
+	const body: string[] = [];
+	let fence: Fence | undefined;
+	for (const line of lines) {
+		if (fence) {
+			const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line);
+			if (close && close[1][0] === fence.char && close[1].length >= fence.length) fence = undefined;
+			body.push(line);
+			continue;
+		}
+		const open = matchFence(line);
+		if (open) {
+			fence = open;
+			body.push(line);
+			continue;
+		}
+		const match = DEFINITION.exec(line);
+		if (!match) {
+			body.push(line);
+			continue;
+		}
+		const key = normalizeLabel(match[1]);
+		if (!defs.has(key)) {
+			const dest = match[2].startsWith("<") && match[2].endsWith(">") ? match[2].slice(1, -1) : match[2];
+			defs.set(key, { dest, title: match[3] });
+		}
+		body.push("");
+	}
+	return { defs, body };
 }
 
 function isBlank(line: string): boolean {
@@ -56,7 +115,7 @@ function stripIndent(line: string, columns: number): string {
 	return line.slice(index);
 }
 
-function renderBlocks(lines: string[], baseDir: string): string {
+function renderBlocks(lines: string[], ctx: Context): string {
 	const out: string[] = [];
 	let i = 0;
 	while (i < lines.length) {
@@ -76,7 +135,7 @@ function renderBlocks(lines: string[], baseDir: string): string {
 
 		const heading = matchHeading(line);
 		if (heading) {
-			out.push(`<h${heading.level}>${renderInline(heading.text, baseDir)}</h${heading.level}>`);
+			out.push(`<h${heading.level}>${renderInline(heading.text, ctx)}</h${heading.level}>`);
 			i++;
 			continue;
 		}
@@ -88,27 +147,29 @@ function renderBlocks(lines: string[], baseDir: string): string {
 		}
 
 		if (isBlockquoteLine(line)) {
-			const [html, next] = renderBlockquote(lines, i, baseDir);
+			const [html, next] = renderBlockquote(lines, i, ctx);
+			out.push(html);
+			i = next;
+			continue;
+		}
+
+		// A list marker wins over a pipe, so `- | a | b |` stays a list item
+		// instead of becoming a table whose first cell is `-`.
+		if (matchListItem(line)) {
+			const [html, next] = renderList(lines, i, ctx);
 			out.push(html);
 			i = next;
 			continue;
 		}
 
 		if (i + 1 < lines.length && isTableStart(line, lines[i + 1])) {
-			const [html, next] = renderTable(lines, i, baseDir);
+			const [html, next] = renderTable(lines, i, ctx);
 			out.push(html);
 			i = next;
 			continue;
 		}
 
-		if (matchListItem(line)) {
-			const [html, next] = renderList(lines, i, baseDir);
-			out.push(html);
-			i = next;
-			continue;
-		}
-
-		const [html, next] = renderParagraph(lines, i, baseDir);
+		const [html, next] = renderParagraph(lines, i, ctx);
 		out.push(html);
 		i = next;
 	}
@@ -128,7 +189,7 @@ function isBlockStart(lines: string[], i: number): boolean {
 	);
 }
 
-function renderParagraph(lines: string[], start: number, baseDir: string): [string, number] {
+function renderParagraph(lines: string[], start: number, ctx: Context): [string, number] {
 	const collected: string[] = [];
 	let i = start;
 	for (; i < lines.length; i++) {
@@ -141,7 +202,7 @@ function renderParagraph(lines: string[], start: number, baseDir: string): [stri
 			let text = line.trimEnd();
 			const hard = / {2}$/.test(line) || /\\$/.test(text);
 			if (text.endsWith("\\")) text = text.slice(0, -1);
-			const rendered = renderInline(text.trim(), baseDir);
+			const rendered = renderInline(text.trim(), ctx);
 			return hard ? `${rendered}<br>` : rendered;
 		})
 		.join("\n");
@@ -192,7 +253,7 @@ function isBlockquoteLine(line: string): boolean {
 	return /^ {0,3}>/.test(line);
 }
 
-function renderBlockquote(lines: string[], start: number, baseDir: string): [string, number] {
+function renderBlockquote(lines: string[], start: number, ctx: Context): [string, number] {
 	const inner: string[] = [];
 	let i = start;
 	for (; i < lines.length; i++) {
@@ -207,7 +268,7 @@ function renderBlockquote(lines: string[], start: number, baseDir: string): [str
 		}
 		break;
 	}
-	return [`<blockquote>${renderBlocks(inner, baseDir)}</blockquote>`, i];
+	return [`<blockquote>${renderBlocks(inner, ctx)}</blockquote>`, i];
 }
 
 function splitTableRow(line: string): string[] {
@@ -237,7 +298,10 @@ function splitTableRow(line: string): string[] {
 function isTableStart(header: string, delimiter: string): boolean {
 	if (!header.includes("|")) return false;
 	const cells = splitTableRow(delimiter);
-	return cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell));
+	// GFM requires the delimiter row to match the header row's cell count;
+	// otherwise the lines are a paragraph, not a table.
+	if (cells.length === 0 || cells.length !== splitTableRow(header).length) return false;
+	return cells.every((cell) => /^:?-+:?$/.test(cell));
 }
 
 function alignmentClass(cell: string): string {
@@ -249,10 +313,12 @@ function alignmentClass(cell: string): string {
 	return "";
 }
 
-function renderTable(lines: string[], start: number, baseDir: string): [string, number] {
+function renderTable(lines: string[], start: number, ctx: Context): [string, number] {
 	const header = splitTableRow(lines[start]);
 	const align = splitTableRow(lines[start + 1]).map(alignmentClass);
-	const head = header.map((cell, index) => `<th${align[index] ?? ""}>${renderInline(cell, baseDir)}</th>`).join("");
+	const head = header
+		.map((cell, index) => `<th scope="col"${align[index] ?? ""}>${renderInline(cell, ctx)}</th>`)
+		.join("");
 	const rows: string[] = [];
 	let i = start + 2;
 	for (; i < lines.length; i++) {
@@ -260,11 +326,12 @@ function renderTable(lines: string[], start: number, baseDir: string): [string, 
 		const cells = splitTableRow(lines[i]);
 		const tds: string[] = [];
 		for (let column = 0; column < header.length; column++) {
-			tds.push(`<td${align[column] ?? ""}>${renderInline(cells[column] ?? "", baseDir)}</td>`);
+			tds.push(`<td${align[column] ?? ""}>${renderInline(cells[column] ?? "", ctx)}</td>`);
 		}
 		rows.push(`<tr>${tds.join("")}</tr>`);
 	}
-	return [`<table class="md-table"><thead><tr>${head}</tr></thead><tbody>${rows.join("")}</tbody></table>`, i];
+	const table = `<table class="md-table"><thead><tr>${head}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+	return [`<div class="md-table-wrap">${table}</div>`, i];
 }
 
 interface ListItem {
@@ -285,9 +352,9 @@ function matchListItem(line: string): ListItem | undefined {
 	};
 }
 
-function renderList(lines: string[], start: number, baseDir: string): [string, number] {
+function renderList(lines: string[], start: number, ctx: Context): [string, number] {
 	const first = matchListItem(lines[start]);
-	if (!first) return renderParagraph(lines, start, baseDir);
+	if (!first) return renderParagraph(lines, start, ctx);
 	const baseIndent = first.indent;
 	const ordered = first.ordered;
 	const items: string[] = [];
@@ -323,18 +390,18 @@ function renderList(lines: string[], start: number, baseDir: string): [string, n
 			}
 			break;
 		}
-		items.push(renderListItem(contentLines, baseDir));
+		items.push(renderListItem(contentLines, ctx));
 	}
 	const tag = ordered ? "ol" : "ul";
 	return [`<${tag}>${items.join("")}</${tag}>`, i];
 }
 
-function renderListItem(contentLines: string[], baseDir: string): string {
+function renderListItem(contentLines: string[], ctx: Context): string {
 	const task = /^\[([ xX])\]\s*(.*)$/.exec(contentLines[0] ?? "");
 	const done = task ? task[1].toLowerCase() === "x" : false;
 	const source = task ? [task[2], ...contentLines.slice(1)] : contentLines;
 	const tight = !source.some(isBlank);
-	let body = renderBlocks(source, baseDir);
+	let body = renderBlocks(source, ctx);
 	if (tight) body = body.replace(/<\/?p>/g, "");
 	const mark = task ? `<span class="md-check" aria-hidden="true">${done ? "☑" : "☐"}</span> ` : "";
 	return `<li${task ? (done ? ` class="task done"` : ` class="task"`) : ""}>${mark}${body}</li>`;
@@ -347,11 +414,10 @@ interface ParsedLink {
 	end: number;
 }
 
-function parseInlineLink(text: string, start: number): ParsedLink | undefined {
-	if (text[start] !== "[") return undefined;
+/** The index of the `]` closing the bracket run opened at `start`, or -1. */
+function matchBracket(text: string, start: number): number {
 	let depth = 0;
-	let i = start;
-	for (; i < text.length; i++) {
+	for (let i = start; i < text.length; i++) {
 		const char = text[i];
 		if (char === "\\") {
 			i++;
@@ -360,10 +426,16 @@ function parseInlineLink(text: string, start: number): ParsedLink | undefined {
 		if (char === "[") depth++;
 		else if (char === "]") {
 			depth--;
-			if (depth === 0) break;
+			if (depth === 0) return i;
 		}
 	}
-	if (i >= text.length || text[i] !== "]" || text[i + 1] !== "(") return undefined;
+	return -1;
+}
+
+function parseInlineLink(text: string, start: number): ParsedLink | undefined {
+	if (text[start] !== "[") return undefined;
+	const i = matchBracket(text, start);
+	if (i === -1 || text[i + 1] !== "(") return undefined;
 	const label = text.slice(start + 1, i);
 	let j = i + 2;
 	while (j < text.length && /\s/.test(text[j])) j++;
@@ -407,6 +479,29 @@ function parseInlineLink(text: string, start: number): ParsedLink | undefined {
 	while (j < text.length && /\s/.test(text[j])) j++;
 	if (text[j] !== ")") return undefined;
 	return { label, dest, title, end: j + 1 };
+}
+
+/**
+ * Resolve `[label][id]`, `[label][]`, or `[label]` against the document's
+ * reference definitions, preferring the full form and falling back to the
+ * shortcut so `[foo][bar]` still resolves `[foo]` when only that is defined.
+ */
+function parseReferenceLink(text: string, start: number, ctx: Context): ParsedLink | undefined {
+	if (text[start] !== "[") return undefined;
+	const close = matchBracket(text, start);
+	if (close === -1 || text[close + 1] === "(") return undefined;
+	const label = text.slice(start + 1, close);
+	if (text[close + 1] === "[") {
+		const end = matchBracket(text, close + 1);
+		if (end !== -1) {
+			const raw = text.slice(close + 2, end);
+			const def = ctx.defs.get(normalizeLabel(raw === "" ? label : raw));
+			if (def) return { label, dest: def.dest, title: def.title, end: end + 1 };
+		}
+	}
+	const def = ctx.defs.get(normalizeLabel(label));
+	if (def) return { label, dest: def.dest, title: def.title, end: close + 1 };
+	return undefined;
 }
 
 interface ResolvedLink {
@@ -459,18 +554,18 @@ function resolveImage(dest: string, baseDir: string): ResolvedImage | undefined 
 	return { href: `/raw/${encodePath(local.rel)}${local.suffix}`, image: true };
 }
 
-function renderLink(parsed: ParsedLink, baseDir: string): string {
-	const label = renderInline(parsed.label, baseDir);
-	const target = resolveLink(parsed.dest, baseDir);
+function renderLink(parsed: ParsedLink, ctx: Context): string {
+	const label = renderInline(parsed.label, ctx);
+	const target = resolveLink(parsed.dest, ctx.baseDir);
 	if (!target) return label;
 	const title = parsed.title ? ` title="${escapeHtml(parsed.title)}"` : "";
 	const external = target.external ? ` target="_blank" rel="noopener noreferrer"` : "";
 	return `<a href="${escapeHtml(target.href)}"${title}${external}>${label}</a>`;
 }
 
-function renderImage(parsed: ParsedLink, baseDir: string): string {
+function renderImage(parsed: ParsedLink, ctx: Context): string {
 	const alt = escapeHtml(parsed.label);
-	const target = resolveImage(parsed.dest, baseDir);
+	const target = resolveImage(parsed.dest, ctx.baseDir);
 	if (!target) return alt;
 	if (!target.image) {
 		return `<a href="${escapeHtml(target.href)}" target="_blank" rel="noopener noreferrer">${alt || escapeHtml(parsed.dest)}</a>`;
@@ -504,8 +599,86 @@ function findEmphasisClose(text: string, start: number, char: string): number {
 	return -1;
 }
 
+/**
+ * The named character references common enough to matter in a README. Anything
+ * outside this set stays literal; numeric references are always decoded.
+ */
+const NAMED_ENTITIES: Record<string, string> = {
+	amp: "&",
+	lt: "<",
+	gt: ">",
+	quot: '"',
+	apos: "'",
+	nbsp: "\u00a0",
+	copy: "©",
+	reg: "®",
+	trade: "™",
+	hellip: "…",
+	mdash: "—",
+	ndash: "–",
+	lsquo: "‘",
+	rsquo: "’",
+	ldquo: "“",
+	rdquo: "”",
+	laquo: "«",
+	raquo: "»",
+	times: "×",
+	divide: "÷",
+	middot: "·",
+	bull: "•",
+	deg: "°",
+	plusmn: "±",
+	dagger: "†",
+	sect: "§",
+	para: "¶",
+	euro: "€",
+	pound: "£",
+	yen: "¥",
+	cent: "¢",
+	larr: "←",
+	rarr: "→",
+	harr: "↔",
+	le: "≤",
+	ge: "≥",
+	ne: "≠",
+	asymp: "≈",
+	sup2: "²",
+	sup3: "³",
+	frac12: "½",
+	frac14: "¼",
+	frac34: "¾",
+};
+
+interface Entity {
+	value: string;
+	length: number;
+}
+
+/** A code point, or U+FFFD when the reference is a surrogate or out of range. */
+function codePoint(value: number): string {
+	if (!Number.isFinite(value) || value <= 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff))
+		return "\uFFFD";
+	return String.fromCodePoint(value);
+}
+
+/**
+ * Match a numeric or named character reference at `start`. Decoding happens in
+ * the inline scanner rather than a pre-pass so an entity cannot become Markdown
+ * syntax: `&#42;x&#42;` stays the literal text `*x*`.
+ */
+function matchEntity(text: string, start: number): Entity | undefined {
+	const match = /^&(?:#([0-9]{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z][a-zA-Z0-9]{1,31}));/.exec(text.slice(start));
+	if (!match) return undefined;
+	let value: string | undefined;
+	if (match[1] !== undefined) value = codePoint(Number(match[1]));
+	else if (match[2] !== undefined) value = codePoint(Number.parseInt(match[2], 16));
+	else if (match[3] !== undefined && Object.hasOwn(NAMED_ENTITIES, match[3])) value = NAMED_ENTITIES[match[3]];
+	if (value === undefined) return undefined;
+	return { value, length: match[0].length };
+}
+
 /** Render inline Markdown within a block, escaping every literal character. */
-function renderInline(text: string, baseDir: string): string {
+function renderInline(text: string, ctx: Context): string {
 	let out = "";
 	let i = 0;
 	while (i < text.length) {
@@ -515,6 +688,15 @@ function renderInline(text: string, baseDir: string): string {
 			out += escapeHtml(text[i + 1]);
 			i += 2;
 			continue;
+		}
+
+		if (char === "&") {
+			const entity = matchEntity(text, i);
+			if (entity) {
+				out += escapeHtml(entity.value);
+				i += entity.length;
+				continue;
+			}
 		}
 
 		if (char === "`") {
@@ -530,18 +712,18 @@ function renderInline(text: string, baseDir: string): string {
 		}
 
 		if (char === "!" && text[i + 1] === "[") {
-			const parsed = parseInlineLink(text, i + 1);
+			const parsed = parseInlineLink(text, i + 1) ?? parseReferenceLink(text, i + 1, ctx);
 			if (parsed) {
-				out += renderImage(parsed, baseDir);
+				out += renderImage(parsed, ctx);
 				i = parsed.end;
 				continue;
 			}
 		}
 
 		if (char === "[") {
-			const parsed = parseInlineLink(text, i);
+			const parsed = parseInlineLink(text, i) ?? parseReferenceLink(text, i, ctx);
 			if (parsed) {
-				out += renderLink(parsed, baseDir);
+				out += renderLink(parsed, ctx);
 				i = parsed.end;
 				continue;
 			}
@@ -561,7 +743,7 @@ function renderInline(text: string, baseDir: string): string {
 		if ((char === "*" || char === "_") && text[i + 1] === char) {
 			const close = text.indexOf(char + char, i + 2);
 			if (close > i + 2) {
-				out += `<strong>${renderInline(text.slice(i + 2, close), baseDir)}</strong>`;
+				out += `<strong>${renderInline(text.slice(i + 2, close), ctx)}</strong>`;
 				i = close + 2;
 				continue;
 			}
@@ -570,7 +752,7 @@ function renderInline(text: string, baseDir: string): string {
 		if (char === "~" && text[i + 1] === "~") {
 			const close = text.indexOf("~~", i + 2);
 			if (close > i + 2) {
-				out += `<del>${renderInline(text.slice(i + 2, close), baseDir)}</del>`;
+				out += `<del>${renderInline(text.slice(i + 2, close), ctx)}</del>`;
 				i = close + 2;
 				continue;
 			}
@@ -579,7 +761,7 @@ function renderInline(text: string, baseDir: string): string {
 		if (char === "*" || char === "_") {
 			const close = findEmphasisClose(text, i, char);
 			if (close > i + 1) {
-				out += `<em>${renderInline(text.slice(i + 1, close), baseDir)}</em>`;
+				out += `<em>${renderInline(text.slice(i + 1, close), ctx)}</em>`;
 				i = close + 1;
 				continue;
 			}

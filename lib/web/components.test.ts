@@ -57,6 +57,7 @@ describe("web components", () => {
 			".bf-md li.task{",
 			".bf-md .md-check{",
 			".bf-md table{",
+			".bf-md .md-table-wrap{",
 			".bf-md th,.bf-md td{",
 			".bf-md thead th{",
 			".bf-md .md-left{",
@@ -67,8 +68,12 @@ describe("web components", () => {
 		]) {
 			expect(WEB_COMPONENTS_CSS).toContain(selector);
 		}
-		// Columns size to their content; a fixed layout would equalize them.
-		expect(WEB_COMPONENTS_CSS).toContain(".bf-md table{border-collapse:collapse;table-layout:auto;width:auto;");
+		// Columns size to their content and the wrapper scrolls a wide table
+		// horizontally, rather than a fixed layout equalizing and wrapping it.
+		expect(WEB_COMPONENTS_CSS).toContain(
+			".bf-md table{margin:0;border-collapse:collapse;table-layout:auto;width:auto;",
+		);
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-table-wrap{overflow-x:auto;");
 	});
 
 	test("uses only defined custom properties", () => {

@@ -67,17 +67,28 @@ describe("renderMarkdown blocks", () => {
 		expect(html).toContain("☐</span> todo");
 	});
 
-	test("renders tables with alignment", () => {
+	test("renders tables with alignment, a scroll wrapper, and column scopes", () => {
 		const html = renderMarkdown("| a | b |\n| :--- | ---: |\n| 1 | 2 |");
-		expect(html).toContain('<table class="md-table">');
-		expect(html).toContain('<th class="md-left">a</th>');
-		expect(html).toContain('<th class="md-right">b</th>');
+		expect(html).toContain('<div class="md-table-wrap"><table class="md-table">');
+		expect(html).toContain('<th scope="col" class="md-left">a</th>');
+		expect(html).toContain('<th scope="col" class="md-right">b</th>');
 		expect(html).toContain('<td class="md-left">1</td>');
 		expect(html).toContain('<td class="md-right">2</td>');
 	});
 
 	test("treats a non-delimiter second line as a paragraph, not a table", () => {
 		expect(renderMarkdown("| a | b |\nnot a table")).toBe("<p>| a | b |\nnot a table</p>");
+	});
+
+	test("rejects a delimiter row whose cell count differs from the header", () => {
+		expect(renderMarkdown("| a | b |\n| --- |\n| 1 | 2 |")).toBe("<p>| a | b |\n| --- |\n| 1 | 2 |</p>");
+	});
+
+	test("treats a list item whose content starts with a pipe as a list", () => {
+		const html = renderMarkdown("- | a | b |\n  | --- | --- |\n  | 1 | 2 |");
+		expect(html).toContain("<ul><li>");
+		expect(html).toContain('<table class="md-table">');
+		expect(html).not.toContain('<th scope="col">-</th>');
 	});
 });
 
@@ -101,6 +112,36 @@ describe("renderMarkdown inline", () => {
 		expect(renderMarkdown("[x](a.md)")).toBe('<p><a href="/view/a.md">x</a></p>');
 		expect(renderMarkdown("[x](#anchor)")).toBe('<p><a href="#anchor">x</a></p>');
 		expect(renderMarkdown('[x](a.md "title")')).toBe('<p><a href="/view/a.md" title="title">x</a></p>');
+	});
+
+	test("resolves reference-style links and drops their definitions", () => {
+		const html = renderMarkdown('See [pi][p] and [docs][].\n\n[p]: https://pi.dev\n[docs]: /guide "Guide"');
+		expect(html).toContain('<a href="https://pi.dev" target="_blank" rel="noopener noreferrer">pi</a>');
+		expect(html).toContain('<a href="/view/guide" title="Guide">docs</a>');
+		expect(html).not.toContain("[p]:");
+		expect(html).not.toContain("[docs]:");
+	});
+
+	test("resolves a shortcut reference, folding its label", () => {
+		expect(renderMarkdown("see [Pi Store]\n\n[pi   store]: https://pi.dev")).toBe(
+			'<p>see <a href="https://pi.dev" target="_blank" rel="noopener noreferrer">Pi Store</a></p>',
+		);
+	});
+
+	test("resolves a reference image", () => {
+		expect(renderMarkdown("![logo][l]\n\n[l]: img/a.png")).toBe(
+			'<p><img class="md-img" src="/raw/img/a.png" alt="logo" loading="lazy" decoding="async"></p>',
+		);
+	});
+
+	test("leaves an unresolved reference as literal text", () => {
+		expect(renderMarkdown("[x][nope]")).toBe("<p>[x][nope]</p>");
+	});
+
+	test("does not read a link definition out of a fence", () => {
+		expect(renderMarkdown("```\n[p]: https://pi.dev\n```")).toBe(
+			'<pre class="md-code"><code>[p]: https://pi.dev</code></pre>',
+		);
 	});
 
 	test("drops unsafe link schemes to plain text", () => {
@@ -133,6 +174,27 @@ describe("renderMarkdown inline", () => {
 		expect(renderMarkdown("![i](https://example.com/i.png)")).toBe(
 			'<p><a href="https://example.com/i.png" target="_blank" rel="noopener noreferrer">i</a></p>',
 		);
+	});
+});
+
+describe("renderMarkdown character references", () => {
+	test("decodes numeric and named references as literal text", () => {
+		expect(renderMarkdown("AT&amp;T and &copy;")).toBe("<p>AT&amp;T and ©</p>");
+		expect(renderMarkdown("&#65;&#x42; &#x1F600;")).toBe("<p>AB 😀</p>");
+	});
+
+	test("does not let a reference become markup", () => {
+		expect(renderMarkdown("&#42;x&#42; and &#35; heading")).toBe("<p>*x* and # heading</p>");
+	});
+
+	test("keeps an unknown or invalid reference literal", () => {
+		expect(renderMarkdown("&foo;")).toBe("<p>&amp;foo;</p>");
+		expect(renderMarkdown("&toString; &constructor;")).toBe("<p>&amp;toString; &amp;constructor;</p>");
+		expect(renderMarkdown("&#xD800; &#1114112;")).toBe("<p>\uFFFD \uFFFD</p>");
+	});
+
+	test("leaves a reference in a code span undecoded", () => {
+		expect(renderMarkdown("`&amp;`")).toBe("<p><code>&amp;amp;</code></p>");
 	});
 });
 

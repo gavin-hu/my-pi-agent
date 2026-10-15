@@ -115,7 +115,8 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-md blockquote{margin-left:0;padding:0 1em;border-left:3px solid var(--border);color:var(--muted)}
 .bf-md li.task{list-style:none;margin-left:-1.4em}
 .bf-md .md-check{color:var(--success)}
-.bf-md table{border-collapse:collapse;table-layout:auto;width:auto;max-width:100%;font-size:var(--fs-sm)}
+.bf-md table{margin:0;border-collapse:collapse;table-layout:auto;width:auto;font-size:var(--fs-sm)}
+.bf-md .md-table-wrap{overflow-x:auto;margin:0 0 1em}
 .bf-md th,.bf-md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top}
 .bf-md thead th{background:var(--surface);font-weight:var(--fw-medium)}
 .bf-md .md-left{text-align:left}

@@ -9,6 +9,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Docs: a Simplified Chinese `README.zh-CN.md`, linked from the root `README.md`.
+- `file-browse`: rendered Markdown resolves reference-style links — full
+  `[text][id]`, collapsed `[text][]`, and shortcut `[text]`, using `[id]: url`
+  definitions, which are no longer shown as paragraphs — and decodes numeric and
+  common named character references (`&amp;`, `&#39;`, `&copy;`) as literal text.
 
 ### Changed
 
@@ -22,6 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   are styled again. The web brand migration dropped the `md-*` rules, so tables
   had no borders or padding, alignment was ignored, and task items kept their
   bullet. Columns size to their content rather than filling the card.
+- `file-browse`: rendered Markdown tables follow GFM more closely. A delimiter
+  row whose cell count differs from the header's is no longer a table, so a
+  stray `---` row cannot turn prose into one; header cells carry `scope="col"`;
+  a wide table scrolls horizontally instead of wrapping; and a list item whose
+  text starts with a pipe (`- | a | b |`) stays a list.
 
 ## [0.8.0] - 2026-10-15
 
