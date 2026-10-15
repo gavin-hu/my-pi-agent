@@ -31,7 +31,7 @@ describe("REVIEW_CLIENT_JS", () => {
 
 	test("remembers a selection for the + Comment button instead of opening on select", () => {
 		expect(REVIEW_CLIENT_JS).toContain("pendingQuote");
-		expect(REVIEW_CLIENT_JS).toContain('classList.toggle("bf-review--no-rail"');
+		expect(REVIEW_CLIENT_JS).toContain("insertAdjacentElement");
 	});
 
 	test("keeps a stream open so the server sees the tab close", () => {
@@ -47,13 +47,10 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain("/api/feedback");
 	});
 
-	test("keeps the header comment count compact", () => {
-		expect(REVIEW_CLIENT_JS).toContain('"No comments"');
-		expect(REVIEW_CLIENT_JS).toContain("commentCount.title");
-	});
-
-	test("builds the right-hand rail and the section outline", () => {
-		expect(REVIEW_CLIENT_JS).toContain('"bf-rail__cell"');
+	test("renders inline comment threads and the section outline", () => {
+		expect(REVIEW_CLIENT_JS).toContain('"bf-comments"');
+		expect(REVIEW_CLIENT_JS).toContain('"bf-block__add-label"');
+		expect(REVIEW_CLIENT_JS).not.toContain("bf-rail");
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("outline-list")');
 		expect(REVIEW_CLIENT_JS).toContain("IntersectionObserver");
 	});

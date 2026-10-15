@@ -38,8 +38,8 @@ pi --plan                          # start in plan mode
   `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
   `## Risks`, and `## Verification` — and the model is guided to follow it. This
   is guidance only: any markdown is accepted, stored, and rendered as written.
-- **Trackable steps.** Steps are written as `- [ ]` checkboxes; the review
-  screen gauges them and approval seeds them into `todo`.
+- **Trackable steps.** Steps are written as `- [ ]` checkboxes; approval seeds
+  them into `todo`.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
 - **Kept current.** After approval, `set_plan_step` flips a step's checkbox in
@@ -107,10 +107,8 @@ scrollable, width-safe view of the plan with approve/refine/keep in the footer.
 The body is rendered with Pi's own `Markdown` component and `getMarkdownTheme()`,
 so headings, lists, inline code, code blocks, links, and quotes carry the active
 theme's colors; task items get a `success` `[✓]` (done) or `dim` `[ ]` (pending)
-marker. A step-progress row sits under the header — a gauge plus `n/m steps done`
-— whenever the plan has top-level list steps (the same ones approval seeds into
-`todo`), and the footer colors the primary actions (`a approve & run` in
-`success`, `r refine` in `accent`).
+marker. The footer colors the primary actions (`a approve & run` in `success`,
+`r refine` in `accent`).
 `a` ends plan mode, restores write access, and seeds `todo`; `r` keeps the plan
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
@@ -253,11 +251,11 @@ agent file that overrides it.
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
 in the default browser on `127.0.0.1`. The page is a review surface: a sticky
-header with the plan title, comment count, theme toggle, and Save/Close; a
-sticky **section outline** on the left; and the plan beside a **right-hand
-comment rail**. Every block has a **+ Comment** action; select text first to
-quote it. **Save feedback** writes the comments into the plan file and returns
-them to the model.
+header with the plan title, theme toggle, and Save/Close; a sticky **section
+outline** on the left; and the plan with each comment rendered **inline under
+the block it anchors to**. Every block has a **+ Comment** action; select text
+first to quote it. **Save feedback** writes the comments into the plan file and
+returns them to the model.
 
 - **Shared theme.** The page uses the same Bytefly tokens, base rules, and
   syntax-token colors as `file-browse` (`lib/web/`), follows the system light/dark
@@ -266,11 +264,9 @@ them to the model.
 - **Section outline.** Headings become a sticky outline, labelled in the panel,
   with jump links and an active-section highlight; the panel collapses into a
   disclosure on narrow screens.
-- **Right-hand rail.** The plan and the rail share a grid: every block is paired
-  with a rail cell, so a comment thread sits level with its block and reflows
-  with the window. The rail is dropped while the plan has no comments, so the
-  text keeps the full width. Below ~860px the grid becomes one column and
-  threads stack under their block.
+- **Inline threads.** A comment renders directly under the block it anchors to,
+  indented as a thread, so it reads in place and the plan keeps one measure at
+  every width. There is no separate rail or grid to reflow.
 - **Highlighted code.** Fenced code is tokenized by the shared
   `lib/highlight.ts`; the client copies only text and `tok-*` spans through
   `DOMParser`, so a code line is never parsed as markup.
@@ -386,6 +382,12 @@ them to the model.
   existing heading-only split cannot, and the page renders text with DOM nodes
   so review never widens the plan's trust surface. The browser opener is shared
   through `lib/browser.ts` rather than imported from `file-browse`.
+- **Comments render in the document flow, not a rail.** The anchor is already a
+  source line, so the browser needs no paired rail cell: a thread is appended
+  after its block and the plan keeps one measure at every width. That removes
+  the two-column grid, the `bf-review--no-rail` collapse, and the breakpoint
+  ladder, and matches the TUI, where neither review header carries a progress
+  counter.
 
 ## Files
 
@@ -400,13 +402,13 @@ them to the model.
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_step`. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
-| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, step progress, scroll gauge, approve/refine/browser/keep). |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, scroll gauge, approve/refine/browser/keep). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
 | `web.ts` | `createPlanWebReview`: the loopback server, the section outline and code highlighting, and the save/cancel/abort session. |
 | `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes. |
-| `web-page.ts` | The review page shell (header, outline panel, rail grid), its data island, and inline CSS. |
-| `web-client.ts` | The `/client.js` source (block/rail rendering, outline, inline comments, selection quotes, highlighted code, save/cancel). |
+| `web-page.ts` | The review page shell (header, section outline), its data island, and inline CSS. |
+| `web-client.ts` | The `/client.js` source (block/thread rendering, outline, inline comments, selection quotes, highlighted code, save/cancel). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |

@@ -51,15 +51,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   subcommands (`login`, `new`, `status`, `logout`, `help`) are shortcuts for the
   same actions. An unknown subcommand reports the valid verbs instead of
   silently opening the status screen.
+- `plan`: browser review comments render inline under the block they anchor to
+  instead of in a right-hand rail; the plan fills the review column, the
+  two-column grid and `bf-review--no-rail` collapse are gone, and the section
+  outline fills the sidebar height.
+- `plan`: the terminal review screen no longer shows an `n/m steps done` row
+  under the header, and the browser review header no longer shows a comment
+  counter.
 
 ### Fixed
 
 - `wechat`: the removed `/wechat start` guidance no longer appears in the source
   comments, the login-failure notice, or the `send_wechat` tool description and
   error.
-- `plan`: the browser review no longer stretches every block to fill the window;
-  the outline band and comment rail size to their content, the rail is dropped
-  while the plan has no comments, and the plan column caps its reading width.
+- `plan`: the browser review no longer stretches every block to fill the window,
+  and the outline band sizes to its content.
 - `plan`: selecting text in the browser review no longer opens the comment
   composer, so text can be copied; the selection is quoted when you click
   **+ Comment**.

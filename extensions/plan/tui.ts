@@ -9,9 +9,9 @@
  * for approval. The plan body is rendered by Pi's own `Markdown` component with
  * the active Markdown theme, so headings, lists, code, links, and quotes match
  * the rest of the application; plan-authored control characters are stripped
- * first so the file cannot drive the terminal. Task checkboxes are recolored,
- * a step-progress row sits under the header, and the footer colors the primary
- * actions. It returns the chosen action through `onClose` so the caller can act
+ * first so the file cannot drive the terminal. Task checkboxes are recolored
+ * and the footer colors the primary actions. It returns the chosen action
+ * through `onClose` so the caller can act
  * only after the screen is gone and input focus is free again.
  */
 
@@ -41,7 +41,7 @@ import {
 } from "../../lib/tui.ts";
 import { GLYPHS } from "../../lib/ui.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { extractPlanSections, extractPlanSteps, type PlanStep } from "./steps.ts";
+import { extractPlanSections } from "./steps.ts";
 
 /** What the user chose from the read/review screen. */
 export type PlanViewAction = "approve" | "refine" | "keep" | "browser";
@@ -83,7 +83,7 @@ const CHROME_ROWS = 5;
 const MIN_PADDED_WIDTH = 6;
 /** Left/right body padding, matching the rest of the screen chrome. */
 const BODY_PADDING = 2;
-/** Segments in the step-progress and scroll gauges. */
+/** Segments in the scroll gauge. */
 const GAUGE_SEGMENTS = 10;
 /** Footer hints shared by the review and the inline editor's primary actions. */
 const PRIMARY_HINTS: ScreenHint[] = [
@@ -140,13 +140,6 @@ function gauge(theme: Theme, fillSegments: number, fill: "accent" | "success"): 
 	);
 }
 
-/** Step progress under the header: a gauge plus `n/m steps done`. */
-function progressRow(theme: Theme, width: number, done: number, total: number): string {
-	const count = theme.fg(done > 0 ? "success" : "dim", `${done}/${total}`);
-	const label = theme.fg("muted", total === 1 ? "step done" : "steps done");
-	return truncateToWidth(`  ${gauge(theme, (done / total) * GAUGE_SEGMENTS, "success")}  ${count} ${label}`, width);
-}
-
 /** Scroll position below the body: a gauge, the percent, and the visible range. */
 function scrollRow(theme: Theme, width: number, offset: number, end: number, total: number, section?: string): string {
 	const maxOffset = Math.max(0, total - (end - offset));
@@ -175,19 +168,12 @@ export class PlanViewComponent implements Component {
 	private maxOffset = 0;
 	/** Rendered body lines and section offsets, cached per width. */
 	private cache: BodyCache | null = null;
-	/**
-	 * Top-level steps the plan will seed into `todo` (extracted once), for the
-	 * progress row; the same extraction approval uses.
-	 */
-	private readonly steps: PlanStep[];
 	/** True while the inline refine editor owns the keyboard. */
 	private editing = false;
 	/** The inline refine editor, built lazily once a TUI handle is available. */
 	private editor: Editor | null = null;
 
-	constructor(private readonly options: PlanViewOptions) {
-		this.steps = extractPlanSteps(options.plan.content);
-	}
+	constructor(private readonly options: PlanViewOptions) {}
 
 	private get theme(): Theme {
 		return this.options.theme;
@@ -362,8 +348,7 @@ export class PlanViewComponent implements Component {
 		const sections = built.sections;
 		const editorLines = this.editing ? (this.editor?.render(Math.max(1, w - 2)) ?? []) : [];
 		const editorRows = editorLines.length > 0 ? editorLines.length + 2 : 0;
-		const hasSteps = this.steps.length > 0;
-		const chrome = CHROME_ROWS + (hasSteps ? 1 : 0) + (body.length === 0 ? 1 : 0) + editorRows;
+		const chrome = CHROME_ROWS + (body.length === 0 ? 1 : 0) + editorRows;
 		const visible = viewportRows(this.options.viewportRows, { chrome, fallback: DEFAULT_ROWS });
 		this.visible = visible;
 		const maxOffset = Math.max(0, body.length - visible);
@@ -377,10 +362,6 @@ export class PlanViewComponent implements Component {
 		const sectionLabel = this.currentSection(sections)?.title;
 
 		const lines: string[] = [screenHeader(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6)))];
-		if (hasSteps) {
-			const done = this.steps.filter((step) => step.status === "completed").length;
-			lines.push(progressRow(theme, w, done, this.steps.length));
-		}
 		lines.push("");
 
 		const end = Math.min(body.length, this.offset + visible);

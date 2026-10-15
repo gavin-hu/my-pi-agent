@@ -67,16 +67,15 @@ describe("PlanViewComponent — render", () => {
 		}
 	});
 
-	test("shows the title, step progress, and body without the file path", () => {
+	test("shows the title and body without the file path", () => {
 		const { component } = setup();
 		const lines = render(component, 80);
 		const text = lines.join("\n");
 		expect(text).toContain("Plan Review");
 		expect(text).toContain("demo");
 		expect(text).not.toContain(".pi/plans/2026-10-08-1530-demo.md");
-		expect(lines[1]).toContain("0/2");
-		expect(lines[2]).toBe("");
-		expect(lines[3]).toContain("Plan");
+		expect(lines[1]).toBe("");
+		expect(lines[2]).toContain("Plan");
 	});
 
 	test("renders the plan body and the key hints", () => {
@@ -98,7 +97,6 @@ describe("PlanViewComponent — render", () => {
 		const { component } = setup("");
 		const text = render(component, 80).join("\n");
 		expect(text).toContain("This plan is empty.");
-		expect(text).not.toContain("steps done");
 	});
 
 	test("expands tabs and strips line-breaking control characters", () => {
@@ -120,15 +118,6 @@ describe("PlanViewComponent — render", () => {
 		expect(full).toContain("demo");
 		expect(full).not.toContain("2026-10-08-1530");
 		expect(render(component, 20)[0]).toContain("Plan Review");
-	});
-
-	test("shows a step-progress gauge with the done count", () => {
-		const { component } = setup("1. First\n2. Second\n3. [x] Done");
-		const text = render(component, 80).join("\n");
-		expect(text).toContain("1/3");
-		expect(text).toContain("steps done");
-		expect(text).toContain(GLYPHS.gaugeFull);
-		expect(text).toContain(GLYPHS.gaugeEmpty);
 	});
 
 	test("colors task checkboxes by state", () => {

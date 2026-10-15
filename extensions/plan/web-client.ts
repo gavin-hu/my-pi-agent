@@ -3,12 +3,12 @@
  *
  * Kept as one self-contained script (like `file-browse/client.ts`) with no
  * build step. It renders the plan from the JSON data island using DOM text
- * nodes only — plan and comment text never becomes markup — pairs every block
- * with a right-hand rail cell so comments sit level with their block, renders
- * server-highlighted code by copying only `tok-*` spans through `DOMParser`,
- * builds the section outline, and saves the annotation list back to the
- * server. An `EventSource` keeps a connection open so the server can tell when
- * the tab is gone; the explicit buttons are the primary save/cancel path.
+ * nodes only — plan and comment text never becomes markup — renders each block
+ * with its comment threads indented directly beneath it, highlights code by
+ * copying only `tok-*` spans through `DOMParser`, builds the section outline,
+ * and saves the annotation list back to the server. An `EventSource` keeps a
+ * connection open so the server can tell when the tab is gone; the explicit
+ * buttons are the primary save/cancel path.
  */
 
 import { THEME_TOGGLE_JS } from "../../lib/web/index.ts";
@@ -34,7 +34,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var saveButton = document.getElementById("save");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
-  var commentCount = document.getElementById("comment-count");
 
   function el(tag, className) {
     var node = document.createElement(tag);
@@ -190,19 +189,27 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     return selection.toString().replace(/\s+/g, " ").trim().slice(0, 500);
   }
 
-  function openComposer(wrap, cell, block, quote) {
+  function commentsBoxAfter(wrap) {
+    var next = wrap.nextElementSibling;
+    if (next && next.classList && next.classList.contains("bf-comments")) return next;
+    var box = el("div", "bf-comments");
+    wrap.insertAdjacentElement("afterend", box);
+    return box;
+  }
+
+  function openComposer(wrap, block, quote) {
     closeComposer();
     wrap.classList.add("bf-block--composing");
-    var box = el("div", "bf-composer");
+    var composer = el("div", "bf-composer");
     if (quote) {
       var chip = el("div", "bf-quote-chip");
       chip.textContent = "\u201c" + quote + "\u201d";
-      box.appendChild(chip);
+      composer.appendChild(chip);
     }
     var area = el("textarea", "bf-textarea");
     area.placeholder = "Leave feedback on this part of the plan";
     area.setAttribute("aria-label", "Comment");
-    box.appendChild(area);
+    composer.appendChild(area);
     var row = el("div", "bf-composer__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
     cancel.addEventListener("click", closeComposer);
@@ -213,8 +220,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       annotations.push(quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment });
       renderPlan();
     });
-    row.appendChild(cancel); row.appendChild(add); box.appendChild(row);
-    cell.appendChild(box);
+    row.appendChild(cancel); row.appendChild(add); composer.appendChild(row);
+    commentsBoxAfter(wrap).appendChild(composer);
     area.focus();
   }
 
@@ -261,19 +268,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     });
   }
 
-  function renderComments(cell, anchor) {
+  function renderComments(container, anchor) {
     var mine = annotations.filter(function (annotation) { return annotation.anchor === anchor; });
     if (mine.length === 0) return;
-    var box = el("div", "bf-rail__comments");
+    var box = el("div", "bf-comments");
     renderCommentCards(box, mine);
-    cell.appendChild(box);
-  }
-
-  function updateCount() {
-    if (!commentCount) return;
-    var count = annotations.length;
-    commentCount.textContent = count === 0 ? "No comments" : count + (count === 1 ? " comment" : " comments");
-    commentCount.title = count === 0 ? "Select text or hover a block to add a comment" : "Review comments";
+    container.appendChild(box);
   }
 
   function observeSections() {
@@ -318,7 +318,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (!planEl) return;
     closeComposer();
     planEl.replaceChildren();
-    planEl.classList.toggle("bf-review--no-rail", annotations.length === 0);
     var blocks = Array.isArray(data.blocks) ? data.blocks : [];
     var anchored = {};
     blocks.forEach(function (block) {
@@ -329,35 +328,30 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       wrap.setAttribute("data-kind", String(block.kind));
       if (block.kind === "heading") wrap.id = "s-" + block.start;
       renderBlockContent(wrap, block);
-      var cell = el("div", "bf-rail__cell");
-      cell.setAttribute("data-line", String(block.start));
       var add = el("button", "bf-btn bf-btn--ghost bf-block__add");
       add.type = "button";
-      add.textContent = "+ Comment";
       add.setAttribute("aria-label", "Comment on this block");
+      add.appendChild(document.createTextNode("+"));
+      var addLabel = el("span", "bf-block__add-label");
+      addLabel.textContent = "Comment";
+      add.appendChild(addLabel);
       add.addEventListener("click", function () {
         var quote = pendingQuote && pendingQuote.wrap === wrap ? pendingQuote.quote : selectionIn(wrap);
         pendingQuote = null;
-        openComposer(wrap, cell, block, quote);
+        openComposer(wrap, block, quote);
       });
       wrap.appendChild(add);
       planEl.appendChild(wrap);
-      planEl.appendChild(cell);
-      renderComments(cell, block.start);
+      renderComments(planEl, block.start);
     });
     var orphans = annotations.filter(function (annotation) { return !anchored[annotation.anchor]; });
     if (orphans.length > 0) {
-      var wrap2 = el("div", "bf-block bf-rail__orphans");
+      var box = el("div", "bf-comments bf-comments--orphans");
       var note = el("p"); note.textContent = "Comments not attached to a current block";
-      wrap2.appendChild(note);
-      planEl.appendChild(wrap2);
-      var cell2 = el("div", "bf-rail__cell");
-      var box = el("div", "bf-rail__comments");
+      box.appendChild(note);
       renderCommentCards(box, orphans);
-      cell2.appendChild(box);
-      planEl.appendChild(cell2);
+      planEl.appendChild(box);
     }
-    updateCount();
     observeSections();
   }
 

@@ -36,31 +36,31 @@ describe("renderReviewPage", () => {
 		expect(html).toContain('class="review-heading"');
 		expect(html).toContain('class="review-title" id="plan-title"');
 		expect(html).not.toContain('id="plan-path"');
-		expect(html).toContain('class="review-status"');
+		expect(html).toContain('class="bf-status review-status" id="status"');
 		expect(html).toContain('class="review-controls"');
 	});
 
 	test("keeps the save status inline in the header, not a full-width band", () => {
 		const html = page();
-		expect(html).toContain('<div class="review-status">\n<span class="bf-status" id="status"');
+		expect(html).toContain('class="bf-status review-status" id="status"');
+		expect(html).toContain(".review-status:empty");
 		expect(html).not.toContain('<div class="bf-status"');
 	});
 
-	test("frames the plan with an outline panel, a rail, and a progress header", () => {
+	test("frames the plan with a section outline and the plan body", () => {
 		const html = page();
 		expect(html).toContain('id="outline-list"');
 		expect(html).toContain("bf-review");
 		expect(html).not.toContain('id="steps"');
-		expect(html).toContain('id="comment-count"');
 		expect(html).toContain('href="#plan"');
 	});
 
-	test("labels the outline and lets the rail collapse when there are no comments", () => {
+	test("labels the outline and styles inline comment threads", () => {
 		const html = page();
 		expect(html).toContain('class="review-nav__title" id="outline-title"');
 		expect(html).toContain('aria-labelledby="outline-title"');
-		expect(html).toContain("bf-review--no-rail");
-		expect(html).toContain("align-content:start");
+		expect(html).toContain(".bf-comments");
+		expect(html).not.toContain("bf-rail");
 	});
 
 	test("drops the outline column when the plan has no headings", () => {
