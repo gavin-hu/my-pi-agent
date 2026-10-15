@@ -26,6 +26,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   half-block mark beside the agent and chrome identities and a grouped help
   block — instead of the older "recolors Pi's brand mark" header, in
   `extensions/bytefly/README.md` and `docs/extensions.md`.
+- `bytefly`: the startup header's help block tracks Pi's current expanded
+  startup help — `ctrl+d to exit (empty)`, `!!` bash without context, `ctrl+p`
+  model cycling, `shift+tab` thinking cycling, `alt+enter` follow-up, and
+  `ctrl+v` paste — instead of the older wording that omitted them.
 
 ### Removed
 

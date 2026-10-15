@@ -35,9 +35,9 @@ two-tone `Pi` wordmark.
  █▀█  Pi v1.2.0
  █▀ █ enhanced by bytefly v0.7.0
  ─────────────────────────────────────────────────
-  escape to interrupt · ctrl+c to clear · ctrl+d to exit
-  ctrl+o more · ctrl+t to think · ctrl+l models · ctrl+g editor
-  / commands · ! bash · /bytefly extensions · /doctor checks
+  escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)
+  ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model
+  / commands · ! bash · !! bash (no context) · /bytefly extensions
 ```
 
 As the terminal narrows, the identity sheds the chrome version, then the chrome

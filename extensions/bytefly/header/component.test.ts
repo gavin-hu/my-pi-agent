@@ -18,8 +18,12 @@ const APP_BINDINGS = {
 	"app.suspend": { defaultKeys: "ctrl+z", description: "Suspend to background" },
 	"app.tools.expand": { defaultKeys: "ctrl+o", description: "Toggle tool output" },
 	"app.thinking.toggle": { defaultKeys: "ctrl+t", description: "Toggle thinking blocks" },
+	"app.thinking.cycle": { defaultKeys: "shift+tab", description: "Cycle thinking level" },
+	"app.model.cycleForward": { defaultKeys: "ctrl+p", description: "Cycle to next model" },
 	"app.model.select": { defaultKeys: "ctrl+l", description: "Open model selector" },
 	"app.editor.external": { defaultKeys: "ctrl+g", description: "Open external editor" },
+	"app.message.followUp": { defaultKeys: "alt+enter", description: "Queue follow-up message" },
+	"app.clipboard.pasteImage": { defaultKeys: "ctrl+v", description: "Paste from clipboard" },
 } as const;
 
 /** The full chrome identity on the second row, with the package's own version. */
@@ -55,9 +59,9 @@ describe("ByteflyHeader", () => {
 			" █▀█  Pi v1.2.0",
 			` █▀ █ ${chrome}`,
 			` ${"─".repeat(79)}`,
-			"  escape to interrupt · ctrl+c to clear · ctrl+d to exit · ctrl+z to suspend",
-			"  ctrl+o more · ctrl+t to think · ctrl+l models · ctrl+g editor",
-			"  / commands · ! bash · /bytefly extensions · /doctor checks",
+			"  escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)",
+			"  ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model",
+			"  / commands · ! bash · !! bash (no context) · /bytefly extensions",
 		]);
 	});
 
@@ -86,7 +90,7 @@ describe("ByteflyHeader", () => {
 
 		expect(lines[3]).toBe("");
 		expect(lines[4]).toBe("");
-		expect(lines[5]).toBe("  / commands · ! bash · /bytefly extensions · /doctor checks");
+		expect(lines[5]).toBe("  / commands · ! bash · !! bash (no context) · /bytefly extensions");
 	});
 
 	test("resolves a chord live, so a rebound key shows up", () => {
