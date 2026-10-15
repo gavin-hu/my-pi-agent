@@ -1,11 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { renderMarkdown } from "./markdown.ts";
+import { renderMarkdown, renderMarkdownDocument } from "./markdown.ts";
 
 describe("renderMarkdown blocks", () => {
 	test("renders ATX headings and keeps trailing hashes that are part of the text", () => {
-		expect(renderMarkdown("# Title")).toBe("<h1>Title</h1>");
-		expect(renderMarkdown("### Three ###")).toBe("<h3>Three</h3>");
-		expect(renderMarkdown("# C#")).toBe("<h1>C#</h1>");
+		expect(renderMarkdown("# Title")).toBe('<h2 id="title">Title</h2>');
+		expect(renderMarkdown("### Three ###")).toBe('<h4 id="three">Three</h4>');
+		expect(renderMarkdown("# C#")).toBe('<h2 id="c">C#</h2>');
+	});
+
+	test("gives headings a slug id and suffixes repeats", () => {
+		expect(renderMarkdown("# Hello, World!")).toBe('<h2 id="hello-world">Hello, World!</h2>');
+		expect(renderMarkdown("# Setup\n\n## Setup")).toBe('<h2 id="setup">Setup</h2>\n<h3 id="setup-1">Setup</h3>');
+	});
+
+	test("returns headings with anchors from renderMarkdownDocument", () => {
+		const doc = renderMarkdownDocument("# Title\n\n## Part one\n\n### Deep");
+		expect(doc.headings).toEqual([
+			{ level: 2, id: "title", text: "Title" },
+			{ level: 3, id: "part-one", text: "Part one" },
+			{ level: 4, id: "deep", text: "Deep" },
+		]);
+		expect(doc.html).toContain('<h2 id="title">Title</h2>');
 	});
 
 	test("renders paragraphs and hard breaks", () => {
@@ -62,9 +77,9 @@ describe("renderMarkdown blocks", () => {
 	test("renders task list items", () => {
 		const html = renderMarkdown("- [x] done\n- [ ] todo");
 		expect(html).toContain('<li class="task done">');
-		expect(html).toContain("☑</span> done");
+		expect(html).toContain('<input class="md-check" type="checkbox" disabled checked> done');
 		expect(html).toContain('<li class="task">');
-		expect(html).toContain("☐</span> todo");
+		expect(html).toContain('<input class="md-check" type="checkbox" disabled> todo');
 	});
 
 	test("renders tables with alignment, a scroll wrapper, and column scopes", () => {
@@ -210,7 +225,7 @@ describe("renderMarkdown safety", () => {
 	});
 
 	test("handles CRLF and empty input", () => {
-		expect(renderMarkdown("# a\r\n\r\nb")).toBe("<h1>a</h1>\n<p>b</p>");
+		expect(renderMarkdown("# a\r\n\r\nb")).toBe('<h2 id="a">a</h2>\n<p>b</p>');
 		expect(renderMarkdown("")).toBe("");
 	});
 });

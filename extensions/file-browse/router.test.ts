@@ -69,16 +69,16 @@ describe("routing", () => {
 	test("renders Markdown with a raw toggle and honors the disabled config", async () => {
 		const rendered = await handleRequest(context(), "GET", "/view/sub/b.md", {});
 		expect(rendered.status).toBe(200);
-		expect(text(rendered)).toContain("<h1>hi</h1>");
+		expect(text(rendered)).toContain('<h2 id="hi">hi</h2>');
 		expect(text(rendered)).toContain('href="/view/sub/b.md?raw=1"');
 
 		const raw = await handleRequest(context(), "GET", "/view/sub/b.md?raw=1", {});
 		expect(text(raw)).toContain('<pre class="bf-code bf-code--numbered">');
-		expect(text(raw)).not.toContain("<h1>hi</h1>");
+		expect(text(raw)).not.toContain('<h2 id="hi">');
 
 		const disabled = await handleRequest(context({ markdown: false }), "GET", "/view/sub/b.md", {});
 		expect(text(disabled)).toContain('<pre class="bf-code bf-code--numbered">');
-		expect(text(disabled)).not.toContain("<h1>hi</h1>");
+		expect(text(disabled)).not.toContain('<h2 id="hi">');
 	});
 
 	test("marks listing rows with sort keys", async () => {

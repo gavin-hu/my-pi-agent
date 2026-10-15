@@ -346,13 +346,40 @@ describe("renderFilePage", () => {
 				mime: "application/octet-stream",
 			},
 		});
-		expect(html).toContain('<div class="bf-md">');
-		expect(html).toContain("<h1>hi</h1>");
+		expect(html).toContain('<article class="bf-md">');
+		expect(html).toContain('<h2 id="hi">hi</h2>');
 		expect(html).toContain("<strong>bold</strong>");
 		expect(html).toContain('href="/view/sub/b.md?raw=1"');
 		expect(html).toContain('data-copy="content"');
 		expect(html).toContain('data-value="sub/b.md"');
 		expect(html).not.toContain('id="wrap-toggle"');
+	});
+
+	test("adds an on-this-page outline for a document with several headings", () => {
+		fixture = makeFixture();
+		const root = fixture.root;
+		const page = (lines: string[]) =>
+			renderFilePage({
+				rootLabel: root,
+				rel: "sub/b.md",
+				tree,
+				maxFileBytes: 1_000_000,
+				file: {
+					kind: "markdown",
+					lines,
+					truncated: false,
+					totalLines: lines.length,
+					size: 50,
+					mtimeMs: MTIME_MS,
+					mime: "application/octet-stream",
+				},
+			});
+		const long = page(["# Title", "", "## One", "", "## Two", "", "### Deep"]);
+		expect(long).toContain('<details class="browse-md-outline">');
+		expect(long).toContain('<a class="lvl0" href="#title">Title</a>');
+		expect(long).toContain('<a class="lvl1" href="#one">One</a>');
+		expect(long).toContain('<a class="lvl2" href="#deep">Deep</a>');
+		expect(page(["# Title", "", "## One"])).not.toContain('<details class="browse-md-outline">');
 	});
 
 	test("renders raw Markdown with a wrap toggle and a rendered link", () => {
@@ -441,6 +468,7 @@ describe("renderDirectoryPage sort and styles", () => {
 		expect(html).toContain(".bf-code--wrap .bf-code__line{white-space:pre-wrap");
 		expect(html).toContain(".tok-keyword{color:var(--tok-keyword)}");
 		expect(html).toContain(".bf-md{");
+		expect(html).toContain(".browse-md-outline{");
 		expect(html).toContain('.bf-segmented__item[aria-current="page"]');
 		expect(html).toContain(".bf-btn{display:none}");
 		expect(html).toContain(".bf-theme-toggle{");

@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `file-browse`: rendered Markdown demotes document headings one level so the
+  page keeps a single `h1`, gives each heading a stable anchor id so in-document
+  `#anchor` links resolve, and adds an **On this page** outline for a document
+  with four or more headings. The `copy` action reads `copy contents`, and
+  task-list items are real disabled checkboxes instead of hidden glyphs.
+
 ## [0.8.0] - 2026-10-15
 
 ### Added

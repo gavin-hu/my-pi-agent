@@ -159,7 +159,8 @@ Tools: `web_search`, `web_fetch`.
 
 `/browse` starts a read-only local HTTP server bound to `127.0.0.1` and opens a
 two-pane browser tree rooted at the working directory: listings, a rendered
-Markdown preview, sortable listings, copy and wrap, image thumbnails,
+Markdown preview (heading anchors and an on-this-page outline, styled tables
+and images), sortable listings, copy and wrap, image thumbnails,
 per-language icons, a filter, and a fuzzy quick-open palette. No dependencies,
 with a `◉ <port>` status chip while it runs.
 

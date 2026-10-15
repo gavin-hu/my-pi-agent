@@ -22,7 +22,7 @@ import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode }
 import type { GitStatus } from "./git.ts";
 import { detectLanguage, highlightLines, type HighlightLanguage } from "../../lib/highlight.ts";
 import { FOLDER_ICON, iconHref, languageOf, SPRITE, type IconSpec } from "./icons.ts";
-import { renderMarkdown } from "./markdown.ts";
+import { renderMarkdownDocument, type MarkdownHeading } from "./markdown.ts";
 import { encodePath } from "./paths.ts";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -78,6 +78,13 @@ ${WEB_COMPONENTS_CSS}
 .browse-broken{color:var(--muted);text-decoration:line-through}
 .browse-link-mark{color:var(--muted);font-size:var(--fs-xs)}
 .browse-when{display:none}
+.browse-md-outline{max-width:80ch;margin:0 0 var(--space-3) var(--space-4);border:1px solid var(--border);border-radius:var(--radius-md);font-size:var(--fs-sm)}
+.browse-md-outline>summary{padding:var(--space-2) var(--space-3);cursor:pointer;color:var(--muted);font-family:var(--font-mono);font-size:var(--fs-xs)}
+.browse-md-outline ul{list-style:none;margin:0;padding:0 var(--space-3) var(--space-2)}
+.browse-md-outline a{display:block;padding:2px 0}
+.browse-md-outline a.lvl1{padding-left:var(--space-3)}
+.browse-md-outline a.lvl2{padding-left:var(--space-5)}
+.browse-md-outline a.lvl3{padding-left:var(--space-7)}
 body.palette-open{overflow:hidden}
 @media (max-width:520px){
 .bf-toolbar .bf-theme-toggle{margin-left:auto}
@@ -253,6 +260,20 @@ function renderCodeLines(lines: string[], language?: HighlightLanguage): string 
 	return rendered.map((html) => `<span class="bf-code__line">${html.length > 0 ? html : " "}</span>`).join("");
 }
 
+/** An "on this page" outline from the headings the Markdown renderer emitted. */
+function renderOutline(headings: MarkdownHeading[]): string {
+	if (headings.length < 4) return "";
+	const base = Math.min(...headings.map((heading) => heading.level));
+	const items = headings
+		.map((heading) => {
+			const depth = Math.min(heading.level - base, 3);
+			const label = heading.text.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[`*_~]/g, "");
+			return `<li><a class="lvl${depth}" href="#${heading.id}">${escapeHtml(label)}</a></li>`;
+		})
+		.join("");
+	return `<details class="browse-md-outline"><summary>On this page</summary><ul>${items}</ul></details>`;
+}
+
 /** The card-head controls: Markdown mode, line wrapping, and copy actions. */
 function renderFileActions(page: FilePage): string {
 	const isMarkdown = page.file.kind === "markdown";
@@ -275,7 +296,7 @@ function renderFileActions(page: FilePage): string {
 	}
 	if (page.file.kind === "text" || isMarkdown) {
 		groups.push(
-			`<button type="button" class="bf-btn" data-copy="content" data-href="${escapeHtml(rawHref)}" title="Copy the file contents">copy</button>`,
+			`<button type="button" class="bf-btn" data-copy="content" data-href="${escapeHtml(rawHref)}" title="Copy the file contents">copy contents</button>`,
 		);
 	}
 	groups.push(
@@ -296,10 +317,12 @@ export function renderFilePage(page: FilePage): string {
 	let content: string;
 	let note = "";
 	if (page.file.kind === "text" || page.file.kind === "markdown") {
-		content =
-			page.file.kind === "markdown" && !page.markdownRaw
-				? `<div class="bf-md">${renderMarkdown(page.file.lines.join("\n"), markdownBaseDir(page.rel))}</div>`
-				: `<pre class="bf-code bf-code--numbered"><code>${renderCodeLines(page.file.lines, language)}</code></pre>`;
+		if (page.file.kind === "markdown" && !page.markdownRaw) {
+			const rendered = renderMarkdownDocument(page.file.lines.join("\n"), markdownBaseDir(page.rel));
+			content = `${renderOutline(rendered.headings)}<article class="bf-md">${rendered.html}</article>`;
+		} else {
+			content = `<pre class="bf-code bf-code--numbered"><code>${renderCodeLines(page.file.lines, language)}</code></pre>`;
+		}
 		if (page.file.truncated)
 			note = `<p class="bf-note">Showing the first ${page.file.lines.length} of ${page.file.totalLines} lines.</p>`;
 	} else if (page.file.kind === "image") {

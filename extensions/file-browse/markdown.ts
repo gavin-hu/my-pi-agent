@@ -14,6 +14,10 @@
  * External images are rendered as links (the page CSP is `img-src 'self' data:`)
  * and non-http(s) schemes such as `javascript:` are dropped.
  *
+ * Headings get a stable anchor id and are demoted one level so the embedding
+ * page keeps the only `h1`; `renderMarkdownDocument` returns them for an
+ * outline.
+ *
  * Kept free of the page renderer: it imports only `lib/escape.ts`,
  * `lib/highlight.ts`, and `paths.ts`, so `html.ts` can compose it without a
  * module cycle.
@@ -35,16 +39,69 @@ interface LinkDefinition {
 	title?: string;
 }
 
-/** Per-document render state: the resolution base and the reference definitions. */
+/** A heading the renderer emitted, in document order. */
+export interface MarkdownHeading {
+	/** The rendered tag level, already demoted and capped at `h6`. */
+	level: number;
+	/** The anchor id, unique within the document. */
+	id: string;
+	/** The heading's raw inline Markdown. */
+	text: string;
+}
+
+/**
+ * Per-document render state: the resolution base, the reference definitions,
+ * and the headings emitted so far.
+ */
 interface Context {
 	baseDir: string;
 	defs: Map<string, LinkDefinition>;
+	headings: MarkdownHeading[];
+	slug(text: string): string;
+}
+
+/**
+ * Render a Markdown source string to a safe HTML fragment, plus the headings it
+ * emitted so a caller can build an outline. Headings carry an anchor id and are
+ * demoted one level, so the embedding page keeps the only `h1`.
+ */
+export function renderMarkdownDocument(source: string, baseDir = ""): { html: string; headings: MarkdownHeading[] } {
+	const { defs, body } = collectDefinitions(source.split(/\r\n|\r|\n/));
+	const context = createContext(baseDir, defs);
+	return { html: renderBlocks(body, context), headings: context.headings };
 }
 
 /** Render a Markdown source string to a safe HTML fragment. */
 export function renderMarkdown(source: string, baseDir = ""): string {
-	const { defs, body } = collectDefinitions(source.split(/\r\n|\r|\n/));
-	return renderBlocks(body, { baseDir, defs });
+	return renderMarkdownDocument(source, baseDir).html;
+}
+
+/** Turn heading text into a stable anchor id, dropping Markdown punctuation. */
+function headingSlug(text: string): string {
+	const plain = text
+		.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+		.replace(/[`*_~]/g, "")
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}\s-]/gu, "")
+		.replace(/[\s-]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+	return plain || "section";
+}
+
+/** Build the per-document render state, suffixing repeated heading slugs. */
+function createContext(baseDir: string, defs: Map<string, LinkDefinition>): Context {
+	const seen = new Map<string, number>();
+	return {
+		baseDir,
+		defs,
+		headings: [],
+		slug(text: string): string {
+			const base = headingSlug(text);
+			const count = seen.get(base) ?? 0;
+			seen.set(base, count + 1);
+			return count === 0 ? base : `${base}-${count}`;
+		},
+	};
 }
 
 /** Fold a reference label the way CommonMark does: trim, collapse, case-fold. */
@@ -135,7 +192,10 @@ function renderBlocks(lines: string[], ctx: Context): string {
 
 		const heading = matchHeading(line);
 		if (heading) {
-			out.push(`<h${heading.level}>${renderInline(heading.text, ctx)}</h${heading.level}>`);
+			const level = Math.min(heading.level + 1, 6);
+			const id = ctx.slug(heading.text);
+			ctx.headings.push({ level, id, text: heading.text });
+			out.push(`<h${level} id="${id}">${renderInline(heading.text, ctx)}</h${level}>`);
 			i++;
 			continue;
 		}
@@ -403,7 +463,7 @@ function renderListItem(contentLines: string[], ctx: Context): string {
 	const tight = !source.some(isBlank);
 	let body = renderBlocks(source, ctx);
 	if (tight) body = body.replace(/<\/?p>/g, "");
-	const mark = task ? `<span class="md-check" aria-hidden="true">${done ? "☑" : "☐"}</span> ` : "";
+	const mark = task ? `<input class="md-check" type="checkbox" disabled${done ? " checked" : ""}> ` : "";
 	return `<li${task ? (done ? ` class="task done"` : ` class="task"`) : ""}>${mark}${body}</li>`;
 }
 
