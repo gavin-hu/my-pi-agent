@@ -6,6 +6,7 @@ import { coloringTheme, emit, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/bytefly.ts";
+import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
 /** A million-token Opus call, so a configured rate lands on a round number. */
 const millionTokens = (): unknown[] => [
@@ -135,84 +136,43 @@ describe("bytefly extension", () => {
 		expect(footers.at(-1)).toBeUndefined();
 	});
 
-	test("does nothing when toggled outside interactive mode", async () => {
+	test("registers the unified panel under /bytefly and its aliases", () => {
 		const { pi, commands } = makeFakePi();
 		bytefly(pi);
-		const { ctx, footers, notifications } = fakeFooterCtx({ mode: "print" });
-		const command = commands.get("bytefly");
-
-		await command.handler("", ctx);
-
-		expect(footers).toHaveLength(0);
-		expect(notifications).toHaveLength(0);
+		expect(commands.has("bytefly")).toBe(true);
+		expect(commands.has("extensions")).toBe(true);
+		expect(commands.has("doctor")).toBe(true);
 	});
 
-	test("toggles the whole chrome with no argument", async () => {
+	test("completes extension names, not the retired chrome toggles", () => {
 		const { pi, commands } = makeFakePi();
 		bytefly(pi);
-		const { ctx, footers, headers, notifications } = fakeFooterCtx({ mode: "tui" });
-		const command = commands.get("bytefly");
+		const values = commands
+			.get("bytefly")
+			.getArgumentCompletions("")
+			.map((item: any) => item.value);
+
+		expect(values).toContain("refresh");
+		expect(values).not.toContain("header");
+		expect(values).not.toContain("footer");
+		expect(values).not.toContain("status");
+	});
+
+	test("keeps the chrome installed when the panel runs", async () => {
+		const { pi, commands } = makeFakePi();
+		const discovery = makeDiscovery({ global: [makeItem({ path: "/agent/extensions/one.ts" })] }).discovery;
+		bytefly(pi, { extensions: { discover: async () => discovery } });
+		const { ctx, footers, headers } = fakeFooterCtx({ mode: "tui", trusted: true });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		await command.handler("", ctx);
-		expect(footers.at(-1)).toBeUndefined();
-		expect(headers.at(-1)).toBeUndefined();
-		expect(notifications.at(-1)).toBe("bytefly off");
-
-		await command.handler("", ctx);
-		expect(typeof footers.at(-1)).toBe("function");
 		expect(typeof headers.at(-1)).toBe("function");
-		expect(notifications.at(-1)).toBe("bytefly on");
-	});
-
-	test("toggles only the header with the header subcommand", async () => {
-		const { pi, commands } = makeFakePi();
-		bytefly(pi);
-		const { ctx, footers, headers, notifications } = fakeFooterCtx({ mode: "tui" });
-		const command = commands.get("bytefly");
-
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		await command.handler("header", ctx);
-
-		expect(headers.at(-1)).toBeUndefined();
 		expect(typeof footers.at(-1)).toBe("function");
-		expect(notifications.at(-1)).toBe("bytefly header off");
-	});
 
-	test("toggles only the footer with the footer subcommand", async () => {
-		const { pi, commands } = makeFakePi();
-		bytefly(pi);
-		const { ctx, footers, headers, notifications } = fakeFooterCtx({ mode: "tui" });
-		const command = commands.get("bytefly");
+		// `header` is now an unknown extension name, not a toggle.
+		await commands.get("bytefly").handler("header", ctx);
 
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		await command.handler("footer", ctx);
-
-		expect(footers.at(-1)).toBeUndefined();
 		expect(typeof headers.at(-1)).toBe("function");
-		expect(notifications.at(-1)).toBe("bytefly footer off");
-	});
-
-	test("reports the header and footer state with the status subcommand", async () => {
-		const { pi, commands } = makeFakePi();
-		bytefly(pi);
-		const { ctx, notifications } = fakeFooterCtx({ mode: "tui" });
-		const command = commands.get("bytefly");
-
-		await command.handler("status", ctx);
-
-		expect(notifications.at(-1)).toBe("bytefly: header on, footer on");
-	});
-
-	test("completes the subcommands", () => {
-		const { pi, commands } = makeFakePi();
-		bytefly(pi);
-		const command = commands.get("bytefly");
-
-		expect(command.getArgumentCompletions("").map((item: any) => item.value)).toEqual(["footer", "header", "status"]);
-		expect(command.getArgumentCompletions("st").map((item: any) => item.value)).toEqual(["status"]);
-		expect(command.getArgumentCompletions("h").map((item: any) => item.value)).toEqual(["header"]);
-		expect(command.getArgumentCompletions("zzz")).toBeNull();
+		expect(typeof footers.at(-1)).toBe("function");
 	});
 
 	test("renders two footer lines through the installed factory", async () => {
@@ -252,24 +212,5 @@ describe("bytefly extension", () => {
 		});
 
 		expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
-	});
-
-	test("re-reads the config when the footer is toggled back on", async () => {
-		const { pi, commands } = makeFakePi();
-		bytefly(pi);
-		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
-		const command = commands.get("bytefly");
-
-		await withAgentDir(async (agentDir) => {
-			const path = join(agentDir, "bytefly.json");
-			writeFileSync(path, rateConfig("$"));
-			await emit(pi, "session_start", { reason: "startup" }, ctx);
-			expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("$2.50");
-
-			await command.handler("", ctx);
-			writeFileSync(path, rateConfig("¥"));
-			await command.handler("", ctx);
-			expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
-		});
 	});
 });

@@ -213,14 +213,3 @@ export function firstSelectable(entries: Entry[], from = 0): number | undefined 
 	}
 	return undefined;
 }
-
-/** Plain-text listing used outside TUI mode. */
-export function formatListing(items: ResourceItem[], agentDir: string): string {
-	if (items.length === 0) return "No extensions found.";
-	const lines: string[] = [];
-	for (const entry of buildEntries(items, agentDir)) {
-		if (entry.kind === "group") lines.push(`${entry.label} (${entry.count})`);
-		else lines.push(`  [${entry.item.enabled ? "x" : " "}] ${entry.label}`);
-	}
-	return lines.join("\n");
-}

@@ -3,9 +3,9 @@
  * todo).
  *
  * `FULL_SCREEN_OVERLAY` is for the one surface that must own the whole terminal:
- * the plan read/review screen. Every list screen (`/todos`, `/jobs`,
- * `/rewind`) stays in the dock's editor slot so they match each other and
- * leave the transcript visible.
+ * the plan read/review screen. Every list screen (`/bytefly`, `/todos`, `/jobs`,
+ * `/rewind`) stays in the dock's editor slot so they match each other and leave
+ * the transcript visible.
  *
  * Screens are full-width, terminal-height-aware components. These helpers build
  * the top rule, clamp a screen's body to the terminal, and render the key-hint
@@ -128,11 +128,10 @@ export interface DockListFrame {
  * its blank line, the body, an optional range row, optional detail rows, and
  * the blank-line-padded key-hint footer.
  *
- * This is the convention `/extensions` shares with `/jobs` and `/todos`.
- * `/doctor` (no summary, no trailing blank, range last) and `/rewind` (a blank
- * after the header and no blank before the hint) place their blanks
- * differently, so they stay hand-rolled rather than changing their output to
- * fit this helper.
+ * This is the convention the bytefly panel (`/bytefly`, and the `/extensions`
+ * and `/doctor` aliases) shares with `/jobs` and `/todos`. `/rewind` (a blank
+ * after the header and no blank before the hint) places its blanks differently,
+ * so it stays hand-rolled rather than changing its output to fit this helper.
  */
 export function dockListFrame(frame: DockListFrame): string[] {
 	const width = Math.max(1, frame.width);

@@ -57,7 +57,7 @@ describe("ByteflyHeader", () => {
 			` ${"─".repeat(79)}`,
 			"  escape to interrupt · ctrl+c to clear · ctrl+d to exit · ctrl+z to suspend",
 			"  ctrl+o more · ctrl+t to think · ctrl+l models · ctrl+g editor",
-			"  / commands · ! bash · /bytefly chrome · /doctor checks",
+			"  / commands · ! bash · /bytefly extensions · /doctor checks",
 		]);
 	});
 
@@ -86,7 +86,7 @@ describe("ByteflyHeader", () => {
 
 		expect(lines[3]).toBe("");
 		expect(lines[4]).toBe("");
-		expect(lines[5]).toBe("  / commands · ! bash · /bytefly chrome · /doctor checks");
+		expect(lines[5]).toBe("  / commands · ! bash · /bytefly extensions · /doctor checks");
 	});
 
 	test("resolves a chord live, so a rebound key shows up", () => {

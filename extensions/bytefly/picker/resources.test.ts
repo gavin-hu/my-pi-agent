@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import {
 	buildEntries,
 	firstSelectable,
-	formatListing,
 	getDisplayName,
 	getGroupLabel,
 	getPackageResourcePattern,
@@ -84,20 +83,5 @@ describe("pattern helpers", () => {
 
 	test("names a package resource relative to the package base", () => {
 		expect(getPackageResourcePattern(packageItem("/pkg/extensions/b.ts"))).toBe("b.ts");
-	});
-});
-
-describe("formatListing", () => {
-	test("marks enabled and disabled extensions", () => {
-		const text = formatListing(
-			[makeItem({ path: "/agent/extensions/one.ts" }), makeItem({ path: "/agent/extensions/two.ts", enabled: false })],
-			"/agent",
-		);
-		expect(text).toContain("[x] one.ts");
-		expect(text).toContain("[ ] two.ts");
-	});
-
-	test("reports an empty result", () => {
-		expect(formatListing([], "/agent")).toBe("No extensions found.");
 	});
 });

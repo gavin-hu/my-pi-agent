@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `bytefly`: `/bytefly [extension] [refresh]` opens one docked screen that
+  merges the `/extensions` picker and the `/doctor` report into one row per
+  extension — enable checkbox, worst-severity glyph, and summary, with the
+  focused extension's findings underneath — and `/extensions` and `/doctor`
+  are registered against the same handler as aliases.
+- `bytefly`: the footer's `price` config is read once per install (session start
+  or a session-tree change) instead of every time the footer is toggled back
+  on, so an edit is picked up by a new session or tree change rather than a
+  toggle.
+
+### Removed
+
+- `bytefly`: the `/bytefly header`, `/bytefly footer`, and `/bytefly status`
+  subcommands and the master chrome toggle. The header, footer, and turn rule
+  are always installed in interactive (`tui`) sessions now; disable the bytefly
+  extension through `pi config` to remove its chrome.
+
 ## [0.7.0] - 2026-10-15
 
 ### Added

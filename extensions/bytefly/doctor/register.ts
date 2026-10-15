@@ -1,20 +1,22 @@
 /**
- * bytefly's doctor surface: the `run_doctor` tool, the `/doctor` command, and
- * the proactive session-start check.
+ * bytefly's doctor surface: the `run_doctor` tool and the proactive
+ * session-start check.
  *
  * An extension that is enabled but inert is the failure this exists to prevent:
  * a missing extractor CLI, an optional package that was never installed, a
  * config file with a typo, or a runtime the extension needs but cannot reach.
  * `doctor` knows the answer because each extension declares its prerequisites in
- * `lib/requirements.ts`, and the same probes feed `/doctor` and `run_doctor`.
+ * `lib/requirements.ts`, and the same probes feed the unified panel and
+ * `run_doctor`.
  *
  * This module registers itself from bytefly's factory; it has no env guard of
- * its own because `PI_DISABLED_EXTENSIONS=bytefly` is what disables it.
+ * its own because `PI_DISABLED_EXTENSIONS=bytefly` is what disables it. It
+ * creates the session-scoped runtime and returns it so the composition root can
+ * hand the same cache to the panel.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { missingFindings } from "../../../lib/requirements.ts";
-import { registerCommands } from "./commands.ts";
 import { loadConfig } from "./config.ts";
 import { formatWarning } from "./format.ts";
 import { createDoctorRuntime, type DoctorRuntime } from "./runtime.ts";
@@ -28,14 +30,14 @@ export interface DoctorDeps {
 /**
  * Register the doctor surface and return its runtime.
  *
- * Registers the read-only tool and the command, points the runtime at each
- * session, and drops the cached findings on shutdown.
+ * Registers the read-only tool, points the runtime at each session, and drops
+ * the cached findings on shutdown. `/bytefly` and its aliases are registered by
+ * the panel, which shares this runtime.
  */
 export function registerDoctor(pi: ExtensionAPI, deps: DoctorDeps = {}): DoctorRuntime {
 	const runtime = deps.runtime ?? createDoctorRuntime(pi);
 
 	registerTools(pi, runtime);
-	registerCommands(pi, runtime);
 
 	pi.on("session_start", async (_event, ctx) => {
 		const config = loadConfig(ctx.cwd);

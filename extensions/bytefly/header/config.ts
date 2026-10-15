@@ -70,7 +70,7 @@ export const HEADER_CONFIG: HeaderConfig = {
 		[
 			{ raw: "/", description: "commands" },
 			{ raw: "!", description: "bash" },
-			{ raw: "/bytefly", description: "chrome" },
+			{ raw: "/bytefly", description: "extensions" },
 			{ raw: "/doctor", description: "checks" },
 		],
 	],

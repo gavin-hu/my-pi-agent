@@ -212,15 +212,18 @@ branch/worktree + browse chip, then context gauge + usage + mode/alert + model +
 thinking level), and the labeled `╌╌╌ turn N ╌╌╌` rule between completed turns.
 DeepSeek is priced out of the box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
-peak/off-peak schedule. It also owns the `/extensions` picker — a keyboard-driven
-list of every resolved Pi extension that enables or disables one by writing
-`settings.json` — the diagnostics surface: `/doctor [extension] [refresh]`
-and the read-only `run_doctor` tool report missing binaries, optional packages,
-login/state files, and config files that fail to parse, with one warning at
-session start when an enabled extension cannot work — and an opt-in notify
-capability that raises an OS notification when a run or a background job
-finishes or the agent asks for input, configured through the `notify` section of
-`bytefly.json`, for unattended runs.
+peak/off-peak schedule. It also owns the `/bytefly` extension screen — a
+keyboard-driven docked list of every resolved Pi extension, one row per
+extension carrying its enable checkbox and its worst-severity health, with the
+focused extension's findings underneath. `Space` toggles the focused extension
+by writing `settings.json`, `Enter` expands the detail pane, `Tab` switches
+Global/Project scope, and `r` re-probes. `/extensions` and
+`/doctor [extension] [refresh]` are aliases for the same screen, and every other
+mode prints the grouped listing or one extension's full findings. The read-only
+`run_doctor` tool returns the same report. An opt-in notify capability raises an
+OS notification when a run or a background job finishes or the agent asks for
+input, configured through the `notify` section of `bytefly.json`, for
+unattended runs.
 
 Tools: `run_doctor`. Commands: `/bytefly`, `/extensions`, `/doctor`.
 
