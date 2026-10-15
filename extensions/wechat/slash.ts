@@ -77,7 +77,9 @@ export function expandSnippet(command: SlashCommand, args: string): string {
 	return body ? `${body}\n\n${args}` : args;
 }
 
-/** The built-in commands. Currently only `/new`. */
+/**
+ * The built-in commands. `/new` and `/help`.
+ */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	{
 		name: "new",
@@ -89,4 +91,24 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 			ctx.session.newSession();
 		},
 	},
+	{
+		name: "help",
+		summary: "List the chat commands",
+		kind: "action",
+		run: async (ctx) => {
+			await ctx.reply(helpText(SLASH_COMMANDS));
+		},
+	},
 ];
+
+/**
+ * The reply `/help` sends: one line per command, an owner-only marker, and a
+ * note that ordinary text reaches the agent.
+ */
+export function helpText(commands: readonly SlashCommand[]): string {
+	const lines = commands.map((command) => {
+		const scope = command.ownerOnly ? " (owner only)" : "";
+		return `/${command.name} — ${command.summary}${scope}`;
+	});
+	return ["Available commands:", ...lines, "Anything else you type reaches the agent."].join("\n");
+}

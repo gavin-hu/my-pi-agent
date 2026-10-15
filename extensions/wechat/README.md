@@ -29,7 +29,7 @@ pi install ./                        # install the package
 - **Status chip** — the status bar shows `✆ wechat` while the bridge runs and
   keeps an error-colored `✆ wechat expired` after a session expiry
   (`ctx.ui.setStatus`), so the outage stays visible until `/wechat login`
-  reconnects or `/wechat stop` dismisses it; it clears on shutdown.
+  reconnects or `/wechat logout` stops the bridge; it clears on shutdown.
 - **Owner-only by default** — only the account owner (who scanned the login QR)
   can drive the agent; `allowedPeers` opts in others.
 - **Session-bound** — the bridge runs while an account is stored and the Pi
@@ -40,10 +40,12 @@ pi install ./                        # install the package
 
 | Command | Effect |
 |---|---|
+| `/wechat` | TUI: the control screen. Elsewhere: a one-line summary. |
 | `/wechat login` | QR login; on scan, stores credentials and starts the bridge. |
 | `/wechat new` | Start a fresh session (also dispatched by an inbound `/new`). |
-| `/wechat status` | TUI: a status screen. Elsewhere: a one-line summary. |
+| `/wechat status` | The same control screen as a bare `/wechat`. |
 | `/wechat logout` | Confirm, then clear credentials and stop the bridge. |
+| `/wechat help` | List the subcommands. |
 
 The bridge starts automatically on `session_start` (and after `login`) whenever
 an account is stored, so there is no start/stop command: the account is the
@@ -54,10 +56,11 @@ A session that expires while running keeps the `✆ wechat expired` chip:
 `/wechat status` reports it and points at the fix, and `/wechat login` is the
 one-step recovery.
 
-In the TUI, `/wechat status` opens a control screen with the account, connection
+In the TUI, `/wechat` opens a control screen with the account, connection
 state, owner, activity counters, and any pending remote prompt. Keys: `l` log in
-or reconnect, `r` refresh, and Esc closes. Outside the TUI the command stays a
-one-line notification.
+or reconnect, `n` start a new session, `o` log out, `r` refresh, and Esc closes.
+The subcommands above are shortcuts for the same actions and the only route
+outside the TUI; an unknown subcommand reports the valid ones.
 
 ## Slash commands
 
@@ -67,6 +70,7 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 | Command | Kind | Effect |
 |---|---|---|
 | `/new` | action | Start a fresh session; the bridge reconnects on the new session. |
+| `/help` | action | Reply with the available commands. |
 
 - **Snippets** expand a predefined body into the user turn (typing, queueing,
   and reply capture are unchanged); none is registered yet.
@@ -75,13 +79,13 @@ becomes a turn, so a command never reaches the model unless it is unknown.
   (or a path-like `/usr/...`) falls through to the model as ordinary text, and a
   message carrying media is never treated as a command.
 - `/new` is owner-only: an extra `allowedPeers` peer that sends it is refused
-  like any other unauthorized sender.
+  like any other unauthorized sender. `/help` is available to any admitted peer.
 
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Everything, including the QR login screen and the `/wechat status` screen (`ctx.ui.custom`). |
+| `tui` | Everything, including the QR login screen and the `/wechat` control screen (`ctx.ui.custom`). |
 | `rpc` | The bridge auto-starts and `status` prints the one-line summary; `login` needs the TUI (the QR screen is unavailable over RPC). |
 | `json`, `print` | Ephemeral; the bridge does not auto-start and no UI is available. |
 
@@ -167,7 +171,7 @@ files), and `poller.lock` (stops two sessions polling one account).
 - A peer can only be replied to after they have messaged first (the protocol
   supplies a `context_token` only then).
 - Slash commands are fixed built-ins; there is no user-defined snippet or action
-  list yet, and only `/new` is registered.
+  list yet, and only `/new` and `/help` are registered.
 - There is no pause. The bridge runs whenever an account is stored, and
   `/wechat logout` is the only way to stop it (and it discards the credentials).
 
@@ -180,10 +184,10 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 
 | Integration point | Detail |
 |---|---|
-| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`. |
+| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, re-point the UI adapter, auto-start the bridge when an account exists); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop, uninstall adapter). |
-| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. `/new` is an owner-only action wired through `pi.sendUserMessage("/wechat new", { expandPromptTemplates: true })`. |
+| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. `/new` is an owner-only action wired through `pi.sendUserMessage("/wechat new", { expandPromptTemplates: true })`; `/help` replies with the command list for any admitted peer. |
 | Injection | `pi.sendUserMessage(content)` — a string, or text/image blocks for inbound media; always triggers a turn, and the bridge only injects when idle. |
 | UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
@@ -227,13 +231,21 @@ registered extension command (`/wechat new`) dispatched with
 `expandPromptTemplates`, the only host-sanctioned way for a poll callback to get
 a command context.
 
+The operator surface is one verb table: a bare `/wechat` (or `/wechat status`)
+opens the control screen, whose keys return the same verbs the subcommands
+accept, so each action has a single implementation and there is no subcommand to
+memorize. The screen closes with an action the command runs afterwards, so the
+QR login screen never opens while the control screen still owns input focus. An
+unknown subcommand reports the valid verbs instead of silently falling back to
+status, which is what the old start/stop guidance used to do.
+
 ## Files
 
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge. |
 | `bridge.ts` | The loop: poll, queue, inject, capture, reply, media, typing, connection state, abort. |
-| `commands.ts` | `/wechat login|start|stop|status|logout`. |
+| `commands.ts` | `/wechat login|new|status|logout|help`: the verb dispatch, the panel, login, and logout. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
 | `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
@@ -241,7 +253,7 @@ a command context.
 | `login.ts` | QR login state machine. |
 | `qrcode.ts` | QR matrix → Unicode half-block terminal lines. |
 | `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`). |
-| `status-screen.ts` | The `/wechat status` screen (`ctx.ui.custom`) and the pure one-line/body renderers. |
+| `status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`) and the pure one-line/body renderers. |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `credentials.ts` | `credentials.json` (`0600`, multi-account). |
 | `state.ts` | `state.json` (cursor, owner, per-peer tokens). |
@@ -250,7 +262,7 @@ a command context.
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
 | `prompt.ts` | Pure prompt formatting and reply parsing. |
 | `remote-ui.ts` | The host-UI adapter: wraps the shared `ctx.ui` dialogs and installs the remote-turn marker. |
-| `slash.ts` | Inbound slash commands: the built-in registry (`/new`) and the pure parse/lookup/expand helpers. |
+| `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/help`) and the pure parse/lookup/expand helpers. |
 | `types.ts` | Wire and domain types. |
 
 ## Testing

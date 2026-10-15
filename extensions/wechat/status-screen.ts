@@ -1,11 +1,12 @@
 /**
- * The `/wechat status` screen.
+ * The `/wechat` control screen.
  *
  * `connectionOf`, `statusView`, `statusLine`, and `statusBody` are pure, so the
  * wording, fields, and width safety are unit-tested; `StatusScreenComponent` is
- * the TUI mounted by `runStatus`. The screen is a control surface: it shows the
- * live connection state and closes with an action (`login`, `close`) so the
- * command can run it after the screen is gone and input focus is free.
+ * the TUI mounted by `runPanel`. It is the control hub: every operator action
+ * (login, new session, logout) is a key here, so the user never has to remember
+ * a subcommand. It shows the live connection state and closes with an action so
+ * the command can run it after the screen is gone and input focus is free.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -18,8 +19,8 @@ import type { BotCredentials } from "./types.ts";
 /** User-facing connection word; the internal `BridgeState` stays running/stopped. */
 export type StatusConnection = "open" | "expired" | "closed";
 
-/** What the status screen closed with. */
-export type StatusAction = "close" | "login";
+/** What the status screen closed with: an action to dispatch, or `close`. */
+export type StatusAction = "close" | "login" | "new" | "logout";
 
 /** The facts the status screen and the one-line summary render. */
 export interface StatusView {
@@ -124,12 +125,18 @@ export interface StatusScreenOptions {
 	requestRender: () => void;
 }
 
-/** The `/wechat status` screen: live connection facts plus the next actions. */
+/** The `/wechat` control screen: live connection facts plus every action. */
 export class StatusScreenComponent implements Component {
 	constructor(private readonly options: StatusScreenOptions) {}
 
 	private hints(): ScreenHint[] {
-		return ["Esc close", { text: "l login", color: "accent" }, "r refresh"];
+		return [
+			"Esc close",
+			{ text: "l login", color: "accent" },
+			{ text: "n new", color: "accent" },
+			{ text: "o logout", color: "error" },
+			"r refresh",
+		];
 	}
 
 	handleInput(data: string): void {
@@ -139,6 +146,14 @@ export class StatusScreenComponent implements Component {
 		}
 		if (data === "l") {
 			this.options.onClose("login");
+			return;
+		}
+		if (data === "n") {
+			this.options.onClose("new");
+			return;
+		}
+		if (data === "o") {
+			this.options.onClose("logout");
 			return;
 		}
 		if (data === "r") this.options.requestRender();
@@ -151,7 +166,7 @@ export class StatusScreenComponent implements Component {
 		const target = Math.max(1, width);
 		const theme = this.options.theme;
 		return [
-			screenHeader(theme, target, "wechat · status"),
+			screenHeader(theme, target, "wechat · control"),
 			"",
 			...statusBody(this.options.view(), theme, target),
 			"",

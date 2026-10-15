@@ -3,8 +3,8 @@
  *
  * The effective config is the global section overridden by the project
  * section. Unknown keys are ignored and every value is clamped or cleaned.
- * Connection state is not stored here; it is controlled at runtime by
- * `/wechat start` and `/wechat stop`.
+ * Connection state is not stored here; the stored account controls the bridge
+ * lifecycle.
  */
 
 import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
 import type { Bridge, BridgeStatus } from "./bridge.ts";
-import { finishLogin, runNew, type CommandDeps } from "./commands.ts";
+import { finishLogin, registerCommands, runNew, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import type { BotCredentials } from "./types.ts";
 
@@ -78,7 +79,7 @@ describe("finishLogin", () => {
 		expect(notices.at(-1)?.message).toContain("running");
 	});
 
-	test("keeps the account and tells the user to start manually when connecting fails", () => {
+	test("keeps the account and points at status when connecting fails", () => {
 		const { deps, saved, opens } = harness({
 			open: () => {
 				throw new Error("Another Pi session is already polling this WeChat account.");
@@ -91,7 +92,7 @@ describe("finishLogin", () => {
 		const last = notices.at(-1);
 		expect(last?.kind).toBe("warning");
 		expect(last?.message).toContain("did not start");
-		expect(last?.message).toContain("/wechat start");
+		expect(last?.message).toContain("/wechat status");
 	});
 
 	test("reports an expired QR without touching credentials or the bridge", () => {
@@ -136,5 +137,57 @@ describe("runNew", () => {
 		});
 		await runNew(ctx);
 		expect(started).toBe(1);
+	});
+});
+
+describe("the /wechat command", () => {
+	function handler(deps: CommandDeps) {
+		const fake = createFakePi();
+		registerCommands(fake.pi, deps);
+		const registered = fake.commands.get("wechat")?.handler;
+		if (!registered) throw new Error("command not registered");
+		return registered;
+	}
+
+	test("warns on an unknown subcommand instead of silently showing status", async () => {
+		const { deps } = harness();
+		const { ctx, notices, customCalls } = fakeCtx({ custom: "close" });
+		await handler(deps)("start", ctx);
+		expect(notices.at(-1)?.kind).toBe("warning");
+		expect(notices.at(-1)?.message).toContain('Unknown wechat command "start"');
+		expect(notices.at(-1)?.message).toContain("/wechat login");
+		expect(customCalls).toEqual([]);
+	});
+
+	test("lists the commands on help", async () => {
+		const { deps } = harness();
+		const { ctx, notices } = fakeCtx();
+		await handler(deps)("help", ctx);
+		expect(notices.at(-1)?.message).toBe(`wechat commands — ${WECHAT_USAGE}`);
+	});
+
+	test("opens the control screen for a bare command and runs the chosen action", async () => {
+		const started: number[] = [];
+		const { deps } = harness();
+		const { ctx, customCalls } = fakeCtx({
+			custom: "new",
+			extra: {
+				newSession: async () => {
+					started.push(1);
+					return { cancelled: false };
+				},
+			},
+		});
+		await handler(deps)("", ctx);
+		expect(customCalls.length).toBe(1);
+		expect(started).toEqual([1]);
+	});
+
+	test("closes without dispatching when the control screen closes", async () => {
+		const { deps } = harness();
+		const { ctx, customCalls, notices } = fakeCtx({ custom: "close" });
+		await handler(deps)("status", ctx);
+		expect(customCalls.length).toBe(1);
+		expect(notices).toEqual([]);
 	});
 });

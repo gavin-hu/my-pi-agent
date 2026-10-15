@@ -31,6 +31,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to filter by scope, `Enter`/`e` to edit a note inline, `a` to add one, `d` to
   forget one behind a `y/N` confirm, and `r` to reload. Other modes and
   `/memory list` keep the plain listing.
+- `wechat`: `/wechat help`, plus `n` (new session) and `o` (log out) on the
+  `/wechat` control screen, so every operator action is one key. A WeChat peer
+  can type `/help` to list the chat commands.
 
 ### Changed
 
@@ -44,6 +47,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   package declares `publishConfig.access: public` and a `files` allowlist
   (extensions, lib, themes, assets; tests excluded), and the docs document both
   sources.
+- `wechat`: `/wechat` and `/wechat status` open one control screen, and the
+  subcommands (`login`, `new`, `status`, `logout`, `help`) are shortcuts for the
+  same actions. An unknown subcommand reports the valid verbs instead of
+  silently opening the status screen.
+
+### Fixed
+
+- `wechat`: the removed `/wechat start` guidance no longer appears in the source
+  comments, the login-failure notice, or the `send_wechat` tool description and
+  error.
 
 ## [0.7.0] - 2026-10-14
 

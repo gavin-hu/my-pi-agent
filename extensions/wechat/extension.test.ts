@@ -17,7 +17,7 @@ describe("wechat extension", () => {
 		wechat(fake.pi);
 		const complete = (prefix: string): string[] =>
 			(fake.commands.get("wechat").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
-		expect(complete("")).toEqual(["login", "new", "status", "logout"]);
+		expect(complete("")).toEqual(["login", "new", "status", "logout", "help"]);
 		expect(complete("n")).toEqual(["new"]);
 		expect(complete("new ")).toEqual([]);
 	});

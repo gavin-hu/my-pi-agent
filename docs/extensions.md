@@ -193,7 +193,8 @@ A thin bridge to WeChat over the Weixin iLink bot API. The live Pi session is
 the agent: inbound text, images (as model image content), and files (saved and
 referenced by path) become a user turn, and the reply is sent back with a typing
 indicator. The bridge starts automatically once an account is stored. `/wechat`
-covers `login`, `status`, and `logout`. The `send_wechat` tool messages the
+opens a control screen (`login`, `new`, `status`, `logout`, `help`) in the TUI and
+prints a one-line summary elsewhere. The `send_wechat` tool messages the
 account owner only.
 
 Tool: `send_wechat`. Command: `/wechat`.

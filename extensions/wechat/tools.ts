@@ -56,7 +56,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		name: TOOL_NAME,
 		label: "WeChat send",
 		description: [
-			"Send a plain-text WeChat message to the account owner from the running bridge (start it with /wechat start).",
+			"Send a plain-text WeChat message to the account owner from the running bridge (start it with /wechat login).",
 			"The recipient is always the owner and cannot be chosen.",
 		].join(" "),
 		promptSnippet: "Send a plain-text WeChat message to the account owner.",
@@ -75,7 +75,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 			const args = params as WechatSendArgs;
 			const bridge = deps.getBridge();
 			if (!bridge) {
-				return sendResult(false, "WeChat bridge is not started. Run /wechat start first.");
+				return sendResult(false, "WeChat bridge is not started. Run /wechat login first.");
 			}
 			const outcome = await bridge.sendToOwner(args.text);
 			return sendResult(outcome.ok, outcome.error);

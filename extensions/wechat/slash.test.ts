@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	expandSnippet,
 	findSlashCommand,
+	helpText,
 	parseSlash,
 	SLASH_COMMANDS,
 	type SlashCommand,
@@ -81,5 +82,41 @@ describe("built-in /new", () => {
 		await command?.run?.(ctx);
 		expect(events[0]).toContain("reply:Starting a new session");
 		expect(events[1]).toBe("newSession");
+	});
+});
+
+describe("built-in /help", () => {
+	test("is a non-owner action", () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "help");
+		expect(command?.kind).toBe("action");
+		expect(command?.ownerOnly).toBeUndefined();
+	});
+
+	test("replies with the command list", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "help");
+		let reply = "";
+		await command?.run?.({
+			args: "",
+			peer: "owner@im.wechat",
+			reply: async (text) => {
+				reply = text;
+			},
+			session: { newSession: () => {} },
+		} satisfies SlashContext);
+		expect(reply).toContain("/new");
+		expect(reply).toContain("/help");
+		expect(reply).toContain("owner only");
+	});
+});
+
+describe("helpText", () => {
+	test("lists each command and marks owner-only ones", () => {
+		const text = helpText([
+			{ name: "new", summary: "Start a new session", kind: "action", ownerOnly: true },
+			{ name: "help", summary: "List the chat commands", kind: "action" },
+		]);
+		expect(text).toContain("/new — Start a new session (owner only)");
+		expect(text).toContain("/help — List the chat commands");
+		expect(text).toContain("reaches the agent");
 	});
 });

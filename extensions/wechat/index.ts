@@ -3,8 +3,10 @@
  *
  * The live Pi session is the agent: an inbound WeChat message becomes a user
  * turn (`pi.sendUserMessage`), and the assistant's reply is sent back. The
- * bridge never starts on its own — `/wechat start` connects and `/wechat stop`
- * disconnects; `/wechat login` authenticates. See `README.md`.
+ * bridge follows the stored account: it opens on `session_start` while
+ * credentials exist (and after `/wechat login`), and `/wechat logout` is the
+ * only way to discard the account and stop it. `/wechat` opens the control
+ * screen. See `README.md`.
  *
  * Load with:  pi --extension ./extensions/wechat
  */
@@ -105,7 +107,7 @@ export default function wechat(pi: ExtensionAPI): void {
 				try {
 					ui.setStatus(STATUS_KEYS.wechat, wechatChip(ui.theme, state));
 				} catch {
-					// The chip is best-effort; a headless or themeless UI must not break start/stop.
+					// The chip is best-effort; a headless or themeless UI must not break open/close.
 				}
 			},
 		});

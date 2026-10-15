@@ -177,7 +177,19 @@ describe("StatusScreenComponent", () => {
 		expect(actions).toEqual(["login"]);
 	});
 
-	test("ignores s now that there is no start/stop control", () => {
+	test("asks for a new session on n", () => {
+		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
+		screen.handleInput("n");
+		expect(actions).toEqual(["new"]);
+	});
+
+	test("asks to log out on o", () => {
+		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
+		screen.handleInput("o");
+		expect(actions).toEqual(["logout"]);
+	});
+
+	test("ignores other keys now that there is no start/stop control", () => {
 		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
 		screen.handleInput("s");
 		expect(actions).toEqual([]);
