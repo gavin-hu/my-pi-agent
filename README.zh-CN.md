@@ -10,10 +10,17 @@
 `my-pi-agent` 是一个 [Pi](https://pi.dev) 包，新增十六个扩展和两个主题 —— 安装
 整个包，关掉你不需要的部分，其余照常使用 Pi。
 
-![一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏](./assets/bytefly-chrome.png)
+## 截图
+
+<p>
+  <img src="./assets/bytefly-chrome.png" alt="一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏" width="32%">
+  <img src="./assets/plan-review.png" alt="基于浏览器的计划审阅，显示计划的各部分、一个渲染后的代码块以及一个行内评论框" width="32%">
+  <img src="./assets/file-browse.png" alt="回环文件浏览器，显示路径过滤器、文件树和渲染后的 Markdown 预览" width="32%">
+</p>
 
 ## 目录
 
+- [截图](#截图)
 - [为什么选择这个包](#为什么选择这个包)
 - [快速开始](#快速开始)
 - [包含内容](#包含内容)
@@ -79,8 +86,6 @@ pi -e .                                                    # 试运行一次
 | [`job`](./extensions/job/) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
 | [`watch`](./extensions/watch/) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
 
-![基于浏览器的计划审阅，显示计划的各部分、一个渲染后的代码块以及一个行内评论框](./assets/plan-review.png)
-
 ### 保护你的工作
 
 | 扩展 | 工具与命令 | 说明 |
@@ -98,8 +103,6 @@ pi -e .                                                    # 试运行一次
 | [`document`](./extensions/document/) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
 | [`file-open`](./extensions/file-open/) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
 | [`wechat`](./extensions/wechat/) | `/wechat`, `send_wechat` | 通过微信 iLink 机器人 API 把微信聊天桥接到实时会话；入站文本、图片和文件会变成回合。 |
-
-![回环文件浏览器，显示路径过滤器、文件树和渲染后的 Markdown 预览](./assets/file-browse.png)
 
 ### 界面与维护
 

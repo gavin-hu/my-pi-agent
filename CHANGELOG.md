@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Docs: the root and Chinese READMEs gather the three screenshots into one
+  Screenshots section instead of placing them inline across the catalog.
 - Docs: the "pin a release" install example now pins `v0.8.0`.
 
 ## [0.8.0] - 2026-10-15
