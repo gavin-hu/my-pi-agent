@@ -38,14 +38,16 @@ the same version, so either source pins a stable setup.
 
 From inside Pi:
 
-- `/extensions` lists every resolved extension across all configured packages
-  and lets you enable or disable one (written to Global or Project settings,
-  applied on reload).
-- `/doctor [extension]` reports whether each enabled extension has what it needs
-  at runtime — binaries on `PATH`, optional packages, login/state files, and
-  config files that fail to parse. It warns at session start when an enabled
-  extension cannot work.
-- `/doctor` is read-only; the `run_doctor` tool exposes the same report to the
+- `/bytefly [extension] [refresh]` opens one docked screen listing every
+  resolved extension — its enable checkbox and its runtime health on each row,
+  the focused extension's findings underneath. `Space` toggles one (written to
+  Global or Project settings, applied on reload) and `r` re-probes;
+  `/extensions` and `/doctor` are aliases for the same screen.
+- The screen reports whether each enabled extension has what it needs at runtime
+  — binaries on `PATH`, optional packages, login/state files, and config files
+  that fail to parse — and warns at session start when an enabled extension
+  cannot work.
+- The check is read-only; the `run_doctor` tool exposes the same report to the
   model.
 
 ## Themes

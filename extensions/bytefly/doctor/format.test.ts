@@ -6,7 +6,6 @@ import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.t
 import {
 	countFindings,
 	detailLines,
-	extensionRow,
 	formatExtension,
 	formatHeadline,
 	formatReport,
@@ -87,17 +86,6 @@ describe("rows and detail", () => {
 		expect(severityGlyph("degraded", fakeTheme)).toBe(GLYPHS.warn);
 		expect(severityGlyph("ok", fakeTheme)).toBe(GLYPHS.check);
 		expect(severityGlyph("info", fakeTheme)).toBe(GLYPHS.disabled);
-	});
-
-	test("keeps every row inside the width", () => {
-		for (const width of [12, 20, 33, 80]) {
-			expect(visibleWidth(extensionRow(missing, fakeTheme, width, true))).toBeLessThanOrEqual(width);
-		}
-	});
-
-	test("marks the selected row", () => {
-		expect(extensionRow(ok, fakeTheme, 40, true)).toContain("❯");
-		expect(extensionRow(ok, fakeTheme, 40, false)).not.toContain("❯");
 	});
 
 	test("wraps detail to the width and caps it at the row budget", () => {

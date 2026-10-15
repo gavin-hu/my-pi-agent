@@ -2,16 +2,15 @@
  * Pure formatting for doctor's reports.
  *
  * Two shapes share these helpers: the plain multi-line text every non-TUI mode
- * shows, and the single row per extension the TUI screen renders. Nothing here
+ * shows, and the per-extension summary the unified panel renders. Nothing here
  * touches the filesystem or the host, and every string that came from a probe (a
  * parse error, a captured path) goes through {@link sanitizeLine} — probe text can carry
  * control characters, a parse error quotes the file's own bytes.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { selectionMarker } from "../../../lib/list-cursor.ts";
 import type { ExtensionReport, Finding, FindingSeverity } from "../../../lib/requirements.ts";
 import { GLYPHS } from "../../../lib/ui.ts";
 
@@ -123,31 +122,13 @@ export function reportSeverity(report: ExtensionReport): FindingSeverity {
 }
 
 /** A short right-hand status for one extension row. */
-function reportSummary(report: ExtensionReport): string {
+export function reportSummary(report: ExtensionReport): string {
 	if (!report.enabled) return "disabled";
 	const missing = report.findings.filter((finding) => finding.severity === "missing").length;
 	const degraded = report.findings.filter((finding) => finding.severity === "degraded").length;
 	if (missing > 0) return `${missing} missing`;
 	if (degraded > 0) return `${degraded} degraded`;
 	return "ok";
-}
-
-/** One extension row: marker, severity glyph, name, and a summary. */
-export function extensionRow(report: ExtensionReport, theme: Theme, width: number, selected = false): string {
-	const severity = reportSeverity(report);
-	const glyph = severityGlyph(severity, theme);
-	const head = `${selectionMarker(theme, selected)}${glyph} `;
-	const summary = reportSummary(report);
-	const available = Math.max(1, width - visibleWidth(head) - visibleWidth(summary) - 1);
-	const name = truncateToWidth(sanitizeLine(report.extension), available, "…");
-	const pad = " ".repeat(Math.max(0, available - visibleWidth(name)));
-	const tail =
-		severity === "missing"
-			? theme.fg("error", summary)
-			: severity === "degraded"
-				? theme.fg("warning", summary)
-				: theme.fg("dim", summary);
-	return truncateToWidth(`${head}${name}${pad} ${tail}`, width);
 }
 
 /**

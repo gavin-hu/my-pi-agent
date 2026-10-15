@@ -40,6 +40,8 @@ export interface FakeCtxOptions {
 	context?: { tokens: number | null; contextWindow: number; percent: number | null } | undefined;
 	providerCount?: number;
 	leafId?: string;
+	/** Whether the project is trusted; the panel command reads it. */
+	trusted?: boolean;
 }
 
 export interface FakeFooterCtx {
@@ -47,7 +49,6 @@ export interface FakeFooterCtx {
 	footerData: any;
 	footers: any[];
 	headers: any[];
-	notifications: string[];
 	statuses: Map<string, string>;
 }
 
@@ -55,7 +56,6 @@ export interface FakeFooterCtx {
 export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 	const footers: any[] = [];
 	const headers: any[] = [];
-	const notifications: string[] = [];
 	const statuses = new Map<string, string>(options.statuses ?? []);
 	const cwd = options.cwd ?? "/home/u/repo/project";
 
@@ -69,6 +69,7 @@ export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 	const ctx: any = {
 		mode: options.mode ?? "tui",
 		cwd,
+		isProjectTrusted: () => options.trusted ?? true,
 		model:
 			options.model === undefined
 				? { id: "opus-4.5", provider: "anthropic", contextWindow: 200000, reasoning: true }
@@ -87,11 +88,11 @@ export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 			theme: fakeTheme,
 			setFooter: (factory: any) => footers.push(factory),
 			setHeader: (factory: any) => headers.push(factory),
-			notify: (message: string) => notifications.push(message),
+			notify: () => {},
 		},
 	};
 
-	return { ctx, footerData, footers, headers, notifications, statuses };
+	return { ctx, footerData, footers, headers, statuses };
 }
 
 /** Render a footer factory into its two lines. */

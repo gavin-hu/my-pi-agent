@@ -6,14 +6,14 @@ import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import { bootDoctor, failingExec } from "../../../test/helpers/fixtures/doctor.ts";
 
 describe("doctor wiring", () => {
-	test("registers a read-only tool and the command", () => {
+	test("registers a read-only tool", () => {
 		const { fake } = bootDoctor();
 		const tool = fake.tools.get("run_doctor");
 		expect(tool).toBeDefined();
 		expect(tool.annotations.readOnlyHint).toBe(true);
 		expect(tool.annotations.destructiveHint).toBe(false);
 		expect(tool.outputSchema).toBeDefined();
-		expect(fake.commands.has("doctor")).toBe(true);
+		expect(fake.commands.has("doctor")).toBe(false);
 	});
 });
 
