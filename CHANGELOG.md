@@ -31,6 +31,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to filter by scope, `Enter`/`e` to edit a note inline, `a` to add one, `d` to
   forget one behind a `y/N` confirm, and `r` to reload. Other modes and
   `/memory list` keep the plain listing.
+- Docs: `README.md` screenshots for the package chrome, the browser plan
+  review, and the loopback file browser; the `pi.image` manifest field now
+  points at `assets/bytefly-chrome.png`.
 
 ### Changed
 

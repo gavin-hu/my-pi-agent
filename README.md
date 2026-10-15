@@ -9,7 +9,7 @@ context across sessions. `my-pi-agent` is a single [Pi](https://pi.dev) package
 that adds sixteen extensions and two themes — install the pack, turn off what
 you do not want, and keep using Pi unchanged.
 
-![The Pi TUI with the bytefly header logo, chrome, loaded extensions list, turn separator, and status bar](./assets/bytefly.png)
+![A terminal window running the Pi TUI with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar](./assets/bytefly-chrome.png)
 
 ## Contents
 
@@ -79,6 +79,8 @@ extension's own `README.md` has the full tool and command surface.
 | [`job`](./extensions/job/) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
 | [`watch`](./extensions/watch/) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
 
+![The browser-based plan review, showing the plan's sections, a rendered code block, and an inline comment box](./assets/plan-review.png)
+
 ### Keep your work safe
 
 | Extension | Tools and commands | What it does |
@@ -96,6 +98,8 @@ extension's own `README.md` has the full tool and command surface.
 | [`document`](./extensions/document/) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
 | [`file-open`](./extensions/file-open/) | `/open`, `open_path` | Open or reveal a file or directory in the OS-native application. |
 | [`wechat`](./extensions/wechat/) | `/wechat`, `send_wechat` | Bridge a WeChat chat to the live session over the Weixin iLink bot API; inbound text, images, and files become turns. |
+
+![The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview](./assets/file-browse.png)
 
 ### Chrome and upkeep
 
