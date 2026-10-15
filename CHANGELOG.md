@@ -38,6 +38,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   are always installed in interactive (`tui`) sessions now; disable the bytefly
   extension through `pi config` to remove its chrome.
 
+### Fixed
+
+- `bytefly`: on terminals without half blocks the header's two-tone `Pi`
+  wordmark no longer doubles the name (it read `Pi   Pi v1.2.0`); the wordmark
+  is the app name, so only the version follows it.
+
 ## [0.7.0] - 2026-10-15
 
 ### Added

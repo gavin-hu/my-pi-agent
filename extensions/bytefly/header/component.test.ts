@@ -77,9 +77,11 @@ describe("ByteflyHeader", () => {
 	test("falls back to the wordmark when half blocks do not render", () => {
 		const lines = header(view({ halfBlocks: false })).render(80);
 
+		// The wordmark is the app name, so it is not repeated beside the version.
 		expect(lines[0]).toContain("Pi");
 		expect(lines[0]).not.toContain("█");
-		expect(lines[0]?.indexOf("Pi v1.2.0")).toBe(6);
+		expect(lines[0]?.indexOf("v1.2.0")).toBe(6);
+		expect(lines[0]?.split("Pi")).toHaveLength(2);
 		expect(lines[1]).toContain(chrome);
 		expect(lines[1]?.indexOf("enhanced by")).toBe(6);
 	});

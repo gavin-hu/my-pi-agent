@@ -65,10 +65,14 @@ export class ByteflyHeader implements Component {
 		const pad = " ".repeat(Math.min(padX, Math.max(0, w - 1)));
 		const [markTop, markBottom] = markLines(theme, view.halfBlocks);
 
-		const agent =
-			view.showVersion && this.version
-				? `${theme.fg(nameColor, HEADER_CONFIG.appName)} ${theme.fg(versionColor, `v${this.version}`)}`
-				: theme.fg(nameColor, HEADER_CONFIG.appName);
+		const version = view.showVersion && this.version ? theme.fg(versionColor, `v${this.version}`) : "";
+		// The wordmark mark spells the app name, so the agent cell carries only the
+		// version there; the half-block mark does not, so the name stays beside it.
+		const agent = view.halfBlocks
+			? version
+				? `${theme.fg(nameColor, HEADER_CONFIG.appName)} ${version}`
+				: theme.fg(nameColor, HEADER_CONFIG.appName)
+			: version;
 		const chrome = `${theme.fg(versionColor, chromeTagline)} ${theme.fg(nameColor, chromeName)}`;
 		const chromeVersioned = chromeVersion ? `${chrome} ${theme.fg(versionColor, `v${chromeVersion}`)}` : chrome;
 
