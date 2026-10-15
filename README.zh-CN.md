@@ -10,7 +10,7 @@
 `my-pi-agent` 是一个 [Pi](https://pi.dev) 包，新增十六个扩展和两个主题 —— 安装
 整个包，关掉你不需要的部分，其余照常使用 Pi。
 
-<img src="./assets/bytefly-chrome.png" alt="一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏" width="100%">
+![一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏](assets/bytefly-chrome.png)
 
 ## 目录
 

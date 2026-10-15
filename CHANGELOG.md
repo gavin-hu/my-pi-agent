@@ -13,6 +13,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `#anchor` links resolve, and adds an **On this page** outline for a document
   with four or more headings. The `copy` action reads `copy contents`, and
   task-list items are real disabled checkboxes instead of hidden glyphs.
+
+### Fixed
+
+- Package: the gallery renders the hero screenshot — `README.md` uses Markdown
+  image syntax, which the gallery rewrites to the npm CDN, instead of a raw
+  `<img>` tag it strips — and `pi.image` is an absolute
+  `raw.githubusercontent.com` URL, which the package-preview service requires.
 - Docs: the release steps publish with `--registry https://registry.npmjs.org/`,
   so a machine whose default registry is a read-only mirror does not fail with
   `E401`.
