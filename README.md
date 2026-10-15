@@ -21,7 +21,6 @@ you do not want, and keep using Pi unchanged.
 
 ## Contents
 
-- [Screenshots](#screenshots)
 - [Why this pack](#why-this-pack)
 - [Quick start](#quick-start)
 - [What you get](#what-you-get)
