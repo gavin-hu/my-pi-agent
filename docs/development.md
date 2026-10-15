@@ -77,7 +77,9 @@ plus a matching GitHub release whose body is the changelog section.
 
 The first publish needs an authenticated npm account (`npm login`); after that
 `npm publish` uses the token in `~/.npmrc`. `publishConfig.access` is `public`,
-so the scoped package is published publicly.
+so the scoped package is published publicly. Name the registry explicitly: a
+machine whose default registry is a read-only mirror (for example
+`registry.npmmirror.com`) serves reads but rejects the publish with `E401`.
 
 1. Work on a branch in a worktree (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)).
 2. Bump `version` in [`../package.json`](../package.json), move the `Unreleased`
@@ -109,7 +111,7 @@ so the scoped package is published publicly.
 7. Publish the npm package from the same commit:
 
    ```bash
-   npm publish
+   npm publish --registry https://registry.npmjs.org/
    ```
 
 GitHub marks the release with the newest creation date as "Latest", so after

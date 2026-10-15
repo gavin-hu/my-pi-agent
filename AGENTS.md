@@ -79,10 +79,12 @@ Prepare it on a branch like any other change:
    ```
 
 7. Publish the npm package from the same commit (`publishConfig.access` is
-   `public`; the `pi-package` keyword and `pi` manifest make it a Pi package):
+   `public`; the `pi-package` keyword and `pi` manifest make it a Pi package).
+   Name the registry explicitly: a machine whose default registry is a read-only
+   mirror serves reads but rejects the publish with `E401`.
 
    ```bash
-   npm publish
+   npm publish --registry https://registry.npmjs.org/
    ```
 
 GitHub marks the release with the newest creation date as "Latest", so after

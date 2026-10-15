@@ -13,6 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `#anchor` links resolve, and adds an **On this page** outline for a document
   with four or more headings. The `copy` action reads `copy contents`, and
   task-list items are real disabled checkboxes instead of hidden glyphs.
+- Docs: the release steps publish with `--registry https://registry.npmjs.org/`,
+  so a machine whose default registry is a read-only mirror does not fail with
+  `E401`.
 
 ## [0.8.0] - 2026-10-15
 
