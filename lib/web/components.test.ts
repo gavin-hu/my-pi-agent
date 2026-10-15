@@ -47,8 +47,9 @@ describe("web components", () => {
 		}
 	});
 
-	test("caps the Markdown reading measure", () => {
-		expect(WEB_COMPONENTS_CSS).toContain(".bf-md{min-width:0;max-width:80ch;");
+	test("lets Markdown fill its panel", () => {
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md{min-width:0;min-height:0;");
+		expect(WEB_COMPONENTS_CSS).not.toContain("max-width:80ch");
 	});
 
 	test("uses only defined custom properties", () => {
