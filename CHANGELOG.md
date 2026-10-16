@@ -47,6 +47,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Tooling: the hero capture (`bun run screenshots chrome`) runs `pi` offline in a
+  throwaway demo repo, so an outdated local `pi` can no longer add an "Update
+  Available" box to the hero and the bar shows a short path and a branch instead
+  of this checkout's worktree path; `assets/chrome.png` is refreshed.
 - `bytefly`: a finished tool block's rail is now neutral (`dim`) instead of green,
   and a notice's rail follows the same rule, so only a running call takes the
   accent and only a failure is red; a notice's row glyphs keep their severity

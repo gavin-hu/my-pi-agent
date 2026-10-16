@@ -19,8 +19,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
@@ -567,18 +567,41 @@ async function waitForTurn(session: string, timeoutMs: number): Promise<void> {
 /**
  * Capture the hero: a real `pi -e .` session in a Terminal window, so the bytefly
  * chrome is the shipped code rather than a mock. `-ne` isolates the package from
- * anything else installed, `--no-themes` avoids a collision with an installed
- * copy, and the worktree env is cleared so no banner line is printed.
+ * anything else installed, `--offline` drops the startup update check (so an
+ * outdated local `pi` cannot put an "Update Available" box in the hero),
+ * `--no-themes` avoids a collision with an installed copy, and the worktree env
+ * is cleared so no banner line is printed.
  */
 async function captureChrome(): Promise<void> {
 	const session = join(tmpdir(), "pi-screenshot-chrome.jsonl");
 	rmSync(session, { force: true });
 	const pi = execFileSync("which", ["pi"], { encoding: "utf8" }).trim();
+	// A throwaway git repo under the home directory, so the bar shows a short,
+	// plausible path and a branch instead of this checkout's own worktree path.
+	// The name is fixed when it is free; a stray existing directory of that name
+	// is left alone and a fresh temp one is used instead.
+	const named = join(homedir(), "retry-policy");
+	const demo = existsSync(named) ? mkdtempSync(join(homedir(), "pi-hero-")) : named;
+	execFileSync("git", ["init", "-q", "-b", "feature/retry-policy", demo]);
+	writeFileSync(join(demo, "retry.ts"), "export const retries = 3;\n");
+	execFileSync("git", ["-C", demo, "add", "-A"]);
+	execFileSync("git", [
+		"-C",
+		demo,
+		"-c",
+		"user.name=Hero",
+		"-c",
+		"user.email=hero@example.com",
+		"commit",
+		"-qm",
+		"Add the retry budget",
+	]);
 	const command =
-		`cd ${shellQuote(repo)} && unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; ` +
+		`cd ${shellQuote(demo)} && unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; ` +
 		`for n in \${(k)parameters}; do case \${n:u} in *KEY*|*TOKEN*|*SECRET*|*PASSWORD*) unset $n ;; esac; done; ` +
-		`${shellQuote(pi)} -ne -e . --no-themes --theme ./themes/bytefly-dark.json --use-theme bytefly-dark ` +
-		`--thinking off -n my-pi-agent 'how are you today' --session ${shellQuote(session)} -a`;
+		`${shellQuote(pi)} -ne --offline -e ${shellQuote(repo)} --no-themes ` +
+		`--theme ${shellQuote(join(repo, "themes", "bytefly-dark.json"))} --use-theme bytefly-dark ` +
+		`--thinking off -n my-pi-agent 'hi' --session ${shellQuote(session)} -a`;
 	const before = new Set(windowIds());
 	osascript('tell application "Terminal" to do script ""');
 	const id = await waitForNewWindow(before, 5_000);
@@ -610,6 +633,7 @@ async function captureChrome(): Promise<void> {
 		await sleep(300);
 		closeWindow(id);
 		rmSync(session, { force: true });
+		rmSync(demo, { recursive: true, force: true });
 	}
 }
 
