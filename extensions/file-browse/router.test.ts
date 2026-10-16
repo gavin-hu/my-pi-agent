@@ -188,6 +188,8 @@ describe("diff routes", () => {
 			mode,
 			files: [{ rel: "a.txt", index: " ", worktree: "M", untracked: false }],
 			stat: " a.txt | 1 +\n 1 file changed, 1 insertion(+)",
+			insertions: 1,
+			deletions: 0,
 		}),
 		file: async (rel, mode) => ({
 			mode,
@@ -215,7 +217,14 @@ describe("diff routes", () => {
 		expect(html).toContain("Changes");
 		expect(html).toContain('href="/diff/a.txt"');
 		expect(html).toContain('class="bf-chip browse-diff"');
+		expect(html).toContain("+1");
 		expect(html).toContain("1 file changed");
+	});
+
+	test("marks a changed file in the listing and the tree", async () => {
+		const response = await handleRequest({ ...context(), diff: provider() }, "GET", "/", {});
+		expect(response.status).toBe(200);
+		expect(text(response)).toContain('class="browse-change"');
 	});
 
 	test("switches mode and rejects an unknown one", async () => {

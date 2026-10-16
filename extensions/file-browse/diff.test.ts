@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	changeDirs,
 	diffArgs,
 	inMode,
 	isDiffMode,
@@ -191,5 +192,19 @@ describe("inMode", () => {
 		expect(inMode(file({ untracked: true, index: "?", worktree: "?" }), "worktree")).toBe(true);
 		expect(inMode(file({ untracked: true, index: "?", worktree: "?" }), "staged")).toBe(false);
 		expect(inMode(file({ index: "M" }), "head")).toBe(true);
+	});
+});
+
+describe("changeDirs", () => {
+	const file = (rel: string): ChangedFile => ({ rel, index: "M", worktree: " ", untracked: false });
+
+	test("collects every ancestor directory without the file itself", () => {
+		expect([...changeDirs([file("a.ts")])]).toEqual([]);
+		expect([...changeDirs([file("x/y/z.ts")])].sort()).toEqual(["x", "x/y"]);
+		expect([...changeDirs([file("x/a.ts"), file("x/y/b.ts"), file("c.ts")])].sort()).toEqual(["x", "x/y"]);
+	});
+
+	test("is empty with no changed files", () => {
+		expect(changeDirs([]).size).toBe(0);
 	});
 });

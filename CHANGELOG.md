@@ -13,6 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one file's unified diff with `head` / `staged` / `worktree` scopes; untracked
   files show as all-add and an unborn `HEAD` falls back to the index. Configured
   by the `gitDiff`, `diffContext`, and `maxDiffLines` keys.
+- `file-browse`: diff view polish — changed lines are syntax-highlighted with the
+  file's language, dirty files and their directories carry a marker in the
+  listing and the tree, and the header chip shows `+A −D` line totals.
 - `plan`: the browser review header shows an always-visible status chip —
   connection state, comment count, and whether there are unsaved changes. It
   reads "Connecting…" until the stream first opens, so a slow initial connect

@@ -55,9 +55,11 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
 - **Git context.** A read-only header chip shows the checked-out branch (or
   detached head) and a dirty marker, and reflows on narrow screens.
-- **Git diff view.** A `● N changes` chip links to `/diff`, a change overview
-  with `git diff --stat` and a per-file status table, and `/diff/<rel>` renders
-  one file's unified diff. The scope is switchable between `head` / `staged` /
+- **Git diff view.** A `● N changes +A −D` chip links to `/diff`, a change
+  overview with `git diff --stat` and a per-file status table, and `/diff/<rel>`
+  renders one file's unified diff. Changed lines are syntax-highlighted with the
+  file's language, and dirty files and their directories carry a marker in the
+  listing and the tree. The scope is switchable between `head` / `staged` /
   `worktree`; untracked files show as all-add, an unborn `HEAD` falls back to the
   index, and a non-repository is a plain empty state. Read-only, capped, and
   rendered with the shared diff colors.
@@ -259,7 +261,9 @@ document and the project document (project wins):
   `--cached` before the first commit), `staged` against the index, and
   `worktree` against the index from the other side. An untracked file renders as
   all-add through `readFileView`, so binary and over-size handling is shared
-  with the file view.
+  with the file view. `git diff --shortstat` supplies the chip totals and
+  `changeDirs` derives the directory markers; the changed lines are highlighted
+  per hunk by rebuilding the old and new sides for `lib/highlight`.
 - **Streaming responses.** The server streams `filePath` responses and
   suppresses bodies for `HEAD`, so large `/raw` files are not buffered.
 - **Root confinement over feature breadth.** The root is deliberately confined
@@ -305,5 +309,6 @@ on first start, reused, and re-rolled after a conflict), the git status provider
 (branch, dirty, detached, non-repo, failure, and TTL cache), the git diff parser
 and provider (line kinds, line numbers, status and rename parsing, mode
 filtering, untracked all-add, unborn-HEAD fallback, literal pathspec, and TTL
-cache), and the command
+cache), the diff renderers (highlighted changed lines, marker sets, and chip
+totals), and the command
 lifecycle with injected seams.

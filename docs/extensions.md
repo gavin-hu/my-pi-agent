@@ -163,7 +163,8 @@ Markdown preview (heading anchors and an on-this-page outline, styled tables
 and images), sortable listings, copy and wrap, image thumbnails,
 per-language icons, a filter, a fuzzy quick-open palette, and a read-only git
 diff view (`/diff` overview and per-file unified diffs with `head` / `staged` /
-`worktree` scopes). No dependencies, with a `◉ <port>` status chip while it runs.
+`worktree` scopes, syntax-highlighted changed lines, and change markers in the
+listing and tree). No dependencies, with a `◉ <port>` status chip while it runs.
 
 Command: `/browse`.
 

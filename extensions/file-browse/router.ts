@@ -11,8 +11,8 @@ import { stat } from "node:fs/promises";
 import { THEME_JS } from "../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
-import { isDiffMode, type DiffMode } from "./diff.ts";
-import type { GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
+import { changeDirs, isDiffMode, type DiffMode } from "./diff.ts";
+import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
 import {
 	buildFileIndex,
 	buildTree,
@@ -27,6 +27,7 @@ import {
 import { FOLDER_ICON, iconHref, languageOf } from "./icons.ts";
 import { fuzzySearch } from "./fuzzy.ts";
 import { renderDirectoryPage, renderDiffPage, renderErrorPage, renderFileDiffPage, renderFilePage } from "./html.ts";
+import type { ChangeSummary } from "./html.ts";
 import { encodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
 
 export interface ServeContext {
@@ -110,12 +111,21 @@ async function diffFor(ctx: ServeContext, mode: DiffMode) {
 	}
 }
 
-/** The `head` change set as a count and a membership test, for the header and file action. */
-async function changed(ctx: ServeContext): Promise<{ count: number; has: (rel: string) => boolean } | undefined> {
+/** The marker/totals index derived from a change list. */
+function summaryOf(list: DiffList): ChangeSummary {
+	return {
+		count: list.files.length,
+		insertions: list.insertions,
+		deletions: list.deletions,
+		files: new Set(list.files.map((file) => file.rel)),
+		dirs: changeDirs(list.files),
+	};
+}
+
+/** The `head` change summary, for the header chip, tree markers, and file action. */
+async function changed(ctx: ServeContext): Promise<ChangeSummary | undefined> {
 	const list = await diffFor(ctx, "head");
-	if (!list) return undefined;
-	const files = new Set(list.files.map((file) => file.rel));
-	return { count: list.files.length, has: (rel) => files.has(rel) };
+	return list ? summaryOf(list) : undefined;
 }
 
 async function errorResponse(
@@ -169,7 +179,7 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 			thumbnails: ctx.config.thumbnails,
 			maxThumbBytes: ctx.config.maxThumbBytes,
 			git,
-			changes: changes?.count,
+			summary: changes,
 		}),
 	);
 }
@@ -195,8 +205,8 @@ async function view(ctx: ServeContext, rawRel: string, raw: boolean): Promise<Se
 			maxFileBytes: ctx.config.maxFileBytes,
 			git,
 			markdownRaw: raw,
-			changed: changes?.has(rel),
-			changes: changes?.count,
+			changed: changes?.files.has(rel),
+			summary: changes,
 		}),
 	);
 }
@@ -216,7 +226,7 @@ async function diffOverview(ctx: ServeContext, mode: DiffMode): Promise<ServeRes
 			stat: list?.stat ?? "",
 			tree,
 			git,
-			changes: list?.files.length,
+			summary: list ? summaryOf(list) : undefined,
 		}),
 	);
 }
@@ -247,7 +257,7 @@ async function diffFile(ctx: ServeContext, rawRel: string, mode: DiffMode): Prom
 			diff,
 			tree,
 			git,
-			changes: changes?.count,
+			summary: changes,
 		}),
 	);
 }

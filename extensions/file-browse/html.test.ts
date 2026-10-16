@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Listing, TreeNode } from "./files.ts";
-import type { ChangedFile } from "./diff.ts";
+import { changeDirs, type ChangedFile } from "./diff.ts";
 import {
 	formatDate,
 	renderBreadcrumbs,
@@ -9,6 +9,7 @@ import {
 	renderDirectoryPage,
 	renderFileDiffPage,
 	renderFilePage,
+	type ChangeSummary,
 } from "./html.ts";
 import { makeFixture, localTimeMs, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
@@ -512,6 +513,14 @@ describe("diff view", () => {
 		...partial,
 	});
 
+	const summary = (files: ChangedFile[], insertions = 0, deletions = 0): ChangeSummary => ({
+		count: files.length,
+		insertions,
+		deletions,
+		files: new Set(files.map((file) => file.rel)),
+		dirs: changeDirs(files),
+	});
+
 	test("renders the header changes chip only when there are changes", () => {
 		fixture = makeFixture();
 		const base = {
@@ -522,12 +531,61 @@ describe("diff view", () => {
 			thumbnails: false,
 			maxThumbBytes: 0,
 		};
-		const two = renderDirectoryPage({ ...base, changes: 2 });
+		const two = renderDirectoryPage({
+			...base,
+			summary: summary([changed({ rel: "a.ts" }), changed({ rel: "b.ts" })], 12, 4),
+		});
 		expect(two).toContain('class="bf-chip browse-diff" href="/diff"');
 		expect(two).toContain("2 changes");
-		expect(renderDirectoryPage({ ...base, changes: 1 })).toContain("1 change");
-		expect(renderDirectoryPage({ ...base, changes: 0 })).not.toContain('browse-diff" href');
+		expect(two).toContain("+12");
+		expect(two).toContain("−4");
+		expect(renderDirectoryPage({ ...base, summary: summary([changed({ rel: "a.ts" })]) })).toContain("1 change");
+		expect(renderDirectoryPage({ ...base, summary: summary([]) })).not.toContain('browse-diff" href');
 		expect(renderDirectoryPage(base)).not.toContain('class="bf-chip browse-diff"');
+	});
+
+	test("marks changed files and their directories in the listing and tree", () => {
+		fixture = makeFixture();
+		const html = renderDirectoryPage({
+			rootLabel: fixture.root,
+			rel: "",
+			listing: {
+				entries: [
+					{
+						name: "sub",
+						rel: "sub",
+						isDir: true,
+						isSymlink: false,
+						broken: false,
+						size: 0,
+						mtimeMs: MTIME_MS,
+						kind: "directory",
+						isImage: false,
+					},
+					{
+						name: "a.txt",
+						rel: "a.txt",
+						isDir: false,
+						isSymlink: false,
+						broken: false,
+						size: 12,
+						mtimeMs: MTIME_MS,
+						kind: "text",
+						isImage: false,
+					},
+				],
+				total: 2,
+				truncated: false,
+			},
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+			summary: summary([changed({ rel: "sub/b.md" }), changed({ rel: "a.txt" })]),
+		});
+		expect(html).toContain('class="browse-change"');
+		expect(html).toContain('title="uncommitted changes"');
+		// The listing marks two rows and the tree marks the changed nodes.
+		expect((html.match(/class="browse-change"/g) ?? []).length).toBeGreaterThanOrEqual(3);
 	});
 
 	test("renders a changes action on a changed file page", () => {
@@ -548,17 +606,18 @@ describe("diff view", () => {
 
 	test("lists changed files with status, mode links, and the stat", () => {
 		fixture = makeFixture();
+		const rows = [
+			changed({ rel: "a.ts", index: "M", worktree: " " }),
+			changed({ rel: "new.txt", untracked: true, index: "?", worktree: "?" }),
+			changed({ rel: "x/y.md", origRel: "y/x.md", index: "R", worktree: " " }),
+		];
 		const html = renderDiffPage({
 			rootLabel: fixture.root,
 			mode: "head",
-			files: [
-				changed({ rel: "a.ts", index: "M", worktree: " " }),
-				changed({ rel: "new.txt", untracked: true, index: "?", worktree: "?" }),
-				changed({ rel: "x/y.md", origRel: "y/x.md", index: "R", worktree: " " }),
-			],
+			files: rows,
 			stat: " a.ts | 2 +-\n 1 file changed",
 			tree,
-			changes: 3,
+			summary: summary(rows, 12, 4),
 		});
 		expect(html).toContain('aria-current="page">head</a>');
 		expect(html).toContain('href="/diff?mode=staged"');
@@ -622,6 +681,17 @@ describe("renderDiffLines", () => {
 		const html = renderDiffLines([{ kind: "add", text: "<img src=x onerror=alert(1)>", newNo: 1 }]);
 		expect(html).not.toContain("<img");
 		expect(html).toContain("&lt;img");
+	});
+
+	test("highlights changed lines with the file language", () => {
+		const html = renderDiffLines(
+			[
+				{ kind: "del", text: "const old = 1;", oldNo: 1 },
+				{ kind: "add", text: "const next = 2;", newNo: 1 },
+			],
+			"ts",
+		);
+		expect(html.match(/tok-keyword/g)?.length).toBe(2);
 	});
 });
 

@@ -102,18 +102,34 @@ describe("createGitStatus", () => {
 const HEAD_OK: [string, Reply] = ["rev-parse --verify --quiet HEAD", { stdout: "abc1234def\n" }];
 
 describe("createGitDiff", () => {
-	test("lists changed files for a mode with its stat", async () => {
+	test("lists changed files for a mode with its stat and totals", async () => {
 		const stub = gitStub([
 			ROOT,
 			HEAD_OK,
 			["status --porcelain=v1", { stdout: " M a.txt\0?? new file.txt\0" }],
 			["diff --no-color --stat HEAD --", { stdout: " a.txt | 1 +\n 1 file changed, 1 insertion(+)\n" }],
+			["diff --no-color --shortstat HEAD --", { stdout: " 1 file changed, 5 insertions(+), 3 deletions(-)\n" }],
 		]);
 		const diff = createGitDiff(createFakePi({ exec: stub.exec }).pi, "/repo");
 		const list = await diff.list("head");
 		expect(list?.mode).toBe("head");
 		expect(list?.files.map((file) => file.rel)).toEqual(["a.txt", "new file.txt"]);
 		expect(list?.stat).toContain("1 file changed");
+		expect(list?.insertions).toBe(5);
+		expect(list?.deletions).toBe(3);
+	});
+
+	test("reports zero totals when there is no shortstat", async () => {
+		const stub = gitStub([
+			ROOT,
+			HEAD_OK,
+			["status --porcelain=v1", { stdout: " M a.bin\0" }],
+			["diff --no-color --stat", { stdout: "" }],
+		]);
+		const diff = createGitDiff(createFakePi({ exec: stub.exec }).pi, "/repo");
+		const list = await diff.list("head");
+		expect(list?.insertions).toBe(0);
+		expect(list?.deletions).toBe(0);
 	});
 
 	test("filters the list to the column each mode compares", async () => {

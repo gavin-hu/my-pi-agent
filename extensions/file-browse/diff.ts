@@ -167,3 +167,21 @@ export function inMode(file: ChangedFile, mode: DiffMode): boolean {
 	if (mode === "worktree") return file.untracked || (file.worktree !== " " && file.worktree !== "?");
 	return true;
 }
+
+/**
+ * The ancestor directories of every changed path, root-relative. A directory in
+ * this set contains a change, which lets a listing or tree mark it without
+ * walking its subtree.
+ */
+export function changeDirs(files: readonly ChangedFile[]): Set<string> {
+	const dirs = new Set<string>();
+	for (const file of files) {
+		const parts = file.rel.split("/");
+		let prefix = "";
+		for (let index = 0; index < parts.length - 1; index++) {
+			prefix = prefix ? `${prefix}/${parts[index]}` : parts[index];
+			dirs.add(prefix);
+		}
+	}
+	return dirs;
+}
