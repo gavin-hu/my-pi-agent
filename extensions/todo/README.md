@@ -223,7 +223,7 @@ depends on config.
 | `state.ts` | Branch reconstruction and status queries (pure). |
 | `nudge.ts` | Lag detection: mutating-tool classification, due check, reminder text (pure). |
 | `format.ts` | Model-facing and transcript text (pure). |
-| `tui.ts` | Widget and scrollable `/todos` components. |
+| `tui.ts` | Widget and scrollable `/todos` components, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `config.ts` | Widget config load/validation (the `todo` section of `bytefly.json`). |
 | `runtime.ts` | Session-scoped state, lag tracking, and widget synchronization. |
 | `tools.ts` | `todo` tool registration and rendering. |

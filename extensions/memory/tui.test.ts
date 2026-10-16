@@ -111,6 +111,14 @@ describe("MemoryPickerComponent navigation", () => {
 		expect(h.text()).toContain("❯ global · global fact");
 	});
 
+	test("g and G jump to the first and last note", () => {
+		const h = harness({ project: ["a", "b", "c"], global: ["d"] });
+		h.input("G");
+		expect(h.text()).toContain("❯ global · d");
+		h.input("g");
+		expect(h.text()).toContain("❯ project · a");
+	});
+
 	test("cycles the scope filter with s", () => {
 		const h = harness({ project: ["repo fact"], global: ["global fact"] });
 		h.input("s");

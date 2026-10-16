@@ -47,6 +47,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   live once, in `lib/tui/cursor.ts` (`IdCursor`) and `lib/tui/line-pane.ts`
   (`LinePane`), and their footer chips share
   `lib/tui/status-controller.ts`. Keys, wording, and layout are unchanged.
+- `todo`, `memory`, `rewind`: the `/todos`, `/memory`, and `/rewind` screens are
+  drawn from the `lib/tui/` design system too — a label-first title rule, the
+  shared `listRow` rows and `emptyState`, and the shared dock frame. `/rewind`
+  now uses that frame, so its blank lines and its row budget match the other
+  list screens.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report
@@ -71,6 +76,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: the `/memory` hint advertised `g`/`G` but nothing bound them; they
+  now jump to the first and last note.
 - `plan`: the browser review save/cancel response is delivered before the
   session closes, so a successful save no longer shows "Failed to fetch".
 - `plan`: browser feedback stripping is fence-aware, so a `> [!REVIEW]` line

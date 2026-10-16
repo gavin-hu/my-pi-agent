@@ -5,6 +5,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { BODY_INDENT, expandHint, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
 
@@ -26,23 +27,43 @@ const STATUS_GLYPH: Record<TodoStatus, string> = {
 	completed: GLYPHS.check,
 };
 
-/** Themed status glyph, shared by the widget and the transcript renderer. */
-export function todoGlyph(todo: Todo, theme: Theme): string {
+/** The design role a status glyph is drawn in. */
+export function todoGlyphRole(todo: Todo): TuiRole {
 	switch (todo.status) {
 		case "completed":
-			return theme.fg("success", STATUS_GLYPH.completed);
+			return "ok";
 		case "in_progress":
-			return theme.fg("accent", STATUS_GLYPH.in_progress);
+			return "accent";
 		default:
-			return theme.fg("dim", STATUS_GLYPH.pending);
+			return "faint";
 	}
+}
+
+/** The status glyph, from the shared vocabulary. */
+export function todoGlyphChar(todo: Todo): string {
+	return STATUS_GLYPH[todo.status];
+}
+
+/** The design role an item label is drawn in. */
+export function todoLabelRole(todo: Todo): TuiRole {
+	if (todo.status === "completed") return "faint";
+	if (todo.status === "in_progress") return "label";
+	return "meta";
+}
+
+/** The item text: the active form while in progress, the content otherwise. */
+export function todoLabelText(todo: Todo): string {
+	return todo.status === "in_progress" ? (todo.activeForm ?? todo.content) : todo.content;
+}
+
+/** Themed status glyph, shared by the widget and the transcript renderer. */
+export function todoGlyph(todo: Todo, theme: Theme): string {
+	return paint(theme, todoGlyphRole(todo), todoGlyphChar(todo));
 }
 
 /** Themed item text: completed dim, in-progress accented, pending muted. */
 export function todoLabel(todo: Todo, theme: Theme): string {
-	if (todo.status === "completed") return theme.fg("dim", todo.content);
-	if (todo.status === "in_progress") return theme.fg("text", todo.activeForm ?? todo.content);
-	return theme.fg("muted", todo.content);
+	return paint(theme, todoLabelRole(todo), todoLabelText(todo));
 }
 
 /** "2/5" — completed over total. */
@@ -136,7 +157,7 @@ export function todoRailLines(input: TodoRailInput, theme: Theme, width: number)
 		});
 	}
 	if (input.more && input.more > 0) {
-		lines.push(`${continuation}${theme.fg("dim", `… ${input.more} more`)} ${expandHint(theme)}`);
+		lines.push(`${continuation}${paint(theme, "faint", `… ${input.more} more`)} ${expandHint(theme)}`);
 	}
 	return lines.map((line) => truncateToWidth(line, w, "…"));
 }

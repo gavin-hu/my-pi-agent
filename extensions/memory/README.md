@@ -205,7 +205,7 @@ when consolidating.
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
 | `errors.ts` | `messageOf`, the shared error-text extraction for the tool and command. |
-| `tui.ts` | The `/memory` picker component (note list, inline editor, scope filter). |
+| `tui.ts` | The `/memory` picker component (note list, inline editor, scope filter), drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `tools.ts` | `registerTool("memory", …)`. |
 | `commands.ts` | `registerCommand("memory", …)`. |
 

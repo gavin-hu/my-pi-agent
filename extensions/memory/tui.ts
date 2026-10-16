@@ -14,23 +14,18 @@ import {
 	Editor,
 	Key,
 	matchesKey,
-	truncateToWidth,
 	type Component,
 	type TUI,
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
-import {
-	fitRows,
-	formatRange,
-	isCloseKey,
-	ListCursor,
-	navigateList,
-	scrollList,
-	selectionMarker,
-} from "../../lib/tui/cursor.ts";
+import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
 import { dockListFrame, editorTheme, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { clip } from "../../lib/tui/columns.ts";
+import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { titleRule } from "../../lib/tui/rules.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { messageOf } from "./errors.ts";
 import { scopeLabel, type MemoryEntries } from "./format.ts";
 import type { MemoryScope } from "./types.ts";
@@ -301,6 +296,13 @@ export class MemoryPickerComponent implements Component {
 			this.requestRender();
 			return;
 		}
+		// The hint advertises `g`/`G`, so bind them to the ends.
+		if (data === "g" || data === "G") {
+			this.cursor.set(data === "g" ? 0 : notes.length - 1, notes.length);
+			this.selectedKey = notes[this.cursor.selected] ? noteKey(notes[this.cursor.selected]) : undefined;
+			this.requestRender();
+			return;
+		}
 
 		const focused = notes[this.cursor.selected];
 		if (matchesKey(data, Key.tab) || data === "s") this.cycleFilter();
@@ -344,22 +346,21 @@ export class MemoryPickerComponent implements Component {
 	private summary(width: number): string {
 		const entries = this.callbacks.entries();
 		const filter = this.effectiveFilter();
-		let text = this.theme.fg("accent", filter === "all" ? "All" : scopeLabel(filter));
-		text += this.theme.fg("muted", ` · ${entries.project.length} project, ${entries.global.length} global`);
-		if (!this.callbacks.trusted()) text += this.theme.fg("warning", " · project untrusted");
-		return truncateToWidth(`  ${text}`, width, "…");
+		let text = paint(this.theme, "accent", filter === "all" ? "All" : scopeLabel(filter));
+		text += paint(this.theme, "meta", ` · ${entries.project.length} project, ${entries.global.length} global`);
+		if (!this.callbacks.trusted()) text += paint(this.theme, "warn", " · project untrusted");
+		return clip(`  ${text}`, width);
 	}
 
 	/** One note row: selection marker, scope tag, and the sanitized note text. */
 	private noteRow(note: Note, selected: boolean, width: number): string {
-		const scope = this.theme.fg("muted", scopeLabel(note.scope));
-		const text = sanitizeLine(note.text);
-		const label = selected ? this.theme.fg("accent", text) : this.theme.fg("text", text);
-		return truncateToWidth(
-			`${selectionMarker(this.theme, selected)}${scope} ${this.theme.fg("dim", "·")} ${label}`,
-			width,
-			"…",
-		);
+		const tag = `${paint(this.theme, "meta", scopeLabel(note.scope))} ${paint(this.theme, "faint", "·")}`;
+		return listRow(this.theme, width, {
+			selected,
+			leading: tag,
+			label: sanitizeLine(note.text),
+			labelRole: selected ? "accent" : "label",
+		});
 	}
 
 	private confirmPrompt(): string {
@@ -380,10 +381,10 @@ export class MemoryPickerComponent implements Component {
 			theme: this.theme,
 			width,
 			title: `Memory · ${verb} ${scope}`,
-			summary: truncateToWidth(
-				`  ${this.theme.fg("muted", this.mode === "edit" ? "Editing the focused note" : `New ${scope} note`)}`,
+			header: titleRule(this.theme, width, `Memory · ${verb} ${scope}`),
+			summary: clip(
+				`  ${paint(this.theme, "meta", this.mode === "edit" ? "Editing the focused note" : `New ${scope} note`)}`,
 				width,
-				"…",
 			),
 			body,
 			hint: screenHint(this.theme, width, ["Enter save", "Esc cancel"]),
@@ -401,7 +402,7 @@ export class MemoryPickerComponent implements Component {
 
 		const body: string[] = [];
 		if (notes.length === 0) {
-			body.push(truncateToWidth(`  ${this.theme.fg("dim", "No notes yet. Press a to add one.")}`, w));
+			body.push(...emptyState(this.theme, w, { label: "No notes yet. Press a to add one." }));
 		} else {
 			const { start, end } = this.cursor.window(notes.length);
 			for (let index = start; index < end; index++) {
@@ -410,15 +411,16 @@ export class MemoryPickerComponent implements Component {
 		}
 
 		const hint = this.confirm
-			? truncateToWidth(`  ${this.theme.fg("warning", this.confirmPrompt())}`, w)
+			? clip(`  ${paint(this.theme, "warn", this.confirmPrompt())}`, w)
 			: this.notice !== undefined
-				? truncateToWidth(`  ${this.theme.fg("muted", this.notice)}`, w)
+				? clip(`  ${paint(this.theme, "meta", this.notice)}`, w)
 				: screenHint(this.theme, w, ["Esc close", "Enter/e edit", "a add", "d forget", "s/Tab scope", "↑/↓", "g/G"]);
 
 		return dockListFrame({
 			theme: this.theme,
 			width: w,
 			title: "Memory",
+			header: titleRule(this.theme, w, "Memory"),
 			summary: this.summary(w),
 			body,
 			range: this.cursor.clipped(notes.length)

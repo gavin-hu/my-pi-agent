@@ -197,6 +197,6 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `runtime.ts` | Root/config caches and the snapshot/list/plan/restore operations. |
 | `timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
 | `rewind.ts` | Scope choice, confirmation, and applying code + conversation rewind. |
-| `rewind-tui.ts` | The selectable, width-safe timeline component. |
+| `rewind-tui.ts` | The selectable, width-safe timeline component, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `commands.ts` | The `/rewind` command. |
 | `format.ts` | Model-facing and transcript text (pure). |

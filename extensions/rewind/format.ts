@@ -55,6 +55,34 @@ export function formatChangeSummary(changed: number, removed: number): string {
 	return removed > 0 ? `${changedText}, ${removed} created` : changedText;
 }
 
+/** The parts of one timeline row, for the shared list-row grammar. */
+export interface RewindRowParts {
+	/** The `⬥` snapshot marker, or a blank to keep the label column aligned. */
+	glyph: string;
+	/** The sanitized prompt summary. */
+	label: string;
+	/** The right-aligned relative time. */
+	trailing: string;
+}
+
+/**
+ * The timeline row's parts, composed by the screen through `listRow`.
+ * `formatRewindRow` below stays the plain-text form the headless listing uses;
+ * the screen wants the marker, colors, and column math of the shared grammar.
+ */
+export function formatRewindParts(
+	summary: string | undefined,
+	hasSnapshot: boolean,
+	timestamp: number,
+	now = Date.now(),
+): RewindRowParts {
+	return {
+		glyph: hasSnapshot ? GLYPHS.snapshot : " ",
+		label: sanitizeLine(summary || "(no text)"),
+		trailing: formatRelativeTime(timestamp, now),
+	};
+}
+
 /**
  * Id-free row for the rewind timeline: `⬥ "prompt"          2m ago`.
  * The leading glyph marks a point with a code snapshot; the time is

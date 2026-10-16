@@ -9,26 +9,15 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-	Key,
-	matchesKey,
-	truncateToWidth,
-	type Component,
-	type TuiMouseEvent,
-	type TuiMouseEventResult,
-} from "@earendil-works/pi-tui";
-import {
-	fitRows,
-	formatRange,
-	isCloseKey,
-	ListCursor,
-	navigateList,
-	scrollList,
-	selectionMarker,
-} from "../../lib/tui/cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
+import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { clip } from "../../lib/tui/columns.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { formatRewindDetail, formatRewindRow } from "./format.ts";
+import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { titleRule } from "../../lib/tui/rules.ts";
+import { paint } from "../../lib/tui/tokens.ts";
+import { formatRewindDetail, formatRewindParts } from "./format.ts";
 import type { RewindPoint } from "./timeline.ts";
 
 export interface RewindListOptions {
@@ -43,7 +32,7 @@ export interface RewindListOptions {
 /** Rows the screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
 /** Header, summary, blanks, and footer rows around the list (excluding the optional range/detail rows). */
-const SCREEN_CHROME_ROWS = 7;
+const SCREEN_CHROME_ROWS = 6;
 
 /** Selectable, scrollable timeline of prompts opened by `/rewind`. */
 export class RewindListComponent implements Component {
@@ -83,53 +72,74 @@ export class RewindListComponent implements Component {
 
 	invalidate(): void {}
 
-	// Kept off `dockListFrame`: `/rewind` leads with a blank after the header and
-	// has no blank before the hint, so the shared frame would change its output.
-	// Its blank-line convention is deliberately local.
+	// The shared dock frame, like every other list screen.
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const lines: string[] = [screenHeader(this.theme, w, "Rewind"), ""];
+		const header = titleRule(this.theme, w, "Rewind");
 
 		if (this.points.length === 0) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No prompts on this branch yet.")}`, w));
-		} else {
-			const count = `${this.points.length} prompt${this.points.length === 1 ? "" : "s"}`;
-			lines.push(truncateToWidth(`  ${this.theme.fg("muted", `${count}${SEPARATORS.item}newest first`)}`, w));
-			lines.push("");
-			const cursor = this.cursor;
-			const focused = this.points[cursor.selected];
-			const detail = focused ? formatRewindDetail(Boolean(focused.snapshot), focused.snapshot?.id) : "";
-			cursor.visible = fitRows(
-				this.options.viewportRows,
-				this.points.length,
-				SCREEN_CHROME_ROWS + (detail ? 1 : 0),
-				SCREEN_DEFAULT_ITEMS,
-			);
-
-			const { start, end } = cursor.window(this.points.length);
-			for (let i = start; i < end; i++) {
-				const selected = i === cursor.selected;
-				const row = formatRewindRow(
-					this.points[i].summary,
-					Boolean(this.points[i].snapshot),
-					this.points[i].timestamp,
-					Date.now(),
-					Math.max(1, w - 2),
-				);
-				const body = selected ? this.theme.fg("accent", row) : this.theme.fg("muted", row);
-				lines.push(truncateToWidth(selectionMarker(this.theme, selected) + body, w));
-			}
-			if (cursor.clipped(this.points.length)) {
-				lines.push(formatRange(this.theme, w, { start, end, total: this.points.length }));
-			}
-			lines.push("");
-			if (detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", detail)}`, w));
+			return dockListFrame({
+				theme: this.theme,
+				width: w,
+				title: "Rewind",
+				header,
+				body: emptyState(this.theme, w, { label: "No prompts on this branch yet." }),
+				hint: this.hint(w),
+			});
 		}
 
-		lines.push(
-			screenHint(this.theme, w, ["Esc close", { text: "Enter choose", color: "accent" }, "↑/↓ or k/j select"]),
+		const count = `${this.points.length} prompt${this.points.length === 1 ? "" : "s"}`;
+		const cursor = this.cursor;
+		const focused = this.points[cursor.selected];
+		const detail = focused ? formatRewindDetail(Boolean(focused.snapshot), focused.snapshot?.id) : "";
+		cursor.visible = fitRows(
+			this.options.viewportRows,
+			this.points.length,
+			SCREEN_CHROME_ROWS + (detail ? 1 : 0),
+			SCREEN_DEFAULT_ITEMS,
 		);
-		lines.push("");
-		return lines;
+
+		const { start, end } = cursor.window(this.points.length);
+		const body: string[] = [];
+		for (let i = start; i < end; i++) {
+			const selected = i === cursor.selected;
+			const parts = formatRewindParts(
+				this.points[i].summary,
+				Boolean(this.points[i].snapshot),
+				this.points[i].timestamp,
+				Date.now(),
+			);
+			const tone = selected ? "accent" : "meta";
+			body.push(
+				listRow(this.theme, w, {
+					selected,
+					glyph: parts.glyph,
+					glyphRole: tone,
+					label: parts.label,
+					labelRole: tone,
+					trailing: parts.trailing,
+					trailingRole: tone,
+				}),
+			);
+		}
+
+		return dockListFrame({
+			theme: this.theme,
+			width: w,
+			title: "Rewind",
+			header,
+			summary: clip(`  ${paint(this.theme, "meta", `${count}${SEPARATORS.item}newest first`)}`, w),
+			body,
+			range: cursor.clipped(this.points.length)
+				? formatRange(this.theme, w, { start, end, total: this.points.length })
+				: undefined,
+			detail: detail ? [clip(`  ${paint(this.theme, "meta", detail)}`, w)] : undefined,
+			hint: this.hint(w),
+		});
+	}
+
+	/** The key-hint row, with the primary action in the accent role. */
+	private hint(width: number): string {
+		return screenHint(this.theme, width, ["Esc close", { text: "Enter choose", color: "accent" }, "↑/↓ or k/j select"]);
 	}
 }
