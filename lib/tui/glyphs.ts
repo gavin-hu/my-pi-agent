@@ -10,7 +10,7 @@
 import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
 
 /**
- * Leading glyphs for status chips and footer segments.
+ * Leading glyphs for status chips, footer segments, and transcript rails.
  *
  * Every glyph is a single terminal column in every profile: narrow or neutral
  * `East_Asian_Width`, never ambiguous, wide, or fullwidth, and never emoji. A
@@ -34,6 +34,7 @@ export const GLYPHS = {
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
+	rail: "╎",
 	check: "✓",
 	warn: "!",
 	cross: "✕",
@@ -59,7 +60,7 @@ export const GLYPH_GAP = 1;
 /** Padding used to join (`item`) or group (`group`) UI segments. */
 export const SEPARATORS = {
 	item: " · ",
-	group: " │ ",
+	group: " ╎ ",
 } as const;
 
 /** `ctx.ui.setStatus` keys; one per extension that publishes a chip. */

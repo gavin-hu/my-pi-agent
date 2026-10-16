@@ -9,21 +9,36 @@
  *   bun run scripts/screenshots.ts            # every screen plus the hero
  *   bun run scripts/screenshots.ts todo job   # only the named screens
  *   bun scripts/screenshots.ts render todo    # print the ANSI frame (any OS)
+ *   bun scripts/screenshots.ts render chrome --width 100   # the whole chrome
  *
  * The `render` step reads the live terminal width and height, so a capture
- * always fits its window; it holds the frame when passed `--hold`, which the
- * capture path uses so the shell prompt never overwrites it. To preview on a
- * platform without Terminal.app, run `render <name>` and pipe it to a pager
- * that understands ANSI.
+ * always fits its window; `--width` / `--rows` override them. It holds the frame
+ * when passed `--hold`, which the capture path uses so the shell prompt never
+ * overwrites it. To preview on a platform without Terminal.app, run
+ * `render <name>` and pipe it to a pager that understands ANSI.
  */
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-// `loadThemeFromPath` is not on the package root; the deep path is a dev-only
-// import that keeps the capture on the shipped theme JSON and render path.
-import { loadThemeFromPath } from "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js";
+import { getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
+import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
+// `loadThemeFromPath` and `setThemeInstance` are not on the package root; the
+// deep path is a dev-only import that keeps the capture on the shipped theme
+// JSON and render path.
+import {
+	loadThemeFromPath,
+	setThemeInstance,
+} from "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js";
+import { ToolBlock } from "../extensions/bytefly/block/component.ts";
+import { renderLine } from "../extensions/bytefly/footer/render/layout.ts";
+import { buildLines } from "../extensions/bytefly/footer/render/lines.ts";
+import type { StatusSnapshot } from "../extensions/bytefly/footer/types.ts";
+import { ByteflyHeader } from "../extensions/bytefly/header/component.ts";
+import { nameplate } from "../extensions/bytefly/message/format.ts";
+import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
+import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { JobListComponent } from "../extensions/job/tui.ts";
 import type { JobRecord } from "../extensions/job/types.ts";
 import { askViaTui } from "../extensions/question/tui.ts";
@@ -32,6 +47,8 @@ import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
 import type { RewindPoint } from "../extensions/rewind/timeline.ts";
 import { TodoListComponent } from "../extensions/todo/tui.ts";
 import type { Todo } from "../extensions/todo/types.ts";
+import type { NoticeDetails } from "../lib/notice.ts";
+import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
 
 const repo = resolve(import.meta.dir, "..");
 const theme = loadThemeFromPath(join(repo, "themes", "bytefly-dark.json"), "truecolor");
@@ -308,10 +325,87 @@ function renderQuestion(width: number, rows: number): string[] {
 	return component ? component.render(width) : [];
 }
 
-/** The ANSI frame for one screen, sized to the live terminal. */
-function frame(screen: Screen): string {
-	const width = process.stdout.columns ?? 100;
-	const rows = process.stdout.rows ?? 30;
+/** Pi's default app keybindings, so the preview header's help rows resolve. */
+const APP_BINDINGS = {
+	"app.interrupt": { defaultKeys: "escape", description: "Cancel or abort" },
+	"app.clear": { defaultKeys: "ctrl+c", description: "Clear editor" },
+	"app.exit": { defaultKeys: "ctrl+d", description: "Exit when editor is empty" },
+	"app.suspend": { defaultKeys: "ctrl+z", description: "Suspend to background" },
+	"app.tools.expand": { defaultKeys: "ctrl+o", description: "Toggle tool output" },
+	"app.thinking.toggle": { defaultKeys: "ctrl+t", description: "Toggle thinking blocks" },
+	"app.thinking.cycle": { defaultKeys: "shift+tab", description: "Cycle thinking level" },
+	"app.model.cycleForward": { defaultKeys: "ctrl+p", description: "Cycle to next model" },
+	"app.model.select": { defaultKeys: "ctrl+l", description: "Open model selector" },
+	"app.editor.external": { defaultKeys: "ctrl+g", description: "Open external editor" },
+	"app.message.followUp": { defaultKeys: "alt+enter", description: "Queue follow-up message" },
+	"app.clipboard.pasteImage": { defaultKeys: "ctrl+v", description: "Paste from clipboard" },
+} as const;
+
+/** The preview bar's snapshot, every field populated. */
+const CHROME_SNAPSHOT: StatusSnapshot = {
+	cwd: "/Users/gavin/repo/my-pi-agent",
+	sessionName: null,
+	branch: "main",
+	statuses: new Map([
+		[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
+		[STATUS_KEYS.worktree, `${GLYPHS.worktree} smoke`],
+	]),
+	model: { id: "opus-4.5", provider: "anthropic", reasoning: true },
+	thinkingLevel: "high",
+	context: { tokens: 124000, contextWindow: 200000, percent: 62 },
+	usage: { input: 42000, output: 8000, cacheRead: 96000, cacheWrite: 0, cost: 0.31 },
+	currency: { symbol: "$", decimals: 2 },
+	cacheHitRate: 87,
+	providerCount: 1,
+};
+
+/** The notice the preview shows: the shape `job`/`watch` post to the transcript. */
+const CHROME_NOTICE: NoticeDetails = {
+	source: "job",
+	title: "2 background jobs finished",
+	items: [
+		{ label: "j1 build", detail: "exit 0", severity: "ok" },
+		{ label: "j2 test", detail: "exit 1", severity: "bad" },
+	],
+};
+
+/**
+ * Draw the whole chrome as one frame: the header, a short transcript (the user
+ * nameplate, a tool block, a notice, and the turn rule), and the two-line
+ * footer. Every piece is the shipped component with the shipped theme, so the
+ * preview and a real session show the same code.
+ */
+function renderChrome(width: number): string[] {
+	setThemeInstance(theme);
+	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
+	const lines = new ByteflyHeader(
+		() => theme,
+		() => ({ showVersion: true, halfBlocks: true }),
+		VERSION,
+	).render(width);
+
+	const plate = nameplate(width);
+	if (plate) lines.push(...new Markdown(plate, 0, 0, getMarkdownTheme()).render(width));
+	lines.push("", theme.fg("text", "Ready when you are."), "");
+
+	// A tool block: the call and the result are sibling rows behind one rail.
+	lines.push(...new ToolBlock(new Text("read src/app.ts", 0, 0), "ok", theme, 0).render(width));
+	lines.push(...new ToolBlock(new Text("const answer = 42;", 0, 0), "ok", theme, 0).render(width));
+	lines.push("");
+
+	lines.push(...new NoticeComponent(CHROME_NOTICE, theme).render(width));
+	lines.push("");
+	lines.push(...new SeparatorComponent(3, theme).render(width));
+	lines.push("");
+
+	for (const line of buildLines(CHROME_SNAPSHOT, theme, "/Users/gavin")) {
+		lines.push(renderLine(line, width, theme));
+	}
+	return lines;
+}
+
+/** The ANSI frame for one screen, sized to the live terminal or the overrides. */
+function frame(screen: Screen, width: number, rows: number): string {
 	const lines = screen.render(width, rows);
 	// Reset the terminal palette to the theme, clear, then draw the frame and
 	// hide the cursor so the capture has no stray glyph.
@@ -544,15 +638,37 @@ async function capture(name: string): Promise<void> {
 	}
 }
 
+/** A numeric `--flag value` argument, or undefined when absent or unusable. */
+function numberArg(args: string[], flag: string): number | undefined {
+	const index = args.indexOf(flag);
+	if (index < 0) return undefined;
+	const value = Number.parseInt(args[index + 1] ?? "", 10);
+	return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+/**
+ * The chrome preview: one frame of the whole chrome, drawn by the shipped
+ * components with the shipped theme. `captureChrome()` is the authoritative
+ * shot — a real `pi -e .` session — but this frame is what makes the design
+ * reviewable on any OS and at any width.
+ */
+const CHROME_SCREEN: Screen = {
+	asset: "chrome",
+	title: "π - my-pi-agent · chrome",
+	render: (width) => renderChrome(width),
+};
+
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	if (args[0] === "render") {
-		const screen = SCREENS[args[1]];
+		const width = numberArg(args, "--width") ?? process.stdout.columns ?? 100;
+		const rows = numberArg(args, "--rows") ?? process.stdout.rows ?? 30;
+		const screen = args[1] === "chrome" ? CHROME_SCREEN : SCREENS[args[1]];
 		if (!screen) {
-			console.error(`Unknown screen "${args[1]}". Known: ${Object.keys(SCREENS).join(", ")}`);
+			console.error(`Unknown screen "${args[1]}". Known: chrome, ${Object.keys(SCREENS).join(", ")}`);
 			process.exit(1);
 		}
-		process.stdout.write(frame(screen));
+		process.stdout.write(frame(screen, width, rows));
 		const readyIndex = args.indexOf("--ready");
 		const ready = readyIndex >= 0 ? args[readyIndex + 1] : undefined;
 		if (ready) writeFileSync(ready, "");

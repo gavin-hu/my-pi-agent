@@ -228,10 +228,10 @@ signature rule, drawn from the active theme through the `lib/tui/` design
 system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
 mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
 between completed turns, a `❯ You` nameplate above each user message on the
-terminal background,
-the rail that renders every shared transcript notice, and a status-colored rail
-that frames every tool block, built-ins included.
-DeepSeek is priced out of the box from its published yuan rates and peak tariff,
+terminal background, and the shared transcript rail (`╎`) that every non-prose
+block hangs from — the shared notice and every tool block, built-ins included,
+share one left edge and one status-colored frame. DeepSeek is priced out of the
+box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a
 keyboard-driven docked list of every resolved Pi extension, one row per
