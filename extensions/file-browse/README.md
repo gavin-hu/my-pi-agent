@@ -4,7 +4,8 @@
 directory, opens the default browser at it, and prints the URL. The page is a
 two-pane file browser: a collapsible path tree on the left, directory listings
 and file views on the right, with image thumbnails, rendered Markdown,
-highlighted code, per-language icons, and a fuzzy quick-open palette. It is
+highlighted code, per-language icons, a fuzzy quick-open palette, and a
+read-only git diff view. It is
 bound to `127.0.0.1`
 and ships no dependencies — `node:http` plus one small vanilla script.
 
@@ -54,6 +55,12 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
 - **Git context.** A read-only header chip shows the checked-out branch (or
   detached head) and a dirty marker, and reflows on narrow screens.
+- **Git diff view.** A `● N changes` chip links to `/diff`, a change overview
+  with `git diff --stat` and a per-file status table, and `/diff/<rel>` renders
+  one file's unified diff. The scope is switchable between `head` / `staged` /
+  `worktree`; untracked files show as all-add, an unborn `HEAD` falls back to the
+  index, and a non-repository is a plain empty state. Read-only, capped, and
+  rendered with the shared diff colors.
 - **No dependencies.** `node:http` plus the inline sprite, CSS, and client
   script.
 
@@ -93,6 +100,8 @@ reflects only this session's server, with no cross-session sharing.
 | `/view/<rel>` | tree + file page (text, Markdown, image, binary, or over-size) |
 | `/view/<rel>?raw=1` | raw Markdown/text source instead of the rendered view |
 | `/raw/<rel>` | raw bytes, streamed; downloads and image sources |
+| `/diff[?mode=head\|staged\|worktree]` | changed-file overview with `--stat` |
+| `/diff/<rel>[?mode=…]` | one file's unified diff |
 | `/api/tree?path=<rel>` | JSON children for lazy tree expansion |
 | `/api/files?q=<query>` | JSON fuzzy path matches for the quick-open palette |
 | `/app.js` | the first-party client script |
@@ -115,7 +124,10 @@ document and the project document (project wins):
   "maxDirEntries": 2000,     // listed entries before truncation
   "thumbnails": true,
   "markdown": true,          // render Markdown files as formatted HTML
-  "maxIndexEntries": 20000   // files collected for quick open before truncation
+  "maxIndexEntries": 20000,  // files collected for quick open before truncation
+  "gitDiff": true,           // offer the read-only diff view
+  "diffContext": 3,          // unified diff context lines
+  "maxDiffLines": 4000       // diff lines rendered before truncation
 }
 ```
 
@@ -142,8 +154,11 @@ document and the project document (project wins):
   attributes; only the fixed `tok-*` class names reach the page.
 - **Caps.** `maxFileBytes` (inline rendering), `maxTextLines` (rendered lines),
   `maxThumbBytes` (thumbnails), and `maxDirEntries` (listings) bound every read.
-- **Git reads.** The header chip runs read-only git (`rev-parse`, `status
-  --porcelain`) with a timeout and a short cache; any failure simply omits it.
+- **Git reads.** The header chip and the diff view run read-only git
+  (`rev-parse`, `status --porcelain=v1 -z`, `diff --stat`, `diff -U<n>`) with a
+  timeout and a short cache; any failure simply omits the chip or the diff. A
+  per-file diff sets `GIT_LITERAL_PATHSPECS=1`, so a filename containing glob
+  characters is matched literally.
 - **Read-only.** Nothing is ever written.
 
 ## Limitations
@@ -237,6 +252,14 @@ document and the project document (project wins):
   `maxIndexEntries`, and is cached per server for 10 s by `createFileIndex`. The
   palette is a `dialog`/`combobox`/`listbox` with `aria-activedescendant` and
   `Esc` / arrow / `Enter` handling.
+- **Diff view.** `git.ts` extends the read-only provider set with a TTL-cached
+  `git status --porcelain=v1 -z` and a per-mode `git diff`; `diff.ts` parses the
+  unified diff and the porcelain records into plain view models, so `router.ts`
+  and `html.ts` stay pure. `head` compares against `HEAD` (falling back to
+  `--cached` before the first commit), `staged` against the index, and
+  `worktree` against the index from the other side. An untracked file renders as
+  all-add through `readFileView`, so binary and over-size handling is shared
+  with the file view.
 - **Streaming responses.** The server streams `filePath` responses and
   suppresses bodies for `HEAD`, so large `/raw` files are not buffered.
 - **Root confinement over feature breadth.** The root is deliberately confined
@@ -254,6 +277,7 @@ document and the project document (project wins):
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer for the code view (shared with `plan`) |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | The shared Bytefly web brand system: tokens, base, components, layout, runtime, and markup |
 | `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
+| `diff.ts` | Pure unified-diff and porcelain-status parsing for the diff view |
 | `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
 | `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted) |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
@@ -275,8 +299,11 @@ highlighting, safety, and path resolution),
 the icon mapping and sprite, HTML escaping/encoding/rendering, the client script
 and its serving, the platform browser commands with an injected spawn, the router
 (routes, `/api/tree`, `/api/files`, `?raw=1`, status codes, `Host`, `HEAD`, `/raw`
-headers)
+headers, and the `/diff` view routes and mode validation)
 without a socket, a real `127.0.0.1:0` server, the session-port lifecycle (fixed
 on first start, reused, and re-rolled after a conflict), the git status provider
-(branch, dirty, detached, non-repo, failure, and TTL cache), and the command
+(branch, dirty, detached, non-repo, failure, and TTL cache), the git diff parser
+and provider (line kinds, line numbers, status and rename parsing, mode
+filtering, untracked all-add, unborn-HEAD fallback, literal pathspec, and TTL
+cache), and the command
 lifecycle with injected seams.

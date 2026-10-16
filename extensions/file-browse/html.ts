@@ -19,7 +19,8 @@ import {
 } from "../../lib/web/index.ts";
 import { escapeHtml } from "../../lib/escape.ts";
 import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "./files.ts";
-import type { GitStatus } from "./git.ts";
+import { DIFF_MODES, statusLetter, type ChangedFile, type DiffLine, type DiffMode } from "./diff.ts";
+import type { DiffFileView, GitStatus } from "./git.ts";
 import { detectLanguage, highlightLines, type HighlightLanguage } from "../../lib/highlight.ts";
 import { FOLDER_ICON, iconHref, languageOf, SPRITE, type IconSpec } from "./icons.ts";
 import { renderMarkdownDocument, type MarkdownHeading } from "./markdown.ts";
@@ -49,6 +50,14 @@ function renderGit(git: GitStatus | undefined): string {
 	const aria = `${git.branch ? `git branch ${git.branch}` : `git detached at ${git.head ?? ""}`}${git.dirty ? ", uncommitted changes" : ""}`;
 	const dot = git.dirty ? `<span class="browse-dirty" aria-hidden="true" title="uncommitted changes">●</span>` : "";
 	return `<span class="bf-chip browse-git${git.dirty ? " browse-git--dirty" : ""}" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="browse-git__glyph" aria-hidden="true">${escapeHtml(glyph)}</span>${escapeHtml(name)}${dot}</span>`;
+}
+
+/** The header's changes chip, linking to the diff overview when there are changes. */
+function renderChanges(count: number | undefined): string {
+	if (!count || count <= 0) return "";
+	const label = `${count} change${count === 1 ? "" : "s"}`;
+	const aria = `${label} against HEAD`;
+	return `<a class="bf-chip browse-diff" href="/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-diff__dot" aria-hidden="true">●</span>${escapeHtml(label)}</a>`;
 }
 
 function hrefFor(entry: { rel: string; isDir: boolean }): string {
@@ -86,6 +95,30 @@ ${WEB_COMPONENTS_CSS}
 .browse-md-outline a.lvl2{padding-left:var(--space-5)}
 .browse-md-outline a.lvl3{padding-left:var(--space-7)}
 body.palette-open{overflow:hidden}
+.browse-diff{font-family:var(--font-mono);gap:5px}
+.browse-diff:hover{color:var(--accent);text-decoration:none}
+.browse-diff__dot{color:var(--warn);font-size:9px;line-height:1}
+.browse-diff-scope{color:var(--muted);font-size:var(--fs-sm);font-weight:var(--fw-medium)}
+.browse-diff-toolbar{display:flex;align-items:center;gap:var(--space-3);margin:0 0 var(--space-3);flex-wrap:wrap}
+.browse-diff-stat{margin:0 0 var(--space-3);font:var(--fs-xs)/1.5 var(--font-mono);color:var(--muted);white-space:pre-wrap;overflow-x:auto}
+.browse-diff th.browse-diff-status{width:72px}
+.browse-diff th.browse-diff-word{width:130px}
+.browse-diff-badge{display:inline-block;min-width:16px;text-align:center;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);border-radius:var(--radius-sm);padding:1px 5px;border:1px solid var(--border)}
+.browse-diff-badge--M{color:var(--warn);border-color:currentColor}
+.browse-diff-badge--A,.browse-diff-badge--Q{color:var(--success);border-color:currentColor}
+.browse-diff-badge--D{color:var(--danger);border-color:currentColor}
+.browse-diff-badge--R,.browse-diff-badge--C{color:var(--accent);border-color:currentColor}
+.browse-diff-orig{color:var(--muted);font-size:var(--fs-xs)}
+.browse-diff-word{color:var(--muted);font-size:var(--fs-sm)}
+.browse-diff-no{display:inline-block;width:46px;padding-right:var(--space-2);text-align:right;color:var(--dim);user-select:none}
+.browse-diff-sign{display:inline-block;width:16px;text-align:center;color:var(--muted);user-select:none}
+.bf-diff-line--add{background:var(--success-soft)}
+.bf-diff-line--add .browse-diff-sign{color:var(--success)}
+.bf-diff-line--del{background:var(--danger-soft)}
+.bf-diff-line--del .browse-diff-sign{color:var(--danger)}
+.bf-diff-line--hunk{color:var(--accent);background:var(--canvas)}
+.bf-diff-line--meta{color:var(--muted)}
+.bf-diff-line--note{color:var(--muted);font-style:italic}
 @media (max-width:520px){
 .bf-toolbar .bf-theme-toggle{margin-left:auto}
 }`;
@@ -99,6 +132,8 @@ interface Layout {
 	main: string;
 	footerNote: string;
 	git?: GitStatus;
+	/** Number of changed files, for the header's changes chip; omitted when clean. */
+	changes?: number;
 }
 
 /** A full two-pane page. */
@@ -118,6 +153,7 @@ ${SPRITE}
   ${brandLockup("browse")}
   <span class="bf-context browse-root">${escapeHtml(layout.rootLabel)}</span>
   ${renderGit(layout.git)}
+  ${renderChanges(layout.changes)}
   <span class="bf-chip bf-chip--accent">read-only</span>
   <button type="button" class="bf-btn bf-btn--icon bf-theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light and dark theme"><span class="theme-glyph" aria-hidden="true">☾</span></button>
 </div></header>
@@ -210,6 +246,8 @@ export interface DirectoryPage {
 	thumbnails: boolean;
 	maxThumbBytes: number;
 	git?: GitStatus;
+	/** Number of changed files, for the header's changes chip. */
+	changes?: number;
 }
 
 /** Render a directory listing page. */
@@ -235,6 +273,7 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		main: `    ${heading}\n    ${body}`,
 		footerNote: `${page.listing.total} entr${page.listing.total === 1 ? "y" : "ies"}`,
 		git: page.git,
+		changes: page.changes,
 	});
 }
 
@@ -247,6 +286,10 @@ export interface FilePage {
 	git?: GitStatus;
 	/** Show the Markdown source instead of the rendered HTML. */
 	markdownRaw?: boolean;
+	/** True when this file has uncommitted changes, for the changes action. */
+	changed?: boolean;
+	/** Number of changed files, for the header's changes chip. */
+	changes?: number;
 }
 
 /** The root-relative directory of a file, for resolving its Markdown links. */
@@ -280,6 +323,11 @@ function renderFileActions(page: FilePage): string {
 	const rawHref = `/raw/${encodePath(page.rel)}`;
 	const viewHref = `/view/${encodePath(page.rel)}`;
 	const groups: string[] = [];
+	if (page.changed) {
+		groups.push(
+			`<a class="bf-btn" href="/diff/${encodePath(page.rel)}" title="View this file's uncommitted changes">changes</a>`,
+		);
+	}
 	if (isMarkdown) {
 		const rendered = page.markdownRaw
 			? `<a class="bf-segmented__item" href="${viewHref}">rendered</a>`
@@ -342,6 +390,142 @@ export function renderFilePage(page: FilePage): string {
 		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
 		footerNote: escapeHtml(page.file.mime),
 		git: page.git,
+		changes: page.changes,
+	});
+}
+
+/** Map a status letter to an accessible label. */
+const STATUS_LABEL: Record<string, string> = {
+	M: "modified",
+	A: "added",
+	D: "deleted",
+	R: "renamed",
+	C: "copied",
+	T: "type changed",
+	U: "unmerged",
+	"?": "untracked",
+};
+
+function statusWord(letter: string): string {
+	return STATUS_LABEL[letter] ?? "changed";
+}
+
+/** Render unified-diff lines with a two-column gutter and per-kind styling. */
+export function renderDiffLines(lines: DiffLine[]): string {
+	return lines
+		.map((line) => {
+			const sign = line.kind === "add" ? "+" : line.kind === "del" ? "-" : line.kind === "ctx" ? " " : "";
+			const gutter = `<span class="browse-diff-no" aria-hidden="true">${line.oldNo ?? ""}</span><span class="browse-diff-no" aria-hidden="true">${line.newNo ?? ""}</span>`;
+			const marker = `<span class="browse-diff-sign" aria-hidden="true">${sign}</span>`;
+			return `<span class="bf-code__line bf-diff-line bf-diff-line--${line.kind}">${gutter}${marker}${escapeHtml(line.text)}</span>`;
+		})
+		.join("");
+}
+
+/** The scope label for a mode. */
+function modeScope(mode: DiffMode): string {
+	if (mode === "staged") return "staged vs HEAD";
+	if (mode === "worktree") return "unstaged";
+	return "vs HEAD";
+}
+
+/** The `head | staged | worktree` segmented control; `build` returns each href. */
+function renderModeControl(mode: DiffMode, build: (mode: DiffMode) => string): string {
+	const items = DIFF_MODES.map((candidate) => {
+		const current = candidate === mode ? ` aria-current="page"` : "";
+		return `<a class="bf-segmented__item" href="${escapeHtml(build(candidate))}"${current}>${candidate}</a>`;
+	}).join("");
+	return `<span class="bf-segmented" role="group" aria-label="Diff mode">${items}</span>`;
+}
+
+export interface DiffPage {
+	rootLabel: string;
+	mode: DiffMode;
+	files: ChangedFile[];
+	stat: string;
+	tree: TreeNode;
+	git?: GitStatus;
+	changes?: number;
+}
+
+/** The change overview: `git diff --stat` plus every changed path. */
+export function renderDiffPage(page: DiffPage): string {
+	const modeHref = (mode: DiffMode) => (mode === "head" ? "/diff" : `/diff?mode=${mode}`);
+	const body =
+		page.files.length === 0
+			? `<div class="bf-empty"><p class="bf-empty__title">No changes ${escapeHtml(modeScope(page.mode))}.</p><p class="bf-empty__sub">The working tree matches this scope.</p></div>`
+			: `<table class="bf-table browse-diff" aria-labelledby="page-title">
+<thead><tr><th scope="col" class="browse-diff-status">Status</th><th scope="col">Path</th><th scope="col" class="browse-diff-word">Changes</th></tr></thead>
+<tbody>
+${page.files.map((file) => renderChangedRow(file, page.mode)).join("\n")}
+</tbody>
+</table>`;
+	const stat = page.stat ? `<pre class="browse-diff-stat">${escapeHtml(page.stat)}</pre>` : "";
+	return renderLayout({
+		title: "browse · changes",
+		rootLabel: page.rootLabel,
+		tree: page.tree,
+		currentRel: "",
+		breadcrumbs: renderBreadcrumbs(""),
+		main: `    <h1 class="bf-title browse-heading" id="page-title">Changes <span class="browse-diff-scope">${escapeHtml(modeScope(page.mode))}</span></h1>\n    <div class="browse-diff-toolbar">${renderModeControl(page.mode, modeHref)}</div>\n    ${stat}\n    ${body}`,
+		footerNote: `${page.files.length} changed`,
+		git: page.git,
+		changes: page.changes,
+	});
+}
+
+function renderChangedRow(file: ChangedFile, mode: DiffMode): string {
+	const letter = statusLetter(file);
+	const label = statusWord(letter);
+	const badge = `browse-diff-badge browse-diff-badge--${letter === "?" ? "Q" : letter}`;
+	const orig = file.origRel ? ` <span class="browse-diff-orig">from ${escapeHtml(file.origRel)}</span>` : "";
+	const href = `/diff/${encodePath(file.rel)}${mode === "head" ? "" : `?mode=${mode}`}`;
+	return `<tr data-path="${escapeHtml(file.rel)}"><td><span class="${badge}" aria-label="${escapeHtml(label)}">${escapeHtml(letter)}</span></td><td><span class="bf-table__name">${iconMarkup(languageOf(file.rel))}<a href="${href}">${escapeHtml(file.rel)}</a>${orig}</span></td><td class="browse-diff-word">${escapeHtml(label)}</td></tr>`;
+}
+
+export interface FileDiffPage {
+	rootLabel: string;
+	rel: string;
+	mode: DiffMode;
+	diff: DiffFileView;
+	tree: TreeNode;
+	git?: GitStatus;
+	changes?: number;
+}
+
+/** A single file's unified diff, with the scope control and file actions. */
+export function renderFileDiffPage(page: FileDiffPage): string {
+	const name = page.rel.slice(page.rel.lastIndexOf("/") + 1);
+	const spec = languageOf(name);
+	const base = `/diff/${encodePath(page.rel)}`;
+	const actions = [
+		renderModeControl(page.mode, (mode) => (mode === "head" ? base : `${base}?mode=${mode}`)),
+		`<a class="bf-btn" href="/view/${encodePath(page.rel)}" title="Open the file">view file</a>`,
+		`<button type="button" class="bf-btn" id="wrap-toggle" aria-pressed="false" title="Toggle line wrapping">wrap</button>`,
+		`<a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a>`,
+		`<button type="button" class="bf-btn" data-copy="path" data-value="${escapeHtml(page.rel)}" title="Copy the root-relative path">copy path</button>`,
+	];
+	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(modeScope(page.mode))}</span><span class="bf-spacer"></span><span class="bf-card__actions">${actions.join("")}</span></div>`;
+	let content: string;
+	let note = "";
+	if (page.diff.binary) {
+		content = `<div class="bf-empty"><p class="bf-empty__title">Binary or unreadable change.</p><p class="bf-empty__sub">No text diff is shown for this file.</p><a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a></div>`;
+	} else if (page.diff.lines.length === 0) {
+		content = `<div class="bf-empty"><p class="bf-empty__title">No changes for this file.</p><p class="bf-empty__sub">It is unchanged in the selected scope.</p></div>`;
+	} else {
+		content = `<pre class="bf-code bf-diff"><code>${renderDiffLines(page.diff.lines)}</code></pre>`;
+		if (page.diff.truncated) note = `<p class="bf-note">Showing the first ${page.diff.lines.length} diff lines.</p>`;
+	}
+	return renderLayout({
+		title: `browse · ${page.rel}`,
+		rootLabel: page.rootLabel,
+		tree: page.tree,
+		currentRel: page.rel,
+		breadcrumbs: renderBreadcrumbs(page.rel),
+		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
+		footerNote: `diff · ${escapeHtml(modeScope(page.mode))}`,
+		git: page.git,
+		changes: page.changes,
 	});
 }
 

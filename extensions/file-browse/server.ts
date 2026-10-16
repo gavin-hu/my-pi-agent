@@ -11,7 +11,7 @@ import { createReadStream, realpathSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { ServeConfig } from "./config.ts";
 import { createFileIndex } from "./files.ts";
-import type { GitStatusProvider } from "./git.ts";
+import type { GitDiffProvider, GitStatusProvider } from "./git.ts";
 import { handleRequest, type ServeContext, type ServeResponse } from "./router.ts";
 
 export interface FileServer {
@@ -30,6 +30,8 @@ export interface FileServerOptions {
 	config: ServeConfig;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
+	/** Read-only diff provider for the change and diff views; omitted when unavailable. */
+	diff?: GitDiffProvider;
 	/** Override the request handler (tests). */
 	handler?: typeof handleRequest;
 }
@@ -68,6 +70,7 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 		root,
 		config: options.config,
 		git: options.git,
+		diff: options.diff,
 		index: createFileIndex(root, options.config.maxIndexEntries),
 	};
 	const handler = options.handler ?? handleRequest;

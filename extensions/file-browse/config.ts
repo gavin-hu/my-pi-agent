@@ -28,6 +28,12 @@ export interface ServeConfig {
 	markdown: boolean;
 	/** Files collected for the quick-open index before it is truncated. */
 	maxIndexEntries: number;
+	/** Offer the read-only git diff view. */
+	gitDiff: boolean;
+	/** Unified diff context lines. */
+	diffContext: number;
+	/** Diff lines rendered before the view is truncated. */
+	maxDiffLines: number;
 }
 
 export const DEFAULT_CONFIG: ServeConfig = {
@@ -40,6 +46,9 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	thumbnails: true,
 	markdown: true,
 	maxIndexEntries: 20000,
+	gitDiff: true,
+	diffContext: 3,
+	maxDiffLines: 4000,
 };
 
 /** Base of the per-session port range. */
@@ -73,6 +82,9 @@ export function normalizeConfig(
 		thumbnails: bool(raw.thumbnails, base.thumbnails),
 		markdown: bool(raw.markdown, base.markdown),
 		maxIndexEntries: clampInteger(raw.maxIndexEntries, base.maxIndexEntries, 1, 1_000_000),
+		gitDiff: bool(raw.gitDiff, base.gitDiff),
+		diffContext: clampInteger(raw.diffContext, base.diffContext, 0, 100),
+		maxDiffLines: clampInteger(raw.maxDiffLines, base.maxDiffLines, 1, 1_000_000),
 	};
 }
 

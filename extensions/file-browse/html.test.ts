@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Listing, TreeNode } from "./files.ts";
-import { formatDate, renderBreadcrumbs, renderDirectoryPage, renderFilePage } from "./html.ts";
+import type { ChangedFile } from "./diff.ts";
+import {
+	formatDate,
+	renderBreadcrumbs,
+	renderDiffLines,
+	renderDiffPage,
+	renderDirectoryPage,
+	renderFileDiffPage,
+	renderFilePage,
+} from "./html.ts";
 import { makeFixture, localTimeMs, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
 /** A fixed mtime so date rendering is deterministic. */
@@ -491,5 +500,184 @@ describe("renderDirectoryPage sort and styles", () => {
 		expect(html).toContain(".browse-quick-open{display:none}");
 		expect(html).toContain(".bf-dialog{");
 		expect(html).toContain('.bf-dialog__option[aria-selected="true"]');
+	});
+});
+
+describe("diff view", () => {
+	const changed = (partial: Partial<ChangedFile>): ChangedFile => ({
+		rel: "a.ts",
+		index: " ",
+		worktree: "M",
+		untracked: false,
+		...partial,
+	});
+
+	test("renders the header changes chip only when there are changes", () => {
+		fixture = makeFixture();
+		const base = {
+			rootLabel: fixture.root,
+			rel: "",
+			listing: { entries: [], total: 0, truncated: false },
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		};
+		const two = renderDirectoryPage({ ...base, changes: 2 });
+		expect(two).toContain('class="bf-chip browse-diff" href="/diff"');
+		expect(two).toContain("2 changes");
+		expect(renderDirectoryPage({ ...base, changes: 1 })).toContain("1 change");
+		expect(renderDirectoryPage({ ...base, changes: 0 })).not.toContain('browse-diff" href');
+		expect(renderDirectoryPage(base)).not.toContain('class="bf-chip browse-diff"');
+	});
+
+	test("renders a changes action on a changed file page", () => {
+		fixture = makeFixture();
+		const file = {
+			kind: "text" as const,
+			lines: ["x"],
+			truncated: false,
+			totalLines: 1,
+			size: 1,
+			mtimeMs: MTIME_MS,
+			mime: "text/plain",
+		};
+		const page = { rootLabel: fixture.root, rel: "a.txt", tree, maxFileBytes: 1_000_000, file };
+		expect(renderFilePage({ ...page, changed: true })).toContain('href="/diff/a.txt"');
+		expect(renderFilePage(page)).not.toContain('href="/diff/a.txt"');
+	});
+
+	test("lists changed files with status, mode links, and the stat", () => {
+		fixture = makeFixture();
+		const html = renderDiffPage({
+			rootLabel: fixture.root,
+			mode: "head",
+			files: [
+				changed({ rel: "a.ts", index: "M", worktree: " " }),
+				changed({ rel: "new.txt", untracked: true, index: "?", worktree: "?" }),
+				changed({ rel: "x/y.md", origRel: "y/x.md", index: "R", worktree: " " }),
+			],
+			stat: " a.ts | 2 +-\n 1 file changed",
+			tree,
+			changes: 3,
+		});
+		expect(html).toContain('aria-current="page">head</a>');
+		expect(html).toContain('href="/diff?mode=staged"');
+		expect(html).toContain('href="/diff?mode=worktree"');
+		expect(html).toContain('href="/diff/a.ts"');
+		expect(html).toContain('href="/diff/new.txt"');
+		expect(html).toContain('aria-label="modified">M</span>');
+		expect(html).toContain('aria-label="untracked">?</span>');
+		expect(html).toContain("from y/x.md");
+		expect(html).toContain("1 file changed");
+	});
+
+	test("shows an empty state when nothing changed", () => {
+		fixture = makeFixture();
+		const html = renderDiffPage({
+			rootLabel: fixture.root,
+			mode: "staged",
+			files: [],
+			stat: "",
+			tree,
+		});
+		expect(html).toContain("No changes staged vs HEAD.");
+		expect(html).toContain('aria-current="page">staged</a>');
+	});
+
+	test("escapes paths and stat text", () => {
+		fixture = makeFixture();
+		const html = renderDiffPage({
+			rootLabel: fixture.root,
+			mode: "head",
+			files: [changed({ rel: 'a"<b>.ts' })],
+			stat: "<script>alert(1)</script>",
+			tree,
+		});
+		expect(html).not.toContain("<script>alert(1)</script>");
+		expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+		expect(html).toContain("a&quot;&lt;b&gt;.ts");
+	});
+});
+
+describe("renderDiffLines", () => {
+	test("marks each line kind with a gutter, sign, and class", () => {
+		const html = renderDiffLines([
+			{ kind: "meta", text: "diff --git a/a b/a" },
+			{ kind: "hunk", text: "@@ -1 +1 @@" },
+			{ kind: "ctx", text: "keep", oldNo: 1, newNo: 1 },
+			{ kind: "del", text: "old", oldNo: 2 },
+			{ kind: "add", text: "new", newNo: 2 },
+			{ kind: "note", text: "\ No newline at end of file" },
+		]);
+		expect(html).toContain("bf-diff-line--hunk");
+		expect(html).toContain("bf-diff-line--add");
+		expect(html).toContain("bf-diff-line--del");
+		expect(html).toContain("bf-diff-line--note");
+		expect(html).toContain('<span class="browse-diff-no" aria-hidden="true">2</span>');
+		expect(html).toContain('class="browse-diff-sign" aria-hidden="true">+</span>');
+		expect(html).toContain('class="browse-diff-sign" aria-hidden="true">-</span>');
+	});
+
+	test("escapes diff content", () => {
+		const html = renderDiffLines([{ kind: "add", text: "<img src=x onerror=alert(1)>", newNo: 1 }]);
+		expect(html).not.toContain("<img");
+		expect(html).toContain("&lt;img");
+	});
+});
+
+describe("renderFileDiffPage", () => {
+	test("renders the diff with mode links that keep the path", () => {
+		fixture = makeFixture();
+		const html = renderFileDiffPage({
+			rootLabel: fixture.root,
+			rel: "sub/b.md",
+			mode: "staged",
+			tree,
+			diff: {
+				mode: "staged",
+				rel: "sub/b.md",
+				lines: [
+					{ kind: "hunk", text: "@@ -1 +1 @@" },
+					{ kind: "del", text: "old", oldNo: 1 },
+					{ kind: "add", text: "new", newNo: 1 },
+				],
+				binary: false,
+				truncated: false,
+			},
+		});
+		expect(html).toContain('href="/diff/sub/b.md?mode=staged" aria-current="page">staged</a>');
+		expect(html).toContain('href="/diff/sub/b.md"');
+		expect(html).toContain('aria-label="Diff mode"');
+		expect(html).toContain("bf-diff-line--add");
+		expect(html).toContain('href="/view/sub/b.md"');
+		expect(html).toContain('id="wrap-toggle"');
+	});
+
+	test("notes truncation and reports binary and empty diffs", () => {
+		fixture = makeFixture();
+		const base = { rootLabel: fixture.root, rel: "a.ts", mode: "head" as const, tree };
+		const truncated = renderFileDiffPage({
+			...base,
+			diff: {
+				mode: "head",
+				rel: "a.ts",
+				lines: [{ kind: "add", text: "x", newNo: 1 }],
+				binary: false,
+				truncated: true,
+			},
+		});
+		expect(truncated).toContain("Showing the first 1 diff lines.");
+
+		const binary = renderFileDiffPage({
+			...base,
+			diff: { mode: "head", rel: "a.ts", lines: [], binary: true, truncated: false },
+		});
+		expect(binary).toContain("Binary or unreadable change.");
+
+		const empty = renderFileDiffPage({
+			...base,
+			diff: { mode: "head", rel: "a.ts", lines: [], binary: false, truncated: false },
+		});
+		expect(empty).toContain("No changes for this file.");
 	});
 });

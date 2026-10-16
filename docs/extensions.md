@@ -161,8 +161,9 @@ Tools: `web_search`, `web_fetch`.
 two-pane browser tree rooted at the working directory: listings, a rendered
 Markdown preview (heading anchors and an on-this-page outline, styled tables
 and images), sortable listings, copy and wrap, image thumbnails,
-per-language icons, a filter, and a fuzzy quick-open palette. No dependencies,
-with a `◉ <port>` status chip while it runs.
+per-language icons, a filter, a fuzzy quick-open palette, and a read-only git
+diff view (`/diff` overview and per-file unified diffs with `head` / `staged` /
+`worktree` scopes). No dependencies, with a `◉ <port>` status chip while it runs.
 
 Command: `/browse`.
 

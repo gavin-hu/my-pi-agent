@@ -166,7 +166,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		optional: [{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() }],
 	},
 	"file-browse": {
-		optional: [gitCheck("the branch chip")],
+		optional: [gitCheck("the branch chip and the diff view")],
 		notes: ["The default-browser opener (`open` / `xdg-open` / `cmd`) is best-effort; the URL is printed either way."],
 	},
 	document: {},

@@ -11,7 +11,8 @@ import { stat } from "node:fs/promises";
 import { THEME_JS } from "../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
-import type { GitStatus, GitStatusProvider } from "./git.ts";
+import { isDiffMode, type DiffMode } from "./diff.ts";
+import type { GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
 import {
 	buildFileIndex,
 	buildTree,
@@ -25,7 +26,7 @@ import {
 } from "./files.ts";
 import { FOLDER_ICON, iconHref, languageOf } from "./icons.ts";
 import { fuzzySearch } from "./fuzzy.ts";
-import { renderDirectoryPage, renderErrorPage, renderFilePage } from "./html.ts";
+import { renderDirectoryPage, renderDiffPage, renderErrorPage, renderFileDiffPage, renderFilePage } from "./html.ts";
 import { encodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
 
 export interface ServeContext {
@@ -33,6 +34,8 @@ export interface ServeContext {
 	config: ServeConfig;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
+	/** Read-only diff provider; omitted when the diff view is unavailable. */
+	diff?: GitDiffProvider;
 	/** Cached quick-open file index; built on demand when omitted. */
 	index?: FileIndexProvider;
 }
@@ -97,6 +100,24 @@ async function gitFor(ctx: ServeContext): Promise<GitStatus | undefined> {
 	}
 }
 
+/** The change list for a mode, or `undefined` outside a repository. */
+async function diffFor(ctx: ServeContext, mode: DiffMode) {
+	if (!ctx.config.gitDiff || !ctx.diff) return undefined;
+	try {
+		return await ctx.diff.list(mode);
+	} catch {
+		return undefined;
+	}
+}
+
+/** The `head` change set as a count and a membership test, for the header and file action. */
+async function changed(ctx: ServeContext): Promise<{ count: number; has: (rel: string) => boolean } | undefined> {
+	const list = await diffFor(ctx, "head");
+	if (!list) return undefined;
+	const files = new Set(list.files.map((file) => file.rel));
+	return { count: list.files.length, has: (rel) => files.has(rel) };
+}
+
 async function errorResponse(
 	ctx: ServeContext,
 	status: number,
@@ -137,6 +158,7 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 	const listing = await listDirectory(ctx.root, rel, ctx.config.maxDirEntries);
 	const tree = await treeFor(ctx, rel);
 	const git = await gitFor(ctx);
+	const changes = await changed(ctx);
 	return htmlResponse(
 		200,
 		renderDirectoryPage({
@@ -147,6 +169,7 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 			thumbnails: ctx.config.thumbnails,
 			maxThumbBytes: ctx.config.maxThumbBytes,
 			git,
+			changes: changes?.count,
 		}),
 	);
 }
@@ -161,6 +184,7 @@ async function view(ctx: ServeContext, rawRel: string, raw: boolean): Promise<Se
 	const file = await readFileView(ctx.root, rel, ctx.config.maxFileBytes, ctx.config.maxTextLines, ctx.config.markdown);
 	const tree = await treeFor(ctx, rel);
 	const git = await gitFor(ctx);
+	const changes = await changed(ctx);
 	return htmlResponse(
 		200,
 		renderFilePage({
@@ -171,6 +195,59 @@ async function view(ctx: ServeContext, rawRel: string, raw: boolean): Promise<Se
 			maxFileBytes: ctx.config.maxFileBytes,
 			git,
 			markdownRaw: raw,
+			changed: changes?.has(rel),
+			changes: changes?.count,
+		}),
+	);
+}
+
+/** The change overview page for a mode. A non-repository is an empty state, not an error. */
+async function diffOverview(ctx: ServeContext, mode: DiffMode): Promise<ServeResponse> {
+	if (!ctx.config.gitDiff || !ctx.diff) throw new HttpError(404, "The diff view is not available.");
+	const list = await diffFor(ctx, mode);
+	const tree = await treeFor(ctx, "");
+	const git = await gitFor(ctx);
+	return htmlResponse(
+		200,
+		renderDiffPage({
+			rootLabel: ctx.root,
+			mode,
+			files: list?.files ?? [],
+			stat: list?.stat ?? "",
+			tree,
+			git,
+			changes: list?.files.length,
+		}),
+	);
+}
+
+/** A single file's unified diff for a mode. */
+async function diffFile(ctx: ServeContext, rawRel: string, mode: DiffMode): Promise<ServeResponse> {
+	if (!ctx.config.gitDiff || !ctx.diff) throw new HttpError(404, "The diff view is not available.");
+	const abs = await resolveRequestPath(ctx.root, rawRel);
+	const rel = relativePath(ctx.root, abs);
+	const info = await stat(abs).catch(() => undefined);
+	if (info?.isDirectory()) throw new HttpError(400, "That path is a folder.");
+	let diff: Awaited<ReturnType<GitDiffProvider["file"]>>;
+	try {
+		diff = await ctx.diff.file(rel, mode);
+	} catch {
+		diff = undefined;
+	}
+	if (!diff) throw new HttpError(404, "No diff is available for that file.");
+	const tree = await treeFor(ctx, rel);
+	const git = await gitFor(ctx);
+	const changes = await changed(ctx);
+	return htmlResponse(
+		200,
+		renderFileDiffPage({
+			rootLabel: ctx.root,
+			rel,
+			mode,
+			diff,
+			tree,
+			git,
+			changes: changes?.count,
 		}),
 	);
 }
@@ -276,6 +353,11 @@ export async function handleRequest(
 		if (pathname === "/favicon.ico") return { status: 204, headers: { ...HTML_SECURITY }, body: "" };
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");
+		const rawMode = search.get("mode");
+		if (rawMode !== null && !isDiffMode(rawMode)) return errorResponse(ctx, 400, "Unknown diff mode.");
+		const mode: DiffMode = isDiffMode(rawMode) ? rawMode : "head";
+		if (pathname === "/diff" || pathname === "/diff/") return await diffOverview(ctx, mode);
+		if (pathname.startsWith("/diff/")) return await diffFile(ctx, pathname.slice("/diff/".length), mode);
 		if (pathname === "/" || pathname === "/browse" || pathname === "/browse/") return await browse(ctx, "");
 		if (pathname.startsWith("/browse/")) return await browse(ctx, pathname.slice("/browse/".length));
 		if (pathname.startsWith("/view/"))
