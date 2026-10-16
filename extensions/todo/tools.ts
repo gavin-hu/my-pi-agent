@@ -15,6 +15,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { normalizeTodos, TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
@@ -97,7 +98,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			const text = reuseText(context.lastComponent);
 			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
-					theme.fg("muted", formatCallText(args.todos as Todo[] | undefined, context.argsComplete)),
+					paint(theme, "meta", formatCallText(args.todos as Todo[] | undefined, context.argsComplete)),
 			);
 			return text;
 		},
@@ -106,7 +107,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			const text = reuseText(context.lastComponent);
 			const details = toolDetails<TodoDetails>(result.details);
 			if (details?.error) {
-				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 			// A call rejected before `execute` (argument validation or a permission
@@ -117,7 +118,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				return text;
 			}
 			if (details.todos.length === 0) {
-				text.setText(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared the todo list"));
+				text.setText(paint(theme, "ok", "✓ ") + paint(theme, "meta", "Cleared the todo list"));
 				return text;
 			}
 

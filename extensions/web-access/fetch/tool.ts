@@ -12,6 +12,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { formatTokens } from "../../../lib/format.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
 import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
@@ -204,9 +205,9 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		renderCall(args, theme, context) {
 			const { url, find, startIndex } = args as WebFetchArgs;
 			const text = reuseText(context?.lastComponent);
-			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(url ?? ""));
-			if (find?.length) line += theme.fg("dim", ` find ${find.map((f) => `"${oneLine(f)}"`).join(", ")}`);
-			else if (startIndex) line += theme.fg("dim", ` (from ${startIndex})`);
+			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "accent", oneLine(url ?? ""));
+			if (find?.length) line += paint(theme, "faint", ` find ${find.map((f) => `"${oneLine(f)}"`).join(", ")}`);
+			else if (startIndex) line += paint(theme, "faint", ` (from ${startIndex})`);
 			text.setText(line);
 			return text;
 		},
@@ -216,21 +217,21 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 			const page = result.details as FetchResponse | undefined;
 			if (page?.error) {
 				const message = oneLine(page.error);
-				text.setText(theme.fg("error", message.startsWith("Error:") ? message : `Error: ${message}`));
+				text.setText(paint(theme, "bad", message.startsWith("Error:") ? message : `Error: ${message}`));
 				return text;
 			}
 			if (!page || result.isError) {
 				const first = result.content[0];
 				const message = oneLine(first?.type === "text" ? first.text : "Fetch failed");
-				text.setText(theme.fg("error", message.startsWith("Error:") ? message : `Error: ${message}`));
+				text.setText(paint(theme, "bad", message.startsWith("Error:") ? message : `Error: ${message}`));
 				return text;
 			}
 
 			const label = oneLine(page.title || page.finalUrl);
-			let line = theme.fg("muted", label);
-			if (page.matches.length > 0) line += theme.fg("dim", `${SEPARATORS.item}${page.matches.length} match(es)`);
-			else line += theme.fg("dim", `${SEPARATORS.item}${formatTokens(page.totalChars)} chars`);
-			if (page.cached) line += theme.fg("dim", " (cached)");
+			let line = paint(theme, "meta", label);
+			if (page.matches.length > 0) line += paint(theme, "faint", `${SEPARATORS.item}${page.matches.length} match(es)`);
+			else line += paint(theme, "faint", `${SEPARATORS.item}${formatTokens(page.totalChars)} chars`);
+			if (page.cached) line += paint(theme, "faint", " (cached)");
 			text.setText(line);
 			return text;
 		},

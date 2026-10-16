@@ -11,6 +11,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadSearchConfig } from "../config.ts";
 import { oneLine } from "../transcript.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
 import { expandHint, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { formatResults } from "./format.ts";
 import { createThrottle, runSearch, type SearchDeps } from "./search.ts";
@@ -68,8 +69,8 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 		renderCall(args, theme, context) {
 			const { query, maxResults } = args as WebSearchArgs;
 			const text = reuseText(context?.lastComponent);
-			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("accent", oneLine(query ?? ""));
-			if (maxResults) line += theme.fg("dim", ` (${maxResults} results)`);
+			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "accent", oneLine(query ?? ""));
+			if (maxResults) line += paint(theme, "faint", ` (${maxResults} results)`);
 			text.setText(line);
 			return text;
 		},
@@ -80,11 +81,11 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			if (!details || result.isError) {
 				const first = result.content[0];
 				const message = first?.type === "text" ? first.text : "Search failed";
-				text.setText(theme.fg("error", `Error: ${oneLine(message)}`));
+				text.setText(paint(theme, "bad", `Error: ${oneLine(message)}`));
 				return text;
 			}
 			if (details.provider === "none") {
-				text.setText(theme.fg("dim", `No results for "${oneLine(details.query)}".`));
+				text.setText(paint(theme, "faint", `No results for "${oneLine(details.query)}".`));
 				return text;
 			}
 
@@ -92,19 +93,21 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			// A blank line separates the call header from the result body.
 			const lines: string[] = [
 				"",
-				theme.fg("dim", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`),
+				paint(theme, "faint", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`),
 			];
-			if (details.answer) lines.push(`${theme.fg("dim", "answer")} ${theme.fg("muted", oneLine(details.answer, 160))}`);
+			if (details.answer)
+				lines.push(`${paint(theme, "faint", "answer")} ${paint(theme, "meta", oneLine(details.answer, 160))}`);
 
 			const shown = options.expanded ? details.results : details.results.slice(0, 5);
-			const indent = theme.fg("dim", "   ");
+			const indent = paint(theme, "faint", "   ");
 			for (const [index, item] of shown.entries()) {
-				lines.push(`${theme.fg("accent", `${index + 1}.`)} ${theme.fg("muted", oneLine(item.title, 100))}`);
-				lines.push(`${indent}${theme.fg("dim", oneLine(item.url, 100))}`);
-				if (options.expanded && item.snippet) lines.push(`${indent}${theme.fg("muted", oneLine(item.snippet, 160))}`);
+				lines.push(`${paint(theme, "accent", `${index + 1}.`)} ${paint(theme, "meta", oneLine(item.title, 100))}`);
+				lines.push(`${indent}${paint(theme, "faint", oneLine(item.url, 100))}`);
+				if (options.expanded && item.snippet)
+					lines.push(`${indent}${paint(theme, "meta", oneLine(item.snippet, 160))}`);
 			}
 			const extra = count - shown.length;
-			if (extra > 0) lines.push(`${theme.fg("dim", `+${extra} more`)} ${expandHint(theme)}`);
+			if (extra > 0) lines.push(`${paint(theme, "faint", `+${extra} more`)} ${expandHint(theme)}`);
 			text.setText(lines.join("\n"));
 			return text;
 		},

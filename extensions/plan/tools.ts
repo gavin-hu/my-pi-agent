@@ -23,6 +23,7 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { expandHint } from "../../lib/tui/glyphs.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { feedbackSummary } from "./feedback.ts";
@@ -238,7 +239,7 @@ export function registerTools(
 
 		renderCall(_args, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			text.setText(theme.fg("toolTitle", theme.bold(`${ENTER_TOOL} `)) + theme.fg("muted", "requested plan mode"));
+			text.setText(theme.fg("toolTitle", theme.bold(`${ENTER_TOOL} `)) + paint(theme, "meta", "requested plan mode"));
 			return text;
 		},
 
@@ -250,10 +251,10 @@ export function registerTools(
 				text.setText(first?.type === "text" ? first.text : "");
 				return text;
 			}
-			if (details.unavailable) text.setText(theme.fg("warning", "No UI to confirm plan mode"));
-			else if (details.already) text.setText(theme.fg("muted", "Already in plan mode"));
-			else if (details.entered) text.setText(theme.fg("success", "✓ Plan mode enabled"));
-			else text.setText(theme.fg("muted", "Stayed in normal mode"));
+			if (details.unavailable) text.setText(paint(theme, "warn", "No UI to confirm plan mode"));
+			else if (details.already) text.setText(paint(theme, "meta", "Already in plan mode"));
+			else if (details.entered) text.setText(paint(theme, "ok", "✓ Plan mode enabled"));
+			else text.setText(paint(theme, "meta", "Stayed in normal mode"));
 			return text;
 		},
 	});
@@ -315,7 +316,7 @@ export function registerTools(
 		renderCall(args, theme, context) {
 			const text = reuseText(context?.lastComponent);
 			const title = (args as Partial<WritePlanArgs>).title;
-			const suffix = title ? theme.fg("muted", sanitizeLine(title)) : theme.fg("muted", "plan");
+			const suffix = title ? paint(theme, "meta", sanitizeLine(title)) : paint(theme, "meta", "plan");
 			text.setText(theme.fg("toolTitle", theme.bold(`${WRITE_PLAN_TOOL} `)) + suffix);
 			return text;
 		},
@@ -328,7 +329,7 @@ export function registerTools(
 				text.setText(first?.type === "text" ? first.text : "");
 				return text;
 			}
-			text.setText(theme.fg("success", "✓ Saved plan ") + theme.fg("muted", details.relativePath));
+			text.setText(paint(theme, "ok", "✓ Saved plan ") + paint(theme, "meta", details.relativePath));
 			return text;
 		},
 	});
@@ -508,7 +509,7 @@ export function registerTools(
 
 		renderCall(_args, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			text.setText(theme.fg("toolTitle", theme.bold(`${EXIT_TOOL} `)) + theme.fg("muted", "submitted a plan"));
+			text.setText(theme.fg("toolTitle", theme.bold(`${EXIT_TOOL} `)) + paint(theme, "meta", "submitted a plan"));
 			return text;
 		},
 
@@ -521,25 +522,25 @@ export function registerTools(
 				return text;
 			}
 			const heading = details.unavailable
-				? theme.fg("warning", "No UI to approve the plan")
+				? paint(theme, "warn", "No UI to approve the plan")
 				: details.approved
-					? theme.fg("success", "✓ Plan approved")
+					? paint(theme, "ok", "✓ Plan approved")
 					: details.refined
-						? theme.fg("accent", "Refining the plan")
-						: theme.fg("warning", "Plan not approved");
+						? paint(theme, "accent", "Refining the plan")
+						: paint(theme, "warn", "Plan not approved");
 			const extra =
 				details.refined && details.refinement
-					? `\n${theme.fg("muted", `↳ ${sanitizePlanText(details.refinement)}`)}`
+					? `\n${paint(theme, "meta", `↳ ${sanitizePlanText(details.refinement)}`)}`
 					: "";
 			const shown = details.relativePath ?? details.planPath;
-			const path = shown ? `\n${theme.fg("muted", shown)}` : "";
+			const path = shown ? `\n${paint(theme, "meta", shown)}` : "";
 			const planText = sanitizePlanText(details.plan);
 			let out = `${heading}${extra}${path}`;
 			if (planText) {
 				const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
 				// A blank line separates the header block from the plan body.
 				out += `\n\n${theme.fg("toolOutput", body)}`;
-				if (more > 0) out += `\n${theme.fg("dim", `… ${more} more lines`)} ${expandHint(theme)}`;
+				if (more > 0) out += `\n${paint(theme, "faint", `… ${more} more lines`)} ${expandHint(theme)}`;
 			}
 			text.setText(out);
 			return text;
@@ -609,7 +610,7 @@ export function registerTools(
 					: updates && updates.length > 1
 						? `${updates.length} steps`
 						: "steps";
-			text.setText(theme.fg("toolTitle", theme.bold(`${SET_PLAN_STEPS_TOOL} `)) + theme.fg("muted", label));
+			text.setText(theme.fg("toolTitle", theme.bold(`${SET_PLAN_STEPS_TOOL} `)) + paint(theme, "meta", label));
 			return text;
 		},
 
@@ -625,10 +626,10 @@ export function registerTools(
 			const pending = details.updates.filter((update) => update.status === "pending").map((u) => u.step);
 			const heading =
 				completed.length > 0
-					? theme.fg("success", `✓ ${stepLabel(completed)} done`) +
-						(pending.length > 0 ? theme.fg("muted", ` · ${stepLabel(pending)} reopened`) : "")
-					: theme.fg("muted", `${stepLabel(pending)} reopened`);
-			text.setText(heading + theme.fg("dim", ` · ${details.done}/${details.total}`));
+					? paint(theme, "ok", `✓ ${stepLabel(completed)} done`) +
+						(pending.length > 0 ? paint(theme, "meta", ` · ${stepLabel(pending)} reopened`) : "")
+					: paint(theme, "meta", `${stepLabel(pending)} reopened`);
+			text.setText(heading + paint(theme, "faint", ` · ${details.done}/${details.total}`));
 			return text;
 		},
 	});

@@ -12,6 +12,7 @@ import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
@@ -102,7 +103,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 			const text = reuseText(context.lastComponent);
 			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
-					theme.fg("muted", formatCallText(args.objective, context.argsComplete, args.status)),
+					paint(theme, "meta", formatCallText(args.objective, context.argsComplete, args.status)),
 			);
 			return text;
 		},
@@ -116,12 +117,12 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				return text;
 			}
 			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 			if (!details.goal) {
 				// A neutral marker, deliberately not the achieved check.
-				text.setText(theme.fg("dim", `${GLYPHS.stopped} `) + theme.fg("muted", "Cleared the goal"));
+				text.setText(paint(theme, "faint", `${GLYPHS.stopped} `) + paint(theme, "meta", "Cleared the goal"));
 				return text;
 			}
 			const body = resultBody(details.goal, expanded, theme);

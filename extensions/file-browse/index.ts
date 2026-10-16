@@ -14,6 +14,7 @@ import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { loadConfig, randomPort } from "./config.ts";
 import { createGitDiff, createGitStatus } from "./git.ts";
 import { openInBrowser } from "../../lib/browser.ts";
@@ -45,7 +46,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			const value =
 				port === undefined
 					? undefined
-					: `${ctx.ui.theme.fg("success", GLYPHS.browse)} ${ctx.ui.theme.fg("accent", String(port))}`;
+					: `${paint(ctx.ui.theme, "ok", GLYPHS.browse)} ${paint(ctx.ui.theme, "accent", String(port))}`;
 			ctx.ui.setStatus(STATUS_KEYS.browse, value);
 		} catch {
 			// A UI without a theme or setStatus must not break the command.

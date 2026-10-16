@@ -7,6 +7,7 @@ import { askHuman } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
@@ -73,12 +74,12 @@ export function registerTools(pi: ExtensionAPI): void {
 			const count = raw.length;
 			const noun = count === 1 ? "question" : "questions";
 			const headers = questionHeaders(raw);
-			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", `${count} ${noun}`);
-			if (headers.length > 0) text += theme.fg("dim", ` (${headers.join(", ")})`);
+			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "meta", `${count} ${noun}`);
+			if (headers.length > 0) text += paint(theme, "faint", ` (${headers.join(", ")})`);
 
 			// One indented line per question that offers options, so a long option list
 			// stays mapped to its question instead of wrapping on a single row.
-			for (const line of optionSummary(raw)) text += `\n${theme.fg("dim", `  ${line}`)}`;
+			for (const line of optionSummary(raw)) text += `\n${paint(theme, "faint", `  ${line}`)}`;
 
 			const component = reuseText(context?.lastComponent);
 			component.setText(text);
@@ -94,26 +95,26 @@ export function registerTools(pi: ExtensionAPI): void {
 				return component;
 			}
 			if (details.unavailable) {
-				component.setText(theme.fg("dim", UNAVAILABLE_TEXT));
+				component.setText(paint(theme, "faint", UNAVAILABLE_TEXT));
 				return component;
 			}
 			if (details.answers.length === 0) {
-				component.setText(theme.fg("warning", "Cancelled"));
+				component.setText(paint(theme, "warn", "Cancelled"));
 				return component;
 			}
 
 			const lines = details.answers.map((answer) => {
-				const header = theme.fg("accent", sanitizeLine(answer.header));
+				const header = paint(theme, "accent", sanitizeLine(answer.header));
 				if (answer.wasCustom) {
 					const values = answer.values.map((value) => sanitizeLine(value)).join("; ");
-					return `${theme.fg("success", `${GLYPHS.check} `)}${header}: ${theme.fg("muted", "(wrote) ")}${values}`;
+					return `${paint(theme, "ok", `${GLYPHS.check} `)}${header}: ${paint(theme, "meta", "(wrote) ")}${values}`;
 				}
 				const numbered = answer.labels
 					.map((label, i) => `${answer.indices?.[i] ?? "?"}. ${sanitizeLine(label)}`)
 					.join(", ");
-				return `${theme.fg("success", `${GLYPHS.check} `)}${header}: ${numbered}`;
+				return `${paint(theme, "ok", `${GLYPHS.check} `)}${header}: ${numbered}`;
 			});
-			if (details.cancelled) lines.push(theme.fg("warning", "(cancelled)"));
+			if (details.cancelled) lines.push(paint(theme, "warn", "(cancelled)"));
 			// A blank line separates the call header from a multi-line answer body.
 			component.setText(lines.length > 1 ? `\n${lines.join("\n")}` : lines.join("\n"));
 			return component;

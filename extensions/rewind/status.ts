@@ -9,6 +9,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import type { RewindConfig } from "./config.ts";
 import { userMessagesFromBranch } from "./timeline.ts";
 
@@ -45,7 +46,7 @@ export function createStatusChip(deps: StatusChipDeps): StatusChip {
 			const label = `${STATUS_GLYPH} ${count}`;
 			let themed = label;
 			try {
-				themed = ctx.ui.theme.fg("accent", label);
+				themed = paint(ctx.ui.theme, "accent", label);
 			} catch {
 				// No initialized theme in a headless run.
 			}

@@ -15,6 +15,7 @@ import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-c
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
 import { createFetchRunner, WechatClient } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";
@@ -34,9 +35,9 @@ import { registerTools } from "./tools.ts";
 export function wechatChip(theme: Theme, state: BridgeState): string | undefined {
 	switch (state) {
 		case "running":
-			return theme.fg("success", `${GLYPHS.wechat} wechat`);
+			return paint(theme, "ok", `${GLYPHS.wechat} wechat`);
 		case "expired":
-			return theme.fg("error", `${GLYPHS.wechat} wechat expired`);
+			return paint(theme, "bad", `${GLYPHS.wechat} wechat expired`);
 		case "stopped":
 			return undefined;
 	}

@@ -10,6 +10,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { missingFindings } from "../../../lib/requirements.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
+import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
 import { formatExtension, formatReport, isProblemSeverity } from "./format.ts";
 import type { DoctorRuntime } from "./runtime.ts";
 import { DoctorOutput, DoctorParams, TOOL_NAME, type DoctorArgs, type DoctorStructured } from "./schema.ts";
@@ -93,20 +94,20 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 			const input = args as DoctorArgs;
 			const scope = `${input.extension ? ` ${input.extension}` : ""}${input.refresh ? " (refresh)" : ""}`;
 			const text = reuseText(context?.lastComponent);
-			text.setText(`${theme.fg("toolTitle", "doctor")}${theme.fg("dim", scope)}`);
+			text.setText(`${theme.fg("toolTitle", "doctor")}${paint(theme, "faint", scope)}`);
 			return text;
 		},
 
 		renderResult(result, _options, theme, context) {
 			const structured = toolDetails<DoctorStructured>(result.details);
-			const tone = (structured?.missing ?? 0) > 0 ? "error" : (structured?.degraded ?? 0) > 0 ? "warning" : "success";
+			const tone: TuiRole = (structured?.missing ?? 0) > 0 ? "bad" : (structured?.degraded ?? 0) > 0 ? "warn" : "ok";
 			const text = reuseText(context?.lastComponent);
 			if (!structured) {
 				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : theme.fg("muted", "doctor: no result"));
+				text.setText(first?.type === "text" ? first.text : paint(theme, "meta", "doctor: no result"));
 				return text;
 			}
-			text.setText(theme.fg(tone, summaryLines(structured).join("\n")));
+			text.setText(paint(theme, tone, summaryLines(structured).join("\n")));
 			return text;
 		},
 	});

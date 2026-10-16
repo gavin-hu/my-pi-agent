@@ -21,6 +21,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { sanitizeLine } from "../../lib/format.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
 import type { PlanModeEntry } from "./types.ts";
 
@@ -143,7 +144,7 @@ export function createPlanRuntime(
 		lastPlanPath ? `${GLYPHS.plan} plan · ${statusName(lastPlanPath)}` : `${GLYPHS.plan} plan`;
 
 	const setStatus = (ctx: ExtensionContext): void => {
-		ctx.ui.setStatus(STATUS_KEYS.planMode, enabled ? ctx.ui.theme.fg("warning", statusText()) : undefined);
+		ctx.ui.setStatus(STATUS_KEYS.planMode, enabled ? paint(ctx.ui.theme, "warn", statusText()) : undefined);
 	};
 
 	const setEnabled = (next: boolean, ctx: ExtensionContext | undefined, persist: boolean): void => {

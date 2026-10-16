@@ -12,6 +12,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge } from "./bridge.ts";
 
 export const TOOL_NAME = "send_wechat";
@@ -85,7 +86,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 			const text = reuseText(context.lastComponent);
 			const body = (args as { text?: unknown }).text;
 			const label = context.argsComplete && typeof body === "string" ? sanitizeLine(body) : "…";
-			text.setText(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", label));
+			text.setText(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "meta", label));
 			return text;
 		},
 
@@ -93,16 +94,16 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 			const text = reuseText(context.lastComponent);
 			const details = toolDetails<{ sent?: boolean; error?: string }>(result.details);
 			if (details?.sent) {
-				text.setText(theme.fg("success", "sent to WeChat owner"));
+				text.setText(paint(theme, "ok", "sent to WeChat owner"));
 				return text;
 			}
 			if (details?.error) {
-				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 			// Pi's rejection result carries `{}`; show its message instead.
 			const first = result.content[0];
-			text.setText(first?.type === "text" ? first.text : theme.fg("error", "Error: send failed"));
+			text.setText(first?.type === "text" ? first.text : paint(theme, "bad", "Error: send failed"));
 			return text;
 		},
 	});

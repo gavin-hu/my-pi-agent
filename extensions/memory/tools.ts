@@ -12,6 +12,7 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { messageOf } from "./errors.ts";
 import { formatCallText, formatResultText, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";
@@ -142,7 +143,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 				args as { action?: unknown; text?: unknown; to?: unknown; scope?: unknown },
 				context.argsComplete,
 			);
-			text.setText(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + theme.fg("muted", body));
+			text.setText(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "meta", body));
 			return text;
 		},
 
@@ -155,7 +156,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 				return text;
 			}
 			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 			text.setText(formatResultText(details, expanded));

@@ -10,6 +10,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareJobs,
 	formatCallText,
@@ -225,20 +226,20 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				return text;
 			}
 			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 
 			if (options.isPartial) {
 				const id = details.job?.id;
-				text.setText(theme.fg("warning", id ? `Waiting on ${id}…` : "Waiting…"));
+				text.setText(paint(theme, "warn", id ? `Waiting on ${id}…` : "Waiting…"));
 				return text;
 			}
 
 			if (details.action === "logs" && details.logs !== undefined) {
 				const all = details.logs === "" ? [] : details.logs.split("\n");
 				if (all.length === 0) {
-					text.setText(theme.fg("muted", "No output yet."));
+					text.setText(paint(theme, "meta", "No output yet."));
 					return text;
 				}
 				const shown = options.expanded ? all : all.slice(Math.max(0, all.length - RESULT_ROWS));
@@ -250,7 +251,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 			if (details.action === "list" && details.jobs) {
 				if (details.jobs.length === 0) {
-					text.setText(theme.fg("muted", "No jobs."));
+					text.setText(paint(theme, "meta", "No jobs."));
 					return text;
 				}
 				const ordered = [...details.jobs].sort(compareJobs);
@@ -264,7 +265,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 			if (details.action === "clear") {
 				const count = details.cleared ?? 0;
 				text.setText(
-					theme.fg("muted", count === 0 ? "Nothing to clear." : `Cleared ${count} job${count === 1 ? "" : "s"}.`),
+					paint(theme, "meta", count === 0 ? "Nothing to clear." : `Cleared ${count} job${count === 1 ? "" : "s"}.`),
 				);
 				return text;
 			}
@@ -272,16 +273,16 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 			if (details.job) {
 				let line = formatJobOutcomeLine(details.job, theme);
 				if (details.action === "wait" && details.timedOut) {
-					line += theme.fg("warning", " · still running after the timeout");
+					line += paint(theme, "warn", " · still running after the timeout");
 				} else if (details.action === "wait" && details.cancelled) {
-					line += theme.fg("warning", " · wait cancelled; job still running");
+					line += paint(theme, "warn", " · wait cancelled; job still running");
 				} else if (details.action === "kill" && details.signalled) {
-					line += theme.fg("warning", ` · ${details.signal ?? "SIGTERM"} sent`);
+					line += paint(theme, "warn", ` · ${details.signal ?? "SIGTERM"} sent`);
 				} else if (details.action === "start") {
 					const badges: string[] = [];
 					if (details.job.detached) badges.push("detached");
 					if (details.job.wake) badges.push("wake");
-					if (badges.length > 0) line += theme.fg("dim", ` · ${badges.join(" · ")}`);
+					if (badges.length > 0) line += paint(theme, "faint", ` · ${badges.join(" · ")}`);
 				}
 				text.setText(line);
 				return text;

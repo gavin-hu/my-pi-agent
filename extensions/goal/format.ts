@@ -13,6 +13,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 
 /** Active-goal glyph. */
@@ -25,7 +26,7 @@ const CALL_PREVIEW_WIDTH = 48;
 
 /** Themed status glyph, shared by the widget and the transcript renderer. */
 export function goalGlyph(goal: Goal, theme: Theme): string {
-	return goal.status === "achieved" ? theme.fg("success", ACHIEVED_SYMBOL) : theme.fg("accent", ACTIVE_SYMBOL);
+	return goal.status === "achieved" ? paint(theme, "ok", ACHIEVED_SYMBOL) : paint(theme, "accent", ACTIVE_SYMBOL);
 }
 
 /** Human label for a status, e.g. `active`. */
@@ -38,10 +39,10 @@ export function goalStatusLabel(status: GoalStatus): string {
  * the status word is dim while active, success-colored once achieved.
  */
 export function goalHeader(goal: Goal, theme: Theme): string {
-	const label = theme.fg("accent", "Goal");
-	const separator = theme.fg("dim", " · ");
+	const label = paint(theme, "accent", "Goal");
+	const separator = paint(theme, "faint", " · ");
 	const word = goalStatusLabel(goal.status);
-	const status = goal.status === "achieved" ? theme.fg("success", word) : theme.fg("dim", word);
+	const status = goal.status === "achieved" ? paint(theme, "ok", word) : paint(theme, "faint", word);
 	return `${label}${separator}${status}`;
 }
 
@@ -52,15 +53,15 @@ export function goalHeader(goal: Goal, theme: Theme): string {
  * Callers clip it to the available width.
  */
 export function goalLine(goal: Goal, theme: Theme): string {
-	const separator = theme.fg("dim", " · ");
+	const separator = paint(theme, "faint", " · ");
 	const word = goalStatusLabel(goal.status);
-	const status = goal.status === "achieved" ? theme.fg("success", word) : theme.fg("dim", word);
-	return `${theme.fg("accent", "Goal")}${separator}${status}${separator}${goalObjective(goal, theme)}`;
+	const status = goal.status === "achieved" ? paint(theme, "ok", word) : paint(theme, "faint", word);
+	return `${paint(theme, "accent", "Goal")}${separator}${status}${separator}${goalObjective(goal, theme)}`;
 }
 
 /** Themed objective text: dim once achieved, normal while active. */
 export function goalObjective(goal: Goal, theme: Theme): string {
-	return goal.status === "achieved" ? theme.fg("dim", goal.objective) : theme.fg("text", goal.objective);
+	return goal.status === "achieved" ? paint(theme, "faint", goal.objective) : paint(theme, "label", goal.objective);
 }
 
 /** Model-facing result text. */

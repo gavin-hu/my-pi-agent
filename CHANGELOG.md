@@ -70,6 +70,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the kit's `centeredRule`. The rendered output is unchanged; `toolOutput` and
   `toolTitle` stay direct, since they are Pi's tool vocabulary rather than
   chrome.
+- every extension's tool renderer and status chip now draws through a
+  `lib/tui/` role (`paint`), completing the design-system sweep: no raw theme
+  token is left outside the kit, with Pi's `toolOutput` / `toolTitle` (
+  tool-block vocabulary, not chrome) the only exception. Rendered output is
+  unchanged.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report

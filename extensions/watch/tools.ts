@@ -10,6 +10,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareWatches,
 	formatCallText,
@@ -209,13 +210,13 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 				return text;
 			}
 			if (details.error) {
-				text.setText(theme.fg("error", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
 
 			if (details.action === "list" && details.watches) {
 				if (details.watches.length === 0) {
-					text.setText(theme.fg("muted", "No watchers."));
+					text.setText(paint(theme, "meta", "No watchers."));
 					return text;
 				}
 				const ordered = [...details.watches].sort(compareWatches);
@@ -232,7 +233,7 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 				const all = raw === "" ? [] : raw.split("\n");
 				const label = details.action === "matches" ? "matches" : "output";
 				if (all.length === 0) {
-					text.setText(theme.fg("muted", `No ${label} yet.`));
+					text.setText(paint(theme, "meta", `No ${label} yet.`));
 					return text;
 				}
 				const shownLines = options.expanded ? all : all.slice(Math.max(0, all.length - RESULT_ROWS));
@@ -251,7 +252,11 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 			if (details.action === "clear") {
 				const count = details.cleared ?? 0;
 				text.setText(
-					theme.fg("muted", count === 0 ? "Nothing to clear." : `Cleared ${count} watcher${count === 1 ? "" : "s"}.`),
+					paint(
+						theme,
+						"meta",
+						count === 0 ? "Nothing to clear." : `Cleared ${count} watcher${count === 1 ? "" : "s"}.`,
+					),
 				);
 				return text;
 			}
@@ -259,12 +264,12 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 			if (details.watch) {
 				let line = formatWatchOutcomeLine(details.watch, theme);
 				if (details.action === "stop") {
-					line += theme.fg("warning", details.stopped ? " · stopped" : " · already stopped");
+					line += paint(theme, "warn", details.stopped ? " · stopped" : " · already stopped");
 				} else if (details.action === "add") {
 					const badges: string[] = [];
 					if (details.watch.wake) badges.push("wake");
 					if (details.watch.fromStart) badges.push("from start");
-					if (badges.length > 0) line += theme.fg("dim", ` · ${badges.join(" · ")}`);
+					if (badges.length > 0) line += paint(theme, "faint", ` · ${badges.join(" · ")}`);
 				}
 				text.setText(line);
 				return text;
