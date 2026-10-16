@@ -52,11 +52,6 @@ export const TUI_TOKENS: Readonly<Record<TuiRole, ThemeColor>> = {
 	info: "muted",
 };
 
-/** The theme color a role resolves to. */
-export function token(role: TuiRole): ThemeColor {
-	return TUI_TOKENS[role];
-}
-
 /** Paint `text` in a role's color. */
 export function paint(theme: Theme, role: TuiRole, text: string): string {
 	return theme.fg(TUI_TOKENS[role], text);

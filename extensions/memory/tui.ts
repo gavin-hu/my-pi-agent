@@ -378,9 +378,6 @@ export class MemoryPickerComponent implements Component {
 		const body: string[] = [];
 		for (const line of this.editor.render(Math.max(1, width - 2))) body.push(`${pad}${line}`);
 		return dockListFrame({
-			theme: this.theme,
-			width,
-			title: `Memory · ${verb} ${scope}`,
 			header: titleRule(this.theme, width, `Memory · ${verb} ${scope}`),
 			summary: clip(
 				`  ${paint(this.theme, "meta", this.mode === "edit" ? "Editing the focused note" : `New ${scope} note`)}`,
@@ -417,9 +414,6 @@ export class MemoryPickerComponent implements Component {
 				: screenHint(this.theme, w, ["Esc close", "Enter/e edit", "a add", "d forget", "s/Tab scope", "↑/↓", "g/G"]);
 
 		return dockListFrame({
-			theme: this.theme,
-			width: w,
-			title: "Memory",
 			header: titleRule(this.theme, w, "Memory"),
 			summary: this.summary(w),
 			body,

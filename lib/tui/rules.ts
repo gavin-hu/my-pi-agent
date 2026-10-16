@@ -1,18 +1,14 @@
 /**
  * The rule grammar: how a surface draws a horizontal divider.
  *
- * Three shapes, all built from one idea — a run of a single-column glyph, with
- * an optional label — so a screen header, a section heading, and the turn
- * separator read as one family:
+ * Two shapes, built from one idea — a run of a single-column glyph, with an
+ * optional label — so a screen title and a centered rule read as one family:
  *
- *   title    Extensions ──────────────────   (label first, accent)
- *   section  Task ──────────────────────     (label first, muted)
- *   centered      ╌╌╌╌╌╌ turn 3 ╌╌╌╌╌╌       (label centered)
+ *   title     Extensions ──────────────────   (label first, accent)
+ *   centered       ╌╌╌╌╌╌ turn 3 ╌╌╌╌╌╌       (label centered)
  *
  * A rule degrades to a plain fill rather than truncating a label into an
- * ellipsis, matching Pi's built-in header. The transcript `─── label ───` shape
- * still lives in `chrome.ts` as `screenHeader`, which the not-yet-migrated
- * screens call; delete it once the last of them moves here.
+ * ellipsis, matching Pi's built-in header.
  *
  * Value-only: pure functions, theme passed in.
  */
@@ -51,11 +47,6 @@ export function plainRule(theme: Theme, width: number, style: RuleStyle = {}): s
 /** The label-first shape a screen or panel title uses. */
 export function titleRule(theme: Theme, width: number, label: string, style: RuleStyle = {}): string {
 	return labelRule(theme, width, label, "title", "rule", style);
-}
-
-/** The label-first shape a section heading inside a screen uses. */
-export function sectionRule(theme: Theme, width: number, label: string, style: RuleStyle = {}): string {
-	return labelRule(theme, width, label, "meta", "rule", style);
 }
 
 /** A label-first rule: the label at the margin, a fill to the edge. */

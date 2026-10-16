@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { dockListFrame, screenHeader, screenHint, viewportRows } from "./chrome.ts";
+import { dockListFrame, screenHint, viewportRows } from "./chrome.ts";
+import { titleRule } from "./rules.ts";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 
 describe("viewportRows", () => {
@@ -27,22 +28,6 @@ describe("viewportRows", () => {
 		rows = 15;
 		expect(viewportRows(() => rows, options)).toBe(8);
 		expect(viewportRows(() => undefined, options)).toBe(12);
-	});
-});
-
-describe("screenHeader", () => {
-	test("is exactly the requested width and includes the label", () => {
-		for (const width of [1, 20, 60, 120]) {
-			const line = screenHeader(fakeTheme, width, "Plan Review");
-			expect(visibleWidth(line)).toBe(width);
-		}
-		expect(screenHeader(fakeTheme, 60, "Plan Review")).toContain("Plan Review");
-	});
-
-	test("degrades to a plain rule when too narrow for the label", () => {
-		const line = screenHeader(fakeTheme, 4, "Checkpoints");
-		expect(line).not.toContain("Checkpoints");
-		expect(visibleWidth(line)).toBe(4);
 	});
 });
 
@@ -73,42 +58,25 @@ describe("screenHint", () => {
 describe("dockListFrame", () => {
 	test("assembles the header, summary, body, and hint with the shared blanks", () => {
 		const lines = dockListFrame({
-			theme: fakeTheme,
-			width: 40,
-			title: "Jobs",
+			header: "Jobs ──────",
 			summary: " 1 job",
 			body: ["  a", "  b"],
 			hint: "  Esc close",
 		});
 
-		expect(lines[0]).toContain("Jobs");
+		expect(lines[0]).toBe("Jobs ──────");
 		expect(lines.slice(1)).toEqual([" 1 job", "", "  a", "  b", "", "  Esc close", ""]);
 	});
 
-	test("a pre-rendered header replaces the default rule", () => {
-		const lines = dockListFrame({
-			theme: fakeTheme,
-			width: 20,
-			title: "Jobs",
-			header: "Jobs ──────────────",
-			body: ["  a"],
-			hint: "  Esc",
-		});
-
-		expect(lines[0]).toBe("Jobs ──────────────");
-	});
-
 	test("omits the summary and its blank line when absent", () => {
-		const lines = dockListFrame({ theme: fakeTheme, width: 20, title: "Jobs", body: ["  a"], hint: "  Esc" });
+		const lines = dockListFrame({ header: "Jobs", body: ["  a"], hint: "  Esc" });
 
 		expect(lines.slice(1)).toEqual(["  a", "", "  Esc", ""]);
 	});
 
 	test("places the range after the body and the detail after the range", () => {
 		const lines = dockListFrame({
-			theme: fakeTheme,
-			width: 20,
-			title: "Jobs",
+			header: "Jobs",
 			body: ["  a"],
 			range: "  1/2",
 			detail: ["  detail"],
@@ -118,12 +86,10 @@ describe("dockListFrame", () => {
 		expect(lines.slice(1)).toEqual(["  a", "  1/2", "  detail", "", "  Esc", ""]);
 	});
 
-	test("keeps the header and hint inside the width", () => {
+	test("keeps the caller's header and the hint inside the width", () => {
 		for (const width of [1, 8, 20, 80]) {
 			const lines = dockListFrame({
-				theme: fakeTheme,
-				width,
-				title: "Extensions",
+				header: titleRule(fakeTheme, width, "Extensions"),
 				body: [],
 				hint: screenHint(fakeTheme, width, ["Esc close"]),
 			});

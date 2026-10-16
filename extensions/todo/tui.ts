@@ -160,9 +160,6 @@ export class TodoListComponent implements Component {
 
 		if (this.todos.length === 0) {
 			return dockListFrame({
-				theme: this.theme,
-				width: w,
-				title: "Todos",
 				header,
 				body: emptyState(this.theme, w, { label: "No todos yet. Ask the agent to plan some work." }),
 				hint: screenHint(this.theme, w, ["Esc close"]),
@@ -179,9 +176,6 @@ export class TodoListComponent implements Component {
 		for (let i = this.scrollTop; i < end; i++) body.push(todoRow(this.todos[i], this.theme, w));
 
 		return dockListFrame({
-			theme: this.theme,
-			width: w,
-			title: "Todos",
 			header,
 			summary: clip(`  ${paint(this.theme, "meta", progressSummary(this.todos))}`, w),
 			body,

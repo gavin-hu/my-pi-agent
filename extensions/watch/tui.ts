@@ -331,9 +331,6 @@ export class WatchListComponent implements Component {
 					]);
 
 		return dockListFrame({
-			theme: this.theme,
-			width: w,
-			title: "Watch",
 			header: titleRule(this.theme, w, "Watch"),
 			summary: this.summary(watches, w),
 			body,
@@ -361,9 +358,6 @@ export class WatchListComponent implements Component {
 		}
 
 		return dockListFrame({
-			theme: this.theme,
-			width: w,
-			title: "Watch Matches",
 			header: titleRule(this.theme, w, this.pane.title("Watch Matches")),
 			summary: clip(`  ${paint(this.theme, "faint", this.pane.subtitleLine())}`, w),
 			body,

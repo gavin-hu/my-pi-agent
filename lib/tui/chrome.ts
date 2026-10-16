@@ -36,21 +36,6 @@ export const FULL_SCREEN_OVERLAY: { overlay: true; overlayOptions: OverlayOption
 	overlayOptions: { width: "100%", maxHeight: "100%", anchor: "top-left", margin: 0 },
 };
 
-/**
- * Top border with `label` centered-left, exactly `width` columns wide. When the
- * terminal is too narrow for the title and a border on each side, it degrades to
- * a plain rule rather than truncating the title into an ellipsis.
- */
-export function screenHeader(theme: Theme, width: number, label: string): string {
-	const text = ` ${label} `;
-	const prefix = "───";
-	if (width < visibleWidth(prefix) + visibleWidth(text) + 1) {
-		return theme.fg("borderMuted", "─".repeat(Math.max(0, width)));
-	}
-	const remaining = width - visibleWidth(prefix) - visibleWidth(text);
-	return theme.fg("borderMuted", prefix) + theme.fg("accent", text) + theme.fg("borderMuted", "─".repeat(remaining));
-}
-
 /** A row count, or a live getter so a screen re-sizes with the terminal. */
 export type ViewportRowsSource = number | (() => number | undefined);
 
@@ -105,14 +90,8 @@ export function screenHint(theme: Theme, width: number, hints: ScreenHint[]): st
  * the frame only places them.
  */
 export interface DockListFrame {
-	/** Semantic theme for the header rule and the hint row. */
-	theme: Theme;
-	/** Body width in columns. */
-	width: number;
-	/** The header label, e.g. `Extensions`. Used by the default `─── label ───` rule. */
-	title: string;
-	/** A pre-rendered header line that replaces the default rule, e.g. a `titleRule`. */
-	header?: string;
+	/** The pre-rendered header line, usually `titleRule(theme, width, title)`. */
+	header: string;
 	/** A summary line under the header; a blank line follows it. */
 	summary?: string;
 	/** The list rows, or the screen's single empty-state line. */
@@ -126,18 +105,16 @@ export interface DockListFrame {
 }
 
 /**
- * Assemble a docked list screen: the `─` header rule, an optional summary and
- * its blank line, the body, an optional range row, optional detail rows, and
+ * Assemble a docked list screen: the caller's header rule, an optional summary
+ * and its blank line, the body, an optional range row, optional detail rows, and
  * the blank-line-padded key-hint footer.
  *
- * This is the convention the bytefly panel (`/bytefly`, and its `doctor`
- * report) shares with `/jobs` and `/todos`. `/rewind` (a blank
- * after the header and no blank before the hint) places its blanks differently,
- * so it stays hand-rolled rather than changing its output to fit this helper.
+ * This is the convention every docked list screen shares — the bytefly panel,
+ * `/jobs`, `/watch`, `/todos`, `/memory`, and `/rewind`. The header line is built
+ * by the caller (usually `titleRule`), so the frame never picks a rule style.
  */
 export function dockListFrame(frame: DockListFrame): string[] {
-	const width = Math.max(1, frame.width);
-	const lines: string[] = [frame.header ?? screenHeader(frame.theme, width, frame.title)];
+	const lines: string[] = [frame.header];
 	if (frame.summary !== undefined) lines.push(frame.summary, "");
 	lines.push(...frame.body);
 	if (frame.range !== undefined) lines.push(frame.range);

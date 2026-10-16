@@ -1,15 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
-import { paint, TUI_TOKENS, token, type TuiRole } from "./tokens.ts";
+import { paint, TUI_TOKENS, type TuiRole } from "./tokens.ts";
 
 const ROLES = Object.keys(TUI_TOKENS) as TuiRole[];
 
 describe("TUI_TOKENS", () => {
 	test("every role resolves to a theme color", () => {
-		for (const role of ROLES) {
-			expect(typeof TUI_TOKENS[role]).toBe("string");
-			expect(token(role)).toBe(TUI_TOKENS[role]);
-		}
+		for (const role of ROLES) expect(typeof TUI_TOKENS[role]).toBe("string");
 	});
 
 	test("paint routes each role through the theme's own color", () => {

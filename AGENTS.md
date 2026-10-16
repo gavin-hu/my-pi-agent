@@ -145,7 +145,7 @@ use it rather than re-deriving chrome, glyphs, or scroll math.
   block, nothing trailing (the host owns spacing); frame screens with a plain
   `─` rule, not box corners.
 - Reach for a `lib/tui/` primitive before composing your own: `titleRule` /
-  `sectionRule` for a heading, `listRow` / `checkbox` for a list, `gaugeBar` for
+  `titleRule` for a heading, `listRow` / `checkbox` for a list, `gaugeBar` for
   a meter, `emptyState` for an empty screen, and `splitRow` / `fitCells` for two
   columns.
 - Speak the built-in visual language: resolve colors through a `lib/tui/tokens.ts`
@@ -170,7 +170,7 @@ use it rather than re-deriving chrome, glyphs, or scroll math.
   `requestRender()` only after state changes; never hold themed strings in
   state unless `invalidate()` rebuilds them. A widget is derived from state,
   never authoritative.
-- Size from the live viewport: `screenHeader`, `viewportRows`, `fitRows`, and
+- Size from the live viewport: `titleRule`, `viewportRows`, `fitRows`, and
   `ListCursor`, fed by a `ViewportRowsSource` (number or getter) with a sensible
   fallback, so a resize is picked up. List screens stay docked; only the plan
   review uses `FULL_SCREEN_OVERLAY`.

@@ -370,9 +370,6 @@ export class JobListComponent implements Component {
 					]);
 
 		return dockListFrame({
-			theme: this.theme,
-			width: w,
-			title: "Jobs",
 			header: titleRule(this.theme, w, "Jobs"),
 			summary: this.summary(jobCounts(jobs), w),
 			body,
@@ -400,9 +397,6 @@ export class JobListComponent implements Component {
 		}
 
 		return dockListFrame({
-			theme: this.theme,
-			width: w,
-			title: "Job Logs",
 			header: titleRule(this.theme, w, this.pane.title("Job Logs")),
 			summary: clip(`  ${paint(this.theme, "faint", this.pane.subtitleLine())}`, w),
 			body,

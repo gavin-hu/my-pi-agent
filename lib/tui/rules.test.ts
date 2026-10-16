@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
-import { centeredRule, plainRule, sectionRule, titleRule } from "./rules.ts";
+import { centeredRule, plainRule, titleRule } from "./rules.ts";
 
 /** Column counts exercised by the width sweep. */
 const WIDTHS = Array.from({ length: 115 }, (_, index) => index + 6);
@@ -38,12 +38,6 @@ describe("titleRule", () => {
 	test("every result fits the width", () => {
 		for (const width of WIDTHS)
 			expect(visibleWidth(titleRule(fakeTheme, width, "Extensions"))).toBeLessThanOrEqual(width);
-	});
-});
-
-describe("sectionRule", () => {
-	test("uses the muted label role and keeps the shape", () => {
-		expect(sectionRule(coloringTheme, 8, "Task")).toBe("[muted]Task" + " " + "[borderMuted]" + "─".repeat(3));
 	});
 });
 

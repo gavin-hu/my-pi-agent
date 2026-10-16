@@ -338,9 +338,6 @@ export class PanelComponent implements Component {
 
 		if (entries.length === 0) {
 			return dockListFrame({
-				theme: this.theme,
-				width: w,
-				title: "bytefly",
 				header,
 				summary,
 				body: emptyState(this.theme, w, { label: "No extensions found." }),
@@ -374,9 +371,6 @@ export class PanelComponent implements Component {
 		}
 
 		return dockListFrame({
-			theme: this.theme,
-			width: w,
-			title: "bytefly",
 			header,
 			summary,
 			body,
