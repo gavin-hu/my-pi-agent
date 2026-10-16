@@ -504,9 +504,9 @@ async function captureChrome(): Promise<void> {
 			set index of window id ${id} to 1
 		end tell`);
 		await sleep(400);
-		const out = join(repo, "assets", "bytefly-chrome.png");
+		const out = join(repo, "assets", "chrome.png");
 		await captureWindow(id, out);
-		console.log("assets/bytefly-chrome.png");
+		console.log("assets/chrome.png");
 	} finally {
 		try {
 			execFileSync("pkill", ["-f", session], { stdio: "ignore" });
