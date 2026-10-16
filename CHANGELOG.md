@@ -116,6 +116,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: a framed `edit` block sat one column deeper than every other tool
+  whenever the output-pad setting was on. Pi's `edit` is a natively self-shell
+  renderer and pads its own box by `outputPad`, and the frame applied the pad
+  again; the frame now hands the base renderer `outputPad: 0` and applies the
+  pad once, so the headline and diff line up with the rest of the transcript.
 - `bytefly`: a shell call whose command wraps past the width kept the accent (and
   the bold) on its wrapped fragments — only the first rendered line was
   repainted. The call string is recoloured before it wraps, so the whole command

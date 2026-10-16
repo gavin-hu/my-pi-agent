@@ -56,6 +56,32 @@ describe("registerToolBlocks", () => {
 		expect(lines[0]?.trimEnd()).toBe("  base result");
 	});
 
+	test("takes the output pad from the frame, never the base renderer", () => {
+		const seen: number[] = [];
+		const renderers = resolver()("edit", () => ({
+			renderShell: "self" as const,
+			renderCall: (_args: unknown, _theme: unknown, context: any) => {
+				seen.push(context.outputPad);
+				return new Text("edit x\nbody", 0, 0);
+			},
+			renderResult: (_r: unknown, _o: unknown, _t: unknown, context: any) => {
+				seen.push(context.outputPad);
+				return new Text("done", 0, 0);
+			},
+		}));
+		// The base owns no pad; the frame applies the host's once (headline at 1, body at 3).
+		const lines = renderers?.renderCall?.({}, fakeTheme, ctx({ outputPad: 1 })).render(40) ?? [];
+		expect(seen).toEqual([0]);
+		expect(lines.map((line: string) => line.trimEnd())).toEqual([" edit x", "   body"]);
+		renderers?.renderResult?.(
+			{ content: [] } as any,
+			{ expanded: false, isPartial: false },
+			fakeTheme,
+			ctx({ outputPad: 1 }),
+		);
+		expect(seen).toEqual([0, 0]);
+	});
+
 	test("frames a generic fallback when the base has no renderer", () => {
 		const renderers = resolver()("mystery", () => undefined);
 		const lines = renderers?.renderCall?.({ q: "hi" }, fakeTheme, ctx()).render(60) ?? [];

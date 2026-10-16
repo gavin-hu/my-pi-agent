@@ -22,6 +22,12 @@
  * row's shared `state` and hands *that* back, so the base updates in place while
  * we wrap the result in a fresh frame.
  *
+ * Because the frame takes over the row's `outputPad`, the base renderer is
+ * handed `outputPad: 0`. Pi's `edit` is a natively self-shell renderer and pads
+ * its own `Box` by `context.outputPad`; leaving the host value in place would
+ * add the pad twice and set the whole edit block a column deeper than every
+ * other block. The frame is the only place that applies the pad.
+ *
  * Before framing, a shell call's `$ <command>` string is rewritten so the tool
  * name keeps the accent and the command reads as the body (`recolorShellCall`).
  * Doing it on the string rather than the wrapped lines keeps the whole command
@@ -63,8 +69,11 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 			renderCall: (args, theme, context) => {
 				const memory = context.state as BlockMemory;
 				const inner =
-					base?.renderCall?.(args, theme, { ...context, lastComponent: memory.byteflyBaseCall }) ??
-					new Text(callFallback(toolName, args, theme, context.expanded), 0, 0);
+					base?.renderCall?.(args, theme, {
+						...context,
+						outputPad: 0,
+						lastComponent: memory.byteflyBaseCall,
+					}) ?? new Text(callFallback(toolName, args, theme, context.expanded), 0, 0);
 				memory.byteflyBaseCall = inner;
 				// Split a shell call's roles before the frame wraps it: Pi renders
 				// `$ <cmd>` as one `toolTitle` run, so a rewrite after wrapping would
@@ -84,8 +93,11 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 			renderResult: (result, options, theme, context) => {
 				const memory = context.state as BlockMemory;
 				const inner =
-					base?.renderResult?.(result, options, theme, { ...context, lastComponent: memory.byteflyBaseResult }) ??
-					new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
+					base?.renderResult?.(result, options, theme, {
+						...context,
+						outputPad: 0,
+						lastComponent: memory.byteflyBaseResult,
+					}) ?? new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
 				memory.byteflyBaseResult = inner;
 				// A tool's own leading spacer would open the body with a gap, so drop it.
 				return new ToolBlock(inner, context.outputPad, { trimLeading: true });
