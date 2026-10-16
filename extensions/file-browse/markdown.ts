@@ -31,6 +31,22 @@ import { encodePath } from "./paths.ts";
 const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 const SAFE_LINK_SCHEME = /^(?:https?|mailto):/i;
 const HTTP_SCHEME = /^https?:/i;
+/** A GFM extended autolink: `http(s)://` or `www.` followed by a domain. */
+const AUTOLINK = /^(?:https?:\/\/|www\.)[^\s<>]*/i;
+
+/** GFM starts an autolink at the line start or after whitespace or one of `*_~(`. */
+function autolinkBoundary(text: string, index: number): boolean {
+	return index === 0 || /[\s*_~(]/.test(text[index - 1]);
+}
+
+/** Drop the trailing punctuation GFM excludes, and an unclosed `)`. */
+function trimAutolink(url: string): string {
+	let end = url.replace(/[.,;:!?*_~]+$/, "");
+	while (end.endsWith(")") && (end.match(/\(/g)?.length ?? 0) < (end.match(/\)/g)?.length ?? 0)) {
+		end = end.slice(0, -1).replace(/[.,;:!?*_~]+$/, "");
+	}
+	return end;
+}
 /** A link reference definition: `[id]: dest "title"`. */
 const DEFINITION = /^ {0,3}\[([^\]]+)\]:\s*(\S+)(?:\s+["'(]([^"')]*)["')])?\s*$/;
 
@@ -797,6 +813,23 @@ function renderInline(text: string, ctx: Context): string {
 				out += `<a href="${escapeHtml(href)}"${external}>${escapeHtml(href)}</a>`;
 				i += match[0].length;
 				continue;
+			}
+		}
+
+		// GFM extended autolink: a bare `https://` or `www.` URL in running text.
+		if ((char === "h" || char === "H" || char === "w" || char === "W") && autolinkBoundary(text, i)) {
+			const match = AUTOLINK.exec(text.slice(i));
+			if (match) {
+				const label = trimAutolink(match[0]);
+				const dots = label.indexOf(".");
+				// Require a domain, so a bare scheme is not a link.
+				if (dots > 0 && /\.[^./]/.test(label.slice(dots))) {
+					const href = /^www\./i.test(label) ? `http://${label}` : label;
+					const external = HTTP_SCHEME.test(href) ? ` target="_blank" rel="noopener noreferrer"` : "";
+					out += `<a href="${escapeHtml(href)}"${external}>${escapeHtml(label)}</a>`;
+					i += label.length;
+					continue;
+				}
 			}
 		}
 

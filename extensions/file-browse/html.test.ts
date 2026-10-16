@@ -751,3 +751,102 @@ describe("renderFileDiffPage", () => {
 		expect(empty).toContain("No changes for this file.");
 	});
 });
+
+describe("viewing surface", () => {
+	test("names the root listing after the served folder", () => {
+		fixture = makeFixture();
+		const html = renderDirectoryPage({
+			rootLabel: "/srv/aurora",
+			rel: "",
+			listing: { entries: [], total: 0, truncated: false },
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		});
+		expect(html).toContain('id="page-title">aurora</h1>');
+		expect(html).not.toContain('id="page-title">/</h1>');
+	});
+
+	test("drops the octet-stream metadata and footers the path", () => {
+		fixture = makeFixture();
+		const html = renderFilePage({
+			rootLabel: fixture.root,
+			rel: "sub/b.md",
+			tree,
+			maxFileBytes: 1_000_000,
+			file: {
+				kind: "markdown",
+				lines: ["# hi"],
+				truncated: false,
+				totalLines: 1,
+				size: 5,
+				mtimeMs: MTIME_MS,
+				mime: "application/octet-stream",
+			},
+		});
+		expect(html).toContain("Markdown ·");
+		expect(html).not.toContain("application/octet-stream");
+		expect(html).toContain("read-only · sub/b.md</footer>");
+	});
+
+	test("measures the rendered Markdown column and ships the review chrome", () => {
+		fixture = makeFixture();
+		const html = renderFilePage({
+			rootLabel: fixture.root,
+			rel: "sub/b.md",
+			tree,
+			maxFileBytes: 1_000_000,
+			file: {
+				kind: "markdown",
+				lines: ["# hi"],
+				truncated: false,
+				totalLines: 1,
+				size: 5,
+				mtimeMs: MTIME_MS,
+				mime: "application/octet-stream",
+			},
+		});
+		expect(html).toContain('class="bf-app__main browse-page browse-measure"');
+		expect(html).toContain("--browse-measure");
+		expect(html).toContain('id="keys-open"');
+		expect(html).toContain('id="keys-dialog" hidden');
+		expect(html).toContain('id="progress-fill"');
+		expect(html).toContain("Toggle rendered and raw");
+		expect(html).toContain("/ ⌘K");
+	});
+
+	test("anchors hunk headers and summarises a file diff", () => {
+		fixture = makeFixture();
+		const lines = renderDiffLines([
+			{ kind: "hunk", text: "@@ -1 +1 @@" },
+			{ kind: "ctx", text: "keep", oldNo: 1, newNo: 1 },
+			{ kind: "hunk", text: "@@ -9 +9 @@" },
+		]);
+		expect(lines).toContain('id="hunk-1" data-hunk="1"');
+		expect(lines).toContain('id="hunk-2" data-hunk="2"');
+
+		const html = renderFileDiffPage({
+			rootLabel: fixture.root,
+			rel: "a.ts",
+			mode: "head",
+			tree,
+			diff: {
+				mode: "head",
+				rel: "a.ts",
+				lines: [
+					{ kind: "hunk", text: "@@ -1 +1 @@" },
+					{ kind: "del", text: "old", oldNo: 1 },
+					{ kind: "add", text: "new", newNo: 1 },
+					{ kind: "add", text: "more", newNo: 2 },
+				],
+				binary: false,
+				truncated: false,
+			},
+		});
+		expect(html).toContain("browse-diff-summary");
+		expect(html).toContain("+2");
+		expect(html).toContain("−1");
+		expect(html).toContain("1 hunk");
+		expect(html).toContain("Next and previous change");
+	});
+});

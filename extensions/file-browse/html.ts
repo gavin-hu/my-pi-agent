@@ -149,9 +149,38 @@ body.palette-open{overflow:hidden}
 .bf-diff-line--hunk{color:var(--accent);background:var(--canvas)}
 .bf-diff-line--meta{color:var(--muted)}
 .bf-diff-line--note{color:var(--muted);font-style:italic}
+/* A hunk header pins to the top of the diff viewport while its body scrolls. */
+.bf-diff .bf-diff-line--hunk{position:sticky;top:0;z-index:1}
+/* Reading progress, pinned to the sticky header's bottom edge. */
+.browse-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
+.browse-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
+/* File and diff pages: a measured reading column inside the card. */
+/* GitHub's markdown body width: one content column that headings, prose,
+   tables, code, and images all live in, with wide tables scrolling inside it. */
+.browse-measure{--browse-measure:1012px}
+.browse-measure .bf-md{max-width:var(--browse-measure);margin-inline:auto;padding-inline:0;padding-block:var(--space-4) var(--space-6)}
+.browse-measure .browse-md-outline{max-width:var(--browse-measure);margin:0 auto var(--space-3)}
+.bf-card__meta{font-variant-numeric:tabular-nums}
+.browse-diff-summary{font-family:var(--font-mono);white-space:nowrap}
+.browse-diff-summary .browse-diff-add{color:var(--success)}
+.browse-diff-summary .browse-diff-del{color:var(--danger)}
+.browse-hunks{color:var(--muted)}
+.browse-keys{display:grid;grid-template-columns:auto 1fr;gap:8px var(--space-4);margin:0;padding:var(--space-4)}
+.browse-keys dt{white-space:nowrap}
+.browse-keys dd{margin:0;color:var(--muted);font-size:var(--fs-sm)}
+.browse-kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--fs-xs) var(--font-mono);text-align:center}
+@media (max-width:820px){
+.browse-root{order:9;flex:1 1 100%;direction:ltr;text-align:left}
+}
 @media (max-width:520px){
 .bf-toolbar .bf-theme-toggle{margin-left:auto}
 }`;
+
+/** One row of the keyboard sheet: the key or chord, and what it does. */
+export interface KeyHint {
+	keys: string;
+	label: string;
+}
 
 interface Layout {
 	title: string;
@@ -161,9 +190,29 @@ interface Layout {
 	breadcrumbs: string;
 	main: string;
 	footerNote: string;
+	/** Extra classes on `main`, for page-scoped rules. */
+	mainClass?: string;
+	/** Rows for the `?` keyboard sheet; omitted when the page has no shortcuts. */
+	keys?: KeyHint[];
 	git?: GitStatus;
 	/** Changed-path index for the header chip and the tree markers; omitted when clean. */
 	summary?: ChangeSummary;
+}
+
+/** The `?` keyboard sheet, hidden until the client opens it. */
+function renderKeysSheet(keys: KeyHint[]): string {
+	const rows = keys
+		.map(
+			(key) =>
+				`<div><dt><kbd class="browse-kbd">${escapeHtml(key.keys)}</kbd></dt><dd>${escapeHtml(key.label)}</dd></div>`,
+		)
+		.join("");
+	return `<div class="bf-dialog" id="keys-dialog" hidden>
+<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="keys-title">
+<div class="bf-dialog__head"><h2 id="keys-title">Keyboard shortcuts</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="keys-close">Close</button></div>
+<dl class="browse-keys">${rows}</dl>
+</div>
+</div>`;
 }
 
 /** A full two-pane page. */
@@ -185,8 +234,9 @@ ${SPRITE}
   ${renderGit(layout.git)}
   ${renderChanges(layout.summary)}
   <span class="bf-chip bf-chip--accent">read-only</span>
+  <button type="button" class="bf-btn bf-btn--icon browse-keys-btn" id="keys-open" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
   <button type="button" class="bf-btn bf-btn--icon bf-theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light and dark theme"><span class="theme-glyph" aria-hidden="true">☾</span></button>
-</div></header>
+</div><div class="browse-progress" aria-hidden="true"><span class="browse-progress__fill" id="progress-fill"></span></div></header>
 <div class="bf-app__body">
   <details class="bf-app__sidebar" open>
     <summary class="bf-panel__summary">Files</summary>
@@ -197,12 +247,13 @@ ${SPRITE}
       <p class="bf-note" id="tree-empty" hidden>No matches.</p>
     </aside>
   </details>
-  <main class="bf-app__main" id="main" tabindex="-1">
+  <main class="bf-app__main${layout.mainClass ? ` ${layout.mainClass}` : ""}" id="main" tabindex="-1">
     <nav class="bf-crumbs" aria-label="Breadcrumb">${layout.breadcrumbs}</nav>
 ${layout.main}
   </main>
 </div>
 <footer class="bf-app__footer">served from ${escapeHtml(layout.rootLabel)} · read-only · ${layout.footerNote}</footer>
+${layout.keys && layout.keys.length > 0 ? renderKeysSheet(layout.keys) : ""}
 <script src="/app.js" defer></script>
 </body>
 </html>
@@ -282,7 +333,8 @@ export interface DirectoryPage {
 
 /** Render a directory listing page. */
 export function renderDirectoryPage(page: DirectoryPage): string {
-	const folderName = page.rel ? page.rel.slice(page.rel.lastIndexOf("/") + 1) : "/";
+	// At the root there is no folder name to show, so the served folder names it.
+	const folderName = page.rel ? lastSegment(page.rel) : lastSegment(page.rootLabel) || "/";
 	const heading = `<h1 class="bf-title browse-heading" id="page-title">${escapeHtml(folderName)}</h1>`;
 	let body = `<table class="bf-table browse-listing" aria-labelledby="page-title">
 <thead><tr><th scope="col" aria-sort="ascending"><button type="button" class="bf-sort" data-sort="name" title="Sort by name">Name</button></th><th scope="col" class="bf-table__size"><button type="button" class="bf-sort" data-sort="size" title="Sort by size">Size</button></th><th scope="col" class="bf-table__when"><button type="button" class="bf-sort" data-sort="mtime" title="Sort by modified time">Modified</button></th></tr></thead>
@@ -295,11 +347,12 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		body += `<p class="bf-note">Showing the first ${page.listing.entries.length} of ${page.listing.total} entries.</p>`;
 
 	return renderLayout({
-		title: `browse · ${page.rel || "/"}`,
+		title: `browse · ${page.rel || folderName}`,
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
 		breadcrumbs: renderBreadcrumbs(page.rel),
+		keys: pageKeys(),
 		main: `    ${heading}\n    ${body}`,
 		footerNote: `${page.listing.total} entr${page.listing.total === 1 ? "y" : "ies"}`,
 		git: page.git,
@@ -331,6 +384,18 @@ function markdownBaseDir(rel: string): string {
 function renderCodeLines(lines: string[], language?: HighlightLanguage): string {
 	const rendered = language ? highlightLines(lines, language) : lines.map((line) => escapeHtml(line));
 	return rendered.map((html) => `<span class="bf-code__line">${html.length > 0 ? html : " "}</span>`).join("");
+}
+
+/** The last segment of a root-relative path, or the path itself when it has none. */
+function lastSegment(path: string): string {
+	const trimmed = path.replace(/[/\\]+$/, "");
+	const slash = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+	return slash === -1 ? trimmed : trimmed.slice(slash + 1);
+}
+
+/** The shortcuts every page shares, plus whatever the page adds. */
+function pageKeys(...extra: KeyHint[]): KeyHint[] {
+	return [{ keys: "/ ⌘K", label: "Quick open a file" }, ...extra, { keys: "?", label: "This sheet" }];
 }
 
 /** An "on this page" outline from the headings the Markdown renderer emitted. */
@@ -388,16 +453,26 @@ export function renderFilePage(page: FilePage): string {
 	const name = page.rel.slice(page.rel.lastIndexOf("/") + 1);
 	const spec = languageOf(name);
 	const language = page.file.kind === "text" ? detectLanguage(name) : undefined;
-	const meta = `${spec.label} · ${formatSize(page.file.size)} · ${formatDate(page.file.mtimeMs)} · ${page.file.mime}`;
+	// Text is always served as octet-stream, so the response type says nothing
+	// about the file; the language label, size, and date are the useful metadata.
+	const meta = `${spec.label} · ${formatSize(page.file.size)} · ${formatDate(page.file.mtimeMs)}`;
 	const download = `<a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a>`;
 	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(meta)}</span><span class="bf-spacer"></span>${renderFileActions(page)}${download}</div>`;
+
+	const isMarkdown = page.file.kind === "markdown";
+	const rendered = isMarkdown && !page.markdownRaw;
+	const wrappable = page.file.kind === "text" || (isMarkdown && page.markdownRaw);
+	const keys = pageKeys(
+		...(isMarkdown ? [{ keys: "r", label: "Toggle rendered and raw" }] : []),
+		...(wrappable ? [{ keys: "u", label: "Toggle line wrapping" }] : []),
+	);
 
 	let content: string;
 	let note = "";
 	if (page.file.kind === "text" || page.file.kind === "markdown") {
 		if (page.file.kind === "markdown" && !page.markdownRaw) {
-			const rendered = renderMarkdownDocument(page.file.lines.join("\n"), markdownBaseDir(page.rel));
-			content = `${renderOutline(rendered.headings)}<article class="bf-md">${rendered.html}</article>`;
+			const document = renderMarkdownDocument(page.file.lines.join("\n"), markdownBaseDir(page.rel));
+			content = `${renderOutline(document.headings)}<article class="bf-md">${document.html}</article>`;
 		} else {
 			content = `<pre class="bf-code bf-code--numbered"><code>${renderCodeLines(page.file.lines, language)}</code></pre>`;
 		}
@@ -417,8 +492,10 @@ export function renderFilePage(page: FilePage): string {
 		tree: page.tree,
 		currentRel: page.rel,
 		breadcrumbs: renderBreadcrumbs(page.rel),
+		mainClass: rendered ? "browse-page browse-measure" : "browse-page",
+		keys,
 		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
-		footerNote: escapeHtml(page.file.mime),
+		footerNote: escapeHtml(page.rel),
 		git: page.git,
 		summary: page.summary,
 	});
@@ -498,12 +575,15 @@ function highlightDiffText(lines: DiffLine[], language?: HighlightLanguage): str
 /** Render unified-diff lines with a two-column gutter and per-kind styling. */
 export function renderDiffLines(lines: DiffLine[], language?: HighlightLanguage): string {
 	const html = highlightDiffText(lines, language);
+	let hunks = 0;
 	return lines
 		.map((line, index) => {
 			const sign = line.kind === "add" ? "+" : line.kind === "del" ? "-" : line.kind === "ctx" ? " " : "";
 			const gutter = `<span class="browse-diff-no" aria-hidden="true">${line.oldNo ?? ""}</span><span class="browse-diff-no" aria-hidden="true">${line.newNo ?? ""}</span>`;
 			const marker = `<span class="browse-diff-sign" aria-hidden="true">${sign}</span>`;
-			return `<span class="bf-code__line bf-diff-line bf-diff-line--${line.kind}">${gutter}${marker}${html[index]}</span>`;
+			// Hunk headers carry an anchor so the keyboard can jump between them.
+			const anchor = line.kind === "hunk" ? ` id="hunk-${++hunks}" data-hunk="${hunks}"` : "";
+			return `<span class="bf-code__line bf-diff-line bf-diff-line--${line.kind}"${anchor}>${gutter}${marker}${html[index]}</span>`;
 		})
 		.join("");
 }
@@ -553,6 +633,8 @@ ${page.files.map((file) => renderChangedRow(file, page.mode)).join("\n")}
 		tree: page.tree,
 		currentRel: "",
 		breadcrumbs: renderBreadcrumbs(""),
+		mainClass: "browse-page",
+		keys: pageKeys(),
 		main: `    <h1 class="bf-title browse-heading" id="page-title">Changes <span class="browse-diff-scope">${escapeHtml(modeScope(page.mode))}</span></h1>\n    <div class="browse-diff-toolbar">${renderModeControl(page.mode, modeHref)}</div>\n    ${stat}\n    ${body}`,
 		footerNote: `${page.files.length} changed`,
 		git: page.git,
@@ -591,7 +673,19 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 		`<a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a>`,
 		`<button type="button" class="bf-btn" data-copy="path" data-value="${escapeHtml(page.rel)}" title="Copy the root-relative path">copy path</button>`,
 	];
-	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(modeScope(page.mode))}</span><span class="bf-spacer"></span><span class="bf-card__actions">${actions.join("")}</span></div>`;
+	// A per-file change summary and hunk count, so the scope is visible before scrolling.
+	const adds = page.diff.lines.filter((line) => line.kind === "add").length;
+	const dels = page.diff.lines.filter((line) => line.kind === "del").length;
+	const hunks = page.diff.lines.filter((line) => line.kind === "hunk").length;
+	const summary =
+		hunks > 0
+			? `<span class="bf-card__meta browse-diff-summary"><span class="browse-diff-add">+${adds}</span> <span class="browse-diff-del">−${dels}</span></span><span class="bf-card__meta browse-hunks">${hunks} hunk${hunks === 1 ? "" : "s"}</span>`
+			: "";
+	const keys = pageKeys(
+		{ keys: "u", label: "Toggle line wrapping" },
+		...(hunks > 0 ? [{ keys: "n p", label: "Next and previous change" }] : []),
+	);
+	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(modeScope(page.mode))}</span>${summary}<span class="bf-spacer"></span><span class="bf-card__actions">${actions.join("")}</span></div>`;
 	let content: string;
 	let note = "";
 	if (page.diff.binary) {
@@ -608,6 +702,8 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 		tree: page.tree,
 		currentRel: page.rel,
 		breadcrumbs: renderBreadcrumbs(page.rel),
+		mainClass: "browse-page",
+		keys,
 		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
 		footerNote: `diff · ${escapeHtml(modeScope(page.mode))}`,
 		git: page.git,

@@ -525,7 +525,89 @@ export const CLIENT_JS = `(function () {
 		if (result) window.location.assign("/view/" + encodeSegments(result.path));
 	}
 
+	// Keyboard: a shortcut sheet, the per-page actions the server rendered, and
+	// hunk-to-hunk navigation through a diff.
+	var keysDialog = document.getElementById("keys-dialog");
+	var keysButton = document.getElementById("keys-open");
+	var hunkAnchors = Array.prototype.slice.call(document.querySelectorAll("[data-hunk]"));
+	var progressFill = document.getElementById("progress-fill");
+
+	function toggleKeys(force) {
+		if (!keysDialog) return;
+		var open = force !== undefined ? force : keysDialog.hidden;
+		keysDialog.hidden = !open;
+		if (open) {
+			var close = document.getElementById("keys-close");
+			if (close) close.focus();
+		}
+	}
+
+	function toggleRaw() {
+		var next = document.querySelector(".bf-card__actions .bf-segmented a.bf-segmented__item:not([aria-current])");
+		if (next) window.location.assign(next.getAttribute("href") || next.href);
+	}
+
+	// The hunk whose header is pinned (or last passed), then one step either way.
+	function moveHunk(delta) {
+		if (hunkAnchors.length === 0) return;
+		var current = -1;
+		for (var index = 0; index < hunkAnchors.length; index++) {
+			if (hunkAnchors[index].getBoundingClientRect().top <= 8) current = index;
+		}
+		var next = Math.max(0, Math.min(hunkAnchors.length - 1, current + delta));
+		hunkAnchors[next].scrollIntoView({ block: "start" });
+	}
+
+	// The page's primary scroller: the card body for a file or diff, the main
+	// column otherwise.
+	function primaryScroller() {
+		var candidates = [
+			document.getElementById("main"),
+			document.querySelector(".bf-md"),
+			document.querySelector("pre.bf-code")
+		];
+		var best = null;
+		var bestRange = 0;
+		candidates.forEach(function (node) {
+			if (!node) return;
+			var range = node.scrollHeight - node.clientHeight;
+			if (range > bestRange) { bestRange = range; best = node; }
+		});
+		return bestRange > 0 ? best : null;
+	}
+
+	function updateProgress() {
+		if (!progressFill) return;
+		var scroller = primaryScroller();
+		var doc = document.scrollingElement || document.documentElement;
+		var top = doc ? doc.scrollTop : 0;
+		var height = doc ? doc.scrollHeight : 0;
+		var view = doc ? doc.clientHeight : 0;
+		if (scroller) { top = scroller.scrollTop; height = scroller.scrollHeight; view = scroller.clientHeight; }
+		var max = height - view;
+		var percent = max > 0 ? Math.min(100, Math.max(0, (top / max) * 100)) : 0;
+		progressFill.style.width = percent + "%";
+	}
+
+	if (keysButton) keysButton.addEventListener("click", function () { toggleKeys(); });
+	if (keysDialog) {
+		keysDialog.addEventListener("click", function (event) {
+			if (event.target === keysDialog) toggleKeys(false);
+		});
+		var keysClose = document.getElementById("keys-close");
+		if (keysClose) keysClose.addEventListener("click", function () { toggleKeys(false); });
+	}
+
+	window.addEventListener("scroll", updateProgress, true);
+	window.addEventListener("resize", updateProgress);
+	updateProgress();
+
 	document.addEventListener("keydown", function (event) {
+		if (event.key === "Escape" && keysDialog && !keysDialog.hidden) {
+			event.preventDefault();
+			toggleKeys(false);
+			return;
+		}
 		if (paletteOpen()) {
 			if (event.key === "Escape") {
 				event.preventDefault();
@@ -533,15 +615,34 @@ export const CLIENT_JS = `(function () {
 			}
 			return;
 		}
+		if (keysDialog && !keysDialog.hidden) return;
 		var target = event.target;
 		var editable = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
 		if (editable) return;
-		if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
 			event.preventDefault();
 			openPalette();
-		} else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+			return;
+		}
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (event.key === "/") {
 			event.preventDefault();
 			openPalette();
+		} else if (event.key === "?") {
+			event.preventDefault();
+			toggleKeys();
+		} else if (event.key === "u" && wrapButton) {
+			event.preventDefault();
+			wrapButton.click();
+		} else if (event.key === "r" && document.querySelector(".bf-card__actions .bf-segmented")) {
+			event.preventDefault();
+			toggleRaw();
+		} else if (event.key === "n" && hunkAnchors.length > 0) {
+			event.preventDefault();
+			moveHunk(1);
+		} else if (event.key === "p" && hunkAnchors.length > 0) {
+			event.preventDefault();
+			moveHunk(-1);
 		}
 	});
 
