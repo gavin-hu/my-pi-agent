@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { withAgentDir } from "../../../test/helpers/env.ts";
-import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { bootDoctor, failingExec } from "../../../test/helpers/fixtures/doctor.ts";
 
 describe("doctor wiring", () => {
@@ -14,6 +14,13 @@ describe("doctor wiring", () => {
 		expect(tool.annotations.destructiveHint).toBe(false);
 		expect(tool.outputSchema).toBeDefined();
 		expect(fake.commands.has("doctor")).toBe(false);
+	});
+
+	test("renders the call line with the tool name in bold", () => {
+		const { fake } = bootDoctor();
+		const tool = fake.tools.get("run_doctor");
+		const line: string = tool.renderCall({}, coloringTheme, { lastComponent: undefined }).render(80)[0];
+		expect(line).toContain("[toolTitle][bold]run_doctor");
 	});
 });
 

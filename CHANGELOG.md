@@ -116,6 +116,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: the tool-call colour grammar is applied consistently. The generic
+  fallback paints a subject with the accent and its options faint, like the
+  built-ins, instead of the whole argument dump muted; and `run_doctor`'s call
+  line names the tool in bold (`run_doctor`) instead of `doctor` unbolded.
+- `subagent`, `question`: the call's content — a task or step, and a question's
+  option lines — uses the body colour rather than the faintest, which is the same
+  value as the borders and sits under WCAG AA on the dark theme.
+- `document`: `read_doc`'s paging options use `faint` like the other call lines,
+  instead of the result body's muted.
 - `bytefly`: a framed `edit` block sat one column deeper than every other tool
   whenever the output-pad setting was on. Pi's `edit` is a natively self-shell
   renderer and pads its own box by `outputPad`, and the frame applied the pad

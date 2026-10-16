@@ -41,6 +41,11 @@ describe("renderSubagentCall", () => {
 		expect(text).toContain("find the retry logic");
 	});
 
+	test("renders the task with the body colour, not the faintest", () => {
+		const text = render(renderSubagentCall({ agent: "explorer", task: "find the retry logic" }, coloringTheme));
+		expect(text).toContain("[muted]find the retry logic");
+	});
+
 	test("strips control characters from a model-supplied agent name", () => {
 		const text = render(renderSubagentCall({ agent: "explorer\u001b[31m", task: "find" }, theme));
 		expect(text).toContain("explorer");

@@ -80,7 +80,7 @@ export function registerTools(pi: ExtensionAPI): void {
 			// One line per question that offers options, so a long option list stays
 			// mapped to its question instead of wrapping on a single row. The line
 			// carries no indent of its own; the tool-block frame supplies it.
-			for (const line of optionSummary(raw)) text += `\n${paint(theme, "faint", line)}`;
+			for (const line of optionSummary(raw)) text += `\n${paint(theme, "meta", line)}`;
 
 			const component = reuseText(context?.lastComponent);
 			component.setText(text);

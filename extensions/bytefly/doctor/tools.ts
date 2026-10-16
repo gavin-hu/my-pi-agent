@@ -94,7 +94,7 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 			const input = args as DoctorArgs;
 			const scope = `${input.extension ? ` ${input.extension}` : ""}${input.refresh ? " (refresh)" : ""}`;
 			const text = reuseText(context?.lastComponent);
-			text.setText(`${theme.fg("toolTitle", "doctor")}${paint(theme, "faint", scope)}`);
+			text.setText(`${theme.fg("toolTitle", theme.bold(TOOL_NAME))}${paint(theme, "faint", scope)}`);
 			return text;
 		},
 

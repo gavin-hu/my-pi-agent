@@ -64,7 +64,7 @@ export function formatDocCall(args: DocArgs, theme: Theme, context: { cwd: strin
 	const options: string[] = [];
 	if (typeof startIndex === "number" && startIndex > 0) options.push(`from ${formatTokens(startIndex)}`);
 	if (typeof maxChars === "number") options.push(`max ${formatTokens(maxChars)}`);
-	if (options.length > 0) text += theme.fg("toolOutput", ` (${options.join(", ")})`);
+	if (options.length > 0) text += paint(theme, "faint", ` (${options.join(", ")})`);
 	return text;
 }
 

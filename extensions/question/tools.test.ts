@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
+import { coloringTheme, createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { registerTools, TOOL_NAME } from "./tools.ts";
 import type { AskResult } from "./types.ts";
 
@@ -29,6 +29,18 @@ describe("ask_user_question transcript rendering", () => {
 		// No indent of its own; the tool-block frame supplies BODY_INDENT.
 		expect(lines[1]).toBe("Auth: OAuth, Cookies, Other");
 		expect(lines[2]).toBe("Scope: repo, org, Other");
+	});
+
+	test("colours the option lines with the body colour, not the faintest", () => {
+		const { tool } = setup();
+		const lines = tool
+			.renderCall(
+				{ questions: [{ question: "Auth?", header: "Auth", options: [{ label: "OAuth" }] }] },
+				coloringTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80);
+		expect(lines[1]).toContain("[muted]Auth: OAuth, Other");
 	});
 
 	test("a free-form question adds no options line", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { callFallback, resultFallback } from "./fallback.ts";
 
 describe("callFallback", () => {
@@ -28,6 +28,15 @@ describe("callFallback", () => {
 	test("splits a subject from its remaining options", () => {
 		const line = callFallback("foo", { query: "retry", limit: 10, verbose: true }, fakeTheme, false);
 		expect(line).toContain("retry (limit 10, verbose)");
+	});
+
+	test("colours the subject as the accent and its options faint", () => {
+		const line = callFallback("foo", { query: "retry", limit: 10 }, coloringTheme, false);
+		expect(line).toContain("[accent]retry[dim] (limit 10)");
+	});
+
+	test("colours a bare flag faint", () => {
+		expect(callFallback("exit_worktree", { remove: true }, coloringTheme, false)).toContain("[dim]remove");
 	});
 
 	test("expands arguments onto indented lines and sanitizes them", () => {

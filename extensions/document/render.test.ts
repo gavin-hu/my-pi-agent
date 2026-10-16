@@ -8,7 +8,7 @@ import {
 	setKeybindings,
 	TUI_KEYBINDINGS,
 } from "@earendil-works/pi-tui";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 import { EXPAND_KEYBINDING, expandKey } from "../../lib/tui/glyphs.ts";
 import { formatDocCall, previewText, renderDocPath } from "./render.ts";
 
@@ -97,5 +97,12 @@ describe("formatDocCall", () => {
 	test("omits a zero startIndex", () => {
 		const rendered = formatDocCall({ path: "spec.pdf", startIndex: 0 }, fakeTheme, { cwd: "/work" });
 		expect(rendered).not.toContain("from");
+	});
+
+	test("colours the paging options faint", () => {
+		const rendered = formatDocCall({ path: "spec.pdf", startIndex: 40000, maxChars: 80000 }, coloringTheme, {
+			cwd: "/work",
+		});
+		expect(rendered).toContain("[dim] (from 40k, max 80k)");
 	});
 });

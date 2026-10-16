@@ -260,7 +260,7 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
 			const step = args.chain[i];
 			const clean = sanitizeLine(step.task.replace(/\{previous\}/g, ""));
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(step.agent))}${paint(theme, "faint", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(step.agent))}${paint(theme, "meta", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
 		if (args.chain.length > 3) text += `\n${paint(theme, "meta", `… +${args.chain.length - 3} more`)}`;
 		return text;
@@ -271,7 +271,7 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 			title + paint(theme, "accent", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
 			const task = args.tasks[i];
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(task.agent))}${paint(theme, "faint", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(task.agent))}${paint(theme, "meta", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
 		if (args.tasks.length > 3) text += `\n${paint(theme, "meta", `… +${args.tasks.length - 3} more`)}`;
 		return text;
@@ -279,7 +279,7 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 
 	const agentName = sanitizeLine(args.agent || "…");
 	let text = title + paint(theme, "accent", agentName) + cwdNote(args.cwd);
-	text += `\n${paint(theme, "faint", clip(sanitizeLine(args.task ?? "…"), 60))}`;
+	text += `\n${paint(theme, "meta", clip(sanitizeLine(args.task ?? "…"), 60))}`;
 	return text;
 }
 
