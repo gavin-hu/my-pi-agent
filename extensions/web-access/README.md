@@ -14,11 +14,11 @@ pi install ./                             # or install the package
 
 ## Tool rendering
 
-How the `web_search` and `web_fetch` calls and their results look in the transcript — the shared rail around each tool's own renderer:
+How the `web_search` and `web_fetch` calls and their results look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/web_search.png" alt="The web_search tool's call and result: a rail with the query and the ranked results" width="100%">
+<img src="../../assets/tools/web_search.png" alt="The web_search tool's call and result: the call line and an indented body with the query and the ranked results" width="100%">
 
-<img src="../../assets/tools/web_fetch.png" alt="The web_fetch tool's call and result: a rail with the URL, title, and fetched text preview" width="100%">
+<img src="../../assets/tools/web_fetch.png" alt="The web_fetch tool's call and result: the call line and an indented body with the URL, title, and fetched text preview" width="100%">
 
 ## What it does
 

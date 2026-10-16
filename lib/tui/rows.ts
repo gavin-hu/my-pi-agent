@@ -15,7 +15,8 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { clip, padTo, splitRow } from "./columns.ts";
 import { selectionMarker } from "./cursor.ts";
-import { BODY_INDENT, GLYPHS } from "./glyphs.ts";
+import { GLYPHS } from "./glyphs.ts";
+import { BODY_INDENT } from "./indent.ts";
 import { paint, type TuiRole } from "./tokens.ts";
 
 /** One selectable list row. */

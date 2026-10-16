@@ -11,9 +11,9 @@ pi install ./                       # install the package
 
 ## Tool rendering
 
-How the `goal` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `goal` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/goal.png" alt="The goal tool's result: a rail with the Goal header and the objective body" width="100%">
+<img src="../../assets/tools/goal.png" alt="The goal tool's result: the call line and an indented body with the Goal header and the objective body" width="100%">
 
 ## What it does
 
@@ -117,13 +117,12 @@ The tool works in every mode. The persistent widget requires interactive
 in interactive mode and runs directly in RPC; the questions and the confirm step
 are host dialogs, forwarded by RPC. In print and JSON mode the loop is skipped
 and the typed text is sent. The widget is always a single line; the transcript result
-keeps the full glyph rail, separated from the call line by a blank line:
+keeps the full indented rows, directly under the call line:
 
 ```
 goal → set: Refactor the parser to support streaming input
-
-Goal · active
-  ⊚ Refactor the parser to support streaming input and ship it with tests
+  Goal · active
+    ⊚ Refactor the parser to support streaming input and ship it with tests
 ```
 
 The renderer reuses the slot's component (`context.lastComponent`) rather than
@@ -231,7 +230,7 @@ depends on config.
 | `state.ts` | Branch reconstruction (pure). |
 | `format.ts` | Model-facing and terminal text plus the transcript `⊚` / `✓` symbols and the rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (the `goal` section of `bytefly.json`). |
-| `tui.ts` | The persistent goal widget and the transcript result rail. |
+| `tui.ts` | The persistent goal widget and the transcript result rows. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `goal` tool registration and rendering. |
 | `commands.ts` | `/goal`. |

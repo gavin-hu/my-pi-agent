@@ -12,9 +12,9 @@ pi install ./                           # install the package
 
 ## Tool rendering
 
-How the `subagent` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `subagent` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/subagent.png" alt="The subagent tool's call and result: a rail with the two tasks, each agent's section rule, its summary, and the usage total" width="100%">
+<img src="../../assets/tools/subagent.png" alt="The subagent tool's call and result: the call line and an indented body with the two tasks, each agent's section rule, its summary, and the usage total" width="100%">
 
 ## What it does
 

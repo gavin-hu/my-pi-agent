@@ -31,9 +31,9 @@ describe("status bar render", () => {
 		const [, line2] = render(100);
 		expect(line2).toContain("62%/200k");
 		expect(line2).toContain("$0.31");
-		expect(line2).toContain(`${GLYPHS.rail} ${GLYPHS.plan} plan`);
+		expect(line2).toContain(`${GLYPHS.divider} ${GLYPHS.plan} plan`);
 		expect(line2).toContain("opus-4.5 · high");
-		expect(line2.indexOf(GLYPHS.rail)).toBeLessThan(line2.indexOf(`${GLYPHS.plan} plan`));
+		expect(line2.indexOf(GLYPHS.divider)).toBeLessThan(line2.indexOf(`${GLYPHS.plan} plan`));
 	});
 
 	test("renders the cost in the configured currency", () => {

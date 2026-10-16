@@ -60,7 +60,7 @@ describe("renderLine", () => {
 				const rendered = renderLine(line, width, fakeTheme);
 				expect(visibleWidth(rendered)).toBeLessThanOrEqual(width);
 				expect(rendered).not.toMatch(/%[⋮⑂⎇⚠]/);
-				expect(rendered).not.toMatch(new RegExp(`\\S${GLYPHS.rail}|${GLYPHS.rail}\\S`));
+				expect(rendered).not.toMatch(new RegExp(`\\S${GLYPHS.divider}|${GLYPHS.divider}\\S`));
 			}
 		}
 	});
@@ -82,12 +82,12 @@ describe("renderLine", () => {
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(rendered.startsWith("▰")).toBe(true);
-		expect(rendered).toContain(` ${GLYPHS.rail} ${GLYPHS.plan} plan`);
+		expect(rendered).toContain(` ${GLYPHS.divider} ${GLYPHS.plan} plan`);
 	});
 
 	test("has no separator when there is no mode slot", () => {
 		const [, line2] = buildLines(fullSnapshot({ statuses: new Map() }), fakeTheme, "/home/u");
-		expect(renderLine(line2, 100, fakeTheme)).not.toContain(GLYPHS.rail);
+		expect(renderLine(line2, 100, fakeTheme)).not.toContain(GLYPHS.divider);
 	});
 
 	test("counts wide characters correctly", () => {

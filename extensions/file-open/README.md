@@ -7,9 +7,9 @@ effective working directory.
 
 ## Tool rendering
 
-How the `open_path` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `open_path` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/open_path.png" alt="The open_path tool's call and result, drawn by the generic fallback rail" width="100%">
+<img src="../../assets/tools/open_path.png" alt="The open_path tool's call and result, drawn by the generic fallback" width="100%">
 
 ## Quickstart
 

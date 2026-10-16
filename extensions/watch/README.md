@@ -13,9 +13,9 @@ pi install ./                        # install the package
 
 ## Tool rendering
 
-How the `watch` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `watch` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/watch.png" alt="The watch tool's result: a rail with a running file watcher and an exited command watcher" width="100%">
+<img src="../../assets/tools/watch.png" alt="The watch tool's result: the call line and an indented body with a running file watcher and an exited command watcher" width="100%">
 
 ## What it does
 
@@ -91,7 +91,7 @@ and the command's `pid`/`exitCode`/`signal` when applicable.
 
 ### Transcript
 
-`add` and `stop` render one outcome line; `list` renders a `/watch`-style rail
+`add` and `stop` render one outcome line; `list` renders `/watch`-style rows
 capped at eight rows; `matches` and `logs` render the tail of the sanitized
 lines, with the hidden count noted above and `(ctrl+o to expand)`.
 

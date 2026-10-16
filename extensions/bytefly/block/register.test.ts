@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { Text } from "@earendil-works/pi-tui";
-import { RAIL } from "../../../lib/tui/rail.ts";
 import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { registerToolBlocks } from "./register.ts";
 
@@ -24,12 +23,11 @@ const resolver = () => {
 };
 
 describe("registerToolBlocks", () => {
-	test("switches the row to the self shell and leads with an un-railed call", () => {
+	test("switches the row to the self shell and leads with the call headline", () => {
 		const renderers = resolver()("read", () => ({ renderCall: () => new Text("base call", 0, 0) }));
 		expect(renderers?.renderShell).toBe("self");
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
-		expect(lines[0]?.trimEnd()).toBe("base call");
-		expect(lines).toContain("");
+		expect(lines).toEqual(["base call"]);
 	});
 
 	test("trims a self-shell call's blank edges under its headline", () => {
@@ -40,17 +38,16 @@ describe("registerToolBlocks", () => {
 		const renderers = resolver()("edit", () => base);
 		expect(renderers?.renderShell).toBe("self");
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
-		expect(lines.map((line) => line.trimEnd())).toEqual(["own", ""]);
+		expect(lines).toEqual(["own"]);
 	});
 
-	test("frames the result behind the rail", () => {
+	test("indents the result under the call's body column", () => {
 		const renderers = resolver()("read", () => ({ renderResult: () => new Text("base result", 0, 0) }));
 		const lines =
 			renderers
 				?.renderResult?.({ content: [] } as any, { expanded: false, isPartial: false }, fakeTheme, ctx())
 				.render(40) ?? [];
-		expect(lines[0]?.startsWith(RAIL)).toBe(true);
-		expect(lines.join("\n")).toContain("base result");
+		expect(lines[0]?.trimEnd()).toBe("  base result");
 	});
 
 	test("frames a generic fallback when the base has no renderer", () => {

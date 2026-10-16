@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { RAIL } from "../lib/tui/rail.ts";
 import { FIXTURES } from "./tool-fixtures.ts";
 import { registeredToolNames, renderings } from "./tool-renderings.ts";
 
@@ -60,11 +59,11 @@ describe("renderings", () => {
 		expect(first?.lines(80)).toEqual(first?.lines(80));
 	});
 
-	test("a tool block leads with an un-railed call above a railed body", () => {
+	test("a tool block leads with its call and indents the body, with no rail", () => {
 		const read = renderings().find((rendering) => rendering.name === "read");
 		const lines = (read?.lines(80) ?? []).map(stripTerminalSequences);
-		expect(lines[0]?.startsWith(RAIL)).toBe(false);
-		expect(lines[1]).toBe("");
-		expect(lines[2]?.startsWith(RAIL)).toBe(true);
+		expect(lines[0]?.startsWith("read ")).toBe(true);
+		expect(lines[1]?.startsWith("  ")).toBe(true);
+		expect(lines[1]?.startsWith("   ")).toBe(false);
 	});
 });

@@ -16,9 +16,9 @@ pi -e . --worktree feature-auth        # load the package and enter a worktree a
 
 ## Tool rendering
 
-How the `list_worktrees` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `list_worktrees` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/list_worktrees.png" alt="The list_worktrees tool's call and result, drawn by the generic fallback rail" width="100%">
+<img src="../../assets/tools/list_worktrees.png" alt="The list_worktrees tool's call and result, drawn by the generic fallback" width="100%">
 
 ## What it does
 

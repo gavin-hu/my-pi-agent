@@ -14,9 +14,9 @@ pi install ./                          # install the package
 
 ## Tool rendering
 
-How the `ask_user_question` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `ask_user_question` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/ask_user_question.png" alt="The ask_user_question tool's call and result: a rail with the question headers, the options, and the answers" width="100%">
+<img src="../../assets/tools/ask_user_question.png" alt="The ask_user_question tool's call and result: the call line and an indented body with the question headers, the options, and the answers" width="100%">
 
 ## What it does
 

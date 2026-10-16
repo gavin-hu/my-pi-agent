@@ -34,7 +34,7 @@ export const GLYPHS = {
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
-	rail: "╎",
+	divider: "╎",
 	check: "✓",
 	warn: "!",
 	cross: "✕",
@@ -51,16 +51,13 @@ export const GLYPHS = {
 	prompt: "❯",
 } as const;
 
-/** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */
-export const BODY_INDENT = 2;
-
 /** Columns between a rail body glyph and its text. */
 export const GLYPH_GAP = 1;
 
 /** Padding used to join (`item`) or group (`group`) UI segments. */
 export const SEPARATORS = {
 	item: " · ",
-	group: ` ${GLYPHS.rail} `,
+	group: ` ${GLYPHS.divider} `,
 } as const;
 
 /** `ctx.ui.setStatus` keys; one per extension that publishes a chip. */

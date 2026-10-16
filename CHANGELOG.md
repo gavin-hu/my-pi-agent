@@ -15,23 +15,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   when Pi hides the thinking block.
 - Tooling: `bun run screenshot:tools` renders every tool's call and result —
   each tool this package registers plus Pi's built-ins, each resolved through
-  the shipped rail — into one full-page reference
+  the shipped block frame — into one full-page reference
   (`assets/tool-renderings.png`) with headless Chrome, and
   `bun run screenshot:tool-pngs` writes one image per tool under `assets/tools/`.
   Both are embedded in the extension READMEs and the catalog, and
   `bun run scripts/tool-renderings.ts render <name> --width <n>` prints one block
-  as ANSI on any OS. One built-in is drawn mid-run, so the rail's accent state
-  appears beside the neutral and failed ones.
-- `bytefly`: every tool block leads with the tool's own call line as an un-railed
-  headline — the tool name in the accent colour — then one plain blank line, then
-  its body on a status-colored rail, in place of Pi's filled background box. The
-  rail wraps the tool's own renderer, so diffs, syntax highlighting, and previews
-  are unchanged; `edit`, whose diff is drawn on the call, keeps a rail on that
-  diff. A shell call's `$` / `>` prompt is shown as the tool name
+  as ANSI on any OS. A built-in is drawn mid-run, so the gallery shows a partial
+  call beside the finished and failed ones.
+- `bytefly`: every tool block leads with the tool's own call line as the headline
+  — the tool name in the accent colour — and its body sits two columns in
+  directly beneath it, in place of Pi's filled background box. The frame wraps
+  the tool's own renderer, so diffs, syntax highlighting, and previews are
+  unchanged. A shell call's `$` / `>` prompt is shown as the tool name
   (`bash bun run check`), and `toolTitle` now resolves to the accent.
-- `bytefly`: renders the shared transcript notice — a `source · title` rail with
-  severity-led rows — that any extension posts under the shared
-  `my-pi-agent/notice` type.
+- `bytefly`: renders the shared transcript notice — a `source · title` headline
+  with severity-led rows at the transcript's margin — that any extension posts
+  under the shared `my-pi-agent/notice` type.
 - `job`, `watch`: a finished job or a matched watched line is now posted as that
   visible notice instead of a hidden context message. The model-facing text is
   unchanged, and each extension still prunes only its own stale notices.
@@ -63,29 +62,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Tooling: the hero capture asks "how are you today?" and `assets/chrome.png` is
   refreshed, so the hero shows the two-row user nameplate instead of the removed
   `❯` marker.
-- `bytefly`: a finished tool block's rail is now neutral (`dim`) instead of green,
-  and a notice's rail follows the same rule, so only a running call takes the
-  accent and only a failure is red; a notice's row glyphs keep their severity
-  colour, so a green check still reads as a check.
 - `bytefly`: the shipped themes leave `toolPendingBg` / `toolSuccessBg` /
   `toolErrorBg` to the terminal, so `edit` — the one tool that draws its own
-  shell — is no longer the single filled block among the rails.
+  shell — is no longer the single filled block.
 - Tooling: `bun run screenshot:plan` now crops to the page's own content height,
   so a short plan no longer pads the PNG with the browser viewport.
 - Tooling: a per-tool rendering image now leads with its one `name · label`
   caption line instead of repeating the name and label as a page heading above
   it.
-- `bytefly`: every transcript block that is not prose now hangs from one shared
-  rail (`lib/tui/rail.ts`). A notice joined the tool blocks' rail instead of
-  sitting flush, so a notice, a tool block, and a subagent quote share one left
-  edge and one nesting depth, and a notice's rail is painted by its worst
-  severity.
-- `bytefly`: the rail glyph is `╎` (DOUBLE DASH), the dashed box-drawing stroke,
-  and the shared-glyph rule no longer forbids East-Asian *ambiguous* glyphs —
-  only wide, fullwidth, and emoji, which are two columns in every profile. The
-  footer's group separator draws the same stroke, so the chrome has one vertical
-  glyph instead of two.
-- `subagent`: the quoted-output gutter uses the shared rail.
+- `bytefly`: every transcript block that is not prose now shares one frame — a
+  plain indent with no glyph (`lib/tui/indent.ts`) — so a notice, a tool block,
+  and a subagent quote hang from one left edge instead of three.
+- `bytefly`: the footer's group divider stays `╎` (DOUBLE DASH), now the chrome's
+  only vertical glyph, and the shared-glyph rule no longer forbids East-Asian
+  *ambiguous* glyphs — only wide, fullwidth, and emoji, which are two columns in
+  every profile.
+- `subagent`: the quoted output is indented two columns instead of drawn behind a
+  rail.
 - `bytefly`: the shipped themes point `mdHeading` at the accent, so Markdown
   headings — including the user-message nameplate — render in the accent color
   instead of yellow.

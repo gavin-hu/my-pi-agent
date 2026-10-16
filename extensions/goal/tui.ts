@@ -13,7 +13,8 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component } from "@earendil-works/pi-tui";
-import { BODY_INDENT, GLYPH_GAP } from "../../lib/tui/glyphs.ts";
+import { GLYPH_GAP } from "../../lib/tui/glyphs.ts";
+import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { goalGlyph, goalHeader, goalLine } from "./format.ts";
 import type { AchievedStyle, Goal } from "./types.ts";
 

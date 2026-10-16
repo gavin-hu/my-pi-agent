@@ -17,7 +17,7 @@ import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.t
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
-import { railPrefix } from "../../lib/tui/rail.ts";
+import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
@@ -196,12 +196,13 @@ function resultHeader(
 	return header + statusSuffix(result, status, theme, now);
 }
 
-/** Prefix each line of intermediate assistant text with a muted gutter. */
+/** Prefix each line of intermediate assistant text with a muted indent. */
 function quoteLines(text: string, theme: Theme): string {
+	const indent = " ".repeat(BODY_INDENT);
 	return stripControlChars(text)
 		.trim()
 		.split("\n")
-		.map((line) => railPrefix(theme, "meta") + theme.fg("toolOutput", line))
+		.map((line) => indent + theme.fg("toolOutput", line))
 		.join("\n");
 }
 

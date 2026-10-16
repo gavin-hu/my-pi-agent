@@ -4,7 +4,8 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { BODY_INDENT, expandHint, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { expandHint, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";

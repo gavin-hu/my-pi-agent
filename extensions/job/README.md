@@ -15,9 +15,9 @@ pi install ./                      # install the package
 
 ## Tool rendering
 
-How the `job` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `job` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/job.png" alt="The job tool's result: a rail with a finished and a failed job row, each with its status glyph and elapsed time" width="100%">
+<img src="../../assets/tools/job.png" alt="The job tool's result: the call line and an indented body with a finished and a failed job row, each with its status glyph and elapsed time" width="100%">
 
 ## What it does
 
@@ -89,7 +89,7 @@ JobDetails {
 ### Transcript
 
 The call line names the action and its target. The result is themed and reuses
-the slot's component: `list` draws the same row rail as `/jobs`, `logs` draws a
+the slot's component: `list` draws the same rows as `/jobs`, `logs` draws a
 blank line and the sanitized tail, and a single-job action draws one outcome
 line. A `kill` that sent a signal appends it (`· SIGTERM sent`) instead of
 showing the job's pre-kill running state, a `start` badges `detached` and
@@ -257,7 +257,7 @@ rewritten.
   when the pid disappears.
 - **Notify by default, wake opt-in.** A failed job raises one `ctx.ui.notify`
   (a clean exit is left to the list and chips). Finished jobs are also posted
-  as a shared transcript notice — model-facing text plus a bytefly rail — at the
+  as a shared transcript notice — model-facing text plus the notice block — at the
   next `before_agent_start`. A `wake: true` job (or `wakeOnFinish`) additionally
   triggers one turn when the agent is idle; auto-wake is not the default because
   it easily loops and burns tokens.
@@ -272,7 +272,7 @@ rewritten.
   spawn/liveness/kill/clock functions, so the whole suite runs without
   launching a process.
 - **The transcript reuses the `/jobs` grammar.** `job list` renders the same
-  `jobRow` rail as the screen (running first, capped, `… N more`), `job logs`
+  `jobRow` rows as the screen (running first, capped, `… N more`), `job logs`
   draws a themed tail with a `… N earlier lines` note, and single-job actions
   draw one `formatJobOutcomeLine` (plus a signal note on `kill` and
   `detached`/`wake` badges on `start`). A capped collapsed result ends with the
@@ -300,7 +300,7 @@ rewritten.
 | `ui.ts` | Footer status chips, over the shared `lib/tui/status-controller.ts`. |
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `runtime.ts` | Composition: job table, handles, process events, repaint clock. |
-| `tui.ts` | The `/jobs` screen and the transcript `JobResult` rail, drawn from the `lib/tui/` kit (`titleRule`, `listRow`, `emptyState`, `IdCursor`, `LinePane`). |
+| `tui.ts` | The `/jobs` screen and the transcript `JobResult` rows, drawn from the `lib/tui/` kit (`titleRule`, `listRow`, `emptyState`, `IdCursor`, `LinePane`). |
 | `tools.ts` | The `job` tool and its transcript rendering. |
 | `commands.ts` | The `/jobs` command. |
 | `types.ts` | Shared types. |

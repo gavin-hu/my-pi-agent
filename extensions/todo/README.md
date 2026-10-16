@@ -18,9 +18,9 @@ pi install ./                       # install the package
 
 ## Tool rendering
 
-How the `todo` call and its result look in the transcript — the shared rail around the tool's own renderer:
+How the `todo` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/todo.png" alt="The todo tool's result: a rail with the progress line and the task rows below it, each led by a check, spinner, or circle glyph" width="100%">
+<img src="../../assets/tools/todo.png" alt="The todo tool's result: the call line and an indented body with the progress line and the task rows below it, each led by a check, spinner, or circle glyph" width="100%">
 
 ## What it does
 
@@ -58,21 +58,19 @@ Todos · 1/3 · Writing the tests
 the plan as written).
 
 In the transcript, the call line pairs progress with the active item
-(`todo → 1/4 · Writing tests`), and the result keeps the shared
-`✓` / `◒` / `◌` rail used by the goal result, separated from the call line by a
-blank line. Collapsed, it leads with active work; expanded, it keeps the
-submitted order:
+(`todo → 1/4 · Writing tests`), and the result keeps the same
+`✓` / `◒` / `◌` rows as the goal result, directly under the call line. Collapsed,
+it leads with active work; expanded, it keeps the submitted order:
 
 ```
 todo → 1/4 · Writing tests
-
-  ◒ Writing tests
-  ◌ Ship it
-  ◌ Write docs
-  ✓ Write schema
+    ◒ Writing tests
+    ◌ Ship it
+    ◌ Write docs
+    ✓ Write schema
 ```
 
-Progress lives on the call line, so the rail has no footer; the persistent
+Progress lives on the call line, so the rows have no footer; the persistent
 widget and `/todos` still show the count. A capped collapsed rail ends with
 `… N more` and the `app.tools.expand` hint.
 
@@ -212,10 +210,11 @@ depends on config.
   widget is a single line (`currentTodo` picks the `in_progress` item, else the
   first pending); `/todos` keeps the submitted order, and the transcript result
   orders by status via `compareByActivity` so active work is never hidden. The
-  transcript result draws the same indented glyph rail as the goal result
-  (`BODY_INDENT` / `GLYPH_GAP` from [`lib/tui/glyphs.ts`](../../lib/tui/glyphs.ts)), wrapping
+  transcript result draws the same indented glyph rows as the goal result
+  (`GLYPH_GAP` from [`lib/tui/glyphs.ts`](../../lib/tui/glyphs.ts) and
+  `BODY_INDENT` from [`lib/tui/indent.ts`](../../lib/tui/indent.ts)), wrapping
   long items with continuation rows aligned under the text. Progress lives on
-  the call line, so the rail carries no footer.
+  the call line, so the rows carry no footer.
 - **The transcript reuses its components.** `renderCall` reuses the slot's
   `Text`, and `renderResult` reuses the `TodoResult` view via
   `context.lastComponent`, updating each in place instead of allocating on every

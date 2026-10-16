@@ -14,11 +14,11 @@ pi --plan                          # start in plan mode
 
 ## Tool rendering
 
-How the `write_plan` and `exit_plan_mode` calls and their results look in the transcript — the shared rail around each tool's own renderer:
+How the `write_plan` and `exit_plan_mode` calls and their results look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/write_plan.png" alt="The write_plan tool's call and result: a rail with the saved plan path and byte count" width="100%">
+<img src="../../assets/tools/write_plan.png" alt="The write_plan tool's call and result: the call line and an indented body with the saved plan path and byte count" width="100%">
 
-<img src="../../assets/tools/exit_plan_mode.png" alt="The exit_plan_mode tool's call and result: a rail with the approval line and the approved plan preview" width="100%">
+<img src="../../assets/tools/exit_plan_mode.png" alt="The exit_plan_mode tool's call and result: the call line and an indented body with the approval line and the approved plan preview" width="100%">
 
 ## What it does
 
