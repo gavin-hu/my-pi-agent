@@ -55,6 +55,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: the browser review's sidebar hint now names `a` on a review that can
+  approve and points at `?` for the full shortcut list, instead of listing only
+  `j`/`k`/`c`/`s` after approval moved onto the page.
 - `plan`: a list item's continuation lines now hang under the item's text in the
   browser review. A hard-wrapped or lazy-continued line was emitted as a bare
   paragraph at the block's left margin, so a multi-line step read as several

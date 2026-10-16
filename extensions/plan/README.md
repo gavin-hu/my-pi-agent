@@ -256,15 +256,15 @@ agent file that overrides it.
 
 ## Browser review
 
-<img src="../../assets/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title and Save/Close, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail and an inline review thread" width="100%">
+<img src="../../assets/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail and an inline review thread" width="100%">
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
 in the default browser on `127.0.0.1`. The page is a reading-first review
 surface: a sticky header carrying the plan's H1 (falling back to the file-name
 slug), a live status chip (connection, comment count, and unsaved changes), the
-theme toggle, and Save/Close, over a hairline reading-progress bar. A sticky
-side panel shows the plan's step progress and comment count above a **section
-outline**, and the document is GitHub's Markdown content column — one centred
+theme toggle, and the review actions, over a hairline reading-progress bar. A
+sticky side panel shows the plan's step progress and comment count above a
+**section outline**, and the document is GitHub's Markdown content column — one centred
 measure of at most 1012px with a comment rail in its left margin. Every block
 reveals a **+ Comment** action on hover; select
 text first to quote it. **Save feedback** writes the comments into the plan

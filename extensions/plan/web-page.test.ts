@@ -111,6 +111,20 @@ describe("renderReviewPage", () => {
 		expect(html).toContain('id="progress-fill"');
 	});
 
+	test("spells the sidebar hints and defers to the shortcut sheet", () => {
+		const html = page();
+		expect(html).toContain('<p class="review-hints">');
+		expect(html).toContain('<kbd class="review-kbd">a</kbd> to approve');
+		expect(html).toContain('<kbd class="review-kbd">?</kbd> for all shortcuts');
+	});
+
+	test("drops the approve hint from the sidebar on a comment-only review", () => {
+		const html = page({ canApprove: false });
+		expect(html).toContain("to comment, <kbd");
+		expect(html).not.toContain("to approve");
+		expect(html).toContain("for all shortcuts");
+	});
+
 	test("shows the review facts and the keyboard sheet", () => {
 		const html = page();
 		expect(html).toContain('id="review-facts"');

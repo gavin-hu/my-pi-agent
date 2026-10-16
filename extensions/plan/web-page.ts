@@ -172,6 +172,16 @@ ${WEB_COMPONENTS_CSS}
 @media (hover:none){.bf-block__add{opacity:1}}
 `.trim();
 
+/**
+ * The sidebar's one-line keyboard reminder. It names the keys a reviewer reaches
+ * for first and defers to the shortcut sheet (`?`) for the rest, so the line does
+ * not have to grow every time a binding is added.
+ */
+function reviewHints(canApprove: boolean): string {
+	const approve = canApprove ? `, <kbd class="review-kbd">a</kbd> to approve` : "";
+	return `<p class="review-hints">Press <kbd class="review-kbd">j</kbd>/<kbd class="review-kbd">k</kbd> to move, <kbd class="review-kbd">c</kbd> to comment${approve}, <kbd class="review-kbd">s</kbd> to save, <kbd class="review-kbd">?</kbd> for all shortcuts.</p>`;
+}
+
 /** The keyboard sheet, hidden until the client opens it. */
 function keysDialog(canApprove: boolean): string {
 	const approveRow = canApprove
@@ -208,7 +218,7 @@ export function renderReviewPage(data: ReviewPageData): string {
 <div class="bf-panel review-panel">
 ${reviewFacts()}
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
-<p class="review-hints">Press <kbd class="review-kbd">j</kbd>/<kbd class="review-kbd">k</kbd> to move, <kbd class="review-kbd">c</kbd> to comment, <kbd class="review-kbd">s</kbd> to save.</p>
+${reviewHints(data.canApprove)}
 </div>
 </details>
 `
