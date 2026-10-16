@@ -19,6 +19,11 @@ describe("stripFeedback", () => {
 	test("tolerates indented and empty markers", () => {
 		expect(stripFeedback("a\n  > [!REVIEW]\nb")).toBe("a\nb");
 	});
+
+	test("keeps a marker-looking line inside a fenced code block", () => {
+		const plan = "```md\n> [!REVIEW] documentation\n```";
+		expect(stripFeedback(plan)).toBe(plan);
+	});
 });
 
 describe("formatFeedback", () => {
@@ -83,6 +88,19 @@ describe("parseFeedback", () => {
 
 	test("anchors a leading comment to the first block", () => {
 		expect(parseFeedback("> [!REVIEW] top\n# Title")).toEqual([{ anchor: 0, comment: "top" }]);
+	});
+
+	test("ignores a marker-looking line inside a fenced code block", () => {
+		expect(parseFeedback("```md\n> [!REVIEW] documentation\n```")).toEqual([]);
+	});
+});
+
+describe("feedback round-trip with a fenced marker", () => {
+	test("leaves a plan whose code block documents the marker unchanged", () => {
+		const plan = "# Title\n\n```md\n> [!REVIEW] documentation\n```\n\n- [ ] step\n";
+		const saved = formatFeedback(plan, [{ anchor: 6, comment: "real" }]);
+		expect(stripFeedback(saved)).toBe(plan);
+		expect(parseFeedback(saved)).toEqual([{ anchor: 6, comment: "real" }]);
 	});
 });
 

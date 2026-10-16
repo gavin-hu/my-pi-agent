@@ -92,6 +92,9 @@ async function listen(server: Server, port: number): Promise<number> {
 
 export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = {}): PlanWebReview {
 	const sessions = new Set<PlanReviewSession>();
+	// Last bound port per plan path, so the same plan keeps one origin across
+	// review turns (and its saved browser theme with it).
+	const ports = new Map<string, number>();
 
 	const start = async (cwd: string, plan: StoredPlan, signal?: AbortSignal): Promise<PlanReviewSession | undefined> => {
 		const token = (deps.token ?? (() => randomBytes(16).toString("hex")))();
@@ -113,6 +116,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// that still matches it, or the comments land beside the wrong text.
 		let baseline = stripFeedback(plan.content);
 		let savedPlan: StoredPlan | undefined;
+		// Set by `onSaved`/`onCancel`; resolved once the HTTP response has flushed,
+		// so the caller cannot close the socket before the browser sees the reply.
+		let pendingResult: PlanReviewResult | undefined;
 
 		const page = async (): Promise<ReviewPageData> => {
 			const current = (await store.read(cwd, plan.path)) ?? plan;
@@ -160,10 +166,11 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			page,
 			save,
 			onSaved: (annotations) => {
-				if (savedPlan) finish({ status: "saved", plan: savedPlan, annotations });
-				else finish({ status: "cancelled" });
+				pendingResult = savedPlan ? { status: "saved", plan: savedPlan, annotations } : { status: "cancelled" };
 			},
-			onCancel: () => finish({ status: "cancelled" }),
+			onCancel: () => {
+				pendingResult = { status: "cancelled" };
+			},
 		};
 
 		// Live event streams, used only to notice a closed tab. The explicit Cancel
@@ -218,23 +225,44 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					response.end();
 					return;
 				}
-				response.end(result.body ?? "");
+				// A save or cancel only resolves the session after its response is on the
+				// wire; otherwise `close()` would force-close the socket mid-reply.
+				response.end(result.body ?? "", () => {
+					if (!pendingResult) return;
+					const terminal = pendingResult;
+					pendingResult = undefined;
+					finish(terminal);
+				});
 			})();
 		});
 
-		let port: number;
+		const preferred = deps.port ?? ports.get(plan.path) ?? 0;
+		let port: number | undefined;
 		try {
-			port = await listen(server, deps.port ?? 0);
+			port = await listen(server, preferred);
 		} catch {
+			// The remembered port may have been taken between turns; fall back once.
+			if (preferred !== 0) {
+				try {
+					port = await listen(server, 0);
+				} catch {
+					port = undefined;
+				}
+			}
+		}
+		if (port === undefined) {
 			server.close();
 			return undefined;
 		}
+		ports.set(plan.path, port);
 
 		const url = `http://127.0.0.1:${port}/?token=${token}`;
 		let closed = false;
+		let abortHandler: (() => void) | undefined;
 		const close = async (): Promise<void> => {
 			if (closed) return;
 			closed = true;
+			if (signal && abortHandler) signal.removeEventListener("abort", abortHandler);
 			sessions.delete(session);
 			for (const client of clients) client.end();
 			clients.clear();
@@ -249,9 +277,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		sessions.add(session);
 
 		if (signal) {
-			const onAbort = (): void => void close();
+			abortHandler = (): void => void close();
 			if (signal.aborted) void close();
-			else signal.addEventListener("abort", onAbort, { once: true });
+			else signal.addEventListener("abort", abortHandler, { once: true });
 		}
 
 		(deps.open ?? openInBrowser)(url);

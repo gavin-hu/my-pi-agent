@@ -47,6 +47,13 @@ describe("renderReviewPage", () => {
 		expect(html).not.toContain('<div class="bf-status"');
 	});
 
+	test("renders an always-visible session status chip beside the title", () => {
+		const html = page();
+		expect(html).toContain('class="bf-chip bf-chip--accent review-state" id="review-state"');
+		expect(html).toContain("Connecting&#8230;");
+		expect(html).toContain(".review-state{flex:0 0 auto");
+	});
+
 	test("frames the plan with a section outline and the plan body", () => {
 		const html = page();
 		expect(html).toContain('id="outline-list"');

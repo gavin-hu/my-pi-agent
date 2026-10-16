@@ -40,11 +40,25 @@ export const MAX_QUOTE_LENGTH = 500;
 /** A stored feedback line, capturing its comment. */
 const MARKER_LINE = /^\s*>\s*\[!REVIEW\]\s?(.*)$/;
 
+/**
+ * Source lines inside a fenced code block. A marker-looking line there is
+ * documentation, not stored feedback, so it is never stripped or parsed.
+ */
+function fencedLines(plan: string): Set<number> {
+	const fenced = new Set<number>();
+	for (const block of planBlocks(plan)) {
+		if (block.kind !== "code") continue;
+		for (let line = block.start; line <= block.end; line++) fenced.add(line);
+	}
+	return fenced;
+}
+
 /** Remove every stored feedback line, leaving the plan body as authored. */
 export function stripFeedback(plan: string): string {
+	const fenced = fencedLines(plan);
 	return plan
 		.split("\n")
-		.filter((line) => !MARKER_LINE.test(line))
+		.filter((line, index) => fenced.has(index) || !MARKER_LINE.test(line))
 		.join("\n");
 }
 
@@ -53,17 +67,18 @@ export function stripFeedback(plan: string): string {
  * marker in the stripped plan, so a comment keeps its place across reloads.
  */
 export function parseFeedback(plan: string): PlanAnnotation[] {
+	const fenced = fencedLines(plan);
 	const clean: string[] = [];
 	const markers: Array<{ after: number; comment: string }> = [];
-	for (const line of plan.split("\n")) {
-		const match = MARKER_LINE.exec(line);
+	plan.split("\n").forEach((line, index) => {
+		const match = fenced.has(index) ? null : MARKER_LINE.exec(line);
 		if (match) {
 			const comment = match[1].trim();
 			if (comment) markers.push({ after: clean.length, comment });
-			continue;
+			return;
 		}
 		clean.push(line);
-	}
+	});
 	if (markers.length === 0) return [];
 
 	const blocks = planBlocks(clean.join("\n"));

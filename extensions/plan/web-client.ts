@@ -26,11 +26,14 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
   var closed = false;
+  var connected = null;
+  var dirty = false;
   var sectionObserver = null;
   var pendingQuote = null;
 
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
+  var stateEl = document.getElementById("review-state");
   var saveButton = document.getElementById("save");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
@@ -48,8 +51,37 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     statusEl.className = kind ? "bf-status bf-status--" + kind : "bf-status";
   }
 
+  // The always-visible header chip: connection, comment count, and whether
+  // there are edits the file does not have yet.
+  function updateState() {
+    if (!stateEl) return;
+    var label;
+    var tone = "";
+    if (saved) {
+      label = "Saved";
+      tone = "success";
+    } else if (connected === false) {
+      label = "Offline";
+      tone = "danger";
+    } else if (connected === true) {
+      label = "Connected";
+      tone = "success";
+    } else {
+      label = "Connecting\u2026";
+    }
+    var count = annotations.length;
+    label += " \u00b7 " + count + (count === 1 ? " comment" : " comments");
+    if (dirty && !saved) {
+      label += " \u00b7 unsaved";
+      if (!tone) tone = "warn";
+    }
+    stateEl.textContent = label;
+    stateEl.className = "bf-chip bf-chip--accent review-state" + (tone ? " bf-chip--" + tone : "");
+  }
+
   function safeHref(url) {
     var trimmed = String(url).trim();
+    if (/^[\\/]{2}/.test(trimmed)) return null;
     if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
     if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return null;
     return trimmed;
@@ -217,7 +249,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     add.addEventListener("click", function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
+      if (annotations.length >= 200) { setStatus("Comment limit reached (200).", "error"); return; }
       annotations.push(quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment });
+      dirty = true;
       renderPlan();
     });
     row.appendChild(cancel); row.appendChild(add); composer.appendChild(row);
@@ -240,6 +274,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
       annotation.comment = comment;
+      dirty = true;
       renderPlan();
     });
     row.appendChild(cancel); row.appendChild(apply); card.appendChild(row);
@@ -262,7 +297,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
       edit.addEventListener("click", function () { startEdit(card, index); });
       var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
-      remove.addEventListener("click", function () { annotations.splice(index, 1); renderPlan(); });
+      remove.addEventListener("click", function () { annotations.splice(index, 1); dirty = true; renderPlan(); });
       row.appendChild(edit); row.appendChild(remove); card.appendChild(row);
       box.appendChild(card);
     });
@@ -317,6 +352,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function renderPlan() {
     if (!planEl) return;
     closeComposer();
+    pendingQuote = null;
     planEl.replaceChildren();
     var blocks = Array.isArray(data.blocks) ? data.blocks : [];
     var anchored = {};
@@ -353,6 +389,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       planEl.appendChild(box);
     }
     observeSections();
+    updateState();
   }
 
   function renderHeader() {
@@ -369,6 +406,20 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (cancelButton) cancelButton.disabled = true;
   }
 
+  // A conflict means the file moved under the page; only a reload can re-anchor.
+  function offerReload() {
+    if (document.getElementById("reload")) return;
+    var controls = document.querySelector(".review-controls");
+    if (!controls) return;
+    var reload = el("button");
+    reload.type = "button";
+    reload.id = "reload";
+    reload.className = "bf-btn bf-btn--primary";
+    reload.textContent = "Reload";
+    reload.addEventListener("click", function () { window.location.reload(); });
+    controls.appendChild(reload);
+  }
+
   function save() {
     if (saved) return;
     setStatus("Saving\u2026");
@@ -377,10 +428,21 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ annotations: annotations })
     }).then(function (response) {
-      if (!response.ok) throw new Error("server returned " + response.status);
-      saved = true;
-      setStatus("Saved \u2014 return to Pi to continue.", "saved");
-      lockActions();
+      if (response.ok) {
+        saved = true;
+        dirty = false;
+        setStatus("Saved \u2014 return to Pi to continue.", "saved");
+        lockActions();
+        updateState();
+        return;
+      }
+      if (response.status === 409) {
+        setStatus("The plan changed on disk \u2014 reload to review again.", "error");
+        if (saveButton) saveButton.disabled = true;
+        offerReload();
+        return;
+      }
+      throw new Error("server returned " + response.status);
     }).catch(function (error) {
       setStatus("Could not save: " + error.message, "error");
     });
@@ -419,9 +481,16 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   });
 
   try {
-    new EventSource("/events?token=" + encodeURIComponent(token));
+    var stream = new EventSource("/events?token=" + encodeURIComponent(token));
+    stream.addEventListener("open", function () { connected = true; updateState(); });
+    stream.addEventListener("error", function () {
+      // The server ends the stream on save; keep showing Saved rather than Offline.
+      if (!saved) { connected = false; updateState(); }
+    });
   } catch (error) {
     // The server still sees the POST; the stream is only for close detection.
+    connected = false;
+    updateState();
   }
 
   ${THEME_TOGGLE_JS}
