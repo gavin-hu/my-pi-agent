@@ -5,6 +5,12 @@ handler, or reveals it in the file manager. `/open` does it interactively and
 the `open_path` tool does it from a script, both resolving the path against the
 effective working directory.
 
+## Tool rendering
+
+How the `open_path` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/open_path.png" alt="The open_path tool's call and result, drawn by the generic fallback rail" width="100%">
+
 ## Quickstart
 
 ```bash

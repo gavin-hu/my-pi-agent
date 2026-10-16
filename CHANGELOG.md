@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Tooling: `bun run screenshot:tools` renders every tool's call and result —
+  each tool this package registers plus Pi's built-ins, each resolved through
+  the shipped rail — into one full-page reference
+  (`assets/tool-renderings.png`) with headless Chrome, and
+  `bun run screenshot:tool-pngs` writes one image per tool under `assets/tools/`.
+  Both are embedded in the extension READMEs and the catalog, and
+  `bun run scripts/tool-renderings.ts render <name> --width <n>` prints one block
+  as ANSI on any OS.
 - `bytefly`: frames every tool block — built-ins included — with a status-colored
   rail in place of Pi's filled background box, wrapping each tool's own renderer
   so diffs, syntax highlighting, and previews are unchanged. `edit`, which draws
@@ -39,6 +47,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Tooling: `bun run screenshot:plan` now crops to the page's own content height,
+  so a short plan no longer pads the PNG with the browser viewport.
 - `bytefly`: every transcript block that is not prose now hangs from one shared
   rail (`lib/tui/rail.ts`). A notice joined the tool blocks' rail instead of
   sitting flush, so a notice, a tool block, and a subagent quote share one left

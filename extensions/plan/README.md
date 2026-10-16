@@ -12,6 +12,14 @@ pi -e .                            # load the whole @gavin-hu/my-pi-agent packag
 pi --plan                          # start in plan mode
 ```
 
+## Tool rendering
+
+How the `write_plan` and `exit_plan_mode` calls and their results look in the transcript — the shared rail around each tool's own renderer:
+
+<img src="../../assets/tools/write_plan.png" alt="The write_plan tool's call and result: a rail with the saved plan path and byte count" width="100%">
+
+<img src="../../assets/tools/exit_plan_mode.png" alt="The exit_plan_mode tool's call and result: a rail with the approval line and the approved plan preview" width="100%">
+
 ## What it does
 
 - **Read-only gating, with one exception.** Tools that are not read-only are

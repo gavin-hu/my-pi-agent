@@ -117,6 +117,16 @@ pi -e .                                                    # 试运行一次
 </tr>
 </table>
 
+### 工具渲染
+
+每个工具块的调用与结果，都按转录中的样子绘制：共用的 rail 包住每个工具自身的渲染器
+（或 bytefly 的通用回退）——用户铭牌与通知、Pi 内置工具，以及本包注册的每个工具。
+
+![每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、plan 工具与 worktree 工具](assets/tool-renderings.png)
+
+`bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
+[`assets/tools/`](./assets/tools) 下为每个工具输出一张图。
+
 ## 配置
 
 大多数扩展无需配置。所有设置都在一个共享文档 `bytefly.json` 中，从

@@ -11,6 +11,12 @@ pi -e .                              # load the whole @gavin-hu/my-pi-agent pack
 pi install ./                        # install the package
 ```
 
+## Tool rendering
+
+How the `send_wechat` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/send_wechat.png" alt="The send_wechat tool's call and result: a rail with the message text and the sent confirmation" width="100%">
+
 ## What it does
 
 - **Inbound** — a long-poll loop receives WeChat text, images, and files and

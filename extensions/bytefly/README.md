@@ -18,6 +18,12 @@ pi -e .                               # load the whole @gavin-hu/my-pi-agent pac
 pi install ./                         # install the package
 ```
 
+## Tool rendering
+
+How the `run_doctor` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/run_doctor.png" alt="The run_doctor tool's result: a rail with the doctor headline and the missing and degraded findings" width="100%">
+
 ## What it does
 
 The extension owns eight surfaces: the startup header, the footer, the

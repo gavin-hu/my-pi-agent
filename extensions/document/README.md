@@ -8,6 +8,12 @@
 the effective working directory with the same symlink-aware guard the built-in
 path tools use.
 
+## Tool rendering
+
+How the `read_doc` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/read_doc.png" alt="The read_doc tool's result: a rail with the file path, format, size, and the extracted text preview" width="100%">
+
 ## Quickstart
 
 ```bash

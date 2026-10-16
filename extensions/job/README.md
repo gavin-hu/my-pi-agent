@@ -13,6 +13,12 @@ pi -e .                            # load the whole @gavin-hu/my-pi-agent packag
 pi install ./                      # install the package
 ```
 
+## Tool rendering
+
+How the `job` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/job.png" alt="The job tool's result: a rail with a finished and a failed job row, each with its status glyph and elapsed time" width="100%">
+
 ## What it does
 
 - Registers one model-callable tool, `job`, with actions `start`, `list`,

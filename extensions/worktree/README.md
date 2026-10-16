@@ -14,6 +14,12 @@ pi install ./                          # install the package
 pi -e . --worktree feature-auth        # load the package and enter a worktree at startup
 ```
 
+## Tool rendering
+
+How the `list_worktrees` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/list_worktrees.png" alt="The list_worktrees tool's call and result, drawn by the generic fallback rail" width="100%">
+
 ## What it does
 
 - `enter_worktree` creates `<repo>/.pi/worktrees/<name>` on branch

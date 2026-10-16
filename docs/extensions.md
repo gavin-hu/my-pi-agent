@@ -250,6 +250,23 @@ Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` subcommand).
 
 [Full README](../extensions/bytefly/README.md)
 
+### Tool renderings
+
+Every tool block as the transcript draws it: bytefly's rail around each tool's own
+renderer, or its generic fallback. The page covers the user nameplate, a shared
+notice, and the turn rule, then Pi's built-ins (`read`, `write`, `edit`, `bash`,
+`grep`, `find`, `ls` — diffs, syntax highlighting and previews intact), then every
+tool this package registers: `todo`, `goal`, `memory`, `job`, `watch`,
+`subagent`, `web_search`, `web_fetch`, `read_doc`, `open_path`, `run_doctor`,
+`send_wechat`, `ask_user_question`, the plan tools, and the worktree tools.
+
+<img src="../assets/tool-renderings.png" alt="A full-page reference of every tool block: the user nameplate, a notice and the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, send_wechat, ask_user_question, the plan tools, and the worktree tools" width="100%">
+
+`bun run screenshot:tools` regenerates the page with headless Chrome and
+`bun run screenshot:tool-pngs` writes one image per tool under `assets/tools/`;
+`bun run scripts/tool-renderings.ts render <name> --width <n>` prints a single
+block as ANSI on any OS.
+
 ### Themes
 
 | Theme | Description |

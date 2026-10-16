@@ -9,6 +9,12 @@ pi -e .                             # load the whole @gavin-hu/my-pi-agent packa
 pi install ./                       # install the package
 ```
 
+## Tool rendering
+
+How the `goal` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/goal.png" alt="The goal tool's result: a rail with the Goal header and the objective body" width="100%">
+
 ## What it does
 
 - Registers one model-callable tool, `goal`, that records the session

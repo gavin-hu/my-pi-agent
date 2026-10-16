@@ -12,6 +12,12 @@ pi -e .                                # load the whole @gavin-hu/my-pi-agent pa
 pi install ./                          # install the package
 ```
 
+## Tool rendering
+
+How the `ask_user_question` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/ask_user_question.png" alt="The ask_user_question tool's call and result: a rail with the question headers, the options, and the answers" width="100%">
+
 ## What it does
 
 The model calls `ask_user_question` with 1–4 questions. Each question offers up

@@ -11,6 +11,12 @@ pi -e .                              # load the whole @gavin-hu/my-pi-agent pack
 pi install ./                        # install the package
 ```
 
+## Tool rendering
+
+How the `watch` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/watch.png" alt="The watch tool's result: a rail with a running file watcher and an exited command watcher" width="100%">
+
 ## What it does
 
 - Registers one model-callable tool, `watch`, with actions `add`, `list`,

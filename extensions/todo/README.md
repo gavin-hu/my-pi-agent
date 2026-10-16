@@ -16,6 +16,12 @@ pi -e .                             # load the whole @gavin-hu/my-pi-agent packa
 pi install ./                       # install the package
 ```
 
+## Tool rendering
+
+How the `todo` call and its result look in the transcript — the shared rail around the tool's own renderer:
+
+<img src="../../assets/tools/todo.png" alt="The todo tool's result: a rail with the progress line and the task rows below it, each led by a check, spinner, or circle glyph" width="100%">
+
 ## What it does
 
 - Registers one model-callable tool, `todo`, that **replaces** the task list.

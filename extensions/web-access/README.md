@@ -12,6 +12,14 @@ pi -e .                                   # load the whole @gavin-hu/my-pi-agent
 pi install ./                             # or install the package
 ```
 
+## Tool rendering
+
+How the `web_search` and `web_fetch` calls and their results look in the transcript — the shared rail around each tool's own renderer:
+
+<img src="../../assets/tools/web_search.png" alt="The web_search tool's call and result: a rail with the query and the ranked results" width="100%">
+
+<img src="../../assets/tools/web_fetch.png" alt="The web_fetch tool's call and result: a rail with the URL, title, and fetched text preview" width="100%">
+
 ## What it does
 
 - Registers `web_search`, general web search through a pluggable provider:
