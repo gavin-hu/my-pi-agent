@@ -23,8 +23,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as ANSI on any OS. A built-in is drawn mid-run, so the gallery shows a partial
   call beside the finished and failed ones.
 - `bytefly`: every tool block leads with the tool's own call line as the headline
-  — the tool name in the accent colour — and its body sits two columns in
-  directly beneath it, in place of Pi's filled background box. The frame wraps
+  — the tool name in the theme's tool-title colour — and its body sits two columns
+  in directly beneath it, in place of Pi's filled background box. The frame wraps
   the tool's own renderer, so diffs, syntax highlighting, and previews are
   unchanged. A shell call's `$` / `>` prompt is shown as the tool name, and its
   command is repainted in the body colour so the name is the block's only accent

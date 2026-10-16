@@ -179,8 +179,8 @@ and clipped at the boundary, and a message without `details` keeps Pi's default
 custom-message box.
 
 **Tool blocks.** Every tool block leads with the tool's own call line as the
-headline — the tool name in the accent colour — and its body sits two columns in
-directly beneath it, instead of Pi's filled status background:
+headline — the tool name in the theme's tool-title colour — and its body sits
+two columns in directly beneath it, instead of Pi's filled status background:
 
 ```
 read src/app.ts
@@ -203,6 +203,13 @@ pairs. A tool that draws its own shell (`edit`) is framed too:
 `renderShell: "self"` only tells Pi not to draw its filled box, so its diff
 would otherwise sit at the wrong indent; the frame drops the blank edges its own
 `Box` pads itself with.
+
+The call line is one colour grammar, shared with Pi's built-ins: the tool name is
+`toolTitle` and bold, a primary subject (a query, a URL, a path, a status) is the
+`accent`, counts and summaries are `muted`, trailing options are `dim`, and the
+result body is `toolOutput`. The shipped themes point `toolTitle` at the accent,
+so the name reads as the block's one accent; a theme that maps `toolTitle`
+elsewhere is respected rather than overridden.
 
 **Extension screen.** `/bytefly [extension] [refresh]` opens a keyboard-driven
 dock list of every Pi extension the session resolves — across personal settings
