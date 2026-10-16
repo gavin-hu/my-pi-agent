@@ -65,6 +65,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `lib/tui/` kit — a label-first title rule, the shared `keyValueRow` for the
   status label column, and role-based colors — closing the last interactive
   screens that still named theme tokens inline.
+- `subagent`, `document`: the transcript renderers draw their colors through the
+  `lib/tui/` roles, and the subagent's `Task` / `Output` section rules come from
+  the kit's `centeredRule`. The rendered output is unchanged; `toolOutput` and
+  `toolTitle` stay direct, since they are Pi's tool vocabulary rather than
+  chrome.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report

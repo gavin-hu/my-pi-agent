@@ -47,4 +47,6 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
   one extension probes on another — live in `tool-names.ts`.
 - **A color is a role, not a token.** Draw through [`tui/tokens.ts`](./tui/tokens.ts)
   (`paint(theme, role, text)`) so a theme swap re-skins every surface; the
-  primitives in `tui/` already do, and a new one should too.
+  primitives in `tui/` already do, and a new one should too. The one exception is
+  Pi's tool-rendering vocabulary (`toolOutput`, `toolTitle`), which stays direct:
+  those tokens style a tool block, and no role maps to them.

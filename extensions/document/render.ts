@@ -15,6 +15,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, hyperlink } from "@earendil-works/pi-tui";
 import { formatTokens, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { expandKey, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { summarizeDoc } from "./paging.ts";
 import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 
@@ -23,10 +24,10 @@ export const PREVIEW_LINES = 20;
 
 /** Render the argument path: accent, `~`-shortened, OSC-8 linked when supported. */
 export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: string): string {
-	if (typeof rawPath !== "string") return theme.fg("error", "[invalid arg]");
+	if (typeof rawPath !== "string") return paint(theme, "bad", "[invalid arg]");
 	const value = sanitizeLine(rawPath);
 	if (!value) return theme.fg("toolOutput", "...");
-	const styled = theme.fg("accent", shortenPath(value));
+	const styled = paint(theme, "accent", shortenPath(value));
 	if (!getCapabilities().hyperlinks) return styled;
 	const abs = isAbsolute(value) ? value : resolve(cwd, value);
 	return hyperlink(styled, pathToFileURL(abs).href);
@@ -72,7 +73,7 @@ export function formatDocCall(args: DocArgs, theme: Theme, context: { cwd: strin
  * expanded, a sanitized preview of the extracted text.
  */
 export function formatDocResult(result: DocRenderResult, options: DocRenderOptions, theme: Theme): string {
-	if (options.isPartial) return theme.fg("warning", "Reading...");
+	if (options.isPartial) return paint(theme, "warn", "Reading...");
 
 	const isError = result.isError ?? false;
 	const details = result.details as DocResult | undefined;
@@ -81,23 +82,23 @@ export function formatDocResult(result: DocRenderResult, options: DocRenderOptio
 		const first = result.content[0];
 		const message = first?.type === "text" && first.text ? first.text : "Read failed";
 		const safe = sanitizeLine(message.startsWith("Error:") ? message : `Error: ${message}`);
-		return theme.fg("error", safe);
+		return paint(theme, "bad", safe);
 	}
 
 	const summary = summarizeDoc(details);
-	const sep = theme.fg("dim", SEPARATORS.item);
-	let text = theme.fg("muted", summary.format) + sep + theme.fg("toolOutput", summary.detail);
-	if (summary.note) text += theme.fg(summary.truncated ? "accent" : "dim", SEPARATORS.item + summary.note);
+	const sep = paint(theme, "faint", SEPARATORS.item);
+	let text = paint(theme, "meta", summary.format) + sep + theme.fg("toolOutput", summary.detail);
+	if (summary.note) text += paint(theme, summary.truncated ? "accent" : "faint", SEPARATORS.item + summary.note);
 
 	if (details.text.length > 0) {
 		if (options.expanded) {
 			const { body, moreLines } = previewText(details.text, PREVIEW_LINES);
 			// Blank line before the body, matching the built-ins' header/output gap.
 			text += `\n\n${theme.fg("toolOutput", body)}`;
-			if (moreLines > 0) text += `\n${theme.fg("muted", `... (${moreLines} more lines)`)}`;
+			if (moreLines > 0) text += `\n${paint(theme, "meta", `... (${moreLines} more lines)`)}`;
 		} else {
 			const hint = expandKey(theme);
-			if (hint) text += theme.fg("muted", SEPARATORS.item) + hint;
+			if (hint) text += paint(theme, "meta", SEPARATORS.item) + hint;
 		}
 	}
 

@@ -12,10 +12,12 @@
 
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import { Container, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
+import { Container, Markdown, Spacer, Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { centeredRule } from "../../lib/tui/rules.ts";
+import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
@@ -23,6 +25,11 @@ import type { SingleResult, SubagentDetails } from "./types.ts";
 
 type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, unknown> };
 type ResultStatus = "running" | "aborted" | "failed" | "success";
+
+/** Columns a section rule adds around its label: a space and three dashes each side. */
+const SECTION_RULE_PAD = 8;
+/** A section rule keeps the `meta` colour the hand-rolled `─── label ───` used. */
+const SECTION_RULE_STYLE = { pad: 1, fillRole: "meta", labelRole: "meta" } as const;
 
 /** Text and tool-call parts of every assistant message, in order. */
 function getDisplayItems(messages: SingleResult["messages"]): DisplayItem[] {
@@ -45,12 +52,12 @@ function hasExpandableContent(items: DisplayItem[]): boolean {
 	);
 }
 
-/** Colours per status; the running glyph is time-based, so it is not a value here. */
-const STATUS_COLOR: Record<ResultStatus, "warning" | "error" | "success"> = {
-	running: "warning",
-	aborted: "warning",
-	failed: "error",
-	success: "success",
+/** Design roles per status; the running glyph is time-based, so it is not a value here. */
+const STATUS_ROLE: Record<ResultStatus, TuiRole> = {
+	running: "warn",
+	aborted: "warn",
+	failed: "bad",
+	success: "ok",
 };
 
 /** Static glyphs for terminal states, from the shared narrow-glyph vocabulary. */
@@ -77,12 +84,12 @@ function resultStatus(result: SingleResult, isPartial = false): ResultStatus {
 }
 
 function statusIcon(status: ResultStatus, theme: Theme, now: number): string {
-	return theme.fg(STATUS_COLOR[status], statusGlyph(status, now));
+	return paint(theme, STATUS_ROLE[status], statusGlyph(status, now));
 }
 
-/** The color the status uses, so the `[stopReason]` bracket matches its icon. */
-function statusColor(status: ResultStatus): "warning" | "error" | "success" {
-	return STATUS_COLOR[status];
+/** The role the status uses, so the `[stopReason]` bracket matches its icon. */
+function statusRole(status: ResultStatus): TuiRole {
+	return STATUS_ROLE[status];
 }
 
 /** The message a failed/aborted result should show, falling back to stderr. */
@@ -99,7 +106,7 @@ function renderError(result: SingleResult, status: ResultStatus, theme: Theme, m
 	const detail = errorDetail(result, status, max);
 	if (!detail) return undefined;
 	const label = status === "aborted" ? "Aborted" : "Error";
-	return theme.fg(status === "aborted" ? "warning" : "error", `${label}: ${detail}`);
+	return paint(theme, status === "aborted" ? "warn" : "bad", `${label}: ${detail}`);
 }
 
 /** Whether the collapsed error/stderr text is truncated, so expanding shows more. */
@@ -114,7 +121,7 @@ function hasClippedError(result: SingleResult, status: ResultStatus): boolean {
 function collapsedBody(result: SingleResult, status: ResultStatus, items: DisplayItem[], theme: Theme): string {
 	const error = renderError(result, status, theme, COLLAPSED_ERROR_MAX);
 	if (error) return error;
-	if (items.length === 0) return theme.fg("muted", status === "running" ? "(running…)" : "(no output)");
+	if (items.length === 0) return paint(theme, "meta", status === "running" ? "(running…)" : "(no output)");
 	return renderDisplayItems(items, theme, COLLAPSED_ITEM_COUNT);
 }
 
@@ -164,11 +171,11 @@ function durationSuffix(result: SingleResult, status: ResultStatus, now: number)
 function statusSuffix(result: SingleResult, status: ResultStatus, theme: Theme, now: number): string {
 	let suffix = "";
 	const duration = durationSuffix(result, status, now);
-	if (duration) suffix += theme.fg("dim", duration);
+	if (duration) suffix += paint(theme, "faint", duration);
 	const showReason = status === "failed" || status === "aborted";
 	const stop = showReason && result.stopReason && result.stopReason !== "end" ? result.stopReason : undefined;
 	const reason = stop ?? (status === "failed" ? `exit ${result.exitCode}` : undefined);
-	if (reason) suffix += ` ${theme.fg(statusColor(status), `[${reason}]`)}`;
+	if (reason) suffix += ` ${paint(theme, statusRole(status), `[${reason}]`)}`;
 	return suffix;
 }
 
@@ -182,9 +189,9 @@ function resultHeader(
 ): string {
 	let header = `${statusIcon(status, theme, now)} ${theme.fg("toolTitle", theme.bold(sanitizeLine(result.agent)))}`;
 	if (result.agentSource && result.agentSource !== "builtin" && result.agentSource !== "unknown") {
-		header += theme.fg("dim", ` [${sanitizeLine(result.agentSource)}]`);
+		header += paint(theme, "faint", ` [${sanitizeLine(result.agentSource)}]`);
 	}
-	if (result.step) header = `${theme.fg("muted", `${stepPrefix} ${result.step} `)}` + header;
+	if (result.step) header = `${paint(theme, "meta", `${stepPrefix} ${result.step} `)}` + header;
 	return header + statusSuffix(result, status, theme, now);
 }
 
@@ -193,7 +200,7 @@ function quoteLines(text: string, theme: Theme): string {
 	return stripControlChars(text)
 		.trim()
 		.split("\n")
-		.map((line) => theme.fg("muted", "│ ") + theme.fg("toolOutput", line))
+		.map((line) => paint(theme, "meta", "│ ") + theme.fg("toolOutput", line))
 		.join("\n");
 }
 
@@ -201,14 +208,14 @@ function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, 
 	const shown = limit ? items.slice(-limit) : items;
 	const skipped = limit && items.length > limit ? items.length - limit : 0;
 	const lines: string[] = [];
-	if (skipped > 0) lines.push(theme.fg("muted", `… ${skipped} earlier items`));
+	if (skipped > 0) lines.push(paint(theme, "meta", `… ${skipped} earlier items`));
 	for (const item of shown) {
 		if (item.type === "text") {
 			const safe = stripControlChars(item.text);
 			const text = preview ? safe.split("\n").slice(0, COLLAPSED_TEXT_LINES).join("\n") : safe;
 			lines.push(theme.fg("toolOutput", text));
 		} else {
-			lines.push(theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme, preview));
+			lines.push(paint(theme, "meta", "→ ") + formatToolCall(item.name, item.args, theme, preview));
 		}
 	}
 	return lines.join("\n");
@@ -235,36 +242,38 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: S
 
 /** The call-line string for the requested mode. */
 function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): string {
-	const title = theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? theme.fg("dim", "read-only ") : "");
+	const title =
+		theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? paint(theme, "faint", "read-only ") : "");
 	const cwdNote = (cwd?: string) => {
 		if (!cwd || cwd === context?.cwd) return "";
-		return theme.fg("dim", `  in ${shortenPath(cwd)}`);
+		return paint(theme, "faint", `  in ${shortenPath(cwd)}`);
 	};
 
 	if (args.chain && args.chain.length > 0) {
-		let text = title + theme.fg("accent", `chain · ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`);
+		let text = title + paint(theme, "accent", `chain · ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
 			const step = args.chain[i];
 			const clean = sanitizeLine(step.task.replace(/\{previous\}/g, ""));
-			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", sanitizeLine(step.agent))}${theme.fg("dim", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
+			text += `\n  ${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(step.agent))}${paint(theme, "faint", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
 		}
-		if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `… +${args.chain.length - 3} more`)}`;
+		if (args.chain.length > 3) text += `\n  ${paint(theme, "meta", `… +${args.chain.length - 3} more`)}`;
 		return text;
 	}
 
 	if (args.tasks && args.tasks.length > 0) {
-		let text = title + theme.fg("accent", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
+		let text =
+			title + paint(theme, "accent", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
 			const task = args.tasks[i];
-			text += `\n  ${theme.fg("muted", `${i + 1}.`)} ${theme.fg("accent", sanitizeLine(task.agent))}${theme.fg("dim", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
+			text += `\n  ${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(task.agent))}${paint(theme, "faint", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
 		}
-		if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `… +${args.tasks.length - 3} more`)}`;
+		if (args.tasks.length > 3) text += `\n  ${paint(theme, "meta", `… +${args.tasks.length - 3} more`)}`;
 		return text;
 	}
 
 	const agentName = sanitizeLine(args.agent || "…");
-	let text = title + theme.fg("accent", agentName) + cwdNote(args.cwd);
-	text += `\n  ${theme.fg("dim", clip(sanitizeLine(args.task ?? "…"), 60))}`;
+	let text = title + paint(theme, "accent", agentName) + cwdNote(args.cwd);
+	text += `\n  ${paint(theme, "faint", clip(sanitizeLine(args.task ?? "…"), 60))}`;
 	return text;
 }
 
@@ -283,8 +292,10 @@ function addExpandedResult(
 	if (error) container.addChild(new Text(error, 0, 0));
 
 	container.addChild(new Spacer(1));
-	container.addChild(new Text(theme.fg("muted", "─── Task ───"), 0, 0));
-	container.addChild(new Text(theme.fg("dim", stripControlChars(result.taskTemplate ?? result.task)), 0, 0));
+	container.addChild(
+		new Text(centeredRule(theme, visibleWidth("Task") + SECTION_RULE_PAD, "Task", SECTION_RULE_STYLE), 0, 0),
+	);
+	container.addChild(new Text(paint(theme, "faint", stripControlChars(result.taskTemplate ?? result.task)), 0, 0));
 
 	const displayItems = getDisplayItems(result.messages);
 	const lastItem = displayItems[displayItems.length - 1];
@@ -294,11 +305,15 @@ function addExpandedResult(
 	// order and do not surface a stale earlier message as the answer.
 	const trailingOutput = lastItem?.type === "text" && lastItem.text === finalOutput ? lastItem.text : "";
 	container.addChild(new Spacer(1));
-	container.addChild(new Text(theme.fg("muted", "─── Output ───"), 0, 0));
+	container.addChild(
+		new Text(centeredRule(theme, visibleWidth("Output") + SECTION_RULE_PAD, "Output", SECTION_RULE_STYLE), 0, 0),
+	);
 	let renderedOutput = false;
 	for (const item of displayItems) {
 		if (item.type === "toolCall") {
-			container.addChild(new Text(theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme, false), 0, 0));
+			container.addChild(
+				new Text(paint(theme, "meta", "→ ") + formatToolCall(item.name, item.args, theme, false), 0, 0),
+			);
 			renderedOutput = true;
 		} else if (item.text.trim() && item.text !== trailingOutput) {
 			container.addChild(new Text(quoteLines(item.text, theme), 0, 0));
@@ -311,13 +326,13 @@ function addExpandedResult(
 		renderedOutput = true;
 	}
 	if (!renderedOutput) {
-		container.addChild(new Text(theme.fg("muted", status === "running" ? "(running…)" : "(no output)"), 0, 0));
+		container.addChild(new Text(paint(theme, "meta", status === "running" ? "(running…)" : "(no output)"), 0, 0));
 	}
 
 	const usage = usageLine(result);
 	if (usage) {
 		container.addChild(new Spacer(1));
-		container.addChild(new Text(theme.fg("dim", usage), 0, 0));
+		container.addChild(new Text(paint(theme, "faint", usage), 0, 0));
 	}
 }
 
@@ -333,7 +348,7 @@ function collapsedSingleText(result: SingleResult, theme: Theme, isPartial: bool
 	text += `\n\n${collapsedBody(result, status, displayItems, theme)}`;
 	if (isExpandable(result, status, displayItems)) text += `\n${expandHint(theme)}`;
 	const usage = usageLine(result);
-	if (usage) text += `\n${theme.fg("dim", usage)}`;
+	if (usage) text += `\n${paint(theme, "faint", usage)}`;
 	return text;
 }
 
@@ -375,11 +390,11 @@ function multiHeader(details: SubagentDetails, theme: Theme, now: number): strin
 	const bad = failed + aborted;
 	const icon =
 		running > 0
-			? theme.fg("warning", statusGlyph("running", now))
+			? paint(theme, "warn", statusGlyph("running", now))
 			: bad > 0
-				? theme.fg(bad === total ? "error" : "warning", bad === total ? GLYPHS.jobsFailure : GLYPHS.half)
-				: theme.fg("success", GLYPHS.check);
-	return `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} · `))}${theme.fg("accent", status)}`;
+				? paint(theme, bad === total ? "bad" : "warn", bad === total ? GLYPHS.jobsFailure : GLYPHS.half)
+				: paint(theme, "ok", GLYPHS.check);
+	return `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} · `))}${paint(theme, "accent", status)}`;
 }
 
 function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number): string {
@@ -394,14 +409,14 @@ function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number)
 		const displayItems = getDisplayItems(result.messages);
 		if (isExpandable(result, status, displayItems)) hasHidden = true;
 		const taskText = result.taskTemplate ?? result.task;
-		const taskNote = taskText ? theme.fg("dim", ` ${clip(sanitizeLine(taskText), 50)}`) : "";
-		text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
+		const taskNote = taskText ? paint(theme, "faint", ` ${clip(sanitizeLine(taskText), 50)}`) : "";
+		text += `\n\n${paint(theme, "meta", "─── ")}${paint(theme, "accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
 		text += statusSuffix(result, status, theme, now);
 		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	}
 	if (running === 0) {
 		const usage = totalUsageLine(results);
-		if (usage) text += `\n\n${theme.fg("dim", `Total: ${usage}`)}`;
+		if (usage) text += `\n\n${paint(theme, "faint", `Total: ${usage}`)}`;
 	}
 	if (running > 0 || hasHidden) text += `\n${expandHint(theme)}`;
 	return text;
@@ -421,7 +436,7 @@ function fillExpandedMulti(container: Container, details: SubagentDetails, theme
 		const usage = totalUsageLine(details.results);
 		if (usage) {
 			container.addChild(new Spacer(1));
-			container.addChild(new Text(theme.fg("dim", `Total: ${usage}`), 0, 0));
+			container.addChild(new Text(paint(theme, "faint", `Total: ${usage}`), 0, 0));
 		}
 	}
 }
