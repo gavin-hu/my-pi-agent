@@ -1,11 +1,12 @@
 /**
- * Regenerate the terminal screenshots the docs embed.
+ * Regenerate the screenshots the docs embed.
  *
  * macOS only. Each screen is drawn by its real component with the
- * `bytefly-dark` theme inside a real Terminal.app window, then captured with
- * `screencapture`, so the docs show the actual render instead of a mock.
+ * `bytefly-dark` theme inside a real Terminal.app window, and the `chrome` hero
+ * is a real `pi -e .` session; both are captured with `screencapture`, so the
+ * docs show the actual surface instead of a mock, window title and all.
  *
- *   bun run scripts/screenshots.ts            # every screen into assets/
+ *   bun run scripts/screenshots.ts            # every screen plus the hero
  *   bun run scripts/screenshots.ts todo job   # only the named screens
  *   bun scripts/screenshots.ts render todo    # print the ANSI frame (any OS)
  *
@@ -17,7 +18,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 // `loadThemeFromPath` is not on the package root; the deep path is a dev-only
@@ -37,10 +38,10 @@ const theme = loadThemeFromPath(join(repo, "themes", "bytefly-dark.json"), "true
 
 /** Terminal window size in logical points; the render adapts to its columns. */
 const WINDOW_BOUNDS = { left: 80, top: 80, right: 880, bottom: 400 };
+/** The hero is a real `pi -e .` run, so it gets its own size. */
+const CHROME_BOUNDS = { left: 80, top: 80, right: 886, bottom: 673 };
 /** A temporary Terminal profile that matches the theme's canvas, deleted after. */
 const PROFILE = "PiScreenshot";
-/** Terminal's standard title bar height in logical points, scaled at capture. */
-const TITLE_BAR_POINTS = 28;
 
 const noop = (): void => {};
 const now = Date.now();
@@ -382,47 +383,28 @@ function closeWindow(id: number): void {
 	}
 }
 
-/**
- * Crop the title bar off a capture, in place, through CoreGraphics. ImageIO and
- * `sips` cannot crop a single edge; Swift ships with the Xcode command line
- * tools, which `screencapture` already implies on a developer Mac.
- */
-function cropTitleBar(path: string): void {
-	// The capture is at the display's backing scale, so derive the title bar's
-	// pixel height from the PNG width against the window's logical width.
-	const imageWidth = readFileSync(path).readUInt32BE(16);
-	const logicalWidth = WINDOW_BOUNDS.right - WINDOW_BOUNDS.left;
-	const top = Math.max(1, Math.round((TITLE_BAR_POINTS * imageWidth) / logicalWidth));
-	const source = `import CoreGraphics
-import Foundation
-import ImageIO
-import UniformTypeIdentifiers
-let args = CommandLine.arguments
-let url = URL(fileURLWithPath: args[1])
-let top = Int(args[2]) ?? 0
-let out = URL(fileURLWithPath: args[3])
-guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
-      let image = CGImageSourceCreateImageAtIndex(src, 0, nil),
-      let cropped = image.cropping(to: CGRect(x: 0, y: top, width: image.width, height: image.height - top)),
-      let dest = CGImageDestinationCreateWithURL(out as CFURL, UTType.png.identifier as CFString, 1, nil)
-else { exit(1) }
-CGImageDestinationAddImage(dest, cropped, nil)
-guard CGImageDestinationFinalize(dest) else { exit(1) }
-`;
-	const temp = `${path}.crop.png`;
-	try {
-		execFileSync("swift", ["-", path, String(top), temp], {
-			input: source,
-			stdio: ["pipe", "ignore", "inherit"],
-		});
-		renameSync(temp, path);
-	} catch {
-		console.error("swift not available; leaving the title bar on the capture");
-	}
-}
-
 function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+/** Window ids Terminal currently has open. */
+function windowIds(): number[] {
+	const list = osascript('tell application "Terminal" to get id of every window');
+	return list
+		.split(",")
+		.map((id) => Number(id.trim()))
+		.filter((id) => Number.isFinite(id));
+}
+
+/** Poll for a window id that was not open before, so restores are ignored. */
+async function waitForNewWindow(before: Set<number>, timeoutMs: number): Promise<number> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		const fresh = windowIds().filter((id) => !before.has(id));
+		if (fresh.length > 0) return fresh.at(-1) as number;
+		await sleep(100);
+	}
+	throw new Error("Timed out waiting for a new Terminal window");
 }
 
 /** Stop the held render for `name`, so its Terminal window is no longer busy. */
@@ -461,6 +443,82 @@ async function captureWindow(id: number, out: string): Promise<void> {
 	throw lastError;
 }
 
+/** Whether a session file has an assistant message that ended the turn. */
+function turnComplete(session: string): boolean {
+	if (!existsSync(session)) return false;
+	try {
+		for (const line of readFileSync(session, "utf8").split("\n")) {
+			if (!line.trim()) continue;
+			const entry = JSON.parse(line) as { message?: { role?: string; stopReason?: string } };
+			const message = entry.message;
+			if (message?.role !== "assistant") continue;
+			if (message.stopReason && message.stopReason !== "toolUse") return true;
+		}
+	} catch {
+		// The file is mid-write; try again on the next poll.
+	}
+	return false;
+}
+
+/** Wait for the seeded `pi` turn to finish, then let the TUI settle. */
+async function waitForTurn(session: string, timeoutMs: number): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		if (turnComplete(session)) return;
+		await sleep(250);
+	}
+	throw new Error("Timed out waiting for the hero turn");
+}
+
+/**
+ * Capture the hero: a real `pi -e .` session in a Terminal window, so the bytefly
+ * chrome is the shipped code rather than a mock. `-ne` isolates the package from
+ * anything else installed, `--no-themes` avoids a collision with an installed
+ * copy, and the worktree env is cleared so no banner line is printed.
+ */
+async function captureChrome(): Promise<void> {
+	const session = join(tmpdir(), "pi-screenshot-chrome.jsonl");
+	rmSync(session, { force: true });
+	const pi = execFileSync("which", ["pi"], { encoding: "utf8" }).trim();
+	const command =
+		`cd ${shellQuote(repo)} && unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; ` +
+		`for n in \${(k)parameters}; do case \${n:u} in *KEY*|*TOKEN*|*SECRET*|*PASSWORD*) unset $n ;; esac; done; ` +
+		`${shellQuote(pi)} -ne -e . --no-themes --theme ./themes/bytefly-dark.json --use-theme bytefly-dark ` +
+		`--thinking off -n my-pi-agent 'how are you today' --session ${shellQuote(session)} -a`;
+	const before = new Set(windowIds());
+	osascript('tell application "Terminal" to do script ""');
+	const id = await waitForNewWindow(before, 5_000);
+	osascript(`tell application "Terminal"
+		set w to window id ${id}
+		set current settings of tab 1 of w to settings set "${PROFILE}"
+		set bounds of w to {${CHROME_BOUNDS.left}, ${CHROME_BOUNDS.top}, ${CHROME_BOUNDS.right}, ${CHROME_BOUNDS.bottom}}
+		do script ${JSON.stringify(command)} in w
+	end tell`);
+	try {
+		await waitForTurn(session, 120_000);
+		// Let the turn rule and footer settle, and bring the window forward so its
+		// traffic lights are drawn active, before the capture.
+		await sleep(1200);
+		osascript(`tell application "Terminal"
+			activate
+			set index of window id ${id} to 1
+		end tell`);
+		await sleep(400);
+		const out = join(repo, "assets", "bytefly-chrome.png");
+		await captureWindow(id, out);
+		console.log("assets/bytefly-chrome.png");
+	} finally {
+		try {
+			execFileSync("pkill", ["-f", session], { stdio: "ignore" });
+		} catch {
+			// Already gone.
+		}
+		await sleep(300);
+		closeWindow(id);
+		rmSync(session, { force: true });
+	}
+}
+
 async function capture(name: string): Promise<void> {
 	const screen = SCREENS[name];
 	if (!screen) {
@@ -477,7 +535,6 @@ async function capture(name: string): Promise<void> {
 		id = await waitForWindow(screen.title, 5_000);
 		const out = join(repo, "assets", `${screen.asset}.png`);
 		await captureWindow(id, out);
-		cropTitleBar(out);
 		console.log(`assets/${screen.asset}.png`);
 	} finally {
 		killRender(name);
@@ -512,10 +569,13 @@ async function main(): Promise<void> {
 		console.error("Capture needs macOS (Terminal.app + screencapture). Use `render <name>` to preview.");
 		process.exit(1);
 	}
-	const names = args.length > 0 ? args : Object.keys(SCREENS);
+	const names = args.length > 0 ? args : [...Object.keys(SCREENS), "chrome"];
 	createProfile();
 	try {
-		for (const name of names) await capture(name);
+		for (const name of names) {
+			if (name === "chrome") await captureChrome();
+			else await capture(name);
+		}
 	} finally {
 		deleteProfile();
 	}
