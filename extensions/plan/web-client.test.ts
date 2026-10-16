@@ -104,6 +104,15 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain('block.kind === "hr"');
 	});
 
+	test("hangs a list continuation under its item", () => {
+		// A line without a marker joins the previous item instead of becoming a
+		// bare left-margin paragraph, so a hard-wrapped item reads as one block.
+		expect(REVIEW_CLIENT_JS).toContain("var items = [];");
+		expect(REVIEW_CLIENT_JS).toContain("items[items.length - 1]");
+		expect(REVIEW_CLIENT_JS).toContain('last.rest += " " + line.trim()');
+		expect(REVIEW_CLIENT_JS).toContain("items.forEach(function (item) { renderInline(item.body, item.rest); });");
+	});
+
 	test("navigates blocks and shows the keyboard sheet", () => {
 		expect(REVIEW_CLIENT_JS).toContain("function moveActive(delta)");
 		expect(REVIEW_CLIENT_JS).toContain("function commentOnActive()");

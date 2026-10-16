@@ -116,7 +116,7 @@ ${WEB_COMPONENTS_CSS}
 .bf-block__li{display:flex;gap:8px;margin:4px 0;line-height:var(--lh-relaxed)}
 .bf-block__marker{flex:0 0 auto;min-width:1.4em;color:var(--muted)}
 .bf-block__marker--done{color:var(--success)}
-.bf-block code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.1em .35em}
+.bf-block code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);border-radius:var(--radius-sm);padding:.1em .35em}
 .bf-block pre.bf-code{margin:11px 0;padding:var(--space-3) 0;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);font:var(--fs-code)/1.55 var(--font-mono);tab-size:4;flex:none}
 .bf-block pre.bf-code code{background:none;border:0;padding:0;font-size:inherit}
 .bf-block pre.bf-code .bf-code__line{display:block;padding:0 14px;white-space:pre;min-height:1.55em}

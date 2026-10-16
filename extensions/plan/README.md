@@ -287,9 +287,10 @@ file and returns them to the model.
   on the current block, `s` saves, `Esc` closes the composer, and `?` opens a
   shortcut sheet; the header's `?` button opens the same sheet.
 - **Markdown that reads.** Headings, lists, task items, blockquotes, fenced
-  code, GFM tables, `---` rules, and bare-URL autolinks render; tables honour the
-  alignment row and
-  scroll horizontally when narrow.
+  code, GFM tables, `---` rules, and bare-URL autolinks render; a list item's
+  continuation lines hang under the item's text, inline code is a soft fill
+  rather than a bordered chip, tables honour the alignment row and scroll
+  horizontally when narrow.
 - **Highlighted code.** Fenced code is tokenized by the shared
   `lib/highlight.ts`; the client copies only text and `tok-*` spans through
   `DOMParser`, so a code line is never parsed as markup.

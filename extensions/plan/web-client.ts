@@ -254,9 +254,14 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       return;
     }
     if (block.kind === "list") {
+      var items = [];
       lines.forEach(function (line) {
         var match = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(line);
         if (!match) {
+          // A following unmarked line is a CommonMark lazy continuation of the
+          // item above; join it so the paragraph hangs under the item's text.
+          var last = items[items.length - 1];
+          if (last) { if (line.trim()) last.rest += " " + line.trim(); return; }
           var plain = el("p"); renderInline(plain, line); wrap.appendChild(plain); return;
         }
         var row = el("div", "bf-block__li");
@@ -272,9 +277,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
           rest = box[2];
         }
         marker.textContent = markerText;
-        var body = el("span"); renderInline(body, rest);
+        var body = el("span");
         row.appendChild(marker); row.appendChild(body); wrap.appendChild(row);
+        items.push({ body: body, rest: rest });
       });
+      // Render each body once, after its continuation lines are collected.
+      items.forEach(function (item) { renderInline(item.body, item.rest); });
       return;
     }
     var paragraph = el("p");

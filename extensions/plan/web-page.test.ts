@@ -79,6 +79,16 @@ describe("renderReviewPage", () => {
 		expect(html).toContain(".review-table");
 	});
 
+	test("softens inline code to a fill without a border", () => {
+		const html = page();
+		expect(html).toContain(
+			".bf-block code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);border-radius:var(--radius-sm);padding:.1em .35em}",
+		);
+		expect(html).not.toContain(
+			".bf-block code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);border:",
+		);
+	});
+
 	test("pins a reading-progress bar to the header", () => {
 		const html = page();
 		expect(html).toContain('class="review-progress"');
