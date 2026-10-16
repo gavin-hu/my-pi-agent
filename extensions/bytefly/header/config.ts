@@ -3,14 +3,16 @@
  *
  * The header is a nameplate: a two-tone mark beside the agent identity (Pi and
  * its version) and the chrome identity (the tagline, bytefly, and its version),
- * a `─` rule, and a grouped help block. The mark and the text are drawn from the
- * active theme's tokens, and the help keys are resolved live from Pi's
- * keybindings, so a rebound key is respected.
+ * a signature rule whose accent lead sits under the mark, and a grouped help
+ * block. Every color is a design-system role resolved by the active theme, and
+ * the help keys are resolved live from Pi's keybindings, so a rebound key is
+ * respected.
  */
 
-import type { AppKeybinding, ThemeColor } from "@earendil-works/pi-coding-agent";
+import type { AppKeybinding } from "@earendil-works/pi-coding-agent";
+import { EXPAND_KEYBINDING } from "../../../lib/tui/glyphs.ts";
+import type { TuiRole } from "../../../lib/tui/tokens.ts";
 import pkg from "../../../package.json";
-import { EXPAND_KEYBINDING } from "../../../lib/ui.ts";
 
 /** One help entry: a Pi keybinding resolved live, or a raw key or command prefix. */
 export type HelpEntry =
@@ -23,14 +25,20 @@ export interface HeaderConfig {
 	readonly appName: string;
 	/** Print Pi's version on the agent line. */
 	readonly showVersion: boolean;
-	/** Theme token for the mark's top line. */
-	readonly markColor: ThemeColor;
-	/** Theme token for the mark's bottom line. */
-	readonly markAccent: ThemeColor;
-	/** Theme token for the agent and chrome names. */
-	readonly nameColor: ThemeColor;
-	/** Theme token for the versions, the tagline, and the help descriptions. */
-	readonly versionColor: ThemeColor;
+	/** Role for the mark's top line. */
+	readonly markRole: TuiRole;
+	/** Role for the mark's bottom line. */
+	readonly markAccentRole: TuiRole;
+	/** Role for the agent name. */
+	readonly nameRole: TuiRole;
+	/** Role for the chrome name. */
+	readonly chromeRole: TuiRole;
+	/** Role for the versions, the tagline, and the help descriptions. */
+	readonly detailRole: TuiRole;
+	/** Role for the rule's accent lead under the mark. */
+	readonly ruleAccentRole: TuiRole;
+	/** Role for the rest of the rule. */
+	readonly ruleRole: TuiRole;
 	/** Columns of left padding, matching Pi's built-in header indent. */
 	readonly padX: number;
 	/** The tagline before the chrome name, so the relationship reads in words. */
@@ -46,10 +54,13 @@ export interface HeaderConfig {
 export const HEADER_CONFIG: HeaderConfig = {
 	appName: "Pi",
 	showVersion: true,
-	markColor: "accent",
-	markAccent: "warning",
-	nameColor: "muted",
-	versionColor: "dim",
+	markRole: "accent",
+	markAccentRole: "warn",
+	nameRole: "label",
+	chromeRole: "meta",
+	detailRole: "faint",
+	ruleAccentRole: "accent",
+	ruleRole: "rule",
 	padX: 1,
 	chromeTagline: "enhanced by",
 	chromeName: "bytefly",

@@ -5,7 +5,7 @@ import { SUBAGENT_READ_ONLY_PARAM } from "../../lib/tool-names.ts";
 import { emitCollect as emit } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx, makeFakePi, planModeMessage, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { otherMessage } from "../../test/helpers/entries.ts";
 

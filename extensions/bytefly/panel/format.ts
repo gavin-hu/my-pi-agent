@@ -8,18 +8,18 @@
  * came from a probe is sanitized by `doctor/format.ts`.
  */
 
-import type { ThemeColor } from "@earendil-works/pi-coding-agent";
-import { GLYPHS } from "../../../lib/ui.ts";
+import type { TuiRole } from "../../../lib/tui/tokens.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { reportSeverity, reportSummary } from "../doctor/format.ts";
 import type { PanelModel, PanelRow } from "./types.ts";
 
 /** The settings scope the screen shows. */
 export type PanelScope = "global" | "project";
 
-/** One segment of the headline, with its semantic color for the TUI. */
+/** One segment of the headline, with its design role for the TUI. */
 export interface SummarySegment {
 	text: string;
-	color: ThemeColor;
+	color: TuiRole;
 }
 
 /** Row and problem counts over a model. */
@@ -67,19 +67,19 @@ export function summarySegments(model: PanelModel, scope: PanelScope, options: S
 	const counts = panelCounts(model);
 	const segments: SummarySegment[] = [{ text: scope === "global" ? "Global" : "Project", color: "accent" }];
 	if (options.filter !== undefined) {
-		segments.push({ text: `${options.filter} only`, color: "muted" });
+		segments.push({ text: `${options.filter} only`, color: "meta" });
 	} else {
 		const noun = options.compact ? "ext" : counts.extensions === 1 ? "extension" : "extensions";
-		segments.push({ text: `${counts.extensions} ${noun}`, color: "muted" });
+		segments.push({ text: `${counts.extensions} ${noun}`, color: "meta" });
 		if (counts.disabled > 0) {
-			segments.push({ text: `${counts.disabled} ${options.compact ? "off" : "disabled"}`, color: "muted" });
+			segments.push({ text: `${counts.disabled} ${options.compact ? "off" : "disabled"}`, color: "meta" });
 		}
 	}
 	const problems: string[] = [];
 	if (counts.missing > 0) problems.push(`${counts.missing} missing`);
 	if (counts.degraded > 0) problems.push(`${counts.degraded} degraded`);
 	if (problems.length > 0) {
-		segments.push({ text: problems.join(", "), color: counts.missing > 0 ? "error" : "warning" });
+		segments.push({ text: problems.join(", "), color: counts.missing > 0 ? "bad" : "warn" });
 	}
 	return segments;
 }

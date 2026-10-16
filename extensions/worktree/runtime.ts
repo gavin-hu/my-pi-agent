@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { STATUS_KEYS } from "../../lib/ui.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import type { WorktreeState } from "./state.ts";

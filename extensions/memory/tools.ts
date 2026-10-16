@@ -11,7 +11,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { reuseText, toolDetails } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { messageOf } from "./errors.ts";
 import { formatCallText, formatResultText, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";

@@ -1,4 +1,4 @@
-import { GLYPHS, STATUS_KEYS } from "../../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import type { StatusSnapshot } from "../../../extensions/bytefly/footer/types.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../fakes.ts";
 

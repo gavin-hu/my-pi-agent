@@ -24,7 +24,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`interaction.ts`](./interaction.ts) | Turn-affinity prompt contract: the channel a remote adapter installs on `ctx.ui` under a string key, the `InteractionChannel` interface (`request` / `post` / `postFile`), and `remoteChannel` / `isRemoteTurn` / `supportsCustomUI` / `askHuman` (with an optional file/text preface) plus the shared “Other” label. |
 | [`git/`](./git/) | Shared git plumbing. [`git/runner.ts`](./git/runner.ts) is the `RunGit` seam (`createExecRunner` with timeout/env handling, `runGitOrThrow`, `GitError`); [`git/read.ts`](./git/read.ts) holds the read helpers (`repoRoot`, `repoRootFor`, `gitDir`, `revParse`, `hasCommits`, `currentBranch`); [`git/index.ts`](./git/index.ts) is the barrel. |
 | [`highlight.ts`](./highlight.ts) | First-party, escape-first syntax tokenizer (`detectLanguage`, `fenceLanguage`, `highlightLines`, `HighlightLanguage`, `TokenClass`) for js/ts, json, css, html, shell, python, java, yaml, and sql; shared by `file-browse` and plan's code blocks. |
-| [`list-cursor.ts`](./list-cursor.ts) | Scrollable-list behavior for the `/rewind`, `/bytefly`, `/todos`, and `/jobs` screens: `fitRows`, `keepVisible`, `clampScroll`, `navIntent`, `navigateList`, `navigateScroll`, `wheelDelta`, `scrollList`, `isCloseKey`, `selectionMarker`, `formatRange`, and the `ListCursor` state. |
+| [`tui/`](./tui/) | The Bytefly terminal design system shared by every interactive surface: [`tui/tokens.ts`](./tui/tokens.ts) (semantic role -> theme color, `token` / `paint`), [`tui/glyphs.ts`](./tui/glyphs.ts) (`GLYPHS`, `SEPARATORS`, `STATUS_KEYS`, `EXPAND_KEYBINDING` with `expandKey` / `expandHint`, `BODY_INDENT` / `GLYPH_GAP` — the vocabulary both sides of a status must agree on), [`tui/chrome.ts`](./tui/chrome.ts) (`screenHeader`, `screenHint`, `dockListFrame` with its header override, `viewportRows`, `FULL_SCREEN_OVERLAY`, `reuseText`, `editorTheme`), [`tui/rules.ts`](./tui/rules.ts) (`plainRule` / `titleRule` / `sectionRule` / `centeredRule`), [`tui/rows.ts`](./tui/rows.ts) (`listRow`, `checkbox`, `chip`, `keyValueRow`, `emptyState`), [`tui/columns.ts`](./tui/columns.ts) (`splitRow`, `fitCells`, `padTo`, `clip`), [`tui/gauge.ts`](./tui/gauge.ts) (`computeGauge`, `gaugeRole`, `gaugeBar`), and [`tui/cursor.ts`](./tui/cursor.ts) (scroll and navigation: `fitRows`, `keepVisible`, `clampScroll`, `navIntent`, `navigateList`, `navigateScroll`, `wheelDelta`, `scrollList`, `isCloseKey`, `selectionMarker`, `formatRange`, and the `ListCursor` state). |
 | [`path.ts`](./path.ts) | `isInside` (string containment) plus `realPathOfNearest` / `isInsideReal` (symlink-aware): the containment predicates the file-browse, worktree, and doc guards share. |
 | [`pi-invocation.ts`](./pi-invocation.ts) | `getPiInvocation`: how to launch a nested `pi` process, shared by `subagent` and bytefly's doctor surface. |
 | [`policy.ts`](./policy.ts) | `createReadOnlyPolicy`: default-deny tool classification from `readOnlyHint` + explicit allow/deny. |
@@ -32,8 +32,6 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`requirements.ts`](./requirements.ts) | Per-extension runtime prerequisite table plus a pure `probeExtension(seams)` over injected seams (exec, config reads, optional imports): bytefly's doctor surface reports on it and the extensions that own a dependency format their errors from it. |
 | [`shell.ts`](./shell.ts) | Shell escape rule shared by the worktree isolation guard and plan mode's read-only git guard: `SHELL_ESCAPABLE`, `isShellEscapable`, `hasShellEscape`. |
 | [`tool-names.ts`](./tool-names.ts) | Tool names and one parameter name that more than one extension must agree on, so an orchestrating `ctx.executeTool()` call or schema probe breaks the build on a rename. |
-| [`tui.ts`](./tui.ts) | Screen chrome: `screenHeader`, `screenHint`, `dockListFrame` (the shared docked-list assembly), `viewportRows`, and `FULL_SCREEN_OVERLAY`, plus `reuseText` (per-render `Text` reuse) and `editorTheme` (inline-editor theme). |
-| [`ui.ts`](./ui.ts) | Shared UI vocabulary: `GLYPHS`, `SEPARATORS`, `STATUS_KEYS` (`ctx.ui.setStatus` keys), `EXPAND_KEYBINDING` with `expandKey` / `expandHint`, and the transcript rail `BODY_INDENT` / `GLYPH_GAP`. |
 | [`web/`](./web/) | The Bytefly web brand system shared by the browser surfaces: [`web/tokens.ts`](./web/tokens.ts) (palette derived from the Bytefly terminal themes, scales, and the `tok-*` map), [`web/base.ts`](./web/base.ts), [`web/components.ts`](./web/components.ts), [`web/layout.ts`](./web/layout.ts), [`web/runtime.ts`](./web/runtime.ts) (`WEB_THEME_STORAGE_KEY`, `THEME_JS`, `THEME_TOGGLE_JS`), [`web/markup.ts`](./web/markup.ts), and the [`web/index.ts`](./web/index.ts) barrel. |
 
 ## Conventions
@@ -43,7 +41,10 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 - **Inject the host seam.** Modules that need a host capability take a function
   (`RunGit`, `HttpRunner`) rather than the whole `ExtensionAPI`, so the logic is
   testable without a runtime.
-- **Constants that must agree across both sides live in `ui.ts`** — a glyph and
-  the `setStatus` key are one contract, not two literals. Tool names shared by
-  an orchestrating tool and the tool it calls — and parameter names one
-  extension probes on another — live in `tool-names.ts`.
+- **Constants that must agree across both sides live in `tui/glyphs.ts`** — a
+  glyph and the `setStatus` key are one contract, not two literals. Tool names
+  shared by an orchestrating tool and the tool it calls — and parameter names
+  one extension probes on another — live in `tool-names.ts`.
+- **A color is a role, not a token.** Draw through [`tui/tokens.ts`](./tui/tokens.ts)
+  (`paint(theme, role, text)`) so a theme swap re-skins every surface; the
+  primitives in `tui/` already do, and a new one should too.

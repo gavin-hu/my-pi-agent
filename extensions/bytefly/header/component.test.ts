@@ -137,13 +137,24 @@ describe("ByteflyHeader", () => {
 		).render(80);
 
 		expect(lines[0]).toContain("[accent]█▀█");
-		expect(lines[0]).toContain("[muted]Pi");
+		expect(lines[0]).toContain("[bold][text]Pi");
 		expect(lines[0]).toContain("[dim]v1.2.0");
 		expect(lines[1]).toContain("[warning]█▀ █");
 		expect(lines[1]).toContain("[muted]bytefly");
+		expect(lines[2]).toContain("[accent]");
 		expect(lines[2]).toContain("[borderMuted]");
 		expect(lines[3]).toContain("[dim]escape");
 		expect(lines[3]).toContain("[muted] to interrupt");
+	});
+
+	test("anchors the rule's accent lead under the mark", () => {
+		const lines = new ByteflyHeader(
+			() => coloringTheme,
+			() => view(),
+			"1.2.0",
+		).render(80);
+
+		expect(lines[2]?.startsWith(" [accent]────[borderMuted]")).toBe(true);
 	});
 
 	test("reads the live theme on every render", () => {

@@ -8,7 +8,7 @@
 
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import type { RestoreSummary } from "./types.ts";
 
 /** Longest prompt summary shown before truncation. */

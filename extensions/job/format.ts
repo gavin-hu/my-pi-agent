@@ -14,7 +14,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
 
 /** Longest sanitized log line kept for display; longer lines are clipped. */

@@ -24,7 +24,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { canonicalize, checkCheckout, repoRoot, unlockWorktree } from "./git.ts";
 import { analyzeBashCommand, guardFileTool } from "./guard.ts";
 import {

@@ -18,7 +18,7 @@
 
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth, visibleWidth, type EditorTheme, type OverlayOptions } from "@earendil-works/pi-tui";
-import { SEPARATORS } from "./ui.ts";
+import { SEPARATORS } from "./glyphs.ts";
 
 /**
  * `ctx.ui.custom` options that give a screen the whole terminal.
@@ -109,8 +109,10 @@ export interface DockListFrame {
 	theme: Theme;
 	/** Body width in columns. */
 	width: number;
-	/** The header label, e.g. `Extensions`. */
+	/** The header label, e.g. `Extensions`. Used by the default `─── label ───` rule. */
 	title: string;
+	/** A pre-rendered header line that replaces the default rule, e.g. a `titleRule`. */
+	header?: string;
 	/** A summary line under the header; a blank line follows it. */
 	summary?: string;
 	/** The list rows, or the screen's single empty-state line. */
@@ -135,7 +137,7 @@ export interface DockListFrame {
  */
 export function dockListFrame(frame: DockListFrame): string[] {
 	const width = Math.max(1, frame.width);
-	const lines: string[] = [screenHeader(frame.theme, width, frame.title)];
+	const lines: string[] = [frame.header ?? screenHeader(frame.theme, width, frame.title)];
 	if (frame.summary !== undefined) lines.push(frame.summary, "");
 	lines.push(...frame.body);
 	if (frame.range !== undefined) lines.push(frame.range);

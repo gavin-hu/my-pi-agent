@@ -5,7 +5,7 @@
  * every render (`entries()` refreshes from disk first) and asks for a repaint
  * after an action settles, so an external edit or a mutation is reflected
  * without the component owning any authoritative state. Navigation and scroll
- * math come from `lib/list-cursor.ts` and the screen chrome from `lib/tui.ts`;
+ * math come from `lib/tui/cursor.ts` and the screen chrome from `lib/tui/chrome.ts`;
  * the inline note editor is the shared `Editor` from `@earendil-works/pi-tui`.
  */
 
@@ -29,8 +29,8 @@ import {
 	navigateList,
 	scrollList,
 	selectionMarker,
-} from "../../lib/list-cursor.ts";
-import { dockListFrame, editorTheme, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
+} from "../../lib/tui/cursor.ts";
+import { dockListFrame, editorTheme, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { messageOf } from "./errors.ts";
 import { scopeLabel, type MemoryEntries } from "./format.ts";
 import type { MemoryScope } from "./types.ts";

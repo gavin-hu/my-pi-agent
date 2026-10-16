@@ -75,15 +75,18 @@ These are enforced or reviewed; the full list is in [`AGENTS.md`](./AGENTS.md):
   extension's modules.
 - **Shared names.** Tool and parameter names that more than one extension agrees
   on live in [`lib/tool-names.ts`](./lib/tool-names.ts); glyphs and status keys
-  in [`lib/ui.ts`](./lib/ui.ts).
+  in [`lib/tui/glyphs.ts`](./lib/tui/glyphs.ts).
 - **Tool surface.** Declare `readOnlyHint` and `openWorldHint` on every tool;
   mutating tools also declare `destructiveHint`. Set `executionMode` to
   `"sequential"` when calls share state or order.
 - **Prompt budget.** Always-on model-facing text is capped; see
   [`test/prompt-budget.test.ts`](./test/prompt-budget.test.ts).
-- **TUI.** Follow Pi's built-in design system and the shared helpers in
-  [`lib/tui.ts`](./lib/tui.ts), [`lib/ui.ts`](./lib/ui.ts), and
-  [`lib/list-cursor.ts`](./lib/list-cursor.ts). Width is terminal columns, and
+- **TUI.** Follow Pi's built-in design system and the `lib/tui/` kit:
+  [`tokens.ts`](./lib/tui/tokens.ts) roles, [`chrome.ts`](./lib/tui/chrome.ts),
+  [`rules.ts`](./lib/tui/rules.ts), [`rows.ts`](./lib/tui/rows.ts),
+  [`columns.ts`](./lib/tui/columns.ts), [`gauge.ts`](./lib/tui/gauge.ts),
+  [`glyphs.ts`](./lib/tui/glyphs.ts), and [`cursor.ts`](./lib/tui/cursor.ts).
+  Colors come from a role, never a literal. Width is terminal columns, and
   model- or file-authored text is sanitized at the boundary.
 
 ## Adding an extension

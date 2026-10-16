@@ -8,7 +8,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint } from "../../lib/tui.ts";
+import { screenHeader, screenHint } from "../../lib/tui/chrome.ts";
 
 export interface LoginViewState {
 	/** Raw `get_qrcode_status` value, or `wait` before the first poll. */

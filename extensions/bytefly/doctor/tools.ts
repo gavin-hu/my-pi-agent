@@ -9,7 +9,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { missingFindings } from "../../../lib/requirements.ts";
-import { reuseText, toolDetails } from "../../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { formatExtension, formatReport, isProblemSeverity } from "./format.ts";
 import type { DoctorRuntime } from "./runtime.ts";
 import { DoctorOutput, DoctorParams, TOOL_NAME, type DoctorArgs, type DoctorStructured } from "./schema.ts";

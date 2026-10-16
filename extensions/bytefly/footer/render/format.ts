@@ -6,9 +6,10 @@
  */
 
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { shortenPath } from "../../../../lib/format.ts";
+import { gaugeRole } from "../../../../lib/tui/gauge.ts";
+import type { TuiRole } from "../../../../lib/tui/tokens.ts";
 import { CONFIG } from "../config.ts";
 import { DEFAULT_CURRENCY } from "../price/config.ts";
 import type { Currency } from "../price/types.ts";
@@ -65,23 +66,9 @@ export function formatCwd(cwd: string, home: string | undefined, level: 0 | 1 | 
 	return parts.length <= 2 ? shortened : `…/${parts.slice(-2).join("/")}`;
 }
 
-/** Filled/empty block counts for a percentage across `blocks` cells. */
-export function computeGauge(percent: number | null, blocks: number): { filled: number; empty: number } {
-	if (blocks <= 0) return { filled: 0, empty: 0 };
-	if (percent === null) return { filled: 0, empty: blocks };
-	const clamped = Math.max(0, Math.min(100, percent));
-	// Floor so the bar is only full at 100%; force one block for any non-zero
-	// usage so a small percentage is still visible.
-	const filled = Math.max(clamped > 0 ? 1 : 0, Math.floor((clamped / 100) * blocks));
-	return { filled, empty: blocks - filled };
-}
-
-/** Gauge color for a context percentage. Neutral until it crosses a threshold. */
-export function contextColor(percent: number | null): ThemeColor {
-	if (percent === null) return "muted";
-	if (percent > CONFIG.thresholds.danger) return "error";
-	if (percent > CONFIG.thresholds.warn) return "warning";
-	return "muted";
+/** The design role a context percentage is drawn in. Neutral until it crosses a threshold. */
+export function contextRole(percent: number | null): TuiRole {
+	return gaugeRole(percent, CONFIG.thresholds);
 }
 
 const THINKING_TOKENS: Record<ThinkingLevel, ThinkingColor> = {

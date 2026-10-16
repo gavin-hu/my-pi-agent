@@ -15,7 +15,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
-import { reuseText } from "../../lib/tui.ts";
+import { reuseText } from "../../lib/tui/chrome.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
 import type { DocExtractor } from "./extract/file.ts";
 import { detectFormat, supportedExtensions, unsupportedHint, type FormatId } from "./formats.ts";

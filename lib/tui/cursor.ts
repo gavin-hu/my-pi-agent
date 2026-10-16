@@ -8,13 +8,13 @@
  * in view, which keys navigate, and how to render the "showing X–Y of N" row.
  * That shared part lives here so a fix or a rebinding happens once.
  *
- * No runtime dependencies beyond `lib/tui.ts` and `@earendil-works/pi-tui`; the
+ * No runtime dependencies beyond `lib/tui/chrome.ts` and `@earendil-works/pi-tui`; the
  * theme is passed in and there is no cross-extension state.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { viewportRows, type ViewportRowsSource } from "./tui.ts";
+import { viewportRows, type ViewportRowsSource } from "./chrome.ts";
 
 /**
  * Rows that fit for a list of `itemCount`, reserving one extra line when the

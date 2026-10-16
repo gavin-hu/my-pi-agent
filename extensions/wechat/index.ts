@@ -14,7 +14,7 @@
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
 import { createFetchRunner, WechatClient } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";

@@ -20,7 +20,7 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
 import type { PlanModeEntry } from "./types.ts";
 

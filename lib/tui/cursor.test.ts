@@ -13,8 +13,8 @@ import {
 	scrollList,
 	selectionMarker,
 	wheelDelta,
-} from "./list-cursor.ts";
-import { fakeTheme } from "../test/helpers/fakes.ts";
+} from "./cursor.ts";
+import { fakeTheme } from "../../test/helpers/fakes.ts";
 
 const UP = "\x1b[A";
 const DOWN = "\x1b[B";

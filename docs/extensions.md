@@ -211,17 +211,17 @@ Tool: `send_wechat`. Command: `/wechat`.
 ### bytefly
 
 The themed TUI chrome and the package's diagnostics surface. It draws the
-startup header (a two-tone nameplate with the agent and chrome identities, drawn
-from the active theme's tokens), a compact, width-adaptive two-line footer (pwd
-+ session name + git branch/worktree + browse chip, then context gauge + usage +
+startup header (a two-tone nameplate with the agent and chrome identities and a
+signature rule, drawn from the active theme through the `lib/tui/` design
+system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
 mode/alert + model + thinking level), and the labeled `╌╌╌ turn N ╌╌╌` rule
 between completed turns.
 DeepSeek is priced out of the box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a
 keyboard-driven docked list of every resolved Pi extension, one row per
-extension carrying its enable checkbox and its worst-severity health, with the
-focused extension's findings underneath. `Space` toggles the focused extension
+extension carrying its `◼`/`◻` enable checkbox and its worst-severity health,
+with the focused extension's findings underneath. `Space` toggles the focused extension
 by writing `settings.json`, `Enter` expands the detail pane, `Tab` switches
 Global/Project scope, and `r` re-probes. `/bytefly doctor [extension]
 [refresh]` prints the doctor report (the same screen in `tui`), and every other

@@ -7,7 +7,7 @@
  * configuration is `bytefly.json`, read by `../price/config.ts`.
  */
 
-import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../../lib/ui.ts";
+import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 
 export const CONFIG = {
 	/** Context percentage thresholds. */

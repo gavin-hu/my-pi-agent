@@ -9,7 +9,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { reuseText, toolDetails } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import {
 	compareWatches,
 	formatCallText,

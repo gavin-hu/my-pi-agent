@@ -12,7 +12,8 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
 import type { ExtensionReport, Finding, FindingSeverity } from "../../../lib/requirements.ts";
-import { GLYPHS } from "../../../lib/ui.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
 
 /** Counts the report headline uses. */
 export interface ReportCounts {
@@ -105,12 +106,37 @@ export function formatWarning(findings: readonly Finding[]): string {
 	return `doctor: missing ${parts.join("; ")} — run /bytefly doctor`;
 }
 
-/** The severity glyph, from the shared vocabulary. */
+/** The design role a severity is drawn in. */
+export function severityRole(severity: FindingSeverity): TuiRole {
+	switch (severity) {
+		case "missing":
+			return "bad";
+		case "degraded":
+			return "warn";
+		case "info":
+			return "faint";
+		default:
+			return "ok";
+	}
+}
+
+/** The bare severity glyph, from the shared vocabulary. */
+export function severityGlyphChar(severity: FindingSeverity): string {
+	switch (severity) {
+		case "missing":
+			return GLYPHS.cross;
+		case "degraded":
+			return GLYPHS.warn;
+		case "info":
+			return GLYPHS.disabled;
+		default:
+			return GLYPHS.check;
+	}
+}
+
+/** The severity glyph, themed by role. */
 export function severityGlyph(severity: FindingSeverity, theme: Theme): string {
-	if (severity === "missing") return theme.fg("error", GLYPHS.cross);
-	if (severity === "degraded") return theme.fg("warning", GLYPHS.warn);
-	if (severity === "info") return theme.fg("dim", GLYPHS.disabled);
-	return theme.fg("success", GLYPHS.check);
+	return paint(theme, severityRole(severity), severityGlyphChar(severity));
 }
 
 /** The severity that represents an extension: worst finding wins. */
@@ -147,7 +173,7 @@ export function detailLines(
 	const budget = Math.max(1, rows);
 	const shown = includeInfo ? report.findings : report.findings.filter((finding) => finding.severity !== "info");
 	if (shown.length === 0) {
-		return [`  ${theme.fg("dim", report.enabled ? "no problems" : "disabled")}`];
+		return [`  ${paint(theme, "faint", report.enabled ? "no problems" : "disabled")}`];
 	}
 
 	const lines: string[] = [];
@@ -160,10 +186,10 @@ export function detailLines(
 		}
 		if (finding.hint) {
 			for (const line of wrapTextWithAnsi(`→ ${sanitizeLine(finding.hint)}`, Math.max(1, width - 4))) {
-				lines.push(`    ${theme.fg("dim", line)}`);
+				lines.push(`    ${paint(theme, "faint", line)}`);
 			}
 		}
 	}
 	if (lines.length <= budget) return lines;
-	return [...lines.slice(0, budget - 1), `  ${theme.fg("dim", "…")}`];
+	return [...lines.slice(0, budget - 1), `  ${paint(theme, "faint", "…")}`];
 }

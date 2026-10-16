@@ -8,7 +8,7 @@
  * `browse-*` rules below are the page-only layer.
  */
 
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import {
 	brandLockup,
 	docHead,

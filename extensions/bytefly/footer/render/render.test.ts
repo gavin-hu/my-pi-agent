@@ -3,7 +3,7 @@ import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
 import { fakeTheme } from "../../../../test/helpers/fakes.ts";
 import { fullSnapshot } from "../../../../test/helpers/fixtures/bytefly.ts";
-import { GLYPHS } from "../../../../lib/ui.ts";
+import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
 
 /**
  * Rendering of the full bar across widths.

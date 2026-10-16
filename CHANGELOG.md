@@ -23,6 +23,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the TUI chrome and the `/bytefly` screen are drawn from a new
+  shared `lib/tui/` design system (semantic roles, rules, rows, columns, gauge),
+  so every surface follows the active theme by role rather than by token name.
+  The look is refreshed: the header bolds the agent name and anchors its rule
+  with an accent lead under the mark, and the screen uses a label-first
+  `bytefly ────` title, one row grammar, and `◼`/`◻` checkboxes in place of
+  `[x]`/`[ ]`. The footer and the turn rule are unchanged on screen; their
+  colors and the context gauge now come from the kit.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report

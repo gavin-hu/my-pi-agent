@@ -13,7 +13,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { STATUS_KEYS } from "../../lib/ui.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { registerCommands } from "./commands.ts";
 import { formatPendingMatch } from "./format.ts";
 import { createWatchRuntime, type WatchRuntime } from "./runtime.ts";

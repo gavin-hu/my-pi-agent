@@ -1,0 +1,85 @@
+import { describe, expect, test } from "bun:test";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { clip, fitCells, padTo, splitRow } from "./columns.ts";
+
+/** A representative mix: ASCII, a CJK sample, and a themed string. */
+const SAMPLES = ["Extensions", "日本語のリスト", "\u001b[31mred\u001b[39m text", "a", ""];
+
+/** Column counts exercised by the width sweep. */
+const WIDTHS = Array.from({ length: 115 }, (_, index) => index + 6);
+
+describe("clip", () => {
+	test("keeps text that fits and marks a cut with an ellipsis", () => {
+		expect(clip("Extensions", 10)).toBe("Extensions");
+		expect(stripTerminalSequences(clip("Extensions", 6))).toBe("Exten…");
+	});
+
+	test("never exceeds the width, even for wide and themed characters", () => {
+		for (const width of WIDTHS) {
+			for (const sample of SAMPLES) {
+				expect(visibleWidth(clip(sample, width))).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+});
+
+describe("padTo", () => {
+	test("pads to the exact width and leaves longer text untouched", () => {
+		expect(visibleWidth(padTo("ab", 10))).toBe(10);
+		expect(visibleWidth(padTo("abcdefghijkl", 4))).toBeGreaterThan(4);
+	});
+
+	test("treats a wide glyph as two columns", () => {
+		expect(visibleWidth(padTo("日本", 6))).toBe(6);
+	});
+});
+
+describe("splitRow", () => {
+	test("pushes the right cell to the edge with the gap between", () => {
+		const line = splitRow("ab", "yz", 10);
+		expect(line).toBe("ab" + " ".repeat(6) + "yz");
+		expect(visibleWidth(line)).toBe(10);
+	});
+
+	test("clips the left cell before the right anchor", () => {
+		const line = splitRow("a-very-long-left-cell", "right", 12);
+		expect(line.endsWith("right")).toBe(true);
+		expect(visibleWidth(line)).toBe(12);
+	});
+
+	test("keeps the right anchor when only it fits", () => {
+		expect(stripTerminalSequences(splitRow("left", "a-long-right-anchor", 8))).toBe("a-long-…");
+	});
+
+	test("an empty right cell means no trailing padding", () => {
+		expect(splitRow("left", "", 10)).toBe("left");
+	});
+
+	test("every result fits the width", () => {
+		for (const width of WIDTHS) {
+			for (const sample of SAMPLES) {
+				expect(visibleWidth(splitRow(sample, "yz", width))).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+});
+
+describe("fitCells", () => {
+	test("drops trailing cells whole instead of clipping one", () => {
+		expect(fitCells(["alpha", "beta", "gamma"], 11)).toBe("alpha beta");
+	});
+
+	test("keeps the first cell even when it alone overflows", () => {
+		expect(stripTerminalSequences(fitCells(["a-very-long-first-cell"], 8))).toBe("a-very-…");
+	});
+
+	test("honours a custom separator", () => {
+		expect(fitCells(["alpha", "beta"], 9, " \u00b7 ")).toBe("alpha");
+	});
+
+	test("every result fits the width", () => {
+		for (const width of WIDTHS) {
+			expect(visibleWidth(fitCells(["alpha", "beta", "gamma", "delta"], width, " | "))).toBeLessThanOrEqual(width);
+		}
+	});
+});

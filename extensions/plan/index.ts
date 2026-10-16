@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { hasPathInput } from "./path-guard.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { ASK_USER_QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
-import { STATUS_KEYS } from "../../lib/ui.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
 import { checkReadOnlyGit } from "./git-bash.ts";
 import {
