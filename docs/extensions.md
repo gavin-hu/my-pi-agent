@@ -22,8 +22,9 @@ current afterward. `exit_plan_mode` presents the plan for approval, keeps
 planning, or takes a refinement; the review screen jumps between headings with
 `n`/`p`. Press `w` (or run `/plan review [path]`) to open the plan in a loopback
 browser — a measured document with a comment rail, section and step progress,
-and `j`/`k`/`c`/`s` shortcuts — leave inline comments, and save them back as
-`> [!REVIEW]` lines.
+and `j`/`k`/`c`/`a`/`s` shortcuts — leave inline comments, save them back as
+`> [!REVIEW]` lines, or **Approve & run** straight from the page when the review
+was opened for approval.
 `/plan <prompt>` enters plan mode and sends the task in one step; `/plan` toggles
 and `Ctrl+Alt+P` is the shortcut. The enabled flag is a session entry, so
 `/resume` and `/tree` restore it.

@@ -25,9 +25,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   README, the catalog, and the root and Chinese READMEs; `bun run screenshots`
   re-renders the screens and runs a real `pi -e .` for the hero, capturing the
   real window and its title bar, so no image needs a manual session.
+- Tooling: `bun run screenshot:plan <plan.md>` renders one plan through the
+  browser review page and captures a full-page PNG with headless Chrome, so a
+  plan's Markdown layout can be checked without a browser session.
+- `plan`: the browser review can approve the plan. A review opened by
+  `exit_plan_mode` shows **Approve & run**, which saves the current comments,
+  leaves plan mode, restores write access, and seeds `todo`, so the user no
+  longer has to return to the terminal to press `a`.
 
 ### Changed
 
+- `plan`: the browser review's `Close` is now **Back to Pi**, and every outcome
+  settles the page on a terminal chip — `Approved`, `Saved`, or `Closed` —
+  instead of falling to a red `Offline` when the server closes the stream.
+  `/plan review` stays comment-only and refuses approval.
+- `plan`: the browser review's inline code is a soft `--surface` fill instead of a
+  bordered chip, so a code-dense plan reads as prose rather than a patchwork of
+  buttons.
 - `file-browse`: the header's branch chip no longer carries its own dirty dot and
   warn tint. The `● N changes +A −D` chip already reports uncommitted changes, so
   the header row stated the same fact twice, with two amber dots a few pixels
@@ -35,6 +49,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a list item's continuation lines now hang under the item's text in the
+  browser review. A hard-wrapped or lazy-continued line was emitted as a bare
+  paragraph at the block's left margin, so a multi-line step read as several
+  disconnected lines.
 - `file-browse` / `plan`: the app shell now fills the viewport. `min-height:100vh`
   left the shell's height indefinite, so the sidebar, content pane, and code
   viewport all grew with their content and the whole document scrolled instead

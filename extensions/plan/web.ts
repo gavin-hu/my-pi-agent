@@ -24,6 +24,7 @@ import type { ReviewPageData } from "./web-page.ts";
 /** How a browser review ended. */
 export type PlanReviewResult =
 	| { status: "saved"; plan: StoredPlan; annotations: PlanAnnotation[] }
+	| { status: "approved"; plan: StoredPlan; annotations: PlanAnnotation[] }
 	| { status: "cancelled" };
 
 /** A running review the caller awaits and then closes. */
@@ -38,9 +39,17 @@ export interface PlanReviewSession {
 	close(): Promise<void>;
 }
 
+/** Per-session options for {@link PlanWebReview.start}. */
+export interface PlanReviewOptions {
+	/** Abort signal; aborting closes the session as cancelled. */
+	signal?: AbortSignal;
+	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
+	canApprove?: boolean;
+}
+
 /** Starts and tracks review sessions. */
 export interface PlanWebReview {
-	start(cwd: string, plan: StoredPlan, signal?: AbortSignal): Promise<PlanReviewSession | undefined>;
+	start(cwd: string, plan: StoredPlan, options?: PlanReviewOptions): Promise<PlanReviewSession | undefined>;
 	/** Stop every running session (session shutdown). */
 	closeAll(): Promise<void>;
 }
@@ -96,7 +105,13 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 	// review turns (and its saved browser theme with it).
 	const ports = new Map<string, number>();
 
-	const start = async (cwd: string, plan: StoredPlan, signal?: AbortSignal): Promise<PlanReviewSession | undefined> => {
+	const start = async (
+		cwd: string,
+		plan: StoredPlan,
+		options: PlanReviewOptions = {},
+	): Promise<PlanReviewSession | undefined> => {
+		const { signal } = options;
+		const canApprove = options.canApprove === true;
 		const token = (deps.token ?? (() => randomBytes(16).toString("hex")))();
 		let settled = false;
 		let resolveDone!: (result: PlanReviewResult) => void;
@@ -147,6 +162,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				})),
 				code,
 				token,
+				canApprove,
 			};
 		};
 
@@ -166,10 +182,14 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 
 		const context: ReviewContext = {
 			token,
+			canApprove,
 			page,
 			save,
 			onSaved: (annotations) => {
 				pendingResult = savedPlan ? { status: "saved", plan: savedPlan, annotations } : { status: "cancelled" };
+			},
+			onApprove: (annotations) => {
+				pendingResult = savedPlan ? { status: "approved", plan: savedPlan, annotations } : { status: "cancelled" };
 			},
 			onCancel: () => {
 				pendingResult = { status: "cancelled" };

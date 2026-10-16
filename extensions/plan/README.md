@@ -142,7 +142,9 @@ the user.
 
 Browser review is a local-turn feature: the server binds `127.0.0.1`, so a remote
 (WeChat) turn cannot reach it and `/plan review` there refuses with a notice
-instead of opening a server nobody can use.
+instead of opening a server nobody can use. The browser's **Approve & run** is
+offered only for the review `exit_plan_mode` opens, since only that flow owns
+leaving plan mode; `/plan review` stays comment-only.
 
 ### Transcript
 
@@ -284,12 +286,22 @@ file and returns them to the model.
   labelled and indented as a thread, so it reads in place and the plan keeps one
   measure at every width. There is no separate column to reflow.
 - **Keyboard first.** `j`/`k` move to the next or previous block, `c` comments
-  on the current block, `s` saves, `Esc` closes the composer, and `?` opens a
-  shortcut sheet; the header's `?` button opens the same sheet.
+  on the current block, `a` approves (the approval flow only), `s` saves, `Esc`
+  closes the composer or the sheet and then the review, and `?` opens a shortcut
+  sheet; the header's `?` button opens the same sheet.
+- **Decision in place.** A review opened for approval (`w` on the review screen)
+  shows **Approve & run** beside Save feedback: it persists the current comments,
+  ends plan mode, restores write access, seeds `todo`, and hands control back to
+  the model. **Save feedback** keeps plan mode and returns the comments as a
+  refinement; **Back to Pi** closes the review with no decision. Each action
+  settles the page on a terminal state — `Approved`, `Saved`, or `Closed` — so
+  the tab never falls to Offline. `/plan review` is comment-only: it renders no
+  approve action and the server refuses one.
 - **Markdown that reads.** Headings, lists, task items, blockquotes, fenced
-  code, GFM tables, `---` rules, and bare-URL autolinks render; tables honour the
-  alignment row and
-  scroll horizontally when narrow.
+  code, GFM tables, `---` rules, and bare-URL autolinks render; a list item's
+  continuation lines hang under the item's text, inline code is a soft fill
+  rather than a bordered chip, tables honour the alignment row and scroll
+  horizontally when narrow.
 - **Highlighted code.** Fenced code is tokenized by the shared
   `lib/highlight.ts`; the client copies only text and `tok-*` spans through
   `DOMParser`, so a code line is never parsed as markup.
@@ -439,10 +451,10 @@ file and returns them to the model.
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, scroll gauge, approve/refine/browser/keep). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the loopback server, the section outline and code highlighting, and the save/cancel/abort session. |
+| `web.ts` | `createPlanWebReview`: the loopback server, the section outline and code highlighting, and the save/approve/cancel/abort session. |
 | `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes. |
 | `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet), its data island, and inline CSS. |
-| `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/cancel). |
+| `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/approve/back). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |

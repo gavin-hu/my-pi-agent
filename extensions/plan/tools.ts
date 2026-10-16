@@ -26,12 +26,12 @@ import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui/chrom
 import { paint } from "../../lib/tui/tokens.ts";
 import { expandHint } from "../../lib/tui/glyphs.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
-import { feedbackSummary } from "./feedback.ts";
+import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { PLAN_OUTLINE, extractPlanSteps, type PlanStep, type StepUpdate } from "./steps.ts";
 import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
-import { createPlanWebReview, type PlanWebReview } from "./web.ts";
+import { createPlanWebReview, type PlanReviewResult, type PlanReviewSession, type PlanWebReview } from "./web.ts";
 
 const ExitPlanModeParams = Type.Object({
 	plan_path: Type.String({
@@ -394,6 +394,8 @@ export function registerTools(
 			}
 
 			let outcome = await reviewPlan(ctx, file);
+			// Comments carried by a browser approval, reported alongside the approval.
+			let browserComments: PlanAnnotation[] = [];
 			// Review, refine, and browser review all loop back here until the user
 			// approves, keeps planning, or a refinement is handed to the model. The
 			// dialog-based refine editor carries no text from the review screen, so an
@@ -401,15 +403,25 @@ export function registerTools(
 			// as "not approved".
 			for (;;) {
 				if (outcome.action === "browser") {
-					const session = await web.start(ctx.cwd, file).catch(() => undefined);
+					const session: PlanReviewSession | undefined = await web
+						.start(ctx.cwd, file, { canApprove: true })
+						.catch(() => undefined);
 					if (!session) {
 						ctx.ui.notify("Plan review: could not start the browser review server.", "error");
 						outcome = await reviewPlan(ctx, file);
 						continue;
 					}
 					ctx.ui.notify(`Plan review: opened ${session.url}`, "info");
-					const result = await session.done;
+					const result: PlanReviewResult = await session.done;
 					await session.close();
+					if (result.status === "approved") {
+						// Approve from the browser is the TUI's approve: keep the comments it
+						// carried and fall through to the shared approval path below.
+						file = result.plan;
+						browserComments = result.annotations;
+						outcome = { action: "approve" };
+						continue;
+					}
 					if (result.status === "saved") {
 						// The comments are already in the file; hand them back as a refinement so
 						// the model revises the same plan and calls exit_plan_mode again.
@@ -491,11 +503,14 @@ export function registerTools(
 					: steps.length > 0
 						? ` Could not record the steps in the todo list${error ? `: ${error}` : ""}. Keep these steps in mind and tick them off with ${SET_PLAN_STEPS_TOOL} as you go.`
 						: " If the todo tool is available, record the steps with it before you start.";
+			const browserNote = browserComments.length
+				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(browserComments)}`
+				: "";
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${file.relativePath} is the source of truth; follow its steps.${tail}${listing}`,
+						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${file.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${listing}`,
 					},
 				],
 				details: {

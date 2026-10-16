@@ -103,6 +103,7 @@
     "check:serial": "bun run format:check && bun run typecheck && bun run test:serial",
     "release:notes": "bun run scripts/release-notes.ts",
     "config:migrate": "bun run scripts/migrate-config.ts",
+    "screenshot:plan": "bun run scripts/plan-review-shot.ts",
     "screenshots": "bun run scripts/screenshots.ts"
   },
   "dependencies": {
