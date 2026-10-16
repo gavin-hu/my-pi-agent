@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { type Component, visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme } from "../../../test/helpers/fakes.ts";
-import { headlineWithToolName, toolBlockLines } from "./component.ts";
+import { Text, type Component, visibleWidth } from "@earendil-works/pi-tui";
+import { coloringTheme, ROLE_SGR, roleSgrTheme } from "../../../test/helpers/fakes.ts";
+import { headlineWithToolName, recolorShellCall, toolBlockLines } from "./component.ts";
 
 /** A stand-in for a tool's own renderer, recording the width it was asked for. */
 const innerOf = (lines: string[], onWidth?: (width: number) => void): Component => ({
@@ -116,5 +116,29 @@ describe("headlineWithToolName", () => {
 
 	test("sanitizes the tool name", () => {
 		expect(headlineWithToolName("$ ls", "ba\u0007sh")).toBe("ba sh ls");
+	});
+});
+
+describe("recolorShellCall", () => {
+	test("rewrites the first line and leaves later lines alone", () => {
+		expect(recolorShellCall("\u001b[1m$ ls\u001b[0m\nnext", "bash", coloringTheme)).toBe(
+			"\u001b[1mbash \u001b[22m[text]ls\u001b[0m\nnext",
+		);
+	});
+
+	test("leaves a call that is not a shell prompt alone", () => {
+		expect(recolorShellCall("read src/a.ts", "read", coloringTheme)).toBe("read src/a.ts");
+	});
+
+	test("keeps every wrapped fragment of the command in label", () => {
+		const raw = roleSgrTheme.fg("toolTitle", `$ ${Array.from({ length: 12 }, (_, i) => `arg${i}`).join(" ")}`);
+		const lines = new Text(recolorShellCall(raw, "bash", roleSgrTheme), 0, 0).render(24);
+		expect(lines.length).toBeGreaterThan(1);
+		expect(lines[0]).toContain(ROLE_SGR.accent);
+		expect(lines[0]).toContain(ROLE_SGR.text);
+		for (const line of lines.slice(1)) {
+			expect(line).toContain(ROLE_SGR.text);
+			expect(line).not.toContain(ROLE_SGR.accent);
+		}
 	});
 });

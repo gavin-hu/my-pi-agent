@@ -21,17 +21,37 @@
  * line). The resolver therefore keeps each base renderer's own component in the
  * row's shared `state` and hands *that* back, so the base updates in place while
  * we wrap the result in a fresh frame.
+ *
+ * Before framing, a shell call's `$ <command>` string is rewritten so the tool
+ * name keeps the accent and the command reads as the body (`recolorShellCall`).
+ * Doing it on the string rather than the wrapped lines keeps the whole command
+ * in one role when a long command wraps.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type Component, Text } from "@earendil-works/pi-tui";
-import { ToolBlock } from "./component.ts";
+import { recolorShellCall, ToolBlock } from "./component.ts";
 import { callFallback, resultFallback } from "./fallback.ts";
 
 /** Per-row memory of the base renderer's own components, kept off Pi's state. */
 interface BlockMemory {
 	byteflyBaseCall?: Component;
 	byteflyBaseResult?: Component;
+}
+
+/** A renderer component that carries a mutable string: Pi's own `Text`. */
+interface Rewritable {
+	text: string;
+	setText(text: string): void;
+}
+
+/**
+ * Whether a component exposes the `Text` shape. Pi's shell renderers return a
+ * `Text`, whose `text` field is private to the type but present at runtime.
+ */
+function isRewritable(component: Component): component is Component & Rewritable {
+	const candidate = component as Partial<Rewritable>;
+	return typeof candidate.text === "string" && typeof candidate.setText === "function";
 }
 
 /** Register the resolver that frames every tool block with the bytefly indent. */
@@ -46,6 +66,12 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 					base?.renderCall?.(args, theme, { ...context, lastComponent: memory.byteflyBaseCall }) ??
 					new Text(callFallback(toolName, args, theme, context.expanded), 0, 0);
 				memory.byteflyBaseCall = inner;
+				// Split a shell call's roles before the frame wraps it: Pi renders
+				// `$ <cmd>` as one `toolTitle` run, so a rewrite after wrapping would
+				// only reach the first line and leave the wrapped command in the
+				// accent. `recolorShellCall` is a no-op for a call that is not a shell
+				// prompt.
+				if (isRewritable(inner)) inner.setText(recolorShellCall(inner.text, toolName, theme));
 				// The call's own first line is the block's headline; the frame drops the
 				// blank edges a self-shell `Box` (`edit`) pads itself with.
 				return new ToolBlock(inner, context.outputPad, {

@@ -65,6 +65,24 @@ export function headlineWithToolName(line: string, toolName: string, theme?: The
 }
 
 /**
+ * Recolour a shell call's prompt on its whole (unwrapped) string.
+ *
+ * Pi renders `$ <command>` as one `toolTitle` run, which `Text` then wraps; a
+ * rewrite applied to the first *rendered* line would leave every wrapped
+ * fragment of the command in the accent. Applying it before the wrap keeps the
+ * name's accent and the command's `label` on every fragment, because the wrap
+ * re-emits whichever run it split. Returns `text` unchanged when its first line
+ * is not a shell prompt.
+ */
+export function recolorShellCall(text: string, toolName: string, theme: Theme): string {
+	const end = text.indexOf("\n");
+	const head = end === -1 ? text : text.slice(0, end);
+	if (!SHELL_PROMPT.test(stripTerminalSequences(head))) return text;
+	const rewritten = headlineWithToolName(head, toolName, theme);
+	return end === -1 ? rewritten : rewritten + text.slice(end);
+}
+
+/**
  * Indent `inner` under the block's headline: the body at `outputPad + BODY_INDENT`,
  * the headline (when asked for) at `outputPad`. `width` clips the headline again
  * after its prompt is rewritten, so a longer tool name cannot overflow.

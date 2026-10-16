@@ -56,6 +56,26 @@ export const ansiTheme: any = {
 	bold: (text: string) => text,
 };
 
+/** The real SGR a {@link roleSgrTheme} colour token opens with. */
+export const ROLE_SGR = {
+	accent: "\u001b[38;2;1;1;1m",
+	// The shipped themes alias the tool-title token to the accent; mirror that.
+	toolTitle: "\u001b[38;2;1;1;1m",
+	text: "\u001b[38;2;2;2;2m",
+	other: "\u001b[38;2;3;3;3m",
+} as const;
+
+/**
+ * Theme that emits a distinct real SGR per colour token, so a test can tell two
+ * roles apart after wrapping re-emits them (a tag double is not an escape, so
+ * `Text` cannot carry it across a wrap).
+ */
+export const roleSgrTheme: any = {
+	fg: (color: string, text: string) =>
+		`${color in ROLE_SGR ? ROLE_SGR[color as keyof typeof ROLE_SGR] : ROLE_SGR.other}${text}\u001b[39m`,
+	bold: (text: string) => text,
+};
+
 /** A theme double that records every `fg(color, text)` call. */
 export interface RecordingTheme {
 	calls: Array<[string, string]>;

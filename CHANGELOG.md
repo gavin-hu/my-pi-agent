@@ -116,6 +116,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: a shell call whose command wraps past the width kept the accent (and
+  the bold) on its wrapped fragments — only the first rendered line was
+  repainted. The call string is recoloured before it wraps, so the whole command
+  reads in the body colour and only the tool name keeps the accent.
+- `subagent`: the result header's agent name uses the accent, matching the name
+  on the call's step lines; the two agreed only because the shipped themes alias
+  `toolTitle` to the accent.
 - `todo`: the transcript result rows were indented two columns too far in —
   `todoRailLines` prefixed its own `BODY_INDENT` on top of the indent the
   tool-block frame already applies — so they now start at the standard body

@@ -6,6 +6,7 @@ import { emptyUsage } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
 import { assistantMessage } from "../../test/helpers/fixtures/subagent.ts";
 import { fakeTheme } from "../../test/helpers/fixtures/subagent.ts";
+import { coloringTheme } from "../../test/helpers/fakes.ts";
 
 const theme = fakeTheme();
 
@@ -133,6 +134,13 @@ describe("renderSubagentResult", () => {
 		expect(text).toContain("✓");
 		expect(text).toContain("explorer");
 		expect(text).toContain("all done");
+	});
+
+	test("paints the agent name with the accent, matching the call line", () => {
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, coloringTheme),
+		);
+		expect(text).toContain("[accent][bold]explorer");
 	});
 
 	test("collapsed single failure shows the error", () => {

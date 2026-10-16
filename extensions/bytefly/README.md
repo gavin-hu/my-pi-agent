@@ -938,9 +938,9 @@ columns, gauge), so the look follows the active theme.
 | `notice/config.ts` | Notice tuning (`NOTICE_CONFIG`): source/title/detail roles, the severity glyphs and roles, and the item cap. |
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline and the severity-led rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type. |
-| `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, and `ToolBlock`: the headline, the body's two-column indent, the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), and the image-line passthrough. |
+| `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, and `ToolBlock`: the headline, the body's two-column indent, the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer. |
-| `block/register.ts` | The `registerToolRenderer` resolver that frames every tool. |
+| `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it. |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
 | `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |

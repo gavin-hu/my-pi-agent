@@ -188,7 +188,7 @@ function resultHeader(
 	stepPrefix: string,
 	now: number,
 ): string {
-	let header = `${statusIcon(status, theme, now)} ${theme.fg("toolTitle", theme.bold(sanitizeLine(result.agent)))}`;
+	let header = `${statusIcon(status, theme, now)} ${paint(theme, "accent", theme.bold(sanitizeLine(result.agent)))}`;
 	if (result.agentSource && result.agentSource !== "builtin" && result.agentSource !== "unknown") {
 		header += paint(theme, "faint", ` [${sanitizeLine(result.agentSource)}]`);
 	}
