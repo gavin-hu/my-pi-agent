@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Docs: terminal screenshots for the `todo`, `question`, `job`, and `rewind`
+  screens, embedded in each extension README, the catalog, and the root and
+  Chinese READMEs; `bun run screenshots` renders and captures them again, so the
+  images no longer need a manual Terminal.app session.
+
 ## [0.9.0] - 2026-10-16
 
 ### Added

@@ -104,6 +104,19 @@ pi -e .                                                    # 试运行一次
 | [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor` 子命令）、`run_doctor` | 主题化头部与宽度自适应页脚、已完成回合之间的分隔线、`/bytefly` 扩展屏幕——列出每个扩展及其健康状况并启用或禁用一个扩展（`/bytefly doctor` 打印 doctor 报告）；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | GitHub 风格的深色调色板及其浅色搭档，并支持可选的自动浅色/深色切换。 |
 
+### 截图
+
+<table>
+<tr>
+<td width="50%"><img src="assets/todo.png" alt="/todos 屏幕：Todos 标题线、3/7 完成摘要，以及带对勾、进行中和圆圈字形的列表" width="100%"></td>
+<td width="50%"><img src="assets/question.png" alt="ask_user_question 对话框：Auth 与 Scope 标签页、问题、四个带说明的编号选项，以及导航提示" width="100%"></td>
+</tr>
+<tr>
+<td width="50%"><img src="assets/job.png" alt="/jobs 屏幕：摘要行、带状态字形和耗时的任务行，以及焦点任务的命令、工作目录和最后一行输出" width="100%"></td>
+<td width="50%"><img src="assets/rewind.png" alt="/rewind 屏幕：从新到旧的提示行、标记有代码快照的菱形，以及焦点提示的快照详情" width="100%"></td>
+</tr>
+</table>
+
 ## 配置
 
 大多数扩展无需配置。所有设置都在一个共享文档 `bytefly.json` 中，从

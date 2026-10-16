@@ -10,6 +10,8 @@ rewind uses Pi's session tree, so the branch you leave is not erased.
 This is the `rewind` extension entrypoint; it is one of two sibling git
 extensions in this package (`worktree` is the other).
 
+<img src="../../assets/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%">
+
 ```
 pi --extension ./extensions/rewind   # load this extension alone
 pi -e .                              # load the whole @gavin-hu/my-pi-agent package

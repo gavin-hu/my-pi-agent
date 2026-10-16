@@ -8,6 +8,8 @@ about to end after mutating work without a todo update, the extension injects
 one short reminder and forces a continuation, so the list does not silently
 drift behind the work.
 
+<img src="../../assets/todo.png" alt="The /todos screen: a Todos title rule, a 3/7 completed summary, and the list with check, spinner, and circle glyphs" width="100%">
+
 ```
 pi --extension ./extensions/todo    # load just this extension
 pi -e .                             # load the whole @gavin-hu/my-pi-agent package
