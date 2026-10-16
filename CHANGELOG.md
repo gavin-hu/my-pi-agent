@@ -23,6 +23,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `file-browse` / `plan`: the app shell now fills the viewport. `min-height:100vh`
+  left the shell's height indefinite, so the sidebar, content pane, and code
+  viewport all grew with their content and the whole document scrolled instead
+  of the panes; the shell now has a definite `height:100vh` and the browser's
+  default body margin is reset, while narrow screens return to normal page
+  scroll.
+- `file-browse`: a diff's pinned hunk header no longer stacks on the next one,
+  and `n`/`p` step relative to the code viewport rather than the window top.
+  Each hunk is now wrapped in its own section so a pinned header is bounded by
+  its body, and the keyboard scrolls the code pane to the hunk instead of
+  calling `scrollIntoView` on the pinned (already-at-top) header.
+
 - `file-browse` / `plan`: rendered Markdown tables no longer inherit the prose
   `overflow-wrap:anywhere`. Since `anywhere` also shrinks a cell's min-content
   width, auto layout collapsed a code-span column to one character and split

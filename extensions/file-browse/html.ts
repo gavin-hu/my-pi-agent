@@ -146,7 +146,10 @@ body.palette-open{overflow:hidden}
 .bf-diff-line--hunk{color:var(--accent);background:var(--canvas)}
 .bf-diff-line--meta{color:var(--muted)}
 .bf-diff-line--note{color:var(--muted);font-style:italic}
-/* A hunk header pins to the top of the diff viewport while its body scrolls. */
+/* A hunk header pins to the top of the diff viewport while its body scrolls.
+   Each hunk is a section so the pinned header is bounded by its own body and
+   cannot stack on the next one. */
+.bf-diff-hunk{display:block}
 .bf-diff .bf-diff-line--hunk{position:sticky;top:0;z-index:1}
 /* Reading progress, pinned to the sticky header's bottom edge. */
 .browse-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
@@ -572,17 +575,27 @@ function highlightDiffText(lines: DiffLine[], language?: HighlightLanguage): str
 /** Render unified-diff lines with a two-column gutter and per-kind styling. */
 export function renderDiffLines(lines: DiffLine[], language?: HighlightLanguage): string {
 	const html = highlightDiffText(lines, language);
+	// Every hunk is a section so its sticky header is bounded by its own body;
+	// the section also gives the keyboard a stable, non-sticky scroll target.
+	const out: string[] = [];
 	let hunks = 0;
-	return lines
-		.map((line, index) => {
-			const sign = line.kind === "add" ? "+" : line.kind === "del" ? "-" : line.kind === "ctx" ? " " : "";
-			const gutter = `<span class="browse-diff-no" aria-hidden="true">${line.oldNo ?? ""}</span><span class="browse-diff-no" aria-hidden="true">${line.newNo ?? ""}</span>`;
-			const marker = `<span class="browse-diff-sign" aria-hidden="true">${sign}</span>`;
-			// Hunk headers carry an anchor so the keyboard can jump between them.
-			const anchor = line.kind === "hunk" ? ` id="hunk-${++hunks}" data-hunk="${hunks}"` : "";
-			return `<span class="bf-code__line bf-diff-line bf-diff-line--${line.kind}"${anchor}>${gutter}${marker}${html[index]}</span>`;
-		})
-		.join("");
+	let open = false;
+	lines.forEach((line, index) => {
+		if (line.kind === "hunk") {
+			if (open) out.push("</span>");
+			hunks += 1;
+			out.push(`<span class="bf-diff-hunk" id="hunk-${hunks}" data-hunk="${hunks}">`);
+			open = true;
+		}
+		const sign = line.kind === "add" ? "+" : line.kind === "del" ? "-" : line.kind === "ctx" ? " " : "";
+		const gutter = `<span class="browse-diff-no" aria-hidden="true">${line.oldNo ?? ""}</span><span class="browse-diff-no" aria-hidden="true">${line.newNo ?? ""}</span>`;
+		const marker = `<span class="browse-diff-sign" aria-hidden="true">${sign}</span>`;
+		out.push(
+			`<span class="bf-code__line bf-diff-line bf-diff-line--${line.kind}">${gutter}${marker}${html[index]}</span>`,
+		);
+	});
+	if (open) out.push("</span>");
+	return out.join("");
 }
 
 /** The scope label for a mode. */

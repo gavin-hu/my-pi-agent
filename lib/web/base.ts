@@ -8,7 +8,8 @@
 
 // Every focusable element gets the same ring; components must not re-declare
 // their own, so the keyboard affordance cannot disappear surface by surface.
-export const WEB_BASE_CSS = `*{box-sizing:border-box}
+export const WEB_BASE_CSS = `html,body{margin:0}
+*{box-sizing:border-box}
 [hidden]{display:none!important}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}

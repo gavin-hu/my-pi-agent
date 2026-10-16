@@ -678,6 +678,23 @@ describe("renderDiffLines", () => {
 		expect(html).toContain('class="browse-diff-sign" aria-hidden="true">-</span>');
 	});
 
+	test("wraps each hunk and its body in a bounded section", () => {
+		const html = renderDiffLines([
+			{ kind: "meta", text: "diff --git a/a b/a" },
+			{ kind: "hunk", text: "@@ -1 +1 @@" },
+			{ kind: "ctx", text: "keep", oldNo: 1, newNo: 1 },
+			{ kind: "hunk", text: "@@ -9 +9 @@" },
+			{ kind: "add", text: "new", newNo: 9 },
+		]);
+		// The section is the sticky header's containing block, so a pinned header
+		// is pushed out by the next hunk instead of stacking on it.
+		expect(html).toContain('<span class="bf-diff-hunk" id="hunk-1" data-hunk="1">');
+		expect(html).toContain('<span class="bf-diff-hunk" id="hunk-2" data-hunk="2">');
+		expect((html.match(/class="bf-diff-hunk"/g) ?? []).length).toBe(2);
+		expect(html).toStartWith('<span class="bf-code__line bf-diff-line bf-diff-line--meta"');
+		expect(html).toEndWith("</span></span>");
+	});
+
 	test("escapes diff content", () => {
 		const html = renderDiffLines([{ kind: "add", text: "<img src=x onerror=alert(1)>", newNo: 1 }]);
 		expect(html).not.toContain("<img");
@@ -823,8 +840,8 @@ describe("viewing surface", () => {
 			{ kind: "ctx", text: "keep", oldNo: 1, newNo: 1 },
 			{ kind: "hunk", text: "@@ -9 +9 @@" },
 		]);
-		expect(lines).toContain('id="hunk-1" data-hunk="1"');
-		expect(lines).toContain('id="hunk-2" data-hunk="2"');
+		expect(lines).toContain('<span class="bf-diff-hunk" id="hunk-1" data-hunk="1">');
+		expect(lines).toContain('<span class="bf-diff-hunk" id="hunk-2" data-hunk="2">');
 
 		const html = renderFileDiffPage({
 			rootLabel: fixture.root,
@@ -849,5 +866,8 @@ describe("viewing surface", () => {
 		expect(html).toContain("−1");
 		expect(html).toContain("1 hunk");
 		expect(html).toContain("Next and previous change");
+		// The header sticks inside its bounded section, not the flat line list.
+		expect(html).toContain(".bf-diff-hunk{display:block}");
+		expect(html).toContain(".bf-diff .bf-diff-line--hunk{position:sticky;top:0;z-index:1}");
 	});
 });
