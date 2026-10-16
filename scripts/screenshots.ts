@@ -388,9 +388,16 @@ function renderChrome(width: number): string[] {
 	if (plate) lines.push(...new Markdown(plate, 0, 0, getMarkdownTheme()).render(width));
 	lines.push("", theme.fg("text", "Ready when you are."), "");
 
-	// A tool block: the call and the result are sibling rows behind one rail.
-	lines.push(...new ToolBlock(new Text("read src/app.ts", 0, 0), "ok", theme, 0).render(width));
-	lines.push(...new ToolBlock(new Text("const answer = 42;", 0, 0), "ok", theme, 0).render(width));
+	// A tool block: the call leads as an un-railed headline, the result trails the rail.
+	lines.push(
+		...new ToolBlock(new Text("read src/app.ts", 0, 0), "ok", theme, 0, {
+			headline: true,
+			toolName: "read",
+		}).render(width),
+	);
+	lines.push(
+		...new ToolBlock(new Text("const answer = 42;", 0, 0), "ok", theme, 0, { trimLeading: true }).render(width),
+	);
 	lines.push("");
 
 	lines.push(...new NoticeComponent(CHROME_NOTICE, theme).render(width));

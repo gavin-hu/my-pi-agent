@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { RAIL } from "../lib/tui/rail.ts";
 import { FIXTURES } from "./tool-fixtures.ts";
 import { registeredToolNames, renderings } from "./tool-renderings.ts";
 
@@ -57,5 +58,13 @@ describe("renderings", () => {
 	test("a rendering is stable across calls", () => {
 		const [first] = renderings();
 		expect(first?.lines(80)).toEqual(first?.lines(80));
+	});
+
+	test("a tool block leads with an un-railed call above a railed body", () => {
+		const read = renderings().find((rendering) => rendering.name === "read");
+		const lines = (read?.lines(80) ?? []).map(stripTerminalSequences);
+		expect(lines[0]?.startsWith(RAIL)).toBe(false);
+		expect(lines[1]).toBe("");
+		expect(lines[2]?.startsWith(RAIL)).toBe(true);
 	});
 });

@@ -59,20 +59,20 @@ clips mid-word. The mark, tokens, identity, and grouped help are tuned in
 - **Line 1 — identity:** `pwd` and the session name on the left; git state
   (`⎇ branch · ⑂ worktree`) and the `◉` browse chip on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
-  mode/alert slot (`⋮ plan`) trailing after a `╎` when present; the model and
+  mode/alert slot (`⋮ plan`) trailing after a `❘` when present; the model and
   thinking level on the right. The gauge is anchored at column 0, so `%` is
   always in the same place.
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ❘ ⋮ plan    opus-4.5 · high
 ```
 
 (The examples show the default `¥` symbol. For a model the built-in table does
 not cover, the number stays Pi's recorded USD amount — see the currency note
 under [Configuration](#configuration).)
 
-With no plan mode there is no mode slot, so the `╎` is omitted:
+With no plan mode there is no mode slot, so the `❘` is omitted:
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
@@ -85,7 +85,7 @@ fits, rather than collapsing to a bare glyph:
 
 ```
 ~/repo/project                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31 ╎ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31 ❘ ⋮ plan    opus-4.5 · high
 ```
 
 ```
@@ -97,7 +97,7 @@ With a named session, the name follows the path and truncates before it drops:
 
 ```
 ~/repo/project · feature-refac…   ⎇ main
-▰▰▰▰▰▰▱▱▱▱ 62% ╎ ⋮ plan         opus-4.5
+▰▰▰▰▰▰▱▱▱▱ 62% ❘ ⋮ plan         opus-4.5
 ```
 
 Zero-value meters are omitted, so a fresh session shows only `?/window` instead
@@ -166,9 +166,9 @@ shared `my-pi-agent/notice` type; bytefly draws it on the shared transcript rail
 with the rail painted by the notice's worst severity:
 
 ```
-╎ job · 2 background jobs finished
-╎   ✓ j1 build · exit 0
-╎   ✕ j2 test · exit 1
+❘ job · 2 background jobs finished
+❘   ✓ j1 build · exit 0
+❘   ✕ j2 test · exit 1
 ```
 
 `job` and `watch` post one when a background job finishes or a watched line
@@ -180,29 +180,33 @@ are tuned in [`notice/config.ts`](./notice/config.ts). Every field is sanitized
 and clipped at the boundary, and a message without `details` keeps Pi's default
 custom-message box.
 
-**Tool blocks.** Every tool call and result in the transcript is framed by a
-bytefly rail instead of Pi's filled status background, built-ins included:
+**Tool blocks.** Every tool block leads with the tool's own call line as an
+un-railed headline — the tool name in the accent colour — then one plain blank
+line, then its body on a status rail, instead of Pi's filled status background:
 
 ```
- ╎ read src/app.ts
- ╎   const answer = 42;
+read src/app.ts
+
+❘   const answer = 42;
 ```
 
-A `registerToolRenderer` resolver switches the row to `renderShell: "self"`
-and wraps the tool's own `renderCall`/`renderResult`, so syntax highlighting,
-diffs, previews, and truncation notices are unchanged — only the frame is
-bytefly's. The rail is the shared transcript rail
-([`lib/tui/rail.ts`](../../lib/tui/rail.ts)) — the same one a notice draws, so
-the two share one left edge and one nesting depth. The rail is neutral by
-default: a finished call is `dim`, only a running call takes the accent, and only
-a failure is red, so the transcript spends colour where something needs
-attention instead of on every block. A tool with no renderer of its own is
-framed around a generic call/result fallback. A tool that draws its own shell
-(`edit`) is framed too: `renderShell: "self"` only tells Pi not to draw its
-filled box, and the shipped themes leave the tool fills to the terminal, so
-without the rail `edit` would be the one block with no frame at all. Its own
-`Box` pads itself top and bottom, so the frame drops those blank edges and starts
-at the call. The frame's status roles are tuned in
+A `registerToolRenderer` resolver switches the row to `renderShell: "self"`,
+leaves the call's own first line un-railed (with a shell call's `$` / `>` prompt
+shown as the tool name), and hangs the rest of the call and the whole result from
+the rail below one plain blank line. The tool's own `renderCall`/`renderResult`
+are passed through, so syntax highlighting, diffs, previews, and truncation
+notices are unchanged — only the frame is bytefly's. The rail is the shared
+transcript rail ([`lib/tui/rail.ts`](../../lib/tui/rail.ts)) — the same one a
+notice draws, so the two share one left edge and one nesting depth. The rail is
+neutral by default: a finished call is `dim`, only a running call takes the
+accent, and only a failure is red, so the transcript spends colour where
+something needs attention instead of on every block. A tool with no renderer of
+its own is framed around a generic call/result fallback. A tool that draws its
+own shell (`edit`) is framed too: `renderShell: "self"` only tells Pi not to
+draw its filled box, and the shipped themes leave the tool fills to the
+terminal, so its diff would otherwise be the one body with no rail; the frame
+drops the blank edges its own `Box` pads itself with, so the rail starts at the
+diff. The frame's status roles are tuned in
 [`block/config.ts`](./block/config.ts).
 
 **Extension screen.** `/bytefly [extension] [refresh]` opens a keyboard-driven
@@ -446,7 +450,7 @@ its server runs, and shows the two-tone `◉ <port>` (green glyph, accent port).
 The trailing slot shows plan-style alerts when present and is omitted otherwise;
 a plan chip's trailing plan file name is dropped, so the slot reads `⋮ plan`
 even though the built-in footer keeps the name. An alert (a failed job) sorts to
-the front of the slot. The slot trails the meters after a `╎`, so the context
+the front of the slot. The slot trails the meters after a `❘`, so the context
 gauge always starts the line. It keeps each extension's own colour when it
 compacts, and it is droppable: a tight bar drops the slot rather than truncating
 the model, which sits at the end of the line.
@@ -709,7 +713,7 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice as a rail from its `details`; the type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
-| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"` and `renderCall`/`renderResult` that wrap the tool's own renderer (or a generic fallback) in the rail frame; a tool that already sets `renderShell: "self"` (`edit`) is framed too, with its own blank edge lines trimmed. |
+| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line un-railed as the block's headline (a shell prompt shown as the tool name) and hangs the rest of the call below one plain blank line on the rail, `renderResult` rails its body, and each wraps the tool's own renderer (or a generic fallback). |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Thinking timer | `message_start`/`message_end` for an assistant message in `tui` mode; a 1s tick drives `ctx.ui.setHiddenThinkingLabel("Thinking… Ns")`, and the end restores Pi's default. No config file and no stored state. |
@@ -768,12 +772,13 @@ rather than showing a wrong value.
   from the shared rail (`lib/tui/rail.ts`): a tool block, a notice, and a
   subagent's quoted output take one glyph, one indent, and one status-to-role
   map, so they share a single left edge and nesting depth instead of four
-  indents. The glyph is the turn rule's `╌` rotated vertical, `╎`, so the
-  boundary rule and the block rail read as one double-dash family; it is East
-  Asian neutral like every shared glyph, so a CJK-width profile cannot widen it
-  and drift the column. The solid `─` rule fills are unchanged, and the footer's
-  group separator draws the same `╎` so the chrome has no second vertical
-  stroke.
+  indents. The glyph is `❘`, a solid light stroke that is East Asian neutral —
+  unlike the ambiguous box-drawing `│` / `┃` / `┊` — so a CJK-width profile
+  cannot widen it and drift the column. The `─` rule fills are the same stroke
+  family, and the footer's group separator draws the same `❘` so the chrome has
+  no second vertical stroke. A tool block's call line sits above the rail as an
+  un-railed headline, separated by one plain blank line, which is what keeps the
+  block readable without a second frame.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
@@ -786,7 +791,7 @@ rather than showing a wrong value.
   "where am I / what state" separate from "how much am I burning".
 - **The gauge is anchored at column 0.** A leading mode slot would shift the
   context percentage left and right as plan mode came and went; trailing it
-  after a `╎` keeps the percentage in a fixed place while the mode stays
+  after a `❘` keeps the percentage in a fixed place while the mode stays
   visible as the meters drop.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line; the bar splits them by meaning (`worktree`
@@ -806,9 +811,9 @@ rather than showing a wrong value.
   non-zero usage, so it reads full only at 100% and a small percentage never
   disappears; unknown usage draws no gauge at all. Only at extreme widths does
   `truncateToWidth` clip the remaining text.
-- **Separators shrink to a single space.** Padded separators (` · `, ` ╎ `)
+- **Separators shrink to a single space.** Padded separators (` · `, ` ❘ `)
   collapse to one space before `truncateToWidth` applies, so adjacent segments
-  never collide and the ellipsis never replaces a `╎` with nothing after it.
+  never collide and the ellipsis never replaces a `❘` with nothing after it.
 - **Statuses compact with their colour.** A themed status's compact icon form
   reattaches its opening and closing SGR sequences around the visible text, so a
   red `✗1` stays red instead of losing its colour exactly when the bar tightens.
@@ -934,7 +939,7 @@ columns, gauge), so the look follows the active theme.
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline and the severity-led rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type. |
 | `block/config.ts` | Tool-block tuning (`BLOCK_CONFIG`): the rail's status roles — neutral when finished, the accent while running, `bad` on error. The rail glyph and indent are shared in `lib/tui/rail.ts`. |
-| `block/component.ts` | Pure `toolBlockLines` and `ToolBlock`: the indent, the status rail, the reduced-width inner render, the optional leading-blank trim for a self-shell `Box`, and the image-line passthrough. |
+| `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, and `ToolBlock`: the un-railed headline and its one plain blank line, the status rail, the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite, and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer. |
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool. |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |

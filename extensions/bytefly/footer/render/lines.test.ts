@@ -33,7 +33,7 @@ describe("buildLines", () => {
 		expect(line2.left[3].forms[0]).toBe("↑42k ↓8.0k");
 		expect(line2.left[4].forms[0]).toBe("R96k CH 87%");
 		expect(line2.left[5].forms[0]).toBe(`${GLYPHS.plan} plan`);
-		expect(line2.left[5].separator).toBe(" ╎ ");
+		expect(line2.left[5].separator).toBe(` ${GLYPHS.rail} `);
 		expect(line2.right[0].forms[0]).toBe("opus-4.5");
 		expect(line2.right[1].forms[0]).toBe("high");
 	});

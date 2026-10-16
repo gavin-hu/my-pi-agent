@@ -34,7 +34,7 @@ export const GLYPHS = {
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
-	rail: "╎",
+	rail: "❘",
 	check: "✓",
 	warn: "!",
 	cross: "✕",
@@ -60,7 +60,7 @@ export const GLYPH_GAP = 1;
 /** Padding used to join (`item`) or group (`group`) UI segments. */
 export const SEPARATORS = {
 	item: " · ",
-	group: " ╎ ",
+	group: ` ${GLYPHS.rail} `,
 } as const;
 
 /** `ctx.ui.setStatus` keys; one per extension that publishes a chip. */

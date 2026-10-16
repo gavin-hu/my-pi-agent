@@ -120,6 +120,11 @@ for (const expected of THEMES) {
 			}
 		});
 
+		test("colours the tool name with the accent", () => {
+			// The tool block spends its one recurring colour on the tool name.
+			expect(theme.colors.toolTitle).toBe(theme.colors.accent);
+		});
+
 		test("every color and var resolves", () => {
 			for (const [token, value] of Object.entries(theme.colors)) {
 				expect(() => resolve(theme, value), `colors.${token}`).not.toThrow();

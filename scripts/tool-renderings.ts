@@ -225,8 +225,8 @@ function blockHtml(rendering: Rendering, width: number): string {
 	return `<figure class="block"><figcaption>${escapeHtml(rendering.name)}<span>${escapeHtml(rendering.label)}</span></figcaption><pre>${body}</pre></figure>`;
 }
 
-/** The page chrome every capture shares. */
-function page(title: string, subtitle: string, width: number, body: string): string {
+/** The page chrome every capture shares: the document, the styles, and `body`. */
+function shell(title: string, width: number, body: string): string {
 	return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
@@ -244,9 +244,13 @@ function page(title: string, subtitle: string, width: number, body: string): str
 	figcaption span { color: #6e7681; margin-left: 8px; }
 	pre { margin: 5px 0 0; white-space: pre; font: inherit; width: ${width}ch; }
 </style></head>
-<body><main><h1>${escapeHtml(title)}</h1><p class="sub">${escapeHtml(subtitle)}</p>
-${body}
+<body><main>${body}
 </main></body></html>`;
+}
+
+/** The gallery page: a title, a subtitle, then the sections. */
+function page(title: string, subtitle: string, width: number, body: string): string {
+	return shell(title, width, `<h1>${escapeHtml(title)}</h1><p class="sub">${escapeHtml(subtitle)}</p>\n${body}`);
 }
 
 /** The full gallery: one section per group. */
@@ -276,7 +280,7 @@ export function galleryHtml(width = DEFAULT_WIDTH): string {
 
 /** A page holding exactly one block, for a per-tool capture. */
 function singleHtml(rendering: Rendering, width = DEFAULT_WIDTH): string {
-	return page(rendering.name, rendering.label, width, blockHtml(rendering, width));
+	return shell(rendering.name, width, blockHtml(rendering, width));
 }
 
 /** A number flag from the arguments, or a fallback. */

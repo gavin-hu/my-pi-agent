@@ -228,7 +228,7 @@ signature rule, drawn from the active theme through the `lib/tui/` design
 system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
 mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
 between completed turns, a two-row `You` nameplate above each user message on the
-terminal background, and the shared transcript rail (`╎`) that every non-prose
+terminal background, and the shared transcript rail (`❘`) that every non-prose
 block hangs from — the shared notice and every tool block, built-ins included,
 share one left edge and one rail that stays neutral unless a call is running or
 failed. While an assistant message streams it also advances a live elapsed
@@ -255,10 +255,13 @@ Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` subcommand).
 
 ### Tool renderings
 
-Every tool block as the transcript draws it: bytefly's rail around each tool's own
-renderer, or its generic fallback. The page covers the user nameplate, a shared
-notice, and the turn rule, then Pi's built-ins (`read`, `write`, `edit`, `bash`,
-`grep`, `find`, `ls` — diffs, syntax highlighting and previews intact), then every
+Every tool block as the transcript draws it: the tool's own call line leads as an
+un-railed headline (the tool name in the accent colour, a shell prompt shown as
+the tool name), one plain blank line follows, then bytefly's rail around the
+body — the tool's own renderer, or its generic fallback. The page covers the user
+nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
+`write`, `edit`, `bash`, `grep`, `find`, `ls` — diffs, syntax highlighting and
+previews intact), then every
 tool this package registers: `todo`, `goal`, `memory`, `job`, `watch`,
 `subagent`, `web_search`, `web_fetch`, `read_doc`, `open_path`, `run_doctor`,
 `send_wechat`, `ask_user_question`, the plan tools, and the worktree tools. One

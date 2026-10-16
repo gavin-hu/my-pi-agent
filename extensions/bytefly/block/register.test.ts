@@ -24,15 +24,15 @@ const resolver = () => {
 };
 
 describe("registerToolBlocks", () => {
-	test("switches the row to the self shell and wraps the base call", () => {
+	test("switches the row to the self shell and leads with an un-railed call", () => {
 		const renderers = resolver()("read", () => ({ renderCall: () => new Text("base call", 0, 0) }));
 		expect(renderers?.renderShell).toBe("self");
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
-		expect(lines.join("\n")).toContain("base call");
-		expect(lines[0]?.startsWith(RAIL)).toBe(true);
+		expect(lines[0]?.trimEnd()).toBe("base call");
+		expect(lines).toContain("");
 	});
 
-	test("frames a tool that renders its own shell, dropping its blank edges", () => {
+	test("trims a self-shell call's blank edges under its headline", () => {
 		const base = {
 			renderShell: "self" as const,
 			renderCall: () => new Text(["", "own", ""].join("\n"), 0, 0),
@@ -40,15 +40,24 @@ describe("registerToolBlocks", () => {
 		const renderers = resolver()("edit", () => base);
 		expect(renderers?.renderShell).toBe("self");
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
-		expect(lines).toHaveLength(1);
-		expect(lines[0]?.trimEnd()).toBe(`${RAIL} own`);
+		expect(lines.map((line) => line.trimEnd())).toEqual(["own", ""]);
+	});
+
+	test("frames the result behind the rail", () => {
+		const renderers = resolver()("read", () => ({ renderResult: () => new Text("base result", 0, 0) }));
+		const lines =
+			renderers
+				?.renderResult?.({ content: [] } as any, { expanded: false, isPartial: false }, fakeTheme, ctx())
+				.render(40) ?? [];
+		expect(lines[0]?.startsWith(RAIL)).toBe(true);
+		expect(lines.join("\n")).toContain("base result");
 	});
 
 	test("frames a generic fallback when the base has no renderer", () => {
 		const renderers = resolver()("mystery", () => undefined);
-		const text = (renderers?.renderCall?.({ q: "hi" }, fakeTheme, ctx()).render(60) ?? []).join("\n");
-		expect(text).toContain("mystery");
-		expect(text).toContain('q="hi"');
+		const lines = renderers?.renderCall?.({ q: "hi" }, fakeTheme, ctx()).render(60) ?? [];
+		expect(lines[0]).toContain("mystery");
+		expect(lines.join("\n")).toContain('q="hi"');
 	});
 
 	test("hands the base its own previous component, never the frame", () => {
