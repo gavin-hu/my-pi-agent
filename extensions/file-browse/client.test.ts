@@ -79,6 +79,21 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("metaKey");
 	});
 
+	test("opens the keyboard sheet and drives the per-page keys", () => {
+		expect(CLIENT_JS).toContain("keys-dialog");
+		expect(CLIENT_JS).toContain("function toggleKeys");
+		expect(CLIENT_JS).toContain("function toggleRaw");
+		expect(CLIENT_JS).toContain("data-hunk");
+		expect(CLIENT_JS).toContain("function moveHunk");
+		expect(CLIENT_JS).toContain("hunkAnchors");
+	});
+
+	test("tracks reading progress for the page's primary scroller", () => {
+		expect(CLIENT_JS).toContain("progress-fill");
+		expect(CLIENT_JS).toContain("function primaryScroller");
+		expect(CLIENT_JS).toContain("function updateProgress");
+	});
+
 	test("is served as a no-store script", async () => {
 		fixture = makeFixture();
 		const response = await handleRequest({ root: fixture.root, config: DEFAULT_CONFIG }, "GET", "/app.js", {});

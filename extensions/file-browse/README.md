@@ -23,7 +23,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 - **Two-pane UI.** A server-rendered tree, directory listings, and file pages,
   progressively enhanced by one first-party script (filter, lazy tree
   expansion, thumbnail fallback). Below 860px the tree collapses into a
-  `Files` disclosure above the listing.
+  `Files` disclosure above the listing. A hairline progress bar tracks whichever
+  column is scrolling (the card body for a file or diff, the main column
+  otherwise), and the served folder names the root page.
 - **Rich previews.** Text, rendered Markdown, images (thumbnails), and
   binary/over-size download cards, with per-language icons.
 - **First-party syntax highlighting.** Code files render with keywords,
@@ -34,8 +36,11 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   Python (`py`, `pyw`, `pyi`), Java, YAML (`yaml`, `yml`), and SQL. Other text
   types stay plain.
 - **Rendered Markdown.** `.md`/`.markdown` files render as headings, lists,
-  tables, code, inline and reference links, and images, with a one-click
-  **raw** view (`?raw=1`). Tables size their columns to the content and scroll
+  tables, code, inline and reference links, bare-URL autolinks, and images, with
+  a one-click **raw** view (`?raw=1`). The body follows GitHub's Markdown content
+  column: one centred measure of at most 1012px carrying headings, prose,
+  tables, code, and images, with wide tables scrolling inside it. Tables size
+  their columns to the content and scroll
   when wide, and named and numeric character references are decoded. Fenced code
   blocks are syntax-highlighted when the fence names a supported language.
   Headings get stable anchor ids, so in-document `#anchor` links and a table of
@@ -52,12 +57,17 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 - **Quick open.** `/` (or `Ctrl/Cmd+K`, or the sidebar button) opens a fuzzy
   path finder over a capped index of the tree, with keyboard navigation and a
   highlighted match; Enter opens the file.
+- **Keyboard.** `/` or `Ctrl/Cmd+K` opens quick open, `u` toggles line wrapping,
+  `r` switches rendered and raw Markdown, `n`/`p` step between a diff's hunks,
+  and `?` opens a shortcut sheet. A diff's hunk headers pin to the top of the
+  code viewport while its body scrolls.
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
 - **Git context.** A read-only header chip shows the checked-out branch (or
   detached head) and a dirty marker, and reflows on narrow screens.
 - **Git diff view.** A `● N changes +A −D` chip links to `/diff`, a change
   overview with `git diff --stat` and a per-file status table, and `/diff/<rel>`
-  renders one file's unified diff. Changed lines are syntax-highlighted with the
+  renders one file's unified diff, whose head carries its own `+A −D` and hunk
+  count. Changed lines are syntax-highlighted with the
   file's language, and dirty files and their directories carry a marker in the
   listing and the tree. The scope is switchable between `head` / `staged` /
   `worktree`; untracked files show as all-add, an unborn `HEAD` falls back to the

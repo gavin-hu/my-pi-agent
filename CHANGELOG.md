@@ -20,6 +20,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   connection state, comment count, and whether there are unsaved changes. It
   reads "Connecting…" until the stream first opens, so a slow initial connect
   never flashes "Offline".
+- `file-browse`: a `?` keyboard sheet over a shortcut layer — `/` or
+  `Ctrl/Cmd+K` quick open, `u` line wrapping, `r` rendered/raw Markdown, and
+  `n`/`p` between a diff's hunks. A hairline reading-progress bar follows the
+  page's main scroller, a file's diff head shows its own `+A −D` totals and hunk
+  count, and a diff's hunk headers pin to the top of the code viewport while its
+  body scrolls.
+- `file-browse`: rendered Markdown autolinks a bare `http(s)://` or `www.` URL
+  the way GitHub does, with trailing punctuation and an unclosed `)` left out of
+  the link.
 
 ### Changed
 
@@ -43,6 +52,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in its left margin, the side panel reports step progress and per-section
   comment counts, and GFM tables and `---` rules render. `j`/`k` move between
   blocks, `c` comments, `s` saves, and `?` opens a shortcut sheet.
+- `file-browse`: the rendered Markdown body follows GitHub's Markdown content
+  column — one centred measure of at most 1012px carrying headings, prose,
+  tables, code, and images, with wide tables scrolling inside it.
+- `file-browse`: the root listing is named after the served folder instead of
+  `/`, and the file head drops the always-`application/octet-stream` response
+  type so the footer carries the relative path instead.
 
 ### Fixed
 

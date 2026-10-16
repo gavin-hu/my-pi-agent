@@ -170,6 +170,25 @@ describe("renderMarkdown inline", () => {
 		);
 	});
 
+	test("autolinks a bare URL the way GitHub does", () => {
+		const link = (href: string, label: string) =>
+			`<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+		expect(renderMarkdown("see https://discord.com/invite/abc now")).toBe(
+			`<p>see ${link("https://discord.com/invite/abc", "https://discord.com/invite/abc")} now</p>`,
+		);
+		expect(renderMarkdown("www.example.com/path")).toBe(
+			`<p>${link("http://www.example.com/path", "www.example.com/path")}</p>`,
+		);
+		// Trailing punctuation and an unclosed paren are not part of the link.
+		expect(renderMarkdown("(see https://example.com/a).")).toBe(
+			`<p>(see ${link("https://example.com/a", "https://example.com/a")}).</p>`,
+		);
+		// A scheme without a domain, or one inside a word, stays text.
+		expect(renderMarkdown("https://localhost:8080")).toBe("<p>https://localhost:8080</p>");
+		expect(renderMarkdown("xhttps://example.com")).toBe("<p>xhttps://example.com</p>");
+		expect(renderMarkdown("`https://example.com`")).toBe("<p><code>https://example.com</code></p>");
+	});
+
 	test("resolves links and images relative to the file's directory", () => {
 		expect(renderMarkdown("[x](other.md)", "docs/sub")).toBe('<p><a href="/view/docs/sub/other.md">x</a></p>');
 		expect(renderMarkdown("![i](i.png)", "docs")).toBe(
