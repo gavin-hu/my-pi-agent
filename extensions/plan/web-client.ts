@@ -25,6 +25,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var token = typeof data.token === "string" ? data.token : "";
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
+  var approved = false;
   var closed = false;
   var connected = null;
   var everConnected = false;
@@ -37,6 +38,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
   var stateEl = document.getElementById("review-state");
+  var approveButton = document.getElementById("approve");
   var saveButton = document.getElementById("save");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
@@ -62,9 +64,15 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (!stateEl) return;
     var label;
     var tone = "";
-    if (saved) {
+    if (approved) {
+      label = "Approved";
+      tone = "success";
+    } else if (saved) {
       label = "Saved";
       tone = "success";
+    } else if (closed) {
+      // Settled by the user, not by a dropped stream: never flash Offline.
+      label = "Closed";
     } else if (connected === true) {
       label = "Connected";
       tone = "success";
@@ -78,7 +86,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     }
     var count = annotations.length;
     label += " \u00b7 " + count + (count === 1 ? " comment" : " comments");
-    if (dirty && !saved) {
+    if (dirty && !saved && !approved && !closed) {
       label += " \u00b7 unsaved";
       if (!tone) tone = "warn";
     }
@@ -608,6 +616,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   }
 
   function lockActions() {
+    if (approveButton) approveButton.disabled = true;
     if (saveButton) saveButton.disabled = true;
     if (cancelButton) cancelButton.disabled = true;
   }
@@ -626,51 +635,67 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     controls.appendChild(reload);
   }
 
-  function save() {
-    if (saved) return;
-    setStatus("Saving\u2026");
-    fetch("/api/feedback?token=" + encodeURIComponent(token), {
+  // Save and approve share the same POST shape; only the route, the settled
+  // flag, and the wording differ. Both persist the current annotations.
+  function submit(url, okText, failText, mark) {
+    fetch(url + "?token=" + encodeURIComponent(token), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ annotations: annotations })
     }).then(function (response) {
       if (response.ok) {
-        saved = true;
+        mark();
         dirty = false;
-        setStatus("Saved \u2014 return to Pi to continue.", "saved");
+        setStatus(okText, "saved");
         lockActions();
         updateState();
         return;
       }
       if (response.status === 409) {
         setStatus("The plan changed on disk \u2014 reload to review again.", "error");
+        if (approveButton) approveButton.disabled = true;
         if (saveButton) saveButton.disabled = true;
         offerReload();
         return;
       }
       throw new Error("server returned " + response.status);
     }).catch(function (error) {
-      setStatus("Could not save: " + error.message, "error");
+      setStatus(failText + error.message, "error");
     });
+  }
+
+  function save() {
+    if (saved || approved || closed) return;
+    setStatus("Saving\u2026");
+    submit("/api/feedback", "Saved \u2014 return to Pi to continue.", "Could not save: ", function () { saved = true; });
+  }
+
+  function approve() {
+    if (saved || approved || closed) return;
+    setStatus("Approving\u2026");
+    submit("/api/approve", "Approved \u2014 return to Pi to continue.", "Could not approve: ", function () { approved = true; });
   }
 
   function cancel() {
-    if (saved || closed) return;
+    if (saved || approved || closed) return;
     closed = true;
     lockActions();
     setStatus("Closing\u2026");
+    updateState();
     fetch("/api/cancel?token=" + encodeURIComponent(token), { method: "POST" }).catch(function () {}).then(function () {
-      setStatus("Closed without saving.");
+      setStatus("Closed \u2014 return to Pi.");
+      updateState();
     });
   }
 
+  if (approveButton) approveButton.addEventListener("click", approve);
   if (saveButton) saveButton.addEventListener("click", save);
   if (cancelButton) cancelButton.addEventListener("click", cancel);
 
   // Remember a selection made inside a block so clicking the rail button can
   // still quote it after the button press has collapsed the selection.
   document.addEventListener("mouseup", function (event) {
-    if (!planEl || saved) return;
+    if (!planEl || saved || approved || closed) return;
     var wrap = event.target && event.target.closest ? event.target.closest(".bf-block") : null;
     var quote = wrap && !wrap.querySelector(".bf-composer") ? selectionIn(wrap) : "";
     pendingQuote = wrap && quote ? { wrap: wrap, quote: quote } : null;
@@ -700,7 +725,13 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   }
 
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") { closeComposer(); toggleKeys(false); return; }
+    if (event.key === "Escape") {
+      // Esc peels one layer at a time: the composer, then the sheet, then the review.
+      if (planEl && planEl.querySelector(".bf-composer")) { closeComposer(); return; }
+      if (keysDialog && !keysDialog.hidden) { toggleKeys(false); return; }
+      cancel();
+      return;
+    }
     if (typing(event.target)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === "?") { event.preventDefault(); toggleKeys(); return; }
@@ -709,11 +740,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (event.key === "j") { event.preventDefault(); moveActive(1); return; }
     if (event.key === "k") { event.preventDefault(); moveActive(-1); return; }
     if (event.key === "c") { event.preventDefault(); commentOnActive(); return; }
+    if (event.key === "a" && approveButton) { event.preventDefault(); approve(); return; }
     if (event.key === "s") { event.preventDefault(); save(); return; }
   });
 
   window.addEventListener("beforeunload", function () {
-    if (saved || closed) return;
+    if (saved || approved || closed) return;
     var url = "/api/cancel?token=" + encodeURIComponent(token);
     if (navigator.sendBeacon) navigator.sendBeacon(url);
   });
@@ -726,8 +758,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var stream = new EventSource("/events?token=" + encodeURIComponent(token));
     stream.addEventListener("open", function () { connected = true; everConnected = true; updateState(); });
     stream.addEventListener("error", function () {
-      // The server ends the stream on save; keep showing Saved rather than Offline.
-      if (!saved) { connected = false; updateState(); }
+      // The server ends the stream once the review is settled; keep showing the
+      // terminal state rather than Offline.
+      if (!saved && !approved && !closed) { connected = false; updateState(); }
     });
   } catch (error) {
     // The server still sees the POST; the stream is only for close detection.

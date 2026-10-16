@@ -1,24 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import { THEME_JS } from "../../lib/web/index.ts";
 import type { PlanAnnotation } from "./feedback.ts";
+import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 
 /** A loopback `Host`; the router now rejects a missing or foreign one. */
 const HOST = { host: "127.0.0.1:1234" };
 
 function setup(overrides: Partial<ReviewContext> = {}) {
 	const saved: PlanAnnotation[][] = [];
+	const approved: PlanAnnotation[][] = [];
 	const cancelled: number[] = [];
 	let nextSave: SaveResult = { ok: true };
 	const ctx: ReviewContext = {
 		token: "tok",
+		canApprove: true,
 		page: async () => ({
 			title: "T",
 			blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
 			annotations: [],
 			outline: [],
 			code: {},
+			canApprove: true,
 			token: "tok",
 		}),
 		save: async (annotations) => {
@@ -26,12 +29,14 @@ function setup(overrides: Partial<ReviewContext> = {}) {
 			return nextSave;
 		},
 		onSaved: () => {},
+		onApprove: (annotations) => approved.push(annotations),
 		onCancel: () => cancelled.push(1),
 		...overrides,
 	};
 	return {
 		ctx,
 		saved,
+		approved,
 		cancelled,
 		setSave: (result: SaveResult) => {
 			nextSave = result;
@@ -164,5 +169,46 @@ describe("handleReviewRequest — feedback", () => {
 		const response = await handleReviewRequest(ctx, "POST", "/api/cancel?token=tok", HOST);
 		expect(response.status).toBe(200);
 		expect(cancelled).toHaveLength(1);
+	});
+});
+
+describe("handleReviewRequest — approval", () => {
+	test("saves the comments and signals an approve", async () => {
+		const { ctx, saved, approved } = setup();
+		const response = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/approve?token=tok",
+			HOST,
+			JSON.stringify({ annotations: [{ anchor: 1, comment: "note" }] }),
+		);
+		expect(response.status).toBe(200);
+		expect(saved).toEqual([[{ anchor: 1, comment: "note" }]]);
+		expect(approved).toEqual([[{ anchor: 1, comment: "note" }]]);
+	});
+
+	test("refuses approve when the review is comment-only", async () => {
+		const { ctx, approved } = setup({ canApprove: false });
+		const response = await handleReviewRequest(ctx, "POST", "/api/approve?token=tok", HOST);
+		expect(response.status).toBe(403);
+		expect(approved).toEqual([]);
+	});
+
+	test("rejects a non-POST approve", async () => {
+		expect((await handleReviewRequest(setup().ctx, "GET", "/api/approve?token=tok", HOST)).status).toBe(405);
+	});
+
+	test("reports an approve conflict from the store", async () => {
+		const { ctx, approved, setSave } = setup();
+		setSave({ ok: false, status: 409, message: "The plan changed." });
+		const response = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/approve?token=tok",
+			HOST,
+			JSON.stringify({ annotations: [] }),
+		);
+		expect(response.status).toBe(409);
+		expect(approved).toEqual([]);
 	});
 });

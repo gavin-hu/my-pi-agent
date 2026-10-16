@@ -8,6 +8,7 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 		annotations: [],
 		outline: [{ id: "s-0", line: 0, level: 1, text: "Add rate limiting" }],
 		code: {},
+		canApprove: true,
 		token: "secret-token",
 		...overrides,
 	});
@@ -87,6 +88,21 @@ describe("renderReviewPage", () => {
 		expect(html).not.toContain(
 			".bf-block code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);border:",
 		);
+	});
+
+	test("offers Approve & run as the primary action when the review may approve", () => {
+		const html = page();
+		expect(html).toContain('class="bf-btn bf-btn--primary" id="approve">Approve &amp; run</button>');
+		expect(html).toContain('class="bf-btn" id="save">Save feedback</button>');
+		expect(html).toContain('class="bf-btn" id="cancel">Back to Pi</button>');
+		expect(html).toContain('<kbd class="review-kbd">a</kbd></dt><dd>Approve and run the plan</dd>');
+	});
+
+	test("keeps Save primary and omits approve on a comment-only review", () => {
+		const html = page({ canApprove: false });
+		expect(html).not.toContain('id="approve"');
+		expect(html).toContain('class="bf-btn bf-btn--primary" id="save"');
+		expect(html).not.toContain('<kbd class="review-kbd">a</kbd>');
 	});
 
 	test("pins a reading-progress bar to the header", () => {

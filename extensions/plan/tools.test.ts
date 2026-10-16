@@ -7,7 +7,7 @@ import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import type { PlanAnnotation } from "./feedback.ts";
-import type { PlanWebReview } from "./web.ts";
+import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
@@ -68,6 +68,24 @@ function webThatCancels(): PlanWebReview {
 		}),
 		closeAll: async () => {},
 	};
+}
+
+/** A web review controller whose session resolves approved, recording its start options. */
+function webThatApproves(annotations: PlanAnnotation[]): { web: PlanWebReview; starts: PlanReviewOptions[] } {
+	const starts: PlanReviewOptions[] = [];
+	const web: PlanWebReview = {
+		start: async (_cwd, plan, options) => {
+			starts.push(options ?? {});
+			return {
+				url: "http://127.0.0.1:1234/?token=tok",
+				port: 1234,
+				done: Promise.resolve({ status: "approved" as const, plan, annotations }),
+				close: async () => {},
+			};
+		},
+		closeAll: async () => {},
+	};
+	return { web, starts };
 }
 
 /** Enter plan mode through the real tool, in a repository rooted at `cwd`. */
@@ -420,6 +438,25 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("browser");
 		expect(runtime.isEnabled()).toBe(true);
 		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
+	});
+
+	test("a browser approve leaves plan mode and seeds the todo list", async () => {
+		const annotations: PlanAnnotation[] = [{ anchor: 0, quote: "one", comment: "ship it" }];
+		const { web, starts } = webThatApproves(annotations);
+		const { enter, exit, write, runtime, root, activeTools } = setup(web);
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Read the parser\n2. Update tests");
+
+		const { ctx, toolCalls } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(starts[0]).toEqual({ canApprove: true });
+		expect(result.details.approved).toBe(true);
+		expect(runtime.isEnabled()).toBe(false);
+		expect(activeTools()).toContain("write");
+		expect(toolCalls[0]?.name).toBe("todo");
+		expect(result.content[0].text).toContain("Plan approved");
+		expect(result.content[0].text).toContain("ship it");
 	});
 
 	test("a cancelled browser review returns to the review screen", async () => {

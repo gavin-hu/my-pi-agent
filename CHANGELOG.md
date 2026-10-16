@@ -16,9 +16,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Tooling: `bun run screenshot:plan <plan.md>` renders one plan through the
   browser review page and captures a full-page PNG with headless Chrome, so a
   plan's Markdown layout can be checked without a browser session.
+- `plan`: the browser review can approve the plan. A review opened by
+  `exit_plan_mode` shows **Approve & run**, which saves the current comments,
+  leaves plan mode, restores write access, and seeds `todo`, so the user no
+  longer has to return to the terminal to press `a`.
 
 ### Changed
 
+- `plan`: the browser review's `Close` is now **Back to Pi**, and every outcome
+  settles the page on a terminal chip — `Approved`, `Saved`, or `Closed` —
+  instead of falling to a red `Offline` when the server closes the stream.
+  `/plan review` stays comment-only and refuses approval.
 - `plan`: the browser review's inline code is a soft `--surface` fill instead of a
   bordered chip, so a code-dense plan reads as prose rather than a patchwork of
   buttons.

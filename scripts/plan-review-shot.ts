@@ -116,6 +116,9 @@ export function buildReviewPageData(content: string, path: string, token: string
 			text: heading.text,
 		})),
 		code,
+		// The capture always shows the approval action, even though the real page
+		// gates it to the exit_plan_mode flow.
+		canApprove: true,
 		token,
 	};
 }
@@ -127,9 +130,11 @@ async function serveReview(data: ReviewPageData): Promise<{ url: string; close: 
 	const streams = new Set<ServerResponse>();
 	const context: ReviewContext = {
 		token: data.token,
+		canApprove: true,
 		page: async () => data,
 		save: async () => ({ ok: true }),
 		onSaved: () => {},
+		onApprove: () => {},
 		onCancel: () => {},
 	};
 	const server = createServer((request, response) => {

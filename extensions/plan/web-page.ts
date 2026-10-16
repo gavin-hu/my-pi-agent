@@ -49,6 +49,8 @@ export interface ReviewPageData {
 	outline: ReviewOutlineItem[];
 	/** Highlighted HTML per line, keyed by the code block's 0-based start line. */
 	code: Record<string, string[]>;
+	/** Whether the review may approve the plan (only the `exit_plan_mode` flow). */
+	canApprove: boolean;
 	/** Per-session secret the client echoes on every request. */
 	token: string;
 }
@@ -171,19 +173,25 @@ ${WEB_COMPONENTS_CSS}
 `.trim();
 
 /** The keyboard sheet, hidden until the client opens it. */
-const KEYS_DIALOG = `<div class="bf-dialog" id="keys-dialog" hidden>
+function keysDialog(canApprove: boolean): string {
+	const approveRow = canApprove
+		? `<div><dt><kbd class="review-kbd">a</kbd></dt><dd>Approve and run the plan</dd></div>
+`
+		: "";
+	return `<div class="bf-dialog" id="keys-dialog" hidden>
 <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="keys-title">
 <div class="bf-dialog__head"><h2 id="keys-title">Keyboard shortcuts</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="keys-close">Close</button></div>
 <dl class="review-keys">
-<div><dt><kbd class="review-kbd">j</kbd> <kbd class="review-kbd">k</kbd></dt><dd>Next and previous block</dd></div>
+${approveRow}<div><dt><kbd class="review-kbd">j</kbd> <kbd class="review-kbd">k</kbd></dt><dd>Next and previous block</dd></div>
 <div><dt><kbd class="review-kbd">c</kbd></dt><dd>Comment on the current block</dd></div>
 <div><dt><kbd class="review-kbd">Enter</kbd></dt><dd>Add the comment you are writing</dd></div>
 <div><dt><kbd class="review-kbd">s</kbd></dt><dd>Save feedback and return to Pi</dd></div>
-<div><dt><kbd class="review-kbd">Esc</kbd></dt><dd>Close the composer or this sheet</dd></div>
+<div><dt><kbd class="review-kbd">Esc</kbd></dt><dd>Close the composer, the sheet, or the review</dd></div>
 <div><dt><kbd class="review-kbd">?</kbd></dt><dd>Toggle this sheet</dd></div>
 </dl>
 </div>
 </div>`;
+}
 
 /**
  * Render the review page for `data`. The markup is a fixed shell; the client
@@ -205,6 +213,13 @@ ${reviewFacts()}
 </details>
 `
 		: "";
+	// Approve is the decisive action, so it takes the primary button and Save is
+	// demoted; a comment-only review has no approve button and keeps Save primary.
+	const approveButton = data.canApprove
+		? `
+<button type="button" class="bf-btn bf-btn--primary" id="approve">Approve &amp; run</button>`
+		: "";
+	const saveButton = `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save">Save feedback</button>`;
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -221,15 +236,15 @@ ${brandLockup("plan review")}
 <span class="bf-status review-status" id="status" role="status" aria-live="polite"></span>
 <div class="review-controls">
 ${themeToggle()}
-<button type="button" class="bf-btn bf-btn--icon" id="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
-<button type="button" class="bf-btn bf-btn--primary" id="save">Save feedback</button>
-<button type="button" class="bf-btn" id="cancel">Close</button>
+<button type="button" class="bf-btn bf-btn--icon" id="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>${approveButton}
+${saveButton}
+<button type="button" class="bf-btn" id="cancel">Back to Pi</button>
 </div>
 </div><div class="review-progress" aria-hidden="true"><span class="review-progress__fill" id="progress-fill"></span></div></header>
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
-${KEYS_DIALOG}
+${keysDialog(data.canApprove)}
 <script type="application/json" id="review-data">${island}</script>
 <script src="/client.js" defer></script>
 </body>

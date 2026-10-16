@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
 import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
-import { createPlanWebReview, type PlanReviewSession } from "./web.ts";
+import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession } from "./web.ts";
 
 const PATH = "/repo/.pi/plans/2026-10-14-1600-demo.md";
 const RELATIVE = ".pi/plans/2026-10-14-1600-demo.md";
@@ -31,15 +31,20 @@ afterEach(async () => {
 	review = undefined;
 });
 
-async function start(content = "# Plan\n\n- [ ] step\n", opened: string[] = []): Promise<PlanReviewSession> {
+async function start(
+	content = "# Plan\n\n- [ ] step\n",
+	opened: string[] = [],
+	options?: PlanReviewOptions,
+): Promise<PlanReviewSession> {
 	const { store } = fakeStore(content);
 	review = createPlanWebReview(store, { open: (url) => opened.push(url), token: () => "tok", port: 0 });
-	const session = await review.start("/repo", stored(content));
+	const session = await review.start("/repo", stored(content), options);
 	expect(session).toBeDefined();
 	return session as PlanReviewSession;
 }
 
 const feedbackUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/feedback?token=tok`;
+const approveUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/approve?token=tok`;
 const cancelUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/cancel?token=tok`;
 
 describe("createPlanWebReview", () => {
@@ -107,11 +112,58 @@ describe("createPlanWebReview", () => {
 		expect((await session.done).status).toBe("cancelled");
 	});
 
+	test("resolves approved with the saved comments", async () => {
+		const session = await start("# Plan\n\n- [ ] step\n", [], { canApprove: true });
+		const response = await fetch(approveUrl(session), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "ship it" }] }),
+		});
+		expect(response.status).toBe(200);
+		const result = await session.done;
+		expect(result.status).toBe("approved");
+		if (result.status === "approved") {
+			expect(result.annotations).toEqual([{ anchor: 2, comment: "ship it" }]);
+			expect(result.plan.content).toContain("> [!REVIEW] ship it");
+		}
+	});
+
+	test("refuses approve when the session is comment-only", async () => {
+		const session = await start();
+		expect((await fetch(approveUrl(session), { method: "POST" })).status).toBe(403);
+		// The session stays live; cancel it so the fixture resolves.
+		await fetch(cancelUrl(session), { method: "POST" });
+		expect((await session.done).status).toBe("cancelled");
+	});
+
+	test("delivers the approve response before the session closes", async () => {
+		const session = await start("# Plan\n", [], { canApprove: true });
+		const pending = fetch(approveUrl(session), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ annotations: [{ anchor: 0, comment: "go" }] }),
+		});
+		expect((await session.done).status).toBe("approved");
+		await session.close();
+		expect((await pending).status).toBe(200);
+	});
+
+	test("marks the page approvable only when the session allows it", async () => {
+		const approvable = await start("# Plan\n", [], { canApprove: true });
+		expect(await (await fetch(approvable.url)).text()).toContain('id="approve"');
+		await approvable.close();
+
+		const commentOnly = await start("# Plan\n");
+		expect(await (await fetch(commentOnly.url)).text()).not.toContain('id="approve"');
+	});
+
 	test("resolves cancelled when the turn aborts", async () => {
 		const { store } = fakeStore("# Plan\n");
 		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0 });
 		const controller = new AbortController();
-		const session = (await review.start("/repo", stored("# Plan\n"), controller.signal)) as PlanReviewSession;
+		const session = (await review.start("/repo", stored("# Plan\n"), {
+			signal: controller.signal,
+		})) as PlanReviewSession;
 		controller.abort();
 		expect((await session.done).status).toBe("cancelled");
 		await session.close();

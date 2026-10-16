@@ -23,9 +23,19 @@ describe("REVIEW_CLIENT_JS", () => {
 	});
 
 	test("uses only same-origin routes with the session token", () => {
-		expect(REVIEW_CLIENT_JS).toContain("/api/feedback?token=");
+		expect(REVIEW_CLIENT_JS).toContain('submit("/api/feedback"');
+		expect(REVIEW_CLIENT_JS).toContain('submit("/api/approve"');
 		expect(REVIEW_CLIENT_JS).toContain("/api/cancel?token=");
 		expect(REVIEW_CLIENT_JS).toContain("/events?token=");
+		expect(REVIEW_CLIENT_JS).toContain('"?token=" + encodeURIComponent(token)');
+	});
+
+	test("approves the plan and settles the page on a terminal state", () => {
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("approve")');
+		expect(REVIEW_CLIENT_JS).toContain("function approve()");
+		expect(REVIEW_CLIENT_JS).toContain('if (event.key === "a" && approveButton)');
+		expect(REVIEW_CLIENT_JS).toContain('label = "Approved"');
+		expect(REVIEW_CLIENT_JS).toContain('label = "Closed"');
 	});
 
 	test("never assigns plan or comment text as markup", () => {
