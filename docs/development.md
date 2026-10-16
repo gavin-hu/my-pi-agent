@@ -26,7 +26,7 @@ repositories.
 | `bun run format:check` | `biome format .`, check only. |
 | `bun run check:serial` | `bun run check` with the serial suite. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
-| `bun run screenshots` | Regenerate the terminal screenshots under `assets/` (macOS only). |
+| `bun run screenshots` | Regenerate the screenshots and hero under `assets/` (macOS only). |
 
 ## Tests
 
