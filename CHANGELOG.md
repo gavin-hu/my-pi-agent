@@ -26,8 +26,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `job`, `watch`: a finished job or a matched watched line is now posted as that
   visible notice instead of a hidden context message. The model-facing text is
   unchanged, and each extension still prunes only its own stale notices.
-- `bytefly`: each user message opens with a `❯ You` nameplate — a heading and a
-  rule to the right margin — above the message.
+- `bytefly`: each user message opens with a two-row `You` nameplate — the label
+  over a full-width rule — above the message.
 - Docs: terminal screenshots for the `todo`, `question`, `job`, and `rewind`
   screens plus a refreshed `chrome.png` hero, embedded in each extension
   README, the catalog, and the root and Chinese READMEs; `bun run screenshots`
@@ -75,7 +75,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of yellow.
 - `bytefly`: the user message no longer sits on a filled background. The shipped
   themes set `userMessageBg` to the terminal default, so it renders on the same
-  background as the tool blocks, with only the `❯ You` nameplate above it.
+  background as the tool blocks, with only the two-row `You` nameplate above it.
 - `plan`: the browser review's `Close` is now **Back to Pi**, and every outcome
   settles the page on a terminal chip — `Approved`, `Saved`, or `Closed` —
   instead of falling to a red `Offline` when the server closes the stream.

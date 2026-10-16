@@ -19,6 +19,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { viewportRows, type ViewportRowsSource } from "./chrome.ts";
+import { GLYPHS } from "./glyphs.ts";
 
 /**
  * Rows that fit for a list of `itemCount`, reserving one extra line when the
@@ -75,7 +76,7 @@ export function wheelDelta(event: TuiMouseEvent): number | undefined {
 
 /** The `❯ ` selection marker (accent) or a same-width blank. */
 export function selectionMarker(theme: Theme, selected: boolean): string {
-	return selected ? theme.fg("accent", "❯ ") : "  ";
+	return selected ? theme.fg("accent", `${GLYPHS.prompt} `) : "  ";
 }
 
 /**

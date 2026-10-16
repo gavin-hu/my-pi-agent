@@ -14,7 +14,8 @@ describe("registerUserMessage", () => {
 		registerUserMessage(pi);
 		const transform = markdownTransformers[0];
 
-		expect(transform("hello", { messageType: "user", isStreaming: false, availableWidth: 40 })).toContain("❯ You");
+		expect(transform("hello", { messageType: "user", isStreaming: false, availableWidth: 40 })).toContain("You");
+		expect(transform("hello", { messageType: "user", isStreaming: false, availableWidth: 40 })).not.toContain("❯");
 		expect(transform("hello", { messageType: "assistant", isStreaming: false, availableWidth: 40 })).toBe("hello");
 	});
 });

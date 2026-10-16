@@ -5,16 +5,11 @@
  * this surface has no roles: it only names the label and the rule.
  */
 
-import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { RULE_GLYPH } from "../../../lib/tui/rules.ts";
 
 export const MESSAGE_CONFIG = {
-	/** Leading glyph on the label. */
-	glyph: GLYPHS.prompt,
-	/** The label word after the glyph. */
+	/** The label word in the heading. */
 	label: "You",
-	/** Repeatable glyph that fills the rule to the right margin. */
+	/** Repeatable glyph that fills the rule row. */
 	ruleGlyph: RULE_GLYPH,
-	/** Fewest rule columns worth drawing; below this the rule is dropped. */
-	minRule: 3,
 } as const;

@@ -2,7 +2,7 @@
  * bytefly — the package's terminal chrome and diagnostics, composed from nine
  * feature folders: `header/` (the themed startup mark and version), `footer/`
  * (the two-line, width-adaptive status bar with its price calculation),
- * `message/` (the user-message prompt marker), `notice/` (the shared transcript
+ * `message/` (the user-message nameplate), `notice/` (the shared transcript
  * notice renderer), `block/` (the unified tool-block frame), `separator/` (the
  * transcript turn rule), `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
