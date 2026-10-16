@@ -54,7 +54,7 @@ export function createSnapshotRun(pi: ExtensionAPI, runtime: RewindRuntime): Sna
 		runAutoSnapshots = false;
 	};
 
-	const beginRun = async (prompt: string, ctx: ExtensionContext): Promise<void> => {
+	const beginRun = async (prompt: string | undefined, ctx: ExtensionContext): Promise<void> => {
 		reset();
 		pendingPrompt = summarizePrompt(prompt);
 		try {

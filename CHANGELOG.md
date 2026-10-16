@@ -35,6 +35,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `rewind`: a run started by a custom message (a wake) no longer prints a stack
+  trace into the transcript. `before_agent_start` fires for those runs with no
+  user prompt, so `summarizePrompt` threw on `undefined`; a missing prompt now
+  yields no summary, and rewind still resets its per-run state.
 - `file-browse` / `plan`: the app shell now fills the viewport. `min-height:100vh`
   left the shell's height indefinite, so the sidebar, content pane, and code
   viewport all grew with their content and the whole document scrolled instead
