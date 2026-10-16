@@ -26,8 +26,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   — the tool name in the accent colour — and its body sits two columns in
   directly beneath it, in place of Pi's filled background box. The frame wraps
   the tool's own renderer, so diffs, syntax highlighting, and previews are
-  unchanged. A shell call's `$` / `>` prompt is shown as the tool name
-  (`bash bun run check`), and `toolTitle` now resolves to the accent.
+  unchanged. A shell call's `$` / `>` prompt is shown as the tool name, and its
+  command is repainted in the body colour so the name is the block's only accent
+  (`bash bun run check`); `toolTitle` resolves to the accent.
 - `bytefly`: renders the shared transcript notice — a `source · title` headline
   with severity-led rows at the transcript's margin — that any extension posts
   under the shared `my-pi-agent/notice` type.

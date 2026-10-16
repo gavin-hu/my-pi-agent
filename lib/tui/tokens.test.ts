@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
-import { paint, TUI_TOKENS, type TuiRole } from "./tokens.ts";
+import { ansiTheme, coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+import { paint, paintPrefix, TUI_TOKENS, type TuiRole } from "./tokens.ts";
 
 const ROLES = Object.keys(TUI_TOKENS) as TuiRole[];
 
@@ -16,6 +16,18 @@ describe("TUI_TOKENS", () => {
 
 	test("paint returns the themed text unchanged by the identity theme", () => {
 		expect(paint(fakeTheme, "title", "Extensions")).toBe("Extensions");
+	});
+
+	test("paintPrefix routes through the role's own color", () => {
+		for (const role of ROLES) expect(paintPrefix(coloringTheme, role)).toBe(`[${TUI_TOKENS[role]}]`);
+	});
+
+	test("paintPrefix drops the reset a wrapping paint carries", () => {
+		for (const role of ROLES) {
+			const open = paintPrefix(ansiTheme, role);
+			expect(open.length).toBeGreaterThan(0);
+			expect(open).not.toContain("\u001b[39m");
+		}
 	});
 
 	test("status roles map to the semantic status colors", () => {

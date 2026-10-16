@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Text } from "@earendil-works/pi-tui";
-import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { createFakePi, coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { registerToolBlocks } from "./register.ts";
 
 /** A minimal render context: the fields the resolver reads, plus the shared state. */
@@ -28,6 +28,12 @@ describe("registerToolBlocks", () => {
 		expect(renderers?.renderShell).toBe("self");
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
 		expect(lines).toEqual(["base call"]);
+	});
+
+	test("hands the theme to the frame so a shell command is recoloured", () => {
+		const renderers = resolver()("bash", () => ({ renderCall: () => new Text("\u001b[1m$ ls\u001b[0m", 0, 0) }));
+		const lines = renderers?.renderCall?.({ command: "ls" }, coloringTheme, ctx()).render(40) ?? [];
+		expect(lines).toEqual(["\u001b[1mbash \u001b[22m[text]ls\u001b[0m"]);
 	});
 
 	test("trims a self-shell call's blank edges under its headline", () => {

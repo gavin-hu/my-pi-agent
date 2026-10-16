@@ -56,3 +56,17 @@ export const TUI_TOKENS: Readonly<Record<TuiRole, ThemeColor>> = {
 export function paint(theme: Theme, role: TuiRole, text: string): string {
 	return theme.fg(TUI_TOKENS[role], text);
 }
+
+/**
+ * The opening sequence for a role, without its reset. A frame that must repaint
+ * a run in place — mid-line, where the surrounding text already carries the
+ * closing reset — opens with this instead of wrapping a whole string.
+ *
+ * Derived from `paint` with a sentinel, so it tracks the theme's own escape
+ * shape rather than assuming one.
+ */
+export function paintPrefix(theme: Theme, role: TuiRole): string {
+	const marker = "\u0000";
+	const wrapped = paint(theme, role, marker);
+	return wrapped.slice(0, wrapped.indexOf(marker));
+}

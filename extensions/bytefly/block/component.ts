@@ -15,9 +15,11 @@
  * left edge, and a failure is whatever the tool's own output shows.
  */
 
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { BODY_INDENT, indentedLines } from "../../../lib/tui/indent.ts";
+import { paintPrefix } from "../../../lib/tui/tokens.ts";
 
 /** How one tool-block frame is drawn. */
 export interface ToolBlockOptions {
@@ -33,19 +35,33 @@ export interface ToolBlockOptions {
 	trimLeading?: boolean;
 	/** The tool name, so a shell prompt in the headline becomes the tool name. */
 	toolName?: string;
+	/**
+	 * The active theme. A shell call's command is repainted in the `label` role,
+	 * so only the tool name spends the accent; without it the line is left as Pi
+	 * drew it.
+	 */
+	theme?: Theme;
 }
 
 /**
  * Pi draws a shell call as `$ <command>` (or `> <command>` in PowerShell) rather
  * than `bash <command>`. The tool name is the block's headline, so rewrite that
- * leading prompt in place; the character keeps the styling Pi already gave it.
+ * leading prompt in place. The name keeps Pi's `toolTitle` styling (the accent
+ * in the shipped themes); the command is reopened in `label` and the bold run
+ * ended, so the name is the block's only accent.
  */
 const SHELL_PROMPT = /^\s*[$>] /;
+/** The prompt and the space after it, so a themed rewrite can replace both. */
+const SHELL_PROMPT_SPAN = /[$>] /;
 
-/** Replace a shell call's leading prompt glyph with the tool name. */
-export function headlineWithToolName(line: string, toolName: string): string {
+/** Replace a shell call's leading prompt with the tool name. */
+export function headlineWithToolName(line: string, toolName: string, theme?: Theme): string {
 	if (!SHELL_PROMPT.test(stripTerminalSequences(line))) return line;
-	return line.replace(/[$>]/, sanitizeLine(toolName));
+	const name = sanitizeLine(toolName);
+	if (!theme) return line.replace(/[$>]/, name);
+	// `\u001b[22m` ends the name's bold run; the role's opening colours what
+	// follows, which Pi's own trailing reset then closes.
+	return line.replace(SHELL_PROMPT_SPAN, `${name} \u001b[22m${paintPrefix(theme, "label")}`);
 }
 
 /**
@@ -69,7 +85,11 @@ export function toolBlockLines(
 		// The base renders at the reduced (indented) width, so drop the padding it
 		// added before the prompt rewrite can push the headline over the clip.
 		const headline = (lines[0] ?? "").trimEnd();
-		lines[0] = truncateToWidth(options.toolName ? headlineWithToolName(headline, options.toolName) : headline, w, "…");
+		lines[0] = truncateToWidth(
+			options.toolName ? headlineWithToolName(headline, options.toolName, options.theme) : headline,
+			w,
+			"…",
+		);
 	}
 	return lines;
 }

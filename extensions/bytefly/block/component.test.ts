@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
+import { coloringTheme } from "../../../test/helpers/fakes.ts";
 import { headlineWithToolName, toolBlockLines } from "./component.ts";
 
 /** A stand-in for a tool's own renderer, recording the width it was asked for. */
@@ -64,6 +65,15 @@ describe("toolBlockLines", () => {
 		);
 	});
 
+	test("recolours a shell call's command through the frame", () => {
+		const lines = toolBlockLines(innerOf(["\u001b[1m$ ls\u001b[0m"]), 40, 0, {
+			headline: true,
+			toolName: "bash",
+			theme: coloringTheme,
+		});
+		expect(lines).toEqual(["\u001b[1mbash \u001b[22m[text]ls\u001b[0m"]);
+	});
+
 	test("renders nothing for an absent inner", () => {
 		expect(toolBlockLines(undefined, 40, 0)).toEqual([]);
 	});
@@ -90,8 +100,18 @@ describe("headlineWithToolName", () => {
 		expect(headlineWithToolName("read src/cli.ts:1-8", "read")).toBe("read src/cli.ts:1-8");
 	});
 
-	test("rewrites the prompt in place, keeping its styling", () => {
+	test("rewrites the prompt in place, keeping its styling, when given no theme", () => {
 		expect(headlineWithToolName("\u001b[1m$ ls\u001b[0m", "bash")).toBe("\u001b[1mbash ls\u001b[0m");
+	});
+
+	test("repaints the command in label so only the tool name spends the accent", () => {
+		expect(headlineWithToolName("\u001b[1m$ bun run check\u001b[0m", "bash", coloringTheme)).toBe(
+			"\u001b[1mbash \u001b[22m[text]bun run check\u001b[0m",
+		);
+	});
+
+	test("leaves a headline that is not a shell prompt untouched even with a theme", () => {
+		expect(headlineWithToolName("read src/cli.ts:1-8", "read", coloringTheme)).toBe("read src/cli.ts:1-8");
 	});
 
 	test("sanitizes the tool name", () => {

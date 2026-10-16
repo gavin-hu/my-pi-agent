@@ -52,6 +52,7 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 					headline: true,
 					trimLeading: true,
 					toolName,
+					theme,
 				});
 			},
 			renderResult: (result, options, theme, context) => {
