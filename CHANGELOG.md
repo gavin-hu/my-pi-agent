@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-16
+
 ### Added
 
 - `file-browse`: a read-only git diff view. A `● N changes` chip links to
@@ -1044,7 +1046,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.9.0
 [0.8.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.8.1
 [0.8.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.8.0
 [0.7.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.7.0
