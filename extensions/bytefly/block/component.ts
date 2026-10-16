@@ -11,14 +11,21 @@
  * The call block leads with its first non-blank line — the tool's own call line,
  * which every built-in and package renderer already opens with the tool name —
  * and the body follows at `BODY_INDENT` columns, with no separator line, so the
- * block is compact. There is no rail and no status colour: a block reads as one
- * left edge, and a failure is whatever the tool's own output shows.
+ * block is compact. There is no rail: a block reads as one left edge, and a
+ * failure is whatever the tool's own output shows.
+ *
+ * A tool that mutates a file (`edit`, `write`) may carry a `fill`: every body
+ * line is padded to the frame's width and wrapped, so the result sits on one
+ * edge-to-edge band and the state colour reads as a rectangle rather than a
+ * ragged stripe. The headline is the call, so it stays unfilled. The wrapper is
+ * injected, so the frame stays theme-agnostic; a tool whose own renderer paints a
+ * background is handed a no-op `bg` and leaves the fill to the frame.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
+import { type Component, stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { BODY_INDENT, indentedLines } from "../../../lib/tui/indent.ts";
+import { BODY_INDENT, IMAGE_LINE, indentedLines } from "../../../lib/tui/indent.ts";
 import { paintPrefix } from "../../../lib/tui/tokens.ts";
 
 /** How one tool-block frame is drawn. */
@@ -41,6 +48,20 @@ export interface ToolBlockOptions {
 	 * drew it.
 	 */
 	theme?: Theme;
+	/**
+	 * Fill each body line to the frame's full width and wrap it, so the result
+	 * sits on one edge-to-edge background band. Set for the tools that paint a
+	 * status fill (`edit`, `write`); the caller supplies the wrapper. The headline
+	 * is the call, so it is never filled, and an image-protocol line passes through
+	 * untouched.
+	 */
+	fill?: (line: string) => string;
+}
+
+/** Pad a line to `width` visible columns, so a fill wrapper covers the frame. */
+function padToWidth(line: string, width: number): string {
+	const gap = width - visibleWidth(line);
+	return gap > 0 ? `${line}${" ".repeat(gap)}` : line;
 }
 
 /**
@@ -109,7 +130,11 @@ export function toolBlockLines(
 			"…",
 		);
 	}
-	return lines;
+	if (!options.fill) return lines;
+	const fill = options.fill;
+	// The headline is the tool call; only the body it sits over carries the fill.
+	const start = options.headline ? 1 : 0;
+	return lines.map((line, index) => (index < start || IMAGE_LINE.test(line) ? line : fill(padToWidth(line, w))));
 }
 
 /** The frame Pi mounts in place of its background box for a tool row. */

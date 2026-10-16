@@ -63,9 +63,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Tooling: the hero capture asks "how are you today?" and `assets/chrome.png` is
   refreshed, so the hero shows the two-row user nameplate instead of the removed
   `❯` marker.
-- `bytefly`: the shipped themes leave `toolPendingBg` / `toolSuccessBg` /
-  `toolErrorBg` to the terminal, so `edit` — the one tool that draws its own
-  shell — is no longer the single filled block.
+- `bytefly`: `edit` and `write` now show their result on a full-width status fill
+  — neutral while running, green when they settle, red on a failure — the one
+  place the transcript keeps Pi's tool background. The call's headline stays
+  unfilled, and the frame paints the fill once: `edit`, which draws its own `Box`
+  from the same role, is handed a `bg`-inert theme so the base cannot paint a
+  second, narrower stripe inside the fill. Every other tool stays unfilled, and
+  the shipped themes now set `toolPendingBg` / `toolSuccessBg` / `toolErrorBg` for
+  the fill.
 - Tooling: `bun run screenshot:plan` now crops to the page's own content height,
   so a short plan no longer pads the PNG with the browser viewport.
 - Tooling: a per-tool rendering image now leads with its one `name · label`

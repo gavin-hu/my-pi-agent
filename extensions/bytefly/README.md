@@ -187,6 +187,13 @@ read src/app.ts
   const answer = 42;
 ```
 
+The two tools that mutate a file, `edit` and `write`, keep a status fill under
+their call: every body line is padded to the full width and wrapped in Pi's tool
+background role, so the result reads as one edge-to-edge band — neutral
+(`toolPendingBg`) while it runs, green (`toolSuccessBg`) when it settles, and red
+(`toolErrorBg`) on a failure — while the call's headline stays unfilled. Every
+other tool stays unfilled, so the fill marks a write.
+
 A `registerToolRenderer` resolver switches the row to `renderShell: "self"`,
 leaves the call's own first line as the headline, and indents the rest of the
 call and the whole result under it. A shell call's `$` / `>` prompt becomes the
@@ -194,15 +201,16 @@ tool name and the command is repainted in the body colour, so the name is the
 block's only accent (`bash bun run check`). The tool's own
 `renderCall`/`renderResult` are passed through, so syntax highlighting, diffs,
 previews, and truncation notices are unchanged — only the frame is bytefly's.
-There is no rail and no status colour: a running block reads the same as a
-finished one, and a failure is whatever the tool's own output shows. A tool with
+There is no rail: apart from the `edit`/`write` fill, a block has no status
+colour, and a failure is whatever the tool's own output shows. A tool with
 no renderer of its own is framed around a generic call/result fallback, whose
 call line reads like a built-in — the leading string argument bare, the rest as
 trailing options (`open_path src/app.ts`) — rather than dumping raw `key=value`
 pairs. A tool that draws its own shell (`edit`) is framed too:
-`renderShell: "self"` only tells Pi not to draw its filled box, so its diff
-would otherwise sit at the wrong indent; the frame drops the blank edges its own
-`Box` pads itself with.
+`renderShell: "self"` only tells Pi not to draw its box around the renderer, so
+its diff would otherwise sit at the wrong indent; the frame drops the blank
+edges its own `Box` pads itself with, and hands it a theme whose `bg` is inert so
+it never paints a second band inside the frame's fill.
 
 The call line is one colour grammar, shared with Pi's built-ins: the tool name is
 `toolTitle` and bold, a primary subject (a query, a URL, a path, a status) is the
@@ -759,14 +767,15 @@ rather than showing a wrong value.
 - **The frame delegates; it does not re-render.** Pi resolves tool renderers
   through the extension chain, and the resolved object is the definition the row
   reads, so a resolver can override `renderShell` and wrap `next()`'s
-  `renderCall`/`renderResult`. bytefly replaces only the frame — the filled
-  status box for an indent — and keeps every built-in's diff,
-  syntax highlighting, and truncation. The call and result are sibling
+  `renderCall`/`renderResult`. bytefly replaces only the frame — Pi's filled
+  status box for an indent, and, for `edit`/`write`, an edge-to-edge band under
+  the call's headline in Pi's tool background role — and keeps every built-in's
+  diff, syntax highlighting, and truncation. The call and result are sibling
   components with no spacer between them, so the call's headline and the result
   read as one indented block. A tool that renders its own shell (`edit`) is
-  framed too: with the shipped themes' empty tool fills its `Box` has no visible
-  chrome, so the indent is the only frame it has; its blank edge lines are
-  trimmed so the body starts under the call. Each base renderer is handed its own
+  framed too: its blank edge lines are trimmed so the body starts under the call,
+  and it is handed a theme whose `bg` is inert so the frame's fill is the only
+  band it paints. Each base renderer is handed its own
   previous component (tracked in the row's `state`), never the frame: Pi gives a
   renderer the component it returned last time, and a built-in calls `setText` on
   it, so handing back the frame would break it.
@@ -780,9 +789,9 @@ rather than showing a wrong value.
   themselves by that pad: the tool frame and the notice take it from Pi, and the
   turn separator reads the last value a sibling observed (`pad.ts`). Pi's setting
   is the only knob — bytefly adds no padding of its own. There is no rail: the
-  accent call line and the two-column step
-  are what mark a block, which keeps the transcript quiet and leaves the tool's
-  own rendering as the only content. The footer's group separator still draws
+  accent call line and the two-column step mark a block, the `edit`/`write` band
+  is the one carry-over of Pi's status colour, and the tool's own rendering stays
+  the only content. The footer's group separator still draws
   `╎` between chips — a divider, not a rail.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
@@ -825,8 +834,9 @@ rather than showing a wrong value.
   A two-token `icon count` badge (for `rewind`: `↺ 2`) compacts to `↺2`, keeping
   the count. The slot sorts an alert (a failed job) ahead of the modes and is
   droppable, so it goes before the model is clipped.
-- **Neutral by default; color means something.** A tool block has no status
-  colour at all — only the accent tool name — and an informational notice leads
+- **Neutral by default; color means something.** A tool block carries no status
+  colour except the `edit`/`write` fill — pending, success, or error — and the
+  accent tool name; an informational notice leads
   with `muted`; a failure is red only where the tool's own output says so, so the
   transcript is not a wall of green.
   The context gauge is the other coloured surface: it stays `muted` below 70%,

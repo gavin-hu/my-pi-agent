@@ -28,13 +28,21 @@
  * add the pad twice and set the whole edit block a column deeper than every
  * other block. The frame is the only place that applies the pad.
  *
+ * The two tools that mutate a file (`edit`, `write`) are filled: the frame pads
+ * every body line to the full width and wraps it in the row's status background,
+ * so the result reads as one edge-to-edge rectangle while the call's headline
+ * stays unfilled. Pi's `edit` paints its own `Box` from that same role, so the
+ * frame hands it a theme whose `bg` is inert; otherwise the base would paint the
+ * inner width, the frame's indent would sit outside it, and the band would be
+ * narrower than the body.
+ *
  * Before framing, a shell call's `$ <command>` string is rewritten so the tool
  * name keeps the accent and the command reads as the body (`recolorShellCall`).
  * Doing it on the string rather than the wrapped lines keeps the whole command
  * in one role when a long command wraps.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, Theme, ThemeBg } from "@earendil-works/pi-coding-agent";
 import { type Component, Text } from "@earendil-works/pi-tui";
 import { createPadStore, type PadSource } from "../pad.ts";
 import { recolorShellCall, ToolBlock } from "./component.ts";
@@ -44,6 +52,26 @@ import { callFallback, resultFallback } from "./fallback.ts";
 interface BlockMemory {
 	byteflyBaseCall?: Component;
 	byteflyBaseResult?: Component;
+}
+
+/** The tools that carry a status fill: the two that mutate a file. */
+const FILLED_TOOLS = new Set(["edit", "write"]);
+
+/** The background role for a row's state, matching Pi's own tool box. */
+function fillRole(context: { isPartial: boolean; isError: boolean }): ThemeBg {
+	if (context.isPartial) return "toolPendingBg";
+	return context.isError ? "toolErrorBg" : "toolSuccessBg";
+}
+
+/**
+ * A theme whose `bg` is inert. Pi's `edit` paints its own `Box` from a tool
+ * background role; the frame fills the row instead, so the base must not paint
+ * the inner width. Every other method is inherited unchanged.
+ */
+function withoutBackground(theme: Theme): Theme {
+	const suppressed = Object.create(theme) as Theme;
+	suppressed.bg = (_color: ThemeBg, text: string) => text;
+	return suppressed;
 }
 
 /** A renderer component that carries a mutable string: Pi's own `Text`. */
@@ -69,8 +97,9 @@ export function registerToolBlocks(pi: ExtensionAPI, pad: PadSource = createPadS
 			renderShell: "self",
 			renderCall: (args, theme, context) => {
 				const memory = context.state as BlockMemory;
+				const filled = FILLED_TOOLS.has(toolName);
 				const inner =
-					base?.renderCall?.(args, theme, {
+					base?.renderCall?.(args, filled ? withoutBackground(theme) : theme, {
 						...context,
 						outputPad: 0,
 						lastComponent: memory.byteflyBaseCall,
@@ -84,24 +113,31 @@ export function registerToolBlocks(pi: ExtensionAPI, pad: PadSource = createPadS
 				if (isRewritable(inner)) inner.setText(recolorShellCall(inner.text, toolName, theme));
 				// The call's own first line is the block's headline; the frame drops the
 				// blank edges a self-shell `Box` (`edit`) pads itself with.
+				const role = fillRole(context);
 				return new ToolBlock(inner, pad.resolve(context.outputPad), {
 					headline: true,
 					trimLeading: true,
 					toolName,
 					theme,
+					fill: filled ? (line: string) => theme.bg(role, line) : undefined,
 				});
 			},
 			renderResult: (result, options, theme, context) => {
 				const memory = context.state as BlockMemory;
+				const filled = FILLED_TOOLS.has(toolName);
 				const inner =
-					base?.renderResult?.(result, options, theme, {
+					base?.renderResult?.(result, options, filled ? withoutBackground(theme) : theme, {
 						...context,
 						outputPad: 0,
 						lastComponent: memory.byteflyBaseResult,
 					}) ?? new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
 				memory.byteflyBaseResult = inner;
 				// A tool's own leading spacer would open the body with a gap, so drop it.
-				return new ToolBlock(inner, pad.resolve(context.outputPad), { trimLeading: true });
+				const role = fillRole(context);
+				return new ToolBlock(inner, pad.resolve(context.outputPad), {
+					trimLeading: true,
+					fill: filled ? (line: string) => theme.bg(role, line) : undefined,
+				});
 			},
 		};
 	});

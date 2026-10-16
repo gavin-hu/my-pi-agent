@@ -74,6 +74,23 @@ describe("toolBlockLines", () => {
 		expect(lines).toEqual(["\u001b[1mbash \u001b[22m[text]ls\u001b[0m"]);
 	});
 
+	test("fills every line to the width and wraps it", () => {
+		expect(toolBlockLines(innerOf(["read a"]), 10, 0, { fill: (line) => `[${line}]` })).toEqual(["[  read a  ]"]);
+	});
+
+	test("fills the body but leaves the call headline unfilled", () => {
+		const lines = toolBlockLines(innerOf(["read x", "body"]), 12, 0, {
+			headline: true,
+			fill: (line) => `[${line}]`,
+		});
+		expect(lines).toEqual(["read x", "[  body      ]"]);
+	});
+
+	test("passes an image line through the fill untouched", () => {
+		const image = "\u001b_Gabc";
+		expect(toolBlockLines(innerOf([image]), 40, 0, { fill: (line) => `[${line}]` })).toEqual([image]);
+	});
+
 	test("renders nothing for an absent inner", () => {
 		expect(toolBlockLines(undefined, 40, 0)).toEqual([]);
 	});

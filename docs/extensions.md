@@ -230,7 +230,9 @@ mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` r
 between completed turns, a two-row `You` nameplate above each user message on the
 terminal background, and one indent that every non-prose block hangs from — the
 shared notice and every tool block, built-ins included, share one left edge, with
-a tool's call line as the headline and its body two columns in under it. While an assistant message streams it also advances a live elapsed
+a tool's call line as the headline and its body two columns in under it. The two
+file-mutating tools (`edit`, `write`) show their result on a full-width status
+band: neutral while running, green on success, red on failure. While an assistant message streams it also advances a live elapsed
 counter (`Thinking… 12s`) on Pi's hidden thinking label, handing it back to Pi
 when the message ends. DeepSeek is priced out of the
 box from its published yuan rates and peak tariff,
@@ -258,7 +260,9 @@ Every tool block as the transcript draws it: the tool's own call line is the
 headline (the tool name in the theme's tool-title colour, a shell prompt shown as
 the tool name with its command in the body colour) and the body is indented two
 columns directly under it — the tool's own
-renderer, or its generic fallback. The page covers the user
+renderer, or its generic fallback. The results of `edit` and `write` carry a
+full-width status fill (pending/success/error), under their unfilled call line;
+every other tool is entirely unfilled. The page covers the user
 nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
 `write`, `edit`, `bash`, `grep`, `find`, `ls` — diffs, syntax highlighting and
 previews intact), then every
