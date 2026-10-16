@@ -3,10 +3,14 @@
  * it (`/rewind`, `/todos`, `/jobs`).
  *
  * Each screen keeps its own layout, rows, and selection model — rewind uses an
- * index, jobs use a stable id, todos have no cursor at all — but
+ * index, jobs and watchers use a stable id, todos have no cursor at all — but
  * they all need the same arithmetic: how many rows fit, how to keep the focus
  * in view, which keys navigate, and how to render the "showing X–Y of N" row.
  * That shared part lives here so a fix or a rebinding happens once.
+ *
+ * `ListCursor` tracks an index, which is right for a list whose shape is the
+ * screen's own. `IdCursor` tracks a stable id, which is right for a list that
+ * is re-sorted from live state on every render.
  *
  * No runtime dependencies beyond `lib/tui/chrome.ts` and `@earendil-works/pi-tui`; the
  * theme is passed in and there is no cross-extension state.
@@ -144,6 +148,55 @@ export class ListCursor {
 	/** Whether the window omits rows, so a range row is warranted. */
 	clipped(count: number): boolean {
 		return this.scrollTop > 0 || this.window(count).end < count;
+	}
+}
+
+/**
+ * Cursor and scroll for a list whose order changes under it.
+ *
+ * A live list (jobs, watchers) is re-read and re-sorted on every render, so an
+ * index would silently point at a different row. This cursor remembers the id
+ * of the focused row and re-derives its index against the current items, falling
+ * back to the first row when that id is gone. It is pure state: the screen owns
+ * `requestRender`, and assigns `visible` from {@link fitRows} each render.
+ */
+export class IdCursor {
+	/** Id of the focused row, or `undefined` before the first paint. */
+	id: string | undefined;
+	/** First visible row. */
+	scroll = 0;
+	/** Rows shown at once; the screen sets this before use. */
+	visible = 1;
+
+	/** Index of the focused row, or `0` when its id is gone or the list is empty. */
+	indexOf<T>(items: readonly T[], key: (item: T) => string): number {
+		if (items.length === 0) return 0;
+		const index = this.id === undefined ? -1 : items.findIndex((item) => key(item) === this.id);
+		return index >= 0 ? index : 0;
+	}
+
+	/** Re-anchor the id against the current items; never repaints. */
+	clamp<T>(items: readonly T[], key: (item: T) => string): void {
+		if (items.length === 0) {
+			this.id = undefined;
+			this.scroll = 0;
+			return;
+		}
+		this.id = key(items[this.indexOf(items, key)]);
+		this.scroll = clampScroll(this.scroll, items.length, this.visible);
+	}
+
+	/** Focus the row at `index` (clamped) and scroll it into view. */
+	select<T>(items: readonly T[], key: (item: T) => string, index: number): void {
+		if (items.length === 0) return;
+		const clamped = Math.min(Math.max(0, index), items.length - 1);
+		this.id = key(items[clamped]);
+		this.ensureVisible(clamped);
+	}
+
+	/** Scroll `index` into view without moving the focus. */
+	ensureVisible(index: number): void {
+		this.scroll = Math.max(0, keepVisible(this.scroll, index, this.visible));
 	}
 }
 

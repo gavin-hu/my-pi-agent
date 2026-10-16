@@ -66,6 +66,8 @@ components. The shared implementation is the `lib/tui/` design system
 [`chrome.ts`](../lib/tui/chrome.ts) screen chrome,
 [`rules.ts`](../lib/tui/rules.ts), [`rows.ts`](../lib/tui/rows.ts),
 [`columns.ts`](../lib/tui/columns.ts), [`gauge.ts`](../lib/tui/gauge.ts),
+[`line-pane.ts`](../lib/tui/line-pane.ts),
+[`status-controller.ts`](../lib/tui/status-controller.ts),
 [`glyphs.ts`](../lib/tui/glyphs.ts) glyphs and status keys, and
 [`cursor.ts`](../lib/tui/cursor.ts) list behaviour and scroll math). Colors come
 from a semantic role, never a literal. Width is terminal columns, not string

@@ -200,8 +200,8 @@ turn — so a match is never dropped when the wake window is busy.
 | `runtime.ts` | The session-scoped watcher table, matcher, poll tick, and shutdown. |
 | `process.ts` | Injectable spawn and process-tree kill. |
 | `format.ts` | Pure sanitization and text formatting. |
-| `ui.ts` | Status chips and the match alert. |
-| `tui.ts` | `WatchResult` transcript block and the `/watch` dock screen. |
+| `ui.ts` | Status chips and the match alert, over the shared `lib/tui/status-controller.ts`. |
+| `tui.ts` | `WatchResult` transcript block and the `/watch` dock screen, drawn from the `lib/tui/` kit (`titleRule`, `listRow`, `emptyState`, `IdCursor`, `LinePane`). |
 | `commands.ts` | The `/watch` command and its completions. |
 | `config.ts` | The `watch` config section load and normalization. |
 

@@ -6,34 +6,24 @@
  * computed from `Date.now()` at render, so the command can refresh the screen
  * without rebuilding the component.
  *
- * Every line is clipped with `truncateToWidth`; log text arrives already
- * sanitized by the runtime, so no untrusted escape sequence reaches the
- * terminal through here.
+ * The screen is drawn from the design system: a label-first `titleRule`, one
+ * `listRow` grammar, `emptyState`, and the shared `IdCursor` (a live job list is
+ * re-sorted under the focus) and `LinePane` (the log tail).
+ *
+ * Log text arrives already sanitized by the runtime, so no untrusted escape
+ * sequence reaches the terminal through here.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-	Key,
-	matchesKey,
-	truncateToWidth,
-	visibleWidth,
-	type Component,
-	type TuiMouseEvent,
-	type TuiMouseEventResult,
-} from "@earendil-works/pi-tui";
-import {
-	clampScroll,
-	fitRows,
-	formatRange,
-	isCloseKey,
-	keepVisible,
-	navIntent,
-	navigateScroll,
-	selectionMarker,
-	wheelDelta,
-} from "../../lib/tui/cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { expandHint } from "../../lib/tui/glyphs.ts";
+import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { clip, fitCells } from "../../lib/tui/columns.ts";
+import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
+import { expandHint, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { LinePane } from "../../lib/tui/line-pane.ts";
+import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { titleRule } from "../../lib/tui/rules.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareJobs,
 	elapsedMs,
@@ -42,7 +32,8 @@ import {
 	jobCounts,
 	sanitizeLogLine,
 	shortLabel,
-	statusGlyph,
+	statusGlyphChar,
+	statusRole,
 	type JobCounts,
 } from "./format.ts";
 import type { JobRecord } from "./types.ts";
@@ -50,18 +41,26 @@ import type { JobRecord } from "./types.ts";
 /** Rows the `/jobs` screen body shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
 
-/**
- * One job row: selection marker, status glyph, id, label, and a right-aligned
- * elapsed value. The label is padded so the elapsed column lines up; the final
- * `truncateToWidth` keeps the row safe at any width.
- */
+/** Fixed rows around the list body: header, summary, blank, blank, hint, blank. */
+const LIST_CHROME_ROWS = 7;
+
+/** Fixed rows around the log body: header, subtitle, blank, blank, hint, blank. */
+const LOG_CHROME_ROWS = 6;
+
+/** A job's stable identity, for the id-anchored cursor. */
+const jobId = (job: JobRecord): string => job.id;
+
+/** One job row: selection marker, status glyph, id, label, and a right-aligned
+ *  elapsed value. `listRow` owns the clipping and the alignment. */
 function jobRow(job: JobRecord, theme: Theme, width: number, selected = false): string {
-	const head = `${selectionMarker(theme, selected)}${statusGlyph(job.status, theme)} ${job.id}  `;
-	const elapsed = formatDuration(elapsedMs(job, Date.now()));
-	const available = Math.max(1, width - visibleWidth(head) - elapsed.length - 1);
-	const clipped = truncateToWidth(shortLabel(job), available, "…");
-	const pad = " ".repeat(Math.max(0, available - visibleWidth(clipped)));
-	return truncateToWidth(`${head}${clipped}${pad} ${theme.fg("dim", elapsed)}`, width);
+	return listRow(theme, width, {
+		selected,
+		glyph: statusGlyphChar(job.status),
+		glyphRole: statusRole(job.status),
+		label: `${job.id}  ${shortLabel(job)}`,
+		trailing: formatDuration(elapsedMs(job, Date.now())),
+		trailingRole: "faint",
+	});
 }
 
 /** Input for the transcript result: a themed job list or a log tail. */
@@ -98,22 +97,16 @@ export class JobResult implements Component {
 		if (this.input.kind === "list") {
 			for (const job of this.input.jobs) lines.push(jobRow(job, this.theme, w));
 			if (this.input.more > 0) {
-				lines.push(
-					truncateToWidth(`  ${this.theme.fg("dim", `… ${this.input.more} more`)} ${expandHint(this.theme)}`, w, "…"),
-				);
+				const note = `${paint(this.theme, "faint", `… ${this.input.more} more`)} ${expandHint(this.theme)}`;
+				lines.push(clip(`  ${note}`, w));
 			}
 		} else {
 			if (this.input.earlier > 0) {
-				lines.push(
-					truncateToWidth(
-						`${this.theme.fg("dim", `… ${this.input.earlier} earlier lines`)} ${expandHint(this.theme)}`,
-						w,
-						"…",
-					),
-				);
+				const note = `${paint(this.theme, "faint", `… ${this.input.earlier} earlier lines`)} ${expandHint(this.theme)}`;
+				lines.push(clip(note, w));
 			}
 			for (const line of this.input.lines) {
-				lines.push(this.theme.fg("toolOutput", truncateToWidth(line, w, "…")));
+				lines.push(this.theme.fg("toolOutput", clip(line, w)));
 			}
 		}
 		return lines;
@@ -135,24 +128,14 @@ type PendingConfirm =
 /** Dismissible `/jobs` screen: a selectable list with a focus pane and log view. */
 export class JobListComponent implements Component {
 	private mode: "list" | "logs" = "list";
-	/** Stable selection identity; survives the live re-sort of the job list. */
-	private selectedId: string | undefined;
-	private listScroll = 0;
-	/** Job whose log pane is open; captured so a re-sort cannot switch it. */
-	private logJobId: string | undefined;
-	private logScroll = 0;
-	private logLines: string[] = [];
-	private logTitle = "";
-	/** Absolute log-file path of the open job, and whether earlier lines exist. */
-	private logPath: string | undefined;
-	private logMore = false;
-	private follow = true;
+	/** Focus anchored to a job id; the list is re-sorted from live state each render. */
+	private readonly cursor = new IdCursor();
+	/** The open log tail. */
+	private readonly pane = new LinePane();
 	/** Pending destructive action awaiting y/N. */
 	private confirm: PendingConfirm | undefined;
 	/** Transient feedback shown in place of the hint, e.g. a no-op action. */
 	private notice: string | undefined;
-	/** Rows shown at once; recomputed from the terminal height on every render. */
-	private visible = SCREEN_DEFAULT_ROWS;
 
 	constructor(
 		private readonly jobs: () => JobRecord[],
@@ -167,94 +150,47 @@ export class JobListComponent implements Component {
 
 	/** Replace the log pane contents (called by the command's poll loop). */
 	setLogs(title: string, lines: string[], meta: { more?: boolean; logPath?: string } = {}): void {
-		const titleChanged = title !== this.logTitle;
-		const linesChanged = !this.sameLines(lines);
-		const moreChanged = meta.more !== undefined && meta.more !== this.logMore;
-		const pathChanged = meta.logPath !== undefined && meta.logPath !== this.logPath;
-		this.logTitle = title;
-		this.logLines = lines;
-		if (meta.more !== undefined) this.logMore = meta.more;
-		if (meta.logPath !== undefined) this.logPath = meta.logPath;
-		if (this.follow) this.logScroll = this.maxLogScroll;
-		else this.logScroll = Math.min(this.logScroll, this.maxLogScroll);
-		// The poll fires every 500ms; skip the repaint when nothing changed so an
-		// idle log pane does not redraw (and fight the user's scroll) constantly.
-		if (titleChanged || linesChanged || moreChanged || pathChanged) this.requestRender();
-	}
-
-	private sameLines(next: string[]): boolean {
-		if (next.length !== this.logLines.length) return false;
-		for (let i = 0; i < next.length; i++) {
-			if (next[i] !== this.logLines[i]) return false;
-		}
-		return true;
+		// The poll fires every 500ms; `LinePane.update` skips the repaint when
+		// nothing changed so an idle log pane does not redraw (and fight the
+		// user's scroll) constantly.
+		if (this.pane.update({ title, lines, more: meta.more, subtitle: meta.logPath })) this.requestRender();
 	}
 
 	/** The job whose log pane is open, or undefined in list mode. */
 	currentLogId(): string | undefined {
-		return this.mode === "logs" ? this.logJobId : undefined;
+		return this.mode === "logs" && this.pane.id ? this.pane.id : undefined;
 	}
 
 	/** Re-read the open log pane from the runtime. */
 	refreshLogs(id: string): void {
 		const result = this.callbacks.logs(id);
-		if (result) this.setLogs(this.logTitle, result.lines, { more: result.more });
+		if (result && this.pane.update({ lines: result.lines, more: result.more })) this.requestRender();
 	}
 
 	private get ordered(): JobRecord[] {
 		return [...this.jobs()].sort(compareJobs);
 	}
 
-	/** Index of the selected job in `ordered`, re-derived from its id each time. */
-	private indexOfSelected(ordered: JobRecord[]): number {
-		if (ordered.length === 0) return 0;
-		const index = this.selectedId ? ordered.findIndex((job) => job.id === this.selectedId) : -1;
-		return index >= 0 ? index : 0;
-	}
-
-	/** Scroll the list so `index` is visible. */
-	private ensureVisible(index: number): void {
-		this.listScroll = Math.max(0, keepVisible(this.listScroll, index, this.visible));
-	}
-
-	private get maxLogScroll(): number {
-		return Math.max(0, this.logLines.length - this.visible);
-	}
-
-	private setSelection(next: number): void {
-		const ordered = this.ordered;
-		if (ordered.length === 0) return;
-		const index = Math.min(Math.max(0, next), ordered.length - 1);
-		this.selectedId = ordered[index].id;
-		this.ensureVisible(index);
+	/** Focus job `next` (clamped) and keep it visible. */
+	private select(next: number): void {
+		const jobs = this.ordered;
+		if (jobs.length === 0) return;
+		this.cursor.select(jobs, jobId, next);
 		this.requestRender();
 	}
 
-	private clampSelection(): void {
-		const ordered = this.ordered;
-		if (ordered.length === 0) {
-			this.selectedId = undefined;
-			this.listScroll = 0;
-			return;
-		}
-		this.selectedId = ordered[this.indexOfSelected(ordered)].id;
-		this.listScroll = clampScroll(this.listScroll, ordered.length, this.visible);
-	}
-
 	private openLogs(): void {
-		const job = this.ordered[this.indexOfSelected(this.ordered)];
+		const job = this.ordered[this.cursor.indexOf(this.ordered, jobId)];
 		if (!job) return;
 		this.mode = "logs";
-		this.logJobId = job.id;
-		this.logScroll = 0;
-		this.follow = true;
-		this.logLines = [];
-		this.logTitle = `${job.id} ${shortLabel(job)}`;
-		this.logPath = job.logPath;
-		this.logMore = false;
 		const result = this.callbacks.logs(job.id);
-		if (result) this.setLogs(this.logTitle, result.lines, { more: result.more, logPath: job.logPath });
-		else this.requestRender();
+		this.pane.open(job.id, {
+			title: `${job.id} ${shortLabel(job)}`,
+			lines: result?.lines ?? [],
+			more: result?.more ?? false,
+			subtitle: job.logPath ? sanitizeLogLine(job.logPath) : undefined,
+		});
+		this.requestRender();
 	}
 
 	handleInput(data: string): void {
@@ -272,9 +208,10 @@ export class JobListComponent implements Component {
 		if (delta === undefined) return undefined;
 		if (this.confirm) return { handled: true };
 		if (this.mode === "list") {
-			this.setSelection(this.indexOfSelected(this.ordered) + delta);
+			this.select(this.cursor.indexOf(this.ordered, jobId) + delta);
 		} else {
-			this.setLogScroll(this.logScroll + delta);
+			this.pane.setScroll(this.pane.scroll + delta);
+			this.requestRender();
 		}
 		return { handled: true };
 	}
@@ -290,25 +227,25 @@ export class JobListComponent implements Component {
 			this.requestRender();
 		}
 		const ordered = this.ordered;
-		const index = this.indexOfSelected(ordered);
+		const index = this.cursor.indexOf(ordered, jobId);
 		switch (navIntent(data)) {
 			case "up":
-				this.setSelection(index - 1);
+				this.select(index - 1);
 				return;
 			case "down":
-				this.setSelection(index + 1);
+				this.select(index + 1);
 				return;
 			case "pageUp":
-				this.setSelection(index - this.visible);
+				this.select(index - this.cursor.visible);
 				return;
 			case "pageDown":
-				this.setSelection(index + this.visible);
+				this.select(index + this.cursor.visible);
 				return;
 			case "home":
-				this.setSelection(0);
+				this.select(0);
 				return;
 			case "end":
-				this.setSelection(ordered.length - 1);
+				this.select(ordered.length - 1);
 				return;
 		}
 		if (matchesKey(data, Key.enter) || data === "l") this.openLogs();
@@ -346,7 +283,7 @@ export class JobListComponent implements Component {
 			if (pending.kind === "kill") this.callbacks.kill(pending.id);
 			else {
 				this.callbacks.clear();
-				this.clampSelection();
+				this.cursor.clamp(this.ordered, jobId);
 			}
 			this.requestRender();
 			return;
@@ -369,35 +306,22 @@ export class JobListComponent implements Component {
 		return `Clear ${pending.count} finished job${pending.count === 1 ? "" : "s"}?${note} y/N`;
 	}
 
-	private setLogScroll(next: number): void {
-		this.logScroll = clampScroll(next, this.logLines.length, this.visible);
-		// Follow the tail only while the view is parked at the bottom.
-		this.follow = this.logScroll >= this.maxLogScroll;
-		this.requestRender();
-	}
-
 	private handleLogInput(data: string): void {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.backspace) || data === "q") {
 			this.mode = "list";
-			this.logJobId = undefined;
+			this.pane.close();
 			this.requestRender();
 			return;
 		}
-		const next = navigateScroll(data, this.logScroll, this.logLines.length, this.visible);
-		if (next !== undefined) {
-			this.setLogScroll(next);
-			return;
-		}
-		if (data === "g") this.setLogScroll(0);
-		else if (data === "G") this.setLogScroll(this.maxLogScroll);
+		if (this.pane.handleKey(data)) this.requestRender();
 	}
 
 	private summary(counts: JobCounts, width: number): string {
-		const sep = this.theme.fg("muted", " · ");
-		let text = this.theme.fg("muted", `${counts.total} job${counts.total === 1 ? "" : "s"}`);
-		if (counts.running > 0) text += sep + this.theme.fg("muted", `${counts.running} running`);
-		if (counts.failed > 0) text += sep + this.theme.fg("error", `${counts.failed} failed`);
-		return truncateToWidth(`  ${text}`, width);
+		const cells = [paint(this.theme, "meta", `${counts.total} job${counts.total === 1 ? "" : "s"}`)];
+		if (counts.running > 0) cells.push(paint(this.theme, "meta", `${counts.running} running`));
+		if (counts.failed > 0) cells.push(paint(this.theme, "bad", `${counts.failed} failed`));
+		const separator = paint(this.theme, "meta", SEPARATORS.item);
+		return clip(`  ${fitCells(cells, Math.max(1, width - 2), separator)}`, width);
 	}
 
 	render(width: number): string[] {
@@ -407,80 +331,83 @@ export class JobListComponent implements Component {
 
 	private renderList(w: number): string[] {
 		const jobs = this.ordered;
-		this.clampSelection();
-		const index = this.indexOfSelected(jobs);
+		this.cursor.clamp(jobs, jobId);
+		const index = this.cursor.indexOf(jobs, jobId);
 		const focused = jobs[index];
 		const detail = focused ? formatJobDetail(focused, Date.now()) : [];
-		// header, summary, blank, blank-after-list, blank-after-detail, hint, blank
-		const chrome = 7 + detail.length;
-		this.visible = fitRows(this.viewportRowsSource, jobs.length, chrome, SCREEN_DEFAULT_ROWS);
-		this.clampSelection();
-		this.ensureVisible(this.indexOfSelected(jobs));
+		this.cursor.visible = fitRows(
+			this.viewportRowsSource,
+			jobs.length,
+			LIST_CHROME_ROWS + detail.length,
+			SCREEN_DEFAULT_ROWS,
+		);
+		this.cursor.clamp(jobs, jobId);
+		this.cursor.ensureVisible(this.cursor.indexOf(jobs, jobId));
 
-		const lines: string[] = [screenHeader(this.theme, w, "Jobs"), this.summary(jobCounts(jobs), w), ""];
+		const body: string[] = [];
+		let range: string | undefined;
 		if (jobs.length === 0) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No background jobs.")}`, w));
+			body.push(...emptyState(this.theme, w, { label: "No background jobs." }));
 		} else {
-			const end = Math.min(jobs.length, this.listScroll + this.visible);
-			for (let i = this.listScroll; i < end; i++) {
-				lines.push(jobRow(jobs[i], this.theme, w, i === index));
-			}
-			if (this.listScroll > 0 || end < jobs.length) {
-				lines.push(formatRange(this.theme, w, { start: this.listScroll, end, total: jobs.length }));
+			const end = Math.min(jobs.length, this.cursor.scroll + this.cursor.visible);
+			for (let i = this.cursor.scroll; i < end; i++) body.push(jobRow(jobs[i], this.theme, w, i === index));
+			if (this.cursor.scroll > 0 || end < jobs.length) {
+				range = formatRange(this.theme, w, { start: this.cursor.scroll, end, total: jobs.length });
 			}
 		}
-		lines.push("");
-		for (const line of detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", line)}`, w));
-		lines.push("");
-		lines.push(
-			this.confirm
-				? truncateToWidth(`  ${this.theme.fg("warning", this.confirmPrompt())}`, w)
-				: this.notice
-					? truncateToWidth(`  ${this.theme.fg("muted", this.notice)}`, w)
-					: screenHint(this.theme, w, [
-							"Esc close",
-							"↑/↓ or j/k select",
-							"Enter or l logs",
-							"d or K kill",
-							"x clear finished",
-							"PgUp/PgDn",
-						]),
-		);
-		lines.push("");
-		return lines;
+
+		const hint = this.confirm
+			? clip(`  ${paint(this.theme, "warn", this.confirmPrompt())}`, w)
+			: this.notice
+				? clip(`  ${paint(this.theme, "meta", this.notice)}`, w)
+				: screenHint(this.theme, w, [
+						"Esc close",
+						"↑/↓ or j/k select",
+						"Enter or l logs",
+						"d or K kill",
+						"x clear finished",
+						"PgUp/PgDn",
+					]);
+
+		return dockListFrame({
+			theme: this.theme,
+			width: w,
+			title: "Jobs",
+			header: titleRule(this.theme, w, "Jobs"),
+			summary: this.summary(jobCounts(jobs), w),
+			body,
+			range,
+			// The detail pane is separated from the list by a blank line.
+			detail: ["", ...detail.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w))],
+			hint,
+		});
 	}
 
 	private renderLogs(w: number): string[] {
-		// header, path, blank, blank-after-log, hint, blank
-		const chrome = 6;
-		this.visible = fitRows(this.viewportRowsSource, this.logLines.length, chrome, SCREEN_DEFAULT_ROWS);
-		this.logScroll = clampScroll(this.logScroll, this.logLines.length, this.visible);
-		if (this.follow) this.logScroll = this.maxLogScroll;
+		const visible = fitRows(this.viewportRowsSource, this.pane.count, LOG_CHROME_ROWS, SCREEN_DEFAULT_ROWS);
+		this.pane.fit(visible);
 
-		const label = this.logTitle ? `Job Logs · ${this.logTitle}` : "Job Logs";
-		const parts: string[] = [];
-		if (this.logPath) parts.push(sanitizeLogLine(this.logPath));
-		if (this.logMore && this.logLines.length > 0) parts.push(`showing last ${this.logLines.length} lines`);
-		// Say whether the pane follows the tail or the user has scrolled away from it.
-		if (this.logLines.length > 0) parts.push(this.follow ? "following" : "paused");
-		const pathLine = truncateToWidth(`  ${this.theme.fg("dim", parts.join(" · "))}`, w);
-		const lines: string[] = [screenHeader(this.theme, w, label), pathLine, ""];
-		if (this.logLines.length === 0) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No output yet.")}`, w));
+		const body: string[] = [];
+		let range: string | undefined;
+		if (this.pane.count === 0) {
+			body.push(...emptyState(this.theme, w, { label: "No output yet." }));
 		} else {
-			const end = Math.min(this.logLines.length, this.logScroll + this.visible);
-			for (let i = this.logScroll; i < end; i++) {
-				lines.push(truncateToWidth(`  ${this.logLines[i]}`, w));
-			}
-			if (this.logScroll > 0 || end < this.logLines.length) {
-				lines.push(
-					formatRange(this.theme, w, { start: this.logScroll, end, total: this.logLines.length, label: "line" }),
-				);
+			const { start, end } = this.pane.window();
+			for (let i = start; i < end; i++) body.push(clip(`  ${this.pane.lines[i]}`, w));
+			if (start > 0 || end < this.pane.count) {
+				range = formatRange(this.theme, w, { start, end, total: this.pane.count, label: "line" });
 			}
 		}
-		lines.push("");
-		lines.push(screenHint(this.theme, w, ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"]));
-		lines.push("");
-		return lines;
+
+		return dockListFrame({
+			theme: this.theme,
+			width: w,
+			title: "Job Logs",
+			header: titleRule(this.theme, w, this.pane.title("Job Logs")),
+			summary: clip(`  ${paint(this.theme, "faint", this.pane.subtitleLine())}`, w),
+			body,
+			range,
+			hint: screenHint(this.theme, w, ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"]),
+		});
 	}
 }

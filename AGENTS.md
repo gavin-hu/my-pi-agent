@@ -130,9 +130,11 @@ design system — [`tokens.ts`](./lib/tui/tokens.ts) (semantic roles),
 [`rows.ts`](./lib/tui/rows.ts) (list rows, checkboxes, chips, empty states),
 [`columns.ts`](./lib/tui/columns.ts) (width math),
 [`gauge.ts`](./lib/tui/gauge.ts) (the gauge),
+[`line-pane.ts`](./lib/tui/line-pane.ts) (a scrollable log/match pane),
+[`status-controller.ts`](./lib/tui/status-controller.ts) (footer chips),
 [`glyphs.ts`](./lib/tui/glyphs.ts) (glyphs and status keys), and
-[`cursor.ts`](./lib/tui/cursor.ts) (list behaviour) — use it rather than
-re-deriving chrome, glyphs, or scroll math.
+[`cursor.ts`](./lib/tui/cursor.ts) (`ListCursor` by index, `IdCursor` by id) —
+use it rather than re-deriving chrome, glyphs, or scroll math.
 
 - Prefer the host before custom code: `ctx.ui.select` / `confirm` / `input` /
   `editor`, then `notify` / `setStatus` / `setWidget`, then the pi-tui

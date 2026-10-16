@@ -99,7 +99,7 @@ export interface EmptyState {
 /** The empty-state lines: a body-indented label, then its hint. */
 export function emptyState(theme: Theme, width: number, state: EmptyState): string[] {
 	const indent = " ".repeat(BODY_INDENT);
-	const lines = [clip(`${indent}${paint(theme, "meta", state.label)}`, width)];
+	const lines = [clip(`${indent}${paint(theme, "faint", state.label)}`, width)];
 	if (state.hint) lines.push(clip(`${indent}${paint(theme, "faint", state.hint)}`, width));
 	return lines;
 }

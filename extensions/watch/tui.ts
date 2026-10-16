@@ -3,48 +3,49 @@
  *
  * `WatchListComponent` is the dismissible `/watch` screen with a focused detail
  * pane and a matches view. It reads live state through injected closures and
- * tracks the selection by id so a live re-sort cannot move the cursor. Every
- * line is clipped with `truncateToWidth`; matched lines arrive already sanitized
- * by the runtime, so no untrusted escape sequence reaches the terminal here.
+ * tracks the selection by id so a live re-sort cannot move the cursor, through
+ * the shared `IdCursor` and `LinePane`.
+ *
+ * The screen is drawn from the design system: a label-first `titleRule`, one
+ * `listRow` grammar, and `emptyState`. Matched lines arrive already sanitized by
+ * the runtime, so no untrusted escape sequence reaches the terminal here.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-	Key,
-	matchesKey,
-	truncateToWidth,
-	visibleWidth,
-	type Component,
-	type TuiMouseEvent,
-	type TuiMouseEventResult,
-} from "@earendil-works/pi-tui";
-import {
-	clampScroll,
-	fitRows,
-	formatRange,
-	isCloseKey,
-	keepVisible,
-	navIntent,
-	navigateScroll,
-	selectionMarker,
-	wheelDelta,
-} from "../../lib/tui/cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { expandHint } from "../../lib/tui/glyphs.ts";
-import { compareWatches, formatWatchDetail, shortLabel, statusGlyph } from "./format.ts";
+import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { clip, fitCells } from "../../lib/tui/columns.ts";
+import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
+import { expandHint, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { LinePane } from "../../lib/tui/line-pane.ts";
+import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { titleRule } from "../../lib/tui/rules.ts";
+import { paint } from "../../lib/tui/tokens.ts";
+import { compareWatches, formatWatchDetail, shortLabel, statusGlyphChar, statusRole } from "./format.ts";
 import type { WatchRecord } from "./types.ts";
 
 /** Rows the `/watch` screen body shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
 
-/** One watcher row: marker, status glyph, id, label, and match count. */
+/** Fixed rows around the list body: header, summary, blank, blank, hint, blank. */
+const LIST_CHROME_ROWS = 7;
+
+/** Fixed rows around the matches body: header, subtitle, blank, blank, hint, blank. */
+const LINES_CHROME_ROWS = 6;
+
+/** A watcher's stable identity, for the id-anchored cursor. */
+const watchId = (watch: WatchRecord): string => watch.id;
+
+/** One watcher row: marker, status glyph, id, label, and a right-aligned count. */
 function watchRow(watch: WatchRecord, theme: Theme, width: number, selected = false): string {
-	const head = `${selectionMarker(theme, selected)}${statusGlyph(watch.status, theme)} ${watch.id}  `;
-	const count = `${watch.matchCount}`;
-	const available = Math.max(1, width - visibleWidth(head) - count.length - 1);
-	const clipped = truncateToWidth(shortLabel(watch), available, "…");
-	const pad = " ".repeat(Math.max(0, available - visibleWidth(clipped)));
-	return truncateToWidth(`${head}${clipped}${pad} ${theme.fg("dim", count)}`, width);
+	return listRow(theme, width, {
+		selected,
+		glyph: statusGlyphChar(watch.status),
+		glyphRole: statusRole(watch.status),
+		label: `${watch.id}  ${shortLabel(watch)}`,
+		trailing: `${watch.matchCount}`,
+		trailingRole: "faint",
+	});
 }
 
 /** Input for the transcript result: a themed watcher list or a matched-line tail. */
@@ -81,22 +82,16 @@ export class WatchResult implements Component {
 		if (this.input.kind === "list") {
 			for (const watch of this.input.watches) lines.push(watchRow(watch, this.theme, w));
 			if (this.input.more > 0) {
-				lines.push(
-					truncateToWidth(`  ${this.theme.fg("dim", `… ${this.input.more} more`)} ${expandHint(this.theme)}`, w, "…"),
-				);
+				const note = `${paint(this.theme, "faint", `… ${this.input.more} more`)} ${expandHint(this.theme)}`;
+				lines.push(clip(`  ${note}`, w));
 			}
 		} else {
 			if (this.input.earlier > 0) {
-				lines.push(
-					truncateToWidth(
-						`${this.theme.fg("dim", `… ${this.input.earlier} earlier ${this.input.label}`)} ${expandHint(this.theme)}`,
-						w,
-						"…",
-					),
-				);
+				const note = `${paint(this.theme, "faint", `… ${this.input.earlier} earlier ${this.input.label}`)} ${expandHint(this.theme)}`;
+				lines.push(clip(note, w));
 			}
 			for (const line of this.input.lines) {
-				lines.push(this.theme.fg("toolOutput", truncateToWidth(line, w, "…")));
+				lines.push(this.theme.fg("toolOutput", clip(line, w)));
 			}
 		}
 		return lines;
@@ -116,19 +111,12 @@ type PendingConfirm = { kind: "stop"; id: string; label: string } | { kind: "cle
 /** Dismissible `/watch` screen: a selectable list with a focus pane and a matches view. */
 export class WatchListComponent implements Component {
 	private mode: "list" | "lines" = "list";
-	/** Stable selection identity; survives the live re-sort of the watcher list. */
-	private selectedId: string | undefined;
-	private listScroll = 0;
-	/** Watcher whose matches pane is open; captured so a re-sort cannot switch it. */
-	private lineWatchId: string | undefined;
-	private lineScroll = 0;
-	private lineLines: string[] = [];
-	private lineTitle = "";
-	private lineMore = false;
-	private follow = true;
+	/** Focus anchored to a watcher id; the list is re-sorted from live state each render. */
+	private readonly cursor = new IdCursor();
+	/** The open matches tail. */
+	private readonly pane = new LinePane();
 	private confirm: PendingConfirm | undefined;
 	private notice: string | undefined;
-	private visible = SCREEN_DEFAULT_ROWS;
 
 	constructor(
 		private readonly watches: () => WatchRecord[],
@@ -143,81 +131,43 @@ export class WatchListComponent implements Component {
 
 	/** Replace the matches pane contents (called by the command's poll loop). */
 	setLines(title: string, lines: string[], meta: { more?: boolean } = {}): void {
-		const titleChanged = title !== this.lineTitle;
-		const linesChanged = !this.sameLines(lines);
-		const moreChanged = meta.more !== undefined && meta.more !== this.lineMore;
-		this.lineTitle = title;
-		this.lineLines = lines;
-		if (meta.more !== undefined) this.lineMore = meta.more;
-		if (this.follow) this.lineScroll = this.maxLineScroll;
-		else this.lineScroll = Math.min(this.lineScroll, this.maxLineScroll);
-		if (titleChanged || linesChanged || moreChanged) this.requestRender();
-	}
-
-	private sameLines(next: string[]): boolean {
-		if (next.length !== this.lineLines.length) return false;
-		for (let i = 0; i < next.length; i++) if (next[i] !== this.lineLines[i]) return false;
-		return true;
+		if (this.pane.update({ title, lines, more: meta.more })) this.requestRender();
 	}
 
 	/** The watcher whose matches pane is open, or undefined in list mode. */
 	currentLineId(): string | undefined {
-		return this.mode === "lines" ? this.lineWatchId : undefined;
+		return this.mode === "lines" && this.pane.id ? this.pane.id : undefined;
 	}
 
 	/** Re-read the open matches pane from the runtime. */
 	refreshLines(id: string): void {
 		const result = this.callbacks.lines(id);
-		if (result) this.setLines(this.lineTitle, result.lines, { more: result.more });
+		if (result && this.pane.update({ lines: result.lines, more: result.more })) this.requestRender();
 	}
 
 	private get ordered(): WatchRecord[] {
 		return [...this.watches()].sort(compareWatches);
 	}
 
-	private indexOfSelected(ordered: WatchRecord[]): number {
-		if (ordered.length === 0) return 0;
-		const index = this.selectedId ? ordered.findIndex((watch) => watch.id === this.selectedId) : -1;
-		return index >= 0 ? index : 0;
-	}
-
-	private setSelection(next: number): void {
+	/** Focus watcher `next` (clamped) and keep it visible. */
+	private select(next: number): void {
 		const ordered = this.ordered;
 		if (ordered.length === 0) return;
-		const index = Math.min(Math.max(0, next), ordered.length - 1);
-		this.selectedId = ordered[index].id;
-		this.listScroll = Math.max(0, keepVisible(this.listScroll, index, this.visible));
+		this.cursor.select(ordered, watchId, next);
 		this.requestRender();
 	}
 
-	private clampSelection(): void {
-		const ordered = this.ordered;
-		if (ordered.length === 0) {
-			this.selectedId = undefined;
-			this.listScroll = 0;
-			return;
-		}
-		this.selectedId = ordered[this.indexOfSelected(ordered)].id;
-		this.listScroll = clampScroll(this.listScroll, ordered.length, this.visible);
-	}
-
-	private get maxLineScroll(): number {
-		return Math.max(0, this.lineLines.length - this.visible);
-	}
-
 	private openLines(): void {
-		const watch = this.ordered[this.indexOfSelected(this.ordered)];
+		const watch = this.ordered[this.cursor.indexOf(this.ordered, watchId)];
 		if (!watch) return;
 		this.mode = "lines";
-		this.lineWatchId = watch.id;
-		this.lineScroll = 0;
-		this.follow = true;
-		this.lineLines = [];
-		this.lineTitle = `${watch.id} ${shortLabel(watch)}`;
-		this.lineMore = false;
 		const result = this.callbacks.lines(watch.id);
-		if (result) this.setLines(this.lineTitle, result.lines, { more: result.more });
-		else this.requestRender();
+		this.pane.open(watch.id, {
+			title: `${watch.id} ${shortLabel(watch)}`,
+			lines: result?.lines ?? [],
+			more: result?.more ?? false,
+		});
+		this.requestRender();
 	}
 
 	handleInput(data: string): void {
@@ -233,8 +183,12 @@ export class WatchListComponent implements Component {
 		const delta = wheelDelta(event);
 		if (delta === undefined) return undefined;
 		if (this.confirm) return { handled: true };
-		if (this.mode === "list") this.setSelection(this.indexOfSelected(this.ordered) + delta);
-		else this.setLineScroll(this.lineScroll + delta);
+		if (this.mode === "list") {
+			this.select(this.cursor.indexOf(this.ordered, watchId) + delta);
+		} else {
+			this.pane.setScroll(this.pane.scroll + delta);
+			this.requestRender();
+		}
 		return { handled: true };
 	}
 
@@ -248,25 +202,25 @@ export class WatchListComponent implements Component {
 			this.requestRender();
 		}
 		const ordered = this.ordered;
-		const index = this.indexOfSelected(ordered);
+		const index = this.cursor.indexOf(ordered, watchId);
 		switch (navIntent(data)) {
 			case "up":
-				this.setSelection(index - 1);
+				this.select(index - 1);
 				return;
 			case "down":
-				this.setSelection(index + 1);
+				this.select(index + 1);
 				return;
 			case "pageUp":
-				this.setSelection(index - this.visible);
+				this.select(index - this.cursor.visible);
 				return;
 			case "pageDown":
-				this.setSelection(index + this.visible);
+				this.select(index + this.cursor.visible);
 				return;
 			case "home":
-				this.setSelection(0);
+				this.select(0);
 				return;
 			case "end":
-				this.setSelection(ordered.length - 1);
+				this.select(ordered.length - 1);
 				return;
 		}
 		if (matchesKey(data, Key.enter) || data === "l") {
@@ -295,7 +249,7 @@ export class WatchListComponent implements Component {
 			this.confirm = undefined;
 			if (pending.kind === "stop") this.callbacks.stop(pending.id);
 			else this.callbacks.clear();
-			this.clampSelection();
+			this.cursor.clamp(this.ordered, watchId);
 			this.requestRender();
 			return;
 		}
@@ -312,36 +266,24 @@ export class WatchListComponent implements Component {
 		return `Clear ${pending.count} stopped watcher${pending.count === 1 ? "" : "s"}? y/N`;
 	}
 
-	private setLineScroll(next: number): void {
-		this.lineScroll = clampScroll(next, this.lineLines.length, this.visible);
-		this.follow = this.lineScroll >= this.maxLineScroll;
-		this.requestRender();
-	}
-
 	private handleLinesInput(data: string): void {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.backspace) || data === "q") {
 			this.mode = "list";
-			this.lineWatchId = undefined;
+			this.pane.close();
 			this.requestRender();
 			return;
 		}
-		const next = navigateScroll(data, this.lineScroll, this.lineLines.length, this.visible);
-		if (next !== undefined) {
-			this.setLineScroll(next);
-			return;
-		}
-		if (data === "g") this.setLineScroll(0);
-		else if (data === "G") this.setLineScroll(this.maxLineScroll);
+		if (this.pane.handleKey(data)) this.requestRender();
 	}
 
 	private summary(watches: WatchRecord[], width: number): string {
-		const sep = this.theme.fg("muted", " · ");
-		let text = this.theme.fg("muted", `${watches.length} watcher${watches.length === 1 ? "" : "s"}`);
+		const cells = [paint(this.theme, "meta", `${watches.length} watcher${watches.length === 1 ? "" : "s"}`)];
 		const running = watches.filter((watch) => watch.status === "running").length;
 		const matched = watches.reduce((sum, watch) => sum + watch.matchCount, 0);
-		if (running > 0) text += sep + this.theme.fg("muted", `${running} running`);
-		if (matched > 0) text += sep + this.theme.fg("accent", `${matched} matches`);
-		return truncateToWidth(`  ${text}`, width);
+		if (running > 0) cells.push(paint(this.theme, "meta", `${running} running`));
+		if (matched > 0) cells.push(paint(this.theme, "accent", `${matched} matches`));
+		const separator = paint(this.theme, "meta", SEPARATORS.item);
+		return clip(`  ${fitCells(cells, Math.max(1, width - 2), separator)}`, width);
 	}
 
 	render(width: number): string[] {
@@ -351,77 +293,82 @@ export class WatchListComponent implements Component {
 
 	private renderList(w: number): string[] {
 		const watches = this.ordered;
-		this.clampSelection();
-		const index = this.indexOfSelected(watches);
+		this.cursor.clamp(watches, watchId);
+		const index = this.cursor.indexOf(watches, watchId);
 		const focused = watches[index];
 		const detail = focused ? formatWatchDetail(focused, Date.now()) : [];
-		// header, summary, blank, blank-after-list, blank-after-detail, hint, blank
-		const chrome = 7 + detail.length;
-		this.visible = fitRows(this.viewportRowsSource, watches.length, chrome, SCREEN_DEFAULT_ROWS);
-		this.clampSelection();
+		this.cursor.visible = fitRows(
+			this.viewportRowsSource,
+			watches.length,
+			LIST_CHROME_ROWS + detail.length,
+			SCREEN_DEFAULT_ROWS,
+		);
+		this.cursor.clamp(watches, watchId);
 
-		const lines: string[] = [screenHeader(this.theme, w, "Watch"), this.summary(watches, w), ""];
+		const body: string[] = [];
+		let range: string | undefined;
 		if (watches.length === 0) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No watchers.")}`, w));
+			body.push(...emptyState(this.theme, w, { label: "No watchers." }));
 		} else {
-			const end = Math.min(watches.length, this.listScroll + this.visible);
-			for (let i = this.listScroll; i < end; i++) {
-				lines.push(watchRow(watches[i], this.theme, w, i === index));
-			}
-			if (this.listScroll > 0 || end < watches.length) {
-				lines.push(formatRange(this.theme, w, { start: this.listScroll, end, total: watches.length }));
+			const end = Math.min(watches.length, this.cursor.scroll + this.cursor.visible);
+			for (let i = this.cursor.scroll; i < end; i++) body.push(watchRow(watches[i], this.theme, w, i === index));
+			if (this.cursor.scroll > 0 || end < watches.length) {
+				range = formatRange(this.theme, w, { start: this.cursor.scroll, end, total: watches.length });
 			}
 		}
-		lines.push("");
-		for (const line of detail) lines.push(truncateToWidth(`  ${this.theme.fg("muted", line)}`, w));
-		lines.push("");
-		lines.push(
-			this.confirm
-				? truncateToWidth(`  ${this.theme.fg("warning", this.confirmPrompt())}`, w)
-				: this.notice
-					? truncateToWidth(`  ${this.theme.fg("muted", this.notice)}`, w)
-					: screenHint(this.theme, w, [
-							"Esc close",
-							"↑/↓ or j/k select",
-							"Enter or l matches",
-							"x or K stop",
-							"d clear stopped",
-							"PgUp/PgDn",
-						]),
-		);
-		lines.push("");
-		return lines;
+
+		const hint = this.confirm
+			? clip(`  ${paint(this.theme, "warn", this.confirmPrompt())}`, w)
+			: this.notice
+				? clip(`  ${paint(this.theme, "meta", this.notice)}`, w)
+				: screenHint(this.theme, w, [
+						"Esc close",
+						"↑/↓ or j/k select",
+						"Enter or l matches",
+						"x or K stop",
+						"d clear stopped",
+						"PgUp/PgDn",
+					]);
+
+		return dockListFrame({
+			theme: this.theme,
+			width: w,
+			title: "Watch",
+			header: titleRule(this.theme, w, "Watch"),
+			summary: this.summary(watches, w),
+			body,
+			range,
+			// The detail pane is separated from the list by a blank line.
+			detail: ["", ...detail.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w))],
+			hint,
+		});
 	}
 
 	private renderLines(w: number): string[] {
-		// header, title, blank, blank-after-lines, hint, blank
-		const chrome = 6;
-		this.visible = fitRows(this.viewportRowsSource, this.lineLines.length, chrome, SCREEN_DEFAULT_ROWS);
-		this.lineScroll = clampScroll(this.lineScroll, this.lineLines.length, this.visible);
-		if (this.follow) this.lineScroll = this.maxLineScroll;
+		const visible = fitRows(this.viewportRowsSource, this.pane.count, LINES_CHROME_ROWS, SCREEN_DEFAULT_ROWS);
+		this.pane.fit(visible);
 
-		const label = this.lineTitle ? `Watch Matches · ${this.lineTitle}` : "Watch Matches";
-		const parts: string[] = [];
-		if (this.lineMore && this.lineLines.length > 0) parts.push(`showing last ${this.lineLines.length} lines`);
-		if (this.lineLines.length > 0) parts.push(this.follow ? "following" : "paused");
-		const titleLine = truncateToWidth(`  ${this.theme.fg("dim", parts.join(" · "))}`, w);
-		const lines: string[] = [screenHeader(this.theme, w, label), titleLine, ""];
-		if (this.lineLines.length === 0) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("dim", "No matches yet.")}`, w));
+		const body: string[] = [];
+		let range: string | undefined;
+		if (this.pane.count === 0) {
+			body.push(...emptyState(this.theme, w, { label: "No matches yet." }));
 		} else {
-			const end = Math.min(this.lineLines.length, this.lineScroll + this.visible);
-			for (let i = this.lineScroll; i < end; i++) {
-				lines.push(truncateToWidth(`  ${this.lineLines[i]}`, w));
-			}
-			if (this.lineScroll > 0 || end < this.lineLines.length) {
-				lines.push(
-					formatRange(this.theme, w, { start: this.lineScroll, end, total: this.lineLines.length, label: "line" }),
-				);
+			const { start, end } = this.pane.window();
+			for (let i = start; i < end; i++) body.push(clip(`  ${this.pane.lines[i]}`, w));
+			if (start > 0 || end < this.pane.count) {
+				range = formatRange(this.theme, w, { start, end, total: this.pane.count, label: "line" });
 			}
 		}
-		lines.push("");
-		lines.push(screenHint(this.theme, w, ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"]));
-		lines.push("");
-		return lines;
+
+		return dockListFrame({
+			theme: this.theme,
+			width: w,
+			title: "Watch Matches",
+			header: titleRule(this.theme, w, this.pane.title("Watch Matches")),
+			summary: clip(`  ${paint(this.theme, "faint", this.pane.subtitleLine())}`, w),
+			body,
+			range,
+			hint: screenHint(this.theme, w, ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"]),
+		});
 	}
 }

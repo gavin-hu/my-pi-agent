@@ -4,6 +4,7 @@ import {
 	clampScroll,
 	fitRows,
 	formatRange,
+	IdCursor,
 	isCloseKey,
 	keepVisible,
 	ListCursor,
@@ -162,6 +163,69 @@ describe("navigateScroll", () => {
 
 	test("returns undefined for an action key", () => {
 		expect(navigateScroll("d", 0, 10, 3)).toBeUndefined();
+	});
+});
+
+describe("IdCursor", () => {
+	const items = [{ id: "a" }, { id: "b" }, { id: "c" }];
+	const key = (item: { id: string }): string => item.id;
+
+	test("indexOf follows the id, not the position", () => {
+		const cursor = new IdCursor();
+		cursor.id = "b";
+		expect(cursor.indexOf(items, key)).toBe(1);
+		expect(cursor.indexOf([{ id: "c" }, { id: "b" }], key)).toBe(1);
+	});
+
+	test("indexOf falls back to the first row when the id is gone or unset", () => {
+		const cursor = new IdCursor();
+		expect(cursor.indexOf(items, key)).toBe(0);
+		cursor.id = "zzz";
+		expect(cursor.indexOf(items, key)).toBe(0);
+		expect(cursor.indexOf([], key)).toBe(0);
+	});
+
+	test("clamp re-anchors the id after a re-sort and bounds the scroll", () => {
+		const cursor = new IdCursor();
+		cursor.visible = 2;
+		cursor.id = "b";
+		cursor.scroll = 99;
+		cursor.clamp([{ id: "c" }, { id: "a" }, { id: "b" }], key);
+		expect(cursor.id).toBe("b");
+		expect(cursor.scroll).toBe(1);
+	});
+
+	test("clamp clears the state for an empty list", () => {
+		const cursor = new IdCursor();
+		cursor.id = "a";
+		cursor.scroll = 3;
+		cursor.clamp([], key);
+		expect(cursor.id).toBeUndefined();
+		expect(cursor.scroll).toBe(0);
+	});
+
+	test("select clamps the index, anchors the id, and keeps it visible", () => {
+		const cursor = new IdCursor();
+		cursor.visible = 2;
+		cursor.select(items, key, 99);
+		expect(cursor.id).toBe("c");
+		expect(cursor.scroll).toBe(1);
+	});
+
+	test("select ignores an empty list", () => {
+		const cursor = new IdCursor();
+		cursor.id = "a";
+		cursor.select([], key, 2);
+		expect(cursor.id).toBe("a");
+	});
+
+	test("ensureVisible follows keepVisible and never goes negative", () => {
+		const cursor = new IdCursor();
+		cursor.visible = 3;
+		cursor.ensureVisible(5);
+		expect(cursor.scroll).toBe(3);
+		cursor.ensureVisible(1);
+		expect(cursor.scroll).toBe(1);
 	});
 });
 
