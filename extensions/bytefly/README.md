@@ -110,23 +110,24 @@ rates and peak tariff built into [`footer/price/config.ts`](./footer/price/confi
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥2.50 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
 
-**User message.** A `❯` marker opens every user message in the transcript, and
-its continuation lines hang two columns under the text:
+**User message.** Every user message opens with a `❯ You` nameplate — a bold
+label and a rule to the right margin — above the message:
 
 ```
-❯ the message the user typed
-  its second line, hung two columns in
+❯ You ──────────────────────────────
+
+the message the user typed
 ```
 
 It is always on in interactive sessions and has no config file. Pi renders a
 user message as Markdown and owns its colors, so bytefly's only lever is a
-`registerMarkdownTransformer`: the marker and the hang are plain
-`userMessageText`, and the block's fill comes from the theme's `userMessageBg`.
-The hang covers the first paragraph and stops at a blank line or the next block
-(a list, a heading, a fence), so code and lists keep the layout you wrote; a soft
-wrap of one long line stays at the margin, because the renderer wraps it, not
-bytefly. The glyph and the hang are tuned in
-[`message/config.ts`](./message/config.ts).
+`registerMarkdownTransformer`: the nameplate is an ordinary paragraph, the label
+and rule are plain `userMessageText`, and the block's fill comes from the theme's
+`userMessageBg`. The nameplate is separated from the message by a blank line, so
+the message's own Markdown (a fence, a list, a second paragraph) parses exactly
+as it would without it, and a soft wrap of one long line stays at the margin
+because the renderer wraps it, not bytefly. The glyph, the label, and the rule
+are tuned in [`message/config.ts`](./message/config.ts).
 
 **Turn separator.** After each completed turn the extension appends an inert
 entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
@@ -663,7 +664,7 @@ rather than showing a wrong value.
 |---|---|
 | Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
-| User message | `pi.registerMarkdownTransformer` marks each user message with a `❯` and a two-column hanging indent; the shipped themes give the block its `userMessageBg` fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
+| User message | `pi.registerMarkdownTransformer` puts a `❯ You` nameplate (a bold label and a rule to the edge) above each user message; the shipped themes give the block its `userMessageBg` fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice as a rail from its `details`; the type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"` and `renderCall`/`renderResult` that wrap the tool's own renderer (or a generic fallback) in the rail frame; a tool that already sets `renderShell: "self"` is returned unchanged. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
@@ -688,13 +689,12 @@ rather than showing a wrong value.
   theme swap re-skins the whole chrome.
 - **The user message is shaped, not painted.** Pi renders a user message as
   Markdown and owns its colors, so bytefly's only lever is a Markdown
-  transformer: the marker and the hang are plain `userMessageText` and the
-  surface names no role. The fill lives where the token does — the theme's
+  transformer: the nameplate's label and rule are plain `userMessageText` and
+  the surface names no role. The fill lives where the token does — the theme's
   `userMessageBg` — because no extension API can override a theme token. The
-  indent stops at the first blank line or block so code and lists keep the
-  user's own layout, and a soft wrap stays at the margin because pi-tui's
-  wrapper drops break whitespace; hard-wrapping Markdown here would corrupt a
-  break inside an inline construct.
+  nameplate is one paragraph separated from the message by a blank line, so the
+  message's own Markdown parses unchanged and a soft wrap stays at the margin;
+  hard-wrapping Markdown here would corrupt a break inside an inline construct.
 - **A notice is one shared contract, not a foreign type.** Pi resolves a
   custom-message renderer by exact type with no wildcard, so `lib/notice.ts`
   owns the type and the `NoticeDetails` shape: a producer states model text and
@@ -860,8 +860,8 @@ columns, gauge), so the look follows the active theme.
 | `footer/render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
 | `footer/render/layout.ts` | Width reduction and right-zone folding. |
 | `footer/render/footer.ts` | `StatusBar` component and footer factory. |
-| `message/config.ts` | Marker tuning (`MESSAGE_CONFIG`): the prompt glyph and the continuation hang. |
-| `message/format.ts` | Pure `styleUserMessage` and `opensBlock`: the marker, the hanging indent, and the block-leading fallback. |
+| `message/config.ts` | Nameplate tuning (`MESSAGE_CONFIG`): the glyph, the label, and the rule. |
+| `message/format.ts` | Pure `nameplate` and `styleUserMessage`: the label, the rule to the width, and the nameplate above the message. |
 | `message/register.ts` | Registers the Markdown transformer. |
 | `notice/config.ts` | Notice-rail tuning (`NOTICE_CONFIG`): source/title/detail roles, the severity glyphs and roles, and the item cap. |
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline and the severity-led rows, sanitized and width-clipped. |
@@ -934,7 +934,7 @@ through the factory (`doctor/register`). The notify capability is covered by its
 (`notify/config`), the pure text builders (`notify/format`), method selection and
 delivery over recording seams (`notify/dispatch`), and its three triggers,
 reload, and shutdown through `registerNotify` (`notify/register`).
-The user-message marker is covered by its pure transform
+The user-message nameplate is covered by its pure transform
 (`message/format`, including a render through pi-tui's real `Markdown`) and its
 registration (`message/register`), plus the factory check in `extension`.
 The notice surface is covered by its pure rail (`notice/component`), its

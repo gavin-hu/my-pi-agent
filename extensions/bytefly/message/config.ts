@@ -1,15 +1,19 @@
 /**
- * Tuning for the user-message prompt marker.
+ * Tuning for the user-message nameplate.
  *
  * Pi parses the transformed user message as Markdown and owns its colors, so
- * this surface has no roles: it only names the marker and the hang.
+ * this surface has no roles: it only names the label and the rule.
  */
 
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 
 export const MESSAGE_CONFIG = {
-	/** Leading glyph that marks a user turn. */
+	/** Leading glyph on the label. */
 	glyph: GLYPHS.prompt,
-	/** Prefix for a continuation line, so it hangs under the marker. */
-	indent: "  ",
+	/** The label word after the glyph. */
+	label: "You",
+	/** Repeatable glyph that fills the rule to the right margin. */
+	ruleGlyph: "─",
+	/** Fewest rule columns worth drawing; below this the rule is dropped. */
+	minRule: 3,
 } as const;

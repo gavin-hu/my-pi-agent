@@ -1,62 +1,40 @@
 /**
- * The user-message prompt marker: a `❯` on the first line and a two-column
- * hanging indent on its continuation lines.
+ * The user-message nameplate: a bold `❯ You` label with a rule running to the
+ * right margin, above the message.
  *
  * Pi's user message component parses the transformed string as Markdown, so
  * shaping text is the only lever: the surface can add no component, color, or
- * box. Two properties of that pipeline make the marker work, both verified
- * against the pinned dependencies: marked keeps a paragraph continuation line's
- * leading spaces, and pi-tui's `wrapTextWithAnsi` splits on explicit newlines
- * and trims only at a wrap point, never a line's start. A soft wrap of one long
- * line therefore stays at the margin; hard-wrapping Markdown here would corrupt
- * a break inside an inline construct.
- *
- * The indent covers the first paragraph only. A blank line, or a line that opens
- * another block, ends it and the rest of the message is returned untouched, so a
- * code fence or a list keeps the layout the user wrote instead of shifting its
- * content two columns.
+ * box. The nameplate is one paragraph — `**label**` and a run of the rule glyph
+ * — separated from the message by a blank line, so the message's own Markdown (a
+ * fence, a list, a second paragraph) parses exactly as it would without the
+ * nameplate. Colors come from the renderer: the label is bold in
+ * `userMessageText` and the rule is plain `userMessageText`.
  */
 
 import type { MarkdownTransformContext } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { MESSAGE_CONFIG } from "./config.ts";
 
-const { glyph, indent } = MESSAGE_CONFIG;
+const { glyph, label, ruleGlyph } = MESSAGE_CONFIG;
 
-/** Up to three leading spaces are insignificant before a block-level construct. */
-const LEADING_SPACES = /^ {0,3}/;
-
-/** A line that opens a block-level construct, so it ends the marked paragraph. */
-export function opensBlock(line: string): boolean {
-	const text = line.replace(LEADING_SPACES, "");
-	return (
-		/^(?:`{3,}|~{3,})/.test(text) ||
-		/^#{1,6}(?:\s|$)/.test(text) ||
-		/^>/.test(text) ||
-		/^(?:[-*+]|\d{1,9}[.)])[ \t]+\S/.test(text) ||
-		/^(?:-{3,}|\*{3,}|_{3,})\s*$/.test(text) ||
-		/^\|.*\|/.test(text)
-	);
+/**
+ * The nameplate line: a bold label, a space, and the rule to the right margin.
+ * The rule is dropped when fewer than `minRule` columns remain, and the whole
+ * nameplate is dropped when not even the label fits.
+ */
+export function nameplate(width: number): string | undefined {
+	const text = `${glyph} ${label}`;
+	const labelWidth = visibleWidth(text);
+	const w = Math.max(1, Math.floor(width));
+	if (labelWidth > w) return undefined;
+	const fill = w - labelWidth - 1;
+	if (fill < MESSAGE_CONFIG.minRule) return `**${text}**`;
+	return `**${text}** ${ruleGlyph.repeat(fill)}`;
 }
 
-/** The marker on the first line, then the first paragraph hung two columns in. */
-function markMessage(markdown: string): string {
-	const [first = "", ...rest] = markdown.split("\n");
-	const marked = [`${glyph} ${first}`];
-	let consumed = 0;
-	for (const line of rest) {
-		if (line.trim() === "" || opensBlock(line)) break;
-		marked.push(`${indent}${line}`);
-		consumed++;
-	}
-	marked.push(...rest.slice(consumed));
-	return marked.join("\n");
-}
-
-/** Mark a user message; every other message passes through untouched. */
+/** Put the nameplate above a user message; every other message passes through. */
 export function styleUserMessage(markdown: string, context: MarkdownTransformContext): string {
 	if (context.messageType !== "user" || markdown.trim() === "") return markdown;
-	// A leading marker would stop a block-leading first line from parsing, so the
-	// fallback puts the marker alone on its own line.
-	if (opensBlock(markdown.split("\n")[0] ?? "")) return `${glyph}\n\n${markdown}`;
-	return markMessage(markdown);
+	const head = nameplate(context.availableWidth);
+	return head ? `${head}\n\n${markdown}` : markdown;
 }
