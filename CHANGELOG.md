@@ -30,6 +30,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   proactive warning now point at `/bytefly doctor`.
 - `plan`: browser review reuses a plan's last loopback port across turns, so the
   page origin (and the browser's saved `pi-web-theme` choice) stays stable.
+- `plan`: the browser review is a reading-first surface. The page title comes
+  from the plan's H1, the document keeps one centred measure with a comment rail
+  in its left margin, the side panel reports step progress and per-section
+  comment counts, and GFM tables and `---` rules render. `j`/`k` move between
+  blocks, `c` comments, `s` saves, and `?` opens a shortcut sheet.
 
 ### Fixed
 

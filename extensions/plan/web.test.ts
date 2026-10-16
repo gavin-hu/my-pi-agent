@@ -65,6 +65,19 @@ describe("createPlanWebReview", () => {
 		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan" }]);
 	});
 
+	test("uses the plan's H1 as the review title and falls back to the slug", async () => {
+		const titled = await start("# Add rate limiting\n\nBody\n");
+		const titledHtml = await (await fetch(titled.url)).text();
+		const titledIsland = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(titledHtml);
+		expect(JSON.parse(titledIsland![1]).title).toBe("Add rate limiting");
+		await titled.close();
+
+		const untitled = await start("Just prose, no heading.\n");
+		const untitledHtml = await (await fetch(untitled.url)).text();
+		const untitledIsland = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(untitledHtml);
+		expect(JSON.parse(untitledIsland![1]).title).toBe("demo");
+	});
+
 	test("rejects a request without the session token", async () => {
 		const session = await start();
 		const response = await fetch(`http://127.0.0.1:${session.port}/`);

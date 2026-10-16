@@ -15,7 +15,7 @@
  */
 
 /** How a block is rendered and grouped. */
-export type PlanBlockKind = "heading" | "paragraph" | "list" | "code" | "quote" | "blank";
+export type PlanBlockKind = "heading" | "paragraph" | "list" | "code" | "quote" | "table" | "hr" | "blank";
 
 /** A contiguous, source-line-anchored chunk of a plan. */
 export interface PlanBlock {
@@ -36,6 +36,25 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const LIST_ITEM = /^( *)([-*+]|\d+[.)])(\s+)/;
 /** A blockquote line. */
 const QUOTE = /^ {0,3}>/;
+/** A thematic break (`---`, `***`, `___`, spaced or not). */
+const THEMATIC_BREAK = /^ {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})$/;
+/** A line that can be a table row: it carries at least one pipe. */
+const TABLE_ROW = /\|/;
+/** A GFM alignment row (`| --- | :--: |`), with or without edge pipes. */
+const TABLE_DELIM = /^ {0,3}\|? *:?-+:? *(?:\| *:?-+:? *)*\|? *$/;
+
+/** Whether a table starts at `index`: a pipe row followed by an alignment row. */
+function startsTable(lines: string[], index: number): boolean {
+	const header = lines[index];
+	const delim = lines[index + 1];
+	return (
+		header !== undefined &&
+		delim !== undefined &&
+		TABLE_ROW.test(header) &&
+		delim.includes("-") &&
+		TABLE_DELIM.test(delim)
+	);
+}
 
 /** Leading spaces and tabs of a line, in columns (tab = 4). */
 function indentOf(line: string): number {
@@ -102,6 +121,21 @@ export function planBlocks(plan: string): PlanBlock[] {
 			continue;
 		}
 
+		if (startsTable(lines, i)) {
+			let end = i + 1;
+			// The header and alignment rows, then every contiguous pipe row.
+			while (end + 1 < lines.length && lines[end + 1].trim() !== "" && TABLE_ROW.test(lines[end + 1])) end += 1;
+			push(i, end, "table");
+			i = end + 1;
+			continue;
+		}
+
+		if (THEMATIC_BREAK.test(line)) {
+			push(i, i, "hr");
+			i += 1;
+			continue;
+		}
+
 		const item = line.match(LIST_ITEM);
 		if (item) {
 			const indent = item[1].length;
@@ -123,7 +157,15 @@ export function planBlocks(plan: string): PlanBlock[] {
 		let end = i;
 		while (end + 1 < lines.length) {
 			const next = lines[end + 1];
-			if (next.trim() === "" || FENCE.test(next) || HEADING.test(next) || QUOTE.test(next) || LIST_ITEM.test(next)) {
+			if (
+				next.trim() === "" ||
+				FENCE.test(next) ||
+				HEADING.test(next) ||
+				QUOTE.test(next) ||
+				LIST_ITEM.test(next) ||
+				THEMATIC_BREAK.test(next) ||
+				startsTable(lines, end + 1)
+			) {
 				break;
 			}
 			end += 1;

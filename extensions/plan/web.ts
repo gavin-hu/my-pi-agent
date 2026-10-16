@@ -124,6 +124,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			const current = (await store.read(cwd, plan.path)) ?? plan;
 			baseline = stripFeedback(current.content);
 			const blocks = planBlocks(baseline);
+			const headings = planHeadings(blocks);
 			// Highlight code blocks once, at the boundary: the client copies only the
 			// tok-* spans out of the server-escaped HTML.
 			const code: Record<string, string[]> = {};
@@ -133,10 +134,12 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				if (language) code[String(block.start)] = highlightLines(codeBody(block), language);
 			}
 			return {
-				title: planTitle(basename(current.path)),
+				// The document's own H1 reads better than the file-name slug, and the
+				// slug is still the fallback for a plan that starts with something else.
+				title: headings.find((heading) => heading.level === 1)?.text || planTitle(basename(current.path)),
 				blocks,
 				annotations: parseFeedback(current.content),
-				outline: planHeadings(blocks).map((heading) => ({
+				outline: headings.map((heading) => ({
 					id: `s-${heading.line}`,
 					line: heading.line,
 					level: heading.level,

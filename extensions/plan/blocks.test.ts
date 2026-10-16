@@ -39,6 +39,28 @@ describe("planBlocks", () => {
 		expect(outline("> one\n> two\n\n> three")).toEqual(["0:1:quote", "2:2:blank", "3:3:quote"]);
 	});
 
+	test("groups a table header, alignment row, and body together", () => {
+		const plan = "| risk | fix |\n| --- | --- |\n| slow | cache |\nafter";
+		expect(outline(plan)).toEqual(["0:2:table", "3:3:paragraph"]);
+	});
+
+	test("accepts a table without edge pipes", () => {
+		expect(outline("a | b\n--- | ---\n1 | 2")).toEqual(["0:2:table"]);
+	});
+
+	test("does not treat a lone pipe row or a bare rule as a table", () => {
+		expect(outline("a | b\ntext")).toEqual(["0:1:paragraph"]);
+		expect(outline("---")).toEqual(["0:0:hr"]);
+	});
+
+	test("keeps the table together when a body row has spaces around pipes", () => {
+		expect(outline("| a |\n| :-: |\n| 1 |\n| 2 |")).toEqual(["0:3:table"]);
+	});
+
+	test("marks a thematic break as one line", () => {
+		expect(outline("text\n\n***\ntext")).toEqual(["0:0:paragraph", "1:1:blank", "2:2:hr", "3:3:paragraph"]);
+	});
+
 	test("treats fenced code as one opaque block", () => {
 		const plan = "```ts\n# not a heading\n- not a step\n```\nafter";
 		expect(outline(plan)).toEqual(["0:3:code", "4:4:paragraph"]);

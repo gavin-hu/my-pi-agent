@@ -5,10 +5,10 @@
  * build step. It renders the plan from the JSON data island using DOM text
  * nodes only — plan and comment text never becomes markup — renders each block
  * with its comment threads indented directly beneath it, highlights code by
- * copying only `tok-*` spans through `DOMParser`, builds the section outline,
- * and saves the annotation list back to the server. An `EventSource` keeps a
- * connection open so the server can tell when the tab is gone; the explicit
- * buttons are the primary save/cancel path.
+ * copying only `tok-*` spans through `DOMParser`, builds the section outline
+ * and review facts, and saves the annotation list back to the server. An
+ * `EventSource` keeps a connection open so the server can tell when the tab is
+ * gone; the explicit buttons are the primary save/cancel path.
  */
 
 import { THEME_TOGGLE_JS } from "../../lib/web/index.ts";
@@ -31,6 +31,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var dirty = false;
   var sectionObserver = null;
   var pendingQuote = null;
+  var activeIndex = -1;
+  var outlineItems = {};
 
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
@@ -38,6 +40,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var saveButton = document.getElementById("save");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
+  var progressEl = document.getElementById("progress-fill");
+  var keysDialog = document.getElementById("keys-dialog");
 
   function el(tag, className) {
     var node = document.createElement(tag);
@@ -162,6 +166,53 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     wrap.appendChild(pre);
   }
 
+  // A GFM table: split each pipe row into cells and honour the alignment row.
+  function splitRow(line) {
+    var text = String(line).trim();
+    if (text.charAt(0) === "|") text = text.slice(1);
+    if (text.charAt(text.length - 1) === "|") text = text.slice(0, -1);
+    return text.split("|").map(function (cell) { return cell.trim(); });
+  }
+
+  function columnAlign(delim) {
+    return splitRow(delim).map(function (cell) {
+      var left = cell.charAt(0) === ":";
+      var right = cell.charAt(cell.length - 1) === ":";
+      return left && right ? "center" : right ? "right" : left ? "left" : "";
+    });
+  }
+
+  function renderTable(wrap, block) {
+    var rows = block.lines.map(splitRow);
+    var align = columnAlign(block.lines[1] || "");
+    var table = el("table", "review-table");
+    var thead = el("thead");
+    var headRow = el("tr");
+    rows[0].forEach(function (cell, index) {
+      var th = el("th");
+      if (align[index]) th.style.textAlign = align[index];
+      renderInline(th, cell);
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    var tbody = el("tbody");
+    rows.slice(2).forEach(function (cells) {
+      var tr = el("tr");
+      rows[0].forEach(function (unused, index) {
+        var td = el("td");
+        if (align[index]) td.style.textAlign = align[index];
+        renderInline(td, cells[index] || "");
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    var scroll = el("div", "review-table-wrap");
+    scroll.appendChild(table);
+    wrap.appendChild(scroll);
+  }
+
   function renderBlockContent(wrap, block) {
     var lines = Array.isArray(block.lines) ? block.lines : [];
     if (block.kind === "heading") {
@@ -173,6 +224,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       return;
     }
     if (block.kind === "code") { renderCode(wrap, block); return; }
+    if (block.kind === "table") { renderTable(wrap, block); return; }
+    if (block.kind === "hr") { wrap.appendChild(el("hr")); return; }
     if (block.kind === "quote") {
       var quote = el("blockquote");
       renderInline(quote, lines.map(function (line) { return line.replace(/^\s*>\s?/, ""); }).join("\n"));
@@ -232,6 +285,15 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     return box;
   }
 
+  // Enter submits a comment; Shift+Enter is left for the browser.
+  function submitOnEnter(area, submit) {
+    area.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" || event.shiftKey) return;
+      event.preventDefault();
+      submit();
+    });
+  }
+
   function openComposer(wrap, block, quote) {
     closeComposer();
     wrap.classList.add("bf-block--composing");
@@ -242,21 +304,23 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       composer.appendChild(chip);
     }
     var area = el("textarea", "bf-textarea");
-    area.placeholder = "Leave feedback on this part of the plan";
+    area.placeholder = "Leave feedback on this part of the plan (Enter to add)";
     area.setAttribute("aria-label", "Comment");
     composer.appendChild(area);
     var row = el("div", "bf-composer__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
     cancel.addEventListener("click", closeComposer);
     var add = el("button"); add.type = "button"; add.className = "bf-btn bf-btn--primary"; add.textContent = "Add comment";
-    add.addEventListener("click", function () {
+    var submit = function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
       if (annotations.length >= 200) { setStatus("Comment limit reached (200).", "error"); return; }
       annotations.push(quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment });
       dirty = true;
       renderPlan();
-    });
+    };
+    add.addEventListener("click", submit);
+    submitOnEnter(area, submit);
     row.appendChild(cancel); row.appendChild(add); composer.appendChild(row);
     commentsBoxAfter(wrap).appendChild(composer);
     area.focus();
@@ -280,6 +344,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       dirty = true;
       renderPlan();
     });
+    submitOnEnter(area, function () { apply.click(); });
     row.appendChild(cancel); row.appendChild(apply); card.appendChild(row);
     area.focus();
   }
@@ -288,6 +353,17 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     list.forEach(function (annotation) {
       var index = annotations.indexOf(annotation);
       var card = el("div", "bf-comment");
+      var head = el("div", "bf-comment__head");
+      var label = el("span", "bf-comment__label"); label.textContent = "Review";
+      head.appendChild(label);
+      head.appendChild(el("span", "bf-comment__spacer"));
+      var actions = el("div", "bf-comment__actions");
+      var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
+      edit.addEventListener("click", function () { startEdit(card, index); });
+      var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
+      remove.addEventListener("click", function () { annotations.splice(index, 1); dirty = true; renderPlan(); });
+      actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
+      card.appendChild(head);
       if (annotation.quote) {
         var quote = el("div", "bf-comment__quote");
         quote.textContent = "\u201c" + annotation.quote + "\u201d";
@@ -296,12 +372,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       var body = el("div", "bf-comment__body");
       body.textContent = annotation.comment;
       card.appendChild(body);
-      var row = el("div", "bf-comment__row");
-      var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
-      edit.addEventListener("click", function () { startEdit(card, index); });
-      var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
-      remove.addEventListener("click", function () { annotations.splice(index, 1); dirty = true; renderPlan(); });
-      row.appendChild(edit); row.appendChild(remove); card.appendChild(row);
       box.appendChild(card);
     });
   }
@@ -333,11 +403,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         var link = links[entry.target.id];
         if (link) link.setAttribute("aria-current", "true");
       });
-    }, { rootMargin: "-76px 0px -68% 0px", threshold: 0 });
+    }, { rootMargin: "-88px 0px -68% 0px", threshold: 0 });
     headings.forEach(function (heading) { sectionObserver.observe(heading); });
   }
 
   function renderOutline() {
+    outlineItems = {};
     if (!outlineList) return;
     outlineList.replaceChildren();
     var items = Array.isArray(data.outline) ? data.outline : [];
@@ -346,16 +417,95 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       var link = el("a");
       link.href = "#" + item.id;
       link.setAttribute("data-id", item.id);
-      link.textContent = item.text;
+      var label = el("span", "review-nav__link");
+      label.textContent = item.text;
+      link.appendChild(label);
+      var count = el("span", "review-nav__count");
+      count.hidden = true;
+      link.appendChild(count);
       li.appendChild(link);
       outlineList.appendChild(li);
+      outlineItems[item.line] = count;
     });
+  }
+
+  // The section a source line belongs to: the last heading at or before it.
+  function sectionFor(line) {
+    var items = Array.isArray(data.outline) ? data.outline : [];
+    var found = null;
+    items.forEach(function (item) { if (item.line <= line) found = item; });
+    return found;
+  }
+
+  // Review facts: the plan's step progress, and the comments per section.
+  function renderFacts() {
+    var items = Array.isArray(data.blocks) ? data.blocks : [];
+    var done = 0;
+    var total = 0;
+    items.forEach(function (block) {
+      if (block.kind !== "list") return;
+      (block.lines || []).forEach(function (line) {
+        var box = /^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]/.exec(line);
+        if (!box) return;
+        total += 1;
+        if (box[1].toLowerCase() === "x") done += 1;
+      });
+    });
+    var stepFill = document.getElementById("step-fill");
+    if (stepFill) stepFill.style.width = (total > 0 ? Math.round((done / total) * 100) : 0) + "%";
+    var stepCount = document.getElementById("step-count");
+    if (stepCount) stepCount.textContent = done + "/" + total;
+    var totalEl = document.getElementById("comment-total");
+    if (totalEl) totalEl.textContent = String(annotations.length);
+    Object.keys(outlineItems).forEach(function (line) { outlineItems[line].hidden = true; });
+    annotations.forEach(function (annotation) {
+      var section = sectionFor(annotation.anchor);
+      if (!section) return;
+      var count = outlineItems[section.line];
+      if (!count) return;
+      var value = count.hidden ? 0 : Number(count.textContent);
+      count.textContent = String(value + 1);
+      count.hidden = false;
+    });
+    updateState();
+  }
+
+  function blockElements() {
+    return planEl ? Array.prototype.slice.call(planEl.querySelectorAll(".bf-block")) : [];
+  }
+
+  function setActive(index) {
+    var blocks = blockElements();
+    if (blocks.length === 0) return;
+    activeIndex = Math.max(0, Math.min(blocks.length - 1, index));
+    blocks.forEach(function (block, at) { block.classList.toggle("bf-block--active", at === activeIndex); });
+    var current = blocks[activeIndex];
+    if (current && current.scrollIntoView) current.scrollIntoView({ block: "nearest" });
+  }
+
+  function moveActive(delta) {
+    var blocks = blockElements();
+    if (blocks.length === 0) return;
+    if (activeIndex < 0) { setActive(delta < 0 ? blocks.length - 1 : 0); return; }
+    setActive(activeIndex + delta);
+  }
+
+  function commentOnActive() {
+    var blocks = blockElements();
+    if (blocks.length === 0) return;
+    if (activeIndex < 0) setActive(0);
+    var wrap = blockElements()[Math.max(0, activeIndex)];
+    if (!wrap) return;
+    var line = Number(wrap.getAttribute("data-line"));
+    var block = (data.blocks || []).filter(function (item) { return item.start === line; })[0];
+    if (block) openComposer(wrap, block, "");
   }
 
   function renderPlan() {
     if (!planEl) return;
     closeComposer();
     pendingQuote = null;
+    var scrollTop = planEl.scrollTop;
     planEl.replaceChildren();
     var blocks = Array.isArray(data.blocks) ? data.blocks : [];
     var anchored = {};
@@ -367,19 +517,27 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       wrap.setAttribute("data-kind", String(block.kind));
       if (block.kind === "heading") wrap.id = "s-" + block.start;
       renderBlockContent(wrap, block);
-      var add = el("button", "bf-btn bf-btn--ghost bf-block__add");
+      var mine = annotations.filter(function (annotation) { return annotation.anchor === block.start; });
+      if (mine.length > 0) wrap.classList.add("bf-block--commented");
+      var rail = el("div", "bf-block__rail");
+      var add = el("button", "bf-block__add");
       add.type = "button";
+      add.textContent = "+";
       add.setAttribute("aria-label", "Comment on this block");
-      add.appendChild(document.createTextNode("+"));
-      var addLabel = el("span", "bf-block__add-label");
-      addLabel.textContent = "Comment";
-      add.appendChild(addLabel);
       add.addEventListener("click", function () {
         var quote = pendingQuote && pendingQuote.wrap === wrap ? pendingQuote.quote : selectionIn(wrap);
         pendingQuote = null;
         openComposer(wrap, block, quote);
       });
-      wrap.appendChild(add);
+      rail.appendChild(add);
+      if (mine.length > 0) {
+        var badge = el("span", "bf-block__count");
+        badge.textContent = String(mine.length);
+        badge.title = mine.length === 1 ? "1 review comment" : mine.length + " review comments";
+        rail.appendChild(badge);
+      }
+      wrap.appendChild(rail);
+      wrap.addEventListener("focusin", function () { setActive(blockElements().indexOf(wrap)); });
       planEl.appendChild(wrap);
       renderComments(planEl, block.start);
     });
@@ -391,6 +549,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       renderCommentCards(box, orphans);
       planEl.appendChild(box);
     }
+    planEl.scrollTop = scrollTop;
+    renderFacts();
     observeSections();
     updateState();
   }
@@ -402,6 +562,20 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       titleEl.title = data.title;
     }
     if (data.title) document.title = "Plan review \u00b7 " + data.title;
+  }
+
+  function updateProgress() {
+    if (!progressEl) return;
+    var doc = document.scrollingElement || document.documentElement;
+    var top = doc ? doc.scrollTop : 0;
+    var height = doc ? doc.scrollHeight : 0;
+    var view = doc ? doc.clientHeight : 0;
+    if (planEl && planEl.scrollHeight > planEl.clientHeight + 4) {
+      top = planEl.scrollTop; height = planEl.scrollHeight; view = planEl.clientHeight;
+    }
+    var max = height - view;
+    var percent = max > 0 ? Math.min(100, Math.max(0, (top / max) * 100)) : 0;
+    progressEl.style.width = percent + "%";
   }
 
   function lockActions() {
@@ -464,8 +638,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   if (saveButton) saveButton.addEventListener("click", save);
   if (cancelButton) cancelButton.addEventListener("click", cancel);
 
-  // Remember a selection made inside a block so clicking + Comment can still
-  // quote it after the button press has collapsed the selection.
+  // Remember a selection made inside a block so clicking the rail button can
+  // still quote it after the button press has collapsed the selection.
   document.addEventListener("mouseup", function (event) {
     if (!planEl || saved) return;
     var wrap = event.target && event.target.closest ? event.target.closest(".bf-block") : null;
@@ -473,8 +647,40 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     pendingQuote = wrap && quote ? { wrap: wrap, quote: quote } : null;
   });
 
+  function toggleKeys(force) {
+    if (!keysDialog) return;
+    var open = force !== undefined ? force : keysDialog.hidden;
+    keysDialog.hidden = !open;
+    if (open) {
+      var close = document.getElementById("keys-close");
+      if (close) close.focus();
+    }
+  }
+
+  if (keysDialog) {
+    keysDialog.addEventListener("click", function (event) { if (event.target === keysDialog) toggleKeys(false); });
+    var keysButton = document.getElementById("shortcuts");
+    if (keysButton) keysButton.addEventListener("click", function () { toggleKeys(); });
+    var keysClose = document.getElementById("keys-close");
+    if (keysClose) keysClose.addEventListener("click", function () { toggleKeys(false); });
+  }
+
+  function typing(target) {
+    var tag = target && target.tagName ? target.tagName : "";
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (target && target.isContentEditable);
+  }
+
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") closeComposer();
+    if (event.key === "Escape") { closeComposer(); toggleKeys(false); return; }
+    if (typing(event.target)) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === "?") { event.preventDefault(); toggleKeys(); return; }
+    // While the shortcut sheet is open it owns the keyboard.
+    if (keysDialog && !keysDialog.hidden) return;
+    if (event.key === "j") { event.preventDefault(); moveActive(1); return; }
+    if (event.key === "k") { event.preventDefault(); moveActive(-1); return; }
+    if (event.key === "c") { event.preventDefault(); commentOnActive(); return; }
+    if (event.key === "s") { event.preventDefault(); save(); return; }
   });
 
   window.addEventListener("beforeunload", function () {
@@ -482,6 +688,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var url = "/api/cancel?token=" + encodeURIComponent(token);
     if (navigator.sendBeacon) navigator.sendBeacon(url);
   });
+
+  window.addEventListener("scroll", updateProgress);
+  window.addEventListener("resize", updateProgress);
+  if (planEl) planEl.addEventListener("scroll", updateProgress);
 
   try {
     var stream = new EventSource("/events?token=" + encodeURIComponent(token));
@@ -502,5 +712,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   renderHeader();
   renderOutline();
   renderPlan();
+  updateProgress();
 })();
 `;

@@ -67,7 +67,32 @@ describe("renderReviewPage", () => {
 		expect(html).toContain('class="review-nav__title" id="outline-title"');
 		expect(html).toContain('aria-labelledby="outline-title"');
 		expect(html).toContain(".bf-comments");
+		expect(html).toContain(".review-nav__count");
 		expect(html).not.toContain("bf-rail");
+	});
+
+	test("frames the document with a reading measure and a comment rail", () => {
+		const html = page();
+		expect(html).toContain("--review-measure");
+		expect(html).toContain(".bf-block__rail");
+		expect(html).toContain(".bf-block__count");
+		expect(html).toContain(".review-table");
+	});
+
+	test("pins a reading-progress bar to the header", () => {
+		const html = page();
+		expect(html).toContain('class="review-progress"');
+		expect(html).toContain('id="progress-fill"');
+	});
+
+	test("shows the review facts and the keyboard sheet", () => {
+		const html = page();
+		expect(html).toContain('id="review-facts"');
+		expect(html).toContain('id="step-count"');
+		expect(html).toContain("bf-progress__fill");
+		expect(html).toContain('id="keys-dialog"');
+		expect(html).toContain('id="shortcuts"');
+		expect(html).toContain("review-kbd");
 	});
 
 	test("drops the outline column when the plan has no headings", () => {

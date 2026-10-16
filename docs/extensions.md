@@ -21,7 +21,9 @@ checkboxes that approval seeds into `todo`, and `set_plan_steps` keeps the file
 current afterward. `exit_plan_mode` presents the plan for approval, keeps
 planning, or takes a refinement; the review screen jumps between headings with
 `n`/`p`. Press `w` (or run `/plan review [path]`) to open the plan in a loopback
-browser, leave inline comments, and save them back as `> [!REVIEW]` lines.
+browser — a measured document with a comment rail, section and step progress,
+and `j`/`k`/`c`/`s` shortcuts — leave inline comments, and save them back as
+`> [!REVIEW]` lines.
 `/plan <prompt>` enters plan mode and sends the task in one step; `/plan` toggles
 and `Ctrl+Alt+P` is the shortcut. The enabled flag is a session entry, so
 `/resume` and `/tree` restore it.

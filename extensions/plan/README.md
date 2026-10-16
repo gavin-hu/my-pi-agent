@@ -48,8 +48,10 @@ pi --plan                          # start in plan mode
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
 - **Browser review on demand.** Press `w` on the review screen (or run
-  `/plan review [path]`) to open the plan in a local browser, select text to
-  leave inline comments, and save them back into the plan file itself as
+  `/plan review [path]`) to open the plan in a local browser: a reading-first
+  page with the plan's H1 as its title, one centred measure, a comment rail in
+  the left margin, and live section and step progress. Select text to leave an
+  inline comment, and save them back into the plan file itself as
   `> [!REVIEW]` lines. Saved comments return to the model as a refinement
   request.
 - **The file is the source of truth.** On approval the model follows the plan
@@ -250,27 +252,38 @@ agent file that overrides it.
 
 ## Browser review
 
-<img src="../../assets/plan-review.png" alt="The browser-based plan review, showing the plan's sections, a rendered code block, and an inline comment box" width="100%">
+<img src="../../assets/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title and Save/Close, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail and an inline review thread" width="100%">
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
-in the default browser on `127.0.0.1`. The page is a review surface: a sticky
-header with the plan title, a live status chip (connection, comment count, and
-unsaved changes), theme toggle, and Save/Close; a sticky **section
-outline** on the left; and the plan with each comment rendered **inline under
-the block it anchors to**. Every block has a **+ Comment** action; select text
-first to quote it. **Save feedback** writes the comments into the plan file and
-returns them to the model.
+in the default browser on `127.0.0.1`. The page is a reading-first review
+surface: a sticky header carrying the plan's H1 (falling back to the file-name
+slug), a live status chip (connection, comment count, and unsaved changes), the
+theme toggle, and Save/Close, over a hairline reading-progress bar. A sticky
+side panel shows the plan's step progress and comment count above a **section
+outline**, and the document keeps one centred measure with a comment rail in
+its left margin. Every block reveals a **+ Comment** action on hover; select
+text first to quote it. **Save feedback** writes the comments into the plan
+file and returns them to the model.
 
 - **Shared theme.** The page uses the same Bytefly tokens, base rules, and
   syntax-token colors as `file-browse` (`lib/web/`), follows the system light/dark
   preference until the header toggle sets an explicit choice, and remembers that
   choice under the shared `pi-web-theme` key.
-- **Section outline.** Headings become a sticky outline, labelled in the panel,
-  with jump links and an active-section highlight; the panel collapses into a
-  disclosure on narrow screens.
+- **One measure, one rail.** The document is a single centred column of about 74
+  characters; each block carries its `+ Comment` button and comment-count badge
+  in a rail in the left margin, so annotating never reflows the text.
+- **Section outline and facts.** Headings become a sticky outline with jump
+  links, an active-section highlight, and a per-section comment count; the panel
+  above it reports the plan's checkbox steps (`n/m`) and total comments.
 - **Inline threads.** A comment renders directly under the block it anchors to,
-  indented as a thread, so it reads in place and the plan keeps one measure at
-  every width. There is no separate rail or grid to reflow.
+  labelled and indented as a thread, so it reads in place and the plan keeps one
+  measure at every width. There is no separate column to reflow.
+- **Keyboard first.** `j`/`k` move to the next or previous block, `c` comments
+  on the current block, `s` saves, `Esc` closes the composer, and `?` opens a
+  shortcut sheet; the header's `?` button opens the same sheet.
+- **Markdown that reads.** Headings, lists, task items, blockquotes, fenced
+  code, GFM tables, and `---` rules render; tables honour the alignment row and
+  scroll horizontally when narrow.
 - **Highlighted code.** Fenced code is tokenized by the shared
   `lib/highlight.ts`; the client copies only text and `tok-*` spans through
   `DOMParser`, so a code line is never parsed as markup.
@@ -396,12 +409,13 @@ returns them to the model.
   existing heading-only split cannot, and the page renders text with DOM nodes
   so review never widens the plan's trust surface. The browser opener is shared
   through `lib/browser.ts` rather than imported from `file-browse`.
-- **Comments render in the document flow, not a rail.** The anchor is already a
-  source line, so the browser needs no paired rail cell: a thread is appended
-  after its block and the plan keeps one measure at every width. That removes
-  the two-column grid, the `bf-review--no-rail` collapse, and the breakpoint
-  ladder, and matches the TUI, where neither review header carries a progress
-  counter.
+- **Comments render in the document flow, not a second column.** The anchor is
+  already a source line, so the browser needs no paired column: a thread is
+  appended after its block and the plan keeps one measure at every width. The
+  per-block affordance lives in a narrow rail inside the measure's left margin,
+  so annotating never moves the text. That removes the two-column grid, the
+  `bf-review--no-rail` collapse, and the breakpoint ladder, and matches the TUI,
+  where neither review header carries a progress counter.
 
 ## Files
 
@@ -417,12 +431,12 @@ returns them to the model.
 | `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, scroll gauge, approve/refine/browser/keep). |
-| `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, blanks). |
+| `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
 | `web.ts` | `createPlanWebReview`: the loopback server, the section outline and code highlighting, and the save/cancel/abort session. |
 | `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes. |
-| `web-page.ts` | The review page shell (header, section outline), its data island, and inline CSS. |
-| `web-client.ts` | The `/client.js` source (block/thread rendering, outline, inline comments, selection quotes, highlighted code, save/cancel). |
+| `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet), its data island, and inline CSS. |
+| `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/cancel). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |

@@ -80,10 +80,32 @@ describe("REVIEW_CLIENT_JS", () => {
 
 	test("renders inline comment threads and the section outline", () => {
 		expect(REVIEW_CLIENT_JS).toContain('"bf-comments"');
-		expect(REVIEW_CLIENT_JS).toContain('"bf-block__add-label"');
+		expect(REVIEW_CLIENT_JS).toContain('"bf-block__add"');
+		expect(REVIEW_CLIENT_JS).toContain('"bf-block__count"');
 		expect(REVIEW_CLIENT_JS).not.toContain("bf-rail");
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("outline-list")');
 		expect(REVIEW_CLIENT_JS).toContain("IntersectionObserver");
+	});
+
+	test("renders GFM tables and thematic breaks", () => {
+		expect(REVIEW_CLIENT_JS).toContain('"review-table"');
+		expect(REVIEW_CLIENT_JS).toContain("columnAlign");
+		expect(REVIEW_CLIENT_JS).toContain('block.kind === "table"');
+		expect(REVIEW_CLIENT_JS).toContain('block.kind === "hr"');
+	});
+
+	test("navigates blocks and shows the keyboard sheet", () => {
+		expect(REVIEW_CLIENT_JS).toContain("function moveActive(delta)");
+		expect(REVIEW_CLIENT_JS).toContain("function commentOnActive()");
+		expect(REVIEW_CLIENT_JS).toContain('"bf-block--active"');
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("keys-dialog")');
+	});
+
+	test("tracks the review facts and reading progress", () => {
+		expect(REVIEW_CLIENT_JS).toContain("function renderFacts()");
+		expect(REVIEW_CLIENT_JS).toContain('"step-fill"');
+		expect(REVIEW_CLIENT_JS).toContain("function updateProgress()");
+		expect(REVIEW_CLIENT_JS).toContain('"progress-fill"');
 	});
 
 	test("observes the renamed blocks and styles the comment textareas", () => {
