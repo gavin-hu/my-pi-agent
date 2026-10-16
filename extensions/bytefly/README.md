@@ -195,7 +195,10 @@ so syntax highlighting, diffs, previews, and truncation notices are unchanged �
 only the frame is bytefly's. There is no rail and no status colour: a running
 block reads the same as a finished one, and a failure is whatever the tool's own
 output shows. A tool with no renderer of its own is framed around a generic
-call/result fallback. A tool that draws its own shell (`edit`) is framed too:
+call/result fallback. A tool with no renderer of its own is framed around a generic
+call/result fallback, whose call line reads like a built-in — the leading string
+argument bare, the rest as trailing options (`open_path src/app.ts`) — rather
+than dumping raw `key=value` pairs. A tool that draws its own shell (`edit`) is framed too:
 `renderShell: "self"` only tells Pi not to draw its filled box, so its diff
 would otherwise sit at the wrong indent; the frame drops the blank edges its own
 `Box` pads itself with.

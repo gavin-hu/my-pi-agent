@@ -4,7 +4,7 @@ import { TOOL_NAME, registerTools } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";
-import { coloringTheme, fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
+import { fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
 
 function setup() {
 	const { pi, tools } = makeFakePi();
@@ -200,78 +200,26 @@ describe("goal tool", () => {
 		expect(text).not.toContain("Cleared the goal");
 	});
 
-	test("renderResult shows the objective block", async () => {
+	test("renderResult states the status without repeating the objective", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
 		const result = await call(tool, { objective: "Ship the parser" }, ctx);
-		const text = tool
-			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
-			.render(80)
-			.join("\n");
-		expect(text).toContain("Goal · active");
-		expect(text).toContain("  ⊚ Ship the parser");
-	});
-
-	test("renderResult shows an achieved goal and expands the objective", async () => {
-		const { tool } = setup();
-		const { ctx } = fakeCtx();
-		const objective =
-			"Refactor the parser to support streaming input and ship it with tests, then update the docs and changelog";
-		const result = await call(tool, { objective, status: "achieved" }, ctx);
-
-		const collapsed = tool
-			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
-			.render(200)
-			.join("\n");
-		expect(collapsed).toContain("Goal · achieved");
-		expect(collapsed).toContain("  ✓ Refactor the parser");
-		expect(collapsed).toContain("…");
-		expect(collapsed).not.toContain("changelog");
-
-		const expanded = tool
-			.renderResult(result, { expanded: true, isPartial: false }, theme, { argsComplete: true })
-			.render(200)
-			.join("\n");
-		expect(expanded).toContain("changelog");
-		expect(expanded).not.toContain("…");
-	});
-
-	test("dims an achieved objective in the collapsed transcript result", async () => {
-		const { tool } = setup();
-		const { ctx } = fakeCtx();
-		const tagged = coloringTheme;
-
-		const achieved = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
-		const collapsed = tool
-			.renderResult(achieved, { expanded: false, isPartial: false }, tagged, { argsComplete: true })
-			.render(200)
-			.join("\n");
-		expect(collapsed).toContain("[dim]Ship the parser");
-
-		const active = await call(tool, { objective: "Ship the parser" }, ctx);
-		const activeText = tool
-			.renderResult(active, { expanded: false, isPartial: false }, tagged, { argsComplete: true })
-			.render(200)
-			.join("\n");
-		expect(activeText).toContain("[text]Ship the parser");
-	});
-
-	test("keeps the glyph rail on every wrapped transcript row", async () => {
-		const { tool } = setup();
-		const { ctx } = fakeCtx();
-		const objective =
-			"Refactor the parser to support streaming input and ship it with tests, then update the docs and changelog";
-		const result = await call(tool, { objective, status: "achieved" }, ctx);
-
 		const lines = tool
-			.renderResult(result, { expanded: true, isPartial: false }, theme, { argsComplete: true })
-			.render(40);
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
+			.render(80);
+		expect(lines).toEqual(["", "Goal · active"]);
+		expect(lines.join("\n")).not.toContain("Ship the parser");
+	});
 
-		expect(lines.length).toBeGreaterThan(3);
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toBe("Goal · achieved");
-		expect(lines[2]).toStartWith("  ✓ ");
-		expect(lines.slice(3).every((line: string) => line.startsWith("    "))).toBe(true);
+	test("renderResult reads as done for an achieved goal, at any expansion", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx();
+		const result = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		const withOptions = (expanded: boolean) =>
+			tool.renderResult(result, { expanded, isPartial: false }, theme, { argsComplete: true }).render(200).join("\n");
+		expect(withOptions(false)).toContain("Goal · achieved");
+		expect(withOptions(true)).toContain("Goal · achieved");
+		expect(withOptions(true)).not.toContain("Ship the parser");
 	});
 
 	test("renders a clear with a neutral marker, not the achieved check", async () => {

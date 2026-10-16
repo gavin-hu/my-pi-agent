@@ -78,7 +78,9 @@ export function formatResultText(details: MemoryDetails, expanded = false): stri
 			].join("\n");
 		case "add":
 			if (details.changed) {
-				return `Added to ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}\nNow ${countLine(entries)}.`;
+				// The call line already names the note, so the result confirms the write
+				// and the new counts rather than repeating it.
+				return `Added to ${scopeLabel(details.scope)} memory\nNow ${countLine(entries)}.`;
 			}
 			if (details.existing !== undefined && details.existing !== details.entry) {
 				return `Already in ${scopeLabel(details.scope)} memory (near-duplicate): ${details.existing}`;
@@ -86,10 +88,10 @@ export function formatResultText(details: MemoryDetails, expanded = false): stri
 			return `Already in ${scopeLabel(details.scope)} memory: ${details.existing ?? details.entry ?? ""}`;
 		case "update":
 			return details.changed
-				? `Updated ${scopeLabel(details.scope)} memory: ${details.entry ?? ""} → ${details.to ?? ""}\nNow ${countLine(entries)}.`
+				? `Updated ${scopeLabel(details.scope)} memory\nNow ${countLine(entries)}.`
 				: `Already set in ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}`;
 		case "forget":
-			return `Removed from ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}\nNow ${countLine(entries)}.`;
+			return `Removed from ${scopeLabel(details.scope)} memory\nNow ${countLine(entries)}.`;
 	}
 }
 

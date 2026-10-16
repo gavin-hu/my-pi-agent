@@ -1,33 +1,19 @@
 /**
  * Model-facing and transcript text for the goal (pure).
  *
- * The transcript result is drawn as a glyph rail shared with `todo`: a header
- * line (`Goal · active`) and an indented body row led by `⊚` (active) or `✓`
- * (achieved), with wrapped continuation rows aligned under the text. The
- * persistent widget, by contrast, is a plain label-first line
- * (`Goal · active · <objective>`) matching the `todo` and `jobs` widgets. The
- * symbols and labels live here; the rail indent constants are shared with
- * `todo` in `lib/tui/glyphs.ts`.
+ * The transcript result is the status header (`Goal · active`) under the call
+ * line, which already names the objective; the persistent widget is a plain
+ * label-first line (`Goal · active · <objective>`) matching the `todo` and
+ * `jobs` widgets. The symbols and labels live here.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 
-/** Active-goal glyph. */
-export const ACTIVE_SYMBOL = GLYPHS.target;
-/** Achieved-goal glyph. */
-export const ACHIEVED_SYMBOL = GLYPHS.check;
-
 /** Longest objective preview shown in the transcript call line. */
 const CALL_PREVIEW_WIDTH = 48;
-
-/** Themed status glyph, shared by the widget and the transcript renderer. */
-export function goalGlyph(goal: Goal, theme: Theme): string {
-	return goal.status === "achieved" ? paint(theme, "ok", ACHIEVED_SYMBOL) : paint(theme, "accent", ACTIVE_SYMBOL);
-}
 
 /** Human label for a status, e.g. `active`. */
 export function goalStatusLabel(status: GoalStatus): string {

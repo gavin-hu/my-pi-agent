@@ -17,7 +17,7 @@ pi install ./                         # install the package
 
 How the `memory` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/memory.png" alt="The memory tool's result: the call line and an indented body with the note that changed and the project and global counts" width="100%">
+<img src="../../assets/tools/memory.png" alt="The memory tool's result: the call line and an indented body confirming the write and the new project and global counts" width="100%">
 
 ## What it does
 

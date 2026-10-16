@@ -8,13 +8,13 @@
  */
 
 import type { JsonValue } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { formatCallText, formatGoalText, goalObjective, previewObjective } from "./format.ts";
+import { formatCallText, formatGoalText } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { GoalParams, GoalResult, normalizeGoal, type GoalArgs } from "./schema.ts";
 import { GoalResult as GoalResultView } from "./tui.ts";
@@ -22,22 +22,11 @@ import type { GoalAction, GoalDetails } from "./types.ts";
 
 export const TOOL_NAME = GOAL_TOOL;
 
-/** Longest objective shown in an unexpanded transcript result. */
-const RESULT_PREVIEW_WIDTH = 72;
-
 /** Best-effort action of a rejected call, for the error result's details. */
 function attemptedAction(args: Partial<GoalArgs>): GoalAction {
 	if (args.status === "achieved") return "achieve";
 	if (typeof args.objective !== "string" || args.objective.trim() === "") return "clear";
 	return "set";
-}
-
-/** Themed body for the transcript result: the collapsed preview or the full objective. */
-function resultBody(goal: NonNullable<GoalDetails["goal"]>, expanded: boolean, theme: Theme): string {
-	const text = expanded ? goal.objective : previewObjective(goal.objective, RESULT_PREVIEW_WIDTH);
-	// Route both states through `goalObjective`, so an achieved goal is dimmed
-	// whether it is collapsed or expanded.
-	return goalObjective({ objective: text, status: goal.status }, theme);
 }
 
 /**
@@ -108,7 +97,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 			return text;
 		},
 
-		renderResult(result, { expanded }, theme, context) {
+		renderResult(result, _options, theme, context) {
 			const text = reuseText(context.lastComponent);
 			const details = toolDetails<GoalDetails>(result.details);
 			if (!details) {
@@ -125,12 +114,11 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				text.setText(paint(theme, "faint", `${GLYPHS.stopped} `) + paint(theme, "meta", "Cleared the goal"));
 				return text;
 			}
-			const body = resultBody(details.goal, expanded, theme);
 			const view =
 				context.lastComponent instanceof GoalResultView
 					? context.lastComponent
-					: new GoalResultView(details.goal, body, theme);
-			view.update(details.goal, body, theme);
+					: new GoalResultView(details.goal, theme);
+			view.update(details.goal, theme);
 			return view;
 		},
 	});

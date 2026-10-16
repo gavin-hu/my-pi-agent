@@ -3,7 +3,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { expandHint, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -17,9 +17,6 @@ const STATUS_ORDER: Record<TodoStatus, number> = { in_progress: 0, pending: 1, c
 export function compareByActivity(a: Todo, b: Todo): number {
 	return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
 }
-
-/** Longest first-item preview shown in the transcript call line. */
-const CALL_PREVIEW_WIDTH = 40;
 
 /** Plain status glyph per status; `todoGlyph` adds the theme color. */
 const STATUS_GLYPH: Record<TodoStatus, string> = {
@@ -108,22 +105,16 @@ export function formatTodoText(todos: Todo[]): string {
  * One-line body for the transcript call renderer.
  *
  * The renderer owns the styled `todo ` title, so this returns only the body.
- * `todos` is `undefined` while the call's arguments are still streaming, which
- * is distinct from an empty list (a real clear). `argsComplete` disambiguates
- * the tail end of the stream.
+ * Progress is the summary; the result rail lists the items (active work first),
+ * so the call line does not repeat the current item. `todos` is `undefined`
+ * while the call's arguments are still streaming, which is distinct from an
+ * empty list (a real clear). `argsComplete` disambiguates the tail end of the
+ * stream.
  */
 export function formatCallText(todos: Todo[] | undefined, argsComplete = true): string {
 	if (todos === undefined) return argsComplete ? "→ clear list" : "→ …";
 	if (todos.length === 0) return "→ clear list";
-
-	const current = currentTodo(todos);
-	const label = current ? (current.activeForm ?? current.content).trim() : "completed";
-	if (!label) return argsComplete ? `→ ${progressCount(todos)} · …` : "→ …";
-	// `strict` drops a wide grapheme that would cross the boundary, so the slice
-	// plus ellipsis never exceeds `CALL_PREVIEW_WIDTH` columns.
-	const preview =
-		visibleWidth(label) > CALL_PREVIEW_WIDTH ? `${sliceByColumn(label, 0, CALL_PREVIEW_WIDTH - 1, true)}…` : label;
-	return `→ ${progressCount(todos)} · ${preview}`;
+	return `→ ${progressCount(todos)}`;
 }
 
 /** Rows and footer for the transcript result rail. */

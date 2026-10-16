@@ -6,7 +6,6 @@
  * the clean slice; the text adds a header and any truncation note.
  */
 
-import { formatTokens } from "../../lib/format.ts";
 import type { FormatId } from "./formats.ts";
 
 export interface DocPageInput {
@@ -72,20 +71,28 @@ export interface DocSummaryInput {
 export interface DocSummary {
 	/** Uppercase format id, e.g. `PDF`. */
 	format: string;
-	/** Range detail, e.g. `1–40k of 42k chars`. */
+	/** Range detail, e.g. `chars 1–40,000 of 42,478`. */
 	detail: string;
-	/** `more at N` when truncated, `complete` for a non-first final page. */
+	/** `next at N` when truncated, `complete` for a non-first final page. */
 	note?: string;
 	/** Whether more text remains; the renderer colours the note with this. */
 	truncated: boolean;
 }
 
 /**
+ * A character count with thousands separators (`25,000`). Full numbers keep a
+ * range readable, where a `k` suffix on one bound and not the other does not.
+ */
+export function formatCharCount(count: number): string {
+	return count.toLocaleString("en-US");
+}
+
+/**
  * Describe a `read_doc` result for the transcript, without theme colours.
  *
- * Counts are humanized. A complete first read shows the total; a paged read
- * shows the returned range so a truncated result is never mistaken for the
- * whole document.
+ * A complete first read shows the total; a paged read shows the returned range
+ * and where to continue, so a truncated result is never mistaken for the whole
+ * document.
  */
 export function summarizeDoc(input: DocSummaryInput): DocSummary {
 	const format = input.format.toUpperCase();
@@ -93,18 +100,18 @@ export function summarizeDoc(input: DocSummaryInput): DocSummary {
 	if (input.startIndex >= input.chars) {
 		return {
 			format,
-			detail: `no text at ${formatTokens(input.startIndex)} of ${formatTokens(input.chars)} chars`,
+			detail: `no text at ${formatCharCount(input.startIndex)} of ${formatCharCount(input.chars)} chars`,
 			truncated: false,
 		};
 	}
 	if (input.startIndex <= 0 && !input.truncated) {
-		return { format, detail: `${formatTokens(input.chars)} chars`, truncated: false };
+		return { format, detail: `${formatCharCount(input.chars)} chars`, truncated: false };
 	}
-	const range = `${formatTokens(input.startIndex + 1)}–${formatTokens(input.nextIndex)} of ${formatTokens(input.chars)} chars`;
+	const range = `chars ${formatCharCount(input.startIndex + 1)}–${formatCharCount(input.nextIndex)} of ${formatCharCount(input.chars)}`;
 	return {
 		format,
 		detail: range,
-		note: input.truncated ? `more at ${formatTokens(input.nextIndex)}` : "complete",
+		note: input.truncated ? `next at ${formatCharCount(input.nextIndex)}` : "complete",
 		truncated: input.truncated,
 	};
 }

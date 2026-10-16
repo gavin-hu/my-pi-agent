@@ -1,21 +1,16 @@
 /**
  * Terminal rendering for the goal.
  *
- * Two surfaces share one vocabulary. `goalWidgetLines` renders the persistent
- * above-editor widget as a single label-first rail line (`Goal · active ·
- * <objective>`, dimmed once achieved), matching the `todo` and `jobs` widgets.
- * `goalRailLines` renders the transcript result as a header (`Goal · active`)
- * plus the objective wrapped and led by the status glyph, with continuation rows
- * aligned under the text; it matches the todo transcript result's indent + glyph
- * grammar so the two read as a pair.
- * `GoalResult` wraps `goalRailLines` uncapped for the transcript.
+ * Two surfaces share one vocabulary. The persistent above-editor widget is a
+ * single label-first rail line (`Goal · active · <objective>`, dimmed once
+ * achieved), matching the `todo` and `jobs` widgets. The transcript result is
+ * the status header alone (`Goal · active`): the call line already names the
+ * objective, so the result only states the new status.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component } from "@earendil-works/pi-tui";
-import { GLYPH_GAP } from "../../lib/tui/glyphs.ts";
-import { BODY_INDENT } from "../../lib/tui/indent.ts";
-import { goalGlyph, goalHeader, goalLine } from "./format.ts";
+import { truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { goalHeader, goalLine } from "./format.ts";
 import type { AchievedStyle, Goal } from "./types.ts";
 
 /** Widget key used with `ctx.ui.setWidget()`. */
@@ -24,27 +19,6 @@ export const WIDGET_KEY = "goal-widget";
 export interface GoalWidgetOptions {
 	/** `hide` removes an achieved goal; `show` renders the one-line rail. */
 	achieved?: AchievedStyle;
-}
-
-/**
- * Rows for the transcript goal rail: the themed header plus `body` wrapped and
- * led by the status glyph. Continuation rows are padded to the text column.
- */
-export function goalRailLines(goal: Goal, body: string, theme: Theme, width: number): string[] {
-	const w = Math.max(1, width);
-	const glyph = goalGlyph(goal, theme);
-	const glyphWidth = visibleWidth(glyph);
-	const textColumn = BODY_INDENT + glyphWidth + GLYPH_GAP;
-	const inner = Math.max(1, w - textColumn);
-
-	const wrapped = wrapTextWithAnsi(body, inner);
-	const pad = " ".repeat(BODY_INDENT);
-	const continuation = " ".repeat(textColumn);
-	const lines = [goalHeader(goal, theme)];
-	wrapped.forEach((line, index) => {
-		lines.push(index === 0 ? `${pad}${glyph}${" ".repeat(GLYPH_GAP)}${line}` : `${continuation}${line}`);
-	});
-	return lines.map((line) => truncateToWidth(line, w, "…"));
 }
 
 /** Rows for the goal widget: a single rail line, or nothing when hidden. */
@@ -69,30 +43,27 @@ export class GoalWidget implements Component {
 	}
 }
 
-/** Transcript result block: the rail, uncapped, with the themed body. */
+/** Transcript result block: the status header, separated from the call line. */
 export class GoalResult implements Component {
 	private goal: Goal;
-	private body: string;
 	private theme: Theme;
 
-	constructor(goal: Goal, body: string, theme: Theme) {
+	constructor(goal: Goal, theme: Theme) {
 		this.goal = goal;
-		this.body = body;
 		this.theme = theme;
 	}
 
 	/** Update in place so the transcript can reuse this component across renders. */
-	update(goal: Goal, body: string, theme: Theme): void {
+	update(goal: Goal, theme: Theme): void {
 		this.goal = goal;
-		this.body = body;
 		this.theme = theme;
 	}
 
 	invalidate(): void {}
 
 	render(width: number): string[] {
-		// The leading blank line separates the rail from the call header, matching
+		// The leading blank line separates the header from the call line, matching
 		// the built-ins' header/output gap.
-		return ["", ...goalRailLines(this.goal, this.body, this.theme, Math.max(1, width))];
+		return ["", truncateToWidth(goalHeader(this.goal, this.theme), Math.max(1, width), "…")];
 	}
 }

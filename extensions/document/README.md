@@ -82,19 +82,20 @@ interactive transcript (and HTML exports).
 
 The call line carries the path (`~`-shortened, OSC-8 linked when the terminal
 supports it) and any paging options. The result line drops the path — it is
-already on the call line — and leads with the format and a humanized range:
+already on the call line — and leads with the format and the character range,
+grouped so a `k` suffix never sits on one bound and not the other:
 
 ```
 read_doc ~/docs/spec.pdf (from 40k, max 80k)
-PDF · 1–40k of 42k chars · more at 40k · ctrl+o
+PDF · chars 40,001–120,000 of 250,000 · next at 120,000 · ctrl+o
 ```
 
 Expanded adds a blank line before the preview body, matching the built-in
 header/output gap:
 
 ```
-read_doc ~/docs/spec.pdf
-PDF · 1–40k of 42k chars · more at 40k
+read_doc ~/docs/spec.pdf (from 40k, max 80k)
+PDF · chars 40,001–120,000 of 250,000 · next at 120,000
 
 Chapter 1
 This specification defines ...

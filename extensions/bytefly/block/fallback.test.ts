@@ -3,10 +3,31 @@ import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import { callFallback, resultFallback } from "./fallback.ts";
 
 describe("callFallback", () => {
-	test("names the tool and previews its arguments", () => {
+	test("shows a lone subject argument bare, like a built-in", () => {
 		const line = callFallback("read", { path: "a.ts" }, fakeTheme, false);
 		expect(line).toContain("read");
-		expect(line).toContain('path="a.ts"');
+		expect(line).toContain("a.ts");
+		expect(line).not.toContain("path=");
+	});
+
+	test("quotes a subject containing spaces and appends options", () => {
+		const line = callFallback("enter_worktree", { name: "my branch", keep: true }, fakeTheme, false);
+		expect(line).toContain('"my branch"');
+		expect(line).toContain("(keep)");
+	});
+
+	test("renders a bare flag when there is no subject", () => {
+		expect(callFallback("exit_worktree", { remove: true }, fakeTheme, false)).toEndWith("exit_worktree remove");
+	});
+
+	test("drops empty values and keeps a no-arg call to just the title", () => {
+		expect(callFallback("prune_worktrees", {}, fakeTheme, false)).toBe("prune_worktrees");
+		expect(callFallback("list_worktrees", undefined, fakeTheme, false)).toBe("list_worktrees");
+	});
+
+	test("splits a subject from its remaining options", () => {
+		const line = callFallback("foo", { query: "retry", limit: 10, verbose: true }, fakeTheme, false);
+		expect(line).toContain("retry (limit 10, verbose)");
 	});
 
 	test("expands arguments onto indented lines and sanitizes them", () => {
@@ -15,8 +36,9 @@ describe("callFallback", () => {
 		expect(text).not.toContain("\u0007");
 	});
 
-	test("is just the title without arguments", () => {
-		expect(callFallback("x", undefined, fakeTheme, false)).toBe("x");
+	test("caps the collapsed argument preview", () => {
+		const line = callFallback("x", { a: "y".repeat(200) }, fakeTheme, false);
+		expect(line).toEndWith("...");
 	});
 });
 

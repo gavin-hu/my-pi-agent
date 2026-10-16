@@ -96,6 +96,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   warn tint. The `● N changes +A −D` chip already reports uncommitted changes, so
   the header row stated the same fact twice, with two amber dots a few pixels
   apart; the branch chip now shows the branch (or detached head) alone.
+- `bytefly`: a tool with no renderer of its own now gets a readable fallback
+  call line — the leading string argument bare, the rest as trailing options
+  (`open_path src/app.ts`, `enter_worktree tool-gallery`) — instead of a dump of
+  raw `key="value"` pairs.
+- `web_search`: the call line states the requested limit (`(max 8)`), so it no
+  longer reads as the result count beside the result's actual `via <provider> ·
+  N results`; the direct answer is labelled `Answer:`.
+- `read_doc`: the result summary groups its counts and names the next offset
+  (`PDF · chars 40,001–120,000 of 250,000 · next at 120,000`) instead of mixing
+  a raw bound with a `k`-suffixed one (`1–40k of 42k chars · more at 40k`).
+- `memory`, `goal`, `todo`: the call line carries the summary and the body the
+  new state, so a note, objective, or task is no longer printed twice in one
+  block. `memory` confirms the write (`Added to project memory` plus the new
+  counts) without repeating the note, `goal` shows the status header (`Goal ·
+  active`) alone instead of restating the objective, and `todo` shows progress
+  (`todo → 1/4`) with the items only on the result rows.
 
 ### Fixed
 

@@ -70,7 +70,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			const { query, maxResults } = args as WebSearchArgs;
 			const text = reuseText(context?.lastComponent);
 			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "accent", oneLine(query ?? ""));
-			if (maxResults) line += paint(theme, "faint", ` (${maxResults} results)`);
+			if (maxResults) line += paint(theme, "faint", ` (max ${maxResults})`);
 			text.setText(line);
 			return text;
 		},
@@ -96,7 +96,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 				paint(theme, "faint", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`),
 			];
 			if (details.answer)
-				lines.push(`${paint(theme, "faint", "answer")} ${paint(theme, "meta", oneLine(details.answer, 160))}`);
+				lines.push(`${paint(theme, "faint", "Answer:")} ${paint(theme, "meta", oneLine(details.answer, 160))}`);
 
 			const shown = options.expanded ? details.results : details.results.slice(0, 5);
 			const indent = paint(theme, "faint", "   ");

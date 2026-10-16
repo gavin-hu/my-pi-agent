@@ -54,17 +54,18 @@ web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
 
 ### Transcript
 
-The call line names the query or URL. The result separates the header from its
-body and sanitizes untrusted web text (answers, titles, fetched titles and
-errors) to one line before it reaches the terminal. A search result labels its
-answer and lists one URL per result; expanding reveals snippets and the full
-result list.
+The call line names the query or URL and states the requested limit
+(`(max 8)`), so it never reads as the number of results returned. The result
+separates the header from its body and sanitizes untrusted web text (answers,
+titles, fetched titles and errors) to one line before it reaches the terminal.
+A search result labels its answer and lists one URL per result; expanding
+reveals snippets and the full result list.
 
 ```
-web_search "pi coding agent" (8 results)
+web_search "pi coding agent" (max 8)
 
 via searxng · 8 results
-answer Pi is a coding agent harness …
+Answer: Pi is a coding agent harness …
 1. Pi — a coding agent harness
    https://pi.dev/
 2. GitHub - earendil-works/pi

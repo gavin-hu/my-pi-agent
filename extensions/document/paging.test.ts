@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatDoc, summarizeDoc } from "./paging.ts";
+import { formatCharCount, formatDoc, summarizeDoc } from "./paging.ts";
 
 const base = { path: "a.pdf", format: "pdf" as const, bytes: 100 };
 
@@ -48,20 +48,20 @@ describe("summarizeDoc", () => {
 	test("shows the humanized total for a complete first read", () => {
 		const summary = summarizeDoc({ ...summaryBase, nextIndex: 42478, truncated: false });
 		expect(summary.format).toBe("PDF");
-		expect(summary.detail).toBe("42k chars");
+		expect(summary.detail).toBe("42,478 chars");
 		expect(summary.note).toBeUndefined();
 	});
 
 	test("shows the returned range and where to continue when truncated", () => {
 		const summary = summarizeDoc({ ...summaryBase, nextIndex: 40000, truncated: true });
-		expect(summary.detail).toBe("1–40k of 42k chars");
-		expect(summary.note).toBe("more at 40k");
+		expect(summary.detail).toBe("chars 1–40,000 of 42,478");
+		expect(summary.note).toBe("next at 40,000");
 		expect(summary.truncated).toBe(true);
 	});
 
 	test("marks a non-first final page complete", () => {
 		const summary = summarizeDoc({ ...summaryBase, startIndex: 40000, nextIndex: 42478, truncated: false });
-		expect(summary.detail).toBe("40k–42k of 42k chars");
+		expect(summary.detail).toBe("chars 40,001–42,478 of 42,478");
 		expect(summary.note).toBe("complete");
 	});
 
@@ -87,5 +87,13 @@ describe("summarizeDoc", () => {
 		});
 		expect(summary.detail).toBe("no extractable text");
 		expect(summary.note).toBeUndefined();
+	});
+});
+
+describe("formatCharCount", () => {
+	test("groups thousands so a count stays readable", () => {
+		expect(formatCharCount(8000)).toBe("8,000");
+		expect(formatCharCount(42478)).toBe("42,478");
+		expect(formatCharCount(999)).toBe("999");
 	});
 });

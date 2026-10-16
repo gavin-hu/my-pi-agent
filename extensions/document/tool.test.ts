@@ -202,7 +202,7 @@ describe("read_doc tool", () => {
 			.renderResult(docResult({}), { isPartial: false, expanded: false }, fakeTheme, renderContext())
 			.render(80)
 			.join("\n");
-		expect(rendered).toContain("PDF · 42k chars");
+		expect(rendered).toContain("PDF · 42,478 chars");
 		expect(rendered).not.toContain("a.pdf");
 	});
 
@@ -225,8 +225,8 @@ describe("read_doc tool", () => {
 			)
 			.render(80)
 			.join("\n");
-		expect(rendered).toContain("1–40k of 42k chars");
-		expect(rendered).toContain("more at 40k");
+		expect(rendered).toContain("chars 1–40,000 of 42,478");
+		expect(rendered).toContain("next at 40,000");
 	});
 
 	test("marks a non-first final page complete", () => {
@@ -239,7 +239,7 @@ describe("read_doc tool", () => {
 			)
 			.render(80)
 			.join("\n");
-		expect(rendered).toContain("40k–42k of 42k chars");
+		expect(rendered).toContain("chars 40,001–42,478 of 42,478");
 		expect(rendered).toContain("complete");
 	});
 
@@ -250,7 +250,7 @@ describe("read_doc tool", () => {
 			.render(200)
 			.map((line: string) => line.trimEnd());
 		const rendered = lines.join("\n");
-		expect(lines[0]).toBe("PDF · 42k chars");
+		expect(lines[0]).toBe("PDF · 42,478 chars");
 		expect(lines[1]).toBe("");
 		expect(lines[2]).toBe("line 0");
 		expect(rendered).toContain("line 19");

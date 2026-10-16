@@ -57,13 +57,13 @@ Todos · 1/3 · Writing the tests
 `/todos` is the expanded view and keeps the model's list order (use it to see
 the plan as written).
 
-In the transcript, the call line pairs progress with the active item
-(`todo → 1/4 · Writing tests`), and the result keeps the same
-`✓` / `◒` / `◌` rows as the goal result, directly under the call line. Collapsed,
-it leads with active work; expanded, it keeps the submitted order:
+In the transcript, the call line carries progress only (`todo → 1/4`); the
+result keeps the `✓` / `◒` / `◌` rows, directly under the call line. The item
+text lives on the rows, so the call line never repeats it. Collapsed, it leads
+with active work; expanded, it keeps the submitted order:
 
 ```
-todo → 1/4 · Writing tests
+todo → 1/4
     ◒ Writing tests
     ◌ Ship it
     ◌ Write docs

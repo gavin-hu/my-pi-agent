@@ -42,10 +42,9 @@ describe("memory text", () => {
 		expect(formatCallText({ action: "list" })).toBe("→ list");
 	});
 
-	test("formatResultText reports add, duplicate, and forget", () => {
-		expect(formatResultText(details({ action: "add", changed: true, entry: "x", project: ["x"] }))).toContain(
-			"Added to project memory: x",
-		);
+	test("formatResultText confirms a write without repeating the note", () => {
+		const added = formatResultText(details({ action: "add", changed: true, entry: "x", project: ["x"] }));
+		expect(added).toBe("Added to project memory\nNow 1 project, 0 global.");
 		expect(formatResultText(details({ action: "add", changed: false, entry: "x" }))).toContain(
 			"Already in project memory",
 		);
@@ -55,15 +54,15 @@ describe("memory text", () => {
 		expect(formatResultText(details({ action: "add", changed: false, entry: "x", existing: "x" }))).toBe(
 			"Already in project memory: x",
 		);
-		expect(formatResultText(details({ action: "forget", changed: true, entry: "x" }))).toContain(
-			"Removed from project memory: x",
+		expect(formatResultText(details({ action: "forget", changed: true, entry: "x" }))).toBe(
+			"Removed from project memory\nNow 0 project, 0 global.",
 		);
 	});
 
 	test("formatResultText reports update and a no-op update", () => {
-		expect(
-			formatResultText(details({ action: "update", changed: true, entry: "a", to: "b", project: ["b"] })),
-		).toContain("Updated project memory: a → b");
+		expect(formatResultText(details({ action: "update", changed: true, entry: "a", to: "b", project: ["b"] }))).toBe(
+			"Updated project memory\nNow 1 project, 0 global.",
+		);
 		expect(formatResultText(details({ action: "update", changed: false, entry: "a", to: "a" }))).toContain(
 			"Already set in project memory: a",
 		);

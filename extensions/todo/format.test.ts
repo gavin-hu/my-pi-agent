@@ -34,51 +34,23 @@ describe("todo formatting", () => {
 		expect(formatTodoText([])).toBe("Todo list cleared.");
 	});
 
-	test("formatCallText shows progress and the active item", () => {
+	test("formatCallText shows only progress, never the item text", () => {
 		expect(formatCallText([])).toBe("→ clear list");
 		expect(formatCallText(undefined)).toBe("→ clear list");
-		expect(formatCallText([{ content: "Only", status: "pending" }])).toBe("→ 0/1 · Only");
-		expect(
-			formatCallText([
-				{ content: "Done", status: "completed" },
-				{ content: "Work", status: "in_progress", activeForm: "Working" },
-				{ content: "Next", status: "pending" },
-			]),
-		).toBe("→ 1/3 · Working");
-	});
-
-	test("formatCallText falls back to the first pending item", () => {
-		expect(
-			formatCallText([
-				{ content: "First", status: "pending" },
-				{ content: "Second", status: "pending" },
-			]),
-		).toBe("→ 0/2 · First");
-	});
-
-	test("formatCallText marks a finished list completed", () => {
-		expect(
-			formatCallText([
-				{ content: "A", status: "completed" },
-				{ content: "B", status: "completed" },
-			]),
-		).toBe("→ 2/2 · completed");
+		expect(formatCallText([{ content: "Only", status: "pending" }])).toBe("→ 0/1");
+		const line = formatCallText([
+			{ content: "Done", status: "completed" },
+			{ content: "Work", status: "in_progress", activeForm: "Working" },
+			{ content: "Next", status: "pending" },
+		]);
+		expect(line).toBe("→ 1/3");
+		// The result rail carries the items, so the call must not repeat one.
+		expect(line).not.toContain("Working");
 	});
 
 	test("formatCallText distinguishes a streaming call from a clear", () => {
 		expect(formatCallText(undefined, false)).toBe("→ …");
 		expect(formatCallText([], false)).toBe("→ clear list");
-	});
-
-	test("formatCallText clips a long active item", () => {
-		const text = formatCallText([{ content: "x".repeat(80), status: "in_progress", activeForm: "x".repeat(80) }]);
-		expect(visibleWidth(text)).toBe(visibleWidth("→ 0/1 · ") + 40);
-		expect(text.endsWith("…")).toBe(true);
-	});
-
-	test("formatCallText never exceeds the preview width on wide glyphs", () => {
-		const text = formatCallText([{ content: "あ".repeat(39) + "い", status: "pending" }]);
-		expect(visibleWidth(text)).toBeLessThanOrEqual(visibleWidth("→ 0/1 · ") + 40);
 	});
 });
 

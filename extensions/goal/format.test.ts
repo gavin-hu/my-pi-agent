@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import {
-	ACTIVE_SYMBOL,
-	ACHIEVED_SYMBOL,
 	formatCallText,
 	formatGoalNotice,
 	formatGoalText,
@@ -23,15 +21,11 @@ const achieved: Goal = { objective: "Ship the parser", status: "achieved" };
 
 describe("headers", () => {
 	test("active header names the goal and its status", () => {
-		const header = goalHeader(active, theme);
-		expect(header).toBe("Goal · active");
-		expect(header).not.toContain(ACTIVE_SYMBOL);
+		expect(goalHeader(active, theme)).toBe("Goal · active");
 	});
 
 	test("achieved header reads as done", () => {
-		const header = goalHeader(achieved, theme);
-		expect(header).toBe("Goal · achieved");
-		expect(header).not.toContain(ACHIEVED_SYMBOL);
+		expect(goalHeader(achieved, theme)).toBe("Goal · achieved");
 	});
 
 	test("status labels are human words", () => {

@@ -140,7 +140,7 @@ describe("todo tool", () => {
 		expect(text).not.toContain("clear list");
 	});
 
-	test("the call line shows progress and the active item, naming the tool once", () => {
+	test("the call line shows progress only, naming the tool once", () => {
 		const { tool } = setup();
 		const text = tool
 			.renderCall(
@@ -155,7 +155,8 @@ describe("todo tool", () => {
 			)
 			.render(80)
 			.join("\n");
-		expect(text).toContain("todo → 1/2 · Writing tests");
+		expect(text).toContain("todo → 1/2");
+		expect(text).not.toContain("Writing tests");
 		expect(text).not.toContain("todo todo");
 	});
 

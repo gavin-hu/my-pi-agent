@@ -132,10 +132,37 @@ describe("web_search transcript rendering", () => {
 			.map((line: string) => line.trimEnd());
 		expect(lines[0]).toBe("");
 		expect(lines[1]).toBe("via duckduckgo · 1 result");
-		expect(lines[2]).toContain("answer");
+		expect(lines[2]).toContain("Answer:");
 		expect(lines[3]).toContain("Title");
 		expect(lines[4]).toContain("https://x/");
 		expect(lines.join("\n")).not.toContain("\u001b");
+	});
+
+	test("the call states the request limit and the result the actual count", () => {
+		const tool = renderer();
+		const call = tool
+			.renderCall({ query: "retry", maxResults: 3 }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(call).toContain("(max 3)");
+		const details = {
+			query: "retry",
+			provider: "duckduckgo",
+			answer: "",
+			results: [
+				{ title: "A", url: "https://a/", snippet: "" },
+				{ title: "B", url: "https://b/", snippet: "" },
+			],
+			truncated: false,
+			fetchedAt: "now",
+		};
+		const result = tool
+			.renderResult({ details, content: [{ type: "text", text: "" }] }, { expanded: false }, fakeTheme, {
+				lastComponent: undefined,
+			})
+			.render(80)
+			.join("\n");
+		expect(result).toContain("2 results");
 	});
 
 	test("collapsed hints at the remaining results and expanded shows them", () => {

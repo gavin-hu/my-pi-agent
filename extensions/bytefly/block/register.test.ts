@@ -54,7 +54,7 @@ describe("registerToolBlocks", () => {
 		const renderers = resolver()("mystery", () => undefined);
 		const lines = renderers?.renderCall?.({ q: "hi" }, fakeTheme, ctx()).render(60) ?? [];
 		expect(lines[0]).toContain("mystery");
-		expect(lines.join("\n")).toContain('q="hi"');
+		expect(lines.join("\n")).toContain("mystery hi");
 	});
 
 	test("hands the base its own previous component, never the frame", () => {

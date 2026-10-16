@@ -116,13 +116,13 @@ The tool works in every mode. The persistent widget requires interactive
 `/goal <prompt>` runs the loop: each model call uses a cancellable `tui` spinner
 in interactive mode and runs directly in RPC; the questions and the confirm step
 are host dialogs, forwarded by RPC. In print and JSON mode the loop is skipped
-and the typed text is sent. The widget is always a single line; the transcript result
-keeps the full indented rows, directly under the call line:
+and the typed text is sent. The widget is always a single line; the transcript
+result is the status header alone, directly under the call line that names the
+objective:
 
 ```
 goal → set: Refactor the parser to support streaming input
   Goal · active
-    ⊚ Refactor the parser to support streaming input and ship it with tests
 ```
 
 The renderer reuses the slot's component (`context.lastComponent`) rather than
@@ -210,9 +210,10 @@ depends on config.
   hide all rails and restore them on close.
 - **One-line widget, achieved hidden by default.** The rail follows the
   `todo` grammar (`Goal · active · <objective>`): accent label leads, status
-  follows, no prefixed glyph, clipped to the terminal. The transcript keeps the
-  multi-line `⊚` / `✓` rail. `achieved: "show"` restores the dimmed line; config
-  only affects presentation.
+  follows, no prefixed glyph, clipped to the terminal. The transcript result is
+  the status header alone (`Goal · active`), because the call line above it
+  already carries the objective; it does not restate it. `achieved: "show"`
+  restores the dimmed widget line; config only affects presentation.
 - **Sanitize at the boundary.** `normalizeGoal` and `parseClarification` both route
   model text through `lib/format.ts`'s `sanitizeLine`, so an embedded newline
   cannot corrupt the widget and raw escapes cannot restyle the terminal.
@@ -228,9 +229,9 @@ depends on config.
 | `clarify-parse.ts` | Parse the `{ understood, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
 | `clarify.ts` | The two model calls, their cancellable loaders, the in-command questionnaire, and the confirm/edit dialog (host). |
 | `state.ts` | Branch reconstruction (pure). |
-| `format.ts` | Model-facing and terminal text plus the transcript `⊚` / `✓` symbols and the rail vocabulary (pure). |
+| `format.ts` | Model-facing and terminal text plus the header and rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (the `goal` section of `bytefly.json`). |
-| `tui.ts` | The persistent goal widget and the transcript result rows. |
+| `tui.ts` | The persistent goal widget and the transcript status header. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `goal` tool registration and rendering. |
 | `commands.ts` | `/goal`. |
