@@ -1,14 +1,15 @@
 /**
- * The user-message nameplate: a bold `❯ You` label with a rule running to the
+ * The user-message nameplate: a `❯ You` heading with a rule running to the
  * right margin, above the message.
  *
- * Pi's user message component parses the transformed string as Markdown, so
- * shaping text is the only lever: the surface can add no component, color, or
- * box. The nameplate is one paragraph — `**label**` and a run of the rule glyph
- * — separated from the message by a blank line, so the message's own Markdown (a
- * fence, a list, a second paragraph) parses exactly as it would without the
- * nameplate. Colors come from the renderer: the label is bold in
- * `userMessageText` and the rule is plain `userMessageText`.
+ * Pi's user message component parses the transformed string as Markdown and
+ * owns its colors, so shaping text is the only lever: the surface can add no
+ * component and no color of its own. The nameplate is a level-2 heading, which
+ * Pi renders bold in `mdHeading` and prints without its `#` prefix; the bytefly
+ * themes point `mdHeading` at the accent, so the label and rule carry the accent
+ * while the message itself stays in the default text color. A blank line
+ * separates the nameplate from the message, so the message's own Markdown (a
+ * fence, a list, a second paragraph) parses exactly as it would without it.
  */
 
 import type { MarkdownTransformContext } from "@earendil-works/pi-coding-agent";
@@ -18,9 +19,9 @@ import { MESSAGE_CONFIG } from "./config.ts";
 const { glyph, label, ruleGlyph } = MESSAGE_CONFIG;
 
 /**
- * The nameplate line: a bold label, a space, and the rule to the right margin.
- * The rule is dropped when fewer than `minRule` columns remain, and the whole
- * nameplate is dropped when not even the label fits.
+ * The nameplate line: a heading whose text is the label and, to the right
+ * margin, the rule. The rule is dropped when fewer than `minRule` columns
+ * remain, and the whole nameplate is dropped when not even the label fits.
  */
 export function nameplate(width: number): string | undefined {
 	const text = `${glyph} ${label}`;
@@ -28,8 +29,8 @@ export function nameplate(width: number): string | undefined {
 	const w = Math.max(1, Math.floor(width));
 	if (labelWidth > w) return undefined;
 	const fill = w - labelWidth - 1;
-	if (fill < MESSAGE_CONFIG.minRule) return `**${text}**`;
-	return `**${text}** ${ruleGlyph.repeat(fill)}`;
+	if (fill < MESSAGE_CONFIG.minRule) return `## ${text}`;
+	return `## ${text} ${ruleGlyph.repeat(fill)}`;
 }
 
 /** Put the nameplate above a user message; every other message passes through. */

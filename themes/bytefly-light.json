@@ -51,7 +51,7 @@
     "toolErrorBg": "errorBg",
     "toolTitle": "text",
     "toolOutput": "muted",
-    "mdHeading": "yellow",
+    "mdHeading": "blue",
     "mdLink": "blue",
     "mdLinkUrl": "muted",
     "mdCode": "pink",
