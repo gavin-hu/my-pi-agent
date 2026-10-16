@@ -56,6 +56,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   label-first `Question ────` title rule over a muted closing rule, the shared
   `◼`/`◻` checkbox in place of `[x]`/`[ ]`, and the kit's new `flowCells` for
   the tab bar.
+- `plan`: the review overlay is drawn from the `lib/tui/` design system — a
+  label-first `Plan Review ────` title rule in place of the centered one, the
+  shared `◼`/`◻` for the plan's `- [ ]` / `- [x]` task lines (in place of
+  `[✓]`/`[ ]`), and the kit's `gaugeBar` for the scroll meter. The frame, the
+  scroll keys, and the section jumps are unchanged.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report

@@ -33,13 +33,17 @@ import {
 import { stripControlChars } from "../../lib/format.ts";
 import {
 	editorTheme,
-	screenHeader,
 	screenHint,
 	viewportRows,
 	type ScreenHint,
 	type ViewportRowsSource,
 } from "../../lib/tui/chrome.ts";
+import { isCloseKey } from "../../lib/tui/cursor.ts";
+import { gaugeBar } from "../../lib/tui/gauge.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { titleRule } from "../../lib/tui/rules.ts";
+import { emptyState, checkbox } from "../../lib/tui/rows.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
 import { extractPlanSections } from "./steps.ts";
 
@@ -110,14 +114,12 @@ export function sanitizePlanText(text: string): string {
 
 /** A task checkbox in a list marker: `- [x] `, `1. [ ] `. */
 const TASK_MARKER = /^([-*+]|\d+[.)])(\s+)(\[([ xX])\])(\s*)$/;
-/** Task-checkbox markers; three columns wide so list wrapping stays aligned. */
-const TASK_BOX = { done: `[${GLYPHS.check}]`, pending: "[ ]" } as const;
 
 /**
- * Wrap the Markdown theme so task checkboxes read at a glance: done steps get a
- * `success` check, pending steps a `dim` box. The replacement keeps the marker's
- * visible width (`[✓]` and `[ ]` are both three columns), so wrapped list
- * continuation lines stay aligned.
+ * Wrap the Markdown theme so task checkboxes read at a glance with the shared
+ * `◼`/`◻` vocabulary, the same box the bytefly screen and the question dialog
+ * draw. The replacement is one column wide instead of the bracket's three, so a
+ * wrapped list continuation shifts left by two.
  */
 function planMarkdownTheme(theme: Theme, base: MarkdownTheme): MarkdownTheme {
 	return {
@@ -126,27 +128,19 @@ function planMarkdownTheme(theme: Theme, base: MarkdownTheme): MarkdownTheme {
 			const match = TASK_MARKER.exec(text);
 			if (!match) return base.listBullet(text);
 			const [, bullet, gap, , mark, trail] = match;
-			const box = mark.toLowerCase() === "x" ? theme.fg("success", TASK_BOX.done) : theme.fg("dim", TASK_BOX.pending);
-			return `${base.listBullet(`${bullet}${gap}`)}${box}${trail}`;
+			return `${base.listBullet(`${bullet}${gap}`)}${checkbox(theme, mark.toLowerCase() === "x")}${trail}`;
 		},
 	};
-}
-
-/** A fixed-width gauge: `fillSegments` (rounded) in `fill`, the rest dim. */
-function gauge(theme: Theme, fillSegments: number, fill: "accent" | "success"): string {
-	const count = Math.min(GAUGE_SEGMENTS, Math.max(0, Math.round(fillSegments)));
-	return (
-		theme.fg(fill, GLYPHS.gaugeFull.repeat(count)) + theme.fg("dim", GLYPHS.gaugeEmpty.repeat(GAUGE_SEGMENTS - count))
-	);
 }
 
 /** Scroll position below the body: a gauge, the percent, and the visible range. */
 function scrollRow(theme: Theme, width: number, offset: number, end: number, total: number, section?: string): string {
 	const maxOffset = Math.max(0, total - (end - offset));
 	const percent = maxOffset > 0 ? Math.round((offset / maxOffset) * 100) : 100;
-	const head = `${gauge(theme, (percent / 100) * GAUGE_SEGMENTS, "accent")} ${theme.fg("accent", `${percent}%`)}`;
-	const range = theme.fg("dim", `lines ${offset + 1}–${end} of ${total}`);
-	const label = section ? theme.fg("muted", `${GLYPHS.plan} ${section}`) : "";
+	const bar = gaugeBar(theme, { percent, blocks: GAUGE_SEGMENTS, role: "accent", emptyRole: "faint" });
+	const head = `${bar} ${paint(theme, "accent", `${percent}%`)}`;
+	const range = paint(theme, "faint", `lines ${offset + 1}–${end} of ${total}`);
+	const label = section ? paint(theme, "meta", `${GLYPHS.plan} ${section}`) : "";
 	// Keep the gauge and percent; drop the range first, then the section label, on a
 	// narrow terminal.
 	const candidates = [
@@ -295,7 +289,7 @@ export class PlanViewComponent implements Component {
 
 	handleInput(data: string): void {
 		if (this.editing) {
-			if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+			if (isCloseKey(data)) {
 				this.cancelRefine();
 				return;
 			}
@@ -303,7 +297,7 @@ export class PlanViewComponent implements Component {
 			this.options.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+		if (isCloseKey(data)) {
 			this.options.onClose("keep");
 			return;
 		}
@@ -361,19 +355,19 @@ export class PlanViewComponent implements Component {
 		this.offset = Math.min(Math.max(0, this.offset), maxOffset);
 		const sectionLabel = this.currentSection(sections)?.title;
 
-		const lines: string[] = [screenHeader(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6)))];
+		const lines: string[] = [titleRule(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6)))];
 		lines.push("");
 
 		const end = Math.min(body.length, this.offset + visible);
 		for (let i = this.offset; i < end; i++) lines.push(body[i]);
-		if (body.length === 0) lines.push(truncateToWidth(`  ${theme.fg("dim", "This plan is empty.")}`, w));
+		if (body.length === 0) lines.push(...emptyState(theme, w, { label: "This plan is empty." }));
 
 		if (this.editing) {
 			// Keep the scroll position visible while editing: the body above is still
 			// clipped, so the reader needs to know where they are.
 			if (this.maxOffset > 0) lines.push(scrollRow(theme, w, this.offset, end, body.length, sectionLabel));
 			else lines.push("");
-			lines.push(truncateToWidth(`  ${theme.fg("muted", "Refine the plan:")}`, w));
+			lines.push(truncateToWidth(`  ${paint(theme, "meta", "Refine the plan:")}`, w));
 			for (const line of editorLines) lines.push(truncateToWidth(`  ${line}`, w));
 			lines.push("");
 			lines.push(screenHint(theme, w, ["Esc back to plan", { text: "Enter submit", color: "success" }]));

@@ -110,9 +110,9 @@ The review screen is TUI-only. `exit_plan_mode` opens `PlanViewComponent`: a
 scrollable, width-safe view of the plan with approve/refine/keep in the footer.
 The body is rendered with Pi's own `Markdown` component and `getMarkdownTheme()`,
 so headings, lists, inline code, code blocks, links, and quotes carry the active
-theme's colors; task items get a `success` `[✓]` (done) or `dim` `[ ]` (pending)
-marker. The footer colors the primary actions (`a approve & run` in `success`,
-`r refine` in `accent`).
+theme's colors; task items get the shared `◼` (done) or `◻` (pending) marker,
+like the bytefly screen and the question dialog. The footer colors the primary
+actions (`a approve & run` in `success`, `r refine` in `accent`).
 `a` ends plan mode, restores write access, and seeds `todo`; `r` keeps the plan
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
@@ -121,7 +121,8 @@ model the plan was not approved. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b`
 the next or previous heading; the scroll row names the current section when the
 plan has more than one. When the plan overflows,
 a gauge row above the hints shows the scroll position, the percent, and the
-visible line range (the range drops first on a narrow terminal); the gauge stays
+visible line range (the range drops first on a narrow terminal); the gauge comes
+from the design system's `gaugeBar` and stays
 visible while the refine editor is open, since the body above is still clipped.
 Hints are
 dropped whole as the terminal narrows, and each footer leads with its safe exit

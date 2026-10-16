@@ -127,8 +127,8 @@ describe("PlanViewComponent — render", () => {
 			markdownTheme: fakeMarkdownTheme(theme),
 		});
 		const text = render(component, 80).join("\n");
-		expect(text).toContain("[success][✓]");
-		expect(text).toContain("[dim][ ]");
+		expect(text).toContain("[success]◼");
+		expect(text).toContain("[dim]◻");
 	});
 
 	test("renders headings through the injected Markdown theme", () => {
