@@ -6,16 +6,15 @@ import { fakeTheme } from "../../test/helpers/fakes.ts";
 
 const theme = fakeTheme;
 
-const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
-
 /** Capture the component `ctx.ui.custom` builds so a test can drive it. */
-function harness(questions: Question[], signal?: AbortSignal) {
+function harness(questions: Question[], signal?: AbortSignal, rows = 24) {
 	let component: any;
+	const localTui = { requestRender: () => {}, terminal: { rows, columns: 80 } };
 	const ctx: any = {
 		ui: {
 			custom: (factory: any) =>
 				new Promise((resolve) => {
-					component = factory(tui, theme, undefined, resolve);
+					component = factory(localTui, theme, undefined, resolve);
 				}),
 		},
 	};
@@ -23,6 +22,10 @@ function harness(questions: Question[], signal?: AbortSignal) {
 	return {
 		render: (width = 70) => component.render(width) as string[],
 		input: (data: string) => component.handleInput(data),
+		/** Resize the reported terminal height, so the cache is probed. */
+		setRows: (value: number) => {
+			localTui.terminal.rows = value;
+		},
 		focus: (value: boolean) => {
 			component.focused = value;
 		},
@@ -95,7 +98,7 @@ describe("askViaTui render", () => {
 		const h = harness([multi]);
 		h.input(" "); // toggle the first option
 		const text = h.render().join("\n");
-		expect(text).toContain("[x] OAuth");
+		expect(text).toContain("◼ OAuth");
 		expect(text).toContain("Selected: OAuth");
 	});
 
@@ -172,7 +175,7 @@ describe("askViaTui render", () => {
 		h.input("\x1b[D"); // back to Auth
 
 		const text = h.render().join("\n");
-		expect(text).toContain("[x] Other (type something)");
+		expect(text).toContain("◼ Other (type something)");
 		expect(text).toContain("Selected: hand-rolled");
 	});
 });
@@ -222,5 +225,35 @@ describe("askViaTui wiring", () => {
 		const text = h.render().join("\n");
 		expect(text).toContain("Anything else?");
 		expect(text).not.toContain("leftover answer");
+	});
+});
+
+describe("askViaTui viewport", () => {
+	test("windows the options and keeps the hint and the closing rule on a short terminal", () => {
+		const h = harness([withOptions], undefined, 8);
+		const lines = h.render();
+		const text = lines.join("\n");
+
+		expect(text).toContain("option 1–1 of 3");
+		expect(text).toContain("Esc cancel");
+		expect(lines[lines.length - 1]).toMatch(/^─+$/);
+		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(70);
+	});
+
+	test("keeps the focused option visible when the window scrolls", () => {
+		const h = harness([withOptions], undefined, 9);
+		expect(h.render().join("\n")).toContain("option 1–1 of 3");
+
+		h.input("\x1b[B");
+		h.input("\x1b[B");
+		expect(h.render().join("\n")).toContain("❯ 3. Other (type something)");
+	});
+
+	test("picks up a height change, not only a width change", () => {
+		const h = harness([withOptions], undefined, 24);
+		expect(h.render().join("\n")).not.toContain("option 1–");
+
+		h.setRows(8);
+		expect(h.render().join("\n")).toContain("option 1–1 of 3");
 	});
 });

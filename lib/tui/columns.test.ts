@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { clip, fitCells, padTo, splitRow } from "./columns.ts";
+import { clip, fitCells, flowCells, padTo, splitRow } from "./columns.ts";
 
 /** A representative mix: ASCII, a CJK sample, and a themed string. */
 const SAMPLES = ["Extensions", "日本語のリスト", "\u001b[31mred\u001b[39m text", "a", ""];
@@ -59,6 +59,35 @@ describe("splitRow", () => {
 		for (const width of WIDTHS) {
 			for (const sample of SAMPLES) {
 				expect(visibleWidth(splitRow(sample, "yz", width))).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+});
+
+describe("flowCells", () => {
+	test("packs whole cells greedily and wraps at the width", () => {
+		expect(flowCells(["a", "b", "c"], 2)).toEqual(["ab", "c"]);
+	});
+
+	test("keeps every cell when they all fit", () => {
+		expect(flowCells(["a", "b", "c"], 10)).toEqual(["abc"]);
+	});
+
+	test("clips an over-wide cell instead of splitting it", () => {
+		const lines = flowCells(["wide-cell"], 4);
+		expect(lines).toHaveLength(1);
+		expect(visibleWidth(lines[0] ?? "")).toBeLessThanOrEqual(4);
+	});
+
+	test("always returns at least one line", () => {
+		expect(flowCells([], 10)).toEqual([""]);
+	});
+
+	test("every line fits the width", () => {
+		const cells = [" alpha ", " beta ", " gamma ", " delta "];
+		for (const width of WIDTHS) {
+			for (const line of flowCells(cells, width)) {
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 			}
 		}
 	});

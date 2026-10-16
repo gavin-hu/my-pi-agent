@@ -52,6 +52,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shared `listRow` rows and `emptyState`, and the shared dock frame. `/rewind`
   now uses that frame, so its blank lines and its row budget match the other
   list screens.
+- `question`: the dialog is drawn from the `lib/tui/` design system — a
+  label-first `Question ────` title rule over a muted closing rule, the shared
+  `◼`/`◻` checkbox in place of `[x]`/`[ ]`, and the kit's new `flowCells` for
+  the tab bar.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report
@@ -76,6 +80,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `question`: the dialog is now height-aware. The option list windows with an
+  `option A–B of N` row when the terminal is shorter than the question, so the
+  hint and the closing rule can no longer be pushed off-screen by a long list.
 - `memory`: the `/memory` hint advertised `g`/`G` but nothing bound them; they
   now jump to the first and last note.
 - `plan`: the browser review save/cancel response is delivered before the

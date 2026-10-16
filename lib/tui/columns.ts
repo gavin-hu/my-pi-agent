@@ -62,3 +62,35 @@ export function fitCells(cells: readonly string[], width: number, separator = " 
 	}
 	return clip(kept.join(separator), w);
 }
+
+/**
+ * Lay atomic, already-themed cells onto lines no wider than `width`.
+ *
+ * Cells are never split: one that would not fit moves to the next line, and one
+ * wider than the whole width is clipped. Use this for a row of independent
+ * tokens (tabs, tags) where `fitCells`' single-line drop would lose one; unlike
+ * {@link fitCells} it may return several lines, and always returns one.
+ */
+export function flowCells(cells: readonly string[], width: number): string[] {
+	const w = columns(width);
+	const lines: string[] = [];
+	let current = "";
+	let currentWidth = 0;
+	for (const cell of cells) {
+		let text = cell;
+		let cellWidth = visibleWidth(cell);
+		if (cellWidth > w) {
+			text = truncateToWidth(cell, w);
+			cellWidth = visibleWidth(text);
+		}
+		if (currentWidth > 0 && currentWidth + cellWidth > w) {
+			lines.push(current);
+			current = "";
+			currentWidth = 0;
+		}
+		current += text;
+		currentWidth += cellWidth;
+	}
+	lines.push(current);
+	return lines;
+}

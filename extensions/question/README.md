@@ -173,7 +173,7 @@ None in v1 — the tool is either available (a UI exists) or not.
 | `types.ts` | Shared raw/normalized types |
 | `answers.ts` | Answer normalization and model-facing formatting (pure) |
 | `tui-state.ts` | Pure keyboard/navigation state machine |
-| `tui.ts` | Custom terminal component (render + input) |
+| `tui.ts` | Custom terminal component (render + input), drawn from the `lib/tui/` kit (`titleRule`/`plainRule`, `checkbox`, `flowCells`, `screenHint`, `editorTheme`). |
 | `dialogs.ts` | `select`/`input`/`editor` fallback driver |
 | `tools.ts` | Tool registration and transcript renderers |
 
