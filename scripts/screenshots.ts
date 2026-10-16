@@ -601,7 +601,7 @@ async function captureChrome(): Promise<void> {
 		`for n in \${(k)parameters}; do case \${n:u} in *KEY*|*TOKEN*|*SECRET*|*PASSWORD*) unset $n ;; esac; done; ` +
 		`${shellQuote(pi)} -ne --offline -e ${shellQuote(repo)} --no-themes ` +
 		`--theme ${shellQuote(join(repo, "themes", "bytefly-dark.json"))} --use-theme bytefly-dark ` +
-		`--thinking off -n my-pi-agent 'hi' --session ${shellQuote(session)} -a`;
+		`--thinking off -n my-pi-agent 'how are you today?' --session ${shellQuote(session)} -a`;
 	const before = new Set(windowIds());
 	osascript('tell application "Terminal" to do script ""');
 	const id = await waitForNewWindow(before, 5_000);
