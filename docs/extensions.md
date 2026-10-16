@@ -231,7 +231,9 @@ between completed turns, a two-row `You` nameplate above each user message on th
 terminal background, and the shared transcript rail (`╎`) that every non-prose
 block hangs from — the shared notice and every tool block, built-ins included,
 share one left edge and one rail that stays neutral unless a call is running or
-failed. DeepSeek is priced out of the
+failed. While an assistant message streams it also advances a live elapsed
+counter (`Thinking… 12s`) on Pi's hidden thinking label and its `Working` row,
+handing both back to Pi when the message ends. DeepSeek is priced out of the
 box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a

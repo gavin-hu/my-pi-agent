@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: while an assistant message streams, a live elapsed counter
+  (`Thinking… 12s`) is written to Pi's hidden thinking label and its `Working`
+  row, and both are handed back when the message ends. The value is live only —
+  the extension API has no per-message hook to keep a finished block's total —
+  and the label is visible when Pi hides the thinking block.
 - Tooling: `bun run screenshot:tools` renders every tool's call and result —
   each tool this package registers plus Pi's built-ins, each resolved through
   the shipped rail — into one full-page reference
