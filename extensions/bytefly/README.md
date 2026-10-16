@@ -117,15 +117,14 @@ its continuation lines hang two columns under the text:
   its second line, hung two columns in
 ```
 
-It is always on in interactive sessions and has no config file. It is shaped,
-not painted: Pi renders a user message as Markdown and owns its colors, so
-bytefly's only lever is a `registerMarkdownTransformer`, and the marker and hang
-are plain `userMessageText`. The two shipped themes set `userMessageBg` to
-transparent, so the message sits on the terminal background instead of a filled
-block. The hang covers the first paragraph and stops at a blank line or the next
-block (a list, a heading, a fence), so code and lists keep the layout you wrote;
-a soft wrap of one long line stays at the margin, because the renderer wraps it,
-not bytefly. The glyph and the hang are tuned in
+It is always on in interactive sessions and has no config file. Pi renders a
+user message as Markdown and owns its colors, so bytefly's only lever is a
+`registerMarkdownTransformer`: the marker and the hang are plain
+`userMessageText`, and the block's fill comes from the theme's `userMessageBg`.
+The hang covers the first paragraph and stops at a blank line or the next block
+(a list, a heading, a fence), so code and lists keep the layout you wrote; a soft
+wrap of one long line stays at the margin, because the renderer wraps it, not
+bytefly. The glyph and the hang are tuned in
 [`message/config.ts`](./message/config.ts).
 
 **Turn separator.** After each completed turn the extension appends an inert
@@ -628,7 +627,7 @@ rather than showing a wrong value.
 |---|---|
 | Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
-| User message | `pi.registerMarkdownTransformer` marks each user message with a `❯` and a two-column hanging indent; the shipped themes set `userMessageBg` to `""` so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
+| User message | `pi.registerMarkdownTransformer` marks each user message with a `❯` and a two-column hanging indent; the shipped themes give the block its `userMessageBg` fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
@@ -652,7 +651,7 @@ rather than showing a wrong value.
 - **The user message is shaped, not painted.** Pi renders a user message as
   Markdown and owns its colors, so bytefly's only lever is a Markdown
   transformer: the marker and the hang are plain `userMessageText` and the
-  surface names no role. The fill is dropped where the token lives — the theme's
+  surface names no role. The fill lives where the token does — the theme's
   `userMessageBg` — because no extension API can override a theme token. The
   indent stops at the first blank line or block so code and lists keep the
   user's own layout, and a soft wrap stays at the margin because pi-tui's

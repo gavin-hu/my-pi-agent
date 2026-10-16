@@ -20,9 +20,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `bytefly`: the user message no longer sits on a filled block. The shipped
-  themes set `userMessageBg` transparent, so the message renders on the
-  terminal's own background.
 - `file-browse`: the header's branch chip no longer carries its own dirty dot and
   warn tint. The `● N changes +A −D` chip already reports uncommitted changes, so
   the header row stated the same fact twice, with two amber dots a few pixels
