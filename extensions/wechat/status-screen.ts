@@ -10,8 +10,13 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, type Component } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
+import type { Component } from "@earendil-works/pi-tui";
+import { screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
+import { clip } from "../../lib/tui/columns.ts";
+import { isCloseKey } from "../../lib/tui/cursor.ts";
+import { keyValueRow } from "../../lib/tui/rows.ts";
+import { titleRule } from "../../lib/tui/rules.ts";
+import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { BridgeStatus } from "./bridge.ts";
 import { peerLabel } from "./format.ts";
 import type { BotCredentials } from "./types.ts";
@@ -72,18 +77,32 @@ export function statusLine(view: StatusView): string {
 /** Label column width in the screen body. */
 const LABEL_WIDTH = 11;
 
-function row(theme: Theme, label: string, value: string): string {
-	return `  ${theme.fg("muted", label.padEnd(LABEL_WIDTH))}${value}`;
+/** One body row: a `meta` label column and a value in `valueRole`. */
+function row(theme: Theme, width: number, label: string, value: string, valueRole: TuiRole = "label"): string {
+	return keyValueRow(theme, width, { label, value, labelWidth: LABEL_WIDTH, labelRole: "meta", valueRole });
 }
 
-function connectionText(theme: Theme, connection: StatusConnection): string {
+/** The connection word, uncolored; {@link row} paints it. */
+function connectionText(connection: StatusConnection): string {
 	switch (connection) {
 		case "open":
-			return theme.fg("success", "open");
+			return "open";
 		case "expired":
-			return theme.fg("error", "expired");
+			return "expired";
 		case "closed":
-			return theme.fg("muted", "closed");
+			return "closed";
+	}
+}
+
+/** The design role the connection word is drawn in. */
+function connectionRole(connection: StatusConnection): TuiRole {
+	switch (connection) {
+		case "open":
+			return "ok";
+		case "expired":
+			return "bad";
+		case "closed":
+			return "meta";
 	}
 }
 
@@ -91,28 +110,28 @@ function connectionText(theme: Theme, connection: StatusConnection): string {
 export function statusBody(view: StatusView, theme: Theme, width: number): string[] {
 	const target = Math.max(1, width);
 	const lines = [
-		row(theme, "Account", view.account ?? theme.fg("muted", "not logged in")),
-		row(theme, "Connection", connectionText(theme, view.connection)),
+		row(theme, target, "Account", view.account ?? "not logged in", view.account ? "label" : "meta"),
+		row(theme, target, "Connection", connectionText(view.connection), connectionRole(view.connection)),
 	];
 	if (view.bridge) {
-		if (view.owner && view.owner !== view.account) lines.push(row(theme, "Owner", view.owner));
-		lines.push(row(theme, "Peers", String(view.peers)));
-		lines.push(row(theme, "Queued", String(view.queued)));
-		if (view.refused > 0) lines.push(row(theme, "Refused", String(view.refused)));
-		if (view.mediaDropped > 0) lines.push(row(theme, "Media", `${view.mediaDropped} dropped`));
-		if (view.promptPending) lines.push(row(theme, "Prompt", theme.fg("accent", "waiting for a reply")));
+		if (view.owner && view.owner !== view.account) lines.push(row(theme, target, "Owner", view.owner));
+		lines.push(row(theme, target, "Peers", String(view.peers), "meta"));
+		lines.push(row(theme, target, "Queued", String(view.queued), "meta"));
+		if (view.refused > 0) lines.push(row(theme, target, "Refused", String(view.refused), "meta"));
+		if (view.mediaDropped > 0) lines.push(row(theme, target, "Media", `${view.mediaDropped} dropped`, "meta"));
+		if (view.promptPending) lines.push(row(theme, target, "Prompt", "waiting for a reply", "accent"));
 	}
 	if (view.connection === "expired") {
 		lines.push("");
-		lines.push(`  ${theme.fg("error", "Session expired — press l to log in again.")}`);
+		lines.push(clip(`  ${paint(theme, "bad", "Session expired — press l to log in again.")}`, target));
 	} else if (view.connection === "closed" && view.account) {
 		lines.push("");
-		lines.push(`  ${theme.fg("muted", "Not connected — press l to log in again.")}`);
+		lines.push(clip(`  ${paint(theme, "meta", "Not connected — press l to log in again.")}`, target));
 	} else if (view.connection === "closed") {
 		lines.push("");
-		lines.push(`  ${theme.fg("muted", "Run /wechat login to connect an account.")}`);
+		lines.push(clip(`  ${paint(theme, "meta", "Run /wechat login to connect an account.")}`, target));
 	}
-	return lines.map((line) => truncateToWidth(line, target));
+	return lines;
 }
 
 export interface StatusScreenOptions {
@@ -140,7 +159,7 @@ export class StatusScreenComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+		if (isCloseKey(data)) {
 			this.options.onClose("close");
 			return;
 		}
@@ -166,7 +185,7 @@ export class StatusScreenComponent implements Component {
 		const target = Math.max(1, width);
 		const theme = this.options.theme;
 		return [
-			screenHeader(theme, target, "wechat · control"),
+			titleRule(theme, target, "wechat · control"),
 			"",
 			...statusBody(this.options.view(), theme, target),
 			"",

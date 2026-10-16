@@ -61,6 +61,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shared `◼`/`◻` for the plan's `- [ ]` / `- [x]` task lines (in place of
   `[✓]`/`[ ]`), and the kit's `gaugeBar` for the scroll meter. The frame, the
   scroll keys, and the section jumps are unchanged.
+- `wechat`: the `/wechat login` and `/wechat status` screens are drawn from the
+  `lib/tui/` kit — a label-first title rule, the shared `keyValueRow` for the
+  status label column, and role-based colors — closing the last interactive
+  screens that still named theme tokens inline.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report

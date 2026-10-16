@@ -80,12 +80,16 @@ export interface KeyValueRow {
 	valueRole?: TuiRole;
 }
 
-/** One `label   value` row, the label padded to a fixed column. */
+/**
+ * One body-indented `label   value` row, the label padded to a fixed column.
+ * The `BODY_INDENT` prefix matches `emptyState`, so a screen's body rows and its
+ * empty state share one indent.
+ */
 export function keyValueRow(theme: Theme, width: number, row: KeyValueRow): string {
 	const labelWidth = Math.max(1, Math.floor(row.labelWidth ?? 12));
 	const label = paint(theme, row.labelRole ?? "meta", padTo(row.label, labelWidth));
 	const value = paint(theme, row.valueRole ?? "label", row.value);
-	return clip(`${label}${value}`, width);
+	return clip(`${" ".repeat(BODY_INDENT)}${label}${value}`, width);
 }
 
 /** A screen's empty state: what is missing, and the next action. */

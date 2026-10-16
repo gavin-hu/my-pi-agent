@@ -7,8 +7,11 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint } from "../../lib/tui/chrome.ts";
+import { type Component, visibleWidth } from "@earendil-works/pi-tui";
+import { screenHint } from "../../lib/tui/chrome.ts";
+import { clip } from "../../lib/tui/columns.ts";
+import { isCloseKey } from "../../lib/tui/cursor.ts";
+import { titleRule } from "../../lib/tui/rules.ts";
 
 export interface LoginViewState {
 	/** Raw `get_qrcode_status` value, or `wait` before the first poll. */
@@ -51,7 +54,7 @@ export function loginBody(state: LoginViewState, width: number): string[] {
 			lines.push(state.url.slice(index, index + target));
 		}
 	}
-	return lines.map((line) => truncateToWidth(line, target));
+	return lines.map((line) => clip(line, target));
 }
 
 export interface LoginScreenOptions {
@@ -69,7 +72,7 @@ export class LoginScreenComponent implements Component {
 	constructor(private readonly options: LoginScreenOptions) {}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+		if (isCloseKey(data)) {
 			this.options.onCancel();
 		}
 	}
@@ -81,7 +84,7 @@ export class LoginScreenComponent implements Component {
 		const target = Math.max(1, width);
 		const theme = this.options.theme;
 		return [
-			screenHeader(theme, target, "wechat · login"),
+			titleRule(theme, target, "wechat · login"),
 			"",
 			...loginBody(this.options.state(), target),
 			"",

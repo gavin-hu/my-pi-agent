@@ -76,9 +76,9 @@ describe("chip", () => {
 });
 
 describe("keyValueRow", () => {
-	test("pads the label column to a fixed width", () => {
+	test("pads the label column to a fixed width, body-indented", () => {
 		expect(keyValueRow(fakeTheme, 30, { label: "wechat", value: "on", labelWidth: 11 })).toBe(
-			"wechat" + " ".repeat(5) + "on",
+			"  wechat" + " ".repeat(5) + "on",
 		);
 	});
 
