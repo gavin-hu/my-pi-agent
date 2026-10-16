@@ -50,6 +50,13 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain("observeSections();\n    updateState();"); // allow:padding assertion
 	});
 
+	test("does not show Offline before the stream first connects", () => {
+		expect(REVIEW_CLIENT_JS).toContain("var everConnected = false;");
+		expect(REVIEW_CLIENT_JS).toContain("} else if (connected === true) {");
+		expect(REVIEW_CLIENT_JS).toContain("} else if (everConnected) {");
+		expect(REVIEW_CLIENT_JS).toContain("everConnected = true");
+	});
+
 	test("rejects a protocol-relative link", () => {
 		expect(REVIEW_CLIENT_JS).toContain("[\\\\/]{2}");
 	});

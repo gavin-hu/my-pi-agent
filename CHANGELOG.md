@@ -9,7 +9,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `plan`: the browser review header shows an always-visible status chip —
-  connection state, comment count, and whether there are unsaved changes.
+  connection state, comment count, and whether there are unsaved changes. It
+  reads "Connecting…" until the stream first opens, so a slow initial connect
+  never flashes "Offline".
 
 ### Changed
 
