@@ -57,6 +57,19 @@ describe("railBlockLines", () => {
 		expect(railBlockLines(["a", "", "b", ""], "ok", fakeTheme, 40)).toEqual([`${RAIL} a`, `${RAIL} `, `${RAIL} b`]);
 	});
 
+	test("treats a background-padded line as blank when trimming", () => {
+		const padded = "\u001b[49m      \u001b[49m";
+		expect(railBlockLines(["a", padded], "ok", fakeTheme, 40)).toEqual([`${RAIL} a`]);
+	});
+
+	test("keeps a leading blank by default", () => {
+		expect(railBlockLines(["", "a"], "ok", fakeTheme, 40)).toEqual([`${RAIL} `, `${RAIL} a`]);
+	});
+
+	test("drops leading blanks when asked", () => {
+		expect(railBlockLines(["", "a", ""], "ok", fakeTheme, 40, { trimLeading: true })).toEqual([`${RAIL} a`]);
+	});
+
 	test("keeps trailing blanks when asked", () => {
 		expect(railBlockLines(["a", ""], "ok", fakeTheme, 40, { trimTrailing: false })).toEqual([`${RAIL} a`, `${RAIL} `]);
 	});

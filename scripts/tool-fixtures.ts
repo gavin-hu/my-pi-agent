@@ -127,8 +127,10 @@ export const FIXTURES: ToolFixture[] = [
 	{
 		name: "grep",
 		group: "builtin",
-		label: "matched file:line rows",
+		label: "matches found so far (still running)",
 		args: { pattern: "renderCall", path: "extensions", glob: "*.ts", limit: 100 },
+		// The accent rail: a running call is the one block that spends colour.
+		options: { isPartial: true },
 		result: {
 			content: [
 				{

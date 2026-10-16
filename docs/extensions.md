@@ -259,7 +259,9 @@ notice, and the turn rule, then Pi's built-ins (`read`, `write`, `edit`, `bash`,
 `grep`, `find`, `ls` — diffs, syntax highlighting and previews intact), then every
 tool this package registers: `todo`, `goal`, `memory`, `job`, `watch`,
 `subagent`, `web_search`, `web_fetch`, `read_doc`, `open_path`, `run_doctor`,
-`send_wechat`, `ask_user_question`, the plan tools, and the worktree tools.
+`send_wechat`, `ask_user_question`, the plan tools, and the worktree tools. One
+built-in is drawn mid-run, so the rail's accent state appears beside the neutral
+and failed ones.
 
 <img src="../assets/tool-renderings.png" alt="A full-page reference of every tool block: the user nameplate, a notice and the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, send_wechat, ask_user_question, the plan tools, and the worktree tools" width="100%">
 

@@ -180,11 +180,13 @@ the two share one left edge and one nesting depth. The rail is neutral by
 default: a finished call is `dim`, only a running call takes the accent, and only
 a failure is red, so the transcript spends colour where something needs
 attention instead of on every block. A tool with no renderer of its own is
-framed around a generic call/result fallback. A tool that already draws its own
-shell (`edit`) is left as it is, because wrapping it would nest a second frame;
-the shipped themes leave the tool fills to the terminal, so its box carries no
-fill either and sits in the same rail family. The frame's status roles are tuned
-in [`block/config.ts`](./block/config.ts).
+framed around a generic call/result fallback. A tool that draws its own shell
+(`edit`) is framed too: `renderShell: "self"` only tells Pi not to draw its
+filled box, and the shipped themes leave the tool fills to the terminal, so
+without the rail `edit` would be the one block with no frame at all. Its own
+`Box` pads itself top and bottom, so the frame drops those blank edges and starts
+at the call. The frame's status roles are tuned in
+[`block/config.ts`](./block/config.ts).
 
 **Extension screen.** `/bytefly [extension] [refresh]` opens a keyboard-driven
 dock list of every Pi extension the session resolves — across personal settings
@@ -683,7 +685,7 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice as a rail from its `details`; the type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
-| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"` and `renderCall`/`renderResult` that wrap the tool's own renderer (or a generic fallback) in the rail frame; a tool that already sets `renderShell: "self"` is returned unchanged. |
+| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"` and `renderCall`/`renderResult` that wrap the tool's own renderer (or a generic fallback) in the rail frame; a tool that already sets `renderShell: "self"` (`edit`) is framed too, with its own blank edge lines trimmed. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
@@ -730,8 +732,10 @@ rather than showing a wrong value.
   status box for a rail — and keeps every built-in's diff,
   syntax highlighting, and truncation. The call and result are sibling
   components with no spacer between them, so one rail drawn by each is
-  continuous. A tool that renders its own shell (`edit`) is left alone, because
-  two frames would nest. Each base renderer is handed its own previous component
+  continuous. A tool that renders its own shell (`edit`) is framed too: with the
+  shipped themes' empty tool fills its `Box` has no visible chrome, so the rail
+  is the only frame it has; its blank edge lines are trimmed so the rail starts
+  at the call. Each base renderer is handed its own previous component
   (tracked in the row's `state`), never the frame: Pi gives a renderer the
   component it returned last time, and a built-in calls `setText` on it, so
   handing back the frame would break it.
@@ -904,7 +908,7 @@ columns, gauge), so the look follows the active theme.
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline and the severity-led rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type. |
 | `block/config.ts` | Tool-block tuning (`BLOCK_CONFIG`): the rail's status roles — neutral when finished, the accent while running, `bad` on error. The rail glyph and indent are shared in `lib/tui/rail.ts`. |
-| `block/component.ts` | Pure `toolBlockLines` and `ToolBlock`: the indent, the status rail, the reduced-width inner render, and the image-line passthrough. |
+| `block/component.ts` | Pure `toolBlockLines` and `ToolBlock`: the indent, the status rail, the reduced-width inner render, the optional leading-blank trim for a self-shell `Box`, and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer. |
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool. |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |

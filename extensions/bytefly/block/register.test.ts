@@ -32,9 +32,16 @@ describe("registerToolBlocks", () => {
 		expect(lines[0]?.startsWith(RAIL)).toBe(true);
 	});
 
-	test("leaves a tool that renders its own shell unchanged", () => {
-		const base = { renderShell: "self" as const, renderCall: () => new Text("own", 0, 0) };
-		expect(resolver()("edit", () => base)).toBe(base);
+	test("frames a tool that renders its own shell, dropping its blank edges", () => {
+		const base = {
+			renderShell: "self" as const,
+			renderCall: () => new Text(["", "own", ""].join("\n"), 0, 0),
+		};
+		const renderers = resolver()("edit", () => base);
+		expect(renderers?.renderShell).toBe("self");
+		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
+		expect(lines).toHaveLength(1);
+		expect(lines[0]?.trimEnd()).toBe(`${RAIL} own`);
 	});
 
 	test("frames a generic fallback when the base has no renderer", () => {

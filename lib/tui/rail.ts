@@ -13,7 +13,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "./glyphs.ts";
 import { paint, type TuiRole } from "./tokens.ts";
 
@@ -43,8 +43,19 @@ export const RAIL_ROLES: Readonly<Record<RailStatus, TuiRole>> = {
 export interface RailOptions {
 	/** Extra columns before the rail, e.g. a tool's `outputPad`. */
 	indent?: number;
+	/** Drop leading lines with no visible content. Default false. */
+	trimLeading?: boolean;
 	/** Drop trailing lines with no visible content. Default true. */
 	trimTrailing?: boolean;
+}
+
+/**
+ * A line with no visible text. Tested after stripping terminal sequences, so a
+ * line that is only spaces carrying a background (a `Box`'s own padding) counts
+ * as blank rather than as content.
+ */
+function isBlank(line: string): boolean {
+	return stripTerminalSequences(line).trim().length === 0;
 }
 
 /** Columns the rail prefix occupies at an indent. */
@@ -90,7 +101,13 @@ export function railBlockLines(
 			continue;
 		}
 		lines.push(truncateToWidth(`${prefix}${line}`, w, ""));
-		blank.push(visibleWidth(line) === 0);
+		blank.push(isBlank(line));
+	}
+	if (options.trimLeading) {
+		while (blank.length > 0 && blank[0]) {
+			lines.shift();
+			blank.shift();
+		}
 	}
 	if (options.trimTrailing !== false) {
 		while (blank.length > 0 && blank[blank.length - 1]) {

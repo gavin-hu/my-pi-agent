@@ -15,11 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bun run screenshot:tool-pngs` writes one image per tool under `assets/tools/`.
   Both are embedded in the extension READMEs and the catalog, and
   `bun run scripts/tool-renderings.ts render <name> --width <n>` prints one block
-  as ANSI on any OS.
+  as ANSI on any OS. One built-in is drawn mid-run, so the rail's accent state
+  appears beside the neutral and failed ones.
 - `bytefly`: frames every tool block — built-ins included — with a status-colored
   rail in place of Pi's filled background box, wrapping each tool's own renderer
   so diffs, syntax highlighting, and previews are unchanged. `edit`, which draws
-  its own shell, keeps its box.
+  its own shell, is framed too: its `Box` carries no fill in the shipped themes,
+  so the rail is the only frame it has.
 - `bytefly`: renders the shared transcript notice — a `source · title` rail with
   severity-led rows — that any extension posts under the shared
   `my-pi-agent/notice` type.

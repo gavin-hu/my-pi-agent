@@ -57,6 +57,10 @@ describe("toolBlockLines", () => {
 		expect(toolBlockLines(innerOf(["a", ""]), "ok", fakeTheme, 40, 0)).toEqual([`${RAIL} a`]);
 	});
 
+	test("drops a self-shell's leading blanks when asked", () => {
+		expect(toolBlockLines(innerOf(["", "a"]), "ok", fakeTheme, 40, 0, true)).toEqual([`${RAIL} a`]);
+	});
+
 	test("renders nothing for an absent inner", () => {
 		expect(toolBlockLines(undefined, "ok", fakeTheme, 40, 0)).toEqual([]);
 	});

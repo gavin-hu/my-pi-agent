@@ -7,9 +7,11 @@
  * content is unchanged and only the framing is bytefly's. A tool with no
  * renderer gets a framed generic fallback instead of an unframed row.
  *
- * A tool that already renders its own shell (`renderShell: "self"`, currently
- * `edit`) is returned untouched: it draws its own frame, and wrapping it would
- * nest a second one.
+ * The frame is added even for a tool that sets `renderShell: "self"` (`edit`):
+ * that only tells Pi not to draw its filled box, and the shipped themes leave
+ * the tool fills to the terminal, so such a tool would otherwise be the one
+ * block with no frame at all. The rail is bytefly's, not Pi's box, so nothing
+ * nests.
  *
  * Pi hands a renderer the component it returned last time as
  * `context.lastComponent`, and every built-in renderer reuses it in place — it
@@ -36,7 +38,6 @@ interface BlockMemory {
 export function registerToolBlocks(pi: ExtensionAPI): void {
 	pi.registerToolRenderer((toolName, next) => {
 		const base = next();
-		if (base?.renderShell === "self") return base;
 		return {
 			renderShell: "self",
 			renderCall: (args, theme, context) => {
@@ -45,7 +46,9 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 					base?.renderCall?.(args, theme, { ...context, lastComponent: memory.byteflyBaseCall }) ??
 					new Text(callFallback(toolName, args, theme, context.expanded), 0, 0);
 				memory.byteflyBaseCall = inner;
-				return new ToolBlock(inner, blockStatus(context), theme, context.outputPad);
+				// A self-shell renderer (`edit`) is a `Box` that pads itself top and
+				// bottom; drop those blank edges so the rail starts at the call.
+				return new ToolBlock(inner, blockStatus(context), theme, context.outputPad, base?.renderShell === "self");
 			},
 			renderResult: (result, options, theme, context) => {
 				const memory = context.state as BlockMemory;

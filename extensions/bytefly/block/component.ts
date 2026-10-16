@@ -35,8 +35,9 @@ export function toolBlockLines(
 	theme: Theme,
 	width: number,
 	outputPad: number,
+	trimLeading = false,
 ): string[] {
-	return railLines(inner, BLOCK_CONFIG.roles[status], theme, width, { indent: outputPad });
+	return railLines(inner, BLOCK_CONFIG.roles[status], theme, width, { indent: outputPad, trimLeading });
 }
 
 /** The rail frame Pi mounts in place of its background box for a tool row. */
@@ -46,6 +47,12 @@ export class ToolBlock implements Component {
 		private readonly status: BlockStatus,
 		private readonly theme: Theme,
 		private readonly outputPad: number,
+		/**
+		 * Drop the component's own leading blank lines. Set for a `renderShell:
+		 * "self"` tool (`edit`), whose `Box` pads itself top and bottom; without
+		 * this the frame draws a bare rail above the call.
+		 */
+		private readonly trimLeading = false,
 	) {}
 
 	invalidate(): void {
@@ -53,6 +60,6 @@ export class ToolBlock implements Component {
 	}
 
 	render(width: number): string[] {
-		return toolBlockLines(this.inner, this.status, this.theme, Math.max(1, width), this.outputPad);
+		return toolBlockLines(this.inner, this.status, this.theme, Math.max(1, width), this.outputPad, this.trimLeading);
 	}
 }
