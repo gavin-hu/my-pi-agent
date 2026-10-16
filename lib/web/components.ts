@@ -117,7 +117,9 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-md .md-check{color:var(--success)}
 .bf-md table{margin:0;border-collapse:collapse;table-layout:auto;width:auto;font-size:var(--fs-sm)}
 .bf-md .md-table-wrap{overflow-x:auto;margin:0 0 1em}
-.bf-md th,.bf-md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top}
+.bf-md th,.bf-md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top;overflow-wrap:break-word}
+.bf-md th{white-space:nowrap}
+.bf-md th code,.bf-md td code{white-space:nowrap}
 .bf-md thead th{background:var(--surface);font-weight:var(--fw-medium)}
 .bf-md .md-left{text-align:left}
 .bf-md .md-center{text-align:center}

@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `file-browse` / `plan`: rendered Markdown tables no longer inherit the prose
+  `overflow-wrap:anywhere`. Since `anywhere` also shrinks a cell's min-content
+  width, auto layout collapsed a code-span column to one character and split
+  identifiers such as `feature-detail` mid-word across two code chips. Cells now
+  wrap at `break-word`, headers and code spans stay on one line, and a table too
+  wide for the column overflows into its scrolling wrapper instead of being
+  squeezed.
+
 ## [0.9.0] - 2026-10-16
 
 ### Added

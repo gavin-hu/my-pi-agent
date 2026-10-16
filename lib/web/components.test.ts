@@ -76,6 +76,19 @@ describe("web components", () => {
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-table-wrap{overflow-x:auto;");
 	});
 
+	test("keeps Markdown table cells out of the prose word breaking", () => {
+		// `.bf-md` sets `overflow-wrap:anywhere`, which also shrinks a cell's
+		// min-content width, so auto layout starves a code-span column and
+		// `feature-detail` breaks mid-word into two code chips. Cells wrap only
+		// when a word cannot fit, headers and code spans stay on one line, and a
+		// genuinely wide table overflows into the scrolling wrapper instead.
+		expect(WEB_COMPONENTS_CSS).toContain(
+			".bf-md th,.bf-md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top;overflow-wrap:break-word}",
+		);
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md th{white-space:nowrap}");
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md th code,.bf-md td code{white-space:nowrap}");
+	});
+
 	test("uses only defined custom properties", () => {
 		const used = new Set([...WEB_COMPONENTS_CSS.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((match) => match[1]));
 		for (const token of used) {
