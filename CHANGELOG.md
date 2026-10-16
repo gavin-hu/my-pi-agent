@@ -116,6 +116,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: the transcript notice and the turn separator now follow Pi's
+  `outputPad` setting, like the tool blocks already did. Pi pads its own
+  components and hands tool renderers (`context.outputPad`) and message
+  renderers (`options.outputPad`) the value, but gives an entry renderer none
+  and adds its component raw, so the notice and separator had sat at column 0
+  while tool blocks were one column in. One shared `PadSource` carries the value
+  to all three; no new config, and Pi's setting is the only knob.
 - `bytefly`: the tool-call colour grammar is applied consistently. The generic
   fallback paints a subject with the accent and its options faint, like the
   built-ins, instead of the whole argument dump muted; and `run_doctor`'s call

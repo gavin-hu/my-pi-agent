@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Text } from "@earendil-works/pi-tui";
 import { createFakePi, coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import type { PadSource } from "../pad.ts";
 import { registerToolBlocks } from "./register.ts";
 
 /** A minimal render context: the fields the resolver reads, plus the shared state. */
@@ -16,9 +17,9 @@ const ctx = (overrides: Record<string, unknown> = {}) =>
 	}) as any;
 
 /** Register on a fake pi and hand back the single resolver. */
-const resolver = () => {
+const resolver = (pad?: PadSource) => {
 	const { pi, toolRenderers } = createFakePi();
-	registerToolBlocks(pi);
+	registerToolBlocks(pi, pad);
 	return toolRenderers[0];
 };
 
@@ -80,6 +81,14 @@ describe("registerToolBlocks", () => {
 			ctx({ outputPad: 1 }),
 		);
 		expect(seen).toEqual([0, 0]);
+	});
+
+	test("takes the frame margin from the injected pad source", () => {
+		// A fixed source overrides the host pad the context carries.
+		const pad: PadSource = { resolve: () => 2, observe: () => {} };
+		const renderers = resolver(pad)("read", () => ({ renderCall: () => new Text("read x\nbody", 0, 0) }));
+		const lines = renderers?.renderCall?.({}, fakeTheme, ctx({ outputPad: 1 })).render(40) ?? [];
+		expect(lines.map((line: string) => line.trimEnd())).toEqual(["  read x", "    body"]);
 	});
 
 	test("frames a generic fallback when the base has no renderer", () => {

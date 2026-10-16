@@ -774,7 +774,13 @@ rather than showing a wrong value.
   the same frame (`lib/tui/indent.ts`): a tool block, a notice, and a subagent's
   quoted output take one indent and no glyph, so they hang from one left edge
   instead of four, and a tool block's body sits `BODY_INDENT` columns in under
-  its headline. There is no rail: the accent call line and the two-column step
+  its headline. Pi pads its own messages and hands the value to tool renderers
+  (`context.outputPad`) and message renderers (`options.outputPad`), but gives an
+  entry renderer none and adds its component raw, so bytefly's blocks inset
+  themselves by that pad: the tool frame and the notice take it from Pi, and the
+  turn separator reads the last value a sibling observed (`pad.ts`). Pi's setting
+  is the only knob — bytefly adds no padding of its own. There is no rail: the
+  accent call line and the two-column step
   are what mark a block, which keeps the transcript quiet and leaves the tool's
   own rendering as the only content. The footer's group separator still draws
   `╎` between chips — a divider, not a rail.
@@ -912,7 +918,8 @@ columns, gauge), so the look follows the active theme.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Composition root: the disable guard and the ten `register*` calls. |
+| `index.ts` | Composition root: the disable guard, the ten `register*` calls, and the one shared output-pad store. |
+| `pad.ts` | `PadSource` and `createPadStore`: one record of Pi's output pad, so the tool frame, the notice, and the turn separator inset by the same margin. |
 | `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity roles, padding, tagline, and the grouped help entries. |
 | `header/component.ts` | `ByteflyHeader`: the mark, identity rows, signature rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |

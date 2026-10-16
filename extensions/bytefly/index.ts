@@ -29,6 +29,7 @@ import { registerHeader } from "./header/register.ts";
 import { registerUserMessage } from "./message/register.ts";
 import { registerNotice } from "./notice/register.ts";
 import { type NotifyDeps, registerNotify } from "./notify/register.ts";
+import { createPadStore } from "./pad.ts";
 import { type PanelCommandDeps, registerPanel } from "./panel/commands.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
 import { registerThinkingTimer } from "./thinking/register.ts";
@@ -50,9 +51,12 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerHeader(pi);
 	registerFooter(pi);
 	registerUserMessage(pi);
-	registerNotice(pi);
-	registerToolBlocks(pi);
-	registerTurnSeparator(pi);
+	// One store per load: the tool frame and the notice record Pi's output pad and
+	// the turn separator reads it, so bytefly's transcript blocks share one margin.
+	const pad = createPadStore();
+	registerNotice(pi, pad);
+	registerToolBlocks(pi, pad);
+	registerTurnSeparator(pi, pad);
 	registerThinkingTimer(pi);
 	const doctor = registerDoctor(pi, deps.doctor);
 	registerPanel(pi, { doctor, discover: deps.extensions?.discover });

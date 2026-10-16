@@ -89,6 +89,26 @@ describe("bytefly extension", () => {
 		expect(messageRenderers.has(NOTICE_TYPE)).toBe(true);
 	});
 
+	test("shares one output pad between the notice and the turn separator", () => {
+		const { pi, messageRenderers, renderers } = makeFakePi();
+		bytefly(pi);
+
+		// A notice is handed Pi's pad; it insets by it and records it for the rest.
+		const notice = messageRenderers.get(NOTICE_TYPE);
+		const lines = notice(
+			{ details: { source: "job", title: "done", items: [{ label: "j1", severity: "ok" }] } },
+			{ expanded: false, outputPad: 3 },
+			fakeTheme,
+		).render(80);
+		expect(lines[0]?.startsWith("   job")).toBe(true);
+
+		// Pi hands an entry renderer no pad, so the separator follows the observed 3.
+		const separator = renderers.get("bytefly-separator");
+		const rule = separator({ data: { turn: 1 } }, { expanded: false }, fakeTheme).render(60)[0] ?? "";
+		expect(rule.startsWith("   ")).toBe(true);
+		expect(rule.startsWith("    ")).toBe(false);
+	});
+
 	test("registers the tool-block resolver", () => {
 		const { pi, toolRenderers } = makeFakePi();
 		bytefly(pi);

@@ -65,6 +65,20 @@ describe("noticeLines", () => {
 		expect(lines[1]?.startsWith("   ")).toBe(false);
 	});
 
+	test("insets the whole block by Pi's output pad", () => {
+		const lines = noticeLines(details, fakeTheme, 80, 1);
+		expect(lines[0]).toBe(" job · 2 background jobs finished");
+		// The rows sit BODY_INDENT further in than the headline.
+		expect(lines[1]?.startsWith("   ")).toBe(true);
+		expect(lines[1]?.startsWith("    ")).toBe(false);
+	});
+
+	test("clips a padded line to the width it was given", () => {
+		for (const line of noticeLines(details, fakeTheme, 20, 4)) {
+			expect(visibleWidth(line)).toBeLessThanOrEqual(20);
+		}
+	});
+
 	test("leads every row with its own severity glyph", () => {
 		const clean: NoticeDetails = { source: "job", title: "all good", items: [{ label: "j1", severity: "ok" }] };
 		expect(noticeLines(clean, coloringTheme, 80).join("\n")).toContain("[success]");

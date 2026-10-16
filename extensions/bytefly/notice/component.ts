@@ -8,6 +8,10 @@
  * `sanitizeLine` before it reaches the terminal, and every line is clipped to the
  * width it is given. Each row is led by its own severity glyph, so a check reads
  * green and a cross red.
+ *
+ * Pi adds a custom renderer's component raw, so the block insets itself: the
+ * caller passes Pi's output pad, and the headline sits at it with the rows a
+ * further `BODY_INDENT` in, matching the tool blocks around it.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -32,30 +36,32 @@ function severityGlyph(theme: Theme, severity: NoticeSeverity): string {
 /**
  * The notice: a `source · title` headline and body-indented rows of
  * `glyph label · detail`, then a `… N more` line when the rows were capped.
- * Every line is clipped to the width it is given.
+ * Every line is clipped to the width it is given. `pad` is Pi's output pad, the
+ * block's own left margin.
  */
-export function noticeLines(details: NoticeDetails, theme: Theme, width: number): string[] {
+export function noticeLines(details: NoticeDetails, theme: Theme, width: number, pad = 0): string[] {
 	const w = Math.max(1, width);
+	const margin = " ".repeat(Math.max(0, Math.floor(pad)));
 	const sep = paint(theme, NOTICE_CONFIG.detailRole, SEPARATORS.item);
 	const source = paint(theme, NOTICE_CONFIG.sourceRole, sanitizeLine(details.source));
 	const title = paint(theme, NOTICE_CONFIG.titleRole, sanitizeLine(details.title));
-	const lines = [truncateToWidth(`${source}${sep}${title}`, w, "…")];
+	const lines = [truncateToWidth(`${margin}${source}${sep}${title}`, w, "…")];
 
 	const items = details.items ?? [];
 	const shown = items.slice(0, NOTICE_CONFIG.maxItems);
 	const fallback = details.severity ?? "info";
-	const pad = " ".repeat(BODY_INDENT);
+	const rowPad = margin + " ".repeat(BODY_INDENT);
 	const gap = " ".repeat(GLYPH_GAP);
 	for (const item of shown) {
 		const label = paint(theme, NOTICE_CONFIG.titleRole, sanitizeLine(item.label));
 		const detail = item.detail ? `${sep}${paint(theme, NOTICE_CONFIG.detailRole, sanitizeLine(item.detail))}` : "";
-		const row = `${pad}${severityGlyph(theme, severityOf(item, fallback))}${gap}${label}${detail}`;
+		const row = `${rowPad}${severityGlyph(theme, severityOf(item, fallback))}${gap}${label}${detail}`;
 		lines.push(truncateToWidth(row, w, "…"));
 	}
 
 	const more = items.length - shown.length;
 	if (more > 0) {
-		const continuation = " ".repeat(BODY_INDENT + 1 + GLYPH_GAP);
+		const continuation = margin + " ".repeat(BODY_INDENT + 1 + GLYPH_GAP);
 		const rest = `${continuation}${paint(theme, NOTICE_CONFIG.detailRole, `… ${more} more`)}`;
 		lines.push(truncateToWidth(rest, w, "…"));
 	}
@@ -67,6 +73,7 @@ export class NoticeComponent implements Component {
 	constructor(
 		private readonly details: NoticeDetails,
 		private readonly theme: Theme,
+		private readonly pad = 0,
 	) {}
 
 	invalidate(): void {
@@ -74,6 +81,6 @@ export class NoticeComponent implements Component {
 	}
 
 	render(width: number): string[] {
-		return noticeLines(this.details, this.theme, Math.max(1, width));
+		return noticeLines(this.details, this.theme, Math.max(1, width), this.pad);
 	}
 }

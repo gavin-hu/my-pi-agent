@@ -12,6 +12,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createPadStore, type PadSource } from "../pad.ts";
 import { SeparatorComponent } from "./component.ts";
 import { CONFIG } from "./config.ts";
 import type { TurnSeparatorData } from "./types.ts";
@@ -26,11 +27,11 @@ function countSeparators(entries: readonly { type: string; customType?: string }
 }
 
 /** Register the separator renderer and append one on every settled turn. */
-export function registerTurnSeparator(pi: ExtensionAPI): void {
+export function registerTurnSeparator(pi: ExtensionAPI, pad: PadSource = createPadStore()): void {
 	pi.registerEntryRenderer<TurnSeparatorData>(CONFIG.customType, (entry, _options, theme) => {
 		const turn = entry.data?.turn;
 		if (typeof turn !== "number" || !Number.isFinite(turn)) return undefined;
-		return new SeparatorComponent(turn, theme);
+		return new SeparatorComponent(turn, theme, pad.resolve());
 	});
 
 	pi.on("agent_settled", (_event, ctx) => {

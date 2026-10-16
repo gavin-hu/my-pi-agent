@@ -36,6 +36,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type Component, Text } from "@earendil-works/pi-tui";
+import { createPadStore, type PadSource } from "../pad.ts";
 import { recolorShellCall, ToolBlock } from "./component.ts";
 import { callFallback, resultFallback } from "./fallback.ts";
 
@@ -61,7 +62,7 @@ function isRewritable(component: Component): component is Component & Rewritable
 }
 
 /** Register the resolver that frames every tool block with the bytefly indent. */
-export function registerToolBlocks(pi: ExtensionAPI): void {
+export function registerToolBlocks(pi: ExtensionAPI, pad: PadSource = createPadStore()): void {
 	pi.registerToolRenderer((toolName, next) => {
 		const base = next();
 		return {
@@ -83,7 +84,7 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 				if (isRewritable(inner)) inner.setText(recolorShellCall(inner.text, toolName, theme));
 				// The call's own first line is the block's headline; the frame drops the
 				// blank edges a self-shell `Box` (`edit`) pads itself with.
-				return new ToolBlock(inner, context.outputPad, {
+				return new ToolBlock(inner, pad.resolve(context.outputPad), {
 					headline: true,
 					trimLeading: true,
 					toolName,
@@ -100,7 +101,7 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 					}) ?? new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
 				memory.byteflyBaseResult = inner;
 				// A tool's own leading spacer would open the body with a gap, so drop it.
-				return new ToolBlock(inner, context.outputPad, { trimLeading: true });
+				return new ToolBlock(inner, pad.resolve(context.outputPad), { trimLeading: true });
 			},
 		};
 	});

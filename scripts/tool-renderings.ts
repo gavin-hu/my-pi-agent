@@ -139,6 +139,9 @@ function context(fixture: ToolFixture): any {
 		expanded: fixture.options?.expanded ?? false,
 		showImages: false,
 		isError: fixture.result?.isError ?? false,
+		// The gallery is a reference at the transcript margin, so it renders at the
+		// host's pad of 0 and bytefly adds nothing on top.
+		outputPad: 0,
 		durationMs: fixture.options?.durationMs,
 	};
 }

@@ -14,6 +14,7 @@ export class SeparatorComponent implements Component {
 	constructor(
 		private readonly turn: number,
 		private readonly theme: Theme,
+		private readonly pad = 0,
 	) {}
 
 	invalidate(): void {
@@ -21,6 +22,6 @@ export class SeparatorComponent implements Component {
 	}
 
 	render(width: number): string[] {
-		return separatorLine(this.turn, width, this.theme);
+		return separatorLine(this.turn, width, this.theme, this.pad);
 	}
 }
