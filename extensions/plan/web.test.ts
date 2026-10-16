@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { createServer } from "node:http";
 import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { createPlanWebReview, type PlanReviewSession } from "./web.ts";
@@ -108,5 +109,50 @@ describe("createPlanWebReview", () => {
 		await session.close();
 		await session.close();
 		expect((await session.done).status).toBe("cancelled");
+	});
+
+	test("delivers the save response before the session closes", async () => {
+		const session = await start();
+		const pending = fetch(feedbackUrl(session), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "note" }] }),
+		});
+		expect((await session.done).status).toBe("saved");
+		await session.close();
+		expect((await pending).status).toBe(200);
+	});
+
+	test("delivers the cancel response before the session closes", async () => {
+		const session = await start();
+		const pending = fetch(cancelUrl(session), { method: "POST" });
+		expect((await session.done).status).toBe("cancelled");
+		await session.close();
+		expect((await pending).status).toBe(200);
+	});
+
+	test("reuses the same port for the same plan across turns", async () => {
+		const { store } = fakeStore("# Plan\n");
+		review = createPlanWebReview(store, { open: () => {}, token: () => "tok" });
+		const first = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		const port = first.port;
+		await first.close();
+		const second = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		expect(second.port).toBe(port);
+		await second.close();
+	});
+
+	test("falls back to a free port when the remembered one is busy", async () => {
+		const { store } = fakeStore("# Plan\n");
+		review = createPlanWebReview(store, { open: () => {}, token: () => "tok" });
+		const first = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		const port = first.port;
+		await first.close();
+		const blocker = createServer(() => {});
+		await new Promise<void>((resolve) => blocker.listen(port, "127.0.0.1", () => resolve()));
+		const second = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		expect(second.port).not.toBe(port);
+		await second.close();
+		await new Promise<void>((resolve) => blocker.close(() => resolve()));
 	});
 });

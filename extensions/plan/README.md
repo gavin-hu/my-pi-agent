@@ -189,8 +189,8 @@ command. The read-only guarantee is layered:
   strips control characters from the plan body before rendering it in the
   transcript and in non-TUI notices; a plan file cannot drive the terminal.
 - **Loopback browser review.** The review server binds `127.0.0.1` and requires a
-  random per-session token in the URL, checks the `Host` header, serves only
-  `GET`/`POST`, and caps the request body; the page renders plan and comment text
+  random per-session token in the URL, rejects a missing or foreign `Host`
+  header, serves only `GET`/`POST`, and caps the request body; the page renders plan and comment text
   with DOM text nodes, never `innerHTML`, so a plan cannot script the reviewer.
 
 ## Read-only git shell
@@ -254,7 +254,8 @@ agent file that overrides it.
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
 in the default browser on `127.0.0.1`. The page is a review surface: a sticky
-header with the plan title, theme toggle, and Save/Close; a sticky **section
+header with the plan title, a live status chip (connection, comment count, and
+unsaved changes), theme toggle, and Save/Close; a sticky **section
 outline** on the left; and the plan with each comment rendered **inline under
 the block it anchors to**. Every block has a **+ Comment** action; select text
 first to quote it. **Save feedback** writes the comments into the plan file and
@@ -277,18 +278,24 @@ returns them to the model.
 - **The file is the store.** Each comment is written as
   `> [!REVIEW] <comment>` on the line after the block it anchors to. Saving is
   idempotent: the previous markers are stripped first, so a second save replaces
-  rather than appends. The browser keeps no copy of its own.
+  rather than appends. Stripping is fence-aware: a `> [!REVIEW]` line inside a
+  code block is documentation, not feedback. The browser keeps no copy of its own.
 - **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
   source-line ranges; a comment is placed after the whole anchored block, so a
   fenced code block is never split. A save re-checks the file against what the
-  page rendered and answers `409` (reload) if it changed underneath.
+  page rendered and answers `409`; the page then offers a **Reload** action,
+  because only a reload can re-anchor the comments to the new text.
 - **Back to the model.** A save from the review screen returns `refined: true`
   with the comments, so the model stays in plan mode and revises the same file.
   `/plan review` sends them as a user message (a plan-mode revision or a plain
   update, depending on the mode).
 - **Loopback and tokenized.** The server binds `127.0.0.1`, carries a random
-  per-session token in the URL, checks the `Host` header, serves only `GET` and
-  `POST`, and caps the request body. It is closed on save, cancel, tab close, or
+  per-session token in the URL, rejects a missing or foreign `Host` header,
+  serves only `GET` and `POST`, and caps the request body. A save or cancel
+  resolves the session only after its HTTP response is delivered, so the browser
+  never sees a false "Failed to fetch". The last bound port is remembered per
+  plan, so reviewing the same plan again reuses the origin (and the browser's
+  saved theme with it). It is closed on save, cancel, tab close, or
   `session_shutdown`.
 
 | Route | Result |
@@ -312,6 +319,9 @@ returns them to the model.
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user
   cancels, closes the tab, or aborts the turn.
+- Feedback stripping follows fenced code blocks; an unterminated fence makes the
+  rest of the file code, so a marker-looking line after it is treated as content
+  rather than stored feedback.
 
 ## Non-goals
 

@@ -28,9 +28,9 @@ export interface ReviewContext {
 	page: () => Promise<ReviewPageData>;
 	/** Persist the annotations and report the outcome. */
 	save: (annotations: PlanAnnotation[]) => Promise<SaveResult>;
-	/** Called after a successful save, to resolve the session. */
+	/** Called after a successful save; the server resolves the session once the response has flushed. */
 	onSaved: (annotations: PlanAnnotation[]) => void;
-	/** Called when the user cancels, to resolve the session. */
+	/** Called when the user cancels; the server resolves the session once the response has flushed. */
 	onCancel: () => void;
 }
 
@@ -89,8 +89,10 @@ function checkEnvelope(
 	if (upper !== "GET" && upper !== "HEAD" && upper !== "POST") {
 		return { ...errorResponse(405, "Only GET and POST are served."), headers: { ...JSON_HEADERS, Allow: "GET, POST" } };
 	}
+	// Fail closed: a missing or non-string Host is rejected too, not just a
+	// foreign one, so the DNS-rebinding guard cannot be skipped.
 	const host = headers.host;
-	if (typeof host === "string" && host && !HOST_PATTERN.test(host)) {
+	if (typeof host !== "string" || !HOST_PATTERN.test(host)) {
 		return errorResponse(403, "Unexpected Host header.");
 	}
 	return undefined;
@@ -120,7 +122,7 @@ export async function handleReviewRequest(
 		return errorResponse(400, "Malformed request URL.");
 	}
 
-	if (pathname === "/favicon.ico") return { status: 204, headers: { ...SCRIPT_HEADERS } };
+	if (pathname === "/favicon.ico") return { status: 204, headers: { "Cache-Control": "no-store" } };
 	if (pathname === "/theme.js") return { status: 200, headers: { ...SCRIPT_HEADERS }, body: THEME_JS };
 	if (pathname === "/client.js") return { status: 200, headers: { ...SCRIPT_HEADERS }, body: REVIEW_CLIENT_JS };
 

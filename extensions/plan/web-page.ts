@@ -63,6 +63,7 @@ ${WEB_COMPONENTS_CSS}
 .review-bar .bf-brand{flex:0 0 auto}
 .review-heading{display:flex;align-items:center;flex:1 1 160px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
 .review-title{display:block;flex:1 1 auto;min-width:0;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-state{flex:0 0 auto;white-space:nowrap}
 .review-status{flex:0 0 auto;max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-status:empty{display:none}
 .review-controls{display:inline-flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
@@ -150,6 +151,7 @@ ${docHead({ title: "Plan review", css: REVIEW_CSS })}
 ${brandLockup("plan review")}
 <div class="review-heading">
 <span class="review-title" id="plan-title">Plan review</span>
+<span class="bf-chip bf-chip--accent review-state" id="review-state">Connecting&#8230;</span>
 </div>
 <span class="bf-status review-status" id="status" role="status" aria-live="polite"></span>
 <div class="review-controls">

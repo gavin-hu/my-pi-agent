@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plan`: the browser review header shows an always-visible status chip —
+  connection state, comment count, and whether there are unsaved changes.
+
 ### Changed
 
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
@@ -13,6 +18,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/bytefly doctor [extension] [refresh]` prints the doctor report
   (`run_doctor`'s text; the dock screen in `tui`). The header hint and the
   proactive warning now point at `/bytefly doctor`.
+- `plan`: browser review reuses a plan's last loopback port across turns, so the
+  page origin (and the browser's saved `pi-web-theme` choice) stays stable.
+
+### Fixed
+
+- `plan`: the browser review save/cancel response is delivered before the
+  session closes, so a successful save no longer shows "Failed to fetch".
+- `plan`: browser feedback stripping is fence-aware, so a `> [!REVIEW]` line
+  inside a fenced code block is content, not stored feedback.
+- `plan`: a review-page link to a protocol-relative URL (`//host`) is no longer
+  followed as an external link.
+- `plan`: a 409 save conflict now offers a **Reload** action instead of a
+  generic error, and a remembered text selection is cleared on re-render.
+- `plan`: the loopback review server rejects a missing or non-string `Host`
+  header (fail closed) and returns no content type for the favicon.
+- `plan`: the review server removes its abort listener when a session ends.
 
 ## [0.8.1] - 2026-10-15
 

@@ -40,6 +40,30 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain("beforeunload");
 	});
 
+	test("wires the always-visible header status chip", () => {
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("review-state")');
+		expect(REVIEW_CLIENT_JS).toContain("function updateState()");
+		expect(REVIEW_CLIENT_JS).toContain('addEventListener("open"');
+		expect(REVIEW_CLIENT_JS).toContain('addEventListener("error"');
+		expect(REVIEW_CLIENT_JS).toContain("dirty = true");
+		expect(REVIEW_CLIENT_JS).toContain("unsaved");
+		expect(REVIEW_CLIENT_JS).toContain("observeSections();\n    updateState();"); // allow:padding assertion
+	});
+
+	test("rejects a protocol-relative link", () => {
+		expect(REVIEW_CLIENT_JS).toContain("[\\\\/]{2}");
+	});
+
+	test("offers a reload when the plan changed on disk", () => {
+		expect(REVIEW_CLIENT_JS).toContain("response.status === 409");
+		expect(REVIEW_CLIENT_JS).toContain("window.location.reload()");
+		expect(REVIEW_CLIENT_JS).toContain('"reload"');
+	});
+
+	test("clears a remembered selection on re-render", () => {
+		expect(REVIEW_CLIENT_JS).toContain("closeComposer();\n    pendingQuote = null;"); // allow:padding assertion
+	});
+
 	test("wires the save and cancel buttons", () => {
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("save")');
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("cancel")');

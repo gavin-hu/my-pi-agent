@@ -4,6 +4,9 @@ import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-
 import { THEME_JS } from "../../lib/web/index.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 
+/** A loopback `Host`; the router now rejects a missing or foreign one. */
+const HOST = { host: "127.0.0.1:1234" };
+
 function setup(overrides: Partial<ReviewContext> = {}) {
 	const saved: PlanAnnotation[][] = [];
 	const cancelled: number[] = [];
@@ -36,7 +39,7 @@ function setup(overrides: Partial<ReviewContext> = {}) {
 	};
 }
 
-const GET = (url: string) => handleReviewRequest(setup().ctx, "GET", url, {});
+const GET = (url: string) => handleReviewRequest(setup().ctx, "GET", url, HOST);
 
 describe("handleReviewRequest — routes", () => {
 	test("serves the client script without a token", async () => {
@@ -72,8 +75,10 @@ describe("handleReviewRequest — routes", () => {
 		expect((await GET("/events")).status).toBe(403);
 	});
 
-	test("serves a favicon", async () => {
-		expect((await GET("/favicon.ico")).status).toBe(204);
+	test("serves a favicon without a content type", async () => {
+		const response = await GET("/favicon.ico");
+		expect(response.status).toBe(204);
+		expect(response.headers["Content-Type"]).toBeUndefined();
 	});
 
 	test("returns 404 for an unknown route", async () => {
@@ -91,17 +96,26 @@ describe("handleReviewRequest — envelope", () => {
 		const response = await handleReviewRequest(setup().ctx, "GET", "/?token=tok", { host: "evil.example" });
 		expect(response.status).toBe(403);
 	});
+
+	test("rejects a missing Host header", async () => {
+		expect((await handleReviewRequest(setup().ctx, "GET", "/?token=tok", {})).status).toBe(403);
+	});
+
+	test("rejects a non-string Host header", async () => {
+		const response = await handleReviewRequest(setup().ctx, "GET", "/?token=tok", { host: ["127.0.0.1"] });
+		expect(response.status).toBe(403);
+	});
 });
 
 describe("handleReviewRequest — feedback", () => {
-	test("saves valid annotations and resolves the session", async () => {
+	test("saves valid annotations and signals the save", async () => {
 		let resolved = 0;
 		const { ctx, saved } = setup({ onSaved: () => (resolved += 1) });
 		const response = await handleReviewRequest(
 			ctx,
 			"POST",
 			"/api/feedback?token=tok",
-			{},
+			HOST,
 			JSON.stringify({ annotations: [{ anchor: 1, comment: "note" }] }),
 		);
 		expect(response.status).toBe(200);
@@ -115,7 +129,7 @@ describe("handleReviewRequest — feedback", () => {
 			ctx,
 			"POST",
 			"/api/feedback?token=nope",
-			{},
+			HOST,
 			JSON.stringify({ annotations: [] }),
 		);
 		expect(response.status).toBe(403);
@@ -124,9 +138,9 @@ describe("handleReviewRequest — feedback", () => {
 
 	test("rejects a malformed body", async () => {
 		const { ctx } = setup();
-		expect((await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", {}, "not json")).status).toBe(400);
+		expect((await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", HOST, "not json")).status).toBe(400);
 		expect(
-			(await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", {}, JSON.stringify({ annotations: 1 })))
+			(await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", HOST, JSON.stringify({ annotations: 1 })))
 				.status,
 		).toBe(400);
 	});
@@ -138,7 +152,7 @@ describe("handleReviewRequest — feedback", () => {
 			ctx,
 			"POST",
 			"/api/feedback?token=tok",
-			{},
+			HOST,
 			JSON.stringify({ annotations: [] }),
 		);
 		expect(response.status).toBe(409);
@@ -147,7 +161,7 @@ describe("handleReviewRequest — feedback", () => {
 
 	test("cancels on request", async () => {
 		const { ctx, cancelled } = setup();
-		const response = await handleReviewRequest(ctx, "POST", "/api/cancel?token=tok", {});
+		const response = await handleReviewRequest(ctx, "POST", "/api/cancel?token=tok", HOST);
 		expect(response.status).toBe(200);
 		expect(cancelled).toHaveLength(1);
 	});
