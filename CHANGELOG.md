@@ -9,7 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Docs: terminal screenshots for the `todo`, `question`, `job`, and `rewind`
-  screens plus a refreshed `bytefly-chrome.png` hero, embedded in each extension
+  screens plus a refreshed `chrome.png` hero, embedded in each extension
   README, the catalog, and the root and Chinese READMEs; `bun run screenshots`
   re-renders the screens and runs a real `pi -e .` for the hero, capturing the
   real window and its title bar, so no image needs a manual session.

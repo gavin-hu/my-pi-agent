@@ -90,7 +90,7 @@
     "themes": [
       "./themes/*.json"
     ],
-    "image": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly-chrome.png"
+    "image": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/chrome.png"
   },
   "scripts": {
     "test": "bun test --parallel=4 --timeout 30000",
