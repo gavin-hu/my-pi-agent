@@ -179,3 +179,87 @@ describe("guards", () => {
 		expect((await handleRequest(context(), "GET", "/nope", {})).status).toBe(404);
 	});
 });
+
+describe("diff routes", () => {
+	const provider = (
+		overrides: Partial<import("./git.ts").GitDiffProvider> = {},
+	): import("./git.ts").GitDiffProvider => ({
+		list: async (mode) => ({
+			mode,
+			files: [{ rel: "a.txt", index: " ", worktree: "M", untracked: false }],
+			stat: " a.txt | 1 +\n 1 file changed, 1 insertion(+)",
+		}),
+		file: async (rel, mode) => ({
+			mode,
+			rel,
+			lines: [
+				{ kind: "hunk", text: "@@ -1 +1 @@" },
+				{ kind: "del", text: "old", oldNo: 1 },
+				{ kind: "add", text: "new", newNo: 1 },
+			],
+			binary: false,
+			truncated: false,
+		}),
+		...overrides,
+	});
+
+	test("lists changes, links each file, and shows the header chip", async () => {
+		const response = await handleRequest(
+			{ ...context(), git: async () => ({ branch: "main", dirty: true }), diff: provider() },
+			"GET",
+			"/diff",
+			{},
+		);
+		expect(response.status).toBe(200);
+		const html = text(response);
+		expect(html).toContain("Changes");
+		expect(html).toContain('href="/diff/a.txt"');
+		expect(html).toContain('class="bf-chip browse-diff"');
+		expect(html).toContain("1 file changed");
+	});
+
+	test("switches mode and rejects an unknown one", async () => {
+		const staged = await handleRequest({ ...context(), diff: provider() }, "GET", "/diff?mode=staged", {});
+		expect(staged.status).toBe(200);
+		expect(text(staged)).toContain('aria-current="page">staged</a>');
+
+		expect((await handleRequest({ ...context(), diff: provider() }, "GET", "/diff?mode=bogus", {})).status).toBe(400);
+	});
+
+	test("renders a per-file diff and keeps the mode in its links", async () => {
+		const response = await handleRequest({ ...context(), diff: provider() }, "GET", "/diff/a.txt?mode=worktree", {});
+		expect(response.status).toBe(200);
+		const html = text(response);
+		expect(html).toContain("bf-diff-line--add");
+		expect(html).toContain('href="/diff/a.txt?mode=worktree" aria-current="page">worktree</a>');
+	});
+
+	test("rejects a directory as a diff target", async () => {
+		const response = await handleRequest({ ...context(), diff: provider() }, "GET", "/diff/sub", {});
+		expect(response.status).toBe(400);
+	});
+
+	test("shows an empty state outside a repository", async () => {
+		const response = await handleRequest(
+			{ ...context(), diff: provider({ list: async () => undefined }) },
+			"GET",
+			"/diff",
+			{},
+		);
+		expect(response.status).toBe(200);
+		expect(text(response)).toContain("No changes");
+	});
+
+	test("hides the diff view when disabled or unconfigured", async () => {
+		expect((await handleRequest({ ...context({ gitDiff: false }), diff: provider() }, "GET", "/diff", {})).status).toBe(
+			404,
+		);
+		expect((await handleRequest(context(), "GET", "/diff", {})).status).toBe(404);
+	});
+
+	test("marks a changed file page with a changes action", async () => {
+		const response = await handleRequest({ ...context(), diff: provider() }, "GET", "/view/a.txt", {});
+		expect(response.status).toBe(200);
+		expect(text(response)).toContain('href="/diff/a.txt"');
+	});
+});

@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `file-browse`: a read-only git diff view. A `● N changes` chip links to
+  `/diff`, a change overview with `git diff --stat`, and `/diff/<rel>` renders
+  one file's unified diff with `head` / `staged` / `worktree` scopes; untracked
+  files show as all-add and an unborn `HEAD` falls back to the index. Configured
+  by the `gitDiff`, `diffContext`, and `maxDiffLines` keys.
+
 ## [0.8.1] - 2026-10-15
 
 ### Changed

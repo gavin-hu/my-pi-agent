@@ -15,7 +15,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
 import { loadConfig, randomPort } from "./config.ts";
-import { createGitStatus } from "./git.ts";
+import { createGitDiff, createGitStatus } from "./git.ts";
 import { openInBrowser } from "../../lib/browser.ts";
 import { HttpError, resolveRequestPath } from "./paths.ts";
 import { createFileServer, type FileServer } from "./server.ts";
@@ -110,7 +110,17 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		await stop(ctx);
 		const create = deps.createServer ?? createFileServer;
 		try {
-			const server = await create({ root, config: { ...config, port }, git: createGitStatus(pi, root) });
+			const server = await create({
+				root,
+				config: { ...config, port },
+				git: createGitStatus(pi, root),
+				diff: createGitDiff(pi, root, {
+					context: config.diffContext,
+					maxLines: config.maxDiffLines,
+					maxFileBytes: config.maxFileBytes,
+					maxTextLines: config.maxTextLines,
+				}),
+			});
 			if (unpinned) sessionPort = port;
 			running = { server };
 			setBrowseStatus(ctx, server.port);

@@ -38,3 +38,20 @@ describe("normalizeConfig maxIndexEntries", () => {
 		expect(normalizeConfig({ maxIndexEntries: 0 }).maxIndexEntries).toBe(1);
 	});
 });
+
+describe("normalizeConfig git diff", () => {
+	test("defaults the diff view on with three context lines", () => {
+		expect(DEFAULT_CONFIG.gitDiff).toBe(true);
+		expect(DEFAULT_CONFIG.diffContext).toBe(3);
+		expect(DEFAULT_CONFIG.maxDiffLines).toBe(4000);
+		expect(normalizeConfig(undefined).gitDiff).toBe(true);
+	});
+
+	test("accepts a boolean toggle and clamps the numeric keys", () => {
+		expect(normalizeConfig({ gitDiff: false }).gitDiff).toBe(false);
+		expect(normalizeConfig({ gitDiff: "no" }).gitDiff).toBe(true);
+		expect(normalizeConfig({ diffContext: -2 }).diffContext).toBe(0);
+		expect(normalizeConfig({ diffContext: 500 }).diffContext).toBe(100);
+		expect(normalizeConfig({ maxDiffLines: 0 }).maxDiffLines).toBe(1);
+	});
+});
