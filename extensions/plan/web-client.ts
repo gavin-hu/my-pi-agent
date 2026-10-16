@@ -94,7 +94,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     return trimmed;
   }
 
-  var INLINE = /(\x60[^\x60]+\x60|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
+  // Inline token order matters: code, emphasis, and links are matched before a
+  // bare URL, so a URL inside a link target or a code span is never re-split.
+  var INLINE = /(\x60[^\x60]+\x60|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\)|(?:https?:\/\/|www\.)[^\s<]+)/g;
 
   function renderInline(container, text) {
     String(text).split(INLINE).forEach(function (part) {
@@ -114,6 +116,25 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         if (!href) { container.appendChild(document.createTextNode(part)); return; }
         var link = el("a"); link.textContent = match[1]; link.href = href; link.target = "_blank"; link.rel = "noreferrer noopener";
         container.appendChild(link); return;
+      }
+      // GFM extended autolink: a bare http(s) or www. URL in running text.
+      if ((match = /^(?:https?:\/\/|www\.)[^\s<]+$/.exec(part))) {
+        var url = match[0].replace(/[.,;:!?*_~]+$/, "");
+        while (url.charAt(url.length - 1) === ")" && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) {
+          url = url.slice(0, -1).replace(/[.,;:!?*_~]+$/, "");
+        }
+        var dot = url.indexOf(".");
+        var target = /^www\./i.test(url) ? "http://" + url : url;
+        var safe = dot > 0 && /\.[^./]/.test(url.slice(dot)) ? safeHref(target) : null;
+        if (safe) {
+          var auto = el("a");
+          auto.textContent = url;
+          auto.href = safe;
+          auto.target = "_blank";
+          auto.rel = "noreferrer noopener";
+          container.appendChild(auto);
+          return;
+        }
       }
       container.appendChild(document.createTextNode(part));
     });

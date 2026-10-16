@@ -73,7 +73,7 @@ describe("renderReviewPage", () => {
 
 	test("frames the document with a reading measure and a comment rail", () => {
 		const html = page();
-		expect(html).toContain("--review-measure");
+		expect(html).toContain("--review-measure:1012px");
 		expect(html).toContain(".bf-block__rail");
 		expect(html).toContain(".bf-block__count");
 		expect(html).toContain(".review-table");

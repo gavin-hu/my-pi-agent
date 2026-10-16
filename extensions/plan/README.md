@@ -49,7 +49,8 @@ pi --plan                          # start in plan mode
   it for approval. The user approves, keeps planning, or asks for a refinement.
 - **Browser review on demand.** Press `w` on the review screen (or run
   `/plan review [path]`) to open the plan in a local browser: a reading-first
-  page with the plan's H1 as its title, one centred measure, a comment rail in
+  page with the plan's H1 as its title, GitHub's Markdown content column, a
+  comment rail in
   the left margin, and live section and step progress. Select text to leave an
   inline comment, and save them back into the plan file itself as
   `> [!REVIEW]` lines. Saved comments return to the model as a refinement
@@ -260,8 +261,9 @@ surface: a sticky header carrying the plan's H1 (falling back to the file-name
 slug), a live status chip (connection, comment count, and unsaved changes), the
 theme toggle, and Save/Close, over a hairline reading-progress bar. A sticky
 side panel shows the plan's step progress and comment count above a **section
-outline**, and the document keeps one centred measure with a comment rail in
-its left margin. Every block reveals a **+ Comment** action on hover; select
+outline**, and the document is GitHub's Markdown content column — one centred
+measure of at most 1012px with a comment rail in its left margin. Every block
+reveals a **+ Comment** action on hover; select
 text first to quote it. **Save feedback** writes the comments into the plan
 file and returns them to the model.
 
@@ -269,8 +271,10 @@ file and returns them to the model.
   syntax-token colors as `file-browse` (`lib/web/`), follows the system light/dark
   preference until the header toggle sets an explicit choice, and remembers that
   choice under the shared `pi-web-theme` key.
-- **One measure, one rail.** The document is a single centred column of about 74
-  characters; each block carries its `+ Comment` button and comment-count badge
+- **One content column, one rail.** The document is GitHub's Markdown content
+  column (a centred measure of at most 1012px), so a plan reads the way the same
+  file does on GitHub; each block carries its `+ Comment` button and
+  comment-count badge
   in a rail in the left margin, so annotating never reflows the text.
 - **Section outline and facts.** Headings become a sticky outline with jump
   links, an active-section highlight, and a per-section comment count; the panel
@@ -282,7 +286,8 @@ file and returns them to the model.
   on the current block, `s` saves, `Esc` closes the composer, and `?` opens a
   shortcut sheet; the header's `?` button opens the same sheet.
 - **Markdown that reads.** Headings, lists, task items, blockquotes, fenced
-  code, GFM tables, and `---` rules render; tables honour the alignment row and
+  code, GFM tables, `---` rules, and bare-URL autolinks render; tables honour the
+  alignment row and
   scroll horizontally when narrow.
 - **Highlighted code.** Fenced code is tokenized by the shared
   `lib/highlight.ts`; the client copies only text and `tok-*` spans through

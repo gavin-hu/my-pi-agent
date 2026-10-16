@@ -58,7 +58,9 @@ export const REVIEW_CSS = `${WEB_BASE_CSS}
 ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
-.bf-review{--review-measure:74ch;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
+.bf-review{--review-measure:1012px;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
+/* The document is one content column at GitHub's Markdown body width, with the
+   comment rail inside it, so a plan reads the way the same file does on GitHub. */
 /* Sticky header: identity, the connection/save chip, the actions, and a
    hairline reading-progress bar pinned to the header's bottom edge. */
 .review-bar{align-items:center;gap:var(--space-2) var(--space-4)}

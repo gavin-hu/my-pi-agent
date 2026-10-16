@@ -52,6 +52,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in its left margin, the side panel reports step progress and per-section
   comment counts, and GFM tables and `---` rules render. `j`/`k` move between
   blocks, `c` comments, `s` saves, and `?` opens a shortcut sheet.
+- `plan`: the browser review document is GitHub's Markdown content column (a
+  centred measure of at most 1012px) with the comment rail inside it, and a bare
+  `http(s)://` or `www.` URL in a plan is autolinked the way GitHub renders it.
 - `file-browse`: the rendered Markdown body follows GitHub's Markdown content
   column — one centred measure of at most 1012px carrying headings, prose,
   tables, code, and images, with wide tables scrolling inside it.

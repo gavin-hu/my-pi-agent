@@ -6,10 +6,20 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(() => new Function(REVIEW_CLIENT_JS)).not.toThrow();
 	});
 
-	test("has no external URLs", () => {
-		expect(REVIEW_CLIENT_JS).not.toContain("http://");
+	test("has no external URLs beyond the autolink scheme", () => {
+		// The Markdown autolinker is the only place a scheme literal appears; the
+		// client itself fetches only same-origin routes (asserted below).
+		const withoutScheme = REVIEW_CLIENT_JS.replace('"http://" + url', "");
+		expect(withoutScheme).not.toContain("http://");
 		expect(REVIEW_CLIENT_JS).not.toContain("https://");
 		expect(REVIEW_CLIENT_JS).not.toContain("//cdn");
+	});
+
+	test("autolinks a bare URL the way GitHub does", () => {
+		expect(REVIEW_CLIENT_JS).toContain("GFM extended autolink");
+		expect(REVIEW_CLIENT_JS).toContain("(?:https?");
+		expect(REVIEW_CLIENT_JS).toContain('"http://" + url');
+		expect(REVIEW_CLIENT_JS).toContain("safeHref(target)");
 	});
 
 	test("uses only same-origin routes with the session token", () => {
