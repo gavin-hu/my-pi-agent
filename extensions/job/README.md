@@ -5,6 +5,8 @@ the background and manage them without blocking the turn. A job starts
 immediately and keeps running across tool calls; poll it, tail its output, wait
 for it, or kill it.
 
+<img src="../../assets/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%">
+
 ```
 pi --extension ./extensions/job    # load just this extension
 pi -e .                            # load the whole @gavin-hu/my-pi-agent package

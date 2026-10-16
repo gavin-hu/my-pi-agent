@@ -52,6 +52,8 @@ A TodoWrite-style task list. The whole list is replaced on every call, each item
 is `pending`, `in_progress`, or `completed`, and a persistent one-line widget
 keeps the list visible (stacked under `goal` when both are loaded).
 
+<img src="../assets/todo.png" alt="The /todos screen: a Todos title rule, a 3/7 completed summary, and the list with check, spinner, and circle glyphs" width="100%">
+
 Tool: `todo`. Command: `/todos`.
 
 [Full README](../extensions/todo/README.md)
@@ -76,6 +78,8 @@ Tool: `goal`. Command: `/goal`.
 Ask the user one or more structured questions — labelled options plus a
 free-form "Other" answer — and wait for the response.
 
+<img src="../assets/question.png" alt="The ask_user_question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%">
+
 Tool: `ask_user_question`.
 
 [Full README](../extensions/question/README.md)
@@ -86,6 +90,8 @@ Run long-lived shell commands in the background. Start a job, list jobs, check
 status, read a sanitized log tail, wait for completion, or kill one. A `▸ N`
 chip shows running jobs and `✗ N` shows unreported failures; jobs reconcile on
 session shutdown.
+
+<img src="../assets/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%">
 
 Tool: `job`. Command: `/jobs`.
 
@@ -125,6 +131,8 @@ Commands and flags: `/worktree*`, `--worktree <name>`.
 Automatic per-prompt snapshots stored under `refs/pi/rewind`, plus `/rewind` to
 restore code, conversation, or both. A `↺ N` status chip shows the available
 snapshots. Parallel tool calls in one prompt share a single snapshot.
+
+<img src="../assets/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%">
 
 Command: `/rewind`.
 

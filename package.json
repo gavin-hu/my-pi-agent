@@ -102,7 +102,8 @@
     "check": "bun run format:check && bun run typecheck && bun run test",
     "check:serial": "bun run format:check && bun run typecheck && bun run test:serial",
     "release:notes": "bun run scripts/release-notes.ts",
-    "config:migrate": "bun run scripts/migrate-config.ts"
+    "config:migrate": "bun run scripts/migrate-config.ts",
+    "screenshots": "bun run scripts/screenshots.ts"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
