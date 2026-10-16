@@ -12,23 +12,26 @@ const at = (messageType: MarkdownTransformContext["messageType"], availableWidth
 
 const user = (availableWidth = 80) => at("user", availableWidth);
 
+/** The two-row nameplate Markdown: `You` padded to the width, then the rule. */
+const plate = (width: number): string => `## You${" ".repeat(width - 3)}${"─".repeat(width)}`;
+
 describe("nameplate", () => {
-	test("draws the label as a heading with a rule to the width", () => {
-		expect(nameplate(20)).toBe(`## ❯ You ${"─".repeat(14)}`);
+	test("draws the label over a full-width rule", () => {
+		expect(nameplate(20)).toBe(plate(20));
 	});
 
-	test("drops the rule when too little width remains", () => {
-		expect(nameplate(7)).toBe("## ❯ You");
+	test("still draws the full-width rule when the label just fits", () => {
+		expect(nameplate(3)).toBe(plate(3));
 	});
 
 	test("drops the nameplate when the label does not fit", () => {
-		expect(nameplate(4)).toBeUndefined();
+		expect(nameplate(2)).toBeUndefined();
 	});
 });
 
 describe("styleUserMessage", () => {
 	test("puts the nameplate above the message", () => {
-		expect(styleUserMessage("hello", user(20))).toBe(`## ❯ You ${"─".repeat(14)}\n\nhello`);
+		expect(styleUserMessage("hello", user(20))).toBe(`${plate(20)}\n\nhello`);
 	});
 
 	test("leaves non-user messages and empty text unchanged", () => {
@@ -48,11 +51,14 @@ describe("rendered through the real Markdown component", () => {
 		return component.render(width);
 	};
 
-	test("draws the heading label above the body without a hash prefix", () => {
-		const lines = render("hello");
-		expect(lines[0]).toContain("❯ You");
-		expect(lines[0]).not.toContain("#");
-		expect(lines.join("\n")).toContain("hello");
+	test("draws the label over the rule above the body without a hash prefix", () => {
+		const lines = render("hello").map((line) => line.replace(/\s+$/, ""));
+		expect(lines[0]).toBe("You");
+		expect(lines[1]).toBe("─".repeat(40));
+		const joined = lines.join("\n");
+		expect(joined).not.toContain("#");
+		expect(joined).not.toContain("❯");
+		expect(joined).toContain("hello");
 	});
 
 	test("keeps a code-first message as code", () => {
