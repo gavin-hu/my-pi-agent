@@ -6,6 +6,7 @@
  * helpers wrap it to expose the maps their tests inspect.
  */
 
+import type { MarkdownTransformer } from "@earendil-works/pi-coding-agent";
 import type { MarkdownTheme } from "@earendil-works/pi-tui";
 
 export type AnyHandler = (...args: any[]) => any;
@@ -84,6 +85,8 @@ export interface FakePi {
 	entries: Array<{ type: string; customType: string; data?: unknown }>;
 	handlers: Map<string, AnyHandler[]>;
 	renderers: Map<string, any>;
+	/** Transformers passed to `registerMarkdownTransformer`, in registration order. */
+	markdownTransformers: MarkdownTransformer[];
 	/** Legacy `{ customType, data }` view of appended entries. */
 	appended: Array<{ customType: string; data?: unknown }>;
 	sentMessages: Array<{ content: unknown; options: unknown }>;
@@ -132,6 +135,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 	const entries: FakePi["entries"] = [];
 	const handlers = new Map<string, AnyHandler[]>();
 	const renderers = new Map<string, any>();
+	const markdownTransformers: MarkdownTransformer[] = [];
 	const appended: Array<{ customType: string; data?: unknown }> = [];
 	const sentMessages: Array<{ content: unknown; options: unknown }> = [];
 	let active = [...(options.active ?? [])];
@@ -148,6 +152,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		registerCommand: (name: string, opts: any) => commands.set(name, opts),
 		registerShortcut: (key: string, opts: any) => shortcuts.set(String(key), opts),
 		registerEntryRenderer: (customType: string, renderer: any) => renderers.set(customType, renderer),
+		registerMarkdownTransformer: (transformer: MarkdownTransformer) => markdownTransformers.push(transformer),
 		registerFlag: (name: string, opts: any) => flags.set(name, opts),
 		getFlag: (name: string) => flags.get(name)?.default ?? options.flagDefaults?.[name] ?? false,
 
@@ -184,6 +189,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		entries,
 		handlers,
 		renderers,
+		markdownTransformers,
 		appended,
 		sentMessages,
 		activeTools: () => [...active],

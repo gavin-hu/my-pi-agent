@@ -31,11 +31,12 @@ const rateConfig = (symbol: string): string =>
 describe("bytefly extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
-			const { pi, tools, commands, handlers } = makeFakePi();
+			const { pi, tools, commands, handlers, markdownTransformers } = makeFakePi();
 			bytefly(pi);
 			expect(tools.size).toBe(0);
 			expect(commands.size).toBe(0);
 			expect(handlers.size).toBe(0);
+			expect(markdownTransformers).toHaveLength(0);
 		});
 	});
 
@@ -59,6 +60,12 @@ describe("bytefly extension", () => {
 		bytefly(pi);
 		// `ui_prompt_start` is notify's own hook; the separator shares `agent_settled`.
 		expect(handlers.has("ui_prompt_start")).toBe(true);
+	});
+
+	test("registers the user-message transformer", () => {
+		const { pi, markdownTransformers } = makeFakePi();
+		bytefly(pi);
+		expect(markdownTransformers).toHaveLength(1);
 	});
 
 	test("installs the footer on session start in interactive mode", async () => {

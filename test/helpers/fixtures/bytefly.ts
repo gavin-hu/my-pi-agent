@@ -1,3 +1,4 @@
+import type { MarkdownTransformer } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import type { StatusSnapshot } from "../../../extensions/bytefly/footer/types.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../fakes.ts";
@@ -11,6 +12,7 @@ export interface FakePi {
 	commands: Map<string, any>;
 	handlers: Map<string, AnyHandler[]>;
 	renderers: Map<string, any>;
+	markdownTransformers: MarkdownTransformer[];
 	appended: Array<{ customType: string; data?: unknown }>;
 }
 
@@ -23,6 +25,7 @@ export function makeFakePi(options: { settings?: any } = {}): FakePi {
 		commands: fake.commands,
 		handlers: fake.handlers,
 		renderers: fake.renderers,
+		markdownTransformers: fake.markdownTransformers,
 		appended: fake.appended,
 	};
 }

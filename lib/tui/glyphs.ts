@@ -47,6 +47,7 @@ export const GLYPHS = {
 	boxOff: "◻",
 	prev: "‹",
 	next: "›",
+	prompt: "❯",
 } as const;
 
 /** Columns before a transcript rail body glyph, shared by `goal` and `todo`. */

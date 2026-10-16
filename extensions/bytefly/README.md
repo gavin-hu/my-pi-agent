@@ -1,12 +1,13 @@
-# bytefly — the TUI header, footer, turn rule, extension screen, and notifications
+# bytefly — the TUI header, footer, user-message marker, turn rule, extension screen, and notifications
 
 `bytefly` owns the terminal chrome, configuration, and diagnostics surfaces
 this package adds: one themed startup header whose two-tone nameplate carries
 the agent and chrome identities, one compact, colorful, width-adaptive two-line
-footer, a labeled rule that marks each completed turn in the transcript, one
-keyboard-driven screen that lists every resolved Pi extension with its enable
-checkbox and its health, and an opt-in notify capability that raises an OS
-notification when a run finishes, a job finishes, or the agent asks for input.
+footer, a `❯` prompt marker that opens each user message, a labeled rule that
+marks each completed turn in the transcript, one keyboard-driven screen that
+lists every resolved Pi extension with its enable checkbox and its health, and
+an opt-in notify capability that raises an OS notification when a run finishes,
+a job finishes, or the agent asks for input.
 DeepSeek is priced from the provider's published yuan rates and peak tariff by
 default, and any other model can be priced from your own rates when Pi's catalog
 does not match what a provider actually charges.
@@ -19,8 +20,9 @@ pi install ./                         # install the package
 
 ## What it does
 
-The extension owns five surfaces: the startup header, the footer, the rule
-between completed turns, the extension screen, and notifications.
+The extension owns six surfaces: the startup header, the footer, the
+user-message marker, the rule between completed turns, the extension screen, and
+notifications.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
 `accent` / `warn` roles, the agent identity (`Pi`, bold, and its version), the
@@ -106,6 +108,25 @@ rates and peak tariff built into [`footer/price/config.ts`](./footer/price/confi
 ~/repo/project                                                          ⎇ main
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥2.50 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
+
+**User message.** A `❯` marker opens every user message in the transcript, and
+its continuation lines hang two columns under the text:
+
+```
+❯ the message the user typed
+  its second line, hung two columns in
+```
+
+It is always on in interactive sessions and has no config file. It is shaped,
+not painted: Pi renders a user message as Markdown and owns its colors, so
+bytefly's only lever is a `registerMarkdownTransformer`, and the marker and hang
+are plain `userMessageText`. The two shipped themes set `userMessageBg` to
+transparent, so the message sits on the terminal background instead of a filled
+block. The hang covers the first paragraph and stops at a blank line or the next
+block (a list, a heading, a fence), so code and lists keep the layout you wrote;
+a soft wrap of one long line stays at the margin, because the renderer wraps it,
+not bytefly. The glyph and the hang are tuned in
+[`message/config.ts`](./message/config.ts).
 
 **Turn separator.** After each completed turn the extension appends an inert
 entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
@@ -607,6 +628,7 @@ rather than showing a wrong value.
 |---|---|
 | Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
+| User message | `pi.registerMarkdownTransformer` marks each user message with a `❯` and a two-column hanging indent; the shipped themes set `userMessageBg` to `""` so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
@@ -627,6 +649,15 @@ rather than showing a wrong value.
   from `rules.ts`, a list row from `rows.ts`, a meter from `gauge.ts`, and a
   width from `columns.ts`. Nothing in bytefly names a literal color, and a
   theme swap re-skins the whole chrome.
+- **The user message is shaped, not painted.** Pi renders a user message as
+  Markdown and owns its colors, so bytefly's only lever is a Markdown
+  transformer: the marker and the hang are plain `userMessageText` and the
+  surface names no role. The fill is dropped where the token lives — the theme's
+  `userMessageBg` — because no extension API can override a theme token. The
+  indent stops at the first blank line or block so code and lists keep the
+  user's own layout, and a soft wrap stays at the margin because pi-tui's
+  wrapper drops break whitespace; hard-wrapping Markdown here would corrupt a
+  break inside an inline construct.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
@@ -746,7 +777,8 @@ rather than showing a wrong value.
 ## Files
 
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
-calculation), `separator/`, `panel/` (the unified screen and its merged model),
+calculation), `message/` (the user-message marker), `separator/`, `panel/` (the
+unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
 and its probe runtime), and `notify/`. The chrome and the screen are drawn from
 the package's [`lib/tui/`](../../lib/tui/) design system (tokens, rules, rows,
@@ -774,6 +806,9 @@ columns, gauge), so the look follows the active theme.
 | `footer/render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
 | `footer/render/layout.ts` | Width reduction and right-zone folding. |
 | `footer/render/footer.ts` | `StatusBar` component and footer factory. |
+| `message/config.ts` | Marker tuning (`MESSAGE_CONFIG`): the prompt glyph and the continuation hang. |
+| `message/format.ts` | Pure `styleUserMessage` and `opensBlock`: the marker, the hanging indent, and the block-leading fallback. |
+| `message/register.ts` | Registers the Markdown transformer. |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
 | `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
@@ -838,3 +873,6 @@ through the factory (`doctor/register`). The notify capability is covered by its
 (`notify/config`), the pure text builders (`notify/format`), method selection and
 delivery over recording seams (`notify/dispatch`), and its three triggers,
 reload, and shutdown through `registerNotify` (`notify/register`).
+The user-message marker is covered by its pure transform
+(`message/format`, including a render through pi-tui's real `Markdown`) and its
+registration (`message/register`), plus the factory check in `extension`.

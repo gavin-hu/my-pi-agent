@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: a `❯` prompt marker opens each user message in the transcript,
+  with its continuation lines hung two columns under the text. A message whose
+  first line opens a code fence, list, heading, blockquote, or table keeps its
+  own layout, and the hang stops at the first blank line or block.
 - Docs: terminal screenshots for the `todo`, `question`, `job`, and `rewind`
   screens plus a refreshed `chrome.png` hero, embedded in each extension
   README, the catalog, and the root and Chinese READMEs; `bun run screenshots`
@@ -16,6 +20,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the user message no longer sits on a filled block. The shipped
+  themes set `userMessageBg` transparent, so the message renders on the
+  terminal's own background.
 - `file-browse`: the header's branch chip no longer carries its own dirty dot and
   warn tint. The `● N changes +A −D` chip already reports uncommitted changes, so
   the header row stated the same fact twice, with two amber dots a few pixels

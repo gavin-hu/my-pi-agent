@@ -225,8 +225,10 @@ The themed TUI chrome and the package's diagnostics surface. It draws the
 startup header (a two-tone nameplate with the agent and chrome identities and a
 signature rule, drawn from the active theme through the `lib/tui/` design
 system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
-mode/alert + model + thinking level), and the labeled `╌╌╌ turn N ╌╌╌` rule
-between completed turns.
+mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
+between completed turns, and a `❯` prompt marker that opens each user message
+with its continuation lines hung two columns in (on the terminal background —
+the themes set `userMessageBg` transparent).
 DeepSeek is priced out of the box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a
