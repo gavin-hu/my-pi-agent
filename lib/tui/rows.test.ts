@@ -16,6 +16,11 @@ describe("listRow", () => {
 		expect(plain).not.toContain("❯");
 	});
 
+	test("drops the marker column when marker is false", () => {
+		expect(stripTerminalSequences(listRow(fakeTheme, 20, { label: "alpha", marker: false }))).toBe("alpha");
+		expect(stripTerminalSequences(listRow(fakeTheme, 20, { label: "x", glyph: "✓", marker: false }))).toBe("✓ x");
+	});
+
 	test("right-aligns the trailing meta", () => {
 		const line = listRow(fakeTheme, 20, { label: "alpha", trailing: "12" });
 		expect(line.endsWith("12")).toBe(true);

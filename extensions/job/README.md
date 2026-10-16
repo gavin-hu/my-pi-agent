@@ -97,7 +97,6 @@ showing the job's pre-kill running state, a `start` badges `detached` and
 
 ```
 job list
-
   ▸ j1  tests                            3.2s
   ✗ j2  build                            0.4s
 ```
@@ -272,8 +271,10 @@ rewritten.
   spawn/liveness/kill/clock functions, so the whole suite runs without
   launching a process.
 - **The transcript reuses the `/jobs` grammar.** `job list` renders the same
-  `jobRow` rows as the screen (running first, capped, `… N more`), `job logs`
-  draws a themed tail with a `… N earlier lines` note, and single-job actions
+  `jobRow` rows as the screen (running first, capped, `… N more`), minus the
+  selection-marker column (`listRow`'s `marker: false`), which only the
+  interactive screen needs; `job logs` draws a themed tail with a `… N earlier
+  lines` note, and single-job actions
   draw one `formatJobOutcomeLine` (plus a signal note on `kill` and
   `detached`/`wake` badges on `start`). A capped collapsed result ends with the
   `app.tools.expand` hint, and an expanded list shows every job. The renderers

@@ -24,6 +24,12 @@ export interface ListRow {
 	/** Draw the `❯` marker in the accent role. A blank marker column is reserved either way. */
 	selected?: boolean;
 	/**
+	 * Reserve the `❯ ` marker column. Default true, so a column of rows stays
+	 * aligned; a non-interactive row (a transcript result) sets false to drop the
+	 * columns it can never use.
+	 */
+	marker?: boolean;
+	/**
 	 * A pre-themed cell between the marker and the glyph, e.g. a `checkbox`.
 	 * Reserved by the caller (pass a blank when the row has none) so a column of
 	 * rows stays aligned.
@@ -46,13 +52,14 @@ export interface ListRow {
  * One list row: an optional indent, the selection marker, an optional glyph,
  * the label, and right-aligned trailing meta.
  *
- * The marker column is always reserved, so selected and unselected rows align.
- * The trailing meta is the anchor when the terminal is narrow (see
- * `splitRow`), so a value at the end of the row survives.
+ * The marker column is reserved by default, so selected and unselected rows
+ * align; `marker: false` drops it for a non-interactive row. The trailing meta
+ * is the anchor when the terminal is narrow (see `splitRow`), so a value at the
+ * end of the row survives.
  */
 export function listRow(theme: Theme, width: number, row: ListRow): string {
 	const indent = " ".repeat(Math.max(0, Math.floor(row.indent ?? 0)));
-	const marker = selectionMarker(theme, row.selected === true);
+	const marker = row.marker === false ? "" : selectionMarker(theme, row.selected === true);
 	const leading = row.leading ? `${row.leading} ` : "";
 	const glyph = row.glyph ? `${paint(theme, row.glyphRole ?? "info", row.glyph)} ` : "";
 	const label = paint(theme, row.labelRole ?? "label", row.label);

@@ -91,9 +91,11 @@ and the command's `pid`/`exitCode`/`signal` when applicable.
 
 ### Transcript
 
-`add` and `stop` render one outcome line; `list` renders `/watch`-style rows
-capped at eight rows; `matches` and `logs` render the tail of the sanitized
-lines, with the hidden count noted above and `(ctrl+o to expand)`.
+`add` and `stop` render one outcome line; `list` renders the `/watch` rows
+capped at eight rows, minus the selection-marker column (`listRow`'s
+`marker: false`) that only the interactive screen needs; `matches` and `logs`
+render the tail of the sanitized lines, with the hidden count noted above and
+`(ctrl+o to expand)`.
 
 ### Command: /watch
 

@@ -5,7 +5,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { expandHint, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
-import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
@@ -126,18 +125,19 @@ export interface TodoRailInput {
 }
 
 /**
- * Transcript result rail: each row is indented by `BODY_INDENT`, led by its
- * status glyph, and its label wrapped with continuation rows aligned under the
- * text. A trailing `… N more` follows when rows were capped. Progress lives on
- * the call line, so the rail carries no footer. Every line is clipped to
- * `width`.
+ * Transcript result rail: each row is led by its status glyph, and its label
+ * wrapped with continuation rows aligned under the text. A trailing `… N more`
+ * follows when rows were capped. Progress lives on the call line, so the rail
+ * carries no footer. Every line is clipped to `width`.
+ *
+ * The rail draws at its own left edge; the tool-block frame supplies
+ * `BODY_INDENT`, so the rail must not add it again.
  */
 export function todoRailLines(input: TodoRailInput, theme: Theme, width: number): string[] {
 	const w = Math.max(1, width);
 	// All three status glyphs are single-column, so the text column is fixed.
-	const textColumn = BODY_INDENT + 1 + GLYPH_GAP;
+	const textColumn = 1 + GLYPH_GAP;
 	const inner = Math.max(1, w - textColumn);
-	const pad = " ".repeat(BODY_INDENT);
 	const gap = " ".repeat(GLYPH_GAP);
 	const continuation = " ".repeat(textColumn);
 	const lines: string[] = [];
@@ -145,7 +145,7 @@ export function todoRailLines(input: TodoRailInput, theme: Theme, width: number)
 		const glyph = todoGlyph(todo, theme);
 		const wrapped = wrapTextWithAnsi(todoLabel(todo, theme), inner);
 		wrapped.forEach((line, index) => {
-			lines.push(index === 0 ? `${pad}${glyph}${gap}${line}` : `${continuation}${line}`);
+			lines.push(index === 0 ? `${glyph}${gap}${line}` : `${continuation}${line}`);
 		});
 	}
 	if (input.more && input.more > 0) {

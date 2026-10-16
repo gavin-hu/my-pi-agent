@@ -64,10 +64,10 @@ with active work; expanded, it keeps the submitted order:
 
 ```
 todo → 1/4
-    ◒ Writing tests
-    ◌ Ship it
-    ◌ Write docs
-    ✓ Write schema
+  ◒ Writing tests
+  ◌ Ship it
+  ◌ Write docs
+  ✓ Write schema
 ```
 
 Progress lives on the call line, so the rows have no footer; the persistent
@@ -210,11 +210,11 @@ depends on config.
   widget is a single line (`currentTodo` picks the `in_progress` item, else the
   first pending); `/todos` keeps the submitted order, and the transcript result
   orders by status via `compareByActivity` so active work is never hidden. The
-  transcript result draws the same indented glyph rows as the goal result
-  (`GLYPH_GAP` from [`lib/tui/glyphs.ts`](../../lib/tui/glyphs.ts) and
-  `BODY_INDENT` from [`lib/tui/indent.ts`](../../lib/tui/indent.ts)), wrapping
-  long items with continuation rows aligned under the text. Progress lives on
-  the call line, so the rows carry no footer.
+  transcript result draws the glyph rows at the block's body indent (the frame
+  supplies `BODY_INDENT`; `GLYPH_GAP` comes from
+  [`lib/tui/glyphs.ts`](../../lib/tui/glyphs.ts)), wrapping long items with
+  continuation rows aligned under the text. Progress lives on the call line, so
+  the rows carry no footer.
 - **The transcript reuses its components.** `renderCall` reuses the slot's
   `Text`, and `renderResult` reuses the `TodoResult` view via
   `context.lastComponent`, updating each in place instead of allocating on every

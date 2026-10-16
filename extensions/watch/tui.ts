@@ -36,10 +36,19 @@ const LINES_CHROME_ROWS = 6;
 /** A watcher's stable identity, for the id-anchored cursor. */
 const watchId = (watch: WatchRecord): string => watch.id;
 
+/** How one watcher row is drawn. */
+interface WatchRowOptions {
+	/** Draw the interactive selection marker. */
+	selected?: boolean;
+	/** Reserve the marker column. Default true; the transcript sets false. */
+	marker?: boolean;
+}
+
 /** One watcher row: marker, status glyph, id, label, and a right-aligned count. */
-function watchRow(watch: WatchRecord, theme: Theme, width: number, selected = false): string {
+function watchRow(watch: WatchRecord, theme: Theme, width: number, options: WatchRowOptions = {}): string {
 	return listRow(theme, width, {
-		selected,
+		selected: options.selected === true,
+		marker: options.marker !== false,
 		glyph: statusGlyphChar(watch.status),
 		glyphRole: statusRole(watch.status),
 		label: `${watch.id}  ${shortLabel(watch)}`,
@@ -80,7 +89,7 @@ export class WatchResult implements Component {
 		// A leading blank line separates the result from the call header.
 		const lines: string[] = [""];
 		if (this.input.kind === "list") {
-			for (const watch of this.input.watches) lines.push(watchRow(watch, this.theme, w));
+			for (const watch of this.input.watches) lines.push(watchRow(watch, this.theme, w, { marker: false }));
 			if (this.input.more > 0) {
 				const note = `${paint(this.theme, "faint", `… ${this.input.more} more`)} ${expandHint(this.theme)}`;
 				lines.push(clip(`  ${note}`, w));
@@ -311,7 +320,8 @@ export class WatchListComponent implements Component {
 			body.push(...emptyState(this.theme, w, { label: "No watchers." }));
 		} else {
 			const end = Math.min(watches.length, this.cursor.scroll + this.cursor.visible);
-			for (let i = this.cursor.scroll; i < end; i++) body.push(watchRow(watches[i], this.theme, w, i === index));
+			for (let i = this.cursor.scroll; i < end; i++)
+				body.push(watchRow(watches[i], this.theme, w, { selected: i === index }));
 			if (this.cursor.scroll > 0 || end < watches.length) {
 				range = formatRange(this.theme, w, { start: this.cursor.scroll, end, total: watches.length });
 			}

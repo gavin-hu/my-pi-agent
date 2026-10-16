@@ -55,19 +55,15 @@ describe("todo formatting", () => {
 });
 
 describe("todoRailLines", () => {
-	test("indents each row and leads it with the status glyph", () => {
-		expect(todoRailLines({ rows: todos }, fakeTheme, 60)).toEqual([
-			"  ✓ Write schema",
-			"  ◒ Writing tests",
-			"  ◌ Ship it",
-		]);
+	test("draws each row at its own left edge, led by the status glyph", () => {
+		expect(todoRailLines({ rows: todos }, fakeTheme, 60)).toEqual(["✓ Write schema", "◒ Writing tests", "◌ Ship it"]);
 	});
 
 	test("wraps a long label with continuation rows under the text column", () => {
 		const long: Todo[] = [{ content: "x".repeat(40), status: "pending" }];
 		const lines = todoRailLines({ rows: long }, fakeTheme, 20);
-		expect(lines[0]).toBe(`  ◌ ${"x".repeat(16)}`);
-		expect(lines[1]?.startsWith("    ")).toBe(true);
+		expect(lines[0]).toBe(`◌ ${"x".repeat(18)}`);
+		expect(lines[1]?.startsWith("  ")).toBe(true);
 		expect(lines[1]?.trimStart()).not.toContain("◌");
 		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 	});
@@ -75,7 +71,7 @@ describe("todoRailLines", () => {
 	test("reports capped rows with an expand hint and no progress footer", () => {
 		const rows: Todo[] = Array.from({ length: 6 }, (_, i) => ({ content: `item ${i}`, status: "pending" as const }));
 		const lines = todoRailLines({ rows, more: 2 }, fakeTheme, 60);
-		expect(lines.at(-1)).toMatch(/^ {4}… 2 more/);
+		expect(lines.at(-1)).toMatch(/^ {2}… 2 more/);
 		expect(lines.at(-1)).toContain("to expand");
 		expect(lines.some((line) => line.includes("completed"))).toBe(false);
 	});

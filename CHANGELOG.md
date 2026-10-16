@@ -115,6 +115,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `todo`: the transcript result rows were indented two columns too far in —
+  `todoRailLines` prefixed its own `BODY_INDENT` on top of the indent the
+  tool-block frame already applies — so they now start at the standard body
+  indent, matching `goal`, `memory`, and the built-ins.
+- `job`, `watch`: the transcript result rows drop `listRow`'s reserved
+  selection-marker column (the interactive `/jobs` and `/watch` screens keep
+  it), so their status glyphs sit at the body indent instead of two columns
+  deeper.
 - `plan`: the browser review's sidebar hint now names `a` on a review that can
   approve and points at `?` for the full shortcut list, instead of listing only
   `j`/`k`/`c`/`s` after approval moved onto the page.

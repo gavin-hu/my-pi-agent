@@ -11,19 +11,19 @@ const todos: Todo[] = [
 ];
 
 describe("TodoResult", () => {
-	test("blank line then the indented glyph rail at the render width", () => {
+	test("blank line then the glyph rail at the render width", () => {
 		expect(new TodoResult({ rows: todos }, theme).render(60)).toEqual([
 			"",
-			"  ✓ Write schema",
-			"  ◒ Writing tests",
-			"  ◌ Ship it",
+			"✓ Write schema",
+			"◒ Writing tests",
+			"◌ Ship it",
 		]);
 	});
 
 	test("updates in place for reuse", () => {
 		const view = new TodoResult({ rows: todos }, theme);
 		view.setInput({ rows: [{ content: "Only", status: "pending" }] }, theme);
-		expect(view.render(60)).toEqual(["", "  ◌ Only"]);
+		expect(view.render(60)).toEqual(["", "◌ Only"]);
 	});
 });
 

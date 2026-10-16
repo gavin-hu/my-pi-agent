@@ -50,11 +50,20 @@ const LOG_CHROME_ROWS = 6;
 /** A job's stable identity, for the id-anchored cursor. */
 const jobId = (job: JobRecord): string => job.id;
 
+/** How one job row is drawn. */
+interface JobRowOptions {
+	/** Draw the interactive selection marker. */
+	selected?: boolean;
+	/** Reserve the marker column. Default true; the transcript sets false. */
+	marker?: boolean;
+}
+
 /** One job row: selection marker, status glyph, id, label, and a right-aligned
  *  elapsed value. `listRow` owns the clipping and the alignment. */
-function jobRow(job: JobRecord, theme: Theme, width: number, selected = false): string {
+function jobRow(job: JobRecord, theme: Theme, width: number, options: JobRowOptions = {}): string {
 	return listRow(theme, width, {
-		selected,
+		selected: options.selected === true,
+		marker: options.marker !== false,
 		glyph: statusGlyphChar(job.status),
 		glyphRole: statusRole(job.status),
 		label: `${job.id}  ${shortLabel(job)}`,
@@ -95,7 +104,7 @@ export class JobResult implements Component {
 		// A leading blank line separates the result from the call header.
 		const lines: string[] = [""];
 		if (this.input.kind === "list") {
-			for (const job of this.input.jobs) lines.push(jobRow(job, this.theme, w));
+			for (const job of this.input.jobs) lines.push(jobRow(job, this.theme, w, { marker: false }));
 			if (this.input.more > 0) {
 				const note = `${paint(this.theme, "faint", `… ${this.input.more} more`)} ${expandHint(this.theme)}`;
 				lines.push(clip(`  ${note}`, w));
@@ -350,7 +359,8 @@ export class JobListComponent implements Component {
 			body.push(...emptyState(this.theme, w, { label: "No background jobs." }));
 		} else {
 			const end = Math.min(jobs.length, this.cursor.scroll + this.cursor.visible);
-			for (let i = this.cursor.scroll; i < end; i++) body.push(jobRow(jobs[i], this.theme, w, i === index));
+			for (let i = this.cursor.scroll; i < end; i++)
+				body.push(jobRow(jobs[i], this.theme, w, { selected: i === index }));
 			if (this.cursor.scroll > 0 || end < jobs.length) {
 				range = formatRange(this.theme, w, { start: this.cursor.scroll, end, total: jobs.length });
 			}
