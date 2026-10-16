@@ -84,6 +84,44 @@ describe("railBlockLines", () => {
 			expect(visibleWidth(line)).toBeLessThanOrEqual(10);
 		}
 	});
+
+	test("leads with an un-railed headline and one plain blank line", () => {
+		expect(railBlockLines(["read src/cli.ts", "a"], "ok", fakeTheme, 40, { headline: true })).toEqual([
+			"read src/cli.ts",
+			"",
+			`${RAIL} a`,
+		]);
+	});
+
+	test("keeps interior blanks railed under a headline", () => {
+		expect(railBlockLines(["read", "a", "", "b"], "ok", fakeTheme, 40, { headline: true })).toEqual([
+			"read",
+			"",
+			`${RAIL} a`,
+			`${RAIL} `,
+			`${RAIL} b`,
+		]);
+	});
+
+	test("skips a leading blank when picking the headline", () => {
+		expect(railBlockLines(["", "read", "a"], "ok", fakeTheme, 40, { headline: true })).toEqual([
+			"read",
+			"",
+			`${RAIL} a`,
+		]);
+	});
+
+	test("indents an un-railed headline", () => {
+		expect(railBlockLines(["read", "a"], "ok", fakeTheme, 40, { headline: true, indent: 2 })).toEqual([
+			"  read",
+			"",
+			`  ${RAIL} a`,
+		]);
+	});
+
+	test("emits a plain blank for a headline-only block", () => {
+		expect(railBlockLines(["read"], "ok", fakeTheme, 40, { headline: true })).toEqual(["read", ""]);
+	});
 });
 
 describe("railLines", () => {

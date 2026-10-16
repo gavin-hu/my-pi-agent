@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
 import { RAIL } from "../../../lib/tui/rail.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
-import { blockStatus, toolBlockLines } from "./component.ts";
+import { blockStatus, headlineWithToolName, toolBlockLines } from "./component.ts";
 
 /** A stand-in for a tool's own renderer, recording the width it was asked for. */
 const innerOf = (lines: string[], onWidth?: (width: number) => void): Component => ({
@@ -58,7 +58,23 @@ describe("toolBlockLines", () => {
 	});
 
 	test("drops a self-shell's leading blanks when asked", () => {
-		expect(toolBlockLines(innerOf(["", "a"]), "ok", fakeTheme, 40, 0, true)).toEqual([`${RAIL} a`]);
+		expect(toolBlockLines(innerOf(["", "a"]), "ok", fakeTheme, 40, 0, { trimLeading: true })).toEqual([`${RAIL} a`]);
+	});
+
+	test("leads with an un-railed headline and one plain blank line", () => {
+		expect(toolBlockLines(innerOf(["read src/cli.ts", "a", "b"]), "ok", fakeTheme, 40, 0, { headline: true })).toEqual([
+			"read src/cli.ts",
+			"",
+			`${RAIL} a`,
+			`${RAIL} b`,
+		]);
+	});
+
+	test("skips a leading blank when picking the headline", () => {
+		expect(toolBlockLines(innerOf(["", "read src/cli.ts"]), "ok", fakeTheme, 40, 0, { headline: true })).toEqual([
+			"read src/cli.ts",
+			"",
+		]);
 	});
 
 	test("renders nothing for an absent inner", () => {
@@ -74,5 +90,24 @@ describe("toolBlockLines", () => {
 		for (const line of toolBlockLines(innerOf(["x".repeat(100)]), "ok", fakeTheme, 10, 0)) {
 			expect(visibleWidth(line)).toBeLessThanOrEqual(10);
 		}
+	});
+});
+
+describe("headlineWithToolName", () => {
+	test("replaces a shell prompt with the tool name", () => {
+		expect(headlineWithToolName("$ bun run check", "bash")).toBe("bash bun run check");
+		expect(headlineWithToolName("> Get-ChildItem", "powershell")).toBe("powershell Get-ChildItem");
+	});
+
+	test("leaves a headline that already names the tool alone", () => {
+		expect(headlineWithToolName("read src/cli.ts:1-8", "read")).toBe("read src/cli.ts:1-8");
+	});
+
+	test("rewrites the prompt in place, keeping its styling", () => {
+		expect(headlineWithToolName("\u001b[1m$ ls\u001b[0m", "bash")).toBe("\u001b[1mbash ls\u001b[0m");
+	});
+
+	test("sanitizes the tool name", () => {
+		expect(headlineWithToolName("$ ls", "ba\u0007sh")).toBe("ba sh ls");
 	});
 });

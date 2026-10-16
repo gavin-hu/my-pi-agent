@@ -22,11 +22,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bun run scripts/tool-renderings.ts render <name> --width <n>` prints one block
   as ANSI on any OS. One built-in is drawn mid-run, so the rail's accent state
   appears beside the neutral and failed ones.
-- `bytefly`: frames every tool block — built-ins included — with a status-colored
-  rail in place of Pi's filled background box, wrapping each tool's own renderer
-  so diffs, syntax highlighting, and previews are unchanged. `edit`, which draws
-  its own shell, is framed too: its `Box` carries no fill in the shipped themes,
-  so the rail is the only frame it has.
+- `bytefly`: every tool block leads with the tool's own call line as an un-railed
+  headline — the tool name in the accent colour — then one plain blank line, then
+  its body on a status-colored rail, in place of Pi's filled background box. The
+  rail wraps the tool's own renderer, so diffs, syntax highlighting, and previews
+  are unchanged; `edit`, whose diff is drawn on the call, keeps a rail on that
+  diff. A shell call's `$` / `>` prompt is shown as the tool name
+  (`bash bun run check`), and `toolTitle` now resolves to the accent.
 - `bytefly`: renders the shared transcript notice — a `source · title` rail with
   severity-led rows — that any extension posts under the shared
   `my-pi-agent/notice` type.
@@ -70,15 +72,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell — is no longer the single filled block among the rails.
 - Tooling: `bun run screenshot:plan` now crops to the page's own content height,
   so a short plan no longer pads the PNG with the browser viewport.
+- Tooling: a per-tool rendering image now leads with its one `name · label`
+  caption line instead of repeating the name and label as a page heading above
+  it.
 - `bytefly`: every transcript block that is not prose now hangs from one shared
   rail (`lib/tui/rail.ts`). A notice joined the tool blocks' rail instead of
   sitting flush, so a notice, a tool block, and a subagent quote share one left
   edge and one nesting depth, and a notice's rail is painted by its worst
   severity.
-- `bytefly`: the rail glyph is `╎` — the turn rule's `╌` stroke, vertical —
-  instead of the East Asian ambiguous `│`, so a CJK-width terminal cannot widen
-  the rail and drift the column. The footer's group separator draws the same
-  stroke, so the chrome has one vertical glyph instead of two.
+- `bytefly`: the rail glyph is `❘` (LIGHT VERTICAL BAR) — a solid light stroke
+  that is East Asian neutral, unlike the ambiguous box-drawing `│` / `┃` / `┊`,
+  so a CJK-width terminal cannot widen the rail and drift the column. The
+  footer's group separator draws the same stroke, so the chrome has one vertical
+  glyph instead of two.
 - `subagent`: the quoted-output gutter uses the shared rail.
 - `bytefly`: the shipped themes point `mdHeading` at the accent, so Markdown
   headings — including the user-message nameplate — render in the accent color

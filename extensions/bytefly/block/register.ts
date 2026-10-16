@@ -2,16 +2,16 @@
  * Registers bytefly's tool-block resolver.
  *
  * The resolver runs for every tool, built-ins included. It switches the row to
- * `renderShell: "self"` — dropping Pi's filled status background — and wraps
- * the tool's own `renderCall` / `renderResult` in the rail frame, so the
- * content is unchanged and only the framing is bytefly's. A tool with no
- * renderer gets a framed generic fallback instead of an unframed row.
+ * `renderShell: "self"` — dropping Pi's filled status background — and frames
+ * the tool's own `renderCall` / `renderResult`, so the content is unchanged and
+ * only the framing is bytefly's. The call leads with its own first line as an
+ * un-railed headline; the body hangs from the rail. A tool with no renderer gets
+ * the same treatment around a generic fallback.
  *
  * The frame is added even for a tool that sets `renderShell: "self"` (`edit`):
  * that only tells Pi not to draw its filled box, and the shipped themes leave
- * the tool fills to the terminal, so such a tool would otherwise be the one
- * block with no frame at all. The rail is bytefly's, not Pi's box, so nothing
- * nests.
+ * the tool fills to the terminal, so its diff would otherwise be the one body
+ * with no rail. The rail is bytefly's, not Pi's box, so nothing nests.
  *
  * Pi hands a renderer the component it returned last time as
  * `context.lastComponent`, and every built-in renderer reuses it in place — it
@@ -46,9 +46,13 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 					base?.renderCall?.(args, theme, { ...context, lastComponent: memory.byteflyBaseCall }) ??
 					new Text(callFallback(toolName, args, theme, context.expanded), 0, 0);
 				memory.byteflyBaseCall = inner;
-				// A self-shell renderer (`edit`) is a `Box` that pads itself top and
-				// bottom; drop those blank edges so the rail starts at the call.
-				return new ToolBlock(inner, blockStatus(context), theme, context.outputPad, base?.renderShell === "self");
+				// The call's own first line is the block's headline; the frame trims the
+				// blank edges a self-shell `Box` (`edit`) pads itself with.
+				return new ToolBlock(inner, blockStatus(context), theme, context.outputPad, {
+					headline: true,
+					trimLeading: true,
+					toolName,
+				});
 			},
 			renderResult: (result, options, theme, context) => {
 				const memory = context.state as BlockMemory;
@@ -56,7 +60,9 @@ export function registerToolBlocks(pi: ExtensionAPI): void {
 					base?.renderResult?.(result, options, theme, { ...context, lastComponent: memory.byteflyBaseResult }) ??
 					new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
 				memory.byteflyBaseResult = inner;
-				return new ToolBlock(inner, blockStatus(context), theme, context.outputPad);
+				// The headline already added the blank line, so drop the result's own
+				// leading spacer rather than doubling it.
+				return new ToolBlock(inner, blockStatus(context), theme, context.outputPad, { trimLeading: true });
 			},
 		};
 	});

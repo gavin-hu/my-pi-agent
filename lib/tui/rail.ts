@@ -4,10 +4,11 @@
  *
  * A tool block, a shared notice, and a subagent's quoted output all draw the
  * same rail, so the transcript reads as one column instead of four indents. The
- * glyph is the turn rule's double-dash stroke rotated vertical (`RAIL`, from the
- * shared vocabulary), so the rail and the `╌` turn rule are one stroke family;
- * like every shared glyph it is East Asian neutral, so a CJK-width profile
- * cannot widen it and drift the block.
+ * glyph is the rule's light stroke (`RAIL`, from the shared vocabulary) turned
+ * vertical, so the rail and the `─` rule are one stroke family; like every shared
+ * glyph it is East Asian neutral, so a CJK-width profile cannot widen it and
+ * drift the block. A block may also lead with an un-railed headline — a tool's
+ * own call line — with one plain blank line before the railed body.
  *
  * Value-only: pure functions and constants, theme passed in.
  */
@@ -17,7 +18,7 @@ import { type Component, stripTerminalSequences, truncateToWidth, visibleWidth }
 import { GLYPHS } from "./glyphs.ts";
 import { paint, type TuiRole } from "./tokens.ts";
 
-/** The transcript rail glyph: the turn rule's stroke, vertical. */
+/** The transcript rail glyph: the rule stroke, vertical. */
 export const RAIL = GLYPHS.rail;
 
 /** Columns between the rail and its content. */
@@ -47,6 +48,12 @@ export interface RailOptions {
 	trimLeading?: boolean;
 	/** Drop trailing lines with no visible content. Default true. */
 	trimTrailing?: boolean;
+	/**
+	 * Lead with the first non-blank line un-railed as a headline (a tool's own
+	 * call line), separated from the railed body by one plain blank line.
+	 * Default false.
+	 */
+	headline?: boolean;
 }
 
 /**
@@ -82,6 +89,8 @@ const IMAGE_LINE = /^\u001b(?:P|_G|\]1337;)/;
  * is lost to the prefix; the clip is only a safety net. A line carrying an image
  * protocol sequence is passed through untouched, and trailing lines with no
  * visible content are dropped (by default) so an empty tail adds no bare rail.
+ * When `headline` is set, the first non-blank line leads with the indent and no
+ * rail, and one plain blank line separates it from the railed remainder.
  */
 export function railBlockLines(
 	body: readonly string[],
@@ -91,10 +100,23 @@ export function railBlockLines(
 	options: RailOptions = {},
 ): string[] {
 	const w = Math.max(1, width);
-	const prefix = railPrefix(theme, role, clampIndent(options.indent ?? 0, w));
+	const indent = clampIndent(options.indent ?? 0, w);
+	const prefix = railPrefix(theme, role, indent);
+
+	// The headline is the first line with something to say; it leads un-railed.
+	let headline: string | undefined;
+	let rest: readonly string[] = body;
+	if (options.headline) {
+		const index = body.findIndex((line) => !IMAGE_LINE.test(line) && !isBlank(line));
+		if (index >= 0) {
+			headline = body[index];
+			rest = body.slice(index + 1);
+		}
+	}
+
 	const lines: string[] = [];
 	const blank: boolean[] = [];
-	for (const line of body) {
+	for (const line of rest) {
 		if (IMAGE_LINE.test(line)) {
 			lines.push(line);
 			blank.push(false);
@@ -114,6 +136,10 @@ export function railBlockLines(
 			lines.pop();
 			blank.pop();
 		}
+	}
+	if (headline !== undefined) {
+		lines.unshift(truncateToWidth(`${" ".repeat(indent)}${headline}`, w, "…"));
+		lines.splice(1, 0, "");
 	}
 	return lines;
 }
