@@ -20,6 +20,11 @@
  * ragged stripe. The headline is the call, so it stays unfilled. The wrapper is
  * injected, so the frame stays theme-agnostic; a tool whose own renderer paints a
  * background is handed a no-op `bg` and leaves the fill to the frame.
+ *
+ * The tool name is the block's only accent. The shipped themes point
+ * `toolTitle` at the accent, so a primary subject — a path, URL, query, pattern
+ * — would otherwise spend the same colour; `recolorCallHeadline` demotes it to
+ * the body role on the call's first line.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -43,9 +48,9 @@ export interface ToolBlockOptions {
 	/** The tool name, so a shell prompt in the headline becomes the tool name. */
 	toolName?: string;
 	/**
-	 * The active theme. A shell call's command is repainted in the `label` role,
-	 * so only the tool name spends the accent; without it the line is left as Pi
-	 * drew it.
+	 * The active theme. A shell call's command and a call's primary subject are
+	 * repainted in the `label` role, so only the tool name spends the accent;
+	 * without it the line is left as Pi drew it.
 	 */
 	theme?: Theme;
 	/**
@@ -104,6 +109,60 @@ export function recolorShellCall(text: string, toolName: string, theme: Theme): 
 }
 
 /**
+ * Demote a call headline's primary subject from the accent to the body colour,
+ * so the tool name is the block's only accent.
+ *
+ * The name and the subject share the accent sequence in the shipped themes, so
+ * the name is told apart by position: the first accent opening at or after the
+ * tool name stays, and every later one on the first line is the subject. Only
+ * line one is touched — a multi-line call's continuation lines keep their own
+ * roles.
+ */
+export function recolorCallHeadline(text: string, toolName: string, theme: Theme): string {
+	const accent = paintPrefix(theme, "accent");
+	const label = paintPrefix(theme, "label");
+	if (!accent || accent === label) return text;
+	const end = text.indexOf("\n");
+	const head = end === -1 ? text : text.slice(0, end);
+	if (!head.includes(accent)) return text;
+
+	// Everything after the tool name is its subject; without a name to anchor on
+	// (a renderer that does not open with it) demote the whole line.
+	const name = sanitizeLine(toolName);
+	const at = head.indexOf(name);
+	const from = at === -1 ? 0 : at + name.length;
+
+	let out = "";
+	let i = 0;
+	for (;;) {
+		const hit = head.indexOf(accent, i);
+		if (hit === -1) {
+			out += head.slice(i);
+			break;
+		}
+		out += head.slice(i, hit);
+		out += hit >= from ? label : accent;
+		i = hit + accent.length;
+	}
+	return end === -1 ? out : out + text.slice(end);
+}
+
+/** A renderer component that carries a mutable string: Pi's own `Text`. */
+interface Rewritable {
+	text: string;
+	setText(text: string): void;
+}
+
+/**
+ * Whether a component exposes the `Text` shape. Pi's shell renderers return a
+ * `Text`, whose `text` field is private to the type but present at runtime.
+ */
+export function isRewritable(component: Component): component is Component & Rewritable {
+	const candidate = component as Partial<Rewritable>;
+	return typeof candidate.text === "string" && typeof candidate.setText === "function";
+}
+
+/**
  * Indent `inner` under the block's headline: the body at `outputPad + BODY_INDENT`,
  * the headline (when asked for) at `outputPad`. `width` clips the headline again
  * after its prompt is rewritten, so a longer tool name cannot overflow.
@@ -124,11 +183,14 @@ export function toolBlockLines(
 		// The base renders at the reduced (indented) width, so drop the padding it
 		// added before the prompt rewrite can push the headline over the clip.
 		const headline = (lines[0] ?? "").trimEnd();
-		lines[0] = truncateToWidth(
-			options.toolName ? headlineWithToolName(headline, options.toolName, options.theme) : headline,
-			w,
-			"…",
-		);
+		const named = options.toolName ? headlineWithToolName(headline, options.toolName, options.theme) : headline;
+		// A renderer that rebuilds its component after `renderCall` (`edit` moves its
+		// diff onto the box) drops the rewrite the resolver applied there, so the
+		// headline is demoted again here. It is a no-op for a call the resolver
+		// already recoloured before the wrap.
+		const recolored =
+			options.toolName && options.theme ? recolorCallHeadline(named, options.toolName, options.theme) : named;
+		lines[0] = truncateToWidth(recolored, w, "…");
 	}
 	if (!options.fill) return lines;
 	const fill = options.fill;

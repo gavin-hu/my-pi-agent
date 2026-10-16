@@ -8,6 +8,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { sanitizeLine } from "../../../lib/format.ts";
 import { missingFindings } from "../../../lib/requirements.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
@@ -92,9 +93,11 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 
 		renderCall(args, theme, context) {
 			const input = args as DoctorArgs;
-			const scope = `${input.extension ? ` ${input.extension}` : ""}${input.refresh ? " (refresh)" : ""}`;
+			const scope = typeof input.extension === "string" && input.extension ? sanitizeLine(input.extension) : "";
 			const text = reuseText(context?.lastComponent);
-			text.setText(`${theme.fg("toolTitle", theme.bold(TOOL_NAME))}${paint(theme, "faint", scope)}`);
+			text.setText(
+				`${theme.fg("toolTitle", theme.bold(TOOL_NAME))}${scope ? ` ${paint(theme, "label", scope)}` : ""}${input.refresh ? paint(theme, "faint", " (refresh)") : ""}`,
+			);
 			return text;
 		},
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Text } from "@earendil-works/pi-tui";
-import { createFakePi, coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { Box, Text } from "@earendil-works/pi-tui";
+import { createFakePi, coloringTheme, fakeTheme, ROLE_SGR, roleSgrTheme } from "../../../test/helpers/fakes.ts";
 import type { PadSource } from "../pad.ts";
 import { registerToolBlocks } from "./register.ts";
 
@@ -55,6 +55,38 @@ describe("registerToolBlocks", () => {
 				?.renderResult?.({ content: [] } as any, { expanded: false, isPartial: false }, fakeTheme, ctx())
 				.render(40) ?? [];
 		expect(lines[0]?.trimEnd()).toBe("  base result");
+	});
+
+	test("demotes a built-in call's subject to the body colour", () => {
+		const base = {
+			renderCall: () =>
+				new Text(`${roleSgrTheme.fg("toolTitle", "read")} ${roleSgrTheme.fg("accent", "src/a.ts")}`, 0, 0),
+		};
+		const renderers = resolver()("read", () => base);
+		const lines = renderers?.renderCall?.({ path: "src/a.ts" }, roleSgrTheme, ctx()).render(40) ?? [];
+		expect(lines[0]).toContain(`${ROLE_SGR.accent}read`);
+		expect(lines[0]).toContain(`${ROLE_SGR.text}src/a.ts`);
+		expect(lines[0]).not.toContain(`${ROLE_SGR.accent}src/a.ts`);
+	});
+
+	test("demotes a self-shell box header that is rebuilt after renderCall", () => {
+		// `edit` clears and re-adds its header when its result arrives, discarding the
+		// resolver's rewrite, so the frame is what recolours the headline.
+		const base = {
+			renderShell: "self" as const,
+			renderCall: () => {
+				const box = new Box(0, 0, (text: string) => text);
+				box.addChild(
+					new Text(`${roleSgrTheme.fg("toolTitle", "edit")} ${roleSgrTheme.fg("accent", "src/a.ts")}`, 0, 0),
+				);
+				return box;
+			},
+		};
+		const renderers = resolver()("edit", () => base);
+		const lines = renderers?.renderCall?.({}, roleSgrTheme, ctx()).render(40) ?? [];
+		expect(lines[0]).toContain(`${ROLE_SGR.accent}edit`);
+		expect(lines[0]).toContain(`${ROLE_SGR.text}src/a.ts`);
+		expect(lines[0]).not.toContain(`${ROLE_SGR.accent}src/a.ts`);
 	});
 
 	test("takes the output pad from the frame, never the base renderer", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Text, type Component, visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme, ROLE_SGR, roleSgrTheme } from "../../../test/helpers/fakes.ts";
-import { headlineWithToolName, recolorShellCall, toolBlockLines } from "./component.ts";
+import { coloringTheme, fakeTheme, ROLE_SGR, roleSgrTheme } from "../../../test/helpers/fakes.ts";
+import { headlineWithToolName, recolorCallHeadline, recolorShellCall, toolBlockLines } from "./component.ts";
 
 /** A stand-in for a tool's own renderer, recording the width it was asked for. */
 const innerOf = (lines: string[], onWidth?: (width: number) => void): Component => ({
@@ -95,6 +95,14 @@ describe("toolBlockLines", () => {
 		expect(toolBlockLines(undefined, 40, 0)).toEqual([]);
 	});
 
+	test("demotes a call subject to the body colour through the frame", () => {
+		const line = roleSgrTheme.fg("toolTitle", "read") + " " + roleSgrTheme.fg("accent", "src/a.ts");
+		const lines = toolBlockLines(innerOf([line]), 40, 0, { headline: true, toolName: "read", theme: roleSgrTheme });
+		expect(lines[0]).toContain(`${ROLE_SGR.accent}read`);
+		expect(lines[0]).toContain(`${ROLE_SGR.text}src/a.ts`);
+		expect(lines[0]).not.toContain(`${ROLE_SGR.accent}src/a.ts`);
+	});
+
 	test("passes an image sequence through unprefixed", () => {
 		const image = "\u001b_Gabc";
 		expect(toolBlockLines(innerOf([image]), 40, 0)).toEqual([image]);
@@ -104,6 +112,34 @@ describe("toolBlockLines", () => {
 		for (const line of toolBlockLines(innerOf(["x".repeat(100)]), 10, 0)) {
 			expect(visibleWidth(line)).toBeLessThanOrEqual(10);
 		}
+	});
+});
+
+describe("recolorCallHeadline", () => {
+	const call = (name: string, subject: string) =>
+		roleSgrTheme.fg("toolTitle", name) + " " + roleSgrTheme.fg("accent", subject);
+
+	test("keeps the tool name's accent and demotes the subject", () => {
+		const line = recolorCallHeadline(call("read", "src/a.ts"), "read", roleSgrTheme);
+		expect(line).toContain(`${ROLE_SGR.accent}read`);
+		expect(line).toContain(`${ROLE_SGR.text}src/a.ts`);
+		expect(line).not.toContain(`${ROLE_SGR.accent}src/a.ts`);
+	});
+
+	test("leaves a continuation line's accent alone", () => {
+		const text = `${call("subagent", "parallel · 2 tasks")}\n${ROLE_SGR.accent}explorer`;
+		const line = recolorCallHeadline(text, "subagent", roleSgrTheme);
+		expect(line).toContain(`${ROLE_SGR.text}parallel · 2 tasks`);
+		expect(line.split("\n")[1]).toContain(`${ROLE_SGR.accent}explorer`);
+	});
+
+	test("demotes every accent when the name is not in the headline", () => {
+		const line = recolorCallHeadline(roleSgrTheme.fg("accent", "src/a.ts"), "read", roleSgrTheme);
+		expect(line).toContain(`${ROLE_SGR.text}src/a.ts`);
+	});
+
+	test("is a no-op when the theme paints no colour", () => {
+		expect(recolorCallHeadline("read src/a.ts", "read", fakeTheme)).toBe("read src/a.ts");
 	});
 });
 

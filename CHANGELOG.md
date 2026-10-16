@@ -56,6 +56,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the tool name is a call line's only accent. A primary subject — a
+  path, URL, query, or pattern — now reads in the body colour (`read
+  src/app.ts`, `read_doc docs/a.pdf`, `web_fetch https://…`, `grep /pattern/`),
+  as a shell call's command already did, so the name stands out instead of
+  sharing the accent with its subject. The rewrite happens before the line wraps,
+  so a long path or URL stays in one role, and only the first line is touched —
+  `subagent`'s per-step agent names keep the accent and still match its result
+  header. `run_doctor`'s extension subject is promoted from the faintest role to
+  the body colour (its `(refresh)` option stays faint), and the model-supplied
+  extension name is now sanitized.
+- `job`, `watch`: the call line draws through the shared `meta` role instead of
+  naming Pi's `muted` token inline. Rendered output is unchanged.
 - Tooling: the hero capture (`bun run screenshots chrome`) runs `pi` offline in a
   throwaway demo repo, so an outdated local `pi` can no longer add an "Update
   Available" box to the hero and the bar shows a short path and a branch instead

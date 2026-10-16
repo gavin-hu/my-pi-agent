@@ -22,6 +22,16 @@ describe("doctor wiring", () => {
 		const line: string = tool.renderCall({}, coloringTheme, { lastComponent: undefined }).render(80)[0];
 		expect(line).toContain("[toolTitle][bold]run_doctor");
 	});
+
+	test("reads the subject as the body and a refresh as faint", () => {
+		const { fake } = bootDoctor();
+		const tool = fake.tools.get("run_doctor");
+		const line: string = tool
+			.renderCall({ extension: "bytefly", refresh: true }, coloringTheme, { lastComponent: undefined })
+			.render(80)[0];
+		expect(line).toContain("[text]bytefly");
+		expect(line).toContain("[dim] (refresh)");
+	});
 });
 
 describe("proactive probe", () => {

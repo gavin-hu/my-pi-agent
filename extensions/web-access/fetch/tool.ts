@@ -205,7 +205,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		renderCall(args, theme, context) {
 			const { url, find, startIndex } = args as WebFetchArgs;
 			const text = reuseText(context?.lastComponent);
-			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "accent", oneLine(url ?? ""));
+			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "label", oneLine(url ?? ""));
 			if (find?.length) line += paint(theme, "faint", ` find ${find.map((f) => `"${oneLine(f)}"`).join(", ")}`);
 			else if (startIndex) line += paint(theme, "faint", ` (from ${startIndex})`);
 			text.setText(line);
