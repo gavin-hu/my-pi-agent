@@ -289,10 +289,10 @@ rewritten.
 | `session.ts` | Per-session heartbeat markers and owner-liveness rules. |
 | `store.ts` | Durable store: registry dir, this session's atomic merge-write, deletions. |
 | `logs.ts` | Bounded, sanitized log-tail reading. |
-| `ui.ts` | Footer status chips. |
+| `ui.ts` | Footer status chips, over the shared `lib/tui/status-controller.ts`. |
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `runtime.ts` | Composition: job table, handles, process events, repaint clock. |
-| `tui.ts` | The `/jobs` screen and the transcript `JobResult` rail. |
+| `tui.ts` | The `/jobs` screen and the transcript `JobResult` rail, drawn from the `lib/tui/` kit (`titleRule`, `listRow`, `emptyState`, `IdCursor`, `LinePane`). |
 | `tools.ts` | The `job` tool and its transcript rendering. |
 | `commands.ts` | The `/jobs` command. |
 | `types.ts` | Shared types. |

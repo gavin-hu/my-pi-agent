@@ -31,6 +31,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bytefly ────` title, one row grammar, and `◼`/`◻` checkboxes in place of
   `[x]`/`[ ]`. The footer and the turn rule are unchanged on screen; their
   colors and the context gauge now come from the kit.
+- `job`, `watch`: the `/jobs` and `/watch` screens are drawn from the same
+  `lib/tui/` design system, so their title rule is now label-first
+  (`Jobs ────` instead of `─── Jobs ───`) and their rows use the shared grammar.
+  The id-anchored selection and the log/match pane they each re-implemented now
+  live once, in `lib/tui/cursor.ts` (`IdCursor`) and `lib/tui/line-pane.ts`
+  (`LinePane`), and their footer chips share
+  `lib/tui/status-controller.ts`. Keys, wording, and layout are unchanged.
 - `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
   `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
   `/bytefly doctor [extension] [refresh]` prints the doctor report

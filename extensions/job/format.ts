@@ -15,6 +15,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
 
 /** Longest sanitized log line kept for display; longer lines are clipped. */
@@ -76,20 +77,41 @@ export function elapsedMs(job: JobRecord, now: number): number {
 	return (job.finishedAt ?? now) - job.startedAt;
 }
 
-/** Width-1 themed glyph for a status. */
-export function statusGlyph(status: JobStatus, theme: Theme): string {
+/** The design role a job status is drawn in. */
+export function statusRole(status: JobStatus): TuiRole {
 	switch (status) {
 		case "exited":
-			return theme.fg("success", GLYPHS.check);
+			return "ok";
 		case "failed":
-			return theme.fg("error", GLYPHS.jobsFailure);
+			return "bad";
 		case "killed":
-			return theme.fg("muted", GLYPHS.killed);
+			return "meta";
 		case "unknown":
-			return theme.fg("dim", GLYPHS.unknown);
+			return "faint";
 		default:
-			return theme.fg("accent", GLYPHS.jobsRunning);
+			return "accent";
 	}
+}
+
+/** Width-1 glyph for a status, from the shared vocabulary. */
+export function statusGlyphChar(status: JobStatus): string {
+	switch (status) {
+		case "exited":
+			return GLYPHS.check;
+		case "failed":
+			return GLYPHS.jobsFailure;
+		case "killed":
+			return GLYPHS.killed;
+		case "unknown":
+			return GLYPHS.unknown;
+		default:
+			return GLYPHS.jobsRunning;
+	}
+}
+
+/** Width-1 themed glyph for a status. */
+export function statusGlyph(status: JobStatus, theme: Theme): string {
+	return paint(theme, statusRole(status), statusGlyphChar(status));
 }
 
 /** Short status word for text output. */
@@ -229,18 +251,19 @@ export function jobOutcome(job: JobRecord): string {
 
 /** One-line outcome for a single job, themed for the transcript result. */
 export function formatJobOutcomeLine(job: JobRecord, theme: Theme, now = Date.now()): string {
-	const sep = theme.fg("dim", " · ");
-	const outcome = job.status === "failed" ? theme.fg("error", jobOutcome(job)) : theme.fg("dim", jobOutcome(job));
+	const sep = paint(theme, "faint", " · ");
+	const outcome =
+		job.status === "failed" ? paint(theme, "bad", jobOutcome(job)) : paint(theme, "faint", jobOutcome(job));
 	return (
 		statusGlyph(job.status, theme) +
 		" " +
-		theme.fg("accent", job.id) +
+		paint(theme, "accent", job.id) +
 		" " +
-		theme.fg("muted", shortLabel(job)) +
+		paint(theme, "meta", shortLabel(job)) +
 		sep +
 		outcome +
 		sep +
-		theme.fg("dim", formatDuration(elapsedMs(job, now)))
+		paint(theme, "faint", formatDuration(elapsedMs(job, now)))
 	);
 }
 

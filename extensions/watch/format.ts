@@ -13,6 +13,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
 
 /** Longest label shown in the transcript or `/watch` screen. */
@@ -63,18 +64,37 @@ export function shortLabel(watch: WatchRecord): string {
 	return clipLabel(watch.label || sourceLabel(watch));
 }
 
-/** Width-1 themed glyph for a watcher status. */
-export function statusGlyph(status: WatchStatus, theme: Theme): string {
+/** The design role a watcher status is drawn in. */
+export function statusRole(status: WatchStatus): TuiRole {
 	switch (status) {
 		case "exited":
-			return theme.fg("success", GLYPHS.check);
+			return "ok";
 		case "error":
-			return theme.fg("error", GLYPHS.warn);
+			return "bad";
 		case "stopped":
-			return theme.fg("muted", GLYPHS.stopped);
+			return "meta";
 		default:
-			return theme.fg("accent", GLYPHS.target);
+			return "accent";
 	}
+}
+
+/** Width-1 glyph for a watcher status, from the shared vocabulary. */
+export function statusGlyphChar(status: WatchStatus): string {
+	switch (status) {
+		case "exited":
+			return GLYPHS.check;
+		case "error":
+			return GLYPHS.warn;
+		case "stopped":
+			return GLYPHS.stopped;
+		default:
+			return GLYPHS.target;
+	}
+}
+
+/** Width-1 themed glyph for a watcher status. */
+export function statusGlyph(status: WatchStatus, theme: Theme): string {
+	return paint(theme, statusRole(status), statusGlyphChar(status));
 }
 
 /** Short status word, including an exit code or error when present. */
@@ -175,22 +195,22 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 
 /** One-line outcome for a watcher, themed for the transcript result. */
 export function formatWatchOutcomeLine(watch: WatchRecord, theme: Theme, now = Date.now()): string {
-	const sep = theme.fg("dim", " · ");
+	const sep = paint(theme, "faint", " · ");
 	const age = Math.max(0, (watch.endedAt ?? now) - watch.startedAt);
 	const outcome =
 		watch.status === "error"
-			? theme.fg("error", statusWord(watch))
-			: theme.fg("dim", `${watch.matchCount} match${watch.matchCount === 1 ? "" : "es"}`);
+			? paint(theme, "bad", statusWord(watch))
+			: paint(theme, "faint", `${watch.matchCount} match${watch.matchCount === 1 ? "" : "es"}`);
 	return (
 		statusGlyph(watch.status, theme) +
 		" " +
-		theme.fg("accent", watch.id) +
+		paint(theme, "accent", watch.id) +
 		" " +
-		theme.fg("muted", shortLabel(watch)) +
+		paint(theme, "meta", shortLabel(watch)) +
 		sep +
 		outcome +
 		sep +
-		theme.fg("dim", `${Math.round(age / 1000)}s`)
+		paint(theme, "faint", `${Math.round(age / 1000)}s`)
 	);
 }
 

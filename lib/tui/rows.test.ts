@@ -100,6 +100,10 @@ describe("emptyState", () => {
 		expect(both[1]?.endsWith("Press a to add one.")).toBe(true);
 	});
 
+	test("paints the empty state faint, like the screens it replaces", () => {
+		expect(emptyState(coloringTheme, 20, { label: "x" })[0]).toBe("  [dim]x");
+	});
+
 	test("every line fits the width", () => {
 		for (const width of WIDTHS) {
 			for (const line of emptyState(fakeTheme, width, { label: "No notes yet.", hint: "Press a to add one." })) {
