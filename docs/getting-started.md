@@ -42,7 +42,7 @@ From inside Pi:
   resolved extension — its enable checkbox and its runtime health on each row,
   the focused extension's findings underneath. `Space` toggles one (written to
   Global or Project settings, applied on reload) and `r` re-probes;
-  `/extensions` and `/doctor` are aliases for the same screen.
+  `/bytefly doctor` prints the doctor report (the same screen in `tui`).
 - The screen reports whether each enabled extension has what it needs at runtime
   — binaries on `PATH`, optional packages, login/state files, and config files
   that fail to parse — and warns at session start when an enabled extension

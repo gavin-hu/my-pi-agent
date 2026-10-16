@@ -1,12 +1,12 @@
 /**
- * The `/bytefly` surface: one runner that opens the unified panel, with
- * `/extensions` and `/doctor` registered against the same handler.
+ * The `/bytefly` surface: one command, `/bytefly [doctor] [extension] [refresh]`.
  *
- * In `tui` mode it mounts the dock screen; every other mode prints the same
- * information as text. Discovery, the doctor probe, and the dirty-to-reload
- * confirm all live here, so the three command names cannot drift. The doctor
- * runtime is injected by the composition root, so `run_doctor` and the screen
- * keep reading one session cache.
+ * Without `doctor` it opens the extension screen: the dock in `tui`, the
+ * grouped listing elsewhere. With `doctor` it produces the doctor report — the
+ * same text `run_doctor` returns — for the whole set or one named extension; in
+ * `tui` the report is the dock screen. Discovery, the doctor probe, and the
+ * dirty-to-reload confirm all live here. The doctor runtime is injected by the
+ * composition root, so `run_doctor` and the screen keep reading one cache.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
@@ -14,10 +14,10 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { withRailsSuppressed } from "../../../lib/rails.ts";
 import { REQUIREMENTS, type ExtensionReport } from "../../../lib/requirements.ts";
-import { formatExtension, hasProblems } from "../doctor/format.ts";
+import { formatExtension, formatReport, hasProblems } from "../doctor/format.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
 import { discoverExtensions, type DiscoveryDeps } from "../picker/discovery.ts";
-import { createExtensionsPickerRuntime } from "../picker/runtime.ts";
+import { createExtensionsPickerRuntime, type ExtensionsPickerRuntime } from "../picker/runtime.ts";
 import type { Discovery } from "../picker/types.ts";
 import { formatListing } from "./format.ts";
 import { buildPanelModel, extensionName } from "./join.ts";
@@ -42,20 +42,63 @@ function selectableNames(discovery: Discovery): Set<string> {
 	return names;
 }
 
-/** The shared completion list: every declared extension, then `refresh`. */
+/** Argument completions: the `doctor` subcommand, every declared extension, then `refresh`. */
 function completions(prefix: string): Array<{ value: string; label: string }> | null {
-	const options = [...Object.keys(REQUIREMENTS), "refresh"].filter((option) => option.startsWith(prefix));
+	const options = ["doctor", ...Object.keys(REQUIREMENTS), "refresh"].filter((option) => option.startsWith(prefix));
 	return options.length > 0 ? options.map((value) => ({ value, label: value })) : null;
 }
 
-/** Register `/bytefly`, `/extensions`, and `/doctor` against one runner. */
+/** Which bytefly surface the arguments select. */
+type PanelMode = "screen" | "doctor";
+
+/** `/bytefly [doctor] [extension] [refresh]`, parsed. */
+interface PanelArgs {
+	mode: PanelMode;
+	/** The extension to narrow to, when one is named. */
+	name?: string;
+	/** Re-probe the doctor instead of reusing the session cache. */
+	refresh: boolean;
+}
+
+/** Parse `/bytefly [doctor] [extension] [refresh]`; extra tokens are ignored. */
+function parseArgs(args: string): PanelArgs {
+	const parts = args.trim().split(/\s+/).filter(Boolean);
+	const refresh = parts.includes("refresh");
+	const rest = parts.filter((part) => part !== "refresh");
+	const mode: PanelMode = rest[0] === "doctor" ? "doctor" : "screen";
+	return { mode, name: rest[mode === "doctor" ? 1 : 0], refresh };
+}
+
+/**
+ * Print one extension's full findings, or say why it has none. The screen's
+ * named form and the `doctor` subcommand share this text path.
+ */
+function notifyExtension(
+	ctx: ExtensionCommandContext,
+	name: string,
+	reports: readonly ExtensionReport[],
+	runtime: ExtensionsPickerRuntime,
+): void {
+	const report = reports.find((entry) => entry.extension === name);
+	if (report) {
+		ctx.ui.notify(formatExtension(report), hasProblems([report]) ? "warning" : "info");
+		return;
+	}
+	const item = runtime.items().find((entry) => extensionName(entry.path) === name);
+	ctx.ui.notify(
+		item
+			? `bytefly: ${sanitizeLine(item.path)} — no doctor report`
+			: `bytefly: no extension named "${sanitizeLine(name)}"`,
+		"info",
+	);
+}
+
+/** Register the single `/bytefly` command. */
 export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 	const discover = deps.discover ?? discoverExtensions;
 
 	const handler = async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
-		const parts = args.trim().split(/\s+/).filter(Boolean);
-		const refresh = parts.includes("refresh");
-		const name = parts.find((part) => part !== "refresh");
+		const { mode, name, refresh } = parseArgs(args);
 
 		const cwd = ctx.cwd ?? process.cwd();
 		const agentDir = getAgentDir();
@@ -88,18 +131,11 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 
 		if (ctx.mode !== "tui") {
 			if (name !== undefined) {
-				const report = reports.find((entry) => entry.extension === name);
-				if (report) {
-					ctx.ui.notify(formatExtension(report), hasProblems([report]) ? "warning" : "info");
-					return;
-				}
-				const item = runtime.items().find((entry) => extensionName(entry.path) === name);
-				ctx.ui.notify(
-					item
-						? `bytefly: ${sanitizeLine(item.path)} — no doctor report`
-						: `bytefly: no extension named "${sanitizeLine(name)}"`,
-					"info",
-				);
+				notifyExtension(ctx, name, reports, runtime);
+				return;
+			}
+			if (mode === "doctor") {
+				ctx.ui.notify(formatReport(reports), hasProblems(reports) ? "warning" : "info");
 				return;
 			}
 			const model = buildPanelModel({ items: runtime.items(), reports, agentDir });
@@ -136,12 +172,10 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		if (reload) await ctx.reload();
 	};
 
-	const descriptions: Array<[string, string]> = [
-		["bytefly", "Open the bytefly extension screen: /bytefly [extension] [refresh]"],
-		["extensions", "List and enable/disable extensions"],
-		["doctor", "Check extensions and enable or disable one: /doctor [extension] [refresh]"],
-	];
-	for (const [command, description] of descriptions) {
-		pi.registerCommand(command, { description, getArgumentCompletions: completions, handler });
-	}
+	pi.registerCommand("bytefly", {
+		description:
+			"Open the bytefly extension screen: /bytefly [extension] [refresh]; /bytefly doctor [extension] [refresh] prints the doctor report",
+		getArgumentCompletions: completions,
+		handler,
+	});
 }

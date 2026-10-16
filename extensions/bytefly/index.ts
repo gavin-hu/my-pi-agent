@@ -3,7 +3,7 @@
  * feature folders: `header/` (the themed startup mark and version), `footer/`
  * (the two-line, width-adaptive status bar with its price calculation),
  * `separator/` (the transcript turn rule), `panel/` (the unified `/bytefly`
- * screen, also reachable as `/extensions` and `/doctor`), `doctor/` (the
+ * screen and its `doctor` report), `doctor/` (the
  * `run_doctor` tool and its session-scoped probe runtime), and `notify/` (OS
  * notifications for unattended runs).
  *

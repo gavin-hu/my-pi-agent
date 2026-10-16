@@ -24,7 +24,7 @@ describe("proactive probe", () => {
 		expect(notices).toHaveLength(1);
 		expect(notices[0]?.kind).toBe("warning");
 		expect(notices[0]?.message).toContain("worktree");
-		expect(notices[0]?.message).toContain("run /doctor");
+		expect(notices[0]?.message).toContain("run /bytefly doctor");
 	});
 
 	test("stays quiet when every hard requirement is met", async () => {

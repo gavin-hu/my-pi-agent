@@ -15,7 +15,7 @@ The same document is read from two locations and merged:
    working directory, so this follows a `worktree` root.
 
 Project values override global ones. Missing documents and malformed JSON are
-ignored, so a broken config never blocks a session; `/doctor` reports a document
+ignored, so a broken config never blocks a session; `/bytefly doctor` reports a document
 that fails to parse.
 
 ```json

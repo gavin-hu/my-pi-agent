@@ -59,10 +59,11 @@ pi -e .                                                    # try it for one run
 
 Then, from inside Pi:
 
-- `/extensions` (an alias of `/bytefly`) lists every loaded extension with its
-  runtime health and enables or disables one.
-- `/doctor` opens the same screen, narrowed to one extension when named, and
-  checks that each enabled extension has what it needs at runtime.
+- `/bytefly [extension] [refresh]` opens the extension screen, lists every loaded
+  extension with its runtime health, and enables or disables one.
+- `/bytefly doctor [extension] [refresh]` prints the doctor report —
+  `run_doctor`'s text — and checks that each enabled extension has what it needs
+  at runtime.
 - `/settings` → **Theme** selects a theme.
 - `/plan <task>` starts a task in read-only planning mode.
 
@@ -105,7 +106,7 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`, `/extensions`, `/doctor`, `run_doctor` | A themed header and width-adaptive footer, a rule between completed turns, the `/bytefly` extension screen (aliases `/extensions` and `/doctor`) that lists every extension with its health and enables or disables one, and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` subcommand), `run_doctor` | A themed header and width-adaptive footer, a rule between completed turns, the `/bytefly` extension screen that lists every extension with its health and enables or disables one (`/bytefly doctor` prints the doctor report), and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | A GitHub-inspired dark palette and its light companion, with optional automatic light/dark switching. |
 
 ## Configuration
@@ -146,9 +147,9 @@ stops the factories from registering; to drop the whole package, use Pi's
 - **OS** — Windows, macOS, and Linux; the full check suite runs on all three in
   CI.
 - **git** on `PATH` for the `worktree` and `rewind` extensions; everything else
-  degrades or disables cleanly, and `/doctor` tells you what is missing.
+  degrades or disables cleanly, and `/bytefly doctor` tells you what is missing.
 - Optional runtime pieces (for example a browser for HTML exports) are reported
-  per extension by `/doctor`.
+  per extension by `/bytefly doctor`.
 
 ## Contributing
 

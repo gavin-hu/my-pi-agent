@@ -133,19 +133,18 @@ the platform notifier (`osascript`, `notify-send`); see
 | Command | What it does |
 |---|---|
 | `/bytefly [extension] [refresh]` | Open the extension screen. In `tui` it mounts a docked list; every other mode prints the grouped listing, or one extension's full findings when named. |
-| `/extensions` | Alias for `/bytefly`: the same screen and the same handler. |
-| `/doctor [extension] [refresh]` | Alias for `/bytefly`: the same screen and the same handler. |
+| `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
 
-Tab completes extension names and `refresh` for all three commands.
+Tab completes `doctor`, extension names, and `refresh`.
 
 ## Behaviour by mode
 
 The header, footer, and turn rule are installed only in interactive (`tui`)
 sessions and are always on; every mode loads the extension, and non-TUI modes
 change nothing. The screen is available in every mode: in `tui`, `/bytefly` and
-its `/extensions` and `/doctor` aliases mount the docked screen, while RPC,
-JSON, and print modes print the grouped listing with a per-row health suffix and
-the headline, or that extension's full findings when one is named. The
+`/bytefly doctor` mount the docked screen, while RPC, JSON, and print modes
+print the grouped listing with a per-row health suffix and the headline, or that
+extension's full findings when one is named. The
 proactive session-start warning is skipped when there is no UI. Notify runs in
 every mode and picks its method from the environment; the OSC methods need a
 TTY, so a print/JSON/RPC run gets an OS-level notification or none.
@@ -394,10 +393,11 @@ it:
 extension Pi resolves for the session, so the list matches what actually loads.
 It merges the former extensions picker and doctor report into one row per
 extension: the picker's enable checkbox and label, the doctor's worst-severity
-glyph and summary. `/extensions` and `/doctor [extension] [refresh]` are
-registered against the same handler, so all three names open the same screen;
-`[extension]` narrows it to one extension and `refresh` re-probes the doctor
-before it opens. Tab completes extension names and `refresh`.
+glyph and summary. `/bytefly doctor [extension] [refresh]` selects the doctor
+report, the same text the `run_doctor` tool returns; in `tui` it opens the same
+screen. `[extension]` narrows either surface to one extension and `refresh`
+re-probes the doctor before it opens. Tab completes `doctor`, extension names,
+and `refresh`.
 
 The screen reuses Pi's own settings and package resolution (`SettingsManager`
 plus `DefaultPackageManager` with `onMissing: "skip"`), so opening it never
@@ -524,6 +524,9 @@ control-free line before it reaches an escape sequence or a shell argument.
 
 ## Limitations
 
+- **`doctor` is a reserved first argument.** `/bytefly doctor` always selects the
+  report, so an extension literally named `doctor` cannot be narrowed to by
+  name.
 - **The picker manages only the `extensions` resource type.** Skills, prompts,
   and themes are handled by Pi's own `pi config`.
 - **Built-in extensions are not listed** (`builtin:mcp`, `builtin:codemode`, …):
@@ -602,7 +605,7 @@ rather than showing a wrong value.
 |---|---|
 | Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
-| Screen command | `pi.registerCommand("bytefly"`, `"extensions"`, and `"doctor"`) share one handler: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed, other modes print through `ctx.ui.notify()`. Tab completes extension names and `refresh`. |
+| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
@@ -722,7 +725,7 @@ rather than showing a wrong value.
   reads the same command whether a tool failed or the report named it.
 - **The doctor is quiet by default at startup.** Only `missing` findings warn,
   only for enabled extensions, only with a UI, and only once per session;
-  `degraded` findings — including a malformed config — wait in `/doctor`, because
+  `degraded` findings — including a malformed config — wait in `/bytefly doctor`, because
   a session that nags about an optional package is worse than one that never
   mentions it.
 - **Probe the real thing.** `subagent`'s requirement resolves through the same
@@ -770,7 +773,7 @@ and its probe runtime), and `notify/`.
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
 | `panel/format.ts` | Non-TUI text: the headline and the grouped listing with a per-row health suffix. |
 | `panel/tui.ts` | `PanelComponent`, the unified dock screen. |
-| `panel/commands.ts` | `/bytefly`, `/extensions`, and `/doctor`: one runner for the screen and its text modes. |
+| `panel/commands.ts` | `/bytefly`: one command for the screen, the `doctor` report, and their text modes. |
 | `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`) and row types. |
 | `picker/resources.ts` | Pure grouping, labels, display names, and pattern helpers. |
 | `picker/toggle.ts` | Pure next-settings transforms for global and project toggles. |

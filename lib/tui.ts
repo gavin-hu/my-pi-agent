@@ -128,8 +128,8 @@ export interface DockListFrame {
  * its blank line, the body, an optional range row, optional detail rows, and
  * the blank-line-padded key-hint footer.
  *
- * This is the convention the bytefly panel (`/bytefly`, and the `/extensions`
- * and `/doctor` aliases) shares with `/jobs` and `/todos`. `/rewind` (a blank
+ * This is the convention the bytefly panel (`/bytefly`, and its `doctor`
+ * report) shares with `/jobs` and `/todos`. `/rewind` (a blank
  * after the header and no blank before the hint) places its blanks differently,
  * so it stays hand-rolled rather than changing its output to fit this helper.
  */

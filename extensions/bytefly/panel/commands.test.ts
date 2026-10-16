@@ -42,14 +42,12 @@ function boot(options: { discover?: () => Promise<ReturnType<typeof discovery>>;
 }
 
 describe("bytefly panel command", () => {
-	test("registers /bytefly, /extensions, and /doctor on one handler", () => {
+	test("registers one /bytefly command", () => {
 		const { commands } = boot({});
 
 		expect(commands.has("bytefly")).toBe(true);
-		expect(commands.has("extensions")).toBe(true);
-		expect(commands.has("doctor")).toBe(true);
-		expect(commands.get("extensions").handler).toBe(commands.get("bytefly").handler);
-		expect(commands.get("doctor").handler).toBe(commands.get("bytefly").handler);
+		expect(commands.has("extensions")).toBe(false);
+		expect(commands.has("doctor")).toBe(false);
 	});
 
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
@@ -61,12 +59,13 @@ describe("bytefly panel command", () => {
 		});
 	});
 
-	test("completes extension names and refresh, never chrome toggles", () => {
+	test("completes the doctor subcommand, extension names, and refresh", () => {
 		const { commands } = boot({});
 		const values = commands
 			.get("bytefly")
 			.getArgumentCompletions("")
 			.map((entry: { value: string }) => entry.value);
+		expect(values).toContain("doctor");
 		expect(values).toContain("refresh");
 		expect(values).toContain("plan");
 		expect(values).not.toContain("header");
@@ -80,11 +79,23 @@ describe("bytefly panel modes", () => {
 		const { commands } = boot({ reports: [makeReport("plan")] });
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
-		await commands.get("extensions").handler("", ctx);
+		await commands.get("bytefly").handler("", ctx);
 
 		const text = notifications.at(-1) ?? "";
 		expect(text).toContain("[x] one.ts");
 		expect(text).toContain("plan");
+	});
+
+	test("prints the doctor report for /bytefly doctor outside TUI mode", async () => {
+		const report = makeReport("plan", [makeFinding("git", "missing", "not found on PATH", "install git")]);
+		const { commands } = boot({ reports: [report] });
+		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+
+		await commands.get("bytefly").handler("doctor", ctx);
+
+		const text = notifications.at(-1) ?? "";
+		expect(text).toContain("doctor:");
+		expect(text).toContain("git: not found on PATH");
 	});
 
 	test("prints one extension's findings when narrowed", async () => {
@@ -147,7 +158,7 @@ describe("bytefly panel modes", () => {
 		});
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
-		await commands.get("extensions").handler("", ctx);
+		await commands.get("bytefly").handler("", ctx);
 
 		expect(notifications.at(-1)).toContain("Could not list extensions: no settings");
 	});
@@ -163,7 +174,7 @@ describe("bytefly panel modes", () => {
 		registerPanel(pi, { doctor, discover: async () => discovery() });
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
-		await commands.get("extensions").handler("", ctx);
+		await commands.get("bytefly").handler("", ctx);
 
 		expect(notifications.at(-1)).toContain("Could not probe extensions: probe exploded");
 	});
@@ -185,7 +196,7 @@ describe("bytefly panel refresh", () => {
 		registerPanel(pi, { doctor: fakeDoctor([makeReport("plan")], refreshes), discover: async () => discovery() });
 		const { ctx } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
-		await commands.get("doctor").handler("refresh", ctx);
+		await commands.get("bytefly").handler("doctor refresh", ctx);
 		await commands.get("bytefly").handler("plan refresh", ctx);
 
 		expect(refreshes).toEqual([true, true]);
@@ -217,7 +228,7 @@ describe("bytefly panel reload", () => {
 			return undefined;
 		};
 
-		await commands.get("extensions").handler("", ctx);
+		await commands.get("bytefly").handler("", ctx);
 
 		expect(reloaded).toBe(1);
 	});
@@ -239,7 +250,7 @@ describe("bytefly panel reload", () => {
 		};
 		ctx.ui.custom = async () => undefined;
 
-		await commands.get("doctor").handler("", ctx);
+		await commands.get("bytefly").handler("doctor", ctx);
 
 		expect(confirmed).toBe(0);
 	});

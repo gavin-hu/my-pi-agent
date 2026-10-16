@@ -50,7 +50,8 @@ describe("bytefly extension", () => {
 		bytefly(pi);
 		const tool = tools.get("run_doctor");
 		expect(tool?.annotations.readOnlyHint).toBe(true);
-		expect(commands.has("doctor")).toBe(true);
+		expect(commands.has("bytefly")).toBe(true);
+		expect(commands.has("doctor")).toBe(false);
 	});
 
 	test("registers the notify capability", () => {
@@ -136,12 +137,12 @@ describe("bytefly extension", () => {
 		expect(footers.at(-1)).toBeUndefined();
 	});
 
-	test("registers the unified panel under /bytefly and its aliases", () => {
+	test("registers one /bytefly command", () => {
 		const { pi, commands } = makeFakePi();
 		bytefly(pi);
 		expect(commands.has("bytefly")).toBe(true);
-		expect(commands.has("extensions")).toBe(true);
-		expect(commands.has("doctor")).toBe(true);
+		expect(commands.has("extensions")).toBe(false);
+		expect(commands.has("doctor")).toBe(false);
 	});
 
 	test("completes extension names, not the retired chrome toggles", () => {

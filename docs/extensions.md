@@ -219,15 +219,15 @@ keyboard-driven docked list of every resolved Pi extension, one row per
 extension carrying its enable checkbox and its worst-severity health, with the
 focused extension's findings underneath. `Space` toggles the focused extension
 by writing `settings.json`, `Enter` expands the detail pane, `Tab` switches
-Global/Project scope, and `r` re-probes. `/extensions` and
-`/doctor [extension] [refresh]` are aliases for the same screen, and every other
+Global/Project scope, and `r` re-probes. `/bytefly doctor [extension]
+[refresh]` prints the doctor report (the same screen in `tui`), and every other
 mode prints the grouped listing or one extension's full findings. The read-only
 `run_doctor` tool returns the same report. An opt-in notify capability raises an
 OS notification when a run or a background job finishes or the agent asks for
 input, configured through the `notify` section of `bytefly.json`, for
 unattended runs.
 
-Tools: `run_doctor`. Commands: `/bytefly`, `/extensions`, `/doctor`.
+Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` subcommand).
 
 [Full README](../extensions/bytefly/README.md)
 

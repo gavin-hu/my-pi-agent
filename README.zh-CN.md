@@ -55,10 +55,10 @@ pi -e .                                                    # 试运行一次
 
 然后在 Pi 中：
 
-- `/extensions`（`/bytefly` 的别名）列出每个已加载扩展及其运行时健康状况，并启用
-  或禁用一个扩展。
-- `/doctor` 打开同一屏幕，指定扩展名时只显示该扩展，并检查每个已启用扩展在运行时
-  是否具备所需条件。
+- `/bytefly [extension] [refresh]` 打开扩展屏幕，列出每个已加载扩展及其运行时健康
+  状况，并启用或禁用一个扩展。
+- `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
+  检查每个已启用扩展在运行时是否具备所需条件。
 - `/settings` → **Theme** 选择主题。
 - `/plan <任务>` 以只读规划模式开始一个任务。
 
@@ -101,7 +101,7 @@ pi -e .                                                    # 试运行一次
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`, `/extensions`, `/doctor`, `run_doctor` | 主题化头部与宽度自适应页脚、已完成回合之间的分隔线、`/bytefly` 扩展屏幕（别名 `/extensions` 和 `/doctor`）——列出每个扩展及其健康状况并启用或禁用一个扩展；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor` 子命令）、`run_doctor` | 主题化头部与宽度自适应页脚、已完成回合之间的分隔线、`/bytefly` 扩展屏幕——列出每个扩展及其健康状况并启用或禁用一个扩展（`/bytefly doctor` 打印 doctor 报告）；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | GitHub 风格的深色调色板及其浅色搭档，并支持可选的自动浅色/深色切换。 |
 
 ## 配置
@@ -139,8 +139,8 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 - **Pi** —— 需要一个可用的安装；`my-pi-agent` 是一个包，不是分叉。
 - **操作系统** —— Windows、macOS 和 Linux；完整检查套件在三者的 CI 上都会运行。
 - **git** 需在 `PATH` 上，供 `worktree` 和 `rewind` 扩展使用；其余部分会优雅降级或
-  禁用，`/doctor` 会告诉你缺什么。
-- 可选的运行时组件（例如用于 HTML 导出的浏览器）由 `/doctor` 按扩展报告。
+  禁用，`/bytefly doctor` 会告诉你缺什么。
+- 可选的运行时组件（例如用于 HTML 导出的浏览器）由 `/bytefly doctor` 按扩展报告。
 
 ## 参与贡献
 

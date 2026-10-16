@@ -74,7 +74,6 @@ export const HEADER_CONFIG: HeaderConfig = {
 			{ raw: "!", description: "bash" },
 			{ raw: "!!", description: "bash (no context)" },
 			{ raw: "/bytefly", description: "extensions" },
-			{ raw: "/doctor", description: "checks" },
 			{ binding: "app.message.followUp", description: "to queue follow-up" },
 			{ binding: "app.clipboard.pasteImage", description: "paste files" },
 		],

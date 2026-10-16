@@ -102,7 +102,7 @@ export function formatWarning(findings: readonly Finding[]): string {
 		byExtension.set(finding.extension, list);
 	}
 	const parts = [...byExtension].map(([extension, checks]) => `${sanitizeLine(extension)} (${checks.join(", ")})`);
-	return `doctor: missing ${parts.join("; ")} — run /doctor`;
+	return `doctor: missing ${parts.join("; ")} — run /bytefly doctor`;
 }
 
 /** The severity glyph, from the shared vocabulary. */

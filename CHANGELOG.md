@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `bytefly`: one `/bytefly` command replaces the `/bytefly`, `/extensions`, and
+  `/doctor` aliases. `/bytefly [extension] [refresh]` opens the screen and
+  `/bytefly doctor [extension] [refresh]` prints the doctor report
+  (`run_doctor`'s text; the dock screen in `tui`). The header hint and the
+  proactive warning now point at `/bytefly doctor`.
+
 ## [0.8.1] - 2026-10-15
 
 ### Changed

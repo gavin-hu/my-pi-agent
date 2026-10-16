@@ -63,7 +63,7 @@ describe("report text", () => {
 	});
 
 	test("names the extension and the fix in the proactive warning", () => {
-		expect(formatWarning(missing.findings)).toBe("doctor: missing worktree (git) — run /doctor");
+		expect(formatWarning(missing.findings)).toBe("doctor: missing worktree (git) — run /bytefly doctor");
 	});
 
 	test("sanitizes anything a probe produced", () => {
