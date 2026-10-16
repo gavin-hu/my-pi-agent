@@ -124,6 +124,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   selection-marker column (the interactive `/jobs` and `/watch` screens keep
   it), so their status glyphs sit at the body indent instead of two columns
   deeper.
+- `subagent`, `ask_user_question`: the call's continuation lines (a task/step
+  list, or a per-question option list) no longer indent themselves, so they sit
+  at the body indent instead of two columns deeper — the tool-block frame
+  already supplies it.
 - `plan`: the browser review's sidebar hint now names `a` on a review that can
   approve and points at `?` for the full shortcut list, instead of listing only
   `j`/`k`/`c`/`s` after approval moved onto the page.

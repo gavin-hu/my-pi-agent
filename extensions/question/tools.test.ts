@@ -26,8 +26,9 @@ describe("ask_user_question transcript rendering", () => {
 			.render(80)
 			.map((line: string) => line.trimEnd());
 		expect(lines[0]).toContain("ask_user_question 2 questions (Auth, Scope)");
-		expect(lines[1]).toBe("  Auth: OAuth, Cookies, Other");
-		expect(lines[2]).toBe("  Scope: repo, org, Other");
+		// No indent of its own; the tool-block frame supplies BODY_INDENT.
+		expect(lines[1]).toBe("Auth: OAuth, Cookies, Other");
+		expect(lines[2]).toBe("Scope: repo, org, Other");
 	});
 
 	test("a free-form question adds no options line", () => {

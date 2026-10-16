@@ -63,6 +63,24 @@ describe("renderSubagentCall", () => {
 		expect(text).toContain("2. planner");
 	});
 
+	test("continuation lines carry no indent of their own", () => {
+		// The tool-block frame indents everything after the headline by `BODY_INDENT`.
+		const lines = render(
+			renderSubagentCall(
+				{
+					tasks: [
+						{ agent: "explorer", task: "a" },
+						{ agent: "planner", task: "b" },
+					],
+				},
+				theme,
+			),
+		).split("\n");
+		expect(lines).toHaveLength(3);
+		expect(lines[1]?.startsWith("1.")).toBe(true);
+		expect(lines[2]?.startsWith("2.")).toBe(true);
+	});
+
 	test("chain mode numbers steps and strips the placeholder", () => {
 		const text = render(
 			renderSubagentCall(
