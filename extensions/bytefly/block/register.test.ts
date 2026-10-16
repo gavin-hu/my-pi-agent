@@ -45,7 +45,7 @@ describe("registerToolBlocks", () => {
 		const renderers = resolver()("edit", () => base);
 		expect(renderers?.renderShell).toBe("self");
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
-		expect(lines).toEqual(["own"]);
+		expect(lines.map((line: string) => line.trimEnd())).toEqual(["own"]);
 	});
 
 	test("indents the result under the call's body column", () => {
@@ -89,6 +89,47 @@ describe("registerToolBlocks", () => {
 		const renderers = resolver(pad)("read", () => ({ renderCall: () => new Text("read x\nbody", 0, 0) }));
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx({ outputPad: 1 })).render(40) ?? [];
 		expect(lines.map((line: string) => line.trimEnd())).toEqual(["  read x", "    body"]);
+	});
+
+	test("fills edit and write with the row's status role", () => {
+		const renderers = resolver()("edit", () => ({ renderCall: () => new Text("edit x\nbody", 0, 0) }));
+		const role = (overrides: Record<string, unknown>) => {
+			const lines = renderers?.renderCall?.({}, coloringTheme, ctx(overrides)).render(20) ?? [];
+			return { headline: lines[0] ?? "", body: lines[1] ?? "" };
+		};
+		const pending = role({ isPartial: true });
+		expect(pending.headline).not.toContain("[bg:");
+		expect(pending.body).toContain("[bg:toolPendingBg]");
+		expect(role({ isPartial: false, isError: false }).body).toContain("[bg:toolSuccessBg]");
+		expect(role({ isPartial: false, isError: true }).body).toContain("[bg:toolErrorBg]");
+	});
+
+	test("fills a filled tool's result block", () => {
+		const renderers = resolver()("write", () => ({ renderResult: () => new Text("done", 0, 0) }));
+		const lines =
+			renderers
+				?.renderResult?.({ content: [] } as any, { expanded: false, isPartial: false }, coloringTheme, ctx())
+				.render(20) ?? [];
+		expect(lines[0]).toContain("[bg:toolSuccessBg]");
+	});
+
+	test("leaves a tool that does not mutate a file unfilled", () => {
+		const renderers = resolver()("read", () => ({ renderCall: () => new Text("read x", 0, 0) }));
+		const lines = renderers?.renderCall?.({}, coloringTheme, ctx()).render(20) ?? [];
+		expect(lines[0]).not.toContain("[bg:");
+	});
+
+	test("keeps the base renderer from painting its own background inside the fill", () => {
+		let painted = "";
+		const renderers = resolver()("write", () => ({
+			renderCall: (_args: unknown, theme: any) => {
+				painted = theme.bg("toolSuccessBg", "X");
+				return new Text("write x", 0, 0);
+			},
+		}));
+		renderers?.renderCall?.({}, coloringTheme, ctx());
+		// The facade makes the base's bg inert, so only the frame paints the fill.
+		expect(painted).toBe("X");
 	});
 
 	test("frames a generic fallback when the base has no renderer", () => {

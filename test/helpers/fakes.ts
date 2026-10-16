@@ -44,6 +44,7 @@ export function fakeMarkdownTheme(theme: any = fakeTheme): MarkdownTheme {
 /** Theme that tags text with the requested colour, to assert colour choices. */
 export const coloringTheme: any = {
 	fg: (color: string, text: string) => `[${color}]${text}`,
+	bg: (color: string, text: string) => `[bg:${color}]${text}`,
 	bold: (text: string) => `[bold]${text}`,
 };
 

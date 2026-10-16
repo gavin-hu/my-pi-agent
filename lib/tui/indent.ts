@@ -40,7 +40,7 @@ function isBlank(line: string): boolean {
 }
 
 /** An image-protocol line must pass through unprefixed, or the sequence corrupts. */
-const IMAGE_LINE = /^\u001b(?:P|_G|\]1337;)/;
+export const IMAGE_LINE = /^\u001b(?:P|_G|\]1337;)/;
 
 /** The body indent, clamped so the prefix always leaves at least one column. */
 function clampIndent(indent: number, width: number): number {
