@@ -550,12 +550,19 @@ export const CLIENT_JS = `(function () {
 	// The hunk whose header is pinned (or last passed), then one step either way.
 	function moveHunk(delta) {
 		if (hunkAnchors.length === 0) return;
+		var scroller = primaryScroller();
+		// The line a pinned hunk header sticks to: the code viewport's top inset
+		// by its padding. With no scrolling pane (narrow screens) the page is the
+		// viewport, so the anchor is the window top.
+		var lineTop = 8;
+		if (scroller) lineTop = scroller.getBoundingClientRect().top + (parseFloat(getComputedStyle(scroller).paddingTop) || 0);
 		var current = -1;
 		for (var index = 0; index < hunkAnchors.length; index++) {
-			if (hunkAnchors[index].getBoundingClientRect().top <= 8) current = index;
+			if (hunkAnchors[index].getBoundingClientRect().top <= lineTop + 2) current = index;
 		}
 		var next = Math.max(0, Math.min(hunkAnchors.length - 1, current + delta));
-		hunkAnchors[next].scrollIntoView({ block: "start" });
+		if (scroller) scroller.scrollTop += hunkAnchors[next].getBoundingClientRect().top - lineTop;
+		else hunkAnchors[next].scrollIntoView({ block: "start" });
 	}
 
 	// The page's primary scroller: the card body for a file or diff, the main

@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { WEB_BASE_CSS } from "./base.ts";
 
 describe("web base", () => {
+	test("resets the body margin so the shell can fill the viewport", () => {
+		expect(WEB_BASE_CSS).toContain("html,body{margin:0}");
+	});
+
 	test("normalises box sizing and hidden", () => {
 		expect(WEB_BASE_CSS).toContain("*{box-sizing:border-box}");
 		expect(WEB_BASE_CSS).toContain("[hidden]{display:none!important}");

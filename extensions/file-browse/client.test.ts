@@ -94,6 +94,14 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("function updateProgress");
 	});
 
+	test("steps hunks against the code viewport, not the window", () => {
+		// The pinned header sticks to the code pane's top, which is below the
+		// window top; scrolling the pane (not scrollIntoView) keeps p working.
+		expect(CLIENT_JS).toContain("var lineTop = 8;");
+		expect(CLIENT_JS).toContain("scroller.scrollTop +=");
+		expect(CLIENT_JS).toContain("paddingTop");
+	});
+
 	test("is served as a no-store script", async () => {
 		fixture = makeFixture();
 		const response = await handleRequest({ root: fixture.root, config: DEFAULT_CONFIG }, "GET", "/app.js", {});
