@@ -30,9 +30,9 @@ describe("callFallback", () => {
 		expect(line).toContain("retry (limit 10, verbose)");
 	});
 
-	test("colours the subject as the accent and its options faint", () => {
+	test("colours the subject as the body and its options faint", () => {
 		const line = callFallback("foo", { query: "retry", limit: 10 }, coloringTheme, false);
-		expect(line).toContain("[accent]retry[dim] (limit 10)");
+		expect(line).toContain("[text]retry[dim] (limit 10)");
 	});
 
 	test("colours a bare flag faint", () => {

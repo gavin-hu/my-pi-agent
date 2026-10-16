@@ -56,7 +56,8 @@ function optionFragment(key: string, value: unknown): string | undefined {
  * A call line for a tool with no renderer: the bold title, then its leading
  * string argument (when there is one) and the remaining options in parentheses,
  * matching the built-ins' `read <path>` / `ls <path> (limit 500)` grammar. The
- * subject takes the accent the built-ins spend on theirs; the options stay faint.
+ * subject reads in the body colour — the tool name is the call's only accent —
+ * and the options stay faint.
  */
 export function callFallback(toolName: string, args: unknown, theme: Theme, expanded: boolean): string {
 	const header = theme.fg("toolTitle", theme.bold(toolName));
@@ -96,7 +97,7 @@ export function callFallback(toolName: string, args: unknown, theme: Theme, expa
 	// clipped subject never strands an unterminated escape.
 	const subjectPart = preview.slice(0, Math.min(subject.length, preview.length));
 	const optionsPart = preview.slice(subjectPart.length);
-	return `${header} ${paint(theme, "accent", subjectPart)}${optionsPart ? paint(theme, "faint", optionsPart) : ""}`;
+	return `${header} ${paint(theme, "label", subjectPart)}${optionsPart ? paint(theme, "faint", optionsPart) : ""}`;
 }
 
 /** A result preview for a tool with no renderer: its text, capped when collapsed. */

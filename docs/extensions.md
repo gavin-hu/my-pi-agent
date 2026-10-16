@@ -255,8 +255,9 @@ Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` subcommand).
 ### Tool renderings
 
 Every tool block as the transcript draws it: the tool's own call line is the
-headline (the tool name in the theme's tool-title colour, a shell prompt shown as
-the tool name with its command in the body colour) and the body is indented two
+headline (the tool name in the theme's tool-title colour as the line's only
+accent, with a path, URL, or query and a shell call's command in the body colour)
+and the body is indented two
 columns directly under it — the tool's own
 renderer, or its generic fallback. The page covers the user
 nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,

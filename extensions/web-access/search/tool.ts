@@ -69,7 +69,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 		renderCall(args, theme, context) {
 			const { query, maxResults } = args as WebSearchArgs;
 			const text = reuseText(context?.lastComponent);
-			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "accent", oneLine(query ?? ""));
+			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "label", oneLine(query ?? ""));
 			if (maxResults) line += paint(theme, "faint", ` (max ${maxResults})`);
 			text.setText(line);
 			return text;

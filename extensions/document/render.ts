@@ -2,7 +2,7 @@
  * Transcript rendering for `read_doc`.
  *
  * Theme-aware formatting only: the tool definition in `tool.ts` wires these to
- * `renderCall` / `renderResult`. The call line carries the path (accent,
+ * `renderCall` / `renderResult`. The call line carries the path (body colour,
  * `~`-shortened, OSC-8 linked when the terminal supports it); the result line
  * leads with the format and a humanized range, so the path is never repeated.
  * The expanded view appends a sanitized, line-capped preview of the extracted
@@ -22,12 +22,12 @@ import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 /** Lines of extracted text shown in the expanded preview. */
 export const PREVIEW_LINES = 20;
 
-/** Render the argument path: accent, `~`-shortened, OSC-8 linked when supported. */
+/** Render the argument path: body colour, `~`-shortened, OSC-8 linked when supported. */
 export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: string): string {
 	if (typeof rawPath !== "string") return paint(theme, "bad", "[invalid arg]");
 	const value = sanitizeLine(rawPath);
 	if (!value) return theme.fg("toolOutput", "...");
-	const styled = paint(theme, "accent", shortenPath(value));
+	const styled = paint(theme, "label", shortenPath(value));
 	if (!getCapabilities().hyperlinks) return styled;
 	const abs = isAbsolute(value) ? value : resolve(cwd, value);
 	return hyperlink(styled, pathToFileURL(abs).href);

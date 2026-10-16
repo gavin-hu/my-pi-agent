@@ -193,8 +193,9 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 			const text = reuseText(context.lastComponent);
 			text.setText(
 				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
-					theme.fg(
-						"muted",
+					paint(
+						theme,
+						"meta",
 						sanitizeLine(formatCallText(action, args as Record<string, unknown>, context.argsComplete)),
 					),
 			);

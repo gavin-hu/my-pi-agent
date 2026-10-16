@@ -190,8 +190,10 @@ read src/app.ts
 A `registerToolRenderer` resolver switches the row to `renderShell: "self"`,
 leaves the call's own first line as the headline, and indents the rest of the
 call and the whole result under it. A shell call's `$` / `>` prompt becomes the
-tool name and the command is repainted in the body colour, so the name is the
-block's only accent (`bash bun run check`). The tool's own
+tool name and the command is repainted in the body colour, and a primary subject
+(a path, URL, query, pattern) is demoted to the body colour too, so the name is
+the call line's only accent (`bash bun run check`, `read src/app.ts`). The
+tool's own
 `renderCall`/`renderResult` are passed through, so syntax highlighting, diffs,
 previews, and truncation notices are unchanged — only the frame is bytefly's.
 There is no rail and no status colour: a running block reads the same as a
@@ -205,11 +207,12 @@ would otherwise sit at the wrong indent; the frame drops the blank edges its own
 `Box` pads itself with.
 
 The call line is one colour grammar, shared with Pi's built-ins: the tool name is
-`toolTitle` and bold, a primary subject (a query, a URL, a path, a status) is the
-`accent`, counts and summaries are `muted`, trailing options are `dim`, and the
-result body is `toolOutput`. The shipped themes point `toolTitle` at the accent,
-so the name reads as the block's one accent; a theme that maps `toolTitle`
-elsewhere is respected rather than overridden.
+`toolTitle` and bold and is the line's only accent; a primary subject (a query, a
+URL, a path, a status) reads in the body role (`label`), counts and summaries are
+`muted`, trailing options are `dim`, and the result body is `toolOutput`. The
+shipped themes point `toolTitle` at the accent and `label` at the body colour, so
+the name is the call line's one accent and the subject follows as body text; a
+theme that maps `toolTitle` elsewhere is respected rather than overridden.
 
 **Extension screen.** `/bytefly [extension] [refresh]` opens a keyboard-driven
 dock list of every Pi extension the session resolves — across personal settings
@@ -715,7 +718,7 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
-| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same, and each wraps the tool's own renderer (or a generic fallback). |
+| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same, and each wraps the tool's own renderer (or a generic fallback). |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Thinking timer | `message_start`/`message_end` for an assistant message in `tui` mode; a 1s tick drives `ctx.ui.setHiddenThinkingLabel("Thinking… Ns")`, and the end restores Pi's default. No config file and no stored state. |
@@ -780,7 +783,7 @@ rather than showing a wrong value.
   themselves by that pad: the tool frame and the notice take it from Pi, and the
   turn separator reads the last value a sibling observed (`pad.ts`). Pi's setting
   is the only knob — bytefly adds no padding of its own. There is no rail: the
-  accent call line and the two-column step
+  accent tool name and the two-column step
   are what mark a block, which keeps the transcript quiet and leaves the tool's
   own rendering as the only content. The footer's group separator still draws
   `╎` between chips — a divider, not a rail.
@@ -945,8 +948,8 @@ columns, gauge), so the look follows the active theme.
 | `notice/config.ts` | Notice tuning (`NOTICE_CONFIG`): source/title/detail roles, the severity glyphs and roles, and the item cap. |
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline and the severity-led rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type. |
-| `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, and `ToolBlock`: the headline, the body's two-column indent, the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), and the image-line passthrough. |
-| `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer: the subject in the accent, its options faint, and a capped result preview. |
+| `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, `recolorCallHeadline`, and `ToolBlock`: the headline, the body's two-column indent, the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), the subject demotion (a path, URL, query, or pattern reads in `label` so the name is the line's only accent), and the image-line passthrough. |
+| `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer: the subject in the body colour, its options faint, and a capped result preview. |
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it. |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
 | `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
