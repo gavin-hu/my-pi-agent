@@ -47,6 +47,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: a finished tool block's rail is now neutral (`dim`) instead of green,
+  and a notice's rail follows the same rule, so only a running call takes the
+  accent and only a failure is red; a notice's row glyphs keep their severity
+  colour, so a green check still reads as a check.
+- `bytefly`: the shipped themes leave `toolPendingBg` / `toolSuccessBg` /
+  `toolErrorBg` to the terminal, so `edit` — the one tool that draws its own
+  shell — is no longer the single filled block among the rails.
 - Tooling: `bun run screenshot:plan` now crops to the page's own content height,
   so a short plan no longer pads the PNG with the browser viewport.
 - `bytefly`: every transcript block that is not prose now hangs from one shared

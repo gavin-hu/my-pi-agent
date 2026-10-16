@@ -34,6 +34,11 @@ describe("toolBlockLines", () => {
 		expect(toolBlockLines(innerOf(["x"]), "bad", coloringTheme, 40, 0)[0]).toContain(`[error]${RAIL}`);
 	});
 
+	test("keeps a finished rail neutral and spends colour only while running", () => {
+		expect(toolBlockLines(innerOf(["x"]), "ok", coloringTheme, 40, 0)[0]).toContain(`[dim]${RAIL}`);
+		expect(toolBlockLines(innerOf(["x"]), "info", coloringTheme, 40, 0)[0]).toContain(`[accent]${RAIL}`);
+	});
+
 	test("renders the inner at the reduced width", () => {
 		let seen = 0;
 		toolBlockLines(

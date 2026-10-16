@@ -22,8 +22,8 @@ describe("RAIL", () => {
 });
 
 describe("RAIL_ROLES", () => {
-	test("maps every status to its own role", () => {
-		expect(RAIL_ROLES).toEqual({ info: "info", ok: "ok", warn: "warn", bad: "bad" });
+	test("maps a finished rail to neutral and keeps warn and bad for attention", () => {
+		expect(RAIL_ROLES).toEqual({ info: "info", ok: "faint", warn: "warn", bad: "bad" });
 	});
 });
 

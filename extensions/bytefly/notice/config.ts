@@ -27,8 +27,15 @@ export const NOTICE_CONFIG = {
 		warn: GLYPHS.warn,
 		bad: GLYPHS.cross,
 	} as Record<NoticeSeverity, string>,
-	/** Design role per severity, shared with the rail it paints. */
-	roles: RAIL_ROLES,
+	/** Design role per severity for a row's glyph: a check is green, a cross red. */
+	glyphRoles: {
+		info: "info",
+		ok: "ok",
+		warn: "warn",
+		bad: "bad",
+	} as Record<NoticeSeverity, TuiRole>,
+	/** The rail's neutral-by-default role per severity, shared with every rail. */
+	railRoles: RAIL_ROLES,
 	/** Rows drawn before the rest collapse into a `… N more` line. */
 	maxItems: 8,
 } as const;

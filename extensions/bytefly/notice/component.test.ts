@@ -65,9 +65,14 @@ describe("noticeLines", () => {
 		}
 	});
 
-	test("paints the rail by the worst severity", () => {
+	test("paints the rail by the worst severity, neutrally until it is bad", () => {
 		expect(noticeLines(details, coloringTheme, 80)[0]).toContain(`[error]${RAIL}`);
 		const clean: NoticeDetails = { source: "job", title: "all good", items: [{ label: "j1", severity: "ok" }] };
-		expect(noticeLines(clean, coloringTheme, 80)[0]).toContain(`[success]${RAIL}`);
+		expect(noticeLines(clean, coloringTheme, 80)[0]).toContain(`[dim]${RAIL}`);
+	});
+
+	test("keeps a row's glyph semantic even when the rail is neutral", () => {
+		const clean: NoticeDetails = { source: "job", title: "all good", items: [{ label: "j1", severity: "ok" }] };
+		expect(noticeLines(clean, coloringTheme, 80).join("\n")).toContain("[success]");
 	});
 });

@@ -174,11 +174,15 @@ and wraps the tool's own `renderCall`/`renderResult`, so syntax highlighting,
 diffs, previews, and truncation notices are unchanged — only the frame is
 bytefly's. The rail is the shared transcript rail
 ([`lib/tui/rail.ts`](../../lib/tui/rail.ts)) — the same one a notice draws, so
-the two share one left edge and one nesting depth — painted by status (running,
-success, error). A tool with no renderer of its own is framed around a generic
-call/result fallback. A tool that already draws its own shell (`edit`) is left
-as it is, because wrapping it would nest a second frame. The frame's status
-roles are tuned in [`block/config.ts`](./block/config.ts).
+the two share one left edge and one nesting depth. The rail is neutral by
+default: a finished call is `dim`, only a running call takes the accent, and only
+a failure is red, so the transcript spends colour where something needs
+attention instead of on every block. A tool with no renderer of its own is
+framed around a generic call/result fallback. A tool that already draws its own
+shell (`edit`) is left as it is, because wrapping it would nest a second frame;
+the shipped themes leave the tool fills to the terminal, so its box carries no
+fill either and sits in the same rail family. The frame's status roles are tuned
+in [`block/config.ts`](./block/config.ts).
 
 **Extension screen.** `/bytefly [extension] [refresh]` opens a keyboard-driven
 dock list of every Pi extension the session resolves — across personal settings
@@ -718,7 +722,7 @@ rather than showing a wrong value.
   through the extension chain, and the resolved object is the definition the row
   reads, so a resolver can override `renderShell` and wrap `next()`'s
   `renderCall`/`renderResult`. bytefly replaces only the frame — the filled
-  status box for a status-colored rail — and keeps every built-in's diff,
+  status box for a rail — and keeps every built-in's diff,
   syntax highlighting, and truncation. The call and result are sibling
   components with no spacer between them, so one rail drawn by each is
   continuous. A tool that renders its own shell (`edit`) is left alone, because
@@ -777,10 +781,13 @@ rather than showing a wrong value.
   A two-token `icon count` badge (for `rewind`: `↺ 2`) compacts to `↺2`, keeping
   the count. The slot sorts an alert (a failed job) ahead of the modes and is
   droppable, so it goes before the model is clipped.
-- **Neutral by default; color means something.** Only the context gauge carries
-  status color, and it stays `muted` below 70%; cost is `muted`, the session and
-  branch are `muted`, and tokens/cache/window are `dim`, so yellow and red are
-  reserved for the gauge crossing a threshold rather than always on.
+- **Neutral by default; color means something.** A finished tool block's rail is
+  `dim` and an informational notice's is `muted`; only a running call takes the
+  accent and only a failure is red, so the transcript is not a wall of green.
+  The context gauge is the other coloured surface: it stays `muted` below 70%,
+  cost is `muted`, the session and branch are `muted`, and tokens/cache/window are
+  `dim`, so yellow and red are reserved for a threshold or a failure rather than
+  always on.
 - **Data is read fresh, except the usage scan.** The component resolves the
   theme through a getter and reads a fresh snapshot each render. The expensive
   part — summing token/cost totals across the session — is memoized by
@@ -891,7 +898,7 @@ columns, gauge), so the look follows the active theme.
 | `notice/config.ts` | Notice-rail tuning (`NOTICE_CONFIG`): source/title/detail roles, the severity glyphs and roles, and the item cap. |
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline and the severity-led rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type. |
-| `block/config.ts` | Tool-block tuning (`BLOCK_CONFIG`): the status roles. The rail glyph and indent are shared in `lib/tui/rail.ts`. |
+| `block/config.ts` | Tool-block tuning (`BLOCK_CONFIG`): the rail's status roles — neutral when finished, the accent while running, `bad` on error. The rail glyph and indent are shared in `lib/tui/rail.ts`. |
 | `block/component.ts` | Pure `toolBlockLines` and `ToolBlock`: the indent, the status rail, the reduced-width inner render, and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer. |
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool. |

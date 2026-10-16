@@ -230,7 +230,8 @@ mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` r
 between completed turns, a `❯ You` nameplate above each user message on the
 terminal background, and the shared transcript rail (`╎`) that every non-prose
 block hangs from — the shared notice and every tool block, built-ins included,
-share one left edge and one status-colored frame. DeepSeek is priced out of the
+share one left edge and one rail that stays neutral unless a call is running or
+failed. DeepSeek is priced out of the
 box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a

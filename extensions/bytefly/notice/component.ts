@@ -39,7 +39,7 @@ function worstSeverity(details: NoticeDetails): NoticeSeverity {
 
 /** One severity glyph, painted in its role. */
 function severityGlyph(theme: Theme, severity: NoticeSeverity): string {
-	return paint(theme, NOTICE_CONFIG.roles[severity], NOTICE_CONFIG.glyphs[severity]);
+	return paint(theme, NOTICE_CONFIG.glyphRoles[severity], NOTICE_CONFIG.glyphs[severity]);
 }
 
 /**
@@ -74,7 +74,7 @@ export function noticeLines(details: NoticeDetails, theme: Theme, width: number)
 		const rest = `${continuation}${paint(theme, NOTICE_CONFIG.detailRole, `… ${more} more`)}`;
 		lines.push(truncateToWidth(rest, bodyWidth, "…"));
 	}
-	return railBlockLines(lines, NOTICE_CONFIG.roles[worstSeverity(details)], theme, w);
+	return railBlockLines(lines, NOTICE_CONFIG.railRoles[worstSeverity(details)], theme, w);
 }
 
 /** The notice block Pi mounts for a custom message carrying `NoticeDetails`. */

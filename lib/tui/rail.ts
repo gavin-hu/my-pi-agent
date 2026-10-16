@@ -26,10 +26,15 @@ export const RAIL_GAP = 1;
 /** How a railed block reads at a glance. */
 export type RailStatus = "info" | "ok" | "warn" | "bad";
 
-/** Status to design role: one map for every railed block, so none can drift. */
+/**
+ * Status to design role: a rail is neutral by default, so a finished or merely
+ * informational block draws no colour and only `warn` and `bad` stand out. A
+ * surface whose `info` means *active* rather than *informational* brightens it
+ * itself — a running tool call takes the accent (see `bytefly/block/config.ts`).
+ */
 export const RAIL_ROLES: Readonly<Record<RailStatus, TuiRole>> = {
 	info: "info",
-	ok: "ok",
+	ok: "faint",
 	warn: "warn",
 	bad: "bad",
 };
