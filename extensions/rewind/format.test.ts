@@ -27,6 +27,7 @@ describe("summarizePrompt", () => {
 		expect(summarizePrompt("  \n  fix the   list\t\nmore detail")).toBe("fix the list");
 		expect(summarizePrompt("\n\n")).toBeUndefined();
 		expect(summarizePrompt("")).toBeUndefined();
+		expect(summarizePrompt(undefined)).toBeUndefined();
 	});
 
 	test("truncates a long prompt to the storage width", () => {

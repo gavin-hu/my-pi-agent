@@ -28,8 +28,13 @@ function truncate(text: string, max = LABEL_WIDTH): string {
 /**
  * A short, single-line summary of a user prompt for storage and display.
  * Takes the first non-empty line, collapses whitespace, and truncates.
+ *
+ * A run started by a custom message (a wake) has no user prompt: `event.prompt`
+ * is typed `string` but is `undefined` there, so a missing prompt is accepted
+ * and yields no summary rather than throwing.
  */
-export function summarizePrompt(text: string): string | undefined {
+export function summarizePrompt(text: string | undefined): string | undefined {
+	if (typeof text !== "string") return undefined;
 	const line = text
 		.split(/\r?\n/)
 		.map((part) => sanitizeLine(part))
