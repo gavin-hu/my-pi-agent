@@ -6,7 +6,7 @@
  * helpers wrap it to expose the maps their tests inspect.
  */
 
-import type { MarkdownTransformer } from "@earendil-works/pi-coding-agent";
+import type { MarkdownTransformer, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
 import type { MarkdownTheme } from "@earendil-works/pi-tui";
 
 export type AnyHandler = (...args: any[]) => any;
@@ -87,6 +87,8 @@ export interface FakePi {
 	renderers: Map<string, any>;
 	/** Renderers passed to `registerMessageRenderer`, keyed by custom type. */
 	messageRenderers: Map<string, any>;
+	/** Tool-renderer resolvers passed to `registerToolRenderer`, in order. */
+	toolRenderers: ToolRendererResolver[];
 	/** Transformers passed to `registerMarkdownTransformer`, in registration order. */
 	markdownTransformers: MarkdownTransformer[];
 	/** Legacy `{ customType, data }` view of appended entries. */
@@ -138,6 +140,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 	const handlers = new Map<string, AnyHandler[]>();
 	const renderers = new Map<string, any>();
 	const messageRenderers = new Map<string, any>();
+	const toolRenderers: ToolRendererResolver[] = [];
 	const markdownTransformers: MarkdownTransformer[] = [];
 	const appended: Array<{ customType: string; data?: unknown }> = [];
 	const sentMessages: Array<{ content: unknown; options: unknown }> = [];
@@ -156,6 +159,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		registerShortcut: (key: string, opts: any) => shortcuts.set(String(key), opts),
 		registerEntryRenderer: (customType: string, renderer: any) => renderers.set(customType, renderer),
 		registerMessageRenderer: (customType: string, renderer: any) => messageRenderers.set(customType, renderer),
+		registerToolRenderer: (resolver: ToolRendererResolver) => toolRenderers.push(resolver),
 		registerMarkdownTransformer: (transformer: MarkdownTransformer) => markdownTransformers.push(transformer),
 		registerFlag: (name: string, opts: any) => flags.set(name, opts),
 		getFlag: (name: string) => flags.get(name)?.default ?? options.flagDefaults?.[name] ?? false,
@@ -194,6 +198,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		handlers,
 		renderers,
 		messageRenderers,
+		toolRenderers,
 		markdownTransformers,
 		appended,
 		sentMessages,

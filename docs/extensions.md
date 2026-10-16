@@ -228,7 +228,8 @@ system's semantic roles), a compact, width-adaptive two-line footer (pwd + sessi
 mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
 between completed turns, a `❯` prompt marker that opens each user message with
 its continuation lines hung two columns in and the theme's `userMessageBg` fill,
-and the rail that renders every shared transcript notice.
+the rail that renders every shared transcript notice, and a status-colored rail
+that frames every tool block, built-ins included.
 DeepSeek is priced out of the box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a

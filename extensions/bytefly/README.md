@@ -20,9 +20,10 @@ pi install ./                         # install the package
 
 ## What it does
 
-The extension owns seven surfaces: the startup header, the footer, the
+The extension owns eight surfaces: the startup header, the footer, the
 user-message marker, the rule between completed turns, the notice block for
-shared transcript notices, the extension screen, and notifications.
+shared transcript notices, the tool-block frame, the extension screen, and
+notifications.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
 `accent` / `warn` roles, the agent identity (`Pi`, bold, and its version), the
@@ -149,6 +150,23 @@ matches, so the report the model reads is visible too. The type and the
 item cap are tuned in [`notice/config.ts`](./notice/config.ts). Every field is
 sanitized and clipped at the boundary, and a message without `details` keeps
 Pi's default custom-message box.
+
+**Tool blocks.** Every tool call and result in the transcript is framed by a
+bytefly rail instead of Pi's filled status background, built-ins included:
+
+```
+ │ read src/app.ts
+ │   const answer = 42;
+```
+
+A `registerToolRenderer` resolver switches the row to `renderShell: "self"`
+and wraps the tool's own `renderCall`/`renderResult`, so syntax highlighting,
+diffs, previews, and truncation notices are unchanged — only the frame is
+bytefly's. The rail is painted by status (running, success, error), and a tool
+with no renderer of its own is framed around a generic call/result fallback. A
+tool that already draws its own shell (`edit`) is left as it is, because
+wrapping it would nest a second frame. The frame is tuned in
+[`block/config.ts`](./block/config.ts).
 
 **Extension screen.** `/bytefly [extension] [refresh]` opens a keyboard-driven
 dock list of every Pi extension the session resolves — across personal settings
@@ -647,6 +665,7 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` marks each user message with a `❯` and a two-column hanging indent; the shipped themes give the block its `userMessageBg` fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice as a rail from its `details`; the type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
+| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"` and `renderCall`/`renderResult` that wrap the tool's own renderer (or a generic fallback) in the rail frame; a tool that already sets `renderShell: "self"` is returned unchanged. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
@@ -683,6 +702,15 @@ rather than showing a wrong value.
   producer also lets `job` and `watch` share one prune
   (`pruneStaleNotices`) keyed on `details.source`, so neither drops the other's
   note from context.
+- **The frame delegates; it does not re-render.** Pi resolves tool renderers
+  through the extension chain, and the resolved object is the definition the row
+  reads, so a resolver can override `renderShell` and wrap `next()`'s
+  `renderCall`/`renderResult`. bytefly replaces only the frame — the filled
+  status box for a status-colored rail — and keeps every built-in's diff,
+  syntax highlighting, and truncation. The call and result are sibling
+  components with no spacer between them, so one rail drawn by each is
+  continuous. A tool that renders its own shell (`edit`) is left alone, because
+  two frames would nest.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
@@ -803,7 +831,7 @@ rather than showing a wrong value.
 
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
 calculation), `message/` (the user-message marker), `notice/` (the shared notice
-rail), `separator/`, `panel/` (the
+rail), `block/` (the tool-block frame), `separator/`, `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
 and its probe runtime), and `notify/`. The chrome and the screen are drawn from
@@ -812,7 +840,7 @@ columns, gauge), so the look follows the active theme.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Composition root: the disable guard and the eight `register*` calls. |
+| `index.ts` | Composition root: the disable guard and the nine `register*` calls. |
 | `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity roles, padding, tagline, and the grouped help entries. |
 | `header/component.ts` | `ByteflyHeader`: the mark, identity rows, signature rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
@@ -838,6 +866,10 @@ columns, gauge), so the look follows the active theme.
 | `notice/config.ts` | Notice-rail tuning (`NOTICE_CONFIG`): source/title/detail roles, the severity glyphs and roles, and the item cap. |
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline and the severity-led rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type. |
+| `block/config.ts` | Tool-block tuning (`BLOCK_CONFIG`): the rail glyph and the status roles. |
+| `block/component.ts` | Pure `toolBlockLines` and `ToolBlock`: the indent, the status rail, the reduced-width inner render, and the image-line passthrough. |
+| `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer. |
+| `block/register.ts` | The `registerToolRenderer` resolver that frames every tool. |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
 | `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
@@ -908,3 +940,6 @@ registration (`message/register`), plus the factory check in `extension`.
 The notice surface is covered by its pure rail (`notice/component`), its
 renderer registration (`notice/register`), and the shared contract
 (`lib/notice`), plus the factory check in `extension`.
+The tool-block frame is covered by its pure `toolBlockLines` (`block/component`)
+and its generic fallback (`block/fallback`), plus the resolver's shell override,
+self-shell carve-out, and fallback framing (`block/register`).

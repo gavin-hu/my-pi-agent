@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: frames every tool block — built-ins included — with a status-colored
+  rail in place of Pi's filled background box, wrapping each tool's own renderer
+  so diffs, syntax highlighting, and previews are unchanged. `edit`, which draws
+  its own shell, keeps its box.
 - `bytefly`: renders the shared transcript notice — a `source · title` rail with
   severity-led rows — that any extension posts under the shared
   `my-pi-agent/notice` type.

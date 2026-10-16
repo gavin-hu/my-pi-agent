@@ -32,13 +32,14 @@ const rateConfig = (symbol: string): string =>
 describe("bytefly extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
-			const { pi, tools, commands, handlers, markdownTransformers, messageRenderers } = makeFakePi();
+			const { pi, tools, commands, handlers, markdownTransformers, messageRenderers, toolRenderers } = makeFakePi();
 			bytefly(pi);
 			expect(tools.size).toBe(0);
 			expect(commands.size).toBe(0);
 			expect(handlers.size).toBe(0);
 			expect(markdownTransformers).toHaveLength(0);
 			expect(messageRenderers.size).toBe(0);
+			expect(toolRenderers).toHaveLength(0);
 		});
 	});
 
@@ -74,6 +75,12 @@ describe("bytefly extension", () => {
 		const { pi, messageRenderers } = makeFakePi();
 		bytefly(pi);
 		expect(messageRenderers.has(NOTICE_TYPE)).toBe(true);
+	});
+
+	test("registers the tool-block resolver", () => {
+		const { pi, toolRenderers } = makeFakePi();
+		bytefly(pi);
+		expect(toolRenderers).toHaveLength(1);
 	});
 
 	test("installs the footer on session start in interactive mode", async () => {

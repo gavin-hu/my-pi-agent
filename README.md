@@ -106,7 +106,7 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` subcommand), `run_doctor` | A themed header and width-adaptive footer, a `❯` marker on each user message, a rule between completed turns, a rail for shared transcript notices, the `/bytefly` extension screen that lists every extension with its health and enables or disables one (`/bytefly doctor` prints the doctor report), and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` subcommand), `run_doctor` | A themed header and width-adaptive footer, a `❯` marker on each user message, a rule between completed turns, a rail for shared transcript notices, a status rail that frames every tool block, the `/bytefly` extension screen that lists every extension with its health and enables or disables one (`/bytefly doctor` prints the doctor report), and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | A GitHub-inspired dark palette and its light companion, with optional automatic light/dark switching. |
 
 ### Screens
