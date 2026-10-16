@@ -35,6 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the user message no longer sits on a filled background. The shipped
+  themes set `userMessageBg` to the terminal default, so it renders on the same
+  background as the tool blocks, with only the `❯ You` nameplate above it.
 - `plan`: the browser review's `Close` is now **Back to Pi**, and every outcome
   settles the page on a terminal chip — `Approved`, `Saved`, or `Closed` —
   instead of falling to a red `Offline` when the server closes the stream.

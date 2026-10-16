@@ -122,8 +122,9 @@ the message the user typed
 It is always on in interactive sessions and has no config file. Pi renders a
 user message as Markdown and owns its colors, so bytefly's only lever is a
 `registerMarkdownTransformer`: the nameplate is an ordinary paragraph, the label
-and rule are plain `userMessageText`, and the block's fill comes from the theme's
-`userMessageBg`. The nameplate is separated from the message by a blank line, so
+and rule are plain `userMessageText`, and the block carries no fill — the
+shipped themes set `userMessageBg` to the terminal default, so it reads like the
+tool blocks. The nameplate is separated from the message by a blank line, so
 the message's own Markdown (a fence, a list, a second paragraph) parses exactly
 as it would without it, and a soft wrap of one long line stays at the margin
 because the renderer wraps it, not bytefly. The glyph, the label, and the rule
@@ -664,7 +665,7 @@ rather than showing a wrong value.
 |---|---|
 | Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
-| User message | `pi.registerMarkdownTransformer` puts a `❯ You` nameplate (a bold label and a rule to the edge) above each user message; the shipped themes give the block its `userMessageBg` fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
+| User message | `pi.registerMarkdownTransformer` puts a `❯ You` nameplate (a bold label and a rule to the edge) above each user message; the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice as a rail from its `details`; the type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"` and `renderCall`/`renderResult` that wrap the tool's own renderer (or a generic fallback) in the rail frame; a tool that already sets `renderShell: "self"` is returned unchanged. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
@@ -690,8 +691,9 @@ rather than showing a wrong value.
 - **The user message is shaped, not painted.** Pi renders a user message as
   Markdown and owns its colors, so bytefly's only lever is a Markdown
   transformer: the nameplate's label and rule are plain `userMessageText` and
-  the surface names no role. The fill lives where the token does — the theme's
-  `userMessageBg` — because no extension API can override a theme token. The
+  the surface names no role. The block has no fill: the shipped themes set
+  `userMessageBg` to the terminal default, so it matches the tool blocks,
+  because no extension API can override a theme token. The
   nameplate is one paragraph separated from the message by a blank line, so the
   message's own Markdown parses unchanged and a soft wrap stays at the margin;
   hard-wrapping Markdown here would corrupt a break inside an inline construct.
