@@ -1,10 +1,9 @@
 /**
  * bytefly's live thinking counter.
  *
- * Pi's hidden thinking block is a static italic `Thinking...` and its working
- * row is a static `Working`; neither says how long the model has been reasoning.
- * This surface advances both once a second while an assistant message streams,
- * so a long think is legible at a glance, and restores Pi's defaults when the
+ * Pi's hidden thinking block is a static italic `Thinking...`, so a long think
+ * reads the same as a short one. This surface advances the label once a second
+ * while an assistant message streams, and restores Pi's default when the
  * message ends.
  *
  * The count is scoped to one assistant message rather than the whole run:
@@ -13,15 +12,14 @@
  * thinking blocks Pi relabels globally showing their plain `Thinking...` again
  * once the current message settles.
  *
- * Both handles are global (`setHiddenThinkingLabel` rewrites every thinking
- * block, `setWorkingMessage` the single working row), so the tick is cancelled
- * and both are reset on end and, belt and braces, on `session_shutdown` — the
- * factory itself only registers.
+ * The handle is global (`setHiddenThinkingLabel` rewrites every hidden thinking
+ * block), so the tick is cancelled and the label reset on end and, belt and
+ * braces, on `session_shutdown` — the factory itself only registers.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { THINKING_CONFIG } from "./config.ts";
-import { thinkingCounter, workingCounter } from "./format.ts";
+import { thinkingCounter } from "./format.ts";
 
 /** Host seams, injected by tests so the tick is deterministic. */
 export interface ThinkingDeps {
@@ -47,14 +45,13 @@ export function registerThinkingTimer(pi: ExtensionAPI, deps: ThinkingDeps = {})
 	// A boolean, not `startedAt === 0`: an injected clock is allowed to start at 0.
 	let active = false;
 
-	/** Stop the tick and hand both surfaces back to Pi. Idempotent. */
+	/** Stop the tick and hand the label back to Pi. Idempotent. */
 	const stop = (ctx: ExtensionContext): void => {
 		cancel?.();
 		cancel = undefined;
 		if (!active) return;
 		active = false;
 		ctx.ui.setHiddenThinkingLabel(undefined);
-		ctx.ui.setWorkingMessage(undefined);
 	};
 
 	pi.on("message_start", (event, ctx) => {
@@ -63,9 +60,7 @@ export function registerThinkingTimer(pi: ExtensionAPI, deps: ThinkingDeps = {})
 		startedAt = now();
 		active = true;
 		const tick = (): void => {
-			const elapsed = now() - startedAt;
-			ctx.ui.setHiddenThinkingLabel(thinkingCounter(elapsed));
-			ctx.ui.setWorkingMessage(workingCounter(elapsed));
+			ctx.ui.setHiddenThinkingLabel(thinkingCounter(now() - startedAt));
 		};
 		tick();
 		cancel = schedule(tick, THINKING_CONFIG.intervalMs);

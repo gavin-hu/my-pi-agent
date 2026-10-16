@@ -19,17 +19,7 @@ export function formatElapsed(ms: number): string {
 	return `${seconds}s`;
 }
 
-/** The counter word followed by the elapsed time, e.g. `Thinking… 4s`. */
-function counter(word: string, ms: number): string {
-	return `${word}${THINKING_CONFIG.ellipsis} ${formatElapsed(ms)}`;
-}
-
-/** The hidden thinking label for an elapsed time. */
+/** The hidden thinking label for an elapsed time, e.g. `Thinking… 4s`. */
 export function thinkingCounter(ms: number): string {
-	return counter(THINKING_CONFIG.label, ms);
-}
-
-/** The working-row message for an elapsed time. */
-export function workingCounter(ms: number): string {
-	return counter(THINKING_CONFIG.working, ms);
+	return `${THINKING_CONFIG.label}${THINKING_CONFIG.ellipsis} ${formatElapsed(ms)}`;
 }
