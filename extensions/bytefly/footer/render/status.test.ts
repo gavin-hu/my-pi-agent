@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { GLYPHS } from "../../../../lib/ui.ts";
+import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
 import { compactStatus, dropStatusDetail } from "./status.ts";
 
 describe("compactStatus", () => {

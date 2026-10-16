@@ -428,4 +428,4 @@ returns them to the model.
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, and shared markup. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
-| `../../lib/tui.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |
+| `../../lib/tui/chrome.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |

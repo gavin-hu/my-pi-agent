@@ -6,8 +6,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { askHuman } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
-import { reuseText, toolDetails } from "../../lib/tui.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";

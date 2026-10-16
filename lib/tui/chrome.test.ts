@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { dockListFrame, screenHeader, screenHint, viewportRows } from "./tui.ts";
-import { coloringTheme, fakeTheme } from "../test/helpers/fakes.ts";
+import { dockListFrame, screenHeader, screenHint, viewportRows } from "./chrome.ts";
+import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 
 describe("viewportRows", () => {
 	const options = { chrome: 7, fallback: 12 };
@@ -83,6 +83,19 @@ describe("dockListFrame", () => {
 
 		expect(lines[0]).toContain("Jobs");
 		expect(lines.slice(1)).toEqual([" 1 job", "", "  a", "  b", "", "  Esc close", ""]);
+	});
+
+	test("a pre-rendered header replaces the default rule", () => {
+		const lines = dockListFrame({
+			theme: fakeTheme,
+			width: 20,
+			title: "Jobs",
+			header: "Jobs ──────────────",
+			body: ["  a"],
+			hint: "  Esc",
+		});
+
+		expect(lines[0]).toBe("Jobs ──────────────");
 	});
 
 	test("omits the summary and its blank line when absent", () => {

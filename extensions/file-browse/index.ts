@@ -13,7 +13,7 @@ import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { loadConfig, randomPort } from "./config.ts";
 import { createGitDiff, createGitStatus } from "./git.ts";
 import { openInBrowser } from "../../lib/browser.ts";

@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import type { RewindConfig } from "./config.ts";
 import { userMessagesFromBranch } from "./timeline.ts";
 

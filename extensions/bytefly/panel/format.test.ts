@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { GLYPHS } from "../../../lib/ui.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeItem } from "../../../test/helpers/fixtures/picker.ts";
 import { formatHeadline, formatListing, formatRow, panelCounts, summarySegments } from "./format.ts";

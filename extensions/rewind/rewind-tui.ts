@@ -25,9 +25,9 @@ import {
 	navigateList,
 	scrollList,
 	selectionMarker,
-} from "../../lib/list-cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
-import { SEPARATORS } from "../../lib/ui.ts";
+} from "../../lib/tui/cursor.ts";
+import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { formatRewindDetail, formatRewindRow } from "./format.ts";
 import type { RewindPoint } from "./timeline.ts";
 

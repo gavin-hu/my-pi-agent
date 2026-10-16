@@ -13,7 +13,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL, type JobFinishedEvent } from "../../lib/events.ts";
-import { STATUS_KEYS } from "../../lib/ui.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion } from "./format.ts";
 import { createJobsRuntime, type JobsRuntime } from "./runtime.ts";

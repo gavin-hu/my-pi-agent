@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { GLYPHS, STATUS_KEYS } from "../../../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../../../lib/tui/glyphs.ts";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { buildLines } from "./lines.ts";
 import { fakeTheme, makeRecordingTheme } from "../../../../test/helpers/fakes.ts";
@@ -285,7 +285,8 @@ describe("buildLines theme tokens", () => {
 		const theme = makeRecordingTheme() as any;
 		buildLines(fullSnapshot({ branch: "detached" }), theme, "/home/u");
 
-		expect(theme.calls).toContainEqual(["warning", "⚠ detached"]);
+		expect(theme.calls).toContainEqual(["warning", "⚠"]);
+		expect(theme.calls).toContainEqual(["warning", "detached"]);
 	});
 
 	test("colors the model with the accent token", () => {
@@ -306,6 +307,7 @@ describe("buildLines theme tokens", () => {
 		const theme = makeRecordingTheme() as any;
 		buildLines(fullSnapshot(), theme, "/home/u");
 
-		expect(theme.calls).toContainEqual(["muted", `${GLYPHS.branch} main`]);
+		expect(theme.calls).toContainEqual(["muted", GLYPHS.branch]);
+		expect(theme.calls).toContainEqual(["muted", "main"]);
 	});
 });

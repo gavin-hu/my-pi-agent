@@ -10,6 +10,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { paint } from "../../../../lib/tui/tokens.ts";
 import { CONFIG } from "../config.ts";
 import type { LineSpec, Segment } from "../types.ts";
 
@@ -135,5 +136,5 @@ export function renderLine(spec: LineSpec, width: number, theme: Theme): string 
 		if (!collapseSeparator(states)) break;
 	}
 
-	return truncateToWidth(assemble(states, target), target, theme.fg("dim", "…"));
+	return truncateToWidth(assemble(states, target), target, paint(theme, "faint", "…"));
 }

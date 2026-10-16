@@ -12,7 +12,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
 
 /** Longest label shown in the transcript or `/watch` screen. */

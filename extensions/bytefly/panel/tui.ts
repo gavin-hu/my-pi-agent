@@ -5,33 +5,29 @@
  * The component is derived: it rebuilds the merged model from the picker
  * runtime and the current reports on every render, keeps the focused row's key
  * across rebuilds, and requests a repaint only after an input changes state.
- * Screen chrome and scroll math come from `lib/tui.ts` and `lib/list-cursor.ts`.
- * A row without a report renders no glyph and no summary, never a false `ok`.
+ * The screen is drawn from the design system — a label-first `titleRule`, one
+ * `listRow` grammar, one `checkbox` — and its scroll math from
+ * `lib/tui/cursor.ts`. A row without a report renders no glyph and no summary,
+ * never a false `ok`.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-	Key,
-	matchesKey,
-	truncateToWidth,
-	visibleWidth,
-	type Component,
-	type TuiMouseEvent,
-	type TuiMouseEventResult,
-} from "@earendil-works/pi-tui";
+import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
-import {
-	fitRows,
-	formatRange,
-	isCloseKey,
-	ListCursor,
-	navIntent,
-	selectionMarker,
-	wheelDelta,
-} from "../../../lib/list-cursor.ts";
+import { dockListFrame, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { clip, fitCells } from "../../../lib/tui/columns.ts";
+import { fitRows, formatRange, isCloseKey, ListCursor, navIntent, wheelDelta } from "../../../lib/tui/cursor.ts";
+import { checkbox, emptyState, listRow } from "../../../lib/tui/rows.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../../lib/tui.ts";
-import { detailLines as reportDetailLines, reportSeverity, reportSummary, severityGlyph } from "../doctor/format.ts";
+import {
+	detailLines as reportDetailLines,
+	reportSeverity,
+	reportSummary,
+	severityGlyphChar,
+	severityRole,
+} from "../doctor/format.ts";
 import type { ExtensionsPickerRuntime } from "../picker/runtime.ts";
 import { summarySegments } from "./format.ts";
 import { buildPanelModel } from "./join.ts";
@@ -283,50 +279,37 @@ export class PanelComponent implements Component {
 		return { handled: true };
 	}
 
+	/** The headline: whole segments only, so a narrow screen drops a count. */
 	private summary(width: number, model: PanelModel): string {
 		const segments = summarySegments(model, this.options.runtime.scope(), {
 			filter: this.options.filter,
 			compact: width < 72,
 		});
-		const separator = this.theme.fg("dim", " · ");
-		const kept: string[] = [];
-		for (const segment of segments) {
-			const styled = this.theme.fg(segment.color, segment.text);
-			if (kept.length > 0 && visibleWidth(`  ${[...kept, styled].join(separator)}`) > width) break;
-			kept.push(styled);
-		}
-		return truncateToWidth(`  ${kept.join(separator)}`, width, "…");
+		const separator = paint(this.theme, "faint", " · ");
+		const styled = segments.map((segment) => paint(this.theme, segment.color, segment.text));
+		return clip(`  ${fitCells(styled, Math.max(1, width - 2), separator)}`, width);
 	}
 
 	private groupLine(entry: Extract<PanelEntry, { kind: "group" }>, width: number): string {
-		const label = this.theme.fg("muted", sanitizeLine(entry.label));
-		const count = this.theme.fg("dim", `(${entry.count})`);
-		return truncateToWidth(`  ${label} ${count}`, width, "…");
+		const label = paint(this.theme, "meta", sanitizeLine(entry.label));
+		const count = paint(this.theme, "faint", `(${entry.count})`);
+		return clip(`  ${label} ${count}`, width);
 	}
 
 	private rowLine(row: PanelRow, selected: boolean, width: number): string {
-		const checkbox = row.item
-			? row.item.enabled
-				? this.theme.fg("success", "[x]")
-				: this.theme.fg("dim", "[ ]")
-			: this.theme.fg("dim", "   ");
 		const severity = row.report ? reportSeverity(row.report) : undefined;
-		const glyph = severity ? severityGlyph(severity, this.theme) : " ";
-		const label = sanitizeLine(row.label);
-		const styled = selected
-			? this.theme.fg("accent", label)
-			: row.item && !row.item.enabled
-				? this.theme.fg("dim", label)
-				: label;
-		const summary = row.report ? reportSummary(row.report) : "";
-		const head = `${selectionMarker(this.theme, selected)}${checkbox} ${glyph} `;
-		if (!summary) return truncateToWidth(`${head}${styled}`, width, "…");
-
-		const available = Math.max(1, width - visibleWidth(head) - visibleWidth(summary) - 1);
-		const name = truncateToWidth(styled, available, "…");
-		const pad = " ".repeat(Math.max(0, available - visibleWidth(name)));
-		const tone = severity === "missing" ? "error" : severity === "degraded" ? "warning" : "dim";
-		return truncateToWidth(`${head}${name}${pad} ${this.theme.fg(tone, summary)}`, width, "…");
+		return listRow(this.theme, width, {
+			selected,
+			// A reported-only row has no enable pattern, but still reserves the box
+			// column so the list stays aligned.
+			leading: row.item ? checkbox(this.theme, row.item.enabled) : " ",
+			glyph: severity ? severityGlyphChar(severity) : " ",
+			glyphRole: severity ? severityRole(severity) : "faint",
+			label: sanitizeLine(row.label),
+			labelRole: selected ? "accent" : row.item && !row.item.enabled ? "faint" : "label",
+			trailing: row.report ? reportSummary(row.report) : undefined,
+			trailingRole: severity === "missing" ? "bad" : severity === "degraded" ? "warn" : "faint",
+		});
 	}
 
 	/** The focused row's label, findings, and the pending-changes note. */
@@ -334,19 +317,14 @@ export class PanelComponent implements Component {
 		const lines: string[] = [];
 		if (row?.report) {
 			const tail = reportSummary(row.report);
-			lines.push(
-				truncateToWidth(
-					`  ${this.theme.fg("muted", sanitizeLine(row.label))} ${this.theme.fg("dim", "—")} ${this.theme.fg(row.report.enabled ? "muted" : "warning", tail)}`,
-					width,
-					"…",
-				),
-			);
+			const head = `${paint(this.theme, "meta", sanitizeLine(row.label))} ${paint(this.theme, "faint", "—")} ${paint(this.theme, row.report.enabled ? "meta" : "warn", tail)}`;
+			lines.push(clip(`  ${head}`, width));
 			if (budget > 0) lines.push(...reportDetailLines(row.report, this.theme, width, budget, this.showDetail));
 		} else if (row?.item) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("muted", sanitizeLine(row.item.path))}`, width, "…"));
+			lines.push(clip(`  ${paint(this.theme, "meta", sanitizeLine(row.item.path))}`, width));
 		}
 		if (this.options.runtime.isDirty()) {
-			lines.push(truncateToWidth(`  ${this.theme.fg("warning", "Saved · reload to apply")}`, width, "…"));
+			lines.push(clip(`  ${paint(this.theme, "warn", "Saved · reload to apply")}`, width));
 		}
 		return lines;
 	}
@@ -356,14 +334,16 @@ export class PanelComponent implements Component {
 		const model = this.model();
 		const entries = entriesOf(model);
 		const summary = this.summary(w, model);
+		const header = titleRule(this.theme, w, "bytefly");
 
 		if (entries.length === 0) {
 			return dockListFrame({
 				theme: this.theme,
 				width: w,
 				title: "bytefly",
+				header,
 				summary,
-				body: [truncateToWidth(`  ${this.theme.fg("dim", "No extensions found.")}`, w)],
+				body: emptyState(this.theme, w, { label: "No extensions found." }),
 				hint: screenHint(this.theme, w, ["Esc close"]),
 			});
 		}
@@ -397,6 +377,7 @@ export class PanelComponent implements Component {
 			theme: this.theme,
 			width: w,
 			title: "bytefly",
+			header,
 			summary,
 			body,
 			range: this.cursor.clipped(entries.length)

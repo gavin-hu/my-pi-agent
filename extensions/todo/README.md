@@ -205,7 +205,7 @@ depends on config.
   first pending); `/todos` keeps the submitted order, and the transcript result
   orders by status via `compareByActivity` so active work is never hidden. The
   transcript result draws the same indented glyph rail as the goal result
-  (`BODY_INDENT` / `GLYPH_GAP` from [`lib/ui.ts`](../../lib/ui.ts)), wrapping
+  (`BODY_INDENT` / `GLYPH_GAP` from [`lib/tui/glyphs.ts`](../../lib/tui/glyphs.ts)), wrapping
   long items with continuation rows aligned under the text. Progress lives on
   the call line, so the rail carries no footer.
 - **The transcript reuses its components.** `renderCall` reuses the slot's

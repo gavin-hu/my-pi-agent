@@ -3,26 +3,23 @@
  *
  * Each segment carries progressively shorter `forms` and a `weight`; the layout
  * engine advances forms and drops segments from the highest weight down, so the
- * bar degrades predictably instead of clipping arbitrary text.
+ * bar degrades predictably instead of clipping arbitrary text. Colors come from
+ * the design-system roles, so the bar follows the active theme.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { formatTokens, sanitize, sanitizeLine } from "../../../../lib/format.ts";
+import { gaugeBar } from "../../../../lib/tui/gauge.ts";
+import { chip } from "../../../../lib/tui/rows.ts";
+import { paint } from "../../../../lib/tui/tokens.ts";
 import { CONFIG } from "../config.ts";
-import {
-	computeGauge,
-	contextColor,
-	formatCost,
-	formatCwd,
-	formatPercent,
-	thinkingColor,
-	truncateLabel,
-} from "./format.ts";
+import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./format.ts";
 import { compactStatus, dropStatusDetail } from "./status.ts";
 import type { Segment, StatusSnapshot } from "../types.ts";
 
-const dim = (theme: Theme, text: string): string => theme.fg("dim", text);
+/** Tertiary text: paths and de-emphasized meters. */
+const faint = (theme: Theme, text: string): string => paint(theme, "faint", text);
 
 /**
  * The label part of a themed status chip: strip its escape sequences, sanitize
@@ -41,9 +38,9 @@ export function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string 
 		droppable: false,
 		separator: "",
 		forms: [
-			dim(theme, formatCwd(snapshot.cwd, home, 0)),
-			dim(theme, formatCwd(snapshot.cwd, home, 1)),
-			dim(theme, formatCwd(snapshot.cwd, home, 2)),
+			faint(theme, formatCwd(snapshot.cwd, home, 0)),
+			faint(theme, formatCwd(snapshot.cwd, home, 1)),
+			faint(theme, formatCwd(snapshot.cwd, home, 2)),
 		],
 	};
 }
@@ -54,13 +51,13 @@ export function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment 
 	const short = truncateLabel(name, CONFIG.sessionLabelMax);
 	// Brackets and a brighter token keep the session name from reading as a
 	// trailing path segment.
-	const forms = [theme.fg("muted", `[${name}]`)];
-	if (short !== name) forms.push(theme.fg("muted", `[${short}]`));
+	const forms = [paint(theme, "meta", `[${name}]`)];
+	if (short !== name) forms.push(paint(theme, "meta", `[${short}]`));
 	return {
 		id: "session",
 		weight: 3,
 		droppable: true,
-		separator: dim(theme, CONFIG.separators.item),
+		separator: faint(theme, CONFIG.separators.item),
 		forms,
 	};
 }
@@ -68,14 +65,13 @@ export function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment 
 export function branchSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (!snapshot.branch) return null;
 	const detached = snapshot.branch === CONFIG.labels.detached;
-	const color = detached ? "warning" : "muted";
 	const icon = detached ? CONFIG.icons.detached : CONFIG.icons.branch;
 	return {
 		id: "branch",
 		weight: 1,
 		droppable: true,
-		separator: dim(theme, CONFIG.separators.item),
-		forms: [theme.fg(color, `${icon} ${snapshot.branch}`)],
+		separator: faint(theme, CONFIG.separators.item),
+		forms: [chip(theme, icon, snapshot.branch, detached ? "warn" : "meta")],
 	};
 }
 
@@ -83,27 +79,16 @@ export function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment
 	const raw = snapshot.statuses.get(CONFIG.worktreeStatusKey);
 	if (!raw) return null;
 	const icon = CONFIG.icons.worktree;
+	const separator = faint(theme, CONFIG.separators.item);
 	const label = chipLabel(raw);
 	if (!label) {
-		return {
-			id: "worktree",
-			weight: 3,
-			droppable: true,
-			separator: dim(theme, CONFIG.separators.item),
-			forms: [theme.fg("success", icon)],
-		};
+		return { id: "worktree", weight: 3, droppable: true, separator, forms: [paint(theme, "ok", icon)] };
 	}
 	const short = truncateLabel(label, CONFIG.worktreeLabelMax);
-	const forms = [theme.fg("success", `${icon} ${label}`)];
-	if (short !== label) forms.push(theme.fg("success", `${icon} ${short}`));
-	forms.push(theme.fg("success", icon));
-	return {
-		id: "worktree",
-		weight: 3,
-		droppable: true,
-		separator: dim(theme, CONFIG.separators.item),
-		forms,
-	};
+	const forms = [chip(theme, icon, label, "ok")];
+	if (short !== label) forms.push(chip(theme, icon, short, "ok"));
+	forms.push(paint(theme, "ok", icon));
+	return { id: "worktree", weight: 3, droppable: true, separator, forms };
 }
 
 export function browseSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
@@ -111,25 +96,20 @@ export function browseSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 	if (!raw) return null;
 	const icon = CONFIG.icons.browse;
 	const label = chipLabel(raw);
-	const separator = dim(theme, CONFIG.separators.item);
+	const separator = faint(theme, CONFIG.separators.item);
 	if (!label) {
-		return {
-			id: "browse",
-			weight: 3,
-			droppable: true,
-			separator,
-			forms: [theme.fg("success", icon)],
-		};
+		return { id: "browse", weight: 3, droppable: true, separator, forms: [paint(theme, "ok", icon)] };
 	}
+	// A two-tone chip: the `◉` glyph stays green while the port reads as accent.
 	return {
 		id: "browse",
 		weight: 3,
 		droppable: true,
 		separator,
 		forms: [
-			`${theme.fg("success", icon)} ${theme.fg("accent", label)}`,
-			`${theme.fg("success", icon)}${theme.fg("accent", label)}`,
-			theme.fg("success", icon),
+			`${paint(theme, "ok", icon)} ${paint(theme, "accent", label)}`,
+			`${paint(theme, "ok", icon)}${paint(theme, "accent", label)}`,
+			paint(theme, "ok", icon),
 		],
 	};
 }
@@ -150,7 +130,7 @@ export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 		})
 		.filter(Boolean);
 	if (others.length === 0) return null;
-	const full = others.join(dim(theme, CONFIG.separators.item));
+	const full = others.join(faint(theme, CONFIG.separators.item));
 	// The compact form keeps each status's own colour (see `compactStatus`); a
 	// two-token badge keeps its count (`↺ 2` -> `↺2`) instead of collapsing to a
 	// bare icon.
@@ -161,31 +141,22 @@ export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 		// than truncating the model, which sits at the end of the line.
 		weight: 1,
 		droppable: true,
-		separator: dim(theme, CONFIG.separators.group),
+		separator: faint(theme, CONFIG.separators.group),
 		forms: [full, icons],
 	};
 }
 
 export function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 	const percent = snapshot.context.percent;
-	const color = contextColor(percent);
-	const percentText = theme.fg(color, formatPercent(percent));
-	const gaugeWidths: readonly number[] = percent === null ? [0] : CONFIG.gauge.widths;
-	const forms = gaugeWidths.map((blocks) => {
-		const { filled, empty } = computeGauge(percent, blocks);
-		const gauge =
-			blocks > 0
-				? theme.fg(color, CONFIG.gauge.full.repeat(filled)) + theme.fg("dim", CONFIG.gauge.empty.repeat(empty)) + " "
-				: "";
-		return `${gauge}${percentText}`;
-	});
-	return {
-		id: "context",
-		weight: 1,
-		droppable: false,
-		separator: "",
-		forms,
-	};
+	const role = contextRole(percent);
+	const percentText = paint(theme, role, formatPercent(percent));
+	// Unknown usage draws no track, so `?` sits where the gauge would be rather
+	// than a full row of empty blocks claiming a known zero.
+	const widths: readonly number[] = percent === null ? [0] : CONFIG.gauge.widths;
+	const forms = widths.map((blocks) =>
+		blocks > 0 ? `${gaugeBar(theme, { percent, blocks, role, emptyRole: "faint" })} ${percentText}` : percentText,
+	);
+	return { id: "context", weight: 1, droppable: false, separator: "", forms };
 }
 
 export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
@@ -195,7 +166,7 @@ export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 		weight: 3,
 		droppable: true,
 		separator: "",
-		forms: [dim(theme, `/${formatTokens(snapshot.context.contextWindow)}`)],
+		forms: [faint(theme, `/${formatTokens(snapshot.context.contextWindow)}`)],
 	};
 }
 
@@ -205,8 +176,8 @@ export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | n
 		id: "cost",
 		weight: 2,
 		droppable: true,
-		separator: dim(theme, CONFIG.separators.item),
-		forms: [theme.fg("muted", formatCost(snapshot.usage.cost, snapshot.currency))],
+		separator: faint(theme, CONFIG.separators.item),
+		forms: [paint(theme, "meta", formatCost(snapshot.usage.cost, snapshot.currency))],
 	};
 }
 
@@ -220,8 +191,8 @@ export function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 		id: "tokens",
 		weight: 4,
 		droppable: true,
-		separator: dim(theme, CONFIG.separators.item),
-		forms: [dim(theme, parts.join(" "))],
+		separator: faint(theme, CONFIG.separators.item),
+		forms: [faint(theme, parts.join(" "))],
 	};
 }
 
@@ -240,8 +211,8 @@ export function cacheSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 		id: "cache",
 		weight: 5,
 		droppable: true,
-		separator: dim(theme, CONFIG.separators.item),
-		forms: [dim(theme, parts.join(" "))],
+		separator: faint(theme, CONFIG.separators.item),
+		forms: [faint(theme, parts.join(" "))],
 	};
 }
 
@@ -254,7 +225,7 @@ export function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 			weight: 1,
 			droppable: false,
 			separator: "",
-			forms: [theme.fg("muted", CONFIG.labels.noModel)],
+			forms: [paint(theme, "meta", CONFIG.labels.noModel)],
 		};
 	}
 	const provider = snapshot.providerCount > 1 ? `(${model.provider}) ` : "";
@@ -263,19 +234,21 @@ export function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 		weight: 1,
 		droppable: false,
 		separator: "",
-		forms: [theme.fg("accent", `${provider}${model.id}`), theme.fg("accent", model.id)],
+		forms: [paint(theme, "accent", `${provider}${model.id}`), paint(theme, "accent", model.id)],
 	};
 }
 
 export function thinkingSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	if (!snapshot.model?.reasoning) return null;
 	const level = snapshot.thinkingLevel ?? "off";
+	// The reasoning scale is Pi's own seven-token ramp, not a design role: a
+	// level colors itself from `thinkingColor`.
 	const color = thinkingColor(level);
 	return {
 		id: "thinking",
 		weight: 2,
 		droppable: true,
-		separator: dim(theme, CONFIG.separators.item),
+		separator: faint(theme, CONFIG.separators.item),
 		forms: [theme.fg(color, level)],
 	};
 }

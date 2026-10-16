@@ -9,7 +9,7 @@ import {
 	TUI_KEYBINDINGS,
 } from "@earendil-works/pi-tui";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { EXPAND_KEYBINDING, expandKey } from "../../lib/ui.ts";
+import { EXPAND_KEYBINDING, expandKey } from "../../lib/tui/glyphs.ts";
 import { formatDocCall, previewText, renderDocPath } from "./render.ts";
 
 beforeEach(() => {

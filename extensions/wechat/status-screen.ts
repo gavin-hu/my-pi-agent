@@ -11,7 +11,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, type Component } from "@earendil-works/pi-tui";
-import { screenHeader, screenHint, type ScreenHint } from "../../lib/tui.ts";
+import { screenHeader, screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
 import type { BridgeStatus } from "./bridge.ts";
 import { peerLabel } from "./format.ts";
 import type { BotCredentials } from "./types.ts";

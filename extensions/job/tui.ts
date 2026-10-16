@@ -31,9 +31,9 @@ import {
 	navigateScroll,
 	selectionMarker,
 	wheelDelta,
-} from "../../lib/list-cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
-import { expandHint } from "../../lib/ui.ts";
+} from "../../lib/tui/cursor.ts";
+import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { expandHint } from "../../lib/tui/glyphs.ts";
 import {
 	compareJobs,
 	elapsedMs,

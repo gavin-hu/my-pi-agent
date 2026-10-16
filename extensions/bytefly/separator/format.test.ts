@@ -1,45 +1,28 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { separatorLabel, separatorLine, separatorParts } from "./format.ts";
-import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { separatorLine } from "./format.ts";
 
-const width = (parts: { left: string; label: string; right: string }) =>
-	visibleWidth(parts.left) + visibleWidth(parts.label) + visibleWidth(parts.right);
-
-describe("separatorParts", () => {
-	test("fills exactly the requested width", () => {
-		for (const target of [1, 5, 8, 9, 20, 40, 100]) {
-			expect(width(separatorParts(3, target))).toBe(target);
+describe("separatorLine", () => {
+	test("renders one line of exactly the requested width", () => {
+		for (const target of [0, 1, 5, 8, 9, 20, 40, 100]) {
+			const lines = separatorLine(3, target, fakeTheme);
+			expect(lines).toHaveLength(1);
+			expect(visibleWidth(lines[0] ?? "")).toBe(Math.max(1, target));
 		}
 	});
 
-	test("centers the label", () => {
-		const parts = separatorParts(3, 41);
-		expect(parts.label).toBe(" turn 3 ");
-		expect(parts.left).toBe("╌".repeat(16));
-		expect(parts.right).toBe("╌".repeat(17));
+	test("centers the label and names the turn", () => {
+		expect(separatorLine(3, 41, fakeTheme)[0]).toBe("╌".repeat(16) + " turn 3 " + "╌".repeat(17));
 	});
 
-	test("degrades to dashes when the label does not fit", () => {
-		expect(separatorParts(12, 5)).toEqual({ left: "╌╌╌╌╌", label: "", right: "" });
+	test("degrades to a plain dashed rule when the label does not fit", () => {
+		expect(separatorLine(12, 5, fakeTheme)[0]).toBe("╌".repeat(5));
 	});
 
-	test("never returns a zero-width line", () => {
-		expect(width(separatorParts(1, 0))).toBe(1);
-	});
-});
-
-describe("separatorLabel", () => {
-	test("includes the turn number and padding", () => {
-		expect(separatorLabel(7)).toBe(" turn 7 ");
-	});
-});
-
-describe("separatorLine", () => {
-	test("renders one line of the requested width and names the turn", () => {
-		const lines = separatorLine(2, 30, fakeTheme);
-		expect(lines).toHaveLength(1);
-		expect(lines[0]).toContain("turn 2");
-		expect(visibleWidth(lines[0])).toBe(30);
+	test("paints the dashes and the label from their design roles", () => {
+		expect(separatorLine(2, 12, coloringTheme)[0]).toBe(
+			"[border]" + "╌".repeat(2) + "[muted] turn 2 " + "[border]" + "╌".repeat(2),
+		);
 	});
 });

@@ -7,7 +7,7 @@ import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isInside } from "../../lib/path.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import { WorktreeCancelledError } from "./errors.ts";
 import {

@@ -11,7 +11,7 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
-import { reuseText, toolDetails } from "../../lib/tui.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import type { Bridge } from "./bridge.ts";
 
 export const TOOL_NAME = "send_wechat";

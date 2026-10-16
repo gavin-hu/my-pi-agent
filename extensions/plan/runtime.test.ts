@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "./runtime.ts";
 import { fakeCtx, makeFakePi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {
 	const fake = makeFakePi({

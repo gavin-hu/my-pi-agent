@@ -23,17 +23,17 @@ The extension owns five surfaces: the startup header, the footer, the rule
 between completed turns, the extension screen, and notifications.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
-`accent` / `warning` tokens, the agent identity (`Pi` and its version), the
-chrome identity (`enhanced by bytefly` and the package version), a `─` rule, and
-a grouped help block. The help keys resolve live from Pi's keybindings, so a
-rebound key shows the user's chord; the identity and help text are `muted`/`dim`
-so the mark keeps the eye. It is installed only in interactive (`tui`) sessions,
-and on terminals that cannot render half blocks the mark falls back to a
-two-tone `Pi` wordmark.
+`accent` / `warn` roles, the agent identity (`Pi`, bold, and its version), the
+chrome identity (`enhanced by bytefly` and the package version), a signature
+rule whose `accent` lead sits under the mark, and a grouped help block. The help
+keys resolve live from Pi's keybindings, so a rebound key shows the user's
+chord; the identity and help text are `meta` / `faint` so the mark keeps the
+eye. It is installed only in interactive (`tui`) sessions, and on terminals that
+cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
 
 ```
  █▀█  Pi v1.2.0
- █▀ █ enhanced by bytefly v0.7.0
+ █▀ █ enhanced by bytefly v0.8.1
  ─────────────────────────────────────────────────
   escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)
   ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model
@@ -393,7 +393,9 @@ it:
 extension Pi resolves for the session, so the list matches what actually loads.
 It merges the former extensions picker and doctor report into one row per
 extension: the picker's enable checkbox and label, the doctor's worst-severity
-glyph and summary. `/bytefly doctor [extension] [refresh]` selects the doctor
+glyph and summary. The screen is drawn from the design system: a label-first
+`bytefly ────` title rule, one row grammar (`❯ ◼ ✓ name … summary`), and the
+shared `◼` / `◻` checkbox. `/bytefly doctor [extension] [refresh]` selects the doctor
 report, the same text the `run_doctor` tool returns; in `tui` it opens the same
 screen. `[extension]` narrows either surface to one extension and `refresh`
 re-probes the doctor before it opens. Tab completes `doctor`, extension names,
@@ -408,7 +410,7 @@ installs or fetches a package.
 - Omits `bytefly`'s own entrypoint from the picker groups, so the tool that
   manages the list is never a selectable row; its doctor report still appears in
   the trailing `Not resolved` group.
-- Shows whether each one is enabled (`[x]`) or disabled (`[ ]`).
+- Shows whether each one is enabled (`◼`) or disabled (`◻`).
 - Shows the worst severity for a reported extension (`✓` ok, `!` degraded, `✕`
   missing, `∅` disabled) and its summary; an extension with no doctor report
   leaves the glyph column and the summary blank rather than claiming `ok`.
@@ -620,12 +622,18 @@ rather than showing a wrong value.
 
 ## Design notes
 
+- **One kit, one look.** Every bytefly surface is drawn from the package's
+  `lib/tui/` design system: a role is resolved by the active theme, a rule comes
+  from `rules.ts`, a list row from `rows.ts`, a meter from `gauge.ts`, and a
+  width from `columns.ts`. Nothing in bytefly names a literal color, and a
+  theme swap re-skins the whole chrome.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
-  mark from `accent`/`warning` and pairs it with the agent identity, the chrome
-  identity, and a grouped help block. It adds no session or model data — that is
-  the footer's job — and it stays a fixed four-plus rows so the startup
-  transcript never reflows.
+  mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
+  under the mark, and pairs them with the agent identity, the chrome identity,
+  and a grouped help block. It adds no session or model data — that is the
+  footer's job — and it stays a fixed four-plus rows so the startup transcript
+  never reflows.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".
@@ -740,13 +748,15 @@ rather than showing a wrong value.
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
 calculation), `separator/`, `panel/` (the unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
-and its probe runtime), and `notify/`.
+and its probe runtime), and `notify/`. The chrome and the screen are drawn from
+the package's [`lib/tui/`](../../lib/tui/) design system (tokens, rules, rows,
+columns, gauge), so the look follows the active theme.
 
 | File | Responsibility |
 |---|---|
 | `index.ts` | Composition root: the disable guard and the six `register*` calls. |
-| `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity tokens, padding, tagline, and the grouped help entries. |
-| `header/component.ts` | `ByteflyHeader`: the mark, identity rows, rule, and grouped help, plus its factory. |
+| `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity roles, padding, tagline, and the grouped help entries. |
+| `header/component.ts` | `ByteflyHeader`: the mark, identity rows, signature rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
 | `footer/register.ts` | Installs/restores the footer and owns its session lifecycle. |
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |
@@ -758,21 +768,21 @@ and its probe runtime), and `notify/`.
 | `footer/price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
 | `footer/price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
 | `footer/price/price.ts` | Records → totals: rates, peak multiplier, recorded-cost fallback. |
-| `footer/render/format.ts` | Generic formatters (tokens, cost in the configured currency, cwd, gauge, colors). |
+| `footer/render/format.ts` | Generic formatters (tokens, cost in the configured currency, cwd, the context role, truncation). |
 | `footer/render/status.ts` | Status-chip transforms: `compactStatus` and `dropStatusDetail`. |
-| `footer/render/segments.ts` | The segment builders: forms, weights, separators, colors. |
+| `footer/render/segments.ts` | The segment builders: forms, weights, separators, roles. |
 | `footer/render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
 | `footer/render/layout.ts` | Width reduction and right-zone folding. |
 | `footer/render/footer.ts` | `StatusBar` component and footer factory. |
-| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and colors. |
+| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
 | `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
-| `separator/format.ts` | Pure `separatorLabel` / `separatorParts` / `separatorLine`. |
-| `separator/types.ts` | `TurnSeparatorData`, `SeparatorParts`. |
+| `separator/format.ts` | Pure `separatorLine`: the centered turn rule, drawn by the kit's `centeredRule`. |
+| `separator/types.ts` | `TurnSeparatorData`. |
 | `panel/types.ts` | `PanelRow` and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
 | `panel/format.ts` | Non-TUI text: the headline and the grouped listing with a per-row health suffix. |
-| `panel/tui.ts` | `PanelComponent`, the unified dock screen. |
+| `panel/tui.ts` | `PanelComponent`, the unified dock screen, drawn from the `lib/tui/` kit. |
 | `panel/commands.ts` | `/bytefly`: one command for the screen, the `doctor` report, and their text modes. |
 | `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`) and row types. |
 | `picker/resources.ts` | Pure grouping, labels, display names, and pattern helpers. |
@@ -784,7 +794,7 @@ and its probe runtime), and `notify/`.
 | `doctor/tools.ts` | The `run_doctor` tool and its renderers. |
 | `doctor/schema.ts` | Tool parameters and the structured output schema. |
 | `doctor/config.ts` | `DEFAULT_CONFIG`, `normalizeConfig`, `loadConfig` for the `doctor` section of `bytefly.json`. |
-| `doctor/format.ts` | Pure report text, summary, glyphs, detail lines, and the proactive warning sentence. |
+| `doctor/format.ts` | Pure report text, summary, severity roles and glyphs, detail lines, and the proactive warning sentence. |
 | `notify/types.ts` | `NotifyConfig`, `NotifyMethod`, and the method list. |
 | `notify/config.ts` | The `notify` section of `bytefly.json`: defaults, validation, loader. |
 | `notify/dispatch.ts` | Method selection and delivery: OSC 777/99, Windows toast, `osascript`, `notify-send`, over injected seams. |

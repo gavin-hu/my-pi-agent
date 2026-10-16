@@ -9,7 +9,7 @@ import { registerTools } from "./tools.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 
 function repoExec(root: string) {

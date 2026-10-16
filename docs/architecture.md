@@ -34,7 +34,7 @@ module is instantiated once per extension. Consequences:
   where the state lives in the caller's closure.
 - No extension imports another extension's modules. Shared tool and parameter
   names live in [`../lib/tool-names.ts`](../lib/tool-names.ts); shared glyphs and
-  status keys in [`../lib/ui.ts`](../lib/ui.ts); anything else a second
+  status keys in [`../lib/tui/glyphs.ts`](../lib/tui/glyphs.ts); anything else a second
   extension needs moves into `lib/`.
 
 [`../lib/README.md`](../lib/README.md) documents every shared module and the
@@ -61,12 +61,16 @@ ceilings.
 The package follows Pi's built-in TUI design system rather than inventing a
 visual language. Use the host surfaces first (`ctx.ui.select` / `confirm` /
 `input` / `editor`, then `notify` / `setStatus` / `setWidget`), then the pi-tui
-components. The shared implementation lives in
-[`../lib/tui.ts`](../lib/tui.ts) (screen chrome),
-[`../lib/ui.ts`](../lib/ui.ts) (glyphs and status keys), and
-[`../lib/list-cursor.ts`](../lib/list-cursor.ts) (list behaviour and scroll
-math). Width is terminal columns, not string length, and model- or file-authored
-text is sanitized at the boundary before it reaches a widget or the terminal.
+components. The shared implementation is the `lib/tui/` design system
+([`../lib/tui/tokens.ts`](../lib/tui/tokens.ts) roles,
+[`chrome.ts`](../lib/tui/chrome.ts) screen chrome,
+[`rules.ts`](../lib/tui/rules.ts), [`rows.ts`](../lib/tui/rows.ts),
+[`columns.ts`](../lib/tui/columns.ts), [`gauge.ts`](../lib/tui/gauge.ts),
+[`glyphs.ts`](../lib/tui/glyphs.ts) glyphs and status keys, and
+[`cursor.ts`](../lib/tui/cursor.ts) list behaviour and scroll math). Colors come
+from a semantic role, never a literal. Width is terminal columns, not string
+length, and model- or file-authored text is sanitized at the boundary before it
+reaches a widget or the terminal.
 
 ## Where to read more
 

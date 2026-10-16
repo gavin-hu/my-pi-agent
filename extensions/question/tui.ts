@@ -8,9 +8,9 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
-import { selectionMarker } from "../../lib/list-cursor.ts";
-import { editorTheme, screenHint } from "../../lib/tui.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { selectionMarker } from "../../lib/tui/cursor.ts";
+import { editorTheme, screenHint } from "../../lib/tui/chrome.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "./answers.ts";
 import {
 	allAnswered,

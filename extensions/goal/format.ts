@@ -7,12 +7,12 @@
  * persistent widget, by contrast, is a plain label-first line
  * (`Goal · active · <objective>`) matching the `todo` and `jobs` widgets. The
  * symbols and labels live here; the rail indent constants are shared with
- * `todo` in `lib/ui.ts`.
+ * `todo` in `lib/tui/glyphs.ts`.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 
 /** Active-goal glyph. */

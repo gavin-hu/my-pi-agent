@@ -14,7 +14,7 @@ import { pathToFileURL } from "node:url";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, hyperlink } from "@earendil-works/pi-tui";
 import { formatTokens, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
-import { expandKey, SEPARATORS } from "../../lib/ui.ts";
+import { expandKey, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { summarizeDoc } from "./paging.ts";
 import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 

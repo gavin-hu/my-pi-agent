@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { GLYPHS } from "../../../lib/ui.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
@@ -68,6 +68,14 @@ describe("PanelComponent rendering", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain("plan/index.ts");
 		expect(text).toContain("1 degraded");
+	});
+
+	test("draws a label-first title rule and a checkbox column", () => {
+		const { component } = build({ items: [packageItem("plan")], reports: [] });
+
+		const lines = component.render(60);
+		expect(lines[0]).toContain("bytefly ─");
+		expect(lines.join("\n")).toContain(GLYPHS.boxOn);
 	});
 
 	test("renders no glyph and no health for an item with no report", () => {

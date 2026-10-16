@@ -10,8 +10,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadSearchConfig } from "../config.ts";
 import { oneLine } from "../transcript.ts";
-import { reuseText } from "../../../lib/tui.ts";
-import { expandHint, SEPARATORS } from "../../../lib/ui.ts";
+import { reuseText } from "../../../lib/tui/chrome.ts";
+import { expandHint, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { formatResults } from "./format.ts";
 import { createThrottle, runSearch, type SearchDeps } from "./search.ts";
 import { resolveRequest, WebSearchOutput, WebSearchParams, type SearchResponse, type WebSearchArgs } from "./schema.ts";

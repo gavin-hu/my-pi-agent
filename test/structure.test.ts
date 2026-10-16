@@ -176,7 +176,7 @@ function sourceFiles(root: string): string[] {
 
 /** A `renderCall(` / `renderResult(` definition at the start of a line. */
 const RENDERER_DEF = /^\s*(?:async\s+)?render(?:Call|Result)\s*\(/m;
-/** The raw expand keybinding id; import `EXPAND_KEYBINDING` from `lib/ui.ts`. */
+/** The raw expand keybinding id; import `EXPAND_KEYBINDING` from `lib/tui/glyphs.ts`. */
 const RAW_EXPAND_KEY = /"app\.tools\.expand"/;
 /** A literal expand key, which ignores a rebound keybinding. */
 const LITERAL_EXPAND_KEY = /Ctrl\+O|ctrl\+o/;
@@ -204,7 +204,7 @@ describe("source conventions", () => {
 					.split("\n")
 					.forEach((line, index) => {
 						if (RAW_EXPAND_KEY.test(line)) {
-							offenders.push(`${relative}:${index + 1}: import EXPAND_KEYBINDING from lib/ui.ts`);
+							offenders.push(`${relative}:${index + 1}: import EXPAND_KEYBINDING from lib/tui/glyphs.ts`);
 						}
 						if (LITERAL_EXPAND_KEY.test(line)) {
 							offenders.push(`${relative}:${index + 1}: use keyText(EXPAND_KEYBINDING), not a literal key`);

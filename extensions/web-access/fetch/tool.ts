@@ -11,8 +11,8 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { formatTokens } from "../../../lib/format.ts";
-import { reuseText } from "../../../lib/tui.ts";
-import { SEPARATORS } from "../../../lib/ui.ts";
+import { reuseText } from "../../../lib/tui/chrome.ts";
+import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
 import { createPageCache, type PageCache } from "./cache.ts";

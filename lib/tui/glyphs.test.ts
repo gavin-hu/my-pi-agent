@@ -7,8 +7,8 @@ import {
 	TUI_KEYBINDINGS,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
-import { coloringTheme, fakeTheme } from "../test/helpers/fakes.ts";
-import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS, expandHint, expandKey, keyHintText } from "./ui.ts";
+import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS, expandHint, expandKey, keyHintText } from "./glyphs.ts";
 
 describe("GLYPHS", () => {
 	test("every glyph is exactly one visible column", () => {

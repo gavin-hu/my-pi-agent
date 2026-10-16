@@ -100,7 +100,7 @@ why.
   must stay value-only: no module-level state.
 - No extension imports another extension's modules. Shared tool and parameter
   names live in `lib/tool-names.ts`; shared glyphs and status keys in
-  `lib/ui.ts`.
+  `lib/tui/glyphs.ts`.
 - An extension factory only registers. Start long-lived resources from
   `session_start` and release them in an idempotent `session_shutdown`.
 - State that must survive `/resume` and `/tree` lives in tool-result `details`
@@ -123,10 +123,16 @@ why.
 Follow Pi's built-in TUI design system; do not invent a private visual
 language. Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
 and [Themes](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/themes.md)
-docs are normative. In this package the shared implementation is `lib/tui.ts`
-(screen chrome), `lib/ui.ts` (glyphs and status keys), and
-`lib/list-cursor.ts` (list behaviour) — use it rather than re-deriving chrome,
-glyphs, or scroll math.
+docs are normative. In this package the shared implementation is the `lib/tui/`
+design system — [`tokens.ts`](./lib/tui/tokens.ts) (semantic roles),
+[`chrome.ts`](./lib/tui/chrome.ts) (screen frame and hints),
+[`rules.ts`](./lib/tui/rules.ts) (the rule grammar),
+[`rows.ts`](./lib/tui/rows.ts) (list rows, checkboxes, chips, empty states),
+[`columns.ts`](./lib/tui/columns.ts) (width math),
+[`gauge.ts`](./lib/tui/gauge.ts) (the gauge),
+[`glyphs.ts`](./lib/tui/glyphs.ts) (glyphs and status keys), and
+[`cursor.ts`](./lib/tui/cursor.ts) (list behaviour) — use it rather than
+re-deriving chrome, glyphs, or scroll math.
 
 - Prefer the host before custom code: `ctx.ui.select` / `confirm` / `input` /
   `editor`, then `notify` / `setStatus` / `setWidget`, then the pi-tui
@@ -136,8 +142,13 @@ glyphs, or scroll math.
 - Match the built-in block grammar: one leading blank line per transcript
   block, nothing trailing (the host owns spacing); frame screens with a plain
   `─` rule, not box corners.
-- Speak the built-in visual language: semantic `Theme` tokens only (never
-  literal ANSI or hex), `screenHint` / Pi's `keyHint` for the hint row, and the
+- Reach for a `lib/tui/` primitive before composing your own: `titleRule` /
+  `sectionRule` for a heading, `listRow` / `checkbox` for a list, `gaugeBar` for
+  a meter, `emptyState` for an empty screen, and `splitRow` / `fitCells` for two
+  columns.
+- Speak the built-in visual language: resolve colors through a `lib/tui/tokens.ts`
+  role (`paint(theme, role, text)`), never a literal ANSI, hex, or a Pi token
+  named inline; use `screenHint` / Pi's `keyHint` for the hint row, and the
   shared `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead
   of retyped literals.
 - Width is terminal columns, not string length. Use `visibleWidth`,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { STATUS_KEYS } from "../../lib/ui.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createFakePi, emit, emitFirst, type AnyHandler } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/watch.ts";

@@ -38,8 +38,8 @@ import {
 	viewportRows,
 	type ScreenHint,
 	type ViewportRowsSource,
-} from "../../lib/tui.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+} from "../../lib/tui/chrome.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
 import { extractPlanSections } from "./steps.ts";
 

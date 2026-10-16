@@ -153,7 +153,7 @@ fails a tool renderer that:
 - hardcodes the expand key (`Ctrl+O` / `ctrl+o`) instead of binding through
   `keyText(EXPAND_KEYBINDING)`;
 - repeats the raw `"app.tools.expand"` id instead of importing
-  `EXPAND_KEYBINDING` from `lib/ui.ts`.
+  `EXPAND_KEYBINDING` from `lib/tui/glyphs.ts`.
 
 ## Extension boundaries (enforced)
 
@@ -163,7 +163,7 @@ from a test. `test/structure.test.ts` scans every `.ts` file under
 `extensions/<name>/` — tests included — and fails any import that resolves into
 a different `extensions/<other>/`, in every form: `from`, a side-effect import,
 `export ... from`, or a dynamic `import()`. Share the contract instead: tool and
-parameter names in `lib/tool-names.ts`, glyphs and status keys in `lib/ui.ts`,
+parameter names in `lib/tool-names.ts`, glyphs and status keys in `lib/tui/glyphs.ts`,
 everything else under `lib/`.
 
 ## Layout
@@ -176,6 +176,7 @@ extensions/<name>/<module>.test.ts     # one per source module
 extensions/<name>/<sub>/<module>.test.ts
 lib/<module>.test.ts
 lib/git/<module>.test.ts
+lib/tui/<module>.test.ts
 test/
   README.md
   helpers/                 # ALL shared doubles and fixtures

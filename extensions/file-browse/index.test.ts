@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import fileBrowser from "./index.ts";
 import type { FileServer } from "./server.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/ui.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { fakeCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";

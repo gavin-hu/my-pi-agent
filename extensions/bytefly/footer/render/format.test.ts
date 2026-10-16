@@ -1,14 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import {
-	computeGauge,
-	contextColor,
-	formatCost,
-	formatCwd,
-	formatPercent,
-	thinkingColor,
-	truncateLabel,
-} from "./format.ts";
+import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./format.ts";
 import { formatTokens, sanitize } from "../../../../lib/format.ts";
 
 describe("formatTokens", () => {
@@ -86,36 +78,15 @@ describe("formatCwd", () => {
 	});
 });
 
-describe("computeGauge", () => {
-	test("fills proportionally", () => {
-		expect(computeGauge(62, 10)).toEqual({ filled: 6, empty: 4 });
-		expect(computeGauge(100, 3)).toEqual({ filled: 3, empty: 0 });
-		expect(computeGauge(null, 5)).toEqual({ filled: 0, empty: 5 });
-		expect(computeGauge(50, 0)).toEqual({ filled: 0, empty: 0 });
-	});
-
-	test("floors the fill so it is full only at 100%", () => {
-		expect(computeGauge(50, 3)).toEqual({ filled: 1, empty: 2 });
-		expect(computeGauge(99, 10)).toEqual({ filled: 9, empty: 1 });
-		expect(computeGauge(100, 10)).toEqual({ filled: 10, empty: 0 });
-		expect(computeGauge(200, 10)).toEqual({ filled: 10, empty: 0 });
-	});
-
-	test("shows one block for any non-zero usage", () => {
-		expect(computeGauge(0, 10)).toEqual({ filled: 0, empty: 10 });
-		expect(computeGauge(4, 10)).toEqual({ filled: 1, empty: 9 });
-	});
-});
-
-describe("contextColor", () => {
+describe("contextRole", () => {
 	test("steps at the thresholds", () => {
-		expect(contextColor(null)).toBe("muted");
-		expect(contextColor(0)).toBe("muted");
-		expect(contextColor(50)).toBe("muted");
-		expect(contextColor(70)).toBe("muted");
-		expect(contextColor(71)).toBe("warning");
-		expect(contextColor(90)).toBe("warning");
-		expect(contextColor(91)).toBe("error");
+		expect(contextRole(null)).toBe("meta");
+		expect(contextRole(0)).toBe("meta");
+		expect(contextRole(50)).toBe("meta");
+		expect(contextRole(70)).toBe("meta");
+		expect(contextRole(71)).toBe("warn");
+		expect(contextRole(90)).toBe("warn");
+		expect(contextRole(91)).toBe("bad");
 	});
 });
 

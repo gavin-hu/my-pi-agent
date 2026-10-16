@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeMarkdownTheme, fakeTheme } from "../../test/helpers/fakes.ts";
-import { GLYPHS } from "../../lib/ui.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import type { StoredPlan } from "./plans.ts";
 import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 

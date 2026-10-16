@@ -8,9 +8,9 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { clampScroll, fitRows, formatRange, isCloseKey, navigateScroll, wheelDelta } from "../../lib/list-cursor.ts";
-import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui.ts";
-import { BODY_INDENT } from "../../lib/ui.ts";
+import { clampScroll, fitRows, formatRange, isCloseKey, navigateScroll, wheelDelta } from "../../lib/tui/cursor.ts";
+import { screenHeader, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { BODY_INDENT } from "../../lib/tui/glyphs.ts";
 import { progressCount, progressSummary, todoGlyph, todoLabel, todoRailLines, type TodoRailInput } from "./format.ts";
 import { currentTodo } from "./state.ts";
 import type { Todo } from "./types.ts";
