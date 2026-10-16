@@ -3,7 +3,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { registerToolBlocks } from "./register.ts";
 
-/** A minimal render context: only the fields the resolver reads matter. */
+/** A minimal render context: the fields the resolver reads, plus the shared state. */
 const ctx = (overrides: Record<string, unknown> = {}) =>
 	({
 		isPartial: false,
@@ -11,6 +11,7 @@ const ctx = (overrides: Record<string, unknown> = {}) =>
 		expanded: false,
 		outputPad: 0,
 		lastComponent: undefined,
+		state: {},
 		...overrides,
 	}) as any;
 
@@ -40,5 +41,23 @@ describe("registerToolBlocks", () => {
 		const text = (renderers?.renderCall?.({ q: "hi" }, fakeTheme, ctx()).render(60) ?? []).join("\n");
 		expect(text).toContain("mystery");
 		expect(text).toContain('q="hi"');
+	});
+
+	test("hands the base its own previous component, never the frame", () => {
+		const seen: unknown[] = [];
+		const renderers = resolver()("read", () => ({
+			renderCall: (_args: unknown, _theme: unknown, context: any) => {
+				seen.push(context.lastComponent);
+				return new Text("base", 0, 0);
+			},
+		}));
+		const shared = {};
+		const first = renderers?.renderCall?.({}, fakeTheme, ctx({ state: shared }));
+		renderers?.renderCall?.({}, fakeTheme, ctx({ state: shared, lastComponent: first }));
+
+		// The base sees no component, then its own previous one — never our frame.
+		expect(seen[0]).toBeUndefined();
+		expect(seen[1]).toBeInstanceOf(Text);
+		expect(seen[1]).not.toBe(first);
 	});
 });

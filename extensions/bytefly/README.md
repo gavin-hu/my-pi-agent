@@ -710,7 +710,10 @@ rather than showing a wrong value.
   syntax highlighting, and truncation. The call and result are sibling
   components with no spacer between them, so one rail drawn by each is
   continuous. A tool that renders its own shell (`edit`) is left alone, because
-  two frames would nest.
+  two frames would nest. Each base renderer is handed its own previous component
+  (tracked in the row's `state`), never the frame: Pi gives a renderer the
+  component it returned last time, and a built-in calls `setText` on it, so
+  handing back the frame would break it.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
