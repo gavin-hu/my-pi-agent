@@ -27,6 +27,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var saved = false;
   var closed = false;
   var connected = null;
+  var everConnected = false;
   var dirty = false;
   var sectionObserver = null;
   var pendingQuote = null;
@@ -60,12 +61,14 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (saved) {
       label = "Saved";
       tone = "success";
-    } else if (connected === false) {
-      label = "Offline";
-      tone = "danger";
     } else if (connected === true) {
       label = "Connected";
       tone = "success";
+    } else if (everConnected) {
+      // Only after the stream has opened once: an error before that is a
+      // transient initial connect, so keep showing Connecting rather than Offline.
+      label = "Offline";
+      tone = "danger";
     } else {
       label = "Connecting\u2026";
     }
@@ -482,7 +485,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   try {
     var stream = new EventSource("/events?token=" + encodeURIComponent(token));
-    stream.addEventListener("open", function () { connected = true; updateState(); });
+    stream.addEventListener("open", function () { connected = true; everConnected = true; updateState(); });
     stream.addEventListener("error", function () {
       // The server ends the stream on save; keep showing Saved rather than Offline.
       if (!saved) { connected = false; updateState(); }
@@ -490,6 +493,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   } catch (error) {
     // The server still sees the POST; the stream is only for close detection.
     connected = false;
+    everConnected = true;
     updateState();
   }
 
