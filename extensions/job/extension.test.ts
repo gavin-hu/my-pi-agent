@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import jobs, { JOB_CONTEXT_TYPE } from "./index.ts";
+import jobs from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { createFakePi, emit, emitFirst, type AnyHandler } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL } from "../../lib/events.ts";
+import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/job.ts";
 
 const suite = makeHarnessSuite();
@@ -49,7 +50,9 @@ describe("jobs extension", () => {
 		h.children[0].close(0);
 
 		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
-		expect(result?.message?.customType).toBe(JOB_CONTEXT_TYPE);
+		expect(result?.message?.customType).toBe(NOTICE_TYPE);
+		expect(result?.message?.display).toBe(true);
+		expect(result?.message?.details?.source).toBe("job");
 		expect(result?.message?.content).toContain("j1");
 		expect(result?.message?.content).toContain("[BACKGROUND JOBS]");
 	});
@@ -66,16 +69,19 @@ describe("jobs extension", () => {
 
 	test("keeps only the newest injected completion note in context", async () => {
 		const { pi, ctx } = setup();
-		const messages = [
-			{ role: "user", content: "hi" },
-			{ customType: JOB_CONTEXT_TYPE, content: "old" },
-			{ customType: JOB_CONTEXT_TYPE, content: "new" },
-		];
+		const note = (source: string, content: string) => ({
+			role: "custom",
+			customType: NOTICE_TYPE,
+			content,
+			display: true,
+			details: { source, title: content },
+		});
+		const messages = [{ role: "user", content: "hi" }, note("job", "old"), note("watch", "seen"), note("job", "new")];
 		const result = await emitFirst(pi, "context", { messages }, ctx);
-		expect(result.messages).toHaveLength(2);
-		expect(result.messages.filter((m: any) => m.customType === JOB_CONTEXT_TYPE)).toEqual([
-			{ customType: JOB_CONTEXT_TYPE, content: "new" },
-		]);
+		expect(result.messages).toHaveLength(3);
+		// Another source's notice is left alone.
+		expect(result.messages.some((m: any) => m.details?.source === "watch")).toBe(true);
+		expect(result.messages.filter((m: any) => m.details?.source === "job").map((m: any) => m.content)).toEqual(["new"]);
 	});
 
 	test("wakes the agent when a wake job finishes while idle", async () => {
@@ -89,7 +95,7 @@ describe("jobs extension", () => {
 
 		expect(sent).toHaveLength(1);
 		expect(sent[0].options.triggerTurn).toBe(true);
-		expect(sent[0].message.customType).toBe(JOB_CONTEXT_TYPE);
+		expect(sent[0].message.customType).toBe(NOTICE_TYPE);
 	});
 
 	test("wake reports other pending completions instead of dropping them", async () => {

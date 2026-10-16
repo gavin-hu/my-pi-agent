@@ -4,18 +4,19 @@
  * Registers the `job` tool and `/jobs` command. Jobs run as detached shell
  * processes with their output streamed to log files; the status chip shows
  * running and unreported-failure counts, and finished jobs are reported to the
- * model at the next turn (or, for `wake` jobs, by triggering one turn).
+ * model — and shown as a bytefly notice — at the next turn, or by triggering one
+ * turn for a `wake` job.
  *
  * Load with:  pi --extension ./extensions/job
  */
 
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL, type JobFinishedEvent } from "../../lib/events.ts";
+import { noticeMessage, type NoticeMessage, pruneStaleNotices } from "../../lib/notice.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { registerCommands } from "./commands.ts";
-import { formatCompletion } from "./format.ts";
+import { formatCompletion, jobOutcome, shortLabel } from "./format.ts";
 import { createJobsRuntime, type JobsRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import type { Job, JobRecord } from "./types.ts";
@@ -23,16 +24,26 @@ import type { Job, JobRecord } from "./types.ts";
 /** Marker embedded in the injected completion context. */
 const JOB_CONTEXT_MARKER = "[BACKGROUND JOBS]";
 
-/** Custom-entry type used for the injected completion message. */
-export const JOB_CONTEXT_TYPE = "job-context";
-
 function buildContext(jobs: JobRecord[]): string {
 	const lines = jobs.map((job) => formatCompletion(job));
 	return `${JOB_CONTEXT_MARKER}\n${jobs.length} background job${jobs.length === 1 ? "" : "s"} finished:\n${lines.join("\n")}\nRun \`job logs <id>\` for output.`;
 }
 
-function isJobContext(message: AgentMessage): boolean {
-	return (message as AgentMessage & { customType?: string }).customType === JOB_CONTEXT_TYPE;
+/** The shared notice for pending completions: model text plus renderer details. */
+function jobNotice(jobs: JobRecord[]): NoticeMessage {
+	const count = jobs.length;
+	return noticeMessage({
+		content: buildContext(jobs),
+		details: {
+			source: "job",
+			title: `${count} background job${count === 1 ? "" : "s"} finished`,
+			items: jobs.map((job) => ({
+				label: `${job.id} ${shortLabel(job)}`,
+				detail: jobOutcome(job),
+				severity: job.status === "failed" ? "bad" : job.status === "exited" ? "ok" : "warn",
+			})),
+		},
+	});
 }
 
 /** Trim a finished record to the fields the event bus carries. */
@@ -67,10 +78,7 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 		const pending = runtime.pendingCompletions();
 		if (pending.length === 0) return;
 		try {
-			pi.sendMessage(
-				{ customType: JOB_CONTEXT_TYPE, content: buildContext(pending), display: false },
-				{ triggerTurn: true },
-			);
+			pi.sendMessage(jobNotice(pending), { triggerTurn: true });
 			// Mark only once the send succeeded; a throw leaves them for the next turn.
 			runtime.markReported(pending.map((job) => job.id));
 		} catch {
@@ -113,17 +121,14 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 		if (pending.length === 0) return undefined;
 		runtime.markReported(pending.map((job) => job.id));
 		runtime.setStatus(ctx);
-		return {
-			message: { customType: JOB_CONTEXT_TYPE, content: buildContext(pending), display: false },
-		};
+		return { message: jobNotice(pending) };
 	});
 
-	// Keep stale completion notes out of later turns.
+	// Keep stale completion notices out of later turns. Only this extension's
+	// notices are pruned; another source's are left for its own handler.
 	pi.on("context", (event) => {
-		const contexts = event.messages.filter(isJobContext);
-		if (contexts.length <= 1) return undefined;
-		const last = contexts[contexts.length - 1];
-		return { messages: event.messages.filter((message) => !isJobContext(message) || message === last) };
+		const pruned = pruneStaleNotices(event.messages, "job");
+		return pruned ? { messages: pruned } : undefined;
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {

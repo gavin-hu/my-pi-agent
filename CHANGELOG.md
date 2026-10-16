@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: renders the shared transcript notice — a `source · title` rail with
+  severity-led rows — that any extension posts under the shared
+  `my-pi-agent/notice` type.
+- `job`, `watch`: a finished job or a matched watched line is now posted as that
+  visible notice instead of a hidden context message. The model-facing text is
+  unchanged, and each extension still prunes only its own stale notices.
 - `bytefly`: a `❯` prompt marker opens each user message in the transcript,
   with its continuation lines hung two columns under the text. A message whose
   first line opens a code fence, list, heading, blockquote, or table keeps its

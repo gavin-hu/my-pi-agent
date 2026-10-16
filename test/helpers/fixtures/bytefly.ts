@@ -12,6 +12,7 @@ export interface FakePi {
 	commands: Map<string, any>;
 	handlers: Map<string, AnyHandler[]>;
 	renderers: Map<string, any>;
+	messageRenderers: Map<string, any>;
 	markdownTransformers: MarkdownTransformer[];
 	appended: Array<{ customType: string; data?: unknown }>;
 }
@@ -25,6 +26,7 @@ export function makeFakePi(options: { settings?: any } = {}): FakePi {
 		commands: fake.commands,
 		handlers: fake.handlers,
 		renderers: fake.renderers,
+		messageRenderers: fake.messageRenderers,
 		markdownTransformers: fake.markdownTransformers,
 		appended: fake.appended,
 	};

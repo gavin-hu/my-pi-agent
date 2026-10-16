@@ -3,28 +3,26 @@
  *
  * Registers the `watch` tool and `/watch` command. Watchers read a file or a
  * command's merged output, match each new line against a regular expression,
- * and alert the user; matching lines are reported to the model at the next
- * turn, or wake a turn immediately when the watcher opted into `wake`. Watchers
- * are session-only and stopped on shutdown.
+ * and alert the user; matching lines are reported to the model — and shown as a
+ * bytefly notice — at the next turn, or wake a turn immediately when the
+ * watcher opted into `wake`. Watchers are session-only and stopped on shutdown.
  *
  * Load with:  pi --extension ./extensions/watch
  */
 
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { sanitizeLine } from "../../lib/format.ts";
+import { noticeMessage, type NoticeMessage, pruneStaleNotices } from "../../lib/notice.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { registerCommands } from "./commands.ts";
-import { formatPendingMatch } from "./format.ts";
+import { clipLabel, formatPendingMatch } from "./format.ts";
 import { createWatchRuntime, type WatchRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import type { PendingMatch } from "./types.ts";
 
 /** Marker embedded in the injected match context. */
 const WATCH_CONTEXT_MARKER = "[WATCH MATCHES]";
-
-/** Custom-entry type used for the injected match message. */
-export const WATCH_CONTEXT_TYPE = "watch-context";
 
 /** At most this many match lines are injected in one message. */
 const MAX_CONTEXT_MATCHES = 20;
@@ -38,8 +36,21 @@ export function buildWatchContext(matches: PendingMatch[]): string {
 	return `${WATCH_CONTEXT_MARKER}\n${matches.length} watched line${matches.length === 1 ? "" : "s"} matched:\n${lines.join("\n")}${suffix}\nRead more with \`watch matches <id>\`.`;
 }
 
-function isWatchContext(message: AgentMessage): boolean {
-	return (message as AgentMessage & { customType?: string }).customType === WATCH_CONTEXT_TYPE;
+/** The shared notice for pending matches: model text plus renderer details. */
+function watchNotice(matches: PendingMatch[]): NoticeMessage {
+	const count = matches.length;
+	return noticeMessage({
+		content: buildWatchContext(matches),
+		details: {
+			source: "watch",
+			title: `${count} watched line${count === 1 ? "" : "s"} matched`,
+			items: matches.slice(0, MAX_CONTEXT_MATCHES).map((match) => ({
+				label: `${match.watcherId} ${clipLabel(match.label)}`,
+				detail: sanitizeLine(match.line),
+				severity: "warn",
+			})),
+		},
+	});
 }
 
 export interface WatchDeps {
@@ -64,10 +75,7 @@ export default function watch(pi: ExtensionAPI, deps: WatchDeps = {}): void {
 		const pending = runtime.pendingMatches();
 		if (pending.length === 0) return;
 		try {
-			pi.sendMessage(
-				{ customType: WATCH_CONTEXT_TYPE, content: buildWatchContext(pending), display: false },
-				{ triggerTurn: true },
-			);
+			pi.sendMessage(watchNotice(pending), { triggerTurn: true });
 			runtime.markReported(pending);
 			waking = true;
 		} catch {
@@ -103,17 +111,14 @@ export default function watch(pi: ExtensionAPI, deps: WatchDeps = {}): void {
 		if (pending.length === 0) return undefined;
 		runtime.markReported(pending);
 		runtime.setStatus(ctx);
-		return {
-			message: { customType: WATCH_CONTEXT_TYPE, content: buildWatchContext(pending), display: false },
-		};
+		return { message: watchNotice(pending) };
 	});
 
-	// Keep stale match notes out of later turns.
+	// Keep stale match notices out of later turns. Only this extension's notices
+	// are pruned; another source's are left for its own handler.
 	pi.on("context", (event) => {
-		const contexts = event.messages.filter(isWatchContext);
-		if (contexts.length <= 1) return undefined;
-		const last = contexts[contexts.length - 1];
-		return { messages: event.messages.filter((message) => !isWatchContext(message) || message === last) };
+		const pruned = pruneStaleNotices(event.messages, "watch");
+		return pruned ? { messages: pruned } : undefined;
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {

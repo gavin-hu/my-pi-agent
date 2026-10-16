@@ -201,8 +201,8 @@ rewritten.
 | Execution mode | `sequential` — actions share the in-memory job table. |
 | Annotations | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: true` — plan mode blocks it. |
 | `outputSchema` / `structuredContent` | None. Results return `JobDetails` in tool-result `details` only. |
-| State storage | One durable registry file per session, `~/.pi/agent/jobs/<projectKey>/registry-<sessionHash>.json` (keyed by the session cwd, so entering a worktree does not move it), merged from every session file on load; a dead session's records are adopted and a legacy shared `registry.json` is migrated once. Ids are reserved with an atomic `O_EXCL` `<id>.lock` before `start`, and a POSIX job's exit code is written to a per-job `.status` file. Tool results carry `JobDetails`; unreported completions arrive as hidden `job-context` messages at `before_agent_start`. |
-| Lifecycle | `session_start` loads and reconciles the registry and arms `onFinish` and `onComplete`; `session_shutdown` kills session-owned jobs and clears both status chips. `session_tree` repaints; `agent_start`/`agent_settled` track busy; `context` prunes stale `job-context` messages. |
+| State storage | One durable registry file per session, `~/.pi/agent/jobs/<projectKey>/registry-<sessionHash>.json` (keyed by the session cwd, so entering a worktree does not move it), merged from every session file on load; a dead session's records are adopted and a legacy shared `registry.json` is migrated once. Ids are reserved with an atomic `O_EXCL` `<id>.lock` before `start`, and a POSIX job's exit code is written to a per-job `.status` file. Tool results carry `JobDetails`; unreported completions arrive as a shared transcript notice (`my-pi-agent/notice`) at `before_agent_start`. |
+| Lifecycle | `session_start` loads and reconciles the registry and arms `onFinish` and `onComplete`; `session_shutdown` kills session-owned jobs and clears both status chips. `session_tree` repaints; `agent_start`/`agent_settled` track busy; `context` prunes stale notices of its own source. |
 | Event bus | Each job that reaches a terminal state is published on `my-pi-agent/job-finished` (`lib/events.ts`) with its id, label, status, exit code, and signal, from the one `settle` path every transition goes through. bytefly's notify capability subscribes there instead of importing this extension. |
 
 ## Design notes
@@ -250,11 +250,11 @@ rewritten.
   settles it (recovering an exit code from the status file, else `unknown`)
   when the pid disappears.
 - **Notify by default, wake opt-in.** A failed job raises one `ctx.ui.notify`
-  (a clean exit is left to the list and chips). Finished jobs are also injected
-  as a hidden `job-context` message at the next `before_agent_start`. A
-  `wake: true` job (or `wakeOnFinish`) additionally triggers one turn when the
-  agent is idle; auto-wake is not the default because it easily loops and burns
-  tokens.
+  (a clean exit is left to the list and chips). Finished jobs are also posted
+  as a shared transcript notice — model-facing text plus a bytefly rail — at the
+  next `before_agent_start`. A `wake: true` job (or `wakeOnFinish`) additionally
+  triggers one turn when the agent is idle; auto-wake is not the default because
+  it easily loops and burns tokens.
 - **Width-1 glyphs and cached latest line.** The running chip is `▸ N` and the
   failure chip `✗ N`, each a two-token badge under its own status key, so the
   status bar compacts each independently (`▸N` / `✗N`) and an unreported

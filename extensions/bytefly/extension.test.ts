@@ -5,6 +5,7 @@ import bytefly from "./index.ts";
 import { coloringTheme, emit, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/bytefly.ts";
 import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
@@ -31,12 +32,13 @@ const rateConfig = (symbol: string): string =>
 describe("bytefly extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
-			const { pi, tools, commands, handlers, markdownTransformers } = makeFakePi();
+			const { pi, tools, commands, handlers, markdownTransformers, messageRenderers } = makeFakePi();
 			bytefly(pi);
 			expect(tools.size).toBe(0);
 			expect(commands.size).toBe(0);
 			expect(handlers.size).toBe(0);
 			expect(markdownTransformers).toHaveLength(0);
+			expect(messageRenderers.size).toBe(0);
 		});
 	});
 
@@ -66,6 +68,12 @@ describe("bytefly extension", () => {
 		const { pi, markdownTransformers } = makeFakePi();
 		bytefly(pi);
 		expect(markdownTransformers).toHaveLength(1);
+	});
+
+	test("registers the notice renderer", () => {
+		const { pi, messageRenderers } = makeFakePi();
+		bytefly(pi);
+		expect(messageRenderers.has(NOTICE_TYPE)).toBe(true);
 	});
 
 	test("installs the footer on session start in interactive mode", async () => {

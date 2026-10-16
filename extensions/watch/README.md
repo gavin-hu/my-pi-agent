@@ -172,8 +172,8 @@ other.
 | Annotations | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: true`. |
 | `outputSchema` | None; the result carries `details` only (no `structuredContent` mirror). |
 | State storage | In-memory runtime closure; no registry, no `getBranch()` rebuild. |
-| Injected context | A hidden `watch-context` custom message; pending matches are read from the runtime, never from the transcript. |
-| Lifecycle | `session_start` loads config and re-arms `onMatch`; `session_tree` repaints; `agent_start`/`agent_settled` track busy; `before_agent_start` injects pending matches; `context` keeps the newest note; `session_shutdown` kills commands and clears chips. |
+| Injected context | A shared transcript notice (`my-pi-agent/notice`), rendered by bytefly; pending matches are read from the runtime, never from the transcript. |
+| Lifecycle | `session_start` loads config and re-arms `onMatch`; `session_tree` repaints; `agent_start`/`agent_settled` track busy; `before_agent_start` posts pending matches as a notice; `context` prunes stale notices of its own source; `session_shutdown` kills commands and clears chips. |
 
 `watch` is gated by `PI_DISABLED_EXTENSIONS` like every extension.
 
@@ -193,7 +193,7 @@ turn — so a match is never dropped when the wake window is busy.
 
 | Module | Responsibility |
 |---|---|
-| `index.ts` | Extension factory: registers the tool and command, wires the lifecycle and injected context. |
+| `index.ts` | Extension factory: registers the tool and command, wires the lifecycle and the shared notices. |
 | `tools.ts` | The `watch` tool definition, execution, and transcript rendering. |
 | `schema.ts` | TypeBox parameters and pure `normalizeCall` validation. |
 | `types.ts` | `WatchAction`/`WatchStatus`, `WatchRecord`, `WatchDetails`, `PendingMatch`. |

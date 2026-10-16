@@ -89,7 +89,7 @@ Tool: `ask_user_question`.
 Run long-lived shell commands in the background. Start a job, list jobs, check
 status, read a sanitized log tail, wait for completion, or kill one. A `▸ N`
 chip shows running jobs and `✗ N` shows unreported failures; jobs reconcile on
-session shutdown.
+session shutdown, and a finished job is also drawn as a bytefly notice.
 
 <img src="../assets/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%">
 
@@ -102,8 +102,8 @@ Tool: `job`. Command: `/jobs`.
 Tail a file or a command's merged output and match each new line against a
 regular expression, with an optional exclude list and case-insensitive matching
 by default. A `⊚ N` chip shows running watchers and `! N` shows unreported
-matches; matching lines are sanitized, alerted, and reported to the model at the
-next turn, or wake a turn immediately when a watcher was added `wake: true`.
+matches; matching lines are sanitized, alerted, and reported as a bytefly notice
+at the next turn, or wake a turn immediately when a watcher was added `wake: true`.
 Watchers are session-only and stopped on session shutdown.
 
 Tool: `watch`. Command: `/watch`.
@@ -226,9 +226,9 @@ startup header (a two-tone nameplate with the agent and chrome identities and a
 signature rule, drawn from the active theme through the `lib/tui/` design
 system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
 mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
-between completed turns, and a `❯` prompt marker that opens each user message
-with its continuation lines hung two columns in and the theme's `userMessageBg`
-fill).
+between completed turns, a `❯` prompt marker that opens each user message with
+its continuation lines hung two columns in and the theme's `userMessageBg` fill,
+and the rail that renders every shared transcript notice.
 DeepSeek is priced out of the box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a

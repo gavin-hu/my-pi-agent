@@ -1,15 +1,16 @@
 /**
- * bytefly — the package's terminal chrome and diagnostics, composed from seven
+ * bytefly — the package's terminal chrome and diagnostics, composed from eight
  * feature folders: `header/` (the themed startup mark and version), `footer/`
  * (the two-line, width-adaptive status bar with its price calculation),
- * `message/` (the user-message prompt marker), `separator/` (the transcript turn
- * rule), `panel/` (the unified `/bytefly` screen and its `doctor` report),
- * `doctor/` (the `run_doctor` tool and its session-scoped probe runtime), and
- * `notify/` (OS notifications for unattended runs).
+ * `message/` (the user-message prompt marker), `notice/` (the shared transcript
+ * notice renderer), `separator/` (the transcript turn rule), `panel/` (the
+ * unified `/bytefly` screen and its `doctor` report), `doctor/` (the
+ * `run_doctor` tool and its session-scoped probe runtime), and `notify/` (OS
+ * notifications for unattended runs).
  *
- * The header, footer, user-message marker, and turn rule are installed only in
- * interactive (`tui`) sessions and are always on; `pi config` turns bytefly's
- * chrome off. The panel
+ * The header, footer, user-message marker, notice, and turn rule are installed
+ * only in interactive (`tui`) sessions and are always on; `pi config` turns
+ * bytefly's chrome off. The panel
  * and doctor work in every mode, and notify works wherever the environment can
  * deliver it. The footer is priced from DeepSeek's published rates by default
  * and from `bytefly.json` otherwise, the same file whose `notify` section
@@ -24,6 +25,7 @@ import { type DoctorDeps, registerDoctor } from "./doctor/register.ts";
 import { registerFooter } from "./footer/register.ts";
 import { registerHeader } from "./header/register.ts";
 import { registerUserMessage } from "./message/register.ts";
+import { registerNotice } from "./notice/register.ts";
 import { type NotifyDeps, registerNotify } from "./notify/register.ts";
 import { type PanelCommandDeps, registerPanel } from "./panel/commands.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
@@ -45,6 +47,7 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerHeader(pi);
 	registerFooter(pi);
 	registerUserMessage(pi);
+	registerNotice(pi);
 	registerTurnSeparator(pi);
 	const doctor = registerDoctor(pi, deps.doctor);
 	registerPanel(pi, { doctor, discover: deps.extensions?.discover });

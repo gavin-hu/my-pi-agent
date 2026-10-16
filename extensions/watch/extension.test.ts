@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createFakePi, emit, emitFirst, type AnyHandler } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/watch.ts";
-import watch, { buildWatchContext, WATCH_CONTEXT_TYPE } from "./index.ts";
+import watch, { buildWatchContext } from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
 import type { PendingMatch } from "./types.ts";
 
@@ -43,7 +44,9 @@ describe("watch extension", () => {
 		h.children[0].write("FAIL: one\n");
 
 		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
-		expect(result?.message?.customType).toBe(WATCH_CONTEXT_TYPE);
+		expect(result?.message?.customType).toBe(NOTICE_TYPE);
+		expect(result?.message?.display).toBe(true);
+		expect(result?.message?.details?.source).toBe("watch");
 		expect(result?.message?.content).toContain("[WATCH MATCHES]");
 		expect(result?.message?.content).toContain("w1");
 		expect(result?.message?.content).toContain("FAIL: one");
@@ -60,7 +63,7 @@ describe("watch extension", () => {
 
 		expect(sent).toHaveLength(1);
 		expect(sent[0].options.triggerTurn).toBe(true);
-		expect(sent[0].message.customType).toBe(WATCH_CONTEXT_TYPE);
+		expect(sent[0].message.customType).toBe(NOTICE_TYPE);
 	});
 
 	test("does not wake for a non-wake watcher", async () => {
@@ -88,15 +91,18 @@ describe("watch extension", () => {
 
 	test("keeps only the newest injected match note in context", async () => {
 		const { pi, ctx } = setup();
-		const messages = [
-			{ role: "user", content: "hi" },
-			{ customType: WATCH_CONTEXT_TYPE, content: "old" },
-			{ customType: WATCH_CONTEXT_TYPE, content: "new" },
-		];
+		const note = (content: string) => ({
+			role: "custom",
+			customType: NOTICE_TYPE,
+			content,
+			display: true,
+			details: { source: "watch", title: content },
+		});
+		const messages = [{ role: "user", content: "hi" }, note("old"), note("new")];
 		const result = await emitFirst(pi, "context", { messages }, ctx);
 		expect(result.messages).toHaveLength(2);
-		expect(result.messages.filter((m: any) => m.customType === WATCH_CONTEXT_TYPE)).toEqual([
-			{ customType: WATCH_CONTEXT_TYPE, content: "new" },
+		expect(result.messages.filter((m: any) => m.details?.source === "watch").map((m: any) => m.content)).toEqual([
+			"new",
 		]);
 	});
 
