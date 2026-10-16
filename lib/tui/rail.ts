@@ -5,10 +5,11 @@
  * A tool block, a shared notice, and a subagent's quoted output all draw the
  * same rail, so the transcript reads as one column instead of four indents. The
  * glyph is the rule's light stroke (`RAIL`, from the shared vocabulary) turned
- * vertical, so the rail and the `─` rule are one stroke family; like every shared
- * glyph it is East Asian neutral, so a CJK-width profile cannot widen it and
- * drift the block. A block may also lead with an un-railed headline — a tool's
- * own call line — with one plain blank line before the railed body.
+ * vertical and dashed, so the rail and the `─` rule are one stroke family. It is
+ * East-Asian neutral, while the shared vocabulary still allows ambiguous glyphs
+ * (only wide and fullwidth are banned).
+ * A block may also lead with an un-railed headline — a tool's own call line —
+ * with one plain blank line before the railed body.
  *
  * Value-only: pure functions and constants, theme passed in.
  */
@@ -18,7 +19,7 @@ import { type Component, stripTerminalSequences, truncateToWidth, visibleWidth }
 import { GLYPHS } from "./glyphs.ts";
 import { paint, type TuiRole } from "./tokens.ts";
 
-/** The transcript rail glyph: the rule stroke, vertical. */
+/** The transcript rail glyph: the dashed rule stroke, vertical. */
 export const RAIL = GLYPHS.rail;
 
 /** Columns between the rail and its content. */

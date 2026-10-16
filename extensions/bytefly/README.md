@@ -59,20 +59,20 @@ clips mid-word. The mark, tokens, identity, and grouped help are tuned in
 - **Line 1 — identity:** `pwd` and the session name on the left; git state
   (`⎇ branch · ⑂ worktree`) and the `◉` browse chip on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
-  mode/alert slot (`⋮ plan`) trailing after a `❘` when present; the model and
+  mode/alert slot (`⋮ plan`) trailing after a `╎` when present; the model and
   thinking level on the right. The gauge is anchored at column 0, so `%` is
   always in the same place.
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ❘ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
 ```
 
 (The examples show the default `¥` symbol. For a model the built-in table does
 not cover, the number stays Pi's recorded USD amount — see the currency note
 under [Configuration](#configuration).)
 
-With no plan mode there is no mode slot, so the `❘` is omitted:
+With no plan mode there is no mode slot, so the `╎` is omitted:
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
@@ -85,7 +85,7 @@ fits, rather than collapsing to a bare glyph:
 
 ```
 ~/repo/project                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31 ❘ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31 ╎ ⋮ plan    opus-4.5 · high
 ```
 
 ```
@@ -97,7 +97,7 @@ With a named session, the name follows the path and truncates before it drops:
 
 ```
 ~/repo/project · feature-refac…   ⎇ main
-▰▰▰▰▰▰▱▱▱▱ 62% ❘ ⋮ plan         opus-4.5
+▰▰▰▰▰▰▱▱▱▱ 62% ╎ ⋮ plan         opus-4.5
 ```
 
 Zero-value meters are omitted, so a fresh session shows only `?/window` instead
@@ -166,9 +166,9 @@ shared `my-pi-agent/notice` type; bytefly draws it on the shared transcript rail
 with the rail painted by the notice's worst severity:
 
 ```
-❘ job · 2 background jobs finished
-❘   ✓ j1 build · exit 0
-❘   ✕ j2 test · exit 1
+╎ job · 2 background jobs finished
+╎   ✓ j1 build · exit 0
+╎   ✕ j2 test · exit 1
 ```
 
 `job` and `watch` post one when a background job finishes or a watched line
@@ -187,7 +187,7 @@ line, then its body on a status rail, instead of Pi's filled status background:
 ```
 read src/app.ts
 
-❘   const answer = 42;
+╎   const answer = 42;
 ```
 
 A `registerToolRenderer` resolver switches the row to `renderShell: "self"`,
@@ -450,7 +450,7 @@ its server runs, and shows the two-tone `◉ <port>` (green glyph, accent port).
 The trailing slot shows plan-style alerts when present and is omitted otherwise;
 a plan chip's trailing plan file name is dropped, so the slot reads `⋮ plan`
 even though the built-in footer keeps the name. An alert (a failed job) sorts to
-the front of the slot. The slot trails the meters after a `❘`, so the context
+the front of the slot. The slot trails the meters after a `╎`, so the context
 gauge always starts the line. It keeps each extension's own colour when it
 compacts, and it is droppable: a tight bar drops the slot rather than truncating
 the model, which sits at the end of the line.
@@ -772,13 +772,13 @@ rather than showing a wrong value.
   from the shared rail (`lib/tui/rail.ts`): a tool block, a notice, and a
   subagent's quoted output take one glyph, one indent, and one status-to-role
   map, so they share a single left edge and nesting depth instead of four
-  indents. The glyph is `❘`, a solid light stroke that is East Asian neutral —
-  unlike the ambiguous box-drawing `│` / `┃` / `┊` — so a CJK-width profile
-  cannot widen it and drift the column. The `─` rule fills are the same stroke
-  family, and the footer's group separator draws the same `❘` so the chrome has
-  no second vertical stroke. A tool block's call line sits above the rail as an
-  un-railed headline, separated by one plain blank line, which is what keeps the
-  block readable without a second frame.
+  indents. The glyph is `╎`, the box-drawing double dash — East Asian neutral,
+  while the shared vocabulary still allows ambiguous glyphs (only wide and
+  fullwidth are banned). The dashes tile into one continuous stroke, and the
+  footer's group separator draws the same `╎` so the chrome has no second
+  vertical stroke. A tool block's call line sits above the rail as an un-railed
+  headline, separated by one plain blank line, which is what keeps the block
+  readable without a second frame.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
@@ -791,7 +791,7 @@ rather than showing a wrong value.
   "where am I / what state" separate from "how much am I burning".
 - **The gauge is anchored at column 0.** A leading mode slot would shift the
   context percentage left and right as plan mode came and went; trailing it
-  after a `❘` keeps the percentage in a fixed place while the mode stays
+  after a `╎` keeps the percentage in a fixed place while the mode stays
   visible as the meters drop.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line; the bar splits them by meaning (`worktree`
@@ -811,9 +811,9 @@ rather than showing a wrong value.
   non-zero usage, so it reads full only at 100% and a small percentage never
   disappears; unknown usage draws no gauge at all. Only at extreme widths does
   `truncateToWidth` clip the remaining text.
-- **Separators shrink to a single space.** Padded separators (` · `, ` ❘ `)
+- **Separators shrink to a single space.** Padded separators (` · `, ` ╎ `)
   collapse to one space before `truncateToWidth` applies, so adjacent segments
-  never collide and the ellipsis never replaces a `❘` with nothing after it.
+  never collide and the ellipsis never replaces a `╎` with nothing after it.
 - **Statuses compact with their colour.** A themed status's compact icon form
   reattaches its opening and closing SGR sequences around the visible text, so a
   red `✗1` stays red instead of losing its colour exactly when the bar tightens.

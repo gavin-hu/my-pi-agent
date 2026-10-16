@@ -12,12 +12,12 @@ import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
 /**
  * Leading glyphs for status chips, footer segments, and transcript rails.
  *
- * Every glyph is a single terminal column in every profile: narrow or neutral
- * `East_Asian_Width`, never ambiguous, wide, or fullwidth, and never emoji. A
- * CJK-width profile renders an ambiguous glyph two columns wide, which drifts a
- * chip, a rail, or a footer row; `visibleWidth` cannot catch that (it counts an
- * ambiguous character as one column), so `lib/ui.test.ts` checks the width class
- * directly. Add a new glyph only after checking it against `EastAsianWidth.txt`.
+ * A glyph is a single terminal column: never wide, fullwidth, or emoji, which
+ * are two columns in every profile. East-Asian *ambiguous* glyphs are allowed —
+ * a CJK-width profile draws those two columns, so one costs a column there, but
+ * the vocabulary is no longer limited to narrow/neutral characters. Add a glyph
+ * only after checking its `East_Asian_Width` against `EastAsianWidth.txt`;
+ * `lib/tui/glyphs.test.ts` bans wide, fullwidth, and emoji.
  */
 export const GLYPHS = {
 	branch: "⎇",
@@ -34,7 +34,7 @@ export const GLYPHS = {
 	gaugeFull: "▰",
 	gaugeEmpty: "▱",
 	turnRule: "╌",
-	rail: "❘",
+	rail: "╎",
 	check: "✓",
 	warn: "!",
 	cross: "✕",

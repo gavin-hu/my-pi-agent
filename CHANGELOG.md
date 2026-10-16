@@ -80,9 +80,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sitting flush, so a notice, a tool block, and a subagent quote share one left
   edge and one nesting depth, and a notice's rail is painted by its worst
   severity.
-- `bytefly`: the rail glyph is `❘` (LIGHT VERTICAL BAR) — a solid light stroke
-  that is East Asian neutral, unlike the ambiguous box-drawing `│` / `┃` / `┊`,
-  so a CJK-width terminal cannot widen the rail and drift the column. The
+- `bytefly`: the rail glyph is `╎` (DOUBLE DASH), the dashed box-drawing stroke,
+  and the shared-glyph rule no longer forbids East-Asian *ambiguous* glyphs —
+  only wide, fullwidth, and emoji, which are two columns in every profile. The
   footer's group separator draws the same stroke, so the chrome has one vertical
   glyph instead of two.
 - `subagent`: the quoted-output gutter uses the shared rail.

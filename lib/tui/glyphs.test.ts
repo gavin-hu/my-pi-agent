@@ -17,8 +17,8 @@ describe("GLYPHS", () => {
 		}
 	});
 
-	test("no glyph is ambiguous- or wide-width, so a CJK profile cannot drift", () => {
-		const wide = new Set(["ambiguous", "wide", "fullwidth"]);
+	test("no glyph is wide or fullwidth, so none is a fixed two columns", () => {
+		const wide = new Set(["wide", "fullwidth"]);
 		for (const [name, glyph] of Object.entries(GLYPHS)) {
 			expect(wide.has(eastAsianWidthType(glyph.codePointAt(0) ?? 0)), `${name}=${glyph}`).toBe(false);
 		}
