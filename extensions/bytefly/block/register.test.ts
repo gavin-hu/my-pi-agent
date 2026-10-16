@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Text } from "@earendil-works/pi-tui";
+import { RAIL } from "../../../lib/tui/rail.ts";
 import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { registerToolBlocks } from "./register.ts";
 
@@ -28,7 +29,7 @@ describe("registerToolBlocks", () => {
 		expect(renderers?.renderShell).toBe("self");
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
 		expect(lines.join("\n")).toContain("base call");
-		expect(lines[0]?.startsWith("│")).toBe(true);
+		expect(lines[0]?.startsWith(RAIL)).toBe(true);
 	});
 
 	test("leaves a tool that renders its own shell unchanged", () => {

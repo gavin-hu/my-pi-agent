@@ -14,6 +14,7 @@ import { keyText, type Theme, VERSION } from "@earendil-works/pi-coding-agent";
 import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { screenHint } from "../../../lib/tui/chrome.ts";
 import { keyHintText } from "../../../lib/tui/glyphs.ts";
+import { RULE_GLYPH } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { HEADER_CONFIG, type HelpEntry } from "./config.ts";
 
@@ -106,8 +107,8 @@ export class ByteflyHeader implements Component {
 		const fill = remaining - lead;
 		return (
 			pad +
-			paint(theme, HEADER_CONFIG.ruleAccentRole, "─".repeat(lead)) +
-			paint(theme, HEADER_CONFIG.ruleRole, "─".repeat(fill))
+			paint(theme, HEADER_CONFIG.ruleAccentRole, RULE_GLYPH.repeat(lead)) +
+			paint(theme, HEADER_CONFIG.ruleRole, RULE_GLYPH.repeat(fill))
 		);
 	}
 

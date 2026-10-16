@@ -19,6 +19,7 @@ export * from "./cursor.ts";
 export * from "./gauge.ts";
 export * from "./glyphs.ts";
 export * from "./line-pane.ts";
+export * from "./rail.ts";
 export * from "./rows.ts";
 export * from "./rules.ts";
 export * from "./status-controller.ts";

@@ -17,6 +17,7 @@ import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.t
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
+import { railPrefix } from "../../lib/tui/rail.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { aggregateUsage, clip, formatToolCall, formatUsageStats } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
@@ -200,7 +201,7 @@ function quoteLines(text: string, theme: Theme): string {
 	return stripControlChars(text)
 		.trim()
 		.split("\n")
-		.map((line) => paint(theme, "meta", "│ ") + theme.fg("toolOutput", line))
+		.map((line) => railPrefix(theme, "meta") + theme.fg("toolOutput", line))
 		.join("\n");
 }
 

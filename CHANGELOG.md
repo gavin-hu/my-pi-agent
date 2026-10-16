@@ -25,6 +25,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   README, the catalog, and the root and Chinese READMEs; `bun run screenshots`
   re-renders the screens and runs a real `pi -e .` for the hero, capturing the
   real window and its title bar, so no image needs a manual session.
+- Tooling: `bun run screenshots render chrome --width <n>` prints one frame of
+  the whole chrome — header, nameplate, tool block, notice, turn rule, and
+  footer — at the live or requested width, so the chrome can be previewed on any
+  OS and at any width without a Terminal capture.
 - Tooling: `bun run screenshot:plan <plan.md>` renders one plan through the
   browser review page and captures a full-page PNG with headless Chrome, so a
   plan's Markdown layout can be checked without a browser session.
@@ -35,6 +39,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: every transcript block that is not prose now hangs from one shared
+  rail (`lib/tui/rail.ts`). A notice joined the tool blocks' rail instead of
+  sitting flush, so a notice, a tool block, and a subagent quote share one left
+  edge and one nesting depth, and a notice's rail is painted by its worst
+  severity.
+- `bytefly`: the rail glyph is `╎` — the turn rule's `╌` stroke, vertical —
+  instead of the East Asian ambiguous `│`, so a CJK-width terminal cannot widen
+  the rail and drift the column. The footer's group separator draws the same
+  stroke, so the chrome has one vertical glyph instead of two.
+- `subagent`: the quoted-output gutter uses the shared rail.
 - `bytefly`: the shipped themes point `mdHeading` at the accent, so Markdown
   headings — including the user-message nameplate — render in the accent color
   instead of yellow.

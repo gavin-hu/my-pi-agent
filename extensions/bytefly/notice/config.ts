@@ -1,14 +1,16 @@
 /**
  * Tuning for the transcript notice block.
  *
- * The notice is a rail: a `source · title` headline, then body-indented rows
- * led by a severity glyph. The glyphs come from the shared vocabulary, so a
- * notice reads like the `goal` and `todo` rails, and every color is a design
- * role resolved by the active theme.
+ * The notice hangs from the shared transcript rail (`lib/tui/rail.ts`): the
+ * headline and each body row sit behind the rail, painted by the notice's worst
+ * severity, and a row is led by its own severity glyph. The glyphs come from the
+ * shared vocabulary and the roles from the shared rail map, so a notice reads
+ * like a tool block or a `goal`/`todo` rail.
  */
 
 import type { NoticeSeverity } from "../../../lib/notice.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { RAIL_ROLES } from "../../../lib/tui/rail.ts";
 import type { TuiRole } from "../../../lib/tui/tokens.ts";
 
 export const NOTICE_CONFIG = {
@@ -25,13 +27,8 @@ export const NOTICE_CONFIG = {
 		warn: GLYPHS.warn,
 		bad: GLYPHS.cross,
 	} as Record<NoticeSeverity, string>,
-	/** Design role per severity. */
-	roles: {
-		info: "info",
-		ok: "ok",
-		warn: "warn",
-		bad: "bad",
-	} as Record<NoticeSeverity, TuiRole>,
+	/** Design role per severity, shared with the rail it paints. */
+	roles: RAIL_ROLES,
 	/** Rows drawn before the rest collapse into a `… N more` line. */
 	maxItems: 8,
 } as const;

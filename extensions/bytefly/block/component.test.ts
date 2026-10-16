@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
+import { RAIL } from "../../../lib/tui/rail.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { blockStatus, toolBlockLines } from "./component.ts";
 
@@ -22,15 +23,15 @@ describe("blockStatus", () => {
 
 describe("toolBlockLines", () => {
 	test("prefixes every line with the rail", () => {
-		expect(toolBlockLines(innerOf(["one", "two"]), "ok", fakeTheme, 40, 0)).toEqual(["│ one", "│ two"]);
+		expect(toolBlockLines(innerOf(["one", "two"]), "ok", fakeTheme, 40, 0)).toEqual([`${RAIL} one`, `${RAIL} two`]);
 	});
 
 	test("indents by outputPad", () => {
-		expect(toolBlockLines(innerOf(["x"]), "ok", fakeTheme, 40, 2)[0]).toBe("  │ x");
+		expect(toolBlockLines(innerOf(["x"]), "ok", fakeTheme, 40, 2)[0]).toBe(`  ${RAIL} x`);
 	});
 
 	test("paints the rail in the status role", () => {
-		expect(toolBlockLines(innerOf(["x"]), "bad", coloringTheme, 40, 0)[0]).toContain("[error]│");
+		expect(toolBlockLines(innerOf(["x"]), "bad", coloringTheme, 40, 0)[0]).toContain(`[error]${RAIL}`);
 	});
 
 	test("renders the inner at the reduced width", () => {
@@ -48,7 +49,7 @@ describe("toolBlockLines", () => {
 	});
 
 	test("drops trailing lines with no content", () => {
-		expect(toolBlockLines(innerOf(["a", ""]), "ok", fakeTheme, 40, 0)).toEqual(["│ a"]);
+		expect(toolBlockLines(innerOf(["a", ""]), "ok", fakeTheme, 40, 0)).toEqual([`${RAIL} a`]);
 	});
 
 	test("renders nothing for an absent inner", () => {

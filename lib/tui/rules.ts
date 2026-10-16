@@ -33,6 +33,12 @@ export interface CenteredRuleStyle extends RuleStyle {
 	pad?: number;
 }
 
+/**
+ * The solid rule fill: the glyph a divider repeats. One constant names it, so
+ * the header rule, a panel title, and the user-message nameplate cannot drift.
+ */
+export const RULE_GLYPH = "─";
+
 /** A usable origin: terminal arithmetic starts from one column, never zero. */
 function widthOf(width: number): number {
 	return Math.max(1, Math.floor(width));
@@ -41,7 +47,7 @@ function widthOf(width: number): number {
 /** A full-width divider in one color. */
 export function plainRule(theme: Theme, width: number, style: RuleStyle = {}): string {
 	const w = widthOf(width);
-	return paint(theme, style.fillRole ?? "rule", (style.glyph ?? "─").repeat(w));
+	return paint(theme, style.fillRole ?? "rule", (style.glyph ?? RULE_GLYPH).repeat(w));
 }
 
 /** The label-first shape a screen or panel title uses. */
@@ -63,14 +69,14 @@ function labelRule(
 	if (!text) return plainRule(theme, w, style);
 	const labelWidth = visibleWidth(text);
 	if (labelWidth + 1 >= w) return plainRule(theme, w, style);
-	const fill = (style.glyph ?? "─").repeat(w - labelWidth - 1);
+	const fill = (style.glyph ?? RULE_GLYPH).repeat(w - labelWidth - 1);
 	return paint(theme, style.labelRole ?? labelRole, text) + " " + paint(theme, style.fillRole ?? fillRole, fill);
 }
 
 /** A centered rule: fill, label, and the rest of the fill. */
 export function centeredRule(theme: Theme, width: number, label: string, style: CenteredRuleStyle = {}): string {
 	const w = widthOf(width);
-	const glyph = style.glyph ?? "─";
+	const glyph = style.glyph ?? RULE_GLYPH;
 	const fillRole = style.fillRole ?? "ruleStrong";
 	if (!label.trim()) return paint(theme, fillRole, glyph.repeat(w));
 	const pad = " ".repeat(Math.max(0, Math.floor(style.pad ?? 1)));

@@ -33,7 +33,7 @@ describe("GLYPHS", () => {
 describe("SEPARATORS", () => {
 	test("item and group separators are padded and distinct", () => {
 		expect(SEPARATORS.item).toBe(" · ");
-		expect(SEPARATORS.group).toBe(" │ ");
+		expect(SEPARATORS.group).toBe(` ${GLYPHS.rail} `);
 		expect(visibleWidth(SEPARATORS.item)).toBe(3);
 		expect(visibleWidth(SEPARATORS.group)).toBe(3);
 	});

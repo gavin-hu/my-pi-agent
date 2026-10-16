@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import type { NoticeDetails } from "../../../lib/notice.ts";
+import { RAIL } from "../../../lib/tui/rail.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { noticeLines } from "./component.ts";
 
@@ -56,5 +57,17 @@ describe("noticeLines", () => {
 
 	test("paints the source in the accent role", () => {
 		expect(noticeLines(details, coloringTheme, 80)[0]).toContain("[accent]job");
+	});
+
+	test("hangs every line from the shared rail", () => {
+		for (const line of noticeLines(details, fakeTheme, 80)) {
+			expect(line.startsWith(RAIL)).toBe(true);
+		}
+	});
+
+	test("paints the rail by the worst severity", () => {
+		expect(noticeLines(details, coloringTheme, 80)[0]).toContain(`[error]${RAIL}`);
+		const clean: NoticeDetails = { source: "job", title: "all good", items: [{ label: "j1", severity: "ok" }] };
+		expect(noticeLines(clean, coloringTheme, 80)[0]).toContain(`[success]${RAIL}`);
 	});
 });
