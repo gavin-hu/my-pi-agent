@@ -9,12 +9,19 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { NOTICE_TYPE, type NoticeDetails } from "../../../lib/notice.ts";
+import { createRailSource, type RailSource } from "../chrome.ts";
 import { createPadStore, type PadSource } from "../pad.ts";
 import { NoticeComponent } from "./component.ts";
 
 /** Register the notice renderer; a message without details keeps Pi's default. */
-export function registerNotice(pi: ExtensionAPI, pad: PadSource = createPadStore()): void {
+export function registerNotice(
+	pi: ExtensionAPI,
+	pad: PadSource = createPadStore(),
+	rail: RailSource = createRailSource(),
+): void {
 	pi.registerMessageRenderer<NoticeDetails>(NOTICE_TYPE, (message, options, theme) =>
-		message.details ? new NoticeComponent(message.details, theme, pad.resolve(options.outputPad)) : undefined,
+		message.details
+			? new NoticeComponent(message.details, theme, pad.resolve(options.outputPad), rail.resolve())
+			: undefined,
 	);
 }

@@ -2,15 +2,16 @@
  * The transcript indent: how a non-prose block sits under its headline.
  *
  * A tool block, a shared notice, and a subagent's quoted output all hang from one
- * left edge — a plain indent, no glyph — so the transcript reads as one column
- * without a rail. A block may lead with a headline (a tool's own call line) at
- * the outer indent; the body sits `BODY_INDENT` further in, directly under it with
- * no separator line, which is what keeps a tool block compact.
+ * left edge. A block may lead with a headline (a tool's own call line) at the
+ * outer indent; the body sits `BODY_INDENT` further in, directly under it with no
+ * separator line, which is what keeps a tool block compact. The body's first
+ * indent column may instead carry a rail glyph, passed in pre-painted by the
+ * caller so this module stays value-only.
  *
  * Value-only: pure functions and constants, no theme.
  */
 
-import { type Component, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
+import { type Component, stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 /** Columns the body sits in beyond a block's outer indent. */
 export const BODY_INDENT = 2;
@@ -19,6 +20,12 @@ export const BODY_INDENT = 2;
 export interface IndentOptions {
 	/** Columns the body is indented; a headline sits `BODY_INDENT` to its left. */
 	indent?: number;
+	/**
+	 * A pre-painted, one-column rail glyph for the body's first indent column; the
+	 * rest of the indent stays spaces. Ignored below `BODY_INDENT`, where there is
+	 * no column to spare. Default: no rail.
+	 */
+	rail?: string;
 	/** Drop leading lines with no visible content. Default false. */
 	trimLeading?: boolean;
 	/** Drop trailing lines with no visible content. Default true. */
@@ -48,6 +55,17 @@ function clampIndent(indent: number, width: number): number {
 }
 
 /**
+ * The body prefix: the rail glyph in the indent's first body column, or plain
+ * spaces. The glyph must be one visible column, so the prefix is exactly `indent`
+ * columns wide; the gap after it is the remaining `BODY_INDENT - 1`.
+ */
+function bodyPrefix(indent: number, rail: string | undefined): string {
+	if (!rail || indent < BODY_INDENT) return " ".repeat(indent);
+	const base = Math.max(0, indent - BODY_INDENT);
+	return `${" ".repeat(base)}${rail}${" ".repeat(indent - base - 1)}`;
+}
+
+/**
  * Indent each line of an already-rendered block by `indent` columns, clipping
  * each to `width`. The block should be built at `width - indent` so nothing is
  * lost to the prefix; the clip is only a safety net. A line carrying an image
@@ -55,12 +73,13 @@ function clampIndent(indent: number, width: number): number {
  * visible content are dropped (by default). When `headline` is set, the first
  * non-blank line leads at `indent - BODY_INDENT` and the body follows directly —
  * no separator line — and its own leading blanks are dropped so a tool's spacing
- * never leaves a gap under the headline.
+ * never leaves a gap under the headline. With `rail` set, the body's first indent
+ * column carries the glyph instead of a space.
  */
 export function indentBlockLines(body: readonly string[], width: number, options: IndentOptions = {}): string[] {
 	const w = Math.max(1, width);
 	const indent = clampIndent(options.indent ?? 0, w);
-	const prefix = " ".repeat(indent);
+	const prefix = bodyPrefix(indent, options.rail);
 
 	// The headline is the first line with something to say; it leads at the base.
 	let headline: string | undefined;
@@ -111,5 +130,6 @@ export function indentedLines(inner: Component | undefined, width: number, optio
 	if (!inner) return [];
 	const w = Math.max(1, width);
 	const indent = clampIndent(options.indent ?? 0, w);
-	return indentBlockLines(inner.render(Math.max(1, w - indent)), w, { ...options, indent });
+	const prefixWidth = visibleWidth(bodyPrefix(indent, options.rail));
+	return indentBlockLines(inner.render(Math.max(1, w - prefixWidth)), w, { ...options, indent });
 }

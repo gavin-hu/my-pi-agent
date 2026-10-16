@@ -48,13 +48,19 @@ describe("registerToolBlocks", () => {
 		expect(lines.map((line: string) => line.trimEnd())).toEqual(["own"]);
 	});
 
-	test("indents the result under the call's body column", () => {
+	test("rails the result body under the call's body column", () => {
 		const renderers = resolver()("read", () => ({ renderResult: () => new Text("base result", 0, 0) }));
 		const lines =
 			renderers
 				?.renderResult?.({ content: [] } as any, { expanded: false, isPartial: false }, fakeTheme, ctx())
 				.render(40) ?? [];
-		expect(lines[0]?.trimEnd()).toBe("  base result");
+		expect(lines[0]?.trimEnd()).toBe("╎ base result");
+	});
+
+	test("leaves the call plain-indented, with no rail", () => {
+		const renderers = resolver()("read", () => ({ renderCall: () => new Text("call\nextra", 0, 0) }));
+		const lines = renderers?.renderCall?.({}, fakeTheme, ctx()).render(40) ?? [];
+		expect(lines.map((line: string) => line.trimEnd())).toEqual(["call", "  extra"]);
 	});
 
 	test("demotes a built-in call's subject to the body colour", () => {

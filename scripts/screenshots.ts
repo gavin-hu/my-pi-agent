@@ -32,6 +32,7 @@ import {
 	setThemeInstance,
 } from "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js";
 import { ToolBlock } from "../extensions/bytefly/block/component.ts";
+import { DEFAULT_RAIL_GLYPH, railGlyph } from "../extensions/bytefly/chrome.ts";
 import { renderLine } from "../extensions/bytefly/footer/render/layout.ts";
 import { buildLines } from "../extensions/bytefly/footer/render/lines.ts";
 import type { StatusSnapshot } from "../extensions/bytefly/footer/types.ts";
@@ -388,14 +389,19 @@ function renderChrome(width: number): string[] {
 	if (plate) lines.push(...new Markdown(plate, 0, 0, getMarkdownTheme()).render(width));
 	lines.push("", theme.fg("text", "Ready when you are."), "");
 
-	// A tool block: the call leads as the headline, the result indents under it.
+	// A tool block: the call leads as the headline, the result rails under it.
 	lines.push(
 		...new ToolBlock(new Text("read src/app.ts", 0, 0), 0, {
 			headline: true,
 			toolName: "read",
 		}).render(width),
 	);
-	lines.push(...new ToolBlock(new Text("const answer = 42;", 0, 0), 0, { trimLeading: true }).render(width));
+	lines.push(
+		...new ToolBlock(new Text("const answer = 42;", 0, 0), 0, {
+			trimLeading: true,
+			rail: railGlyph(theme, "faint", DEFAULT_RAIL_GLYPH),
+		}).render(width),
+	);
 	lines.push("");
 
 	lines.push(...new NoticeComponent(CHROME_NOTICE, theme).render(width));

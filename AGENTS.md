@@ -127,7 +127,7 @@ docs are normative. In this package the shared implementation is the `lib/tui/`
 design system — [`tokens.ts`](./lib/tui/tokens.ts) (semantic roles),
 [`chrome.ts`](./lib/tui/chrome.ts) (screen frame and hints),
 [`rules.ts`](./lib/tui/rules.ts) (the rule grammar and glyph),
-[`indent.ts`](./lib/tui/indent.ts) (the transcript block indent),
+[`indent.ts`](./lib/tui/indent.ts) (the transcript block indent, with an optional rail prefix),
 [`rows.ts`](./lib/tui/rows.ts) (list rows, checkboxes, chips, empty states),
 [`columns.ts`](./lib/tui/columns.ts) (width math),
 [`gauge.ts`](./lib/tui/gauge.ts) (the gauge),

@@ -2,13 +2,16 @@
  * Tuning for the transcript notice block.
  *
  * The notice sits at the transcript's margin — a `source · title` headline and
- * body-indented rows, each led by its own severity glyph. The glyphs come from
- * the shared vocabulary, so a notice reads like the tool blocks around it.
+ * rows behind the shared transcript rail, each row led by its own severity
+ * glyph. The glyphs come from the shared vocabulary, the roles from the shared
+ * rail map, and the rail glyph from the `chrome` config, so a notice reads like
+ * the tool results around it.
  */
 
 import type { NoticeSeverity } from "../../../lib/notice.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { TuiRole } from "../../../lib/tui/tokens.ts";
+import { RAIL_ROLES } from "../chrome.ts";
 
 export const NOTICE_CONFIG = {
 	/** Role for the source name at the head of the block. */
@@ -31,6 +34,8 @@ export const NOTICE_CONFIG = {
 		warn: "warn",
 		bad: "bad",
 	} as Record<NoticeSeverity, TuiRole>,
+	/** The rail's neutral-by-default role per severity, shared with every rail. */
+	railRoles: RAIL_ROLES,
 	/** Rows drawn before the rest collapse into a `… N more` line. */
 	maxItems: 8,
 } as const;

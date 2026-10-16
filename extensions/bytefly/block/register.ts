@@ -5,8 +5,10 @@
  * `renderShell: "self"` — dropping Pi's filled status background — and frames
  * the tool's own `renderCall` / `renderResult`, so the content is unchanged and
  * only the framing is bytefly's. The call leads with its own first line as the
- * headline; the body is indented directly under it. A tool with no renderer gets
- * the same treatment around a generic fallback.
+ * headline; the body is indented directly under it. The result body carries the
+ * transcript rail, painted by status; the call stays plain-indented, and the two
+ * filled tools (`edit`, `write`) skip the rail and read by their fill. A tool
+ * with no renderer gets the same treatment around a generic fallback.
  *
  * The frame is added even for a tool that sets `renderShell: "self"` (`edit`):
  * that only tells Pi not to draw its filled box, and the shipped themes leave
@@ -47,8 +49,10 @@
 
 import type { ExtensionAPI, Theme, ThemeBg } from "@earendil-works/pi-coding-agent";
 import { type Component, Text } from "@earendil-works/pi-tui";
+import { createRailSource, railGlyph, type RailSource } from "../chrome.ts";
 import { createPadStore, type PadSource } from "../pad.ts";
 import { isRewritable, recolorCallHeadline, recolorShellCall, ToolBlock } from "./component.ts";
+import { BLOCK_CONFIG, type BlockStatus } from "./config.ts";
 import { callFallback, resultFallback } from "./fallback.ts";
 
 /** Per-row memory of the base renderer's own components, kept off Pi's state. */
@@ -66,6 +70,12 @@ function fillRole(context: { isPartial: boolean; isError: boolean }): ThemeBg {
 	return context.isError ? "toolErrorBg" : "toolSuccessBg";
 }
 
+/** The painted rail glyph for a result: running spends the accent, a failure red. */
+function resultRail(theme: Theme, context: { isPartial: boolean; isError: boolean }, glyph: string): string {
+	const status: BlockStatus = context.isPartial ? "info" : context.isError ? "bad" : "ok";
+	return railGlyph(theme, BLOCK_CONFIG.roles[status], glyph);
+}
+
 /**
  * A theme whose `bg` is inert. Pi's `edit` paints its own `Box` from a tool
  * background role; the frame fills the row instead, so the base must not paint
@@ -78,7 +88,11 @@ function withoutBackground(theme: Theme): Theme {
 }
 
 /** Register the resolver that frames every tool block with the bytefly indent. */
-export function registerToolBlocks(pi: ExtensionAPI, pad: PadSource = createPadStore()): void {
+export function registerToolBlocks(
+	pi: ExtensionAPI,
+	pad: PadSource = createPadStore(),
+	rail: RailSource = createRailSource(),
+): void {
 	pi.registerToolRenderer((toolName, next) => {
 		const base = next();
 		return {
@@ -129,6 +143,9 @@ export function registerToolBlocks(pi: ExtensionAPI, pad: PadSource = createPadS
 				const role = fillRole(context);
 				return new ToolBlock(inner, pad.resolve(context.outputPad), {
 					trimLeading: true,
+					// The result carries the rail; the call above it stays plain-indented,
+					// and a filled tool reads by its band instead.
+					rail: filled ? undefined : resultRail(theme, context, rail.resolve()),
 					fill: filled ? (line: string) => theme.bg(role, line) : undefined,
 				});
 			},

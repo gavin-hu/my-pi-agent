@@ -23,6 +23,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerToolBlocks } from "./block/register.ts";
+import { registerChrome } from "./chrome.ts";
 import { type DoctorDeps, registerDoctor } from "./doctor/register.ts";
 import { registerFooter } from "./footer/register.ts";
 import { registerHeader } from "./header/register.ts";
@@ -54,8 +55,11 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	// One store per load: the tool frame and the notice record Pi's output pad and
 	// the turn separator reads it, so bytefly's transcript blocks share one margin.
 	const pad = createPadStore();
-	registerNotice(pi, pad);
-	registerToolBlocks(pi, pad);
+	// The rail glyph is read from `bytefly.json` at session start; the tool results
+	// and the notice read it through this one store.
+	const rail = registerChrome(pi);
+	registerNotice(pi, pad, rail);
+	registerToolBlocks(pi, pad, rail);
 	registerTurnSeparator(pi, pad);
 	registerThinkingTimer(pi);
 	const doctor = registerDoctor(pi, deps.doctor);

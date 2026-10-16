@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: the `chrome` section of `bytefly.json` adds `rail`, the
+  single-column glyph the transcript rail draws (default `╎`). A wide, emoji,
+  multi-character, empty, or control value falls back to `╎`, so the rail can
+  never push the body right.
 - `bytefly`: while an assistant message streams, a live elapsed counter
   (`Thinking… 12s`) is written to Pi's hidden thinking label and handed back
   when the message ends. The value is live only — the extension API has no
@@ -56,6 +60,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the transcript rail leads a tool result and a notice row, painted by
+  status — a running result takes the accent, a failure red, a finished one
+  neutral, a notice its worst severity. A tool call stays plain-indented (a
+  multi-line call keeps its two-space continuation), and the filled
+  `edit`/`write` bodies keep Pi's status band instead of the rail.
 - `bytefly`: the tool name is a call line's only accent. A primary subject — a
   path, URL, query, or pattern — now reads in the body colour (`read
   src/app.ts`, `read_doc docs/a.pdf`, `web_fetch https://…`, `grep /pattern/`),

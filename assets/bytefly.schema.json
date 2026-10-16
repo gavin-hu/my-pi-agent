@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json",
   "title": "bytefly shared extension config",
-  "description": "One document, one top-level section per extension (bytefly owns price, notify, and doctor). Resolution is low to high: built-in defaults, <agent-dir>/bytefly.json, then <cwd>/.pi/bytefly.json (project wins). Unknown keys are ignored.",
+  "description": "One document, one top-level section per extension (bytefly owns price, notify, doctor, and chrome). Resolution is low to high: built-in defaults, <agent-dir>/bytefly.json, then <cwd>/.pi/bytefly.json (project wins). Unknown keys are ignored.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -24,6 +24,9 @@
     },
     "doctor": {
       "$ref": "#/$defs/doctor"
+    },
+    "chrome": {
+      "$ref": "#/$defs/chrome"
     },
     "worktree": {
       "$ref": "#/$defs/worktree"
@@ -66,6 +69,19 @@
         "type": "string"
       },
       "description": "Strings are trimmed; empty entries are dropped."
+    },
+    "chrome": {
+      "type": "object",
+      "description": "bytefly's transcript chrome presentation.",
+      "additionalProperties": false,
+      "properties": {
+        "rail": {
+          "type": "string",
+          "maxLength": 1,
+          "default": "╎",
+          "description": "The transcript rail glyph, exactly one visible column. A wide, emoji, multi-character, empty, or control value falls back to ╎. The rail leads a tool result and a notice row; it is never drawn on a tool call, and the filled edit/write tools use their status fill instead."
+        }
+      }
     },
     "price": {
       "type": "object",

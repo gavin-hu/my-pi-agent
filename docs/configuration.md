@@ -24,6 +24,7 @@ that fails to parse.
   "version": 1,
   "price": { "currency": { "symbol": "¥", "decimals": 2 } },
   "notify": { "enabled": true },
+  "chrome": { "rail": "│" },
   "job": { "wakeOnFinish": true },
   "memory": { "maxInjectBytes": 16384 }
 }
@@ -39,7 +40,7 @@ repository root rather than the active working directory.
 
 | Extension | Section | Covers |
 |---|---|---|
-| [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings. |
+| [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
 | [`document`](../extensions/document/) | `document` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |

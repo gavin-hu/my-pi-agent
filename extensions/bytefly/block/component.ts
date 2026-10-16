@@ -11,8 +11,9 @@
  * The call block leads with its first non-blank line — the tool's own call line,
  * which every built-in and package renderer already opens with the tool name —
  * and the body follows at `BODY_INDENT` columns, with no separator line, so the
- * block is compact. There is no rail: a block reads as one left edge, and a
- * failure is whatever the tool's own output shows.
+ * block is compact. A result body may carry a `rail`: a pre-painted glyph in the
+ * first indent column, occupying the two columns the plain indent uses. The call
+ * never carries one.
  *
  * A tool that mutates a file (`edit`, `write`) may carry a `fill`: every body
  * line is padded to the frame's width and wrapped, so the result sits on one
@@ -47,6 +48,11 @@ export interface ToolBlockOptions {
 	trimLeading?: boolean;
 	/** The tool name, so a shell prompt in the headline becomes the tool name. */
 	toolName?: string;
+	/**
+	 * A pre-painted rail glyph for the body's first indent column, from
+	 * `../chrome.ts`. Set on the result frame only; the call stays plain-indented.
+	 */
+	rail?: string;
 	/**
 	 * The active theme. A shell call's command and a call's primary subject are
 	 * repainted in the `label` role, so only the tool name spends the accent;
@@ -176,6 +182,7 @@ export function toolBlockLines(
 	const w = Math.max(1, width);
 	const lines = indentedLines(inner, w, {
 		indent: (outputPad ?? 0) + BODY_INDENT,
+		rail: options.rail,
 		headline: options.headline,
 		trimLeading: options.trimLeading,
 	});

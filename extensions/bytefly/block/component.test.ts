@@ -21,6 +21,21 @@ describe("toolBlockLines", () => {
 		expect(toolBlockLines(innerOf(["x"]), 40, 2)[0]).toBe(`${" ".repeat(4)}x`);
 	});
 
+	test("draws the rail in the body's first indent column", () => {
+		expect(toolBlockLines(innerOf(["one", "two"]), 40, 0, { rail: "╎" })).toEqual(["╎ one", "╎ two"]);
+	});
+
+	test("leaves a headline un-railed above a railed body", () => {
+		expect(toolBlockLines(innerOf(["read src/cli.ts", "a"]), 40, 0, { rail: "╎", headline: true })).toEqual([
+			"read src/cli.ts",
+			"╎ a",
+		]);
+	});
+
+	test("keeps the rail at the base indent when outputPad is set", () => {
+		expect(toolBlockLines(innerOf(["a"]), 40, 2, { rail: "╎" })).toEqual([`${" ".repeat(2)}╎ a`]);
+	});
+
 	test("renders the inner at the reduced width", () => {
 		let seen = 0;
 		toolBlockLines(

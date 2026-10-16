@@ -58,19 +58,29 @@ describe("noticeLines", () => {
 		expect(noticeLines(details, coloringTheme, 80)[0]).toContain("[accent]job");
 	});
 
-	test("sits at the margin: the headline first, the rows indented under it", () => {
+	test("puts the headline at the margin and the rows behind the rail", () => {
 		const lines = noticeLines(details, fakeTheme, 80);
 		expect(lines[0]).toBe("job · 2 background jobs finished");
-		expect(lines[1]?.startsWith("  ")).toBe(true);
-		expect(lines[1]?.startsWith("   ")).toBe(false);
+		expect(lines[1]?.startsWith("╎ ")).toBe(true);
+		expect(lines[1]?.startsWith("╎  ")).toBe(false);
+	});
+
+	test("draws a configured rail glyph", () => {
+		const lines = noticeLines(details, fakeTheme, 80, 0, "│");
+		expect(lines[1]?.startsWith("│ ")).toBe(true);
+	});
+
+	test("paints the rail by the notice's worst severity", () => {
+		expect(noticeLines(details, coloringTheme, 80)[1]).toContain("[error]╎");
+		const clean: NoticeDetails = { source: "job", title: "all good", items: [{ label: "j1", severity: "ok" }] };
+		expect(noticeLines(clean, coloringTheme, 80)[1]).toContain("[dim]╎");
 	});
 
 	test("insets the whole block by Pi's output pad", () => {
 		const lines = noticeLines(details, fakeTheme, 80, 1);
 		expect(lines[0]).toBe(" job · 2 background jobs finished");
-		// The rows sit BODY_INDENT further in than the headline.
-		expect(lines[1]?.startsWith("   ")).toBe(true);
-		expect(lines[1]?.startsWith("    ")).toBe(false);
+		// The rail sits BODY_INDENT further in than the headline.
+		expect(lines[1]?.startsWith(" ╎ ")).toBe(true);
 	});
 
 	test("clips a padded line to the width it was given", () => {

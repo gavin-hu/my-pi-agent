@@ -228,9 +228,13 @@ signature rule, drawn from the active theme through the `lib/tui/` design
 system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
 mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
 between completed turns, a two-row `You` nameplate above each user message on the
-terminal background, and one indent that every non-prose block hangs from — the
+terminal background, and one frame that every non-prose block hangs from — the
 shared notice and every tool block, built-ins included, share one left edge, with
-a tool's call line as the headline and its body two columns in under it. The two
+a tool's call line as the headline and its result body two columns in under it,
+led by the transcript rail. The rail is the `chrome.rail` setting (default `╎`),
+drawn on tool results and notice rows but never on a tool call, and painted by
+status (a running result takes the accent, a failure red, a finished one
+neutral; a notice takes its worst severity). The two
 file-mutating tools (`edit`, `write`) show their result on a full-width status
 band: neutral while running, green on success, red on failure. While an assistant message streams it also advances a live elapsed
 counter (`Thinking… 12s`) on Pi's hidden thinking label, handing it back to Pi
@@ -259,11 +263,10 @@ Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` subcommand).
 Every tool block as the transcript draws it: the tool's own call line is the
 headline (the tool name in the theme's tool-title colour as the line's only
 accent, with a path, URL, or query and a shell call's command in the body colour)
-and the body is indented two
-columns directly under it — the tool's own
-renderer, or its generic fallback. The results of `edit` and `write` carry a
-full-width status fill (pending/success/error), under their unfilled call line;
-every other tool is entirely unfilled. The page covers the user
+and the result body sits two columns under it behind the transcript rail — the
+tool's own renderer, or its generic fallback. The results of `edit` and `write`
+carry a full-width status fill (pending/success/error) instead of the rail, under
+their unfilled call line. The page covers the user
 nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
 `write`, `edit`, `bash`, `grep`, `find`, `ls` — diffs, syntax highlighting and
 previews intact), then every

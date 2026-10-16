@@ -59,11 +59,22 @@ describe("renderings", () => {
 		expect(first?.lines(80)).toEqual(first?.lines(80));
 	});
 
-	test("a tool block leads with its call and indents the body, with no rail", () => {
+	test("a tool block leads with its call, rails the result, and leaves the call plain", () => {
 		const read = renderings().find((rendering) => rendering.name === "read");
 		const lines = (read?.lines(80) ?? []).map(stripTerminalSequences);
 		expect(lines[0]?.startsWith("read ")).toBe(true);
-		expect(lines[1]?.startsWith("  ")).toBe(true);
-		expect(lines[1]?.startsWith("   ")).toBe(false);
+		expect(lines[1]?.startsWith("╎ ")).toBe(true);
+		expect(lines[1]?.startsWith("╎  ")).toBe(false);
+
+		// A multi-line call keeps its two-space continuation, with no rail.
+		const subagent = renderings().find((rendering) => rendering.name === "subagent");
+		const call = (subagent?.lines(80) ?? []).map(stripTerminalSequences);
+		expect(call[1]?.startsWith("  1. ")).toBe(true);
+
+		// The filled edit/write blocks read by their band, not the rail.
+		for (const name of ["edit", "write"]) {
+			const filled = renderings().find((rendering) => rendering.name === name);
+			expect((filled?.lines(80) ?? []).join("\n"), name).not.toContain("╎");
+		}
 	});
 });

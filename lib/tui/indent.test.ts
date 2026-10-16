@@ -98,6 +98,26 @@ describe("indentBlockLines", () => {
 	test("emits only the headline for a headline-only block", () => {
 		expect(indentBlockLines(["read"], 40, { indent: 2, headline: true })).toEqual(["read"]);
 	});
+
+	test("draws a rail glyph in the body's first indent column", () => {
+		expect(indentBlockLines(["a", "b"], 40, { indent: 2, rail: "╎" })).toEqual(["╎ a", "╎ b"]);
+	});
+
+	test("keeps the headline un-railed and the rail at the base indent", () => {
+		expect(indentBlockLines(["read", "a", "b"], 40, { indent: 2, rail: "╎", headline: true })).toEqual([
+			"read",
+			"╎ a",
+			"╎ b",
+		]);
+	});
+
+	test("places a base-indented rail under its headline", () => {
+		expect(indentBlockLines(["read", "a"], 40, { indent: 4, rail: "╎", headline: true })).toEqual(["  read", "  ╎ a"]);
+	});
+
+	test("ignores a rail below BODY_INDENT", () => {
+		expect(indentBlockLines(["a"], 40, { indent: 1, rail: "╎" })).toEqual([" a"]);
+	});
 });
 
 describe("indentedLines", () => {
@@ -119,5 +139,21 @@ describe("indentedLines", () => {
 
 	test("renders nothing for an absent inner", () => {
 		expect(indentedLines(undefined, 40, { indent: 2 })).toEqual([]);
+	});
+
+	test("renders the inner at the width the rail leaves", () => {
+		let seen = 0;
+		indentedLines(
+			innerOf(["x"], (width) => {
+				seen = width;
+			}),
+			20,
+			{ indent: 2, rail: "╎" },
+		);
+		expect(seen).toBe(18);
+	});
+
+	test("rails the inner's lines", () => {
+		expect(indentedLines(innerOf(["a", "b"]), 40, { indent: 2, rail: "╎" })).toEqual(["╎ a", "╎ b"]);
 	});
 });
