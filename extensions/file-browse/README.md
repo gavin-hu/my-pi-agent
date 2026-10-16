@@ -63,7 +63,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   code viewport while its body scrolls.
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
 - **Git context.** A read-only header chip shows the checked-out branch (or
-  detached head) and a dirty marker, and reflows on narrow screens.
+  detached head) and reflows on narrow screens. Uncommitted changes are stated
+  once, by the changes chip below; turn the diff view off (`gitDiff: false`) and
+  the header reports no changes at all.
 - **Git diff view.** A `● N changes +A −D` chip links to `/diff`, a change
   overview with `git diff --stat` and a per-file status table, and `/diff/<rel>`
   renders one file's unified diff, whose head carries its own `+A −D` and hunk

@@ -258,7 +258,7 @@ describe("renderFilePage", () => {
 		expect(html).toContain(".bf-app__body{flex:1 1 auto;min-height:0;display:grid");
 		expect(html).toContain("overscroll-behavior:contain");
 		expect(html).toContain("flex-wrap:wrap");
-		expect(html).toContain(".browse-git--dirty .browse-git__glyph");
+		expect(html).toContain(".browse-git{font-family:var(--font-mono)}");
 		expect(html).toContain("<noscript>");
 		expect(html).toContain(".bf-tree__tw--toggle{visibility:hidden}");
 		expect(html).toContain(".bf-tree__tw--toggle::after");
@@ -268,7 +268,7 @@ describe("renderFilePage", () => {
 		expect(html).toContain('data-path="sub/b.md"');
 	});
 
-	test("renders the git chip with branch and dirty state", () => {
+	test("renders the git chip with the branch alone, dirty or not", () => {
 		fixture = makeFixture();
 		const html = renderDirectoryPage({
 			rootLabel: fixture.root,
@@ -279,9 +279,10 @@ describe("renderFilePage", () => {
 			maxThumbBytes: 0,
 			git: { branch: "main", dirty: true },
 		});
-		expect(html).toContain('class="bf-chip browse-git browse-git--dirty"');
-		expect(html).toContain('aria-label="git branch main, uncommitted changes"');
-		expect(html).toContain("browse-dirty");
+		expect(html).toContain('class="bf-chip browse-git"');
+		expect(html).toContain('aria-label="git branch main"');
+		// The changes chip owns the dirty state; the branch chip must not repeat it.
+		expect(html).not.toContain("browse-dirty");
 	});
 
 	test("omits the git chip without a status", () => {

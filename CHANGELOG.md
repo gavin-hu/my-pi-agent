@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `file-browse`: the header's branch chip no longer carries its own dirty dot and
+  warn tint. The `● N changes +A −D` chip already reports uncommitted changes, so
+  the header row stated the same fact twice, with two amber dots a few pixels
+  apart; the branch chip now shows the branch (or detached head) alone.
+
 ### Fixed
 
 - `file-browse` / `plan`: rendered Markdown tables no longer inherit the prose

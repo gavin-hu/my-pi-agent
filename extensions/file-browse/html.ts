@@ -41,15 +41,14 @@ function iconMarkup(spec: IconSpec, hidden = false): string {
 	return `<svg class="browse-cat ${spec.colorClass}"${hidden ? " hidden" : ""} aria-hidden="true" title="${escapeHtml(spec.label)}"><use href="${iconHref(spec.icon)}"/></svg>`;
 }
 
-/** The header's git chip: branch (or detached head) plus a dirty dot. */
+/** The header's git chip: the branch, or the detached head; changes are the changes chip's job. */
 function renderGit(git: GitStatus | undefined): string {
 	if (!git) return "";
 	const name = git.branch ?? git.head;
 	if (!name) return "";
 	const glyph = git.branch ? GLYPHS.branch : GLYPHS.detached;
-	const aria = `${git.branch ? `git branch ${git.branch}` : `git detached at ${git.head ?? ""}`}${git.dirty ? ", uncommitted changes" : ""}`;
-	const dot = git.dirty ? `<span class="browse-dirty" aria-hidden="true" title="uncommitted changes">●</span>` : "";
-	return `<span class="bf-chip browse-git${git.dirty ? " browse-git--dirty" : ""}" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="browse-git__glyph" aria-hidden="true">${escapeHtml(glyph)}</span>${escapeHtml(name)}${dot}</span>`;
+	const aria = git.branch ? `git branch ${git.branch}` : `git detached at ${git.head ?? ""}`;
+	return `<span class="bf-chip browse-git" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="browse-git__glyph" aria-hidden="true">${escapeHtml(glyph)}</span>${escapeHtml(name)}</span>`;
 }
 
 /** The changed-path index for markers, plus the totals shown in the chip. */
@@ -98,8 +97,6 @@ ${WEB_COMPONENTS_CSS}
 .browse-side{padding:var(--space-3)}
 .browse-root{flex:1 1 auto;direction:rtl;text-align:left}
 .browse-git{font-family:var(--font-mono)}
-.browse-git--dirty .browse-git__glyph{color:var(--warn)}
-.browse-dirty{color:var(--warn);font-size:9px;line-height:1}
 .browse-quick-open{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;margin-bottom:var(--space-2);padding:6px var(--space-2);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
 .browse-quick-open:hover{border-color:var(--accent);color:var(--accent)}
 .browse-quick-open kbd{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--dim)}

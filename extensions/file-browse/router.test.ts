@@ -37,7 +37,7 @@ describe("routing", () => {
 			"/",
 			{},
 		);
-		expect(text(response)).toContain('class="bf-chip browse-git browse-git--dirty"');
+		expect(text(response)).toContain('class="bf-chip browse-git"');
 	});
 
 	test("ignores a failing git provider", async () => {
