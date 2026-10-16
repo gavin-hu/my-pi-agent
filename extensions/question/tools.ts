@@ -77,9 +77,10 @@ export function registerTools(pi: ExtensionAPI): void {
 			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "meta", `${count} ${noun}`);
 			if (headers.length > 0) text += paint(theme, "faint", ` (${headers.join(", ")})`);
 
-			// One indented line per question that offers options, so a long option list
-			// stays mapped to its question instead of wrapping on a single row.
-			for (const line of optionSummary(raw)) text += `\n${paint(theme, "faint", `  ${line}`)}`;
+			// One line per question that offers options, so a long option list stays
+			// mapped to its question instead of wrapping on a single row. The line
+			// carries no indent of its own; the tool-block frame supplies it.
+			for (const line of optionSummary(raw)) text += `\n${paint(theme, "faint", line)}`;
 
 			const component = reuseText(context?.lastComponent);
 			component.setText(text);
