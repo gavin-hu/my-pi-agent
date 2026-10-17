@@ -28,6 +28,7 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 		peerCount: 0,
 		queued: 0,
 		refused: 0,
+		refusedPeers: [],
 		mediaDropped: 0,
 		promptPending: false,
 		...overrides,
@@ -41,6 +42,7 @@ function view(overrides: Partial<StatusView> = {}): StatusView {
 		peers: 0,
 		queued: 0,
 		refused: 0,
+		refusedPeers: [],
 		mediaDropped: 0,
 		promptPending: false,
 		...overrides,
@@ -104,6 +106,15 @@ describe("statusLine", () => {
 });
 
 describe("statusBody", () => {
+	test("names the refused senders so one can be allowlisted", () => {
+		const body = statusBody(
+			view({ bridge: true, account: "owner", connection: "open", refused: 2, refusedPeers: ["alice", "bob"] }),
+			fakeTheme,
+			60,
+		).join("\n");
+		expect(body).toContain("alice, bob");
+		expect(statusLine(view({ bridge: true, refused: 2, refusedPeers: ["alice"] }))).toContain("(alice)");
+	});
 	test("colors the connection and shows the account", () => {
 		const body = statusBody(view({ account: "owner", connection: "open" }), coloringTheme, 40).join("\n");
 		expect(body).toContain("Account");

@@ -179,6 +179,15 @@ describe("message helpers", () => {
 		expect(isAllowedPeer("stranger", "owner", ["friend"])).toBe(false);
 	});
 
+	test("isAllowedPeer accepts either id form", () => {
+		// The control screen shows the label without the suffix, so a config entry
+		// copied from it has to match a message that carries the suffix.
+		expect(isAllowedPeer("alice@im.wechat", "owner@im.wechat", ["alice"])).toBe(true);
+		expect(isAllowedPeer("alice", "owner@im.wechat", ["alice@im.wechat"])).toBe(true);
+		expect(isAllowedPeer("alice@im.wechat", "owner", [" ALICE@im.wechat "])).toBe(true);
+		expect(isAllowedPeer("alice@im.wechat", "owner", ["alicia"])).toBe(false);
+	});
+
 	test("isInboundMessage rejects the bot echo and messages without a sender", () => {
 		expect(isInboundMessage({ from_user_id: "u", message_type: 1 })).toBe(true);
 		expect(isInboundMessage({ from_user_id: "u", message_type: 2 })).toBe(false);
@@ -497,6 +506,38 @@ describe("bridge sendToOwner", () => {
 		const { deps } = makeDeps(client);
 		const bridge = createBridge(deps);
 		expect(await bridge.sendToOwner("hello")).toEqual({ ok: false, error: "WeChat bridge is not started." });
+	});
+
+	test("refuses to repeat the answer of the turn in flight", async () => {
+		const { client, sent } = makeClient([updates([inbound("hi")])]);
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		// The owner is mid-turn; a tool send now would deliver the answer twice.
+		expect(await bridge.sendToOwner("hi back")).toEqual({
+			ok: false,
+			error: "The bridge replies to this turn automatically; do not repeat it.",
+		});
+		expect(sent).toEqual([]);
+		await bridge.close();
+	});
+
+	test("still messages the owner while another peer's turn runs", async () => {
+		const other = "friend@im.wechat";
+		const { client, sent } = makeClient([updates([inbound("hi", other)])]);
+		const { deps, injected } = makeDeps(client, {
+			config: { ...DEFAULT_CONFIG, allowedPeers: [other] },
+			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		expect(await bridge.sendToOwner("note to self")).toEqual({ ok: true });
+		expect(sent[0]).toMatchObject({ to: owner, text: "note to self" });
+		await bridge.close();
 	});
 });
 

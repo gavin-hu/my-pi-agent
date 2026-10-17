@@ -124,6 +124,15 @@ export function peerLabel(peer: string): string {
 	return peer.replace(/@im\.wechat$/i, "");
 }
 
+/**
+ * The comparable identity of a peer id: trimmed, with the `@im.wechat` suffix
+ * dropped. `allowedPeers` accepts either form, so an operator who copies the
+ * label the control screen shows is not silently refused.
+ */
+export function peerKey(id: string): string {
+	return peerLabel(id.trim()).toLowerCase();
+}
+
 /** Whether a media reference has something to download. */
 function hasMedia(ref: CDNMedia | undefined): ref is CDNMedia {
 	return !!ref && (!!ref.encrypt_query_param || !!ref.full_url);

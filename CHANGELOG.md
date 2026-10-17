@@ -119,6 +119,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: an `allowedPeers` entry matches a sender whether or not it carries
+  the `@im.wechat` suffix, and case/whitespace no longer matter, so the id shown
+  by `/wechat status` (the label without the suffix) can be pasted straight into
+  the config. A refused sender is now named in `/wechat status` and the one-line
+  summary instead of only counted, which is what makes the allowlist usable.
+- `wechat`: `send_wechat` refuses to send while a turn with the owner is in
+  flight, since the bridge replies to that turn itself and the answer otherwise
+  arrived twice.
 - `wechat`: a remote prompt is bounded. A question forwarded to WeChat sends one
   reminder at 90 seconds and cancels itself at three minutes with a one-line
   notice, so a peer who never answers can no longer freeze the session (the
