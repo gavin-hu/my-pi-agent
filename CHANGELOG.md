@@ -33,6 +33,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the screen `Saved · reload to apply`. `bytefly.json` rows write one key
   through a per-key writer, so sibling keys, other sections, and document
   metadata survive, and a malformed document is refused instead of overwritten.
+- `bytefly`: a click on a row in the control center focuses it; the wheel still
+  scrolls, and every action keeps its keyboard path.
 
 ### Changed
 
@@ -78,6 +80,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that there is no settings pattern to write instead of doing nothing.
 - `bytefly`: `Saved · reload to apply` stays visible on a terminal too short for
   the Settings detail body, so a change is not shown as applied.
+- `bytefly`: Tab after `/bytefly doctor` completes extension names, and after an
+  extension name it completes `refresh`; each completion carries the whole
+  argument, so the subcommand survives. `/bytefly settings <name>` is refused
+  instead of silently ignored.
+- `bytefly`: a scope switch that drops the focused row (the app rows in
+  Settings' Project scope) leaves the cursor on the nearest row instead of
+  jumping back to the top.
 - `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
   instead of hiding them. The screen opens such a row's log but its `d` and `x`
   leave it alone (`x` counts only this session's finished jobs), the model can

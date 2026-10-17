@@ -276,7 +276,8 @@ the platform notifier (`osascript`, `notify-send`); see
 | `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints the grouped settings listing with each row's value. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
 
-Tab completes `doctor`, `settings`, extension names, and `refresh`.
+Tab completes the subcommands, extension names after `doctor`, and `refresh`;
+`/bytefly settings` takes no name.
 
 ## Behaviour by mode
 
@@ -567,7 +568,8 @@ grammar (`❯ ◼ ✓ name … summary`), and the shared `◼` / `◻` checkbox.
 `/bytefly doctor [extension] [refresh]` selects the doctor report, the same text
 the `run_doctor` tool returns; in `tui` it opens the same screen. `[extension]`
 narrows the Extensions section to one extension and `refresh` forces the first
-probe. Tab completes `doctor`, `settings`, extension names, and `refresh`.
+probe. Tab completes the subcommands, extension names after `doctor`, and
+`refresh`; `/bytefly settings` takes no name.
 
 The screen opens on the findings the session already has, and the Extensions
 section probes once on its first view (the hint shows `refreshing…` while it
@@ -700,7 +702,8 @@ headline; a named extension prints its full findings instead.
 | `g` / `G`, `Home` / `End` | Jump to the first or last row, in either section. |
 | `Esc` / `Ctrl+C` | Close the screen. |
 
-Mouse wheel scrolling works; every action also has a keyboard path.
+Mouse wheel scrolling and clicking a row to focus it work; every action also
+has a keyboard path.
 
 ### What is checked
 
@@ -880,7 +883,7 @@ rather than showing a wrong value.
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
-| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes `doctor`, `settings`, extension names, and `refresh`. |
+| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Working timer | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage("Working… Ns")` in `tui` mode; `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no stored state. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |

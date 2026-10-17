@@ -221,15 +221,15 @@ describe("bytefly extension", () => {
 	test("completes extension names, not the retired chrome toggles", () => {
 		const { pi, commands } = makeFakePi();
 		bytefly(pi);
-		const values = commands
+		const labels = commands
 			.get("bytefly")
 			.getArgumentCompletions("")
-			.map((item: any) => item.value);
+			.map((item: any) => item.label);
 
-		expect(values).toContain("refresh");
-		expect(values).not.toContain("header");
-		expect(values).not.toContain("footer");
-		expect(values).not.toContain("status");
+		expect(labels).toContain("refresh");
+		expect(labels).not.toContain("header");
+		expect(labels).not.toContain("footer");
+		expect(labels).not.toContain("status");
 	});
 
 	test("keeps the chrome installed when the panel runs", async () => {
