@@ -68,6 +68,11 @@ or reconnect, `n` start a new session, `o` log out, `r` refresh, and Esc closes.
 The subcommands above are shortcuts for the same actions and the only route
 outside the TUI; an unknown subcommand reports the valid ones.
 
+A WeChat turn owns the screen dialogs while it runs, so a `/wechat` command
+typed at the terminal then degrades instead of opening a dialog on the phone:
+`status` prints the one-line summary, and `login`/`logout` reply that they are
+unavailable until the turn finishes.
+
 ## Slash commands
 
 A peer can type a slash command in the chat. The bridge intercepts it before it
@@ -91,7 +96,7 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Everything, including the QR login screen and the `/wechat` control screen (`ctx.ui.custom`). |
+| `tui` | Everything, including the QR login screen and the `/wechat` control screen (`ctx.ui.custom`). While a WeChat turn owns the dialogs, `status` degrades to the one-line summary and `login`/`logout` report that their screen is unavailable. |
 | `rpc` | The bridge auto-starts and `status` prints the one-line summary; `login` needs the TUI (the QR screen is unavailable over RPC). |
 | `json`, `print` | Ephemeral; the bridge does not auto-start and no UI is available. |
 
@@ -198,7 +203,7 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 | UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
-| Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. |
+| Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a WeChat turn owns the dialogs. |
 
 ## Design notes
 
@@ -237,6 +242,13 @@ registered extension command (`/wechat new`) dispatched with
 `expandPromptTemplates`, the only host-sanctioned way for a poll callback to get
 a command context.
 
+The handle matters as much as the loop. The bridge is assigned to one variable
+that the host-event handlers, the tool, and the commands all read, because a
+built-but-unstored bridge still polls: it would inject turns, never capture or
+settle them, and never answer. Keeping the same variable also makes the
+already-open guard real: every `session_start` reuses a running bridge instead of
+building a second poller, which is what the RPC double bind would otherwise do.
+
 The operator surface is one verb table: a bare `/wechat` (or `/wechat status`)
 opens the control screen, whose keys return the same verbs the subcommands
 accept, so each action has a single implementation and there is no subcommand to
@@ -251,7 +263,7 @@ status, which is what the old start/stop guidance used to do.
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge. |
 | `bridge.ts` | The loop: poll, queue, inject, capture, reply, media, typing, connection state, abort. |
-| `commands.ts` | `/wechat login|new|status|logout|help`: the verb dispatch, the panel, login, and logout. |
+| `commands.ts` | `/wechat login|new|status|logout|help`: the verb dispatch, the panel, login, and logout; declines a screen while a WeChat turn owns the dialogs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
 | `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |

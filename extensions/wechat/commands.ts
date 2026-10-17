@@ -11,6 +11,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isRemoteTurn } from "../../lib/interaction.ts";
 import type { Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
@@ -46,6 +47,22 @@ export function isWechatVerb(value: string): value is WechatVerb {
 
 function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Whether a WeChat turn currently owns the dialogs, reported instead of opening
+ * a screen. While it runs, `ctx.ui.custom` resolves `undefined` (the remote
+ * adapter refuses full-screen components) and `ctx.ui.select`/`confirm` are
+ * forwarded to WeChat, so a terminal-side command must decline rather than
+ * open its dialog on the phone or read back nothing.
+ */
+function busyWithRemoteTurn(ctx: ExtensionContext, verb: string): boolean {
+	if (!isRemoteTurn(ctx)) return false;
+	ctx.ui.notify(
+		`A WeChat turn is in progress, so /wechat ${verb} is unavailable here. Finish the turn, then retry.`,
+		"warning",
+	);
+	return true;
 }
 
 /**
@@ -85,6 +102,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		ctx.ui.notify("WeChat login needs the interactive terminal UI.", "warning");
 		return;
 	}
+	if (busyWithRemoteTurn(ctx, "login")) return;
 	const client = deps.createLoginClient(ctx.cwd);
 	const config = deps.loadConfig(ctx.cwd);
 
@@ -97,7 +115,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 	}
 
 	const state: LoginViewState = { status: "wait", lines: qrLines(qr.imgContent), url: qr.imgContent };
-	const result = await ctx.ui.custom<LoginOutcome>((tui, theme, _keybindings, done) => {
+	const result = await ctx.ui.custom<LoginOutcome | undefined>((tui, theme, _keybindings, done) => {
 		const controller = new AbortController();
 		void (async () => {
 			const outcome = await waitForLogin(client, qr, {
@@ -124,7 +142,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		});
 	});
 
-	finishLogin(result, ctx, deps);
+	finishLogin(result ?? { kind: "cancelled" }, ctx, deps);
 }
 
 /**
@@ -138,13 +156,14 @@ export async function runNew(ctx: ExtensionCommandContext): Promise<void> {
 
 /**
  * The control screen: connection facts plus every action as a key. Outside the
- * TUI it collapses to the one-line summary. The screen returns an action instead
- * of running it, so the QR login screen is never opened while the control screen
- * still owns input focus.
+ * TUI, and during a WeChat turn (which owns the dialogs), it collapses to the
+ * one-line summary. The screen returns an action instead of running it, so the
+ * QR login screen is never opened while the control screen still owns input
+ * focus.
  */
 async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
 	const view = (): StatusView => statusView(deps.primaryAccount(), deps.getBridge()?.status());
-	if (ctx.mode !== "tui") {
+	if (ctx.mode !== "tui" || isRemoteTurn(ctx)) {
 		ctx.ui.notify(statusLine(view()));
 		return;
 	}
@@ -169,6 +188,7 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 }
 
 async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
+	if (busyWithRemoteTurn(ctx, "logout")) return;
 	if (!(await ctx.ui.confirm("Log out of WeChat?", "Remove the stored credentials and close the bridge."))) return;
 	await deps.getBridge()?.close();
 	deps.logout();

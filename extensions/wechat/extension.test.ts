@@ -3,6 +3,8 @@ import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir } from "../../test/helpers/env.ts";
 import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
+import { fakeWechatClient, inboundText, updates, writeAccount } from "../../test/helpers/fixtures/wechat.ts";
+import { waitFor } from "../../test/helpers/process.ts";
 import wechat, { wechatChip } from "./index.ts";
 
 describe("wechat extension", () => {
@@ -55,5 +57,133 @@ describe("wechat extension", () => {
 		expect(wechatChip(coloringTheme, "running")).toBe(`[success]${GLYPHS.wechat} wechat`);
 		expect(wechatChip(coloringTheme, "expired")).toBe(`[error]${GLYPHS.wechat} wechat expired`);
 		expect(wechatChip(coloringTheme, "stopped")).toBeUndefined();
+	});
+});
+
+/**
+ * The lifecycle contract: one poller per runtime, opened when an account is
+ * stored, answering inbound turns, and released on shutdown. Driven through the
+ * real bridge with only the transport and the timer injected.
+ */
+describe("wechat lifecycle", () => {
+	async function start(dir: string, script = [updates()]) {
+		const fake = createFakePi();
+		const client = fakeWechatClient(script);
+		wechat(fake.pi, { createClient: client.createClient, sleep: client.sleep });
+		const result = fakeCtx({ mode: "rpc", cwd: dir });
+		await emit(fake.pi, "session_start", { type: "session_start" }, result.ctx);
+		return { fake, client, ...result };
+	}
+
+	test("connects a stored account on session_start", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const { fake, ctx, notifications } = await start(dir);
+
+			await fake.commands.get("wechat").handler("status", ctx);
+			expect(notifications.join("\n")).toContain("open");
+
+			const tool = fake.tools.get("send_wechat");
+			const result = await tool.execute("id", { text: "hi" }, undefined, undefined, ctx);
+			expect(result.content[0].text).toBe("Sent to the WeChat owner.");
+
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
+	test("keeps one poller when session_start is emitted twice", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const { fake, client, ctx } = await start(dir);
+
+			// RPC binds the session twice on a session switch.
+			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+			expect(client.clients()).toBe(1);
+
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
+	test("answers an inbound message after a restart", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const { fake, client, ctx } = await start(dir, [updates([inboundText("hello")])]);
+
+			await waitFor(() => fake.sentMessages.length === 1);
+			expect(fake.sentMessages[0].content).toBe("hello");
+
+			await emit(fake.pi, "agent_start", { type: "agent_start" }, ctx);
+			await emit(
+				fake.pi,
+				"message_end",
+				{ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "hi from pi" }] } },
+				ctx,
+			);
+			await emit(fake.pi, "agent_settled", { type: "agent_settled" }, ctx);
+
+			await waitFor(() => client.sent.length === 1);
+			expect(client.sent[0]).toMatchObject({ to: "owner@im.wechat", text: "hi from pi" });
+
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
+	test("stops polling and clears its handles on session_shutdown", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const { fake, client, ctx, statuses } = await start(dir);
+			await waitFor(() => client.polls() >= 1);
+			expect(statuses.get("wechat")).toContain("wechat");
+			const polls = client.polls();
+
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+			expect(client.aborts()).toBe(1);
+			expect(client.polls()).toBe(polls);
+			expect(statuses.get("wechat")).toBeUndefined();
+
+			// A second shutdown (reload, replacement, process exit) must not throw.
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
+	test("reconnects on the replacement runtime after a session switch", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			// One runtime drains its loop, so each replacement gets its own transport.
+			const first = fakeWechatClient([updates([inboundText("first")])]);
+			const second = fakeWechatClient([updates([inboundText("second")])]);
+
+			// The host re-runs the factory for the new session, after shutdown.
+			const before = createFakePi();
+			wechat(before.pi, { createClient: first.createClient, sleep: first.sleep });
+			const beforeCtx = fakeCtx({ mode: "rpc", cwd: dir });
+			await emit(before.pi, "session_start", { type: "session_start" }, beforeCtx.ctx);
+			await waitFor(() => before.sentMessages.length === 1);
+			await emit(before.pi, "session_shutdown", { type: "session_shutdown" }, beforeCtx.ctx);
+
+			const after = createFakePi();
+			wechat(after.pi, { createClient: second.createClient, sleep: second.sleep });
+			const afterCtx = fakeCtx({ mode: "rpc", cwd: dir });
+			await emit(after.pi, "session_start", { type: "session_start" }, afterCtx.ctx);
+
+			await waitFor(() => after.sentMessages.length === 1);
+			expect(after.sentMessages[0].content).toBe("second");
+			expect(first.clients()).toBe(1);
+			expect(second.clients()).toBe(1);
+
+			// The new runtime's turn is answered by the new runtime's bridge.
+			await emit(after.pi, "agent_start", { type: "agent_start" }, afterCtx.ctx);
+			await emit(
+				after.pi,
+				"message_end",
+				{ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "reconnected" }] } },
+				afterCtx.ctx,
+			);
+			await emit(after.pi, "agent_settled", { type: "agent_settled" }, afterCtx.ctx);
+			await waitFor(() => second.sent.length === 1);
+			expect(second.sent[0].text).toBe("reconnected");
+
+			await emit(after.pi, "session_shutdown", { type: "session_shutdown" }, afterCtx.ctx);
+		});
 	});
 });
