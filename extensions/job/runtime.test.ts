@@ -680,12 +680,13 @@ describe("job runtime — log rotation", () => {
 		// Each write waits for the file, so the stream's byte count matches the file
 		// and the third line deterministically crosses the 8-byte cap.
 		h.children[0].write("aaaa\n");
-		await waitFor(() => readLog(logPath) === "aaaa\n");
+		await waitFor(() => readLog(logPath) === "aaaa\n", 200);
 		h.children[0].write("bbbb\n");
-		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n");
+		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n", 200);
 		h.children[0].write("cccc\n");
-		await waitFor(() => readLog(rotated) === "aaaa\nbbbb\n");
-		expect(readLog(logPath)).toBe("cccc\n");
+		// The rename lands before the reopened stream flushes its queued chunk, so
+		// wait for both halves rather than asserting on an empty live segment.
+		await waitFor(() => readLog(rotated) === "aaaa\nbbbb\n" && readLog(logPath) === "cccc\n", 200);
 	});
 
 	test("keeps one previous segment and replaces it on the next rotation", async () => {
@@ -695,9 +696,12 @@ describe("job runtime — log rotation", () => {
 
 		for (const line of ["aaaa", "bbbb", "cccc", "dddd", "eeee"]) {
 			h.children[0].write(`${line}\n`);
-			await waitFor(() => readLog(logPath).includes(line) || readLog(rotated).includes(line));
+			await waitFor(() => readLog(logPath).includes(line) || readLog(rotated).includes(line), 200);
 		}
 
+		// Two rotations by the fifth line: the first pair moves to `.1`, the second
+		// pair replaces it, and the newest line starts the live segment again.
+		await waitFor(() => readLog(rotated) === "cccc\ndddd\n" && readLog(logPath) === "eeee\n", 200);
 		expect(existsSync(rotated)).toBe(true);
 		expect(existsSync(`${rotated}.1`)).toBe(false);
 		// The oldest line was rotated out of the only previous segment.
@@ -711,7 +715,7 @@ describe("job runtime — log rotation", () => {
 		const rotated = join(h.dir, "j1.log.1");
 
 		h.children[0].write("aaaa\n");
-		await waitFor(() => readLog(logPath) === "aaaa\n");
+		await waitFor(() => readLog(logPath) === "aaaa\n", 200);
 
 		// The first chunk starts a rotation; the next two arrive while it is in
 		// flight. They are replayed through the cap check, so the new segment is
@@ -719,7 +723,7 @@ describe("job runtime — log rotation", () => {
 		h.children[0].write("bbbb\n");
 		h.children[0].write("cccc\n");
 		h.children[0].write("dddd\n");
-		await waitFor(() => existsSync(rotated) && readLog(logPath).includes("dddd"));
+		await waitFor(() => existsSync(rotated) && readLog(logPath).includes("dddd"), 200);
 		await settle(20);
 
 		expect(readLog(rotated) + readLog(logPath)).toBe("aaaa\nbbbb\ncccc\ndddd\n");
@@ -731,11 +735,11 @@ describe("job runtime — log rotation", () => {
 		const logPath = startCapped(h);
 
 		h.children[0].write("aaaa\n");
-		await waitFor(() => readLog(logPath) === "aaaa\n");
+		await waitFor(() => readLog(logPath) === "aaaa\n", 200);
 		h.children[0].write("bbbb\n");
-		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n");
+		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n", 200);
 		h.children[0].write("cccc\n");
-		await waitFor(() => readLog(logPath) === "cccc\n");
+		await waitFor(() => readLog(logPath) === "cccc\n" && existsSync(join(h.dir, "j1.log.1")), 200);
 
 		expect(h.runtime.logs("j1", 10)?.lines).toEqual(["aaaa", "bbbb", "cccc"]);
 	});
@@ -746,11 +750,11 @@ describe("job runtime — log rotation", () => {
 		const rotated = join(h.dir, "j1.log.1");
 
 		h.children[0].write("aaaa\n");
-		await waitFor(() => readLog(logPath) === "aaaa\n");
+		await waitFor(() => readLog(logPath) === "aaaa\n", 200);
 		h.children[0].write("bbbb\n");
-		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n");
+		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n", 200);
 		h.children[0].write("cccc\n");
-		await waitFor(() => existsSync(rotated));
+		await waitFor(() => existsSync(rotated), 200);
 
 		h.children[0].close(0);
 		h.runtime.clear("j1", false);
@@ -779,9 +783,9 @@ describe("job runtime — log rotation", () => {
 		const rotated = join(h.dir, "j1.log.1");
 
 		h.children[0].write("aaaa\n");
-		await waitFor(() => readLog(logPath) === "aaaa\n");
+		await waitFor(() => readLog(logPath) === "aaaa\n", 200);
 		h.children[0].write("bbbb\n");
-		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n");
+		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n", 200);
 
 		// The third line starts a rotation; the close arrives before the stream's own
 		// `close`, so the pending callback must bail instead of renaming and reopening.
