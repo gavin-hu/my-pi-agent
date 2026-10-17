@@ -146,6 +146,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: the startup header now takes its left margin from Pi's `outputPad`
+  instead of a fixed column, so `outputPad: 0` no longer leaves the nameplate one
+  column right of the transcript, and its grouped help hangs one body indent
+  inside that margin instead of at `screenHint`'s screen indent. The hint helper
+  gains an optional `indent` (default unchanged), which the header uses;
+  `bun run screenshots render chrome` now draws the whole frame at Pi's default
+  pad so the preview matches a real session.
 - `subagent`: the call line survives a partially-streamed call. A streamed
   `tasks` or `chain` element can reach the renderer before its `agent` and
   `task`, and the renderer called `replace` on the missing task, so the call

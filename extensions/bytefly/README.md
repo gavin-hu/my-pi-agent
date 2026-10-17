@@ -44,15 +44,17 @@ cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
  █▀█  Pi v1.2.0
  █▀ █ enhanced by bytefly v0.8.1
  ─────────────────────────────────────────────────
-  escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)
-  ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model
-  / commands · ! bash · !! bash (no context) · /bytefly extensions
+   escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)
+   ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model
+   / commands · ! bash · !! bash (no context) · /bytefly extensions
 ```
 
 As the terminal narrows, the identity sheds the chrome version, then the chrome
 line, then the agent name, and the help rows drop whole keys, so nothing wraps or
-clips mid-word. The mark, tokens, identity, and grouped help are tuned in
-[`header/config.ts`](./header/config.ts).
+clips mid-word. The nameplate sits on the transcript margin, which follows Pi's
+`outputPad` (the value the tool frame and the notice use too), and the help hangs
+one body indent inside it. The mark, tokens, identity, and grouped help are tuned
+in [`header/config.ts`](./header/config.ts).
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -271,8 +273,8 @@ TTY, so a print/JSON/RPC run gets an OS-level notification or none.
 ## Configuration
 
 The header is tuned in [`header/config.ts`](./header/config.ts) — the mark and
-identity theme tokens, the padding and tagline, and the grouped help entries
-(each naming a Pi keybinding resolved live or a raw command prefix). The footer's
+identity theme tokens, the tagline, and the grouped help entries (each naming a
+Pi keybinding resolved live or a raw command prefix). The footer's
 content and layout are tuned in [`footer/config.ts`](./footer/config.ts) —
 thresholds, gauge
 glyphs and widths, separators, icons, and status keys. The turn separator has no
@@ -737,7 +739,7 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
@@ -820,9 +822,11 @@ rather than showing a wrong value.
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
   under the mark, and pairs them with the agent identity, the chrome identity,
-  and a grouped help block. It adds no session or model data — that is the
-  footer's job — and it stays a fixed four-plus rows so the startup transcript
-  never reflows.
+  and a grouped help block. It takes its margin from Pi's `outputPad`, like the
+  tool frame and the notice, and hangs the help one body indent inside it, so the
+  header follows a non-default pad instead of assuming a column. It adds no
+  session or model data — that is the footer's job — and it stays a fixed
+  four-plus rows so the startup transcript never reflows.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".
@@ -953,7 +957,7 @@ columns, gauge), so the look follows the active theme.
 | `index.ts` | Composition root: the disable guard, the eleven `register*` calls, the one shared output-pad store, and the rail source. |
 | `pad.ts` | `PadSource` and `createPadStore`: one record of Pi's output pad, so the tool frame, the notice, and the turn separator inset by the same margin. |
 | `chrome.ts` | The transcript rail (`RAIL_ROLES`, `railGlyph`/`railPrefix`), the `chrome` section's normalizer and loader, and the `RailSource` that `registerChrome` keeps current on `session_start`/`session_tree`. |
-| `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity roles, padding, tagline, and the grouped help entries. |
+| `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity roles, tagline, and the grouped help entries. |
 | `header/component.ts` | `ByteflyHeader`: the mark, identity rows, signature rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
 | `footer/register.ts` | Installs/restores the footer and owns its session lifecycle. |

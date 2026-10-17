@@ -9,6 +9,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isAppleTerminalSession } from "@earendil-works/pi-tui";
+import { DEFAULT_HOST_PAD } from "../pad.ts";
 import { createHeader, type HeaderView } from "./component.ts";
 import { HEADER_CONFIG } from "./config.ts";
 
@@ -17,10 +18,14 @@ export function registerHeader(pi: ExtensionAPI): void {
 	// Half blocks misalign in Apple Terminal, so the mark falls back to a wordmark
 	// there, mirroring Pi's own built-in header.
 	const halfBlocks = !isAppleTerminalSession();
-	const view = (): HeaderView => ({ showVersion: HEADER_CONFIG.showVersion, halfBlocks });
 
 	const apply = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;
+		// The nameplate sits on the transcript margin, which is Pi's output pad — the
+		// value the tool frame and the notice inset by. An older host without
+		// `getSettings` keeps the default margin.
+		const pad = pi.getSettings?.().outputPad ?? DEFAULT_HOST_PAD;
+		const view = (): HeaderView => ({ showVersion: HEADER_CONFIG.showVersion, halfBlocks, pad });
 		ctx.ui.setHeader(createHeader(() => ctx.ui.theme, view));
 	};
 

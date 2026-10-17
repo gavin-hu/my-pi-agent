@@ -42,6 +42,7 @@ afterEach(() => {
 const view = (overrides: Partial<HeaderView> = {}): HeaderView => ({
 	showVersion: true,
 	halfBlocks: true,
+	pad: 1,
 	...overrides,
 });
 
@@ -59,10 +60,18 @@ describe("ByteflyHeader", () => {
 			" █▀█  Pi v1.2.0",
 			` █▀ █ ${chrome}`,
 			` ${"─".repeat(79)}`,
-			"  escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)",
-			"  ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model",
-			"  / commands · ! bash · !! bash (no context) · /bytefly extensions",
+			"   escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)",
+			"   ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model",
+			"   / commands · ! bash · !! bash (no context) · /bytefly extensions",
 		]);
+	});
+
+	test("hangs the help one body indent inside the margin", () => {
+		const flush = header(view({ pad: 0 })).render(80);
+
+		expect(flush[0]).toBe("█▀█  Pi v1.2.0");
+		expect(flush[2]).toBe("─".repeat(80));
+		expect(flush[3]?.startsWith("  escape")).toBe(true);
 	});
 
 	test("starts both identity cells at the same column", () => {
@@ -92,7 +101,9 @@ describe("ByteflyHeader", () => {
 
 		expect(lines[3]).toBe("");
 		expect(lines[4]).toBe("");
-		expect(lines[5]).toBe("  / commands · ! bash · !! bash (no context) · /bytefly extensions");
+		const row = lines[5] ?? "";
+		expect(row.indexOf("/")).toBe(3);
+		expect(row).toContain("/ commands · ! bash · !! bash (no context) · /bytefly extensions");
 	});
 
 	test("resolves a chord live, so a rebound key shows up", () => {
@@ -120,10 +131,12 @@ describe("ByteflyHeader", () => {
 	test("every line fits the requested width at any size", () => {
 		for (const width of [1, 2, 4, 5, 14, 15, 24, 25, 31, 32, 45, 80]) {
 			for (const halfBlocks of [true, false]) {
-				const lines = header(view({ halfBlocks })).render(width);
-				expect(lines).toHaveLength(6);
-				for (const line of lines) {
-					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				for (const pad of [0, 1]) {
+					const lines = header(view({ halfBlocks, pad })).render(width);
+					expect(lines).toHaveLength(6);
+					for (const line of lines) {
+						expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+					}
 				}
 			}
 		}

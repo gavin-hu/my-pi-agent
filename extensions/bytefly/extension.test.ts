@@ -181,6 +181,25 @@ describe("bytefly extension", () => {
 		expect(lines[1]).toContain("enhanced by bytefly");
 	});
 
+	test("places the header on Pi's output pad", async () => {
+		for (const [outputPad, margin, help] of [
+			[undefined, 1, 3],
+			[0, 0, 2],
+		] as const) {
+			const { pi } = makeFakePi({ settings: { outputPad } });
+			bytefly(pi);
+			const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
+			await emit(pi, "session_start", { reason: "startup" }, ctx);
+			const lines = headers
+				.at(-1)({ requestRender: () => {} }, fakeTheme)
+				.render(80);
+
+			expect(lines[0]?.startsWith(`${" ".repeat(margin)}█▀█`)).toBe(true);
+			// The raw `/` hints need no keybinding, so the row is stable in a bare test.
+			expect(lines[5]?.startsWith(`${" ".repeat(help)}/`)).toBe(true);
+		}
+	});
+
 	test("restores the built-in footer on shutdown", async () => {
 		const { pi } = makeFakePi();
 		bytefly(pi);

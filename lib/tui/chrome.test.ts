@@ -36,6 +36,24 @@ describe("screenHint", () => {
 		expect(screenHint(fakeTheme, 80, ["a", "b"])).toBe("  a · b");
 	});
 
+	test("places the hints at the requested indent", () => {
+		const line = screenHint(fakeTheme, 80, ["a", "b"], 3);
+		expect(line.indexOf("a")).toBe(3);
+		expect(line).toContain("a · b");
+	});
+
+	test("keeps a column for the hint however deep the indent", () => {
+		expect(screenHint(fakeTheme, 1, ["a"], 4)).toBe("a");
+	});
+
+	test("clips to the width at a custom indent", () => {
+		const line = screenHint(fakeTheme, 10, ["alpha", "beta", "gamma"], 4);
+		expect(line.startsWith("    ")).toBe(true);
+		expect(line).toContain("alpha");
+		expect(line).not.toContain("beta");
+		expect(visibleWidth(line)).toBeLessThanOrEqual(10);
+	});
+
 	test("drops a whole hint rather than truncating it, keeping the first", () => {
 		const line = screenHint(fakeTheme, 10, ["alpha", "beta", "gamma"]);
 		expect(line).toContain("alpha");
