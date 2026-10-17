@@ -59,13 +59,14 @@ describe("bytefly panel command", () => {
 		});
 	});
 
-	test("completes the doctor subcommand, extension names, and refresh", () => {
+	test("completes the subcommands, extension names, and refresh", () => {
 		const { commands } = boot({});
 		const values = commands
 			.get("bytefly")
 			.getArgumentCompletions("")
 			.map((entry: { value: string }) => entry.value);
 		expect(values).toContain("doctor");
+		expect(values).toContain("settings");
 		expect(values).toContain("refresh");
 		expect(values).toContain("plan");
 		expect(values).not.toContain("header");
@@ -177,6 +178,35 @@ describe("bytefly panel modes", () => {
 		await commands.get("bytefly").handler("", ctx);
 
 		expect(notifications.at(-1)).toContain("Could not probe extensions: probe exploded");
+	});
+
+	test("prints the settings line outside TUI mode without resolving extensions", async () => {
+		const { commands } = boot({
+			discover: async () => {
+				throw new Error("should not resolve extensions");
+			},
+		});
+		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+
+		await commands.get("bytefly").handler("settings", ctx);
+
+		expect(notifications.at(-1)).toBe("bytefly: Settings · Global · 0 settings");
+	});
+
+	test("mounts the dock screen on the Settings section in TUI mode", async () => {
+		const { commands } = boot({});
+		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		let rendered = "";
+		ctx.ui.custom = async (factory: any) => {
+			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			rendered = component.render(80).join("\n");
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("settings", ctx);
+
+		expect(rendered).toContain("No settings yet.");
+		expect(rendered).toContain("0 settings");
 	});
 
 	test("mounts the dock screen once in TUI mode", async () => {

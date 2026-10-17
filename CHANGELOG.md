@@ -28,6 +28,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The pipe is live-only (a reattached or peer job cannot be written to, and
   `detached` cannot be combined with `stdin`), and stdin stays closed by
   default so an existing job still gets EOF and exits.
+- `bytefly`: `/bytefly` is now a two-section control center — `←`/`→` switch
+  between Extensions (the unchanged list and toggles) and Settings, a
+  Pi-`/settings`-shaped section with its own scope-aware section bar, the shared
+  dock frame, and a `No settings yet.` body, opened directly with
+  `/bytefly settings`. The shell reads and writes no file yet; settings rows
+  land in it later.
 
 ### Changed
 

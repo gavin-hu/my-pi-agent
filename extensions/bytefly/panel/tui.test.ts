@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
-import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { coloringTheme, fakeTheme, roleSgrTheme, ROLE_SGR } from "../../../test/helpers/fakes.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import {
 	makeDiscovery,
@@ -29,6 +29,7 @@ function build(options: {
 	width?: number;
 	theme?: unknown;
 	filter?: string;
+	section?: "extensions" | "settings";
 	refresh?: () => void | Promise<void>;
 }) {
 	const store = options.store ?? makeStore();
@@ -45,6 +46,7 @@ function build(options: {
 		runtime,
 		reports: () => reports,
 		filter: options.filter,
+		section: options.section,
 		theme: (options.theme as typeof fakeTheme) ?? fakeTheme,
 		agentDir: "/agent",
 		viewportRows: options.rows ?? 24,
@@ -288,6 +290,91 @@ describe("PanelComponent input", () => {
 		items = [packageItem("alpha"), packageItem("plan"), makeItem({ path: "/home/me/.pi/extensions/plan/extra.ts" })];
 		const text = component.render(60).join("\n");
 		expect(text).toContain("[accent]plan/extra.ts");
+	});
+});
+
+describe("PanelComponent sections", () => {
+	test("draws both section names and accents the active one", () => {
+		const { component } = build({ items: [packageItem("plan")], reports: [], theme: roleSgrTheme });
+
+		const text = component.render(90).join("\n");
+		expect(text).toContain(`${ROLE_SGR.accent}Extensions`);
+		expect(text).toContain(`${ROLE_SGR.other}Settings`);
+	});
+
+	test("opens on the Settings section when the command asks for it", () => {
+		const { component } = build({
+			items: [packageItem("plan")],
+			reports: [],
+			section: "settings",
+			theme: roleSgrTheme,
+		});
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
+		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
+		expect(text).toContain("No settings yet.");
+		expect(text).toContain("0 settings");
+		expect(text).not.toContain("plan/index.ts");
+	});
+
+	test("switches sections with the arrow keys and keeps the extension focus", () => {
+		const { component } = build({ items: [packageItem("alpha"), packageItem("beta")], reports: [] });
+		const selectedLine = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
+
+		component.render(80);
+		component.handleInput("j");
+		expect(selectedLine()).toContain("beta/index.ts");
+
+		component.handleInput("\u001b[C");
+		expect(component.render(80).join("\n")).toContain("No settings yet.");
+
+		component.handleInput("\u001b[D");
+		expect(selectedLine()).toContain("beta/index.ts");
+	});
+
+	test("keeps the scope switch working in Settings", () => {
+		const { component } = build({ items: [packageItem("plan")], section: "settings" });
+
+		component.handleInput("\t");
+
+		expect(component.render(80).join("\n")).toContain("Project · 0 settings");
+	});
+
+	test("refuses the project scope in Settings when the project is untrusted", () => {
+		const { component, notices } = build({ items: [packageItem("plan")], section: "settings", trusted: false });
+
+		component.handleInput("\t");
+
+		expect(notices.at(-1)).toContain("Project is not trusted");
+		expect(component.render(80).join("\n")).toContain("Global · 0 settings");
+	});
+
+	test("has nothing to toggle in the empty Settings shell", () => {
+		const { component, runtime } = build({ items: [packageItem("plan")], section: "settings" });
+
+		component.handleInput(" ");
+
+		expect(runtime.isDirty()).toBe(false);
+	});
+
+	test("hints the section switch and the scope keys", () => {
+		const { component } = build({ items: [packageItem("plan")], section: "settings" });
+
+		const text = component.render(96).join("\n");
+		expect(text).toContain("←/→");
+		expect(text).toContain("Tab scope");
+	});
+
+	test("keeps every line within the width in both sections", () => {
+		for (const section of ["extensions", "settings"] as const) {
+			const { component } = build({ items: [packageItem("plan")], reports: [], section });
+			for (const width of [80, 48, 40]) {
+				for (const line of component.render(width)) {
+					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				}
+			}
+		}
 	});
 });
 

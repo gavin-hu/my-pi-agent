@@ -59,8 +59,10 @@ pi -e .                                                    # try it for one run
 
 Then, from inside Pi:
 
-- `/bytefly [extension] [refresh]` opens the extension screen, lists every loaded
-  extension with its runtime health, and enables or disables one.
+- `/bytefly [extension] [refresh]` opens the control center on Extensions, lists
+  every loaded extension with its runtime health, and enables or disables one.
+- `/bytefly settings` opens the control center's Settings section (an empty shell
+  for now), a Pi-`/settings`-shaped list for settings rows to land in.
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —
   `run_doctor`'s text — and checks that each enabled extension has what it needs
   at runtime.
@@ -106,7 +108,7 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` subcommand), `run_doctor` | A themed header and width-adaptive footer, a two-row `You` nameplate on each user message, a rule between completed turns, a shared transcript notice, a tool block that leads with its call line and rails its result body two columns under it (the rail glyph is the `chrome.rail` setting), a live elapsed counter on Pi's working row, the `/bytefly` extension screen that lists every extension with its health and enables or disables one (`/bytefly doctor` prints the doctor report), and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` and `settings` subcommands), `run_doctor` | A themed header and width-adaptive footer, a two-row `You` nameplate on each user message, a rule between completed turns, a shared transcript notice, a tool block that leads with its call line and rails its result body two columns under it (the rail glyph is the `chrome.rail` setting), a live elapsed counter on Pi's working row, the `/bytefly` control center — an Extensions section that lists every extension with its health and enables or disables one, plus a Settings section shell (`/bytefly settings`) — `/bytefly doctor` prints the doctor report, and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | A GitHub-inspired dark palette and its light companion, with optional automatic light/dark switching. |
 
 ### Screens

@@ -10,6 +10,9 @@
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import type { ResourceItem } from "../picker/types.ts";
 
+/** The control center's surfaces: the extension list and the settings list. */
+export type PanelSection = "extensions" | "settings";
+
 /** One group header in the merged model. */
 export interface PanelGroup {
 	/** Group key from the picker's `buildEntries`. */

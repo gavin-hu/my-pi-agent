@@ -11,7 +11,7 @@
 import type { TuiRole } from "../../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { reportSeverity, reportSummary } from "../doctor/format.ts";
-import type { PanelModel, PanelRow } from "./types.ts";
+import type { PanelModel, PanelRow, PanelSection } from "./types.ts";
 
 /** The settings scope the screen shows. */
 export type PanelScope = "global" | "project";
@@ -82,6 +82,38 @@ export function summarySegments(model: PanelModel, scope: PanelScope, options: S
 		segments.push({ text: problems.join(", "), color: counts.missing > 0 ? "bad" : "warn" });
 	}
 	return segments;
+}
+
+/** The Settings section has no rows yet; the shell states that in one line. */
+export const SETTINGS_EMPTY_LABEL = "No settings yet.";
+
+/**
+ * The section bar's two segments, in screen order. The active section takes the
+ * accent and the other recedes, so the bar reads as a two-way switch.
+ */
+export function sectionSegments(active: PanelSection): SummarySegment[] {
+	return [
+		{ text: "Extensions", color: active === "extensions" ? "accent" : "faint" },
+		{ text: "Settings", color: active === "settings" ? "accent" : "faint" },
+	];
+}
+
+/**
+ * The Settings section's counts: the scope and how many rows it holds. The
+ * shell has no rows yet, so the count is always zero until the first row lands.
+ */
+export function settingsSummarySegments(scope: PanelScope): SummarySegment[] {
+	return [
+		{ text: scope === "global" ? "Global" : "Project", color: "accent" },
+		{ text: "0 settings", color: "meta" },
+	];
+}
+
+/** The Settings headline for non-TUI modes, e.g. `bytefly: Settings · Global · 0 settings`. */
+export function formatSettingsHeadline(scope: PanelScope): string {
+	return `bytefly: Settings · ${settingsSummarySegments(scope)
+		.map((segment) => segment.text)
+		.join(" · ")}`;
 }
 
 /** The headline as one plain line, e.g. `bytefly: Global · 15 extensions · 1 missing`. */

@@ -19,9 +19,10 @@ import type { DoctorRuntime } from "../doctor/runtime.ts";
 import { discoverExtensions, type DiscoveryDeps } from "../picker/discovery.ts";
 import { createExtensionsPickerRuntime, type ExtensionsPickerRuntime } from "../picker/runtime.ts";
 import type { Discovery } from "../picker/types.ts";
-import { formatListing } from "./format.ts";
+import { formatListing, formatSettingsHeadline } from "./format.ts";
 import { buildPanelModel, extensionName } from "./join.ts";
 import { PanelComponent } from "./tui.ts";
+import type { PanelSection } from "./types.ts";
 
 /** Host seams for the panel command, injected by tests and the composition root. */
 export interface PanelCommandDeps {
@@ -42,31 +43,36 @@ function selectableNames(discovery: Discovery): Set<string> {
 	return names;
 }
 
-/** Argument completions: the `doctor` subcommand, every declared extension, then `refresh`. */
+/** Argument completions: the subcommands, every declared extension, then `refresh`. */
 function completions(prefix: string): Array<{ value: string; label: string }> | null {
-	const options = ["doctor", ...Object.keys(REQUIREMENTS), "refresh"].filter((option) => option.startsWith(prefix));
+	const options = ["doctor", "settings", ...Object.keys(REQUIREMENTS), "refresh"].filter((option) =>
+		option.startsWith(prefix),
+	);
 	return options.length > 0 ? options.map((value) => ({ value, label: value })) : null;
 }
 
 /** Which bytefly surface the arguments select. */
 type PanelMode = "screen" | "doctor";
 
-/** `/bytefly [doctor] [extension] [refresh]`, parsed. */
+/** `/bytefly [doctor] [settings] [extension] [refresh]`, parsed. */
 interface PanelArgs {
 	mode: PanelMode;
+	/** The section the screen opens on. */
+	section: PanelSection;
 	/** The extension to narrow to, when one is named. */
 	name?: string;
 	/** Re-probe the doctor instead of reusing the session cache. */
 	refresh: boolean;
 }
 
-/** Parse `/bytefly [doctor] [extension] [refresh]`; extra tokens are ignored. */
+/** Parse `/bytefly [doctor] [settings] [extension] [refresh]`; extra tokens are ignored. */
 function parseArgs(args: string): PanelArgs {
 	const parts = args.trim().split(/\s+/).filter(Boolean);
 	const refresh = parts.includes("refresh");
 	const rest = parts.filter((part) => part !== "refresh");
-	const mode: PanelMode = rest[0] === "doctor" ? "doctor" : "screen";
-	return { mode, name: rest[mode === "doctor" ? 1 : 0], refresh };
+	if (rest[0] === "doctor") return { mode: "doctor", section: "extensions", name: rest[1], refresh };
+	if (rest[0] === "settings") return { mode: "screen", section: "settings", name: rest[1], refresh };
+	return { mode: "screen", section: "extensions", name: rest[0], refresh };
 }
 
 /**
@@ -98,7 +104,14 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 	const discover = deps.discover ?? discoverExtensions;
 
 	const handler = async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
-		const { mode, name, refresh } = parseArgs(args);
+		const { mode, section, name, refresh } = parseArgs(args);
+
+		// Settings is an empty shell: the other modes print its one-line listing
+		// without resolving packages or probing the doctor.
+		if (section === "settings" && ctx.mode !== "tui") {
+			ctx.ui.notify(formatSettingsHeadline("global"), "info");
+			return;
+		}
 
 		const cwd = ctx.cwd ?? process.cwd();
 		const agentDir = getAgentDir();
@@ -124,7 +137,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			ctx.ui.notify(`Could not probe extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
 			return;
 		}
-		if (name !== undefined && !selectableNames(discovery).has(name)) {
+		if (name !== undefined && section === "extensions" && !selectableNames(discovery).has(name)) {
 			ctx.ui.notify(`bytefly: no extension named "${sanitizeLine(name)}"`, "warning");
 			return;
 		}
@@ -150,7 +163,8 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 				return new PanelComponent({
 					runtime,
 					reports: () => reports,
-					filter: name,
+					filter: section === "extensions" ? name : undefined,
+					section,
 					theme,
 					agentDir,
 					viewportRows: () => tui.terminal?.rows,
@@ -174,7 +188,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 
 	pi.registerCommand("bytefly", {
 		description:
-			"Open the bytefly extension screen: /bytefly [extension] [refresh]; /bytefly doctor [extension] [refresh] prints the doctor report",
+			"Open the bytefly control center: /bytefly [extension] [refresh] lists extensions, /bytefly settings opens settings; /bytefly doctor [extension] [refresh] prints the doctor report",
 		getArgumentCompletions: completions,
 		handler,
 	});

@@ -55,8 +55,10 @@ pi -e .                                                    # 试运行一次
 
 然后在 Pi 中：
 
-- `/bytefly [extension] [refresh]` 打开扩展屏幕，列出每个已加载扩展及其运行时健康
-  状况，并启用或禁用一个扩展。
+- `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
+  及其运行时健康状况，并启用或禁用一个扩展。
+- `/bytefly settings` 打开控制中心的 Settings 区（目前为空壳），一个仿 Pi `/settings`
+  的列表骨架，后续设置行将放入其中。
 - `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
   检查每个已启用扩展在运行时是否具备所需条件。
 - `/settings` → **Theme** 选择主题。
@@ -101,7 +103,7 @@ pi -e .                                                    # 试运行一次
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor` 子命令）、`run_doctor` | 主题化头部与宽度自适应页脚、每条用户消息上方的两行 `You` 铭牌、已完成回合之间的分隔线、共享的转录通知、以调用行为标题并将结果正文挂在轨道下两列的工具块（轨道字形由 `chrome.rail` 设置）、Pi 工作行上的实时用时计数、`/bytefly` 扩展屏幕——列出每个扩展及其健康状况并启用或禁用一个扩展（`/bytefly doctor` 打印 doctor 报告）；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings` 子命令）、`run_doctor` | 主题化头部与宽度自适应页脚、每条用户消息上方的两行 `You` 铭牌、已完成回合之间的分隔线、共享的转录通知、以调用行为标题并将结果正文挂在轨道下两列的工具块（轨道字形由 `chrome.rail` 设置）、Pi 工作行上的实时用时计数、`/bytefly` 控制中心——Extensions 区列出每个扩展及其健康状况并启用或禁用一个扩展，另有一个 Settings 区空壳（`/bytefly settings`）；`/bytefly doctor` 打印 doctor 报告；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | GitHub 风格的深色调色板及其浅色搭档，并支持可选的自动浅色/深色切换。 |
 
 ### 截图

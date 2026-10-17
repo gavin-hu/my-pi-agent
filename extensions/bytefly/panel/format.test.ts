@@ -2,7 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeItem } from "../../../test/helpers/fixtures/picker.ts";
-import { formatHeadline, formatListing, formatRow, panelCounts, summarySegments } from "./format.ts";
+import {
+	formatHeadline,
+	formatListing,
+	formatRow,
+	formatSettingsHeadline,
+	panelCounts,
+	sectionSegments,
+	settingsSummarySegments,
+	summarySegments,
+} from "./format.ts";
 import { buildPanelModel } from "./join.ts";
 
 const packageItem = (name: string, enabled = true) =>
@@ -103,5 +112,28 @@ describe("formatListing", () => {
 	test("reports an empty result", () => {
 		const empty = buildPanelModel({ items: [], reports: [], agentDir: "/agent" });
 		expect(formatListing(empty, "global")).toContain("No extensions found.");
+	});
+});
+
+describe("sections", () => {
+	test("orders the two section names and accents the active one", () => {
+		expect(sectionSegments("extensions")).toEqual([
+			{ text: "Extensions", color: "accent" },
+			{ text: "Settings", color: "faint" },
+		]);
+		expect(sectionSegments("settings")).toEqual([
+			{ text: "Extensions", color: "faint" },
+			{ text: "Settings", color: "accent" },
+		]);
+	});
+
+	test("states the scope and the empty settings count", () => {
+		expect(settingsSummarySegments("global").map((segment) => segment.text)).toEqual(["Global", "0 settings"]);
+		expect(settingsSummarySegments("project")[0]?.text).toBe("Project");
+	});
+
+	test("prints one settings headline for non-TUI modes", () => {
+		expect(formatSettingsHeadline("global")).toBe("bytefly: Settings · Global · 0 settings");
+		expect(formatSettingsHeadline("project")).toBe("bytefly: Settings · Project · 0 settings");
 	});
 });

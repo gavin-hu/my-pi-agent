@@ -15,7 +15,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { dockListFrame, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
-import { clip, fitCells } from "../../../lib/tui/columns.ts";
+import { clip, fitCells, splitRow } from "../../../lib/tui/columns.ts";
 import { fitRows, formatRange, isCloseKey, ListCursor, navIntent, wheelDelta } from "../../../lib/tui/cursor.ts";
 import { checkbox, emptyState, listRow } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
@@ -29,9 +29,15 @@ import {
 	severityRole,
 } from "../doctor/format.ts";
 import type { ExtensionsPickerRuntime } from "../picker/runtime.ts";
-import { summarySegments } from "./format.ts";
+import {
+	SETTINGS_EMPTY_LABEL,
+	sectionSegments,
+	settingsSummarySegments,
+	summarySegments,
+	type SummarySegment,
+} from "./format.ts";
 import { buildPanelModel } from "./join.ts";
-import type { PanelModel, PanelRow } from "./types.ts";
+import type { PanelModel, PanelRow, PanelSection } from "./types.ts";
 
 /** Body rows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 16;
@@ -79,6 +85,8 @@ export interface PanelComponentOptions {
 	reports: () => readonly ExtensionReport[];
 	/** Narrow to one extension directory, when the command named one. */
 	filter?: string;
+	/** The active section to open on; Extensions by default. */
+	section?: PanelSection;
 	theme: Theme;
 	agentDir: string;
 	/** Live terminal height, for the row budget. */
@@ -92,18 +100,30 @@ export interface PanelComponentOptions {
 
 /** The docked bytefly panel. */
 export class PanelComponent implements Component {
-	private readonly cursor: ListCursor;
+	private readonly cursors: Record<PanelSection, ListCursor>;
 	/** Serialises toggles so a rapid double press toggles twice, not once. */
 	private chain: Promise<void> = Promise.resolve();
-	/** Key of the focused row, so it survives a rebuild that reorders rows. */
-	private focusedKey: string | undefined;
+	/** Focused row key per section, so it survives a rebuild that reorders rows. */
+	private readonly focusedKeys: Record<PanelSection, string | undefined> = {
+		extensions: undefined,
+		settings: undefined,
+	};
 	/** Whether the detail pane shows every check or only problems. */
 	private showDetail = false;
 	/** True while a re-probe is in flight, so `r` does not stack probes. */
 	private refreshing = false;
+	/** The visible section. Settings is an empty shell for now. */
+	private section: PanelSection;
 
 	constructor(private readonly options: PanelComponentOptions) {
-		this.cursor = new ListCursor(() => this.options.requestRender());
+		const requestRender = (): void => this.options.requestRender();
+		this.cursors = { extensions: new ListCursor(requestRender), settings: new ListCursor(requestRender) };
+		this.section = options.section ?? "extensions";
+	}
+
+	/** The active section's cursor. */
+	private get cursor(): ListCursor {
+		return this.cursors[this.section];
 	}
 
 	/** The active theme, read live on every render. */
@@ -133,11 +153,12 @@ export class PanelComponent implements Component {
 	private retainFocus(entries: PanelEntry[]): void {
 		const entry = entries[this.cursor.selected];
 		if (entry?.kind === "row") {
-			this.focusedKey = entry.row.key;
+			this.focusedKeys[this.section] = entry.row.key;
 			return;
 		}
-		if (this.focusedKey === undefined) return;
-		const index = entries.findIndex((candidate) => candidate.kind === "row" && candidate.row.key === this.focusedKey);
+		const focusedKey = this.focusedKeys[this.section];
+		if (focusedKey === undefined) return;
+		const index = entries.findIndex((candidate) => candidate.kind === "row" && candidate.row.key === focusedKey);
 		if (index >= 0) this.cursor.selected = index;
 	}
 
@@ -218,9 +239,29 @@ export class PanelComponent implements Component {
 		}
 	}
 
+	/** Show one of the two sections; each keeps its own cursor and focus. */
+	private switchSection(next: PanelSection): void {
+		if (next === this.section) return;
+		this.section = next;
+		this.options.requestRender();
+	}
+
 	handleInput(data: string): void {
 		if (isCloseKey(data)) {
 			this.options.onClose();
+			return;
+		}
+		if (matchesKey(data, Key.left)) {
+			this.switchSection("extensions");
+			return;
+		}
+		if (matchesKey(data, Key.right)) {
+			this.switchSection("settings");
+			return;
+		}
+		// Settings is an empty shell: there is no row to select or toggle yet.
+		if (this.section === "settings") {
+			if (matchesKey(data, Key.tab)) this.switchScope();
 			return;
 		}
 		// An input can arrive before the first render; put the focus on a row.
@@ -279,15 +320,59 @@ export class PanelComponent implements Component {
 		return { handled: true };
 	}
 
-	/** The headline: whole segments only, so a narrow screen drops a count. */
-	private summary(width: number, model: PanelModel): string {
-		const segments = summarySegments(model, this.options.runtime.scope(), {
-			filter: this.options.filter,
-			compact: width < 72,
-		});
+	/** The themed section bar: both section names, the active one accented. */
+	private sectionBar(width: number, counts: string): string {
+		const separator = paint(this.theme, "faint", " · ");
+		const left = `  ${sectionSegments(this.section)
+			.map((segment) => paint(this.theme, segment.color, segment.text))
+			.join(separator)}`;
+		return clip(splitRow(left, counts, width), width);
+	}
+
+	/** One section's counts as whole segments, so a narrow screen drops a count. */
+	private counts(segments: readonly SummarySegment[], width: number): string {
 		const separator = paint(this.theme, "faint", " · ");
 		const styled = segments.map((segment) => paint(this.theme, segment.color, segment.text));
-		return clip(`  ${fitCells(styled, Math.max(1, width - 2), separator)}`, width);
+		return fitCells(styled, Math.max(1, width - 2), separator);
+	}
+
+	/** The Extensions section's counts, next to the section bar. */
+	private extensionCounts(width: number, model: PanelModel): string {
+		return this.counts(
+			summarySegments(model, this.options.runtime.scope(), {
+				filter: this.options.filter,
+				compact: width < 72,
+			}),
+			width,
+		);
+	}
+
+	/** The Settings shell: the section bar, an empty state, and no detail pane. */
+	private renderSettings(width: number, header: string): string[] {
+		const counts = this.counts(settingsSummarySegments(this.options.runtime.scope()), width);
+		return dockListFrame({
+			header,
+			summary: this.sectionBar(width, counts),
+			body: emptyState(this.theme, width, { label: SETTINGS_EMPTY_LABEL }),
+			hint: this.hint(width),
+		});
+	}
+
+	/** Key hints for the active section; whole hints drop as the width runs out. */
+	private hint(width: number): string {
+		const common = ["Esc close", "←/→"];
+		const hints =
+			this.section === "settings"
+				? [...common, "Tab scope"]
+				: [
+						...common,
+						"Space toggle",
+						"Enter detail",
+						"Tab scope",
+						this.refreshing ? "refreshing…" : "r refresh",
+						"↑/↓ select",
+					];
+		return screenHint(this.theme, width, hints);
 	}
 
 	private groupLine(entry: Extract<PanelEntry, { kind: "group" }>, width: number): string {
@@ -331,17 +416,19 @@ export class PanelComponent implements Component {
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
+		const header = titleRule(this.theme, w, "bytefly");
+		if (this.section === "settings") return this.renderSettings(w, header);
+
 		const model = this.model();
 		const entries = entriesOf(model);
-		const summary = this.summary(w, model);
-		const header = titleRule(this.theme, w, "bytefly");
+		const summary = this.sectionBar(w, this.extensionCounts(w, model));
 
 		if (entries.length === 0) {
 			return dockListFrame({
 				header,
 				summary,
 				body: emptyState(this.theme, w, { label: "No extensions found." }),
-				hint: screenHint(this.theme, w, ["Esc close"]),
+				hint: this.hint(w),
 			});
 		}
 
@@ -378,14 +465,7 @@ export class PanelComponent implements Component {
 				? formatRange(this.theme, w, { start, end, total: entries.length })
 				: undefined,
 			detail: detail.length > 0 ? detail : undefined,
-			hint: screenHint(this.theme, w, [
-				"Esc close",
-				"Space toggle",
-				"Enter detail",
-				"Tab scope",
-				this.refreshing ? "refreshing…" : "r refresh",
-				"↑/↓ select",
-			]),
+			hint: this.hint(w),
 		});
 	}
 }

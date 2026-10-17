@@ -244,20 +244,24 @@ working message, handing it back to Pi when the row comes down. DeepSeek is
 priced out of the
 box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
-peak/off-peak schedule. It also owns the `/bytefly` extension screen — a
-keyboard-driven docked list of every resolved Pi extension, one row per
-extension carrying its `◼`/`◻` enable checkbox and its worst-severity health,
-with the focused extension's findings underneath. `Space` toggles the focused extension
-by writing `settings.json`, `Enter` expands the detail pane, `Tab` switches
-Global/Project scope, and `r` re-probes. `/bytefly doctor [extension]
-[refresh]` prints the doctor report (the same screen in `tui`), and every other
-mode prints the grouped listing or one extension's full findings. The read-only
-`run_doctor` tool returns the same report. An opt-in notify capability raises an
+peak/off-peak schedule. It also owns the `/bytefly` control center — a
+keyboard-driven docked screen with two sections: Extensions, a list of every
+resolved Pi extension with one row per extension carrying its `◼`/`◻` enable
+checkbox and its worst-severity health, and Settings, an empty shell with its
+section bar and a `No settings yet.` body for settings rows to land in later.
+`Space` toggles the focused extension by writing `settings.json`, `Enter`
+expands the detail pane, `Tab` switches Global/Project scope, `←`/`→` switch
+sections, and `r` re-probes. `/bytefly settings` opens the Settings section,
+`/bytefly doctor [extension] [refresh]` prints the doctor report (the same
+screen in `tui`), and every other mode prints the grouped listing or one
+extension's full findings. The read-only `run_doctor` tool returns the same
+report. An opt-in notify capability raises an
 OS notification when a run or a background job finishes or the agent asks for
 input, configured through the `notify` section of `bytefly.json`, for
 unattended runs.
 
-Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` subcommand).
+Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` and `settings`
+subcommands).
 
 [Full README](../extensions/bytefly/README.md)
 
