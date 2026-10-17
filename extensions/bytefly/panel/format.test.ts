@@ -32,8 +32,8 @@ function model(items = [packageItem("plan"), packageItem("todo"), packageItem("m
 }
 
 describe("panelCounts", () => {
-	test("counts rows, disabled extensions, and problem findings", () => {
-		expect(panelCounts(model())).toEqual({ extensions: 3, disabled: 1, missing: 1, degraded: 0 });
+	test("counts rows, off extensions, and problem findings", () => {
+		expect(panelCounts(model())).toEqual({ extensions: 3, off: 1, missing: 1, degraded: 0 });
 	});
 
 	test("counts a report once when the model carries it on more than one row", () => {
@@ -43,13 +43,23 @@ describe("panelCounts", () => {
 		if (!row) throw new Error("expected a row");
 		const duplicated = { ...single, rows: [...single.rows, { ...row, key: "duplicate" }] };
 
-		expect(panelCounts(duplicated)).toEqual({ extensions: 2, disabled: 0, missing: 1, degraded: 1 });
+		expect(panelCounts(duplicated)).toEqual({ extensions: 2, off: 0, missing: 1, degraded: 1 });
+	});
+
+	test("does not count the findings of an off row as problems", () => {
+		const off = buildPanelModel({
+			items: [packageItem("plan", false)],
+			reports: [makeReport("plan", [makeFinding("git", "missing")])],
+			agentDir: "/agent",
+		});
+
+		expect(panelCounts(off)).toEqual({ extensions: 1, off: 1, missing: 0, degraded: 0 });
 	});
 });
 
 describe("headline", () => {
 	test("states the scope, counts, and problems", () => {
-		expect(formatHeadline(model(), "global")).toBe("bytefly: Global · 3 extensions · 1 disabled · 1 missing");
+		expect(formatHeadline(model(), "global")).toBe("bytefly: Global · 3 extensions · 1 off · 1 missing");
 	});
 
 	test("abbreviates on a narrow terminal", () => {
@@ -91,6 +101,30 @@ describe("formatRow", () => {
 		expect(formatRow(row)).toBe(`  [x] ${GLYPHS.cross} plan/index.ts — 1 missing`);
 	});
 
+	test("reads an off row as off, not as its health", () => {
+		const off = buildPanelModel({
+			items: [packageItem("plan", false)],
+			reports: [makeReport("plan", [makeFinding("git", "missing")])],
+			agentDir: "/agent",
+		}).rows[0];
+		if (!off) throw new Error("expected a row");
+
+		expect(formatRow(off)).toBe(`  [ ] ${GLYPHS.disabled} plan/index.ts — off`);
+		expect(formatRow(off)).not.toContain("missing");
+		expect(formatRow(off)).not.toContain("ok");
+	});
+
+	test("names the environment's disable list separately from settings", () => {
+		const envOff = buildPanelModel({
+			items: [packageItem("plan")],
+			reports: [makeReport("plan", [makeFinding("state", "info", "disabled through PI_DISABLED_EXTENSIONS")], false)],
+			agentDir: "/agent",
+		}).rows[0];
+		if (!envOff) throw new Error("expected a row");
+
+		expect(formatRow(envOff)).toBe(`  [x] ${GLYPHS.disabled} plan/index.ts — env disabled`);
+	});
+
 	test("renders a report with no item without a checkbox", () => {
 		const reported = buildPanelModel({
 			items: [],
@@ -105,10 +139,10 @@ describe("formatRow", () => {
 describe("formatListing", () => {
 	test("lists groups with heading and a health suffix per row", () => {
 		const text = formatListing(model(), "global");
-		expect(text.split("\n")[0]).toBe("bytefly: Global · 3 extensions · 1 disabled · 1 missing");
+		expect(text.split("\n")[0]).toBe("bytefly: Global · 3 extensions · 1 off · 1 missing");
 		expect(text).toContain("npm:pkg (user) (3)");
 		expect(text).toContain(`[x] ${GLYPHS.cross} plan/index.ts — 1 missing`);
-		expect(text).toContain("[ ] memory/index.ts");
+		expect(text).toContain(`[ ] ${GLYPHS.disabled} memory/index.ts — off`);
 	});
 
 	test("reports an empty result", () => {

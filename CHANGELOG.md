@@ -24,6 +24,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   startup TUI, so it shows only when `quietStartup` is `true`; `false`,
   `"header"`, and unset leave Pi's startup surface in charge and the notice
   silent.
+- `bytefly`: an extension row now carries one verdict. A row switched off in
+  settings reads `off` instead of a doctor health word that contradicted its
+  empty checkbox, a row excluded by `PI_DISABLED_EXTENSIONS` reads
+  `env disabled`, and an off row's findings no longer count toward the
+  headline's problem total. The counts say `off` in both the full and compact
+  forms.
+- `bytefly`: `Enter` in the Extensions section expands only the focused row's
+  findings (the expansion follows the row, not the cursor), the pane grows to
+  the free terminal height while expanded instead of stopping at four lines, and
+  the hint flips to `Enter collapse`.
+- `bytefly`: the control center opens on the session's cached findings and
+  probes the doctor on the first Extensions view, so `/bytefly` and
+  `/bytefly settings` no longer wait for a probe before mounting, and a failed
+  probe is a notice with the screen still open instead of a refused Settings
+  screen.
+- `bytefly`: `/bytefly <name>` checks the name against the discovered set before
+  probing, so a typo fails immediately instead of after every prerequisite
+  check.
 - `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
   instead of hiding them. The screen opens such a row's log but its `d` and `x`
   leave it alone (`x` counts only this session's finished jobs), the model can

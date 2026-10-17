@@ -287,7 +287,9 @@ header in place. Every mode loads the extension, and non-TUI modes change
 nothing. The screen is available in every mode: in `tui`, `/bytefly` and
 `/bytefly doctor` mount the docked screen, while RPC, JSON, and print modes
 print the grouped listing with a per-row health suffix and the headline, or that
-extension's full findings when one is named. `/bytefly settings` prints the
+extension's full findings when one is named. In `tui` the screen opens on the
+session's cached report and probes on the first Extensions view; the text modes
+probe before they print. `/bytefly settings` prints the
 grouped settings listing with each row's value outside `tui`; it does not
 resolve packages or probe the doctor. The
 proactive session-start check posts a transcript notice through the shared
@@ -554,17 +556,23 @@ it:
 keyboard-driven dock list of every extension Pi resolves for the session, so the
 list matches what actually loads. `←`/`→` switch to **Settings**, where the same
 frame lists the curated preferences. `/bytefly settings` opens directly on that
-section. It merges the former
-extensions picker and doctor report into one row per extension: the picker's
-enable checkbox and label, the doctor's worst-severity glyph and summary. The
-screen is drawn from the design system: a label-first `bytefly ────` title rule,
+section. It merges the former extensions picker and doctor report into one row
+per extension: the picker's enable checkbox and label, then one verdict — `off`
+when the row is switched off in settings, `env disabled` when
+`PI_DISABLED_EXTENSIONS` excludes it, otherwise the doctor's worst-severity
+glyph and summary. The screen is drawn from the design system: a label-first
+`bytefly ────` title rule,
 the `Extensions · Settings` section bar beside the section's counts, one row
 grammar (`❯ ◼ ✓ name … summary`), and the shared `◼` / `◻` checkbox.
 `/bytefly doctor [extension] [refresh]` selects the doctor report, the same text
 the `run_doctor` tool returns; in `tui` it opens the same screen. `[extension]`
-narrows the Extensions section to one extension and `refresh` re-probes the
-doctor before it opens. Tab completes `doctor`, `settings`, extension names, and
-`refresh`.
+narrows the Extensions section to one extension and `refresh` forces the first
+probe. Tab completes `doctor`, `settings`, extension names, and `refresh`.
+
+The screen opens on the findings the session already has, and the Extensions
+section probes once on its first view (the hint shows `refreshing…` while it
+runs). `/bytefly settings` therefore never waits for a probe, and a failed probe
+is a notice with the screen still open rather than a refused command.
 
 The screen reuses Pi's own settings and package resolution (`SettingsManager`
 plus `DefaultPackageManager` with `onMissing: "skip"`), so opening it never
@@ -575,18 +583,24 @@ installs or fetches a package.
 - Omits `bytefly`'s own entrypoint from the picker groups, so the tool that
   manages the list is never a selectable row; its doctor report still appears in
   the trailing `Not resolved` group.
-- Shows whether each one is enabled (`◼`) or disabled (`◻`).
-- Shows the worst severity for a reported extension (`✓` ok, `!` degraded, `✕`
-  missing, `∅` disabled) and its summary; an extension with no doctor report
-  leaves the glyph column and the summary blank rather than claiming `ok`.
+- Shows whether each one is enabled (`◼`) or disabled (`◻`) in settings.
+- Gives each row one verdict from the doctor's report: the worst severity (`✓`
+  ok, `!` degraded, `✕` missing) and its summary. A row that is `◻` reads `off`
+  instead, because it will not load; a row the session's
+  `PI_DISABLED_EXTENSIONS` excludes reads `env disabled`, so the two axes cannot
+  contradict each other. An extension with no doctor report leaves the glyph
+  column and the summary blank rather than claiming `ok`.
 - Toggles the focused extension with `Space`, writing `+pattern` / `-pattern`
   into `extensions` (and package filter objects) in the active scope.
 - Switches the write scope with `Tab`: **Global** (personal `settings.json`) or
   **Project** (`.pi/settings.json`, only when the project is trusted; an
   untrusted project refuses with a notice).
-- Expands or collapses the focused extension's findings with `Enter`, and
-  re-probes with `r`. While a re-probe is in flight the hint shows `refreshing…`
-  and a second `r` is ignored, so probes cannot stack.
+- Expands or collapses the focused extension's findings with `Enter` — per row,
+  so another row stays as it was — and grows the pane to the free terminal
+  height while expanded. Re-probes with `r`; while a probe is in flight the hint
+  shows `refreshing…` and a second `r` is ignored, so probes cannot stack.
+- Checks an `<extension>` name against the discovered set before probing, so a
+  typo fails immediately instead of waiting for every prerequisite check.
 - Offers a reload after pending changes, so the new selection takes effect
   without leaving the session.
 
@@ -661,11 +675,11 @@ means reduced capability — an optional package that is absent, a config file
 that fails to parse, a login that has not happened. Doctor never changes
 anything and never installs anything.
 
-`/bytefly <extension>` narrows the same screen to that extension, including the
-checks that passed, and `/bytefly refresh` ignores the findings cached earlier
-in the session. Every other mode prints the grouped listing with a health suffix
-on each row and the headline; a named extension prints its full findings
-instead.
+`/bytefly <extension>` narrows the same screen to that extension; `Enter`
+expands its findings, including the checks that passed, into the free height.
+`/bytefly refresh` ignores the findings cached earlier in the session. Every
+other mode prints the grouped listing with a health suffix on each row and the
+headline; a named extension prints its full findings instead.
 
 ### Keys
 
@@ -799,7 +813,8 @@ control-free line before it reaches an escape sequence or a shell argument.
   exactly that, which is why the table cannot rot quietly.
 - **The disabled check reads `PI_DISABLED_EXTENSIONS`** through `lib/env.ts`; it
   does not read Pi's own `settings.json` disable list, so an extension disabled
-  only there may still be probed.
+  only there may still be probed. The row labels that state `env disabled`,
+  separately from the picker's `off`.
 - **A probe proves a binary runs, not that it works:** a `git` that crashes on a
   specific repository is still `ok`.
 - **Config scope is checked for `<agent-dir>/bytefly.json` and
@@ -860,7 +875,7 @@ rather than showing a wrong value.
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
-| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. Tab completes `doctor`, `settings`, extension names, and `refresh`. |
+| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes `doctor`, `settings`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Working timer | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage("Working… Ns")` in `tui` mode; `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no stored state. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
@@ -868,7 +883,7 @@ rather than showing a wrong value.
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
 | Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValue` on the selected scope's document, one key at a time. A failed or refused write notifies and leaves the displayed value unchanged; a successful one marks the screen dirty. |
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`), `exposure: "direct"`, active by default, with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
-| Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
+| Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |

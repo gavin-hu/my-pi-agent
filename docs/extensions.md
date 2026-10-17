@@ -246,13 +246,18 @@ box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` control center — a
 keyboard-driven docked screen with two sections: Extensions, a list of every
-resolved Pi extension with one row per extension carrying its `◼`/`◻` enable
-checkbox and its worst-severity health, and Settings, five curated preferences
-— bytefly startup TUI, desktop notifications, the rail glyph, output padding,
-and the hardware cursor — with each row's value and its source file. `Space`/`Enter`
-toggle the focused extension or change the focused setting, `Tab` switches
-Global/Project scope, `←`/`→` switch sections, and `r` re-probes. App rows are
-Global-only; `bytefly.json` rows write the selected scope one key at a time. `/bytefly settings` opens the Settings section,
+resolved Pi extension with one row per extension carrying its `◼`/`◻` settings
+checkbox and one verdict (`off` when switched off, `env disabled` when
+`PI_DISABLED_EXTENSIONS` excludes it, otherwise its worst-severity health), and
+Settings, five curated preferences — bytefly startup TUI, desktop notifications,
+the rail glyph, output padding, and the hardware cursor — with each row's value
+and its source file. `Space` toggles the focused extension and `Enter` expands
+its findings (per row, into the free height); in Settings `Space`/`Enter` change
+the focused row. `Tab` switches Global/Project scope, `←`/`→` switch sections,
+and `r` re-probes. The screen mounts on the session's cached findings and probes
+on the first Extensions view, so opening it or `/bytefly settings` is instant.
+App rows are Global-only; `bytefly.json` rows write the selected scope one key
+at a time. `/bytefly settings` opens the Settings section,
 `/bytefly doctor [extension] [refresh]` prints the doctor report (the same
 screen in `tui`), and every other mode prints the grouped listing or one
 extension's full findings. The read-only `run_doctor` tool returns the same

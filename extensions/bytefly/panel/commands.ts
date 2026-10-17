@@ -148,19 +148,26 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			onError: (message) => ctx.ui.notify(message, "error"),
 		});
 
-		let reports: ExtensionReport[];
-		try {
-			reports = await deps.doctor.probeAll({ refresh });
-		} catch (error) {
-			ctx.ui.notify(`Could not probe extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
-			return;
-		}
+		// The name is checked before the probe: a typo should not pay for every
+		// prerequisite check, and the set is available as soon as discovery is.
 		if (name !== undefined && section === "extensions" && !selectableNames(discovery).has(name)) {
 			ctx.ui.notify(`bytefly: no extension named "${sanitizeLine(name)}"`, "warning");
 			return;
 		}
 
+		// Text modes print the report, so they probe now. The dock screen opens on
+		// the session cache and probes on its first Extensions view instead, which
+		// keeps `/bytefly` and `/bytefly settings` instant.
+		const cached = deps.doctor.peek();
+		let reports: ExtensionReport[] = cached ?? [];
+
 		if (ctx.mode !== "tui") {
+			try {
+				reports = await deps.doctor.probeAll({ refresh });
+			} catch (error) {
+				ctx.ui.notify(`Could not probe extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
+				return;
+			}
 			if (name !== undefined) {
 				notifyExtension(ctx, name, reports, runtime);
 				return;
@@ -178,7 +185,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		await withRailsSuppressed(pi, () =>
 			ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 				const unsubscribe = runtime.onChange(() => tui.requestRender());
-				return new PanelComponent({
+				const component = new PanelComponent({
 					runtime,
 					reports: () => reports,
 					settings,
@@ -187,10 +194,13 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 					theme,
 					agentDir,
 					cwd,
+					// A cached session probes only when the command asked for it.
+					needsProbe: cached === undefined || refresh,
+					initialRefresh: refresh,
 					viewportRows: () => tui.terminal?.rows,
 					requestRender: () => tui.requestRender(),
-					refresh: async () => {
-						reports = await deps.doctor.probeAll({ refresh: true });
+					refresh: async (force) => {
+						reports = await deps.doctor.probeAll({ refresh: force === true });
 					},
 					onClose: () => {
 						unsubscribe();
@@ -198,6 +208,8 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 					},
 					onNotice: (message) => ctx.ui.notify(message, "warning"),
 				});
+				component.prime();
+				return component;
 			}),
 		);
 
