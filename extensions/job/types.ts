@@ -93,6 +93,8 @@ export interface JobDetails {
 	timedOut?: boolean;
 	/** True when `wait` was cancelled by the tool's abort signal. */
 	cancelled?: boolean;
+	/** Session that made the call, so a transcript can mark another session's rows. */
+	sessionId?: string;
 	/** Model-readable validation message when the call was rejected. */
 	error?: string;
 }

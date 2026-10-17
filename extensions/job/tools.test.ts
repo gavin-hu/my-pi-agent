@@ -37,6 +37,9 @@ describe("job tool", () => {
 		const result = await call({ action: "list" });
 		expect(result.content[0].text).toContain("j1");
 		expect(result.details.jobs).toHaveLength(1);
+		// The transcript tags rows another session owns, so the call records which
+		// session made it.
+		expect(typeof result.details.sessionId).toBe("string");
 	});
 
 	test("status returns details and errors on an unknown id", async () => {

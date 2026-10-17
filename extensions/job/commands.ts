@@ -37,6 +37,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 							() => runtime.list(),
 							theme,
 							{
+								sessionId: () => runtime.sessionId,
 								logs: (id) => runtime.logs(id, 200),
 								kill: (id) => {
 									runtime.kill(id);

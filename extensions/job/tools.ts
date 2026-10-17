@@ -105,8 +105,8 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					case "list": {
 						const jobs = runtime.list();
 						return {
-							content: [{ type: "text" as const, text: formatJobList(jobs) }],
-							details: { action: "list", jobs } satisfies JobDetails,
+							content: [{ type: "text" as const, text: formatJobList(jobs, Date.now(), runtime.sessionId) }],
+							details: { action: "list", jobs, sessionId: runtime.sessionId } satisfies JobDetails,
 						};
 					}
 
@@ -114,8 +114,8 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 						const job = runtime.get(call.id);
 						if (!job) return errorResult("status", `no job "${call.id}".`);
 						return {
-							content: [{ type: "text" as const, text: formatJobStatus(job) }],
-							details: { action: "status", job: toRecord(job) } satisfies JobDetails,
+							content: [{ type: "text" as const, text: formatJobStatus(job, Date.now(), runtime.sessionId) }],
+							details: { action: "status", job: toRecord(job), sessionId: runtime.sessionId } satisfies JobDetails,
 						};
 					}
 
@@ -286,7 +286,12 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				}
 				const ordered = [...details.jobs].sort(compareJobs);
 				const shown = options.expanded ? ordered : ordered.slice(0, RESULT_ROWS);
-				const input: JobResultInput = { kind: "list", jobs: shown, more: ordered.length - shown.length };
+				const input: JobResultInput = {
+					kind: "list",
+					jobs: shown,
+					more: ordered.length - shown.length,
+					sessionId: details.sessionId,
+				};
 				const view = context.lastComponent instanceof JobResult ? context.lastComponent : new JobResult(input, theme);
 				view.setInput(input, theme);
 				return view;

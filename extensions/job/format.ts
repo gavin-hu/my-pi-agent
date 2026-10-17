@@ -131,22 +131,25 @@ export function shortLabel(job: JobRecord): string {
 }
 
 /** One-line job summary shared by the model output and the `/jobs` screen. */
-function jobSummary(job: JobRecord, now: number): string {
+function jobSummary(job: JobRecord, now: number, ownSessionId?: string): string {
 	const parts = [`${job.id}`, statusWord(job), formatDuration(elapsedMs(job, now))];
 	if (job.status === "running" && job.pid) parts.push(`pid ${job.pid}`);
 	parts.push(shortLabel(job));
+	// A peer session's job is shown but belongs to it: name the owner so the
+	// `clear` refusal reads as intent rather than a bug.
+	if (ownSessionId !== undefined && job.sessionId !== ownSessionId) parts.push("(another session)");
 	return parts.join("  ");
 }
 
 /** Model-facing list of jobs, or a note when there are none. */
-export function formatJobList(jobs: JobRecord[], now = Date.now()): string {
+export function formatJobList(jobs: JobRecord[], now = Date.now(), ownSessionId?: string): string {
 	if (jobs.length === 0) return "No jobs.";
-	const lines = jobs.map((job) => `  ${jobSummary(job, now)}`);
+	const lines = jobs.map((job) => `  ${jobSummary(job, now, ownSessionId)}`);
 	return `Jobs (${jobs.length}):\n${lines.join("\n")}`;
 }
 
 /** Model-facing detail for one job, including its last output line. */
-export function formatJobStatus(job: JobRecord, now = Date.now()): string {
+export function formatJobStatus(job: JobRecord, now = Date.now(), ownSessionId?: string): string {
 	const lines = [
 		`${job.id}: ${statusWord(job)}`,
 		`command: ${sanitizeLogLine(job.command)}`,
@@ -155,6 +158,7 @@ export function formatJobStatus(job: JobRecord, now = Date.now()): string {
 	];
 	if (job.pid) lines.push(`pid: ${job.pid}`);
 	if (job.logPath) lines.push(`log: ${sanitizeLogLine(job.logPath)}`);
+	if (ownSessionId !== undefined && job.sessionId !== ownSessionId) lines.push("session: another session");
 	if (job.lastLine) lines.push(`last: ${job.lastLine}`);
 	return lines.join("\n");
 }
@@ -275,11 +279,12 @@ export function formatJobOutcomeLine(job: JobRecord, theme: Theme, now = Date.no
 }
 
 /** Unstyled, sanitized detail lines for the `/jobs` focus pane. */
-export function formatJobDetail(job: JobRecord, now = Date.now()): string[] {
+export function formatJobDetail(job: JobRecord, now = Date.now(), ownSessionId?: string): string[] {
 	const lines = [
 		sanitizeLogLine(`command: ${job.command}`),
 		sanitizeLogLine(`cwd: ${job.cwd} · ${jobOutcome(job)} · ${formatDuration(elapsedMs(job, now))}`),
 	];
+	if (ownSessionId !== undefined && job.sessionId !== ownSessionId) lines.push("owner: another session");
 	const last = sanitizeLogLine(job.lastLine);
 	if (last) lines.push(`last: ${last}`);
 	return lines;

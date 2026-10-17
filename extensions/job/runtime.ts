@@ -30,7 +30,7 @@ import {
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
-import { clipLabel, formatLogs, sanitizeLogLine } from "./format.ts";
+import { clipLabel, compareJobs, formatLogs, sanitizeLogLine } from "./format.ts";
 import { readLogTail } from "./logs.ts";
 import {
 	defaultKillTree,
@@ -154,6 +154,8 @@ interface Handle {
 
 export interface JobsRuntime {
 	readonly config: JobsConfig;
+	/** This session's id, so a caller can tell its own records from a peer's. */
+	readonly sessionId: string;
 	/** Effective working directory, honoring an active worktree root. */
 	effectiveCwd(ctx: ExtensionContext): string;
 	/** Load and reconcile the registry, then paint the UI. */
@@ -602,10 +604,13 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		get config() {
 			return config;
 		},
+		get sessionId() {
+			return sessionId;
+		},
 		effectiveCwd,
 		load,
 		start,
-		list: () => ownJobs().map(toRecord),
+		list: () => [...jobs.values()].sort(compareJobs).map(toRecord),
 		get: (id) => jobs.get(id),
 		logs,
 		send,

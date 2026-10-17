@@ -23,6 +23,9 @@ How the `job` call and its result look in the transcript — the call line as a 
 
 - Registers one model-callable tool, `job`, with actions `start`, `list`,
   `status`, `logs`, `send`, `kill`, `wait`, and `clear`.
+- Shows this session's jobs, and — tagged `peer` — a live peer session's, so two
+  Pi sessions on one repo can see each other's builds; the peer's rows are
+  read-only on the screen.
 - Runs each command in its own process group, streaming stdout and stderr to an
   append-only log file under `~/.pi/agent/jobs/<project>/`. A segment rotates
   to `<id>.log.1` at `maxLogBytes` (8 MiB by default), so a chatty job cannot
@@ -108,6 +111,7 @@ JobDetails {
   stdinClosed?: boolean     // send ended the job's stdin (EOF)
   timedOut?: boolean        // wait hit its timeout
   cancelled?: boolean       // wait was aborted; job still running
+  sessionId?: string        // list/status: who made the call, for tagging peers
   error?: string
 }
 ```
@@ -143,23 +147,29 @@ job status j1
 ### Command: `/jobs`
 
 `/jobs` opens an interactive list in the TUI, and prints a text summary
-elsewhere. The list is **session-scoped**: it shows the jobs this session
-started, plus a dead session's records adopted into it, not a live peer's. On
+elsewhere. The list shows the jobs this session started, a dead session's
+records adopted into it, and a live peer session's jobs tagged `peer`. On
 the screen: `↑`/`↓` or `j`/`k` select, `PgUp`/`PgDn` page, `Home`/`End` jump,
 `Enter`/`l` opens the log pane, `d` (or `K`) kills the selected running job,
 `x` clears finished jobs, `Esc`/`q` closes. `d` and `x` ask for a `y`/`N`
 confirmation before acting, so a stray key cannot kill a build; when `x` would
 drop an unreported result, the prompt says how many. A `d` on a finished job (or
-an `x` with nothing finished) says so instead of doing nothing. In the log pane,
+an `x` with nothing finished) says so instead of doing nothing. Another
+session's row opens its log but is otherwise left alone: `d` answers
+`j9 is another session's job; not killed.`, and `x` counts and clears only this
+session's finished jobs. In the log pane,
 `↑`/`↓`, `PgUp`/`PgDn`, `Home`/`End`, and `g`/`G` scroll; the view follows the
 tail until you scroll up, and `Esc`/`Backspace`/`q` returns to the list. The
 pane's subheader names the job's log file, notes when only a bounded tail is
 loaded, and shows whether the view is `following` the tail or `paused`.
 
-The screen shows a counts summary (`N jobs · R running · F failed`), running
-jobs first then recent finished jobs, and a focused detail pane (command, cwd,
-outcome, and the last output line). Selection is tracked by job id, so the live
-re-sort cannot move the cursor or switch the open log out from under the user.
+The screen shows a counts summary (`N jobs · R running · F failed · P peer`) over
+the rows it shows, so it includes a peer's running job even though the footer
+chips count only this session's. Running jobs come first, then recent finished
+ones, and a focused detail pane follows (command, cwd, outcome, the owner when
+it is another session, and the last output line). Selection is tracked by job
+id, so the live re-sort cannot move the cursor or switch the open log out from
+under the user.
 Any dock screen (`/todos`, `/jobs`, `/rewind`, or the
 `question` questionnaire) hides the above-editor goal/todo rails for its
 lifetime and restores them on close.
@@ -205,11 +215,14 @@ rewritten.
   reattached after its session died reports its real exit code. `exec cmd`
   replaces the shell and bypasses the trap, and Windows has no equivalent, so
   those jobs settle as `unknown`.
-- **A live peer session's jobs are hidden.** Records are still merged from
-  every session file so ids stay unique and a peer's job is not reaped, but
-  `list` and `/jobs` show only this session's jobs (a dead session's records
-  are adopted into it). A peer's job can still be reached by an explicit id
-  (`status`/`logs`/`kill`; `kill` adopts it).
+- **Another session's jobs are shown, but not managed here.** Records are merged
+  from every session file so ids stay unique and a peer's job is not reaped, and
+  `list`/`/jobs` show them tagged `peer` (a dead session's records are adopted
+  into this one and lose the tag). The screen opens a peer's log but refuses to
+  kill or clear it, and the tool's `clear` refuses that record too; the tool can
+  still take one over by explicit id (`status`/`logs`/`kill`, where `kill`
+  adopts it). Chips, completion notices, and pruning stay this session's own, so
+  a peer's finished job waits for that session to clear it.
 - **stdin is a pipe, not a TTY.** A job started with `stdin: true` can be fed
   with `send`, but the child sees a pipe: line-oriented programs (a REPL, a
   debugger prompt, `read`, `npm init`) work, while a full-screen program that
@@ -249,6 +262,11 @@ rewritten.
 
 ## Design notes
 
+- **Visibility is not ownership.** `list` shows every record in the merged
+  table, but each mutation keeps its own rule: the screen refuses a `peer` row,
+  `clear` refuses another session's record, `kill` adopts it deliberately, and
+  `send` has no pipe to reach it. The chips, completion notices, and pruning
+  stay own-only, so showing a peer never makes this session responsible for it.
 - **Shell commands only, one action-based tool.** A single `job` tool with
   eight actions mirrors `rewind` and keeps the model surface small. Validation
   is pure and runs before any side effect.

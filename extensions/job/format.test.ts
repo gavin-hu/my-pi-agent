@@ -9,6 +9,7 @@ import {
 	formatJobDetail,
 	formatJobList,
 	formatJobOutcomeLine,
+	formatJobStatus,
 	formatLogs,
 	jobCounts,
 	jobOutcome,
@@ -108,6 +109,24 @@ describe("job summaries", () => {
 
 	test("reports no jobs", () => {
 		expect(formatJobList([])).toBe("No jobs.");
+	});
+
+	test("marks a job another session owns", () => {
+		const jobs = [job({ id: "j1", sessionId: "me" }), job({ id: "j9", sessionId: "peer" })];
+		const text = formatJobList(jobs, 5000, "me");
+		const rows = text.split("\n").slice(1);
+		expect(rows[0]).not.toContain("another session");
+		expect(rows[1]).toContain("(another session)");
+	});
+
+	test("names the session in a single-job status", () => {
+		expect(formatJobStatus(job({ sessionId: "peer" }), 5000, "me")).toContain("session: another session");
+		expect(formatJobStatus(job({ sessionId: "me" }), 5000, "me")).not.toContain("another session");
+	});
+
+	test("names the owner in the detail pane", () => {
+		expect(formatJobDetail(job({ sessionId: "peer" }), 5000, "me").join("\n")).toContain("owner: another session");
+		expect(formatJobDetail(job({ sessionId: "me" }), 5000, "me").join("\n")).not.toContain("owner:");
 	});
 
 	test("completion text names the status and label", () => {

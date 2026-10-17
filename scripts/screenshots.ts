@@ -285,7 +285,7 @@ const SCREENS: Record<string, Screen> = {
 			new JobListComponent(
 				() => JOBS,
 				theme,
-				{ logs: () => ({ lines: [] }), kill: noop, clear: noop },
+				{ sessionId: () => "s1", logs: () => ({ lines: [] }), kill: noop, clear: noop },
 				noop,
 				noop,
 				() => rows,

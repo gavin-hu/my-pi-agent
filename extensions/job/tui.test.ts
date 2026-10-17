@@ -30,6 +30,7 @@ const job = (overrides: Partial<JobRecord> = {}): JobRecord => ({
 function makeComponent(
 	jobs: JobRecord[],
 	callbacks: Partial<{
+		sessionId: () => string;
 		logs: (id: string) => { lines: string[]; more?: boolean };
 		kill: (id: string) => void;
 		clear: () => void;
@@ -42,6 +43,7 @@ function makeComponent(
 		() => jobs,
 		fakeTheme,
 		{
+			sessionId: callbacks.sessionId ?? (() => "s1"),
 			logs: callbacks.logs ?? (() => ({ lines: [] })),
 			kill: callbacks.kill ?? ((id) => killed.push(id)),
 			clear:
@@ -58,6 +60,14 @@ function makeComponent(
 }
 
 describe("JobResult", () => {
+	test("tags another session's row in the transcript result", () => {
+		const jobs = [job({ id: "j1", sessionId: "s1" }), job({ id: "j9", sessionId: "peer" })];
+		const lines = new JobResult({ kind: "list", jobs, more: 0, sessionId: "s1" }, fakeTheme).render(70);
+		expect(lines[1]).toContain("j1");
+		expect(lines[1]).not.toContain("peer");
+		expect(lines[2]).toContain("j9");
+		expect(lines[2]).toContain("peer");
+	});
 	test("blank line then the list rail with a cap note", () => {
 		const jobs = [job({ id: "j1" }), job({ id: "j2", status: "failed", exitCode: 1, pid: null })];
 		const lines = new JobResult({ kind: "list", jobs, more: 2 }, fakeTheme).render(60);
@@ -84,6 +94,50 @@ describe("JobResult", () => {
 });
 
 describe("JobListComponent", () => {
+	test("tags another session's job and refuses to kill it", () => {
+		const { component, killed } = makeComponent([job({ id: "j9", sessionId: "peer" })], {});
+		const text = component.render(60).join("\n");
+		expect(text).toContain("peer");
+		expect(text).toContain("1 peer");
+		component.handleInput("d");
+		expect(killed).toEqual([]);
+		expect(component.render(60).join("\n")).toContain("j9 is another session's job; not killed.");
+		// The refusal never opens a confirm, so a stray y cannot kill it either.
+		component.handleInput("y");
+		expect(killed).toEqual([]);
+	});
+
+	test("x clears only this session's finished jobs", () => {
+		const jobs = [
+			job({ id: "j1", status: "exited", exitCode: 0, pid: null, finishedAt: 5 }),
+			job({ id: "j9", sessionId: "peer", status: "exited", exitCode: 0, pid: null, finishedAt: 5 }),
+		];
+		const { component, clearedCount } = makeComponent(jobs, {});
+		component.handleInput("x");
+		expect(component.render(80).join("\n")).toContain("Clear 1 finished job?");
+		component.handleInput("y");
+		expect(clearedCount()).toBe(1);
+	});
+
+	test("says so when only another session's jobs are finished", () => {
+		const { component, clearedCount } = makeComponent(
+			[job({ id: "j9", sessionId: "peer", status: "exited", exitCode: 0, pid: null, finishedAt: 5 })],
+			{},
+		);
+		component.handleInput("x");
+		expect(component.render(60).join("\n")).toContain("No finished jobs to clear.");
+		expect(clearedCount()).toBe(0);
+	});
+
+	test("opens another session's log read-only", () => {
+		const { component } = makeComponent([job({ id: "j9", sessionId: "peer" })], {
+			logs: () => ({ lines: ["from the peer"] }),
+		});
+		component.handleInput("l");
+		expect(component.currentLogId()).toBe("j9");
+		expect(component.render(60).join("\n")).toContain("from the peer");
+	});
+
 	test("d asks for confirmation before killing the selected running job", () => {
 		const { component, killed } = makeComponent([job()], {});
 		component.handleInput("d");
@@ -224,7 +278,7 @@ describe("JobListComponent", () => {
 		const component = new JobListComponent(
 			() => [job()],
 			fakeTheme,
-			{ logs: () => ({ lines: ["a", "b"] }), kill: () => {}, clear: () => {} },
+			{ sessionId: () => "s1", logs: () => ({ lines: ["a", "b"] }), kill: () => {}, clear: () => {} },
 			() => {},
 			() => {
 				renders++;
@@ -258,7 +312,7 @@ describe("JobListComponent", () => {
 		const component = new JobListComponent(
 			() => jobs,
 			fakeTheme,
-			{ logs: () => ({ lines: [] }), kill: () => {}, clear: () => {} },
+			{ sessionId: () => "s1", logs: () => ({ lines: [] }), kill: () => {}, clear: () => {} },
 			() => {},
 			() => {},
 			12, // visible = 4
@@ -323,7 +377,7 @@ describe("JobListComponent", () => {
 		const component = new JobListComponent(
 			() => [job()],
 			fakeTheme,
-			{ logs: () => ({ lines: [] }), kill: () => {}, clear: () => {} },
+			{ sessionId: () => "s1", logs: () => ({ lines: [] }), kill: () => {}, clear: () => {} },
 			() => {
 				closed++;
 			},

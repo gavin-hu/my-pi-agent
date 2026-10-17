@@ -51,25 +51,28 @@ const LOG_CHROME_ROWS = 6;
 const jobId = (job: JobRecord): string => job.id;
 
 /** One job row: selection marker, status glyph, id, label, and a right-aligned
- *  elapsed value. `statusRow` owns the clipping and the alignment. */
+ *  elapsed value, tagged `peer` when another session owns it. `statusRow` owns
+ *  the clipping and the alignment. */
 function jobRow(
 	job: JobRecord,
 	theme: Theme,
 	width: number,
-	options: Pick<StatusRow, "selected" | "marker"> = {},
+	options: Pick<StatusRow, "selected" | "marker"> & { foreign?: boolean } = {},
 ): string {
+	const elapsed = formatDuration(elapsedMs(job, Date.now()));
 	return statusRow(theme, width, {
 		...options,
 		glyph: statusGlyphChar(job.status),
 		glyphRole: statusRole(job.status),
 		label: `${job.id}  ${shortLabel(job)}`,
-		trailing: formatDuration(elapsedMs(job, Date.now())),
+		// The tag rides the right-aligned cell, which survives a narrow terminal.
+		trailing: options.foreign ? `${elapsed}${SEPARATORS.item}peer` : elapsed,
 	});
 }
 
 /** Input for the transcript result: a themed job list or a log tail. */
 export type JobResultInput =
-	| { kind: "list"; jobs: JobRecord[]; more: number }
+	| { kind: "list"; jobs: JobRecord[]; more: number; sessionId?: string }
 	| { kind: "logs"; lines: string[]; earlier: number };
 
 /**
@@ -99,7 +102,10 @@ export class JobResult implements Component {
 		// A leading blank line separates the result from the call header.
 		const lines: string[] = [""];
 		if (this.input.kind === "list") {
-			for (const job of this.input.jobs) lines.push(jobRow(job, this.theme, w, { marker: false }));
+			for (const job of this.input.jobs) {
+				const foreign = this.input.sessionId !== undefined && job.sessionId !== this.input.sessionId;
+				lines.push(jobRow(job, this.theme, w, { marker: false, foreign }));
+			}
 			if (this.input.more > 0) {
 				const note = `${paint(this.theme, "faint", `… ${this.input.more} more`)} ${expandHint(this.theme)}`;
 				lines.push(clip(`  ${note}`, w));
@@ -118,6 +124,8 @@ export class JobResult implements Component {
 }
 
 export interface JobListCallbacks {
+	/** This session's id: a record with another id belongs to a peer session. */
+	sessionId(): string;
 	/** Current sanitized log lines for a job, or undefined when unknown. */
 	logs(id: string): { lines: string[]; more?: boolean } | undefined;
 	kill(id: string): void;
@@ -173,6 +181,11 @@ export class JobListComponent implements Component {
 
 	private get ordered(): JobRecord[] {
 		return [...this.jobs()].sort(compareJobs);
+	}
+
+	/** Whether another session owns this job, so the screen leaves it alone. */
+	private isForeign(job: JobRecord): boolean {
+		return job.sessionId !== this.callbacks.sessionId();
 	}
 
 	/** Focus job `next` (clamped) and keep it visible. */
@@ -256,7 +269,10 @@ export class JobListComponent implements Component {
 		else if (data === "d" || data === "K") {
 			const job = ordered[index];
 			if (!job) return;
-			if (job.status === "running") {
+			if (this.isForeign(job)) {
+				// Another session's job is shown here, not managed from here.
+				this.notice = `${job.id} is another session's job; not killed.`;
+			} else if (job.status === "running") {
 				this.confirm = { kind: "kill", id: job.id, label: shortLabel(job) };
 			} else {
 				// A finished job has nothing to kill; say so instead of a silent no-op.
@@ -264,7 +280,9 @@ export class JobListComponent implements Component {
 			}
 			this.requestRender();
 		} else if (data === "x") {
-			const finished = ordered.filter((job) => job.status !== "running");
+			// Only this session's finished jobs are ours to clear, so the prompt and the
+			// result agree.
+			const finished = ordered.filter((job) => !this.isForeign(job) && job.status !== "running");
 			if (finished.length > 0) {
 				this.confirm = {
 					kind: "clear",
@@ -320,10 +338,11 @@ export class JobListComponent implements Component {
 		if (this.pane.handleKey(data)) this.requestRender();
 	}
 
-	private summary(counts: JobCounts, width: number): string {
+	private summary(counts: JobCounts, width: number, foreign: number): string {
 		const cells = [paint(this.theme, "meta", `${counts.total} job${counts.total === 1 ? "" : "s"}`)];
 		if (counts.running > 0) cells.push(paint(this.theme, "meta", `${counts.running} running`));
 		if (counts.failed > 0) cells.push(paint(this.theme, "bad", `${counts.failed} failed`));
+		if (foreign > 0) cells.push(paint(this.theme, "faint", `${foreign} peer`));
 		const separator = paint(this.theme, "meta", SEPARATORS.item);
 		return clip(`  ${fitCells(cells, Math.max(1, width - 2), separator)}`, width);
 	}
@@ -338,7 +357,7 @@ export class JobListComponent implements Component {
 		this.cursor.clamp(jobs, jobId);
 		const index = this.cursor.indexOf(jobs, jobId);
 		const focused = jobs[index];
-		const detail = focused ? formatJobDetail(focused, Date.now()) : [];
+		const detail = focused ? formatJobDetail(focused, Date.now(), this.callbacks.sessionId()) : [];
 		this.cursor.visible = fitRows(
 			this.viewportRowsSource,
 			jobs.length,
@@ -354,8 +373,10 @@ export class JobListComponent implements Component {
 			body.push(...emptyState(this.theme, w, { label: "No background jobs." }));
 		} else {
 			const end = Math.min(jobs.length, this.cursor.scroll + this.cursor.visible);
-			for (let i = this.cursor.scroll; i < end; i++)
-				body.push(jobRow(jobs[i], this.theme, w, { selected: i === index }));
+			for (let i = this.cursor.scroll; i < end; i++) {
+				const row = jobs[i];
+				body.push(jobRow(row, this.theme, w, { selected: i === index, foreign: this.isForeign(row) }));
+			}
 			if (this.cursor.scroll > 0 || end < jobs.length) {
 				range = formatRange(this.theme, w, { start: this.cursor.scroll, end, total: jobs.length });
 			}
@@ -376,7 +397,7 @@ export class JobListComponent implements Component {
 
 		return dockListFrame({
 			header: titleRule(this.theme, w, "Jobs"),
-			summary: this.summary(jobCounts(jobs), w),
+			summary: this.summary(jobCounts(jobs), w, jobs.filter((job) => this.isForeign(job)).length),
 			body,
 			range,
 			// The detail pane is separated from the list by a blank line.

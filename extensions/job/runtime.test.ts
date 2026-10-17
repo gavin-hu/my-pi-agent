@@ -555,15 +555,42 @@ describe("job runtime — pending, clear, status", () => {
 		expect(statuses.get("jobs-failure")).toBe("✗ 1");
 	});
 
-	test("hides a live peer's jobs from list but keeps them for id reservation", () => {
+	test("shows a live peer's jobs and keeps their ids reserved", () => {
 		const h = makeHarness();
 		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
 		save(h, "peer", [peerRecord({ id: "j9", detached: true })], 10);
 		const { ctx } = makeCtx({ sessionId: "me" });
 		h.runtime.load(ctx);
-		expect(h.runtime.list().map((job) => job.id)).not.toContain("j9");
+		// Visible, but owned by the peer: the row is tagged and the record cannot be
+		// cleared here, while its id stays reserved.
+		expect(h.runtime.list().map((job) => job.id)).toContain("j9");
+		expect(h.runtime.list().find((job) => job.id === "j9")?.sessionId).toBe("peer");
+		expect(h.runtime.sessionId).toBe("me");
 		expect(h.runtime.get("j9")?.status).toBe("running");
 		expect(h.runtime.start({ command: "mine" }, ctx).id).toBe("j10");
+	});
+
+	test("clear refuses another session's finished job", () => {
+		const h = makeHarness();
+		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
+		save(
+			h,
+			"peer",
+			[peerRecord({ id: "j9", detached: true, status: "exited", exitCode: 0, pid: null, finishedAt: 5 })],
+			10,
+		);
+		h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
+		expect(h.runtime.clear("j9", false).refused).toContain("another live session");
+	});
+
+	test("does not count a live peer's running job in the chip", () => {
+		const h = makeHarness();
+		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
+		save(h, "peer", [peerRecord({ id: "j9", detached: true })], 10);
+		const { ctx, statuses } = makeCtx({ sessionId: "me" });
+		h.runtime.load(ctx);
+		h.runtime.setStatus(ctx);
+		expect(statuses.has("jobs")).toBe(false);
 	});
 
 	test("ignores a live peer's unreported failure in the chip", () => {
