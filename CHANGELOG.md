@@ -48,6 +48,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   declined while a run is in flight instead of replacing the session under it.
 - `wechat`: peer-facing notices and `/help` follow the peer's language — Chinese
   when the message contains Chinese — instead of speaking English to everyone.
+- `wechat`: a reply is sent as plain chat text. Assistant Markdown is flattened
+  for WeChat (fence lines, heading markers, `**`/`__`/`~~` emphasis, inline
+  backticks), so a peer no longer reads raw formatting, and an answer longer than
+  `maxReplyChars` arrives in numbered parts (`[1/3] …`) instead of as
+  indistinguishable consecutive messages. A failed part now names how much was
+  delivered in the terminal notice.
 
 - Tool transcript: call lines now clip to the terminal width instead of wrapping
   into the railed body (middle clip for a path or URL, so its head and tail

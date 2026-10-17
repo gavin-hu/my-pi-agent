@@ -20,7 +20,15 @@
 
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
-import { chunkText, notice, parseInbound, peerLanguage, sanitizeInbound, type PeerLanguage } from "./format.ts";
+import {
+	chunkText,
+	notice,
+	parseInbound,
+	peerLanguage,
+	sanitizeInbound,
+	toWechatText,
+	type PeerLanguage,
+} from "./format.ts";
 import { createWechatInteractionChannel, type WechatInteractionChannel } from "./interaction.ts";
 import { defaultSleep } from "./login.ts";
 import { sendLocalFile } from "./outbound.ts";
@@ -205,25 +213,30 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	/**
 	 * Send `text` to one peer in `maxReplyChars` chunks, stopping at the first
 	 * failed chunk. A session expiry is handled here; a thrown transport error is
-	 * handed to `onError` so each caller can report it its own way.
+	 * handed to `onError` with how much of the reply went out, so each caller can
+	 * report it its own way without claiming delivery.
 	 */
 	async function sendChunked(
 		to: string,
 		contextToken: string | undefined,
 		text: string,
 		signal: AbortSignal | undefined,
-		onError: (error: unknown) => void,
+		onError: (error: unknown, progress: { sent: number; total: number }) => void,
 	): Promise<boolean> {
 		if (!client || !account) return false;
-		for (const chunk of chunkText(text, deps.config.maxReplyChars)) {
+		const chunks = chunkText(toWechatText(text), deps.config.maxReplyChars);
+		for (const [index, chunk] of chunks.entries()) {
+			// A split answer says so, so the peer knows more is coming and can tell a
+			// truncated reply from a complete one.
+			const body = chunks.length > 1 ? `[${index + 1}/${chunks.length}] ${chunk}` : chunk;
 			try {
-				const response = await client.sendMessage(account, { to, text: chunk, contextToken }, signal);
+				const response = await client.sendMessage(account, { to, text: body, contextToken }, signal);
 				if (isSessionExpired(response)) {
 					handleExpired();
 					return false;
 				}
 			} catch (error) {
-				onError(error);
+				onError(error, { sent: index, total: chunks.length });
 				return false;
 			}
 		}
@@ -231,9 +244,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	async function reply(item: InboundItem, text: string): Promise<void> {
-		await sendChunked(item.peer, item.contextToken, text, abort?.signal, (error) => {
+		await sendChunked(item.peer, item.contextToken, text, abort?.signal, (error, progress) => {
 			if (abort?.signal.aborted) return;
-			notify(`WeChat reply failed: ${messageOf(error)}`, "warning");
+			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
+			notify(`WeChat reply failed${partial}: ${messageOf(error)}`, "warning");
 		});
 	}
 

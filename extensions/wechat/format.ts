@@ -18,6 +18,33 @@ export function sanitizeInbound(text: string): string {
 }
 
 /**
+ * Flatten assistant Markdown for a chat window.
+ *
+ * WeChat renders plain text, so fences, inline backticks, heading markers and
+ * bold/italic emphasis all reach the peer as noise. Structural markers are
+ * dropped and the text inside them is kept verbatim — a code block loses its
+ * fence line, never its body. Control characters are stripped first.
+ */
+export function toWechatText(text: string): string {
+	const lines = stripControlChars(text.replace(/\r\n?/g, "\n")).split("\n");
+	const kept = lines
+		// Drop a fence line (``` or ~~~, with an optional language tag); the content
+		// between fences stays.
+		.filter((line) => !/^\s*(```|~~~)/.test(line))
+		.map((line) =>
+			line
+				.replace(/^\s{0,3}#{1,6}\s+/, "")
+				.replace(/\*\*|__|~~/g, "")
+				.replace(/`/g, "")
+				.replace(/[ \t]+$/, ""),
+		);
+	return kept
+		.join("\n")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+}
+
+/**
  * Split `text` into chunks of at most `max` characters, preferring a line break
  * and never returning an empty chunk. A non-positive `max` returns the text whole.
  */

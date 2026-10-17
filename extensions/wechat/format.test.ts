@@ -6,6 +6,7 @@ import {
 	peerLabel,
 	peerLanguage,
 	sanitizeInbound,
+	toWechatText,
 	type NoticeKind,
 } from "./format.ts";
 
@@ -97,6 +98,28 @@ describe("parseInbound", () => {
 	test("skips media without a usable reference", () => {
 		const result = parseInbound([{ type: 2, image_item: { media: {} } }]);
 		expect(result.media).toEqual([]);
+	});
+});
+
+describe("toWechatText", () => {
+	test("drops fences and keeps the code block body verbatim", () => {
+		const text = toWechatText(["Look:", "```ts", "const a = `x`;", "```"].join("\n"));
+		// The fence line goes; the body loses only its inline backticks.
+		expect(text).toBe("Look:\nconst a = x;");
+	});
+
+	test("strips heading, emphasis, and inline-code markers", () => {
+		expect(toWechatText("## Plan\n**bold** and __also__ and `code` and ~~gone~~")).toBe(
+			"Plan\nbold and also and code and gone",
+		);
+	});
+
+	test("removes control characters and collapses blank runs", () => {
+		expect(toWechatText("a\u0007\n\n\n\nb")).toBe("a\n\nb");
+	});
+
+	test("leaves plain text alone", () => {
+		expect(toWechatText("it is a cat")).toBe("it is a cat");
 	});
 });
 

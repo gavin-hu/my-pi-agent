@@ -666,7 +666,8 @@ describe("bridge remote prompts", () => {
 		await waitFor(() => injected.length === 1);
 
 		await bridge.channel().post("abcdefgh");
-		expect(sent.map((message) => message.text)).toEqual(["abcd", "efgh"]);
+		// A split reply is numbered so the peer knows how much is still coming.
+		expect(sent.map((message) => message.text)).toEqual(["[1/2] abcd", "[2/2] efgh"]);
 		await bridge.close();
 	});
 
@@ -758,6 +759,46 @@ function gatedClient(): {
 }
 
 describe("bridge peer feedback", () => {
+	test("reports how much of a split reply went out when a chunk fails", async () => {
+		const sent: string[] = [];
+		const notifications: string[] = [];
+		let calls = 0;
+		const script: UpdatesResponse[] = [updates([inbound("ping")])];
+		const client = {
+			getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+				const next = script.shift();
+				if (next) return next;
+				await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+				throw new Error("aborted");
+			},
+			sendMessage: async (_account: BotCredentials, args: { text: string }) => {
+				calls += 1;
+				if (calls === 2) throw new Error("socket hang up");
+				sent.push(args.text);
+				return { ret: 0 };
+			},
+			getConfig: async () => ({ ret: 0 }),
+			sendTyping: async () => ({ ret: 0 }),
+			downloadCdn: async () => new Uint8Array(),
+		} as unknown as WechatClient;
+		const { deps, injected } = makeDeps(client, {
+			config: { ...DEFAULT_CONFIG, maxReplyChars: 4 },
+			notify: (message) => notifications.push(message),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		bridge.setBusy(true);
+		bridge.capture({ role: "assistant", content: [{ type: "text", text: "abcdefgh" }] });
+		bridge.settle();
+		await waitFor(() => notifications.length === 1);
+
+		expect(sent).toEqual(["[1/2] abcd"]);
+		expect(notifications[0]).toContain("after 1 of 2 parts were sent");
+		await bridge.close();
+	});
+
 	test("holds the queue until the reply is out", async () => {
 		const gated = gatedClient();
 		const { deps, injected } = makeDeps(gated.client);
