@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Tooling: `assets/chrome.png` is recaptured from a real `pi -e .` run, so the
+  README hero carries the 0.10.0 header and the current footer fields.
+
 ## [0.10.0] - 2026-10-17
 
 ### Added
