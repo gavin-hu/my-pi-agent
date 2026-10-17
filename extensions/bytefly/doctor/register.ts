@@ -43,6 +43,9 @@ export function registerDoctor(pi: ExtensionAPI, deps: DoctorDeps = {}): DoctorR
 		const config = loadConfig(ctx.cwd);
 		runtime.configure({ cwd: ctx.cwd, config });
 		if (!config.proactive || !ctx.hasUI) return;
+		// `quietStartup: true` hides Pi's own startup detail, and this warning is
+		// startup detail too. `"header"` keeps the header, so it still warns.
+		if (pi.getSettings?.().quietStartup === true) return;
 
 		// Only hard requirements can break an enabled extension, so the startup
 		// probe is limited to the extensions that declare one, in parallel.

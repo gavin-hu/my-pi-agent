@@ -255,7 +255,8 @@ sections, and `r` re-probes. `/bytefly settings` opens the Settings section,
 `/bytefly doctor [extension] [refresh]` prints the doctor report (the same
 screen in `tui`), and every other mode prints the grouped listing or one
 extension's full findings. The read-only `run_doctor` tool returns the same
-report. An opt-in notify capability raises an
+report, and its proactive session-start warning stays silent under Pi's
+`quietStartup: true`. An opt-in notify capability raises an
 OS notification when a run or a background job finishes or the agent asks for
 input, configured through the `notify` section of `bytefly.json`, for
 unattended runs.

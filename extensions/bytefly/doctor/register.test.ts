@@ -59,6 +59,18 @@ describe("proactive probe", () => {
 		});
 	});
 
+	test("stays quiet in Pi's quiet startup mode", async () => {
+		const { start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: true } });
+		await start();
+		expect(notices).toEqual([]);
+	});
+
+	test("still warns when quietStartup only keeps the header", async () => {
+		const { start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: "header" } });
+		await start();
+		expect(notices).toHaveLength(1);
+	});
+
 	test("stays quiet without a UI to warn", async () => {
 		const { start, notices } = bootDoctor({ exec: failingExec, mode: "print", hasUI: false });
 		await start();
