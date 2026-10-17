@@ -273,15 +273,23 @@ Every tool block as the transcript draws it: the tool's own call line is the
 headline (the tool name in the theme's tool-title colour as the line's only
 accent, with a path, URL, or query and a shell call's command in the body colour)
 and the result body sits two columns under it behind the transcript rail — the
-tool's own renderer, or its generic fallback. `edit` and `write` carry their
-result on the call body, so that body is railed too; there is no status band.
+tool's own renderer, or its generic fallback. A call line is always one physical
+line: a long subject clips at the margin (middle clip for a path or URL, so its
+head and tail survive) instead of wrapping into the railed body. A rejected call
+renders as one sanitized `error` line in the error role, a running tool shows a
+live `Fetching example.com… 3s` label, and a finished long call appends its
+duration. `edit` and `write` carry their result on the call body, so that body is
+railed too; there is no status band.
 The page covers the user
 nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
 `write`, `edit`, `bash`, `grep`, `find`, `ls` — diffs with the changed words in
 reverse video, syntax highlighting and previews intact), then every
 tool this package registers: `todo`, `goal`, `memory`, `job`, `watch`,
 `subagent`, `web_search`, `web_fetch`, `read_doc`, `open_path`, `run_doctor`,
-`send_wechat`, `ask_user_question`, the plan tools, and the worktree tools.
+`send_wechat`, `ask_user_question`, the plan tools, and the worktree tools. The
+package section also carries the state variants: a denied `web_fetch`, a partial
+`read_doc`, a cancelled question, and a long memory note whose call clips at the
+margin.
 
 <img src="../assets/tool-renderings.png" alt="A full-page reference of every tool block: the user nameplate, a notice and the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, send_wechat, ask_user_question, the plan tools, and the worktree tools" width="100%">
 

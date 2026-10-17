@@ -7,6 +7,7 @@ import { askHuman } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
@@ -78,7 +79,7 @@ export function registerTools(pi: ExtensionAPI): void {
 			const count = questions.length;
 			const noun = count === 1 ? "question" : "questions";
 			const headers = questionHeaders(questions);
-			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "meta", `${count} ${noun}`);
+			let text = toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "meta", `${count} ${noun}`);
 			if (headers.length > 0) text += paint(theme, "faint", ` (${headers.join(", ")})`);
 
 			// One line per question that offers options, so a long option list stays
@@ -86,21 +87,20 @@ export function registerTools(pi: ExtensionAPI): void {
 			// carries no indent of its own; the tool-block frame supplies it.
 			for (const line of optionSummary(questions)) text += `\n${paint(theme, "meta", line)}`;
 
-			const component = reuseText(context?.lastComponent);
+			const component = reuseCallText(context?.lastComponent);
 			component.setText(text);
 			return component;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const component = reuseText(context?.lastComponent);
 			const details = toolDetails<AskResult>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				component.setText(first?.type === "text" ? first.text : "");
+				component.setText(rejectionLine(theme, result, options.expanded));
 				return component;
 			}
 			if (details.unavailable) {
-				component.setText(paint(theme, "faint", UNAVAILABLE_TEXT));
+				component.setText(paint(theme, "bad", UNAVAILABLE_TEXT));
 				return component;
 			}
 			if (details.answers.length === 0) {

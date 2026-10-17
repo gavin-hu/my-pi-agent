@@ -138,6 +138,33 @@ describe("run_doctor", () => {
 		expect(text).toContain("Validation failed for tool");
 	});
 
+	test("renders one summary line collapsed and the problems expanded", () => {
+		const tool = bootDoctor().fake.tools.get("run_doctor");
+		const details = {
+			headline: "doctor: 1 missing, 0 degraded across 17 extensions",
+			missing: 1,
+			degraded: 0,
+			extensions: [
+				{
+					extension: "todo",
+					enabled: true,
+					findings: [{ check: "node", severity: "missing", detail: "not on PATH", hint: "install node" }],
+				},
+			],
+		};
+		const render = (expanded: boolean): string =>
+			tool
+				.renderResult({ content: [], details }, { expanded }, fakeTheme, { lastComponent: undefined })
+				.render(80)
+				.join("\n");
+
+		const collapsed = render(false);
+		expect(collapsed).toContain("doctor: 1 missing");
+		expect(collapsed).not.toContain("not on PATH");
+		expect(collapsed.toLowerCase()).toContain("expand");
+		expect(render(true)).toContain("not on PATH");
+	});
+
 	test("reports one extension when asked", async () => {
 		const { fake, ctx } = bootDoctor();
 		const tool = fake.tools.get("run_doctor");

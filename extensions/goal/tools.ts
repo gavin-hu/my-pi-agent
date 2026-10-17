@@ -12,6 +12,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { formatCallText, formatGoalText } from "./format.ts";
@@ -89,20 +90,19 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseText(context.lastComponent);
+			const text = reuseCallText(context.lastComponent);
 			text.setText(
-				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
+				toolCallTitle(theme, `${TOOL_NAME} `) +
 					paint(theme, "meta", formatCallText(args.objective, context.argsComplete, args.status)),
 			);
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const text = reuseText(context.lastComponent);
 			const details = toolDetails<GoalDetails>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
 			if (details.error) {

@@ -22,6 +22,8 @@ export interface FixtureResult {
 export interface ToolFixture {
 	name: string;
 	group: "builtin" | "package" | "transcript";
+	/** The real tool to render when `name` is a variant label. */
+	tool?: string;
 	/** One line of context shown beside the name in the gallery. */
 	label: string;
 	/** The call arguments; unused by a `transcript` entry. */
@@ -171,6 +173,68 @@ export const FIXTURES: ToolFixture[] = [
 	},
 
 	// ─── Package tools ──────────────────────────────────────────────────────
+	{
+		name: "web_fetch-rejected",
+		tool: "web_fetch",
+		group: "package",
+		label: "a denied call (sanitized error, no details)",
+		args: { url: "https://example.com/private" },
+		result: {
+			content: [{ type: "text", text: "Error: Permission denied: web_fetch" }],
+			details: {},
+			isError: true,
+		},
+	},
+	{
+		name: "read_doc-running",
+		tool: "read_doc",
+		group: "package",
+		label: "a partial read (live elapsed)",
+		args: { path: "docs/architecture.pdf" },
+		options: { isPartial: true },
+		result: { content: [] },
+	},
+	{
+		name: "memory-long-subject",
+		tool: "memory",
+		group: "package",
+		label: "a long note (clipped call line)",
+		args: {
+			action: "add",
+			text: "Prefers bun over npm, and never runs npm install in a repository with a bun.lock",
+			scope: "project",
+		},
+		result: {
+			content: [{ type: "text", text: "Added to project memory" }],
+			details: {
+				action: "add",
+				scope: "project",
+				project: ["Prefers bun over npm, and never runs npm install in a repository with a bun.lock"],
+				global: [],
+				changed: true,
+				entry: "Prefers bun over npm, and never runs npm install in a repository with a bun.lock",
+			},
+		},
+	},
+	{
+		name: "ask_user_question-cancelled",
+		tool: "ask_user_question",
+		group: "package",
+		label: "a cancelled question",
+		args: {
+			questions: [
+				{
+					question: "Which retry policy should I implement?",
+					header: "Retry",
+					options: [{ label: "Exponential + jitter" }, { label: "Fixed delay" }],
+				},
+			],
+		},
+		result: {
+			content: [{ type: "text", text: "Cancelled" }],
+			details: { cancelled: true, questions: [], answers: [] },
+		},
+	},
 	{
 		name: "todo",
 		group: "package",

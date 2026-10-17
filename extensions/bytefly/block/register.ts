@@ -48,6 +48,7 @@
 
 import type { ExtensionAPI, Theme, ThemeBg } from "@earendil-works/pi-coding-agent";
 import { type Component, Text } from "@earendil-works/pi-tui";
+import { ToolCallText } from "../../../lib/tui/tool.ts";
 import { createRailSource, railGlyph, type RailSource } from "../chrome.ts";
 import { createPadStore, type PadSource } from "../pad.ts";
 import { isRewritable, recolorCallHeadline, recolorShellCall, ToolBlock } from "./component.ts";
@@ -115,7 +116,7 @@ export function registerToolBlocks(
 							outputPad: 0,
 							lastComponent: memory.byteflyBaseCall,
 						}),
-					() => new Text(callFallback(toolName, args, theme, context.expanded), 0, 0),
+					() => new ToolCallText(callFallback(toolName, args, theme, context.expanded)),
 				);
 				memory.byteflyBaseCall = inner;
 				// Split a shell call's roles before the frame wraps it: Pi renders

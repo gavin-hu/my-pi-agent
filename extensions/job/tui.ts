@@ -16,6 +16,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { formatDuration } from "../../lib/format.ts";
 import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip, fitCells } from "../../lib/tui/columns.ts";
 import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
@@ -27,7 +28,6 @@ import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareJobs,
 	elapsedMs,
-	formatDuration,
 	formatJobDetail,
 	jobCounts,
 	sanitizeLogLine,

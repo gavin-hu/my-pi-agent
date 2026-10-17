@@ -12,6 +12,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine, stripControlChars } from "../../../lib/format.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
+import { toolCallTitle } from "../../../lib/tui/tool.ts";
 
 /** Collapsed argument preview length, matching Pi's generic call header. */
 const COLLAPSED_ARGS_CHARS = 100;
@@ -60,7 +61,7 @@ function optionFragment(key: string, value: unknown): string | undefined {
  * and the options stay faint.
  */
 export function callFallback(toolName: string, args: unknown, theme: Theme, expanded: boolean): string {
-	const header = theme.fg("toolTitle", theme.bold(toolName));
+	const header = toolCallTitle(theme, toolName);
 	if (args == null) return header;
 	const entries = argumentEntries(args);
 	if (entries.length === 0) return header;

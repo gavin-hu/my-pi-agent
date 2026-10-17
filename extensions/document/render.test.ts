@@ -99,6 +99,14 @@ describe("formatDocCall", () => {
 		expect(rendered).not.toContain("from");
 	});
 
+	test("reads a path that has not streamed yet as pending, not invalid", () => {
+		const pending = formatDocCall({} as never, fakeTheme, { cwd: "/work", argsComplete: false });
+		expect(pending).toContain("read_doc ...");
+		expect(pending).not.toContain("[invalid arg]");
+		const invalid = formatDocCall({} as never, fakeTheme, { cwd: "/work" });
+		expect(invalid).toContain("[invalid arg]");
+	});
+
 	test("colours the paging options faint", () => {
 		const rendered = formatDocCall({ path: "spec.pdf", startIndex: 40000, maxChars: 80000 }, coloringTheme, {
 			cwd: "/work",

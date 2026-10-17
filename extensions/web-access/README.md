@@ -55,16 +55,20 @@ web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
 ### Transcript
 
 The call line names the query or URL and states the requested limit
-(`(max 8)`), so it never reads as the number of results returned. The result
-separates the header from its body and sanitizes untrusted web text (answers,
-titles, fetched titles and errors) to one line before it reaches the terminal.
-A search result labels its answer and lists one URL per result; expanding
-reveals snippets and the full result list.
+(`(max 8)`), so it never reads as the number of results returned. It stays one
+physical line; a long URL clips in the middle so host and path both survive. The
+result separates the header from its body and sanitizes untrusted web text
+(answers, titles, fetched titles and errors) to one line before it reaches the
+terminal. A search result labels its answer and lists one URL per result;
+expanding reveals snippets and the full result list. While a request is in
+flight it draws a railed `Searching… 8s` or `Fetching example.com… 3s` line, and
+a finished call appends its duration. A failed page or a host-rejected call
+renders one sanitized `Error:` line in the error role.
 
 ```
 web_search "pi coding agent" (max 8)
 
-via searxng · 8 results
+via searxng · 8 results · 2.1s
 Answer: Pi is a coding agent harness …
 1. Pi — a coding agent harness
    https://pi.dev/
@@ -75,8 +79,11 @@ Answer: Pi is a coding agent harness …
 
 ```
 web_fetch https://pi.dev/
-Pi — a coding-agent component · 12k chars (cached)
+Pi — a coding-agent component · 200 · 12k chars (cached) · 3.4s
 ```
+
+A redirect adds its target (`· → https://pi.dev/docs`), so the transcript shows
+which URL supplied the text.
 
 ## Configuration
 

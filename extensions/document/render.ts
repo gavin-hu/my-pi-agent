@@ -16,6 +16,7 @@ import { getCapabilities, hyperlink } from "@earendil-works/pi-tui";
 import { formatTokens, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { expandKey, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
+import { rejectionLine, toolCallTitle } from "../../lib/tui/tool.ts";
 import { summarizeDoc } from "./paging.ts";
 import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 
@@ -23,7 +24,8 @@ import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
 export const PREVIEW_LINES = 20;
 
 /** Render the argument path: body colour, `~`-shortened, OSC-8 linked when supported. */
-export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: string): string {
+export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: string, argsComplete = true): string {
+	if (rawPath === undefined && !argsComplete) return theme.fg("toolOutput", "...");
 	if (typeof rawPath !== "string") return paint(theme, "bad", "[invalid arg]");
 	const value = sanitizeLine(rawPath);
 	if (!value) return theme.fg("toolOutput", "...");
@@ -55,12 +57,15 @@ export interface DocRenderResult {
 export interface DocRenderOptions {
 	expanded: boolean;
 	isPartial: boolean;
+	/** Pre-painted elapsed suffix shown while reading. */
+	progress?: string;
 }
 
 /** The call line: `read_doc <path> (from N, max M)`. */
-export function formatDocCall(args: DocArgs, theme: Theme, context: { cwd: string }): string {
+export function formatDocCall(args: DocArgs, theme: Theme, context: { cwd: string; argsComplete?: boolean }): string {
 	const { path, startIndex, maxChars } = args;
-	let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + renderDocPath(path, theme, context.cwd);
+	let text =
+		toolCallTitle(theme, `${TOOL_NAME} `) + renderDocPath(path, theme, context.cwd, context.argsComplete ?? true);
 	const options: string[] = [];
 	if (typeof startIndex === "number" && startIndex > 0) options.push(`from ${formatTokens(startIndex)}`);
 	if (typeof maxChars === "number") options.push(`max ${formatTokens(maxChars)}`);
@@ -73,16 +78,13 @@ export function formatDocCall(args: DocArgs, theme: Theme, context: { cwd: strin
  * expanded, a sanitized preview of the extracted text.
  */
 export function formatDocResult(result: DocRenderResult, options: DocRenderOptions, theme: Theme): string {
-	if (options.isPartial) return paint(theme, "warn", "Reading...");
+	if (options.isPartial) return paint(theme, "warn", "Reading...") + (options.progress ?? "");
 
 	const isError = result.isError ?? false;
 	const details = result.details as DocResult | undefined;
 
 	if (!details || isError) {
-		const first = result.content[0];
-		const message = first?.type === "text" && first.text ? first.text : "Read failed";
-		const safe = sanitizeLine(message.startsWith("Error:") ? message : `Error: ${message}`);
-		return paint(theme, "bad", safe);
+		return rejectionLine(theme, { content: result.content, isError }, options.expanded);
 	}
 
 	const summary = summarizeDoc(details);

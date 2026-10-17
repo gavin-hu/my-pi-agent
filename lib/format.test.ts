@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { formatCount, formatTokens, sanitize, sanitizeLine, shortenPath, stripControlChars } from "./format.ts";
+import {
+	formatCount,
+	formatDuration,
+	formatTokens,
+	sanitize,
+	sanitizeLine,
+	shortenPath,
+	stripControlChars,
+} from "./format.ts";
 
 describe("formatTokens", () => {
 	test("scales at each boundary", () => {
@@ -70,6 +78,20 @@ describe("shortenPath", () => {
 	test("accepts an explicit home for a deterministic caller", () => {
 		expect(shortenPath("/home/u/repo/x", "/home/u")).toBe("~/repo/x");
 		expect(shortenPath("/other/repo", "/home/u")).toBe("/other/repo");
+	});
+});
+
+describe("formatDuration", () => {
+	test("formats milliseconds, seconds, minutes, and hours", () => {
+		expect(formatDuration(450)).toBe("450ms");
+		expect(formatDuration(3200)).toBe("3.2s");
+		expect(formatDuration(65_000)).toBe("1m05s");
+		expect(formatDuration(7_380_000)).toBe("2h03m");
+	});
+
+	test("never prints NaN for a missing duration", () => {
+		expect(formatDuration(Number.NaN)).toBe("0ms");
+		expect(formatDuration(-1)).toBe("0ms");
 	});
 });
 

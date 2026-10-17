@@ -212,7 +212,9 @@ signal (an OOM kill, a crash) has no exit code, so it is recorded as
 `Terminated by <signal>` and reported as a failure. Parallel and chain
 headers state the failure count (`1/2 tasks (1 failed)`); a chain that stops at
 the first failing step also reports `stopped at step N`. Running tasks show an
-elapsed-time label. A result that hit tool errors appends `N tool errors` to its
+elapsed-time label on the shared 1s repaint timer (the package's common
+duration format, e.g. `12.0s`), and a finished run keeps its duration. A result
+that hit tool errors appends `N tool errors` to its
 usage line (and to the multi `Total:`).
 
 A chain step's expanded `Task` section shows the step's original instruction,

@@ -167,7 +167,9 @@ function toolLines(
 	base: ToolRenderers | undefined,
 	width: number,
 ): string[] {
-	const wrapped = resolve(fixture.name, () => base);
+	// A variant fixture (`web_fetch-rejected`) renders the real tool's renderer;
+	// its own name is only the gallery label.
+	const wrapped = resolve(fixture.tool ?? fixture.name, () => base);
 	if (!wrapped) return [`(no renderer for ${fixture.name})`];
 	const ctx = context(fixture);
 	// Build both components first: a result can update the call component it
@@ -225,7 +227,7 @@ export function renderings(): Rendering[] {
 		lines: (width: number): string[] => {
 			setThemeInstance(theme);
 			if (fixture.group === "transcript") return transcriptLines(fixture.name, width);
-			const base = fixture.group === "builtin" ? builtins[fixture.name] : tools.get(fixture.name);
+			const base = fixture.group === "builtin" ? builtins[fixture.name] : tools.get(fixture.tool ?? fixture.name);
 			return toolLines(resolve, fixture, base, width);
 		},
 	}));

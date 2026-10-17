@@ -5,7 +5,6 @@ import {
 	elapsedMs,
 	formatCallText,
 	formatCompletion,
-	formatDuration,
 	formatJobDetail,
 	formatJobList,
 	formatJobOutcomeLine,
@@ -83,15 +82,6 @@ describe("status glyphs", () => {
 		for (const status of ["running", "exited", "killed", "failed", "unknown"] as const) {
 			expect(visibleWidth(statusGlyph(status, fakeTheme as any))).toBe(1);
 		}
-	});
-});
-
-describe("formatDuration", () => {
-	test("formats milliseconds, seconds, minutes, and hours", () => {
-		expect(formatDuration(450)).toBe("450ms");
-		expect(formatDuration(3200)).toBe("3.2s");
-		expect(formatDuration(65_000)).toBe("1m05s");
-		expect(formatDuration(7_380_000)).toBe("2h03m");
 	});
 });
 

@@ -9,7 +9,7 @@
  * Value-only: pure functions over their arguments.
  */
 
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 /** A usable origin: terminal arithmetic starts from one column, never zero. */
 function columns(width: number): number {
@@ -19,6 +19,30 @@ function columns(width: number): number {
 /** Clip a possibly-themed string to `width` columns, marking a cut with `ellipsis`. */
 export function clip(text: string, width: number, ellipsis = "…"): string {
 	return truncateToWidth(text, columns(width), ellipsis);
+}
+
+/**
+ * Clip from the middle, keeping both ends: `example.com/…/retry-policy`.
+ *
+ * Use it when the tail carries the identity (a path's basename, a URL's path)
+ * and the head carries the context (a host, a directory). Prose should use
+ * {@link clip} instead, because its opening words matter more than its tail.
+ * A themed string keeps its colours on both the head and the tail.
+ */
+export function clipMiddle(text: string, width: number, ellipsis = "…"): string {
+	const w = columns(width);
+	if (visibleWidth(text) <= w) return text;
+	const ellipsisWidth = visibleWidth(ellipsis);
+	const budget = w - ellipsisWidth;
+	if (budget <= 0) return clip(text, w, ellipsis);
+
+	// One more column for the head, so an odd budget leaves the longer half where
+	// the eye starts; the tail is sliced by grapheme, never split.
+	const headWidth = Math.ceil(budget / 2);
+	const tailWidth = budget - headWidth;
+	const head = truncateToWidth(text, headWidth, "");
+	const tail = tailWidth > 0 ? sliceByColumn(text, visibleWidth(text) - tailWidth, tailWidth, true) : "";
+	return clip(`${head}${ellipsis}${tail}`, w, ellipsis);
 }
 
 /** Pad `text` on the right to exactly `width` columns. Never truncates. */
