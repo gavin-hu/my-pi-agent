@@ -138,8 +138,10 @@ design system — [`tokens.ts`](./lib/tui/tokens.ts) (semantic roles),
 [`gauge.ts`](./lib/tui/gauge.ts) (the gauge),
 [`line-pane.ts`](./lib/tui/line-pane.ts) (a scrollable log/match pane),
 [`status-controller.ts`](./lib/tui/status-controller.ts) (footer chips),
-[`glyphs.ts`](./lib/tui/glyphs.ts) (glyphs and status keys), and
-[`cursor.ts`](./lib/tui/cursor.ts) (`ListCursor` by index, `IdCursor` by id) —
+[`glyphs.ts`](./lib/tui/glyphs.ts) (glyphs and status keys),
+[`tool.ts`](./lib/tui/tool.ts) (the tool-transcript kit: call title, width-safe
+call line, sanitized error, elapsed timer), and [`cursor.ts`](./lib/tui/cursor.ts)
+(`ListCursor` by index, `IdCursor` by id) —
 use it rather than re-deriving chrome, glyphs, or scroll math.
 
 - Prefer the host before custom code: `ctx.ui.select` / `confirm` / `input` /

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { clip, fitCells, flowCells, padTo, splitRow } from "./columns.ts";
+import { clip, clipMiddle, fitCells, flowCells, padTo, splitRow } from "./columns.ts";
 
 /** A representative mix: ASCII, a CJK sample, and a themed string. */
 const SAMPLES = ["Extensions", "日本語のリスト", "\u001b[31mred\u001b[39m text", "a", ""];
@@ -20,6 +20,40 @@ describe("clip", () => {
 				expect(visibleWidth(clip(sample, width))).toBeLessThanOrEqual(width);
 			}
 		}
+	});
+});
+
+describe("clipMiddle", () => {
+	test("keeps text that fits untouched", () => {
+		expect(clipMiddle("example.com/retry", 40)).toBe("example.com/retry");
+	});
+
+	test("keeps the head and the tail of a long path", () => {
+		const out = stripTerminalSequences(clipMiddle("https://example.com/docs/guides/retry-policy", 24));
+		expect(out.startsWith("https://")).toBe(true);
+		expect(out.endsWith("policy")).toBe(true);
+		expect(out).toContain("…");
+	});
+
+	test("never exceeds the width, even for wide and themed characters", () => {
+		for (const width of WIDTHS) {
+			for (const sample of SAMPLES) {
+				expect(visibleWidth(clipMiddle(sample, width))).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+
+	test("keeps a themed string coloured on both halves", () => {
+		const red = "\u001b[31m";
+		const reset = "\u001b[39m";
+		const out = clipMiddle(`${red}https://example.com/docs/retry-policy${reset}`, 24);
+		expect(out.split(red).length - 1).toBeGreaterThanOrEqual(2);
+		expect(visibleWidth(out)).toBeLessThanOrEqual(24);
+	});
+
+	test("degrades to a plain clip when there is no room for both ends", () => {
+		expect(stripTerminalSequences(clipMiddle("example.com/retry", 1))).toBe("…");
+		expect(visibleWidth(clipMiddle("example.com/retry", 2))).toBeLessThanOrEqual(2);
 	});
 });
 

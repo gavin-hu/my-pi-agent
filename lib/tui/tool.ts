@@ -1,0 +1,194 @@
+/**
+ * The shared tool-transcript kit: a call title, a width-safe call component,
+ * sanitized error lines, the expand hint, and the running timer.
+ *
+ * Every extension's `renderCall` / `renderResult` used to repeat the same four
+ * idioms — a bold `toolTitle`, a raw `result.content[0]`, a hand-built
+ * `… more` hint, and a local elapsed format. This module is the one place those
+ * live, so a rejection is sanitized everywhere, a long call line clips instead
+ * of wrapping into the railed body, and a duration reads the same in every
+ * block.
+ *
+ * Value-only: pure functions, constants, and a component class whose mutable
+ * state is the string the caller passes in. The running timer writes only the
+ * caller's `context.state`, never a module variable — Pi loads each extension
+ * with an isolated module cache, so module state would be one copy per
+ * extension.
+ */
+
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { type Component, truncateToWidth } from "@earendil-works/pi-tui";
+import { formatDuration, sanitizeLine, stripControlChars } from "../format.ts";
+import { clipMiddle } from "./columns.ts";
+import { expandHint, SEPARATORS } from "./glyphs.ts";
+import { paint } from "./tokens.ts";
+
+/** The parts of a tool result a renderer reads. */
+export interface ToolMessageResult {
+	content: ReadonlyArray<{ type: string; text?: string }>;
+	isError?: boolean;
+}
+
+/** The bold tool name in Pi's tool-title token, the block's only accent. */
+export function toolCallTitle(theme: Theme, name: string): string {
+	return theme.fg("toolTitle", theme.bold(name));
+}
+
+/** How a call line gives up columns when the terminal is narrow. */
+export type CallClip = "end" | "middle";
+
+/**
+ * A tool call line: the same mutable string as Pi's `Text`, but clipped to the
+ * render width instead of wrapped.
+ *
+ * A call is a label, so it must stay one physical line: a wrap would push the
+ * rest of the subject into the body column, where it looks like a result (and,
+ * under bytefly's frame, could be railed). `end` preserves the start of prose;
+ * `middle` keeps both the head and the tail of a path or URL. It exposes `.text`
+ * and `.setText` because bytefly's block resolver rewrites the headline in place.
+ */
+export class ToolCallText implements Component {
+	text: string;
+	readonly clip: CallClip;
+
+	constructor(initial = "", clip: CallClip = "end") {
+		this.text = initial;
+		this.clip = clip;
+	}
+
+	setText(text: string): void {
+		this.text = text;
+	}
+
+	invalidate(): void {}
+
+	render(width: number): string[] {
+		const w = Math.max(1, Math.floor(width));
+		return this.text
+			.split("\n")
+			.map((line) => (this.clip === "middle" ? clipMiddle(line, w) : truncateToWidth(line, w, "…")));
+	}
+}
+
+/** Reuse the previous call component when it is one with the same clip mode. */
+export function reuseCallText(last: unknown, initial = "", clip: CallClip = "end"): ToolCallText {
+	return last instanceof ToolCallText && last.clip === clip ? last : new ToolCallText(initial, clip);
+}
+
+/**
+ * Sanitized error lines, painted `bad`, with exactly one `Error:` prefix.
+ *
+ * The raw message is untrusted (a host rejection, a subprocess, a parser), so
+ * every line is neutralized before the theme is applied — otherwise the
+ * sanitizer would strip the theme's own SGR. A message that already opens with
+ * `Error:` is not prefixed twice.
+ */
+export function errorLine(theme: Theme, message: string): string {
+	const lines = messageLines(message);
+	if (lines.length === 0) return paint(theme, "bad", "Error: the tool call failed");
+	lines[0] = `Error: ${lines[0]?.replace(/^error:\s*/i, "") ?? ""}`;
+	return paint(theme, "bad", lines.join("\n"));
+}
+
+/**
+ * A rejected call: every text block of Pi's `{ details: {}, isError: true }`
+ * envelope, sanitized and painted `bad`. Collapsed output keeps the first
+ * `maxLines` and points at the expand key; expanded shows all of it.
+ */
+export function rejectionLine(theme: Theme, result: ToolMessageResult, expanded = false, maxLines = 10): string {
+	const text = messageText(result);
+	const lines = messageLines(text);
+	if (lines.length === 0) return errorLine(theme, "the tool call was rejected");
+	const shown = expanded ? lines : lines.slice(0, Math.max(1, maxLines));
+	let out = errorLine(theme, shown.join("\n"));
+	const hidden = lines.length - shown.length;
+	if (hidden > 0) out += `\n${moreHint(theme, hidden)}`;
+	return out;
+}
+
+/** Every text block of a result, joined; non-text blocks are ignored. */
+export function messageText(result: ToolMessageResult): string {
+	const parts: string[] = [];
+	for (const block of result.content) {
+		if (block.type === "text" && typeof block.text === "string") parts.push(block.text);
+	}
+	return parts.join("\n");
+}
+
+/** `… N more lines (ctrl+o to expand)`, the collapsed overflow note. */
+export function moreHint(theme: Theme, hidden: number, noun = "lines"): string {
+	return `${paint(theme, "faint", `… ${hidden} more ${noun}`)} ${expandHint(theme)}`;
+}
+
+/** The render context fields the elapsed timer needs. */
+export interface ToolRenderClock {
+	state: any;
+	invalidate(): void;
+}
+
+interface ElapsedState {
+	/** The first render of this call, in ms. */
+	startedAt?: number;
+	/** The 1s repaint loop, present only while the call is running. */
+	elapsedTimer?: ReturnType<typeof setInterval>;
+}
+
+/**
+ * Keep a running call repainting once a second, and stop when it finishes.
+ *
+ * Returns the call's start time so a renderer can print `now - startedAt`.
+ * The interval is `unref`'d so it never holds the process open; a final render
+ * with `running: false` clears it. Tests pass an explicit `now` for determinism.
+ */
+export function syncElapsedTimer(
+	running: boolean,
+	context: ToolRenderClock | undefined,
+	now = Date.now(),
+): number | undefined {
+	if (!context?.state) return undefined;
+	const state = context.state as ElapsedState;
+	if (running && state.startedAt === undefined) state.startedAt = now;
+	if (running && !state.elapsedTimer) {
+		state.elapsedTimer = setInterval(() => context.invalidate(), 1000);
+		(state.elapsedTimer as { unref?: () => void }).unref?.();
+	} else if (!running && state.elapsedTimer) {
+		clearInterval(state.elapsedTimer);
+		state.elapsedTimer = undefined;
+	}
+	return state.startedAt;
+}
+
+/**
+ * A faint ` · 1.2s` completion suffix, or `""`.
+ *
+ * A duration is only worth a column when the wait was perceptible, so the
+ * default floor is one second; an unknown duration prints nothing.
+ */
+export function elapsedSuffix(theme: Theme, durationMs: number | undefined, minMs = 1000): string {
+	if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < minMs) return "";
+	return paint(theme, "faint", `${SEPARATORS.item}${formatDuration(durationMs)}`);
+}
+
+/**
+ * Hand Pi a partial result so its result renderer runs while the tool works.
+ *
+ * Pi only calls `renderResult` once a result exists; without an update, a
+ * long-running tool shows nothing to repaint. The empty content is never shown
+ * (the renderer's `isPartial` branch draws its own running line) and the host
+ * replaces it with the final result.
+ */
+export function startToolProgress(onUpdate: ((partial: any) => void) | undefined): void {
+	onUpdate?.({ content: [], details: undefined });
+}
+
+/** Sanitized, non-empty lines of an untrusted message. */
+function messageLines(message: string): string[] {
+	const lines = stripControlChars(message)
+		.split("\n")
+		.map((line) => sanitizeLine(line));
+	let start = 0;
+	let end = lines.length;
+	while (start < end && lines[start] === "") start++;
+	while (end > start && lines[end - 1] === "") end--;
+	return lines.slice(start, end);
+}

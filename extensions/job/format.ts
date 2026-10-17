@@ -14,6 +14,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
+import { formatDuration } from "../../lib/format.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
@@ -58,18 +59,6 @@ export function sanitizeLogText(raw: string): string[] {
 export function tailLines(lines: string[], count: number): string[] {
 	if (count <= 0) return [];
 	return lines.slice(Math.max(0, lines.length - count));
-}
-
-/** Compact duration: `450ms`, `3.2s`, `1m05s`, `2h03m`. */
-export function formatDuration(ms: number): string {
-	if (!Number.isFinite(ms) || ms < 0) return "0ms";
-	if (ms < 1000) return `${Math.round(ms)}ms`;
-	const seconds = ms / 1000;
-	if (seconds < 60) return `${seconds.toFixed(1)}s`;
-	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes}m${String(Math.floor(seconds % 60)).padStart(2, "0")}s`;
-	const hours = Math.floor(minutes / 60);
-	return `${hours}h${String(minutes % 60).padStart(2, "0")}m`;
 }
 
 /** Elapsed time for a job: running jobs measure to now, finished jobs to their end. */

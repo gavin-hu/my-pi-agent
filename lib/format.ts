@@ -35,6 +35,21 @@ export function formatCount(count: number): string {
 }
 
 /**
+ * Compact duration: `450ms`, `3.2s`, `1m05s`, `2h03m`. Non-finite or
+ * negative input reads `0ms`, so a missing timestamp never prints `NaN`.
+ */
+export function formatDuration(ms: number): string {
+	if (!Number.isFinite(ms) || ms < 0) return "0ms";
+	if (ms < 1000) return `${Math.round(ms)}ms`;
+	const seconds = ms / 1000;
+	if (seconds < 60) return `${seconds.toFixed(1)}s`;
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes}m${String(Math.floor(seconds % 60)).padStart(2, "0")}s`;
+	const hours = Math.floor(minutes / 60);
+	return `${hours}h${String(minutes % 60).padStart(2, "0")}m`;
+}
+
+/**
  * Replace terminal control characters (including ESC and the C1 block) with
  * spaces, keeping `\n` and `\t` for callers that render multi-line text.
  *
