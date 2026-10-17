@@ -86,7 +86,7 @@ export const FIXTURES: ToolFixture[] = [
 		options: { argsComplete: false },
 		args: {
 			path: "src/greet.ts",
-			edits: [{ oldText: "  return `Hello, ${name}!`;", newText: "  const g = `Hello, ${name}!`;\n  return g;" }],
+			edits: [{ oldText: "  return `Hello, ${name}!`;", newText: "  return `Hello, ${name}, welcome back!`;" }],
 		},
 		result: {
 			content: [{ type: "text", text: "Successfully replaced 1 block(s) in src/greet.ts." }],
@@ -94,9 +94,8 @@ export const FIXTURES: ToolFixture[] = [
 				diff: [
 					" 1 export function greet(name: string) {",
 					"-2   return `Hello, ${name}!`;",
-					"+2   const g = `Hello, ${name}!`;",
-					"+3   return g;",
-					" 4 }",
+					"+2   return `Hello, ${name}, welcome back!`;",
+					" 3 }",
 				].join("\n"),
 				patch: "",
 				firstChangedLine: 2,

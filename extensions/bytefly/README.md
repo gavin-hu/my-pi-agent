@@ -196,7 +196,8 @@ read src/app.ts
 The two tools that mutate a file, `edit` and `write`, carry their result on the
 call body — the edit diff, the written file content — so that body is railed
 like any other result. There is no status band: the diff's own red/green line
-colours and the `edit` / `write` headline are what mark a file change.
+colours, with the changed words in reverse video, and the `edit` / `write`
+headline are what mark a file change.
 
 A `registerToolRenderer` resolver switches the row to `renderShell: "self"`,
 leaves the call's own first line as the headline, and indents the rest of the
@@ -214,8 +215,8 @@ only for `edit` and `write`, whose call body carries the result — every other
 call's headline and continuation lines stay plain-indented. A call line that
 does not fit wraps, and Pi drops the tool name onto its own line when the
 subject it carries (a long path) is one unbreakable token; those continuation
-lines are still the call, so they stay unrailed and the rail begins with the
-result underneath. A tool with
+lines are still the call, so they stay unrailed and lose the accent too, and the
+rail begins with the result underneath. A tool with
 no renderer of its own is framed around a generic call/result fallback, whose
 call line reads like a built-in — the leading string argument bare, the rest as
 trailing options (`open_path src/app.ts`) — rather than dumping raw `key=value`
@@ -983,7 +984,7 @@ columns, gauge), so the look follows the active theme.
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline at the margin, the rail-led severity rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type and hands it the rail source. |
 | `block/config.ts` | `BlockStatus` and `BLOCK_CONFIG.roles`: the design role a result's rail takes for each state. |
-| `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, `recolorCallHeadline`, and `ToolBlock`: the headline, the body's two-column indent (optionally rail-led), the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), the subject demotion (a path, URL, query, or pattern reads in `label` so the name is the line's only accent), and the image-line passthrough. |
+| `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, `recolorCallHeadline`, and `ToolBlock`: the headline, the body's two-column indent (optionally rail-led), the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), the subject demotion (a path, URL, query, or pattern reads in `label` so the name is the line's only accent, including the tail a bare `edit <path>` headline wraps onto the body), and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer: the subject in the body colour, its options faint, and a capped result preview. |
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it, rails the result body by status, and rails the call body for `edit`/`write` (the two whose call body carries the result). |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |

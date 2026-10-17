@@ -124,6 +124,39 @@ describe("toolBlockLines", () => {
 		).toEqual(["edit", "  src/a/long/path.ts", "╎ ", "╎ -1 a", "╎ +1 b"]);
 	});
 
+	test("demotes the wrapped call's continuation lines with its headline", () => {
+		// The wrapped path is still the call, so it cannot keep the accent the
+		// headline demotion takes off the first line. The result under the blank
+		// line keeps whatever role its own renderer gave it.
+		const body = [
+			roleSgrTheme.fg("toolTitle", "edit"),
+			roleSgrTheme.fg("accent", "src/a/long/path.ts"),
+			"",
+			roleSgrTheme.fg("accent", "+1 b"),
+		];
+		const lines = toolBlockLines(innerOf(body), 40, 0, {
+			headline: true,
+			rail: "╎",
+			toolName: "edit",
+			theme: roleSgrTheme,
+		});
+		expect(lines[0]).toContain(`${ROLE_SGR.accent}edit`);
+		expect(lines[1]).toContain(`${ROLE_SGR.text}src/a/long/path.ts`);
+		expect(lines[1]).not.toContain(ROLE_SGR.accent);
+		expect(lines[3]).toContain(`${ROLE_SGR.accent}+1 b`);
+	});
+
+	test("leaves a named headline's body roles alone", () => {
+		const body = ["edit src/a.ts", "", roleSgrTheme.fg("accent", "+1 b")];
+		const lines = toolBlockLines(innerOf(body), 40, 0, {
+			headline: true,
+			rail: "╎",
+			toolName: "edit",
+			theme: roleSgrTheme,
+		});
+		expect(lines[2]).toContain(`${ROLE_SGR.accent}+1 b`);
+	});
+
 	test("rails from the first body line when the headline names its subject", () => {
 		expect(
 			toolBlockLines(innerOf(["edit src/a.ts", "", "-1 a"]), 40, 0, {

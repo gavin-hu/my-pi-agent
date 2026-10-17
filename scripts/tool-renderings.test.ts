@@ -81,4 +81,15 @@ describe("renderings", () => {
 			expect(body[1]?.startsWith("╎ "), name).toBe(true);
 		}
 	});
+
+	test("the capture keeps the decorations a terminal draws", () => {
+		// The gallery is built from ANSI in a process without a TTY, so the capture
+		// decorates the theme itself; otherwise a name loses its bold and the diff's
+		// changed words lose their reverse video.
+		const edit = renderings().find((rendering) => rendering.name === "edit");
+		const raw = (edit?.lines(80) ?? []).join("\n");
+		expect(raw).toContain("\u001b[1medit");
+		expect(raw).toContain("\u001b[7m");
+		expect(raw).toContain("\u001b[27m");
+	});
 });

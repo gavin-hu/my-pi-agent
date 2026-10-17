@@ -30,6 +30,7 @@ import {
 	createReadToolDefinition,
 	createWriteToolDefinition,
 	getMarkdownTheme,
+	type Theme,
 	type ToolRenderers,
 } from "@earendil-works/pi-coding-agent";
 import { Markdown } from "@earendil-works/pi-tui";
@@ -52,9 +53,29 @@ import type { NoticeDetails } from "../lib/notice.ts";
 import { createFakePi } from "../test/helpers/fakes.ts";
 import { ansiLinesToHtml, escapeHtml } from "./ansi-html.ts";
 import { captureFullPage } from "./chrome-shot.ts";
-import { setThemeInstance, theme } from "./theme.ts";
+import { setThemeInstance, theme as baseTheme } from "./theme.ts";
 import { FIXTURES, type ToolFixture } from "./tool-fixtures.ts";
 
+/**
+ * The theme wrapped so the terminal's SGR decorations survive the capture.
+ *
+ * Bold, italic, underline, strike, and reverse video all go through chalk, which
+ * drops them when stdout is not a TTY — and the gallery is assembled from ANSI
+ * in a captured process. Without this, a tool name loses its bold and a diff's
+ * changed words lose the reverse video a session draws, so the image would not
+ * show what the transcript does.
+ */
+function withDecorations(base: Theme): Theme {
+	const facade = Object.create(base) as Theme;
+	facade.bold = (text) => `\u001b[1m${text}\u001b[22m`;
+	facade.italic = (text) => `\u001b[3m${text}\u001b[23m`;
+	facade.underline = (text) => `\u001b[4m${text}\u001b[24m`;
+	facade.strikethrough = (text) => `\u001b[9m${text}\u001b[29m`;
+	facade.inverse = (text) => `\u001b[7m${text}\u001b[27m`;
+	return facade;
+}
+
+const theme: Theme = withDecorations(baseTheme);
 /** Columns the gallery blocks are wrapped at. */
 const DEFAULT_WIDTH = 100;
 /** A synthetic cwd, so a capture never names the real workspace. */

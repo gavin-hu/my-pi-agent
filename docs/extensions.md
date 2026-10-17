@@ -268,8 +268,8 @@ tool's own renderer, or its generic fallback. `edit` and `write` carry their
 result on the call body, so that body is railed too; there is no status band.
 The page covers the user
 nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
-`write`, `edit`, `bash`, `grep`, `find`, `ls` — diffs, syntax highlighting and
-previews intact), then every
+`write`, `edit`, `bash`, `grep`, `find`, `ls` — diffs with the changed words in
+reverse video, syntax highlighting and previews intact), then every
 tool this package registers: `todo`, `goal`, `memory`, `job`, `watch`,
 `subagent`, `web_search`, `web_fetch`, `read_doc`, `open_path`, `run_doctor`,
 `send_wechat`, `ask_user_question`, the plan tools, and the worktree tools.

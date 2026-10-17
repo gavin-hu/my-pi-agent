@@ -33,6 +33,12 @@ describe("ansiToHtml", () => {
 		expect(ansiToHtml("\u001b]0;a title\u0007hi")).toBe("hi");
 		expect(ansiToHtml("a\u001b[2Kb")).toBe("ab");
 	});
+
+	test("draws reverse video as a swapped background", () => {
+		expect(ansiToHtml("\u001b[38;2;63;185;80m+a \u001b[7mb\u001b[27m c")).toBe(
+			'<span style="color:#3fb950">+a </span><span style="color:#0d1117;background-color:#3fb950">b</span><span style="color:#3fb950"> c</span>',
+		);
+	});
 });
 
 describe("parseAnsi", () => {
@@ -58,8 +64,10 @@ describe("cssFor", () => {
 		expect(cssFor({})).toBe("");
 	});
 
-	test("inverse becomes an invert filter", () => {
-		expect(cssFor({ inverse: true })).toBe("filter:invert(1)");
+	test("inverse swaps the cell's colours against the page", () => {
+		expect(cssFor({ inverse: true })).toBe("color:#0d1117;background-color:#c9d1d9");
+		expect(cssFor({ inverse: true, fg: "#f85149" })).toBe("color:#0d1117;background-color:#f85149");
+		expect(cssFor({ inverse: true, bg: "#cd0000", fg: "#58a6ff" })).toBe("color:#cd0000;background-color:#58a6ff");
 	});
 });
 

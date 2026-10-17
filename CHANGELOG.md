@@ -68,8 +68,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now hangs from the rail too, and their status band is gone; the diff's own
   red/green line colours and the headline are what mark a file change. A call
   line that wraps — a path too long to sit beside the tool name — keeps its
-  continuation lines unrailed, so the rail begins with the result underneath
-  instead of painting the path as diff content.
+  continuation lines unrailed and without the accent, so the rail begins with
+  the result underneath instead of painting the path as diff content, and the
+  name stays the block's only accent.
 - `bytefly`: the tool name is a call line's only accent. A primary subject — a
   path, URL, query, or pattern — now reads in the body colour (`read
   src/app.ts`, `read_doc docs/a.pdf`, `web_fetch https://…`, `grep /pattern/`),
@@ -77,7 +78,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sharing the accent with its subject. The rewrite happens before the line wraps,
   so a long path or URL stays in one role, and only the first line is touched —
   `subagent`'s per-step agent names keep the accent and still match its result
-  header. `run_doctor`'s extension subject is promoted from the faintest role to
+  header. The one exception is a call that degenerates to a bare `edit <path>`
+  headline with the path broken onto the body: those continuation lines are the
+  call, so they are demoted too. `run_doctor`'s extension subject is promoted from the faintest role to
   the body colour (its `(refresh)` option stays faint), and the model-supplied
   extension name is now sanitized.
 - `job`, `watch`: the call line draws through the shared `meta` role instead of
@@ -146,6 +149,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Tooling: the tool gallery draws the decorations a terminal does. The page is
+  assembled from ANSI in a process without a TTY, where chalk dropped bold,
+  italic, underline, strike, and reverse video, so every tool name was unbolded
+  and the `edit` diff's changed words were plain; the capture now emits them,
+  and reverse video is rendered as the terminal swaps it — a filled cell —
+  instead of an `invert()` filter. The `edit` fixture is a one-line replacement
+  so the image shows that word-level highlighting at all.
 - `bytefly`: the startup header now takes its left margin from Pi's `outputPad`
   instead of a fixed column, so `outputPad: 0` no longer leaves the nameplate one
   column right of the transcript, and its grouped help hangs one body indent

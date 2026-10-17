@@ -58,6 +58,14 @@ const BASIC = [
 	"#ffffff",
 ];
 
+/**
+ * The captured page's own colours: reverse video swaps a cell's foreground and
+ * background, so a run with neither falls back to the page it is drawn on.
+ * These match the `body` colours in the gallery's `shell()`.
+ */
+const PAGE_BACKGROUND = "#0d1117";
+const PAGE_TEXT = "#c9d1d9";
+
 /** `#rrggbb` from three channels, clamped to a byte. */
 function rgb(red: number | undefined, green: number | undefined, blue: number | undefined): string {
 	const channel = (value: number | undefined): string =>
@@ -156,9 +164,14 @@ export function escapeHtml(text: string): string {
 
 /** The inline `style` value for a run, or `""` when nothing is set. */
 export function cssFor(style: AnsiStyle): string {
+	// Reverse video swaps the cell's colours, so the text takes the background's
+	// colour and the background the text's. `invert(1)` would invert the glyph
+	// alone, which is what the terminal does not do.
+	const fg = style.inverse ? (style.bg ?? PAGE_BACKGROUND) : style.fg;
+	const bg = style.inverse ? (style.fg ?? PAGE_TEXT) : style.bg;
 	const parts: string[] = [];
-	if (style.fg) parts.push(`color:${style.fg}`);
-	if (style.bg) parts.push(`background-color:${style.bg}`);
+	if (fg) parts.push(`color:${fg}`);
+	if (bg) parts.push(`background-color:${bg}`);
 	if (style.bold) parts.push("font-weight:600");
 	if (style.dim) parts.push("opacity:.6");
 	if (style.italic) parts.push("font-style:italic");
@@ -166,7 +179,6 @@ export function cssFor(style: AnsiStyle): string {
 	if (style.underline) decoration.push("underline");
 	if (style.strike) decoration.push("line-through");
 	if (decoration.length > 0) parts.push(`text-decoration:${decoration.join(" ")}`);
-	if (style.inverse) parts.push("filter:invert(1)");
 	return parts.join(";");
 }
 

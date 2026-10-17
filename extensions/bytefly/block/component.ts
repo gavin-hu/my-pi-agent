@@ -21,7 +21,8 @@
  * The tool name is the block's only accent. The shipped themes point
  * `toolTitle` at the accent, so a primary subject — a path, URL, query, pattern
  * — would otherwise spend the same colour; `recolorCallHeadline` demotes it to
- * the body role on the call's first line.
+ * the body role on the call's first line, and a subject that wrapped onto the
+ * body (`edit <path>`) is demoted there too.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -99,6 +100,38 @@ export function recolorShellCall(text: string, toolName: string, theme: Theme): 
 }
 
 /**
+ * Repaint every accent opening at or after `from` in the body role. A theme that
+ * paints no colour, or whose two roles coincide, is left alone.
+ */
+function demoteFrom(text: string, from: number, theme: Theme): string {
+	const accent = paintPrefix(theme, "accent");
+	const label = paintPrefix(theme, "label");
+	if (!accent || accent === label) return text;
+
+	let out = "";
+	let i = 0;
+	for (;;) {
+		const hit = text.indexOf(accent, i);
+		if (hit === -1) {
+			out += text.slice(i);
+			break;
+		}
+		out += text.slice(i, hit);
+		out += hit >= from ? label : accent;
+		i = hit + accent.length;
+	}
+	return out;
+}
+
+/**
+ * Demote every accent opening on a line to the body colour. Applied to a call's
+ * continuation lines — the wrapped tail of a subject, which is still the call.
+ */
+function demoteAccent(text: string, theme: Theme): string {
+	return demoteFrom(text, 0, theme);
+}
+
+/**
  * Demote a call headline's primary subject from the accent to the body colour,
  * so the tool name is the block's only accent.
  *
@@ -106,12 +139,11 @@ export function recolorShellCall(text: string, toolName: string, theme: Theme): 
  * the name is told apart by position: the first accent opening at or after the
  * tool name stays, and every later one on the first line is the subject. Only
  * line one is touched — a multi-line call's continuation lines keep their own
- * roles.
+ * roles, except the wrapped tail of a bare headline (see `toolBlockLines`).
  */
 export function recolorCallHeadline(text: string, toolName: string, theme: Theme): string {
 	const accent = paintPrefix(theme, "accent");
-	const label = paintPrefix(theme, "label");
-	if (!accent || accent === label) return text;
+	if (!accent || accent === paintPrefix(theme, "label")) return text;
 	const end = text.indexOf("\n");
 	const head = end === -1 ? text : text.slice(0, end);
 	if (!head.includes(accent)) return text;
@@ -122,18 +154,7 @@ export function recolorCallHeadline(text: string, toolName: string, theme: Theme
 	const at = head.indexOf(name);
 	const from = at === -1 ? 0 : at + name.length;
 
-	let out = "";
-	let i = 0;
-	for (;;) {
-		const hit = head.indexOf(accent, i);
-		if (hit === -1) {
-			out += head.slice(i);
-			break;
-		}
-		out += head.slice(i, hit);
-		out += hit >= from ? label : accent;
-		i = hit + accent.length;
-	}
+	const out = demoteFrom(head, from, theme);
 	return end === -1 ? out : out + text.slice(end);
 }
 
@@ -153,6 +174,14 @@ export function isRewritable(component: Component): component is Component & Rew
 }
 
 /**
+ * Whether a line has no visible text. Tested after stripping terminal sequences,
+ * so a line carrying only a background or the indent counts as blank.
+ */
+function isBlankLine(line: string): boolean {
+	return stripTerminalSequences(line).trim().length === 0;
+}
+
+/**
  * Whether a call line degenerated to the tool name alone, so the rest of it —
  * the path, the command — moved onto the body lines under it.
  *
@@ -165,8 +194,24 @@ export function isRewritable(component: Component): component is Component & Rew
  */
 function isBareHeadline(body: readonly string[], toolName: string | undefined): boolean {
 	if (!toolName) return false;
-	const headline = body.find((line) => stripTerminalSequences(line).trim().length > 0);
+	const headline = body.find((line) => !isBlankLine(line));
 	return headline !== undefined && stripTerminalSequences(headline).trim() === sanitizeLine(toolName);
+}
+
+/**
+ * How many body lines after a bare headline are still the call: the leading run
+ * of non-blank lines, which ends where the result begins. Zero for a call whose
+ * headline carries its own subject.
+ */
+function callContinuationCount(body: readonly string[], toolName: string | undefined): number {
+	if (!isBareHeadline(body, toolName)) return 0;
+	let index = body.findIndex((line) => !isBlankLine(line)) + 1;
+	let count = 0;
+	while (index < body.length && !isBlankLine(body[index] ?? "")) {
+		count++;
+		index++;
+	}
+	return count;
 }
 
 /**
@@ -204,6 +249,17 @@ export function toolBlockLines(
 		const recolored =
 			options.toolName && options.theme ? recolorCallHeadline(named, options.toolName, options.theme) : named;
 		lines[0] = truncateToWidth(recolored, w, "…");
+		// A call whose subject is one unbreakable token (`edit <path>`) wraps by
+		// dropping the name onto the headline and breaking the subject below it.
+		// Those continuation lines are still the call, so they lose the accent too
+		// — otherwise the path reads as a heading and the name stops being the
+		// block's only accent.
+		if (options.theme) {
+			const continuation = callContinuationCount(body, options.toolName);
+			for (let index = 1; index <= continuation && index < lines.length; index++) {
+				lines[index] = demoteAccent(lines[index] ?? "", options.theme);
+			}
+		}
 	}
 	return lines;
 }
