@@ -68,7 +68,9 @@ function build(options: {
 	theme?: unknown;
 	filter?: string;
 	section?: "extensions" | "settings";
-	refresh?: () => void | Promise<void>;
+	refresh?: (force?: boolean) => void | Promise<void>;
+	needsProbe?: boolean;
+	initialRefresh?: boolean;
 	app?: Settings;
 	globalDoc?: Record<string, unknown>;
 	projectDoc?: Record<string, unknown>;
@@ -99,6 +101,8 @@ function build(options: {
 		viewportRows: options.rows ?? 24,
 		requestRender: () => {},
 		refresh: options.refresh ?? (() => {}),
+		needsProbe: options.needsProbe,
+		initialRefresh: options.initialRefresh,
 		onClose: () => {
 			closed += 1;
 		},
@@ -204,6 +208,89 @@ describe("PanelComponent rendering", () => {
 		expect(component.render(70).join("\n")).not.toContain("TUI only");
 		component.handleInput("\r");
 		expect(component.render(70).join("\n")).toContain("TUI only");
+	});
+
+	test("expands only the focused row", () => {
+		const { component } = build({
+			items: [packageItem("plan"), packageItem("todo")],
+			reports: [
+				makeReport("plan", [makeFinding("platform", "info", "plan note")]),
+				makeReport("todo", [makeFinding("platform", "info", "todo note")]),
+			],
+		});
+
+		component.handleInput("\r");
+		expect(component.render(70).join("\n")).toContain("plan note");
+
+		component.handleInput("j");
+		expect(component.render(70).join("\n")).not.toContain("todo note");
+
+		// The expanded row is remembered, not carried by the cursor.
+		component.handleInput("k");
+		expect(component.render(70).join("\n")).toContain("plan note");
+	});
+
+	test("flips the Enter hint with the focused row", () => {
+		const { component } = build({
+			items: [packageItem("plan"), packageItem("todo")],
+			reports: [makeReport("plan", [makeFinding("git", "missing")])],
+		});
+
+		expect(component.render(96).join("\n")).toContain("Enter detail");
+		component.handleInput("\r");
+		expect(component.render(96).join("\n")).toContain("Enter collapse");
+		component.handleInput("j");
+		expect(component.render(96).join("\n")).toContain("Enter detail");
+	});
+
+	test("keeps the frame inside the terminal when an expanded list is clipped", () => {
+		const items = Array.from({ length: 40 }, (_, index) => packageItem(`ext-${String(index).padStart(2, "0")}`));
+		const notes = Array.from({ length: 8 }, (_, index) => makeFinding(`note-${index}`, "info", `note ${index}`));
+		const { component } = build({ items, reports: [makeReport("ext-00", notes)], rows: 40 });
+
+		component.handleInput("\r");
+		const lines = component.render(80);
+		expect(lines.length).toBeLessThanOrEqual(40);
+		expect(lines.join("\n")).toContain("showing");
+	});
+
+	test("grows the detail pane to the free height when expanded", () => {
+		const notes = Array.from({ length: 8 }, (_, index) => makeFinding(`note-${index}`, "info", `note ${index}`));
+		const { component } = build({
+			items: [packageItem("bytefly")],
+			reports: [makeReport("bytefly", notes)],
+			rows: 40,
+		});
+
+		expect(component.render(80).join("\n")).not.toContain("note 7");
+		component.handleInput("\r");
+		const text = component.render(80);
+		expect(text.join("\n")).toContain("note 7");
+		expect(text.length).toBeLessThanOrEqual(40);
+	});
+
+	test("reads a settings-off row as off while the detail still names its findings", () => {
+		const { component } = build({
+			items: [packageItem("plan", false)],
+			reports: [makeReport("plan", [makeFinding("git", "missing", "missing git", "install git")])],
+		});
+
+		const lines = component.render(80);
+		const row = lines.find((line) => line.includes("plan/index.ts"));
+		expect(row).toContain("off");
+		expect(row).not.toContain("1 missing");
+		// The pane still explains what is wrong before the row is turned back on.
+		expect(lines.join("\n")).toContain("git: missing git");
+	});
+
+	test("names the environment's disable list on the row", () => {
+		const { component } = build({
+			items: [packageItem("plan")],
+			reports: [makeReport("plan", [makeFinding("state", "info", "disabled through env")], false)],
+		});
+
+		const row = component.render(80).find((line) => line.includes("plan/index.ts"));
+		expect(row).toContain("env disabled");
 	});
 
 	test("shows an unreported row's resource path in the detail pane", () => {
@@ -502,5 +589,71 @@ describe("PanelComponent refresh", () => {
 
 		expect(notices.at(-1)).toContain("Could not refresh: probe exploded");
 		expect(component.render(80).join("\n")).not.toContain("refreshing");
+	});
+});
+
+describe("PanelComponent probing", () => {
+	test("primes once and shows the busy hint while it runs", async () => {
+		const calls: boolean[] = [];
+		const { component } = build({
+			items: [packageItem("plan")],
+			needsProbe: true,
+			refresh: async (force) => {
+				calls.push(force === true);
+			},
+		});
+
+		component.prime();
+		component.prime();
+		expect(calls).toHaveLength(1);
+		expect(component.render(80).join("\n")).toContain("refreshing");
+		await settle();
+		expect(calls).toEqual([false]);
+		expect(component.render(80).join("\n")).not.toContain("refreshing");
+	});
+
+	test("waits for the first Extensions view", () => {
+		const calls: boolean[] = [];
+		const { component } = build({
+			items: [packageItem("plan")],
+			section: "settings",
+			needsProbe: true,
+			refresh: (force) => {
+				calls.push(force === true);
+			},
+		});
+
+		component.prime();
+		expect(calls).toEqual([]);
+		component.handleInput("\u001b[D");
+		expect(calls).toEqual([false]);
+	});
+
+	test("forces the first probe when the command asked to refresh", () => {
+		const calls: boolean[] = [];
+		const { component } = build({
+			items: [packageItem("plan")],
+			needsProbe: true,
+			initialRefresh: true,
+			refresh: (force) => {
+				calls.push(force === true);
+			},
+		});
+
+		component.prime();
+		expect(calls).toEqual([true]);
+	});
+
+	test("does nothing without needsProbe", () => {
+		const calls: boolean[] = [];
+		const { component } = build({
+			items: [packageItem("plan")],
+			refresh: (force) => {
+				calls.push(force === true);
+			},
+		});
+
+		component.prime();
+		expect(calls).toEqual([]);
 	});
 });

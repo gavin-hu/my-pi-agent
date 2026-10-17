@@ -202,6 +202,22 @@ describe("bytefly panel modes", () => {
 		expect(notifications.at(-1)).toContain("Could not probe extensions: probe exploded");
 	});
 
+	test("rejects an unknown name before probing the doctor", async () => {
+		const refreshes: boolean[] = [];
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: fakeDoctor([], refreshes),
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
+		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+
+		await commands.get("bytefly").handler("nope", ctx);
+
+		expect(notifications.at(-1)).toContain('no extension named "nope"');
+		expect(refreshes).toEqual([]);
+	});
+
 	test("prints the settings listing outside TUI mode without resolving extensions", async () => {
 		const { commands } = boot({
 			discover: async () => {
@@ -257,6 +273,146 @@ describe("bytefly panel refresh", () => {
 		await commands.get("bytefly").handler("plan refresh", ctx);
 
 		expect(refreshes).toEqual([true, true]);
+	});
+});
+
+describe("bytefly panel probing", () => {
+	test("mounts before probing and probes on the first Extensions view", async () => {
+		const events: string[] = [];
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: {
+				...fakeDoctor([]),
+				peek: () => undefined,
+				probeAll: async () => {
+					events.push("probe");
+					return [];
+				},
+			},
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
+		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		ctx.ui.custom = async (factory: any) => {
+			events.push("mount");
+			factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("", ctx);
+
+		expect(events).toEqual(["mount", "probe"]);
+	});
+
+	test("opens Settings without probing, then probes on the Extensions view", async () => {
+		const refreshes: boolean[] = [];
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: { ...fakeDoctor([], refreshes), peek: () => undefined },
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
+		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		let component: any;
+		ctx.ui.custom = async (factory: any) => {
+			component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("settings", ctx);
+		expect(refreshes).toEqual([]);
+
+		component.handleInput("\u001b[D");
+		expect(refreshes).toEqual([false]);
+	});
+
+	test("reuses the session cache without probing", async () => {
+		const refreshes: boolean[] = [];
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: fakeDoctor([makeReport("plan")], refreshes),
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
+		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		let rendered = "";
+		ctx.ui.custom = async (factory: any) => {
+			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			rendered = component.render(80).join("\n");
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("", ctx);
+
+		expect(refreshes).toEqual([]);
+		expect(rendered).toContain("plan");
+		expect(rendered).toContain("ok");
+	});
+
+	test("keeps the screen open when the first probe fails", async () => {
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: {
+				...fakeDoctor([]),
+				peek: () => undefined,
+				probeAll: async () => {
+					throw new Error("probe exploded");
+				},
+			},
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
+		const { ctx, notifications } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		let rendered = "";
+		ctx.ui.custom = async (factory: any) => {
+			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			rendered = component.render(80).join("\n");
+			await settle();
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("", ctx);
+
+		expect(rendered).toContain("bytefly");
+		expect(notifications.at(-1)).toContain("Could not refresh: probe exploded");
+	});
+
+	test("forces the first probe when the command asked for refresh", async () => {
+		const refreshes: boolean[] = [];
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: { ...fakeDoctor([], refreshes), peek: () => undefined },
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
+		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		ctx.ui.custom = async (factory: any) => {
+			factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("refresh", ctx);
+
+		expect(refreshes).toEqual([true]);
+	});
+
+	test("re-probes a cached session when the command asked for refresh", async () => {
+		const refreshes: boolean[] = [];
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: fakeDoctor([makeReport("plan")], refreshes),
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
+		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		ctx.ui.custom = async (factory: any) => {
+			factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("refresh", ctx);
+
+		expect(refreshes).toEqual([true]);
 	});
 });
 

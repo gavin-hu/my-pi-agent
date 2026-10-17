@@ -7,12 +7,17 @@
  * headline and groups with `Label: Value` rows. A single named extension prints
  * its full findings instead. Nothing here touches the host, and every string
  * from a probe or a settings file is sanitized before it is printed.
+ *
+ * A row has two enablement axes: the picker's settings (`◼`/`◻`) and this
+ * session's `PI_DISABLED_EXTENSIONS`. `rowBadge` is the one place that decides
+ * how they read, so the screen, the text listing, and the counts cannot
+ * contradict each other.
  */
 
 import { sanitizeLine } from "../../../lib/format.ts";
-import type { TuiRole } from "../../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import { reportSeverity, reportSummary } from "../doctor/format.ts";
+import type { TuiRole } from "../../../lib/tui/tokens.ts";
+import { reportSeverity, reportSummary, severityGlyphChar, severityRole } from "../doctor/format.ts";
 import { groupViews, type SettingView } from "./settings.ts";
 import type { PanelModel, PanelRow, PanelSection } from "./types.ts";
 
@@ -28,7 +33,8 @@ export interface SummarySegment {
 /** Row and problem counts over a model. */
 export interface PanelCounts {
 	extensions: number;
-	disabled: number;
+	/** Rows switched off in settings (the picker's checkbox), not the env flag. */
+	off: number;
 	missing: number;
 	degraded: number;
 }
@@ -45,25 +51,32 @@ export interface SummaryOptions extends PanelTextOptions {
 	filter?: string;
 }
 
-/** Count the rows and their problems, once per unique report. */
+/**
+ * Count the rows and their problems, once per unique report. An extension that
+ * is off in settings will not load, so its prerequisites are not counted as
+ * problems — the row was already counted as `off`.
+ */
 export function panelCounts(model: PanelModel): PanelCounts {
-	let disabled = 0;
+	let off = 0;
 	let missing = 0;
 	let degraded = 0;
 	const seen = new Set<string>();
 	for (const row of model.rows) {
-		if (row.item && !row.item.enabled) disabled += 1;
+		if (row.item && !row.item.enabled) {
+			off += 1;
+			continue;
+		}
 		const report = row.report;
 		if (!report || seen.has(report.extension)) continue;
 		seen.add(report.extension);
 		missing += report.findings.filter((finding) => finding.severity === "missing").length;
 		degraded += report.findings.filter((finding) => finding.severity === "degraded").length;
 	}
-	return { extensions: model.rows.length, disabled, missing, degraded };
+	return { extensions: model.rows.length, off, missing, degraded };
 }
 
 /**
- * The headline segments, e.g. `Global · 15 extensions · 3 disabled · 1 missing`.
+ * The headline segments, e.g. `Global · 15 extensions · 3 off · 1 missing`.
  * A narrowed model names the extension instead of counting.
  */
 export function summarySegments(model: PanelModel, scope: PanelScope, options: SummaryOptions = {}): SummarySegment[] {
@@ -74,9 +87,7 @@ export function summarySegments(model: PanelModel, scope: PanelScope, options: S
 	} else {
 		const noun = options.compact ? "ext" : counts.extensions === 1 ? "extension" : "extensions";
 		segments.push({ text: `${counts.extensions} ${noun}`, color: "meta" });
-		if (counts.disabled > 0) {
-			segments.push({ text: `${counts.disabled} ${options.compact ? "off" : "disabled"}`, color: "meta" });
-		}
+		if (counts.off > 0) segments.push({ text: `${counts.off} off`, color: "meta" });
 	}
 	const problems: string[] = [];
 	if (counts.missing > 0) problems.push(`${counts.missing} missing`);
@@ -140,31 +151,43 @@ export function formatHeadline(model: PanelModel, scope: PanelScope, options: Pa
 		.join(" · ")}`;
 }
 
-/** Plain severity glyph for a row, or `undefined` when it has no report. */
-function rowGlyph(row: PanelRow): string | undefined {
-	if (!row.report) return undefined;
-	switch (reportSeverity(row.report)) {
-		case "missing":
-			return GLYPHS.cross;
-		case "degraded":
-			return GLYPHS.warn;
-		case "info":
-			return GLYPHS.disabled;
-		default:
-			return GLYPHS.check;
-	}
+/** A row's glyph and verdict, drawn from its enablement and health axes. */
+export interface RowBadge {
+	/** The status glyph, or `undefined` when the row has nothing to say. */
+	glyph?: string;
+	/** The role the glyph is painted in. */
+	role: TuiRole;
+	/** The right-hand word, or `undefined` when the row has no verdict. */
+	text?: string;
 }
 
-/** One listing row: `[x] ✓ label — summary`, with the suffix only when reported. */
+/**
+ * The row's badge. Settings is the enablement axis the checkbox already shows,
+ * so an off extension gets one verdict (`off`) instead of a health word that
+ * contradicts it. `PI_DISABLED_EXTENSIONS` is a different axis, so it is named
+ * rather than sharing the word: `env disabled`. A row without a report leaves
+ * the glyph and the word blank instead of claiming `ok`.
+ */
+export function rowBadge(row: PanelRow): RowBadge {
+	if (row.item && !row.item.enabled) return { glyph: GLYPHS.disabled, role: "faint", text: "off" };
+	const report = row.report;
+	if (!report) return { role: "faint" };
+	if (!report.enabled) return { glyph: GLYPHS.disabled, role: "faint", text: "env disabled" };
+	const severity = reportSeverity(report);
+	return { glyph: severityGlyphChar(severity), role: severityRole(severity), text: reportSummary(report) };
+}
+
+/** One listing row: `[x] ✓ label — summary`, with the suffix only when the row has one. */
 export function formatRow(row: PanelRow): string {
-	const glyph = rowGlyph(row);
-	const summary = row.report ? ` — ${reportSummary(row.report)}` : "";
+	const badge = rowBadge(row);
+	const glyph = badge.glyph ? `${badge.glyph} ` : "";
+	const summary = badge.text ? ` — ${badge.text}` : "";
 	if (!row.item) {
 		// Reported-only: there is no enable pattern to show, so no checkbox column.
-		return `  ${glyph ? `${glyph} ` : ""}${row.label}${summary}`;
+		return `  ${glyph}${row.label}${summary}`;
 	}
 	const checkbox = row.item.enabled ? "[x]" : "[ ]";
-	return `  ${checkbox} ${glyph ? `${glyph} ` : ""}${row.label}${summary}`;
+	return `  ${checkbox} ${glyph}${row.label}${summary}`;
 }
 
 /** The grouped text listing, headline first, for RPC/JSON/print modes. */

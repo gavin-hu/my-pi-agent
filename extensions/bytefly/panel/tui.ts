@@ -31,15 +31,9 @@ import { checkbox, emptyState, listRow } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
-import {
-	detailLines as reportDetailLines,
-	reportSeverity,
-	reportSummary,
-	severityGlyphChar,
-	severityRole,
-} from "../doctor/format.ts";
+import { detailLines as reportDetailLines } from "../doctor/format.ts";
 import type { ExtensionsPickerRuntime } from "../picker/runtime.ts";
-import { sectionSegments, settingsSummarySegments, summarySegments, type SummarySegment } from "./format.ts";
+import { rowBadge, sectionSegments, settingsSummarySegments, summarySegments, type SummarySegment } from "./format.ts";
 import { buildPanelModel } from "./join.ts";
 import { groupViews, type SettingView } from "./settings.ts";
 import { configPath, type SettingsSurface } from "./settings-runtime.ts";
@@ -53,6 +47,8 @@ const FRAME_ROWS = 6;
 const DETAIL_ROWS = 4;
 /** Body rows that must survive before the detail pane collapses to its title. */
 const MIN_BODY_ROWS = 3;
+/** Detail rows when the terminal height is unknown and the focused row is expanded. */
+const EXPANDED_DETAIL_FALLBACK = 8;
 /** Pi's personal settings file, named in the detail pane. */
 const PI_SETTINGS_FILE = "settings.json";
 /** The body indent, shared by the note and the detail pane. */
@@ -131,8 +127,12 @@ export interface PanelComponentOptions {
 	/** Live terminal height, for the row budget. */
 	viewportRows?: ViewportRowsSource;
 	requestRender: () => void;
-	/** Re-probe with refresh; awaited before the busy state clears. */
-	refresh: () => void | Promise<void>;
+	/** The Extensions view probes on first show (no session cache, or the command asked to refresh). */
+	needsProbe?: boolean;
+	/** Force that first probe (`/bytefly … refresh`). */
+	initialRefresh?: boolean;
+	/** Re-probe; `force` ignores the session cache. Awaited before the busy state clears. */
+	refresh: (force?: boolean) => void | Promise<void>;
 	onClose: () => void;
 	onNotice?: (message: string) => void;
 }
@@ -147,10 +147,12 @@ export class PanelComponent implements Component {
 		extensions: undefined,
 		settings: undefined,
 	};
-	/** Whether the extension detail pane shows every check or only problems. */
-	private showDetail = false;
+	/** Row keys whose findings are expanded; Enter toggles only the focused row. */
+	private readonly expanded = new Set<string>();
 	/** True while a re-probe is in flight, so `r` does not stack probes. */
 	private refreshing = false;
+	/** True once the Extensions view has asked for its first probe. */
+	private probed = false;
 	/** The visible section. */
 	private section: PanelSection;
 
@@ -282,13 +284,24 @@ export class PanelComponent implements Component {
 			.then(() => this.options.requestRender());
 	}
 
+	/**
+	 * Ask for the first Extensions probe when the session had no cache. The first
+	 * time the section is visible is when the rows need health; doing it at mount
+	 * would delay `/bytefly settings`, which never reads the reports.
+	 */
+	prime(): void {
+		if (this.probed || this.options.needsProbe !== true || this.section !== "extensions") return;
+		this.probed = true;
+		void this.refresh(this.options.initialRefresh === true);
+	}
+
 	/** Re-probe once; a second request while one is in flight is ignored. */
-	async refresh(): Promise<void> {
+	async refresh(force = false): Promise<void> {
 		if (this.refreshing) return;
 		this.refreshing = true;
 		this.options.requestRender();
 		try {
-			await this.options.refresh();
+			await this.options.refresh(force);
 		} catch (error) {
 			this.options.onNotice?.(`Could not refresh: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
@@ -301,6 +314,7 @@ export class PanelComponent implements Component {
 	private switchSection(next: PanelSection): void {
 		if (next === this.section) return;
 		this.section = next;
+		this.prime();
 		this.options.requestRender();
 	}
 
@@ -374,8 +388,7 @@ export class PanelComponent implements Component {
 			return;
 		}
 		if (matchesKey(data, Key.enter)) {
-			this.showDetail = !this.showDetail;
-			this.options.requestRender();
+			this.toggleDetail();
 			return;
 		}
 		if (matchesKey(data, Key.tab)) {
@@ -383,7 +396,7 @@ export class PanelComponent implements Component {
 			return;
 		}
 		if (matchesKey(data, "r")) {
-			void this.refresh();
+			void this.refresh(true);
 			return;
 		}
 		this.navigate(data);
@@ -424,7 +437,7 @@ export class PanelComponent implements Component {
 	}
 
 	/** Key hints for the active section; whole hints drop as the width runs out. */
-	private hint(width: number): string {
+	private hint(width: number, expanded = false): string {
 		const common = ["Esc close", "←/→"];
 		const hints =
 			this.section === "settings"
@@ -432,7 +445,7 @@ export class PanelComponent implements Component {
 				: [
 						...common,
 						"Space toggle",
-						"Enter detail",
+						expanded ? "Enter collapse" : "Enter detail",
 						"Tab scope",
 						this.refreshing ? "refreshing…" : "r refresh",
 						"↑/↓ select",
@@ -447,18 +460,20 @@ export class PanelComponent implements Component {
 	}
 
 	private rowLine(row: PanelRow, selected: boolean, width: number): string {
-		const severity = row.report ? reportSeverity(row.report) : undefined;
+		const badge = rowBadge(row);
 		return listRow(this.theme, width, {
 			selected,
 			// A reported-only row has no enable pattern, but still reserves the box
 			// column so the list stays aligned.
 			leading: row.item ? checkbox(this.theme, row.item.enabled) : " ",
-			glyph: severity ? severityGlyphChar(severity) : " ",
-			glyphRole: severity ? severityRole(severity) : "faint",
+			glyph: badge.glyph ?? " ",
+			glyphRole: badge.role,
 			label: sanitizeLine(row.label),
 			labelRole: selected ? "accent" : row.item && !row.item.enabled ? "faint" : "label",
-			trailing: row.report ? reportSummary(row.report) : undefined,
-			trailingRole: severity === "missing" ? "bad" : severity === "degraded" ? "warn" : "faint",
+			trailing: badge.text,
+			// The glyph carries the status colour; the word stays quiet unless it is a
+			// problem, so a clean row does not shout.
+			trailingRole: badge.role === "bad" || badge.role === "warn" ? badge.role : "faint",
 		});
 	}
 
@@ -529,18 +544,42 @@ export class PanelComponent implements Component {
 	}
 
 	/** The focused extension's label, findings, and the pending-changes note. */
-	private detail(row: PanelRow | undefined, width: number, budget: number): string[] {
+	private detail(row: PanelRow | undefined, width: number, budget: number, expanded: boolean): string[] {
 		const lines: string[] = [];
-		if (row?.report) {
-			const tail = reportSummary(row.report);
-			const head = `${paint(this.theme, "meta", sanitizeLine(row.label))} ${paint(this.theme, "faint", "—")} ${paint(this.theme, row.report.enabled ? "meta" : "warn", tail)}`;
+		const badge = row ? rowBadge(row) : undefined;
+		if (row && badge?.text !== undefined) {
+			const head = `${paint(this.theme, "meta", sanitizeLine(row.label))} ${paint(this.theme, "faint", "—")} ${paint(this.theme, badge.role, badge.text)}`;
 			lines.push(clip(`  ${head}`, width));
-			if (budget > 0) lines.push(...reportDetailLines(row.report, this.theme, width, budget, this.showDetail));
 		} else if (row?.item) {
 			lines.push(clip(`  ${paint(this.theme, "meta", sanitizeLine(row.item.path))}`, width));
 		}
+		if (row?.report && budget > 0) {
+			lines.push(...reportDetailLines(row.report, this.theme, width, budget, expanded));
+		}
 		lines.push(...this.dirtyLine(width));
 		return lines;
+	}
+
+	/**
+	 * Detail rows the focused row gets: the fixed pane when collapsed, the free
+	 * height when expanded. Zero when the terminal cannot hold one body row next to
+	 * the pane, so the hint row is never pushed off the screen.
+	 */
+	private detailRows(expanded: boolean): number {
+		const total = totalRows(this.options.viewportRows);
+		if (total === undefined) return expanded ? EXPANDED_DETAIL_FALLBACK : DETAIL_ROWS;
+		const available = total - FRAME_ROWS - MIN_BODY_ROWS;
+		if (available < DETAIL_ROWS + 1) return 0;
+		return expanded ? Math.max(DETAIL_ROWS, available) : DETAIL_ROWS;
+	}
+
+	/** Expand or collapse the focused row's findings. */
+	private toggleDetail(): void {
+		const key = entryKey(this.activeEntries()[this.cursor.selected]);
+		if (key === undefined) return;
+		if (this.expanded.has(key)) this.expanded.delete(key);
+		else this.expanded.add(key);
+		this.options.requestRender();
 	}
 
 	/** The Settings body: scope counts, the project note, rows, and detail. */
@@ -568,9 +607,7 @@ export class PanelComponent implements Component {
 
 		const focusedEntry = entries[this.cursor.selected];
 		const focused = focusedEntry?.kind === "setting" ? focusedEntry.setting : undefined;
-		const total = totalRows(this.options.viewportRows);
-		const detailBudget = total !== undefined && total < FRAME_ROWS + 1 + MIN_BODY_ROWS + DETAIL_ROWS ? 0 : DETAIL_ROWS;
-		const detail = this.settingDetail(focused, width, detailBudget);
+		const detail = this.settingDetail(focused, width, this.detailRows(false));
 
 		this.cursor.visible = fitRows(
 			this.options.viewportRows,
@@ -625,9 +662,8 @@ export class PanelComponent implements Component {
 
 		const focusedEntry = entries[this.cursor.selected];
 		const focused = focusedEntry?.kind === "row" ? focusedEntry.row : undefined;
-		const total = totalRows(this.options.viewportRows);
-		const detailBudget = total !== undefined && total < FRAME_ROWS + 1 + MIN_BODY_ROWS + DETAIL_ROWS ? 0 : DETAIL_ROWS;
-		const detail = this.detail(focused, w, detailBudget);
+		const expanded = focused !== undefined && this.expanded.has(focused.key);
+		const detail = this.detail(focused, w, this.detailRows(expanded), expanded);
 
 		this.cursor.visible = fitRows(
 			this.options.viewportRows,
@@ -653,7 +689,7 @@ export class PanelComponent implements Component {
 				? formatRange(this.theme, w, { start, end, total: entries.length })
 				: undefined,
 			detail: detail.length > 0 ? detail : undefined,
-			hint: this.hint(w),
+			hint: this.hint(w, expanded),
 		});
 	}
 }
