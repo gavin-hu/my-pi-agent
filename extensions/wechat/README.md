@@ -166,6 +166,22 @@ files), and `poller.lock` (stops two sessions polling one account).
 - Automated or unofficial WeChat use can violate WeChat's terms and risk account
   restriction. Single-owner, low-volume use is recommended.
 
+## Troubleshooting
+
+- **`Another Pi session is already polling this WeChat account.`** — one runtime
+  owns the account at a time, tracked by `<agent-dir>/wechat/poller.lock`.
+  Quit the other `pi` process. A lock left by a process that already exited is
+  ignored on the next start, and one older than 120 s is ignored too, so a crash
+  never needs the file removed by hand.
+- **The chip says `✆ wechat`, while `/wechat status` reads `closed` with no
+  peer count and `send_wechat` reports the bridge is not started — and an
+  inbound message is answered in the terminal but never reaches the phone.**
+  Only the runtime holding `poller.lock` receives and answers; a poller started
+  by another runtime keeps the account until that process exits. An extension is
+  imported when the `pi` process starts, so `/reload` or a restart is what
+  applies a code upgrade, and the next `session_start` builds the bridge in this
+  runtime.
+
 ## Limitations
 
 - The bridge shares one conversation with your interactive session. It serializes
