@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `job`: `start` accepts `stdin: true`, which gives the child a stdin pipe
+  instead of an immediate EOF, and the new `send` action writes to it — a line
+  by default, a bare keystroke with `newline: false`, and `eof: true` to close
+  it — so a REPL, a debugger prompt, or a `read` can be driven without a TTY.
+  The pipe is live-only (a reattached or peer job cannot be written to, and
+  `detached` cannot be combined with `stdin`), and stdin stays closed by
+  default so an existing job still gets EOF and exits.
+
 ## [0.10.0] - 2026-10-17
 
 ### Added

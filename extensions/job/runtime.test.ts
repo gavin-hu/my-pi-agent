@@ -30,6 +30,7 @@ function persisted(overrides: Partial<JobRecord> = {}): JobRecord {
 		statusPath: null,
 		detached: false,
 		wake: false,
+		stdin: false,
 		sessionId: "old",
 		seen: false,
 		lastLine: "",
@@ -224,6 +225,115 @@ describe("job runtime — kill", () => {
 		h.children[0].close(0);
 		h.runtime.kill("j1");
 		expect(h.kills).toHaveLength(0);
+	});
+});
+
+describe("job runtime — send", () => {
+	/** Load the runtime and start a job that opted into a stdin pipe. */
+	function startWithStdin(h: Harness) {
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		return h.runtime.start({ command: "cat", stdin: true }, ctx);
+	}
+
+	test("opens a stdin pipe only when the job asks for one", () => {
+		const h = makeHarness();
+		start(h);
+		expect(h.children[0].options?.stdin).toBe(false);
+		expect(h.runtime.get("j1")?.stdin).toBe(false);
+
+		const piped = makeHarness();
+		const job = startWithStdin(piped);
+		expect(piped.children[0].options?.stdin).toBe(true);
+		expect(job.stdin).toBe(true);
+	});
+
+	test("writes a line and adds the newline itself", () => {
+		const h = makeHarness();
+		startWithStdin(h);
+		const result = h.runtime.send("j1", { input: "hello" });
+		expect(result.sent).toBe(5);
+		expect(result.closed).toBe(false);
+		expect(h.children[0].stdinSink?.text).toBe("hello\n");
+	});
+
+	test("writes verbatim when newline is false", () => {
+		const h = makeHarness();
+		startWithStdin(h);
+		h.runtime.send("j1", { input: "y", newline: false });
+		expect(h.children[0].stdinSink?.text).toBe("y");
+	});
+
+	test("ends stdin on eof and refuses a later write", () => {
+		const h = makeHarness();
+		startWithStdin(h);
+		const result = h.runtime.send("j1", { input: "bye", eof: true });
+		expect(result.closed).toBe(true);
+		expect(h.children[0].stdinSink?.text).toBe("bye\n");
+		expect(h.children[0].stdinSink?.ended).toBe(true);
+		expect(() => h.runtime.send("j1", { input: "again" })).toThrow("closed its stdin");
+	});
+
+	test("closes stdin without writing when eof is all it is given", () => {
+		const h = makeHarness();
+		startWithStdin(h);
+		h.runtime.send("j1", { eof: true });
+		expect(h.children[0].stdinSink?.text).toBe("");
+		expect(h.children[0].stdinSink?.ended).toBe(true);
+	});
+
+	test("refuses a job started without stdin", () => {
+		const h = makeHarness();
+		start(h);
+		expect(() => h.runtime.send("j1", { input: "x" })).toThrow("was not started with stdin");
+	});
+
+	test("refuses an unknown or finished job", () => {
+		const h = makeHarness();
+		startWithStdin(h);
+		expect(() => h.runtime.send("j9", { input: "x" })).toThrow('no job "j9"');
+		h.children[0].close(0);
+		expect(() => h.runtime.send("j1", { input: "x" })).toThrow("is exited; stdin is closed");
+	});
+
+	test("refuses a running job whose pipe belongs to another session", () => {
+		const h = makeHarness();
+		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
+		save(h, "peer", [peerRecord({ id: "j9", detached: true, stdin: true })], 10);
+		h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
+		expect(() => h.runtime.send("j9", { input: "x" })).toThrow("belongs to the session that started it");
+	});
+
+	test("reports a closed pipe when the child closed its end", () => {
+		const h = makeHarness();
+		startWithStdin(h);
+		const sink = h.children[0].stdinSink;
+		if (!sink) throw new Error("expected a stdin pipe");
+		sink.failWith = new Error("EPIPE");
+		expect(() => h.runtime.send("j1", { input: "x" })).toThrow("closed its stdin");
+		// The pipe is dropped, so the next call says the same thing without writing.
+		expect(() => h.runtime.send("j1", { input: "x" })).toThrow("closed its stdin");
+	});
+
+	test("ends stdin when the job's process closes", () => {
+		const h = makeHarness();
+		startWithStdin(h);
+		h.children[0].close(0);
+		expect(h.children[0].stdinSink?.ended).toBe(true);
+	});
+
+	test("rejects stdin on a detached job", () => {
+		const h = makeHarness();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		expect(() => h.runtime.start({ command: "cat", stdin: true, detached: true }, ctx)).toThrow("cannot take stdin");
+	});
+
+	test("rejects stdin when detached is the configured default", () => {
+		const h = makeHarness({ config: { detachedByDefault: true } });
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		expect(() => h.runtime.start({ command: "cat", stdin: true }, ctx)).toThrow("cannot take stdin");
 	});
 });
 

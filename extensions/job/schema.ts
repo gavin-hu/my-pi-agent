@@ -14,6 +14,8 @@ import { JOB_ACTIONS, KILL_SIGNALS, type JobAction, type KillSignal } from "./ty
 export const MAX_COMMAND = 4000;
 /** Longest accepted label. */
 export const MAX_LABEL = 120;
+/** Longest accepted `send.input`, in characters. */
+export const MAX_STDIN = 8192;
 /** Bounds for `logs.lines`. */
 const MIN_LOG_LINES = 1;
 const MAX_LOG_LINES = 2000;
@@ -31,10 +33,20 @@ export const JobParams = Type.Object({
 	label: Type.Optional(Type.String({ description: "Short display label; defaults to the command." })),
 	wake: Type.Optional(Type.Boolean({ description: "Wake the agent with one triggered turn when the job finishes." })),
 	detached: Type.Optional(Type.Boolean({ description: "Leave the job running when the session ends." })),
+	stdin: Type.Optional(
+		Type.Boolean({
+			description: "Give the job a stdin pipe so `send` can write to it (for `start`); not with `detached`.",
+		}),
+	),
 	id: Type.Optional(Type.String({ description: "Job id, e.g. `j1`." })),
 	lines: Type.Optional(
 		Type.Integer({ minimum: MIN_LOG_LINES, maximum: MAX_LOG_LINES, description: "Log lines to return." }),
 	),
+	input: Type.Optional(
+		Type.String({ description: `Text to write to a running job's stdin (for \`send\`; max ${MAX_STDIN} characters).` }),
+	),
+	newline: Type.Optional(Type.Boolean({ description: "Append a newline to `input` (for `send`; default true)." })),
+	eof: Type.Optional(Type.Boolean({ description: "End the job's stdin after writing, so it sees EOF (for `send`)." })),
 	signal: Type.Optional(StringEnum(KILL_SIGNALS, { description: "Signal for `kill`; defaults to SIGTERM." })),
 	timeoutMs: Type.Optional(
 		Type.Integer({
@@ -64,11 +76,13 @@ export type JobCall =
 			label?: string;
 			wake?: boolean;
 			detached?: boolean;
+			stdin?: boolean;
 			timeoutMs?: number;
 	  }
 	| { action: "list" }
 	| { action: "status"; id: string }
 	| { action: "logs"; id: string; lines?: number }
+	| { action: "send"; id: string; input?: string; newline?: boolean; eof?: boolean }
 	| { action: "kill"; id: string; signal?: KillSignal }
 	| { action: "wait"; id: string; timeoutMs?: number }
 	| { action: "clear"; id?: string; all?: boolean };
@@ -110,6 +124,7 @@ export function normalizeCall(raw: unknown): JobCall {
 				...(cwd ? { cwd } : {}),
 				...(typeof args.wake === "boolean" ? { wake: args.wake } : {}),
 				...(typeof args.detached === "boolean" ? { detached: args.detached } : {}),
+				...(typeof args.stdin === "boolean" ? { stdin: args.stdin } : {}),
 				...(timeoutMs !== undefined ? { timeoutMs } : {}),
 			};
 		}
@@ -123,6 +138,25 @@ export function normalizeCall(raw: unknown): JobCall {
 				throw new Error(`lines must be between ${MIN_LOG_LINES} and ${MAX_LOG_LINES}.`);
 			}
 			return { action: "logs", id: requireId(), ...(lines !== undefined ? { lines } : {}) };
+		}
+		case "send": {
+			const jobId = requireId();
+			if (args.input !== undefined && typeof args.input !== "string") {
+				throw new Error('"send" input must be a string.');
+			}
+			const input = typeof args.input === "string" ? args.input : undefined;
+			if (input !== undefined && input.length > MAX_STDIN) {
+				throw new Error(`input is longer than ${MAX_STDIN} characters.`);
+			}
+			const eof = args.eof === true;
+			if (!input && !eof) throw new Error('"send" requires `input` or `eof: true`.');
+			return {
+				action: "send",
+				id: jobId,
+				...(input ? { input } : {}),
+				...(typeof args.newline === "boolean" ? { newline: args.newline } : {}),
+				...(eof ? { eof } : {}),
+			};
 		}
 		case "kill": {
 			const signal = args.signal;

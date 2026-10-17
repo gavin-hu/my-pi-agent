@@ -34,6 +34,7 @@ import {
 	type SpawnFn,
 	type SpawnedProcess,
 	type StartTokenFn,
+	type StdinSink,
 } from "./process.ts";
 import {
 	loadRegistries,
@@ -70,6 +71,8 @@ export interface StartOptions {
 	label?: string;
 	wake?: boolean;
 	detached?: boolean;
+	/** Give the child a stdin pipe, so `send` can write to it while it runs here. */
+	stdin?: boolean;
 	/** Auto-kill the job after this many milliseconds (SIGTERM, escalating to SIGKILL). */
 	timeoutMs?: number;
 }
@@ -91,6 +94,23 @@ export interface WaitResult {
 	cancelled: boolean;
 }
 
+export interface SendOptions {
+	/** Text written to the job's stdin. */
+	input?: string;
+	/** Append a newline to `input`; defaults to true. */
+	newline?: boolean;
+	/** End the job's stdin after writing, so the child sees EOF. */
+	eof?: boolean;
+}
+
+export interface SendResult {
+	job: Job;
+	/** Characters of `input` written, excluding any newline this call added. */
+	sent: number;
+	/** True when this call ended the job's stdin. */
+	closed: boolean;
+}
+
 export interface RuntimeOptions {
 	spawn?: SpawnFn;
 	liveness?: LivenessFn;
@@ -106,6 +126,10 @@ interface Handle {
 	pending: string;
 	killTimer?: ReturnType<typeof setTimeout>;
 	timeoutTimer?: ReturnType<typeof setTimeout>;
+	/** The child's stdin pipe, present only for a job started with `stdin: true`. */
+	stdin?: StdinSink | null;
+	/** True once stdin was ended, or the child closed its end. */
+	stdinClosed?: boolean;
 }
 
 export interface JobsRuntime {
@@ -118,6 +142,11 @@ export interface JobsRuntime {
 	list(): JobRecord[];
 	get(id: string): Job | undefined;
 	logs(id: string, lines?: number): LogResult | undefined;
+	/**
+	 * Write to a running job's stdin. Throws a model-readable error when the job is
+	 * gone, was started without `stdin: true`, or belongs to another session.
+	 */
+	send(id: string, options: SendOptions): SendResult;
 	kill(id: string, signal?: KillSignal): Job | undefined;
 	wait(
 		id: string,
@@ -369,6 +398,17 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (!handle) return;
 		if (handle.killTimer) clearTimeout(handle.killTimer);
 		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
+		// Release the stdin pipe so a child waiting on input sees EOF instead of a
+		// half-open pipe nobody can write to.
+		if (handle.stdin && !handle.stdinClosed) {
+			try {
+				handle.stdin.end();
+			} catch {
+				// Already closed.
+			}
+		}
+		handle.stdin = null;
+		handle.stdinClosed = true;
 		if (options.endStream) {
 			try {
 				handle.stream?.end();
@@ -453,6 +493,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		list: () => ownJobs().map(toRecord),
 		get: (id) => jobs.get(id),
 		logs,
+		send,
 		kill,
 		wait,
 		clear,
@@ -555,6 +596,14 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	function start(startOptions: StartOptions, ctx: ExtensionContext): Job {
 		if (!config.enabled) throw new Error("jobs are disabled.");
 		ui.attach(ctx);
+		const wantsStdin = startOptions.stdin === true;
+		const detached = startOptions.detached ?? config.detachedByDefault;
+		// A detached job outlives this process, so a stdin pipe owned by this session
+		// would hand it EOF the moment the session ends; refuse instead of silently
+		// dropping the pipe (or the detach).
+		if (wantsStdin && detached) {
+			throw new Error("a detached job cannot take stdin; start it with `detached: false`.");
+		}
 		const cwd = startOptions.cwd ? startOptions.cwd : effectiveCwd(ctx);
 		// The registry directory must exist before `nextId`, which reserves the id
 		// with an `O_EXCL` lock file inside it.
@@ -564,7 +613,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const id = store.nextId(jobs.keys());
 		const logPath = store.logPath(id);
 		const statusPath = process.platform === "win32" ? null : store.statusPath(id);
-		const detached = startOptions.detached ?? config.detachedByDefault;
 		// A detached POSIX job points its own output at the log, so it keeps logging
 		// and survives after this process ends; Windows keeps the parent pipe.
 		const detachOutput = detached && process.platform !== "win32";
@@ -577,7 +625,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (detachOutput) env[LOG_ENV] = logPath;
 		let process_: SpawnedProcess;
 		try {
-			process_ = spawn(program, { cwd, env, detachOutput });
+			process_ = spawn(program, { cwd, env, detachOutput, stdin: wantsStdin });
 		} catch (error) {
 			// A failed spawn must not leave the reserved id behind.
 			store.releaseId(id);
@@ -612,6 +660,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			statusPath,
 			detached,
 			wake: startOptions.wake ?? config.wakeOnFinish,
+			stdin: wantsStdin,
 			sessionId,
 			seen: false,
 			lastLine: "",
@@ -620,6 +669,19 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		};
 
 		const handle: Handle = { stream, pending: "" };
+		if (wantsStdin) {
+			const sink = process_.stdin ?? null;
+			handle.stdin = sink;
+			handle.stdinClosed = sink === null;
+			// A child that exits can emit `error`/`close` on the pipe; record it so a
+			// later `send` reports the truth instead of throwing an unhandled stream error.
+			const markClosed = (): void => {
+				const current = handles.get(id);
+				if (current) current.stdinClosed = true;
+			};
+			sink?.on("error", markClosed);
+			sink?.on("close", markClosed);
+		}
 		handles.set(id, handle);
 		jobs.set(id, job);
 
@@ -723,6 +785,34 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			}, config.killGraceMs).unref?.();
 		}
 		return job;
+	}
+
+	function send(id: string, options: SendOptions): SendResult {
+		const job = jobs.get(id);
+		if (!job) throw new Error(`no job "${id}".`);
+		if (job.status !== "running") throw new Error(`job ${id} is ${job.status}; stdin is closed.`);
+		if (!job.stdin) throw new Error(`job ${id} was not started with stdin; restart it with \`stdin: true\`.`);
+		const handle = handles.get(id);
+		// A pipe this session opened but that is closed is a different fact from one
+		// that was never ours, so state it first.
+		if (handle?.stdinClosed) throw new Error(`job ${id} closed its stdin.`);
+		if (!handle?.stdin) throw new Error(`job ${id}'s stdin belongs to the session that started it.`);
+
+		const input = options.input ?? "";
+		const payload = input && options.newline !== false ? `${input}\n` : input;
+		try {
+			if (payload) handle.stdin.write(payload);
+			if (options.eof) {
+				handle.stdin.end();
+				handle.stdinClosed = true;
+			}
+		} catch {
+			// The child closed its end; record it so the next `send` says so.
+			handle.stdinClosed = true;
+			handle.stdin = null;
+			throw new Error(`job ${id} closed its stdin.`);
+		}
+		return { job, sent: input.length, closed: options.eof === true };
 	}
 
 	function wait(

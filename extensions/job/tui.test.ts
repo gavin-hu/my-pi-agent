@@ -18,6 +18,7 @@ const job = (overrides: Partial<JobRecord> = {}): JobRecord => ({
 	logPath: "/tmp/j1.log",
 	detached: false,
 	wake: false,
+	stdin: false,
 	sessionId: "s1",
 	seen: false,
 	lastLine: "",

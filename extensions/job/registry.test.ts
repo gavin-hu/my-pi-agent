@@ -33,6 +33,7 @@ const record = (overrides: Partial<JobRecord> = {}): JobRecord => ({
 	statusPath: null,
 	detached: false,
 	wake: false,
+	stdin: false,
 	sessionId: "s1",
 	seen: false,
 	lastLine: "",

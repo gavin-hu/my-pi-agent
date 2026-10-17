@@ -22,9 +22,12 @@ How the `job` call and its result look in the transcript — the call line as a 
 ## What it does
 
 - Registers one model-callable tool, `job`, with actions `start`, `list`,
-  `status`, `logs`, `kill`, `wait`, and `clear`.
+  `status`, `logs`, `send`, `kill`, `wait`, and `clear`.
 - Runs each command in its own process group, streaming stdout and stderr to an
   append-only log file under `~/.pi/agent/jobs/<project>/`.
+- Feeds a running job input when it was started with `stdin: true`: `send`
+  writes a line (or a bare keystroke) to its stdin, and `eof: true` closes it, so
+  a REPL, a debugger prompt, or a `read` can be driven without a TTY.
 - Shows a `▸ N` running status chip and a separate `✗ N` unreported-failure
   chip for this session's jobs, plus a `/jobs` screen for selecting, tailing,
   killing, and clearing.
@@ -40,14 +43,18 @@ How the `job` call and its result look in the transcript — the call line as a 
 | Field | Value |
 |---|---|
 | `name` | `job` |
-| `action` | `start` \| `list` \| `status` \| `logs` \| `kill` \| `wait` \| `clear` |
+| `action` | `start` \| `list` \| `status` \| `logs` \| `send` \| `kill` \| `wait` \| `clear` |
 | `command` | Shell command to run (`start`). |
 | `cwd` | Working directory (`start`); defaults to the session cwd. |
 | `label` | Short display label (`start`); defaults to the command. |
 | `wake` | Wake the agent with one triggered turn when it finishes (`start`). |
 | `detached` | Leave it running when the session ends (`start`). |
-| `id` | Job id such as `j1` (`status`/`logs`/`kill`/`wait`/`clear`). |
+| `stdin` | Give the job a stdin pipe so `send` can write to it (`start`); not with `detached`. |
+| `id` | Job id such as `j1` (`status`/`logs`/`send`/`kill`/`wait`/`clear`). |
 | `lines` | Log lines to return (`logs`, 1–2000). |
+| `input` | Text to write to a running job's stdin (`send`; max 8192 characters). |
+| `newline` | Append a newline to `input` (`send`; default `true`). |
+| `eof` | End the job's stdin after writing, so it sees EOF (`send`). |
 | `signal` | `SIGTERM` \| `SIGKILL` \| `SIGINT` (`kill`; default `SIGTERM`). |
 | `timeoutMs` | `start`: kill the job after this many ms. `wait`: how long to block (default 30s). |
 | `all` | With `clear`, also remove running jobs. |
@@ -68,18 +75,35 @@ leaves the job running. Validation is pure and runs before any side effect, so
 `codemode` callers that bypass the TypeBox schema cannot start a process with
 missing arguments.
 
+Example: drive an interactive program. Only a job started with `stdin: true`
+accepts input, and `eof` closes it once you are done.
+
+```
+job start { "command": "python3 -q", "stdin": true, "label": "repl" }   → j2
+job send  { "id": "j2", "input": "print(1 + 1)" }
+job logs  { "id": "j2" }
+job send  { "id": "j2", "eof": true }
+```
+
+`send` writes `input` plus a newline by default, so a line-oriented program
+sees one line per call; pass `newline: false` to deliver a bare keystroke.
+Writing to a finished job, a job without `stdin: true`, or a job this session
+does not hold the pipe for is an error, and the call changes nothing.
+
 Each result carries a `JobDetails` object in tool-result `details`:
 
 ```
 JobDetails {
   action: JobAction
-  job?: JobRecord           // start/status/logs/kill/wait
+  job?: JobRecord           // start/status/logs/send/kill/wait
   jobs?: JobRecord[]        // list/clear
   logs?: string             // sanitized tail for `logs`
   truncated?: boolean
   cleared?: number
   signalled?: boolean       // kill sent a signal to a running job
   signal?: KillSignal       // signal sent by kill (SIGTERM/SIGKILL/SIGINT)
+  sent?: number             // characters of `input` written by send
+  stdinClosed?: boolean     // send ended the job's stdin (EOF)
   timedOut?: boolean        // wait hit its timeout
   cancelled?: boolean       // wait was aborted; job still running
   error?: string
@@ -93,7 +117,8 @@ the slot's component: `list` draws the same rows as `/jobs`, `logs` draws a
 blank line and the sanitized tail, and a single-job action draws one outcome
 line. A `kill` that sent a signal appends it (`· SIGTERM sent`) instead of
 showing the job's pre-kill running state, a `start` badges `detached` and
-`wake`, and a `logs` call on a job with no output yet renders `No output yet.`
+`wake`, a `send` appends what it did (`· sent 5 · stdin closed`), and a `logs`
+call on a job with no output yet renders `No output yet.`
 
 ```
 job list
@@ -182,8 +207,12 @@ rewritten.
   `list` and `/jobs` show only this session's jobs (a dead session's records
   are adopted into it). A peer's job can still be reached by an explicit id
   (`status`/`logs`/`kill`; `kill` adopts it).
-- **No stdin to running jobs.** Jobs are fire-and-observe; interactive programs
-  (a REPL, a debugger prompt) are out of scope.
+- **stdin is a pipe, not a TTY.** A job started with `stdin: true` can be fed
+  with `send`, but the child sees a pipe: line-oriented programs (a REPL, a
+  debugger prompt, `read`, `npm init`) work, while a full-screen program that
+  requires a terminal does not. Only the session holding the child's pipe can
+  write to it, so a reattached or peer job cannot be fed, and a `detached` job
+  cannot take stdin at all.
 - **No log rotation.** Logs are append-only files; `logs` reads a bounded tail.
 - **Windows is best-effort.** Tree-kill uses `taskkill /T`; POSIX uses process
   groups. A detached job only escapes the parent process on POSIX, where its
@@ -213,8 +242,13 @@ rewritten.
 ## Design notes
 
 - **Shell commands only, one action-based tool.** A single `job` tool with
-  seven actions mirrors `rewind` and keeps the model surface small. Validation
+  eight actions mirrors `rewind` and keeps the model surface small. Validation
   is pure and runs before any side effect.
+- **Stdin is an opt-in pipe.** `start` keeps the child's stdin closed by
+  default, so it gets EOF immediately and a `read` exits instead of blocking;
+  `stdin: true` swaps in a pipe that `send` writes to and `eof` closes. The pipe
+  belongs to this process, so it never outlives the handle that owns it, and a
+  `detached` job is refused rather than handed EOF when the session ends.
 - **`child_process.spawn`, not `pi.exec`.** `pi.exec` resolves on exit, the
   opposite of a background job. Jobs are spawned with a shell in their own
   process group, and signals go to the whole group so a shell and its
@@ -313,6 +347,7 @@ sanitization (`format`), the durable store (`store`), per-session reconciliation
 (`registry`), id reservation (`reservations`), exit-status recovery (`status`),
 session markers (`session`), bounded log reads and tail flags (`logs`), wait
 bookkeeping (`waiters`), the `job` tool (`tools`), the `/jobs` screen (`tui`),
-the runtime's session-scoped list and failure notification (`runtime`), and the
+the runtime's session-scoped list and failure notification (`runtime`), `send`
+to a job's stdin and the pipe's lifecycle (`runtime`), and the
 install/resume/shutdown lifecycle (`extension`). Tests drive a scripted
 `FakeChild` and a temp registry, so the suite runs without launching a process.

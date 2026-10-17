@@ -12,18 +12,57 @@ import type { Readable } from "node:stream";
 import type { KillTreeFn, LivenessFn, SpawnFn, SpawnedProcess, StartTokenFn } from "../../extensions/job/process.ts";
 import type { SpawnFn as SubagentSpawnFn } from "../../extensions/subagent/types.ts";
 
+/** A recording stand-in for a job's stdin pipe. */
+export class FakeStdin extends EventEmitter {
+	writes: string[] = [];
+	ended = false;
+	destroyed = false;
+	/** Throw on the next write, as a child that closed its end does. */
+	failWith?: Error;
+
+	write(chunk: string): boolean {
+		if (this.failWith) {
+			const error = this.failWith;
+			this.failWith = undefined;
+			throw error;
+		}
+		this.writes.push(String(chunk));
+		return true;
+	}
+
+	end(): void {
+		this.ended = true;
+		this.emit("close");
+	}
+
+	destroy(): void {
+		this.destroyed = true;
+	}
+
+	/** Everything written so far, joined. */
+	get text(): string {
+		return this.writes.join("");
+	}
+}
+
 /** A scriptable stand-in for a background job process. */
 export class JobChild extends EventEmitter implements SpawnedProcess {
 	static nextPid = 5000;
 	pid = JobChild.nextPid++;
 	stdout = new EventEmitter() as unknown as Readable;
 	stderr = new EventEmitter() as unknown as Readable;
+	/** The stdin double, present only when the job was spawned with `stdin: true`. */
+	stdinSink: FakeStdin | null = null;
 	killed = false;
 	signals: string[] = [];
 	command = "";
 	cwd = "";
-	options: { cwd: string; env?: NodeJS.ProcessEnv; detachOutput?: boolean } | undefined;
+	options: { cwd: string; env?: NodeJS.ProcessEnv; detachOutput?: boolean; stdin?: boolean } | undefined;
 	unrefed = false;
+
+	get stdin(): FakeStdin | null {
+		return this.stdinSink;
+	}
 
 	unref(): void {
 		this.unrefed = true;
@@ -64,6 +103,7 @@ export function makeJobSpawn(script?: (child: JobChild) => void): FakeJobSpawn {
 		child.command = command;
 		child.cwd = options.cwd;
 		child.options = options;
+		if (options.stdin) child.stdinSink = new FakeStdin();
 		children.push(child);
 		queueMicrotask(() => script?.(child));
 		return child;

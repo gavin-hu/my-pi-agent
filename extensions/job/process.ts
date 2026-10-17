@@ -14,11 +14,26 @@
 import { execFileSync, spawn as nodeSpawn, spawnSync } from "node:child_process";
 import type { Readable } from "node:stream";
 
+/**
+ * The writable end of a child's stdin pipe.
+ *
+ * Only the operations `send` needs, so tests can hand the runtime a recording
+ * double instead of a real socket.
+ */
+export interface StdinSink {
+	write(chunk: string): boolean;
+	end(): void;
+	destroy?(): void;
+	on(event: "error" | "close", listener: (error?: Error) => void): unknown;
+}
+
 /** The subset of a spawned child the runtime uses. */
 export interface SpawnedProcess {
 	pid?: number;
 	stdout: Readable | null;
 	stderr: Readable | null;
+	/** Present only when spawned with `stdin: true`. */
+	stdin?: StdinSink | null;
 	on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
 	on(event: "error", listener: (error: Error) => void): unknown;
 	kill(signal?: NodeJS.Signals): boolean;
@@ -33,6 +48,8 @@ export type SpawnFn = (
 		env?: NodeJS.ProcessEnv;
 		/** The command writes its own output to the log; keep no parent pipe. */
 		detachOutput?: boolean;
+		/** Give the child a stdin pipe instead of `/dev/null` (no immediate EOF). */
+		stdin?: boolean;
 	},
 ) => SpawnedProcess;
 
@@ -51,13 +68,18 @@ export type KillTreeFn = (pid: number, signal: NodeJS.Signals, force?: boolean) 
 export type StartTokenFn = (pid: number) => string | undefined;
 
 /** Default spawn: a shell command in its own process group. A detached job
- * redirects its own output to the log, so it needs no pipe to this process. */
+ * redirects its own output to the log, so it needs no pipe to this process.
+ * Stdin stays closed unless the job asked for it: a closed stdin gives the
+ * child EOF, so `read` exits instead of blocking forever. */
 export const defaultSpawn: SpawnFn = (command, options) =>
 	nodeSpawn(command, {
 		cwd: options.cwd,
 		shell: true,
 		detached: process.platform !== "win32",
-		stdio: options.detachOutput ? ["ignore", "ignore", "ignore"] : ["ignore", "pipe", "pipe"],
+		stdio: [
+			options.stdin ? "pipe" : "ignore",
+			...(options.detachOutput ? (["ignore", "ignore"] as const) : (["pipe", "pipe"] as const)),
+		],
 		env: options.env,
 	});
 

@@ -1,10 +1,11 @@
 /**
  * Model-facing registration for the `job` tool.
  *
- * One tool with seven actions: `start`, `list`, `status`, `logs`, `kill`,
- * `wait`, `clear`. A background process can outlive the tool call, so `start`
- * returns immediately with an id; the model polls with `status`/`logs` or
- * blocks with `wait`. Failures come back as an error result.
+ * One tool with eight actions: `start`, `list`, `status`, `logs`, `send`,
+ * `kill`, `wait`, `clear`. A background process can outlive the tool call, so
+ * `start` returns immediately with an id; the model polls with `status`/`logs` or
+ * blocks with `wait`. `stdin: true` opens a pipe that `send` writes to. Failures
+ * come back as an error result.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -19,6 +20,7 @@ import {
 	formatJobList,
 	formatJobOutcomeLine,
 	formatJobStatus,
+	shortLabel,
 } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs, type JobCall } from "./schema.ts";
@@ -49,6 +51,7 @@ function errorResult(
 const GUIDELINES = [
 	"Use `job start` for long-running or background commands (builds, test suites, servers, watchers) so the turn is not blocked.",
 	"Poll with `job status`/`job logs`, or use `job wait` when you must have the result before continuing.",
+	"Start a job with `stdin: true` to drive an interactive program: `job send` writes a line to it and `eof: true` closes its input.",
 	"Use `job kill` to stop a running job and `job clear` to drop finished ones.",
 ];
 
@@ -57,9 +60,9 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 		name: TOOL_NAME,
 		label: "Job",
 		description:
-			"Manage background shell-command jobs. Actions: `start` (returns a job id immediately), `list`, `status`/`logs`/" +
-			"`kill`/`wait` (by id), and `clear`. Jobs are killed when the session ends unless started `detached`.",
-		promptSnippet: "Run and manage background shell-command jobs (start, list, status, logs, kill, wait, clear).",
+			"Manage background shell-command jobs. Actions: `start` (returns a job id immediately; `stdin: true` opens a stdin pipe), " +
+			"`list`, `status`/`logs`/`send`/`kill`/`wait` (by id), and `clear`. Jobs are killed when the session ends unless started `detached`.",
+		promptSnippet: "Run and manage background shell-command jobs (start, list, status, logs, send, kill, wait, clear).",
 		promptGuidelines: GUIDELINES,
 		parameters: JobParams,
 		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
@@ -83,6 +86,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 								label: call.label,
 								wake: call.wake,
 								detached: call.detached,
+								stdin: call.stdin,
 								timeoutMs: call.timeoutMs,
 							},
 							ctx,
@@ -125,6 +129,30 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 								job: toRecord(result.job),
 								logs: result.lines.join("\n"),
 								truncated: result.truncated,
+							} satisfies JobDetails,
+						};
+					}
+
+					case "send": {
+						const result = runtime.send(call.id, {
+							input: call.input,
+							newline: call.newline,
+							eof: call.eof,
+						});
+						const job = result.job;
+						const text =
+							result.sent > 0
+								? `Sent ${result.sent} character${result.sent === 1 ? "" : "s"} to ${job.id} (${shortLabel(job)})${
+										result.closed ? " and closed its stdin" : ""
+									}.`
+								: `Closed ${job.id}'s stdin.`;
+						return {
+							content: [{ type: "text" as const, text }],
+							details: {
+								action: "send",
+								job: toRecord(job),
+								sent: result.sent,
+								stdinClosed: result.closed,
 							} satisfies JobDetails,
 						};
 					}
@@ -280,6 +308,11 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					line += paint(theme, "warn", " · wait cancelled; job still running");
 				} else if (details.action === "kill" && details.signalled) {
 					line += paint(theme, "warn", ` · ${details.signal ?? "SIGTERM"} sent`);
+				} else if (details.action === "send") {
+					const badges: string[] = [];
+					if (details.sent) badges.push(`sent ${details.sent}`);
+					if (details.stdinClosed) badges.push("stdin closed");
+					if (badges.length > 0) line += paint(theme, "faint", `${SEPARATORS.item}${badges.join(SEPARATORS.item)}`);
 				} else if (details.action === "start") {
 					const badges: string[] = [];
 					if (details.job.detached) badges.push("detached");

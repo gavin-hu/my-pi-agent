@@ -36,6 +36,7 @@ const job = (overrides: Partial<JobRecord> = {}): JobRecord => ({
 	logPath: "/tmp/j1.log",
 	detached: false,
 	wake: false,
+	stdin: false,
 	sessionId: "s1",
 	seen: false,
 	lastLine: "",
@@ -216,6 +217,16 @@ describe("formatCallText", () => {
 	test("names the target for status/logs/kill/wait", () => {
 		expect(formatCallText("kill", { id: "j3" })).toBe("kill j3");
 		expect(formatCallText("wait", { id: "j3" })).toBe("wait j3");
+	});
+
+	test("previews the input a send writes, and its EOF", () => {
+		expect(formatCallText("send", { id: "j3", input: "hello" })).toBe("send j3 → hello");
+		expect(formatCallText("send", { id: "j3", input: "hello", eof: true })).toBe("send j3 → hello + EOF");
+		expect(formatCallText("send", { id: "j3", eof: true })).toBe("send j3 → EOF");
+	});
+
+	test("collapses a multi-line send input to one sanitized line", () => {
+		expect(formatCallText("send", { id: "j3", input: "one\ntwo\u001b[31m" })).toBe("send j3 → one two");
 	});
 
 	test("clips a wide-character command by display column", () => {

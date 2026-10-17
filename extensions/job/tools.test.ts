@@ -120,6 +120,36 @@ describe("job tool", () => {
 		expect(result.details.job.detached).toBe(true);
 		expect(result.details.job.id).toBe("j1");
 	});
+
+	test("sends input to a job started with stdin", async () => {
+		const { h, call } = setup();
+		await call({ action: "start", command: "cat", stdin: true });
+		const result = await call({ action: "send", id: "j1", input: "hello" });
+		expect(result.content[0].text).toContain("Sent 5 characters to j1");
+		expect(result.details.action).toBe("send");
+		expect(result.details.sent).toBe(5);
+		expect(result.details.stdinClosed).toBe(false);
+		expect(h.children[0].stdinSink?.text).toBe("hello\n");
+	});
+
+	test("send reports EOF and refuses a write after it", async () => {
+		const { call } = setup();
+		await call({ action: "start", command: "cat", stdin: true });
+		const closed = await call({ action: "send", id: "j1", eof: true });
+		expect(closed.content[0].text).toBe("Closed j1's stdin.");
+		expect(closed.details.stdinClosed).toBe(true);
+		const refused = await call({ action: "send", id: "j1", input: "more" });
+		expect(refused.isError).toBe(true);
+		expect(refused.content[0].text).toContain("closed its stdin");
+	});
+
+	test("send without stdin is an error result", async () => {
+		const { call } = setup();
+		await call({ action: "start", command: "sleep 1" });
+		const result = await call({ action: "send", id: "j1", input: "x" });
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toContain("was not started with stdin");
+	});
 });
 
 const record = (overrides: Partial<JobRecord> = {}): JobRecord => ({
@@ -136,6 +166,7 @@ const record = (overrides: Partial<JobRecord> = {}): JobRecord => ({
 	logPath: "/tmp/j1.log",
 	detached: false,
 	wake: false,
+	stdin: false,
 	sessionId: "s1",
 	seen: false,
 	lastLine: "",
