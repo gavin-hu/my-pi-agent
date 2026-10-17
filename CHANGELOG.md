@@ -46,6 +46,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in the screen's own hint row instead of being appended to the transcript
   behind the screen; the key hints return on the next key. Extension toggles,
   settings writes, and probe failures all use that row.
+- `bytefly`: `Space` on a row in the trailing `Not resolved` group now explains
+  that there is no settings pattern to write instead of doing nothing.
+- `bytefly`: `Saved · reload to apply` stays visible on a terminal too short for
+  the Settings detail body, so a change is not shown as applied.
 - `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
   instead of hiding them. The screen opens such a row's log but its `d` and `x`
   leave it alone (`x` counts only this session's finished jobs), the model can

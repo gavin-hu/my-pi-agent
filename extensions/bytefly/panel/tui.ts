@@ -265,8 +265,14 @@ export class PanelComponent implements Component {
 
 	private toggle(): void {
 		const entry = this.activeEntries()[this.cursor.selected];
-		if (entry?.kind !== "row" || !entry.row.item) return;
+		if (entry?.kind !== "row") return;
 		const item = entry.row.item;
+		if (!item) {
+			// A `Not resolved` row has no settings pattern to write, so say why the
+			// key did nothing instead of swallowing it.
+			this.notify(`${entry.row.label} is not resolved; manage it with pi config.`);
+			return;
+		}
 		this.chain = this.chain
 			.then(() => this.options.runtime.toggle(item))
 			.catch(() => undefined)
@@ -552,7 +558,9 @@ export class PanelComponent implements Component {
 		const source = view.source === "app" ? "Pi setting" : "bytefly.json";
 		const head = `${paint(this.theme, "meta", sanitizeLine(view.label))} ${paint(this.theme, "faint", "—")} ${paint(this.theme, "faint", source)}`;
 		const headLine = clip(`${INDENT}${head}`, width);
-		if (budget === 0) return [headLine];
+		// The pending-changes marker survives the collapsed body: on a short terminal
+		// the value still changed, and the screen has to say so.
+		if (budget === 0) return [headLine, ...this.dirtyLine(width)];
 
 		const lines = [headLine];
 		const dirty = this.dirtyLine(width);
