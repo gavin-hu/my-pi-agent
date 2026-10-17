@@ -363,18 +363,39 @@ describe("bytefly panel probing", () => {
 			settings: () => fakeSettings(),
 		});
 		const { ctx, notifications } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
-		let rendered = "";
+		let component: any;
 		ctx.ui.custom = async (factory: any) => {
-			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			rendered = component.render(80).join("\n");
+			component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
 			await settle();
 			return undefined;
 		};
 
 		await commands.get("bytefly").handler("", ctx);
 
-		expect(rendered).toContain("bytefly");
-		expect(notifications.at(-1)).toContain("Could not refresh: probe exploded");
+		// The failure lands in the screen's hint row, not behind it in the transcript.
+		expect(component.render(80).join("\n")).toContain("Could not refresh: probe exploded");
+		expect(notifications).toEqual([]);
+	});
+
+	test("shows a runtime toggle failure in the frame", async () => {
+		const store = makeStore({ global: { extensions: [] } });
+		store.failFlush(new Error("settings locked"));
+		const built = makeDiscovery({ global: [item("/agent/extensions/one.ts")], globalStore: store }).discovery;
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, { doctor: fakeDoctor([]), discover: async () => built, settings: () => fakeSettings() });
+		const { ctx, notifications } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		let component: any;
+		ctx.ui.custom = async (factory: any) => {
+			component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("", ctx);
+		component.handleInput(" ");
+		await settle();
+
+		expect(component.render(80).join("\n")).toContain("settings locked");
+		expect(notifications).toEqual([]);
 	});
 
 	test("forces the first probe when the command asked for refresh", async () => {

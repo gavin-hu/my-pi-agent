@@ -42,6 +42,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `bytefly`: `/bytefly <name>` checks the name against the discovered set before
   probing, so a typo fails immediately instead of after every prerequisite
   check.
+- `bytefly`: a refusal or a failed write inside the control center now appears
+  in the screen's own hint row instead of being appended to the transcript
+  behind the screen; the key hints return on the next key. Extension toggles,
+  settings writes, and probe failures all use that row.
 - `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
   instead of hiding them. The screen opens such a row's log but its `d` and `x`
   leave it alone (`x` counts only this session's finished jobs), the model can

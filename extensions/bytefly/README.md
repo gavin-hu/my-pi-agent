@@ -572,7 +572,9 @@ probe. Tab completes `doctor`, `settings`, extension names, and `refresh`.
 The screen opens on the findings the session already has, and the Extensions
 section probes once on its first view (the hint shows `refreshing…` while it
 runs). `/bytefly settings` therefore never waits for a probe, and a failed probe
-is a notice with the screen still open rather than a refused command.
+is a notice with the screen still open rather than a refused command. A refusal
+or a failed write appears in the screen's own hint row (the key hints step
+aside) and clears on the next key, so nothing is written behind the screen.
 
 The screen reuses Pi's own settings and package resolution (`SettingsManager`
 plus `DefaultPackageManager` with `onMissing: "skip"`), so opening it never
@@ -881,7 +883,7 @@ rather than showing a wrong value.
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
-| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValue` on the selected scope's document, one key at a time. A failed or refused write notifies and leaves the displayed value unchanged; a successful one marks the screen dirty. |
+| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValue` on the selected scope's document, one key at a time. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`), `exposure: "direct"`, active by default, with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |

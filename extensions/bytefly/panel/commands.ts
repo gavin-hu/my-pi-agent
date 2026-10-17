@@ -114,7 +114,16 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		const cwd = ctx.cwd ?? process.cwd();
 		const agentDir = getAgentDir();
 		const trusted = ctx.isProjectTrusted();
-		const settingsNotice = (message: string): void => ctx.ui.notify(message, "warning");
+		// The mounted screen owns its feedback: a refusal or a failed write belongs in
+		// the frame, not appended to the transcript behind it. Before the screen
+		// exists (the non-TUI settings path, a pre-mount failure) the transcript is
+		// the only surface.
+		let panel: PanelComponent | undefined;
+		const surfaceNotice = (message: string, kind: "warning" | "error" = "warning"): void => {
+			if (panel) panel.notify(message);
+			else ctx.ui.notify(message, kind);
+		};
+		const settingsNotice = (message: string): void => surfaceNotice(message, "warning");
 
 		// Settings outside `tui` prints its grouped listing without resolving
 		// packages or probing the doctor.
@@ -145,7 +154,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			discovery,
 			cwd,
 			agentDir,
-			onError: (message) => ctx.ui.notify(message, "error"),
+			onError: (message) => surfaceNotice(message, "error"),
 		});
 
 		// The name is checked before the probe: a typo should not pay for every
@@ -203,11 +212,13 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 						reports = await deps.doctor.probeAll({ refresh: force === true });
 					},
 					onClose: () => {
+						// A late error falls back to the transcript, never a disposed screen.
+						panel = undefined;
 						unsubscribe();
 						done();
 					},
-					onNotice: (message) => ctx.ui.notify(message, "warning"),
 				});
+				panel = component;
 				component.prime();
 				return component;
 			}),

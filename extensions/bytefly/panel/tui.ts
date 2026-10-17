@@ -134,7 +134,6 @@ export interface PanelComponentOptions {
 	/** Re-probe; `force` ignores the session cache. Awaited before the busy state clears. */
 	refresh: (force?: boolean) => void | Promise<void>;
 	onClose: () => void;
-	onNotice?: (message: string) => void;
 }
 
 /** The docked bytefly panel. */
@@ -153,6 +152,8 @@ export class PanelComponent implements Component {
 	private refreshing = false;
 	/** True once the Extensions view has asked for its first probe. */
 	private probed = false;
+	/** Transient feedback (a refusal or a failed write), shown in the hint row. */
+	private notice: string | undefined;
 	/** The visible section. */
 	private section: PanelSection;
 
@@ -251,7 +252,7 @@ export class PanelComponent implements Component {
 	private switchScope(): void {
 		const next = this.options.runtime.scope() === "global" ? "project" : "global";
 		if (next === "project" && !this.options.runtime.projectAvailable()) {
-			this.options.onNotice?.(
+			this.notify(
 				this.section === "settings"
 					? "Project is not trusted; settings can only be changed in Global scope."
 					: "Project is not trusted; manage extensions in Global scope only.",
@@ -280,7 +281,7 @@ export class PanelComponent implements Component {
 		const id = entry.setting.id;
 		this.chain = this.chain
 			.then(() => this.options.settings.change(scope, id))
-			.catch((error: unknown) => this.options.onNotice?.(error instanceof Error ? error.message : String(error)))
+			.catch((error: unknown) => this.notify(error instanceof Error ? error.message : String(error)))
 			.then(() => this.options.requestRender());
 	}
 
@@ -295,6 +296,16 @@ export class PanelComponent implements Component {
 		void this.refresh(this.options.initialRefresh === true);
 	}
 
+	/**
+	 * Show a message in the screen's hint row until the next key. The panel is the
+	 * only place a refusal or a failed write can be seen, so these messages stay
+	 * in the frame instead of landing behind it in the transcript.
+	 */
+	notify(message: string): void {
+		this.notice = message;
+		this.options.requestRender();
+	}
+
 	/** Re-probe once; a second request while one is in flight is ignored. */
 	async refresh(force = false): Promise<void> {
 		if (this.refreshing) return;
@@ -303,7 +314,7 @@ export class PanelComponent implements Component {
 		try {
 			await this.options.refresh(force);
 		} catch (error) {
-			this.options.onNotice?.(`Could not refresh: ${error instanceof Error ? error.message : String(error)}`);
+			this.notify(`Could not refresh: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
 			this.refreshing = false;
 			this.options.requestRender();
@@ -368,6 +379,11 @@ export class PanelComponent implements Component {
 		if (isCloseKey(data)) {
 			this.options.onClose();
 			return;
+		}
+		// A notice replaces the hint row; any key dismisses it and still acts.
+		if (this.notice !== undefined) {
+			this.notice = undefined;
+			this.options.requestRender();
 		}
 		if (matchesKey(data, Key.left)) {
 			this.switchSection("extensions");
@@ -451,6 +467,16 @@ export class PanelComponent implements Component {
 						"↑/↓ select",
 					];
 		return screenHint(this.theme, width, hints);
+	}
+
+	/** The transient notice row, clipped and painted like the hint it replaces. */
+	private noticeLine(width: number): string {
+		return clip(`${INDENT}${paint(this.theme, "meta", sanitizeLine(this.notice ?? ""))}`, width);
+	}
+
+	/** The key-hint row, or the notice that temporarily replaces it. */
+	private hintRow(width: number, expanded = false): string {
+		return this.notice !== undefined ? this.noticeLine(width) : this.hint(width, expanded);
 	}
 
 	private groupLine(entry: Extract<PanelEntry, { kind: "group" }>, width: number): string {
@@ -598,7 +624,7 @@ export class PanelComponent implements Component {
 				header,
 				summary,
 				body: emptyState(this.theme, width, { label: "No settings found." }),
-				hint: this.hint(width),
+				hint: this.hintRow(width),
 			});
 		}
 
@@ -635,7 +661,7 @@ export class PanelComponent implements Component {
 				? formatRange(this.theme, width, { start, end, total: entries.length })
 				: undefined,
 			detail: detail.length > 0 ? detail : undefined,
-			hint: this.hint(width),
+			hint: this.hintRow(width),
 		});
 	}
 
@@ -653,7 +679,7 @@ export class PanelComponent implements Component {
 				header,
 				summary,
 				body: emptyState(this.theme, w, { label: "No extensions found." }),
-				hint: this.hint(w),
+				hint: this.hintRow(w),
 			});
 		}
 
@@ -689,7 +715,7 @@ export class PanelComponent implements Component {
 				? formatRange(this.theme, w, { start, end, total: entries.length })
 				: undefined,
 			detail: detail.length > 0 ? detail : undefined,
-			hint: this.hint(w, expanded),
+			hint: this.hintRow(w, expanded),
 		});
 	}
 }
