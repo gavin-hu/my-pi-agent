@@ -13,6 +13,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { WechatClient, WechatClientOptions } from "../../../extensions/wechat/client.ts";
+import type { PeerSession, PeerSessionOptions } from "../../../extensions/wechat/peer-session.ts";
 import type { BotCredentials, UpdatesResponse, WeixinMessage } from "../../../extensions/wechat/types.ts";
 
 /** A stored account, as the login flow would have saved it. */
@@ -142,4 +143,41 @@ function aborted(signal: AbortSignal | undefined): Promise<void> {
 	if (!signal) return Promise.resolve();
 	if (signal.aborted) return Promise.resolve();
 	return new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+}
+
+/**
+ * A peer session double for the extension's lifecycle tests: it answers every
+ * prompt with one scripted line, so the bridge's reply path runs end to end
+ * without loading extensions or calling a model.
+ */
+export function fakePeerSession(answer: string | (() => string)): {
+	openSession: (peer: string, options: PeerSessionOptions) => Promise<PeerSession>;
+	prompts: string[];
+	fresh: boolean[];
+	disposed: () => number;
+} {
+	const prompts: string[] = [];
+	const fresh: boolean[] = [];
+	let disposals = 0;
+	let last = "";
+	const session = {
+		async prompt(text: string): Promise<void> {
+			prompts.push(text);
+			last = typeof answer === "function" ? answer() : answer;
+		},
+		getLastAssistantText: () => last,
+		async abort(): Promise<void> {},
+		dispose(): void {
+			disposals += 1;
+		},
+	};
+	return {
+		openSession: async (_peer, options) => {
+			fresh.push(options.fresh === true);
+			return { session, dispose: () => session.dispose() } as unknown as PeerSession;
+		},
+		prompts,
+		fresh,
+		disposed: () => disposals,
+	};
 }

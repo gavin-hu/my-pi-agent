@@ -6,6 +6,8 @@
  * the persisted credentials, cursor, and peer state.
  */
 
+import type { PeerLanguage } from "./format.ts";
+
 /** One content item inside a message (`type` 1 = text). */
 export interface MessageItem {
 	type?: number;
@@ -106,6 +108,8 @@ export interface InboundItem {
 	contextToken?: string;
 	text: string;
 	media: MediaRef[];
+	/** The peer's language, decided from this message. */
+	language: PeerLanguage;
 }
 
 /** An inbound image to download, decrypt, and attach to the turn. */

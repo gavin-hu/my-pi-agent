@@ -95,8 +95,8 @@ export function peerLanguage(text: string): PeerLanguage {
 const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	ack: { zh: "收到，正在处理…", en: "Got it — working on it." },
 	busy: {
-		zh: "终端会话正忙，你的消息排在后面，腾出手就回你。",
-		en: "The terminal session is busy — your message is queued and I'll answer as soon as it frees.",
+		zh: "前面还有一条正在处理，你的消息排在后面，轮到你就回你。",
+		en: "Your message is queued behind another conversation; I'll answer as soon as it's free.",
 	},
 	stillWorking: {
 		zh: "还在处理这条，稍等一下…",

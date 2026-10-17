@@ -3,7 +3,13 @@ import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir } from "../../test/helpers/env.ts";
 import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
-import { fakeWechatClient, inboundText, updates, writeAccount } from "../../test/helpers/fixtures/wechat.ts";
+import {
+	fakePeerSession,
+	fakeWechatClient,
+	inboundText,
+	updates,
+	writeAccount,
+} from "../../test/helpers/fixtures/wechat.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 import wechat, { wechatChip } from "./index.ts";
 
@@ -66,13 +72,14 @@ describe("wechat extension", () => {
  * real bridge with only the transport and the timer injected.
  */
 describe("wechat lifecycle", () => {
-	async function start(dir: string, script = [updates()]) {
+	async function start(dir: string, script = [updates()], answer = "hi from pi") {
 		const fake = createFakePi();
 		const client = fakeWechatClient(script);
-		wechat(fake.pi, { createClient: client.createClient, sleep: client.sleep });
+		const peers = fakePeerSession(answer);
+		wechat(fake.pi, { createClient: client.createClient, sleep: client.sleep, openSession: peers.openSession });
 		const result = fakeCtx({ mode: "rpc", cwd: dir });
 		await emit(fake.pi, "session_start", { type: "session_start" }, result.ctx);
-		return { fake, client, ...result };
+		return { fake, client, peers, ...result };
 	}
 
 	test("connects a stored account on session_start", async () => {
@@ -109,20 +116,11 @@ describe("wechat lifecycle", () => {
 			writeAccount(dir);
 			const { fake, client, ctx } = await start(dir, [updates([inboundText("hello")])]);
 
-			await waitFor(() => fake.sentMessages.length === 1);
-			expect(fake.sentMessages[0].content).toBe("hello");
-
-			await emit(fake.pi, "agent_start", { type: "agent_start" }, ctx);
-			await emit(
-				fake.pi,
-				"message_end",
-				{ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "hi from pi" }] } },
-				ctx,
-			);
-			await emit(fake.pi, "agent_settled", { type: "agent_settled" }, ctx);
-
+			// The inbound message runs in the peer's own session, so the host
+			// transcript never sees it.
 			await waitFor(() => client.sent.length === 1);
 			expect(client.sent[0]).toMatchObject({ to: "owner@im.wechat", text: "hi from pi" });
+			expect(fake.sentMessages).toEqual([]);
 
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});
@@ -186,33 +184,33 @@ describe("wechat lifecycle", () => {
 
 			// The host re-runs the factory for the new session, after shutdown.
 			const before = createFakePi();
-			wechat(before.pi, { createClient: first.createClient, sleep: first.sleep });
+			wechat(before.pi, {
+				createClient: first.createClient,
+				sleep: first.sleep,
+				openSession: fakePeerSession("answered before").openSession,
+			});
 			const beforeCtx = fakeCtx({ mode: "rpc", cwd: dir });
 			await emit(before.pi, "session_start", { type: "session_start" }, beforeCtx.ctx);
-			await waitFor(() => before.sentMessages.length === 1);
+			await waitFor(() => first.sent.length === 1);
 			await emit(before.pi, "session_shutdown", { type: "session_shutdown" }, beforeCtx.ctx);
 
 			const after = createFakePi();
-			wechat(after.pi, { createClient: second.createClient, sleep: second.sleep });
+			wechat(after.pi, {
+				createClient: second.createClient,
+				sleep: second.sleep,
+				openSession: fakePeerSession("reconnected").openSession,
+			});
 			const afterCtx = fakeCtx({ mode: "rpc", cwd: dir });
 			await emit(after.pi, "session_start", { type: "session_start" }, afterCtx.ctx);
 
-			await waitFor(() => after.sentMessages.length === 1);
-			expect(after.sentMessages[0].content).toBe("second");
+			expect(first.sent[0]?.text).toBe("answered before");
 			expect(first.clients()).toBe(1);
 			expect(second.clients()).toBe(1);
 
-			// The new runtime's turn is answered by the new runtime's bridge.
-			await emit(after.pi, "agent_start", { type: "agent_start" }, afterCtx.ctx);
-			await emit(
-				after.pi,
-				"message_end",
-				{ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "reconnected" }] } },
-				afterCtx.ctx,
-			);
-			await emit(after.pi, "agent_settled", { type: "agent_settled" }, afterCtx.ctx);
+			// The new runtime answers in its own peer session, not the host's.
 			await waitFor(() => second.sent.length === 1);
-			expect(second.sent[0].text).toBe("reconnected");
+			expect(second.sent[0]?.text).toBe("reconnected");
+			expect(after.sentMessages).toEqual([]);
 
 			await emit(after.pi, "session_shutdown", { type: "session_shutdown" }, afterCtx.ctx);
 		});

@@ -25,6 +25,7 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
 		open: false,
 		expired: false,
+		running: false,
 		peerCount: 0,
 		queued: 0,
 		refused: 0,

@@ -123,6 +123,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `send_wechat`, and a code upgrade that needs `/reload` or a restart before
   this runtime owns the poller.
 
+### Added
+
+- `wechat`: every admitted WeChat peer now gets their own Pi session instead of
+  sharing the terminal's: own history under `<agent-dir>/wechat/sessions/<peer>/`,
+  own model context, the package's tools, and this bridge excluded from its
+  resources so it cannot start a second poller. A message therefore starts a turn
+  immediately rather than waiting for the terminal to be idle, and the answer is
+  that session's own text, so the two conversations cannot contaminate each
+  other. Sessions resume on the next message and are disposed after 30 minutes
+  idle; turns run one at a time across peers so a forwarded dialog has one owner.
+- `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
+  their conversation is doing, and how long), alongside `/new` and `/help`.
+- `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with
+  the peer's UI context), so `ask_user_question` and plan approval reach the
+  sender instead of a terminal nobody is watching.
+
 ### Fixed
 
 - `wechat`: an `allowedPeers` entry matches a sender whether or not it carries

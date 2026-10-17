@@ -99,6 +99,8 @@ const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface PeerEntry {
 	queue: PeerItem[];
+	/** Messages merged into the waiting item, so `queued` counts real messages. */
+	merged: number;
 	running?: PeerItem;
 	/** Monotonic start time of the running turn, for `runningMs`. */
 	startedAt?: number;
@@ -144,7 +146,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	function entry(peer: string): PeerEntry {
 		const existing = peers.get(peer);
 		if (existing) return existing;
-		const created: PeerEntry = { queue: [] };
+		const created: PeerEntry = { queue: [], merged: 0 };
 		peers.set(peer, created);
 		return created;
 	}
@@ -160,11 +162,12 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		if (target.running) {
 			return {
 				status: "running",
-				queued: target.queue.length,
+				queued: target.queue.length + target.merged,
 				runningMs: target.startedAt === undefined ? 0 : now() - target.startedAt,
 			};
 		}
-		return { status: target.queue.length > 0 ? "queued" : "idle", queued: target.queue.length };
+		const queued = target.queue.length + target.merged;
+		return { status: queued > 0 ? "queued" : "idle", queued };
 	}
 
 	/** Drop the peer's session and queue. */
@@ -252,6 +255,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			if (!next) return;
 			const [peer, target] = next;
 			const item = target.queue.shift() as PeerItem;
+			target.merged = 0;
 			target.running = item;
 			target.startedAt = now();
 			running += 1;
@@ -287,9 +291,14 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			const target = entry(item.peer);
 			const tail = target.queue.at(-1);
 			// A non-empty queue means this peer's turn has not started yet, so the
-			// burst is answered once, in send order.
-			if (tail) target.queue[target.queue.length - 1] = mergeItems(tail, item);
-			else target.queue.push(item);
+			// burst is answered once, in send order. The merged count keeps `queued`
+			// honest so the bridge can cap a flood and the panel can report it.
+			if (tail) {
+				target.queue[target.queue.length - 1] = mergeItems(tail, item);
+				target.merged += 1;
+			} else {
+				target.queue.push(item);
+			}
 			wake();
 		},
 
@@ -308,6 +317,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			releaseSession(peer);
 			if (target) {
 				target.queue = [];
+				target.merged = 0;
 				cancelIdleSweep(target);
 			}
 			return true;

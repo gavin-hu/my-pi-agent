@@ -7,6 +7,7 @@ import {
 	SLASH_COMMANDS,
 	type SlashCommand,
 	type SlashContext,
+	type SlashPeerState,
 } from "./slash.ts";
 
 const snippet: SlashCommand = {
@@ -57,6 +58,69 @@ describe("expandSnippet", () => {
 	});
 });
 
+describe("built-in /stop and /status", () => {
+	function context(overrides: Partial<SlashContext> = {}, state: SlashPeerState = { status: "idle", queued: 0 }) {
+		const replies: string[] = [];
+		let stopped = 0;
+		const ctx = {
+			args: "",
+			peer: "owner@im.wechat",
+			reply: async (text: string) => {
+				replies.push(text);
+			},
+			activeTurn: state.status === "running",
+			language: "en",
+			session: {
+				newSession: () => {},
+				stop: () => {
+					stopped += 1;
+					return stopped === 1 && state.status === "running";
+				},
+				status: () => state,
+			},
+			...overrides,
+		} satisfies SlashContext;
+		return { ctx, replies, stopped: () => stopped };
+	}
+
+	test("/stop asks the session to abort and stays quiet when it did", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "stop");
+		const { ctx, replies, stopped } = context({}, { status: "running", queued: 0 });
+		await command?.run?.(ctx);
+		expect(stopped()).toBe(1);
+		// The stopped turn answers with its own `Stopped.`, so no second bubble.
+		expect(replies).toEqual([]);
+	});
+
+	test("/stop says so when nothing is running", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "stop");
+		const { ctx, replies } = context();
+		await command?.run?.(ctx);
+		expect(replies).toEqual(["Nothing is running right now."]);
+	});
+
+	test("/status reports the running turn and its queue", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "status");
+		const { ctx, replies } = context({}, { status: "running", queued: 2, runningMs: 12_400 });
+		await command?.run?.(ctx);
+		expect(replies).toEqual(["Working — 12s so far, 2 queued."]);
+	});
+
+	test("/status reports an idle conversation", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "status");
+		const { ctx, replies } = context();
+		await command?.run?.(ctx);
+		expect(replies).toEqual(["Idle."]);
+	});
+
+	test("/status answers a Chinese peer in Chinese", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "status");
+		const { ctx, replies } = context({ language: "zh" }, { status: "running", queued: 0, runningMs: 3000 });
+		await command?.run?.(ctx);
+		expect(replies[0]).toContain("正在处理，已用 3 秒");
+	});
+});
+
 describe("built-in /new", () => {
 	test("is an owner-only action", () => {
 		const command = findSlashCommand(SLASH_COMMANDS, "new");
@@ -79,6 +143,8 @@ describe("built-in /new", () => {
 				newSession: () => {
 					events.push("newSession");
 				},
+				stop: () => false,
+				status: () => ({ status: "idle", queued: 0 }),
 			},
 		} satisfies SlashContext;
 		await command?.run?.(ctx);
@@ -97,7 +163,11 @@ describe("built-in /new", () => {
 			},
 			activeTurn: true,
 			language: "en",
-			session: { newSession: () => events.push("newSession") },
+			session: {
+				newSession: () => events.push("newSession"),
+				stop: () => false,
+				status: () => ({ status: "idle", queued: 0 }),
+			},
 		});
 		expect(events).toHaveLength(1);
 		expect(events[0]).toContain("Still working on your last message");
@@ -114,7 +184,7 @@ describe("built-in /new", () => {
 			},
 			activeTurn: true,
 			language: "zh",
-			session: { newSession: () => {} },
+			session: { newSession: () => {}, stop: () => false, status: () => ({ status: "idle", queued: 0 }) },
 		});
 		expect(reply).toBe("正在处理当前消息，稍后再发送 /new。");
 	});
@@ -138,7 +208,7 @@ describe("built-in /help", () => {
 			},
 			activeTurn: false,
 			language: "en",
-			session: { newSession: () => {} },
+			session: { newSession: () => {}, stop: () => false, status: () => ({ status: "idle", queued: 0 }) },
 		} satisfies SlashContext);
 		expect(reply).toContain("/new");
 		expect(reply).toContain("/help");
@@ -156,7 +226,7 @@ describe("built-in /help", () => {
 			},
 			activeTurn: false,
 			language: "zh",
-			session: { newSession: () => {} },
+			session: { newSession: () => {}, stop: () => false, status: () => ({ status: "idle", queued: 0 }) },
 		});
 		expect(reply).toContain("可用命令：");
 		expect(reply).toContain("/new — 开始新会话（仅限所有者）");

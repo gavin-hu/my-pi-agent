@@ -3,16 +3,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../../test/helpers/env.ts";
-import { waitFor } from "../../test/helpers/process.ts";
-import {
-	assistantText,
-	type BridgeDeps,
-	type BridgeState,
-	createBridge,
-	isAllowedPeer,
-	isInboundMessage,
-	type UserContent,
-} from "./bridge.ts";
+import { settle, waitFor } from "../../test/helpers/process.ts";
+import { type BridgeDeps, type BridgeState, createBridge, isAllowedPeer, isInboundMessage } from "./bridge.ts";
+import type { PeerSession } from "./peer-session.ts";
 import type { WechatClient } from "./client.ts";
 import type { SlashCommand } from "./slash.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
@@ -134,16 +127,84 @@ function makeClient(
 	return { client: client as unknown as WechatClient, sent, typing };
 }
 
-function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = {}) {
-	const injected: UserContent[] = [];
+interface Script {
+	/** Hold the first turn of each session until `release` is called. */
+	hold?: boolean;
+	/** Answers, in order; a session with none answers "pong". */
+	answers?: string[];
+}
+
+interface FakePeer {
+	peerSession: PeerSession;
+	session: {
+		prompt: (text: string, options?: { images?: unknown }) => Promise<void>;
+		getLastAssistantText: () => string;
+		abort: () => Promise<void>;
+		dispose: () => void;
+	};
+	prompts: Array<{ text: string; images?: unknown }>;
+	release: (answer?: string) => void;
+	disposed: () => number;
+}
+
+/** A peer session double: records the prompt and answers with the script. */
+function fakePeer(script: Script): FakePeer {
+	const prompts: Array<{ text: string; images?: unknown }> = [];
+	const answers = [...(script.answers ?? ["pong"])];
+	let last = "";
+	let pending: ((answer: string) => void) | undefined;
+	let disposals = 0;
+	const session = {
+		async prompt(text: string, options?: { images?: unknown }): Promise<void> {
+			prompts.push({ text, images: options?.images });
+			const answer =
+				script.hold && prompts.length === 1
+					? await new Promise<string>((resolve) => {
+							pending = resolve;
+						})
+					: (answers.shift() ?? "");
+			last = answer;
+		},
+		getLastAssistantText: () => last,
+		async abort(): Promise<void> {
+			const resolve = pending;
+			pending = undefined;
+			resolve?.("");
+		},
+		dispose(): void {
+			disposals += 1;
+		},
+	};
+	return {
+		peerSession: { session, dispose: () => session.dispose() } as PeerSession,
+		session,
+		prompts,
+		release: (answer?: string) => {
+			const resolve = pending;
+			pending = undefined;
+			resolve?.(answer ?? answers.shift() ?? "");
+		},
+		disposed: () => disposals,
+	};
+}
+
+function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = {}, script: Script = {}) {
+	const peers: FakePeer[] = [];
+	const injected: string[] = [];
 	const saved: WechatState[] = [];
 	const released = { count: 0 };
 	const deps: BridgeDeps = {
 		config: { ...DEFAULT_CONFIG },
 		now: () => 1000,
-		isIdle: () => true,
-		sendUserMessage: (content) => {
-			injected.push(content);
+		openSession: async () => {
+			const peer = fakePeer(script);
+			const prompt = peer.session.prompt.bind(peer.session);
+			peer.session.prompt = async (text, options) => {
+				injected.push(text);
+				await prompt(text, options);
+			};
+			peers.push(peer);
+			return peer.peerSession;
 		},
 		mediaDir: () => tempDir("wechat-files-"),
 		loadAccount: () => account,
@@ -158,23 +219,10 @@ function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = {}) {
 		sleep: async () => {},
 		...overrides,
 	};
-	return { deps, injected, saved, released };
+	return { deps, peers, injected, saved, released };
 }
 
 describe("message helpers", () => {
-	test("assistantText joins text blocks and ignores other roles", () => {
-		expect(
-			assistantText({
-				role: "assistant",
-				content: [
-					{ type: "text", text: "a" },
-					{ type: "text", text: "b" },
-				],
-			}),
-		).toBe("a\nb");
-		expect(assistantText({ role: "user", content: [{ type: "text", text: "a" }] })).toBeUndefined();
-	});
-
 	test("isAllowedPeer accepts the owner and explicit peers only", () => {
 		expect(isAllowedPeer("owner", "owner", [])).toBe(true);
 		expect(isAllowedPeer("friend", "owner", ["friend"])).toBe(true);
@@ -198,50 +246,34 @@ describe("message helpers", () => {
 });
 
 describe("bridge", () => {
-	test("injects an inbound message and sends the reply back", async () => {
+	test("answers an inbound message through the peer's session", async () => {
 		const { client, sent } = makeClient([updates([inbound("ping")])]);
-		const { deps, injected } = makeDeps(client);
+		const { deps, peers } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toBe("ping");
+		await waitFor(() => peers.length === 1 && peers[0].prompts.length === 1);
+		expect(peers[0]?.prompts[0]?.text).toBe("ping");
 
-		bridge.setBusy(true);
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "pong" }] });
-		bridge.settle();
+		peers[0]?.release("pong");
 		await waitFor(() => sent.length === 1);
 		expect(sent[0]).toEqual({ to: owner, text: "pong", contextToken: "ctx" });
 		await bridge.close();
 	});
 
-	test("queues inbound while busy and coalesces it after settle", async () => {
-		const { client } = makeClient([updates([inbound("one"), inbound("two")])]);
-		const { deps, injected } = makeDeps(client);
-		const bridge = createBridge(deps);
-		bridge.setBusy(true);
-		bridge.open();
-		await waitFor(() => bridge.status().queued === 2);
-		expect(injected).toEqual([]);
-
-		bridge.settle();
-		await waitFor(() => injected.length === 1);
-		// A burst from one peer is one ask, in order, not one turn per message.
-		expect(injected[0]).toBe("one\ntwo");
-		await bridge.close();
-	});
-
-	test("keeps messages from different peers in separate turns", async () => {
+	test("gives each admitted peer its own session", async () => {
 		const other = "friend@im.wechat";
 		const { client } = makeClient([updates([inbound("mine"), inbound("theirs", other)])]);
-		const { deps, injected } = makeDeps(client, { config: { ...DEFAULT_CONFIG, allowedPeers: [other] } });
+		const { deps, peers } = makeDeps(
+			client,
+			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] } },
+			{ answers: ["for me", "for them"] },
+		);
 		const bridge = createBridge(deps);
-		bridge.setBusy(true);
 		bridge.open();
-		await waitFor(() => bridge.status().queued === 2);
+		await waitFor(() => peers.length === 2);
 
-		bridge.settle();
-		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toBe("mine");
+		await waitFor(() => peers.every((peer) => peer.prompts.length === 1));
+		expect(peers.map((peer) => peer.prompts[0]?.text).sort()).toEqual(["mine", "theirs"]);
 		await bridge.close();
 	});
 	test("refuses a peer that is not the owner", async () => {
@@ -383,11 +415,14 @@ describe("bridge media", () => {
 	test("downloads, decrypts, and injects an image as content", async () => {
 		const plain = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
 		const { client } = makeClient([updates([inboundImage()])], { media: { "https://cdn/i": encrypt(plain) } });
-		const { deps, injected } = makeDeps(client);
+		const { deps, peers } = makeDeps(client);
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toEqual([{ type: "image", data: plain.toString("base64"), mimeType: "image/png" }]);
+		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 1);
+		expect(peers[0]?.prompts[0]).toEqual({
+			text: "",
+			images: [{ type: "image", data: plain.toString("base64"), mimeType: "image/png" }],
+		});
 		await bridge.close();
 	});
 
@@ -399,10 +434,9 @@ describe("bridge media", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
-		const blocks = injected[0] as Array<{ type: string; text: string }>;
 		const prefix = "[WeChat file: notes.txt saved to ";
-		expect(blocks[0]?.text.startsWith(prefix)).toBe(true);
-		const path = blocks[0]?.text.slice(prefix.length).replace(/\]$/, "");
+		expect(injected[0]?.startsWith(prefix)).toBe(true);
+		const path = (injected[0] ?? "").slice(prefix.length).replace(/\]$/, "");
 		expect(existsSync(path)).toBe(true);
 		expect(readFileSync(path)).toEqual(plain);
 		await bridge.close();
@@ -416,11 +450,8 @@ describe("bridge media", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toEqual([
-			{ type: "text", text: "look" },
-			// The model is told the image was skipped instead of assuming it saw it.
-			{ type: "text", text: "[WeChat media skipped: 1]" },
-		]);
+		// The model is told the image was skipped instead of assuming it saw it.
+		expect(injected[0]).toBe("look\n[WeChat media skipped: 1]");
 		await waitFor(() => bridge.status().mediaDropped === 1);
 		await bridge.close();
 	});
@@ -433,10 +464,7 @@ describe("bridge media", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toEqual([
-			{ type: "text", text: "big" },
-			{ type: "text", text: "[WeChat media skipped: 1]" },
-		]);
+		expect(injected[0]).toBe("big\n[WeChat media skipped: 1]");
 		await waitFor(() => bridge.status().mediaDropped === 1);
 		await bridge.close();
 	});
@@ -459,14 +487,12 @@ describe("bridge media", () => {
 		const mixed = inbound("look");
 		mixed.item_list = [...(mixed.item_list ?? []), ...(inboundImage().item_list ?? [])];
 		const { client, sent } = makeClient([updates([mixed])]);
-		const { deps, injected } = makeDeps(client);
+		const { deps, peers } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => injected.length === 1);
+		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 1);
 
-		bridge.setBusy(true);
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "it is a cat" }] });
-		bridge.settle();
+		peers[0]?.release("it is a cat");
 		await waitFor(() => sent.length === 1);
 		// One bubble: the failed attachment rides on the answer.
 		expect(sent[0]?.text).toBe("Couldn't open 1 attachment(s) — please resend or describe it.\n\nit is a cat");
@@ -505,16 +531,14 @@ describe("bridge media", () => {
 describe("bridge typing indicator", () => {
 	test("sets typing before a turn and cancels it before the reply", async () => {
 		const { client, typing } = makeClient([updates([inbound("ping")])]);
-		const { deps, injected } = makeDeps(client);
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 		await waitFor(() => typing.length >= 1);
 		expect(typing[0]).toEqual({ ilinkUserId: owner, typing: true });
 
-		bridge.setBusy(true);
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "pong" }] });
-		bridge.settle();
+		await bridge.stop(owner);
 		await waitFor(() => typing.some((call) => call.typing === false));
 		expect(typing.at(-1)).toEqual({ ilinkUserId: owner, typing: false });
 		await bridge.close();
@@ -553,7 +577,7 @@ describe("bridge sendToOwner", () => {
 
 	test("refuses to repeat the answer of the turn in flight", async () => {
 		const { client, sent } = makeClient([updates([inbound("hi")])]);
-		const { deps, injected } = makeDeps(client);
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -570,10 +594,14 @@ describe("bridge sendToOwner", () => {
 	test("still messages the owner while another peer's turn runs", async () => {
 		const other = "friend@im.wechat";
 		const { client, sent } = makeClient([updates([inbound("hi", other)])]);
-		const { deps, injected } = makeDeps(client, {
-			config: { ...DEFAULT_CONFIG, allowedPeers: [other] },
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
-		});
+		const { deps, injected } = makeDeps(
+			client,
+			{
+				config: { ...DEFAULT_CONFIG, allowedPeers: [other] },
+				loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			},
+			{ hold: true },
+		);
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -610,10 +638,7 @@ describe("bridge slash commands", () => {
 			},
 		];
 		const { client, sent } = makeClient([updates([inbound("/hi a b")])]);
-		const { deps, injected } = makeDeps(client, {
-			slashCommands: commands,
-			sessionControls: () => ({ newSession: () => calls.push("new") }),
-		});
+		const { deps, injected } = makeDeps(client, { slashCommands: commands });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => sent.length === 1);
@@ -679,16 +704,15 @@ describe("bridge slash commands", () => {
 		const plain = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
 		const { client } = makeClient([updates([mixed])], { media: { "https://cdn/i": encrypt(plain) } });
 		const calls: string[] = [];
-		const { deps, injected } = makeDeps(client, {
+		const { deps, peers } = makeDeps(client, {
 			slashCommands: [
 				{ name: "new", summary: "s", kind: "action", ownerOnly: true, run: () => void calls.push("ran") },
 			],
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => injected.length === 1);
-		const blocks = injected[0] as Array<{ type: string; text?: string }>;
-		expect(blocks[0]).toEqual({ type: "text", text: "/new" });
+		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 1);
+		expect(peers[0]?.prompts[0]).toMatchObject({ text: "/new" });
 		expect(calls).toEqual([]);
 		await bridge.close();
 	});
@@ -746,7 +770,7 @@ function controllableClient(): {
 describe("bridge remote prompts", () => {
 	test("sends a dialog to WeChat and consumes the reply as an answer", async () => {
 		const { client, sent, deliver } = controllableClient();
-		const { deps, injected } = makeDeps(client);
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -764,7 +788,7 @@ describe("bridge remote prompts", () => {
 
 	test("chunks a long post to the peer", async () => {
 		const { client, sent } = controllableClient();
-		const { deps, injected } = makeDeps(client, { config: { ...DEFAULT_CONFIG, maxReplyChars: 4 } });
+		const { deps, injected } = makeDeps(client, { config: { ...DEFAULT_CONFIG, maxReplyChars: 4 } }, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -777,7 +801,7 @@ describe("bridge remote prompts", () => {
 
 	test("uploads and sends a file through the channel", async () => {
 		const { client, sentFiles } = controllableClient();
-		const { deps, injected } = makeDeps(client);
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -791,7 +815,7 @@ describe("bridge remote prompts", () => {
 
 	test("resolves a pending prompt as cancelled when the bridge closes", async () => {
 		const { client, sent } = controllableClient();
-		const { deps, injected } = makeDeps(client);
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -823,64 +847,7 @@ function fakeTimers(): { arm: (ms: number, fn: () => void) => () => void; fire: 
 	};
 }
 
-/** A client whose replies are held until the test releases them. */
-function gatedClient(): {
-	client: WechatClient;
-	sent: string[];
-	releaseReply: () => void;
-	deliver: (message: WeixinMessage) => void;
-} {
-	const sent: string[] = [];
-	let deliver: ((message: WeixinMessage) => void) | undefined;
-	let first = true;
-	let release: () => void = () => {};
-	const gate = new Promise<void>((resolve) => {
-		release = resolve;
-	});
-	const client = {
-		getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
-			if (first) {
-				first = false;
-				return updates([inbound("ping")]);
-			}
-			return await new Promise<UpdatesResponse>((resolve) => {
-				deliver = (message) => resolve(updates([message]));
-				signal?.addEventListener("abort", () => resolve({ ret: 0, msgs: [], buf: "c" }), { once: true });
-			});
-		},
-		sendMessage: async (_account: BotCredentials, args: { text: string }) => {
-			await gate;
-			sent.push(args.text);
-			return { ret: 0 };
-		},
-		getConfig: async () => ({ ret: 0 }),
-		sendTyping: async () => ({ ret: 0 }),
-		downloadCdn: async () => {
-			throw new Error("no media");
-		},
-	} as unknown as WechatClient;
-	return { client, sent, releaseReply: () => release(), deliver: (message) => deliver?.(message) };
-}
-
 describe("bridge peer feedback", () => {
-	test("sends no empty bubble when a reply flattens away", async () => {
-		const { client, sent } = makeClient([updates([inbound("ping")])]);
-		const { deps, injected } = makeDeps(client);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		bridge.setBusy(true);
-		// Only a fence survives: flattening it away must not send an empty bubble, and
-		// a finished turn with nothing to say is not a "stopped" turn.
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "```\n```" }] });
-		bridge.settle();
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("That turn finished without any text to send.");
-		expect(sent.every((message) => message.text.trim() !== "")).toBe(true);
-		await bridge.close();
-	});
-
 	test("reports how much of a split reply went out when a chunk fails", async () => {
 		const sent: string[] = [];
 		const notifications: string[] = [];
@@ -903,17 +870,19 @@ describe("bridge peer feedback", () => {
 			sendTyping: async () => ({ ret: 0 }),
 			downloadCdn: async () => new Uint8Array(),
 		} as unknown as WechatClient;
-		const { deps, injected } = makeDeps(client, {
-			config: { ...DEFAULT_CONFIG, maxReplyChars: 4 },
-			notify: (message) => notifications.push(message),
-		});
+		const { deps, peers } = makeDeps(
+			client,
+			{
+				config: { ...DEFAULT_CONFIG, maxReplyChars: 4 },
+				notify: (message) => notifications.push(message),
+			},
+			{ hold: true },
+		);
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => injected.length === 1);
+		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 1);
 
-		bridge.setBusy(true);
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "abcdefgh" }] });
-		bridge.settle();
+		peers[0]?.release("abcdefgh");
 		await waitFor(() => notifications.length === 1);
 
 		expect(sent).toEqual(["[1/2] abcd"]);
@@ -921,234 +890,141 @@ describe("bridge peer feedback", () => {
 		await bridge.close();
 	});
 
-	test("holds the queue until the reply is out", async () => {
-		const gated = gatedClient();
-		const { deps, injected } = makeDeps(gated.client);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		bridge.setBusy(true);
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "pong" }] });
-		bridge.settle();
-		// A message that lands while the reply is flushing must wait for it.
-		gated.deliver(inbound("second"));
-		await waitFor(() => bridge.status().queued === 1);
-		expect(injected).toEqual(["ping"]);
-		expect(gated.sent).toEqual([]);
-
-		gated.releaseReply();
-		await waitFor(() => injected.length === 2);
-		expect(gated.sent).toEqual(["pong"]);
-		expect(injected[1]).toBe("second");
-		await bridge.close();
-	});
-
-	test("acknowledges a peer that has waited, once, then says why it is still waiting", async () => {
+	test("acknowledges a peer waiting on another conversation, once, then says why", async () => {
 		const timers = fakeTimers();
-		const { client, sent } = makeClient([updates([inbound("one"), inbound("two")])]);
-		const { deps, injected } = makeDeps(client, { armTimer: timers.arm });
+		const other = "friend@im.wechat";
+		const { client, sent } = makeClient([updates([inbound("mine"), inbound("theirs", other)])]);
+		const { deps, injected } = makeDeps(
+			client,
+			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] }, armTimer: timers.arm },
+			{ hold: true, answers: ["for me", "for them"] },
+		);
 		const bridge = createBridge(deps);
-		bridge.setBusy(true);
 		bridge.open();
-		await waitFor(() => bridge.status().queued === 2);
+		// One turn at a time: the second peer waits for a slot.
+		await waitFor(() => bridge.status().queued === 1);
+		expect(injected).toHaveLength(1);
 
 		timers.fire();
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("Got it — working on it.");
-		expect(injected).toEqual([]);
+		await settle();
+		expect(sent.some((message) => message.text === "Got it — working on it.")).toBe(true);
 
-		// A minute later the local session is still busy: say so once, and only once.
+		// A minute later it is still waiting: say so once, and only once.
 		timers.fire();
-		await waitFor(() => sent.length === 2);
-		expect(sent[1]?.text).toContain("terminal session is busy");
+		await settle();
+		const busy = () => sent.filter((message) => message.text.includes("queued behind another conversation"));
+		expect(busy()).toHaveLength(1);
 		timers.fire();
-		expect(sent).toHaveLength(2);
+		await settle();
+		expect(busy()).toHaveLength(1);
 		await bridge.close();
 	});
 
 	test("does not acknowledge a wait that ends at once", async () => {
 		const timers = fakeTimers();
-		const { client, sent } = makeClient([updates([inbound("one")])]);
-		const { deps, injected } = makeDeps(client, { armTimer: timers.arm });
+		const other = "friend@im.wechat";
+		const { client, sent } = makeClient([updates([inbound("mine"), inbound("theirs", other)])]);
+		const { deps, peers } = makeDeps(
+			client,
+			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] }, armTimer: timers.arm },
+			{ hold: true, answers: ["for me", "for them"] },
+		);
 		const bridge = createBridge(deps);
-		bridge.setBusy(true);
 		bridge.open();
 		await waitFor(() => bridge.status().queued === 1);
 
-		bridge.setBusy(false);
-		bridge.settle();
-		await waitFor(() => injected.length === 1);
-		// The turn started, so the 4 s acknowledgement was cancelled outright.
-		expect(sent).toEqual([]);
-		await bridge.close();
-	});
-
-	test("starts the typing indicator while the message is still queued", async () => {
-		const timers = fakeTimers();
-		const { client, typing } = makeClient([updates([inbound("one")])]);
-		const { deps } = makeDeps(client, { armTimer: timers.arm });
-		const bridge = createBridge(deps);
-		bridge.setBusy(true);
-		bridge.open();
-
-		await waitFor(() => typing.length === 1);
-		expect(typing[0]).toEqual({ ilinkUserId: owner, typing: true });
-		// The turn never starts, so the indicator is refreshed instead of lapsing.
+		// The first turn ends before the 4 s timer: the second starts, no ack.
+		peers[0]?.release("for me");
+		await waitFor(() => sent.some((message) => message.text === "for me"));
 		timers.fire();
-		await waitFor(() => typing.length >= 2);
+		await settle();
+		// No acknowledgement: the second turn started before the timer mattered.
+		expect(sent.some((message) => message.text === "Got it — working on it.")).toBe(false);
+		await bridge.close();
+	});
+
+	test("starts the typing indicator for a message that is waiting", async () => {
+		const timers = fakeTimers();
+		const other = "friend@im.wechat";
+		const { client, typing } = makeClient([updates([inbound("mine"), inbound("theirs", other)])]);
+		const { deps } = makeDeps(
+			client,
+			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] }, armTimer: timers.arm },
+			{ hold: true, answers: ["for me", "for them"] },
+		);
+		const bridge = createBridge(deps);
+		bridge.open();
+
+		await waitFor(() => typing.some((call) => call.ilinkUserId === other));
+		expect(typing.some((call) => call.typing === true)).toBe(true);
+		// The indicator is refreshed while the peer waits, instead of lapsing.
+		const before = typing.length;
+		timers.fire();
+		await waitFor(() => typing.length > before);
 		expect(typing.at(-1)?.typing).toBe(true);
-		await bridge.close();
-	});
-
-	test("tells the peer when a finished turn had no text", async () => {
-		const { client, sent } = makeClient([updates([inbound("go")])]);
-		const { deps, injected } = makeDeps(client);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		bridge.setBusy(true);
-		bridge.settle();
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("That turn finished without any text to send.");
-		await bridge.close();
-	});
-
-	test("says stopped, not no-text, when the run was aborted", async () => {
-		const { client, sent } = makeClient([updates([inbound("go")])]);
-		const { deps, injected } = makeDeps(client);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		bridge.setBusy(true);
-		bridge.settle(true);
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("Stopped.");
 		await bridge.close();
 	});
 
 	test("answers in the peer's language", async () => {
 		const { client, sent } = makeClient([updates([inbound("你好")])]);
-		const { deps, injected } = makeDeps(client);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		bridge.setBusy(true);
-		bridge.settle(true);
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("已停止。");
-		await bridge.close();
-	});
-
-	test("tells the peer when the turn could not start", async () => {
-		const { client, sent } = makeClient([updates([inbound("hi")])]);
-		const { deps } = makeDeps(client, {
-			sendUserMessage: () => {
-				throw new Error("session is streaming");
-			},
-		});
+		const { deps } = makeDeps(client, {}, { answers: [""] });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("Something went wrong — please try again.");
+		// A turn with no text says so in the peer's language, not in English.
+		expect(sent[0]?.text).toBe("这条处理完了，但没有文字输出。");
 		await bridge.close();
 	});
 
 	test("refuses a queued message beyond the cap with one notice", async () => {
-		const burst = Array.from({ length: 10 }, (_unused, index) => inbound(`m${index}`));
+		const other = "friend@im.wechat";
+		const burst = [inbound("held"), ...Array.from({ length: 10 }, (_unused, index) => inbound(`m${index}`, other))];
 		const { client, sent } = makeClient([updates(burst)]);
-		const { deps, injected } = makeDeps(client);
+		const { deps } = makeDeps(client, { config: { ...DEFAULT_CONFIG, allowedPeers: [other] } }, { hold: true });
 		const bridge = createBridge(deps);
-		bridge.setBusy(true);
 		bridge.open();
 		await waitFor(() => sent.length === 1);
 
 		expect(sent[0]?.text).toBe("Too many messages queued — please wait a moment.");
 		expect(bridge.status().queued).toBe(8);
-		expect(injected).toEqual([]);
 		await bridge.close();
 	});
 
 	test("declines /new while a run is in flight", async () => {
-		let restarted = 0;
-		const { client, sent } = makeClient([updates([inbound("/new")])]);
-		const { deps } = makeDeps(client, {
-			sessionControls: () => ({
-				newSession: () => {
-					restarted += 1;
-				},
-			}),
-		});
+		const { client, sent, deliver } = controllableClient();
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
-		bridge.setBusy(true);
 		bridge.open();
-		await waitFor(() => sent.length === 1);
+		await waitFor(() => injected.length === 1);
 
+		deliver(inbound("/new"));
+		await waitFor(() => sent.length >= 1);
 		expect(sent[0]?.text).toContain("send /new again");
-		expect(restarted).toBe(0);
+		// The session was not replaced under the run.
+		expect(bridge.reset(owner)).toBe(false);
 		await bridge.close();
 	});
 
-	test("starts a new session on /new when nothing is running", async () => {
-		let restarted = 0;
+	test("starts a fresh conversation on /new when nothing is running", async () => {
 		const { client, sent } = makeClient([updates([inbound("/new")])]);
-		const { deps } = makeDeps(client, {
-			sessionControls: () => ({
-				newSession: () => {
-					restarted += 1;
-				},
-			}),
-		});
+		const { deps } = makeDeps(client);
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => restarted === 1);
+		await waitFor(() => sent.length === 1);
 
 		expect(sent[0]?.text).toContain("Starting a new session");
-		await bridge.close();
-	});
-
-	test("merges a follow-up sent after the acknowledgement into one answer", async () => {
-		const timers = fakeTimers();
-		const { client, sent } = makeClient([updates([inbound("first"), inbound("second")])]);
-		const { deps, injected } = makeDeps(client, { armTimer: timers.arm });
-		const bridge = createBridge(deps);
-		bridge.setBusy(true);
-		bridge.open();
-		await waitFor(() => bridge.status().queued === 2);
-
-		// The peer is told once that their message is waiting.
-		timers.fire();
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toContain("working on it");
-
-		// The local run ends: both messages become one turn, answered once.
-		bridge.setBusy(false);
-		bridge.settle();
-		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toBe("first\nsecond");
-
-		bridge.setBusy(true);
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "both" }] });
-		bridge.settle();
-		await waitFor(() => sent.length === 2);
-		expect(sent[1]?.text).toBe("both");
-		// One acknowledgement, one answer: no second "working on it".
-		expect(sent).toHaveLength(2);
+		expect(bridge.peerState(owner)).toEqual({ status: "idle", queued: 0 });
 		await bridge.close();
 	});
 
 	test("says the running turn is still going after a while", async () => {
 		const timers = fakeTimers();
 		const { client, sent } = makeClient([updates([inbound("slow")])]);
-		const { deps, injected } = makeDeps(client, { armTimer: timers.arm });
+		const { deps, injected } = makeDeps(client, { armTimer: timers.arm }, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		bridge.setBusy(true);
 		timers.fire();
 		await waitFor(() => sent.length === 1);
 		expect(sent[0]?.text).toContain("Still working");
@@ -1166,54 +1042,6 @@ describe("bridge peer feedback", () => {
  * Every path either recovers or says so, and none of them wedges the queue.
  */
 describe("bridge resilience", () => {
-	test("recovers when the host rejects the injected turn", async () => {
-		const notifications: string[] = [];
-		let calls = 0;
-		const { client, sent } = makeClient([updates([inbound("first")]), updates([inbound("second")])]);
-		const { deps, injected } = makeDeps(client, {
-			sendUserMessage: (content) => {
-				calls += 1;
-				if (calls === 1) throw new Error("Agent is already processing.");
-				injected.push(content);
-			},
-			notify: (message) => notifications.push(message),
-		});
-		const bridge = createBridge(deps);
-		bridge.open();
-
-		// The peer is told this message failed instead of waiting forever.
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("Something went wrong — please try again.");
-		expect(notifications.some((message) => message.includes("could not start"))).toBe(true);
-
-		// And the queue is not wedged: the next message starts its own turn.
-		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toBe("second");
-		expect(bridge.status().queued).toBe(0);
-		await bridge.close();
-	});
-
-	test("recovers a turn the host never reports starting", async () => {
-		const timers = fakeTimers();
-		const notifications: string[] = [];
-		const { client, sent } = makeClient([updates([inbound("go")])]);
-		const { deps, injected } = makeDeps(client, {
-			armTimer: timers.arm,
-			notify: (message) => notifications.push(message),
-		});
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		// No `setBusy(true)`: the prompt was accepted but no run was reported, so the
-		// watchdog has to release the turn instead of blocking the queue forever.
-		timers.fire();
-		await waitFor(() => sent.some((message) => message.text.includes("try again")));
-		expect(notifications.some((message) => message.includes("never reported a start"))).toBe(true);
-		expect(bridge.status().queued).toBe(0);
-		await bridge.close();
-	});
-
 	test("reports a reply the server rejected instead of claiming delivery", async () => {
 		const notifications: string[] = [];
 		const base = makeClient([updates([inbound("q")])]);
@@ -1221,14 +1049,16 @@ describe("bridge resilience", () => {
 			...base.client,
 			sendMessage: async () => ({ ret: -1 }),
 		} as unknown as WechatClient;
-		const { deps, injected } = makeDeps(client, { notify: (message) => notifications.push(message) });
+		const { deps, injected, peers } = makeDeps(
+			client,
+			{ notify: (message) => notifications.push(message) },
+			{ hold: true },
+		);
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		bridge.setBusy(true);
-		bridge.capture({ role: "assistant", content: [{ type: "text", text: "answer" }] });
-		bridge.settle();
+		peers[0]?.release("answer");
 		await waitFor(() => notifications.length === 1);
 		expect(notifications[0]).toContain("rejected");
 		await bridge.close();

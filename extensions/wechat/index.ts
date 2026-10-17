@@ -11,7 +11,7 @@
  * Load with:  pi --extension ./extensions/wechat
  */
 
-import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
@@ -22,7 +22,8 @@ import { registerCommands, type CommandDeps } from "./commands.ts";
 import { loadWechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
-import { installRemoteUI } from "./remote-ui.ts";
+import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer-session.ts";
+import { createPeerUIContext, installRemoteUI } from "./remote-ui.ts";
 import { SLASH_COMMANDS } from "./slash.ts";
 import { readState, statePath, writeState } from "./state.ts";
 import { registerTools } from "./tools.ts";
@@ -43,12 +44,17 @@ export function wechatChip(theme: Theme, state: BridgeState): string | undefined
 	}
 }
 
-/** Test seams: production uses the fetched HTTP transport and the real timers. */
+/** Test seams: production uses the fetched HTTP transport, the real timers, and real sessions. */
 export interface WechatDeps {
 	/** Build the iLink client; overridden in tests so no request leaves the process. */
 	createClient?: (options: WechatClientOptions) => WechatClient;
 	/** Injected sleep; overridden in tests so the poll loop never waits on a real timer. */
 	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+	/**
+	 * Build a peer's session. Overridden in tests, which must not load extensions or
+	 * call a model; production opens a real SDK session per peer.
+	 */
+	openSession?: (peer: string, options: PeerSessionOptions) => Promise<PeerSession>;
 }
 
 export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
@@ -88,13 +94,21 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		const created = createBridge({
 			config,
 			now: () => Date.now(),
-			isIdle: () => ctxRef?.isIdle() ?? true,
-			sendUserMessage: (content) => pi.sendUserMessage(content),
+			// Each peer gets its own session under the WeChat state dir, with the host's
+			// model and thinking level, and its dialogs bound to that peer.
+			openSession: (peer, options) =>
+				(deps.openSession ?? openPeerSession)(peer, {
+					cwd: ctxRef?.cwd ?? process.cwd(),
+					agentDir: getAgentDir(),
+					sessionsDir: join(wechatDir(), "sessions"),
+					model: ctxRef?.model,
+					thinkingLevel: ctxRef?.thinkingLevel,
+					uiContext: createPeerUIContext(options.channel, (message) => ctxRef?.ui.notify(message)),
+					onError: (message) => ctxRef?.ui.notify(`WeChat peer session: ${message}`, "warning"),
+					fresh: options.fresh,
+				}),
 			mediaDir: () => join(wechatDir(), "media"),
 			slashCommands: SLASH_COMMANDS,
-			sessionControls: () => ({
-				newSession: () => pi.sendUserMessage("/wechat new", { expandPromptTemplates: true }),
-			}),
 			loadAccount: () => primaryAccount(),
 			loadState: () => readState(statePath()),
 			saveState: (state) => writeState(statePath(), state),
@@ -187,9 +201,6 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		// (startup, reload, `/new`, resume, fork) reconnects it without a command.
 		autoStart(ctx);
 	});
-	pi.on("agent_start", () => bridge?.setBusy(true));
-	pi.on("message_end", (event) => bridge?.capture(event.message));
-	pi.on("agent_settled", (event) => bridge?.settle(event.aborted === true));
 	pi.on("session_shutdown", async () => {
 		// Shutdown is emitted before the host resets the UI, so the chip is still ours to clear.
 		uninstallRemoteUI?.();
