@@ -6,18 +6,19 @@
  * `active`, `lastText`, `settle`, and the `isIdle` gate), which existed only
  * because WeChat turns had to wait for the terminal to be idle and replies were
  * captured from whatever run happened to finish. Here a peer's messages are
- * answered in order by that peer's session, independent of the terminal and of
- * other peers.
+ * answered in order by that peer's session, independent of the terminal.
  *
  * Contract:
  *
- * - One turn at a time per peer; messages queued behind it are answered after.
- * - A turn's answer is the text it produced. An aborted turn says `stopped`, a
- *   turn that produced no text says `noText` — never silence.
- * - A turn that throws (a model error, an extension error surfaced by `prompt`)
- *   is reported and answered with `failed`; the queue keeps moving.
- * - The session is opened lazily and disposed after an idle timeout, so a peer
- *   who stops writing does not keep a context alive.
+ * - One turn at a time per peer, and by default one turn at a time overall
+ *   (`concurrency`), so a forwarded dialog always has a single owning peer.
+ * - A message that arrives while its peer is already waiting behind a turn is
+ *   merged into the waiting one, so a burst is answered once, in order.
+ * - A turn's answer is the text it produced. A requested `/stop` says `stopped`
+ *   and drops the partial answer, a finished turn with no text says `noText`,
+ *   and a thrown turn says `failed` — never silence.
+ * - The session is opened lazily, reset on request, and disposed after an idle
+ *   timeout, so a peer who stops writing does not keep a context alive.
  *
  * Value-only: every queue, timer, and session lives in the closure.
  */
@@ -32,6 +33,8 @@ export interface PeerItem {
 	text: string;
 	/** Inbound images, attached to the turn. */
 	images?: ImageContent[];
+	/** A peer-facing line to prepend to the answer (an unreadable attachment). */
+	prefix?: string;
 	/** The peer's language, for the fallback lines. */
 	language: "en" | "zh";
 	/** The reply token that was current when the message arrived. */
@@ -43,7 +46,7 @@ export type TurnFallback = "stopped" | "noText" | "failed";
 
 export interface PeerWorkerDeps {
 	/** Open (or resume) one peer's session; the bridge owns the directory layout. */
-	openSession: (peer: string) => Promise<PeerSession>;
+	openSession: (peer: string, options: { fresh: boolean }) => Promise<PeerSession>;
 	/** Deliver one turn's text to the peer, in whatever parts the transport wants. */
 	send: (item: PeerItem, text: string) => Promise<void>;
 	/** The fallback line for a turn that produced no text. */
@@ -53,6 +56,8 @@ export interface PeerWorkerDeps {
 	onSettled?: (item: PeerItem) => void;
 	/** A session or turn failure worth showing on the terminal. */
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
+	/** Turns running at once across peers. Default 1, so a dialog has one owner. */
+	concurrency?: number;
 	/** Dispose an idle session after this long. `0` disables the idle sweep. */
 	idleTimeoutMs?: number;
 	now?: () => number;
@@ -67,12 +72,25 @@ export interface PeerState {
 	runningMs?: number;
 }
 
+export interface PeerSnapshot {
+	peer: string;
+	state: PeerState;
+}
+
 export interface PeerWorker {
-	/** Queue one message; resolves as soon as it is queued. */
+	/** Queue one message; resolves as soon as it is queued or merged. */
 	enqueue(item: PeerItem): void;
 	/** Stop the running turn for `peer`; false when nothing was running. */
 	abort(peer: string): boolean;
+	/**
+	 * Drop the peer's conversation so the next message starts a fresh session.
+	 * Refused while a turn runs, and the queued messages go with it.
+	 */
+	reset(peer: string): boolean;
+	/** The turn running right now, if any (one with the default concurrency). */
+	current(): PeerItem | undefined;
 	state(peer: string): PeerState;
+	snapshot(): PeerSnapshot[];
 	/** Drop every session; queued messages are dropped with them. */
 	close(): Promise<void>;
 }
@@ -89,6 +107,20 @@ interface PeerEntry {
 	disposeTimer?: () => void;
 }
 
+/** Merge a waiting item with a newer one from the same peer. */
+function mergeItems(first: PeerItem, next: PeerItem): PeerItem {
+	const images = [...(first.images ?? []), ...(next.images ?? [])];
+	return {
+		peer: first.peer,
+		text: first.text && next.text ? `${first.text}\n${next.text}` : first.text || next.text,
+		images: images.length > 0 ? images : undefined,
+		// The first item's prefix still describes an attachment the model never saw.
+		prefix: first.prefix,
+		language: next.language,
+		contextToken: next.contextToken ?? first.contextToken,
+	};
+}
+
 export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	const now = deps.now ?? Date.now;
 	const armTimer =
@@ -99,9 +131,14 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			return () => clearTimeout(timer);
 		});
 	const idleTimeoutMs = deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+	const concurrency = Math.max(1, deps.concurrency ?? 1);
 	const peers = new Map<string, PeerEntry>();
 	/** Peers whose running turn the peer asked to stop, so it reads as stopped. */
 	const aborted = new Set<string>();
+	/** Peers whose next session must start empty (`/new`). */
+	const fresh = new Set<string>();
+	let running = 0;
+	let currentItem: PeerItem | undefined;
 	let closed = false;
 
 	function entry(peer: string): PeerEntry {
@@ -117,18 +154,27 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		target.disposeTimer = undefined;
 	}
 
-	/** Drop everything for a peer: the session, its listeners, its queue. */
-	function release(peer: string): void {
+	function stateOf(peer: string): PeerState {
+		const target = peers.get(peer);
+		if (!target) return { status: "idle", queued: 0 };
+		if (target.running) {
+			return {
+				status: "running",
+				queued: target.queue.length,
+				runningMs: target.startedAt === undefined ? 0 : now() - target.startedAt,
+			};
+		}
+		return { status: target.queue.length > 0 ? "queued" : "idle", queued: target.queue.length };
+	}
+
+	/** Drop the peer's session and queue. */
+	function releaseSession(peer: string): void {
 		const target = peers.get(peer);
 		if (!target) return;
-		peers.delete(peer);
-		aborted.delete(peer);
 		cancelIdleSweep(target);
 		target.session?.dispose();
 		target.session = undefined;
 		target.opening = undefined;
-		target.queue = [];
-		target.running = undefined;
 	}
 
 	/** Dispose an idle session so N peers do not keep N contexts warm. */
@@ -147,8 +193,9 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	async function sessionFor(peer: string, target: PeerEntry): Promise<PeerSession> {
 		if (target.session) return target.session;
 		if (!target.opening) {
+			const startFresh = fresh.delete(peer);
 			target.opening = deps
-				.openSession(peer)
+				.openSession(peer, { fresh: startFresh })
 				.then((opened) => {
 					target.session = opened;
 					return opened;
@@ -168,8 +215,8 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		try {
 			await session.prompt(item.text, item.images ? { images: item.images } : undefined);
 			if (aborted.delete(item.peer)) {
-				// `prompt` resolves for an aborted run too, so the request is what decides
-				// the outcome; a partial answer is not sent after `/stop`.
+				// `prompt` resolves for an aborted run too, so the request decides the
+				// outcome; a partial answer is not sent after `/stop`.
 				reason = "stopped";
 			} else {
 				text = session.getLastAssistantText();
@@ -190,40 +237,60 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		await deps.send(item, body);
 	}
 
-	/** Drain one peer's queue; a second call while draining is a no-op. */
-	async function drain(peer: string): Promise<void> {
-		const target = entry(peer);
-		if (target.running) return;
-		while (!closed && target.queue.length > 0) {
+	/** The next peer with work, so a finished turn can hand its slot on. */
+	function nextRunnable(): [string, PeerEntry] | undefined {
+		for (const [peer, target] of peers) {
+			if (!target.running && target.queue.length > 0) return [peer, target];
+		}
+		return undefined;
+	}
+
+	/** Start turns until the concurrency limit or the queues are empty. */
+	function wake(): void {
+		while (!closed && running < concurrency) {
+			const next = nextRunnable();
+			if (!next) return;
+			const [peer, target] = next;
 			const item = target.queue.shift() as PeerItem;
 			target.running = item;
 			target.startedAt = now();
+			running += 1;
+			currentItem = item;
 			cancelIdleSweep(target);
 			deps.onStart?.(item);
-			try {
-				const opened = await sessionFor(peer, target);
-				await runTurn(item, opened);
-			} catch (error) {
-				deps.notify?.(
-					`WeChat session failed for ${item.peer}: ${error instanceof Error ? error.message : String(error)}`,
-					"error",
-				);
-				await deps.send(item, deps.fallback(item, "failed"));
-			} finally {
-				target.running = undefined;
-				target.startedAt = undefined;
-				deps.onSettled?.(item);
-			}
+			void (async () => {
+				try {
+					const opened = await sessionFor(peer, target);
+					await runTurn(item, opened);
+				} catch (error) {
+					deps.notify?.(
+						`WeChat session failed for ${item.peer}: ${error instanceof Error ? error.message : String(error)}`,
+						"error",
+					);
+					await deps.send(item, deps.fallback(item, "failed"));
+				} finally {
+					target.running = undefined;
+					target.startedAt = undefined;
+					running -= 1;
+					currentItem = undefined;
+					deps.onSettled?.(item);
+					armIdleSweep(target);
+					wake();
+				}
+			})();
 		}
-		armIdleSweep(target);
 	}
 
 	return {
 		enqueue(item: PeerItem): void {
 			if (closed) return;
 			const target = entry(item.peer);
-			target.queue.push(item);
-			void drain(item.peer);
+			const tail = target.queue.at(-1);
+			// A non-empty queue means this peer's turn has not started yet, so the
+			// burst is answered once, in send order.
+			if (tail) target.queue[target.queue.length - 1] = mergeItems(tail, item);
+			else target.queue.push(item);
+			wake();
 		},
 
 		abort(peer: string): boolean {
@@ -234,26 +301,42 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			return true;
 		},
 
-		state(peer: string): PeerState {
+		reset(peer: string): boolean {
 			const target = peers.get(peer);
-			if (!target) return { status: "idle", queued: 0 };
-			if (target.running) {
-				return {
-					status: "running",
-					queued: target.queue.length,
-					runningMs: target.startedAt === undefined ? 0 : now() - target.startedAt,
-				};
+			if (target?.running) return false;
+			fresh.add(peer);
+			releaseSession(peer);
+			if (target) {
+				target.queue = [];
+				cancelIdleSweep(target);
 			}
-			return { status: target.queue.length > 0 ? "queued" : "idle", queued: target.queue.length };
+			return true;
+		},
+
+		current(): PeerItem | undefined {
+			return currentItem;
+		},
+
+		state(peer: string): PeerState {
+			return stateOf(peer);
+		},
+
+		snapshot(): PeerSnapshot[] {
+			return [...peers.keys()].map((peer) => ({ peer, state: stateOf(peer) }));
 		},
 
 		async close(): Promise<void> {
 			closed = true;
-			const running = [...peers.values()]
+			const runningAborts = [...peers.values()]
 				.filter((target) => target.session)
 				.map((target) => target.session?.session.abort());
-			await Promise.allSettled(running);
-			for (const peer of [...peers.keys()]) release(peer);
+			await Promise.allSettled(runningAborts);
+			for (const peer of [...peers.keys()]) {
+				releaseSession(peer);
+				peers.delete(peer);
+			}
+			aborted.clear();
+			fresh.clear();
 		},
 	};
 }

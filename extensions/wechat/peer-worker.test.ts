@@ -42,15 +42,17 @@ function fakeSession(options: { answers?: string[]; holdFirst?: boolean } = {}) 
 	};
 }
 
-function harness(options: { answers?: string[]; holdFirst?: boolean; idleTimeoutMs?: number } = {}) {
+function harness(
+	options: { answers?: string[]; holdFirst?: boolean; idleTimeoutMs?: number; concurrency?: number } = {},
+) {
 	const sent: Array<{ peer: string; text: string }> = [];
 	const notices: string[] = [];
-	const opened: string[] = [];
+	const opened: Array<{ peer: string; fresh: boolean }> = [];
 	const sessions: ReturnType<typeof fakeSession>[] = [];
 	const timers: Array<{ ms: number; fn: () => void }> = [];
 	const worker = createPeerWorker({
-		openSession: async (peer) => {
-			opened.push(peer);
+		openSession: async (peer, sessionOptions) => {
+			opened.push({ peer, fresh: sessionOptions.fresh });
 			const fake = fakeSession(options);
 			sessions.push(fake);
 			return fake.peerSession;
@@ -60,6 +62,7 @@ function harness(options: { answers?: string[]; holdFirst?: boolean; idleTimeout
 		},
 		fallback: (_target, reason) => `fallback:${reason}`,
 		notify: (message) => notices.push(message),
+		concurrency: options.concurrency,
 		idleTimeoutMs: options.idleTimeoutMs ?? 0,
 		armTimer: (_ms, fn) => {
 			timers.push({ ms: _ms, fn });
@@ -77,8 +80,68 @@ describe("peer worker", () => {
 		const { worker, sent, opened } = harness({ answers: ["pong"] });
 		worker.enqueue(item("ping"));
 		await settle();
-		expect(opened).toEqual(["alice@im.wechat"]);
+		expect(opened).toEqual([{ peer: "alice@im.wechat", fresh: false }]);
 		expect(sent).toEqual([{ peer: "alice@im.wechat", text: "pong" }]);
+	});
+
+	test("merges a burst that arrives while the peer is still waiting", async () => {
+		const { worker, sent, sessions } = harness({ answers: ["one", "two"], holdFirst: true });
+		worker.enqueue(item("first"));
+		// The first turn started; these two are waiting and merge into one turn.
+		worker.enqueue(item("second"));
+		worker.enqueue(item("third"));
+		await settle();
+		await sessions[0]?.session.abort();
+		await settle();
+		await settle();
+		expect(sessions[0]?.prompts).toEqual(["first", "second\nthird"]);
+		expect(sent.map((message) => message.text)).toEqual(["one", "two"]);
+	});
+
+	test("reports the running turn and hands the slot to the next peer", async () => {
+		const { worker, sessions } = harness({ holdFirst: true });
+		worker.enqueue(item("alice task", "alice@im.wechat"));
+		worker.enqueue(item("bob task", "bob@im.wechat"));
+		await settle();
+		// One turn at a time by default, so a forwarded dialog has one owner.
+		expect(worker.current()?.text).toBe("alice task");
+		expect(sessions).toHaveLength(1);
+
+		await sessions[0]?.session.abort();
+		await settle();
+		await settle();
+		expect(sessions[1]?.prompts).toEqual(["bob task"]);
+	});
+
+	test("runs peers in parallel when the concurrency allows it", async () => {
+		const { worker, sessions } = harness({ holdFirst: true, concurrency: 2 });
+		worker.enqueue(item("alice task", "alice@im.wechat"));
+		worker.enqueue(item("bob task", "bob@im.wechat"));
+		await settle();
+		expect(sessions).toHaveLength(2);
+		expect(sessions[1]?.prompts).toEqual(["bob task"]);
+	});
+
+	test("reset starts a fresh conversation and drops what was queued", async () => {
+		const { worker, opened, sessions } = harness({ answers: ["old", "new"] });
+		worker.enqueue(item("before"));
+		await settle();
+		expect(worker.reset("alice@im.wechat")).toBe(true);
+		expect(sessions[0]?.disposed()).toBe(1);
+
+		worker.enqueue(item("after"));
+		await settle();
+		expect(opened).toEqual([
+			{ peer: "alice@im.wechat", fresh: false },
+			{ peer: "alice@im.wechat", fresh: true },
+		]);
+	});
+
+	test("reset is refused while a turn runs", async () => {
+		const { worker } = harness({ holdFirst: true });
+		worker.enqueue(item("long task"));
+		await settle();
+		expect(worker.reset("alice@im.wechat")).toBe(false);
 	});
 
 	test("answers a peer's messages in order, one turn at a time", async () => {
@@ -102,7 +165,8 @@ describe("peer worker", () => {
 		worker.enqueue(item("hi", "alice@im.wechat"));
 		worker.enqueue(item("hi", "bob@im.wechat"));
 		await settle();
-		expect(opened).toEqual(["alice@im.wechat", "bob@im.wechat"]);
+		await settle();
+		expect(opened.map((entry) => entry.peer)).toEqual(["alice@im.wechat", "bob@im.wechat"]);
 		expect(sent).toHaveLength(2);
 	});
 
@@ -171,7 +235,7 @@ describe("peer worker", () => {
 
 		worker.enqueue(item("second"));
 		await settle();
-		expect(opened).toEqual(["alice@im.wechat", "alice@im.wechat"]);
+		expect(opened.map((entry) => entry.peer)).toEqual(["alice@im.wechat", "alice@im.wechat"]);
 	});
 
 	test("reports queued and running state for the control screen", async () => {

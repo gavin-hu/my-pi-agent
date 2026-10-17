@@ -53,6 +53,8 @@ export interface PeerSessionOptions {
 	uiContext: ExtensionUIContext;
 	/** An extension error, reported on the terminal. */
 	onError?: (message: string) => void;
+	/** Start an empty conversation instead of resuming this peer's last one. */
+	fresh?: boolean;
 	seams?: PeerSessionSeams;
 }
 
@@ -104,7 +106,9 @@ export async function openPeerSession(peer: string, options: PeerSessionOptions)
 			// without a second poller.
 			new DefaultResourceLoader({ cwd, agentDir, extensionsOverride: withoutWechatExtensions }));
 
-	const sessionManager = SessionManager.continueRecent(options.cwd, peerSessionDir(options.sessionsDir, peer));
+	const sessionManager = options.fresh
+		? SessionManager.create(options.cwd, peerSessionDir(options.sessionsDir, peer))
+		: SessionManager.continueRecent(options.cwd, peerSessionDir(options.sessionsDir, peer));
 	const { session } = await create({
 		cwd: options.cwd,
 		model: options.model,
