@@ -593,7 +593,9 @@ installs or fetches a package.
   contradict each other. An extension with no doctor report leaves the glyph
   column and the summary blank rather than claiming `ok`.
 - Toggles the focused extension with `Space`, writing `+pattern` / `-pattern`
-  into `extensions` (and package filter objects) in the active scope.
+  into `extensions` (and package filter objects) in the active scope. A row in
+  the trailing `Not resolved` group has no pattern to write, so `Space` says so
+  instead of doing nothing.
 - Switches the write scope with `Tab`: **Global** (personal `settings.json`) or
   **Project** (`.pi/settings.json`, only when the project is trusted; an
   untrusted project refuses with a notice).
@@ -640,7 +642,8 @@ bytefly ────────────────────────
 forward. The detail pane names the source, describes the preference, and shows
 where the value is written — `Global · ~/.pi/agent/settings.json`, `Project ·
 .pi/bytefly.json`, or `Inherited from Global · .pi/bytefly.json`. A successful
-change marks the screen `Saved · reload to apply`, and closing offers the same
+change marks the screen `Saved · reload to apply` — even when the terminal is too
+short for the detail body — and closing offers the same
 reload confirm as an extension toggle.
 
 **Bytefly startup TUI** is the one row whose label differs from the Pi key it

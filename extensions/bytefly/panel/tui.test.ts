@@ -347,13 +347,16 @@ describe("PanelComponent input", () => {
 		expect(component.render(60).join("\n")).toContain("Saved · reload to apply");
 	});
 
-	test("space does nothing on a report with no item", async () => {
+	test("space explains a report with no item instead of doing nothing", async () => {
 		const { component, store } = build({ items: [], reports: [makeReport("bytefly")] });
 
 		component.handleInput(" ");
 		await settle();
 
 		expect(store.calls.setExtensionPaths).toHaveLength(0);
+		const text = component.render(80).join("\n");
+		expect(text).toContain("bytefly is not resolved; manage it with pi config.");
+		expect(text).not.toContain("Esc close");
 	});
 
 	test("Tab warns instead of switching when the project is untrusted", () => {
@@ -527,6 +530,24 @@ describe("PanelComponent sections", () => {
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 			}
 		}
+	});
+
+	test("keeps the reload marker when a short terminal collapses the body", async () => {
+		const settings = makeSettings();
+		const { component } = build({
+			items: [packageItem("plan")],
+			section: "settings",
+			rows: 12,
+			settings: settings.surface,
+		});
+
+		component.handleInput(" ");
+		await settle();
+		await settle();
+
+		const lines = component.render(80);
+		expect(lines.join("\n")).toContain("Saved · reload to apply");
+		expect(lines.length).toBeLessThanOrEqual(12);
 	});
 
 	test("changes the focused setting with Space and marks the screen dirty", async () => {
