@@ -84,7 +84,6 @@ function build(options: {
 	});
 	const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 	let closed = 0;
-	const notices: string[] = [];
 	const reports = options.reports ?? [];
 	const settings =
 		options.settings ??
@@ -106,9 +105,8 @@ function build(options: {
 		onClose: () => {
 			closed += 1;
 		},
-		onNotice: (message) => notices.push(message),
 	});
-	return { component, runtime, store, notices, settings, closedCount: () => closed };
+	return { component, runtime, store, settings, closedCount: () => closed };
 }
 
 describe("PanelComponent rendering", () => {
@@ -359,12 +357,12 @@ describe("PanelComponent input", () => {
 	});
 
 	test("Tab warns instead of switching when the project is untrusted", () => {
-		const { component, runtime, notices } = build({ items: [packageItem("plan")], reports: [], trusted: false });
+		const { component, runtime } = build({ items: [packageItem("plan")], reports: [], trusted: false });
 
 		component.handleInput("\t");
 
 		expect(runtime.scope()).toBe("global");
-		expect(notices.at(-1)).toContain("not trusted");
+		expect(component.render(80).join("\n")).toContain("not trusted");
 	});
 
 	test("Tab switches to project scope when trusted", () => {
@@ -484,12 +482,51 @@ describe("PanelComponent sections", () => {
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
-		const { component, notices } = build({ items: [packageItem("plan")], section: "settings", trusted: false });
+		const { component } = build({ items: [packageItem("plan")], section: "settings", trusted: false });
 
 		component.handleInput("\t");
 
-		expect(notices.at(-1)).toContain("Project is not trusted");
-		expect(component.render(80).join("\n")).toContain("Global · 5 settings");
+		const refused = component.render(80).join("\n");
+		expect(refused).toContain("Project is not trusted");
+		expect(refused).toContain("Global · 5 settings");
+		// The notice takes the hint row, so the key hints step aside while it shows.
+		expect(refused).not.toContain("Esc close");
+
+		component.handleInput("j");
+		const restored = component.render(80).join("\n");
+		expect(restored).not.toContain("Project is not trusted");
+		expect(restored).toContain("Esc close");
+	});
+
+	test("shows a refused setting change in the frame", async () => {
+		const surface: SettingsSurface = {
+			views: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope),
+			count: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope).length,
+			change: async () => {
+				throw new Error("disk full");
+			},
+			isDirty: () => false,
+		};
+		const { component } = build({ items: [packageItem("plan")], section: "settings", settings: surface });
+
+		component.handleInput(" ");
+		await settle();
+		await settle();
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("disk full");
+		expect(text).not.toContain("Esc close");
+	});
+
+	test("clips a long notice to the width like the hint it replaces", () => {
+		const { component } = build({ items: [packageItem("plan")] });
+
+		component.notify(`refused: ${"a path ".repeat(30)}`);
+		for (const width of [30, 60, 90]) {
+			for (const line of component.render(width)) {
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
+		}
 	});
 
 	test("changes the focused setting with Space and marks the screen dirty", async () => {
@@ -578,7 +615,7 @@ describe("PanelComponent refresh", () => {
 	});
 
 	test("surfaces a failed refresh as a notice and clears the busy state", async () => {
-		const { component, notices } = build({
+		const { component } = build({
 			items: [packageItem("plan")],
 			reports: [],
 			refresh: () => Promise.reject(new Error("probe exploded")),
@@ -587,8 +624,13 @@ describe("PanelComponent refresh", () => {
 		component.handleInput("r");
 		await settle();
 
-		expect(notices.at(-1)).toContain("Could not refresh: probe exploded");
-		expect(component.render(80).join("\n")).not.toContain("refreshing");
+		const failed = component.render(80).join("\n");
+		expect(failed).toContain("Could not refresh: probe exploded");
+		expect(failed).not.toContain("refreshing");
+		expect(failed).not.toContain("Esc close");
+
+		component.handleInput("j");
+		expect(component.render(80).join("\n")).toContain("Esc close");
 	});
 });
 
