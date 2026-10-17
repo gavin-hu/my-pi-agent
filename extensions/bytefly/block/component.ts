@@ -14,7 +14,9 @@
  * block is compact. A body may carry a `rail`: a pre-painted glyph in the first
  * indent column, occupying the two columns the plain indent uses. The headline is
  * never railed. The result frame carries it for every tool; the call frame carries
- * it too when the call body *is* the result (`edit`'s diff, `write`'s content).
+ * it too when the call body *is* the result (`edit`'s diff, `write`'s content),
+ * except for the lines of a call line that wrapped — those are the call, so the
+ * rail starts at the result.
  *
  * The tool name is the block's only accent. The shipped themes point
  * `toolTitle` at the accent, so a primary subject — a path, URL, query, pattern
@@ -25,7 +27,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { BODY_INDENT, indentedLines } from "../../../lib/tui/indent.ts";
+import { BODY_INDENT, bodyLines, indentBlockLines } from "../../../lib/tui/indent.ts";
 import { paintPrefix } from "../../../lib/tui/tokens.ts";
 
 /** How one tool-block frame is drawn. */
@@ -46,7 +48,7 @@ export interface ToolBlockOptions {
 	 * A pre-painted rail glyph for the body's first indent column, from
 	 * `../chrome.ts`. Set on every result frame, and on the call frame only for a
 	 * tool whose call body carries the result (`edit`, `write`); the headline is
-	 * never railed.
+	 * never railed, and neither is a call line that wrapped onto the body.
 	 */
 	rail?: string;
 	/**
@@ -151,6 +153,23 @@ export function isRewritable(component: Component): component is Component & Rew
 }
 
 /**
+ * Whether a call line degenerated to the tool name alone, so the rest of it —
+ * the path, the command — moved onto the body lines under it.
+ *
+ * Pi wraps the call line before the frame sees it, and a `edit <path>` pair is
+ * one long unbreakable token: once the path no longer fits, the wrapper drops the
+ * name onto its own line and hard-breaks the path below it. The bare name is the
+ * only reliable marker of that, and it matters because those lines are the call,
+ * not the result — a railed call body (`edit`, `write`) would otherwise draw the
+ * path as diff content.
+ */
+function isBareHeadline(body: readonly string[], toolName: string | undefined): boolean {
+	if (!toolName) return false;
+	const headline = body.find((line) => stripTerminalSequences(line).trim().length > 0);
+	return headline !== undefined && stripTerminalSequences(headline).trim() === sanitizeLine(toolName);
+}
+
+/**
  * Indent `inner` under the block's headline: the body at `outputPad + BODY_INDENT`,
  * the headline (when asked for) at `outputPad`. `width` clips the headline again
  * after its prompt is rewritten, so a longer tool name cannot overflow.
@@ -162,11 +181,16 @@ export function toolBlockLines(
 	options: ToolBlockOptions = {},
 ): string[] {
 	const w = Math.max(1, width);
-	const lines = indentedLines(inner, w, {
-		indent: (outputPad ?? 0) + BODY_INDENT,
+	const indent = (outputPad ?? 0) + BODY_INDENT;
+	const body = bodyLines(inner, w, indent);
+	const lines = indentBlockLines(body, w, {
+		indent,
 		rail: options.rail,
 		headline: options.headline,
 		trimLeading: options.trimLeading,
+		// A railed call body starts at the result, never at the tail of a wrapped
+		// call line.
+		railAfterCall: options.rail !== undefined && isBareHeadline(body, options.toolName),
 	});
 	if (options.headline && lines.length > 0) {
 		// The base renders at the reduced (indented) width, so drop the padding it

@@ -26,6 +26,14 @@ export interface IndentOptions {
 	 * no column to spare. Default: no rail.
 	 */
 	rail?: string;
+	/**
+	 * Start the rail after the headline's continuation: keep the leading run of
+	 * non-blank body lines plain-indented, up to the first blank line. Set when the
+	 * headline degenerated to the bare subject name (a tool's call line whose path
+	 * moved onto the body), so the rail begins with the result instead of the
+	 * wrapped call. Ignored without a rail. Default false.
+	 */
+	railAfterCall?: boolean;
 	/** Drop leading lines with no visible content. Default false. */
 	trimLeading?: boolean;
 	/** Drop trailing lines with no visible content. Default true. */
@@ -74,12 +82,14 @@ function bodyPrefix(indent: number, rail: string | undefined): string {
  * non-blank line leads at `indent - BODY_INDENT` and the body follows directly —
  * no separator line — and its own leading blanks are dropped so a tool's spacing
  * never leaves a gap under the headline. With `rail` set, the body's first indent
- * column carries the glyph instead of a space.
+ * column carries the glyph instead of a space; `railAfterCall` keeps the call's
+ * continuation lines plain, so the rail starts with the result.
  */
 export function indentBlockLines(body: readonly string[], width: number, options: IndentOptions = {}): string[] {
 	const w = Math.max(1, width);
 	const indent = clampIndent(options.indent ?? 0, w);
 	const prefix = bodyPrefix(indent, options.rail);
+	const plainPrefix = " ".repeat(indent);
 
 	// The headline is the first line with something to say; it leads at the base.
 	let headline: string | undefined;
@@ -92,15 +102,22 @@ export function indentBlockLines(body: readonly string[], width: number, options
 		}
 	}
 
+	// A call whose subject moved onto the body keeps those lines unrailed, so the
+	// rail starts with the result rather than under a bare tool name.
+	let railStart = 0;
+	if (options.rail && options.railAfterCall) {
+		while (railStart < rest.length && !isBlank(rest[railStart] ?? "")) railStart++;
+	}
+
 	const lines: string[] = [];
 	const blank: boolean[] = [];
-	for (const line of rest) {
+	for (const [index, line] of rest.entries()) {
 		if (IMAGE_LINE.test(line)) {
 			lines.push(line);
 			blank.push(false);
 			continue;
 		}
-		lines.push(truncateToWidth(`${prefix}${line}`, w, ""));
+		lines.push(truncateToWidth(`${index < railStart ? plainPrefix : prefix}${line}`, w, ""));
 		blank.push(isBlank(line));
 	}
 	if (options.trimLeading) {
@@ -123,13 +140,21 @@ export function indentBlockLines(body: readonly string[], width: number, options
 }
 
 /**
- * Render `inner` at the width the indent leaves, then indent it. An absent
- * `inner` renders nothing, so a tool with no output adds no blank block.
+ * Render `inner` at the width the indent leaves, so nothing is lost to the
+ * prefix. An absent `inner` renders nothing, so a tool with no output adds no
+ * blank block. The lines are not indented yet; a caller that has to inspect the
+ * block before placing it passes them to `indentBlockLines`.
  */
-export function indentedLines(inner: Component | undefined, width: number, options: IndentOptions = {}): string[] {
+export function bodyLines(inner: Component | undefined, width: number, indent = 0): string[] {
 	if (!inner) return [];
 	const w = Math.max(1, width);
+	const prefixWidth = visibleWidth(bodyPrefix(clampIndent(indent, w), undefined));
+	return inner.render(Math.max(1, w - prefixWidth));
+}
+
+/** Render `inner` at the width the indent leaves, then indent it. */
+export function indentedLines(inner: Component | undefined, width: number, options: IndentOptions = {}): string[] {
+	const w = Math.max(1, width);
 	const indent = clampIndent(options.indent ?? 0, w);
-	const prefixWidth = visibleWidth(bodyPrefix(indent, options.rail));
-	return indentBlockLines(inner.render(Math.max(1, w - prefixWidth)), w, { ...options, indent });
+	return indentBlockLines(bodyLines(inner, w, indent), w, { ...options, indent });
 }

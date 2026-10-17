@@ -66,7 +66,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   multi-line call keeps its two-space continuation).
 - `bytefly`: `edit` and `write` carry their result on the call body, so that body
   now hangs from the rail too, and their status band is gone; the diff's own
-  red/green line colours and the headline are what mark a file change.
+  red/green line colours and the headline are what mark a file change. A call
+  line that wraps — a path too long to sit beside the tool name — keeps its
+  continuation lines unrailed, so the rail begins with the result underneath
+  instead of painting the path as diff content.
 - `bytefly`: the tool name is a call line's only accent. A primary subject — a
   path, URL, query, or pattern — now reads in the body colour (`read
   src/app.ts`, `read_doc docs/a.pdf`, `web_fetch https://…`, `grep /pattern/`),

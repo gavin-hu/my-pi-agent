@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
-import { BODY_INDENT, indentBlockLines, indentedLines } from "./indent.ts";
+import { BODY_INDENT, bodyLines, indentBlockLines, indentedLines } from "./indent.ts";
 
 /** A stand-in for a tool's own renderer, recording the width it was asked for. */
 const innerOf = (lines: string[], onWidth?: (width: number) => void): Component => ({
@@ -117,6 +117,75 @@ describe("indentBlockLines", () => {
 
 	test("ignores a rail below BODY_INDENT", () => {
 		expect(indentBlockLines(["a"], 40, { indent: 1, rail: "╎" })).toEqual([" a"]);
+	});
+
+	test("keeps a call's continuation lines unrailed", () => {
+		expect(
+			indentBlockLines(["edit", "src/a/long/path.ts", "", "-1 a", "+1 b"], 40, {
+				indent: 2,
+				rail: "╎",
+				headline: true,
+				railAfterCall: true,
+			}),
+		).toEqual(["edit", "  src/a/long/path.ts", "╎ ", "╎ -1 a", "╎ +1 b"]);
+	});
+
+	test("rails everything when the call has no blank separator", () => {
+		expect(
+			indentBlockLines(["edit", "a", "b"], 40, { indent: 2, rail: "╎", headline: true, railAfterCall: true }),
+		).toEqual(["edit", "  a", "  b"]);
+	});
+
+	test("ignores railAfterCall without a rail", () => {
+		expect(indentBlockLines(["edit", "a", "", "b"], 40, { indent: 2, headline: true, railAfterCall: true })).toEqual([
+			"edit",
+			"  a",
+			"  ",
+			"  b",
+		]);
+	});
+
+	test("starts the rail at the body when railAfterCall is off", () => {
+		expect(indentBlockLines(["edit", "a", "", "b"], 40, { indent: 2, rail: "╎", headline: true })).toEqual([
+			"edit",
+			"╎ a",
+			"╎ ",
+			"╎ b",
+		]);
+	});
+});
+
+describe("bodyLines", () => {
+	test("renders the inner at the width the indent leaves", () => {
+		let seen = 0;
+		bodyLines(
+			innerOf(["x"], (width) => {
+				seen = width;
+			}),
+			20,
+			3,
+		);
+		expect(seen).toBe(17);
+	});
+
+	test("leaves the lines unindented", () => {
+		expect(bodyLines(innerOf(["a", "b"]), 40, 2)).toEqual(["a", "b"]);
+	});
+
+	test("renders nothing for an absent inner", () => {
+		expect(bodyLines(undefined, 40, 2)).toEqual([]);
+	});
+
+	test("keeps at least one column for the body", () => {
+		let seen = 0;
+		bodyLines(
+			innerOf(["x"], (width) => {
+				seen = width;
+			}),
+			1,
+			4,
+		);
+		expect(seen).toBe(1);
 	});
 });
 

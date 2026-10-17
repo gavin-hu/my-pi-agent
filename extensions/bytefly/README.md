@@ -209,7 +209,11 @@ The body carries the transcript rail, painted by status (a running result takes
 the accent, a failure red, a finished one neutral) and drawn with the glyph from
 the `chrome.rail` setting. A result frame is always railed; a call frame is railed
 only for `edit` and `write`, whose call body carries the result — every other
-call's headline and continuation lines stay plain-indented. A tool with
+call's headline and continuation lines stay plain-indented. A call line that
+does not fit wraps, and Pi drops the tool name onto its own line when the
+subject it carries (a long path) is one unbreakable token; those continuation
+lines are still the call, so they stay unrailed and the rail begins with the
+result underneath. A tool with
 no renderer of its own is framed around a generic call/result fallback, whose
 call line reads like a built-in — the leading string argument bare, the rest as
 trailing options (`open_path src/app.ts`) — rather than dumping raw `key=value`
@@ -786,7 +790,10 @@ rather than showing a wrong value.
   highlighting, and truncation. The call and result are sibling components with
   no spacer between them, so the call's headline and the result read as one
   block; the result body hangs from the rail, and `edit`/`write` rail their call
-  body because it carries the result. A tool that renders its own shell (`edit`)
+  body because it carries the result, except for the lines of a call line that
+  wrapped onto the body — a 121-column path under a bare `edit` is still the
+  call, not diff content, and the rail starts at the diff. A tool that renders
+  its own shell (`edit`)
   is framed too: its blank edge lines are trimmed so the body starts under the
   call, and it is handed a theme whose `bg` is inert so it paints no band. Each base renderer is handed its own
   previous component (tracked in the row's `state`), never the frame: Pi gives a

@@ -111,6 +111,50 @@ describe("toolBlockLines", () => {
 			expect(visibleWidth(line)).toBeLessThanOrEqual(10);
 		}
 	});
+
+	test("keeps a wrapped call line out of the rail", () => {
+		// Pi wraps `edit <path>` by dropping the name onto its own line once the
+		// path no longer fits, so the path is the call, not diff content.
+		expect(
+			toolBlockLines(innerOf(["edit", "src/a/long/path.ts", "", "-1 a", "+1 b"]), 40, 0, {
+				headline: true,
+				rail: "╎",
+				toolName: "edit",
+			}),
+		).toEqual(["edit", "  src/a/long/path.ts", "╎ ", "╎ -1 a", "╎ +1 b"]);
+	});
+
+	test("rails from the first body line when the headline names its subject", () => {
+		expect(
+			toolBlockLines(innerOf(["edit src/a.ts", "", "-1 a"]), 40, 0, {
+				headline: true,
+				rail: "╎",
+				toolName: "edit",
+				trimLeading: true,
+			}),
+		).toEqual(["edit src/a.ts", "╎ -1 a"]);
+	});
+
+	test("rails from the first body line without a tool name to match", () => {
+		expect(toolBlockLines(innerOf(["edit", "a", "", "b"]), 40, 0, { headline: true, rail: "╎" })).toEqual([
+			"edit",
+			"╎ a",
+			"╎ ",
+			"╎ b",
+		]);
+	});
+
+	test("ignores a painted tool name when matching the headline", () => {
+		const headline = roleSgrTheme.bold("edit");
+		expect(
+			toolBlockLines(innerOf([headline, "src/a/long/path.ts", "", "+1 b"]), 40, 0, {
+				headline: true,
+				rail: "╎",
+				toolName: "edit",
+				theme: roleSgrTheme,
+			})[2],
+		).toBe("╎ ");
+	});
 });
 
 describe("recolorCallHeadline", () => {
