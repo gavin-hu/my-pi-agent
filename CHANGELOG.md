@@ -6,6 +6,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Tool transcript: every tool renders a rejected call as one sanitized `Error:`
+  line in the error role, long-running `web_fetch`, `web_search`, `read_doc`,
+  `run_doctor`, and `job wait` show a live elapsed label, and a finished long
+  call appends its duration (the shared `12.0s` format `subagent` now uses).
+- `job`: a log segment rotates to `<id>.log.1` once it reaches `maxLogBytes`
+  (8 MiB by default; `0` keeps logs unbounded), and `logs` fills a request from
+  the previous segment, so a chatty job cannot fill the disk while its recent
+  output stays readable. A POSIX `detached` job writes its own log and is
+  exempt, as the limitation now states.
+- `job`: `start` accepts `stdin: true`, which gives the child a stdin pipe
+  instead of an immediate EOF, and the new `send` action writes to it — a line
+  by default, a bare keystroke with `newline: false`, and `eof: true` to close
+  it — so a REPL, a debugger prompt, or a `read` can be driven without a TTY.
+  The pipe is live-only (a reattached or peer job cannot be written to, and
+  `detached` cannot be combined with `stdin`), and stdin stays closed by
+  default so an existing job still gets EOF and exits.
+- `bytefly`: `/bytefly` is a two-section control center — `←`/`→` switch
+  between Extensions (the unchanged list and toggles) and Settings. Settings
+  lists five curated preferences: bytefly startup TUI, desktop notifications, the
+  transcript rail glyph, output padding, and the hardware cursor. `Space`/`Enter`
+  change the focused value, `Tab` switches Global/Project scope, app rows are
+  Global-only and Project lists only the `bytefly.json` rows, and a change marks
+  the screen `Saved · reload to apply`. `bytefly.json` rows write one key
+  through a per-key writer, so sibling keys, other sections, and document
+  metadata survive, and a malformed document is refused instead of overwritten.
+
 ### Changed
 
 - Tool transcript: call lines now clip to the terminal width instead of wrapping
@@ -56,38 +84,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   still reach one by explicit id, and the chips, notices, and pruning stay this
   session's own.
 
-### Added
-
-- Tool transcript: every tool renders a rejected call as one sanitized `Error:`
-  line in the error role, long-running `web_fetch`, `web_search`, `read_doc`,
-  `run_doctor`, and `job wait` show a live elapsed label, and a finished long
-  call appends its duration (the shared `12.0s` format `subagent` now uses).
-- `job`: a log segment rotates to `<id>.log.1` once it reaches `maxLogBytes`
-  (8 MiB by default; `0` keeps logs unbounded), and `logs` fills a request from
-  the previous segment, so a chatty job cannot fill the disk while its recent
-  output stays readable. A POSIX `detached` job writes its own log and is
-  exempt, as the limitation now states.
-- `job`: `start` accepts `stdin: true`, which gives the child a stdin pipe
-  instead of an immediate EOF, and the new `send` action writes to it — a line
-  by default, a bare keystroke with `newline: false`, and `eof: true` to close
-  it — so a REPL, a debugger prompt, or a `read` can be driven without a TTY.
-  The pipe is live-only (a reattached or peer job cannot be written to, and
-  `detached` cannot be combined with `stdin`), and stdin stays closed by
-  default so an existing job still gets EOF and exits.
-- `bytefly`: `/bytefly` is a two-section control center — `←`/`→` switch
-  between Extensions (the unchanged list and toggles) and Settings. Settings
-  lists five curated preferences: bytefly startup TUI, desktop notifications, the
-  transcript rail glyph, output padding, and the hardware cursor. `Space`/`Enter`
-  change the focused value, `Tab` switches Global/Project scope, app rows are
-  Global-only and Project lists only the `bytefly.json` rows, and a change marks
-  the screen `Saved · reload to apply`. `bytefly.json` rows write one key
-  through a per-key writer, so sibling keys, other sections, and document
-  metadata survive, and a malformed document is refused instead of overwritten.
-
-### Changed
-
 - Tooling: `assets/chrome.png` is recaptured from a real `pi -e .` run, so the
   README hero carries the 0.10.0 header and the current footer fields.
+- `wechat`: the README gains a Troubleshooting section — the
+  one-runtime-per-account lock, a chip that disagrees with `/wechat status` or
+  `send_wechat`, and a code upgrade that needs `/reload` or a restart before
+  this runtime owns the poller.
 
 ### Fixed
 
