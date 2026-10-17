@@ -69,12 +69,56 @@ const OPTIONAL_COLORS = [
 const ALL_COLORS = new Set<string>([...REQUIRED_COLORS, ...OPTIONAL_COLORS]);
 
 interface Theme {
+	$schema?: string;
 	name: string;
 	appearance: string;
 	vars: Record<string, string | number>;
 	colors: Record<string, string | number>;
 	export?: Record<string, string | number>;
 }
+
+/** The variable that names the terminal canvas, which no color token stands for. */
+const CANVAS = "canvas";
+
+const TOOL_PANELS = ["toolPendingBg", "toolSuccessBg", "toolErrorBg"] as const;
+
+/**
+ * Every role this package and Pi paint onto another color, with the WCAG 2
+ * ratio it must reach there. Text is 4.5, a subtle or decorative mark is 3,
+ * and a scrollbar thumb only has to be distinguishable from its track.
+ * `userMessageBg` is the terminal default, so it is skipped wherever it is a surface.
+ */
+const CONTRAST_RULES: ReadonlyArray<readonly [token: string, surfaces: readonly string[], minimum: number]> = [
+	["text", [CANVAS, "selectedBg", ...TOOL_PANELS], 4.5],
+	["muted", [CANVAS, "selectedBg", "customMessageBg", ...TOOL_PANELS], 4.5],
+	["dim", [CANVAS, "selectedBg", ...TOOL_PANELS], 3],
+	["toolTitle", TOOL_PANELS, 4.5],
+	["toolOutput", [CANVAS, ...TOOL_PANELS], 4.5],
+	["accent", [CANVAS, "selectedBg"], 4.5],
+	["success", [CANVAS], 4.5],
+	["error", [CANVAS], 4.5],
+	["warning", [CANVAS], 4.5],
+	["toolDiffAdded", TOOL_PANELS, 4.5],
+	["toolDiffRemoved", TOOL_PANELS, 4.5],
+	["toolDiffContext", TOOL_PANELS, 4.5],
+	["syntaxComment", [CANVAS], 4.5],
+	["syntaxKeyword", [CANVAS], 4.5],
+	["syntaxFunction", [CANVAS], 4.5],
+	["syntaxString", [CANVAS], 4.5],
+	["syntaxNumber", [CANVAS], 4.5],
+	["syntaxType", [CANVAS], 4.5],
+	["mdHeading", [CANVAS], 4.5],
+	["mdLink", [CANVAS], 4.5],
+	["mdCode", [CANVAS], 4.5],
+	["mdCodeBlock", [CANVAS], 4.5],
+	["mdCodeBlockBorder", [CANVAS], 4.5],
+	["mdQuote", [CANVAS], 4.5],
+	["mdListBullet", [CANVAS], 4.5],
+	["searchMatchText", ["searchMatchBg"], 4.5],
+	["border", [CANVAS, "customMessageBg"], 3],
+	["borderMuted", [CANVAS], 3],
+	["scrollbarThumb", ["scrollbarTrack"], 2],
+];
 
 const THEMES = [
 	{ file: "bytefly-dark.json", name: "bytefly-dark", appearance: "dark" },
@@ -93,6 +137,37 @@ function resolve(theme: Theme, value: string | number, seen: readonly string[] =
 	return resolve(theme, theme.vars[value], [...seen, value]);
 }
 
+/** A color token's color as six-digit hex, or undefined for the terminal default. */
+function hexOf(theme: Theme, value: string | number | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	const resolved = resolve(theme, value);
+	if (resolved === "") return undefined;
+	if (typeof resolved !== "string")
+		throw new Error(`theme uses 256-color index ${resolved}, which has no fixed luminance`);
+	if (resolved.length !== 4) return resolved;
+	return `#${[...resolved.slice(1)].map((digit) => digit.repeat(2)).join("")}`;
+}
+
+/** The hex a role is painted on: the canvas variable, or the color of the named token. */
+function surfaceOf(theme: Theme, name: string): string | undefined {
+	return hexOf(theme, name === CANVAS ? theme.vars[CANVAS] : theme.colors[name]);
+}
+
+/** WCAG 2 relative luminance of a hex color. */
+function relativeLuminance(hex: string): number {
+	const [red, green, blue] = [1, 3, 5]
+		.map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255)
+		.map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
+	return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+/** WCAG 2 contrast ratio, 1-21. */
+function contrastRatio(one: string, other: string): number {
+	const lighter = Math.max(relativeLuminance(one), relativeLuminance(other));
+	const darker = Math.min(relativeLuminance(one), relativeLuminance(other));
+	return (lighter + 0.05) / (darker + 0.05);
+}
+
 for (const expected of THEMES) {
 	const themePath = fileURLToPath(new URL(`../themes/${expected.file}`, import.meta.url));
 	const theme = JSON.parse(readFileSync(themePath, "utf8")) as Theme;
@@ -101,6 +176,19 @@ for (const expected of THEMES) {
 		test("declares the expected identity", () => {
 			expect(theme.name).toBe(expected.name);
 			expect(theme.appearance).toBe(expected.appearance);
+			// Pi only hot-reloads <agent-dir>/themes/<name>.json, so the two must agree.
+			expect(theme.name).toBe(expected.file.replace(/\.json$/, ""));
+		});
+
+		test("points $schema at Pi's published theme schema", () => {
+			expect(theme.$schema).toBe("https://pi.dev/schemas/theme.schema.json");
+		});
+
+		test("declares the appearance its canvas is designed for", () => {
+			const canvas = hexOf(theme, theme.vars[CANVAS]);
+			expect(canvas, `vars.${CANVAS}`).toBeDefined();
+			const designed = relativeLuminance(canvas as string) < 0.5 ? "dark" : "light";
+			expect(designed).toBe(theme.appearance);
 		});
 
 		test("defines every required token and no unknown tokens", () => {
@@ -146,5 +234,46 @@ for (const expected of THEMES) {
 				expect(() => resolve(theme, value), `export.${key}`).not.toThrow();
 			}
 		});
+
+		test("every variable is used", () => {
+			const referenced = new Set(
+				[...Object.values(theme.colors), ...Object.values(theme.export ?? {}), ...Object.values(theme.vars)].map(
+					String,
+				),
+			);
+			expect(Object.keys(theme.vars).filter((name) => !referenced.has(name))).toEqual([]);
+		});
+
+		test("keeps every role readable on the surfaces it is painted on", () => {
+			for (const [token, surfaces, minimum] of CONTRAST_RULES) {
+				const foreground = hexOf(theme, theme.colors[token]);
+				expect(foreground, `colors.${token}`).toBeDefined();
+				for (const surface of surfaces) {
+					const background = surfaceOf(theme, surface);
+					// The terminal default background has no fixed color to measure against.
+					if (background === undefined) continue;
+					expect(
+						contrastRatio(foreground as string, background),
+						`colors.${token} on ${surface}`,
+					).toBeGreaterThanOrEqual(minimum);
+				}
+			}
+		});
 	});
 }
+
+/** One role mapping, two palettes: the pair must not drift apart. */
+describe("theme pair", () => {
+	const load = (file: string): Theme =>
+		JSON.parse(readFileSync(fileURLToPath(new URL(`../themes/${file}`, import.meta.url)), "utf8")) as Theme;
+	const dark = load("bytefly-dark.json");
+	const light = load("bytefly-light.json");
+
+	test("the two files share one role mapping", () => {
+		expect(light.colors).toEqual(dark.colors);
+	});
+
+	test("the two files declare the same variables", () => {
+		expect(Object.keys(light.vars).sort()).toEqual(Object.keys(dark.vars).sort());
+	});
+});
