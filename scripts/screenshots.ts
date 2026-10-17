@@ -21,16 +21,9 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
-// `loadThemeFromPath` and `setThemeInstance` are not on the package root; the
-// deep path is a dev-only import that keeps the capture on the shipped theme
-// JSON and render path.
-import {
-	loadThemeFromPath,
-	setThemeInstance,
-} from "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js";
 import { ToolBlock } from "../extensions/bytefly/block/component.ts";
 import { DEFAULT_RAIL_GLYPH, railGlyph } from "../extensions/bytefly/chrome.ts";
 import { renderLine } from "../extensions/bytefly/footer/render/layout.ts";
@@ -50,9 +43,8 @@ import { TodoListComponent } from "../extensions/todo/tui.ts";
 import type { Todo } from "../extensions/todo/types.ts";
 import type { NoticeDetails } from "../lib/notice.ts";
 import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
-
-const repo = resolve(import.meta.dir, "..");
-const theme = loadThemeFromPath(join(repo, "themes", "bytefly-dark.json"), "truecolor");
+import { pollUntil, sleep } from "./poll.ts";
+import { repo, setThemeInstance, theme } from "./theme.ts";
 
 /** Terminal window size in logical points; the render adapts to its columns. */
 const WINDOW_BOUNDS = { left: 80, top: 80, right: 880, bottom: 400 };
@@ -424,8 +416,6 @@ function frame(screen: Screen, width: number, rows: number): string {
 	return `\u001b[2J\u001b[H${background}\u001b]0;${screen.title}\u0007${lines.join("\n")}\u001b[J\u001b[?25l`;
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
-
 /** Run an AppleScript and return its trimmed stdout. */
 function osascript(script: string): string {
 	return execFileSync("osascript", ["-e", script], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -464,20 +454,22 @@ function openWindow(name: string, ready: string): void {
  * Terminal window is never captured by mistake.
  */
 async function waitForWindow(title: string, timeoutMs: number): Promise<number> {
-	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
-		const id = Number(
-			osascript(`tell application "Terminal"
-				repeat with w in windows
-					if (name of w) contains ${JSON.stringify(title)} then return id of w
-				end repeat
-				return 0
-			end tell`),
-		);
-		if (id > 0) return id;
-		await sleep(150);
-	}
-	throw new Error(`Could not find the window titled ${title}`);
+	const id = await pollUntil(
+		() => {
+			const found = Number(
+				osascript(`tell application "Terminal"
+					repeat with w in windows
+						if (name of w) contains ${JSON.stringify(title)} then return id of w
+					end repeat
+					return 0
+				end tell`),
+			);
+			return found > 0 ? found : undefined;
+		},
+		{ timeoutMs, intervalMs: 150 },
+	);
+	if (id === undefined) throw new Error(`Could not find the window titled ${title}`);
+	return id;
 }
 
 function closeWindow(id: number): void {
@@ -503,13 +495,18 @@ function windowIds(): number[] {
 
 /** Poll for a window id that was not open before, so restores are ignored. */
 async function waitForNewWindow(before: Set<number>, timeoutMs: number): Promise<number> {
-	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
-		const fresh = windowIds().filter((id) => !before.has(id));
-		if (fresh.length > 0) return fresh.at(-1) as number;
-		await sleep(100);
-	}
-	throw new Error("Timed out waiting for a new Terminal window");
+	const id = await pollUntil(
+		() =>
+			windowIds()
+				.filter((candidate) => !before.has(candidate))
+				.at(-1),
+		{
+			timeoutMs,
+			intervalMs: 100,
+		},
+	);
+	if (id === undefined) throw new Error("Timed out waiting for a new Terminal window");
+	return id;
 }
 
 /** Stop the held render for `name`, so its Terminal window is no longer busy. */
@@ -523,11 +520,8 @@ function killRender(name: string): void {
 
 /** Wait for the render to report its first frame, up to `timeoutMs`. */
 async function waitForFile(path: string, timeoutMs: number): Promise<void> {
-	const deadline = Date.now() + timeoutMs;
-	while (!existsSync(path)) {
-		if (Date.now() > deadline) throw new Error(`Timed out waiting for ${path}`);
-		await sleep(100);
-	}
+	const reached = await pollUntil(() => existsSync(path) || undefined, { timeoutMs, intervalMs: 100 });
+	if (reached === undefined) throw new Error(`Timed out waiting for ${path}`);
 }
 
 /**
