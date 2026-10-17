@@ -61,16 +61,22 @@ How the `send_wechat` call and its result look in the transcript — the call li
 | Command | Effect |
 |---|---|
 | `/wechat` | TUI: the control screen. Elsewhere: a one-line summary. |
-| `/wechat login` | QR login; on scan, stores credentials and starts the bridge. |
+| `/wechat login` | QR login; on scan, stores credentials, replaces a running poller, and starts the bridge. |
 | `/wechat new` | Start a fresh session (also dispatched by an inbound `/new`). |
 | `/wechat status` | The same control screen as a bare `/wechat`. |
-| `/wechat logout` | Confirm, then clear credentials and stop the bridge. |
-| `/wechat help` | List the subcommands. |
+| `/wechat logout` | Confirm, then clear credentials, drop the bridge, and stop polling. |
+| `/wechat help` | List the subcommands with a line each. |
 
 The bridge starts automatically on `session_start` (and after `login`) whenever
 an account is stored, so there is no start/stop command: the account is the
 on/off switch. `/wechat logout` is the only way to stop polling, and it discards
 the credentials.
+
+A confirmed `/wechat login` is authoritative: a poller that is already running
+is stopped and reopened with the new credentials, so a rotated token takes
+effect at once. Stored state (`state.json`) belongs to the account, so logging in
+as a different account starts from an empty cursor and owner instead of carrying
+the previous one's over.
 
 A session that expires while running keeps the `✆ wechat expired` chip:
 `/wechat status` reports it and points at the fix, and `/wechat login` is the
@@ -82,10 +88,12 @@ or reconnect, `n` start a new session, `o` log out, `r` refresh, and Esc closes.
 The subcommands above are shortcuts for the same actions and the only route
 outside the TUI; an unknown subcommand reports the valid ones.
 
-A WeChat turn owns the screen dialogs while it runs, so a `/wechat` command
-typed at the terminal then degrades instead of opening a dialog on the phone:
-`status` prints the one-line summary, and `login`/`logout` reply that they are
-unavailable until the turn finishes.
+A WeChat turn owns the session and its dialogs while it runs, so a `/wechat`
+command typed at the terminal then declines instead of acting on a turn that is
+still being answered: `status` prints the one-line summary, and
+`login`/`logout`/`new` reply that they are unavailable until the turn finishes.
+(`/wechat new` would otherwise replace the session under the run and leave the
+peer unanswered.)
 
 ## Slash commands
 
@@ -110,9 +118,9 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Everything, including the QR login screen and the `/wechat` control screen (`ctx.ui.custom`). While a WeChat turn owns the dialogs, `status` degrades to the one-line summary and `login`/`logout` report that their screen is unavailable. |
-| `rpc` | The bridge auto-starts and `status` prints the one-line summary; `login` needs the TUI (the QR screen is unavailable over RPC). |
-| `json`, `print` | Ephemeral; the bridge does not auto-start and no UI is available. |
+| `tui` | Everything, including the QR login screen and the `/wechat` control screen (`ctx.ui.custom`). While a WeChat turn owns the dialogs, `status` degrades to the one-line summary and `login`/`logout`/`new` report that they are unavailable. |
+| `rpc` | The bridge auto-starts and `status` prints the one-line summary; `login` needs the TUI (the QR screen is unavailable over RPC), while `logout`'s confirmation is forwarded through the RPC UI protocol like any other dialog. |
+| `json`, `print` | Ephemeral; the bridge does not auto-start and no UI is available, so `logout` reports that it needs a confirmation dialog instead of failing silently. |
 
 ## What the peer experiences
 
@@ -315,7 +323,9 @@ building a second poller, which is what the RPC double bind would otherwise do.
 The operator surface is one verb table: a bare `/wechat` (or `/wechat status`)
 opens the control screen, whose keys return the same verbs the subcommands
 accept, so each action has a single implementation and there is no subcommand to
-memorize. The screen closes with an action the command runs afterwards, so the
+memorize. The table is also the source of the help text, the usage line, and the
+tab completions, so a new verb cannot be listed in one place and missed in
+another. The screen closes with an action the command runs afterwards, so the
 QR login screen never opens while the control screen still owns input focus. An
 unknown subcommand reports the valid verbs instead of silently falling back to
 status, which is what the old start/stop guidance used to do.
@@ -326,7 +336,7 @@ status, which is what the old start/stop guidance used to do.
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge. |
 | `bridge.ts` | The loop: poll, queue, inject, capture, reply, media, typing, connection state, abort. |
-| `commands.ts` | `/wechat login|new|status|logout|help`: the verb dispatch, the panel, login, and logout; declines a screen while a WeChat turn owns the dialogs. |
+| `commands.ts` | `/wechat login|new|status|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login, and logout; every verb declines while a WeChat turn owns the dialogs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
 | `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |

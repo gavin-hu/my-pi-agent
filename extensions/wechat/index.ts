@@ -165,7 +165,14 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		},
 		saveAccount,
 		primaryAccount,
-		logout: () => clearCredentials(),
+		logout: () => {
+			clearCredentials();
+			// The account is the on/off switch: without one there is nothing to report,
+			// so drop the handle rather than leave `/wechat` showing the old owner and
+			// counters. The next `ensureBridge`/`autoStart` builds a fresh bridge (and
+			// re-installs the remote UI adapter) from the new account.
+			bridge = undefined;
+		},
 		now: () => Date.now(),
 	};
 

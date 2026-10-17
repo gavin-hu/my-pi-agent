@@ -200,6 +200,21 @@ describe("StatusScreenComponent", () => {
 		expect(actions).toEqual(["logout"]);
 	});
 
+	test("accepts the uppercase form of each action key", () => {
+		const login = component(view());
+		login.screen.handleInput("L");
+		expect(login.actions).toEqual(["login"]);
+		const session = component(view());
+		session.screen.handleInput("N");
+		expect(session.actions).toEqual(["new"]);
+		const logout = component(view());
+		logout.screen.handleInput("O");
+		expect(logout.actions).toEqual(["logout"]);
+		const refresh = component(view());
+		refresh.screen.handleInput("R");
+		expect(refresh.renders()).toBe(1);
+	});
+
 	test("ignores other keys now that there is no start/stop control", () => {
 		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
 		screen.handleInput("s");

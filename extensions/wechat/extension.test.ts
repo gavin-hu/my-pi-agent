@@ -146,6 +146,37 @@ describe("wechat lifecycle", () => {
 		});
 	});
 
+	test("clears the bridge when the account is logged out", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const fake = createFakePi();
+			const client = fakeWechatClient([updates()]);
+			wechat(fake.pi, { createClient: client.createClient, sleep: client.sleep });
+			const { ctx, notices } = fakeCtx({ mode: "rpc", cwd: dir, hasUI: true, confirm: true });
+			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+			await waitFor(() => client.polls() >= 1);
+
+			await fake.commands.get("wechat").handler("logout", ctx);
+			expect(client.aborts()).toBe(1);
+			expect(notices.at(-1)?.message).toBe("WeChat logged out.");
+
+			// The account is the on/off switch: the summary must report neither the
+			// old account nor the old bridge's owner and counters.
+			await fake.commands.get("wechat").handler("status", ctx);
+			const summary = notices.at(-1)?.message ?? "";
+			expect(summary).toContain("not logged in");
+			expect(summary).toContain("closed");
+			expect(summary).not.toContain("peer(s)");
+			expect(summary).not.toContain("owner");
+
+			const tool = fake.tools.get("send_wechat");
+			const result = await tool.execute("id", { text: "hi" }, undefined, undefined, ctx);
+			expect(result.content[0].text).toContain("not started");
+
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
 	test("reconnects on the replacement runtime after a session switch", async () => {
 		await withAgentDir(async (dir) => {
 			writeAccount(dir);

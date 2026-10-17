@@ -157,6 +157,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that they are unavailable until the turn finishes, instead of crashing on a
   refused full-screen component or sending the logout confirmation to the
   phone.
+- `wechat`: `/wechat new` declines while a WeChat turn is in flight, like
+  `login` and `logout`, instead of replacing the session under the run and
+  leaving the peer unanswered.
+- `wechat`: a confirmed `/wechat login` stops a poller that is already running
+  before the new credentials are used, so a rotated token takes effect instead
+  of being stored while the old client keeps polling. Stored state belongs to
+  one account, so logging in as a different one starts from an empty cursor and
+  owner rather than carrying the previous owner over and refusing the new
+  account's own sender.
+- `wechat`: `/wechat logout` drops the bridge with the account, so `/wechat` no
+  longer reports the previous owner and activity counters as if the account were
+  still connected, and `send_wechat` reports a stopped bridge.
+- `wechat`: `/wechat help` lists each verb with a one-line description and the
+  subcommand completions carry the same line; the control screen's keys accept
+  their uppercase form, and `logout` in a mode without a dialog reports that it
+  needs one instead of doing nothing.
 
 ## [0.10.0] - 2026-10-17
 

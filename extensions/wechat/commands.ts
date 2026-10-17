@@ -4,14 +4,15 @@
  * The command is the operator's single entry point. `/wechat` (or `/wechat
  * status`) opens the control screen, where every action is a key; the verb
  * subcommands are shortcuts for RPC and scripts. A confirmed `login` stores
- * credentials and connects in one step, and the bridge otherwise auto-starts on
- * `session_start` while an account exists. `new` starts a fresh session (an
- * inbound `/new` dispatches it), and `logout` discards the account and stops the
- * bridge.
+ * credentials, replaces a poller that is already running, and connects in one
+ * step, and the bridge otherwise auto-starts on `session_start` while an account
+ * exists. `new` starts a fresh session (an inbound `/new` dispatches it), and
+ * `logout` discards the account and stops the bridge. Every dialog-backed verb
+ * declines while a WeChat turn owns the dialogs.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { isRemoteTurn } from "../../lib/interaction.ts";
+import { isRemoteTurn, supportsCustomUI } from "../../lib/interaction.ts";
 import type { Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
@@ -33,12 +34,38 @@ export interface CommandDeps {
 	now: () => number;
 }
 
-/** Every `/wechat` verb, in the order `/wechat help` lists them. */
-export const WECHAT_VERBS = ["login", "new", "status", "logout", "help"] as const;
-export type WechatVerb = (typeof WECHAT_VERBS)[number];
+/** One `/wechat` verb and the line `/wechat help` shows for it. */
+export interface WechatCommand {
+	verb: string;
+	description: string;
+}
+
+/**
+ * Every `/wechat` verb, in the order `help` and the completions list them. The
+ * help text, the usage line, and the tab completions are all derived from this
+ * table, so a verb cannot be listed in one place and missed in another.
+ */
+export const WECHAT_COMMANDS = [
+	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge" },
+	{ verb: "new", description: "Start a fresh session" },
+	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)" },
+	{ verb: "logout", description: "Clear the stored account and stop the bridge" },
+	{ verb: "help", description: "List these commands" },
+] as const satisfies readonly WechatCommand[];
+
+export type WechatVerb = (typeof WECHAT_COMMANDS)[number]["verb"];
+
+/** The bare verb names, for lookup and the usage line. */
+export const WECHAT_VERBS: readonly WechatVerb[] = WECHAT_COMMANDS.map((command) => command.verb);
 
 /** The one-line pointer to every subcommand, used by `help` and a typo. */
-export const WECHAT_USAGE = "/wechat login | new | status | logout | help";
+export const WECHAT_USAGE = `/wechat ${WECHAT_VERBS.join(" | ")}`;
+
+/** The `/wechat help` notice: the usage line, then one line per verb. */
+export function wechatHelp(): string {
+	const lines = WECHAT_COMMANDS.map((command) => `  /wechat ${command.verb} — ${command.description}`);
+	return [`wechat commands — ${WECHAT_USAGE}`, ...lines].join("\n");
+}
 
 /** Whether `value` names a known `/wechat` verb. */
 export function isWechatVerb(value: string): value is WechatVerb {
@@ -70,12 +97,16 @@ function busyWithRemoteTurn(ctx: ExtensionContext, verb: string): boolean {
  * bridge immediately, so `/wechat login` is the only command needed to go
  * online and the recovery path after a session expiry.
  */
-export function finishLogin(result: LoginOutcome, ctx: ExtensionContext, deps: CommandDeps): void {
+export async function finishLogin(result: LoginOutcome, ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
 	switch (result.kind) {
 		case "confirmed": {
 			deps.saveAccount(result.account);
 			const label = peerLabel(result.account.ilinkUserId);
 			try {
+				// A scan is authoritative: a poller that is already running holds the
+				// previous client and its token, and `open()` is a no-op while it runs, so
+				// it has to stop before the new credentials are used.
+				await deps.getBridge()?.close();
 				deps.ensureBridge(ctx).open();
 				ctx.ui.notify(`WeChat connected as ${label} and the bridge is running.`);
 			} catch (error) {
@@ -142,7 +173,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		});
 	});
 
-	finishLogin(result ?? { kind: "cancelled" }, ctx, deps);
+	await finishLogin(result ?? { kind: "cancelled" }, ctx, deps);
 }
 
 /**
@@ -151,6 +182,10 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
  * the bridge again because the account is stored.
  */
 export async function runNew(ctx: ExtensionCommandContext): Promise<void> {
+	// A WeChat turn is a real run in this session: replacing the session under it
+	// drops the turn, stops the bridge on shutdown, and leaves the peer unanswered.
+	// The inbound `/new` declines the same case through `activeTurn`.
+	if (busyWithRemoteTurn(ctx, "new")) return;
 	await ctx.newSession();
 }
 
@@ -163,7 +198,7 @@ export async function runNew(ctx: ExtensionCommandContext): Promise<void> {
  */
 async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
 	const view = (): StatusView => statusView(deps.primaryAccount(), deps.getBridge()?.status());
-	if (ctx.mode !== "tui" || isRemoteTurn(ctx)) {
+	if (!supportsCustomUI(ctx)) {
 		ctx.ui.notify(statusLine(view()));
 		return;
 	}
@@ -188,6 +223,10 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 }
 
 async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
+	if (!ctx.hasUI) {
+		ctx.ui.notify("WeChat logout needs a confirmation dialog, which this mode has no UI for.", "warning");
+		return;
+	}
 	if (busyWithRemoteTurn(ctx, "logout")) return;
 	if (!(await ctx.ui.confirm("Log out of WeChat?", "Remove the stored credentials and close the bridge."))) return;
 	await deps.getBridge()?.close();
@@ -196,14 +235,11 @@ async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 }
 
 /** Complete the single wechat subcommand; anything after it is not tab-completed. */
-function completeSubcommand(
-	prefix: string,
-	options: readonly string[],
-): Array<{ value: string; label: string }> | null {
+function completeSubcommand(prefix: string): Array<{ value: string; label: string; description: string }> | null {
 	const text = prefix.trimStart();
 	if (text.includes(" ")) return null;
-	const items = options.filter((option) => option.startsWith(text));
-	return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
+	const items = WECHAT_COMMANDS.filter((command) => command.verb.startsWith(text));
+	return items.length > 0 ? items.map(({ verb, description }) => ({ value: verb, label: verb, description })) : null;
 }
 
 /** Run one verb. The control screen reuses this so a key and a subcommand agree. */
@@ -218,7 +254,7 @@ async function dispatch(verb: WechatVerb, ctx: ExtensionCommandContext, deps: Co
 		case "logout":
 			return runLogout(ctx, deps);
 		case "help":
-			ctx.ui.notify(`wechat commands — ${WECHAT_USAGE}`);
+			ctx.ui.notify(wechatHelp());
 			return;
 	}
 }
@@ -226,7 +262,7 @@ async function dispatch(verb: WechatVerb, ctx: ExtensionCommandContext, deps: Co
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
 		description: "WeChat bridge. /wechat opens the control screen (login | new | status | logout | help)",
-		getArgumentCompletions: (prefix) => completeSubcommand(prefix, WECHAT_VERBS),
+		getArgumentCompletions: completeSubcommand,
 		handler: async (args, ctx) => {
 			const [sub = "status"] = args.trim().split(/\s+/).filter(Boolean);
 			const verb = sub.toLowerCase();

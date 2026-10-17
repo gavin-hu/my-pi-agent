@@ -334,6 +334,47 @@ describe("bridge", () => {
 		expect(states).toEqual(["running", "expired", "stopped"]);
 		expect(bridge.status().expired).toBe(false);
 	});
+
+	test("claims the owner on the first open", () => {
+		const { client } = makeClient([]);
+		const { deps, saved } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(saved.at(-1)?.ownerId).toBe(owner);
+		void bridge.close();
+	});
+
+	test("starts empty state for a different account than the stored one", () => {
+		// state.json outlives credentials.json: after a logout and a login as another
+		// account, the old owner, cursor, and tokens must not be reused, or the new
+		// account's own sender would be refused.
+		const { client } = makeClient([]);
+		const { deps, saved } = makeDeps(client, {
+			loadState: () => ({
+				cursor: "old-cursor",
+				ownerId: "previous@im.wechat",
+				peers: { "previous@im.wechat": { lastSeen: 1, lastContextToken: "old" } },
+			}),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(saved.at(-1)).toEqual({ cursor: "", ownerId: owner, peers: {} });
+		expect(bridge.status().owner).toBe(owner);
+		void bridge.close();
+	});
+
+	test("keeps the stored state for the same account", () => {
+		const stored = { cursor: "c", ownerId: owner, peers: { [owner]: { lastSeen: 1 } } };
+		const { client } = makeClient([]);
+		const { deps, saved } = makeDeps(client, { loadState: () => structuredClone(stored) });
+		const bridge = createBridge(deps);
+		bridge.open();
+		// The cursor is the server's place in a matched account; resetting it would
+		// replay or skip messages.
+		expect(saved).toEqual([]);
+		expect(bridge.status().peerCount).toBe(1);
+		void bridge.close();
+	});
 });
 
 describe("bridge media", () => {
@@ -597,6 +638,26 @@ describe("bridge slash commands", () => {
 		expect(calls).toEqual([]);
 		expect(injected).toEqual([]);
 		expect(sent).toEqual([]);
+		await bridge.close();
+	});
+
+	test("accepts an owner-only command from the owner in either id form", async () => {
+		// Admission normalizes the `@im.wechat` suffix, so the owner check must too:
+		// a message that carries the suffix reaches an owner stored without it.
+		const calls: string[] = [];
+		const commands: SlashCommand[] = [
+			{ name: "new", summary: "s", kind: "action", ownerOnly: true, run: () => void calls.push("ran") },
+		];
+		const { client } = makeClient([updates([inbound("/new", "boss@im.wechat")])]);
+		const { deps } = makeDeps(client, {
+			slashCommands: commands,
+			loadAccount: () => ({ ...account, ilinkUserId: "boss" }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => calls.length === 1);
+		expect(calls).toEqual(["ran"]);
+		expect(bridge.status().refused).toBe(0);
 		await bridge.close();
 	});
 

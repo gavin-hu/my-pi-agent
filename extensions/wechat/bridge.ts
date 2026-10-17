@@ -35,7 +35,7 @@ import { createWechatInteractionChannel, type WechatInteractionChannel } from ".
 import { defaultSleep } from "./login.ts";
 import { sendLocalFile } from "./outbound.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
-import { recordInbound } from "./state.ts";
+import { emptyState, recordInbound } from "./state.ts";
 import {
 	expandSnippet,
 	findSlashCommand,
@@ -621,7 +621,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		const slash = media.length === 0 ? parseSlash(text) : undefined;
 		const command = slash ? findSlashCommand(slashCommands, slash.name) : undefined;
 		if (command && slash) {
-			if (command.ownerOnly && peer !== owner) {
+			if (command.ownerOnly && peerKey(peer) !== peerKey(owner ?? "")) {
 				refused += 1;
 				return;
 			}
@@ -698,7 +698,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			client = deps.createClient(loaded);
 			state = deps.loadState();
 			if (!state.ownerId) {
+				// First open for this state: adopt the account and keep the stored cursor
+				// and reply tokens, which belong to it.
 				state.ownerId = loaded.ilinkUserId;
+				deps.saveState(state);
+			} else if (state.ownerId !== loaded.ilinkUserId) {
+				// `state.json` outlives `credentials.json`: after a logout and a login as
+				// another account, the stored owner, cursor, and tokens belong to the
+				// previous one, and keeping the owner would refuse the new account.
+				state = { ...emptyState(), ownerId: loaded.ilinkUserId };
 				deps.saveState(state);
 			}
 			running = true;

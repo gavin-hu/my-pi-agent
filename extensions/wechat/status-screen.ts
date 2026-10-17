@@ -14,6 +14,7 @@ import type { Component } from "@earendil-works/pi-tui";
 import { screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { isCloseKey } from "../../lib/tui/cursor.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { keyValueRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -74,7 +75,7 @@ export function statusLine(view: StatusView): string {
 		if (view.owner) parts.push(`owner ${view.owner}`);
 	}
 	const recovery = view.connection === "expired" ? " — run /wechat login to reconnect" : "";
-	return `wechat: ${parts.join(" · ")}${recovery}`;
+	return `wechat: ${parts.join(SEPARATORS.item)}${recovery}`;
 }
 
 /** Label column width in the screen body. */
@@ -175,19 +176,19 @@ export class StatusScreenComponent implements Component {
 			this.options.onClose("close");
 			return;
 		}
-		if (data === "l") {
+		if (data === "l" || data === "L") {
 			this.options.onClose("login");
 			return;
 		}
-		if (data === "n") {
+		if (data === "n" || data === "N") {
 			this.options.onClose("new");
 			return;
 		}
-		if (data === "o") {
+		if (data === "o" || data === "O") {
 			this.options.onClose("logout");
 			return;
 		}
-		if (data === "r") this.options.requestRender();
+		if (data === "r" || data === "R") this.options.requestRender();
 	}
 
 	/** Stateless: every value is read live from `view()` on render. */
@@ -197,7 +198,7 @@ export class StatusScreenComponent implements Component {
 		const target = Math.max(1, width);
 		const theme = this.options.theme;
 		return [
-			titleRule(theme, target, "wechat · control"),
+			titleRule(theme, target, `wechat${SEPARATORS.item}control`),
 			"",
 			...statusBody(this.options.view(), theme, target),
 			"",
