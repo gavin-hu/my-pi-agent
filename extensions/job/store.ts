@@ -11,7 +11,7 @@
  * is otherwise running fine.
  */
 
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { REGISTRY_VERSION, loadRegistries, registryDirFor, saveRegistry } from "./registry.ts";
 import { listReservedIds, pruneReservations, releaseReservation, reserveId } from "./reservations.ts";
 import { statusPathFor } from "./paths.ts";
@@ -38,6 +38,10 @@ export interface JobStore {
 	logPath(id: string): string;
 	/** The log path only when it is exactly this job's file in the directory. */
 	safeLogPath(job: JobRecord): string | undefined;
+	/** Absolute path of the segment a rotation moved the previous log to. */
+	rotatedLogPath(id: string): string;
+	/** The rotated path only when it stays inside the directory. */
+	safeRotatedLogPath(job: JobRecord): string | undefined;
 	/** Absolute status path for a job id in the current directory. */
 	statusPath(id: string): string;
 	/** The status path only when it is exactly this job's file in the directory. */
@@ -84,6 +88,14 @@ export function createJobStore(initialDir = registryDirFor(process.cwd())): JobS
 		},
 		logPath: (id) => join(dir, `${id}.log`),
 		safeLogPath: (job) => safeArtifact(job.logPath, join(dir, `${job.id}.log`)),
+		rotatedLogPath: (id) => join(dir, `${id}.log.1`),
+		// No record field names this file, so the id is the only input: refuse an id
+		// that would resolve outside the registry directory.
+		safeRotatedLogPath: (job) => {
+			const root = resolve(dir);
+			const target = resolve(root, `${job.id}.log.1`);
+			return target.startsWith(`${root}${sep}`) ? target : undefined;
+		},
 		statusPath: (id) => statusPathFor(dir, id),
 		safeStatusPath: (job) => safeArtifact(job.statusPath ?? undefined, join(dir, `${job.id}.status`)),
 	};

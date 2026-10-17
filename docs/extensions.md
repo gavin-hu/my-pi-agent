@@ -91,7 +91,8 @@ Run long-lived shell commands in the background. Start a job, list jobs, check
 status, read a sanitized log tail, feed a `stdin: true` job input, wait for
 completion, or kill one. A `▸ N` chip shows running jobs and `✗ N` shows
 unreported failures; jobs reconcile on session shutdown, and a finished job is
-also drawn as a bytefly notice.
+also drawn as a bytefly notice. A log segment rotates at `maxLogBytes` (8 MiB by
+default), so a chatty job cannot fill the disk.
 
 <img src="../assets/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%">
 

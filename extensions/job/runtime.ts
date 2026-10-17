@@ -18,7 +18,15 @@
  * twice and listeners/waiters are removed on cleanup.
  */
 
-import { createWriteStream, existsSync, mkdirSync, unlinkSync, writeFileSync, type WriteStream } from "node:fs";
+import {
+	createWriteStream,
+	existsSync,
+	mkdirSync,
+	renameSync,
+	unlinkSync,
+	writeFileSync,
+	type WriteStream,
+} from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
@@ -62,6 +70,8 @@ import { createWaiters } from "./waiters.ts";
 const LOG_MODEL_CHARS = 16 * 1024;
 /** Cap on the buffered partial line used to track the latest output. */
 const MAX_PENDING = 16 * 1024;
+/** Bytes held while a rotation swaps the log stream before writes resume. */
+const MAX_ROTATION_QUEUE_BYTES = 2 * 1024 * 1024;
 /** Default `wait` timeout. */
 const DEFAULT_WAIT_MS = 30_000;
 
@@ -130,6 +140,16 @@ interface Handle {
 	stdin?: StdinSink | null;
 	/** True once stdin was ended, or the child closed its end. */
 	stdinClosed?: boolean;
+	/** Chunks that arrived while the log stream was being swapped. */
+	queue: Buffer[];
+	/** Bytes currently in `queue`. */
+	queuedBytes: number;
+	/** True between ending the old stream and reopening the log. */
+	rotating: boolean;
+	/** Bytes dropped because a rotation could not keep up; reported by `logs`. */
+	droppedBytes: number;
+	/** Bytes written to the live segment, counted exactly as chunks arrive. */
+	logBytes: number;
 }
 
 export interface JobsRuntime {
@@ -206,6 +226,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		try {
 			const path = store.safeLogPath(job);
 			if (path && existsSync(path)) unlinkSync(path);
+			// Both segments are the job's own log; drop the rotated one too.
+			const rotated = store.safeRotatedLogPath(job);
+			if (rotated && existsSync(rotated)) unlinkSync(rotated);
 		} catch {
 			// Log cleanup is best-effort.
 		}
@@ -398,6 +421,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (!handle) return;
 		if (handle.killTimer) clearTimeout(handle.killTimer);
 		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
+		// A rotation still in flight checks the handle map before reopening, so
+		// dropping the queue here cannot leak a reopened stream for a dead job.
+		handle.queue = [];
+		handle.queuedBytes = 0;
 		// Release the stdin pipe so a child waiting on input sees EOF instead of a
 		// half-open pipe nobody can write to.
 		if (handle.stdin && !handle.stdinClosed) {
@@ -423,11 +450,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const handle = handles.get(id);
 		const job = jobs.get(id);
 		if (!handle || !job) return;
-		try {
-			handle.stream?.write(chunk);
-		} catch {
-			// A closed stream must not break output handling.
-		}
+		writeChunk(handle, job, chunk);
 		handle.pending += chunk.toString("utf8");
 		if (handle.pending.length > MAX_PENDING) handle.pending = handle.pending.slice(-MAX_PENDING);
 		consume(handle, job);
@@ -435,6 +458,98 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (time - lastPaint >= config.repaintMs) {
 			lastPaint = time;
 			paint();
+		}
+	};
+
+	const writeLog = (handle: Handle, chunk: Buffer): void => {
+		try {
+			handle.stream?.write(chunk);
+		} catch {
+			// A closed stream must not break output handling.
+		}
+		// Count what we handed the stream: `WriteStream.bytesWritten` only updates on
+		// its completion callback, which can lag a tick behind the file on disk.
+		if (handle.stream) handle.logBytes += chunk.length;
+	};
+
+	/** Buffer a chunk while the log stream is being swapped, dropping the oldest past the cap. */
+	const enqueue = (handle: Handle, chunk: Buffer, front = false): void => {
+		if (front) handle.queue.unshift(chunk);
+		else handle.queue.push(chunk);
+		handle.queuedBytes += chunk.length;
+		while (handle.queuedBytes > MAX_ROTATION_QUEUE_BYTES && handle.queue.length > 1) {
+			const dropped = handle.queue.shift();
+			if (!dropped) break;
+			handle.queuedBytes -= dropped.length;
+			handle.droppedBytes += dropped.length;
+		}
+	};
+
+	/**
+	 * Move the live segment aside, queueing `chunk` ahead of the backlog, and reopen.
+	 *
+	 * Returns false when no rotation can start (no stream, or a record whose log
+	 * paths do not validate), so the caller writes the chunk instead of stranding it
+	 * in a queue nothing will drain.
+	 *
+	 * The old stream is ended and its `close` awaited before the rename, because
+	 * Windows refuses to rename an open file; chunks that arrive in that window
+	 * are queued rather than written, so nothing lands in the renamed inode.
+	 */
+	const rotateLog = (handle: Handle, job: Job, chunk: Buffer): boolean => {
+		const stream = handle.stream;
+		const logPath = store.safeLogPath(job);
+		const rotated = store.safeRotatedLogPath(job);
+		if (!stream || !logPath || !rotated || handle.rotating) return false;
+		// This chunk precedes whatever queued while the previous segment was closing.
+		enqueue(handle, chunk, true);
+		handle.rotating = true;
+		stream.once("close", () => {
+			// A killed or cleared job drops its handle; never reopen for it.
+			if (handles.get(job.id) !== handle) return;
+			try {
+				if (existsSync(rotated)) unlinkSync(rotated);
+				renameSync(logPath, rotated);
+			} catch {
+				// A failed rename leaves the oversized segment in place; keep appending.
+			}
+			const reopened = createWriteStream(logPath, { flags: "a" });
+			reopened.on("error", () => {});
+			handle.stream = reopened;
+			handle.rotating = false;
+			handle.logBytes = 0;
+			drain(handle, job);
+		});
+		try {
+			stream.end();
+		} catch {
+			// Already ended.
+		}
+		return true;
+	};
+
+	/** Write one output chunk, rotating the segment first when it reached the cap. */
+	const writeChunk = (handle: Handle, job: Job, chunk: Buffer): void => {
+		if (handle.rotating) {
+			// Later than everything already queued.
+			enqueue(handle, chunk);
+			return;
+		}
+		const cap = config.maxLogBytes;
+		if (handle.stream && cap > 0 && handle.logBytes >= cap && rotateLog(handle, job, chunk)) return;
+		writeLog(handle, chunk);
+	};
+
+	/**
+	 * Replay the queue through `writeChunk` after a rotation, so a backlog that is
+	 * itself larger than the cap rotates again instead of filling one segment.
+	 */
+	const drain = (handle: Handle, job: Job): void => {
+		while (!handle.rotating && handle.queue.length > 0) {
+			const chunk = handle.queue.shift();
+			if (!chunk) break;
+			handle.queuedBytes -= chunk.length;
+			writeChunk(handle, job, chunk);
 		}
 	};
 
@@ -668,7 +783,15 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			owned: true,
 		};
 
-		const handle: Handle = { stream, pending: "" };
+		const handle: Handle = {
+			stream,
+			pending: "",
+			queue: [],
+			queuedBytes: 0,
+			rotating: false,
+			droppedBytes: 0,
+			logBytes: 0,
+		};
 		if (wantsStdin) {
 			const sink = process_.stdin ?? null;
 			handle.stdin = sink;
@@ -705,16 +828,33 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	function logs(id: string, lines = config.maxLogLines): LogResult | undefined {
 		const job = jobs.get(id);
 		if (!job) return undefined;
-		const tail = readLogTail(store.safeLogPath(job), lines);
-		const last = tail.lines.at(-1);
+		const current = readLogTail(store.safeLogPath(job), lines);
+		let all = current.lines;
+		let more = current.more;
+		let truncated = current.truncated;
+		// Keep `logs` continuous across a rotation: fill the request from the
+		// previous segment when the live one holds fewer lines.
+		if (all.length < lines) {
+			const previous = readLogTail(store.safeRotatedLogPath(job), lines - all.length);
+			if (previous.lines.length > 0) {
+				all = [...previous.lines, ...all];
+				more = more || previous.more;
+				truncated = truncated || previous.truncated;
+			}
+		}
+		const last = all.at(-1);
 		if (last) job.lastLine = last;
-		const formatted = formatLogs(job, tail.lines, LOG_MODEL_CHARS);
+		const formatted = formatLogs(job, all, LOG_MODEL_CHARS);
+		// A rotation that outran its drain drops the oldest queued chunks; say so once
+		// rather than letting the gap look like a program that skipped output.
+		const dropped = handles.get(id)?.droppedBytes ?? 0;
+		const text = dropped > 0 ? `${formatted.text}\n… ${dropped} bytes dropped while the log rotated.` : formatted.text;
 		return {
 			job,
-			text: formatted.text,
-			lines: tail.lines,
-			truncated: formatted.truncated || tail.truncated,
-			more: tail.more,
+			text,
+			lines: all,
+			truncated: formatted.truncated || truncated,
+			more,
 		};
 	}
 

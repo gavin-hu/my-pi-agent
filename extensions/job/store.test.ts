@@ -71,4 +71,10 @@ describe("job store", () => {
 		expect(store.safeStatusPath(record({ id: "j1", statusPath: "/tmp/elsewhere/j1.status" }))).toBeUndefined();
 		expect(store.safeStatusPath(record({ id: "j1", statusPath: null }))).toBeUndefined();
 	});
+
+	test("safeRotatedLogPath derives the previous segment and refuses a traversing id", () => {
+		const store = createJobStore("/tmp/pi-jobs-store");
+		expect(store.safeRotatedLogPath(record({ id: "j1" }))).toBe(resolve(join("/tmp/pi-jobs-store", "j1.log.1")));
+		expect(store.safeRotatedLogPath(record({ id: "../../escape" }))).toBeUndefined();
+	});
 });
