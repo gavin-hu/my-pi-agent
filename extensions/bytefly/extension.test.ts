@@ -71,16 +71,16 @@ describe("bytefly extension", () => {
 		expect(markdownTransformers).toHaveLength(1);
 	});
 
-	test("drives the thinking counter from an assistant message", async () => {
+	test("drives the working timer while the working row is up", async () => {
 		const { pi } = makeFakePi();
 		bytefly(pi);
-		const { ctx, thinkingLabels } = fakeFooterCtx({ mode: "tui" });
+		const { ctx, workingMessages } = fakeFooterCtx({ mode: "tui" });
 
-		await emit(pi, "message_start", { message: { role: "assistant" } }, ctx);
-		expect(thinkingLabels.at(-1)).toMatch(/^Thinking… \d+s$/);
+		await emit(pi, "turn_start", {}, ctx);
+		expect(workingMessages.at(-1)).toMatch(/^Working… \d+s$/);
 
-		await emit(pi, "message_end", { message: { role: "assistant" } }, ctx);
-		expect(thinkingLabels.at(-1)).toBeUndefined();
+		await emit(pi, "agent_end", {}, ctx);
+		expect(workingMessages.at(-1)).toBeUndefined();
 	});
 
 	test("registers the notice renderer", () => {

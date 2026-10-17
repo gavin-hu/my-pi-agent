@@ -235,9 +235,10 @@ led by the transcript rail. The rail is the `chrome.rail` setting (default `╎`
 and it is painted by status (a running result takes the accent, a failure red, a
 finished one neutral; a notice takes its worst severity). A result is always
 railed; a call is railed only for the two file-mutating tools (`edit`, `write`),
-whose call body carries the result. There is no status band. While an assistant message streams it also advances a live elapsed
-counter (`Thinking… 12s`) on Pi's hidden thinking label, handing it back to Pi
-when the message ends. DeepSeek is priced out of the
+whose call body carries the result. There is no status band. While the working
+row is up it also advances a live elapsed counter (`Working… 12s`) on Pi's
+working message, handing it back to Pi when the row comes down. DeepSeek is
+priced out of the
 box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a

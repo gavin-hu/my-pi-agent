@@ -1,12 +1,12 @@
 /**
- * Pure text for the live thinking counter.
+ * Pure text for the live working timer.
  *
  * Whole seconds, because the counter advances on a one-second tick: `0s` at the
  * start, `42s`, `1m05s`, `1h02m`. Negative and non-finite input reads as `0s`,
  * so a clock that steps backwards cannot print a negative count.
  */
 
-import { THINKING_CONFIG } from "./config.ts";
+import { WORKING_CONFIG } from "./config.ts";
 
 /** Compact elapsed time in whole seconds: `0s`, `42s`, `1m05s`, `1h02m`. */
 export function formatElapsed(ms: number): string {
@@ -19,7 +19,7 @@ export function formatElapsed(ms: number): string {
 	return `${seconds}s`;
 }
 
-/** The hidden thinking label for an elapsed time, e.g. `Thinking… 4s`. */
-export function thinkingCounter(ms: number): string {
-	return `${THINKING_CONFIG.label}${THINKING_CONFIG.ellipsis} ${formatElapsed(ms)}`;
+/** The working-row message for an elapsed time, e.g. `Working… 4s`. */
+export function workingCounter(ms: number): string {
+	return `${WORKING_CONFIG.working}${WORKING_CONFIG.ellipsis} ${formatElapsed(ms)}`;
 }
