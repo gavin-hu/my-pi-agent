@@ -24,7 +24,9 @@ How the `send_wechat` call and its result look in the transcript — the call li
   text is sent back to the sender.
 - **Inbound media** — images are downloaded, AES-128-ECB decrypted, and attached
   as model image content; files are saved under `<agent-dir>/wechat/media/` and
-  referenced by path. Voice uses the transcript the server provides.
+  referenced by path. Voice uses the transcript the server provides. An
+  attachment the bridge could not read (too large, a failed download, no key) is
+  reported to the peer and to the model instead of vanishing.
 - **Outbound** — replies are delivered automatically; the owner-only
   `send_wechat` tool lets the model message the owner proactively.
 - **Typing indicator** — the native typing status is set as soon as a message is
@@ -194,7 +196,9 @@ files), and `poller.lock` (stops two sessions polling one account).
   its own messages and only injects when the session is idle, but if you are
   actively typing, a reply may attach to a mixed context.
 - Inbound **video** is not handled, and there is no group-chat support. Voice is
-  handled only through the server-provided transcript.
+  handled only through the server-provided transcript. Both are answered with a
+  one-line notice rather than being dropped silently, and a voice note the
+  server gave no transcript for is treated the same way.
 - Outbound **files** are supported (used by the plan review); outbound images,
   video, and voice are not, and `send_wechat` sends text only.
 - Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`).

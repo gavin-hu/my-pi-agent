@@ -90,16 +90,23 @@ function hasMedia(ref: CDNMedia | undefined): ref is CDNMedia {
 }
 
 /**
- * Split an inbound `item_list` into text and downloadable media.
+ * Split an inbound `item_list` into text, downloadable media, and items the
+ * bridge cannot read at all.
  *
  * Text items and voice transcripts are combined and sanitized (both are
  * untrusted). Images and files with a usable CDN reference become {@link MediaRef}
- * entries; video and unknown items are ignored. A media-only message yields an
- * empty `text`.
+ * entries. `unsupported` counts what a peer plausibly meant to send but the
+ * bridge has no way to read — a voice note the server gave no transcript for, a
+ * video — so the caller can say so instead of dropping it silently.
  */
-export function parseInbound(itemList: MessageItem[] | undefined): { text: string; media: MediaRef[] } {
+export function parseInbound(itemList: MessageItem[] | undefined): {
+	text: string;
+	media: MediaRef[];
+	unsupported: number;
+} {
 	const parts: string[] = [];
 	const media: MediaRef[] = [];
+	let unsupported = 0;
 	for (const item of itemList ?? []) {
 		if (item.type === 1 && typeof item.text_item?.text === "string") {
 			parts.push(item.text_item.text);
@@ -113,7 +120,13 @@ export function parseInbound(itemList: MessageItem[] | undefined): { text: strin
 				media: item.file_item.media,
 				fileName: sanitizeFileName(item.file_item.file_name ?? "file"),
 			});
+		} else if (item.video_item) {
+			unsupported += 1;
+		} else if (item.type === 3 || item.type === 2 || item.type === 4) {
+			// A voice note without a transcript, or an attachment with no usable CDN
+			// reference: nothing to read, but the peer did send something.
+			unsupported += 1;
 		}
 	}
-	return { text: sanitizeInbound(parts.join("\n")), media };
+	return { text: sanitizeInbound(parts.join("\n")), media, unsupported };
 }

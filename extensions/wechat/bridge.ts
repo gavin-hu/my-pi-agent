@@ -165,6 +165,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	let queue: InboundItem[] = [];
 	let active: InboundItem | undefined;
 	let lastText = "";
+	/** One peer-facing line for the turn in flight, prepended to its reply. */
+	let mediaNotice: string | undefined;
 	let refused = 0;
 	let mediaDropped = 0;
 	let mediaCounter = 0;
@@ -422,14 +424,16 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/** Download, decrypt, and turn a media reference into a content block. */
-	async function resolveMedia(item: InboundItem): Promise<(TextContent | ImageContent)[]> {
+	async function resolveMedia(item: InboundItem): Promise<{ blocks: (TextContent | ImageContent)[]; dropped: number }> {
 		const blocks: (TextContent | ImageContent)[] = [];
+		let dropped = 0;
 		for (const ref of item.media) {
-			if (!client) return blocks;
+			if (!client) break;
 			try {
 				const cipher = await client.downloadCdn(ref.media, abort?.signal);
 				if (cipher.byteLength > deps.config.maxMediaBytes) {
 					mediaDropped += 1;
+					dropped += 1;
 					notify(`WeChat media dropped: over ${deps.config.maxMediaBytes} bytes.`, "warning");
 					continue;
 				}
@@ -440,8 +444,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 					const path = saveMedia(deps.mediaDir(), `${deps.now()}-${mediaCounter}-${ref.fileName}`, plain);
 					blocks.push({ type: "text", text: `[WeChat file: ${ref.fileName} saved to ${path}]` });
 				} else {
+					// Without a key the bytes are not the image the peer sent; attaching them
+					// anyway would hand the model a corrupt JPEG.
 					const key = ref.aeskey ?? ref.media.aes_key;
-					const plain = key ? decryptEcb(cipher, decodeMediaKey(key)) : cipher;
+					if (!key) throw new Error("missing AES key");
+					const plain = decryptEcb(cipher, decodeMediaKey(key));
 					blocks.push({
 						type: "image",
 						data: Buffer.from(plain).toString("base64"),
@@ -450,34 +457,67 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				}
 			} catch (error) {
 				mediaDropped += 1;
+				dropped += 1;
 				notify(`WeChat media dropped: ${messageOf(error)}`, "warning");
 			}
 		}
-		return blocks;
+		return { blocks, dropped };
 	}
 
-	/** Resolve media, then inject the turn. `active` is set before any await. */
+	/**
+	 * Resolve media, then inject the turn. `active` is set before any await.
+	 *
+	 * An attachment the bridge could not read is never silent: the model gets a
+	 * `[WeChat media skipped]` block and the peer's reply opens with one line, so a
+	 * failed download cannot look like the model ignoring a photo.
+	 */
 	async function inject(item: InboundItem): Promise<void> {
 		let content: UserContent = item.text;
 		if (item.media.length > 0) {
-			const blocks = await resolveMedia(item);
+			const { blocks, dropped } = await resolveMedia(item);
 			if (!running || active !== item) return;
+			if (!item.text && blocks.length === 0) {
+				// Nothing the model could read, so answer the peer here instead of
+				// starting a turn on a message that carries no content.
+				if (dropped > 0) mediaNotice = notice("media", languageOf(item.peer), dropped);
+				await answerOnly(item);
+				return;
+			}
+			if (dropped > 0) {
+				mediaNotice = notice("media", languageOf(item.peer), dropped);
+				blocks.unshift({ type: "text", text: `[WeChat media skipped: ${dropped}]` });
+			}
 			const parts: (TextContent | ImageContent)[] = [];
 			if (item.text) parts.push({ type: "text", text: item.text });
 			parts.push(...blocks);
-			if (parts.length === 0) {
-				active = undefined;
-				pump();
-				return;
-			}
 			content = parts;
 		}
 		try {
 			deps.sendUserMessage(content);
 		} catch (error) {
 			active = undefined;
+			mediaNotice = undefined;
 			notify(`WeChat could not start a turn: ${messageOf(error)}`, "error");
 			void reply(item, notice("failed", languageOf(item.peer)));
+			pump();
+		}
+	}
+
+	/**
+	 * Answer the peer without starting a turn: a message that carried nothing the
+	 * model could read. The queue stays held until the line is out.
+	 */
+	async function answerOnly(item: InboundItem): Promise<void> {
+		const text = mediaNotice ?? notice("unsupported", languageOf(item.peer));
+		mediaNotice = undefined;
+		active = undefined;
+		stopTyping(item.peer);
+		flushing = true;
+		try {
+			await reply(item, text);
+		} finally {
+			flushing = false;
+			pruneTyping();
 			pump();
 		}
 	}
@@ -510,6 +550,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		if (queue.length === 0) overflow.clear();
 		active = item;
 		lastText = "";
+		mediaNotice = undefined;
 		cancelAck(item.peer);
 		keepTyping(item.peer, item);
 		void inject(item);
@@ -518,7 +559,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	function handleMessage(message: WeixinMessage): void {
 		if (!isInboundMessage(message)) return;
 		const peer = message.from_user_id as string;
-		const { text: rawText, media } = parseInbound(message.item_list);
+		const { text: rawText, media, unsupported } = parseInbound(message.item_list);
 		let text = rawText;
 		// A reply to a pending prompt is consumed here, before admission and
 		// queueing, so it never starts a turn of its own.
@@ -529,7 +570,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			return;
 		}
 		const language = languageOf(peer, text);
-		if (!text && media.length === 0) return;
 		recordInbound(state, peer, message.context_token, deps.now());
 		deps.saveState(state);
 		const item: InboundItem = {
@@ -538,6 +578,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			text,
 			media,
 		};
+		if (!text && media.length === 0) {
+			// Nothing to read. A voice note without a transcript or a video is
+			// answered, so the peer knows it did not reach the agent.
+			if (unsupported > 0) void reply(item, notice("unsupported", language));
+			return;
+		}
 		// Intercept a text slash command before it becomes a turn. A message with
 		// media is never a command, so an attachment is never dropped; an unknown
 		// command falls through to the model as ordinary text.
@@ -630,6 +676,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			queue = [];
 			active = undefined;
 			lastText = "";
+			mediaNotice = undefined;
 			typingCache.clear();
 			languages.clear();
 			ackedAt.clear();
@@ -664,6 +711,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			queue = [];
 			active = undefined;
 			lastText = "";
+			mediaNotice = undefined;
 			stopAllTyping();
 			cancelAllAcks();
 			overflow.clear();
@@ -690,8 +738,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			busy = false;
 			const item = active;
 			const text = lastText;
+			const prefix = mediaNotice;
 			active = undefined;
 			lastText = "";
+			mediaNotice = undefined;
 			interaction.reset();
 			if (!item) {
 				pump();
@@ -704,8 +754,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			flushing = true;
 			void (async () => {
 				await typingOff(item.peer);
-				if (text) await reply(item, text);
-				else await reply(item, notice("stopped", languageOf(item.peer)));
+				const body = text || notice("stopped", languageOf(item.peer));
+				await reply(item, prefix ? `${prefix}\n\n${body}` : body);
 			})().finally(() => {
 				flushing = false;
 				pruneTyping();

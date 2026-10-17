@@ -113,6 +113,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: an inbound attachment the bridge could not read — over
+  `maxMediaBytes`, a failed CDN download, or an image that arrived without its
+  AES key — is no longer silent. The peer gets one line folded into the answer,
+  the model gets a `[WeChat media skipped: N]` block instead of assuming it saw
+  the photo, and an attachment-only message is answered instead of dropped. A
+  voice note the server gave no transcript for and a video are also answered
+  with a one-line notice.
 - `wechat`: a session that connects on `session_start` now answers inbound
   messages. The bridge keeps the handle the host events, the tool, and the
   commands read instead of dropping it, so turns are captured and settled
