@@ -10,7 +10,7 @@ export const JOB_STATUSES = ["running", "exited", "killed", "failed", "unknown"]
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
-export const JOB_ACTIONS = ["start", "list", "status", "logs", "kill", "wait", "clear"] as const;
+export const JOB_ACTIONS = ["start", "list", "status", "logs", "send", "kill", "wait", "clear"] as const;
 
 export type JobAction = (typeof JOB_ACTIONS)[number];
 
@@ -40,6 +40,8 @@ export interface JobRecord {
 	detached: boolean;
 	/** Wake the agent with one triggered turn when the job finishes. */
 	wake: boolean;
+	/** Started with a stdin pipe, so `send` can write to it while this session holds the child. */
+	stdin: boolean;
 	/** Session that started the job. */
 	sessionId: string;
 	/** Whether the completion has already been reported to the model. */
@@ -83,6 +85,10 @@ export interface JobDetails {
 	signalled?: boolean;
 	/** Signal sent by `kill`; defaults to SIGTERM. */
 	signal?: KillSignal;
+	/** Characters of `input` written by `send`, excluding the added newline. */
+	sent?: number;
+	/** True when `send` ended the job's stdin (EOF). */
+	stdinClosed?: boolean;
 	/** True when `wait` hit its timeout. */
 	timedOut?: boolean;
 	/** True when `wait` was cancelled by the tool's abort signal. */

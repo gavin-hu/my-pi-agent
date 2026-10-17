@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_COMMAND, MAX_LABEL, normalizeCall } from "./schema.ts";
+import { MAX_COMMAND, MAX_LABEL, MAX_STDIN, normalizeCall } from "./schema.ts";
 
 /** Narrow a normalized call to the `start` branch (fails the test otherwise). */
 function startCall(raw: unknown) {
@@ -30,6 +30,11 @@ function waitCall(raw: unknown) {
 function clearCall(raw: unknown) {
 	const call = normalizeCall(raw);
 	if (call.action !== "clear") throw new Error(`expected clear, got ${call.action}`);
+	return call;
+}
+function sendCall(raw: unknown) {
+	const call = normalizeCall(raw);
+	if (call.action !== "send") throw new Error(`expected send, got ${call.action}`);
 	return call;
 }
 
@@ -78,8 +83,13 @@ describe("normalizeCall", () => {
 		expect(startCall({ action: "start", command: "x", timeoutMs: 5000 }).timeoutMs).toBe(5000);
 	});
 
+	test("start forwards the stdin opt-in", () => {
+		expect(startCall({ action: "start", command: "x", stdin: true }).stdin).toBe(true);
+		expect(startCall({ action: "start", command: "x" }).stdin).toBeUndefined();
+	});
+
 	test("id-taking actions require an id", () => {
-		for (const action of ["status", "logs", "kill", "wait"]) {
+		for (const action of ["status", "logs", "send", "kill", "wait"]) {
 			expect(() => normalizeCall({ action })).toThrow("requires an id");
 		}
 		expect(statusCall({ action: "status", id: "j2" }).id).toBe("j2");
@@ -104,5 +114,24 @@ describe("normalizeCall", () => {
 
 	test("clear forwards all", () => {
 		expect(clearCall({ action: "clear", all: true }).all).toBe(true);
+	});
+
+	test("send requires input or eof", () => {
+		expect(() => normalizeCall({ action: "send", id: "j1" })).toThrow("requires `input` or `eof: true`");
+		expect(() => normalizeCall({ action: "send", id: "j1", input: "" })).toThrow("requires `input` or `eof: true`");
+		expect(sendCall({ action: "send", id: "j1", eof: true }).eof).toBe(true);
+		expect(sendCall({ action: "send", id: "j1", eof: true }).input).toBeUndefined();
+	});
+
+	test("send caps the input length and rejects a non-string", () => {
+		expect(() => normalizeCall({ action: "send", id: "j1", input: "x".repeat(MAX_STDIN + 1) })).toThrow("longer than");
+		expect(() => normalizeCall({ action: "send", id: "j1", input: 5 })).toThrow("must be a string");
+		expect(sendCall({ action: "send", id: "j1", input: "hi" }).input).toBe("hi");
+	});
+
+	test("send forwards newline and eof only when given", () => {
+		expect(sendCall({ action: "send", id: "j1", input: "y", newline: false }).newline).toBe(false);
+		expect(sendCall({ action: "send", id: "j1", input: "y" }).newline).toBeUndefined();
+		expect(sendCall({ action: "send", id: "j1", input: "y", eof: true }).eof).toBe(true);
 	});
 });

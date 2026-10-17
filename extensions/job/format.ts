@@ -192,6 +192,13 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 		}
 		case "kill":
 			return `kill ${target ?? ""}`.trim();
+		case "send": {
+			if (!target) return "send";
+			const input = typeof args.input === "string" ? sanitizeLogLine(args.input) : "";
+			const preview = input ? truncateToWidth(input, MAX_DISPLAY_LABEL, "…") : "";
+			const parts = [preview, args.eof === true ? "EOF" : ""].filter(Boolean).join(" + ");
+			return parts ? `send ${target} → ${parts}` : `send ${target}`;
+		}
 		case "logs":
 		case "status":
 		case "wait":

@@ -66,6 +66,9 @@ function normalizeRecord(record: JobRecord): JobRecord {
 		...record,
 		statusPath: record.statusPath ?? null,
 		startToken: record.startToken ?? null,
+		// A registry written before stdin support has no such flag; such a job was
+		// started without a pipe, and its session is long gone anyway.
+		stdin: record.stdin === true,
 	};
 }
 
