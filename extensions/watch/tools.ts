@@ -10,6 +10,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareWatches,
@@ -270,7 +271,7 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 					const badges: string[] = [];
 					if (details.watch.wake) badges.push("wake");
 					if (details.watch.fromStart) badges.push("from start");
-					if (badges.length > 0) line += paint(theme, "faint", ` · ${badges.join(" · ")}`);
+					if (badges.length > 0) line += paint(theme, "faint", `${SEPARATORS.item}${badges.join(SEPARATORS.item)}`);
 				}
 				text.setText(line);
 				return text;

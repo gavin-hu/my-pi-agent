@@ -67,6 +67,32 @@ export function listRow(theme: Theme, width: number, row: ListRow): string {
 	return splitRow(`${indent}${marker}${leading}${glyph}${label}`, trailing, width);
 }
 
+/** A status row (a job, a watcher): the marker, a status glyph, a label, and right-aligned meta. */
+export interface StatusRow {
+	selected?: boolean;
+	/** Reserve the marker column. Default true. */
+	marker?: boolean;
+	glyph: string;
+	glyphRole: TuiRole;
+	label: string;
+	trailing: string;
+	/** Role for the trailing meta. Default `faint`. */
+	trailingRole?: TuiRole;
+}
+
+/** One row of a live status list, on the shared `listRow` grammar. */
+export function statusRow(theme: Theme, width: number, row: StatusRow): string {
+	return listRow(theme, width, {
+		selected: row.selected === true,
+		marker: row.marker !== false,
+		glyph: row.glyph,
+		glyphRole: row.glyphRole,
+		label: row.label,
+		trailing: row.trailing,
+		trailingRole: row.trailingRole ?? "faint",
+	});
+}
+
 /** The on/off checkbox glyph, in one role per state. */
 export function checkbox(theme: Theme, on: boolean, roles: { on?: TuiRole; off?: TuiRole } = {}): string {
 	return on ? paint(theme, roles.on ?? "ok", GLYPHS.boxOn) : paint(theme, roles.off ?? "faint", GLYPHS.boxOff);

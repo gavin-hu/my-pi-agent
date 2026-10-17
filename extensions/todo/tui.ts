@@ -12,6 +12,7 @@ import { clampScroll, fitRows, formatRange, isCloseKey, navigateScroll, wheelDel
 import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -50,10 +51,10 @@ function todoRow(todo: Todo, theme: Theme, width: number): string {
  * `jobs` widgets. Callers clip it to the available width.
  */
 function todoLine(todos: Todo[], theme: Theme): string {
-	const head = `${paint(theme, "accent", "Todos")} ${paint(theme, "faint", "·")} ${paint(theme, "faint", progressCount(todos))}`;
+	const head = `${paint(theme, "accent", "Todos")}${paint(theme, "faint", SEPARATORS.item)}${paint(theme, "faint", progressCount(todos))}`;
 	const current = currentTodo(todos);
 	if (!current) return `${head} ${paint(theme, "faint", "completed")}`;
-	return `${head} ${paint(theme, "faint", "·")} ${todoLabel(current, theme)}`;
+	return `${head}${paint(theme, "faint", SEPARATORS.item)}${todoLabel(current, theme)}`;
 }
 
 /** Transcript result block: the indented glyph rail, wrapping at the render width. */

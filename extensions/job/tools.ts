@@ -10,6 +10,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareJobs,
@@ -283,7 +284,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					const badges: string[] = [];
 					if (details.job.detached) badges.push("detached");
 					if (details.job.wake) badges.push("wake");
-					if (badges.length > 0) line += paint(theme, "faint", ` · ${badges.join(" · ")}`);
+					if (badges.length > 0) line += paint(theme, "faint", `${SEPARATORS.item}${badges.join(SEPARATORS.item)}`);
 				}
 				text.setText(line);
 				return text;

@@ -14,7 +14,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
 
@@ -251,7 +251,7 @@ export function jobOutcome(job: JobRecord): string {
 
 /** One-line outcome for a single job, themed for the transcript result. */
 export function formatJobOutcomeLine(job: JobRecord, theme: Theme, now = Date.now()): string {
-	const sep = paint(theme, "faint", " · ");
+	const sep = paint(theme, "faint", SEPARATORS.item);
 	const outcome =
 		job.status === "failed" ? paint(theme, "bad", jobOutcome(job)) : paint(theme, "faint", jobOutcome(job));
 	return (

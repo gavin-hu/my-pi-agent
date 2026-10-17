@@ -123,7 +123,7 @@ describe("registerToolBlocks", () => {
 
 	test("takes the frame margin from the injected pad source", () => {
 		// A fixed source overrides the host pad the context carries.
-		const pad: PadSource = { resolve: () => 2, observe: () => {} };
+		const pad: PadSource = { resolve: () => 2 };
 		const renderers = resolver(pad)("read", () => ({ renderCall: () => new Text("read x\nbody", 0, 0) }));
 		const lines = renderers?.renderCall?.({}, fakeTheme, ctx({ outputPad: 1 })).render(40) ?? [];
 		expect(lines.map((line: string) => line.trimEnd())).toEqual(["  read x", "    body"]);

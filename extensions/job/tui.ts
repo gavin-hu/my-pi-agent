@@ -21,7 +21,7 @@ import { clip, fitCells } from "../../lib/tui/columns.ts";
 import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
 import { expandHint, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { LinePane } from "../../lib/tui/line-pane.ts";
-import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { emptyState, statusRow, type StatusRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -50,25 +50,20 @@ const LOG_CHROME_ROWS = 6;
 /** A job's stable identity, for the id-anchored cursor. */
 const jobId = (job: JobRecord): string => job.id;
 
-/** How one job row is drawn. */
-interface JobRowOptions {
-	/** Draw the interactive selection marker. */
-	selected?: boolean;
-	/** Reserve the marker column. Default true; the transcript sets false. */
-	marker?: boolean;
-}
-
 /** One job row: selection marker, status glyph, id, label, and a right-aligned
- *  elapsed value. `listRow` owns the clipping and the alignment. */
-function jobRow(job: JobRecord, theme: Theme, width: number, options: JobRowOptions = {}): string {
-	return listRow(theme, width, {
-		selected: options.selected === true,
-		marker: options.marker !== false,
+ *  elapsed value. `statusRow` owns the clipping and the alignment. */
+function jobRow(
+	job: JobRecord,
+	theme: Theme,
+	width: number,
+	options: Pick<StatusRow, "selected" | "marker"> = {},
+): string {
+	return statusRow(theme, width, {
+		...options,
 		glyph: statusGlyphChar(job.status),
 		glyphRole: statusRole(job.status),
 		label: `${job.id}  ${shortLabel(job)}`,
 		trailing: formatDuration(elapsedMs(job, Date.now())),
-		trailingRole: "faint",
 	});
 }
 

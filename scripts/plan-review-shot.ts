@@ -25,9 +25,6 @@ import { handleReviewRequest, type ReviewContext } from "../extensions/plan/web-
 import { fenceLanguage, highlightLines } from "../lib/highlight.ts";
 import { captureFullPage } from "./chrome-shot.ts";
 
-/** The Chrome binary the capture drives; re-exported for callers and tests. */
-export { chromeBinary } from "./chrome-shot.ts";
-
 /** CLI options after parsing. */
 export interface ShotOptions {
 	/** Absolute plan path. */

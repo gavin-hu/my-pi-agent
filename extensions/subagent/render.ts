@@ -15,7 +15,7 @@ import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
 import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -196,8 +196,8 @@ function resultHeader(
 	return header + statusSuffix(result, status, theme, now);
 }
 
-/** Prefix each line of intermediate assistant text with a muted indent. */
-function quoteLines(text: string, theme: Theme): string {
+/** Prefix each line of intermediate assistant text with the block's body indent. */
+function indentBody(text: string, theme: Theme): string {
 	const indent = " ".repeat(BODY_INDENT);
 	return stripControlChars(text)
 		.trim()
@@ -250,35 +250,46 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: S
 function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): string {
 	const title =
 		theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? paint(theme, "faint", "read-only ") : "");
-	const cwdNote = (cwd?: string) => {
-		if (!cwd || cwd === context?.cwd) return "";
+	const cwdNote = (cwd?: unknown) => {
+		if (typeof cwd !== "string" || !cwd || cwd === context?.cwd) return "";
 		return paint(theme, "faint", `  in ${shortenPath(cwd)}`);
 	};
+	// The args stream in, so a step can arrive before its `agent`/`task` string.
+	// Read a non-string as absent rather than throw: a throwing renderer makes Pi
+	// fall back to its own call line.
+	const name = (value: unknown) => (typeof value === "string" ? sanitizeLine(value) : "…");
+	const task = (value: unknown, width: number) => {
+		const raw = typeof value === "string" ? value.replace(/\{previous\}/g, "") : "";
+		return clip(sanitizeLine(raw), width);
+	};
 
-	if (args.chain && args.chain.length > 0) {
-		let text = title + paint(theme, "label", `chain · ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`);
-		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
-			const step = args.chain[i];
-			const clean = sanitizeLine(step.task.replace(/\{previous\}/g, ""));
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(step.agent))}${paint(theme, "meta", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
+	const chain = Array.isArray(args.chain) ? args.chain : [];
+	if (chain.length > 0) {
+		let text =
+			title + paint(theme, "label", `chain${SEPARATORS.item}${chain.length} step${chain.length > 1 ? "s" : ""}`);
+		for (let i = 0; i < Math.min(chain.length, 3); i++) {
+			const step = chain[i] as { agent?: unknown; task?: unknown; cwd?: unknown } | undefined;
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "label", name(step?.agent))}${paint(theme, "meta", ` ${task(step?.task, 40)}`)}${cwdNote(step?.cwd)}`;
 		}
-		if (args.chain.length > 3) text += `\n${paint(theme, "meta", `… +${args.chain.length - 3} more`)}`;
+		if (chain.length > 3) text += `\n${paint(theme, "meta", `… +${chain.length - 3} more`)}`;
 		return text;
 	}
 
-	if (args.tasks && args.tasks.length > 0) {
-		let text = title + paint(theme, "label", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
-		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
-			const task = args.tasks[i];
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(task.agent))}${paint(theme, "meta", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
+	const tasks = Array.isArray(args.tasks) ? args.tasks : [];
+	if (tasks.length > 0) {
+		let text =
+			title + paint(theme, "label", `parallel${SEPARATORS.item}${tasks.length} task${tasks.length > 1 ? "s" : ""}`);
+		for (let i = 0; i < Math.min(tasks.length, 3); i++) {
+			const item = tasks[i] as { agent?: unknown; task?: unknown; cwd?: unknown } | undefined;
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "label", name(item?.agent))}${paint(theme, "meta", ` ${task(item?.task, 40)}`)}${cwdNote(item?.cwd)}`;
 		}
-		if (args.tasks.length > 3) text += `\n${paint(theme, "meta", `… +${args.tasks.length - 3} more`)}`;
+		if (tasks.length > 3) text += `\n${paint(theme, "meta", `… +${tasks.length - 3} more`)}`;
 		return text;
 	}
 
-	const agentName = sanitizeLine(args.agent || "…");
+	const agentName = typeof args.agent === "string" && args.agent ? sanitizeLine(args.agent) : "…";
 	let text = title + paint(theme, "label", agentName) + cwdNote(args.cwd);
-	text += `\n${paint(theme, "meta", clip(sanitizeLine(args.task ?? "…"), 60))}`;
+	text += `\n${paint(theme, "meta", typeof args.task === "string" ? clip(sanitizeLine(args.task), 60) : "…")}`;
 	return text;
 }
 
@@ -321,7 +332,7 @@ function addExpandedResult(
 			);
 			renderedOutput = true;
 		} else if (item.text.trim() && item.text !== trailingOutput) {
-			container.addChild(new Text(quoteLines(item.text, theme), 0, 0));
+			container.addChild(new Text(indentBody(item.text, theme), 0, 0));
 			renderedOutput = true;
 		}
 	}

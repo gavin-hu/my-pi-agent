@@ -79,7 +79,7 @@
           "type": "string",
           "maxLength": 1,
           "default": "╎",
-          "description": "The transcript rail glyph, exactly one visible column. A wide, emoji, multi-character, empty, or control value falls back to ╎. The rail leads a tool result and a notice row; it is never drawn on a tool call, and the filled edit/write tools use their status fill instead."
+          "description": "The transcript rail glyph, exactly one visible column. A wide, emoji, multi-character, empty, or control value falls back to ╎. The rail leads a tool result and a notice row; it is also drawn on the call frame for the two file-mutating tools (`edit`, `write`), whose call body carries the result. There is no status fill."
         }
       }
     },

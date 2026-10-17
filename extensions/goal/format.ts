@@ -4,11 +4,12 @@
  * The transcript result is the status header (`Goal · active`) under the call
  * line, which already names the objective; the persistent widget is a plain
  * label-first line (`Goal · active · <objective>`) matching the `todo` and
- * `jobs` widgets. The symbols and labels live here.
+ * `jobs` widgets. The status labels live here.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 
@@ -26,7 +27,7 @@ export function goalStatusLabel(status: GoalStatus): string {
  */
 export function goalHeader(goal: Goal, theme: Theme): string {
 	const label = paint(theme, "accent", "Goal");
-	const separator = paint(theme, "faint", " · ");
+	const separator = paint(theme, "faint", SEPARATORS.item);
 	const word = goalStatusLabel(goal.status);
 	const status = goal.status === "achieved" ? paint(theme, "ok", word) : paint(theme, "faint", word);
 	return `${label}${separator}${status}`;
@@ -39,7 +40,7 @@ export function goalHeader(goal: Goal, theme: Theme): string {
  * Callers clip it to the available width.
  */
 export function goalLine(goal: Goal, theme: Theme): string {
-	const separator = paint(theme, "faint", " · ");
+	const separator = paint(theme, "faint", SEPARATORS.item);
 	const word = goalStatusLabel(goal.status);
 	const status = goal.status === "achieved" ? paint(theme, "ok", word) : paint(theme, "faint", word);
 	return `${paint(theme, "accent", "Goal")}${separator}${status}${separator}${goalObjective(goal, theme)}`;

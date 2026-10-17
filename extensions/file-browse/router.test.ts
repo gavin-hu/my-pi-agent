@@ -31,12 +31,7 @@ describe("routing", () => {
 	});
 
 	test("shows the git chip when a provider is available", async () => {
-		const response = await handleRequest(
-			{ ...context(), git: async () => ({ branch: "main", dirty: true }) },
-			"GET",
-			"/",
-			{},
-		);
+		const response = await handleRequest({ ...context(), git: async () => ({ branch: "main" }) }, "GET", "/", {});
 		expect(text(response)).toContain('class="bf-chip browse-git"');
 	});
 
@@ -207,7 +202,7 @@ describe("diff routes", () => {
 
 	test("lists changes, links each file, and shows the header chip", async () => {
 		const response = await handleRequest(
-			{ ...context(), git: async () => ({ branch: "main", dirty: true }), diff: provider() },
+			{ ...context(), git: async () => ({ branch: "main" }), diff: provider() },
 			"GET",
 			"/diff",
 			{},

@@ -118,15 +118,6 @@ export function optionSummary(questions: CallQuestion[]): string[] {
 		});
 }
 
-/** One-line summary of the questions, used by the transcript call renderer. */
-export function formatCallText(questions: CallQuestion[]): string {
-	const noun = questions.length === 1 ? "question" : "questions";
-	const lines = [`ask_user_question ${questions.length} ${noun} (${questionHeaders(questions).join(", ")})`];
-	const options = optionSummary(questions);
-	if (options.length > 0) lines.push(`  Options: ${options.join(" · ")}`);
-	return lines.join("\n");
-}
-
 /** Human-readable summary of a selection, used in the Submit tab. */
 export function describeSelection(selection: Selection | undefined): string {
 	if (!selection) return "(unanswered)";

@@ -18,6 +18,23 @@ export function formatTokens(count: number): string {
 }
 
 /**
+ * An integer grouped with thousands separators (`999`, `8,000`, `42,478`).
+ * Hand-rolled rather than `toLocaleString`, so a count is identical under any
+ * locale and ICU build.
+ */
+export function formatCount(count: number): string {
+	if (!Number.isFinite(count)) return "0";
+	const sign = count < 0 ? "-" : "";
+	const digits = Math.abs(Math.trunc(count)).toString();
+	let out = "";
+	for (let i = 0; i < digits.length; i++) {
+		if (i > 0 && (digits.length - i) % 3 === 0) out += ",";
+		out += digits[i];
+	}
+	return sign + out;
+}
+
+/**
  * Replace terminal control characters (including ESC and the C1 block) with
  * spaces, keeping `\n` and `\t` for callers that render multi-line text.
  *

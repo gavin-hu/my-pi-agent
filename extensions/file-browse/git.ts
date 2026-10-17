@@ -1,8 +1,9 @@
 /**
  * Read-only git context for the browse pages.
  *
- * The header shows the checked-out branch (or the detached head) and a dirty
- * marker. Queries go through the shared `lib/git` seams so the read-only
+ * The header shows the checked-out branch (or the detached head); uncommitted
+ * changes are the changes chip's concern. Queries go through the shared
+ * `lib/git` seams so the read-only
  * plumbing lives in one place. State (the TTL cache) lives in the factory
  * closure, never in `lib/`.
  */
@@ -25,8 +26,6 @@ export interface GitStatus {
 	branch?: string;
 	/** Short object id, when HEAD is detached. */
 	head?: string;
-	/** True when `git status --porcelain` reports any change. */
-	dirty: boolean;
 }
 
 export type GitStatusProvider = () => Promise<GitStatus | undefined>;
@@ -60,9 +59,7 @@ export function createGitStatus(
 		const branch = await currentBranch(run, root);
 		const head = branch ? undefined : (await revParse(run, root, "HEAD"))?.slice(0, 7);
 		if (!branch && !head) return undefined;
-		const status = await run(["status", "--porcelain"], { cwd: root, timeoutMs: 1000 });
-		if (status.code !== 0) return undefined;
-		return { branch, head, dirty: status.stdout.trim().length > 0 };
+		return { branch, head };
 	}
 
 	return async () => {

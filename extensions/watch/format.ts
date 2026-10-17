@@ -12,7 +12,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
 
@@ -195,7 +195,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 
 /** One-line outcome for a watcher, themed for the transcript result. */
 export function formatWatchOutcomeLine(watch: WatchRecord, theme: Theme, now = Date.now()): string {
-	const sep = paint(theme, "faint", " · ");
+	const sep = paint(theme, "faint", SEPARATORS.item);
 	const age = Math.max(0, (watch.endedAt ?? now) - watch.startedAt);
 	const outcome =
 		watch.status === "error"

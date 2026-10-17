@@ -20,8 +20,6 @@ export interface PadSource {
 	 * a surface that never receives one; omit it to read the last recorded value.
 	 */
 	resolve(hostPad?: number): number;
-	/** Record the host pad without resolving, for a renderer that only forwards it. */
-	observe(hostPad: number): void;
 }
 
 /** Pi's output pad in an interactive session, before one is observed. */
@@ -39,9 +37,6 @@ export function createPadStore(defaultHostPad: number = DEFAULT_HOST_PAD): PadSo
 		resolve(observed?: number): number {
 			if (observed !== undefined) record(observed);
 			return hostPad;
-		},
-		observe(observed: number): void {
-			record(observed);
 		},
 	};
 }

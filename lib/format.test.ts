@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { formatTokens, sanitize, sanitizeLine, shortenPath, stripControlChars } from "./format.ts";
+import { formatCount, formatTokens, sanitize, sanitizeLine, shortenPath, stripControlChars } from "./format.ts";
 
 describe("formatTokens", () => {
 	test("scales at each boundary", () => {
@@ -70,5 +70,15 @@ describe("shortenPath", () => {
 	test("accepts an explicit home for a deterministic caller", () => {
 		expect(shortenPath("/home/u/repo/x", "/home/u")).toBe("~/repo/x");
 		expect(shortenPath("/other/repo", "/home/u")).toBe("/other/repo");
+	});
+});
+
+describe("formatCount", () => {
+	test("groups thousands deterministically", () => {
+		expect(formatCount(999)).toBe("999");
+		expect(formatCount(8000)).toBe("8,000");
+		expect(formatCount(42478)).toBe("42,478");
+		expect(formatCount(-42478)).toBe("-42,478");
+		expect(formatCount(Number.NaN)).toBe("0");
 	});
 });
