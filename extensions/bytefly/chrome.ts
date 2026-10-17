@@ -15,7 +15,7 @@
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { cleanString, loadConfigSection } from "../../lib/config.ts";
-import { GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 
 /** How a railed block reads at a glance. */
@@ -37,11 +37,6 @@ export const RAIL_ROLES: Readonly<Record<RailStatus, TuiRole>> = {
 /** The rail glyph, painted in the role. `lib/tui/indent.ts` adds the gap. */
 export function railGlyph(theme: Theme, role: TuiRole, glyph: string): string {
 	return paint(theme, role, glyph);
-}
-
-/** The painted rail prefix: the glyph and its gap, for a line built directly. */
-export function railPrefix(theme: Theme, role: TuiRole, glyph: string): string {
-	return `${railGlyph(theme, role, glyph)}${" ".repeat(GLYPH_GAP)}`;
 }
 
 /** Transcript chrome presentation. */

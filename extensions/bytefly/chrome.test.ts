@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
-import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import {
 	createRailSource,
 	DEFAULT_CHROME_CONFIG,
@@ -10,7 +10,6 @@ import {
 	loadChromeConfig,
 	normalizeChromeConfig,
 	RAIL_ROLES,
-	railPrefix,
 	registerChrome,
 } from "./chrome.ts";
 
@@ -20,13 +19,6 @@ describe("RAIL_ROLES", () => {
 		expect(RAIL_ROLES.info).toBe("info");
 		expect(RAIL_ROLES.warn).toBe("warn");
 		expect(RAIL_ROLES.bad).toBe("bad");
-	});
-});
-
-describe("railPrefix", () => {
-	test("paints the glyph in the role and follows it with the gap", () => {
-		expect(railPrefix(coloringTheme, "faint", "╎")).toBe("[dim]╎ ");
-		expect(railPrefix(coloringTheme, "bad", "│")).toBe("[error]│ ");
 	});
 });
 

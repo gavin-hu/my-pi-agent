@@ -43,6 +43,12 @@ export interface IndentOptions {
 	 * `indent - BODY_INDENT`, with the body immediately after it. Default false.
 	 */
 	headline?: boolean;
+	/**
+	 * Suffix appended when a body line is clipped. Default empty: a body is clipped
+	 * silently. The headline always clips with `…`. A notice sets `…` so a
+	 * truncated row reads as truncated.
+	 */
+	bodyClip?: string;
 }
 
 /**
@@ -117,7 +123,7 @@ export function indentBlockLines(body: readonly string[], width: number, options
 			blank.push(false);
 			continue;
 		}
-		lines.push(truncateToWidth(`${index < railStart ? plainPrefix : prefix}${line}`, w, ""));
+		lines.push(truncateToWidth(`${index < railStart ? plainPrefix : prefix}${line}`, w, options.bodyClip ?? ""));
 		blank.push(isBlank(line));
 	}
 	if (options.trimLeading) {

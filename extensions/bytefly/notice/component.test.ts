@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import type { NoticeDetails } from "../../../lib/notice.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { noticeLines } from "./component.ts";
@@ -52,6 +52,7 @@ describe("noticeLines", () => {
 		for (const line of noticeLines(wide, fakeTheme, 20)) {
 			expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 		}
+		expect(stripTerminalSequences(noticeLines(wide, fakeTheme, 20)[1] ?? "").endsWith("…")).toBe(true);
 	});
 
 	test("paints the source in the accent role", () => {

@@ -11,12 +11,13 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
 import type { NoticeDetails, NoticeItem, NoticeSeverity } from "../../../lib/notice.ts";
 import { GLYPH_GAP, SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { BODY_INDENT, indentBlockLines } from "../../../lib/tui/indent.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { DEFAULT_RAIL_GLYPH, railPrefix } from "../chrome.ts";
+import { DEFAULT_RAIL_GLYPH, railGlyph } from "../chrome.ts";
 import { NOTICE_CONFIG } from "./config.ts";
 
 /** Severity order, so the rail can carry the worst one. */
@@ -58,34 +59,33 @@ export function noticeLines(
 	glyph = DEFAULT_RAIL_GLYPH,
 ): string[] {
 	const w = Math.max(1, width);
-	const margin = " ".repeat(Math.max(0, Math.floor(pad)));
 	const sep = paint(theme, NOTICE_CONFIG.detailRole, SEPARATORS.item);
 	const source = paint(theme, NOTICE_CONFIG.sourceRole, sanitizeLine(details.source));
 	const title = paint(theme, NOTICE_CONFIG.titleRole, sanitizeLine(details.title));
-	const lines = [truncateToWidth(`${margin}${source}${sep}${title}`, w, "…")];
-
-	// The rail replaces the rows' two-column indent, so the severity glyph keeps
-	// the column it had before the rail existed.
-	const rail = railPrefix(theme, NOTICE_CONFIG.railRoles[worstSeverity(details)], glyph);
-	const rowPad = `${margin}${rail}`;
-	const gap = " ".repeat(GLYPH_GAP);
 	const items = details.items ?? [];
 	const shown = items.slice(0, NOTICE_CONFIG.maxItems);
 	const fallback = details.severity ?? "info";
-	for (const item of shown) {
+	const gap = " ".repeat(GLYPH_GAP);
+
+	const rows = shown.map((item) => {
 		const label = paint(theme, NOTICE_CONFIG.titleRole, sanitizeLine(item.label));
 		const detail = item.detail ? `${sep}${paint(theme, NOTICE_CONFIG.detailRole, sanitizeLine(item.detail))}` : "";
-		const row = `${rowPad}${severityGlyph(theme, severityOf(item, fallback))}${gap}${label}${detail}`;
-		lines.push(truncateToWidth(row, w, "…"));
-	}
-
+		return `${severityGlyph(theme, severityOf(item, fallback))}${gap}${label}${detail}`;
+	});
 	const more = items.length - shown.length;
 	if (more > 0) {
-		const continuation = `${rowPad}${" ".repeat(1 + GLYPH_GAP)}`;
-		const rest = `${continuation}${paint(theme, NOTICE_CONFIG.detailRole, `… ${more} more`)}`;
-		lines.push(truncateToWidth(rest, w, "…"));
+		rows.push(`${" ".repeat(1 + GLYPH_GAP)}${paint(theme, NOTICE_CONFIG.detailRole, `… ${more} more`)}`);
 	}
-	return lines;
+
+	// The shared indent owns the column math: the headline at the margin, every
+	// row behind the rail, and each row clipped with the notice's ellipsis.
+	return indentBlockLines([`${source}${sep}${title}`, ...rows], w, {
+		indent: Math.max(0, Math.floor(pad)) + BODY_INDENT,
+		rail: railGlyph(theme, NOTICE_CONFIG.railRoles[worstSeverity(details)], glyph),
+		headline: true,
+		trimTrailing: false,
+		bodyClip: "…",
+	});
 }
 
 /** The notice block Pi mounts for a custom message carrying `NoticeDetails`. */

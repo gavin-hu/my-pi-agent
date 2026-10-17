@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type Component, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { BODY_INDENT, bodyLines, indentBlockLines, indentedLines } from "./indent.ts";
 
 /** A stand-in for a tool's own renderer, recording the width it was asked for. */
@@ -56,6 +56,12 @@ describe("indentBlockLines", () => {
 		for (const line of indentBlockLines(["x".repeat(100)], 10, { indent: 2 })) {
 			expect(visibleWidth(line)).toBeLessThanOrEqual(10);
 		}
+	});
+
+	test("clips a body line with the requested suffix", () => {
+		const [line] = indentBlockLines(["x".repeat(20)], 10, { indent: 2, bodyClip: "…" });
+		expect(stripTerminalSequences(line ?? "").endsWith("…")).toBe(true);
+		expect(visibleWidth(line ?? "")).toBeLessThanOrEqual(10);
 	});
 
 	test("leads with a headline at the base and the body directly under it", () => {

@@ -952,7 +952,7 @@ columns, gauge), so the look follows the active theme.
 |---|---|
 | `index.ts` | Composition root: the disable guard, the eleven `register*` calls, the one shared output-pad store, and the rail source. |
 | `pad.ts` | `PadSource` and `createPadStore`: one record of Pi's output pad, so the tool frame, the notice, and the turn separator inset by the same margin. |
-| `chrome.ts` | The transcript rail (`RAIL_ROLES`, `railGlyph`/`railPrefix`), the `chrome` section's normalizer and loader, and the `RailSource` that `registerChrome` keeps current on `session_start`/`session_tree`. |
+| `chrome.ts` | The transcript rail (`RAIL_ROLES`, `railGlyph`), the `chrome` section's normalizer and loader, and the `RailSource` that `registerChrome` keeps current on `session_start`/`session_tree`. |
 | `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity roles, padding, tagline, and the grouped help entries. |
 | `header/component.ts` | `ByteflyHeader`: the mark, identity rows, signature rule, and grouped help, plus its factory. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
