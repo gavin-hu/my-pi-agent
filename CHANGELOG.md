@@ -8,9 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `bytefly`: doctor's proactive session-start warning stays silent when Pi runs
-  with `quietStartup: true`, so a quiet startup is not interrupted by it;
-  `"header"` keeps the header and still warns.
+- `bytefly`: doctor's proactive session-start warning is now a transcript notice
+  (the shared `my-pi-agent/notice` renderer, one row per missing prerequisite
+  with the command that fixes it) instead of a transient UI notification, so it
+  stays in the message flow and the model reads it. It is silent when Pi runs
+  with `quietStartup: true`; `"header"` keeps the header and the notice.
 - `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
   instead of hiding them. The screen opens such a row's log but its `d` and `x`
   leave it alone (`x` counts only this session's finished jobs), the model can
