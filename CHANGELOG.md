@@ -133,9 +133,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   counts) without repeating the note, `goal` shows the status header (`Goal ·
   active`) alone instead of restating the objective, and `todo` shows progress
   (`todo → 1/4`) with the items only on the result rows.
+- `themes`: the rules, frames, and fences are visible again. `borderMuted` draws
+  every divider and the chrome frame, and at `#484f58` and `#d0d7de` it reached
+  only 2.3:1 and 1.5:1 on the canvas, so the rule grammar washed out, especially
+  in the light theme; `borderMuted` and `border` now clear 3:1 in both
+  appearances, `mdCodeBlockBorder` follows `muted` like Pi's own themes, and
+  `scrollbarThumb` moved to `muted` so the fullscreen thumb separates from its
+  track.
 
 ### Fixed
 
+- `themes`: both files point `$schema` at Pi's published schema
+  (`https://pi.dev/schemas/theme.schema.json`) instead of a raw GitHub path that
+  answers 404, so editor validation and completion work again.
+- `themes`: light-theme text clears 4.5:1 on every surface it is painted on. The
+  tool title reached only 4.44:1 on the error panel and the accent 4.21:1 on a
+  selected row, so the error and selection tints are one step lighter;
+  `test/theme.test.ts` now fails when a role drops below its floor, when
+  `$schema` is not Pi's, when a theme's name does not match its file, or when the
+  light and dark files' role mappings drift apart.
 - `bytefly`: the transcript notice and the turn separator now follow Pi's
   `outputPad` setting, like the tool blocks already did. Pi pads its own
   components and hands tool renderers (`context.outputPad`) and message
