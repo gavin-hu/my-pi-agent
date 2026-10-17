@@ -76,9 +76,10 @@ job clear
 ```
 
 `wait` honours the tool's abort signal: pressing Escape cancels the wait but
-leaves the job running. Validation is pure and runs before any side effect, so
-`codemode` callers that bypass the TypeBox schema cannot start a process with
-missing arguments.
+leaves the job running. While it blocks, the transcript draws a railed
+`Waiting on j1… 12s` line with a live elapsed count. Validation is pure and runs
+before any side effect, so `codemode` callers that bypass the TypeBox schema
+cannot start a process with missing arguments.
 
 Example: drive an interactive program. Only a job started with `stdin: true`
 accepts input, and `eof` closes it once you are done.

@@ -11,6 +11,15 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { missingFindings } from "../../../lib/requirements.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
+import {
+	elapsedSuffix,
+	rejectionLine,
+	reuseCallText,
+	startToolProgress,
+	syncElapsedTimer,
+	toolCallTitle,
+} from "../../../lib/tui/tool.ts";
+import { expandHint } from "../../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
 import { formatExtension, formatReport, isProblemSeverity } from "./format.ts";
 import type { DoctorRuntime } from "./runtime.ts";
@@ -52,8 +61,9 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 		defaultActive: true,
 		annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 
-		async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+		async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
 			const args = params as DoctorArgs;
+			startToolProgress(onUpdate);
 			const reports = await runtime.probeAll({ refresh: args.refresh === true });
 			const selected = args.extension ? reports.filter((report) => report.extension === args.extension) : reports;
 
@@ -94,23 +104,34 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 		renderCall(args, theme, context) {
 			const input = args as DoctorArgs;
 			const scope = typeof input.extension === "string" && input.extension ? sanitizeLine(input.extension) : "";
-			const text = reuseText(context?.lastComponent);
+			const text = reuseCallText(context?.lastComponent);
 			text.setText(
-				`${theme.fg("toolTitle", theme.bold(TOOL_NAME))}${scope ? ` ${paint(theme, "label", scope)}` : ""}${input.refresh ? paint(theme, "faint", " (refresh)") : ""}`,
+				`${toolCallTitle(theme, TOOL_NAME)}${scope ? ` ${paint(theme, "label", scope)}` : ""}${input.refresh ? paint(theme, "faint", " (refresh)") : ""}`,
 			);
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
+			const startedAt = syncElapsedTimer(options.isPartial, context);
 			const structured = toolDetails<DoctorStructured>(result.details);
 			const tone: TuiRole = (structured?.missing ?? 0) > 0 ? "bad" : (structured?.degraded ?? 0) > 0 ? "warn" : "ok";
 			const text = reuseText(context?.lastComponent);
-			if (!structured) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : paint(theme, "meta", "doctor: no result"));
+			if (options.isPartial) {
+				const elapsed = startedAt === undefined ? "" : elapsedSuffix(theme, Date.now() - startedAt);
+				text.setText(paint(theme, "warn", "Probing…") + elapsed);
 				return text;
 			}
-			text.setText(paint(theme, tone, summaryLines(structured).join("\n")));
+			if (!structured) {
+				text.setText(rejectionLine(theme, result, options.expanded));
+				return text;
+			}
+			const problems = structured.missing + structured.degraded;
+			if (!options.expanded) {
+				const hint = problems > 0 ? ` ${expandHint(theme)}` : "";
+				text.setText(paint(theme, tone, structured.headline) + hint + elapsedSuffix(theme, context.durationMs));
+				return text;
+			}
+			text.setText(paint(theme, tone, summaryLines(structured).join("\n")) + elapsedSuffix(theme, context.durationMs));
 			return text;
 		},
 	});

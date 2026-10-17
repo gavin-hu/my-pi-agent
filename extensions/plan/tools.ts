@@ -23,8 +23,9 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { expandHint } from "../../lib/tui/glyphs.ts";
+import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
@@ -238,22 +239,21 @@ export function registerTools(
 		},
 
 		renderCall(_args, theme, context) {
-			const text = reuseText(context?.lastComponent);
-			text.setText(theme.fg("toolTitle", theme.bold(`${ENTER_TOOL} `)) + paint(theme, "meta", "requested plan mode"));
+			const text = reuseCallText(context?.lastComponent);
+			text.setText(toolCallTitle(theme, `${ENTER_TOOL} `) + paint(theme, "meta", "requested plan mode"));
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const text = reuseText(context?.lastComponent);
 			const details = toolDetails<EnterPlanModeDetails>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
 			if (details.unavailable) text.setText(paint(theme, "warn", "No UI to confirm plan mode"));
 			else if (details.already) text.setText(paint(theme, "meta", "Already in plan mode"));
-			else if (details.entered) text.setText(paint(theme, "ok", "✓ Plan mode enabled"));
+			else if (details.entered) text.setText(paint(theme, "ok", `${GLYPHS.check} Plan mode enabled`));
 			else text.setText(paint(theme, "meta", "Stayed in normal mode"));
 			return text;
 		},
@@ -314,22 +314,21 @@ export function registerTools(
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseText(context?.lastComponent);
+			const text = reuseCallText(context?.lastComponent);
 			const title = (args as Partial<WritePlanArgs>).title;
 			const suffix = title ? paint(theme, "meta", sanitizeLine(title)) : paint(theme, "meta", "plan");
-			text.setText(theme.fg("toolTitle", theme.bold(`${WRITE_PLAN_TOOL} `)) + suffix);
+			text.setText(toolCallTitle(theme, `${WRITE_PLAN_TOOL} `) + suffix);
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const text = reuseText(context?.lastComponent);
 			const details = toolDetails<WritePlanDetails>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
-			text.setText(paint(theme, "ok", "✓ Saved plan ") + paint(theme, "meta", details.relativePath));
+			text.setText(paint(theme, "ok", `${GLYPHS.check} Saved plan `) + paint(theme, "meta", details.relativePath));
 			return text;
 		},
 	});
@@ -523,8 +522,8 @@ export function registerTools(
 		},
 
 		renderCall(_args, theme, context) {
-			const text = reuseText(context?.lastComponent);
-			text.setText(theme.fg("toolTitle", theme.bold(`${EXIT_TOOL} `)) + paint(theme, "meta", "submitted a plan"));
+			const text = reuseCallText(context?.lastComponent);
+			text.setText(toolCallTitle(theme, `${EXIT_TOOL} `) + paint(theme, "meta", "submitted a plan"));
 			return text;
 		},
 
@@ -532,14 +531,13 @@ export function registerTools(
 			const text = reuseText(context?.lastComponent);
 			const details = toolDetails<ExitPlanModeDetails>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, expanded));
 				return text;
 			}
 			const heading = details.unavailable
 				? paint(theme, "warn", "No UI to approve the plan")
 				: details.approved
-					? paint(theme, "ok", "✓ Plan approved")
+					? paint(theme, "ok", `${GLYPHS.check} Plan approved`)
 					: details.refined
 						? paint(theme, "accent", "Refining the plan")
 						: paint(theme, "warn", "Plan not approved");
@@ -617,7 +615,7 @@ export function registerTools(
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseText(context?.lastComponent);
+			const text = reuseCallText(context?.lastComponent);
 			const updates = (args as Partial<SetPlanStepsArgs>).updates;
 			const label =
 				updates && updates.length === 1 && updates[0]?.step !== undefined
@@ -625,23 +623,22 @@ export function registerTools(
 					: updates && updates.length > 1
 						? `${updates.length} steps`
 						: "steps";
-			text.setText(theme.fg("toolTitle", theme.bold(`${SET_PLAN_STEPS_TOOL} `)) + paint(theme, "meta", label));
+			text.setText(toolCallTitle(theme, `${SET_PLAN_STEPS_TOOL} `) + paint(theme, "meta", label));
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const text = reuseText(context?.lastComponent);
 			const details = toolDetails<SetPlanStepsDetails>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
 			const completed = details.updates.filter((update) => update.status === "completed").map((u) => u.step);
 			const pending = details.updates.filter((update) => update.status === "pending").map((u) => u.step);
 			const heading =
 				completed.length > 0
-					? paint(theme, "ok", `✓ ${stepLabel(completed)} done`) +
+					? paint(theme, "ok", `${GLYPHS.check} ${stepLabel(completed)} done`) +
 						(pending.length > 0 ? paint(theme, "meta", ` · ${stepLabel(pending)} reopened`) : "")
 					: paint(theme, "meta", `${stepLabel(pending)} reopened`);
 			text.setText(heading + paint(theme, "faint", ` · ${details.done}/${details.total}`));

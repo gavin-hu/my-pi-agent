@@ -12,6 +12,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { formatTokens } from "../../../lib/format.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
+import {
+	errorLine,
+	elapsedSuffix,
+	rejectionLine,
+	reuseCallText,
+	startToolProgress,
+	syncElapsedTimer,
+	toolCallTitle,
+} from "../../../lib/tui/tool.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { charLength } from "../text.ts";
@@ -26,6 +35,15 @@ import type { FetchRequest } from "./types.ts";
 import { loadFetchConfig } from "../config.ts";
 
 export const TOOL_NAME = "web_fetch";
+
+/** The host shown while a fetch is in flight, or `page` for an unparseable URL. */
+function hostOf(raw: string | undefined): string {
+	try {
+		return new URL(raw ?? "").hostname || "page";
+	} catch {
+		return "page";
+	}
+}
 
 /** Extra `web_fetch` dependencies: the shared `FetchDeps` plus the page cache. */
 interface FetchToolDeps extends FetchDeps {
@@ -180,9 +198,10 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		// sibling calls must not run concurrently (matches web_search's throttle).
 		executionMode: "sequential",
 
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const config = loadFetchConfig(ctx.cwd);
 			const request = resolveRequest(params as WebFetchArgs, config);
+			startToolProgress(onUpdate);
 
 			let page: FetchResponse;
 			let text: string;
@@ -204,34 +223,40 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 
 		renderCall(args, theme, context) {
 			const { url, find, startIndex } = args as WebFetchArgs;
-			const text = reuseText(context?.lastComponent);
-			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "label", oneLine(url ?? ""));
+			const text = reuseCallText(context?.lastComponent, "", "middle");
+			let line = toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "label", oneLine(url ?? ""));
 			if (find?.length) line += paint(theme, "faint", ` find ${find.map((f) => `"${oneLine(f)}"`).join(", ")}`);
 			else if (startIndex) line += paint(theme, "faint", ` (from ${startIndex})`);
 			text.setText(line);
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
+			const startedAt = syncElapsedTimer(options.isPartial, context);
 			const text = reuseText(context?.lastComponent);
 			const page = result.details as FetchResponse | undefined;
+			if (options.isPartial) {
+				const elapsed = startedAt === undefined ? "" : elapsedSuffix(theme, Date.now() - startedAt);
+				text.setText(paint(theme, "warn", `Fetching ${hostOf((context.args as WebFetchArgs)?.url)}…`) + elapsed);
+				return text;
+			}
 			if (page?.error) {
-				const message = oneLine(page.error);
-				text.setText(paint(theme, "bad", message.startsWith("Error:") ? message : `Error: ${message}`));
+				text.setText(errorLine(theme, page.error));
 				return text;
 			}
 			if (!page || result.isError) {
-				const first = result.content[0];
-				const message = oneLine(first?.type === "text" ? first.text : "Fetch failed");
-				text.setText(paint(theme, "bad", message.startsWith("Error:") ? message : `Error: ${message}`));
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
 
 			const label = oneLine(page.title || page.finalUrl);
 			let line = paint(theme, "meta", label);
+			line += paint(theme, "faint", `${SEPARATORS.item}${page.status}`);
+			if (page.finalUrl !== page.url) line += paint(theme, "faint", `${SEPARATORS.item}→ ${oneLine(page.finalUrl)}`);
 			if (page.matches.length > 0) line += paint(theme, "faint", `${SEPARATORS.item}${page.matches.length} match(es)`);
 			else line += paint(theme, "faint", `${SEPARATORS.item}${formatTokens(page.totalChars)} chars`);
 			if (page.cached) line += paint(theme, "faint", " (cached)");
+			line += elapsedSuffix(theme, context.durationMs);
 			text.setText(line);
 			return text;
 		},

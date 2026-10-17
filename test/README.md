@@ -52,8 +52,10 @@ gate is stated in the test.
    never literal column padding. Use the shared `fakeTheme` and an injected
    clock for relative timestamps.
 4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
-   `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`)
-   — cross-cutting contracts. No extension test may duplicate these.
+   `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
+   `test/tool-render.test.ts`) — cross-cutting contracts. No extension test may
+   duplicate these. `tool-render.test.ts` renders every registered tool's call
+   and a rejected result at 80/48/40 and asserts the shared shape.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
    the tag is present; the tag assertion is skipped in a clone that has none.

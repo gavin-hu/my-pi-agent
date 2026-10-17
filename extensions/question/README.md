@@ -170,7 +170,8 @@ None in v1 — the tool is either available (a UI exists) or not.
 - **Transcript rendering is driven by `details`.** `renderCall` summarises the
   question count and headers and lists one option line per question;
   `renderResult` renders `✓ Auth: 1. OAuth` per answer, `(wrote)` for custom
-  text, warning-colored `Cancelled`, and dim `No UI` when unavailable. The call
+  text, warning-colored `Cancelled`, and error-colored `No UI` when unavailable
+  (matching the result rail its `isError` draws). The call
   summary reads the call's *streaming* args, so a field that has not arrived yet
   — a question `header`, an option `label` — reads as absent instead of
   throwing; a throwing renderer makes Pi fall back to its own call line, a

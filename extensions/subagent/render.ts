@@ -13,8 +13,9 @@
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
+import { formatDuration, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { messageText, rejectionLine, reuseCallText, syncElapsedTimer, toolCallTitle } from "../../lib/tui/tool.ts";
 import { expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
 import { BODY_INDENT } from "../../lib/tui/indent.ts";
@@ -152,14 +153,6 @@ function totalUsageLine(results: SingleResult[]): string {
 	return [usage, label].filter(Boolean).join(" ");
 }
 
-function formatDuration(ms: number): string {
-	const seconds = Math.max(0, Math.round(ms / 1000));
-	if (seconds < 60) return `${seconds}s`;
-	const minutes = Math.floor(seconds / 60);
-	const rest = seconds % 60;
-	return rest ? `${minutes}m${rest}s` : `${minutes}m`;
-}
-
 /** " 12s" while running or once finished, or "" when no start time was recorded. */
 function durationSuffix(result: SingleResult, status: ResultStatus, now: number): string {
 	if (!result.startedAt) return "";
@@ -256,7 +249,7 @@ export function renderSubagentCall(
 	theme: Theme,
 	context?: SubagentCallContext,
 ): Component {
-	const text = reuseText(context?.lastComponent);
+	const text = reuseCallText(context?.lastComponent);
 	text.setText(callText(args ?? {}, theme, context));
 	return text;
 }
@@ -267,8 +260,7 @@ export function renderSubagentCall(
  * indents the rest by `BODY_INDENT`.
  */
 function callText(args: StreamedSubagentArgs, theme: Theme, context?: { cwd?: string }): string {
-	const title =
-		theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? paint(theme, "faint", "read-only ") : "");
+	const title = toolCallTitle(theme, "subagent ") + (args.readOnly ? paint(theme, "faint", "read-only ") : "");
 	const cwdNote = (cwd?: unknown) => {
 		if (typeof cwd !== "string" || !cwd || cwd === context?.cwd) return "";
 		return paint(theme, "faint", `  in ${shortenPath(cwd)}`);
@@ -475,19 +467,6 @@ interface SubagentRenderContext {
 	lastComponent?: Component;
 }
 
-/** Keep a 1s repaint ticking while any result is still running, so elapsed labels advance. */
-function syncElapsedTimer(running: boolean, context?: SubagentRenderContext): void {
-	if (!context?.state) return;
-	const state = context.state as { elapsedTimer?: ReturnType<typeof setInterval> };
-	if (running && !state.elapsedTimer) {
-		state.elapsedTimer = setInterval(() => context.invalidate(), 1000);
-		(state.elapsedTimer as { unref?: () => void }).unref?.();
-	} else if (!running && state.elapsedTimer) {
-		clearInterval(state.elapsedTimer);
-		state.elapsedTimer = undefined;
-	}
-}
-
 /** Render a subagent result, collapsed or expanded. */
 export function renderSubagentResult(
 	result: AgentToolResult<unknown>,
@@ -499,9 +478,12 @@ export function renderSubagentResult(
 	const details = toolDetails<SubagentDetails>(result.details);
 	if (!details || details.results.length === 0) {
 		syncElapsedTimer(false, context);
-		const first = result.content[0];
 		const text = reuseText(context?.lastComponent);
-		text.setText(first?.type === "text" ? first.text : "(no output)");
+		if (!details) {
+			text.setText(rejectionLine(theme, result, options.expanded));
+		} else {
+			text.setText(messageText(result) || "(no output)");
+		}
 		return text;
 	}
 

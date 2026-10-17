@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Tool transcript: call lines now clip to the terminal width instead of wrapping
+  into the railed body (middle clip for a path or URL, so its head and tail
+  survive). `read_doc` reads a not-yet-streamed path as pending instead of
+  `[invalid arg]`, `run_doctor` collapses to a one-line summary with an expand
+  hint, and `web_fetch` shows its HTTP status and redirect target.
 - `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
   instead of hiding them. The screen opens such a row's log but its `d` and `x`
   leave it alone (`x` counts only this session's finished jobs), the model can
@@ -16,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Tool transcript: every tool renders a rejected call as one sanitized `Error:`
+  line in the error role, long-running `web_fetch`, `web_search`, `read_doc`,
+  `run_doctor`, and `job wait` show a live elapsed label, and a finished long
+  call appends its duration (the shared `12.0s` format `subagent` now uses).
 - `job`: a log segment rotates to `<id>.log.1` once it reaches `maxLogBytes`
   (8 MiB by default; `0` keeps logs unbounded), and `logs` fills a request from
   the previous segment, so a chatty job cannot fill the disk while its recent

@@ -11,6 +11,14 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import {
+	elapsedSuffix,
+	errorLine,
+	rejectionLine,
+	reuseCallText,
+	syncElapsedTimer,
+	toolCallTitle,
+} from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -235,9 +243,9 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 		renderCall(args, theme, context) {
 			const action = typeof args.action === "string" ? args.action : "job";
-			const text = reuseText(context.lastComponent);
+			const text = reuseCallText(context.lastComponent, "", "middle");
 			text.setText(
-				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
+				toolCallTitle(theme, `${TOOL_NAME} `) +
 					paint(
 						theme,
 						"meta",
@@ -249,20 +257,21 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context.lastComponent);
+			const startedAt = syncElapsedTimer(options.isPartial, context);
 			const details = toolDetails<JobDetails>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
 			if (details.error) {
-				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(errorLine(theme, details.error));
 				return text;
 			}
 
 			if (options.isPartial) {
 				const id = details.job?.id;
-				text.setText(paint(theme, "warn", id ? `Waiting on ${id}…` : "Waiting…"));
+				const elapsed = startedAt === undefined ? "" : elapsedSuffix(theme, Date.now() - startedAt);
+				text.setText(paint(theme, "warn", id ? `Waiting on ${id}…` : "Waiting…") + elapsed);
 				return text;
 			}
 
@@ -328,8 +337,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				return text;
 			}
 
-			const first = result.content[0];
-			text.setText(first?.type === "text" ? first.text : "");
+			text.setText(rejectionLine(theme, result, options.expanded));
 			return text;
 		},
 	});

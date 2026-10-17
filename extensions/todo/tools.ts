@@ -16,6 +16,7 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
@@ -96,9 +97,9 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseText(context.lastComponent);
+			const text = reuseCallText(context.lastComponent);
 			text.setText(
-				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
+				toolCallTitle(theme, `${TOOL_NAME} `) +
 					paint(theme, "meta", formatCallText(args.todos as Todo[] | undefined, context.argsComplete)),
 			);
 			return text;
@@ -114,8 +115,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 			// A call rejected before `execute` (argument validation or a permission
 			// block) carries `details: {}` with no list, so fall back to its message.
 			if (!details || !Array.isArray(details.todos)) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, expanded));
 				return text;
 			}
 			if (details.todos.length === 0) {

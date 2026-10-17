@@ -102,13 +102,17 @@ This specification defines ...
 ... (412 more lines)
 ```
 
-Collapsed rows end with the expand key (`app.tools.expand`) when there is text
-to preview. Expanded rows append a sanitized, line-capped preview
-(`PREVIEW_LINES` = 20) of the extracted text, with `... (N more lines)` when the
-text is longer; a read with no extractable text shows the summary only. Errors
-render as a single sanitized `error` line, and a partial (streaming) result as
-`Reading...`. Extracted text is sanitized before a theme colour is applied, so
-the theme's own ANSI codes stay intact.
+The call line is one physical line: a long path clips in the middle, so the
+basename and the paging options survive a narrow terminal. Collapsed rows end
+with the expand affordance (`ctrl+o to expand`) when there is text to preview.
+Expanded rows append a sanitized, line-capped preview (`PREVIEW_LINES` = 20) of
+the extracted text, with `... (N more lines)` when the text is longer; a read
+with no extractable text shows the summary only. Errors render as a single
+sanitized `error` line, and a partial (streaming) result reads `Reading...` with
+a live elapsed suffix. Extracted text is sanitized before a theme colour is
+applied, so the theme's own ANSI codes stay intact. A host-rejected call (a
+permission block, a validation failure) renders its own message through the same
+sanitized error path.
 
 ## Configuration
 
@@ -261,7 +265,7 @@ repeating it would be pure duplication.
 | `index.ts` | Factory; registers the tool. |
 | `formats.ts` | `DocumentFormat`, the `FORMATS` registry, `FormatId`, `detectFormat`, `supportedExtensions`, `unsupportedHint`. |
 | `tool.ts` | The tool definition, handler, path guard, extractor override seam, and renderer wiring. Re-exports `TOOL_NAME`. |
-| `render.ts` | Theme-aware transcript formatting: call/result lines, `~` + OSC-8 path, expand hint, sanitized preview, `Text` reuse. |
+| `render.ts` | Theme-aware transcript formatting: call/result lines, `~` + OSC-8 path, expand hint, sanitized preview, and the shared rejection/error path. The call reuses `ToolCallText` (one line, middle clip); the result reuses `Text`. |
 | `schema.ts` | `TOOL_NAME`, `DocParams`, `DocOutput`, limits, result type. |
 | `config.ts` | `DocConfig`, registry-derived defaults, `normalizeConfig`, `loadConfig`, `isFormatEnabled`. |
 | `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript summary. |

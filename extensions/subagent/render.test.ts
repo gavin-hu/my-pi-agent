@@ -283,7 +283,7 @@ describe("renderSubagentResult", () => {
 		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false, now: NOW }, theme),
 		);
-		expect(text).toContain("12s");
+		expect(text).toContain("12.0s");
 	});
 
 	test("the running glyph animates on the repaint clock", () => {

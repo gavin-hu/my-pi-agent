@@ -12,6 +12,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge } from "./bridge.ts";
 
@@ -83,14 +84,14 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseText(context.lastComponent);
+			const text = reuseCallText(context.lastComponent);
 			const body = (args as { text?: unknown }).text;
 			const label = context.argsComplete && typeof body === "string" ? sanitizeLine(body) : "…";
-			text.setText(theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "meta", label));
+			text.setText(toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "meta", label));
 			return text;
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const text = reuseText(context.lastComponent);
 			const details = toolDetails<{ sent?: boolean; error?: string }>(result.details);
 			if (details?.sent) {
@@ -101,9 +102,8 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
 				return text;
 			}
-			// Pi's rejection result carries `{}`; show its message instead.
-			const first = result.content[0];
-			text.setText(first?.type === "text" ? first.text : paint(theme, "bad", "Error: send failed"));
+			// Pi's rejection result carries `{}`; show its sanitized message.
+			text.setText(rejectionLine(theme, result, options.expanded));
 			return text;
 		},
 	});

@@ -11,6 +11,14 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadSearchConfig } from "../config.ts";
 import { oneLine } from "../transcript.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
+import {
+	elapsedSuffix,
+	rejectionLine,
+	reuseCallText,
+	startToolProgress,
+	syncElapsedTimer,
+	toolCallTitle,
+} from "../../../lib/tui/tool.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { expandHint, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { formatResults } from "./format.ts";
@@ -43,9 +51,10 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 		annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
 		executionMode: "sequential",
 
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const config = loadSearchConfig(ctx.cwd);
 			const request = resolveRequest(params as WebSearchArgs, config);
+			startToolProgress(onUpdate);
 			const outcome = await runSearch(request, config, signal, runDeps);
 
 			const response: SearchResponse = {
@@ -68,20 +77,24 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 
 		renderCall(args, theme, context) {
 			const { query, maxResults } = args as WebSearchArgs;
-			const text = reuseText(context?.lastComponent);
-			let line = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "label", oneLine(query ?? ""));
+			const text = reuseCallText(context?.lastComponent);
+			let line = toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "label", oneLine(query ?? ""));
 			if (maxResults) line += paint(theme, "faint", ` (max ${maxResults})`);
 			text.setText(line);
 			return text;
 		},
 
 		renderResult(result, options, theme, context) {
+			const startedAt = syncElapsedTimer(options.isPartial, context);
 			const text = reuseText(context?.lastComponent);
 			const details = result.details as SearchResponse | undefined;
+			if (options.isPartial) {
+				const elapsed = startedAt === undefined ? "" : elapsedSuffix(theme, Date.now() - startedAt);
+				text.setText(paint(theme, "warn", "Searching…") + elapsed);
+				return text;
+			}
 			if (!details || result.isError) {
-				const first = result.content[0];
-				const message = first?.type === "text" ? first.text : "Search failed";
-				text.setText(paint(theme, "bad", `Error: ${oneLine(message)}`));
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
 			if (details.provider === "none") {
@@ -93,7 +106,8 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			// A blank line separates the call header from the result body.
 			const lines: string[] = [
 				"",
-				paint(theme, "faint", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`),
+				paint(theme, "faint", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`) +
+					elapsedSuffix(theme, context.durationMs),
 			];
 			if (details.answer)
 				lines.push(`${paint(theme, "faint", "Answer:")} ${paint(theme, "meta", oneLine(details.answer, 160))}`);

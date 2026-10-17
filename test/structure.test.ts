@@ -45,6 +45,7 @@ const ROOT_TEST_FILES = new Set([
 	"release.test.ts",
 	"structure.test.ts",
 	"theme.test.ts",
+	"tool-render.test.ts",
 ]);
 
 /**

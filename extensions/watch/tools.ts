@@ -10,6 +10,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -191,9 +192,9 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 
 		renderCall(args, theme, context) {
 			const action = typeof args.action === "string" ? args.action : "watch";
-			const text = reuseText(context.lastComponent);
+			const text = reuseCallText(context.lastComponent, "", "middle");
 			text.setText(
-				theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) +
+				toolCallTitle(theme, `${TOOL_NAME} `) +
 					paint(
 						theme,
 						"meta",
@@ -207,8 +208,7 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 			const text = reuseText(context.lastComponent);
 			const details = toolDetails<WatchDetails>(result.details);
 			if (!details) {
-				const first = result.content[0];
-				text.setText(first?.type === "text" ? first.text : "");
+				text.setText(rejectionLine(theme, result, options.expanded));
 				return text;
 			}
 			if (details.error) {
@@ -277,8 +277,7 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 				return text;
 			}
 
-			const first = result.content[0];
-			text.setText(first?.type === "text" ? first.text : "");
+			text.setText(rejectionLine(theme, result, options.expanded));
 			return text;
 		},
 	});

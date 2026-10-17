@@ -22,7 +22,7 @@ pi install ./                         # install the package
 
 How the `run_doctor` call and its result look in the transcript — the call line as a headline and the body indented under it:
 
-<img src="../../assets/tools/run_doctor.png" alt="The run_doctor tool's result: the call line and an indented body with the doctor headline and the missing and degraded findings" width="100%">
+<img src="../../assets/tools/run_doctor.png" alt="The run_doctor tool's result: the call line and a one-line, indented doctor summary with a collapsed expand hint" width="100%">
 
 ## What it does
 
@@ -212,11 +212,13 @@ The body carries the transcript rail, painted by status (a running result takes
 the accent, a failure red, a finished one neutral) and drawn with the glyph from
 the `chrome.rail` setting. A result frame is always railed; a call frame is railed
 only for `edit` and `write`, whose call body carries the result — every other
-call's headline and continuation lines stay plain-indented. A call line that
-does not fit wraps, and Pi drops the tool name onto its own line when the
-subject it carries (a long path) is one unbreakable token; those continuation
-lines are still the call, so they stay unrailed and lose the accent too, and the
-rail begins with the result underneath. A tool with
+call's headline and continuation lines stay plain-indented. Package renderers
+clip a call to one physical line (middle clip for a path or URL), so it cannot
+leak into the body column; Pi's own renderers still wrap, and the frame keeps a
+wrapped continuation unrailed and loses the accent there too, with the rail
+beginning at the result underneath. A rejected call renders as one sanitized
+`error` line in the error role; a running tool shows a live elapsed label, and a
+finished long call appends its duration. A tool with
 no renderer of its own is framed around a generic call/result fallback, whose
 call line reads like a built-in — the leading string argument bare, the rest as
 trailing options (`open_path src/app.ts`) — rather than dumping raw `key=value`

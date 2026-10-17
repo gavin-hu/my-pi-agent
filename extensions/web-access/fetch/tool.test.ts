@@ -250,8 +250,48 @@ describe("web_fetch transcript rendering", () => {
 			.render(80)
 			.join("\n");
 		expect(text).toContain("12k chars");
+		expect(text).toContain("200");
 		expect(text).toContain("(cached)");
 		expect(text).not.toContain("\u001b");
+	});
+
+	test("shows the redirect target when the final URL differs", () => {
+		const tool = renderer();
+		const text = tool
+			.renderResult(
+				{
+					details: page({ title: "Moved", finalUrl: "https://x/new" }),
+					content: [{ type: "text", text: "" }],
+				},
+				{ expanded: false },
+				fakeTheme,
+				{ lastComponent: undefined },
+			)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("https://x/new");
+	});
+
+	test("renders a live fetching line while partial", () => {
+		const tool = renderer();
+		const context = {
+			args: { url: "https://example.com/a" },
+			lastComponent: undefined,
+			state: {},
+			invalidate: () => {},
+		};
+		const text = tool
+			.renderResult({ details: undefined, content: [] }, { expanded: false, isPartial: true }, fakeTheme, context)
+			.render(80)
+			.join("\n");
+		expect(text).toContain("Fetching example.com");
+		// A final render clears the repaint timer the partial one started.
+		tool.renderResult(
+			{ details: page(), content: [{ type: "text", text: "" }] },
+			{ expanded: false },
+			fakeTheme,
+			context,
+		);
 	});
 
 	test("shows an error line for a failed page and reuses the slot Text", () => {

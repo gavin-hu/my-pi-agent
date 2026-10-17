@@ -16,6 +16,7 @@ import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { reuseText } from "../../lib/tui/chrome.ts";
+import { elapsedSuffix, reuseCallText, startToolProgress, syncElapsedTimer } from "../../lib/tui/tool.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
 import type { DocExtractor } from "./extract/file.ts";
 import { detectFormat, supportedExtensions, unsupportedHint, type FormatId } from "./formats.ts";
@@ -82,7 +83,7 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 		defaultActive: true,
 		annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
 
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const args = params as DocArgs;
 			const config = loadConfig(ctx.cwd);
 			const root = resolveEffectiveCwd(ctx.cwd);
@@ -102,6 +103,7 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 
 			const size = await statFile(abs, display, config.maxFileBytes);
 			const extractor = deps.extractors?.[format.id] ?? format.extract;
+			startToolProgress(onUpdate);
 			const text = await extractor({ path: abs, signal });
 
 			const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
@@ -137,15 +139,19 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 
 		renderCall(args, theme, context) {
 			const cwd = context?.cwd ?? process.cwd();
-			const text = reuseText(context?.lastComponent);
-			text.setText(formatDocCall(args as DocArgs, theme, { cwd }));
+			const text = reuseCallText(context?.lastComponent, "", "middle");
+			text.setText(formatDocCall(args as DocArgs, theme, { cwd, argsComplete: context?.argsComplete ?? true }));
 			return text;
 		},
 
 		renderResult(result, options, theme, context) {
+			const startedAt = syncElapsedTimer(options.isPartial, context);
+			const progress = options.isPartial && startedAt !== undefined ? elapsedSuffix(theme, Date.now() - startedAt) : "";
 			const isError = context?.isError ?? result.isError ?? false;
 			const text = reuseText(context?.lastComponent);
-			text.setText(formatDocResult({ content: result.content, details: result.details, isError }, options, theme));
+			text.setText(
+				formatDocResult({ content: result.content, details: result.details, isError }, { ...options, progress }, theme),
+			);
 			return text;
 		},
 	});
