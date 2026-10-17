@@ -113,6 +113,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a remote prompt is bounded. A question forwarded to WeChat sends one
+  reminder at 90 seconds and cancels itself at three minutes with a one-line
+  notice, so a peer who never answers can no longer freeze the session (the
+  terminal cannot answer it either while the WeChat turn owns the dialogs). The
+  `confirm` parser also accepts the everyday Chinese answers 确定/行 and 不是/不行.
 - `wechat`: an inbound attachment the bridge could not read — over
   `maxMediaBytes`, a failed CDN download, or an image that arrived without its
   AES key — is no longer silent. The peer gets one line folded into the answer,

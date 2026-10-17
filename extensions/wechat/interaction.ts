@@ -3,9 +3,14 @@
  * prompt to the peer that owns the current turn and resolves when that peer
  * replies.
  *
- * It depends only on an injected `send` and an `activePeer` accessor, never on
- * the bridge or HTTP client, so it is unit-tested without I/O. The bridge owns
- * the poll loop and hands each inbound message to {@link WechatInteractionChannel.handleInbound}.
+ * It depends only on injected `send`/`sendFile`/`activePeer` accessors and a
+ * timer seam, never on the bridge or HTTP client, so it is unit-tested without
+ * I/O. The bridge owns the poll loop and hands each inbound message to
+ * {@link WechatInteractionChannel.handleInbound}.
+ *
+ * A prompt is bounded: a peer who never answers cannot hold the session open, so
+ * a reminder goes out halfway and the dialog is cancelled with a short line at
+ * {@link PROMPT_TIMEOUT_MS}.
  */
 
 import {
@@ -14,7 +19,12 @@ import {
 	type InteractionChannel,
 	type InteractionRequest,
 } from "../../lib/interaction.ts";
+import { notice, type PeerLanguage } from "./format.ts";
 import { formatPrompt, parsePromptAnswer } from "./prompt.ts";
+import { defaultTimer, type ArmTimer } from "./timer.ts";
+
+/** How long a forwarded prompt waits before it is cancelled. */
+export const PROMPT_TIMEOUT_MS = 180_000;
 
 export interface WechatInteractionDeps {
 	/** Send one text message to the owning peer; resolves false when it fails. */
@@ -23,6 +33,10 @@ export interface WechatInteractionDeps {
 	sendFile: (path: string, name: string, signal?: AbortSignal) => Promise<boolean>;
 	/** The peer that owns the in-flight turn, or undefined when there is none. */
 	activePeer: () => string | undefined;
+	/** The language the owning peer writes in, for the timeout notices. */
+	language: () => PeerLanguage;
+	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
+	armTimer?: ArmTimer;
 }
 
 export interface WechatInteractionChannel extends InteractionChannel {
@@ -40,9 +54,12 @@ interface Pending {
 	resolve: (answer: InteractionAnswer) => void;
 	signal?: AbortSignal;
 	onAbort: () => void;
+	/** Cancellers for the reminder and the expiry timer. */
+	cancelTimers: Array<() => void>;
 }
 
 export function createWechatInteractionChannel(deps: WechatInteractionDeps): WechatInteractionChannel {
+	const arm = deps.armTimer ?? defaultTimer;
 	let pending: Pending | undefined;
 	/** Free text captured from a `select` "Other" reply, for the next `input`. */
 	let other: string | undefined;
@@ -51,6 +68,8 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 		const current = pending;
 		if (!current) return;
 		pending = undefined;
+		for (const cancel of current.cancelTimers) cancel();
+		current.cancelTimers = [];
 		current.signal?.removeEventListener("abort", current.onAbort);
 		current.resolve(answer);
 	}
@@ -88,10 +107,20 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			// Register the pending prompt before the send await so a fast reply is
 			// never lost to the round-trip, then send and fail closed.
 			const peer = deps.activePeer() as string;
+			const cancelTimers: Array<() => void> = [];
 			const answer = new Promise<InteractionAnswer>((resolve) => {
 				const onAbort = () => settle({ kind: "cancelled" });
-				pending = { request, peer, resolve, signal, onAbort };
+				pending = { request, peer, resolve, signal, onAbort, cancelTimers };
 				signal?.addEventListener("abort", onAbort, { once: true });
+				// An ignored question must not freeze the session: nudge once, then
+				// cancel so the model gets a clean answer instead of a hang.
+				cancelTimers.push(arm(PROMPT_TIMEOUT_MS / 2, () => void deps.send(notice("promptWaiting", deps.language()))));
+				cancelTimers.push(
+					arm(PROMPT_TIMEOUT_MS, () => {
+						void deps.send(notice("timeout", deps.language()));
+						settle({ kind: "cancelled" });
+					}),
+				);
 			});
 			const sent = await deps.send(formatPrompt(request), signal);
 			if (!sent) settle({ kind: "cancelled" });

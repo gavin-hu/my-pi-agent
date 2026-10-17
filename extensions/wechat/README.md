@@ -114,12 +114,15 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 
 - `select` — a numbered list; reply with a number, the option text, or any other
   text for the free-form “Other” entry.
-- `confirm` — reply 是/否 (or yes/no).
+- `confirm` — reply 是/否, 确定/不是, or yes/no.
 - `input` / `editor` — reply with the text.
 - Reply 取消 (or cancel) to dismiss.
 - Hints are bilingual (Chinese and English). A reply that cannot be read
   re-sends the prompt with a short “didn’t recognize that” notice instead of
   repeating it silently.
+- An unanswered prompt is bounded: a reminder goes out halfway and the question
+  is cancelled after three minutes with a one-line notice, so an ignored dialog
+  cannot freeze the session.
 
 The reply is consumed as the answer and never starts a turn of its own; a turn
 started at the terminal keeps the normal TUI. Set `remotePrompts: false` to
