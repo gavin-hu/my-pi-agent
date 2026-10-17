@@ -190,4 +190,36 @@ describe("registerToolBlocks", () => {
 		expect(seen[1]).toBeInstanceOf(Text);
 		expect(seen[1]).not.toBe(first);
 	});
+
+	test("frames its own fallback when a base renderer throws", () => {
+		// A base can throw on a partial (still-streaming) argument. The frame must
+		// still own the pad, so the row never jumps to Pi's column-0 call line.
+		const renderers = resolver()("read", () => ({
+			renderCall: () => {
+				throw new Error("partial args");
+			},
+		}));
+		const lines = renderers?.renderCall?.({ path: "src/a.ts" }, fakeTheme, ctx({ outputPad: 1 })).render(60) ?? [];
+		expect(lines[0]?.startsWith(" ")).toBe(true);
+		expect(lines[0]).toContain("read");
+	});
+
+	test("frames its own result fallback when a base result renderer throws", () => {
+		const renderers = resolver()("read", () => ({
+			renderResult: () => {
+				throw new Error("boom");
+			},
+		}));
+		const lines =
+			renderers
+				?.renderResult?.(
+					{ content: [{ type: "text", text: "out" }] } as any,
+					{ expanded: false, isPartial: false },
+					fakeTheme,
+					ctx({ outputPad: 1 }),
+				)
+				.render(60) ?? [];
+		expect(lines[0]?.startsWith(" ")).toBe(true);
+		expect(lines.join("\n")).toContain("out");
+	});
 });

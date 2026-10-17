@@ -80,25 +80,41 @@ export function formatAnswerText(result: AskResult): string {
 	return lines.join("\n");
 }
 
-/** Minimal shape needed to summarize a call, before or after normalization. */
+/**
+ * Minimal shape needed to summarize a call, before or after normalization.
+ *
+ * The transcript renderer reads this from a call's *streaming* args, where a
+ * field can be missing or still be a fragment: a partial parse can hand back an
+ * option before its label has arrived. Every field is therefore `unknown`, and
+ * the helpers below read a non-string as absent rather than throw.
+ */
 export interface CallQuestion {
-	header?: string;
-	options?: { label: string }[];
+	header?: unknown;
+	options?: unknown;
+}
+
+/** A partial value read as a single line; anything but a string reads empty. */
+function asLine(value: unknown): string {
+	return typeof value === "string" ? sanitizeLine(value) : "";
 }
 
 /** Display headers with positional defaults (`Q1`, `Q2`, …). */
 export function questionHeaders(questions: CallQuestion[]): string[] {
-	return questions.map((question, i) => sanitizeLine(question?.header?.trim() || `Q${i + 1}`));
+	return questions.map((question, i) => asLine(question?.header) || `Q${i + 1}`);
 }
 
 /** One `Header: a, b, Other` summary per question that offers options. */
 export function optionSummary(questions: CallQuestion[]): string[] {
 	return questions
-		.map((question, i) => ({ question, header: question?.header?.trim() || `Q${i + 1}` }))
-		.filter(({ question }) => (question?.options?.length ?? 0) > 0)
-		.map(({ question, header }) => {
-			const labels = question.options?.map((option) => sanitizeLine(option.label)).join(", ");
-			return `${sanitizeLine(header)}: ${labels}, Other`;
+		.map((question, i) => ({ header: asLine(question?.header) || `Q${i + 1}`, options: question?.options }))
+		.filter(({ options }) => Array.isArray(options) && options.length > 0)
+		.map(({ header, options }) => {
+			// A partial option has no label yet; list the ones that have arrived.
+			const labels = (options as unknown[])
+				.map((option) => (option as { label?: unknown } | undefined)?.label)
+				.filter((label): label is string => typeof label === "string")
+				.map((label) => sanitizeLine(label));
+			return `${header}: ${labels.length > 0 ? `${labels.join(", ")}, Other` : "Other"}`;
 		});
 }
 

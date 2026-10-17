@@ -179,6 +179,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: the browser review's sidebar hint now names `a` on a review that can
   approve and points at `?` for the full shortcut list, instead of listing only
   `j`/`k`/`c`/`s` after approval moved onto the page.
+- `question`: the `ask_user_question` call line no longer jumps a column while
+  the call's arguments are still streaming. A partial parse can hand back a
+  question before its `header`, or an option before its `label`, and the summary
+  helpers passed that straight to `sanitizeLine`, which threw; Pi answers a
+  throwing renderer with its own call line, a column to the left of the framed
+  one. A non-string field now reads as absent.
+- `bytefly`: a tool renderer that throws is now caught by the block frame and
+  drawn as the frame's own fallback at the frame's pad, instead of the throw
+  reaching Pi and the row dropping to Pi's generic call line. This keeps the
+  frame's one-left-edge invariant for every tool, not just `ask_user_question`.
 - `plan`: a list item's continuation lines now hang under the item's text in the
   browser review. A hard-wrapped or lazy-continued line was emitted as a bare
   paragraph at the block's left margin, so a multi-line step read as several

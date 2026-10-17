@@ -7,6 +7,8 @@ import {
 	describeSelection,
 	formatAnswerText,
 	formatCallText,
+	optionSummary,
+	questionHeaders,
 	unavailableResult,
 } from "./answers.ts";
 import type { Question } from "./types.ts";
@@ -98,5 +100,17 @@ describe("describeSelection", () => {
 		expect(describeSelection({ type: "options", values: ["a"], labels: ["a"], indices: [1] })).toBe("1. a");
 		expect(describeSelection({ type: "custom", text: "hi" })).toBe("(wrote) hi");
 		expect(describeSelection(undefined)).toBe("(unanswered)");
+	});
+});
+
+describe("partial call summaries", () => {
+	test("reads a missing or non-string field as absent", () => {
+		expect(questionHeaders([{ header: undefined }, { header: 1 }])).toEqual(["Q1", "Q2"]);
+		expect(optionSummary([{ header: "Auth", options: [{}] }])).toEqual(["Auth: Other"]);
+		expect(optionSummary([{ header: "Auth", options: [{ label: "OAuth" }, {}] }])).toEqual(["Auth: OAuth, Other"]);
+	});
+
+	test("ignores a non-array options value", () => {
+		expect(optionSummary([{ header: "Auth", options: "nope" }])).toEqual([]);
 	});
 });

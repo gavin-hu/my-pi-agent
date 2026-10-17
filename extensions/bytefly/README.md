@@ -791,7 +791,10 @@ rather than showing a wrong value.
   call, and it is handed a theme whose `bg` is inert so it paints no band. Each base renderer is handed its own
   previous component (tracked in the row's `state`), never the frame: Pi gives a
   renderer the component it returned last time, and a built-in calls `setText` on
-  it, so handing back the frame would break it.
+  it, so handing back the frame would break it. A base renderer that throws is
+  caught here too, and the frame falls back to its own call/result line at the
+  frame's pad; letting the throw reach Pi would swap in Pi's generic call line,
+  which sits a column to the left of the framed one.
 - **One frame, one left edge.** Every transcript block that is not prose shares
   the same frame (`lib/tui/indent.ts`): a tool block, a notice, and a subagent's
   quoted output take one indent, so they hang from one left edge instead of four,

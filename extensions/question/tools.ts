@@ -70,17 +70,21 @@ export function registerTools(pi: ExtensionAPI): void {
 		},
 
 		renderCall(args, theme, context) {
-			const raw = (args as Partial<AskUserQuestionArgs>).questions ?? [];
-			const count = raw.length;
+			// The args stream in: `questions` can be absent, and an option can arrive
+			// before its label. Read a partial call as a smaller summary and never
+			// throw — a throwing renderer makes Pi fall back to its own call line.
+			const raw = (args as Partial<AskUserQuestionArgs> | undefined)?.questions;
+			const questions = Array.isArray(raw) ? raw : [];
+			const count = questions.length;
 			const noun = count === 1 ? "question" : "questions";
-			const headers = questionHeaders(raw);
+			const headers = questionHeaders(questions);
 			let text = theme.fg("toolTitle", theme.bold(`${TOOL_NAME} `)) + paint(theme, "meta", `${count} ${noun}`);
 			if (headers.length > 0) text += paint(theme, "faint", ` (${headers.join(", ")})`);
 
 			// One line per question that offers options, so a long option list stays
 			// mapped to its question instead of wrapping on a single row. The line
 			// carries no indent of its own; the tool-block frame supplies it.
-			for (const line of optionSummary(raw)) text += `\n${paint(theme, "meta", line)}`;
+			for (const line of optionSummary(questions)) text += `\n${paint(theme, "meta", line)}`;
 
 			const component = reuseText(context?.lastComponent);
 			component.setText(text);

@@ -52,6 +52,30 @@ describe("ask_user_question transcript rendering", () => {
 		expect(lines[0]).toContain("1 question (Notes)");
 	});
 
+	test("survives a partially-streamed call", () => {
+		const { tool } = setup();
+		const partials: unknown[] = [
+			undefined,
+			{},
+			{ questions: [] },
+			{ questions: "nope" },
+			{ questions: [{ header: "Auth", options: [{}] }] },
+			{ questions: [{ header: 1, options: [{ label: null }] }] },
+		];
+		for (const args of partials) {
+			expect(() => tool.renderCall(args, fakeTheme, { lastComponent: undefined }).render(80)).not.toThrow();
+		}
+	});
+
+	test("reads a not-yet-streamed option as Other only", () => {
+		const { tool } = setup();
+		const lines = tool
+			.renderCall({ questions: [{ header: "Auth", options: [{}] }] }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.map((line: string) => line.trimEnd());
+		expect(lines[1]).toBe("Auth: Other");
+	});
+
 	test("result renders selected and custom answers", () => {
 		const { tool } = setup();
 		const details: AskResult = {
