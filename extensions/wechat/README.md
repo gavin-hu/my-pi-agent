@@ -27,8 +27,10 @@ How the `send_wechat` call and its result look in the transcript — the call li
   referenced by path. Voice uses the transcript the server provides. An
   attachment the bridge could not read (too large, a failed download, no key) is
   reported to the peer and to the model instead of vanishing.
-- **Outbound** — replies are delivered automatically; the owner-only
-  `send_wechat` tool lets the model message the owner proactively.
+- **Outbound** — replies are delivered automatically as plain chat text
+  (Markdown fences, headings, and emphasis markers are flattened), and an answer
+  longer than `maxReplyChars` arrives in numbered parts (`[1/3] …`). The
+  owner-only `send_wechat` tool lets the model message the owner proactively.
 - **Typing indicator** — the native typing status is set as soon as a message is
   queued and refreshed for as long as the turn runs (`typingIndicator`, on by
   default), so the phone can tell a long turn from a dead bridge.
