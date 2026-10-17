@@ -74,10 +74,18 @@ describe("parseInbound", () => {
 		expect(result.media).toEqual([{ kind: "file", media: { full_url: "https://cdn/f" }, fileName: "a_b.txt" }]);
 	});
 
-	test("ignores video and unknown items", () => {
+	test("counts video and unknown-but-unreadable items as unsupported", () => {
 		const result = parseInbound([{ type: 5, video_item: { media: { full_url: "https://cdn/v" } } }, { type: 99 }]);
 		expect(result.text).toBe("");
 		expect(result.media).toEqual([]);
+		// Video is something a peer meant to send; type 99 is not.
+		expect(result.unsupported).toBe(1);
+	});
+
+	test("counts a voice note without a transcript as unsupported", () => {
+		const result = parseInbound([{ type: 3, voice_item: { media: { full_url: "https://cdn/v" } } }]);
+		expect(result.text).toBe("");
+		expect(result.unsupported).toBe(1);
 	});
 
 	test("keeps a media-only message with empty text", () => {

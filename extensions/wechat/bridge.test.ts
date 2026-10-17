@@ -364,7 +364,11 @@ describe("bridge media", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toEqual([{ type: "text", text: "look" }]);
+		expect(injected[0]).toEqual([
+			{ type: "text", text: "look" },
+			// The model is told the image was skipped instead of assuming it saw it.
+			{ type: "text", text: "[WeChat media skipped: 1]" },
+		]);
 		await waitFor(() => bridge.status().mediaDropped === 1);
 		await bridge.close();
 	});
@@ -377,8 +381,71 @@ describe("bridge media", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toEqual([{ type: "text", text: "big" }]);
+		expect(injected[0]).toEqual([
+			{ type: "text", text: "big" },
+			{ type: "text", text: "[WeChat media skipped: 1]" },
+		]);
 		await waitFor(() => bridge.status().mediaDropped === 1);
+		await bridge.close();
+	});
+
+	test("answers a peer whose only attachment could not be read", async () => {
+		const { client, sent } = makeClient([updates([inboundImage()])]);
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => sent.length === 1);
+
+		expect(sent[0]?.text).toBe("Couldn't open 1 attachment(s) — please resend or describe it.");
+		// Nothing readable means no turn: the model is not asked about a photo it
+		// never received.
+		expect(injected).toEqual([]);
+		await bridge.close();
+	});
+
+	test("opens the reply with the media notice", async () => {
+		const mixed = inbound("look");
+		mixed.item_list = [...(mixed.item_list ?? []), ...(inboundImage().item_list ?? [])];
+		const { client, sent } = makeClient([updates([mixed])]);
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		bridge.setBusy(true);
+		bridge.capture({ role: "assistant", content: [{ type: "text", text: "it is a cat" }] });
+		bridge.settle();
+		await waitFor(() => sent.length === 1);
+		// One bubble: the failed attachment rides on the answer.
+		expect(sent[0]?.text).toBe("Couldn't open 1 attachment(s) — please resend or describe it.\n\nit is a cat");
+		await bridge.close();
+	});
+
+	test("answers a voice note the server gave no transcript for", async () => {
+		const voice = inbound("");
+		voice.item_list = [{ type: 3, voice_item: { media: { full_url: "https://cdn/v" } } }];
+		const { client, sent } = makeClient([updates([voice])]);
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => sent.length === 1);
+
+		expect(sent[0]?.text).toContain("Voice without a transcript and video aren't supported");
+		expect(injected).toEqual([]);
+		await bridge.close();
+	});
+
+	test("answers a video with a notice instead of silence", async () => {
+		const video = inbound("");
+		video.item_list = [{ type: 5, video_item: { media: { full_url: "https://cdn/v" } } }];
+		const { client, sent } = makeClient([updates([video])]);
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => sent.length === 1);
+
+		expect(sent[0]?.text).toContain("aren't supported");
+		expect(injected).toEqual([]);
 		await bridge.close();
 	});
 });
