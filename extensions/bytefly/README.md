@@ -267,9 +267,11 @@ change nothing. The screen is available in every mode: in `tui`, `/bytefly` and
 `/bytefly doctor` mount the docked screen, while RPC, JSON, and print modes
 print the grouped listing with a per-row health suffix and the headline, or that
 extension's full findings when one is named. The
-proactive session-start warning is skipped when there is no UI. Notify runs in
-every mode and picks its method from the environment; the OSC methods need a
-TTY, so a print/JSON/RPC run gets an OS-level notification or none.
+proactive session-start warning is skipped when there is no UI, and also when
+Pi's `quietStartup` setting is `true` (`"header"` keeps the header, so it still
+warns). Notify runs in every mode and picks its method from the environment; the
+OSC methods need a TTY, so a print/JSON/RPC run gets an OS-level notification or
+none.
 
 ## Configuration
 
@@ -415,6 +417,11 @@ The doctor surface reads the same shared `bytefly.json`, under its own top-level
 A malformed `bytefly.json` is ignored like every other config file — and named
 by the report `doctor` produces. The section is read at `session_start`, so a
 new session or `/reload` picks up an edit.
+
+Wherever it runs, the proactive warning is startup detail: it keeps silent when
+Pi starts with `"quietStartup": true`, the same setting that hides Pi's own
+header and loaded-resource listing. `"header"` keeps the header, so it still
+warns.
 
 ## Security
 
@@ -757,7 +764,7 @@ rather than showing a wrong value.
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
-| Lifecycle | `session_start` installs the header and footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on, and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
+| Lifecycle | `session_start` installs the header and footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on (unless Pi's `quietStartup` is `true`), and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
 
 ## Design notes
 
@@ -930,10 +937,11 @@ rather than showing a wrong value.
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
 - **The doctor is quiet by default at startup.** Only `missing` findings warn,
-  only for enabled extensions, only with a UI, and only once per session;
-  `degraded` findings — including a malformed config — wait in `/bytefly doctor`, because
-  a session that nags about an optional package is worse than one that never
-  mentions it.
+  only for enabled extensions, only with a UI, and only once per session; a
+  `"quietStartup": true` session gets no warning at all, matching the detail
+  suppression it asks Pi for; `degraded` findings — including a malformed config
+  — wait in `/bytefly doctor`, because a session that nags about an optional
+  package is worse than one that never mentions it.
 - **Probe the real thing.** `subagent`'s requirement resolves through the same
   `getPiInvocation` the extension uses rather than re-guessing whether a `pi`
   binary exists.

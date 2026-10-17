@@ -35,6 +35,8 @@ export interface DoctorBootOptions {
 	/** `exec` double; a clean exit for every probe by default. */
 	exec?: FakePiOptions["exec"];
 	seams?: DoctorSeamOverrides;
+	/** Effective Pi settings, for the quiet-startup gate. */
+	settings?: unknown;
 	mode?: string;
 	hasUI?: boolean;
 	cwd?: string;
@@ -42,7 +44,10 @@ export interface DoctorBootOptions {
 
 /** Boot bytefly's doctor surface against fake seams. */
 export function bootDoctor(options: DoctorBootOptions = {}): DoctorHarness {
-	const fake = createFakePi({ exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 0 })) });
+	const fake = createFakePi({
+		exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 0 })),
+		settings: options.settings,
+	});
 	const runtime = createDoctorRuntime(fake.pi, {
 		seams: {
 			loadModule: async () => ({}),
