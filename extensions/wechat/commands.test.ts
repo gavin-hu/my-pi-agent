@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
+import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import type { Bridge, BridgeStatus } from "./bridge.ts";
 import { finishLogin, registerCommands, runNew, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
@@ -33,12 +34,14 @@ interface Harness {
 	saved: BotCredentials[];
 	opens: () => number;
 	ensured: () => number;
+	logouts: () => number;
 }
 
 function harness(options: { open?: () => void; status?: BridgeStatus } = {}): Harness {
 	const saved: BotCredentials[] = [];
 	let opens = 0;
 	let ensured = 0;
+	let logouts = 0;
 	const status = options.status ?? bridgeStatus();
 	const bridge = {
 		open: () => {
@@ -60,12 +63,15 @@ function harness(options: { open?: () => void; status?: BridgeStatus } = {}): Ha
 			},
 			saveAccount: (value) => saved.push(value),
 			primaryAccount: () => undefined,
-			logout: () => {},
+			logout: () => {
+				logouts += 1;
+			},
 			now: () => 0,
 		},
 		saved,
 		opens: () => opens,
 		ensured: () => ensured,
+		logouts: () => logouts,
 	};
 }
 
@@ -189,5 +195,47 @@ describe("the /wechat command", () => {
 		await handler(deps)("status", ctx);
 		expect(customCalls.length).toBe(1);
 		expect(notices).toEqual([]);
+	});
+});
+
+/**
+ * While a WeChat turn owns the dialogs, `ctx.ui.custom` resolves `undefined` and
+ * the dialog routes to WeChat, so a terminal-side command must decline instead
+ * of opening a screen on the phone or reading back nothing.
+ */
+describe("the /wechat command during a WeChat turn", () => {
+	function handler(deps: CommandDeps) {
+		const fake = createFakePi();
+		registerCommands(fake.pi, deps);
+		const registered = fake.commands.get("wechat")?.handler;
+		if (!registered) throw new Error("command not registered");
+		return registered;
+	}
+
+	test("prints the one-line summary instead of opening the control screen", async () => {
+		const { deps } = harness();
+		const { ctx, notifications, customCalls } = remoteCtx();
+		await handler(deps)("status", ctx);
+		expect(customCalls).toEqual([]);
+		expect(notifications.at(-1)).toContain("wechat:");
+	});
+
+	test("declines logout before asking for a confirmation", async () => {
+		const { deps, logouts } = harness();
+		const { ctx, notices, confirms } = remoteCtx();
+		await handler(deps)("logout", ctx);
+		expect(notices.at(-1)?.kind).toBe("warning");
+		expect(notices.at(-1)?.message).toContain("/wechat logout");
+		expect(confirms).toEqual([]);
+		expect(logouts()).toBe(0);
+	});
+
+	test("declines login before fetching a QR code", async () => {
+		const { deps } = harness();
+		const { ctx, notices } = remoteCtx();
+		// The harness login client throws, so reaching it would fail this test.
+		await handler(deps)("login", ctx);
+		expect(notices.at(-1)?.kind).toBe("warning");
+		expect(notices.at(-1)?.message).toContain("/wechat login");
 	});
 });

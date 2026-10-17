@@ -214,8 +214,8 @@ the agent: inbound text, images (as model image content), and files (saved and
 referenced by path) become a user turn, and the reply is sent back with a typing
 indicator. The bridge starts automatically once an account is stored. `/wechat`
 opens a control screen (`login`, `new`, `status`, `logout`, `help`) in the TUI and
-prints a one-line summary elsewhere. The `send_wechat` tool messages the
-account owner only.
+prints a one-line summary elsewhere, including while a WeChat turn owns the
+dialogs. The `send_wechat` tool messages the account owner only.
 
 Tool: `send_wechat`. Command: `/wechat`.
 

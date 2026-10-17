@@ -81,6 +81,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Tooling: `assets/chrome.png` is recaptured from a real `pi -e .` run, so the
   README hero carries the 0.10.0 header and the current footer fields.
 
+### Fixed
+
+- `wechat`: a session that connects on `session_start` now answers inbound
+  messages. The bridge keeps the handle the host events, the tool, and the
+  commands read instead of dropping it, so turns are captured and settled
+  rather than injected and left unanswered; the already-open guard is real too,
+  so the RPC double `session_start` on a session switch no longer starts a
+  second poller, and `session_shutdown` stops polling instead of leaving it
+  running.
+- `wechat`: `/wechat` typed at the terminal no longer opens its dialogs over a
+  WeChat turn. `status` prints the one-line summary, and `login`/`logout` report
+  that they are unavailable until the turn finishes, instead of crashing on a
+  refused full-screen component or sending the logout confirmation to the
+  phone.
+
 ## [0.10.0] - 2026-10-17
 
 ### Added

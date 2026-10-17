@@ -17,7 +17,7 @@ import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
-import { createFetchRunner, WechatClient } from "./client.ts";
+import { createFetchRunner, WechatClient, type WechatClientOptions } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";
 import { loadWechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
@@ -43,8 +43,18 @@ export function wechatChip(theme: Theme, state: BridgeState): string | undefined
 	}
 }
 
-export default function wechat(pi: ExtensionAPI): void {
+/** Test seams: production uses the fetched HTTP transport and the real timers. */
+export interface WechatDeps {
+	/** Build the iLink client; overridden in tests so no request leaves the process. */
+	createClient?: (options: WechatClientOptions) => WechatClient;
+	/** Injected sleep; overridden in tests so the poll loop never waits on a real timer. */
+	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+}
+
+export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	if (!isExtensionEnabled("wechat")) return;
+
+	const makeClient = deps.createClient ?? ((options: WechatClientOptions) => new WechatClient(options));
 
 	let bridge: Bridge | undefined;
 	let ctxRef: ExtensionContext | undefined;
@@ -89,13 +99,14 @@ export default function wechat(pi: ExtensionAPI): void {
 			loadState: () => readState(statePath()),
 			saveState: (state) => writeState(statePath(), state),
 			createClient: (account) =>
-				new WechatClient({
+				makeClient({
 					http: createFetchRunner(),
 					channelVersion: config.channelVersion,
 					botAgent: config.botAgent,
 					baseUrl: account.baseUrl,
 					cdnBaseUrl: config.cdnBaseUrl,
 				}),
+			sleep: deps.sleep,
 			acquireLock: () => acquireLock(lockPath(), lockDeps()),
 			refreshLock: () => refreshLock(lockPath(), lockDeps()),
 			releaseLock: () => releaseLock(lockPath(), process.pid),
@@ -116,20 +127,27 @@ export default function wechat(pi: ExtensionAPI): void {
 		return created;
 	};
 
-	/** Bring the bridge up on a new session while an account is stored. */
+	/**
+	 * Bring the bridge up on a new session while an account is stored.
+	 *
+	 * The bridge is built and kept once per runtime — everything else in this
+	 * file reads the same handle — and an open bridge makes a repeat call a
+	 * no-op, so a host that binds one session twice (RPC emits `session_start`
+	 * twice on a session switch) cannot start a second poller.
+	 */
 	const autoStart = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
 		if (!primaryAccount()) return;
 		if (bridge?.status().open) return;
 		try {
-			const target = bridge ?? build(ctx);
-			target.open();
+			bridge = bridge ?? build(ctx);
+			bridge.open();
 		} catch (error) {
 			ctx.ui.notify(`WeChat did not connect: ${error instanceof Error ? error.message : String(error)}`, "warning");
 		}
 	};
 
-	const deps: CommandDeps = {
+	const commandDeps: CommandDeps = {
 		getBridge: () => bridge,
 		ensureBridge: (ctx) => {
 			if (!bridge) bridge = build(ctx);
@@ -138,7 +156,7 @@ export default function wechat(pi: ExtensionAPI): void {
 		loadConfig: (cwd) => loadWechatConfig(cwd),
 		createLoginClient: (cwd) => {
 			const config = loadWechatConfig(cwd);
-			return new WechatClient({
+			return makeClient({
 				http: createFetchRunner(),
 				channelVersion: config.channelVersion,
 				botAgent: config.botAgent,
@@ -151,7 +169,7 @@ export default function wechat(pi: ExtensionAPI): void {
 		now: () => Date.now(),
 	};
 
-	registerCommands(pi, deps);
+	registerCommands(pi, commandDeps);
 	registerTools(pi, { getBridge: () => bridge });
 
 	pi.on("session_start", (_event, ctx) => {
@@ -166,11 +184,16 @@ export default function wechat(pi: ExtensionAPI): void {
 	pi.on("message_end", (event) => bridge?.capture(event.message));
 	pi.on("agent_settled", () => bridge?.settle());
 	pi.on("session_shutdown", async () => {
+		// Shutdown is emitted before the host resets the UI, so the chip is still ours to clear.
 		uninstallRemoteUI?.();
 		uninstallRemoteUI = undefined;
 		ctxRef?.ui.setStatus(STATUS_KEYS.wechat, undefined);
-		await bridge?.shutdown();
-		bridge = undefined;
-		ctxRef = undefined;
+		try {
+			await bridge?.shutdown();
+		} finally {
+			// A throwing close must not leave a live handle on a dead runtime.
+			bridge = undefined;
+			ctxRef = undefined;
+		}
 	});
 }
