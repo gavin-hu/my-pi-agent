@@ -86,7 +86,10 @@ machine whose default registry is a read-only mirror (for example
 `registry.npmmirror.com`) serves reads but rejects the publish with `E401`.
 
 1. Work on a branch in a worktree (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)).
-2. Bump `version` in [`../package.json`](../package.json), move the `Unreleased`
+2. Curate `[Unreleased]` against `git log <last-tag>..main` so every user-visible
+   change has exactly one scoped bullet, with no bullet describing a state that
+   was reverted earlier in the same window. Then bump `version` in
+   [`../package.json`](../package.json), move the `Unreleased`
    entries in [`../CHANGELOG.md`](../CHANGELOG.md) under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
    update the link refs at the bottom of that file.

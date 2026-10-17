@@ -55,6 +55,11 @@ the source of truth; the user-facing copy is `docs/development.md`, so keep the
 two in sync.
 Prepare it on a branch like any other change:
 
+Curate `[Unreleased]` before the release commit: read it against
+`git log <last-tag>..main` so every user-visible change has exactly one scoped
+bullet, with no bullet describing a state that was reverted earlier in the same
+window.
+
 1. Bump `version` in `package.json`.
 2. In `CHANGELOG.md`, move the `## [Unreleased]` entries under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
