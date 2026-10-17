@@ -6,7 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.11.0] - 2026-10-17
+### Changed
+
+- `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
+  instead of hiding them. The screen opens such a row's log but its `d` and `x`
+  leave it alone (`x` counts only this session's finished jobs), the model can
+  still reach one by explicit id, and the chips, notices, and pruning stay this
+  session's own.
 
 ### Added
 
@@ -25,11 +31,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
-  instead of hiding them. The screen opens such a row's log but its `d` and `x`
-  leave it alone (`x` counts only this session's finished jobs), the model can
-  still reach one by explicit id, and the chips, notices, and pruning stay this
-  session's own.
 - Tooling: `assets/chrome.png` is recaptured from a real `pi -e .` run, so the
   README hero carries the 0.10.0 header and the current footer fields.
 
@@ -1334,8 +1335,7 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.0...HEAD
-[0.11.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.0
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.10.0...HEAD
 [0.10.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.10.0
 [0.9.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.9.0
 [0.8.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.8.1
