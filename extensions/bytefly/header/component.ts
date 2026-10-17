@@ -103,10 +103,12 @@ export class ByteflyHeader implements Component {
 
 	/**
 	 * The nameplate's signature rule: an accent lead as wide as the mark, so the
-	 * rule is anchored to the mark, then a muted fill to the edge.
+	 * rule is anchored to the mark, then a muted fill to the transcript's right
+	 * edge. The header stops where the nameplate and turn rules stop, one pad in,
+	 * instead of running to the last terminal column.
 	 */
 	private rule(theme: Theme, width: number, pad: string): string {
-		const remaining = Math.max(0, width - pad.length);
+		const remaining = Math.max(0, width - pad.length * 2);
 		const lead = Math.min(MARK_WIDTH, remaining);
 		const fill = remaining - lead;
 		return (

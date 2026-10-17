@@ -59,11 +59,16 @@ describe("ByteflyHeader", () => {
 		expect(header().render(80)).toEqual([
 			" █▀█  Pi v1.2.0",
 			` █▀ █ ${chrome}`,
-			` ${"─".repeat(79)}`,
+			` ${"─".repeat(78)}`,
 			"   escape to interrupt · ctrl+c to clear · ctrl+d to exit (empty)",
 			"   ctrl+o to expand tools · ctrl+t to expand thinking · ctrl+l to select model",
 			"   / commands · ! bash · !! bash (no context) · /bytefly extensions",
 		]);
+	});
+
+	test("stops the rule at the transcript's right edge", () => {
+		expect(visibleWidth(header().render(80)[2] ?? "")).toBe(79);
+		expect(visibleWidth(header(view({ pad: 0 })).render(80)[2] ?? "")).toBe(80);
 	});
 
 	test("hangs the help one body indent inside the margin", () => {

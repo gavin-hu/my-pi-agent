@@ -149,7 +149,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `bytefly`: the startup header now takes its left margin from Pi's `outputPad`
   instead of a fixed column, so `outputPad: 0` no longer leaves the nameplate one
   column right of the transcript, and its grouped help hangs one body indent
-  inside that margin instead of at `screenHint`'s screen indent. The hint helper
+  inside that margin instead of at `screenHint`'s screen indent. Its rule stops
+  at the transcript's right edge instead of the terminal edge. The hint helper
   gains an optional `indent` (default unchanged), which the header uses;
   `bun run screenshots render chrome` now draws the whole frame at Pi's default
   pad so the preview matches a real session.
