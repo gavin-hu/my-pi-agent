@@ -57,8 +57,9 @@ pi -e .                                                    # 试运行一次
 
 - `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
   及其运行时健康状况，并启用或禁用一个扩展。
-- `/bytefly settings` 打开控制中心的 Settings 区：静默启动、桌面通知、转录轨道字形、
-  输出内边距和硬件光标；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project 作用域。
+- `/bytefly settings` 打开控制中心的 Settings 区：bytefly 启动 TUI、桌面通知、
+  转录轨道字形、输出内边距和硬件光标；用 `Space`/`Enter` 修改，用 `Tab` 切换
+  Global/Project 作用域。
 - `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
   检查每个已启用扩展在运行时是否具备所需条件。
 - `/settings` → **Theme** 选择主题。

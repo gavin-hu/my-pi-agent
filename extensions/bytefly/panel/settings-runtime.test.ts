@@ -68,18 +68,21 @@ describe("app writes", () => {
 	test("writes through the global setter, flushes, and marks the screen dirty", async () => {
 		const { runtime, globalStore } = boot();
 
-		await runtime.change("global", "quietStartup");
+		await runtime.change("global", "byteflyUi");
+		expect(globalStore.calls.setQuietStartup).toEqual([true]);
+		expect(valueOf(runtime, "global", "byteflyUi")).toBe("true");
 
-		expect(globalStore.calls.setQuietStartup).toEqual(["header"]);
-		expect(globalStore.flushCount()).toBe(1);
+		await runtime.change("global", "byteflyUi");
+		expect(globalStore.calls.setQuietStartup).toEqual([true, false]);
+		expect(globalStore.flushCount()).toBe(2);
 		expect(runtime.isDirty()).toBe(true);
-		expect(valueOf(runtime, "global", "quietStartup")).toBe("header");
+		expect(valueOf(runtime, "global", "byteflyUi")).toBe("false");
 	});
 
 	test("refuses an app row in Project scope without touching the global store", async () => {
 		const { runtime, globalStore, notices } = boot();
 
-		await runtime.change("project", "quietStartup");
+		await runtime.change("project", "byteflyUi");
 
 		expect(notices.at(-1)).toContain("Global setting");
 		expect(globalStore.calls.setQuietStartup).toEqual([]);
@@ -90,12 +93,12 @@ describe("app writes", () => {
 		const { runtime, globalStore, notices } = boot();
 		globalStore.failFlush(new Error("disk full"));
 
-		await runtime.change("global", "quietStartup");
+		await runtime.change("global", "byteflyUi");
 
-		expect(notices.at(-1)).toContain("Could not save Quiet startup");
+		expect(notices.at(-1)).toContain("Could not save Bytefly startup TUI");
 		expect(notices.at(-1)).toContain("disk full");
 		expect(runtime.isDirty()).toBe(false);
-		expect(valueOf(runtime, "global", "quietStartup")).toBe("false");
+		expect(valueOf(runtime, "global", "byteflyUi")).toBe("false");
 	});
 });
 
@@ -164,7 +167,7 @@ describe("change notifications", () => {
 		await runtime.change("global", "notify.enabled");
 		expect(changes).toBe(1);
 
-		await runtime.change("project", "quietStartup");
+		await runtime.change("project", "byteflyUi");
 		expect(changes).toBe(1);
 	});
 });

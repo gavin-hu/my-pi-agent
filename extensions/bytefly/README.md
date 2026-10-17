@@ -38,9 +38,10 @@ chrome identity (`enhanced by bytefly` and the package version), a signature
 rule whose `accent` lead sits under the mark, and a grouped help block. The help
 keys resolve live from Pi's keybindings, so a rebound key shows the user's
 chord; the identity and help text are `meta` / `faint` so the mark keeps the
-eye. It is installed only in interactive (`tui`) sessions, and not when Pi's
-`quietStartup` is `true` (`"header"` keeps it); on terminals that cannot render
-half blocks the mark falls back to a two-tone `Pi` wordmark.
+eye. It is installed only in interactive (`tui`) sessions when Pi's
+`quietStartup` is `true` — the Settings row **Bytefly startup TUI** — and
+`false`, `"header"`, and unset leave Pi's built-in header in place; on terminals
+that cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
 
 ```
  █▀█  Pi v1.2.0
@@ -249,7 +250,7 @@ dock list of every Pi extension the session resolves — across personal setting
 and, when trusted, the project — one row per extension with its enable checkbox
 and its worst-severity health, and writes a `+pattern` / `-pattern` toggle into
 the matching `settings.json`. `←`/`→` switch to Settings, which lists the
-preferences this package and Pi expose: quiet startup, desktop notifications,
+preferences this package and Pi expose: bytefly startup TUI, desktop notifications,
 the transcript rail glyph, output padding, and the hardware cursor. The focused
 extension's findings, or the focused setting's source and target file, sit
 underneath, and `run_doctor` returns the same report as text and typed data.
@@ -278,9 +279,10 @@ Tab completes `doctor`, `settings`, extension names, and `refresh`.
 ## Behaviour by mode
 
 The footer and turn rule are installed only in interactive (`tui`) sessions;
-the header is too, except when Pi's `quietStartup` is `true` (`"header"` keeps
-it). Every mode loads the extension, and non-TUI modes change nothing. The
-screen is available in every mode: in `tui`, `/bytefly` and
+the header is too, but only when Pi's `quietStartup` is `true` (the **Bytefly
+startup TUI** toggle). `false`, `"header"`, and unset leave Pi's built-in
+header in place. Every mode loads the extension, and non-TUI modes change
+nothing. The screen is available in every mode: in `tui`, `/bytefly` and
 `/bytefly doctor` mount the docked screen, while RPC, JSON, and print modes
 print the grouped listing with a per-row health suffix and the headline, or that
 extension's full findings when one is named. `/bytefly settings` prints the
@@ -288,8 +290,9 @@ grouped settings listing with each row's value outside `tui`; it does not
 resolve packages or probe the doctor. The
 proactive session-start check posts a transcript notice through the shared
 `my-pi-agent/notice` renderer rather than a transient notification, and is
-skipped when there is no UI or when Pi's `quietStartup` setting is `true`
-(`"header"` keeps the header, so the notice still appears). Notify runs in every
+skipped when there is no UI or when Pi's `quietStartup` setting is not `true`
+(`false`, `"header"`, and unset leave Pi's startup surface in charge, so the
+notice is silent). Notify runs in every
 mode and picks its method from the environment; the OSC methods need a TTY, so a
 print/JSON/RPC run gets an OS-level notification or none.
 
@@ -438,10 +441,11 @@ A malformed `bytefly.json` is ignored like every other config file — and named
 by the report `doctor` produces. The section is read at `session_start`, so a
 new session or `/reload` picks up an edit.
 
-Wherever it runs, the proactive check is startup detail: it keeps silent when
-Pi starts with `"quietStartup": true`, the same setting that hides Pi's own
-header and loaded-resource listing. `"header"` keeps the header, so the notice
-still appears. When it does, the notice enters the message flow once per
+Wherever it runs, the proactive check is part of the bytefly startup TUI, so it
+posts only when Pi starts with `"quietStartup": true`, the same setting that
+hides Pi's own header and loaded-resource listing. `false`, `"header"`, and
+unset leave Pi's startup surface in charge, so the notice stays silent. When it
+does post, the notice enters the message flow once per
 session, so it stays in scrollback and the model reads the same sentence.
 
 ## Security
@@ -592,7 +596,7 @@ bytefly ────────────────────────
   Extensions · Settings                          Global · 5 settings
 
   Startup
-  ❯   Quiet startup                                    Header only
+  ❯ ◻ Bytefly startup TUI                                      Off
   Notifications
       ◼ Desktop notifications                                       On
   Transcript
@@ -601,14 +605,14 @@ bytefly ────────────────────────
   Terminal
           Hardware cursor                                            Off
 
-  Quiet startup — Pi setting
-  Hide Pi's startup detail. Header only keeps the header.
-  Global · ~/.pi/agent/settings.json
+  Bytefly startup TUI — Pi setting
+  Use bytefly's startup header in place of Pi's startup TUI.
+  Default · ~/.pi/agent/settings.json
 ```
 
 | Group | Row | Source | Values |
 |---|---|---|---|
-| Startup | Quiet startup | Pi `settings.json` | Full, Header only, Quiet |
+| Startup | Bytefly startup TUI | Pi `settings.json` (`quietStartup`) | Off, On |
 | Notifications | Desktop notifications | `bytefly.json` | Off, On |
 | Transcript | Rail glyph | `bytefly.json` | `╎`, `│`, `┃`, `▏` |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
@@ -620,6 +624,12 @@ where the value is written — `Global · ~/.pi/agent/settings.json`, `Project �
 .pi/bytefly.json`, or `Inherited from Global · .pi/bytefly.json`. A successful
 change marks the screen `Saved · reload to apply`, and closing offers the same
 reload confirm as an extension toggle.
+
+**Bytefly startup TUI** is the one row whose label differs from the Pi key it
+writes: On writes `"quietStartup": true` (bytefly's header replaces Pi's startup
+detail), and Off writes `false` (Pi's built-in header stays). A hand-set
+`"header"` reads Off, because it keeps Pi's header; the next toggle replaces it
+with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
@@ -635,7 +645,7 @@ The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
 bytefly: Settings · Global · 5 settings
 
 Startup (1)
-  Quiet startup: Full
+  Bytefly startup TUI: Off
 Notifications (1)
   Desktop notifications: Off
 ...
@@ -743,10 +753,14 @@ control-free line before it reaches an escape sequence or a shell argument.
 
 ## Limitations
 
+- **Bytefly startup TUI is the startup surface only.** It installs or removes
+  bytefly's startup header and the proactive doctor notice; the footer, turn
+  rule, and transcript renderers stay on. Use `PI_DISABLED_EXTENSIONS=bytefly`
+  (or `pi config`) to turn off all of bytefly.
 - **App settings are Global only.** Pi's setters for preferences such as
-  `quietStartup`, `outputPad`, and `showHardwareCursor` write the personal
-  `settings.json`; the screen hides those rows in Project scope rather than
-  writing a file Pi cannot manage.
+  `quietStartup` (the **Bytefly startup TUI** row), `outputPad`, and
+  `showHardwareCursor` write the personal `settings.json`; the screen hides
+  those rows in Project scope rather than writing a file Pi cannot manage.
 - **Project overrides of app settings are not shown.** App rows read the
   personal file; a `.pi/settings.json` override still wins at runtime, and
   `pi config` is the place to manage it.
@@ -839,7 +853,7 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`, and not installed when `pi.getSettings().quietStartup === true` (`"header"` keeps it, since it still shows the header). The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
@@ -857,7 +871,7 @@ rather than showing a wrong value.
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-key writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
-| Lifecycle | `session_start` installs the header (unless Pi's `quietStartup` is `true`) and footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on (unless Pi's `quietStartup` is `true`), and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
+| Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
 
 ## Design notes
 
@@ -1035,12 +1049,13 @@ rather than showing a wrong value.
   so the catalogue grows one proven family at a time. App rows are Global-only
   because Pi's setters write the personal file; Project scope lists only the
   `bytefly.json` rows it can actually write.
-- **The doctor is quiet by default at startup.** Only `missing` findings post
-  a notice, only for enabled extensions, only with a UI, and only once per
-  session; a `"quietStartup": true` session gets no notice at all, matching the
-  detail suppression it asks Pi for; `degraded` findings — including a malformed
-  config — wait in `/bytefly doctor`, because a session that nags about an
-  optional package is worse than one that never mentions it.
+- **The doctor is quiet unless the bytefly startup TUI is on.** Only `missing`
+  findings post a notice, only for enabled extensions, only with a UI, only once
+  per session, and only when Pi's `quietStartup` is `true` — the same state that
+  installs bytefly's header. `false`, `"header"`, and unset leave Pi's startup
+  surface in charge and the notice silent. `degraded` findings — including a
+  malformed config — wait in `/bytefly doctor`, because a session that nags
+  about an optional package is worse than one that never mentions it.
 - **A startup warning belongs in the message flow, not a toast.** The notice is
   the same custom message `job` and `watch` use, so it survives in scrollback
   and the model reads the same sentence the user sees; a transient notification

@@ -37,7 +37,7 @@ describe("doctor wiring", () => {
 
 describe("proactive probe", () => {
 	test("posts one transcript notice when an enabled extension is missing a hard requirement", async () => {
-		const { fake, start, notices } = bootDoctor({ exec: failingExec });
+		const { fake, start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: true } });
 		await start();
 
 		// It is a message in the flow, not a transient UI notification.
@@ -55,7 +55,7 @@ describe("proactive probe", () => {
 	});
 
 	test("stays quiet when every hard requirement is met", async () => {
-		const { fake, start, notices } = bootDoctor();
+		const { fake, start, notices } = bootDoctor({ settings: { quietStartup: true } });
 		await start();
 		expect(notices).toEqual([]);
 		expect(fake.customMessages).toEqual([]);
@@ -64,25 +64,32 @@ describe("proactive probe", () => {
 	test("stays quiet when proactive checks are disabled", async () => {
 		await withAgentDir(async (dir) => {
 			writeFileSync(join(dir, "bytefly.json"), JSON.stringify({ doctor: { proactive: false } }));
-			const { fake, start, notices } = bootDoctor({ exec: failingExec });
+			const { fake, start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: true } });
 			await start();
 			expect(notices).toEqual([]);
 			expect(fake.customMessages).toEqual([]);
 		});
 	});
 
-	test("stays quiet in Pi's quiet startup mode", async () => {
+	test("posts the notice when the bytefly startup TUI is on", async () => {
 		const { fake, start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: true } });
+		await start();
+		expect(notices).toEqual([]);
+		expect(fake.customMessages).toHaveLength(1);
+	});
+
+	test("stays quiet for a normal Pi startup", async () => {
+		const { fake, start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: false } });
 		await start();
 		expect(notices).toEqual([]);
 		expect(fake.customMessages).toEqual([]);
 	});
 
-	test("still warns when quietStartup only keeps the header", async () => {
+	test("stays quiet when quietStartup only keeps the header", async () => {
 		const { fake, start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: "header" } });
 		await start();
 		expect(notices).toEqual([]);
-		expect(fake.customMessages).toHaveLength(1);
+		expect(fake.customMessages).toEqual([]);
 	});
 
 	test("stays quiet without a UI to warn", async () => {

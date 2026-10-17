@@ -248,8 +248,8 @@ peak/off-peak schedule. It also owns the `/bytefly` control center — a
 keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` enable
 checkbox and its worst-severity health, and Settings, five curated preferences
-— quiet startup, desktop notifications, the rail glyph, output padding, and the
-hardware cursor — with each row's value and its source file. `Space`/`Enter`
+— bytefly startup TUI, desktop notifications, the rail glyph, output padding,
+and the hardware cursor — with each row's value and its source file. `Space`/`Enter`
 toggle the focused extension or change the focused setting, `Tab` switches
 Global/Project scope, `←`/`→` switch sections, and `r` re-probes. App rows are
 Global-only; `bytefly.json` rows write the selected scope one key at a time. `/bytefly settings` opens the Settings section,
@@ -257,7 +257,8 @@ Global-only; `bytefly.json` rows write the selected scope one key at a time. `/b
 screen in `tui`), and every other mode prints the grouped listing or one
 extension's full findings. The read-only `run_doctor` tool returns the same
 report, and its proactive session-start notice enters the message flow through
-the shared notice renderer, silent under Pi's `quietStartup: true`. An opt-in notify capability raises an
+the shared notice renderer, shown only when the bytefly startup TUI is on
+(Pi's `quietStartup: true`). An opt-in notify capability raises an
 OS notification when a run or a background job finishes or the agent asks for
 input, configured through the `notify` section of `bytefly.json`, for
 unattended runs.

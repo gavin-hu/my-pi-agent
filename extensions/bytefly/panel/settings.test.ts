@@ -35,7 +35,7 @@ function view(id: string, scope: WriteScope, snap: SettingsSnapshot) {
 describe("catalogue", () => {
 	test("lists the five v1 rows in screen order", () => {
 		expect(SETTING_ROWS.map((entry) => entry.id)).toEqual([
-			"quietStartup",
+			"byteflyUi",
 			"notify.enabled",
 			"chrome.rail",
 			"outputPad",
@@ -45,7 +45,7 @@ describe("catalogue", () => {
 
 	test("shows app rows only in Global scope", () => {
 		expect(rowsForScope("global").map((entry) => entry.id)).toEqual([
-			"quietStartup",
+			"byteflyUi",
 			"notify.enabled",
 			"chrome.rail",
 			"outputPad",
@@ -68,7 +68,7 @@ describe("values", () => {
 	test("reads the defaults when neither file sets a key", () => {
 		const global = settingViews(snapshot(), "global");
 		expect(global.map((entry) => [entry.id, entry.value, entry.valueLabel, entry.origin])).toEqual([
-			["quietStartup", "false", "Full", "default"],
+			["byteflyUi", "false", "Off", "default"],
 			["notify.enabled", "false", "Off", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
 			["outputPad", "1", "1", "default"],
@@ -81,17 +81,24 @@ describe("values", () => {
 
 	test("reads configured app and bytefly values", () => {
 		const snap = snapshot({
-			app: { quietStartup: "header", outputPad: 0, showHardwareCursor: true } as Settings,
+			app: { quietStartup: true, outputPad: 0, showHardwareCursor: true } as Settings,
 			global: { notify: { enabled: true }, chrome: { rail: "│" } },
 		});
 
-		expect(view("quietStartup", "global", snap).valueLabel).toBe("Header only");
-		expect(view("quietStartup", "global", snap).origin).toBe("global");
+		expect(view("byteflyUi", "global", snap).valueLabel).toBe("On");
+		expect(view("byteflyUi", "global", snap).origin).toBe("global");
 		expect(view("notify.enabled", "global", snap).valueLabel).toBe("On");
 		expect(view("notify.enabled", "global", snap).origin).toBe("global");
 		expect(view("chrome.rail", "global", snap).value).toBe("│");
 		expect(view("outputPad", "global", snap).value).toBe("0");
 		expect(view("showHardwareCursor", "global", snap).valueLabel).toBe("On");
+	});
+
+	test("reads a hand-set header-only startup as bytefly UI off", () => {
+		const snap = snapshot({ app: { quietStartup: "header" } as Settings });
+
+		expect(view("byteflyUi", "global", snap).valueLabel).toBe("Off");
+		expect(view("byteflyUi", "global", snap).origin).toBe("global");
 	});
 
 	test("inherits the global value in Project scope until a project key overrides it", () => {
@@ -117,10 +124,9 @@ describe("values", () => {
 
 describe("cycling", () => {
 	test("wraps each row through its curated options", () => {
-		const quiet = row("quietStartup");
-		expect(nextValue(quiet, "false").value).toBe("header");
-		expect(nextValue(quiet, "header").value).toBe("true");
-		expect(nextValue(quiet, "true").value).toBe("false");
+		const ui = row("byteflyUi");
+		expect(nextValue(ui, "false").value).toBe("true");
+		expect(nextValue(ui, "true").value).toBe("false");
 
 		const notify = row("notify.enabled");
 		expect(nextValue(notify, "false").value).toBe("true");
@@ -146,9 +152,8 @@ describe("cycling", () => {
 
 describe("stored values", () => {
 	test("maps raw options to their JSON values", () => {
-		expect(storedValue(row("quietStartup"), "false")).toBe(false);
-		expect(storedValue(row("quietStartup"), "header")).toBe("header");
-		expect(storedValue(row("quietStartup"), "true")).toBe(true);
+		expect(storedValue(row("byteflyUi"), "false")).toBe(false);
+		expect(storedValue(row("byteflyUi"), "true")).toBe(true);
 		expect(storedValue(row("outputPad"), "0")).toBe(0);
 		expect(storedValue(row("outputPad"), "1")).toBe(1);
 		expect(storedValue(row("notify.enabled"), "true")).toBe(true);
@@ -156,8 +161,8 @@ describe("stored values", () => {
 	});
 
 	test("accepts only curated options", () => {
-		expect(validValue(row("quietStartup"), "header")).toBe(true);
-		expect(validValue(row("quietStartup"), "maybe")).toBe(false);
+		expect(validValue(row("byteflyUi"), "true")).toBe(true);
+		expect(validValue(row("byteflyUi"), "maybe")).toBe(false);
 		expect(validValue(row("notify.enabled"), "1")).toBe(false);
 	});
 });

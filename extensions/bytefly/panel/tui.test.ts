@@ -43,7 +43,8 @@ function makeSettings(
 			const config = view.config;
 			if (view.source === "app") {
 				const app = snapshot.app as unknown as Record<string, unknown>;
-				app[id] = storedValue(view, next.value);
+				const key = id === "byteflyUi" ? "quietStartup" : id;
+				app[key] = storedValue(view, next.value);
 			} else if (config) {
 				const document = scope === "global" ? snapshot.global : snapshot.project;
 				const section = (document[config.section] ?? {}) as Record<string, unknown>;
@@ -362,7 +363,7 @@ describe("PanelComponent sections", () => {
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
 		expect(text).toContain("5 settings");
-		expect(text).toContain("Quiet startup");
+		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Rail glyph");
 		expect(text).not.toContain("No settings yet.");
@@ -392,7 +393,7 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain("Project · 2 settings");
 		expect(text).toContain("App settings are Global only.");
-		expect(text).not.toContain("Quiet startup");
+		expect(text).not.toContain("Bytefly startup TUI");
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
@@ -412,10 +413,10 @@ describe("PanelComponent sections", () => {
 		await settle();
 		await settle();
 
-		expect(settings.changes).toEqual(["global:quietStartup"]);
+		expect(settings.changes).toEqual(["global:byteflyUi"]);
 		expect(settings.isDirty()).toBe(true);
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Header only");
+		expect(text).toContain("On");
 		expect(text).toContain("Saved · reload to apply");
 	});
 
@@ -445,11 +446,11 @@ describe("PanelComponent sections", () => {
 		const { component } = build({
 			items: [packageItem("plan")],
 			section: "settings",
-			app: { quietStartup: "header" } as Settings,
+			app: { quietStartup: true } as Settings,
 		});
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Quiet startup — Pi setting");
+		expect(text).toContain("Bytefly startup TUI — Pi setting");
 		expect(text).toContain("Global · /agent/settings.json");
 	});
 
