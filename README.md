@@ -61,9 +61,9 @@ Then, from inside Pi:
 
 - `/bytefly [extension] [refresh]` opens the control center on Extensions, lists
   every loaded extension with its runtime health, and enables or disables one.
-- `/bytefly settings` opens the control center's Settings section: quiet startup,
-  desktop notifications, the transcript rail glyph, output padding, and the
-  hardware cursor, with `Space`/`Enter` to change a value and `Tab` for
+- `/bytefly settings` opens the control center's Settings section: bytefly
+  startup TUI, desktop notifications, the transcript rail glyph, output padding,
+  and the hardware cursor, with `Space`/`Enter` to change a value and `Tab` for
   Global/Project scope.
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —
   `run_doctor`'s text — and checks that each enabled extension has what it needs

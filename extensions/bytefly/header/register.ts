@@ -1,13 +1,14 @@
 /**
  * The header surface: installs bytefly's custom header on interactive sessions
- * and restores Pi's built-in header on shutdown.
+ * when Pi's `quietStartup` is `true` — the toggle exposed as "Bytefly startup
+ * TUI" — and restores Pi's built-in header on shutdown.
  *
- * The surface is always on except under Pi's `quietStartup: true`, which hides
- * the startup header and the loaded-resource listing; bytefly's header is
- * startup detail too, so it stays down. `"header"` keeps the header, so it is
- * installed. `pi config` remains the way to turn bytefly's chrome off. It is
- * installed only in interactive (`tui`) sessions; every other mode leaves Pi's
- * built-in header in place, which does not exist there.
+ * `quietStartup: true` hides Pi's built-in startup header, so bytefly's header
+ * is what the terminal shows. `false`, `"header"`, and an unset value leave
+ * Pi's built-in header in place, which is the bytefly-startup-TUI-off state.
+ * `pi config` remains the way to turn all of bytefly's chrome off. The header
+ * is installed only in interactive (`tui`) sessions; every other mode leaves
+ * Pi's built-in header in place, which does not exist there.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -24,10 +25,10 @@ export function registerHeader(pi: ExtensionAPI): void {
 
 	const apply = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;
-		// `quietStartup: true` hides Pi's startup header; the custom header is
-		// startup detail too, so restore the built-in (hidden) one and stop.
-		// `"header"` keeps the header, so it falls through and installs.
-		if (pi.getSettings?.().quietStartup === true) {
+		// Bytefly's startup TUI is on only when Pi's `quietStartup` is true, which
+		// hides Pi's built-in startup header. Every other value (`false`,
+		// `"header"`, unset) leaves Pi's built-in header in charge.
+		if (pi.getSettings?.().quietStartup !== true) {
 			ctx.ui.setHeader(undefined);
 			return;
 		}

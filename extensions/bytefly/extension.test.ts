@@ -137,7 +137,7 @@ describe("bytefly extension", () => {
 	});
 
 	test("installs the header on session start in interactive mode", async () => {
-		const { pi } = makeFakePi();
+		const { pi } = makeFakePi({ settings: { quietStartup: true } });
 		bytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 
@@ -148,7 +148,7 @@ describe("bytefly extension", () => {
 	});
 
 	test("does not install the header outside interactive mode", async () => {
-		const { pi } = makeFakePi();
+		const { pi } = makeFakePi({ settings: { quietStartup: true } });
 		bytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "print" });
 
@@ -168,7 +168,7 @@ describe("bytefly extension", () => {
 	});
 
 	test("renders the nameplate through the installed header factory", async () => {
-		const { pi } = makeFakePi();
+		const { pi } = makeFakePi({ settings: { quietStartup: true } });
 		bytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 
@@ -186,7 +186,7 @@ describe("bytefly extension", () => {
 			[undefined, 1, 3],
 			[0, 0, 2],
 		] as const) {
-			const { pi } = makeFakePi({ settings: { outputPad } });
+			const { pi } = makeFakePi({ settings: { quietStartup: true, outputPad } });
 			bytefly(pi);
 			const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 			await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -233,7 +233,7 @@ describe("bytefly extension", () => {
 	});
 
 	test("keeps the chrome installed when the panel runs", async () => {
-		const { pi, commands } = makeFakePi();
+		const { pi, commands } = makeFakePi({ settings: { quietStartup: true } });
 		const discovery = makeDiscovery({ global: [makeItem({ path: "/agent/extensions/one.ts" })] }).discovery;
 		bytefly(pi, { extensions: { discover: async () => discovery } });
 		const { ctx, footers, headers } = fakeFooterCtx({ mode: "tui", trusted: true });

@@ -149,7 +149,7 @@ describe("sections", () => {
 		expect(text).toContain("Notifications (1)");
 		expect(text).toContain("Transcript (2)");
 		expect(text).toContain("Terminal (1)");
-		expect(text).toContain("Quiet startup: Full");
+		expect(text).toContain("Bytefly startup TUI: Off");
 		expect(text).toContain("Desktop notifications: Off");
 	});
 
@@ -159,6 +159,6 @@ describe("sections", () => {
 
 		expect(text).toContain("Project · 2 settings");
 		expect(text).toContain("App settings are Global only.");
-		expect(text).not.toContain("Quiet startup");
+		expect(text).not.toContain("Bytefly startup TUI");
 	});
 });

@@ -13,14 +13,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   survive). `read_doc` reads a not-yet-streamed path as pending instead of
   `[invalid arg]`, `run_doctor` collapses to a one-line summary with an expand
   hint, and `web_fetch` shows its HTTP status and redirect target.
-- `bytefly`: bytefly's header is no longer installed when Pi's `quietStartup`
-  is `true`, so a quiet startup no longer shows the custom header; `"header"`
-  keeps it, and the doctor warning follows the same rule.
+- `bytefly`: bytefly's header is installed only when Pi's `quietStartup` is
+  `true`, which hides Pi's own startup header; `false`, `"header"`, and an
+  unset value leave Pi's built-in header in place. The Settings row **Bytefly
+  startup TUI** exposes this state.
 - `bytefly`: doctor's proactive session-start warning is now a transcript notice
   (the shared `my-pi-agent/notice` renderer, one row per missing prerequisite
   with the command that fixes it) instead of a transient UI notification, so it
-  stays in the message flow and the model reads it. It is silent when Pi runs
-  with `quietStartup: true`; `"header"` keeps the header and the notice.
+  stays in the message flow and the model reads it. It is part of the bytefly
+  startup TUI, so it shows only when `quietStartup` is `true`; `false`,
+  `"header"`, and unset leave Pi's startup surface in charge and the notice
+  silent.
 - `job`: `list` and `/jobs` now show a live peer session's jobs, tagged `peer`,
   instead of hiding them. The screen opens such a row's log but its `d` and `x`
   leave it alone (`x` counts only this session's finished jobs), the model can
@@ -47,7 +50,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   default so an existing job still gets EOF and exits.
 - `bytefly`: `/bytefly` is a two-section control center — `←`/`→` switch
   between Extensions (the unchanged list and toggles) and Settings. Settings
-  lists five curated preferences: quiet startup, desktop notifications, the
+  lists five curated preferences: bytefly startup TUI, desktop notifications, the
   transcript rail glyph, output padding, and the hardware cursor. `Space`/`Enter`
   change the focused value, `Tab` switches Global/Project scope, app rows are
   Global-only and Project lists only the `bytefly.json` rows, and a change marks

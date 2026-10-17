@@ -67,7 +67,7 @@ function readSnapshot(deps: SettingsRuntimeDeps): SettingsSnapshot {
 function applyAppSetting(store: SettingsStore, row: SettingDescriptor, raw: string): void {
 	const value = storedValue(row, raw);
 	switch (row.id) {
-		case "quietStartup":
+		case "byteflyUi":
 			store.setQuietStartup(value as QuietStartup);
 			return;
 		case "outputPad":

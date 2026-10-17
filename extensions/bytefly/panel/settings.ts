@@ -106,18 +106,14 @@ const RAIL_OPTIONS: readonly SettingOption[] = [
 /** The v1 catalogue, in screen order. */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
-		id: "quietStartup",
+		id: "byteflyUi",
 		group: "startup",
-		label: "Quiet startup",
-		description: "Hide Pi's startup detail. Header only keeps the header and hides the loaded-resource listing.",
+		label: "Bytefly startup TUI",
+		description: "Use bytefly's startup header in place of Pi's startup TUI.",
 		source: "app",
-		kind: "enum",
+		kind: "boolean",
 		fallback: "false",
-		options: [
-			{ value: "false", label: "Full" },
-			{ value: "header", label: "Header only" },
-			{ value: "true", label: "Quiet" },
-		],
+		options: ON_OFF,
 	},
 	{
 		id: "notify.enabled",
@@ -189,10 +185,9 @@ function labelFor(row: SettingDescriptor, raw: string): string {
 /** Read an app preference and where it came from. */
 function appValue(snapshot: SettingsSnapshot, row: SettingDescriptor): { value: string; origin: SettingOrigin } {
 	switch (row.id) {
-		case "quietStartup": {
+		case "byteflyUi": {
 			const quiet = snapshot.app.quietStartup;
-			const value = quiet === true ? "true" : quiet === "header" ? "header" : "false";
-			return { value, origin: quiet === undefined ? "default" : "global" };
+			return { value: quiet === true ? "true" : "false", origin: quiet === undefined ? "default" : "global" };
 		}
 		case "outputPad":
 			return {
@@ -256,10 +251,9 @@ export function nextValue(row: SettingDescriptor, current: string): SettingOptio
 /** The JSON value a raw option stores, per row. */
 export function storedValue(row: SettingDescriptor, raw: string): unknown {
 	switch (row.id) {
-		case "quietStartup":
-			return raw === "true" ? true : raw === "header" ? "header" : false;
 		case "outputPad":
 			return raw === "1" ? 1 : 0;
+		case "byteflyUi":
 		case "notify.enabled":
 		case "showHardwareCursor":
 			return raw === "true";
