@@ -287,6 +287,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		send: (text, signal) => sendPrompt(text, signal),
 		sendFile: (path, name, signal) => sendFileToPeer(path, name, signal),
 		activePeer: () => active?.peer,
+		language: () => languageOf(active?.peer ?? ""),
+		armTimer: deps.armTimer,
 	});
 
 	/** The typing ticket for a peer, fetched on first use and cached. */
