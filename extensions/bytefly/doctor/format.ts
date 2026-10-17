@@ -1,8 +1,9 @@
 /**
  * Pure formatting for doctor's reports.
  *
- * Two shapes share these helpers: the plain multi-line text every non-TUI mode
- * shows, and the per-extension summary the unified panel renders. Nothing here
+ * Three shapes share these helpers: the plain multi-line text every non-TUI mode
+ * shows, the per-extension summary the unified panel renders, and the shared
+ * transcript notice the proactive session-start warning posts. Nothing here
  * touches the filesystem or the host, and every string that came from a probe (a
  * parse error, a captured path) goes through {@link sanitizeLine} — probe text can carry
  * control characters, a parse error quotes the file's own bytes.
@@ -11,6 +12,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
+import { noticeMessage, type NoticeMessage } from "../../../lib/notice.ts";
 import type { ExtensionReport, Finding, FindingSeverity } from "../../../lib/requirements.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
@@ -104,6 +106,28 @@ export function formatWarning(findings: readonly Finding[]): string {
 	}
 	const parts = [...byExtension].map(([extension, checks]) => `${sanitizeLine(extension)} (${checks.join(", ")})`);
 	return `doctor: missing ${parts.join("; ")} — run /bytefly doctor`;
+}
+
+/**
+ * The transcript notice the proactive session-start warning posts into the
+ * message flow: the same sentence the model reads, and one row per missing
+ * finding carrying the action that fixes it.
+ */
+export function warningNotice(findings: readonly Finding[]): NoticeMessage {
+	const count = findings.length;
+	return noticeMessage({
+		content: formatWarning(findings),
+		details: {
+			source: "doctor",
+			title: `${count} missing prerequisite${count === 1 ? "" : "s"}`,
+			severity: "bad",
+			items: findings.map((finding) => ({
+				label: `${sanitizeLine(finding.extension)} (${sanitizeLine(finding.check)})`,
+				detail: sanitizeLine(finding.hint ?? finding.detail),
+				severity: "bad",
+			})),
+		},
+	});
 }
 
 /** The design role a severity is drawn in. */

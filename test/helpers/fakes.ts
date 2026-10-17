@@ -126,6 +126,8 @@ export interface FakePi {
 	/** Legacy `{ customType, data }` view of appended entries. */
 	appended: Array<{ customType: string; data?: unknown }>;
 	sentMessages: Array<{ content: unknown; options: unknown }>;
+	/** Messages sent with `sendMessage`, in order. */
+	customMessages: Array<{ message: any; options: unknown }>;
 	activeTools(): string[];
 }
 
@@ -176,6 +178,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 	const markdownTransformers: MarkdownTransformer[] = [];
 	const appended: Array<{ customType: string; data?: unknown }> = [];
 	const sentMessages: Array<{ content: unknown; options: unknown }> = [];
+	const customMessages: Array<{ message: any; options: unknown }> = [];
 	let active = [...(options.active ?? [])];
 
 	const pi: any = {
@@ -201,7 +204,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 			appended.push({ customType, data });
 		},
 		sendUserMessage: (content: unknown, sendOptions?: unknown) => sentMessages.push({ content, options: sendOptions }),
-		sendMessage: () => {},
+		sendMessage: (message: any, sendOptions?: unknown) => customMessages.push({ message, options: sendOptions }),
 
 		getActiveTools: () => [...active],
 		setActiveTools: (names: string[]) => {
@@ -234,6 +237,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		markdownTransformers,
 		appended,
 		sentMessages,
+		customMessages,
 		activeTools: () => [...active],
 	};
 }

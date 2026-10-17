@@ -176,8 +176,16 @@ The rail is painted by the notice's worst severity, so a failure reads red at th
 edge like an errored tool result.
 
 `job` and `watch` post one when a background job finishes or a watched line
-matches, so the report the model reads is visible too. The type and the
-`NoticeDetails` shape are the shared contract in
+matches, so the report the model reads is visible too. `doctor` posts one when a
+hard requirement is missing at session start, with a row per finding and the
+command that fixes it:
+
+```
+doctor · 1 missing prerequisite
+╎ ✕ worktree (git) · install git and make sure it is on PATH
+```
+
+The type and the `NoticeDetails` shape are the shared contract in
 [`lib/notice.ts`](../../lib/notice.ts), and the severity glyphs and item cap
 are tuned in [`notice/config.ts`](./notice/config.ts). Every field is sanitized
 and clipped at the boundary, and a message without `details` keeps Pi's default
@@ -240,7 +248,8 @@ and, when trusted, the project — one row per extension with its enable checkbo
 and its worst-severity health, and writes a `+pattern` / `-pattern` toggle into
 the matching `settings.json`. The focused extension's findings sit underneath,
 and `run_doctor` returns the same report as text and typed data. Only a missing
-*hard* requirement warns at session start; everything else waits in the report.
+*hard* requirement posts a notice at session start; everything else waits in the
+report.
 See [The bytefly screen](#the-bytefly-screen).
 
 **Notify.** Off by default, one `notify` section in `bytefly.json` turns on OS
@@ -269,11 +278,12 @@ change nothing. The screen is available in every mode: in `tui`, `/bytefly` and
 print the grouped listing with a per-row health suffix and the headline, or that
 extension's full findings when one is named. `/bytefly settings` prints the
 settings section's one-line listing outside `tui`. The
-proactive session-start warning is skipped when there is no UI, and also when
-Pi's `quietStartup` setting is `true` (`"header"` keeps the header, so it still
-warns). Notify runs in every mode and picks its method from the environment; the
-OSC methods need a TTY, so a print/JSON/RPC run gets an OS-level notification or
-none.
+proactive session-start check posts a transcript notice through the shared
+`my-pi-agent/notice` renderer rather than a transient notification, and is
+skipped when there is no UI or when Pi's `quietStartup` setting is `true`
+(`"header"` keeps the header, so the notice still appears). Notify runs in every
+mode and picks its method from the environment; the OSC methods need a TTY, so a
+print/JSON/RPC run gets an OS-level notification or none.
 
 ## Configuration
 
@@ -412,7 +422,7 @@ The doctor surface reads the same shared `bytefly.json`, under its own top-level
 
 | Key | Default | Meaning |
 |---|---|---|
-| `proactive` | `true` | Probe the extensions with hard requirements at session start and warn once when something is missing. |
+| `proactive` | `true` | Probe the extensions with hard requirements at session start and post one notice when something is missing. |
 | `timeoutMs` | `2000` | Per-probe timeout for one spawned command, clamped to 100–30000. |
 | `skip` | `[]` | Extension names to leave out of every report. |
 
@@ -420,10 +430,11 @@ A malformed `bytefly.json` is ignored like every other config file — and named
 by the report `doctor` produces. The section is read at `session_start`, so a
 new session or `/reload` picks up an edit.
 
-Wherever it runs, the proactive warning is startup detail: it keeps silent when
+Wherever it runs, the proactive check is startup detail: it keeps silent when
 Pi starts with `"quietStartup": true`, the same setting that hides Pi's own
-header and loaded-resource listing. `"header"` keeps the header, so it still
-warns.
+header and loaded-resource listing. `"header"` keeps the header, so the notice
+still appears. When it does, the notice enters the message flow once per
+session, so it stays in scrollback and the model reads the same sentence.
 
 ## Security
 
@@ -746,7 +757,7 @@ control-free line before it reaches an escape sequence or a shell argument.
 - No auto-fix: `doctor` reports the install command; it never runs it.
 - No aggregation of runtime failures: a tool that errored earlier in the session
   is not a prerequisite problem, and `doctor` does not pretend to know about it.
-- No status chip for the doctor report: it is on demand plus one warning, not a
+- No status chip for the doctor report: it is on demand plus one notice, not a
   permanent footer segment.
 - No notification for individual tool calls, message turns, or subagent steps:
   the three triggers — a settled run, a prompt mid-run, a finished job — are the
@@ -769,7 +780,7 @@ rather than showing a wrong value.
 | Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
-| Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
+| Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the settings section's one-line listing for `settings`. Tab completes `doctor`, `settings`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
@@ -955,12 +966,17 @@ rather than showing a wrong value.
 - **The install hint has one home.** `document` and `web-access` format their
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
-- **The doctor is quiet by default at startup.** Only `missing` findings warn,
-  only for enabled extensions, only with a UI, and only once per session; a
-  `"quietStartup": true` session gets no warning at all, matching the detail
-  suppression it asks Pi for; `degraded` findings — including a malformed config
-  — wait in `/bytefly doctor`, because a session that nags about an optional
-  package is worse than one that never mentions it.
+- **The doctor is quiet by default at startup.** Only `missing` findings post
+  a notice, only for enabled extensions, only with a UI, and only once per
+  session; a `"quietStartup": true` session gets no notice at all, matching the
+  detail suppression it asks Pi for; `degraded` findings — including a malformed
+  config — wait in `/bytefly doctor`, because a session that nags about an
+  optional package is worse than one that never mentions it.
+- **A startup warning belongs in the message flow, not a toast.** The notice is
+  the same custom message `job` and `watch` use, so it survives in scrollback
+  and the model reads the same sentence the user sees; a transient notification
+  would leave both without it. Its rows carry the install hint, so it is
+  actionable where it lands.
 - **Probe the real thing.** `subagent`'s requirement resolves through the same
   `getPiInvocation` the extension uses rather than re-guessing whether a `pi`
   binary exists.
@@ -1037,7 +1053,7 @@ columns, gauge), so the look follows the active theme.
 | `doctor/tools.ts` | The `run_doctor` tool and its renderers. |
 | `doctor/schema.ts` | Tool parameters and the structured output schema. |
 | `doctor/config.ts` | `DEFAULT_CONFIG`, `normalizeConfig`, `loadConfig` for the `doctor` section of `bytefly.json`. |
-| `doctor/format.ts` | Pure report text, summary, severity roles and glyphs, detail lines, and the proactive warning sentence. |
+| `doctor/format.ts` | Pure report text, summary, severity roles and glyphs, detail lines, the proactive warning sentence, and the transcript notice it posts. |
 | `notify/types.ts` | `NotifyConfig`, `NotifyMethod`, and the method list. |
 | `notify/config.ts` | The `notify` section of `bytefly.json`: defaults, validation, loader. |
 | `notify/dispatch.ts` | Method selection and delivery: OSC 777/99, Windows toast, `osascript`, `notify-send`, over injected seams. |
@@ -1076,7 +1092,7 @@ formatter (`panel/format`), the screen's rendering and key handling
 (`panel/tui`), and the command through the bytefly factory (`panel/commands`).
 The doctor surface is covered by its pure report
 formatting (`doctor/format`), its config loader (`doctor/config`), and
-registration, the proactive warning, the session cache, and `run_doctor`
+registration, the proactive notice, the session cache, and `run_doctor`
 through the factory (`doctor/register`). The notify capability is covered by its section loader
 (`notify/config`), the pure text builders (`notify/format`), method selection and
 delivery over recording seams (`notify/dispatch`), and its three triggers,

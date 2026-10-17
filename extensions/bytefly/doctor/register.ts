@@ -18,7 +18,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { missingFindings } from "../../../lib/requirements.ts";
 import { loadConfig } from "./config.ts";
-import { formatWarning } from "./format.ts";
+import { warningNotice } from "./format.ts";
 import { createDoctorRuntime, type DoctorRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
@@ -50,7 +50,7 @@ export function registerDoctor(pi: ExtensionAPI, deps: DoctorDeps = {}): DoctorR
 		// Only hard requirements can break an enabled extension, so the startup
 		// probe is limited to the extensions that declare one, in parallel.
 		const missing = missingFindings(await runtime.probeRequired());
-		if (missing.length > 0) ctx.ui.notify(formatWarning(missing), "warning");
+		if (missing.length > 0) pi.sendMessage(warningNotice(missing));
 	});
 
 	pi.on("session_shutdown", () => runtime.reset());

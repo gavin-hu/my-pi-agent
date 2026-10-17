@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { NOTICE_TYPE } from "../../../lib/notice.ts";
+import type { Finding } from "../../../lib/requirements.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
@@ -13,6 +15,7 @@ import {
 	hasProblems,
 	reportSeverity,
 	severityGlyph,
+	warningNotice,
 } from "./format.ts";
 
 const ok = makeReport("todo", [makeFinding("todo.json", "ok")]);
@@ -70,6 +73,46 @@ describe("report text", () => {
 		const nasty = makeReport("worktree", [makeFinding("git", "missing", "failed\u001b[31m\u0007 to start")]);
 		expect(formatReport([nasty])).not.toContain("\u001b");
 		expect(formatReport([nasty])).not.toContain("\u0007");
+	});
+});
+
+describe("the transcript notice", () => {
+	const finding = (extension: string, check: string, hint?: string): Finding => ({
+		extension,
+		check,
+		severity: "missing",
+		detail: `${check} is not installed`,
+		...(hint === undefined ? {} : { hint }),
+	});
+
+	test("is a visible notice whose content is the warning sentence", () => {
+		const findings = [finding("worktree", "git", "install git")];
+		const notice = warningNotice(findings);
+		expect(notice.customType).toBe(NOTICE_TYPE);
+		expect(notice.display).toBe(true);
+		expect(notice.content).toBe(formatWarning(findings));
+		expect(notice.content).toContain("run /bytefly doctor");
+	});
+
+	test("is one bad row per missing finding, titled with the count", () => {
+		const two = warningNotice([finding("worktree", "git", "install git"), finding("web-access", "unpdf")]);
+		expect(two.details.source).toBe("doctor");
+		expect(two.details.title).toBe("2 missing prerequisites");
+		expect(two.details.severity).toBe("bad");
+		expect(two.details.items).toEqual([
+			{ label: "worktree (git)", detail: "install git", severity: "bad" },
+			{ label: "web-access (unpdf)", detail: "unpdf is not installed", severity: "bad" },
+		]);
+
+		const one = warningNotice([finding("worktree", "git")]);
+		expect(one.details.title).toBe("1 missing prerequisite");
+	});
+
+	test("sanitizes everything a probe produced", () => {
+		const notice = warningNotice([finding("worktree\u001b[31m", "git", "run \u0007it")]);
+		const text = `${notice.content}${JSON.stringify(notice.details)}`;
+		expect(text).not.toContain("\u001b");
+		expect(text).not.toContain("\u0007");
 	});
 });
 

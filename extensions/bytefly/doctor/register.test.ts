@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { withAgentDir } from "../../../test/helpers/env.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { bootDoctor, failingExec } from "../../../test/helpers/fixtures/doctor.ts";
@@ -35,46 +36,60 @@ describe("doctor wiring", () => {
 });
 
 describe("proactive probe", () => {
-	test("warns once when an enabled extension is missing a hard requirement", async () => {
-		const { start, notices } = bootDoctor({ exec: failingExec });
+	test("posts one transcript notice when an enabled extension is missing a hard requirement", async () => {
+		const { fake, start, notices } = bootDoctor({ exec: failingExec });
 		await start();
-		expect(notices).toHaveLength(1);
-		expect(notices[0]?.kind).toBe("warning");
-		expect(notices[0]?.message).toContain("worktree");
-		expect(notices[0]?.message).toContain("run /bytefly doctor");
+
+		// It is a message in the flow, not a transient UI notification.
+		expect(notices).toEqual([]);
+		expect(fake.customMessages).toHaveLength(1);
+		const { message } = fake.customMessages[0] as { message: any };
+		expect(message.customType).toBe(NOTICE_TYPE);
+		expect(message.display).toBe(true);
+		expect(message.content).toContain("run /bytefly doctor");
+		expect(message.details.source).toBe("doctor");
+		expect(message.details.title).toMatch(/^\d+ missing prerequisites?$/);
+		expect(message.details.items).toContainEqual(
+			expect.objectContaining({ label: "worktree (git)", detail: expect.stringContaining("install git") }),
+		);
 	});
 
 	test("stays quiet when every hard requirement is met", async () => {
-		const { start, notices } = bootDoctor();
+		const { fake, start, notices } = bootDoctor();
 		await start();
 		expect(notices).toEqual([]);
+		expect(fake.customMessages).toEqual([]);
 	});
 
 	test("stays quiet when proactive checks are disabled", async () => {
 		await withAgentDir(async (dir) => {
 			writeFileSync(join(dir, "bytefly.json"), JSON.stringify({ doctor: { proactive: false } }));
-			const { start, notices } = bootDoctor({ exec: failingExec });
+			const { fake, start, notices } = bootDoctor({ exec: failingExec });
 			await start();
 			expect(notices).toEqual([]);
+			expect(fake.customMessages).toEqual([]);
 		});
 	});
 
 	test("stays quiet in Pi's quiet startup mode", async () => {
-		const { start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: true } });
+		const { fake, start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: true } });
 		await start();
 		expect(notices).toEqual([]);
+		expect(fake.customMessages).toEqual([]);
 	});
 
 	test("still warns when quietStartup only keeps the header", async () => {
-		const { start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: "header" } });
+		const { fake, start, notices } = bootDoctor({ exec: failingExec, settings: { quietStartup: "header" } });
 		await start();
-		expect(notices).toHaveLength(1);
+		expect(notices).toEqual([]);
+		expect(fake.customMessages).toHaveLength(1);
 	});
 
 	test("stays quiet without a UI to warn", async () => {
-		const { start, notices } = bootDoctor({ exec: failingExec, mode: "print", hasUI: false });
+		const { fake, start, notices } = bootDoctor({ exec: failingExec, mode: "print", hasUI: false });
 		await start();
 		expect(notices).toEqual([]);
+		expect(fake.customMessages).toEqual([]);
 	});
 });
 
