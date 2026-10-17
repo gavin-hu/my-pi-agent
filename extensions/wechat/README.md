@@ -129,9 +129,10 @@ needs. Per action:
 
 | Peer action | What they see |
 |---|---|
-| Sends a message | The native typing indicator starts immediately; the answer arrives as it is generated. |
+| Sends a message | The native typing indicator starts as soon as the message is picked up; the answer is sent when the run settles. |
 | Sends several messages quickly | At most one acknowledgement, then a single answer that covers the burst in order. |
-| Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在处理…` / “Got it — working on it.” |
+| Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在处理…` / “Got it — working on it.”; a turn still running at 30 seconds adds one `还在处理这条…` / “Still working on this one”. |
+| Sends while the terminal session is busy | One line after four seconds, then one more at a minute (`终端会话正忙…` / “The terminal session is busy…”), and the answer when the session frees. |
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
 | Reads a long answer | Delivered in numbered parts (`[1/3] …`) once it exceeds `maxReplyChars`. |
@@ -140,11 +141,31 @@ needs. Per action:
 | Types `/help` or `/new` | The command list, or a restarted session; `/new` is declined while a run is in flight. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
 | Gets an aborted turn | `已停止。` / “Stopped.” |
+| Gets a turn that produced no text | `这条处理完了，但没有文字输出。` / “That turn finished without any text to send.” |
+| Gets a turn that could not start | `处理失败，请稍后重试。` / “Something went wrong — please try again.”, and the terminal says why. |
 | Keeps messaging an expired or logged-out bridge | Nothing — the bot goes quiet, and only the terminal chip says why. |
 
 Notices are one line and in the peer's language (Chinese when their message
 contains Chinese). The bridge never sends greetings, read receipts, or progress
 chatter: WeChat notifies per message, so every bubble has to carry information.
+
+### The reply contract
+
+One acknowledgement per wait episode, one answer per turn. A message that
+arrives before the first turn starts is merged into that turn, so it is answered
+inside the answer it is already waiting for — not with a second “working on it”.
+
+| Situation | What the peer gets |
+|---|---|
+| 1st message, session idle | typing, then the answer (no acknowledgement: there is nothing to wait for) |
+| 1st message, session busy | typing, `收到，正在处理…` at 4 s, `终端会话正忙…` at 60 s, the answer when the session frees |
+| 2nd message after the acknowledgement, still queued | nothing new; it is merged into the same turn and the one answer covers both in order |
+| 2nd message while a turn runs | no new acknowledgement; it becomes its own turn and answer after the first |
+| 3rd…Nth in a burst | same as the queued case; past eight queued, one line asking to wait |
+
+Two consequences worth knowing: an answer can take up to one long-poll cycle
+(the server holds each `getupdates`; measured ~18 s) before the turn even
+starts, and a reply is delivered when the run settles, not token by token.
 
 ## Remote prompts
 
@@ -232,14 +253,38 @@ files), and `poller.lock` (stops two sessions polling one account).
   applies a code upgrade, and the next `session_start` builds the bridge in this
   runtime.
 
+- **The phone gets no reaction, or an answer never arrives.** In order: (1) check
+  `/wechat status` — a non-zero `queued` means the messages are waiting for the
+  local session, and a `closed` connection means the poller is not running (see
+  the lock entry above); (2) the phone waits up to one long-poll cycle (~20 s) for
+  the server to hand over a message, so an answer within a few seconds is not
+  promised; (3) the terminal now reports a poll that times out or is rejected,
+  a turn that could not start, and a send the server refused with `ret N`, so a
+  silent phone with a clean terminal means the message never reached this
+  process.
+- **A WeChat message is answered in the terminal but the phone never sees it.**
+  Only turns the bridge injected are replied to: the terminal's own conversation
+  is not mirrored to WeChat. A `/wechat new`, `/reload`, or restart during a
+  WeChat turn also drops that turn's answer, because the shutdown aborts the
+  send.
+
 ## Limitations
 
 - An expired bridge or a `/wechat logout` is silence on the phone: the token that
   would carry a notice is the one that expired, so only the terminal chip and
   `/wechat status` say what happened.
 - The bridge shares one conversation with your interactive session. It serializes
-  its own messages and only injects when the session is idle, but if you are
-  actively typing, a reply may attach to a mixed context.
+  its own messages and only injects when the session is idle, so a WeChat message
+  can wait for a long terminal turn (bounded by the notices above, not by a
+  timeout), and a reply may attach to a mixed context.
+- Inbound delivery is bounded by the server's long-poll hold: the client sees a
+  message only when a `getupdates` request returns, measured at ~18 s per cycle
+  here. The bridge reports a wedged or rejected poll, but it cannot make the
+  first reaction faster than one cycle.
+- A reply is sent when the run settles, so a long answer arrives as one message
+  (split only by `maxReplyChars`), not token by token.
+- A `/wechat new`, `/reload`, fork, or process exit during a WeChat turn abandons
+  that turn's reply: the shutdown aborts the send, and the peer gets nothing.
 - Inbound **video** is not handled, and there is no group-chat support. Voice is
   handled only through the server-provided transcript. Both are answered with a
   one-line notice rather than being dropped silently, and a voice note the

@@ -60,8 +60,29 @@ const TYPING_LIMIT_MS = 15 * 60 * 1000;
 const ACK_DELAY_MS = 4000;
 /** Suppress a second acknowledgement inside this window. */
 const ACK_REPEAT_MS = 60_000;
+/** Say the running turn is still going after this long without a reply. */
+const TURN_NOTICE_MS = 30_000;
+/** Say `busy` when a message is still queued behind the local session after this. */
+const BUSY_NOTICE_MS = 60_000;
+/** A turn that never reports `agent_start` is a failed start, not a slow one. */
+const START_WATCHDOG_MS = 15_000;
+/** Poll watchdog when the server has not told us its long-poll hold yet. */
+const POLL_TIMEOUT_FALLBACK_MS = 90_000;
+/** Never trust a server hint below this, so a busy loop cannot be papered over. */
+const POLL_TIMEOUT_FLOOR_MS = 30_000;
+/** Slack above the server's hold before a poll counts as wedged. */
+const POLL_TIMEOUT_MARGIN_MS = 15_000;
 /** Inbound messages held while a turn runs; beyond this the peer is told to wait. */
 const MAX_QUEUE = 8;
+
+/**
+ * How long one `getupdates` request may hang before it is treated as wedged: the
+ * server's own hold time plus a margin, so a half-open connection cannot stop
+ * inbound traffic without a word.
+ */
+export function defaultPollTimeout(serverHintMs: number | undefined): number {
+	return Math.max(serverHintMs ?? POLL_TIMEOUT_FALLBACK_MS, POLL_TIMEOUT_FLOOR_MS) + POLL_TIMEOUT_MARGIN_MS;
+}
 
 /** Content the bridge injects: plain text or text/image blocks. */
 export type UserContent = string | (TextContent | ImageContent)[];
@@ -104,8 +125,8 @@ export interface BridgeDeps {
 	now: () => number;
 	/** Whether the live session has no active run. Defaults to always idle. */
 	isIdle?: () => boolean;
-	/** Inject a user turn into the live session. */
-	sendUserMessage: (content: UserContent) => void;
+	/** Inject a user turn into the live session. A rejected promise is a failed start. */
+	sendUserMessage: (content: UserContent) => void | Promise<void>;
 	/** Directory where inbound files are saved. */
 	mediaDir: () => string;
 	/** Built-in inbound slash commands. Defaults to {@link SLASH_COMMANDS}. */
@@ -122,6 +143,11 @@ export interface BridgeDeps {
 	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
 	armTimer?: ArmTimer;
+	/**
+	 * How long to wait for one `getupdates` response before treating the request as
+	 * wedged. Defaults to {@link defaultPollTimeout}; injected so a test never waits.
+	 */
+	pollTimeout?: (serverHintMs: number | undefined) => number;
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** Called when the server reports an expired token. */
 	onExpired?: () => void;
@@ -155,7 +181,8 @@ export interface Bridge {
 	shutdown(): Promise<void>;
 	setBusy(busy: boolean): void;
 	capture(message: unknown): void;
-	settle(): void;
+	/** Finish the turn in flight; `aborted` selects the peer-facing fallback line. */
+	settle(aborted?: boolean): void;
 	status(): BridgeStatus;
 	/** The remote interaction channel the UI adapter routes prompts through. */
 	channel(): WechatInteractionChannel;
@@ -197,6 +224,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const acks = new Map<string, () => void>();
 	/** When each peer was last acknowledged, so a chatty peer is not spammed. */
 	const ackedAt = new Map<string, number>();
+	/** Peers told that the local session is busy, until they have no work left. */
+	const busyNotified = new Set<string>();
+	/** Per-peer `busy` and `stillWorking` cancellers. */
+	const busyTimers = new Map<string, () => void>();
+	const slowTimers = new Map<string, () => void>();
+	/** Cancel the start watchdog armed by `inject`. */
+	let startWatchdog: (() => void) | undefined;
+	/** Whether the turn we injected has been confirmed by an `agent_start`. */
+	let startObserved = false;
 	/** The language each peer last wrote in, so a media-only message can answer. */
 	const languages = new Map<string, PeerLanguage>();
 	/** Peers already told that the queue is full, until it drains. */
@@ -204,6 +240,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const slashCommands = deps.slashCommands ?? SLASH_COMMANDS;
 
 	const isIdle = deps.isIdle ?? (() => true);
+	const pollTimeout = deps.pollTimeout ?? defaultPollTimeout;
 
 	function notify(message: string, kind: "info" | "warning" | "error" = "info"): void {
 		deps.notify?.(message, kind);
@@ -237,8 +274,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	): Promise<boolean> {
 		if (!client || !account) return false;
 		const chunks = chunkText(toWechatText(text), deps.config.maxReplyChars).filter((chunk) => chunk !== "");
-		// Flattening can empty a reply that was only formatting; nothing to deliver.
-		if (chunks.length === 0) return true;
+		if (chunks.length === 0) {
+			// Nothing survived formatting: report it rather than claim a delivery.
+			notify("WeChat reply had nothing to send after formatting.", "warning");
+			return false;
+		}
 		for (const [index, chunk] of chunks.entries()) {
 			// A split answer says so, so the peer knows more is coming and can tell a
 			// truncated reply from a complete one.
@@ -247,6 +287,16 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				const response = await client.sendMessage(account, { to, text: body, contextToken }, signal);
 				if (isSessionExpired(response)) {
 					handleExpired();
+					return false;
+				}
+				// A body-level rejection is not a delivery: report it with the part count
+				// instead of letting the answer vanish.
+				if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
+					const code = response.ret ?? response.errcode;
+					onError(new WechatError(`Weixin rejected the message (ret ${code}).`), {
+						sent: index,
+						total: chunks.length,
+					});
 					return false;
 				}
 			} catch (error) {
@@ -421,6 +471,58 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 	}
 
+	/**
+	 * Stop the `busy` line for a peer: the wait episode is over, so the next one
+	 * is allowed to speak again.
+	 */
+	function stopBusyNotice(peer: string): void {
+		const cancel = busyTimers.get(peer);
+		if (cancel) cancel();
+		busyTimers.delete(peer);
+		busyNotified.delete(peer);
+	}
+
+	/** Stop the turn-progress notice for `peer`. */
+	function stopSlowNotice(peer: string): void {
+		const cancel = slowTimers.get(peer);
+		if (cancel) cancel();
+		slowTimers.delete(peer);
+	}
+
+	/**
+	 * Say once that this turn is taking a while. The typing indicator carries the
+	 * same signal, but it is best-effort and invisible in some clients, so a slow
+	 * turn gets one plain line instead of silence.
+	 */
+	function armSlowNotice(item: InboundItem): void {
+		stopSlowNotice(item.peer);
+		slowTimers.set(
+			item.peer,
+			armTimer(TURN_NOTICE_MS, () => {
+				slowTimers.delete(item.peer);
+				if (active !== item) return;
+				void reply(item, notice("stillWorking", languageOf(item.peer)));
+			}),
+		);
+	}
+
+	/**
+	 * Say once why a message is still waiting: the local session is busy, so the
+	 * turn has not started. Bounded to one line per wait episode.
+	 */
+	function armBusyNotice(item: InboundItem): void {
+		if (busyNotified.has(item.peer) || busyTimers.has(item.peer)) return;
+		busyTimers.set(
+			item.peer,
+			armTimer(BUSY_NOTICE_MS, () => {
+				busyTimers.delete(item.peer);
+				if (!hasWork(item.peer) || active !== undefined || busyNotified.has(item.peer)) return;
+				busyNotified.add(item.peer);
+				void reply(item, notice("busy", languageOf(item.peer)));
+			}),
+		);
+	}
+
 	function cancelAck(peer: string): void {
 		const cancel = acks.get(peer);
 		if (!cancel) return;
@@ -439,6 +541,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	 * the same thing without spending a bubble.
 	 */
 	function armAck(item: InboundItem): void {
+		// A turn for this peer is already running: its own progress notice covers
+		// this message, so a second acknowledgement would be noise.
+		if (active?.peer === item.peer) return;
 		if (acks.has(item.peer)) return;
 		const last = ackedAt.get(item.peer);
 		if (last !== undefined && deps.now() - last < ACK_REPEAT_MS) return;
@@ -449,6 +554,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				if (!hasWork(item.peer) || active?.peer === item.peer) return;
 				ackedAt.set(item.peer, deps.now());
 				void reply(item, notice("ack", languageOf(item.peer)));
+				// Still waiting after a minute behind a busy local session: say why.
+				armBusyNotice(item);
 			}),
 		);
 	}
@@ -501,6 +608,40 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	 * `[WeChat media skipped]` block and the peer's reply opens with one line, so a
 	 * failed download cannot look like the model ignoring a photo.
 	 */
+	/**
+	 * Arm the start watchdog for a turn we are about to inject, and recover it if
+	 * the host never reports the run. A prompt can be rejected asynchronously (the
+	 * session started streaming in between), so the bridge cannot rely on the
+	 * promise alone: either way the turn must be released and the peer answered.
+	 */
+	function armStartWatchdog(item: InboundItem): void {
+		startWatchdog?.();
+		startObserved = false;
+		startWatchdog = armTimer(START_WATCHDOG_MS, () => {
+			startWatchdog = undefined;
+			if (active !== item || startObserved) return;
+			failStart(item, "the run never reported a start");
+		});
+	}
+
+	function clearStartWatchdog(): void {
+		startWatchdog?.();
+		startWatchdog = undefined;
+	}
+
+	/** Release a turn that could not start and let the queue move on. */
+	function failStart(item: InboundItem, reason: string): void {
+		if (active !== item) return;
+		clearStartWatchdog();
+		active = undefined;
+		mediaNotice = undefined;
+		stopSlowNotice(item.peer);
+		stopTyping(item.peer);
+		notify(`WeChat could not start a turn: ${reason}`, "error");
+		void reply(item, notice("failed", languageOf(item.peer)));
+		pump();
+	}
+
 	async function inject(item: InboundItem): Promise<void> {
 		let content: UserContent = item.text;
 		if (item.media.length > 0) {
@@ -522,14 +663,14 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			parts.push(...blocks);
 			content = parts;
 		}
+		armSlowNotice(item);
+		armStartWatchdog(item);
 		try {
-			deps.sendUserMessage(content);
+			// The host rejects when the session went busy between `pump()` and here;
+			// that rejection is the only way to learn the turn did not start.
+			await deps.sendUserMessage(content);
 		} catch (error) {
-			active = undefined;
-			mediaNotice = undefined;
-			notify(`WeChat could not start a turn: ${messageOf(error)}`, "error");
-			void reply(item, notice("failed", languageOf(item.peer)));
-			pump();
+			failStart(item, messageOf(error));
 		}
 	}
 
@@ -542,6 +683,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		mediaNotice = undefined;
 		active = undefined;
 		stopTyping(item.peer);
+		stopSlowNotice(item.peer);
 		flushing = true;
 		try {
 			await reply(item, text);
@@ -582,6 +724,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		lastText = "";
 		mediaNotice = undefined;
 		cancelAck(item.peer);
+		stopBusyNotice(item.peer);
 		keepTyping(item.peer, item);
 		void inject(item);
 	}
@@ -649,13 +792,35 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	async function loop(signal: AbortSignal): Promise<void> {
+		// The server tells us how long it holds a poll; remember it so the watchdog
+		// can be tight instead of the generic fallback.
+		let serverHint: number | undefined;
+		/** One notice per failure episode, so a flapping link is reported once. */
+		let timeoutNotified = false;
+		let rejectedNotified = false;
 		while (running && !signal.aborted) {
 			if (!client || !account) break;
+			const watchdogMs = pollTimeout(serverHint);
+			// A cancellable watchdog: `AbortSignal.timeout` cannot be cleared, and a
+			// pending timer per poll would keep the process awake long after the request
+			// settled. Unref'd, so a wedged poll never holds a shutdown open either.
+			const watchdog = new AbortController();
+			const watchdogTimer = setTimeout(() => watchdog.abort(), watchdogMs);
+			(watchdogTimer as { unref?: () => void }).unref?.();
 			let response;
 			try {
-				response = await client.getUpdates(account, state.cursor, signal);
+				response = await client.getUpdates(account, state.cursor, AbortSignal.any([signal, watchdog.signal]));
 			} catch (error) {
 				if (signal.aborted || !running) break;
+				if (watchdog.signal.aborted) {
+					// A wedged request, not a server answer: retry at once with the same
+					// cursor, so nothing is skipped, and say so once.
+					if (!timeoutNotified) {
+						timeoutNotified = true;
+						notify(`WeChat poll timed out after ${Math.round(watchdogMs / 1000)}s; retrying.`, "warning");
+					}
+					continue;
+				}
 				notify(`WeChat poll failed: ${messageOf(error)}`, "warning");
 				try {
 					await sleep(BACKOFF_MS, signal);
@@ -663,12 +828,31 @@ export function createBridge(deps: BridgeDeps): Bridge {
 					break;
 				}
 				continue;
+			} finally {
+				clearTimeout(watchdogTimer);
 			}
 			if (!response) break;
+			if (response.timeoutMs !== undefined && response.timeoutMs > 0) serverHint = response.timeoutMs;
 			if (isSessionExpired(response)) {
 				handleExpired();
 				return;
 			}
+			if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
+				// A body-level rejection (bad cursor, rate limit, revoked token) is not an
+				// empty poll: report it once and back off instead of hammering the API.
+				if (!rejectedNotified) {
+					rejectedNotified = true;
+					notify(`WeChat poll rejected (ret ${response.ret ?? response.errcode}); retrying.`, "warning");
+				}
+				try {
+					await sleep(BACKOFF_MS, signal);
+				} catch {
+					break;
+				}
+				continue;
+			}
+			timeoutNotified = false;
+			rejectedNotified = false;
 			if (response.buf && response.buf !== state.cursor) {
 				state.cursor = response.buf;
 				deps.saveState(state);
@@ -751,6 +935,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			active = undefined;
 			lastText = "";
 			mediaNotice = undefined;
+			clearStartWatchdog();
+			for (const cancel of busyTimers.values()) cancel();
+			busyTimers.clear();
+			busyNotified.clear();
+			for (const cancel of slowTimers.values()) cancel();
+			slowTimers.clear();
 			stopAllTyping();
 			cancelAllAcks();
 			overflow.clear();
@@ -765,6 +955,16 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 		setBusy(value: boolean): void {
 			busy = value;
+			if (!value) {
+				// A settled run releases any start watchdog that was still armed.
+				clearStartWatchdog();
+				return;
+			}
+			// An `agent_start` while a turn of ours is active confirms the injection.
+			if (active) {
+				startObserved = true;
+				clearStartWatchdog();
+			}
 		},
 
 		capture(message: unknown): void {
@@ -773,8 +973,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			if (text !== undefined) lastText = text;
 		},
 
-		settle(): void {
+		settle(aborted = false): void {
 			busy = false;
+			clearStartWatchdog();
 			const item = active;
 			const text = lastText;
 			const prefix = mediaNotice;
@@ -787,15 +988,19 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				return;
 			}
 			cancelAck(item.peer);
+			stopSlowNotice(item.peer);
+			stopBusyNotice(item.peer);
 			stopTyping(item.peer);
 			// Hold the queue until the reply is out: a message that arrives mid-flush
 			// must not start the next turn before this peer has their answer.
 			flushing = true;
 			void (async () => {
 				await typingOff(item.peer);
-				// A reply that is only formatting has nothing to say, so it reads as a
-				// stopped turn rather than as an empty bubble.
-				const body = text && toWechatText(text) ? text : notice("stopped", languageOf(item.peer));
+				// A reply that is only formatting has nothing to say. An aborted turn says
+				// `stopped`; a turn that finished without text says so plainly, because
+				// "stopped" would blame the peer for something they did not do.
+				const fallback = aborted ? notice("stopped", languageOf(item.peer)) : notice("noText", languageOf(item.peer));
+				const body = text && toWechatText(text) ? text : fallback;
 				await reply(item, prefix ? `${prefix}\n\n${body}` : body);
 			})().finally(() => {
 				flushing = false;

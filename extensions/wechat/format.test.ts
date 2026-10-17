@@ -132,7 +132,19 @@ describe("peerLanguage", () => {
 });
 
 describe("notice", () => {
-	const KINDS: NoticeKind[] = ["ack", "overflow", "media", "unsupported", "stopped", "timeout", "failed", "newBusy"];
+	const KINDS: NoticeKind[] = [
+		"ack",
+		"busy",
+		"stillWorking",
+		"overflow",
+		"media",
+		"unsupported",
+		"stopped",
+		"noText",
+		"timeout",
+		"failed",
+		"newBusy",
+	];
 
 	test("renders the peer's language only", () => {
 		const cjk = /[\u3400-\u4dbf\u4e00-\u9fff]/;

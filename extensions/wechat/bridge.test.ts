@@ -142,7 +142,9 @@ function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = {}) {
 		config: { ...DEFAULT_CONFIG },
 		now: () => 1000,
 		isIdle: () => true,
-		sendUserMessage: (content) => injected.push(content),
+		sendUserMessage: (content) => {
+			injected.push(content);
+		},
 		mediaDir: () => tempDir("wechat-files-"),
 		loadAccount: () => account,
 		loadState: () => ({ cursor: "", peers: {} }),
@@ -861,7 +863,7 @@ function gatedClient(): {
 }
 
 describe("bridge peer feedback", () => {
-	test("sends nothing when a reply flattens to an empty message", async () => {
+	test("sends no empty bubble when a reply flattens away", async () => {
 		const { client, sent } = makeClient([updates([inbound("ping")])]);
 		const { deps, injected } = makeDeps(client);
 		const bridge = createBridge(deps);
@@ -869,12 +871,13 @@ describe("bridge peer feedback", () => {
 		await waitFor(() => injected.length === 1);
 
 		bridge.setBusy(true);
-		// Only formatting survives: flattening it away must not send an empty bubble,
-		// so the turn reads as stopped instead.
+		// Only a fence survives: flattening it away must not send an empty bubble, and
+		// a finished turn with nothing to say is not a "stopped" turn.
 		bridge.capture({ role: "assistant", content: [{ type: "text", text: "```\n```" }] });
 		bridge.settle();
 		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toBe("Stopped.");
+		expect(sent[0]?.text).toBe("That turn finished without any text to send.");
+		expect(sent.every((message) => message.text.trim() !== "")).toBe(true);
 		await bridge.close();
 	});
 
@@ -941,7 +944,7 @@ describe("bridge peer feedback", () => {
 		await bridge.close();
 	});
 
-	test("acknowledges a peer that has waited, once", async () => {
+	test("acknowledges a peer that has waited, once, then says why it is still waiting", async () => {
 		const timers = fakeTimers();
 		const { client, sent } = makeClient([updates([inbound("one"), inbound("two")])]);
 		const { deps, injected } = makeDeps(client, { armTimer: timers.arm });
@@ -955,8 +958,12 @@ describe("bridge peer feedback", () => {
 		expect(sent[0]?.text).toBe("Got it — working on it.");
 		expect(injected).toEqual([]);
 
+		// A minute later the local session is still busy: say so once, and only once.
 		timers.fire();
-		expect(sent).toHaveLength(1);
+		await waitFor(() => sent.length === 2);
+		expect(sent[1]?.text).toContain("terminal session is busy");
+		timers.fire();
+		expect(sent).toHaveLength(2);
 		await bridge.close();
 	});
 
@@ -972,7 +979,7 @@ describe("bridge peer feedback", () => {
 		bridge.setBusy(false);
 		bridge.settle();
 		await waitFor(() => injected.length === 1);
-		timers.fire();
+		// The turn started, so the 4 s acknowledgement was cancelled outright.
 		expect(sent).toEqual([]);
 		await bridge.close();
 	});
@@ -994,7 +1001,7 @@ describe("bridge peer feedback", () => {
 		await bridge.close();
 	});
 
-	test("tells the peer when a turn produced no answer", async () => {
+	test("tells the peer when a finished turn had no text", async () => {
 		const { client, sent } = makeClient([updates([inbound("go")])]);
 		const { deps, injected } = makeDeps(client);
 		const bridge = createBridge(deps);
@@ -1003,6 +1010,20 @@ describe("bridge peer feedback", () => {
 
 		bridge.setBusy(true);
 		bridge.settle();
+		await waitFor(() => sent.length === 1);
+		expect(sent[0]?.text).toBe("That turn finished without any text to send.");
+		await bridge.close();
+	});
+
+	test("says stopped, not no-text, when the run was aborted", async () => {
+		const { client, sent } = makeClient([updates([inbound("go")])]);
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		bridge.setBusy(true);
+		bridge.settle(true);
 		await waitFor(() => sent.length === 1);
 		expect(sent[0]?.text).toBe("Stopped.");
 		await bridge.close();
@@ -1016,7 +1037,7 @@ describe("bridge peer feedback", () => {
 		await waitFor(() => injected.length === 1);
 
 		bridge.setBusy(true);
-		bridge.settle();
+		bridge.settle(true);
 		await waitFor(() => sent.length === 1);
 		expect(sent[0]?.text).toBe("已停止。");
 		await bridge.close();
@@ -1086,6 +1107,189 @@ describe("bridge peer feedback", () => {
 		await waitFor(() => restarted === 1);
 
 		expect(sent[0]?.text).toContain("Starting a new session");
+		await bridge.close();
+	});
+
+	test("merges a follow-up sent after the acknowledgement into one answer", async () => {
+		const timers = fakeTimers();
+		const { client, sent } = makeClient([updates([inbound("first"), inbound("second")])]);
+		const { deps, injected } = makeDeps(client, { armTimer: timers.arm });
+		const bridge = createBridge(deps);
+		bridge.setBusy(true);
+		bridge.open();
+		await waitFor(() => bridge.status().queued === 2);
+
+		// The peer is told once that their message is waiting.
+		timers.fire();
+		await waitFor(() => sent.length === 1);
+		expect(sent[0]?.text).toContain("working on it");
+
+		// The local run ends: both messages become one turn, answered once.
+		bridge.setBusy(false);
+		bridge.settle();
+		await waitFor(() => injected.length === 1);
+		expect(injected[0]).toBe("first\nsecond");
+
+		bridge.setBusy(true);
+		bridge.capture({ role: "assistant", content: [{ type: "text", text: "both" }] });
+		bridge.settle();
+		await waitFor(() => sent.length === 2);
+		expect(sent[1]?.text).toBe("both");
+		// One acknowledgement, one answer: no second "working on it".
+		expect(sent).toHaveLength(2);
+		await bridge.close();
+	});
+
+	test("says the running turn is still going after a while", async () => {
+		const timers = fakeTimers();
+		const { client, sent } = makeClient([updates([inbound("slow")])]);
+		const { deps, injected } = makeDeps(client, { armTimer: timers.arm });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		bridge.setBusy(true);
+		timers.fire();
+		await waitFor(() => sent.length === 1);
+		expect(sent[0]?.text).toContain("Still working");
+
+		// One line per slow turn, not a heartbeat.
+		timers.fire();
+		expect(sent).toHaveLength(1);
+		await bridge.close();
+	});
+});
+
+/**
+ * The turn lifecycle must survive the host: a prompt can be rejected
+ * asynchronously, and a poll can hang or be rejected without a transport error.
+ * Every path either recovers or says so, and none of them wedges the queue.
+ */
+describe("bridge resilience", () => {
+	test("recovers when the host rejects the injected turn", async () => {
+		const notifications: string[] = [];
+		let calls = 0;
+		const { client, sent } = makeClient([updates([inbound("first")]), updates([inbound("second")])]);
+		const { deps, injected } = makeDeps(client, {
+			sendUserMessage: (content) => {
+				calls += 1;
+				if (calls === 1) throw new Error("Agent is already processing.");
+				injected.push(content);
+			},
+			notify: (message) => notifications.push(message),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+
+		// The peer is told this message failed instead of waiting forever.
+		await waitFor(() => sent.length === 1);
+		expect(sent[0]?.text).toBe("Something went wrong — please try again.");
+		expect(notifications.some((message) => message.includes("could not start"))).toBe(true);
+
+		// And the queue is not wedged: the next message starts its own turn.
+		await waitFor(() => injected.length === 1);
+		expect(injected[0]).toBe("second");
+		expect(bridge.status().queued).toBe(0);
+		await bridge.close();
+	});
+
+	test("recovers a turn the host never reports starting", async () => {
+		const timers = fakeTimers();
+		const notifications: string[] = [];
+		const { client, sent } = makeClient([updates([inbound("go")])]);
+		const { deps, injected } = makeDeps(client, {
+			armTimer: timers.arm,
+			notify: (message) => notifications.push(message),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		// No `setBusy(true)`: the prompt was accepted but no run was reported, so the
+		// watchdog has to release the turn instead of blocking the queue forever.
+		timers.fire();
+		await waitFor(() => sent.some((message) => message.text.includes("try again")));
+		expect(notifications.some((message) => message.includes("never reported a start"))).toBe(true);
+		expect(bridge.status().queued).toBe(0);
+		await bridge.close();
+	});
+
+	test("reports a reply the server rejected instead of claiming delivery", async () => {
+		const notifications: string[] = [];
+		const base = makeClient([updates([inbound("q")])]);
+		const client = {
+			...base.client,
+			sendMessage: async () => ({ ret: -1 }),
+		} as unknown as WechatClient;
+		const { deps, injected } = makeDeps(client, { notify: (message) => notifications.push(message) });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		bridge.setBusy(true);
+		bridge.capture({ role: "assistant", content: [{ type: "text", text: "answer" }] });
+		bridge.settle();
+		await waitFor(() => notifications.length === 1);
+		expect(notifications[0]).toContain("rejected");
+		await bridge.close();
+	});
+
+	test("retries a wedged poll and reports it once", async () => {
+		const notifications: string[] = [];
+		let polls = 0;
+		const base = makeClient([]);
+		const client = {
+			...base.client,
+			getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+				polls += 1;
+				if (polls === 3) return updates([inbound("after timeout")], "c2");
+				await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+				throw new Error("aborted");
+			},
+		} as unknown as WechatClient;
+		const { deps, injected } = makeDeps(client, {
+			pollTimeout: () => 10,
+			notify: (message) => notifications.push(message),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+
+		await waitFor(() => injected.length === 1);
+		expect(injected[0]).toBe("after timeout");
+		// Two timeouts, one episode: a wedged poll is reported once and retried.
+		expect(notifications.filter((message) => message.includes("timed out"))).toHaveLength(1);
+		await bridge.close();
+	});
+
+	test("backs off when the poll is rejected and keeps the cursor", async () => {
+		const notifications: string[] = [];
+		const sleeps: number[] = [];
+		let polls = 0;
+		const base = makeClient([]);
+		const client = {
+			...base.client,
+			getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+				polls += 1;
+				if (polls < 3) return { ret: -1, msgs: [], buf: "" };
+				if (polls === 3) return updates([inbound("after reject")]);
+				await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+				throw new Error("aborted");
+			},
+		} as unknown as WechatClient;
+		const { deps, injected } = makeDeps(client, {
+			pollTimeout: () => 10,
+			sleep: async (ms) => {
+				sleeps.push(ms);
+			},
+			notify: (message) => notifications.push(message),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+
+		await waitFor(() => injected.length === 1);
+		expect(injected[0]).toBe("after reject");
+		expect(sleeps).toContain(2000);
+		expect(notifications.filter((message) => message.includes("rejected"))).toHaveLength(1);
 		await bridge.close();
 	});
 });

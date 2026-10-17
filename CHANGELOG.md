@@ -173,6 +173,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   subcommand completions carry the same line; the control screen's keys accept
   their uppercase form, and `logout` in a mode without a dialog reports that it
   needs one instead of doing nothing.
+- `wechat`: a WeChat turn that could not start no longer wedges the bridge. The
+  host rejects `sendUserMessage` asynchronously when the session went busy in
+  between, and that rejection was unobserved, so `active` stayed set and every
+  later message queued forever with no acknowledgement. The injection is awaited,
+  a 15-second start watchdog covers a run that never reports itself, and both
+  release the turn, say so in the terminal, and answer the peer with
+  `处理失败，请稍后重试。`.
+- `wechat`: a finished turn with no text now says `这条处理完了，但没有文字输出。`
+  instead of `已停止。`, which is reserved for a turn that was actually aborted
+  (`agent_settled` carries the flag).
+- `wechat`: a reply is never silently dropped. A non-zero `ret`/`errcode` from
+  `sendmessage` (other than the expiry code) is reported in the terminal with how
+  many parts went out, and a reply that formats down to nothing is reported
+  instead of counting as delivered.
+- `wechat`: waiting is no longer silent. A message queued behind a busy terminal
+  session gets one line at four seconds and one more at a minute
+  (`终端会话正忙…`), and a turn still running after 30 seconds says
+  `还在处理这条…` once. A second message sent after the acknowledgement is still
+  merged into the same turn, so the peer gets one answer rather than a second
+  “working on it”.
+- `wechat`: the poll loop is guarded. `getupdates` gets a watchdog derived from
+  the server's own `longpolling_timeout_ms` (fallback 90 s, floor 30 s, +15 s)
+  and retries a wedged request with the same cursor, and a body-level
+  `ret`/`errcode` rejection is reported once and backed off instead of being
+  treated as an empty poll (which spun the loop). The watchdog timer is cleared
+  after each request, so a settled poll no longer leaves a pending timer behind.
 
 ## [0.10.0] - 2026-10-17
 

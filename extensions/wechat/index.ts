@@ -189,7 +189,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	});
 	pi.on("agent_start", () => bridge?.setBusy(true));
 	pi.on("message_end", (event) => bridge?.capture(event.message));
-	pi.on("agent_settled", () => bridge?.settle());
+	pi.on("agent_settled", (event) => bridge?.settle(event.aborted === true));
 	pi.on("session_shutdown", async () => {
 		// Shutdown is emitted before the host resets the UI, so the chip is still ours to clear.
 		uninstallRemoteUI?.();
