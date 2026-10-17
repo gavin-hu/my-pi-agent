@@ -30,7 +30,9 @@ How the `send_wechat` call and its result look in the transcript — the call li
 - **Outbound** — replies are delivered automatically as plain chat text
   (Markdown fences, headings, and emphasis markers are flattened), and an answer
   longer than `maxReplyChars` arrives in numbered parts (`[1/3] …`). The
-  owner-only `send_wechat` tool lets the model message the owner proactively.
+  owner-only `send_wechat` tool lets the model message the owner proactively; it
+  is refused while a turn with that peer is in flight, so the answer cannot
+  arrive twice.
 - **Typing indicator** — the native typing status is set as soon as a message is
   queued and refreshed for as long as the turn runs (`typingIndicator`, on by
   default), so the phone can tell a long turn from a dead bridge.
@@ -47,7 +49,9 @@ How the `send_wechat` call and its result look in the transcript — the call li
   (`ctx.ui.setStatus`), so the outage stays visible until `/wechat login`
   reconnects or `/wechat logout` stops the bridge; it clears on shutdown.
 - **Owner-only by default** — only the account owner (who scanned the login QR)
-  can drive the agent; `allowedPeers` opts in others.
+  can drive the agent; `allowedPeers` opts in others. An entry matches either id
+  form (`alice` or `alice@im.wechat`), and a refused sender is named in
+  `/wechat status` so the id to allowlist can be copied from there.
 - **Session-bound** — the bridge runs while an account is stored and the Pi
   session is alive; it starts on `session_start` and `/wechat logout` clears the
   account and stops it.
@@ -110,6 +114,30 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 | `rpc` | The bridge auto-starts and `status` prints the one-line summary; `login` needs the TUI (the QR screen is unavailable over RPC). |
 | `json`, `print` | Ephemeral; the bridge does not auto-start and no UI is available. |
 
+## What the peer experiences
+
+The peer has only the chat window, so the bridge carries the signals the phone
+needs. Per action:
+
+| Peer action | What they see |
+|---|---|
+| Sends a message | The native typing indicator starts immediately; the answer arrives as it is generated. |
+| Sends several messages quickly | At most one acknowledgement, then a single answer that covers the burst in order. |
+| Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在处理…` / “Got it — working on it.” |
+| Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
+| Sends a voice note or video | One line: voice without a transcript and video are not supported. |
+| Reads a long answer | Delivered in numbered parts (`[1/3] …`) once it exceeds `maxReplyChars`. |
+| Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
+| Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at 90 seconds and cancelled at three minutes. |
+| Types `/help` or `/new` | The command list, or a restarted session; `/new` is declined while a run is in flight. |
+| Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
+| Gets an aborted turn | `已停止。` / “Stopped.” |
+| Keeps messaging an expired or logged-out bridge | Nothing — the bot goes quiet, and only the terminal chip says why. |
+
+Notices are one line and in the peer's language (Chinese when their message
+contains Chinese). The bridge never sends greetings, read receipts, or progress
+chatter: WeChat notifies per message, so every bubble has to carry information.
+
 ## Remote prompts
 
 A dialog raised while a WeChat turn is in flight is forwarded to the sender:
@@ -148,7 +176,7 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
 ```jsonc
 // bytefly.json → "wechat"
 {
-  "allowedPeers": [],        // extra peers; the owner is always allowed
+  "allowedPeers": [],        // extra peers, by id or label (alice / alice@im.wechat)
   "maxReplyChars": 4000,     // replies longer than this are split into messages
   "botAgent": "pi-wechat",   // sent as base_info.bot_agent
   "channelVersion": "0.1.0", // sent as base_info.channel_version
@@ -198,6 +226,9 @@ files), and `poller.lock` (stops two sessions polling one account).
 
 ## Limitations
 
+- An expired bridge or a `/wechat logout` is silence on the phone: the token that
+  would carry a notice is the one that expired, so only the terminal chip and
+  `/wechat status` say what happened.
 - The bridge shares one conversation with your interactive session. It serializes
   its own messages and only injects when the session is idle, but if you are
   actively typing, a reply may attach to a mixed context.

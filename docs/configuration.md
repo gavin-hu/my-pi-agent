@@ -52,7 +52,7 @@ repository root rather than the active working directory.
 | [`rewind`](../extensions/rewind/) | `rewind` | Snapshot scope and retention. |
 | [`todo`](../extensions/todo/) | `todo` | Widget behaviour. |
 | [`web-access`](../extensions/web-access/) | `web-access` | Search provider and fetch limits (`search` and `fetch` groups). |
-| [`wechat`](../extensions/wechat/) | `wechat` | Bridge and media settings. |
+| [`wechat`](../extensions/wechat/) | `wechat` | Bridge, media, and peer-feedback settings. |
 | [`worktree`](../extensions/worktree/) | `worktree` | Worktree directory name and behaviour. |
 
 `plan`, `question`, `subagent`, and `file-open` read no configuration.
@@ -85,8 +85,10 @@ malformed document, so it is safe to re-run.
 ## State
 
 The `wechat` extension also keeps state under `<agent-dir>/wechat/`:
-`credentials.json` (mode `0600`, multi-account) and a message state file. This
-is login state, not user configuration.
+`credentials.json` (mode `0600`, multi-account), `state.json` (the poll cursor,
+the owner, and per-peer reply tokens), `media/` (downloaded inbound files), and
+`poller.lock` (one runtime owns the account at a time). This is login and runtime
+state, not user configuration.
 
 ## Environment variables
 

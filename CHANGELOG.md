@@ -38,6 +38,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: the README gains a “What the peer experiences” section — what the
+  sender sees for a queued message, a burst, an unreadable attachment, an
+  unanswered prompt, a split answer, and an expired bridge — alongside the
+  `allowedPeers` id form and the `wechat` state directory in
+  `docs/configuration.md`.
 - `wechat`: a queued message no longer reads as silence. The typing indicator
   starts when the message is queued and is refreshed while the turn runs, a
   burst of messages becomes one turn instead of one turn each, and a peer who
