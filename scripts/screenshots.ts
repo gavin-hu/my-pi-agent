@@ -39,6 +39,7 @@ import type { StatusSnapshot } from "../extensions/bytefly/footer/types.ts";
 import { ByteflyHeader } from "../extensions/bytefly/header/component.ts";
 import { nameplate } from "../extensions/bytefly/message/format.ts";
 import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
+import { DEFAULT_HOST_PAD } from "../extensions/bytefly/pad.ts";
 import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { JobListComponent } from "../extensions/job/tui.ts";
 import type { JobRecord } from "../extensions/job/types.ts";
@@ -379,34 +380,37 @@ const CHROME_NOTICE: NoticeDetails = {
 function renderChrome(width: number): string[] {
 	setThemeInstance(theme);
 	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
+	// Draw at Pi's default output pad, so the frame has a real session's margins.
+	const pad = DEFAULT_HOST_PAD;
 	const lines = new ByteflyHeader(
 		() => theme,
-		() => ({ showVersion: true, halfBlocks: true }),
+		() => ({ showVersion: true, halfBlocks: true, pad }),
 		VERSION,
 	).render(width);
 
-	const plate = nameplate(width);
-	if (plate) lines.push(...new Markdown(plate, 0, 0, getMarkdownTheme()).render(width));
-	lines.push("", theme.fg("text", "Ready when you are."), "");
+	// The transformer sees the Markdown's content width, not the padded frame.
+	const plate = nameplate(width - pad * 2);
+	if (plate) lines.push(...new Markdown(plate, pad, 0, getMarkdownTheme()).render(width));
+	lines.push("", `${" ".repeat(pad)}${theme.fg("text", "Ready when you are.")}`, "");
 
 	// A tool block: the call leads as the headline, the result rails under it.
 	lines.push(
-		...new ToolBlock(new Text("read src/app.ts", 0, 0), 0, {
+		...new ToolBlock(new Text("read src/app.ts", 0, 0), pad, {
 			headline: true,
 			toolName: "read",
 		}).render(width),
 	);
 	lines.push(
-		...new ToolBlock(new Text("const answer = 42;", 0, 0), 0, {
+		...new ToolBlock(new Text("const answer = 42;", 0, 0), pad, {
 			trimLeading: true,
 			rail: railGlyph(theme, "faint", DEFAULT_RAIL_GLYPH),
 		}).render(width),
 	);
 	lines.push("");
 
-	lines.push(...new NoticeComponent(CHROME_NOTICE, theme).render(width));
+	lines.push(...new NoticeComponent(CHROME_NOTICE, theme, pad).render(width));
 	lines.push("");
-	lines.push(...new SeparatorComponent(3, theme).render(width));
+	lines.push(...new SeparatorComponent(3, theme, pad).render(width));
 	lines.push("");
 
 	for (const line of buildLines(CHROME_SNAPSHOT, theme, "/Users/gavin")) {

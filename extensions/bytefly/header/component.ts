@@ -14,6 +14,7 @@ import { keyText, type Theme, VERSION } from "@earendil-works/pi-coding-agent";
 import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { screenHint } from "../../../lib/tui/chrome.ts";
 import { keyHintText } from "../../../lib/tui/glyphs.ts";
+import { BODY_INDENT } from "../../../lib/tui/indent.ts";
 import { RULE_GLYPH } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { HEADER_CONFIG, type HelpEntry } from "./config.ts";
@@ -24,6 +25,8 @@ export interface HeaderView {
 	showVersion: boolean;
 	/** Whether the terminal renders half blocks; false draws the wordmark instead. */
 	halfBlocks: boolean;
+	/** Columns of left margin: Pi's output pad, so the nameplate sits on the transcript margin. */
+	pad: number;
 }
 
 /** The mark block is four columns on both rows, so the identity column aligns. */
@@ -64,8 +67,9 @@ export class ByteflyHeader implements Component {
 		const w = Math.max(1, width);
 		const theme = this.getTheme();
 		const view = this.view();
-		const { padX, nameRole, chromeRole, detailRole, chromeTagline, chromeName, chromeVersion, help } = HEADER_CONFIG;
-		const pad = " ".repeat(Math.min(padX, Math.max(0, w - 1)));
+		const { nameRole, chromeRole, detailRole, chromeTagline, chromeName, chromeVersion, help } = HEADER_CONFIG;
+		const padWidth = Math.max(0, Math.min(Math.floor(view.pad), Math.max(0, w - 1)));
+		const pad = " ".repeat(padWidth);
 		const [markTop, markBottom] = markLines(theme, view.halfBlocks);
 
 		const version = view.showVersion && this.version ? paint(theme, detailRole, `v${this.version}`) : "";
@@ -93,16 +97,18 @@ export class ByteflyHeader implements Component {
 			this.identityLine(pad, markTop, agentCell, w),
 			this.identityLine(pad, markBottom, chromeCell, w),
 			this.rule(theme, w, pad),
-			...help.map((row) => this.helpLine(theme, w, row)),
+			...help.map((row) => this.helpLine(theme, w, row, padWidth)),
 		];
 	}
 
 	/**
 	 * The nameplate's signature rule: an accent lead as wide as the mark, so the
-	 * rule is anchored to the mark, then a muted fill to the edge.
+	 * rule is anchored to the mark, then a muted fill to the transcript's right
+	 * edge. The header stops where the nameplate and turn rules stop, one pad in,
+	 * instead of running to the last terminal column.
 	 */
 	private rule(theme: Theme, width: number, pad: string): string {
-		const remaining = Math.max(0, width - pad.length);
+		const remaining = Math.max(0, width - pad.length * 2);
 		const lead = Math.min(MARK_WIDTH, remaining);
 		const fill = remaining - lead;
 		return (
@@ -118,13 +124,17 @@ export class ByteflyHeader implements Component {
 		return truncateToWidth(line.replace(/ +$/, ""), width, "");
 	}
 
-	/** One help group: whole entries only, dropped as the width runs out. */
-	private helpLine(theme: Theme, width: number, row: readonly HelpEntry[]): string {
+	/**
+	 * One help group: whole entries only, dropped as the width runs out. The hints
+	 * hang one body indent inside the header's margin, like a screen's hint footer
+	 * under its title rule.
+	 */
+	private helpLine(theme: Theme, width: number, row: readonly HelpEntry[], padWidth: number): string {
 		const hints = row
 			.map(helpParts)
 			.filter((part) => part.key)
 			.map((part) => keyHintText(theme, part.key, part.description));
-		return hints.length > 0 ? screenHint(theme, width, hints) : "";
+		return hints.length > 0 ? screenHint(theme, width, hints, padWidth + BODY_INDENT) : "";
 	}
 }
 

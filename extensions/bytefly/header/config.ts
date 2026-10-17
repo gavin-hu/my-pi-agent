@@ -39,8 +39,6 @@ export interface HeaderConfig {
 	readonly ruleAccentRole: TuiRole;
 	/** Role for the rest of the rule. */
 	readonly ruleRole: TuiRole;
-	/** Columns of left padding, matching Pi's built-in header indent. */
-	readonly padX: number;
 	/** The tagline before the chrome name, so the relationship reads in words. */
 	readonly chromeTagline: string;
 	/** The chrome's name. */
@@ -61,7 +59,6 @@ export const HEADER_CONFIG: HeaderConfig = {
 	detailRole: "faint",
 	ruleAccentRole: "accent",
 	ruleRole: "rule",
-	padX: 1,
 	chromeTagline: "enhanced by",
 	chromeName: "bytefly",
 	chromeVersion: pkg.version,
