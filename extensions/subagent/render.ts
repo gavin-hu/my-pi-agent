@@ -235,10 +235,29 @@ export interface SubagentCallContext {
 	lastComponent?: Component;
 }
 
+/**
+ * The call's arguments as Pi hands them to `renderCall`. While the model streams
+ * a call, a field can still be missing, or arrive with a type the schema will
+ * later reject, so the call line reads every one defensively and never throws: a
+ * throwing renderer makes Pi fall back to its own generic call line.
+ */
+export type StreamedSubagentArgs = Partial<Record<keyof SubagentArgs, unknown>>;
+
+/** One field of a partially-streamed element, or undefined when it has not arrived. */
+function streamedText(element: unknown, key: "agent" | "task" | "cwd"): string | undefined {
+	if (typeof element !== "object" || element === null) return undefined;
+	const value = (element as Record<string, unknown>)[key];
+	return typeof value === "string" ? value : undefined;
+}
+
 /** Preview the requested mode and its agents, reusing the slot's `Text`. */
-export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: SubagentCallContext): Component {
+export function renderSubagentCall(
+	args: StreamedSubagentArgs | undefined,
+	theme: Theme,
+	context?: SubagentCallContext,
+): Component {
 	const text = reuseText(context?.lastComponent);
-	text.setText(callText(args, theme, context));
+	text.setText(callText(args ?? {}, theme, context));
 	return text;
 }
 
@@ -247,7 +266,7 @@ export function renderSubagentCall(args: SubagentArgs, theme: Theme, context?: S
  * indent of their own: the tool-block frame headlines the first line and
  * indents the rest by `BODY_INDENT`.
  */
-function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }): string {
+function callText(args: StreamedSubagentArgs, theme: Theme, context?: { cwd?: string }): string {
 	const title =
 		theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? paint(theme, "faint", "read-only ") : "");
 	const cwdNote = (cwd?: string) => {
@@ -255,30 +274,32 @@ function callText(args: SubagentArgs, theme: Theme, context?: { cwd?: string }):
 		return paint(theme, "faint", `  in ${shortenPath(cwd)}`);
 	};
 
-	if (args.chain && args.chain.length > 0) {
-		let text = title + paint(theme, "label", `chain · ${args.chain.length} step${args.chain.length > 1 ? "s" : ""}`);
-		for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
-			const step = args.chain[i];
-			const clean = sanitizeLine(step.task.replace(/\{previous\}/g, ""));
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(step.agent))}${paint(theme, "meta", ` ${clip(clean, 40)}`)}${cwdNote(step.cwd)}`;
+	const chain = Array.isArray(args.chain) ? args.chain : [];
+	if (chain.length > 0) {
+		let text = title + paint(theme, "label", `chain · ${chain.length} step${chain.length > 1 ? "s" : ""}`);
+		for (let i = 0; i < Math.min(chain.length, 3); i++) {
+			const step = chain[i];
+			const task = (streamedText(step, "task") ?? "…").replace(/\{previous\}/g, "");
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(streamedText(step, "agent") || "…"))}${paint(theme, "meta", ` ${clip(sanitizeLine(task), 40)}`)}${cwdNote(streamedText(step, "cwd"))}`;
 		}
-		if (args.chain.length > 3) text += `\n${paint(theme, "meta", `… +${args.chain.length - 3} more`)}`;
+		if (chain.length > 3) text += `\n${paint(theme, "meta", `… +${chain.length - 3} more`)}`;
 		return text;
 	}
 
-	if (args.tasks && args.tasks.length > 0) {
-		let text = title + paint(theme, "label", `parallel · ${args.tasks.length} task${args.tasks.length > 1 ? "s" : ""}`);
-		for (let i = 0; i < Math.min(args.tasks.length, 3); i++) {
-			const task = args.tasks[i];
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(task.agent))}${paint(theme, "meta", ` ${clip(sanitizeLine(task.task), 40)}`)}${cwdNote(task.cwd)}`;
+	const tasks = Array.isArray(args.tasks) ? args.tasks : [];
+	if (tasks.length > 0) {
+		let text = title + paint(theme, "label", `parallel · ${tasks.length} task${tasks.length > 1 ? "s" : ""}`);
+		for (let i = 0; i < Math.min(tasks.length, 3); i++) {
+			const task = tasks[i];
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(streamedText(task, "agent") || "…"))}${paint(theme, "meta", ` ${clip(sanitizeLine(streamedText(task, "task") ?? "…"), 40)}`)}${cwdNote(streamedText(task, "cwd"))}`;
 		}
-		if (args.tasks.length > 3) text += `\n${paint(theme, "meta", `… +${args.tasks.length - 3} more`)}`;
+		if (tasks.length > 3) text += `\n${paint(theme, "meta", `… +${tasks.length - 3} more`)}`;
 		return text;
 	}
 
-	const agentName = sanitizeLine(args.agent || "…");
-	let text = title + paint(theme, "label", agentName) + cwdNote(args.cwd);
-	text += `\n${paint(theme, "meta", clip(sanitizeLine(args.task ?? "…"), 60))}`;
+	const agentName = sanitizeLine(streamedText(args, "agent") || "…");
+	let text = title + paint(theme, "label", agentName) + cwdNote(streamedText(args, "cwd"));
+	text += `\n${paint(theme, "meta", clip(sanitizeLine(streamedText(args, "task") ?? "…"), 60))}`;
 	return text;
 }
 

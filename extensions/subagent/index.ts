@@ -168,7 +168,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		},
 
 		renderCall(args, theme, context) {
-			return renderSubagentCall(args as SubagentArgs, theme, {
+			return renderSubagentCall(args, theme, {
 				cwd: context.cwd,
 				lastComponent: context.lastComponent,
 			});
