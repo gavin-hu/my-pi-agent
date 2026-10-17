@@ -59,7 +59,7 @@ describe("renderings", () => {
 		expect(first?.lines(80)).toEqual(first?.lines(80));
 	});
 
-	test("a tool block leads with its call, rails the result, and leaves the call plain", () => {
+	test("a tool block leads with its call and rails the result", () => {
 		const read = renderings().find((rendering) => rendering.name === "read");
 		const lines = (read?.lines(80) ?? []).map(stripTerminalSequences);
 		expect(lines[0]?.startsWith("read ")).toBe(true);
@@ -71,10 +71,14 @@ describe("renderings", () => {
 		const call = (subagent?.lines(80) ?? []).map(stripTerminalSequences);
 		expect(call[1]?.startsWith("  1. ")).toBe(true);
 
-		// The filled edit/write blocks read by their band, not the rail.
+		// The file-mutating tools carry their result on the call body: that body is
+		// railed, and there is no status band behind it.
 		for (const name of ["edit", "write"]) {
-			const filled = renderings().find((rendering) => rendering.name === name);
-			expect((filled?.lines(80) ?? []).join("\n"), name).not.toContain("╎");
+			const rendering = renderings().find((item) => item.name === name);
+			const raw = (rendering?.lines(80) ?? []).join("\n");
+			expect(raw, name).not.toContain("\u001b[48;");
+			const body = (rendering?.lines(80) ?? []).map(stripTerminalSequences);
+			expect(body[1]?.startsWith("╎ "), name).toBe(true);
 		}
 	});
 });

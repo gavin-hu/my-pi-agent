@@ -2,10 +2,10 @@
  * Tuning for the tool-block result rail.
  *
  * A tool result hangs from the transcript rail (`../chrome.ts`), painted by
- * status; the call stays plain-indented. A finished or merely informational
- * result keeps the neutral `faint` rail, so only a running or failed one spends
- * colour. The two filled tools (`edit`, `write`) skip the rail entirely and read
- * by their status fill instead.
+ * status. A finished or merely informational result keeps the neutral `faint`
+ * rail, so only a running or failed one spends colour. The two file-mutating
+ * tools (`edit`, `write`) carry their result on the call body, so that body is
+ * railed the same way.
  */
 
 import type { TuiRole } from "../../../lib/tui/tokens.ts";

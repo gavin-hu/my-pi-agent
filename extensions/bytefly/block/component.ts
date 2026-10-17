@@ -11,16 +11,10 @@
  * The call block leads with its first non-blank line — the tool's own call line,
  * which every built-in and package renderer already opens with the tool name —
  * and the body follows at `BODY_INDENT` columns, with no separator line, so the
- * block is compact. A result body may carry a `rail`: a pre-painted glyph in the
- * first indent column, occupying the two columns the plain indent uses. The call
- * never carries one.
- *
- * A tool that mutates a file (`edit`, `write`) may carry a `fill`: every body
- * line is padded to the frame's width and wrapped, so the result sits on one
- * edge-to-edge band and the state colour reads as a rectangle rather than a
- * ragged stripe. The headline is the call, so it stays unfilled. The wrapper is
- * injected, so the frame stays theme-agnostic; a tool whose own renderer paints a
- * background is handed a no-op `bg` and leaves the fill to the frame.
+ * block is compact. A body may carry a `rail`: a pre-painted glyph in the first
+ * indent column, occupying the two columns the plain indent uses. The headline is
+ * never railed. The result frame carries it for every tool; the call frame carries
+ * it too when the call body *is* the result (`edit`'s diff, `write`'s content).
  *
  * The tool name is the block's only accent. The shipped themes point
  * `toolTitle` at the accent, so a primary subject — a path, URL, query, pattern
@@ -29,9 +23,9 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { BODY_INDENT, IMAGE_LINE, indentedLines } from "../../../lib/tui/indent.ts";
+import { BODY_INDENT, indentedLines } from "../../../lib/tui/indent.ts";
 import { paintPrefix } from "../../../lib/tui/tokens.ts";
 
 /** How one tool-block frame is drawn. */
@@ -50,7 +44,9 @@ export interface ToolBlockOptions {
 	toolName?: string;
 	/**
 	 * A pre-painted rail glyph for the body's first indent column, from
-	 * `../chrome.ts`. Set on the result frame only; the call stays plain-indented.
+	 * `../chrome.ts`. Set on every result frame, and on the call frame only for a
+	 * tool whose call body carries the result (`edit`, `write`); the headline is
+	 * never railed.
 	 */
 	rail?: string;
 	/**
@@ -59,20 +55,6 @@ export interface ToolBlockOptions {
 	 * without it the line is left as Pi drew it.
 	 */
 	theme?: Theme;
-	/**
-	 * Fill each body line to the frame's full width and wrap it, so the result
-	 * sits on one edge-to-edge background band. Set for the tools that paint a
-	 * status fill (`edit`, `write`); the caller supplies the wrapper. The headline
-	 * is the call, so it is never filled, and an image-protocol line passes through
-	 * untouched.
-	 */
-	fill?: (line: string) => string;
-}
-
-/** Pad a line to `width` visible columns, so a fill wrapper covers the frame. */
-function padToWidth(line: string, width: number): string {
-	const gap = width - visibleWidth(line);
-	return gap > 0 ? `${line}${" ".repeat(gap)}` : line;
 }
 
 /**
@@ -199,11 +181,7 @@ export function toolBlockLines(
 			options.toolName && options.theme ? recolorCallHeadline(named, options.toolName, options.theme) : named;
 		lines[0] = truncateToWidth(recolored, w, "…");
 	}
-	if (!options.fill) return lines;
-	const fill = options.fill;
-	// The headline is the tool call; only the body it sits over carries the fill.
-	const start = options.headline ? 1 : 0;
-	return lines.map((line, index) => (index < start || IMAGE_LINE.test(line) ? line : fill(padToWidth(line, w))));
+	return lines;
 }
 
 /** The frame Pi mounts in place of its background box for a tool row. */

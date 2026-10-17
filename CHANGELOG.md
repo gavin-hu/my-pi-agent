@@ -60,11 +60,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `bytefly`: the transcript rail leads a tool result and a notice row, painted by
+- `bytefly`: the transcript rail leads a result body and a notice row, painted by
   status — a running result takes the accent, a failure red, a finished one
   neutral, a notice its worst severity. A tool call stays plain-indented (a
-  multi-line call keeps its two-space continuation), and the filled
-  `edit`/`write` bodies keep Pi's status band instead of the rail.
+  multi-line call keeps its two-space continuation).
+- `bytefly`: `edit` and `write` carry their result on the call body, so that body
+  now hangs from the rail too, and their status band is gone; the diff's own
+  red/green line colours and the headline are what mark a file change.
 - `bytefly`: the tool name is a call line's only accent. A primary subject — a
   path, URL, query, or pattern — now reads in the body colour (`read
   src/app.ts`, `read_doc docs/a.pdf`, `web_fetch https://…`, `grep /pattern/`),

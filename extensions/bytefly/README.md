@@ -192,12 +192,10 @@ read src/app.ts
 ╎ const answer = 42;
 ```
 
-The two tools that mutate a file, `edit` and `write`, keep a status fill under
-their call: every body line is padded to the full width and wrapped in Pi's tool
-background role, so the result reads as one edge-to-edge band — neutral
-(`toolPendingBg`) while it runs, green (`toolSuccessBg`) when it settles, and red
-(`toolErrorBg`) on a failure — while the call's headline stays unfilled. Every
-other tool stays unfilled, so the fill marks a write.
+The two tools that mutate a file, `edit` and `write`, carry their result on the
+call body — the edit diff, the written file content — so that body is railed
+like any other result. There is no status band: the diff's own red/green line
+colours and the `edit` / `write` headline are what mark a file change.
 
 A `registerToolRenderer` resolver switches the row to `renderShell: "self"`,
 leaves the call's own first line as the headline, and indents the rest of the
@@ -208,12 +206,11 @@ the call line's only accent (`bash bun run check`, `read src/app.ts`). The
 tool's own
 `renderCall`/`renderResult` are passed through, so syntax highlighting, diffs,
 previews, and truncation notices are unchanged — only the frame is bytefly's.
-The result body carries the transcript rail, painted by status (a running result
-takes the accent, a failure red, a finished one neutral) and drawn with the
-glyph from the `chrome.rail` setting. The call never carries one: its headline and
-any continuation lines stay plain-indented. The two tools that mutate a file,
-`edit` and `write`, skip the rail and read by their status fill instead, so a
-write carries one status signal. A tool with
+The body carries the transcript rail, painted by status (a running result takes
+the accent, a failure red, a finished one neutral) and drawn with the glyph from
+the `chrome.rail` setting. A result frame is always railed; a call frame is railed
+only for `edit` and `write`, whose call body carries the result — every other
+call's headline and continuation lines stay plain-indented. A tool with
 no renderer of its own is framed around a generic call/result fallback, whose
 call line reads like a built-in — the leading string argument bare, the rest as
 trailing options (`open_path src/app.ts`) — rather than dumping raw `key=value`
@@ -221,7 +218,7 @@ pairs. A tool that draws its own shell (`edit`) is framed too:
 `renderShell: "self"` only tells Pi not to draw its box around the renderer, so
 its diff would otherwise sit at the wrong indent; the frame drops the blank
 edges its own `Box` pads itself with, and hands it a theme whose `bg` is inert so
-it never paints a second band inside the frame's fill.
+it never paints a band the rest of the transcript does not have.
 
 The call line is one colour grammar, shared with Pi's built-ins: the tool name is
 `toolTitle` and bold and is the line's only accent; a primary subject (a query, a
@@ -740,7 +737,7 @@ rather than showing a wrong value.
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
-| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail (except `edit`/`write`, which keep Pi's fill), and each wraps the tool's own renderer (or a generic fallback). |
+| Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Thinking timer | `message_start`/`message_end` for an assistant message in `tui` mode; a 1s tick drives `ctx.ui.setHiddenThinkingLabel("Thinking… Ns")`, and the end restores Pi's default. No config file and no stored state. |
@@ -785,15 +782,13 @@ rather than showing a wrong value.
   through the extension chain, and the resolved object is the definition the row
   reads, so a resolver can override `renderShell` and wrap `next()`'s
   `renderCall`/`renderResult`. bytefly replaces only the frame — Pi's filled
-  status box for an indent, and, for `edit`/`write`, an edge-to-edge band under
-  the call's headline in Pi's tool background role — and keeps every built-in's
-  diff, syntax highlighting, and truncation. The call and result are sibling
-  components with no spacer between them, so the call's headline and the result
-  read as one block, the call plain-indented and the result behind the rail. A
-  tool that renders its own shell (`edit`) is
-  framed too: its blank edge lines are trimmed so the body starts under the call,
-  and it is handed a theme whose `bg` is inert so the frame's fill is the only
-  band it paints. Each base renderer is handed its own
+  status box for an indent — and keeps every built-in's diff, syntax
+  highlighting, and truncation. The call and result are sibling components with
+  no spacer between them, so the call's headline and the result read as one
+  block; the result body hangs from the rail, and `edit`/`write` rail their call
+  body because it carries the result. A tool that renders its own shell (`edit`)
+  is framed too: its blank edge lines are trimmed so the body starts under the
+  call, and it is handed a theme whose `bg` is inert so it paints no band. Each base renderer is handed its own
   previous component (tracked in the row's `state`), never the frame: Pi gives a
   renderer the component it returned last time, and a built-in calls `setText` on
   it, so handing back the frame would break it.
@@ -801,10 +796,10 @@ rather than showing a wrong value.
   the same frame (`lib/tui/indent.ts`): a tool block, a notice, and a subagent's
   quoted output take one indent, so they hang from one left edge instead of four,
   and a tool result's body sits `BODY_INDENT` columns in under its headline. A
-  result body and a notice row lead that body with the transcript rail, whose
-  glyph is the one configurable part (`chrome.rail`, default `╎`); a tool call
-  never carries it, and the filled `edit`/`write` bodies read by Pi's status
-  colour instead. Pi pads its own messages and hands the value to tool renderers
+  body and a notice row lead that body with the transcript rail, whose
+  glyph is the one configurable part (`chrome.rail`, default `╎`); a result frame
+  is always railed, and a call frame only for `edit`/`write`, whose call body
+  carries the result. Pi pads its own messages and hands the value to tool renderers
   (`context.outputPad`) and message renderers (`options.outputPad`), but gives an
   entry renderer none and adds its component raw, so bytefly's blocks inset
   themselves by that pad: the tool frame and the notice take it from Pi, and the
@@ -977,7 +972,7 @@ columns, gauge), so the look follows the active theme.
 | `block/config.ts` | `BlockStatus` and `BLOCK_CONFIG.roles`: the design role a result's rail takes for each state. |
 | `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, `recolorCallHeadline`, and `ToolBlock`: the headline, the body's two-column indent (optionally rail-led), the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), the subject demotion (a path, URL, query, or pattern reads in `label` so the name is the line's only accent), and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer: the subject in the body colour, its options faint, and a capped result preview. |
-| `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it and rails the result body by status (the filled `edit`/`write` keep their fill). |
+| `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it, rails the result body by status, and rails the call body for `edit`/`write` (the two whose call body carries the result). |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
 | `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |

@@ -5,15 +5,15 @@
  * `renderShell: "self"` — dropping Pi's filled status background — and frames
  * the tool's own `renderCall` / `renderResult`, so the content is unchanged and
  * only the framing is bytefly's. The call leads with its own first line as the
- * headline; the body is indented directly under it. The result body carries the
- * transcript rail, painted by status; the call stays plain-indented, and the two
- * filled tools (`edit`, `write`) skip the rail and read by their fill. A tool
- * with no renderer gets the same treatment around a generic fallback.
+ * headline; the body is indented directly under it. The body carries the
+ * transcript rail, painted by status. The result frame rails every tool; the
+ * call frame rails only the two file-mutating tools (`edit`, `write`), whose
+ * call body *is* the result (a diff, a written file). A tool with no renderer
+ * gets the same treatment around a generic fallback.
  *
  * The frame is added even for a tool that sets `renderShell: "self"` (`edit`):
- * that only tells Pi not to draw its filled box, and the shipped themes leave
- * the tool fills to the terminal, so its diff would otherwise sit at the wrong
- * indent. The indent is bytefly's, not Pi's box, so nothing nests.
+ * that only tells Pi not to draw its filled box, so its diff would otherwise sit
+ * at the wrong indent. The indent is bytefly's, not Pi's box, so nothing nests.
  *
  * Pi hands a renderer the component it returned last time as
  * `context.lastComponent`, and every built-in renderer reuses it in place — it
@@ -30,13 +30,12 @@
  * add the pad twice and set the whole edit block a column deeper than every
  * other block. The frame is the only place that applies the pad.
  *
- * The two tools that mutate a file (`edit`, `write`) are filled: the frame pads
- * every body line to the full width and wraps it in the row's status background,
- * so the result reads as one edge-to-edge rectangle while the call's headline
- * stays unfilled. Pi's `edit` paints its own `Box` from that same role, so the
- * frame hands it a theme whose `bg` is inert; otherwise the base would paint the
- * inner width, the frame's indent would sit outside it, and the band would be
- * narrower than the body.
+ * The two tools that mutate a file (`edit`, `write`) carry their result on the
+ * call, so the call body is railed like a result. Pi's `edit` paints its own
+ * `Box` from a tool background role, so the frame hands it a theme whose `bg` is
+ * inert; otherwise the base would paint a band the rest of the transcript does
+ * not have. (`write` is a plain `Text` and paints nothing; the facade is a no-op
+ * there but shared.)
  *
  * Before framing, a shell call's `$ <command>` string is rewritten so the tool
  * name keeps the accent and the command reads as the body (`recolorShellCall`),
@@ -61,25 +60,19 @@ interface BlockMemory {
 	byteflyBaseResult?: Component;
 }
 
-/** The tools that carry a status fill: the two that mutate a file. */
-const FILLED_TOOLS = new Set(["edit", "write"]);
+/** The tools whose call body carries the result: the two that mutate a file. */
+const RESULT_ON_CALL = new Set(["edit", "write"]);
 
-/** The background role for a row's state, matching Pi's own tool box. */
-function fillRole(context: { isPartial: boolean; isError: boolean }): ThemeBg {
-	if (context.isPartial) return "toolPendingBg";
-	return context.isError ? "toolErrorBg" : "toolSuccessBg";
-}
-
-/** The painted rail glyph for a result: running spends the accent, a failure red. */
-function resultRail(theme: Theme, context: { isPartial: boolean; isError: boolean }, glyph: string): string {
+/** The painted rail glyph for a row's state: running spends the accent, a failure red. */
+function statusRail(theme: Theme, context: { isPartial: boolean; isError: boolean }, glyph: string): string {
 	const status: BlockStatus = context.isPartial ? "info" : context.isError ? "bad" : "ok";
 	return railGlyph(theme, BLOCK_CONFIG.roles[status], glyph);
 }
 
 /**
  * A theme whose `bg` is inert. Pi's `edit` paints its own `Box` from a tool
- * background role; the frame fills the row instead, so the base must not paint
- * the inner width. Every other method is inherited unchanged.
+ * background role; the transcript has no bands, so the base must not paint one.
+ * Every other method is inherited unchanged.
  */
 function withoutBackground(theme: Theme): Theme {
 	const suppressed = Object.create(theme) as Theme;
@@ -99,9 +92,9 @@ export function registerToolBlocks(
 			renderShell: "self",
 			renderCall: (args, theme, context) => {
 				const memory = context.state as BlockMemory;
-				const filled = FILLED_TOOLS.has(toolName);
+				const resultOnCall = RESULT_ON_CALL.has(toolName);
 				const inner =
-					base?.renderCall?.(args, filled ? withoutBackground(theme) : theme, {
+					base?.renderCall?.(args, resultOnCall ? withoutBackground(theme) : theme, {
 						...context,
 						outputPad: 0,
 						lastComponent: memory.byteflyBaseCall,
@@ -119,34 +112,30 @@ export function registerToolBlocks(
 					inner.setText(recolorCallHeadline(recolorShellCall(inner.text, toolName, theme), toolName, theme));
 				}
 				// The call's own first line is the block's headline; the frame drops the
-				// blank edges a self-shell `Box` (`edit`) pads itself with.
-				const role = fillRole(context);
+				// blank edges a self-shell `Box` (`edit`) pads itself with. A tool whose
+				// call body is its result (`edit`, `write`) rails that body.
 				return new ToolBlock(inner, pad.resolve(context.outputPad), {
 					headline: true,
 					trimLeading: true,
 					toolName,
 					theme,
-					fill: filled ? (line: string) => theme.bg(role, line) : undefined,
+					rail: resultOnCall ? statusRail(theme, context, rail.resolve()) : undefined,
 				});
 			},
 			renderResult: (result, options, theme, context) => {
 				const memory = context.state as BlockMemory;
-				const filled = FILLED_TOOLS.has(toolName);
+				const resultOnCall = RESULT_ON_CALL.has(toolName);
 				const inner =
-					base?.renderResult?.(result, options, filled ? withoutBackground(theme) : theme, {
+					base?.renderResult?.(result, options, resultOnCall ? withoutBackground(theme) : theme, {
 						...context,
 						outputPad: 0,
 						lastComponent: memory.byteflyBaseResult,
 					}) ?? new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
 				memory.byteflyBaseResult = inner;
 				// A tool's own leading spacer would open the body with a gap, so drop it.
-				const role = fillRole(context);
 				return new ToolBlock(inner, pad.resolve(context.outputPad), {
 					trimLeading: true,
-					// The result carries the rail; the call above it stays plain-indented,
-					// and a filled tool reads by its band instead.
-					rail: filled ? undefined : resultRail(theme, context, rail.resolve()),
-					fill: filled ? (line: string) => theme.bg(role, line) : undefined,
+					rail: statusRail(theme, context, rail.resolve()),
 				});
 			},
 		};

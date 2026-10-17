@@ -232,11 +232,10 @@ terminal background, and one frame that every non-prose block hangs from — the
 shared notice and every tool block, built-ins included, share one left edge, with
 a tool's call line as the headline and its result body two columns in under it,
 led by the transcript rail. The rail is the `chrome.rail` setting (default `╎`),
-drawn on tool results and notice rows but never on a tool call, and painted by
-status (a running result takes the accent, a failure red, a finished one
-neutral; a notice takes its worst severity). The two
-file-mutating tools (`edit`, `write`) show their result on a full-width status
-band: neutral while running, green on success, red on failure. While an assistant message streams it also advances a live elapsed
+and it is painted by status (a running result takes the accent, a failure red, a
+finished one neutral; a notice takes its worst severity). A result is always
+railed; a call is railed only for the two file-mutating tools (`edit`, `write`),
+whose call body carries the result. There is no status band. While an assistant message streams it also advances a live elapsed
 counter (`Thinking… 12s`) on Pi's hidden thinking label, handing it back to Pi
 when the message ends. DeepSeek is priced out of the
 box from its published yuan rates and peak tariff,
@@ -264,9 +263,9 @@ Every tool block as the transcript draws it: the tool's own call line is the
 headline (the tool name in the theme's tool-title colour as the line's only
 accent, with a path, URL, or query and a shell call's command in the body colour)
 and the result body sits two columns under it behind the transcript rail — the
-tool's own renderer, or its generic fallback. The results of `edit` and `write`
-carry a full-width status fill (pending/success/error) instead of the rail, under
-their unfilled call line. The page covers the user
+tool's own renderer, or its generic fallback. `edit` and `write` carry their
+result on the call body, so that body is railed too; there is no status band.
+The page covers the user
 nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
 `write`, `edit`, `bash`, `grep`, `find`, `ls` — diffs, syntax highlighting and
 previews intact), then every
