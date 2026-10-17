@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { basename } from "node:path";
 import { parseArgs } from "./plan-review-shot.ts";
 
 describe("parseArgs", () => {
 	test("a plan path defaults the output to its stem", () => {
 		const options = parseArgs(["docs/some-plan.md"]);
-		expect(options.plan.endsWith("/docs/some-plan.md")).toBe(true);
-		expect(options.out.endsWith("/some-plan.png")).toBe(true);
+		expect(basename(options.plan)).toBe("some-plan.md");
+		expect(basename(options.out)).toBe("some-plan.png");
 		expect(options.width).toBe(1280);
 		expect(options.scale).toBe(2);
 		expect(options.theme).toBeUndefined();
@@ -25,7 +26,7 @@ describe("parseArgs", () => {
 			"--wait",
 			"100",
 		]);
-		expect(options.out.endsWith("/shot.png")).toBe(true);
+		expect(basename(options.out)).toBe("shot.png");
 		expect(options.width).toBe(900);
 		expect(options.scale).toBe(1);
 		expect(options.theme).toBe("dark");
