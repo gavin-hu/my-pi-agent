@@ -7,7 +7,7 @@
  */
 
 import type { MarkdownTransformer, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
-import type { MarkdownTheme } from "@earendil-works/pi-tui";
+import type { MarkdownTheme, Component } from "@earendil-works/pi-tui";
 
 export type AnyHandler = (...args: any[]) => any;
 
@@ -17,6 +17,17 @@ export const fakeTheme: any = {
 	bg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 };
+
+/** A stand-in for a component's inner renderer, recording the width it was asked for. */
+export function innerOf(lines: string[], onWidth?: (width: number) => void): Component {
+	return {
+		render: (width) => {
+			onWidth?.(width);
+			return lines;
+		},
+		invalidate: () => {},
+	};
+}
 
 /**
  * Markdown theme double. With the default identity `fakeTheme` the rendered

@@ -80,6 +80,21 @@ function withoutBackground(theme: Theme): Theme {
 	return suppressed;
 }
 
+/**
+ * Call the base renderer, falling back to the frame's own line when it throws.
+ *
+ * A base can throw on a partial (still-streaming) argument. Catching it here
+ * keeps the frame in charge of the pad; letting it reach Pi would swap in Pi's
+ * generic call line, a column to the left, and the row would jump.
+ */
+function frameBase(render: () => Component | undefined, fallback: () => Component): Component {
+	try {
+		return render() ?? fallback();
+	} catch {
+		return fallback();
+	}
+}
+
 /** Register the resolver that frames every tool block with the bytefly indent. */
 export function registerToolBlocks(
 	pi: ExtensionAPI,
@@ -93,21 +108,15 @@ export function registerToolBlocks(
 			renderCall: (args, theme, context) => {
 				const memory = context.state as BlockMemory;
 				const resultOnCall = RESULT_ON_CALL.has(toolName);
-				let inner: Component;
-				try {
-					inner =
+				const inner = frameBase(
+					() =>
 						base?.renderCall?.(args, resultOnCall ? withoutBackground(theme) : theme, {
 							...context,
 							outputPad: 0,
 							lastComponent: memory.byteflyBaseCall,
-						}) ?? new Text(callFallback(toolName, args, theme, context.expanded), 0, 0);
-				} catch {
-					// A base renderer can throw on a partial (still-streaming) argument.
-					// Frame our own fallback at the frame's pad rather than let the throw
-					// reach Pi, which would swap in its generic call line a column to the
-					// left and make the row jump.
-					inner = new Text(callFallback(toolName, args, theme, context.expanded), 0, 0);
-				}
+						}),
+					() => new Text(callFallback(toolName, args, theme, context.expanded), 0, 0),
+				);
 				memory.byteflyBaseCall = inner;
 				// Split a shell call's roles before the frame wraps it: Pi renders
 				// `$ <cmd>` as one `toolTitle` run, so a rewrite after wrapping would
@@ -134,17 +143,15 @@ export function registerToolBlocks(
 			renderResult: (result, options, theme, context) => {
 				const memory = context.state as BlockMemory;
 				const resultOnCall = RESULT_ON_CALL.has(toolName);
-				let inner: Component;
-				try {
-					inner =
+				const inner = frameBase(
+					() =>
 						base?.renderResult?.(result, options, resultOnCall ? withoutBackground(theme) : theme, {
 							...context,
 							outputPad: 0,
 							lastComponent: memory.byteflyBaseResult,
-						}) ?? new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
-				} catch {
-					inner = new Text(resultFallback(result.content, theme, options.expanded), 0, 0);
-				}
+						}),
+					() => new Text(resultFallback(result.content, theme, options.expanded), 0, 0),
+				);
 				memory.byteflyBaseResult = inner;
 				// A tool's own leading spacer would open the body with a gap, so drop it.
 				return new ToolBlock(inner, pad.resolve(context.outputPad), {
