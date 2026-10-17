@@ -89,6 +89,13 @@ describe("parsePromptAnswer confirm", () => {
 		expect(parsePromptAnswer(base, "取消")).toEqual({ kind: "confirmed", confirmed: false });
 	});
 
+	test("accepts the everyday Chinese answers", () => {
+		expect(parsePromptAnswer(base, "确定")).toEqual({ kind: "confirmed", confirmed: true });
+		expect(parsePromptAnswer(base, "行")).toEqual({ kind: "confirmed", confirmed: true });
+		expect(parsePromptAnswer(base, "不是")).toEqual({ kind: "confirmed", confirmed: false });
+		expect(parsePromptAnswer(base, "不行")).toEqual({ kind: "confirmed", confirmed: false });
+	});
+
 	test("retries anything else", () => {
 		expect(parsePromptAnswer(base, "maybe")).toEqual({ kind: "retry" });
 	});

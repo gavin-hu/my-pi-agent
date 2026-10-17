@@ -33,8 +33,8 @@ export const RETRY_NOTICE =
 	"没有识别到有效回复，请重新回答。\nSorry, I didn't recognize that reply — please answer again.";
 
 const CANCEL_WORDS = new Set(["取消", "cancel", "quit", "exit"]);
-const YES_WORDS = new Set(["是", "y", "yes", "1", "确认", "ok", "好", "对"]);
-const NO_WORDS = new Set(["否", "n", "no", "0", "不"]);
+const YES_WORDS = new Set(["是", "y", "yes", "1", "确认", "确定", "行", "ok", "好", "对"]);
+const NO_WORDS = new Set(["否", "n", "no", "0", "不", "不是", "不行"]);
 
 function lines(parts: Array<string | undefined>): string {
 	return parts.filter((part): part is string => part !== undefined && part !== "").join("\n");

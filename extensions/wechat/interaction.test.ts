@@ -1,12 +1,36 @@
 import { describe, expect, test } from "bun:test";
 import { INTERACTION_OTHER_LABEL, type InteractionRequest } from "../../lib/interaction.ts";
-import { createWechatInteractionChannel, type WechatInteractionDeps } from "./interaction.ts";
+import type { PeerLanguage } from "./format.ts";
+import { createWechatInteractionChannel, PROMPT_TIMEOUT_MS, type WechatInteractionDeps } from "./interaction.ts";
+import type { ArmTimer } from "./timer.ts";
 
 const SELECT: InteractionRequest = { kind: "select", title: "Pick", options: ["A", "B", INTERACTION_OTHER_LABEL] };
 const INPUT: InteractionRequest = { kind: "input", title: "Name" };
 const CONFIRM: InteractionRequest = { kind: "confirm", title: "Sure?" };
 
-function setup(initialPeer: string | undefined = "owner") {
+/** A timer seam keyed by delay, so the tests can fire the reminder and the expiry apart. */
+function fakeTimers(): { arm: ArmTimer; fire: (ms: number) => void; armed: () => number } {
+	const pending = new Map<number, { ms: number; fn: () => void }>();
+	let next = 0;
+	return {
+		arm: (ms, fn) => {
+			next += 1;
+			const id = next;
+			pending.set(id, { ms, fn });
+			return () => pending.delete(id);
+		},
+		fire: (ms) => {
+			for (const [id, timer] of [...pending]) {
+				if (timer.ms !== ms) continue;
+				pending.delete(id);
+				timer.fn();
+			}
+		},
+		armed: () => pending.size,
+	};
+}
+
+function setup(initialPeer: string | undefined = "owner", options: { timer?: ArmTimer; language?: PeerLanguage } = {}) {
 	const sent: string[] = [];
 	const files: Array<{ path: string; name: string }> = [];
 	let peer: string | undefined = initialPeer;
@@ -20,6 +44,8 @@ function setup(initialPeer: string | undefined = "owner") {
 			return true;
 		},
 		activePeer: () => peer,
+		language: () => options.language ?? "en",
+		armTimer: options.timer,
 	};
 	const channel = createWechatInteractionChannel(deps);
 	return { channel, sent, files, setPeer: (value: string | undefined) => (peer = value) };
@@ -96,9 +122,53 @@ describe("request", () => {
 			send: async () => false,
 			sendFile: async () => false,
 			activePeer: () => "owner",
+			language: () => "en",
 		};
 		const channel = createWechatInteractionChannel(deps);
 		expect(await channel.request(SELECT)).toEqual({ kind: "cancelled" });
+	});
+
+	test("reminds once and then cancels an unanswered prompt", async () => {
+		const timers = fakeTimers();
+		const { channel, sent } = setup("owner", { timer: timers.arm });
+		const answer = channel.request(CONFIRM);
+		await Bun.sleep(1);
+		expect(sent).toHaveLength(1); // the prompt itself
+
+		timers.fire(PROMPT_TIMEOUT_MS / 2);
+		expect(sent.at(-1)).toContain("Still waiting for your reply");
+		expect(channel.hasPending()).toBe(true);
+
+		timers.fire(PROMPT_TIMEOUT_MS);
+		expect(await answer).toEqual({ kind: "cancelled" });
+		expect(sent.at(-1)).toBe("That question timed out.");
+		expect(channel.hasPending()).toBe(false);
+	});
+
+	test("cancels the timeout timers once the peer answers", async () => {
+		const timers = fakeTimers();
+		const { channel, sent } = setup("owner", { timer: timers.arm });
+		const answer = channel.request(CONFIRM);
+		await Bun.sleep(1);
+		expect(channel.handleInbound("owner", "yes")).toBe(true);
+		expect(await answer).toEqual({ kind: "confirmed", confirmed: true });
+		expect(timers.armed()).toBe(0);
+
+		timers.fire(PROMPT_TIMEOUT_MS);
+		expect(sent).toHaveLength(1);
+	});
+
+	test("speaks the peer's language in the timeout notices", async () => {
+		const timers = fakeTimers();
+		const { channel, sent } = setup("owner", { timer: timers.arm, language: "zh" });
+		const answer = channel.request(CONFIRM);
+		await Bun.sleep(1);
+
+		timers.fire(PROMPT_TIMEOUT_MS / 2);
+		expect(sent.at(-1)).toContain("还在等你的回复");
+		timers.fire(PROMPT_TIMEOUT_MS);
+		expect(await answer).toEqual({ kind: "cancelled" });
+		expect(sent.at(-1)).toBe("问题超时，已取消。");
 	});
 });
 

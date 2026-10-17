@@ -44,7 +44,16 @@ export type PeerLanguage = "zh" | "en";
  * single short line in the peer's language: WeChat pings per message, so a
  * notice has to earn its bubble.
  */
-export type NoticeKind = "ack" | "overflow" | "media" | "unsupported" | "stopped" | "timeout" | "failed" | "newBusy";
+export type NoticeKind =
+	| "ack"
+	| "overflow"
+	| "media"
+	| "unsupported"
+	| "stopped"
+	| "promptWaiting"
+	| "timeout"
+	| "failed"
+	| "newBusy";
 
 const CJK = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
 
@@ -65,6 +74,10 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 		en: "Voice without a transcript and video aren't supported — please send text or an image.",
 	},
 	stopped: { zh: "已停止。", en: "Stopped." },
+	promptWaiting: {
+		zh: "还在等你的回复，约 1 分钟后超时。",
+		en: "Still waiting for your reply — this expires in about a minute.",
+	},
 	timeout: { zh: "问题超时，已取消。", en: "That question timed out." },
 	failed: { zh: "处理失败，请稍后重试。", en: "Something went wrong — please try again." },
 	newBusy: {
