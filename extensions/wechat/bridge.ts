@@ -236,7 +236,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		onError: (error: unknown, progress: { sent: number; total: number }) => void,
 	): Promise<boolean> {
 		if (!client || !account) return false;
-		const chunks = chunkText(toWechatText(text), deps.config.maxReplyChars);
+		const chunks = chunkText(toWechatText(text), deps.config.maxReplyChars).filter((chunk) => chunk !== "");
+		// Flattening can empty a reply that was only formatting; nothing to deliver.
+		if (chunks.length === 0) return true;
 		for (const [index, chunk] of chunks.entries()) {
 			// A split answer says so, so the peer knows more is coming and can tell a
 			// truncated reply from a complete one.
@@ -783,7 +785,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			flushing = true;
 			void (async () => {
 				await typingOff(item.peer);
-				const body = text || notice("stopped", languageOf(item.peer));
+				// A reply that is only formatting has nothing to say, so it reads as a
+				// stopped turn rather than as an empty bubble.
+				const body = text && toWechatText(text) ? text : notice("stopped", languageOf(item.peer));
 				await reply(item, prefix ? `${prefix}\n\n${body}` : body);
 			})().finally(() => {
 				flushing = false;
