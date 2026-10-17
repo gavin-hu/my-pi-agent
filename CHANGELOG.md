@@ -143,6 +143,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `subagent`: the call line survives a partially-streamed call. A streamed
+  `tasks` or `chain` element can reach the renderer before its `agent` and
+  `task`, and the renderer called `replace` on the missing task, so the call
+  block dropped to Pi's generic call line until the arguments settled; a missing
+  or wrong-typed field now reads as a placeholder, and a `tasks`/`chain` that is
+  not an array reads as absent.
 - `themes`: both files point `$schema` at Pi's published schema
   (`https://pi.dev/schemas/theme.schema.json`) instead of a raw GitHub path that
   answers 404, so editor validation and completion work again.

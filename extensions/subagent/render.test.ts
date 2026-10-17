@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, getKeybindings, KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
-import { renderSubagentCall, renderSubagentResult } from "./render.ts";
+import { renderSubagentCall, renderSubagentResult, type StreamedSubagentArgs } from "./render.ts";
 import { emptyUsage } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
 import { assistantMessage } from "../../test/helpers/fixtures/subagent.ts";
@@ -117,6 +117,39 @@ describe("renderSubagentCall", () => {
 		const text = render(renderSubagentCall({ agent: "worker", task: "First line\nSecond line" }, theme));
 		expect(text).toContain("First line Second line");
 		expect(text.split("\n")).toHaveLength(2);
+	});
+
+	test("survives a partially-streamed call", () => {
+		// Pi renders every snapshot of the streaming arguments: an element can arrive
+		// before its fields, and a value can still carry a type the schema rejects.
+		const partials: (StreamedSubagentArgs | undefined)[] = [
+			undefined,
+			{},
+			{ chain: [] },
+			{ tasks: [] },
+			{ chain: "nope" },
+			{ tasks: {} },
+			{ chain: [{}] },
+			{ tasks: [{}] },
+			{ chain: [{ agent: 1, task: null, cwd: 2 }] },
+			{ tasks: [{ task: "x" }, null] },
+			{ agent: 1, task: 2, readOnly: "yes" },
+		];
+		for (const args of partials) {
+			expect(() => render(renderSubagentCall(args, theme)), JSON.stringify(args)).not.toThrow();
+		}
+	});
+
+	test("reads a step whose fields have not arrived as a placeholder", () => {
+		const text = render(renderSubagentCall({ chain: [{}] }, theme));
+		expect(text).toContain("chain · 1 step");
+		expect(text).toContain("1. … …");
+	});
+
+	test("reads a list that is not an array as absent", () => {
+		const text = render(renderSubagentCall({ chain: "nope", agent: "explorer", task: "go" }, theme));
+		expect(text).toContain("explorer");
+		expect(text).not.toContain("chain ·");
 	});
 });
 
