@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatElapsed, thinkingCounter } from "./format.ts";
+import { formatElapsed, workingCounter } from "./format.ts";
 
 describe("formatElapsed", () => {
 	test("reads sub-second and zero as 0s", () => {
@@ -30,8 +30,8 @@ describe("formatElapsed", () => {
 	});
 });
 
-describe("thinkingCounter", () => {
-	test("shapes the hidden thinking label", () => {
-		expect(thinkingCounter(4000)).toBe("Thinking… 4s");
+describe("workingCounter", () => {
+	test("shapes the working message", () => {
+		expect(workingCounter(4000)).toBe("Working… 4s");
 	});
 });

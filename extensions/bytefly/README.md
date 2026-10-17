@@ -28,7 +28,7 @@ How the `run_doctor` call and its result look in the transcript — the call lin
 
 The extension owns nine surfaces: the startup header, the footer, the
 user-message marker, the rule between completed turns, the notice block for
-shared transcript notices, the tool-block frame, the live thinking counter, the
+shared transcript notices, the tool-block frame, the live working counter, the
 extension screen, and notifications.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
@@ -138,22 +138,21 @@ as it would without it, and a soft wrap of one long line stays at the margin
 because the renderer wraps it, not bytefly. The label and the rule are tuned
 in [`message/config.ts`](./message/config.ts).
 
-**Thinking timer.** Pi's hidden thinking block is a static italic `Thinking...`,
-so a long think reads the same as a short one. While an assistant message
-streams, bytefly advances the label once a second and hands it back to Pi when
-the message ends:
+**Working timer.** Pi's working row shows a static `Working`, so a long run
+reads the same as a short one. While the row is up, bytefly advances its
+message once a second and hands it back to Pi when the row comes down:
 
 ```
-Thinking… 12s
+Working… 12s
 ```
 
-The count is scoped to one assistant message (`message_start` …
-`message_end`), so a long tool call does not keep counting as if the model were
-still thinking. The label replaces a hidden thinking block, so it is visible
-when Pi hides thinking (`hideThinkingBlock`). The handle is global — the label
-rewrites every hidden thinking block — so the tick is cancelled and the label
-reset the moment the message ends, and again on `session_shutdown`. The word
-and the interval are tuned in [`thinking/config.ts`](./thinking/config.ts).
+The count is tied to the row's visibility: it starts on `turn_start`, the event
+the host shows the working indicator on, and stops on `agent_end`, where the
+host clears it, then again on `session_shutdown`. Turns inside one run do not
+restart it — the host keeps the same row up across turns — so the count covers
+the whole run, tool calls included. A retry is a new run, so the count restarts
+when its row reappears. The word and the interval are tuned in
+[`working/config.ts`](./working/config.ts).
 
 **Turn separator.** After each completed turn the extension appends an inert
 entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
@@ -696,10 +695,11 @@ control-free line before it reaches an escape sequence or a shell argument.
 - **An explicit `method` is honored blindly.** Point `method` at a notifier the
   host lacks (or an OSC method off a TTY) and the notification is silently
   dropped; only `auto` inspects the environment.
-- **The thinking counter is global.** `setHiddenThinkingLabel` rewrites every
-  hidden thinking block, so while an assistant message streams the earlier
-  collapsed blocks briefly show the same live count; the label is handed back
-  the moment the message ends.
+- **The working counter is one global row.** `setWorkingMessage` drives the
+  single working row, so bytefly and any other extension setting it race — last
+  writer wins — and the message is reset to Pi's default at `agent_end`. If the
+  row is hidden (`ctx.ui.setWorkingVisible(false)`) the counter has no surface,
+  and a reload mid-run does not resume it until the next turn.
 
 ## Non-goals
 
@@ -723,9 +723,9 @@ control-free line before it reaches an escape sequence or a shell argument.
   whole surface.
 - No sound, action buttons, notification history, or de-duplication; a
   notification is a fire-and-forget message, not an inbox.
-- No frozen per-message thinking duration: the counter is live and is handed
-  back to Pi when the message ends, because the extension API exposes no
-  per-message hook to keep a finished block's total.
+- No frozen per-run working duration: the counter is live and is handed back to
+  Pi when the working row comes down, because the extension API exposes no hook
+  to keep a finished run's total.
 
 The built-in footer's `(auto)` auto-compact indicator and `(sub)`
 subscription-cost marker are not reachable from `ExtensionContext` (there is no
@@ -743,7 +743,7 @@ rather than showing a wrong value.
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail (except `edit`/`write`, which keep Pi's fill), and each wraps the tool's own renderer (or a generic fallback). |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, or `run_doctor`'s report for `doctor`. Tab completes `doctor`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
-| Thinking timer | `message_start`/`message_end` for an assistant message in `tui` mode; a 1s tick drives `ctx.ui.setHiddenThinkingLabel("Thinking… Ns")`, and the end restores Pi's default. No config file and no stored state. |
+| Working timer | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage("Working… Ns")` in `tui` mode; `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no stored state. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
@@ -936,8 +936,8 @@ rather than showing a wrong value.
 
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
 calculation), `message/` (the user-message marker), `notice/` (the shared notice),
-`block/` (the tool-block frame), `separator/`, `thinking/` (the live
-elapsed counter on Pi's hidden thinking label), `panel/` (the
+`block/` (the tool-block frame), `separator/`, `working/` (the live
+elapsed counter on Pi's working row), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
 and its probe runtime), and `notify/`. The chrome and the screen are drawn from
@@ -983,9 +983,9 @@ columns, gauge), so the look follows the active theme.
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
 | `separator/format.ts` | Pure `separatorLine`: the centered turn rule, drawn by the kit's `centeredRule`. |
 | `separator/types.ts` | `TurnSeparatorData`. |
-| `thinking/config.ts` | Counter tuning (`THINKING_CONFIG`): the word, the ellipsis, and the tick interval. |
-| `thinking/format.ts` | Pure `formatElapsed` (whole seconds) and the counter shape. |
-| `thinking/register.ts` | Drives both surfaces on `message_start`/`message_end`; cancels on `session_shutdown`. |
+| `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the word, the ellipsis, and the tick interval. |
+| `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape. |
+| `working/register.ts` | Starts the tick on `turn_start` and cancels it on `agent_end`/`session_shutdown`. |
 | `panel/types.ts` | `PanelRow` and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
 | `panel/format.ts` | Non-TUI text: the headline and the grouped listing with a per-row health suffix. |

@@ -236,9 +236,9 @@ drawn on tool results and notice rows but never on a tool call, and painted by
 status (a running result takes the accent, a failure red, a finished one
 neutral; a notice takes its worst severity). The two
 file-mutating tools (`edit`, `write`) show their result on a full-width status
-band: neutral while running, green on success, red on failure. While an assistant message streams it also advances a live elapsed
-counter (`Thinking… 12s`) on Pi's hidden thinking label, handing it back to Pi
-when the message ends. DeepSeek is priced out of the
+band: neutral while running, green on success, red on failure. While the working row is up it also advances a live elapsed
+counter (`Working… 12s`) on Pi's working message, handing it back to Pi when the
+row comes down. DeepSeek is priced out of the
 box from its published yuan rates and peak tariff,
 and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` extension screen — a

@@ -4,13 +4,13 @@
  * (the two-line, width-adaptive status bar with its price calculation),
  * `message/` (the user-message nameplate), `notice/` (the shared transcript
  * notice renderer), `block/` (the unified tool-block frame), `separator/` (the
- * transcript turn rule), `thinking/` (the live elapsed counter on the thinking
- * label and the working row), `panel/` (the unified `/bytefly` screen and its
+ * transcript turn rule), `working/` (the live elapsed counter on Pi's working
+ * row), `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
  * probe runtime), and `notify/` (OS notifications for unattended runs).
  *
  * The header, footer, user-message marker, notice, tool blocks, turn rule, and
- * thinking counter are installed only in interactive (`tui`) sessions and are
+ * working timer are installed only in interactive (`tui`) sessions and are
  * always on; `pi config` turns bytefly's chrome off. The panel and doctor work
  * in every mode, and notify works wherever the environment can deliver it. The
  * footer is priced from DeepSeek's published rates by default and from
@@ -33,7 +33,7 @@ import { type NotifyDeps, registerNotify } from "./notify/register.ts";
 import { createPadStore } from "./pad.ts";
 import { type PanelCommandDeps, registerPanel } from "./panel/commands.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
-import { registerThinkingTimer } from "./thinking/register.ts";
+import { registerWorkingTimer } from "./working/register.ts";
 
 /** Host seams, injected by tests. */
 export interface ByteflyDeps {
@@ -61,7 +61,7 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerNotice(pi, pad, rail);
 	registerToolBlocks(pi, pad, rail);
 	registerTurnSeparator(pi, pad);
-	registerThinkingTimer(pi);
+	registerWorkingTimer(pi);
 	const doctor = registerDoctor(pi, deps.doctor);
 	registerPanel(pi, { doctor, discover: deps.extensions?.discover });
 	registerNotify(pi, deps.notify);

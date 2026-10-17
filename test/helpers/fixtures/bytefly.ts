@@ -57,15 +57,15 @@ export interface FakeFooterCtx {
 	footers: any[];
 	headers: any[];
 	statuses: Map<string, string>;
-	/** Labels passed to `ui.setHiddenThinkingLabel`, in order. */
-	thinkingLabels: Array<string | undefined>;
+	/** Messages passed to `ui.setWorkingMessage`, in order. */
+	workingMessages: Array<string | undefined>;
 }
 
 /** Minimal `ExtensionContext` double for footer install tests. */
 export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 	const footers: any[] = [];
 	const headers: any[] = [];
-	const thinkingLabels: Array<string | undefined> = [];
+	const workingMessages: Array<string | undefined> = [];
 	const statuses = new Map<string, string>(options.statuses ?? []);
 	const cwd = options.cwd ?? "/home/u/repo/project";
 
@@ -98,12 +98,12 @@ export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
 			theme: fakeTheme,
 			setFooter: (factory: any) => footers.push(factory),
 			setHeader: (factory: any) => headers.push(factory),
-			setHiddenThinkingLabel: (label?: string) => thinkingLabels.push(label),
+			setWorkingMessage: (message?: string) => workingMessages.push(message),
 			notify: () => {},
 		},
 	};
 
-	return { ctx, footerData, footers, headers, statuses, thinkingLabels };
+	return { ctx, footerData, footers, headers, statuses, workingMessages };
 }
 
 /** Render a footer factory into its two lines. */
