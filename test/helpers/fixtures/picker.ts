@@ -6,7 +6,7 @@
  * into the `Discovery` the runtime consumes. Value-only, no shared state.
  */
 
-import type { PackageSource, PathMetadata } from "@earendil-works/pi-coding-agent";
+import type { PackageSource, PathMetadata, QuietStartup } from "@earendil-works/pi-coding-agent";
 import type { Discovery, ResourceItem, Settings, SettingsStore } from "../../../extensions/bytefly/picker/types.ts";
 
 export interface ItemOverrides {
@@ -65,6 +65,9 @@ export interface StoreCalls {
 	setPackages: PackageSource[][];
 	setProjectExtensionPaths: string[][];
 	setProjectPackages: PackageSource[][];
+	setQuietStartup: QuietStartup[];
+	setOutputPad: Array<0 | 1>;
+	setShowHardwareCursor: boolean[];
 }
 
 export interface FakeStore {
@@ -97,6 +100,9 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 		setPackages: [],
 		setProjectExtensionPaths: [],
 		setProjectPackages: [],
+		setQuietStartup: [],
+		setOutputPad: [],
+		setShowHardwareCursor: [],
 	};
 
 	const fake: FakeStore = {
@@ -127,6 +133,18 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			setProjectPackages: (packages) => {
 				calls.setProjectPackages.push(packages);
 				packageList = packages;
+			},
+			setQuietStartup: (quiet) => {
+				calls.setQuietStartup.push(quiet);
+				globalSettings = { ...globalSettings, quietStartup: quiet };
+			},
+			setOutputPad: (padding) => {
+				calls.setOutputPad.push(padding);
+				globalSettings = { ...globalSettings, outputPad: padding };
+			},
+			setShowHardwareCursor: (enabled) => {
+				calls.setShowHardwareCursor.push(enabled);
+				globalSettings = { ...globalSettings, showHardwareCursor: enabled };
 			},
 			isProjectTrusted: () => options.trusted ?? true,
 			flush: async () => {

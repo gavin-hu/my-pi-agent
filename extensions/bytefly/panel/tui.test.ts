@@ -11,14 +11,51 @@ import {
 	packageExtension,
 	type FakeStore,
 } from "../../../test/helpers/fixtures/picker.ts";
-import type { ResourceItem } from "../picker/types.ts";
+import type { ResourceItem, Settings } from "../picker/types.ts";
 import { createExtensionsPickerRuntime } from "../picker/runtime.ts";
+import { nextValue, type SettingsSnapshot, settingViews, storedValue } from "./settings.ts";
+import type { SettingsSurface } from "./settings-runtime.ts";
 import { PanelComponent } from "./tui.ts";
 
 /** Let a fire-and-forget toggle or refresh settle. */
 const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 const packageItem = (name: string, enabled = true): ResourceItem => packageExtension(name, enabled) as ResourceItem;
+
+/** A settings surface over an in-memory snapshot, for rendering and interaction. */
+function makeSettings(
+	options: { app?: Settings; global?: Record<string, unknown>; project?: Record<string, unknown> } = {},
+) {
+	const snapshot: SettingsSnapshot = {
+		app: options.app ?? {},
+		global: options.global ?? {},
+		project: options.project ?? {},
+	};
+	const changes: string[] = [];
+	let dirty = false;
+	const surface: SettingsSurface = {
+		views: (scope) => settingViews(snapshot, scope),
+		count: (scope) => settingViews(snapshot, scope).length,
+		change: async (scope, id) => {
+			const view = settingViews(snapshot, scope).find((entry) => entry.id === id);
+			if (!view) return;
+			const next = nextValue(view, view.value);
+			const config = view.config;
+			if (view.source === "app") {
+				const app = snapshot.app as unknown as Record<string, unknown>;
+				app[id] = storedValue(view, next.value);
+			} else if (config) {
+				const document = scope === "global" ? snapshot.global : snapshot.project;
+				const section = (document[config.section] ?? {}) as Record<string, unknown>;
+				document[config.section] = { ...section, [config.key]: storedValue(view, next.value) };
+			}
+			dirty = true;
+			changes.push(`${scope}:${id}`);
+		},
+		isDirty: () => dirty,
+	};
+	return { surface, changes, snapshot, isDirty: () => dirty };
+}
 
 function build(options: {
 	items: ResourceItem[];
@@ -31,6 +68,10 @@ function build(options: {
 	filter?: string;
 	section?: "extensions" | "settings";
 	refresh?: () => void | Promise<void>;
+	app?: Settings;
+	globalDoc?: Record<string, unknown>;
+	projectDoc?: Record<string, unknown>;
+	settings?: SettingsSurface;
 }) {
 	const store = options.store ?? makeStore();
 	const { discovery } = makeDiscovery({
@@ -42,13 +83,18 @@ function build(options: {
 	let closed = 0;
 	const notices: string[] = [];
 	const reports = options.reports ?? [];
+	const settings =
+		options.settings ??
+		makeSettings({ app: options.app, global: options.globalDoc, project: options.projectDoc }).surface;
 	const component = new PanelComponent({
 		runtime,
 		reports: () => reports,
+		settings,
 		filter: options.filter,
 		section: options.section,
 		theme: (options.theme as typeof fakeTheme) ?? fakeTheme,
 		agentDir: "/agent",
+		cwd: "/proj",
 		viewportRows: options.rows ?? 24,
 		requestRender: () => {},
 		refresh: options.refresh ?? (() => {}),
@@ -57,7 +103,7 @@ function build(options: {
 		},
 		onNotice: (message) => notices.push(message),
 	});
-	return { component, runtime, store, notices, closedCount: () => closed };
+	return { component, runtime, store, notices, settings, closedCount: () => closed };
 }
 
 describe("PanelComponent rendering", () => {
@@ -273,8 +319,10 @@ describe("PanelComponent input", () => {
 		const component = new PanelComponent({
 			runtime,
 			reports: () => [],
+			settings: makeSettings().surface,
 			theme: coloringTheme,
 			agentDir: "/agent",
+			cwd: "/proj",
 			viewportRows: 24,
 			requestRender: () => {},
 			refresh: () => {},
@@ -313,8 +361,11 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("No settings yet.");
-		expect(text).toContain("0 settings");
+		expect(text).toContain("5 settings");
+		expect(text).toContain("Quiet startup");
+		expect(text).toContain("Desktop notifications");
+		expect(text).toContain("Rail glyph");
+		expect(text).not.toContain("No settings yet.");
 		expect(text).not.toContain("plan/index.ts");
 	});
 
@@ -327,7 +378,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("No settings yet.");
+		expect(component.render(80).join("\n")).toContain("Global · 5 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -338,7 +389,10 @@ describe("PanelComponent sections", () => {
 
 		component.handleInput("\t");
 
-		expect(component.render(80).join("\n")).toContain("Project · 0 settings");
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Project · 2 settings");
+		expect(text).toContain("App settings are Global only.");
+		expect(text).not.toContain("Quiet startup");
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
@@ -347,23 +401,56 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		expect(notices.at(-1)).toContain("Project is not trusted");
-		expect(component.render(80).join("\n")).toContain("Global · 0 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 5 settings");
 	});
 
-	test("has nothing to toggle in the empty Settings shell", () => {
-		const { component, runtime } = build({ items: [packageItem("plan")], section: "settings" });
+	test("changes the focused setting with Space and marks the screen dirty", async () => {
+		const settings = makeSettings();
+		const { component } = build({ items: [packageItem("plan")], section: "settings", settings: settings.surface });
 
 		component.handleInput(" ");
+		await settle();
+		await settle();
 
-		expect(runtime.isDirty()).toBe(false);
+		expect(settings.changes).toEqual(["global:quietStartup"]);
+		expect(settings.isDirty()).toBe(true);
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Header only");
+		expect(text).toContain("Saved · reload to apply");
 	});
 
-	test("hints the section switch and the scope keys", () => {
+	test("changes the focused setting with Enter too", async () => {
+		const settings = makeSettings();
+		const { component } = build({ items: [packageItem("plan")], section: "settings", settings: settings.surface });
+
+		component.handleInput("j");
+		component.handleInput("\r");
+		await settle();
+		await settle();
+
+		expect(settings.changes).toEqual(["global:notify.enabled"]);
+		expect(component.render(80).join("\n")).toContain("On");
+	});
+
+	test("hints the section switch, the scope key, and the change key", () => {
 		const { component } = build({ items: [packageItem("plan")], section: "settings" });
 
 		const text = component.render(96).join("\n");
 		expect(text).toContain("←/→");
+		expect(text).toContain("Space change");
 		expect(text).toContain("Tab scope");
+	});
+
+	test("names the source and target file in the detail pane", () => {
+		const { component } = build({
+			items: [packageItem("plan")],
+			section: "settings",
+			app: { quietStartup: "header" } as Settings,
+		});
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Quiet startup — Pi setting");
+		expect(text).toContain("Global · /agent/settings.json");
 	});
 
 	test("keeps every line within the width in both sections", () => {

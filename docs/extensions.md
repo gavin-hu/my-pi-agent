@@ -247,11 +247,12 @@ and `bytefly.json` adds or overrides per-model rates with an optional
 peak/off-peak schedule. It also owns the `/bytefly` control center — a
 keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` enable
-checkbox and its worst-severity health, and Settings, an empty shell with its
-section bar and a `No settings yet.` body for settings rows to land in later.
-`Space` toggles the focused extension by writing `settings.json`, `Enter`
-expands the detail pane, `Tab` switches Global/Project scope, `←`/`→` switch
-sections, and `r` re-probes. `/bytefly settings` opens the Settings section,
+checkbox and its worst-severity health, and Settings, five curated preferences
+— quiet startup, desktop notifications, the rail glyph, output padding, and the
+hardware cursor — with each row's value and its source file. `Space`/`Enter`
+toggle the focused extension or change the focused setting, `Tab` switches
+Global/Project scope, `←`/`→` switch sections, and `r` re-probes. App rows are
+Global-only; `bytefly.json` rows write the selected scope one key at a time. `/bytefly settings` opens the Settings section,
 `/bytefly doctor [extension] [refresh]` prints the doctor report (the same
 screen in `tui`), and every other mode prints the grouped listing or one
 extension's full findings. The read-only `run_doctor` tool returns the same

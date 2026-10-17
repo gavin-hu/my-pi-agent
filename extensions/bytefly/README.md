@@ -4,8 +4,9 @@
 this package adds: one themed startup header whose two-tone nameplate carries
 the agent and chrome identities, one compact, colorful, width-adaptive two-line
 footer, a two-row `You` nameplate that opens each user message, a labeled rule that
-marks each completed turn in the transcript, one keyboard-driven screen that
-lists every resolved Pi extension with its enable checkbox and its health, and
+marks each completed turn in the transcript, one keyboard-driven screen with two
+sections — Extensions, every resolved Pi extension with its enable checkbox and
+its health, and Settings, the common app and `bytefly.json` preferences — and
 an opt-in notify capability that raises an OS notification when a run finishes,
 a job finishes, or the agent asks for input.
 DeepSeek is priced from the provider's published yuan rates and peak tariff by
@@ -37,8 +38,9 @@ chrome identity (`enhanced by bytefly` and the package version), a signature
 rule whose `accent` lead sits under the mark, and a grouped help block. The help
 keys resolve live from Pi's keybindings, so a rebound key shows the user's
 chord; the identity and help text are `meta` / `faint` so the mark keeps the
-eye. It is installed only in interactive (`tui`) sessions, and on terminals that
-cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
+eye. It is installed only in interactive (`tui`) sessions, and not when Pi's
+`quietStartup` is `true` (`"header"` keeps it); on terminals that cannot render
+half blocks the mark falls back to a two-tone `Pi` wordmark.
 
 ```
  █▀█  Pi v1.2.0
@@ -242,12 +244,16 @@ shipped themes point `toolTitle` at the accent and `label` at the body colour, s
 the name is the call line's one accent and the subject follows as body text; a
 theme that maps `toolTitle` elsewhere is respected rather than overridden.
 
-**Extension screen.** `/bytefly [extension] [refresh]` opens a keyboard-driven
+**Control center.** `/bytefly [extension] [refresh]` opens a keyboard-driven
 dock list of every Pi extension the session resolves — across personal settings
 and, when trusted, the project — one row per extension with its enable checkbox
 and its worst-severity health, and writes a `+pattern` / `-pattern` toggle into
-the matching `settings.json`. The focused extension's findings sit underneath,
-and `run_doctor` returns the same report as text and typed data. Only a missing
+the matching `settings.json`. `←`/`→` switch to Settings, which lists the
+preferences this package and Pi expose: quiet startup, desktop notifications,
+the transcript rail glyph, output padding, and the hardware cursor. The focused
+extension's findings, or the focused setting's source and target file, sit
+underneath, and `run_doctor` returns the same report as text and typed data.
+Only a missing
 *hard* requirement posts a notice at session start; everything else waits in the
 report.
 See [The bytefly screen](#the-bytefly-screen).
@@ -264,20 +270,22 @@ the platform notifier (`osascript`, `notify-send`); see
 | Command | What it does |
 |---|---|
 | `/bytefly [extension] [refresh]` | Open the control center on Extensions. In `tui` it mounts a docked list; every other mode prints the grouped listing, or one extension's full findings when named. |
-| `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints the section's one-line listing. |
+| `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints the grouped settings listing with each row's value. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
 
 Tab completes `doctor`, `settings`, extension names, and `refresh`.
 
 ## Behaviour by mode
 
-The header, footer, and turn rule are installed only in interactive (`tui`)
-sessions and are always on; every mode loads the extension, and non-TUI modes
-change nothing. The screen is available in every mode: in `tui`, `/bytefly` and
+The footer and turn rule are installed only in interactive (`tui`) sessions;
+the header is too, except when Pi's `quietStartup` is `true` (`"header"` keeps
+it). Every mode loads the extension, and non-TUI modes change nothing. The
+screen is available in every mode: in `tui`, `/bytefly` and
 `/bytefly doctor` mount the docked screen, while RPC, JSON, and print modes
 print the grouped listing with a per-row health suffix and the headline, or that
 extension's full findings when one is named. `/bytefly settings` prints the
-settings section's one-line listing outside `tui`. The
+grouped settings listing with each row's value outside `tui`; it does not
+resolve packages or probe the doctor. The
 proactive session-start check posts a transcript notice through the shared
 `my-pi-agent/notice` renderer rather than a transient notification, and is
 skipped when there is no UI or when Pi's `quietStartup` setting is `true`
@@ -538,10 +546,9 @@ it:
 
 `/bytefly [extension] [refresh]` opens the control center on **Extensions**: a
 keyboard-driven dock list of every extension Pi resolves for the session, so the
-list matches what actually loads. `←`/`→` switch to **Settings**, the second
-section, which ships as an empty shell for now: its frame, the scope-aware
-section bar, and a `No settings yet.` body, ready for settings rows to land in
-later. `/bytefly settings` opens directly on that section. It merges the former
+list matches what actually loads. `←`/`→` switch to **Settings**, where the same
+frame lists the curated preferences. `/bytefly settings` opens directly on that
+section. It merges the former
 extensions picker and doctor report into one row per extension: the picker's
 enable checkbox and label, the doctor's worst-severity glyph and summary. The
 screen is drawn from the design system: a label-first `bytefly ────` title rule,
@@ -577,13 +584,62 @@ installs or fetches a package.
 - Offers a reload after pending changes, so the new selection takes effect
   without leaving the session.
 
-**Settings.** The second section of the same screen: a separate cursor, the
-same `Tab` scope switch, the same frame. It has no rows yet, so it renders the
-scope and `0 settings` on the right of the section bar, a body-indented
-`No settings yet.` line, and a short hint row (`Esc close · ←/→ · Tab scope`).
-Nothing in it reads or writes a settings file yet; the section exists so rows
-can be added without changing the layout or the navigation. Its non-`tui` form
-is one line, `bytefly: Settings · Global · 0 settings`.
+**Settings.** The second section uses the same frame and the same `Tab` scope
+switch, with its own cursor. It lists five preferences in four groups:
+
+```
+bytefly ─────────────────────────────────────────────────────────────
+  Extensions · Settings                          Global · 5 settings
+
+  Startup
+  ❯   Quiet startup                                    Header only
+  Notifications
+      ◼ Desktop notifications                                       On
+  Transcript
+          Rail glyph                                                   ╎
+          Output padding                                               1
+  Terminal
+          Hardware cursor                                            Off
+
+  Quiet startup — Pi setting
+  Hide Pi's startup detail. Header only keeps the header.
+  Global · ~/.pi/agent/settings.json
+```
+
+| Group | Row | Source | Values |
+|---|---|---|---|
+| Startup | Quiet startup | Pi `settings.json` | Full, Header only, Quiet |
+| Notifications | Desktop notifications | `bytefly.json` | Off, On |
+| Transcript | Rail glyph | `bytefly.json` | `╎`, `│`, `┃`, `▏` |
+| Transcript | Output padding | Pi `settings.json` | 0, 1 |
+| Terminal | Hardware cursor | Pi `settings.json` | Off, On |
+
+`Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
+forward. The detail pane names the source, describes the preference, and shows
+where the value is written — `Global · ~/.pi/agent/settings.json`, `Project ·
+.pi/bytefly.json`, or `Inherited from Global · .pi/bytefly.json`. A successful
+change marks the screen `Saved · reload to apply`, and closing offers the same
+reload confirm as an extension toggle.
+
+App rows are **Global only**: Pi's setters for them write the personal
+`settings.json`, and only resource paths have public project setters. Project
+scope therefore lists the two `bytefly.json` rows and a
+`App settings are Global only.` note rather than promising a write that cannot
+happen. A `bytefly.json` row writes one key in the selected scope through a
+per-key writer, so every other key, section, `$schema`, and `version` is
+preserved. A malformed document is refused with a notice instead of overwritten.
+
+The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
+
+```
+bytefly: Settings · Global · 5 settings
+
+Startup (1)
+  Quiet startup: Full
+Notifications (1)
+  Desktop notifications: Off
+...
+```
 
 The doctor side probes every declared extension and reports each check as `ok`,
 `missing`, `degraded`, or `info`; `run_doctor` returns the same report as text
@@ -604,13 +660,13 @@ instead.
 | Key | Effect |
 |---|---|
 | `←` / `→` | Show the Extensions or Settings section. |
-| `Space` | Toggle the focused extension (Extensions). |
-| `Enter` | Expand or collapse the focused extension's findings (Extensions). |
+| `Space` | Toggle the focused extension (Extensions); change the focused setting (Settings). |
+| `Enter` | Expand or collapse the focused extension's findings (Extensions); change the focused setting (Settings). |
 | `Tab` | Switch between Global and Project scope, in either section. |
 | `r` | Re-probe the doctor (Extensions). |
-| `↑`/`↓`, `j`/`k` | Move the selection (Extensions). |
-| `PgUp`/`PgDn` | Move a page (Extensions). |
-| `g` / `G`, `Home` / `End` | Jump to the first or last extension (Extensions). |
+| `↑`/`↓`, `j`/`k` | Move the selection, in either section. |
+| `PgUp`/`PgDn` | Move a page, in either section. |
+| `g` / `G`, `Home` / `End` | Jump to the first or last row, in either section. |
 | `Esc` / `Ctrl+C` | Close the screen. |
 
 Mouse wheel scrolling works; every action also has a keyboard path.
@@ -687,9 +743,15 @@ control-free line before it reaches an escape sequence or a shell argument.
 
 ## Limitations
 
-- **The Settings section is an empty shell.** It renders its frame, scope, and
-  `No settings yet.` body, and reads or writes no file; settings rows are a
-  later change.
+- **App settings are Global only.** Pi's setters for preferences such as
+  `quietStartup`, `outputPad`, and `showHardwareCursor` write the personal
+  `settings.json`; the screen hides those rows in Project scope rather than
+  writing a file Pi cannot manage.
+- **Project overrides of app settings are not shown.** App rows read the
+  personal file; a `.pi/settings.json` override still wins at runtime, and
+  `pi config` is the place to manage it.
+- **The rail glyph picker is curated.** Four one-column glyphs are offered; a
+  custom glyph is still a `bytefly.json` edit.
 - **`doctor` is a reserved first argument.** `/bytefly doctor` always selects the
   report, so an extension literally named `doctor` cannot be narrowed to by
   name. `settings` is reserved the same way.
@@ -777,24 +839,25 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"`, and not installed when `pi.getSettings().quietStartup === true` (`"header"` keeps it, since it still shows the header). The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
-| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the settings section's one-line listing for `settings`. Tab completes `doctor`, `settings`, extension names, and `refresh`. |
+| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. Tab completes `doctor`, `settings`, extension names, and `refresh`. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
 | Working timer | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage("Working… Ns")` in `tui` mode; `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no stored state. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
+| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValue` on the selected scope's document, one key at a time. A failed or refused write notifies and leaves the displayed value unchanged; a successful one marks the screen dirty. |
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`), `exposure: "direct"`, active by default, with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports and persists only through `settings.json`. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
-| Lifecycle | `session_start` installs the header and footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on (unless Pi's `quietStartup` is `true`), and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
+| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-key writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
+| Lifecycle | `session_start` installs the header (unless Pi's `quietStartup` is `true`) and footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on (unless Pi's `quietStartup` is `true`), and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
 
 ## Design notes
 
@@ -966,6 +1029,12 @@ rather than showing a wrong value.
 - **The install hint has one home.** `document` and `web-access` format their
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
+- **Settings are a curated table, not a schema walker.** Five rows prove the
+  row types, both scopes, and both write paths. A generic walker would expose
+  keys the screen cannot edit safely yet — arrays, nested tariffs, credentials —
+  so the catalogue grows one proven family at a time. App rows are Global-only
+  because Pi's setters write the personal file; Project scope lists only the
+  `bytefly.json` rows it can actually write.
 - **The doctor is quiet by default at startup.** Only `missing` findings post
   a notice, only for enabled extensions, only with a UI, and only once per
   session; a `"quietStartup": true` session gets no notice at all, matching the
@@ -1040,13 +1109,15 @@ columns, gauge), so the look follows the active theme.
 | `working/register.ts` | Starts the tick on `turn_start` and cancels it on `agent_end`/`session_shutdown`. |
 | `panel/types.ts` | `PanelSection` (`extensions` | `settings`), `PanelRow`, and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
-| `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the empty Settings counts/headline, and the `No settings yet.` label. |
-| `panel/tui.ts` | `PanelComponent`, the two-section dock screen (Extensions list plus the empty Settings shell), drawn from the `lib/tui/` kit. |
-| `panel/commands.ts` | `/bytefly`: one command for the screen sections, the `doctor` report, and their text modes. |
-| `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`) and row types. |
+| `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the Settings counts/headline, and the grouped Settings listing. |
+| `panel/settings.ts` | The curated Settings catalogue: descriptors, snapshot views and origins, value cycling, stored-value mapping, validation, and grouping. |
+| `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-key `bytefly.json` writes, dirty state, and change listeners. |
+| `panel/tui.ts` | `PanelComponent`, the two-section dock screen (Extensions list and Settings list), drawn from the `lib/tui/` kit. |
+| `panel/commands.ts` | `/bytefly`: one command for the screen sections, the `doctor` report, the settings listing, and their text modes. |
+| `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`), the app-settings setters, and row types. |
 | `picker/resources.ts` | Pure grouping, labels, display names, and pattern helpers. |
 | `picker/toggle.ts` | Pure next-settings transforms for global and project toggles. |
-| `picker/discovery.ts` | Host wiring: builds the global and effective views from Pi's managers. |
+| `picker/discovery.ts` | Host wiring: builds the global and effective views from Pi's managers, and the two settings stores for the settings-only command path. |
 | `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence. |
 | `doctor/register.ts` | Registers `run_doctor` and the proactive session-start check; returns the runtime. |
 | `doctor/runtime.ts` | Host seams, the session cache, and the two probe modes. |
@@ -1064,7 +1135,7 @@ columns, gauge), so the look follows the active theme.
 
 `extensions/bytefly/` covers the install/restore/toggle lifecycle
 (`extension`), the header's rendering, width shedding, and live theme
-(`header/component`),
+(`header/component`), its quiet-startup lifecycle (`header/register`),
 the formatters (`footer/render/format`), the status-chip transforms
 (`footer/render/status`), entry
 reduction and model inheritance (`footer/collect/entries`), snapshot assembly
@@ -1088,8 +1159,10 @@ helpers are covered by the pure helpers (`picker/resources`), the toggle
 transforms (`picker/toggle`), discovery with an injected factory
 (`picker/discovery`), and the runtime state machine (`picker/runtime`). The
 unified screen is covered by its pure model merge (`panel/join`), its text
-formatter (`panel/format`), the screen's rendering and key handling
-(`panel/tui`), and the command through the bytefly factory (`panel/commands`).
+formatter (`panel/format`), the settings catalogue and its cycling
+(`panel/settings`), the scope-aware settings runtime (`panel/settings-runtime`),
+the screen's rendering and key handling (`panel/tui`), and the command through
+the bytefly factory (`panel/commands`).
 The doctor surface is covered by its pure report
 formatting (`doctor/format`), its config loader (`doctor/config`), and
 registration, the proactive notice, the session cache, and `run_doctor`

@@ -1,12 +1,14 @@
 /**
- * The `/bytefly` surface: one command, `/bytefly [doctor] [extension] [refresh]`.
+ * The `/bytefly` surface: one command, `/bytefly [doctor] [settings] [extension] [refresh]`.
  *
  * Without `doctor` it opens the extension screen: the dock in `tui`, the
- * grouped listing elsewhere. With `doctor` it produces the doctor report — the
- * same text `run_doctor` returns — for the whole set or one named extension; in
- * `tui` the report is the dock screen. Discovery, the doctor probe, and the
- * dirty-to-reload confirm all live here. The doctor runtime is injected by the
- * composition root, so `run_doctor` and the screen keep reading one cache.
+ * grouped listing elsewhere. `settings` opens the Settings section, or prints
+ * its grouped listing outside `tui` without resolving packages. With `doctor`
+ * it produces the doctor report — the same text `run_doctor` returns — for the
+ * whole set or one named extension; in `tui` the report is the dock screen.
+ * Discovery, the doctor probe, and the dirty-to-reload confirm all live here.
+ * The doctor runtime is injected by the composition root, so `run_doctor` and
+ * the screen keep reading one cache.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
@@ -16,11 +18,12 @@ import { withRailsSuppressed } from "../../../lib/rails.ts";
 import { REQUIREMENTS, type ExtensionReport } from "../../../lib/requirements.ts";
 import { formatExtension, formatReport, hasProblems } from "../doctor/format.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
-import { discoverExtensions, type DiscoveryDeps } from "../picker/discovery.ts";
+import { createSettingsStores, discoverExtensions, type DiscoveryDeps } from "../picker/discovery.ts";
 import { createExtensionsPickerRuntime, type ExtensionsPickerRuntime } from "../picker/runtime.ts";
 import type { Discovery } from "../picker/types.ts";
-import { formatListing, formatSettingsHeadline } from "./format.ts";
+import { formatListing, formatSettingsListing } from "./format.ts";
 import { buildPanelModel, extensionName } from "./join.ts";
+import { createSettingsRuntime, type SettingsRuntime, type SettingsRuntimeDeps } from "./settings-runtime.ts";
 import { PanelComponent } from "./tui.ts";
 import type { PanelSection } from "./types.ts";
 
@@ -30,6 +33,8 @@ export interface PanelCommandDeps {
 	doctor: DoctorRuntime;
 	/** The picker's discovery seam. */
 	discover?: (deps: DiscoveryDeps) => Promise<Discovery>;
+	/** The Settings runtime seam. */
+	settings?: (deps: SettingsRuntimeDeps) => SettingsRuntime;
 }
 
 /**
@@ -102,26 +107,39 @@ function notifyExtension(
 /** Register the single `/bytefly` command. */
 export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 	const discover = deps.discover ?? discoverExtensions;
+	const makeSettings = deps.settings ?? createSettingsRuntime;
 
 	const handler = async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
 		const { mode, section, name, refresh } = parseArgs(args);
+		const cwd = ctx.cwd ?? process.cwd();
+		const agentDir = getAgentDir();
+		const trusted = ctx.isProjectTrusted();
+		const settingsNotice = (message: string): void => ctx.ui.notify(message, "warning");
 
-		// Settings is an empty shell: the other modes print its one-line listing
-		// without resolving packages or probing the doctor.
+		// Settings outside `tui` prints its grouped listing without resolving
+		// packages or probing the doctor.
 		if (section === "settings" && ctx.mode !== "tui") {
-			ctx.ui.notify(formatSettingsHeadline("global"), "info");
+			const stores = createSettingsStores(cwd, agentDir, trusted);
+			const settings = makeSettings({ stores, cwd, agentDir, trusted, onError: settingsNotice });
+			ctx.ui.notify(formatSettingsListing(settings.views("global"), "global"), "info");
 			return;
 		}
 
-		const cwd = ctx.cwd ?? process.cwd();
-		const agentDir = getAgentDir();
 		let discovery: Discovery;
 		try {
-			discovery = await discover({ cwd, agentDir, trusted: ctx.isProjectTrusted() });
+			discovery = await discover({ cwd, agentDir, trusted });
 		} catch (error) {
 			ctx.ui.notify(`Could not list extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
 			return;
 		}
+
+		const settings = makeSettings({
+			stores: discovery.stores,
+			cwd,
+			agentDir,
+			trusted: discovery.trusted,
+			onError: settingsNotice,
+		});
 
 		const runtime = createExtensionsPickerRuntime({
 			discovery,
@@ -163,10 +181,12 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 				return new PanelComponent({
 					runtime,
 					reports: () => reports,
+					settings,
 					filter: section === "extensions" ? name : undefined,
 					section,
 					theme,
 					agentDir,
+					cwd,
 					viewportRows: () => tui.terminal?.rows,
 					requestRender: () => tui.requestRender(),
 					refresh: async () => {
@@ -181,8 +201,8 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			}),
 		);
 
-		if (!runtime.isDirty()) return;
-		const reload = await ctx.ui.confirm("Reload to apply changes?", "Extension changes take effect after a reload.");
+		if (!runtime.isDirty() && !settings.isDirty()) return;
+		const reload = await ctx.ui.confirm("Reload to apply changes?", "Changes take effect after a reload.");
 		if (reload) await ctx.reload();
 	};
 

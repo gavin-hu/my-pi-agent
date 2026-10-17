@@ -1,0 +1,170 @@
+import { afterAll, describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+import { readJson, SHARED_CONFIG_FILE } from "../../../lib/config.ts";
+import { tempDir } from "../../../test/helpers/env.ts";
+import { makeStore } from "../../../test/helpers/fixtures/picker.ts";
+import { makeTempTracker } from "../../../test/helpers/git.ts";
+import type { Settings } from "../picker/types.ts";
+import { configPath, createSettingsRuntime } from "./settings-runtime.ts";
+
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
+
+interface BootOptions {
+	app?: Settings;
+	globalDoc?: Record<string, unknown>;
+	projectDoc?: Record<string, unknown>;
+	trusted?: boolean;
+}
+
+function boot(options: BootOptions = {}) {
+	const cwd = temps.track(tempDir("bytefly-settings-cwd-"));
+	const agentDir = temps.track(tempDir("bytefly-settings-agent-"));
+	if (options.globalDoc) {
+		writeFileSync(join(agentDir, SHARED_CONFIG_FILE), JSON.stringify(options.globalDoc));
+	}
+	if (options.projectDoc) {
+		mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
+		writeFileSync(join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE), JSON.stringify(options.projectDoc));
+	}
+	const trusted = options.trusted ?? true;
+	const globalStore = makeStore({ global: options.app ?? {}, trusted });
+	const projectStore = makeStore({ trusted });
+	const notices: string[] = [];
+	const runtime = createSettingsRuntime({
+		stores: { global: globalStore.store, project: projectStore.store },
+		cwd,
+		agentDir,
+		trusted,
+		onError: (message) => notices.push(message),
+	});
+	return {
+		runtime,
+		globalStore,
+		projectStore,
+		notices,
+		globalPath: join(agentDir, SHARED_CONFIG_FILE),
+		projectPath: join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE),
+	};
+}
+
+/** The current view for a row, or a failure when the scope hides it. */
+function valueOf(runtime: ReturnType<typeof boot>["runtime"], scope: "global" | "project", id: string): string {
+	const view = runtime.views(scope).find((entry) => entry.id === id);
+	if (!view) throw new Error(`missing ${id} in ${scope}`);
+	return view.value;
+}
+
+describe("configPath", () => {
+	test("resolves the global and project documents", () => {
+		expect(configPath("global", "/cwd", "/agent")).toBe(join("/agent", SHARED_CONFIG_FILE));
+		expect(configPath("project", "/cwd", "/agent")).toBe(join("/cwd", CONFIG_DIR_NAME, SHARED_CONFIG_FILE));
+	});
+});
+
+describe("app writes", () => {
+	test("writes through the global setter, flushes, and marks the screen dirty", async () => {
+		const { runtime, globalStore } = boot();
+
+		await runtime.change("global", "quietStartup");
+
+		expect(globalStore.calls.setQuietStartup).toEqual(["header"]);
+		expect(globalStore.flushCount()).toBe(1);
+		expect(runtime.isDirty()).toBe(true);
+		expect(valueOf(runtime, "global", "quietStartup")).toBe("header");
+	});
+
+	test("refuses an app row in Project scope without touching the global store", async () => {
+		const { runtime, globalStore, notices } = boot();
+
+		await runtime.change("project", "quietStartup");
+
+		expect(notices.at(-1)).toContain("Global setting");
+		expect(globalStore.calls.setQuietStartup).toEqual([]);
+		expect(runtime.isDirty()).toBe(false);
+	});
+
+	test("reports a flush failure and leaves the shown value unchanged", async () => {
+		const { runtime, globalStore, notices } = boot();
+		globalStore.failFlush(new Error("disk full"));
+
+		await runtime.change("global", "quietStartup");
+
+		expect(notices.at(-1)).toContain("Could not save Quiet startup");
+		expect(notices.at(-1)).toContain("disk full");
+		expect(runtime.isDirty()).toBe(false);
+		expect(valueOf(runtime, "global", "quietStartup")).toBe("false");
+	});
+});
+
+describe("bytefly writes", () => {
+	test("writes one key to the global document and preserves siblings and metadata", async () => {
+		const { runtime, globalPath } = boot({
+			globalDoc: {
+				$schema: "https://example.test/bytefly.schema.json",
+				version: 1,
+				notify: { title: "Pi" },
+				memory: { inject: true },
+			},
+		});
+
+		await runtime.change("global", "notify.enabled");
+
+		expect(readJson(globalPath)).toEqual({
+			$schema: "https://example.test/bytefly.schema.json",
+			version: 1,
+			notify: { title: "Pi", enabled: true },
+			memory: { inject: true },
+		});
+		expect(runtime.isDirty()).toBe(true);
+		expect(valueOf(runtime, "global", "notify.enabled")).toBe("true");
+	});
+
+	test("inherits the global value, then writes an explicit project override", async () => {
+		const { runtime, globalPath, projectPath } = boot({ globalDoc: { notify: { enabled: true } } });
+
+		expect(valueOf(runtime, "project", "notify.enabled")).toBe("true");
+
+		await runtime.change("project", "notify.enabled");
+
+		expect(readJson(globalPath)).toEqual({ notify: { enabled: true } });
+		expect(readJson(projectPath)).toEqual({ notify: { enabled: false } });
+		expect(valueOf(runtime, "project", "notify.enabled")).toBe("false");
+	});
+
+	test("cycles a custom rail glyph back onto the curated set", async () => {
+		const { runtime, globalPath } = boot({ globalDoc: { chrome: { rail: "|" } } });
+
+		await runtime.change("global", "chrome.rail");
+
+		expect(readJson(globalPath)).toEqual({ chrome: { rail: "╎" } });
+	});
+
+	test("refuses a project write when the project is untrusted", async () => {
+		const { runtime, notices, projectPath } = boot({ trusted: false });
+
+		await runtime.change("project", "notify.enabled");
+
+		expect(notices.at(-1)).toContain("Project is not trusted");
+		expect(existsSync(projectPath)).toBe(false);
+		expect(runtime.isDirty()).toBe(false);
+	});
+});
+
+describe("change notifications", () => {
+	test("fires on a successful write and not on a refused one", async () => {
+		let changes = 0;
+		const { runtime } = boot();
+		runtime.onChange(() => {
+			changes += 1;
+		});
+
+		await runtime.change("global", "notify.enabled");
+		expect(changes).toBe(1);
+
+		await runtime.change("project", "quietStartup");
+		expect(changes).toBe(1);
+	});
+});

@@ -177,6 +177,54 @@ export function writeConfigSection(path: string, section: string, value: unknown
 	writeConfigFile(path, document);
 }
 
+/**
+ * Read the document a per-key edit targets.
+ *
+ * A malformed document is refused rather than replaced: the edit came from a
+ * row that would otherwise write over content it could not parse, and the
+ * caller reports the reason. A missing file is a new document.
+ */
+function readEditableDocument(path: string): Record<string, unknown> {
+	const result = readJsonResult(path);
+	if (result.state === "error") throw new Error(`Cannot update ${path}: ${result.error}`);
+	return result.state === "ok" ? result.value : {};
+}
+
+/**
+ * Set one key in one top-level section, preserving every sibling key, every
+ * other section, and document metadata (`$schema`, `version`, unknown keys).
+ * Creates the file and the section when they are absent. Refuses to rewrite a
+ * malformed document.
+ */
+export function writeConfigValue(path: string, section: string, key: string, value: unknown): void {
+	const document = readEditableDocument(path);
+	const current = configSection(document, section) ?? {};
+	document[section] = { ...current, [key]: value };
+	writeConfigFile(path, document);
+}
+
+/**
+ * Delete one key from one top-level section, preserving its siblings and the
+ * rest of the document. An emptied section is removed rather than left as `{}`.
+ * A no-op when the file, section, or key is absent; refuses a malformed
+ * document.
+ */
+export function unsetConfigValue(path: string, section: string, key: string): void {
+	const result = readJsonResult(path);
+	if (result.state === "absent") return;
+	if (result.state === "error") throw new Error(`Cannot update ${path}: ${result.error}`);
+
+	const document = result.value;
+	const current = configSection(document, section);
+	if (!current || !(key in current)) return;
+
+	const next = { ...current };
+	delete next[key];
+	if (Object.keys(next).length === 0) delete document[section];
+	else document[section] = next;
+	writeConfigFile(path, document);
+}
+
 /** Write a whole config document atomically (sibling temp file, then rename). */
 export function writeConfigFile(path: string, document: Record<string, unknown>): void {
 	mkdirSync(dirname(path), { recursive: true });

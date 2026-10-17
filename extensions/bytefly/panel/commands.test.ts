@@ -8,6 +8,8 @@ import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.t
 import { makeDiscovery, makeItem, makeStore } from "../../../test/helpers/fixtures/picker.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
 import { registerPanel } from "./commands.ts";
+import { type SettingsSnapshot, settingViews } from "./settings.ts";
+import type { SettingsRuntime } from "./settings-runtime.ts";
 
 /** Let a fire-and-forget toggle settle. */
 const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -32,11 +34,31 @@ function fakeDoctor(reports: ExtensionReport[], refreshes: boolean[] = []): Doct
 	};
 }
 
-function boot(options: { discover?: () => Promise<ReturnType<typeof discovery>>; reports?: ExtensionReport[] }) {
+/** A Settings runtime double over an in-memory snapshot. */
+function fakeSettings(options: { dirty?: boolean; snapshot?: SettingsSnapshot } = {}): SettingsRuntime {
+	const snapshot = options.snapshot ?? { app: {}, global: {}, project: {} };
+	let dirty = options.dirty ?? false;
+	return {
+		views: (scope) => settingViews(snapshot, scope),
+		count: (scope) => settingViews(snapshot, scope).length,
+		change: async () => {
+			dirty = true;
+		},
+		isDirty: () => dirty,
+		onChange: () => () => {},
+	};
+}
+
+function boot(options: {
+	discover?: () => Promise<ReturnType<typeof discovery>>;
+	reports?: ExtensionReport[];
+	settings?: () => SettingsRuntime;
+}) {
 	const { pi, commands } = makeFakePi();
 	registerPanel(pi, {
 		doctor: fakeDoctor(options.reports ?? []),
 		discover: options.discover ?? (async () => discovery()),
+		settings: options.settings ?? (() => fakeSettings()),
 	});
 	return { pi, commands };
 }
@@ -172,7 +194,7 @@ describe("bytefly panel modes", () => {
 				throw new Error("probe exploded");
 			},
 		};
-		registerPanel(pi, { doctor, discover: async () => discovery() });
+		registerPanel(pi, { doctor, discover: async () => discovery(), settings: () => fakeSettings() });
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
 		await commands.get("bytefly").handler("", ctx);
@@ -180,7 +202,7 @@ describe("bytefly panel modes", () => {
 		expect(notifications.at(-1)).toContain("Could not probe extensions: probe exploded");
 	});
 
-	test("prints the settings line outside TUI mode without resolving extensions", async () => {
+	test("prints the settings listing outside TUI mode without resolving extensions", async () => {
 		const { commands } = boot({
 			discover: async () => {
 				throw new Error("should not resolve extensions");
@@ -190,7 +212,8 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toBe("bytefly: Settings · Global · 0 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 5 settings");
+		expect(notifications.at(-1)).toContain("Quiet startup: Full");
 	});
 
 	test("mounts the dock screen on the Settings section in TUI mode", async () => {
@@ -205,8 +228,8 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("No settings yet.");
-		expect(rendered).toContain("0 settings");
+		expect(rendered).toContain("Global · 5 settings");
+		expect(rendered).toContain("Quiet startup");
 	});
 
 	test("mounts the dock screen once in TUI mode", async () => {
@@ -223,7 +246,11 @@ describe("bytefly panel refresh", () => {
 	test("re-probes when refresh is asked for", async () => {
 		const refreshes: boolean[] = [];
 		const { pi, commands } = makeFakePi();
-		registerPanel(pi, { doctor: fakeDoctor([makeReport("plan")], refreshes), discover: async () => discovery() });
+		registerPanel(pi, {
+			doctor: fakeDoctor([makeReport("plan")], refreshes),
+			discover: async () => discovery(),
+			settings: () => fakeSettings(),
+		});
 		const { ctx } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
 		await commands.get("bytefly").handler("doctor refresh", ctx);
@@ -238,7 +265,7 @@ describe("bytefly panel reload", () => {
 		const store = makeStore({ global: { extensions: [] } });
 		const built = makeDiscovery({ global: [item("/agent/extensions/one.ts")], globalStore: store }).discovery;
 		const { pi, commands } = makeFakePi();
-		registerPanel(pi, { doctor: fakeDoctor([]), discover: async () => built });
+		registerPanel(pi, { doctor: fakeDoctor([]), discover: async () => built, settings: () => fakeSettings() });
 
 		let reloaded = 0;
 		const { ctx } = fakeCtx({
@@ -267,7 +294,7 @@ describe("bytefly panel reload", () => {
 		const store = makeStore({ global: { extensions: [] } });
 		const built = makeDiscovery({ global: [item("/agent/extensions/one.ts")], globalStore: store }).discovery;
 		const { pi, commands } = makeFakePi();
-		registerPanel(pi, { doctor: fakeDoctor([]), discover: async () => built });
+		registerPanel(pi, { doctor: fakeDoctor([]), discover: async () => built, settings: () => fakeSettings() });
 
 		let confirmed = 0;
 		const { ctx } = fakeCtx({
@@ -283,5 +310,30 @@ describe("bytefly panel reload", () => {
 		await commands.get("bytefly").handler("doctor", ctx);
 
 		expect(confirmed).toBe(0);
+	});
+
+	test("offers a reload when only a setting changed", async () => {
+		const { commands } = boot({ settings: () => fakeSettings({ dirty: true }) });
+
+		let reloaded = 0;
+		const { ctx } = fakeCtx({
+			mode: "tui",
+			confirm: true,
+			extra: {
+				isProjectTrusted: () => true,
+				reload: async () => {
+					reloaded += 1;
+				},
+			},
+		});
+		ctx.ui.custom = async (factory: any) => {
+			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			component.handleInput("\u001b");
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("settings", ctx);
+
+		expect(reloaded).toBe(1);
 	});
 });

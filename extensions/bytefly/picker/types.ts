@@ -8,7 +8,7 @@
  * views (global and effective) the screen shows.
  */
 
-import type { PackageSource, ResolvedResource, SettingsManager } from "@earendil-works/pi-coding-agent";
+import type { PackageSource, QuietStartup, ResolvedResource, SettingsManager } from "@earendil-works/pi-coding-agent";
 
 /** The merged settings shape Pi writes; not re-exported as a named type. */
 export type Settings = ReturnType<SettingsManager["getSettings"]>;
@@ -33,6 +33,10 @@ export interface SettingsStore {
 	setPackages(packages: PackageSource[]): void;
 	setProjectExtensionPaths(paths: string[]): void;
 	setProjectPackages(packages: PackageSource[]): void;
+	/** App preferences are written to the personal settings file. */
+	setQuietStartup(quiet: QuietStartup): void;
+	setOutputPad(padding: 0 | 1): void;
+	setShowHardwareCursor(enabled: boolean): void;
 	isProjectTrusted(): boolean;
 	flush(): Promise<void>;
 	drainErrors(): Array<{ error: Error }>;

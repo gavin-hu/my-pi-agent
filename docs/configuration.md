@@ -16,7 +16,9 @@ The same document is read from two locations and merged:
 
 Project values override global ones. Missing documents and malformed JSON are
 ignored, so a broken config never blocks a session; `/bytefly doctor` reports a document
-that fails to parse.
+that fails to parse. The `chrome` and `notify` sections have a first row each in
+`/bytefly settings`, which writes one key into the selected scope; the file
+remains the source of truth and a hand edit is still valid.
 
 ```json
 {

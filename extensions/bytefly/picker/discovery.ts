@@ -47,10 +47,30 @@ export function createSettingsStore(manager: SettingsManager): SettingsStore {
 		setPackages: (packages) => manager.setPackages(packages),
 		setProjectExtensionPaths: (paths) => manager.setProjectExtensionPaths(paths),
 		setProjectPackages: (packages) => manager.setProjectPackages(packages),
+		setQuietStartup: (quiet) => manager.setQuietStartup(quiet),
+		setOutputPad: (padding) => manager.setOutputPad(padding),
+		setShowHardwareCursor: (enabled) => manager.setShowHardwareCursor(enabled),
 		isProjectTrusted: () => manager.isProjectTrusted(),
 		flush: () => manager.flush(),
 		drainErrors: () => manager.drainErrors(),
 	};
+}
+
+/**
+ * The two settings stores the Settings section writes through, without resolving
+ * packages: the personal file, plus the project file when the project is
+ * trusted (otherwise both point at the personal one).
+ */
+export function createSettingsStores(
+	cwd: string,
+	agentDir: string,
+	trusted: boolean,
+): { global: SettingsStore; project: SettingsStore } {
+	const global = createSettingsStore(SettingsManager.create(cwd, agentDir, { projectTrusted: false }));
+	const project = trusted
+		? createSettingsStore(SettingsManager.create(cwd, agentDir, { projectTrusted: true }))
+		: global;
+	return { global, project };
 }
 
 /** The slice of `DefaultPackageManager` the resolver uses. */

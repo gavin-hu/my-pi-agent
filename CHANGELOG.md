@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: bytefly's header is no longer installed when Pi's `quietStartup`
+  is `true`, so a quiet startup no longer shows the custom header; `"header"`
+  keeps it, and the doctor warning follows the same rule.
 - `bytefly`: doctor's proactive session-start warning is now a transcript notice
   (the shared `my-pi-agent/notice` renderer, one row per missing prerequisite
   with the command that fixes it) instead of a transient UI notification, so it
@@ -33,12 +36,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The pipe is live-only (a reattached or peer job cannot be written to, and
   `detached` cannot be combined with `stdin`), and stdin stays closed by
   default so an existing job still gets EOF and exits.
-- `bytefly`: `/bytefly` is now a two-section control center — `←`/`→` switch
-  between Extensions (the unchanged list and toggles) and Settings, a
-  Pi-`/settings`-shaped section with its own scope-aware section bar, the shared
-  dock frame, and a `No settings yet.` body, opened directly with
-  `/bytefly settings`. The shell reads and writes no file yet; settings rows
-  land in it later.
+- `bytefly`: `/bytefly` is a two-section control center — `←`/`→` switch
+  between Extensions (the unchanged list and toggles) and Settings. Settings
+  lists five curated preferences: quiet startup, desktop notifications, the
+  transcript rail glyph, output padding, and the hardware cursor. `Space`/`Enter`
+  change the focused value, `Tab` switches Global/Project scope, app rows are
+  Global-only and Project lists only the `bytefly.json` rows, and a change marks
+  the screen `Saved · reload to apply`. `bytefly.json` rows write one key
+  through a per-key writer, so sibling keys, other sections, and document
+  metadata survive, and a malformed document is refused instead of overwritten.
 
 ### Changed
 

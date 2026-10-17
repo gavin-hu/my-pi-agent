@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { tempDir, withAgentDir } from "../test/helpers/env.ts";
@@ -15,8 +15,10 @@ import {
 	readJson,
 	readJsonResult,
 	SHARED_CONFIG_FILE,
+	unsetConfigValue,
 	writeConfigFile,
 	writeConfigSection,
+	writeConfigValue,
 } from "./config.ts";
 
 const temps = makeTempTracker();
@@ -212,5 +214,94 @@ describe("writeConfigSection", () => {
 		writeConfigFile(path, { version: 1, job: { a: 1 }, memory: { inject: true } });
 		writeConfigSection(path, "job", { b: 2 });
 		expect(readJson(path)).toEqual({ version: 1, job: { b: 2 }, memory: { inject: true } });
+	});
+});
+
+describe("writeConfigValue", () => {
+	test("creates a missing file and section, leaving no temp file behind", () => {
+		const dir = temps.track(tempDir("pi-config-value-"));
+		const path = join(dir, "nested", SHARED_CONFIG_FILE);
+
+		writeConfigValue(path, "notify", "enabled", true);
+
+		expect(readJson(path)).toEqual({ notify: { enabled: true } });
+		expect(readFileSync(path, "utf-8").endsWith("\n")).toBe(true);
+		expect(readdirSync(join(dir, "nested"))).toEqual([SHARED_CONFIG_FILE]);
+	});
+
+	test("sets one key while preserving siblings, metadata, and unknown sections", () => {
+		const dir = temps.track(tempDir("pi-config-value-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, {
+			$schema: "https://example.test/bytefly.schema.json",
+			version: 1,
+			notify: { enabled: false, title: "Pi" },
+			memory: { inject: true },
+		});
+
+		writeConfigValue(path, "notify", "enabled", true);
+
+		expect(readJson(path)).toEqual({
+			$schema: "https://example.test/bytefly.schema.json",
+			version: 1,
+			notify: { enabled: true, title: "Pi" },
+			memory: { inject: true },
+		});
+	});
+
+	test("refuses a malformed document without rewriting it", () => {
+		const dir = temps.track(tempDir("pi-config-value-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		const before = "{ not json";
+		writeFileSync(path, before);
+
+		expect(() => writeConfigValue(path, "notify", "enabled", true)).toThrow(/Cannot update/);
+		expect(readFileSync(path, "utf-8")).toBe(before);
+	});
+});
+
+describe("unsetConfigValue", () => {
+	test("removes one key and preserves its siblings and other sections", () => {
+		const dir = temps.track(tempDir("pi-config-unset-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, { notify: { enabled: true, title: "Pi" }, memory: { inject: true } });
+
+		unsetConfigValue(path, "notify", "enabled");
+
+		expect(readJson(path)).toEqual({ notify: { title: "Pi" }, memory: { inject: true } });
+	});
+
+	test("drops a section that becomes empty and keeps metadata", () => {
+		const dir = temps.track(tempDir("pi-config-unset-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, { version: 1, notify: { enabled: true }, memory: { inject: true } });
+
+		unsetConfigValue(path, "notify", "enabled");
+
+		expect(readJson(path)).toEqual({ version: 1, memory: { inject: true } });
+	});
+
+	test("is a no-op for an absent file, section, or key", () => {
+		const dir = temps.track(tempDir("pi-config-unset-"));
+		const absent = join(dir, "absent.json");
+		unsetConfigValue(absent, "notify", "enabled");
+		expect(existsSync(absent)).toBe(false);
+
+		const path = join(dir, SHARED_CONFIG_FILE);
+		const before = JSON.stringify({ notify: { title: "Pi" } }, null, 2) + "\n";
+		writeFileSync(path, before);
+		unsetConfigValue(path, "notify", "enabled");
+		unsetConfigValue(path, "missing", "enabled");
+		expect(readFileSync(path, "utf-8")).toBe(before);
+	});
+
+	test("refuses a malformed document without rewriting it", () => {
+		const dir = temps.track(tempDir("pi-config-unset-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		const before = "{ not json";
+		writeFileSync(path, before);
+
+		expect(() => unsetConfigValue(path, "notify", "enabled")).toThrow(/Cannot update/);
+		expect(readFileSync(path, "utf-8")).toBe(before);
 	});
 });

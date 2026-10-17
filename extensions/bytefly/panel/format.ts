@@ -3,14 +3,17 @@
  *
  * Every mode other than `tui` gets the same facts the screen shows, as plain
  * text: a headline with the scope and the counts, then the picker's grouped
- * listing with a health suffix on each row. A single named extension prints its
- * full findings instead. Nothing here touches the host, and every string that
- * came from a probe is sanitized by `doctor/format.ts`.
+ * listing with a health suffix on each row. The Settings listing uses the same
+ * headline and groups with `Label: Value` rows. A single named extension prints
+ * its full findings instead. Nothing here touches the host, and every string
+ * from a probe or a settings file is sanitized before it is printed.
  */
 
+import { sanitizeLine } from "../../../lib/format.ts";
 import type { TuiRole } from "../../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { reportSeverity, reportSummary } from "../doctor/format.ts";
+import { groupViews, type SettingView } from "./settings.ts";
 import type { PanelModel, PanelRow, PanelSection } from "./types.ts";
 
 /** The settings scope the screen shows. */
@@ -84,9 +87,6 @@ export function summarySegments(model: PanelModel, scope: PanelScope, options: S
 	return segments;
 }
 
-/** The Settings section has no rows yet; the shell states that in one line. */
-export const SETTINGS_EMPTY_LABEL = "No settings yet.";
-
 /**
  * The section bar's two segments, in screen order. The active section takes the
  * accent and the other recedes, so the bar reads as a two-way switch.
@@ -98,22 +98,39 @@ export function sectionSegments(active: PanelSection): SummarySegment[] {
 	];
 }
 
-/**
- * The Settings section's counts: the scope and how many rows it holds. The
- * shell has no rows yet, so the count is always zero until the first row lands.
- */
-export function settingsSummarySegments(scope: PanelScope): SummarySegment[] {
+/** The Settings section's counts: the scope and how many rows it shows. */
+export function settingsSummarySegments(scope: PanelScope, count: number): SummarySegment[] {
 	return [
 		{ text: scope === "global" ? "Global" : "Project", color: "accent" },
-		{ text: "0 settings", color: "meta" },
+		{ text: `${count} ${count === 1 ? "setting" : "settings"}`, color: "meta" },
 	];
 }
 
-/** The Settings headline for non-TUI modes, e.g. `bytefly: Settings · Global · 0 settings`. */
-export function formatSettingsHeadline(scope: PanelScope): string {
-	return `bytefly: Settings · ${settingsSummarySegments(scope)
+/** The Settings headline for non-TUI modes, e.g. `bytefly: Settings · Global · 5 settings`. */
+export function formatSettingsHeadline(scope: PanelScope, count: number): string {
+	return `bytefly: Settings · ${settingsSummarySegments(scope, count)
 		.map((segment) => segment.text)
 		.join(" · ")}`;
+}
+
+/**
+ * The grouped Settings listing for non-TUI modes. The project form names the
+ * missing app rows rather than leaving their absence unexplained.
+ */
+export function formatSettingsListing(views: readonly SettingView[], scope: PanelScope): string {
+	const lines = [formatSettingsHeadline(scope, views.length)];
+	if (scope === "project") lines.push("", "  App settings are Global only.");
+	if (views.length === 0) {
+		lines.push("", "No settings found.");
+		return lines.join("\n");
+	}
+	for (const group of groupViews(views)) {
+		lines.push("", `${group.label} (${group.views.length})`);
+		for (const view of group.views) {
+			lines.push(`  ${sanitizeLine(view.label)}: ${sanitizeLine(view.valueLabel)}`);
+		}
+	}
+	return lines.join("\n");
 }
 
 /** The headline as one plain line, e.g. `bytefly: Global · 15 extensions · 1 missing`. */
