@@ -15,7 +15,7 @@ import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, Markdown, Spacer, Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
 import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -196,8 +196,8 @@ function resultHeader(
 	return header + statusSuffix(result, status, theme, now);
 }
 
-/** Prefix each line of intermediate assistant text with a muted indent. */
-function quoteLines(text: string, theme: Theme): string {
+/** Prefix each line of intermediate assistant text with the block's body indent. */
+function indentBody(text: string, theme: Theme): string {
 	const indent = " ".repeat(BODY_INDENT);
 	return stripControlChars(text)
 		.trim()
@@ -269,18 +269,18 @@ export function renderSubagentCall(
 function callText(args: StreamedSubagentArgs, theme: Theme, context?: { cwd?: string }): string {
 	const title =
 		theme.fg("toolTitle", theme.bold("subagent ")) + (args.readOnly ? paint(theme, "faint", "read-only ") : "");
-	const cwdNote = (cwd?: string) => {
-		if (!cwd || cwd === context?.cwd) return "";
+	const cwdNote = (cwd?: unknown) => {
+		if (typeof cwd !== "string" || !cwd || cwd === context?.cwd) return "";
 		return paint(theme, "faint", `  in ${shortenPath(cwd)}`);
 	};
-
 	const chain = Array.isArray(args.chain) ? args.chain : [];
 	if (chain.length > 0) {
-		let text = title + paint(theme, "label", `chain · ${chain.length} step${chain.length > 1 ? "s" : ""}`);
+		let text =
+			title + paint(theme, "label", `chain${SEPARATORS.item}${chain.length} step${chain.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(chain.length, 3); i++) {
 			const step = chain[i];
 			const task = (streamedText(step, "task") ?? "…").replace(/\{previous\}/g, "");
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(streamedText(step, "agent") || "…"))}${paint(theme, "meta", ` ${clip(sanitizeLine(task), 40)}`)}${cwdNote(streamedText(step, "cwd"))}`;
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "label", sanitizeLine(streamedText(step, "agent") || "…"))}${paint(theme, "meta", ` ${clip(sanitizeLine(task), 40)}`)}${cwdNote(streamedText(step, "cwd"))}`;
 		}
 		if (chain.length > 3) text += `\n${paint(theme, "meta", `… +${chain.length - 3} more`)}`;
 		return text;
@@ -288,10 +288,11 @@ function callText(args: StreamedSubagentArgs, theme: Theme, context?: { cwd?: st
 
 	const tasks = Array.isArray(args.tasks) ? args.tasks : [];
 	if (tasks.length > 0) {
-		let text = title + paint(theme, "label", `parallel · ${tasks.length} task${tasks.length > 1 ? "s" : ""}`);
+		let text =
+			title + paint(theme, "label", `parallel${SEPARATORS.item}${tasks.length} task${tasks.length > 1 ? "s" : ""}`);
 		for (let i = 0; i < Math.min(tasks.length, 3); i++) {
 			const task = tasks[i];
-			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "accent", sanitizeLine(streamedText(task, "agent") || "…"))}${paint(theme, "meta", ` ${clip(sanitizeLine(streamedText(task, "task") ?? "…"), 40)}`)}${cwdNote(streamedText(task, "cwd"))}`;
+			text += `\n${paint(theme, "meta", `${i + 1}.`)} ${paint(theme, "label", sanitizeLine(streamedText(task, "agent") || "…"))}${paint(theme, "meta", ` ${clip(sanitizeLine(streamedText(task, "task") ?? "…"), 40)}`)}${cwdNote(streamedText(task, "cwd"))}`;
 		}
 		if (tasks.length > 3) text += `\n${paint(theme, "meta", `… +${tasks.length - 3} more`)}`;
 		return text;
@@ -342,7 +343,7 @@ function addExpandedResult(
 			);
 			renderedOutput = true;
 		} else if (item.text.trim() && item.text !== trailingOutput) {
-			container.addChild(new Text(quoteLines(item.text, theme), 0, 0));
+			container.addChild(new Text(indentBody(item.text, theme), 0, 0));
 			renderedOutput = true;
 		}
 	}

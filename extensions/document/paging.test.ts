@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatCharCount, formatDoc, summarizeDoc } from "./paging.ts";
+import { formatDoc, summarizeDoc } from "./paging.ts";
 
 const base = { path: "a.pdf", format: "pdf" as const, bytes: 100 };
 
@@ -87,13 +87,5 @@ describe("summarizeDoc", () => {
 		});
 		expect(summary.detail).toBe("no extractable text");
 		expect(summary.note).toBeUndefined();
-	});
-});
-
-describe("formatCharCount", () => {
-	test("groups thousands so a count stays readable", () => {
-		expect(formatCharCount(8000)).toBe("8,000");
-		expect(formatCharCount(42478)).toBe("42,478");
-		expect(formatCharCount(999)).toBe("999");
 	});
 });

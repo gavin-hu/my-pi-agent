@@ -6,6 +6,7 @@
  * the clean slice; the text adds a header and any truncation note.
  */
 
+import { formatCount } from "../../lib/format.ts";
 import type { FormatId } from "./formats.ts";
 
 export interface DocPageInput {
@@ -80,14 +81,6 @@ export interface DocSummary {
 }
 
 /**
- * A character count with thousands separators (`25,000`). Full numbers keep a
- * range readable, where a `k` suffix on one bound and not the other does not.
- */
-export function formatCharCount(count: number): string {
-	return count.toLocaleString("en-US");
-}
-
-/**
  * Describe a `read_doc` result for the transcript, without theme colours.
  *
  * A complete first read shows the total; a paged read shows the returned range
@@ -100,18 +93,18 @@ export function summarizeDoc(input: DocSummaryInput): DocSummary {
 	if (input.startIndex >= input.chars) {
 		return {
 			format,
-			detail: `no text at ${formatCharCount(input.startIndex)} of ${formatCharCount(input.chars)} chars`,
+			detail: `no text at ${formatCount(input.startIndex)} of ${formatCount(input.chars)} chars`,
 			truncated: false,
 		};
 	}
 	if (input.startIndex <= 0 && !input.truncated) {
-		return { format, detail: `${formatCharCount(input.chars)} chars`, truncated: false };
+		return { format, detail: `${formatCount(input.chars)} chars`, truncated: false };
 	}
-	const range = `chars ${formatCharCount(input.startIndex + 1)}–${formatCharCount(input.nextIndex)} of ${formatCharCount(input.chars)}`;
+	const range = `chars ${formatCount(input.startIndex + 1)}–${formatCount(input.nextIndex)} of ${formatCount(input.chars)}`;
 	return {
 		format,
 		detail: range,
-		note: input.truncated ? `next at ${formatCharCount(input.nextIndex)}` : "complete",
+		note: input.truncated ? `next at ${formatCount(input.nextIndex)}` : "complete",
 		truncated: input.truncated,
 	};
 }

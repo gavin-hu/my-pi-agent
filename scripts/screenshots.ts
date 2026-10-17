@@ -732,4 +732,6 @@ async function main(): Promise<void> {
 	}
 }
 
-void main();
+if (import.meta.main) {
+	void main();
+}

@@ -29,14 +29,10 @@ function gitStub(replies: Array<[prefix: string, reply: Reply]>): {
 const ROOT: [string, Reply] = ["rev-parse --show-toplevel", { stdout: "/repo\n" }];
 
 describe("createGitStatus", () => {
-	test("maps branch and dirty state", async () => {
-		const stub = gitStub([
-			ROOT,
-			["rev-parse --abbrev-ref HEAD", { stdout: "main\n" }],
-			["status --porcelain", { stdout: " M a.ts\n" }],
-		]);
+	test("maps the checked-out branch", async () => {
+		const stub = gitStub([ROOT, ["rev-parse --abbrev-ref HEAD", { stdout: "main\n" }]]);
 		const provider = createGitStatus(createFakePi({ exec: stub.exec }).pi, "/repo");
-		expect(await provider()).toMatchObject({ branch: "main", dirty: true });
+		expect(await provider()).toMatchObject({ branch: "main" });
 	});
 
 	test("reports a detached head when there is no branch", async () => {
@@ -44,12 +40,11 @@ describe("createGitStatus", () => {
 			ROOT,
 			["rev-parse --abbrev-ref HEAD", { code: 1 }],
 			["rev-parse --verify", { stdout: "abc1234def5678\n" }],
-			["status --porcelain", { stdout: "" }],
 		]);
 		const provider = createGitStatus(createFakePi({ exec: stub.exec }).pi, "/repo");
 		const status = await provider();
 		expect(status?.branch).toBeUndefined();
-		expect(status).toMatchObject({ head: "abc1234", dirty: false });
+		expect(status).toMatchObject({ head: "abc1234" });
 	});
 
 	test("returns undefined outside a repository", async () => {
@@ -58,13 +53,9 @@ describe("createGitStatus", () => {
 		expect(await provider()).toBeUndefined();
 	});
 
-	test("returns undefined when status fails or exec throws", async () => {
-		const failingStatus = gitStub([
-			ROOT,
-			["rev-parse --abbrev-ref HEAD", { stdout: "main\n" }],
-			["status --porcelain", { code: 1 }],
-		]);
-		const first = createGitStatus(createFakePi({ exec: failingStatus.exec }).pi, "/repo");
+	test("returns undefined when git fails or exec throws", async () => {
+		const failing = gitStub([ROOT, ["rev-parse --abbrev-ref HEAD", { code: 1 }], ["rev-parse --verify", { code: 1 }]]);
+		const first = createGitStatus(createFakePi({ exec: failing.exec }).pi, "/repo");
 		expect(await first()).toBeUndefined();
 
 		const pi = createFakePi({

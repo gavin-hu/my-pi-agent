@@ -14,6 +14,7 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
@@ -118,7 +119,7 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				return text;
 			}
 			if (details.todos.length === 0) {
-				text.setText(paint(theme, "ok", "✓ ") + paint(theme, "meta", "Cleared the todo list"));
+				text.setText(paint(theme, "ok", `${GLYPHS.check} `) + paint(theme, "meta", "Cleared the todo list"));
 				return text;
 			}
 

@@ -858,10 +858,9 @@ rather than showing a wrong value.
   the count. The slot sorts an alert (a failed job) ahead of the modes and is
   droppable, so it goes before the model is clipped.
 - **Neutral by default; color means something.** A tool block carries no status
-  colour except the `edit`/`write` fill — pending, success, or error — and the
-  accent tool name; an informational notice leads
-  with `muted`; a failure is red only where the tool's own output says so, so the
-  transcript is not a wall of green.
+  colour except the accent tool name and the status-coloured result rail; an
+  informational notice leads with `muted`; a failure is red only where the
+  tool's own output says so, so the transcript is not a wall of green.
   The context gauge is the other coloured surface: it stays `muted` below 70%,
   cost is `muted`, the session and branch are `muted`, and tokens/cache/window are
   `dim`, so yellow and red are reserved for a threshold or a failure rather than

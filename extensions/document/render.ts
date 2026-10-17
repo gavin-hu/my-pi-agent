@@ -4,9 +4,9 @@
  * Theme-aware formatting only: the tool definition in `tool.ts` wires these to
  * `renderCall` / `renderResult`. The call line carries the path (body colour,
  * `~`-shortened, OSC-8 linked when the terminal supports it); the result line
- * leads with the format and a humanized range, so the path is never repeated.
- * The expanded view appends a sanitized, line-capped preview of the extracted
- * text. Every field is sanitized before a theme colour is applied.
+ * leads with the format and the exact character range, so the path is never
+ * repeated. The expanded view appends a sanitized, line-capped preview of the
+ * extracted text. Every field is sanitized before a theme colour is applied.
  */
 
 import { isAbsolute, resolve } from "node:path";

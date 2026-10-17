@@ -16,18 +16,11 @@ describe("createPadStore", () => {
 		expect(pad.resolve()).toBe(4);
 	});
 
-	test("observe records a pad without resolving", () => {
-		const pad = createPadStore();
-		pad.observe(2);
-		expect(pad.resolve()).toBe(2);
-	});
-
 	test("keeps whole, non-negative columns and ignores a non-finite pad", () => {
 		const pad = createPadStore();
 		expect(pad.resolve(-3)).toBe(0);
 		expect(pad.resolve(2.7)).toBe(2);
 		expect(pad.resolve(Number.NaN)).toBe(2);
-		pad.observe(Number.POSITIVE_INFINITY);
-		expect(pad.resolve()).toBe(2);
+		expect(pad.resolve(Number.POSITIVE_INFINITY)).toBe(2);
 	});
 });

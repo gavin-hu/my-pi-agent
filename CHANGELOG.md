@@ -240,6 +240,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   wrap at `break-word`, headers and code spans stay on one line, and a table too
   wide for the column overflows into its scrolling wrapper instead of being
   squeezed.
+- `subagent`: the call's step agent names now read in the body colour, so the
+  `subagent` tool name is the call line's only accent, matching the rule every
+  other call follows.
+- `subagent`: a step whose `agent` or `task` has not finished streaming no
+  longer throws, so the call body stays framed instead of falling back to Pi's
+  generic call line.
 
 ## [0.9.0] - 2026-10-16
 

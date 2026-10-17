@@ -268,7 +268,7 @@ describe("renderFilePage", () => {
 		expect(html).toContain('data-path="sub/b.md"');
 	});
 
-	test("renders the git chip with the branch alone, dirty or not", () => {
+	test("renders the git chip with the branch alone", () => {
 		fixture = makeFixture();
 		const html = renderDirectoryPage({
 			rootLabel: fixture.root,
@@ -277,11 +277,11 @@ describe("renderFilePage", () => {
 			tree,
 			thumbnails: false,
 			maxThumbBytes: 0,
-			git: { branch: "main", dirty: true },
+			git: { branch: "main" },
 		});
 		expect(html).toContain('class="bf-chip browse-git"');
 		expect(html).toContain('aria-label="git branch main"');
-		// The changes chip owns the dirty state; the branch chip must not repeat it.
+		// The changes chip owns the change state; the branch chip must not repeat it.
 		expect(html).not.toContain("browse-dirty");
 	});
 

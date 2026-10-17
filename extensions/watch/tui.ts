@@ -18,7 +18,7 @@ import { clip, fitCells } from "../../lib/tui/columns.ts";
 import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
 import { expandHint, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { LinePane } from "../../lib/tui/line-pane.ts";
-import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { emptyState, statusRow, type StatusRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { compareWatches, formatWatchDetail, shortLabel, statusGlyphChar, statusRole } from "./format.ts";
@@ -36,24 +36,19 @@ const LINES_CHROME_ROWS = 6;
 /** A watcher's stable identity, for the id-anchored cursor. */
 const watchId = (watch: WatchRecord): string => watch.id;
 
-/** How one watcher row is drawn. */
-interface WatchRowOptions {
-	/** Draw the interactive selection marker. */
-	selected?: boolean;
-	/** Reserve the marker column. Default true; the transcript sets false. */
-	marker?: boolean;
-}
-
 /** One watcher row: marker, status glyph, id, label, and a right-aligned count. */
-function watchRow(watch: WatchRecord, theme: Theme, width: number, options: WatchRowOptions = {}): string {
-	return listRow(theme, width, {
-		selected: options.selected === true,
-		marker: options.marker !== false,
+function watchRow(
+	watch: WatchRecord,
+	theme: Theme,
+	width: number,
+	options: Pick<StatusRow, "selected" | "marker"> = {},
+): string {
+	return statusRow(theme, width, {
+		...options,
 		glyph: statusGlyphChar(watch.status),
 		glyphRole: statusRole(watch.status),
 		label: `${watch.id}  ${shortLabel(watch)}`,
 		trailing: `${watch.matchCount}`,
-		trailingRole: "faint",
 	});
 }
 

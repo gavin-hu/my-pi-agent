@@ -27,7 +27,7 @@ const WATCH_CONTEXT_MARKER = "[WATCH MATCHES]";
 /** At most this many match lines are injected in one message. */
 const MAX_CONTEXT_MATCHES = 20;
 
-/** Build the hidden context injected for pending matches. */
+/** Build the model-facing text for the pending-match notice. */
 export function buildWatchContext(matches: PendingMatch[]): string {
 	const shown = matches.slice(0, MAX_CONTEXT_MATCHES);
 	const lines = shown.map(formatPendingMatch);

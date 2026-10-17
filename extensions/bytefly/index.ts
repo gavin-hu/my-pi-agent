@@ -9,9 +9,10 @@
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
  * probe runtime), and `notify/` (OS notifications for unattended runs).
  *
- * The header, footer, user-message marker, notice, tool blocks, turn rule, and
- * working timer are installed only in interactive (`tui`) sessions and are
- * always on; `pi config` turns bytefly's chrome off. The panel and doctor work
+ * The header, footer, turn rule, and working timer are installed only in
+ * interactive (`tui`) sessions, and are always on; the user-message marker,
+ * notice, and tool blocks register at load and take effect wherever a
+ * transcript renders. `pi config` turns bytefly's chrome off. The panel and doctor work
  * in every mode, and notify works wherever the environment can deliver it. The
  * footer is priced from DeepSeek's published rates by default and from
  * `bytefly.json` otherwise, the same file whose `notify` section configures

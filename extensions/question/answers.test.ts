@@ -6,7 +6,6 @@ import {
 	completedResult,
 	describeSelection,
 	formatAnswerText,
-	formatCallText,
 	optionSummary,
 	questionHeaders,
 	unavailableResult,
@@ -79,19 +78,6 @@ describe("formatAnswerText", () => {
 		expect(formatAnswerText({ ...result, cancelled: true })).toBe(
 			"Auth: user selected: 1. OAuth\n(the remaining questions were cancelled)",
 		);
-	});
-});
-
-describe("formatCallText", () => {
-	test("summarizes questions and options", () => {
-		expect(formatCallText([single, multi])).toBe(
-			"ask_user_question 2 questions (Auth, Scope)\n  Options: Auth: OAuth, Cookies, Other · Scope: OAuth, Cookies, Other",
-		);
-	});
-
-	test("omits the options line for free-form questions", () => {
-		const freeForm: Question = { ...single, header: "Notes", options: [], allowOther: false };
-		expect(formatCallText([freeForm])).toBe("ask_user_question 1 question (Notes)");
 	});
 });
 
