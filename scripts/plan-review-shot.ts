@@ -1,8 +1,8 @@
 /**
  * Screenshot the browser plan review page with headless Chrome (dev tooling).
  *
- * Renders a plan file through the real review page — the same router, client
- * bundle, theme bootstrap, and Markdown renderer a `/plan review` session
+ * Renders a plan file through the real review page — the same server, router,
+ * client bundle, theme bootstrap, and Markdown renderer a `/plan review` session
  * serves — and writes a full-page PNG, so the document's layout can be checked
  * without opening a browser by hand. It is macOS-friendly (it finds Google
  * Chrome's bundle) and honours `PI_CHROME` for another Chrome or Chromium.
@@ -15,14 +15,9 @@
  */
 
 import { readFileSync } from "node:fs";
-import { createServer, type ServerResponse } from "node:http";
 import { basename, resolve } from "node:path";
-import { codeBody, fenceInfo, planBlocks, planHeadings } from "../extensions/plan/blocks.ts";
-import { parseFeedback, stripFeedback } from "../extensions/plan/feedback.ts";
-import { planTitle } from "../extensions/plan/plans.ts";
-import type { ReviewPageData } from "../extensions/plan/web-page.ts";
-import { handleReviewRequest, type ReviewContext } from "../extensions/plan/web-router.ts";
-import { fenceLanguage, highlightLines } from "../lib/highlight.ts";
+import { type PlanStore, type StoredPlan } from "../extensions/plan/plans.ts";
+import { createPlanWebReview } from "../extensions/plan/web.ts";
 import { captureFullPage } from "./chrome-shot.ts";
 
 /** CLI options after parsing. */
@@ -84,85 +79,30 @@ export function parseArgs(argv: string[]): ShotOptions {
 	};
 }
 
-/** Build the page data exactly as the review server does for one plan. */
-export function buildReviewPageData(content: string, path: string, token: string): ReviewPageData {
-	const baseline = stripFeedback(content);
-	const blocks = planBlocks(baseline);
-	const headings = planHeadings(blocks);
-	// Highlight code once, at the boundary; the client copies only the tok-* spans.
-	const code: Record<string, string[]> = {};
-	for (const block of blocks) {
-		if (block.kind !== "code") continue;
-		const language = fenceLanguage(fenceInfo(block.lines[0] ?? ""));
-		if (language) code[String(block.start)] = highlightLines(codeBody(block), language);
-	}
+/** A plan as the store would serve it, without reading or writing the disk. */
+function storedPlan(content: string, path: string): StoredPlan {
 	return {
-		title: headings.find((heading) => heading.level === 1)?.text || planTitle(basename(path)),
-		blocks,
-		annotations: parseFeedback(content),
-		outline: headings.map((heading) => ({
-			id: `s-${heading.line}`,
-			line: heading.line,
-			level: heading.level,
-			text: heading.text,
-		})),
-		code,
-		// The capture always shows the approval action, even though the real page
-		// gates it to the exit_plan_mode flow.
-		canApprove: true,
-		token,
+		path,
+		relativePath: basename(path),
+		content,
+		bytes: Buffer.byteLength(content, "utf-8"),
 	};
 }
 
-/** A local server that answers the review routes; the event stream stays open. */
-async function serveReview(data: ReviewPageData): Promise<{ url: string; close: () => Promise<void> }> {
-	const streams = new Set<ServerResponse>();
-	const context: ReviewContext = {
-		token: data.token,
-		canApprove: true,
-		page: async () => data,
-		save: async () => ({ ok: true }),
-		onSaved: () => {},
-		onApprove: () => {},
-		onCancel: () => {},
+/**
+ * A `PlanStore` that serves one plan and refuses every write. The capture never
+ * saves, so the write methods exist only to satisfy the interface.
+ */
+function screenshotStore(plan: StoredPlan): PlanStore {
+	const readOnly = async (): Promise<never> => {
+		throw new Error("the screenshot store is read-only");
 	};
-	const server = createServer((request, response) => {
-		void (async () => {
-			const method = request.method ?? "GET";
-			let body = "";
-			if (method.toUpperCase() === "POST") {
-				const chunks: Buffer[] = [];
-				for await (const chunk of request) chunks.push(chunk as Buffer);
-				body = Buffer.concat(chunks).toString("utf-8");
-			}
-			const result = await handleReviewRequest(context, method, request.url ?? "/", request.headers, body);
-			if (result.stream) {
-				response.writeHead(result.status, result.headers);
-				response.write("retry: 2000\n\n");
-				streams.add(response);
-				request.on("close", () => streams.delete(response));
-				return;
-			}
-			response.writeHead(result.status, result.headers);
-			response.end(result.body ?? "");
-		})();
-	});
-	await new Promise<void>((resolve, reject) => {
-		server.once("error", reject);
-		server.listen(0, "127.0.0.1", resolve);
-	});
-	const address = server.address();
-	const port = typeof address === "object" && address ? address.port : 0;
 	return {
-		url: `http://127.0.0.1:${port}/?token=${data.token}`,
-		close: async () => {
-			for (const stream of streams) stream.end();
-			streams.clear();
-			await new Promise<void>((resolve) => {
-				server.close(() => resolve());
-				server.closeAllConnections?.();
-			});
-		},
+		dirFor: readOnly,
+		write: readOnly,
+		setSteps: readOnly,
+		saveFeedback: readOnly,
+		read: async () => plan,
 	};
 }
 
@@ -196,14 +136,20 @@ const EXPAND_EXPRESSION = `(function () {
 
 /** Render one plan and capture it. */
 async function capture(options: ShotOptions): Promise<void> {
-	const content = readFileSync(options.plan, "utf-8");
-	const token = "screenshot";
-	const data = buildReviewPageData(content, options.plan, token);
-	const server = await serveReview(data);
+	const plan = storedPlan(readFileSync(options.plan, "utf-8"), options.plan);
+	// Drive the shipped review server: a stub store serves the file, the browser
+	// opener is suppressed, and the token is fixed so the URL is stable.
+	const review = createPlanWebReview(screenshotStore(plan), {
+		open: () => {},
+		token: () => "screenshot",
+		port: 0,
+	});
+	const session = await review.start(process.cwd(), plan, { canApprove: true });
+	if (!session) throw new Error("could not bind the review server");
 	try {
 		await captureFullPage({
-			url: server.url,
-			origin: new URL(server.url).origin,
+			url: session.url,
+			origin: new URL(session.url).origin,
 			out: options.out,
 			width: options.width,
 			scale: options.scale,
@@ -216,7 +162,7 @@ async function capture(options: ShotOptions): Promise<void> {
 			],
 		});
 	} finally {
-		await server.close();
+		await session.close();
 	}
 }
 
