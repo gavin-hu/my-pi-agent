@@ -7,6 +7,12 @@
  * records the peer when it injects, captures the final assistant text of that
  * run, and flushes the reply on `agent_settled` before draining the queue.
  *
+ * The peer only has the chat window, so the bridge also carries the signals the
+ * phone needs: the typing indicator starts when a message is *queued* and is
+ * refreshed while the turn runs, a delayed acknowledgement covers a long wait,
+ * a burst of messages becomes one turn, and every forced outcome (a stopped
+ * turn, a queue overflow, a failed injection) answers in one short line.
+ *
  * Inbound images are downloaded, decrypted, and injected as model image content;
  * inbound files are saved under the media directory and referenced by path. The
  * model may message the owner proactively through {@link Bridge.sendToOwner}.
@@ -14,7 +20,7 @@
 
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
-import { chunkText, parseInbound, sanitizeInbound } from "./format.ts";
+import { chunkText, notice, parseInbound, peerLanguage, sanitizeInbound, type PeerLanguage } from "./format.ts";
 import { createWechatInteractionChannel, type WechatInteractionChannel } from "./interaction.ts";
 import { defaultSleep } from "./login.ts";
 import { sendLocalFile } from "./outbound.ts";
@@ -31,10 +37,21 @@ import {
 } from "./slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
+import { defaultTimer, type ArmTimer } from "./timer.ts";
 
 const BACKOFF_MS = 2000;
 /** How long a fetched typing ticket is reused. */
 const TYPING_TTL_MS = 5 * 60 * 1000;
+/** How often the typing indicator is refreshed while a peer waits. */
+const TYPING_KEEPALIVE_MS = 10_000;
+/** Stop refreshing the indicator after this long; a wedged turn must not tick forever. */
+const TYPING_LIMIT_MS = 15 * 60 * 1000;
+/** Wait this long before telling a queued peer they are queued. */
+const ACK_DELAY_MS = 4000;
+/** Suppress a second acknowledgement inside this window. */
+const ACK_REPEAT_MS = 60_000;
+/** Inbound messages held while a turn runs; beyond this the peer is told to wait. */
+const MAX_QUEUE = 8;
 
 /** Content the bridge injects: plain text or text/image blocks. */
 export type UserContent = string | (TextContent | ImageContent)[];
@@ -87,6 +104,8 @@ export interface BridgeDeps {
 	refreshLock: () => void;
 	releaseLock: () => void;
 	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
+	armTimer?: ArmTimer;
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** Called when the server reports an expired token. */
 	onExpired?: () => void;
@@ -133,9 +152,11 @@ function messageOf(error: unknown): string {
 /** Create the bridge over an injected environment. */
 export function createBridge(deps: BridgeDeps): Bridge {
 	const sleep = deps.sleep ?? defaultSleep;
+	const armTimer = deps.armTimer ?? defaultTimer;
 	let running = false;
 	let expired = false;
 	let busy = false;
+	let flushing = false;
 	let abort: AbortController | undefined;
 	let loopPromise: Promise<void> | undefined;
 	let client: WechatClient | undefined;
@@ -148,6 +169,16 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	let mediaDropped = 0;
 	let mediaCounter = 0;
 	const typingCache = new Map<string, { ticket?: string; checkedAt: number }>();
+	/** Per-peer keep-alive cancellers for the typing indicator. */
+	const typing = new Map<string, () => void>();
+	/** Per-peer pending acknowledgement cancellers. */
+	const acks = new Map<string, () => void>();
+	/** When each peer was last acknowledged, so a chatty peer is not spammed. */
+	const ackedAt = new Map<string, number>();
+	/** The language each peer last wrote in, so a media-only message can answer. */
+	const languages = new Map<string, PeerLanguage>();
+	/** Peers already told that the queue is full, until it drains. */
+	const overflow = new Set<string>();
 	const slashCommands = deps.slashCommands ?? SLASH_COMMANDS;
 
 	const isIdle = deps.isIdle ?? (() => true);
@@ -212,6 +243,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			args,
 			peer: item.peer,
 			reply: (text) => reply(item, text),
+			activeTurn: busy || active !== undefined,
+			language: languageOf(item.peer),
 			session: controls ?? {
 				newSession: () => {
 					throw new Error("Session controls are unavailable.");
@@ -280,9 +313,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		if (!ticket) return;
 		try {
 			await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: true }, abort?.signal);
-			// The turn may have settled while the ticket round-trip was in flight;
-			// cancel immediately so the indicator cannot get stuck on.
-			if (active !== item) {
+			// The peer's work may have finished while the ticket round-trip was in
+			// flight; cancel immediately so the indicator cannot get stuck on.
+			if (!hasWork(peer)) {
 				await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: false }, abort?.signal);
 			}
 		} catch {
@@ -299,6 +332,93 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		} catch {
 			// Typing is best-effort.
 		}
+	}
+
+	/** Whether a peer has a turn running or a message waiting. */
+	function hasWork(peer: string): boolean {
+		return active?.peer === peer || queue.some((queued) => queued.peer === peer);
+	}
+
+	/** The peer's language: from this text, else the last one they wrote. */
+	function languageOf(peer: string, text?: string): PeerLanguage {
+		if (text) {
+			const language = peerLanguage(text);
+			languages.set(peer, language);
+			return language;
+		}
+		return languages.get(peer) ?? "en";
+	}
+
+	function stopTyping(peer: string): void {
+		const cancel = typing.get(peer);
+		if (!cancel) return;
+		typing.delete(peer);
+		cancel();
+	}
+
+	function stopAllTyping(): void {
+		for (const cancel of typing.values()) cancel();
+		typing.clear();
+	}
+
+	/**
+	 * Start the typing indicator for a peer and keep it alive while they wait.
+	 * The chat window is the peer's only channel, and WeChat drops the indicator
+	 * after a few seconds, so a long turn needs the refresh to look alive at all.
+	 */
+	function keepTyping(peer: string, item: InboundItem): void {
+		if (!deps.config.typingIndicator) return;
+		stopTyping(peer);
+		void typingOn(peer, item);
+		const started = deps.now();
+		const refresh = (): void => {
+			if (!hasWork(peer) || deps.now() - started >= TYPING_LIMIT_MS) {
+				typing.delete(peer);
+				return;
+			}
+			void typingOn(peer, item);
+			typing.set(peer, armTimer(TYPING_KEEPALIVE_MS, refresh));
+		};
+		typing.set(peer, armTimer(TYPING_KEEPALIVE_MS, refresh));
+	}
+
+	/** Stop refreshing the indicator for peers with nothing left to answer. */
+	function pruneTyping(): void {
+		for (const peer of [...typing.keys()]) {
+			if (!hasWork(peer)) stopTyping(peer);
+		}
+	}
+
+	function cancelAck(peer: string): void {
+		const cancel = acks.get(peer);
+		if (!cancel) return;
+		acks.delete(peer);
+		cancel();
+	}
+
+	function cancelAllAcks(): void {
+		for (const cancel of acks.values()) cancel();
+		acks.clear();
+	}
+
+	/**
+	 * Tell a queued peer, once, that their message is waiting. A turn that starts
+	 * within {@link ACK_DELAY_MS} cancels this, because the typing indicator says
+	 * the same thing without spending a bubble.
+	 */
+	function armAck(item: InboundItem): void {
+		if (acks.has(item.peer)) return;
+		const last = ackedAt.get(item.peer);
+		if (last !== undefined && deps.now() - last < ACK_REPEAT_MS) return;
+		acks.set(
+			item.peer,
+			armTimer(ACK_DELAY_MS, () => {
+				acks.delete(item.peer);
+				if (!hasWork(item.peer) || active?.peer === item.peer) return;
+				ackedAt.set(item.peer, deps.now());
+				void reply(item, notice("ack", languageOf(item.peer)));
+			}),
+		);
 	}
 
 	/** Download, decrypt, and turn a media reference into a content block. */
@@ -357,17 +477,41 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		} catch (error) {
 			active = undefined;
 			notify(`WeChat could not start a turn: ${messageOf(error)}`, "error");
+			void reply(item, notice("failed", languageOf(item.peer)));
 			pump();
 		}
 	}
 
+	/**
+	 * Merge the consecutive messages a peer queued into one turn, so a burst
+	 * ("one moment", "also…", "and…") is answered once instead of three times.
+	 * Order is preserved, media are concatenated, and the newest reply token wins.
+	 */
+	function coalesce(first: InboundItem): InboundItem {
+		const texts: string[] = first.text ? [first.text] : [];
+		const media = [...first.media];
+		let contextToken = first.contextToken;
+		while (queue.length > 0 && queue[0].peer === first.peer) {
+			const next = queue.shift() as InboundItem;
+			if (next.text) texts.push(next.text);
+			media.push(...next.media);
+			contextToken = next.contextToken ?? contextToken;
+		}
+		return { peer: first.peer, contextToken, text: texts.join("\n"), media };
+	}
+
 	function pump(): void {
-		if (!running || busy || active || !isIdle()) return;
-		const item = queue.shift();
-		if (!item) return;
+		// `flushing` holds the queue until the previous reply is out, so a new turn
+		// can never overtake the answer the peer is waiting for.
+		if (!running || busy || active || flushing || !isIdle()) return;
+		const first = queue.shift();
+		if (!first) return;
+		const item = coalesce(first);
+		if (queue.length === 0) overflow.clear();
 		active = item;
 		lastText = "";
-		void typingOn(item.peer, item);
+		cancelAck(item.peer);
+		keepTyping(item.peer, item);
 		void inject(item);
 	}
 
@@ -384,6 +528,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			refused += 1;
 			return;
 		}
+		const language = languageOf(peer, text);
 		if (!text && media.length === 0) return;
 		recordInbound(state, peer, message.context_token, deps.now());
 		deps.saveState(state);
@@ -411,7 +556,18 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				return;
 			}
 		}
+		if (queue.length >= MAX_QUEUE) {
+			// Refuse rather than grow without bound; one notice per episode, not per
+			// dropped message.
+			if (!overflow.has(peer)) {
+				overflow.add(peer);
+				void reply(item, notice("overflow", language));
+			}
+			return;
+		}
 		queue.push(item);
+		keepTyping(peer, item);
+		armAck(item);
 		pump();
 	}
 
@@ -470,10 +626,16 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			}
 			running = true;
 			expired = false;
+			flushing = false;
 			queue = [];
 			active = undefined;
 			lastText = "";
 			typingCache.clear();
+			languages.clear();
+			ackedAt.clear();
+			overflow.clear();
+			stopAllTyping();
+			cancelAllAcks();
 			interaction.reset();
 			publishState();
 			abort = new AbortController();
@@ -498,9 +660,13 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// Errors are surfaced by the loop's own catch.
 			}
 			loopPromise = undefined;
+			flushing = false;
 			queue = [];
 			active = undefined;
 			lastText = "";
+			stopAllTyping();
+			cancelAllAcks();
+			overflow.clear();
 			interaction.reset();
 			publishState();
 			releaseSafe();
@@ -527,14 +693,24 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			active = undefined;
 			lastText = "";
 			interaction.reset();
-			if (item) {
-				void (async () => {
-					await typingOff(item.peer);
-					if (text) await reply(item, text);
-				})().finally(() => pump());
-			} else {
+			if (!item) {
 				pump();
+				return;
 			}
+			cancelAck(item.peer);
+			stopTyping(item.peer);
+			// Hold the queue until the reply is out: a message that arrives mid-flush
+			// must not start the next turn before this peer has their answer.
+			flushing = true;
+			void (async () => {
+				await typingOff(item.peer);
+				if (text) await reply(item, text);
+				else await reply(item, notice("stopped", languageOf(item.peer)));
+			})().finally(() => {
+				flushing = false;
+				pruneTyping();
+				pump();
+			});
 		},
 
 		status(): BridgeStatus {

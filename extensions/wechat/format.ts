@@ -1,6 +1,6 @@
 /**
  * Pure text helpers for the bridge: sanitize inbound text, chunk long replies,
- * and shorten peer ids for display.
+ * shorten peer ids for display, and render the short peer-facing notices.
  */
 
 import { stripControlChars } from "../../lib/format.ts";
@@ -34,6 +34,49 @@ export function chunkText(text: string, max: number): string[] {
 	}
 	if (rest) chunks.push(rest);
 	return chunks.length > 0 ? chunks : [text];
+}
+
+/** The language a peer is answered in. */
+export type PeerLanguage = "zh" | "en";
+
+/**
+ * The notices the bridge sends on its own, outside a reply. Every one is a
+ * single short line in the peer's language: WeChat pings per message, so a
+ * notice has to earn its bubble.
+ */
+export type NoticeKind = "ack" | "overflow" | "media" | "unsupported" | "stopped" | "timeout" | "failed" | "newBusy";
+
+const CJK = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+
+/** The language to answer `text` in: Chinese when it contains CJK characters. */
+export function peerLanguage(text: string): PeerLanguage {
+	return CJK.test(text) ? "zh" : "en";
+}
+
+const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
+	ack: { zh: "收到，正在处理…", en: "Got it — working on it." },
+	overflow: { zh: "消息有点多，稍后再发。", en: "Too many messages queued — please wait a moment." },
+	media: {
+		zh: "有 {n} 个附件没能读取，可以重发或直接说明。",
+		en: "Couldn't open {n} attachment(s) — please resend or describe it.",
+	},
+	unsupported: {
+		zh: "语音（无转写）和视频暂不支持，请发文字或图片。",
+		en: "Voice without a transcript and video aren't supported — please send text or an image.",
+	},
+	stopped: { zh: "已停止。", en: "Stopped." },
+	timeout: { zh: "问题超时，已取消。", en: "That question timed out." },
+	failed: { zh: "处理失败，请稍后重试。", en: "Something went wrong — please try again." },
+	newBusy: {
+		zh: "正在处理当前消息，稍后再发送 /new。",
+		en: "Still working on your last message — send /new again after it finishes.",
+	},
+};
+
+/** Render one notice, with `{n}` replaced when a count applies. */
+export function notice(kind: NoticeKind, lang: PeerLanguage, count?: number): string {
+	const text = NOTICES[kind][lang];
+	return count === undefined ? text : text.replace("{n}", String(count));
 }
 
 /** Drop the `@im.wechat` suffix from a peer id for a compact label. */

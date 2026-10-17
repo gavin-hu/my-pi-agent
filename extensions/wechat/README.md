@@ -27,8 +27,14 @@ How the `send_wechat` call and its result look in the transcript — the call li
   referenced by path. Voice uses the transcript the server provides.
 - **Outbound** — replies are delivered automatically; the owner-only
   `send_wechat` tool lets the model message the owner proactively.
-- **Typing indicator** — the native typing status is set while an inbound turn is
-  being generated (`typingIndicator`, on by default).
+- **Typing indicator** — the native typing status is set as soon as a message is
+  queued and refreshed for as long as the turn runs (`typingIndicator`, on by
+  default), so the phone can tell a long turn from a dead bridge.
+- **Peer feedback** — a burst of messages is answered as one turn, a wait longer
+  than a few seconds is acknowledged once, and a turn that ends without an
+  answer says so (`已停止。` / `Stopped.`) instead of going quiet. Notices and
+  `/help` follow the peer's language, and `/new` is declined while a run is in
+  flight rather than replacing the session under it.
 - **Remote prompts** — interactive confirmations raised during a WeChat turn
   (`ask_user_question`, plan approval) are sent to WeChat and answered there;
   turns started at the terminal keep the TUI (`remotePrompts`, on by default).

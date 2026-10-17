@@ -38,6 +38,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: a queued message no longer reads as silence. The typing indicator
+  starts when the message is queued and is refreshed while the turn runs, a
+  burst of messages becomes one turn instead of one turn each, and a peer who
+  waits more than a few seconds gets a single acknowledgement. More than eight
+  queued messages are refused with one line instead of growing the queue.
+- `wechat`: a turn that ends without an answer says so (`已停止。` / `Stopped.`),
+  a turn that cannot be started reports the failure to the peer, and `/new` is
+  declined while a run is in flight instead of replacing the session under it.
+- `wechat`: peer-facing notices and `/help` follow the peer's language — Chinese
+  when the message contains Chinese — instead of speaking English to everyone.
+
 - Tool transcript: call lines now clip to the terminal width instead of wrapping
   into the railed body (middle clip for a path or URL, so its head and tail
   survive). `read_doc` reads a not-yet-streamed path as pending instead of

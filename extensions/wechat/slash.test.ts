@@ -73,6 +73,8 @@ describe("built-in /new", () => {
 			reply: async (text: string) => {
 				events.push(`reply:${text}`);
 			},
+			activeTurn: false,
+			language: "en",
 			session: {
 				newSession: () => {
 					events.push("newSession");
@@ -82,6 +84,39 @@ describe("built-in /new", () => {
 		await command?.run?.(ctx);
 		expect(events[0]).toContain("reply:Starting a new session");
 		expect(events[1]).toBe("newSession");
+	});
+
+	test("declines while a turn is in flight instead of restarting", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "new");
+		const events: string[] = [];
+		await command?.run?.({
+			args: "",
+			peer: "owner@im.wechat",
+			reply: async (text) => {
+				events.push(`reply:${text}`);
+			},
+			activeTurn: true,
+			language: "en",
+			session: { newSession: () => events.push("newSession") },
+		});
+		expect(events).toHaveLength(1);
+		expect(events[0]).toContain("Still working on your last message");
+	});
+
+	test("answers a Chinese peer in Chinese", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "new");
+		let reply = "";
+		await command?.run?.({
+			args: "",
+			peer: "owner@im.wechat",
+			reply: async (text) => {
+				reply = text;
+			},
+			activeTurn: true,
+			language: "zh",
+			session: { newSession: () => {} },
+		});
+		expect(reply).toBe("正在处理当前消息，稍后再发送 /new。");
 	});
 });
 
@@ -101,11 +136,31 @@ describe("built-in /help", () => {
 			reply: async (text) => {
 				reply = text;
 			},
+			activeTurn: false,
+			language: "en",
 			session: { newSession: () => {} },
 		} satisfies SlashContext);
 		expect(reply).toContain("/new");
 		expect(reply).toContain("/help");
 		expect(reply).toContain("owner only");
+	});
+
+	test("replies in Chinese for a Chinese peer", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "help");
+		let reply = "";
+		await command?.run?.({
+			args: "",
+			peer: "owner@im.wechat",
+			reply: async (text) => {
+				reply = text;
+			},
+			activeTurn: false,
+			language: "zh",
+			session: { newSession: () => {} },
+		});
+		expect(reply).toContain("可用命令：");
+		expect(reply).toContain("/new — 开始新会话（仅限所有者）");
+		expect(reply).not.toContain("owner only");
 	});
 });
 
@@ -118,5 +173,19 @@ describe("helpText", () => {
 		expect(text).toContain("/new — Start a new session (owner only)");
 		expect(text).toContain("/help — List the chat commands");
 		expect(text).toContain("reaches the agent");
+	});
+
+	test("speaks Chinese when the peer does", () => {
+		const text = helpText(
+			[
+				{ name: "new", summary: "Start a new session", summaryZh: "开始新会话", kind: "action", ownerOnly: true },
+				{ name: "help", summary: "List the chat commands", kind: "action" },
+			],
+			"zh",
+		);
+		expect(text).toContain("/new — 开始新会话（仅限所有者）");
+		// A command without a Chinese summary falls back to the English one.
+		expect(text).toContain("/help — List the chat commands");
+		expect(text).toContain("其他内容都会发送给助手。");
 	});
 });
