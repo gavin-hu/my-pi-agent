@@ -1,15 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { type Component, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { innerOf } from "../../test/helpers/fakes.ts";
 import { BODY_INDENT, bodyLines, indentBlockLines, indentedLines } from "./indent.ts";
-
-/** A stand-in for a tool's own renderer, recording the width it was asked for. */
-const innerOf = (lines: string[], onWidth?: (width: number) => void): Component => ({
-	render: (width) => {
-		onWidth?.(width);
-		return lines;
-	},
-	invalidate: () => {},
-});
 
 describe("BODY_INDENT", () => {
 	test("is two columns", () => {
