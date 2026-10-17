@@ -14,6 +14,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { sleep } from "./poll.ts";
 
 /** Where Chrome usually lives, plus the `PI_CHROME` override. */
 const CHROME_CANDIDATES = [
@@ -22,8 +23,6 @@ const CHROME_CANDIDATES = [
 	"/Applications/Chromium.app/Contents/MacOS/Chromium",
 	"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
 ].filter((path): path is string => Boolean(path));
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** The Chrome (or Chromium) binary to drive. */
 export function chromeBinary(): string {

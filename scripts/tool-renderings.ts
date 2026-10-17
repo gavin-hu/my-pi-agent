@@ -30,7 +30,6 @@ import {
 	createReadToolDefinition,
 	createWriteToolDefinition,
 	getMarkdownTheme,
-	type Theme,
 	type ToolRenderers,
 } from "@earendil-works/pi-coding-agent";
 import { Markdown } from "@earendil-works/pi-tui";
@@ -50,17 +49,11 @@ import watch from "../extensions/watch/index.ts";
 import webAccess from "../extensions/web-access/index.ts";
 import wechat from "../extensions/wechat/index.ts";
 import type { NoticeDetails } from "../lib/notice.ts";
-import {
-	loadThemeFromPath,
-	setThemeInstance,
-} from "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js";
 import { createFakePi } from "../test/helpers/fakes.ts";
-import { ansiLinesToHtml } from "./ansi-html.ts";
+import { ansiLinesToHtml, escapeHtml } from "./ansi-html.ts";
 import { captureFullPage } from "./chrome-shot.ts";
+import { setThemeInstance, theme } from "./theme.ts";
 import { FIXTURES, type ToolFixture } from "./tool-fixtures.ts";
-
-const repo = resolve(import.meta.dir, "..");
-const theme: Theme = loadThemeFromPath(join(repo, "themes", "bytefly-dark.json"), "truecolor");
 
 /** Columns the gallery blocks are wrapped at. */
 const DEFAULT_WIDTH = 100;
@@ -215,11 +208,6 @@ export function renderings(): Rendering[] {
 			return toolLines(resolve, fixture, base, width);
 		},
 	}));
-}
-
-/** Escape text for an HTML text node. */
-function escapeHtml(text: string): string {
-	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** One labelled block. */
