@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { chunkText, parseInbound, peerLabel, sanitizeInbound } from "./format.ts";
+import {
+	chunkText,
+	notice,
+	parseInbound,
+	peerLabel,
+	peerLanguage,
+	sanitizeInbound,
+	type NoticeKind,
+} from "./format.ts";
 
 describe("sanitizeInbound", () => {
 	test("strips control characters and normalizes line endings", () => {
@@ -81,5 +89,36 @@ describe("parseInbound", () => {
 	test("skips media without a usable reference", () => {
 		const result = parseInbound([{ type: 2, image_item: { media: {} } }]);
 		expect(result.media).toEqual([]);
+	});
+});
+
+describe("peerLanguage", () => {
+	test("reports Chinese for CJK text and English otherwise", () => {
+		expect(peerLanguage("你好，帮我看看")).toBe("zh");
+		expect(peerLanguage("please take a look")).toBe("en");
+		expect(peerLanguage("1")).toBe("en");
+	});
+});
+
+describe("notice", () => {
+	const KINDS: NoticeKind[] = ["ack", "overflow", "media", "unsupported", "stopped", "timeout", "failed", "newBusy"];
+
+	test("renders the peer's language only", () => {
+		const cjk = /[\u3400-\u4dbf\u4e00-\u9fff]/;
+		for (const kind of KINDS) {
+			expect(cjk.test(notice(kind, "zh"))).toBe(true);
+			expect(cjk.test(notice(kind, "en"))).toBe(false);
+		}
+	});
+
+	test("fills in a count", () => {
+		expect(notice("media", "en", 2)).toBe("Couldn't open 2 attachment(s) — please resend or describe it.");
+		expect(notice("media", "zh", 2)).toContain("2 个附件");
+	});
+
+	test("keeps every notice to one line", () => {
+		for (const kind of KINDS) {
+			for (const lang of ["en", "zh"] as const) expect(notice(kind, lang)).not.toContain("\n");
+		}
 	});
 });
