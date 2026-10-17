@@ -48,12 +48,27 @@ function selectableNames(discovery: Discovery): Set<string> {
 	return names;
 }
 
-/** Argument completions: the subcommands, every declared extension, then `refresh`. */
+/** The values a bare `/bytefly <tab>` offers, in screen order. */
+const FIRST_TOKENS = ["doctor", "settings", ...Object.keys(REQUIREMENTS), "refresh"] as const;
+
+/**
+ * Argument completions. The host replaces the whole argument text with the
+ * returned `value`, so a second token returns the full `doctor <name>` or
+ * `<name> refresh` argument rather than just the word. `/bytefly settings` takes
+ * no name, and `refresh` is never followed by another token.
+ */
 function completions(prefix: string): Array<{ value: string; label: string }> | null {
-	const options = ["doctor", "settings", ...Object.keys(REQUIREMENTS), "refresh"].filter((option) =>
-		option.startsWith(prefix),
+	const [first = "", second, ...rest] = prefix.trimStart().split(/\s+/);
+	if (rest.length > 0) return null;
+	if (second === undefined) {
+		const options = FIRST_TOKENS.filter((option) => option.startsWith(first));
+		return options.length > 0 ? options.map((option) => ({ value: `${option} `, label: option })) : null;
+	}
+	if (first === "settings" || first === "refresh") return null;
+	const options = (first === "doctor" ? [...Object.keys(REQUIREMENTS), "refresh"] : ["refresh"]).filter((option) =>
+		option.startsWith(second),
 	);
-	return options.length > 0 ? options.map((value) => ({ value, label: value })) : null;
+	return options.length > 0 ? options.map((option) => ({ value: `${first} ${option}`, label: option })) : null;
 }
 
 /** Which bytefly surface the arguments select. */
@@ -111,6 +126,12 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 
 	const handler = async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
 		const { mode, section, name, refresh } = parseArgs(args);
+		// `/bytefly settings` has no extension argument; a stray word is a typo, not
+		// a filter, so say so rather than ignoring it.
+		if (section === "settings" && name !== undefined) {
+			ctx.ui.notify(`bytefly: /bytefly settings takes no extension name (got "${sanitizeLine(name)}").`, "warning");
+			return;
+		}
 		const cwd = ctx.cwd ?? process.cwd();
 		const agentDir = getAgentDir();
 		const trusted = ctx.isProjectTrusted();

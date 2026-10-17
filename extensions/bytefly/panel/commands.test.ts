@@ -83,17 +83,40 @@ describe("bytefly panel command", () => {
 
 	test("completes the subcommands, extension names, and refresh", () => {
 		const { commands } = boot({});
-		const values = commands
-			.get("bytefly")
-			.getArgumentCompletions("")
-			.map((entry: { value: string }) => entry.value);
-		expect(values).toContain("doctor");
-		expect(values).toContain("settings");
-		expect(values).toContain("refresh");
-		expect(values).toContain("plan");
-		expect(values).not.toContain("header");
-		expect(values).not.toContain("footer");
-		expect(values).not.toContain("status");
+		const labels = (prefix: string): string[] =>
+			(commands.get("bytefly").getArgumentCompletions(prefix) ?? []).map((entry: { label: string }) => entry.label);
+
+		const first = labels("");
+		expect(first).toEqual(expect.arrayContaining(["doctor", "settings", "refresh", "plan"]));
+		expect(first).not.toContain("header");
+		expect(first).not.toContain("footer");
+		expect(first).not.toContain("status");
+
+		// The host replaces the whole argument, so the value carries the prefix.
+		expect(labels("do")).toEqual(["doctor", "document"]);
+		expect(commands.get("bytefly").getArgumentCompletions("do")?.[0]?.value).toBe("doctor ");
+		expect(labels("doctor ")).toEqual(expect.arrayContaining(["plan", "refresh"]));
+		expect(labels("doctor w")).toEqual(expect.arrayContaining(["web-access", "worktree"]));
+		expect(commands.get("bytefly").getArgumentCompletions("doctor w")?.[0]?.value).toBe("doctor worktree");
+		expect(labels("plan ")).toEqual(["refresh"]);
+		expect(commands.get("bytefly").getArgumentCompletions("plan ")?.[0]?.value).toBe("plan refresh");
+		expect(commands.get("bytefly").getArgumentCompletions("settings ")).toBeNull();
+		expect(commands.get("bytefly").getArgumentCompletions("refresh ")).toBeNull();
+		expect(commands.get("bytefly").getArgumentCompletions("doctor plan extra")).toBeNull();
+	});
+
+	test("rejects an extension name after settings before discovery", async () => {
+		const { commands } = boot({
+			discover: async () => {
+				throw new Error("should not resolve extensions");
+			},
+		});
+		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+
+		await commands.get("bytefly").handler("settings plan", ctx);
+
+		expect(notifications.at(-1)).toContain("settings takes no extension name");
+		expect(notifications.at(-1)).toContain("plan");
 	});
 });
 

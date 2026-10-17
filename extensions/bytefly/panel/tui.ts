@@ -51,6 +51,9 @@ const MIN_BODY_ROWS = 3;
 const EXPANDED_DETAIL_FALLBACK = 8;
 /** Pi's personal settings file, named in the detail pane. */
 const PI_SETTINGS_FILE = "settings.json";
+/** Fixed body offset in the frame: header, summary, blank line. */
+const BODY_START = 3;
+
 /** The body indent, shared by the note and the detail pane. */
 const INDENT = " ".repeat(BODY_INDENT);
 
@@ -207,11 +210,28 @@ export class PanelComponent implements Component {
 		if (index >= 0) this.cursor.selected = index;
 	}
 
-	/** Move onto the first row when the focus is not already on one. */
+	/** Move onto the nearest selectable row when the focus is not already on one. */
 	private clampSelection(entries: PanelEntry[]): void {
-		if (isSelectable(entries[this.cursor.selected])) return;
-		const first = entries.findIndex(isSelectable);
-		if (first >= 0) this.cursor.selected = first;
+		if (entries.length === 0) return;
+		const index = Math.min(Math.max(0, this.cursor.selected), entries.length - 1);
+		if (isSelectable(entries[index])) {
+			this.cursor.selected = index;
+			return;
+		}
+		// Prefer the closest row above, then the closest below, so a scope switch
+		// that drops the focused row leaves the cursor nearby instead of at the top.
+		for (let back = index - 1; back >= 0; back -= 1) {
+			if (isSelectable(entries[back])) {
+				this.cursor.selected = back;
+				return;
+			}
+		}
+		for (let forward = index + 1; forward < entries.length; forward += 1) {
+			if (isSelectable(entries[forward])) {
+				this.cursor.selected = forward;
+				return;
+			}
+		}
 	}
 
 	private firstRow(): number | undefined {
@@ -426,8 +446,21 @@ export class PanelComponent implements Component {
 
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
 		const delta = wheelDelta(event);
-		if (delta === undefined) return undefined;
-		this.move(delta);
+		if (delta !== undefined) {
+			this.move(delta);
+			return { handled: true };
+		}
+		if ((event.type !== "click" && event.type !== "press") || event.button !== "left") return undefined;
+		const entries = this.activeEntries();
+		if (entries.length === 0) return undefined;
+		// The Settings section prints the "Global only" note first in Project scope,
+		// so the rows start one line lower there.
+		const note = this.section === "settings" && this.options.runtime.scope() === "project" ? 1 : 0;
+		const line = event.y - (BODY_START + note);
+		if (line < 0) return undefined;
+		const index = this.cursor.window(entries.length).start + line;
+		if (!isSelectable(entries[index])) return undefined;
+		this.select(index);
 		return { handled: true };
 	}
 

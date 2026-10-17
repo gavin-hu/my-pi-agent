@@ -393,6 +393,30 @@ describe("PanelComponent input", () => {
 		expect(component.render(96).join("\n")).toContain("Tab scope");
 	});
 
+	test("focuses the row under a click", () => {
+		const { component } = build({ items: [packageItem("alpha"), packageItem("beta")], reports: [] });
+		const selected = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
+
+		component.render(80);
+		// Frame: header, summary, blank, group header, then the rows.
+		expect(component.handleMouse({ type: "click", button: "left", x: 10, y: 5 } as any)).toEqual({ handled: true });
+		expect(selected()).toContain("beta/index.ts");
+
+		component.handleMouse({ type: "click", button: "left", x: 10, y: 4 } as any);
+		expect(selected()).toContain("alpha/index.ts");
+	});
+
+	test("ignores a click on the frame or a group header", () => {
+		const { component } = build({ items: [packageItem("alpha"), packageItem("beta")], reports: [] });
+		const selected = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
+
+		component.render(80);
+		const before = selected();
+		expect(component.handleMouse({ type: "click", button: "left", x: 10, y: 0 } as any)).toBeUndefined();
+		expect(component.handleMouse({ type: "click", button: "left", x: 10, y: 3 } as any)).toBeUndefined();
+		expect(selected()).toBe(before);
+	});
+
 	test("keeps the focus when two rows share a directory name and the list reorders", () => {
 		let items: ResourceItem[] = [packageItem("plan"), makeItem({ path: "/home/me/.pi/extensions/plan/extra.ts" })];
 		const runtime = {
@@ -482,6 +506,21 @@ describe("PanelComponent sections", () => {
 		expect(text).toContain("Project · 2 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
+	});
+
+	test("keeps the focus near the dropped row when a scope switch removes it", () => {
+		const { component } = build({ items: [packageItem("plan")], section: "settings" });
+		const selected = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
+
+		component.render(80);
+		component.handleInput("G");
+		expect(selected()).toContain("Hardware cursor");
+
+		// Project drops the app rows; the cursor lands on the nearest remaining row,
+		// not back at the top of the list.
+		component.handleInput("\t");
+		expect(component.render(80).join("\n")).toContain("Project · 2 settings");
+		expect(selected()).toContain("Rail glyph");
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
