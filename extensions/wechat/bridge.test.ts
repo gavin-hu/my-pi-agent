@@ -800,6 +800,23 @@ function gatedClient(): {
 }
 
 describe("bridge peer feedback", () => {
+	test("sends nothing when a reply flattens to an empty message", async () => {
+		const { client, sent } = makeClient([updates([inbound("ping")])]);
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		bridge.setBusy(true);
+		// Only formatting survives: flattening it away must not send an empty bubble,
+		// so the turn reads as stopped instead.
+		bridge.capture({ role: "assistant", content: [{ type: "text", text: "```\n```" }] });
+		bridge.settle();
+		await waitFor(() => sent.length === 1);
+		expect(sent[0]?.text).toBe("Stopped.");
+		await bridge.close();
+	});
+
 	test("reports how much of a split reply went out when a chunk fails", async () => {
 		const sent: string[] = [];
 		const notifications: string[] = [];
