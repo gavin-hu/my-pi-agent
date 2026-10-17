@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `job`: a log segment rotates to `<id>.log.1` once it reaches `maxLogBytes`
+  (8 MiB by default; `0` keeps logs unbounded), and `logs` fills a request from
+  the previous segment, so a chatty job cannot fill the disk while its recent
+  output stays readable. A POSIX `detached` job writes its own log and is
+  exempt, as the limitation now states.
 - `job`: `start` accepts `stdin: true`, which gives the child a stdin pipe
   instead of an immediate EOF, and the new `send` action writes to it — a line
   by default, a bare keystroke with `newline: false`, and `eof: true` to close

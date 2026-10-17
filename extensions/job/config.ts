@@ -21,6 +21,8 @@ export interface JobsConfig {
 	maxJobs: number;
 	/** Log lines returned to the model by the `logs` action. */
 	maxLogLines: number;
+	/** Bytes a log segment may reach before it rotates; 0 keeps logs unbounded. */
+	maxLogBytes: number;
 	/** Grace period before a SIGTERM escalates to SIGKILL. */
 	killGraceMs: number;
 	/** Status-chip refresh interval while jobs run. */
@@ -38,6 +40,7 @@ export const DEFAULT_CONFIG: JobsConfig = {
 	detachedByDefault: false,
 	maxJobs: 20,
 	maxLogLines: 100,
+	maxLogBytes: 8 * 1024 * 1024,
 	killGraceMs: 5000,
 	repaintMs: 1000,
 	sessionTtlMs: 60_000,
@@ -55,6 +58,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 		detachedByDefault: typeof raw.detachedByDefault === "boolean" ? raw.detachedByDefault : base.detachedByDefault,
 		maxJobs: clampInteger(raw.maxJobs, base.maxJobs, 1, 500),
 		maxLogLines: clampInteger(raw.maxLogLines, base.maxLogLines, 1, 5000),
+		maxLogBytes: clampInteger(raw.maxLogBytes, base.maxLogBytes, 0, 1024 * 1024 * 1024),
 		killGraceMs: clampInteger(raw.killGraceMs, base.killGraceMs, 0, 60_000),
 		repaintMs: clampInteger(raw.repaintMs, base.repaintMs, 100, 10_000),
 		sessionTtlMs: clampInteger(raw.sessionTtlMs, base.sessionTtlMs, 5_000, 600_000),

@@ -24,7 +24,9 @@ How the `job` call and its result look in the transcript — the call line as a 
 - Registers one model-callable tool, `job`, with actions `start`, `list`,
   `status`, `logs`, `send`, `kill`, `wait`, and `clear`.
 - Runs each command in its own process group, streaming stdout and stderr to an
-  append-only log file under `~/.pi/agent/jobs/<project>/`.
+  append-only log file under `~/.pi/agent/jobs/<project>/`. A segment rotates
+  to `<id>.log.1` at `maxLogBytes` (8 MiB by default), so a chatty job cannot
+  fill the disk, and `logs` reads across the boundary.
 - Feeds a running job input when it was started with `stdin: true`: `send`
   writes a line (or a bare keystroke) to its stdin, and `eof: true` closes it, so
   a REPL, a debugger prompt, or a `read` can be driven without a TTY.
@@ -181,6 +183,7 @@ document, project wins):
 | `detachedByDefault` | `false` | Leave jobs running when the session ends. |
 | `maxJobs` | `20` | Finished jobs kept before the oldest are pruned. |
 | `maxLogLines` | `100` | Log lines returned by `logs`. |
+| `maxLogBytes` | `8388608` | Bytes a log segment may reach before it rotates to `<id>.log.1`; `0` keeps logs unbounded. |
 | `killGraceMs` | `5000` | Grace before SIGTERM escalates to SIGKILL. |
 | `repaintMs` | `1000` | Status-chip refresh interval while jobs run. |
 | `sessionTtlMs` | `60000` | How long a session heartbeat is trusted before its jobs may be reaped. |
@@ -213,7 +216,12 @@ rewritten.
   requires a terminal does not. Only the session holding the child's pipe can
   write to it, so a reattached or peer job cannot be fed, and a `detached` job
   cannot take stdin at all.
-- **No log rotation.** Logs are append-only files; `logs` reads a bounded tail.
+- **A detached job's log is not rotated.** A POSIX `detached` job points its
+  own stdout at the log file (`exec >> …`), so the file has a writer this
+  process does not own and cannot safely rename or truncate: the child would
+  keep appending to the moved inode, or lose everything. Its log therefore grows
+  without the `maxLogBytes` cap; `logs` still reads a bounded tail, and the file
+  can be emptied by hand.
 - **Windows is best-effort.** Tree-kill uses `taskkill /T`; POSIX uses process
   groups. A detached job only escapes the parent process on POSIX, where its
   shell writes the log directly; on Windows it keeps the parent pipe and is
@@ -244,6 +252,13 @@ rewritten.
 - **Shell commands only, one action-based tool.** A single `job` tool with
   eight actions mirrors `rewind` and keeps the model surface small. Validation
   is pure and runs before any side effect.
+- **The log rotates under the stream, not behind its back.** A parent-owned log
+  is a `WriteStream`; when the live segment reaches `maxLogBytes` the stream is
+  ended, the file renamed to `<id>.log.1`, and a fresh stream opened, with
+  chunks that arrive during the swap queued (and bounded) rather than written
+  into the renamed inode. `logs` fills a request from the previous segment when
+  the live one is shorter, so the rotation is invisible to the model and to the
+  `/jobs` pane. A detached job writes its own log and is exempt.
 - **Stdin is an opt-in pipe.** `start` keeps the child's stdin closed by
   default, so it gets EOF immediately and a `read` exits instead of blocking;
   `stdin: true` swaps in a pipe that `send` writes to and `eof` closes. The pipe
@@ -348,6 +363,7 @@ sanitization (`format`), the durable store (`store`), per-session reconciliation
 session markers (`session`), bounded log reads and tail flags (`logs`), wait
 bookkeeping (`waiters`), the `job` tool (`tools`), the `/jobs` screen (`tui`),
 the runtime's session-scoped list and failure notification (`runtime`), `send`
-to a job's stdin and the pipe's lifecycle (`runtime`), and the
+to a job's stdin and the pipe's lifecycle (`runtime`), log rotation, its two
+segments, and the cross-segment read (`runtime`), and the
 install/resume/shutdown lifecycle (`extension`). Tests drive a scripted
 `FakeChild` and a temp registry, so the suite runs without launching a process.
