@@ -58,7 +58,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   backticks), so a peer no longer reads raw formatting, and an answer longer than
   `maxReplyChars` arrives in numbered parts (`[1/3] …`) instead of as
   indistinguishable consecutive messages. A failed part now names how much was
-  delivered in the terminal notice.
+  delivered in the terminal notice, and a reply that was only formatting reads as
+  `已停止。` / `Stopped.` rather than as an empty bubble.
 
 - Tool transcript: call lines now clip to the terminal width instead of wrapping
   into the railed body (middle clip for a path or URL, so its head and tail
