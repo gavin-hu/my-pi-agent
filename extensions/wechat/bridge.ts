@@ -24,6 +24,8 @@ import {
 	chunkText,
 	notice,
 	parseInbound,
+	peerKey,
+	peerLabel,
 	peerLanguage,
 	sanitizeInbound,
 	toWechatText,
@@ -78,9 +80,15 @@ export function assistantText(message: unknown): string | undefined {
 	return parts.join("\n");
 }
 
-/** Whether `peer` may drive the agent: the owner, or an explicit extra. */
+/**
+ * Whether `peer` may drive the agent: the owner, or an explicit extra. Either id
+ * form is accepted (with or without `@im.wechat`), so a label copied from the
+ * control screen is not silently refused.
+ */
 export function isAllowedPeer(peer: string, owner: string | undefined, allowedPeers: string[]): boolean {
-	return peer === owner || allowedPeers.includes(peer);
+	const key = peerKey(peer);
+	if (owner !== undefined && peerKey(owner) === key) return true;
+	return allowedPeers.some((allowed) => peerKey(allowed) === key);
 }
 
 /** True when a message is inbound from a human (not the bot's own echo). */
@@ -129,6 +137,8 @@ export interface BridgeStatus {
 	peerCount: number;
 	queued: number;
 	refused: number;
+	/** Labels of the senders refused since the bridge opened, newest last, capped. */
+	refusedPeers: string[];
 	mediaDropped: number;
 	/** Whether a remote dialog prompt is waiting for an answer. */
 	promptPending: boolean;
@@ -176,6 +186,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	/** One peer-facing line for the turn in flight, prepended to its reply. */
 	let mediaNotice: string | undefined;
 	let refused = 0;
+	/** Labels of refused senders, so the operator can allowlist one by name. */
+	const refusedPeers = new Set<string>();
 	let mediaDropped = 0;
 	let mediaCounter = 0;
 	const typingCache = new Map<string, { ticket?: string; checkedAt: number }>();
@@ -583,6 +595,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		const owner = state.ownerId ?? account?.ilinkUserId;
 		if (!isAllowedPeer(peer, owner, deps.config.allowedPeers)) {
 			refused += 1;
+			if (refusedPeers.size < 5) refusedPeers.add(peerLabel(peer));
 			return;
 		}
 		const language = languageOf(peer, text);
@@ -787,6 +800,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				peerCount: Object.keys(state.peers).length,
 				queued: queue.length,
 				refused,
+				refusedPeers: [...refusedPeers],
 				mediaDropped,
 				promptPending: interaction.hasPending(),
 			};
@@ -798,9 +812,16 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 		async sendToOwner(text: string): Promise<SendResult> {
 			if (!running || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
+			const owner = state.ownerId ?? account.ilinkUserId;
+			if (active && peerKey(active.peer) === peerKey(owner)) {
+				// The bridge answers this turn itself, so a tool send would land twice.
+				return {
+					ok: false,
+					error: "The bridge replies to this turn automatically; do not repeat it.",
+				};
+			}
 			const trimmed = sanitizeInbound(text);
 			if (!trimmed) return { ok: false, error: "Nothing to send." };
-			const owner = state.ownerId ?? account.ilinkUserId;
 			const contextToken = state.peers[owner]?.lastContextToken;
 			for (const chunk of chunkText(trimmed, deps.config.maxReplyChars)) {
 				try {

@@ -168,7 +168,8 @@ files), and `poller.lock` (stops two sessions polling one account).
 - WeChat text is **untrusted**, and in this design it becomes a turn in your live
   session **with that session's tools** (including `bash`/`write`/`edit`).
   Admission control is the only gate: the default is **owner-only**, and
-  `allowedPeers` is an explicit opt-in. A refused sender is counted, not run.
+  `allowedPeers` is an explicit opt-in. A refused sender is counted and named in
+  `/wechat status`, not run.
 - Inbound text is sanitized (control characters stripped) before it reaches the
   transcript.
 - Inbound media is **untrusted**: images become model image content, and files

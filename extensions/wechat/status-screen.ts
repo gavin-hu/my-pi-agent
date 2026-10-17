@@ -37,6 +37,8 @@ export interface StatusView {
 	peers: number;
 	queued: number;
 	refused: number;
+	/** Labels of the refused senders, so an operator can allowlist one. */
+	refusedPeers: string[];
 	mediaDropped: number;
 	promptPending: boolean;
 }
@@ -56,6 +58,7 @@ export function statusView(account: BotCredentials | undefined, status: BridgeSt
 		peers: status?.peerCount ?? 0,
 		queued: status?.queued ?? 0,
 		refused: status?.refused ?? 0,
+		refusedPeers: status?.refusedPeers ?? [],
 		mediaDropped: status?.mediaDropped ?? 0,
 		promptPending: status?.promptPending ?? false,
 	};
@@ -66,7 +69,7 @@ export function statusLine(view: StatusView): string {
 	const parts = [view.account ? `account ${view.account}` : "not logged in", view.connection];
 	if (view.bridge) {
 		parts.push(`${view.peers} peer(s)`, `${view.queued} queued`);
-		if (view.refused > 0) parts.push(`${view.refused} refused`);
+		if (view.refused > 0) parts.push(`refused ${refusedValue(view)}`);
 		if (view.mediaDropped > 0) parts.push(`${view.mediaDropped} media dropped`);
 		if (view.owner) parts.push(`owner ${view.owner}`);
 	}
@@ -76,6 +79,15 @@ export function statusLine(view: StatusView): string {
 
 /** Label column width in the screen body. */
 const LABEL_WIDTH = 11;
+
+/**
+ * The refusal count with the senders named: naming them is what makes
+ * `allowedPeers` usable, and either id form can be pasted into the config.
+ */
+function refusedValue(view: StatusView): string {
+	const who = view.refusedPeers.length > 0 ? ` (${view.refusedPeers.join(", ")})` : "";
+	return `${view.refused}${who}`;
+}
 
 /** One body row: a `meta` label column and a value in `valueRole`. */
 function row(theme: Theme, width: number, label: string, value: string, valueRole: TuiRole = "label"): string {
@@ -117,7 +129,7 @@ export function statusBody(view: StatusView, theme: Theme, width: number): strin
 		if (view.owner && view.owner !== view.account) lines.push(row(theme, target, "Owner", view.owner));
 		lines.push(row(theme, target, "Peers", String(view.peers), "meta"));
 		lines.push(row(theme, target, "Queued", String(view.queued), "meta"));
-		if (view.refused > 0) lines.push(row(theme, target, "Refused", String(view.refused), "meta"));
+		if (view.refused > 0) lines.push(row(theme, target, "Refused", refusedValue(view), "meta"));
 		if (view.mediaDropped > 0) lines.push(row(theme, target, "Media", `${view.mediaDropped} dropped`, "meta"));
 		if (view.promptPending) lines.push(row(theme, target, "Prompt", "waiting for a reply", "accent"));
 	}
