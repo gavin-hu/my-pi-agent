@@ -86,28 +86,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Tooling: the hero capture asks "how are you today?" and `assets/chrome.png` is
   refreshed, so the hero shows the two-row user nameplate instead of the removed
   `❯` marker.
-- `bytefly`: `edit` and `write` now show their result on a full-width status fill
-  — neutral while running, green when they settle, red on a failure — the one
-  place the transcript keeps Pi's tool background. The call's headline stays
-  unfilled, and the frame paints the fill once: `edit`, which draws its own `Box`
-  from the same role, is handed a `bg`-inert theme so the base cannot paint a
-  second, narrower stripe inside the fill. Every other tool stays unfilled, and
-  the shipped themes now set `toolPendingBg` / `toolSuccessBg` / `toolErrorBg` for
-  the fill.
 - Tooling: `bun run screenshot:plan` now crops to the page's own content height,
   so a short plan no longer pads the PNG with the browser viewport.
 - Tooling: a per-tool rendering image now leads with its one `name · label`
   caption line instead of repeating the name and label as a page heading above
   it.
-- `bytefly`: every transcript block that is not prose now shares one frame — a
-  plain indent with no glyph (`lib/tui/indent.ts`) — so a notice, a tool block,
-  and a subagent quote hang from one left edge instead of three.
-- `bytefly`: the footer's group divider stays `╎` (DOUBLE DASH), now the chrome's
-  only vertical glyph, and the shared-glyph rule no longer forbids East-Asian
-  *ambiguous* glyphs — only wide, fullwidth, and emoji, which are two columns in
-  every profile.
-- `subagent`: the quoted output is indented two columns instead of drawn behind a
-  rail.
+- `bytefly`: every transcript block that is not prose shares one frame
+  (`lib/tui/indent.ts`), so a notice, a tool block, and a subagent quote hang
+  from one left edge, and a tool block is compact — its body follows the call
+  headline with no separating blank line.
+- `bytefly`: the footer's group divider stays `╎` (DOUBLE DASH), and the
+  shared-glyph rule no longer forbids East-Asian *ambiguous* glyphs — only wide,
+  fullwidth, and emoji, which are two columns in every profile.
+- `subagent`: the quoted output is indented two columns inside the result, so it
+  reads as a quote rather than as the result's own text.
 - `bytefly`: the shipped themes point `mdHeading` at the accent, so Markdown
   headings — including the user-message nameplate — render in the accent color
   instead of yellow.
@@ -206,7 +198,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Each hunk is now wrapped in its own section so a pinned header is bounded by
   its body, and the keyboard scrolls the code pane to the hunk instead of
   calling `scrollIntoView` on the pinned (already-at-top) header.
-
 - `file-browse` / `plan`: rendered Markdown tables no longer inherit the prose
   `overflow-wrap:anywhere`. Since `anywhere` also shrinks a cell's min-content
   width, auto layout collapsed a code-span column to one character and split
