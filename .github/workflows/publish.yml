@@ -114,4 +114,6 @@ jobs:
           node-version: "24"
 
       - name: Publish with provenance
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
         run: npm publish --provenance --registry https://registry.npmjs.org/
