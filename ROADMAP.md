@@ -61,24 +61,25 @@ screenshots.
 | Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1–P3 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S5 |
 | Remember across sessions | Works; the store reports its own health | — |
-| Reach the web and your files | Broad; formats and remote media are thin | W1–W8 |
+| Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F6 |
 
 ## If only three things ship
 
-1. **W1 — Provider diagnostics.** `doctor` should name the active search provider,
-   whether its endpoint is reachable, and which key variable is missing.
-2. **C2 — Re-checkable updates.** The npm update check should cache with a
+1. **C2 — Re-checkable updates.** The npm update check should cache with a
    timestamp and re-run on demand, so a release is visible without a restart.
-3. **S1 — Guard parity on Windows.** Block `powershell` escapes in the worktree
+2. **S1 — Guard parity on Windows.** Block `powershell` escapes in the worktree
    guard the way plan mode already does, or report the gap as `degraded`.
+3. **F1 — Release provenance.** Publish npm with `--provenance` from a protected
+   workflow that still requires the per-release approval, so a published release
+   is verifiably built from this repository.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** (highest priority) | Are the promises true? | No known stale doc; every isolation gap is visible in the session; the suite runs on a named Pi range and a long-session benchmark holds. |
-| **Next** (queued) | Does the daily loop feel finished? | Plan-to-execution handoff, note promotion, settings completeness, provider diagnostics. |
+| **Next** (queued) | Does the daily loop feel finished? | Plan-to-execution handoff, note promotion, settings completeness. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -217,29 +218,28 @@ an item below or a row in *Deliberately left thin*. This section contributes no
 
 **Next**
 
-- **W1 — Provider diagnostics.** On an explicit refresh, `doctor` names the
-  active search provider, whether its endpoint is reachable, and which key
-  environment variable is missing. Probes stay injected and testable offline.
+Nothing here is queued: the search provider's configuration is now reported by
+`doctor`. This section contributes no `Next` item.
 
 **Later**
 
-- **W2 — PPTX and EPUB.** Add both to the `document` registry using libraries
+- **W1 — PPTX and EPUB.** Add both to the `document` registry using libraries
   already present where possible (`fflate`, `fast-xml-parser`), lazily imported.
   This reverses a documented non-goal; approve before building.
-- **W3 — Per-peer WeChat concurrency.** Give each peer its own interaction
+- **W2 — Per-peer WeChat concurrency.** Give each peer its own interaction
   channel and a fair queue, so two peers can run at once while each peer's own
   turns stay serial. *Done when* a forwarded dialog still has exactly one
   owner.
-- **W4 — Outbound images.** Send images such as plan screenshots or generated
+- **W3 — Outbound images.** Send images such as plan screenshots or generated
   plots to a peer, not only text and files. This reverses a non-goal; confirm the
   API shape first.
-- **W5 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
+- **W4 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
   readable text instead of a raw blob. No model call and no new dependency.
-- **W6 — Group chats.** A separate admission and routing model, not a flag on
+- **W5 — Group chats.** A separate admission and routing model, not a flag on
   the current bridge.
-- **W7 — OCR.** Only if a local, dependency-light engine earns its install
+- **W6 — OCR.** Only if a local, dependency-light engine earns its install
   size; otherwise keep the explicit non-goal.
-- **W8 — Readability engine.** Replace the heuristic extractor only with a
+- **W7 — Readability engine.** Replace the heuristic extractor only with a
   measured improvement on a fixture set.
 
 ## 4. Chrome and upkeep
@@ -354,7 +354,7 @@ it.
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S2`. |
 | `rewind`: a restore is all-or-nothing | A non-goal until `S2`; the confirmation already previews the change. |
-| `document`: no OCR | `W7` is a non-goal until a dependency-light engine exists. |
+| `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |

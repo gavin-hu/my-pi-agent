@@ -8,6 +8,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { WEB_SEARCH_PROVIDER_CHANNEL } from "../../../lib/events.ts";
 import { loadSearchConfig } from "../config.ts";
 import { oneLine } from "../transcript.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
@@ -21,6 +22,7 @@ import {
 } from "../../../lib/tui/tool.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { expandHint, SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { providerFacts } from "./facts.ts";
 import { formatResults } from "./format.ts";
 import { createThrottle, runSearch, type SearchDeps } from "./search.ts";
 import { resolveRequest, WebSearchOutput, WebSearchParams, type SearchResponse, type WebSearchArgs } from "./schema.ts";
@@ -31,6 +33,17 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 	// One throttle per extension instance, so repeated searches stay polite
 	// without any module-level state.
 	const runDeps: SearchDeps = { http: deps.http, throttle: deps.throttle ?? createThrottle() };
+
+	// Publish what this session resolved to, so `doctor` can report the provider,
+	// its key, and its endpoint without importing this extension. Accounting only:
+	// a bus listener that throws must not break the tool.
+	pi.on("session_start", (_event, ctx) => {
+		try {
+			pi.events.emit(WEB_SEARCH_PROVIDER_CHANNEL, providerFacts(loadSearchConfig(ctx.cwd)));
+		} catch {
+			// Diagnostics are best-effort.
+		}
+	});
 
 	pi.registerTool({
 		name: TOOL_NAME,

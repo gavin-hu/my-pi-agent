@@ -10,6 +10,7 @@ import {
 	REQUIREMENTS,
 	type ProbeSeams,
 } from "./requirements.ts";
+import type { WebSearchProviderEvent } from "./events.ts";
 
 /** The directories the seams resolve against, and the paths they produce. */
 const AGENT_DIR = "/agent";
@@ -301,5 +302,127 @@ describe("the notify check", () => {
 	test("reports ok when the capability is absent, so the check never invents a problem", async () => {
 		const report = await probeExtension("bytefly", seams());
 		expect(find(report, "notify.method")?.severity).toBe("ok");
+	});
+});
+
+describe("provider check", () => {
+	/** The facts `web-access` publishes for one session. */
+	function facts(over: Partial<WebSearchProviderEvent> = {}): WebSearchProviderEvent {
+		return {
+			provider: "duckduckgo",
+			reason: "default",
+			configured: true,
+			endpoint: null,
+			apiKeyEnv: null,
+			keyConfigured: false,
+			...over,
+		};
+	}
+
+	test("names the resolved provider", async () => {
+		const report = await probeExtension("web-access", seams({ searchProvider: () => facts() }));
+		expect(find(report, "web-access.search.provider")).toEqual({
+			extension: "web-access",
+			check: "web-access.search.provider",
+			severity: "ok",
+			detail: "resolved to duckduckgo (default)",
+		});
+	});
+
+	test("warns when an explicit provider is not configured", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({ searchProvider: () => facts({ provider: "searxng", reason: "explicit", configured: false }) }),
+		);
+		const finding = find(report, "web-access.search.provider");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toContain("resolved to searxng (explicit), which is not configured");
+		expect(finding?.hint).toContain("web-access.search.provider");
+	});
+
+	test("names the key variable that is missing, without a key value", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY" }),
+				env: () => undefined,
+			}),
+		);
+		const finding = find(report, "BRAVE_SEARCH_API_KEY");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toBe("the API key for brave is missing — BRAVE_SEARCH_API_KEY is not set");
+		expect(finding?.hint).toContain("export BRAVE_SEARCH_API_KEY");
+	});
+
+	test("reports the variable as set when it is", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY" }),
+				env: () => "k",
+			}),
+		);
+		expect(find(report, "BRAVE_SEARCH_API_KEY")?.severity).toBe("ok");
+	});
+
+	test("a literal key needs no variable", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY", keyConfigured: true }),
+				env: () => undefined,
+			}),
+		);
+		expect(report.findings.some((finding) => finding.check === "BRAVE_SEARCH_API_KEY")).toBe(false);
+	});
+
+	test("probes the endpoint only on an explicit refresh", async () => {
+		let probed = 0;
+		const reach = async () => {
+			probed += 1;
+			return { ok: true };
+		};
+		const withEndpoint = () => facts({ provider: "searxng", endpoint: "http://searx.local:8080" });
+
+		const cheap = await probeExtension("web-access", seams({ searchProvider: withEndpoint, reach }));
+		expect(probed).toBe(0);
+		expect(cheap.findings.some((finding) => finding.check === "http://searx.local:8080")).toBe(false);
+
+		const refreshed = await probeExtension("web-access", seams({ searchProvider: withEndpoint, reach, refresh: true }));
+		expect(probed).toBe(1);
+		expect(find(refreshed, "http://searx.local:8080")?.severity).toBe("ok");
+	});
+
+	test("reports an endpoint that does not answer", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "searxng", endpoint: "http://searx.local:8080" }),
+				reach: async () => ({ ok: false, error: "connect ECONNREFUSED" }),
+				refresh: true,
+			}),
+		);
+		const finding = find(report, "http://searx.local:8080");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toBe("http://searx.local:8080 did not answer (connect ECONNREFUSED)");
+		expect(finding?.hint).toContain("web-access.search.endpoint");
+	});
+
+	test("stays informational when no provider was published", async () => {
+		const report = await probeExtension("web-access", seams());
+		const finding = find(report, "web-access.search.provider");
+		expect(finding?.severity).toBe("info");
+		expect(finding?.detail).toContain("has not reported");
+	});
+
+	test("never puts a key value in a detail", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY", keyConfigured: true }),
+				env: () => "super-secret",
+			}),
+		);
+		expect(JSON.stringify(report.findings)).not.toContain("super-secret");
 	});
 });

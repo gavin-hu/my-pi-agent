@@ -30,6 +30,7 @@ function fakeDoctor(reports: ExtensionReport[], refreshes: boolean[] = []): Doct
 			return reports;
 		},
 		peek: () => reports,
+		noteSearchFacts: () => {},
 		reset: () => {},
 	};
 }

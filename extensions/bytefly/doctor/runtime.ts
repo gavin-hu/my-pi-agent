@@ -9,6 +9,7 @@
  */
 
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { WebSearchProviderEvent } from "../../../lib/events.ts";
 import { readJsonResult } from "../../../lib/config.ts";
 import { isExtensionEnabled } from "../../../lib/env.ts";
 import {
@@ -47,8 +48,26 @@ export interface DoctorRuntime {
 	probeAll(options?: { refresh?: boolean }): Promise<ExtensionReport[]>;
 	/** The cached reports from the last probe, if any. */
 	peek(): ExtensionReport[] | undefined;
-	/** Drop the cached reports; the configured cwd is kept. */
+	/** Remember the search provider `web-access` published for this session. */
+	noteSearchFacts(facts: unknown): void;
+	/** Drop the cached reports and the published facts; the configured cwd is kept. */
 	reset(): void;
+}
+
+/** How long a reachability probe may take; a doctor refresh is not a fetch. */
+const REACH_TIMEOUT_MS = 3_000;
+
+/**
+ * Probe a URL's reachability. Any HTTP answer proves the host is there; a 5xx is
+ * reported because it usually means the server is up but broken.
+ */
+async function probeReach(url: string): Promise<{ ok: boolean; error?: string }> {
+	try {
+		const response = await fetch(url, { method: "GET", signal: AbortSignal.timeout(REACH_TIMEOUT_MS) });
+		return response.status < 500 ? { ok: true } : { ok: false, error: `HTTP ${response.status}` };
+	} catch (error) {
+		return { ok: false, error: error instanceof Error ? error.message : String(error) };
+	}
 }
 
 /** Build a runtime over the host's `exec`, with `deps.seams` for tests. */
@@ -59,9 +78,11 @@ export function createDoctorRuntime(
 	let cwd = process.cwd();
 	let config: DoctorConfig = DEFAULT_CONFIG;
 	let cached: ExtensionReport[] | undefined;
+	/** What `web-access` published at session start; absent when it did not load. */
+	let searchProvider: WebSearchProviderEvent | undefined;
 
-	/** The full seam set for the current session. */
-	const seams = (): ProbeSeams => ({
+	/** The full seam set for the current session; `refresh` is the caller's. */
+	const seams = (refresh: boolean): ProbeSeams => ({
 		exec: async (command, args) => {
 			const result = await pi.exec(command, args, { timeout: config.timeoutMs });
 			return { code: result.code };
@@ -72,6 +93,9 @@ export function createDoctorRuntime(
 		isEnabled: (extension) => isExtensionEnabled(extension) && !config.skip.includes(extension),
 		notify: notifySeam(cwd),
 		isTTY: process.stdout.isTTY === true,
+		searchProvider: () => searchProvider,
+		reach: probeReach,
+		refresh,
 		...deps.seams,
 	});
 
@@ -84,20 +108,26 @@ export function createDoctorRuntime(
 
 		async probeRequired() {
 			// Concurrent: a probe is a short-lived process, and session start must
-			// not wait on the sum of every timeout.
-			return Promise.all(hardRequirementExtensions().map((name) => probeExtension(name, seams())));
+			// not wait on the sum of every timeout. Never a refresh: this runs before
+			// anyone asked, so no probe may touch the network.
+			return Promise.all(hardRequirementExtensions().map((name) => probeExtension(name, seams(false))));
 		},
 
 		async probeAll(options = {}) {
 			if (cached && !options.refresh) return cached;
-			cached = await probeDeclared(seams(), Object.keys(REQUIREMENTS));
+			cached = await probeDeclared(seams(options.refresh === true), Object.keys(REQUIREMENTS));
 			return cached;
 		},
 
 		peek: () => cached,
 
+		noteSearchFacts(facts) {
+			searchProvider = facts && typeof facts === "object" ? (facts as WebSearchProviderEvent) : undefined;
+		},
+
 		reset() {
 			cached = undefined;
+			searchProvider = undefined;
 		},
 	};
 }
