@@ -176,9 +176,9 @@ describe("bytefly extension", () => {
 		const component = headers.at(-1)({ requestRender: () => {} }, fakeTheme);
 		const lines = component.render(80);
 
-		expect(lines).toHaveLength(6);
-		expect(lines[0]).toContain("Pi v");
-		expect(lines[1]).toContain("enhanced by bytefly");
+		expect(lines).toHaveLength(7);
+		expect(lines[1]).toContain("Pi v");
+		expect(lines[2]).toContain("enhanced by bytefly");
 	});
 
 	test("places the header on Pi's output pad", async () => {
@@ -194,9 +194,9 @@ describe("bytefly extension", () => {
 				.at(-1)({ requestRender: () => {} }, fakeTheme)
 				.render(80);
 
-			expect(lines[0]?.startsWith(`${" ".repeat(margin)}█▀█`)).toBe(true);
+			expect(lines[1]?.startsWith(`${" ".repeat(margin)}█▀█`)).toBe(true);
 			// The raw `/` hints need no keybinding, so the row is stable in a bare test.
-			expect(lines[5]?.startsWith(`${" ".repeat(help)}/`)).toBe(true);
+			expect(lines[6]?.startsWith(`${" ".repeat(help)}/`)).toBe(true);
 		}
 	});
 

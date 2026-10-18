@@ -55,8 +55,14 @@ function header(viewValue: HeaderView = view(), version = "1.2.0"): ByteflyHeade
 }
 
 describe("ByteflyHeader", () => {
+	// Pi mounts the built-in header inside `Spacer(1)`s, but the silenced branch keeps
+	// no spacer for a custom header, so the component owns the leading blank row.
+	test("opens with a blank row above the mark", () => {
+		expect(header().render(80)[0]).toBe("");
+	});
 	test("renders the mark, identity, rule, and grouped help", () => {
 		expect(header().render(80)).toEqual([
+			"",
 			" █▀█  Pi v1.2.0",
 			` █▀ █ ${chrome}`,
 			` ${"─".repeat(78)}`,
@@ -67,46 +73,46 @@ describe("ByteflyHeader", () => {
 	});
 
 	test("stops the rule at the transcript's right edge", () => {
-		expect(visibleWidth(header().render(80)[2] ?? "")).toBe(79);
-		expect(visibleWidth(header(view({ pad: 0 })).render(80)[2] ?? "")).toBe(80);
+		expect(visibleWidth(header().render(80)[3] ?? "")).toBe(79);
+		expect(visibleWidth(header(view({ pad: 0 })).render(80)[3] ?? "")).toBe(80);
 	});
 
 	test("hangs the help one body indent inside the margin", () => {
 		const flush = header(view({ pad: 0 })).render(80);
 
-		expect(flush[0]).toBe("█▀█  Pi v1.2.0");
-		expect(flush[2]).toBe("─".repeat(80));
-		expect(flush[3]?.startsWith("  escape")).toBe(true);
+		expect(flush[1]).toBe("█▀█  Pi v1.2.0");
+		expect(flush[3]).toBe("─".repeat(80));
+		expect(flush[4]?.startsWith("  escape")).toBe(true);
 	});
 
 	test("starts both identity cells at the same column", () => {
 		const lines = header().render(80);
-		expect(lines[0]?.indexOf("Pi v1.2.0")).toBe(lines[1]?.indexOf("enhanced by"));
+		expect(lines[1]?.indexOf("Pi v1.2.0")).toBe(lines[2]?.indexOf("enhanced by"));
 	});
 
 	test("drops the Pi version when showVersion is off", () => {
-		expect(header(view({ showVersion: false })).render(80)[0]).toBe(" █▀█  Pi");
+		expect(header(view({ showVersion: false })).render(80)[1]).toBe(" █▀█  Pi");
 	});
 
 	test("falls back to the wordmark when half blocks do not render", () => {
 		const lines = header(view({ halfBlocks: false })).render(80);
 
 		// The wordmark is the app name, so it is not repeated beside the version.
-		expect(lines[0]).toContain("Pi");
-		expect(lines[0]).not.toContain("█");
-		expect(lines[0]?.indexOf("v1.2.0")).toBe(6);
-		expect(lines[0]?.split("Pi")).toHaveLength(2);
-		expect(lines[1]).toContain(chrome);
-		expect(lines[1]?.indexOf("enhanced by")).toBe(6);
+		expect(lines[1]).toContain("Pi");
+		expect(lines[1]).not.toContain("█");
+		expect(lines[1]?.indexOf("v1.2.0")).toBe(6);
+		expect(lines[1]?.split("Pi")).toHaveLength(2);
+		expect(lines[2]).toContain(chrome);
+		expect(lines[2]?.indexOf("enhanced by")).toBe(6);
 	});
 
 	test("omits a help row whose keybindings are all unbound", () => {
 		setKeybindings(new KeybindingsManager(TUI_KEYBINDINGS));
 		const lines = header().render(80);
 
-		expect(lines[3]).toBe("");
 		expect(lines[4]).toBe("");
-		const row = lines[5] ?? "";
+		expect(lines[5]).toBe("");
+		const row = lines[6] ?? "";
 		expect(row.indexOf("/")).toBe(3);
 		expect(row).toContain("/ commands · ! bash · !! bash (no context) · /bytefly extensions");
 	});
@@ -119,14 +125,14 @@ describe("ByteflyHeader", () => {
 				"app.exit": { defaultKeys: "ctrl+x", description: "Exit when editor is empty" },
 			}),
 		);
-		const line = header().render(80)[3] ?? "";
+		const line = header().render(80)[4] ?? "";
 
 		expect(line).toContain("ctrl+x to exit");
 		expect(line).not.toContain("ctrl+d");
 	});
 
 	test("adds the update marker after the chrome version", () => {
-		expect(header(view({ latest: "0.12.0" })).render(80)[1]).toBe(` █▀ █ ${chrome} ↑0.12.0`);
+		expect(header(view({ latest: "0.12.0" })).render(80)[2]).toBe(` █▀ █ ${chrome} ↑0.12.0`);
 	});
 
 	test("colors the marker with the accent, not a warning colour", () => {
@@ -136,27 +142,27 @@ describe("ByteflyHeader", () => {
 			"1.2.0",
 		).render(80);
 
-		expect(lines[1]).toContain("[accent]↑0.12.0");
-		expect(lines[1]).toContain(`[dim]v${HEADER_CONFIG.chromeVersion}`);
+		expect(lines[2]).toContain("[accent]↑0.12.0");
+		expect(lines[2]).toContain(`[dim]v${HEADER_CONFIG.chromeVersion}`);
 	});
 
 	test("sheds the marker before the version, then the chrome line, then the agent", () => {
 		const marked = view({ latest: "0.12.0" });
 
-		expect(header(marked).render(41)[1]).toBe(` █▀ █ ${chrome} ↑0.12.0`);
-		expect(header(marked).render(40)[1]).toBe(` █▀ █ ${chrome}`);
-		expect(header(marked).render(32)[1]).toBe(" █▀ █ enhanced by bytefly");
-		expect(header(marked).render(24)[0]).toBe(" █▀█  Pi v1.2.0");
-		expect(header(marked).render(24)[1]).toBe(" █▀ █");
-		expect(header(marked).render(14)[0]).toBe(" █▀█");
+		expect(header(marked).render(41)[2]).toBe(` █▀ █ ${chrome} ↑0.12.0`);
+		expect(header(marked).render(40)[2]).toBe(` █▀ █ ${chrome}`);
+		expect(header(marked).render(32)[2]).toBe(" █▀ █ enhanced by bytefly");
+		expect(header(marked).render(24)[1]).toBe(" █▀█  Pi v1.2.0");
+		expect(header(marked).render(24)[2]).toBe(" █▀ █");
+		expect(header(marked).render(14)[1]).toBe(" █▀█");
 	});
 
 	test("sheds the chrome version, then the chrome line, then the agent", () => {
-		expect(header().render(25)[1]).toBe(" █▀ █ enhanced by bytefly");
-		expect(header().render(20)[0]).toBe(" █▀█  Pi v1.2.0");
-		expect(header().render(20)[1]).toBe(" █▀ █");
-		expect(header().render(10)[0]).toBe(" █▀█");
-		expect(header().render(10)[1]).toBe(" █▀ █");
+		expect(header().render(25)[2]).toBe(" █▀ █ enhanced by bytefly");
+		expect(header().render(20)[1]).toBe(" █▀█  Pi v1.2.0");
+		expect(header().render(20)[2]).toBe(" █▀ █");
+		expect(header().render(10)[1]).toBe(" █▀█");
+		expect(header().render(10)[2]).toBe(" █▀ █");
 	});
 
 	test("every line fits the requested width at any size", () => {
@@ -164,7 +170,8 @@ describe("ByteflyHeader", () => {
 			for (const halfBlocks of [true, false]) {
 				for (const pad of [0, 1]) {
 					const lines = header(view({ halfBlocks, pad })).render(width);
-					expect(lines).toHaveLength(6);
+					expect(lines).toHaveLength(7);
+					expect(lines[0]).toBe("");
 					for (const line of lines) {
 						expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 					}
@@ -180,15 +187,15 @@ describe("ByteflyHeader", () => {
 			"1.2.0",
 		).render(80);
 
-		expect(lines[0]).toContain("[accent]█▀█");
-		expect(lines[0]).toContain("[bold][text]Pi");
-		expect(lines[0]).toContain("[dim]v1.2.0");
-		expect(lines[1]).toContain("[warning]█▀ █");
-		expect(lines[1]).toContain("[muted]bytefly");
-		expect(lines[2]).toContain("[accent]");
-		expect(lines[2]).toContain("[borderMuted]");
-		expect(lines[3]).toContain("[dim]escape");
-		expect(lines[3]).toContain("[muted] to interrupt");
+		expect(lines[1]).toContain("[accent]█▀█");
+		expect(lines[1]).toContain("[bold][text]Pi");
+		expect(lines[1]).toContain("[dim]v1.2.0");
+		expect(lines[2]).toContain("[warning]█▀ █");
+		expect(lines[2]).toContain("[muted]bytefly");
+		expect(lines[3]).toContain("[accent]");
+		expect(lines[3]).toContain("[borderMuted]");
+		expect(lines[4]).toContain("[dim]escape");
+		expect(lines[4]).toContain("[muted] to interrupt");
 	});
 
 	test("anchors the rule's accent lead under the mark", () => {
@@ -198,7 +205,7 @@ describe("ByteflyHeader", () => {
 			"1.2.0",
 		).render(80);
 
-		expect(lines[2]?.startsWith(" [accent]────[borderMuted]")).toBe(true);
+		expect(lines[3]?.startsWith(" [accent]────[borderMuted]")).toBe(true);
 	});
 
 	test("reads the live theme on every render", () => {
@@ -209,9 +216,9 @@ describe("ByteflyHeader", () => {
 			"1.2.0",
 		);
 
-		expect(component.render(80)[0]).toBe(" █▀█  Pi v1.2.0");
+		expect(component.render(80)[1]).toBe(" █▀█  Pi v1.2.0");
 		theme = coloringTheme;
-		expect(component.render(80)[0]).toContain("[accent]█▀█");
+		expect(component.render(80)[1]).toContain("[accent]█▀█");
 	});
 
 	test("returns the same lines on a repeat render", () => {
@@ -261,7 +268,7 @@ describe("ByteflyHeader", () => {
 		headerView = view({ latest: "0.12.0" });
 
 		expect(component.render(80)).not.toBe(before);
-		expect(component.render(80)[1]).toContain("↑0.12.0");
+		expect(component.render(80)[2]).toContain("↑0.12.0");
 	});
 
 	test("rebuilds after invalidate even when nothing else changed", () => {
@@ -286,6 +293,6 @@ describe("bytefly header factory", () => {
 		);
 
 		expect(typeof factory).toBe("function");
-		expect(factory({ requestRender: () => {} } as any, fakeTheme).render(80)).toHaveLength(6);
+		expect(factory({ requestRender: () => {} } as any, fakeTheme).render(80)).toHaveLength(7);
 	});
 });

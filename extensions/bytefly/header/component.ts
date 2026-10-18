@@ -143,7 +143,11 @@ export class ByteflyHeader implements Component {
 		const lineWidth = (cell: string): number => pad.length + MARK_WIDTH + (cell ? 1 + visibleWidth(cell) : 0);
 		const [agentCell, chromeCell] = states.find(([a, c]) => Math.max(lineWidth(a), lineWidth(c)) <= w) ?? ["", ""];
 
+		// The header owns its leading blank: Pi mounts the built-in header inside
+		// `Spacer(1)`s, but the `quietStartup: true` branch that hands this header the
+		// screen adds none, and `setHeader` swaps only the header child.
 		return [
+			"",
 			this.identityLine(pad, markTop, agentCell, w),
 			this.identityLine(pad, markBottom, chromeCell, w),
 			this.rule(theme, w, pad),

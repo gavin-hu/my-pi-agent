@@ -78,6 +78,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: `/plan review` no longer consumes the changed-section baseline when
   the review server fails to start, and a resumed or tree-restored session
   starts without one, so the markers match what the docs promise.
+- `bytefly`: the startup header opens with a blank row again. Pi mounts its
+  built-in header inside spacers but keeps none for the `quietStartup: true`
+  header a custom component replaces, so the nameplate now draws its own
+  leading blank instead of sitting flush against the top edge.
 
 ## [0.12.0] - 2026-10-18
 
