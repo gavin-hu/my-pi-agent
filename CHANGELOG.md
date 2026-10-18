@@ -170,6 +170,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- themes: `test/theme.test.ts` now measures WCAG AA at the layer the package
+  paints with — every semantic role from `lib/tui/tokens.ts` against the canvas,
+  and the selected-row pair against `selectedBg` — instead of only per Pi token,
+  so a palette edit that makes text unreadable fails the suite. The run found one
+  real failure: dark `faint` (`dim`) sat at 4.12, and `dim` moves from `#6e7681` to
+  `#7d8590` (5.07, still a visible step below `muted` at 6.15). The metric itself
+  is pinned against known ratios (black on white is 21, `#767676` on white is
+  ≈4.54) so a broken formula cannot pass every theme quietly. The deterministic
+  galleries (`assets/tool-renderings.png`, `assets/tools/*.png`) are regenerated
+  for the new shade; the live-session screenshots are untouched.
+
 - `job`: `detached: true` is now refused on Windows instead of starting a job that
   silently did not detach — it kept the parent's pipes, died with the session, and
   never reported a code. The error names the three alternatives (`detached:

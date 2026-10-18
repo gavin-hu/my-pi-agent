@@ -207,7 +207,7 @@ test/
   docs-truth.test.ts       # catalog commands and flags vs registrations
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   prompt-budget.test.ts    # injected-context size ceilings
-  theme.test.ts            # themes/*.json contract
+  theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
 ```
 
 Rules:
