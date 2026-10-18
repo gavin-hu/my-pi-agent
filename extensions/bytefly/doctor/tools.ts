@@ -57,9 +57,7 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 		],
 		parameters: DoctorParams,
 		outputSchema: DoctorOutput,
-		exposure: "direct",
-		defaultActive: true,
-		annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+		annotations: { readOnlyHint: true, openWorldHint: false },
 
 		async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
 			const args = params as DoctorArgs;

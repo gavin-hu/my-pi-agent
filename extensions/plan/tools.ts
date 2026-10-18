@@ -320,7 +320,7 @@ export function registerTools(
 		executionMode: "sequential",
 		// readOnlyHint stays true: entering plan mode changes only the session's
 		// tool set, never files or system state, so it needs no approval.
-		annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+		annotations: { readOnlyHint: true, openWorldHint: false },
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			if (runtime.isEnabled()) {
@@ -464,7 +464,7 @@ export function registerTools(
 		executionMode: "sequential",
 		// readOnlyHint stays true: it writes no files, and the review dialog inside
 		// execute is the human gate, so an outer prompt would only double-ask.
-		annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+		annotations: { readOnlyHint: true, openWorldHint: false },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const planPath = (params as ExitPlanModeArgs).plan_path.trim();

@@ -45,7 +45,7 @@ export function registerTools(pi: ExtensionAPI): void {
 		parameters: AskUserQuestionParams,
 		exposure: "model-only",
 		defaultActive: false,
-		annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+		annotations: { readOnlyHint: true, openWorldHint: false },
 		executionMode: "sequential",
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {

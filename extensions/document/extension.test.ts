@@ -21,9 +21,9 @@ describe("document extension", () => {
 
 		const tool = tools.get(TOOL_NAME);
 		expect(tool).toBeDefined();
-		expect(tool.exposure).toBe("direct");
-		expect(tool.defaultActive).toBe(true);
-		expect(tool.annotations).toEqual({ readOnlyHint: true, openWorldHint: false, destructiveHint: false });
+		expect(tool.exposure).toBeUndefined();
+		expect(tool.defaultActive).toBeUndefined();
+		expect(tool.annotations).toEqual({ readOnlyHint: true, openWorldHint: false });
 		expect(tool.outputSchema).toBeDefined();
 		expect(typeof tool.execute).toBe("function");
 		expect(typeof tool.renderCall).toBe("function");

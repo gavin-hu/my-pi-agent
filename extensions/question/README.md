@@ -131,7 +131,7 @@ None in v1 — the tool is either available (a UI exists) or not.
 |---|---|
 | Tool | `ask_user_question`; `exposure: "model-only"`, `defaultActive: false`, activated in `session_start` when `ctx.hasUI` is true. |
 | Execution | `executionMode: "sequential"`. |
-| Annotations | `readOnlyHint: true`, `openWorldHint: false`, `destructiveHint: false`. |
+| Annotations | `readOnlyHint: true`, `openWorldHint: false` (a read-only tool declares no `destructiveHint`). |
 | Output schema | None. Structured data is returned as tool-result `details` (not `structuredContent`). |
 | State storage | Tool-result `details` (`questions`, `answers`, `cancelled`, `unavailable`). No `pi.appendEntry`. |
 | Lifecycle | `session_start` only: add the tool to the active set when a UI exists. No `session_shutdown`. |

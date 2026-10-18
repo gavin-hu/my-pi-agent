@@ -79,9 +79,7 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 		],
 		parameters: DocParams,
 		outputSchema: DocOutput,
-		exposure: "direct",
-		defaultActive: true,
-		annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+		annotations: { readOnlyHint: true, openWorldHint: false },
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const args = params as DocArgs;

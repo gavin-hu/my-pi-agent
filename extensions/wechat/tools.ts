@@ -68,8 +68,6 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		],
 		parameters: WechatSendParams,
 		outputSchema: WechatSendResult,
-		exposure: "direct",
-		defaultActive: true,
 		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 		executionMode: "sequential",
 
