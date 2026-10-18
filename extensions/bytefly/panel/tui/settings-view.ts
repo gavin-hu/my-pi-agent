@@ -29,14 +29,25 @@ export function settingsSummary(theme: Theme, width: number, scope: PanelScope, 
 }
 
 /** One setting row: a checkbox for booleans, the value right-aligned. */
-export function settingRow(theme: Theme, width: number, view: SettingView, selected: boolean): string {
+export function settingRow(
+	theme: Theme,
+	width: number,
+	view: SettingView,
+	selected: boolean,
+	editing?: { buffer: string; caret: number },
+): string {
+	// The editor shows the buffer with a caret block, in the accent so the row
+	// reads as active rather than as a value that happens to contain a bar.
+	const value = editing
+		? `${editing.buffer.slice(0, editing.caret)}▏${editing.buffer.slice(editing.caret)}`
+		: view.valueLabel;
 	return listRow(theme, width, {
 		selected,
 		leading: view.kind === "boolean" ? checkbox(theme, view.value === "true") : " ",
 		label: sanitizeLine(view.label),
 		labelRole: selected ? "accent" : "label",
-		trailing: sanitizeLine(view.valueLabel),
-		trailingRole: "meta",
+		trailing: sanitizeLine(value),
+		trailingRole: editing ? "accent" : "meta",
 	});
 }
 
@@ -96,4 +107,9 @@ export function settingDetail(options: {
 /** The section's key hints, in the order they drop as the width runs out. */
 export function settingsHints(): string[] {
 	return ["Esc close", "←/→", "Space change", "Tab scope", "↑/↓ select"];
+}
+
+/** The editor's key hints: `Esc` cancels the edit, it does not close the screen. */
+export function editHints(): string[] {
+	return ["Esc cancel", "←/→ caret", "Enter save", "Backspace delete", "Ctrl+U clear"];
 }

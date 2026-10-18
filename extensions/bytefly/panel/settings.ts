@@ -24,7 +24,7 @@ import type { Settings, WriteScope } from "../picker/types.ts";
 export type SettingSource = "app" | "bytefly";
 
 /** The row control a preference uses. */
-export type SettingKind = "boolean" | "enum";
+export type SettingKind = "boolean" | "enum" | "text";
 
 /** Where the effective value came from. */
 export type SettingOrigin = "default" | "global" | "project" | "inherited";
@@ -33,6 +33,14 @@ export type SettingOrigin = "default" | "global" | "project" | "inherited";
 export interface SettingOption {
 	value: string;
 	label: string;
+}
+
+/** What a text row accepts, checked before a write so the file cannot hold less. */
+export interface TextRule {
+	/** Longest accepted value, in the units the loader slices with. */
+	maxLength: number;
+	/** Why `raw` cannot be stored, or `undefined` when it can. */
+	validate?: (raw: string) => string | undefined;
 }
 
 /** One heading in the Settings list. */
@@ -60,8 +68,10 @@ export interface SettingDescriptor {
 	description: string;
 	source: SettingSource;
 	kind: SettingKind;
-	/** Curated values, in cycle order. */
+	/** Curated values, in cycle order; empty for a text row. */
 	options: readonly SettingOption[];
+	/** For `kind: "text"`: the length limit and any rule the value must satisfy. */
+	text?: TextRule;
 	/** The value shown when neither file sets the key. */
 	fallback: string;
 	/** The JSON type the row stores; string when omitted. */
@@ -169,6 +179,21 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "notify", path: ["method"] },
 	},
 	{
+		id: "notify.title",
+		group: "notifications",
+		label: "Notification title",
+		description: "Shown as the title of every OS notification; up to 40 characters.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "Pi",
+		options: [],
+		text: {
+			maxLength: 40,
+			validate: (raw) => (raw.trim() === "" ? "A title is required." : undefined),
+		},
+		config: { section: "notify", path: ["title"] },
+	},
+	{
 		id: "doctor.proactive",
 		group: "diagnostics",
 		label: "Proactive health check",
@@ -179,6 +204,21 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		json: "boolean",
 		options: ON_OFF,
 		config: { section: "doctor", path: ["proactive"] },
+	},
+	{
+		id: "price.currency.symbol",
+		group: "pricing",
+		label: "Currency symbol",
+		description: "Printed before the footer's cost total; up to 4 characters.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "¥",
+		options: [],
+		text: {
+			maxLength: 4,
+			validate: (raw) => (raw.trim() === "" ? "A symbol is required." : undefined),
+		},
+		config: { section: "price", path: ["currency", "symbol"] },
 	},
 	{
 		id: "price.currency.decimals",
@@ -255,6 +295,21 @@ export function countSettings(scope: WriteScope): number {
 /** Whether `raw` is one of a row's curated options. */
 export function validValue(row: SettingDescriptor, raw: string): boolean {
 	return row.options.some((option) => option.value === raw);
+}
+
+/**
+ * Why a text row cannot store `raw`, or `undefined` when it can.
+ *
+ * The limits mirror the loaders (`notify.title` is sliced to 40, the currency
+ * symbol to 4) so the editor cannot save a value the next read shortens.
+ */
+export function textError(row: SettingDescriptor, raw: string): string | undefined {
+	const rule = row.text;
+	if (!rule) return `${row.label} is not a text setting.`;
+	if (raw.length > rule.maxLength) {
+		return `Too long: ${raw.length} characters, the limit is ${rule.maxLength}.`;
+	}
+	return rule.validate?.(raw);
 }
 
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
@@ -340,6 +395,8 @@ export function settingViews(snapshot: SettingsSnapshot, scope: WriteScope): Set
 
 /** The next curated value, wrapping; an uncurated value starts the cycle. */
 export function nextValue(row: SettingDescriptor, current: string): SettingOption {
+	// A text row has no cycle: the value it holds is the value it keeps.
+	if (row.options.length === 0) return { value: current, label: current };
 	const index = row.options.findIndex((option) => option.value === current);
 	return row.options[(index + 1) % row.options.length] as SettingOption;
 }

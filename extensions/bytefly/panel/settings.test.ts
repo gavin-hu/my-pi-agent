@@ -13,6 +13,7 @@ import {
 	settingViews,
 	type SettingsSnapshot,
 	storedValue,
+	textError,
 	validValue,
 } from "./settings.ts";
 
@@ -47,7 +48,9 @@ describe("catalogue", () => {
 			"byteflyUi",
 			"notify.enabled",
 			"notify.method",
+			"notify.title",
 			"doctor.proactive",
+			"price.currency.symbol",
 			"price.currency.decimals",
 			"price.fallbackToRecordedCost",
 			"chrome.rail",
@@ -61,7 +64,9 @@ describe("catalogue", () => {
 			"byteflyUi",
 			"notify.enabled",
 			"notify.method",
+			"notify.title",
 			"doctor.proactive",
+			"price.currency.symbol",
 			"price.currency.decimals",
 			"price.fallbackToRecordedCost",
 			"chrome.rail",
@@ -71,13 +76,15 @@ describe("catalogue", () => {
 		expect(rowsForScope("project").map((entry) => entry.id)).toEqual([
 			"notify.enabled",
 			"notify.method",
+			"notify.title",
 			"doctor.proactive",
+			"price.currency.symbol",
 			"price.currency.decimals",
 			"price.fallbackToRecordedCost",
 			"chrome.rail",
 		]);
-		expect(countSettings("global")).toBe(9);
-		expect(countSettings("project")).toBe(6);
+		expect(countSettings("global")).toBe(11);
+		expect(countSettings("project")).toBe(8);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -90,11 +97,11 @@ describe("catalogue", () => {
 			"terminal",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 2, 1, 2, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 3, 2, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([2, 1, 2, 1]);
+		expect(project.map((group) => group.views.length)).toEqual([3, 1, 3, 1]);
 	});
 });
 
@@ -105,7 +112,9 @@ describe("values", () => {
 			["byteflyUi", "false", "Off", "default"],
 			["notify.enabled", "false", "Off", "default"],
 			["notify.method", "auto", "Auto", "default"],
+			["notify.title", "Pi", "Pi", "default"],
 			["doctor.proactive", "true", "On", "default"],
+			["price.currency.symbol", "¥", "¥", "default"],
 			["price.currency.decimals", "2", "2", "default"],
 			["price.fallbackToRecordedCost", "true", "On", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
@@ -115,6 +124,8 @@ describe("values", () => {
 
 		const project = settingViews(snapshot(), "project");
 		expect(project.map((entry) => entry.origin)).toEqual([
+			"inherited",
+			"inherited",
 			"inherited",
 			"inherited",
 			"inherited",
@@ -258,5 +269,40 @@ describe("stored values", () => {
 		expect(validValue(row("byteflyUi"), "true")).toBe(true);
 		expect(validValue(row("byteflyUi"), "maybe")).toBe(false);
 		expect(validValue(row("notify.enabled"), "1")).toBe(false);
+	});
+});
+
+describe("text rows", () => {
+	test("accepts a value inside the rule and refuses one outside it", () => {
+		const title = row("notify.title");
+		expect(textError(title, "Build finished")).toBeUndefined();
+		expect(textError(title, "x".repeat(40))).toBeUndefined();
+		expect(textError(title, "x".repeat(41))).toContain("the limit is 40");
+		expect(textError(title, "   ")).toBe("A title is required.");
+	});
+
+	test("holds the symbol to the length the loader slices to", () => {
+		const symbol = row("price.currency.symbol");
+		expect(textError(symbol, "$")).toBeUndefined();
+		expect(textError(symbol, "CHF")).toBeUndefined();
+		expect(textError(symbol, "$US$")).toBeUndefined();
+		expect(textError(symbol, "$USD$")).toContain("the limit is 4");
+		expect(textError(symbol, "")).toBe("A symbol is required.");
+	});
+
+	test("refuses to treat a cycling row as text", () => {
+		expect(textError(row("notify.enabled"), "true")).toContain("is not a text setting");
+	});
+
+	test("keeps the current value when a text row is asked for its next one", () => {
+		expect(nextValue(row("notify.title"), "Pinned").value).toBe("Pinned");
+	});
+
+	test("reads a stored title and symbol from the document", () => {
+		const snap = snapshot({ global: { notify: { title: "Pinned" }, price: { currency: { symbol: "$" } } } });
+
+		expect(view("notify.title", "global", snap).value).toBe("Pinned");
+		expect(view("notify.title", "global", snap).origin).toBe("global");
+		expect(view("price.currency.symbol", "global", snap).value).toBe("$");
 	});
 });

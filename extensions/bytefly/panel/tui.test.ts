@@ -44,6 +44,16 @@ function makeSettings(
 	const surface: SettingsSurface = {
 		views: (scope) => settingViews(snapshot, scope),
 		count: (scope) => settingViews(snapshot, scope).length,
+		setValue: async (scope, id, raw) => {
+			const view = settingViews(snapshot, scope).find((entry) => entry.id === id);
+			if (!view?.config) return false;
+			const document = scope === "global" ? snapshot.global : snapshot.project;
+			const section = (document[view.config.section] ?? {}) as Record<string, unknown>;
+			document[view.config.section] = withLeaf(section, view.config.path, raw);
+			dirty = true;
+			changes.push(`${scope}:${id}=${raw}`);
+			return true;
+		},
 		change: async (scope, id) => {
 			const view = settingViews(snapshot, scope).find((entry) => entry.id === id);
 			if (!view) return;
@@ -540,7 +550,7 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("9 settings");
+		expect(text).toContain("11 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Delivery method");
@@ -558,7 +568,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 9 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 11 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -570,7 +580,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 6 settings");
+		expect(text).toContain("Project · 8 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -586,7 +596,7 @@ describe("PanelComponent sections", () => {
 		// Project drops the app rows; the cursor lands on the nearest remaining row,
 		// not back at the top of the list.
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 6 settings");
+		expect(component.render(80).join("\n")).toContain("Project · 8 settings");
 		expect(selected()).toContain("Rail glyph");
 	});
 
@@ -597,7 +607,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 9 settings");
+		expect(refused).toContain("Global · 11 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 
@@ -612,6 +622,9 @@ describe("PanelComponent sections", () => {
 			views: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope),
 			count: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope).length,
 			change: async () => {
+				throw new Error("disk full");
+			},
+			setValue: async () => {
 				throw new Error("disk full");
 			},
 			isDirty: () => false,
@@ -824,5 +837,91 @@ describe("PanelComponent probing", () => {
 
 		component.prime();
 		expect(calls).toEqual([]);
+	});
+});
+
+describe("PanelComponent text editing", () => {
+	/** Walk the focus down to the row whose label matches. */
+	function focus(component: PanelComponent, label: string): void {
+		component.render(80);
+		for (let step = 0; step < 30; step += 1) {
+			const line = component.render(80).find((candidate) => candidate.startsWith("❯"));
+			if (line?.includes(label)) return;
+			component.handleInput("j");
+		}
+		throw new Error(`never reached ${label}`);
+	}
+
+	test("Enter opens the editor on the stored value and shows the editor keys", () => {
+		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });
+
+		focus(component, "Notification title");
+		component.handleInput("\r");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Pi▏");
+		expect(text).toContain("Esc cancel");
+		expect(text).not.toContain("Esc close");
+	});
+
+	test("typing and Enter store the value", async () => {
+		const settings = makeSettings({ global: { notify: { title: "Pi" } } });
+		const { component } = build({ items: [], section: "settings", settings: settings.surface });
+
+		focus(component, "Notification title");
+		component.handleInput("\r");
+		for (const char of "lot") component.handleInput(char);
+		component.handleInput("\r");
+		await settle();
+		await settle();
+
+		expect(settings.changes).toContain("global:notify.title=Pilot");
+		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
+	});
+
+	test("Esc cancels without writing", async () => {
+		const settings = makeSettings({ global: { notify: { title: "Pi" } } });
+		const { component } = build({ items: [], section: "settings", settings: settings.surface });
+
+		focus(component, "Notification title");
+		component.handleInput("\r");
+		component.handleInput("x");
+		component.handleInput("\u001b");
+		await settle();
+
+		expect(settings.changes.filter((change) => change.includes("notify.title"))).toEqual([]);
+		expect(component.render(80).join("\n")).not.toContain("Pi▏");
+	});
+
+	test("keeps the editor open when the runtime refuses the value", async () => {
+		const base = makeSettings({ global: { notify: { title: "Pi" } } });
+		const refusing: SettingsSurface = { ...base.surface, setValue: async () => false };
+		const { component } = build({ items: [], section: "settings", settings: refusing });
+
+		focus(component, "Notification title");
+		component.handleInput("\r");
+		component.handleInput("!");
+		component.handleInput("\r");
+		await settle();
+		await settle();
+
+		expect(component.render(80).join("\n")).toContain("Pi!▏");
+	});
+
+	test("inserts at the caret and refuses characters past the limit", () => {
+		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });
+
+		focus(component, "Notification title");
+		component.handleInput("\r");
+		component.handleInput("\u001b[D"); // left
+		component.handleInput("o");
+		expect(component.render(80).join("\n")).toContain("Po▏i");
+
+		// Move to the end and overrun the 40-character rule.
+		component.handleInput("\u0005");
+		for (let step = 0; step < 45; step += 1) component.handleInput("x");
+		const text = component.render(80).join("\n");
+		expect(text).toContain(`${"Poi"}${"x".repeat(37)}`);
+		expect(text).not.toContain("x".repeat(38));
 	});
 });

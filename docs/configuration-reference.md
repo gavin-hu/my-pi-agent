@@ -25,7 +25,7 @@ the keys.
 ## `price` — cost calculation
 
 The footer's cost total. Read once per footer install, so a change needs a
-reload. `/bytefly settings` edits `currency.decimals` and
+reload. `/bytefly settings` edits `currency.symbol`, `currency.decimals`, and
 `fallbackToRecordedCost`.
 
 | Key | Type | Default | Values | What it does |
@@ -48,7 +48,8 @@ inclusive, `to` exclusive, and a `to` at or before `from` wraps past midnight.
 
 ## `notify` — OS notifications
 
-Read at `session_start`; `/bytefly settings` edits `enabled` and `method`.
+Read at `session_start`; `/bytefly settings` edits `enabled`, `method`, and
+`title`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|

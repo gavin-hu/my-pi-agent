@@ -22,6 +22,7 @@ import {
 	SETTING_ROWS,
 	settingViews,
 	storedValue,
+	textError,
 	validValue,
 } from "./settings.ts";
 
@@ -40,7 +41,10 @@ export interface SettingsRuntimeDeps {
 export interface SettingsSurface {
 	views(scope: WriteScope): SettingView[];
 	count(scope: WriteScope): number;
+	/** Cycle an enum or toggle a boolean. */
 	change(scope: WriteScope, id: string): Promise<void>;
+	/** Store a value the user typed; `false` when the row refused it. */
+	setValue(scope: WriteScope, id: string, raw: string): Promise<boolean>;
 	isDirty(): boolean;
 }
 
@@ -138,6 +142,40 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 			snapshot = readSnapshot(deps);
 			dirty = true;
 			emit();
+		},
+		async setValue(scope, id, raw) {
+			const row = SETTING_ROWS.find((entry) => entry.id === id);
+			if (!row || row.kind !== "text") {
+				deps.onError?.(`${row?.label ?? id} cannot be edited as text.`);
+				return false;
+			}
+			if (scope === "project" && !deps.trusted) {
+				deps.onError?.("Project is not trusted; settings can only be changed in Global scope.");
+				return false;
+			}
+			if (row.source === "app" && scope !== "global") {
+				deps.onError?.(`${row.label} is a Global setting.`);
+				return false;
+			}
+			const refusal = textError(row, raw);
+			if (refusal !== undefined) {
+				deps.onError?.(refusal);
+				return false;
+			}
+
+			try {
+				const config = row.config;
+				if (!config) throw new Error(`Setting ${row.id} has no config section`);
+				writeConfigValueAt(configPath(scope, deps.cwd, deps.agentDir), config.section, config.path, raw);
+			} catch (error) {
+				deps.onError?.(`Could not save ${row.label}: ${error instanceof Error ? error.message : String(error)}`);
+				return false;
+			}
+
+			snapshot = readSnapshot(deps);
+			dirty = true;
+			emit();
+			return true;
 		},
 		isDirty: () => dirty,
 		onChange: (listener) => {
