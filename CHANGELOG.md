@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `goal`: `/goal <prompt>` no longer makes a second model call to rewrite the
+  goal from the answers to its questions. The answers arrive in the confirm/edit
+  dialog as `Also: <question> → <answer>` notes under the restatement, so the
+  user folds them in, deletes them, or corrects the sentence, and the recorded
+  goal holds their own words one model round-trip cheaper. `/goal set`, `/goal
+  edit`, and `/goal raw` are unchanged.
 - `goal`: `/goal help` names the `achieved` and `-h` / `--help` aliases. The
   parser, the completions, and the help text now come from one `GOAL_VERBS`
   table, so a reserved word cannot be added without being completed and

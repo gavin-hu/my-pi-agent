@@ -105,8 +105,8 @@ describe("prepareGoalPrompt", () => {
 		expect(editorCalls[0].prefill).toBe("Refactor the parser to stream input");
 	});
 
-	test("asks the model's questions, refines the goal, and prefills the editor with it", async () => {
-		const { calls, registry } = clarifyRegistry([clarifyReply(), "Add parser tests for the new parser"]);
+	test("carries the answers into the editor under the restatement, with one model call", async () => {
+		const { calls, registry } = clarifyRegistry([clarifyReply()]);
 		const { ctx, editorCalls, selects, notices } = clarifyCtx(registry, {
 			select: "The new one",
 			editor: "Add parser tests for the new parser, in CI",
@@ -116,51 +116,46 @@ describe("prepareGoalPrompt", () => {
 
 		expect(outcome).toEqual({ action: "use", text: "Add parser tests for the new parser, in CI" });
 		expect(selects).toEqual([["The new one", "The old one"]]);
-		expect(calls).toHaveLength(2);
-		expect(calls[1]).toContain("The new one");
-		expect(editorCalls[0].prefill).toBe("Add parser tests for the new parser");
+		expect(calls).toHaveLength(1);
+		expect(editorCalls[0].prefill).toBe(`Add parser tests\n\nAlso: ${SCOPE_QUESTION.question} → The new one`);
 		expect(notices).toHaveLength(0);
 	});
 
 	test("uses a free-form input for a question without options", async () => {
-		const { calls, registry } = clarifyRegistry([
-			clarifyReply({ questions: [{ question: "Anything to add?" }] }),
-			"Ship the parser",
-		]);
-		const { ctx, selects } = clarifyCtx(registry, { input: "the new parser", editor: "Ship the parser" });
+		const { registry } = clarifyRegistry([clarifyReply({ questions: [{ question: "Anything to add?" }] })]);
+		const { ctx, editorCalls, selects } = clarifyCtx(registry, {
+			input: "the new parser",
+			editor: "Ship the parser",
+		});
 
 		const outcome = await prepareGoalPrompt(ctx, "ship the parser");
 
 		expect(outcome).toEqual({ action: "use", text: "Ship the parser" });
 		expect(selects).toHaveLength(0);
-		expect(calls[1]).toContain("the new parser");
+		expect(editorCalls[0].prefill).toBe("Add parser tests\n\nAlso: Anything to add? → the new parser");
 	});
 
-	test("notices and keeps the first restatement when the refine call fails", async () => {
-		const { registry } = clarifyRegistry([clarifyReply(), ""]);
-		const { ctx, editorCalls, notices } = clarifyCtx(registry, {
-			select: "The new one",
-			editor: "Add parser tests",
+	test("sanitizes a free-form answer before it reaches the editor", async () => {
+		const { registry } = clarifyRegistry([clarifyReply({ questions: [{ question: "Anything to add?" }] })]);
+		const { ctx, editorCalls } = clarifyCtx(registry, {
+			input: "keep\nit\u001b[31mfast",
+			editor: "Ship the parser",
 		});
-
-		const outcome = await prepareGoalPrompt(ctx, "add parser tests");
-
-		expect(outcome).toEqual({ action: "use", text: "Add parser tests" });
-		expect(editorCalls[0].prefill).toBe("Add parser tests");
-		expect(notices.at(-1)?.message).toContain("Could not update the goal from your answers");
-	});
-
-	test("sanitizes a free-form answer before the refine call", async () => {
-		const { calls, registry } = clarifyRegistry([
-			clarifyReply({ questions: [{ question: "Anything to add?" }] }),
-			"Ship the parser",
-		]);
-		const { ctx } = clarifyCtx(registry, { input: "keep\nit\u001b[31mfast", editor: "Ship the parser" });
 
 		await prepareGoalPrompt(ctx, "ship the parser");
 
-		expect(calls[1]).toContain("keep it [31mfast");
-		expect(calls[1]).not.toContain("\u001b");
+		expect(editorCalls[0].prefill).toContain("Also: Anything to add? → keep it [31mfast");
+		expect(editorCalls[0].prefill).not.toContain("\u001b");
+	});
+
+	test("asks no questions when the goal is already understood", async () => {
+		const { registry } = registryReturning("Refactor the parser to stream input");
+		const { ctx, editorCalls, selects } = clarifyCtx(registry, { editor: "Refactor the parser to stream input" });
+
+		await prepareGoalPrompt(ctx, "refactor the parser");
+
+		expect(selects).toHaveLength(0);
+		expect(editorCalls[0].prefill).toBe("Refactor the parser to stream input");
 	});
 
 	test("cancels with a notice when a question dialog is dismissed", async () => {

@@ -48,8 +48,9 @@ How the `goal` call and its result look in the transcript — the call line as a
 - Understands the goal before recording it: `/goal <prompt>` asks the session
   model to restate the goal as it understands it and, when it cannot yet, to ask
   up to three questions — which the command asks directly through host dialogs
-  (`select` / `input`). The model then folds the answers into the final
-  restatement, and the user confirms or corrects it in the editor. `/goal set
+  (`select` / `input`). The answers are carried into the editor under the
+  restatement as `Also: <question> → <answer>` notes, and the user confirms,
+  folds them in, or corrects the goal there. `/goal set
   <prompt>` reuses the loop but records without starting a turn, `/goal edit`
   changes the current goal in place, and `/goal raw <prompt>` records the typed
   words verbatim. The loop is best-effort and needs a dialog UI plus a model; the
@@ -101,7 +102,7 @@ entry; `reconstructGoal` replays both entry kinds in branch order.
 | Command | What it does |
 |---|---|
 | `/goal` | Show the current goal, or the command usage when none is set. |
-| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, re-comprehend, then confirm/edit — and start the run. Replacing a live goal is confirmed first. |
+| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, which carries the answers as notes — and start the run. Replacing a live goal is confirmed first. |
 | `/goal raw <prompt>` | Skip the loop: record the typed words verbatim and start the run. |
 | `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. An explicit `set`/`edit <text>` replaces an active goal without asking, since the command already says so. |
 | `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
@@ -124,7 +125,7 @@ without one they show the usage instead. `/goal raw` never needs one.
 
 The tool works in every mode. The persistent widget requires interactive
 (`tui`) mode; the reminder and the `/goal` command work everywhere. The
-`/goal <prompt>` runs the loop: each model call uses a cancellable `tui` spinner
+`/goal <prompt>` runs the loop: its model call uses a cancellable `tui` spinner
 in interactive mode and runs directly in RPC; the questions and the confirm step
 are host dialogs, forwarded by RPC. In print and JSON mode the loop is skipped
 and the typed text is sent. The widget is always a single line; the transcript
@@ -177,8 +178,8 @@ depends on config.
 | State storage | tool-result `details` plus a `pi.appendEntry("goal", { goal })` custom entry for command-set goals |
 | Lifecycle hooks | `session_start` (load config, reconstruct), `session_tree` (reconstruct), `session_shutdown` (clear widget); `before_agent_start` (inject `goal-context`), `context` (filter stale/duplicate reminders) |
 | UI | `ctx.ui.setWidget` one-line rail in `tui` mode; coordinated through `pi.events` so it stays the top rail |
-| Model calls | Up to two `ctx.modelRegistry.complete` calls on the session model (comprehend, then re-comprehend), each with a 30 s timeout and `cacheRetention: "none"`; skipped without a dialog UI or a model; their usage is not counted in session totals |
-| Questions | When the goal is not yet understood, the command asks the model's questions through `ctx.ui.select` / `ctx.ui.input` and passes the answers to the re-comprehension call. No cross-extension tool is used. |
+| Model calls | One `ctx.modelRegistry.complete` call on the session model with a 30 s timeout and `cacheRetention: "none"`; skipped without a dialog UI or a model; its usage is not counted in session totals |
+| Questions | When the goal is not yet understood, the command asks the model's questions through `ctx.ui.select` / `ctx.ui.input` and carries the answers into the editor prefill. No cross-extension tool is used. |
 
 ## Design notes
 
@@ -192,8 +193,10 @@ depends on config.
   user-driven path: one comprehension call (`clarify-prompt.ts` + `clarify.ts`)
   returns `{ understood, goal, questions }`. An understood goal opens a prefilled
   `ctx.ui.editor`, then `pi.sendUserMessage` sets and runs it. A not-understood
-  goal has its questions asked through host dialogs and its answers folded into
-  the goal by a second model call, then confirmed in the editor. `/goal set`
+  goal has its questions asked through host dialogs, and its answers ride into
+  the editor as `Also:` notes under the restatement: no second model call
+  rewrites the goal, so the user is the one who folds them into the sentence.
+  `/goal set`
   reuses the loop but skips the send; a bare `/goal set` or `/goal edit` opens
   the editor prefilled with the current goal; and `/goal raw` skips the loop
   entirely. The loop is best-effort (a failure keeps the typed text) and a
@@ -248,9 +251,9 @@ depends on config.
 | `index.ts` | Factory: wire the runtime, tool, command, reminder, and session events. |
 | `types.ts` | `Goal`, `GoalStatus`, `GoalDetails`. |
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
-| `clarify-prompt.ts` | Comprehension and re-comprehension prompts plus their message builders (pure). |
+| `clarify-prompt.ts` | The comprehension prompt and its message builder (pure). |
 | `clarify-parse.ts` | Parse the `{ understood, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
-| `clarify.ts` | The two model calls, their cancellable loaders, the in-command questionnaire, and the confirm/edit dialog (host). |
+| `clarify.ts` | The model call, its cancellable loader, the in-command questionnaire, and the confirm/edit dialog (host). |
 | `state.ts` | Branch reconstruction (pure). |
 | `format.ts` | Model-facing and terminal text plus the header and rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (the `goal` section of `bytefly.json`). |

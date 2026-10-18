@@ -427,8 +427,8 @@ describe("/goal command", () => {
 		expect(notifications.at(-1)).toContain("/goal set");
 	});
 
-	test("asks the model's questions in-command and records the refined goal", async () => {
-		const { calls, registry } = clarifyRegistry([clarifyReply(), "Add parser tests for the new parser"]);
+	test("asks the model's questions in-command and records the edited goal", async () => {
+		const { calls, registry } = clarifyRegistry([clarifyReply()]);
 		const { command, ctx, entries, sentMessages, editorCalls, selects } = await started([], {
 			mode: "rpc",
 			hasUI: true,
@@ -439,9 +439,9 @@ describe("/goal command", () => {
 
 		await command.handler("add tests to the parser", ctx);
 
-		expect(calls).toHaveLength(2);
+		expect(calls).toHaveLength(1);
 		expect(selects).toEqual([["The new one", "The old one"]]);
-		expect(editorCalls[0].prefill).toBe("Add parser tests for the new parser");
+		expect(editorCalls[0].prefill).toBe("Add parser tests\n\nAlso: Which parser? → The new one");
 		expect(entries.at(-1)?.data).toEqual({
 			goal: { objective: "Add parser tests for the new parser, in CI", status: "active" },
 		});
