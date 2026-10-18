@@ -61,6 +61,8 @@ export const WECHAT_COMMANDS = [
 	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge" },
 	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)" },
 	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)" },
+	{ verb: "pause", description: "Stop polling new messages; running turns may finish" },
+	{ verb: "resume", description: "Resume polling after /wechat pause" },
 	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures" },
 	{ verb: "stop", description: "Stop one peer's running turn: /wechat stop <peer>" },
 	{ verb: "reset", description: "Start a fresh conversation for one peer: /wechat reset <peer>" },
@@ -121,6 +123,36 @@ async function runDoctor(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 			config: deps.loadConfig(ctx.cwd),
 			now: deps.now(),
 		}),
+	);
+}
+
+/** Pause or resume polling; the account and peer sessions stay in place. */
+async function runPauseToggle(ctx: ExtensionContext, deps: CommandDeps, resume: boolean): Promise<void> {
+	const bridge = deps.getBridge();
+	if (!bridge) {
+		ctx.ui.notify("WeChat is not running.", "warning");
+		return;
+	}
+	if (resume) {
+		if (!bridge.status().paused) {
+			ctx.ui.notify("WeChat is not paused.");
+			return;
+		}
+		const ok = await bridge.resume();
+		ctx.ui.notify(
+			ok ? "WeChat polling resumed." : "WeChat could not resume; check the terminal notice.",
+			ok ? "info" : "warning",
+		);
+		return;
+	}
+	const ok = await bridge.pause();
+	ctx.ui.notify(
+		ok
+			? "WeChat polling paused. Running turns may finish; no new messages will arrive."
+			: bridge.status().paused
+				? "WeChat is already paused."
+				: "WeChat is not running.",
+		ok ? "info" : "warning",
 	);
 }
 
@@ -313,6 +345,14 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 						bridge.channel().cancel();
 						return "Cancelled the waiting prompt.";
 					},
+					togglePause: async () => {
+						const bridge = deps.getBridge();
+						if (!bridge) return "WeChat bridge is not running.";
+						if (bridge.status().paused) {
+							return (await bridge.resume()) ? "Resumed polling." : "Could not resume; see the notice.";
+						}
+						return (await bridge.pause()) ? "Paused polling. Running turns may finish." : "WeChat is not running.";
+					},
 				},
 				requestRender: () => tui.requestRender(),
 			}),
@@ -410,6 +450,10 @@ async function dispatch(
 			return runHistory(ctx, deps, peerArg);
 		case "allow":
 			return runAllow(ctx, deps, peerArg || undefined);
+		case "pause":
+			return runPauseToggle(ctx, deps, false);
+		case "resume":
+			return runPauseToggle(ctx, deps, true);
 		case "stop":
 			return runPeerAction(ctx, deps, "stop", peerArg);
 		case "reset":
@@ -425,7 +469,7 @@ async function dispatch(
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
 		description:
-			"WeChat bridge. /wechat opens the control screen (login | new | status | doctor | stop | reset | history | allow | logout | help)",
+			"WeChat bridge. /wechat opens the control screen (login | new | status | pause | resume | doctor | stop | reset | history | allow | logout | help)",
 		getArgumentCompletions: completeSubcommand,
 		handler: async (args, ctx) => {
 			const [sub = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);

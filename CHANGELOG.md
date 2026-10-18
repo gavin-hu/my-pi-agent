@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `wechat`: `/wechat pause` stops polling while keeping the account and peer
+  sessions: a running turn may finish and reply, a waiting prompt is withdrawn,
+  and the poller lock is released. `/wechat resume` reacquires the lock and
+  polls again, reporting when another runtime already holds it. `p` toggles the
+  same action on the control screen, the chip shows `wechat paused`, and
+  `/wechat doctor` names the paused state. Pause is per runtime, so a reload or
+  restart resumes polling.
+
 ## [0.11.3] - 2026-10-18
 
 ### Added

@@ -65,7 +65,7 @@ export function isInboundMessage(message: WeixinMessage): message is WeixinMessa
 }
 
 /** The bridge's connection state, published to the UI for the status chip. */
-export type BridgeState = "stopped" | "running" | "expired";
+export type BridgeState = "stopped" | "running" | "expired" | "paused";
 
 export interface BridgeDeps {
 	config: WechatConfig;
@@ -107,6 +107,8 @@ export interface BridgeStatus {
 	open: boolean;
 	/** Whether the bridge stopped because the session expired and needs a re-login. */
 	expired: boolean;
+	/** Whether the operator paused polling; the account and peer sessions are kept. */
+	paused: boolean;
 	owner?: string;
 	peerCount: number;
 	queued: number;
@@ -146,6 +148,10 @@ export interface SendResult {
 export interface Bridge {
 	open(): void;
 	close(): Promise<void>;
+	/** Stop polling new messages; running turns may finish. False when not running. */
+	pause(): Promise<boolean>;
+	/** Reacquire the lock and start polling again. False when not paused or the lock is taken. */
+	resume(): Promise<boolean>;
 	shutdown(): Promise<void>;
 	/** Stop one peer's running turn; false when that peer is idle. */
 	stop(peer: string): boolean;
@@ -165,6 +171,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const sleep = deps.sleep ?? defaultSleep;
 	const armTimer = deps.armTimer ?? defaultTimer;
 	let running = false;
+	let paused = false;
 	let expired = false;
 	let startedAt: number | undefined;
 	let lastPollAt: number | undefined;
@@ -195,11 +202,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 	/** Report the current connection state to the host, for a status chip. */
 	function publishState(): void {
-		deps.onStateChange?.(running ? "running" : expired ? "expired" : "stopped");
+		deps.onStateChange?.(running ? "running" : expired ? "expired" : paused ? "paused" : "stopped");
 	}
 
 	function handleExpired(): void {
 		running = false;
+		paused = false;
 		expired = true;
 		// An expiry can be discovered by a send while the loop is parked in
 		// `getUpdates`; abort it so it cannot wake up beside a later `open()`.
@@ -491,6 +499,21 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 	}
 
+	/**
+	 * Serialize lifecycle transitions. A pause and a resume from the control
+	 * screen, or a shutdown racing either, must not leave two poll loops or a
+	 * released lock behind a running bridge.
+	 */
+	let lifecycle: Promise<void> = Promise.resolve();
+	function serial<T>(work: () => Promise<T>): Promise<T> {
+		const run = lifecycle.then(work, work);
+		lifecycle = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
+	}
+
 	return {
 		open(): void {
 			if (running) return;
@@ -523,6 +546,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				deps.saveState(state);
 			}
 			running = true;
+			paused = false;
 			expired = false;
 			resetEphemeral();
 			startedAt = deps.now();
@@ -563,28 +587,71 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			});
 		},
 
-		async close(): Promise<void> {
-			if (!running && !abort) {
+		close(): Promise<void> {
+			return serial(async () => {
+				running = false;
+				paused = false;
+				expired = false;
+				abort?.abort();
+				abort = undefined;
+				try {
+					await loopPromise;
+				} catch {
+					// Errors are surfaced by the loop's own catch.
+				}
+				loopPromise = undefined;
+				// A paused bridge has no loop and no abort controller but still owns a
+				// worker, so close it unconditionally rather than leaking the sessions.
+				const closing = worker;
+				worker = undefined;
+				await closing?.close();
+				resetEphemeral();
+				publishState();
+				releaseSafe();
+			});
+		},
+
+		pause(): Promise<boolean> {
+			return serial(async () => {
+				if (!running) return false;
+				running = false;
+				paused = true;
+				// Clear the abort controller before withdrawing the prompt: its send must
+				// not be cancelled by the poll abort that follows.
+				const stopping = abort;
+				abort = undefined;
+				if (interaction.hasPending()) interaction.cancel();
+				stopping?.abort();
+				try {
+					await loopPromise;
+				} catch {
+					// Errors are surfaced by the loop's own catch.
+				}
+				loopPromise = undefined;
+				// No poller means no lock to keep: another runtime may take the account
+				// while this one is paused. Resume reacquires it and reports a conflict.
 				releaseSafe();
 				publishState();
-				return;
-			}
-			running = false;
-			expired = false;
-			abort?.abort();
-			abort = undefined;
-			try {
-				await loopPromise;
-			} catch {
-				// Errors are surfaced by the loop's own catch.
-			}
-			loopPromise = undefined;
-			const closing = worker;
-			worker = undefined;
-			await closing?.close();
-			resetEphemeral();
-			publishState();
-			releaseSafe();
+				return true;
+			});
+		},
+
+		resume(): Promise<boolean> {
+			return serial(async () => {
+				if (!paused || expired || !worker || !account) return false;
+				if (!deps.acquireLock()) {
+					notify("Another Pi session is already polling this WeChat account.", "warning");
+					return false;
+				}
+				paused = false;
+				running = true;
+				abort = new AbortController();
+				loopPromise = poll.run(abort.signal).catch((error) => {
+					notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
+				});
+				publishState();
+				return true;
+			});
 		},
 
 		async shutdown(): Promise<void> {
@@ -609,6 +676,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				peerStates: states,
 				open: running,
 				expired,
+				paused,
 				owner: state.ownerId ?? account?.ilinkUserId,
 				peerCount: Object.keys(state.peers).length,
 				queued: states.reduce((total, entry) => total + entry.state.queued, 0),

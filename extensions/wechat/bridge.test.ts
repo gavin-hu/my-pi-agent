@@ -309,6 +309,94 @@ describe("bridge", () => {
 		await bridge.close();
 	});
 
+	test("pauses polling, releases the lock, and resumes", async () => {
+		const { client, calls } = makeClient([updates([inbound("ping")])]);
+		const states: BridgeState[] = [];
+		let acquired = 0;
+		const { deps, released } = makeDeps(client, {
+			onStateChange: (state) => states.push(state),
+			acquireLock: () => {
+				acquired += 1;
+				return true;
+			},
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().peerStates.length === 1);
+		expect(await bridge.pause()).toBe(true);
+		expect(bridge.status()).toMatchObject({ open: false, paused: true });
+		expect(released.count).toBe(1);
+		expect(states).toEqual(["running", "paused"]);
+		expect(await bridge.pause()).toBe(false);
+
+		const pollsBefore = calls.polls;
+		expect(await bridge.resume()).toBe(true);
+		expect(bridge.status()).toMatchObject({ open: true, paused: false });
+		await waitFor(() => calls.polls > pollsBefore);
+		expect(acquired).toBe(2);
+		expect(states).toEqual(["running", "paused", "running"]);
+		await bridge.close();
+		expect(states).toEqual(["running", "paused", "running", "stopped"]);
+	});
+
+	test("pausing keeps a running turn and withdraws its prompt", async () => {
+		const { client, sent } = makeClient([updates([inbound("work")])]);
+		const { deps, peers, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
+		expect(await bridge.pause()).toBe(true);
+		expect(await answer).toEqual({ kind: "cancelled" });
+		expect(sent.at(-1)?.text).toBe("That question timed out.");
+		expect(peers[0].disposed()).toBe(0);
+
+		peers[0].release("finished after pause");
+		await waitFor(() => sent.some((item) => item.text === "finished after pause"));
+		await bridge.close();
+		expect(peers[0].disposed()).toBe(1);
+	});
+
+	test("refuses to resume when another runtime took the lock", async () => {
+		const { client } = makeClient([]);
+		let acquired = 0;
+		const { deps } = makeDeps(client, {
+			acquireLock: () => {
+				acquired += 1;
+				return acquired === 1;
+			},
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(await bridge.pause()).toBe(true);
+		expect(await bridge.resume()).toBe(false);
+		expect(bridge.status()).toMatchObject({ open: false, paused: true });
+		await bridge.close();
+	});
+
+	test("serializes a quick pause and resume", async () => {
+		const { client } = makeClient([]);
+		const { deps } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		const paused = bridge.pause();
+		const resumed = bridge.resume();
+		expect(await paused).toBe(true);
+		expect(await resumed).toBe(true);
+		expect(bridge.status()).toMatchObject({ open: true, paused: false });
+		await bridge.close();
+	});
+
+	test("resume is a no-op when the bridge was never paused", async () => {
+		const { client } = makeClient([]);
+		const { deps } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(await bridge.resume()).toBe(false);
+		await bridge.close();
+	});
+
 	test("reports running state changes for a status chip", async () => {
 		const { client } = makeClient([]);
 		const states: BridgeState[] = [];

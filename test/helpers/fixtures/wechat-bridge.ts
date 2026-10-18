@@ -100,12 +100,15 @@ export function makeClient(
 	client: WechatClient;
 	sent: Array<{ to: string; text: string; contextToken?: string }>;
 	typing: Array<{ ilinkUserId: string; typing: boolean }>;
+	calls: { polls: number };
 } {
 	const sent: Array<{ to: string; text: string; contextToken?: string }> = [];
 	const typing: Array<{ ilinkUserId: string; typing: boolean }> = [];
 	const queue = [...script];
+	const calls = { polls: 0 };
 	const client = {
 		getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+			calls.polls += 1;
 			if (signal?.aborted) throw new Error("aborted");
 			const next = queue.shift();
 			if (next) return next;
@@ -134,7 +137,7 @@ export function makeClient(
 			return bytes;
 		},
 	};
-	return { client: client as unknown as WechatClient, sent, typing };
+	return { client: client as unknown as WechatClient, sent, typing, calls };
 }
 
 export interface Script {

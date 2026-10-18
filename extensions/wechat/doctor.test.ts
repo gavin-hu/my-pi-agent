@@ -18,6 +18,7 @@ function status(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
 		open: true,
 		expired: false,
+		paused: false,
 		owner: "owner@im.wechat",
 		peerCount: 1,
 		queued: 2,
@@ -64,6 +65,16 @@ describe("doctorReport", () => {
 		});
 		expect(text).toContain("error: rejected ret -1");
 		expect(text).toContain("send: context token invalid");
+	});
+
+	test("treats a paused bridge as resumable", () => {
+		const text = doctorReport({
+			status: status({ open: false, paused: true, peerStates: [], queued: 0, lock: undefined }),
+			account,
+			config: DEFAULT_CONFIG,
+			now,
+		});
+		expect(text).toContain("paused · run /wechat resume");
 	});
 
 	test("treats an expired bridge as needing a login", () => {

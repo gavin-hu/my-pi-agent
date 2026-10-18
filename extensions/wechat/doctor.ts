@@ -34,6 +34,7 @@ function age(now: number, at: number | undefined): string {
 }
 
 function connection(status: BridgeStatus | undefined, account: BotCredentials | undefined, now: number): string {
+	if (status?.paused) return "paused · run /wechat resume";
 	if (!status?.open) {
 		return status?.expired ? "expired · run /wechat login" : "closed";
 	}

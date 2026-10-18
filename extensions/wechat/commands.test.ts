@@ -23,6 +23,7 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
 		open: false,
 		expired: false,
+		paused: false,
 		running: false,
 		peerCount: 0,
 		queued: 0,
@@ -56,6 +57,8 @@ function harness(
 		/** Result of `stop` / `reset`; default true. */
 		stop?: boolean;
 		reset?: boolean;
+		pause?: boolean;
+		resume?: boolean;
 	} = {},
 ): Harness {
 	const saved: BotCredentials[] = [];
@@ -81,6 +84,14 @@ function harness(
 		reset: (peer: string) => {
 			resets.push(peer);
 			return options.reset ?? true;
+		},
+		pause: async () => {
+			events.push("pause");
+			return options.pause ?? true;
+		},
+		resume: async () => {
+			events.push("resume");
+			return options.resume ?? true;
 		},
 	} as unknown as Bridge;
 	const exists = options.bridge ?? true;
@@ -311,6 +322,32 @@ describe("the /wechat command", () => {
 		const text = notices.at(-1)?.message ?? "";
 		expect(text).toContain("alice 10");
 		expect(text).toContain("You: hi");
+	});
+
+	test("pauses and resumes polling", async () => {
+		const paused = harness({ pause: true });
+		const { ctx, notices } = fakeCtx();
+		await handler(paused.deps)("pause", ctx);
+		expect(paused.events).toEqual(["pause"]);
+		expect(notices.at(-1)?.message).toContain("paused");
+
+		const resumed = harness({ status: bridgeStatus({ paused: true }), resume: true });
+		const resumedCtx = fakeCtx();
+		await handler(resumed.deps)("resume", resumedCtx.ctx);
+		expect(resumed.events).toEqual(["resume"]);
+		expect(resumedCtx.notices.at(-1)?.message).toContain("resumed");
+	});
+
+	test("explains when there is nothing to pause or resume", async () => {
+		const stop = harness({ pause: false });
+		const stopCtx = fakeCtx();
+		await handler(stop.deps)("pause", stopCtx.ctx);
+		expect(stopCtx.notices.at(-1)?.message).toContain("not running");
+
+		const resume = harness({ resume: true });
+		const resumeCtx = fakeCtx();
+		await handler(resume.deps)("resume", resumeCtx.ctx);
+		expect(resumeCtx.notices.at(-1)?.message).toContain("not paused");
 	});
 
 	test("asks for a peer when history has no target", async () => {

@@ -24,7 +24,7 @@ import { peerLabel } from "./format.ts";
 import type { BotCredentials } from "./types.ts";
 
 /** User-facing connection word; the internal `BridgeState` stays running/stopped. */
-export type StatusConnection = "open" | "expired" | "closed";
+export type StatusConnection = "open" | "expired" | "paused" | "closed";
 
 /**
  * What the status screen closed with: a global action, a peer history request,
@@ -69,7 +69,7 @@ const MAX_PEER_ROWS = 5;
 
 /** The connection word for a bridge status, or `closed` when there is none. */
 export function connectionOf(status: BridgeStatus | undefined): StatusConnection {
-	return status?.open ? "open" : status?.expired ? "expired" : "closed";
+	return status?.paused ? "paused" : status?.open ? "open" : status?.expired ? "expired" : "closed";
 }
 
 /** Build the view from the stored account and the live bridge status. */
@@ -146,6 +146,8 @@ function connectionText(connection: StatusConnection): string {
 			return "open";
 		case "expired":
 			return "expired";
+		case "paused":
+			return "paused";
 		case "closed":
 			return "closed";
 	}
@@ -158,6 +160,8 @@ function connectionRole(connection: StatusConnection): TuiRole {
 			return "ok";
 		case "expired":
 			return "bad";
+		case "paused":
+			return "warn";
 		case "closed":
 			return "meta";
 	}
@@ -193,6 +197,9 @@ export function statusBody(view: StatusView, theme: Theme, width: number, select
 	if (view.connection === "expired") {
 		lines.push("");
 		lines.push(clip(`  ${paint(theme, "bad", "Session expired — press l to log in again.")}`, target));
+	} else if (view.connection === "paused") {
+		lines.push("");
+		lines.push(clip(`  ${paint(theme, "warn", "Paused — press p to resume polling.")}`, target));
 	} else if (view.connection === "closed" && view.account) {
 		lines.push("");
 		lines.push(clip(`  ${paint(theme, "meta", "Not connected — press l to log in again.")}`, target));
@@ -251,6 +258,8 @@ export interface StatusActions {
 	reset(peer: string): string;
 	/** Withdraw the waiting prompt; returns the line to flash. */
 	cancelPrompt(): string;
+	/** Pause or resume polling; async because it settles the poll loop first. */
+	togglePause(): string | Promise<string>;
 }
 
 export interface StatusScreenOptions {
@@ -323,6 +332,27 @@ export class StatusScreenComponent implements Component {
 		}
 		if (data === "r" || data === "R") {
 			this.setFlash(undefined);
+			return;
+		}
+		if (data === "p" || data === "P") {
+			if (!view.bridge) {
+				this.setFlash("WeChat is not running.");
+				return;
+			}
+			const outcome = this.options.actions?.togglePause();
+			if (!outcome) {
+				this.setFlash("Pause is unavailable here.");
+				return;
+			}
+			if (typeof outcome === "string") {
+				this.setFlash(outcome);
+				return;
+			}
+			this.setFlash(view.connection === "paused" ? "Resuming…" : "Pausing…");
+			void outcome.then(
+				(line) => this.setFlash(line),
+				() => this.setFlash("Pause action failed."),
+			);
 			return;
 		}
 		if (data === "a" || data === "A") {

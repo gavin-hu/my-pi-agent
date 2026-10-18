@@ -33,6 +33,8 @@ describe("wechat extension", () => {
 			"login",
 			"new",
 			"status",
+			"pause",
+			"resume",
 			"doctor",
 			"stop",
 			"reset",
@@ -77,6 +79,7 @@ describe("wechat extension", () => {
 	test("renders a chip for every bridge state, persistent for an expiry", () => {
 		expect(wechatChip(coloringTheme, "running")).toBe(`[success]${GLYPHS.wechat} wechat`);
 		expect(wechatChip(coloringTheme, "expired")).toBe(`[error]${GLYPHS.wechat} wechat expired`);
+		expect(wechatChip(coloringTheme, "paused")).toBe(`[warning]${GLYPHS.wechat} wechat paused`);
 		expect(wechatChip(coloringTheme, "stopped")).toBeUndefined();
 	});
 });

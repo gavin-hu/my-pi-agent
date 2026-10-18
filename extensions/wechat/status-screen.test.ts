@@ -27,6 +27,7 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
 		open: false,
 		expired: false,
+		paused: false,
 		running: false,
 		peerCount: 0,
 		queued: 0,
@@ -63,6 +64,7 @@ describe("connectionOf", () => {
 	test("reports open and the persistent expired state", () => {
 		expect(connectionOf(bridgeStatus({ open: true }))).toBe("open");
 		expect(connectionOf(bridgeStatus({ expired: true }))).toBe("expired");
+		expect(connectionOf(bridgeStatus({ paused: true }))).toBe("paused");
 	});
 });
 
@@ -201,6 +203,14 @@ describe("statusBody", () => {
 		expect(body).toContain("42.0s");
 	});
 
+	test("shows the paused state and how to resume", () => {
+		const built = view({ bridge: true, account: "owner", connection: "paused", peers: 1 });
+		const body = statusBody(built, fakeTheme, 60).join("\n");
+		expect(body).toContain("paused");
+		expect(body).toContain("press p to resume");
+		expect(statusLine(built)).toContain("paused");
+	});
+
 	test("shows the expiry recovery line", () => {
 		const body = statusBody(view({ bridge: true, account: "owner", connection: "expired" }), fakeTheme, 60).join("\n");
 		expect(body).toContain("press l to log in again");
@@ -244,6 +254,7 @@ function withActions() {
 	const stops: string[] = [];
 	const resets: string[] = [];
 	const cancels: string[] = [];
+	const toggles: string[] = [];
 	const built = component(view({ bridge: true, connection: "open", peerRows: peers }), {
 		stop: (peer) => {
 			stops.push(peer);
@@ -257,8 +268,12 @@ function withActions() {
 			cancels.push("cancel");
 			return "Cancelled the waiting prompt.";
 		},
+		togglePause: () => {
+			toggles.push("toggle");
+			return "Paused polling.";
+		},
 	});
-	return { ...built, stops, resets, cancels };
+	return { ...built, stops, resets, cancels, toggles };
 }
 
 describe("peer actions", () => {
@@ -300,6 +315,7 @@ describe("peer actions", () => {
 					cancels.push("cancel");
 					return "Cancelled the waiting prompt.";
 				},
+				togglePause: () => "Paused polling.",
 			},
 		);
 		screen.handleInput("c");
@@ -320,6 +336,35 @@ describe("peer actions", () => {
 		);
 		screen.handleInput("a");
 		expect(actions).toEqual([{ kind: "allow" }]);
+	});
+
+	test("toggles pausing on p and flashes the result", () => {
+		const { screen, toggles } = withActions();
+		screen.handleInput("p");
+		expect(toggles).toEqual(["toggle"]);
+		expect(screen.render(60).join("\n")).toContain("Paused polling.");
+	});
+
+	test("shows progress while an async pause settles", async () => {
+		const { screen } = component(view({ bridge: true, connection: "open" }), {
+			stop: () => "",
+			reset: () => "",
+			cancelPrompt: () => "",
+			togglePause: async () => {
+				await Bun.sleep(1);
+				return "Resumed polling.";
+			},
+		});
+		screen.handleInput("p");
+		expect(screen.render(60).join("\n")).toContain("Pausing…");
+		await Bun.sleep(5);
+		expect(screen.render(60).join("\n")).toContain("Resumed polling.");
+	});
+
+	test("explains when there is no bridge to pause", () => {
+		const { screen } = component(view());
+		screen.handleInput("p");
+		expect(screen.render(60).join("\n")).toContain("WeChat is not running.");
 	});
 
 	test("opens the focused peer's history", () => {

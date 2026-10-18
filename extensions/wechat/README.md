@@ -76,6 +76,8 @@ How the `send_wechat` call and its result look in the transcript — the call li
 | `/wechat login` | QR login; on scan, stores credentials, replaces a running poller, and starts the bridge. |
 | `/wechat new` | Start a fresh *host* session. Peer conversations are independent and survive it; they use an inbound `/new`. |
 | `/wechat status` | The same control screen as a bare `/wechat` (the one-line summary while a peer turn runs). |
+| `/wechat pause` | Stop polling new messages; running turns may finish and reply. The poller lock is released, so another runtime may take the account. |
+| `/wechat resume` | Reacquire the lock and poll again; reports when another runtime already holds it. |
 | `/wechat doctor` | Print a read-only health report: connection and token age, last poll and hold, lock holder, per-peer session/queue, recent failures. |
 | `/wechat stop <peer>` | Stop that peer's running turn; reports when nothing was running. |
 | `/wechat reset <peer>` | Start a fresh conversation for that peer; refused while its turn runs. |
@@ -108,10 +110,18 @@ what is queued behind it), activity counters, and the waiting remote prompt
 `j`/`k` (or the arrows) move the focus over peer rows; `s` stops the focused
 peer's turn and `d` starts a fresh conversation for it, both in place; `h` closes
 the screen and prints that peer's history; `a` closes it and offers the refused
-senders to allow; `c` withdraws the waiting prompt. `l` logs in or reconnects,
-`n` starts a new session, `o` logs out, `r` refreshes, and Esc closes. The
-subcommands above are shortcuts for the same actions and the only route outside
-the TUI; an unknown subcommand reports the valid ones.
+senders to allow; `c` withdraws the waiting prompt; `p` pauses or resumes
+polling. `l` logs in or reconnects, `n` starts a new session, `o` logs out,
+`r` refreshes, and Esc closes. The subcommands above are shortcuts for the same
+actions and the only route outside the TUI; an unknown subcommand reports the
+valid ones.
+
+Pause is per runtime and keeps the account and peer sessions: a running turn
+may finish and reply, a waiting prompt is withdrawn with the timeout notice,
+and the poller lock is released so another runtime can take over. Resume
+reacquires the lock and reports when another runtime holds it. `/reload` or a
+restart builds a new bridge and resumes polling, so pause is a temporary mute,
+not a persistent switch.
 
 A peer turn runs in its own session, but it still owns the bridge, so a `/wechat`
 command typed at the terminal declines while one is running: `status` prints the
@@ -395,16 +405,16 @@ sessions are in-process).
 
 | Integration point | Detail |
 |---|---|
-| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `doctor`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `allow [peer]`, `logout`, `help`; bare `/wechat` opens the control screen. |
+| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `pause`, `resume`, `doctor`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `allow [peer]`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
 | Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
 | Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state, `history` → a read-only read of that peer's newest session). |
 | Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer and marking the context for `askHuman`'s file/text preface. The terminal's shared `ctx.ui` is deliberately not adapted: a host turn is never answered remotely, so its dialogs stay local even while a peer turn runs. |
-| Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
+| Status | The bridge's connection state (`running` / `paused` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, pause keeps a warning chip, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
-| Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a peer turn runs. |
+| Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. One bridge per extension runtime: it is built once, `open()` is a no-op while running or paused (so the RPC double `session_start` on a session switch cannot start a second poller or resume a paused one), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `pause()` stops the loop and releases the lock while keeping the worker, so a running turn can finish; `resume()` reacquires the lock and starts a new loop. Pause is runtime-local, so a reload or restart starts a fresh running bridge. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a peer turn runs. |
 
 ## Design notes
 

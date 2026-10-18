@@ -43,6 +43,8 @@ export function wechatChip(theme: Theme, state: BridgeState): string | undefined
 			return paint(theme, "ok", `${GLYPHS.wechat} wechat`);
 		case "expired":
 			return paint(theme, "bad", `${GLYPHS.wechat} wechat expired`);
+		case "paused":
+			return paint(theme, "warn", `${GLYPHS.wechat} wechat paused`);
 		case "stopped":
 			return undefined;
 	}
@@ -154,7 +156,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	const autoStart = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
 		if (!primaryAccount()) return;
-		if (bridge?.status().open) return;
+		if (bridge?.status().open || bridge?.status().paused) return;
 		try {
 			bridge = bridge ?? build(ctx);
 			bridge.open();
