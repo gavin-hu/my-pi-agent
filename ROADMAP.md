@@ -58,7 +58,7 @@ screenshots.
 | README promise | Today | Next move |
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | — |
-| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1–P2 |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
@@ -68,12 +68,12 @@ screenshots.
 
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
-2. **P1 — Alerts where the user is.** Route a `watch` wake match through
-   bytefly's notify capability, so an unattended alert reaches the desktop the
-   way a finished job already does.
-3. **F1 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
+2. **F1 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
    window, with a check if duplicate subsections recur, so a release's notes read
    as one story.
+3. **S1 — Worktree handoff.** A checked way to leave a worktree with a commit and
+   a merge or pull-request hint, which is where the branch flow in `AGENTS.md`
+   actually ends.
 
 ## Horizons
 
@@ -119,10 +119,7 @@ contributes no `Now` item.
 
 **Next**
 
-- **P1 — Alerts where the user is.** Route a `wake` match through bytefly's
-  notify capability when notifications are enabled. *Decision first:* this
-  reverses a documented `watch` non-goal.
-- **P2 — Delegation artifacts.** Optional per-run transcripts under
+- **P1 — Delegation artifacts.** Optional per-run transcripts under
   `.pi/subagents/` for audit and handoff. This reverses the current
   no-persistence non-goal; only with a retention rule.
 
@@ -333,7 +330,6 @@ it.
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C2` is the decision, not a fix. |
-| `watch`: cannot raise an OS notification | `P1` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 | CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`, filed 2026-10-16) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3, the latest release; revisit when both close, then delete `check:serial` from the matrix. |
 

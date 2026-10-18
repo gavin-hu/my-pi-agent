@@ -25,6 +25,7 @@ export const DEFAULT_NOTIFY_CONFIG: NotifyConfig = {
 	turnFinished: true,
 	needsInput: true,
 	jobFinished: true,
+	matchFound: true,
 	method: "auto",
 	title: "Pi",
 };
@@ -49,6 +50,7 @@ export function normalizeNotifyConfig(raw: Record<string, unknown> | undefined, 
 		turnFinished: bool(raw.turnFinished, base.turnFinished),
 		needsInput: bool(raw.needsInput, base.needsInput),
 		jobFinished: bool(raw.jobFinished, base.jobFinished),
+		matchFound: bool(raw.matchFound, base.matchFound),
 		method: method(raw.method, base.method),
 		title: cleanString(raw.title, base.title).slice(0, MAX_TITLE_LENGTH),
 	};

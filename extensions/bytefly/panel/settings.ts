@@ -242,6 +242,18 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "notify", path: ["jobFinished"] },
 	},
 	{
+		id: "notify.matchFound",
+		group: "notifications",
+		label: "Watcher matched",
+		description: "Announce it when a `watch` whose `wake` is on matches while the agent is idle.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["matchFound"] },
+	},
+	{
 		id: "notify.method",
 		group: "notifications",
 		label: "Delivery method",

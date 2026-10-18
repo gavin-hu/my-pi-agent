@@ -8,7 +8,7 @@
  */
 
 import { basename } from "node:path";
-import type { JobFinishedEvent } from "../../../lib/events.ts";
+import type { JobFinishedEvent, WatchMatchEvent } from "../../../lib/events.ts";
 import { sanitizeLine } from "../../../lib/format.ts";
 
 /** A short session label, so concurrent unattended runs can be told apart. */
@@ -36,4 +36,22 @@ export function formatJobBody(job: JobFinishedEvent): string {
 	const code = job.status === "failed" && job.exitCode !== null ? ` (${job.exitCode})` : "";
 	const label = sanitizeLine(job.label);
 	return `Job ${job.id} ${verb}${code}${label ? ` · ${label}` : ""}`;
+}
+
+/** How much of a matched line an OS notification carries. */
+export const MAX_WATCH_LINE = 80;
+
+/**
+ * Body for a `watch` wake match: the newest line that matched, and how many did.
+ *
+ * The line is watched output rather than something this package wrote, so it is
+ * sanitized and clipped here — the one place a notification's text is shaped.
+ */
+export function formatWatchBody(event: WatchMatchEvent): string {
+	const count = Math.max(1, event.count);
+	const label = sanitizeLine(event.label);
+	const line = sanitizeLine(event.line).slice(0, MAX_WATCH_LINE).trimEnd();
+	const head = `${count} watched line${count === 1 ? "" : "s"} matched`;
+	const source = `${sanitizeLine(event.watcherId)}${label ? ` ${label}` : ""}`;
+	return line ? `${head} · ${source}: ${line}` : `${head} · ${source}`;
 }

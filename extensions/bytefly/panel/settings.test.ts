@@ -51,6 +51,7 @@ describe("catalogue", () => {
 			"notify.turnFinished",
 			"notify.needsInput",
 			"notify.jobFinished",
+			"notify.matchFound",
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
@@ -70,6 +71,7 @@ describe("catalogue", () => {
 			"notify.turnFinished",
 			"notify.needsInput",
 			"notify.jobFinished",
+			"notify.matchFound",
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
@@ -87,8 +89,8 @@ describe("catalogue", () => {
 				.filter((entry) => entry.source === "bytefly")
 				.map((entry) => entry.id),
 		);
-		expect(countSettings("global")).toBe(14);
-		expect(countSettings("project")).toBe(11);
+		expect(countSettings("global")).toBe(15);
+		expect(countSettings("project")).toBe(12);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -101,11 +103,11 @@ describe("catalogue", () => {
 			"terminal",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 6, 2, 2, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 2, 2, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([6, 2, 2, 1]);
+		expect(project.map((group) => group.views.length)).toEqual([7, 2, 2, 1]);
 	});
 });
 
@@ -118,6 +120,7 @@ describe("values", () => {
 			["notify.turnFinished", "true", "On", "default"],
 			["notify.needsInput", "true", "On", "default"],
 			["notify.jobFinished", "true", "On", "default"],
+			["notify.matchFound", "true", "On", "default"],
 			["notify.method", "auto", "Auto", "default"],
 			["notify.title", "Pi", "Pi", "default"],
 			["doctor.proactive", "true", "On", "default"],
@@ -130,7 +133,7 @@ describe("values", () => {
 		]);
 
 		const project = settingViews(snapshot(), "project");
-		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 11 }, () => "inherited"));
+		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 12 }, () => "inherited"));
 	});
 
 	test("reads configured app and bytefly values", () => {

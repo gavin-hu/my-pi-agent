@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { JobFinishedEvent } from "../../../lib/events.ts";
-import { formatInputBody, formatJobBody, formatTurnBody, sessionLabel } from "./format.ts";
+import {
+	formatInputBody,
+	formatJobBody,
+	formatTurnBody,
+	formatWatchBody,
+	MAX_WATCH_LINE,
+	sessionLabel,
+} from "./format.ts";
 
 const job = (overrides: Partial<JobFinishedEvent> = {}): JobFinishedEvent => ({
 	id: "j1",
@@ -68,5 +75,37 @@ describe("formatJobBody", () => {
 
 	test("omits an empty label", () => {
 		expect(formatJobBody(job({ label: "  " }))).toBe("Job j1 finished");
+	});
+});
+
+describe("formatWatchBody", () => {
+	const match = { count: 1, watcherId: "w3", label: "build", line: "FAIL: one" };
+
+	test("names the watcher and the newest line", () => {
+		expect(formatWatchBody(match)).toBe("1 watched line matched · w3 build: FAIL: one");
+	});
+
+	test("pluralizes the count across a wake cycle", () => {
+		expect(formatWatchBody({ ...match, count: 3 })).toContain("3 watched lines matched");
+		// A malformed zero still reads as one line, not "0 lines matched".
+		expect(formatWatchBody({ ...match, count: 0 })).toContain("1 watched line matched");
+	});
+
+	test("drops the label separator when the watcher has no label", () => {
+		expect(formatWatchBody({ ...match, label: "" })).toBe("1 watched line matched · w3: FAIL: one");
+	});
+
+	test("sanitizes a control character out of the watched line", () => {
+		expect(formatWatchBody({ ...match, line: "FAIL\u001b[31m: red" })).not.toContain("\u001b");
+	});
+
+	test("clips a long matched line", () => {
+		const body = formatWatchBody({ ...match, line: "x".repeat(MAX_WATCH_LINE + 40) });
+		expect(body).toContain("x".repeat(MAX_WATCH_LINE));
+		expect(body).not.toContain("x".repeat(MAX_WATCH_LINE + 1));
+	});
+
+	test("omits the colon when the line sanitizes to nothing", () => {
+		expect(formatWatchBody({ ...match, line: "\u0007" })).toBe("1 watched line matched · w3 build");
 	});
 });

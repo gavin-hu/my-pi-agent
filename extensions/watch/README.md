@@ -29,7 +29,10 @@ How the `watch` call and its result look in the transcript — the call line as 
 - Shows a `⊚ N` running-watcher chip and a `! N` unreported-match chip, raises a
   `ctx.ui.notify` alert once per unreported burst, and offers a `/watch` screen.
 - Reports pending matches to the model at the start of the next turn, or wakes a
-  turn for a watcher added with `wake: true`.
+  turn for a watcher added with `wake: true`. A wake also leaves the terminal: the
+  match is announced on `my-pi-agent/watch-match`, which bytefly's
+  [notify](../bytefly/README.md#notifications) capability turns into a desktop
+  notification when `notify.enabled` and `notify.matchFound` are on.
 - Watchers are session-only: `shutdown` flushes a partial line, kills every
   command's process tree, and clears the chips.
 
@@ -162,12 +165,14 @@ other.
 - `matches` and `logs` keep bounded histories (`maxMatches`/`maxLogLines`), so
   older lines are dropped.
 - Matching is per line; a pattern cannot span a newline.
+- Only a **wake** match raises an OS notification, and only when bytefly's
+  `notify.enabled` and `notify.matchFound` are on. A match collected while the
+  agent was busy is reported at the next turn without a notification, and `watch`
+  itself never sends one — it announces the match and bytefly owns delivery.
 
 ## Non-goals
 
 - Persisting or reattaching watchers across sessions.
-- Notifying through bytefly's OS-notification capability (the `job` extension
-  owns that channel; `watch` alerts in-session with `ctx.ui.notify`).
 - Multiline or stateful matching, log rotation hooks, and per-watcher poll
   intervals.
 

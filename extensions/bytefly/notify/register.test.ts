@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { JOB_FINISHED_CHANNEL } from "../../../lib/events.ts";
+import { JOB_FINISHED_CHANNEL, WATCH_MATCH_CHANNEL } from "../../../lib/events.ts";
 import { withAgentDir } from "../../../test/helpers/env.ts";
 import { createFakePi, emit } from "../../../test/helpers/fakes.ts";
 import { fakeFooterCtx } from "../../../test/helpers/fixtures/bytefly.ts";
@@ -137,6 +137,49 @@ describe("registerNotify — background jobs", () => {
 		await scenario({ enabled: true, method: "osc777" }, async (h) => {
 			await emit(h.pi, "session_shutdown", { reason: "quit" }, h.ctx);
 			h.pi.events.emit(JOB_FINISHED_CHANNEL, finished);
+			expect(h.written).toEqual([]);
+		});
+	});
+});
+
+describe("registerNotify — watch matches", () => {
+	const match = { count: 2, watcherId: "w3", label: "build", line: "error: bad thing" };
+
+	test("notifies when the watch extension announces a wake match", async () => {
+		await scenario({ enabled: true, method: "osc777" }, async (h) => {
+			h.pi.events.emit(WATCH_MATCH_CHANNEL, match);
+			expect(h.written).toEqual(["\x1b]777;notify;Pi;2 watched lines matched · w3 build: error: bad thing\x07"]);
+		});
+	});
+
+	test("honors matchFound: false without touching the other triggers", async () => {
+		await scenario({ enabled: true, method: "osc777", matchFound: false }, async (h) => {
+			h.pi.events.emit(WATCH_MATCH_CHANNEL, match);
+			expect(h.written).toEqual([]);
+
+			h.pi.events.emit(JOB_FINISHED_CHANNEL, finished);
+			expect(h.written).toHaveLength(1);
+		});
+	});
+
+	test("stays silent while notifications are off", async () => {
+		await scenario({ enabled: false, method: "osc777" }, async (h) => {
+			h.pi.events.emit(WATCH_MATCH_CHANNEL, match);
+			expect(h.written).toEqual([]);
+		});
+	});
+
+	test("ignores a malformed payload", async () => {
+		await scenario({ enabled: true, method: "osc777" }, async (h) => {
+			h.pi.events.emit(WATCH_MATCH_CHANNEL, { count: 1, watcherId: "w1" });
+			expect(h.written).toEqual([]);
+		});
+	});
+
+	test("drops the subscription on shutdown", async () => {
+		await scenario({ enabled: true, method: "osc777" }, async (h) => {
+			await emit(h.pi, "session_shutdown", { reason: "quit" }, h.ctx);
+			h.pi.events.emit(WATCH_MATCH_CHANNEL, match);
 			expect(h.written).toEqual([]);
 		});
 	});
