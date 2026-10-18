@@ -19,7 +19,7 @@
  *   does, by design), so they are a pre-release reading compared against the
  *   budget in `docs/development.md`, never a CI threshold.
  *
- *   bench-render.ts            the table above, plus the determinism gate
+ *   render-bench.ts            the table above, plus the determinism gate
  */
 
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";

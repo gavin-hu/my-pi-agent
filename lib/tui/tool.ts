@@ -136,7 +136,8 @@ export function moreHint(theme: Theme, hidden: number, noun = "lines"): string {
 
 /** The render context fields the elapsed timer needs. */
 export interface ToolRenderClock {
-	state: any;
+	/** Pi's per-call render state, opaque here: this module only ever casts it. */
+	state: unknown;
 	invalidate(): void;
 }
 
@@ -191,7 +192,10 @@ export function elapsedSuffix(theme: Theme, durationMs: number | undefined, minM
  * (the renderer's `isPartial` branch draws its own running line) and the host
  * replaces it with the final result.
  */
-export function startToolProgress(onUpdate: ((partial: any) => void) | undefined): void {
+export function startToolProgress(
+	// allow:any Pi's partial-result type is generic over each tool's details, so a shared helper cannot name it.
+	onUpdate: ((partial: any) => void) | undefined,
+): void {
 	onUpdate?.({ content: [], details: undefined });
 }
 

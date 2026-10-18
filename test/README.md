@@ -160,14 +160,28 @@ and fails on:
 
 Keep the scan total: a new extension is covered automatically. The check has
 one exemption list in `test/structure.test.ts`. A single line may also opt out
-of one ban with an `allow:<name>` comment when the match is genuine content
-(for example a whitespace-normalisation assertion) and not layout padding. Add
-to either only with a stated reason; do not silently widen a regex.
+of one ban with an `allow:<name>` comment on that line or in the comment block
+directly above it, when the match is genuine content (for example a
+whitespace-normalisation assertion) and not layout padding. Add to either only
+with a stated reason; do not silently widen a regex.
 
 ## Source conventions (enforced)
 
-The same file scans extension and `lib/` **source** (`.ts`, not `.test.ts`) and
-fails a tool renderer that:
+The same file scans extension and `lib/` **source** (`.ts`, not `.test.ts`), so
+the mechanical half of `AGENTS.md` "Code quality" is a failing test rather than
+a review note. It fails:
+
+- a `TODO` / `FIXME` / `HACK` / `XXX` marker — the work is finished, or it is a
+  `ROADMAP.md` item;
+- a suppression comment (`@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`,
+  `biome-ignore`, `eslint-disable`) — fix the type or the rule instead;
+- `as any` / `: any` / `<any>` / `any[]` — use `unknown` at the boundary, or
+  name the host type;
+- a commented-out statement, in the shapes it takes (`// const`, `// return`,
+  `// if (`, a bare `// }`, …). Prose is not code, so `// for the duration of a
+  call` stays.
+
+A tool renderer is also failed when it:
 
 - defines `renderCall(` / `renderResult(` without referencing
   `context.lastComponent`;
@@ -175,6 +189,12 @@ fails a tool renderer that:
   `keyText(EXPAND_KEYBINDING)`;
 - repeats the raw `"app.tools.expand"` id instead of importing
   `EXPAND_KEYBINDING` from `lib/tui/glyphs.ts`.
+
+A source line takes its opt-out the same way, with the reason in the comment.
+Two stand today: `allow:todo` in `extensions/todo/nudge.ts`, whose marker is
+text the model reads rather than a to-do for a human, and `allow:any` in
+`lib/tui/tool.ts`, whose parameter is a partial result Pi types separately for
+every tool.
 
 ## Extension boundaries (enforced)
 

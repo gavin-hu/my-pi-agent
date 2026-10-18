@@ -144,17 +144,30 @@ why.
 
 ## Code quality
 
-Extension code is read far more often than it is written. Leave every module
-tidy: one job per file, logic a second extension would need in `lib/` rather
-than copied, names that say what the thing does, no dead branches or
-commented-out code, and no comment that restates the line it sits on.
-Readability beats cleverness — an obvious loop beats a dense one-liner.
+Extension code is read far more often than it is written, so each of these is a
+rule rather than a preference.
 
-Performance is part of the same bar. Do work once per render rather than per
-frame, take the cheap path before allocating, and keep nothing that grows with
-the transcript or the session unbounded. A change that makes a long session feel
-slow is a bug even when every test passes; `bun run bench:render` is how a
-renderer change is measured, and its determinism gate runs in the suite.
+- One job per module, and a name that says it. Past roughly 600 lines, a module
+  either splits or states in its header the one responsibility holding it
+  together.
+- The second copy of a helper goes in `lib/`, not the third, and only when a
+  second extension really needs it. `lib/README.md` lists what is already there.
+- No dead branch, no commented-out code, no comment that restates its line. A
+  comment carries the why the code cannot: a host quirk, a trap, a limit.
+- `unknown` at a boundary, never `any`. A cast is a claim about a value you did
+  not build, so it names the guarantee it relies on.
+- An obvious loop beats a dense one-liner, and a name beats a comment.
+
+`test/structure.test.ts` fails a `TODO` marker, a suppression comment, an `any`,
+and a commented-out statement; the rest of this section is review.
+
+Performance is the same bar: do work once per render rather than per frame, take
+the cheap path before allocating, and keep nothing that grows with the
+transcript or the session unbounded. A change that makes a long session feel
+slow is a bug even when every test passes, so measure it with
+`bun run bench:render` against the budget in
+[`docs/development.md`](./docs/development.md#performance), and keep its
+determinism gate, which runs in the suite, green.
 
 ## TUI design conventions
 

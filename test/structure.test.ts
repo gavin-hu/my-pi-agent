@@ -106,24 +106,75 @@ const BANS: Ban[] = [
 ];
 
 /**
- * Lines in `file` that match a ban, as `path:line: alert (reason)`.
- * A line may opt out of one ban with an `allow:<name>` comment when the
- * matched text is genuine content (for example a whitespace-normalisation
- * assertion), not layout padding.
+ * The same bans, on extension and `lib/` **source** (not `.test.ts`): the half of
+ * `AGENTS.md` "Code quality" a line scan can hold. `scripts/` is dev tooling and
+ * outside this scan.
  */
-function scanBans(file: string): string[] {
-	if (EXEMPT_FILES.has(file)) return [];
+const SOURCE_BANS: Ban[] = [
+	{
+		name: "todo",
+		matches: (line) => /\b(?:TODO|FIXME|HACK|XXX)\b/.test(line),
+		reason: "do it, or file it in ROADMAP.md",
+	},
+	{
+		name: "suppression",
+		matches: (line) => /@ts-(?:ignore|expect-error|nocheck)|biome-ignore|eslint-disable/.test(line),
+		reason: "fix the type or the rule, or state the exception in a comment",
+	},
+	{
+		name: "any",
+		matches: (line) => /\bas\s+any\b|:\s*any\b|<any>|\bany\[\]/.test(line),
+		reason: "use unknown at the boundary, or name the host type",
+	},
+	{
+		// Prose comments are not code: these are the shapes a commented-out statement
+		// takes, and `// for the duration of a call` is the case they must not match.
+		name: "commented-code",
+		matches: (line) =>
+			/^\s*\/\/\s*(?:const|let|var|return|import|export|function|class|interface|enum|await)\b/.test(line) ||
+			/^\s*\/\/\s*(?:if|for|while|switch)\s*\(/.test(line) ||
+			/^\s*\/\/\s*\}/.test(line),
+		reason: "delete it; git has the version that worked",
+	},
+];
+
+/**
+ * Lines in `file` that match one of `bans`, as `path:line: alert (reason)`.
+ * A line may opt out of one ban with an `allow:<name>` comment on that line or
+ * in the comment block directly above it, when the matched text is genuine
+ * content (a whitespace-normalisation assertion, a host seam no shared type can
+ * name) and not a shortcut.
+ */
+function scanBans(file: string, bans: Ban[] = BANS, exempt: Set<string> = EXEMPT_FILES): string[] {
+	if (exempt.has(file)) return [];
 	const relative = file.slice(repo.length + 1);
 	const violations: string[] = [];
-	readFileSync(file, "utf-8")
-		.split("\n")
-		.forEach((line, index) => {
-			for (const ban of BANS) {
-				if (line.includes(`allow:${ban.name}`)) continue;
-				if (ban.matches(line)) violations.push(`${relative}:${index + 1}: ${ban.name} (${ban.reason})`);
-			}
-		});
+	const lines = readFileSync(file, "utf-8").split("\n");
+	lines.forEach((line, index) => {
+		for (const ban of bans) {
+			if (allowsAt(lines, index, `allow:${ban.name}`)) continue;
+			if (ban.matches(line)) violations.push(`${relative}:${index + 1}: ${ban.name} (${ban.reason})`);
+		}
+	});
 	return violations;
+}
+
+/** A comment line: `//`, or the `*`-prefixed body and fence of a block comment. */
+const COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/;
+
+/**
+ * Whether `marker` appears on that line or in the comment block directly above
+ * it, walking up until the block ends. An allowance reads best where the reason
+ * belongs: beside the line, or inside the doc comment that already explains it.
+ */
+function allowsAt(lines: string[], index: number, marker: string): boolean {
+	if (lines[index]?.includes(marker) === true) return true;
+	for (let above = index - 1; above >= 0; above--) {
+		const line = lines[above] ?? "";
+		if (!COMMENT_LINE.test(line)) return false;
+		if (line.includes(marker)) return true;
+	}
+	return false;
 }
 
 describe("test layout", () => {
@@ -188,6 +239,14 @@ const RAW_EXPAND_KEY = /"app\.tools\.expand"/;
 const LITERAL_EXPAND_KEY = /Ctrl\+O|ctrl\+o/;
 
 describe("source conventions", () => {
+	test("source avoids the banned patterns", () => {
+		const offenders: string[] = [];
+		for (const dir of SCANNED_DIRS) {
+			for (const file of sourceFiles(dir)) offenders.push(...scanBans(file, SOURCE_BANS));
+		}
+		expect(offenders).toEqual([]);
+	});
+
 	test("tool renderers reuse context.lastComponent", () => {
 		const offenders: string[] = [];
 		for (const dir of SCANNED_DIRS) {

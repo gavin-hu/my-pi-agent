@@ -133,7 +133,7 @@ export function registerRootTools(pi: ExtensionAPI, host: RootToolHost, deps: Ro
 					signal,
 					onUpdate,
 					withCwd(ctx, root),
-				)) as AgentToolResult<any>;
+				)) as AgentToolResult<unknown>;
 			},
 		});
 	}
