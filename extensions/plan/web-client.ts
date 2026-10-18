@@ -17,12 +17,15 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
 
   var dataNode = document.getElementById("review-data");
-  var fallback = { blocks: [], annotations: [], outline: [], steps: { done: 0, total: 0 }, code: {}, token: "" };
+  // The caps come from the island, which takes them from the server's own
+  // validation; the fallback only guards a page whose island failed to parse.
+  var fallback = { blocks: [], annotations: [], outline: [], steps: { done: 0, total: 0 }, code: {}, limits: { comments: 200, comment: 2000, quote: 500 }, token: "" };
   var data = fallback;
   if (dataNode && dataNode.textContent) {
     try { data = JSON.parse(dataNode.textContent); } catch (error) { data = fallback; }
   }
   var token = typeof data.token === "string" ? data.token : "";
+  var limits = data.limits || fallback.limits;
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
   var approved = false;
@@ -34,6 +37,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var pendingQuote = null;
   var activeIndex = -1;
   var outlineItems = {};
+  var stream = null;
 
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
@@ -319,7 +323,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (!selection || selection.isCollapsed) return "";
     var range = selection.rangeCount ? selection.getRangeAt(0) : null;
     if (!range || !wrap.contains(range.commonAncestorContainer)) return "";
-    return selection.toString().replace(/\s+/g, " ").trim().slice(0, 500);
+    return selection.toString().replace(/\s+/g, " ").trim().slice(0, limits.quote);
   }
 
   function commentsBoxAfter(wrap) {
@@ -333,7 +337,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   // Enter submits a comment; Shift+Enter is left for the browser.
   function submitOnEnter(area, submit) {
     area.addEventListener("keydown", function (event) {
-      if (event.key !== "Enter" || event.shiftKey) return;
+      // An IME uses Enter to commit a composition; submitting then would send a
+      // half-typed comment.
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
       event.preventDefault();
       submit();
     });
@@ -351,6 +357,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var area = el("textarea", "bf-textarea");
     area.placeholder = "Leave feedback on this part of the plan (Enter to add)";
     area.setAttribute("aria-label", "Comment");
+    area.maxLength = limits.comment;
     composer.appendChild(area);
     var row = el("div", "bf-composer__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
@@ -359,7 +366,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var submit = function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
-      if (annotations.length >= 200) { setStatus("Comment limit reached (200).", "error"); return; }
+      if (annotations.length >= limits.comments) { setStatus("Comment limit reached (" + limits.comments + ").", "error"); return; }
       annotations.push(quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment });
       dirty = true;
       renderPlan();
@@ -377,6 +384,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var area = el("textarea", "bf-textarea");
     area.value = annotation.comment;
     area.setAttribute("aria-label", "Edit comment");
+    area.maxLength = limits.comment;
     card.appendChild(area);
     var row = el("div", "bf-comment__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
@@ -593,6 +601,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       planEl.appendChild(box);
     }
     planEl.scrollTop = scrollTop;
+    // The DOM was rebuilt, so the active block's class is gone; restore it in
+    // place rather than scrolling, so j/k resume where the reviewer was.
+    var active = activeIndex >= 0 ? blockElements()[activeIndex] : null;
+    if (active) active.classList.add("bf-block--active");
     renderFacts();
     observeSections();
     updateState();
@@ -641,6 +653,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     controls.appendChild(reload);
   }
 
+  // The stream exists only to notice a closed tab. Once the review is settled it
+  // has no job, and leaving it open retries a dead port until the tab closes.
+  function settleStream() {
+    if (stream && stream.close) { stream.close(); stream = null; }
+  }
+
   // Save and approve share the same POST shape; only the route, the settled
   // flag, and the wording differ. Both persist the current annotations.
   function submit(url, okText, failText, mark) {
@@ -652,6 +670,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       if (response.ok) {
         mark();
         dirty = false;
+        settleStream();
         setStatus(okText, "saved");
         lockActions();
         updateState();
@@ -664,7 +683,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         offerReload();
         return;
       }
-      throw new Error("server returned " + response.status);
+      // Surface the server's own reason (a malformed comment, a stale body)
+      // rather than a bare status code.
+      return response.json().then(
+        function (payload) { throw new Error(payload && payload.error ? payload.error : "server returned " + response.status); },
+        function () { throw new Error("server returned " + response.status); }
+      );
     }).catch(function (error) {
       setStatus(failText + error.message, "error");
     });
@@ -685,6 +709,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function cancel() {
     if (saved || approved || closed) return;
     closed = true;
+    settleStream();
     lockActions();
     setStatus("Closing\u2026");
     updateState();
@@ -757,10 +782,11 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   window.addEventListener("scroll", updateProgress);
   window.addEventListener("resize", updateProgress);
+  window.addEventListener("pagehide", settleStream);
   if (planEl) planEl.addEventListener("scroll", updateProgress);
 
   try {
-    var stream = new EventSource("/events?token=" + encodeURIComponent(token));
+    stream = new EventSource("/events?token=" + encodeURIComponent(token));
     stream.addEventListener("open", function () { connected = true; everConnected = true; updateState(); });
     stream.addEventListener("error", function () {
       // The server ends the stream once the review is settled; keep showing the

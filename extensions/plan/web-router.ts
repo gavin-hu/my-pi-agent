@@ -50,8 +50,13 @@ const HOST_PATTERN = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
 
 const HTML_SECURITY: Record<string, string> = {
 	"Content-Type": "text/html; charset=utf-8",
+	// `frame-ancestors` keeps a local page from framing the review and clickjacking
+	// the one control with a side effect (Approve & run); the rest is the same
+	// no-script, no-network envelope the page already relied on.
 	"Content-Security-Policy":
-		"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'",
+		"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; " +
+		"connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'",
+	"X-Frame-Options": "DENY",
 	"X-Content-Type-Options": "nosniff",
 	"Referrer-Policy": "no-referrer",
 	"Cache-Control": "no-store",
@@ -62,7 +67,7 @@ const SCRIPT_HEADERS: Record<string, string> = {
 	"Content-Type": "text/javascript; charset=utf-8",
 };
 
-const JSON_HEADERS: Record<string, string> = {
+export const JSON_HEADERS: Record<string, string> = {
 	"Content-Type": "application/json; charset=utf-8",
 	"X-Content-Type-Options": "nosniff",
 	"Referrer-Policy": "no-referrer",
@@ -112,7 +117,10 @@ function checkEnvelope(
 ): ServeResponse | undefined {
 	const upper = method.toUpperCase();
 	if (upper !== "GET" && upper !== "HEAD" && upper !== "POST") {
-		return { ...errorResponse(405, "Only GET and POST are served."), headers: { ...JSON_HEADERS, Allow: "GET, POST" } };
+		return {
+			...errorResponse(405, "Only GET, HEAD, and POST are served."),
+			headers: { ...JSON_HEADERS, Allow: "GET, HEAD, POST" },
+		};
 	}
 	// Fail closed: a missing or non-string Host is rejected too, not just a
 	// foreign one, so the DNS-rebinding guard cannot be skipped.

@@ -192,6 +192,34 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain("prefers-color-scheme: light");
 	});
 
+	test("closes the stream once the review has settled", () => {
+		expect(REVIEW_CLIENT_JS).toContain("function settleStream()");
+		expect(REVIEW_CLIENT_JS).toContain("stream.close()");
+		expect(REVIEW_CLIENT_JS).toContain('addEventListener("pagehide", settleStream)');
+		expect(REVIEW_CLIENT_JS).toContain("settleStream();");
+	});
+
+	test("takes its caps from the island instead of retyping them", () => {
+		expect(REVIEW_CLIENT_JS).toContain("var limits = data.limits || fallback.limits;");
+		expect(REVIEW_CLIENT_JS).toContain("area.maxLength = limits.comment;");
+		expect(REVIEW_CLIENT_JS).toContain("annotations.length >= limits.comments");
+		expect(REVIEW_CLIENT_JS).toContain("slice(0, limits.quote)");
+		expect(REVIEW_CLIENT_JS).not.toContain(">= 200");
+	});
+
+	test("ignores Enter while an IME composition is open", () => {
+		expect(REVIEW_CLIENT_JS).toContain("event.isComposing");
+	});
+
+	test("shows the server's own reason when a save is rejected", () => {
+		expect(REVIEW_CLIENT_JS).toContain("payload.error");
+		expect(REVIEW_CLIENT_JS).toContain("response.json()");
+	});
+
+	test("restores the active block after a re-render", () => {
+		expect(REVIEW_CLIENT_JS).toContain('classList.add("bf-block--active")');
+	});
+
 	test("marks a changed outline section with a labelled dot", () => {
 		expect(REVIEW_CLIENT_JS).toContain('"review-changed"');
 		expect(REVIEW_CLIENT_JS).toContain("Changed since your last review");

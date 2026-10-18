@@ -57,6 +57,11 @@ export interface ReviewPageData {
 	steps: { done: number; total: number };
 	/** Highlighted HTML per line, keyed by the code block's 0-based start line. */
 	code: Record<string, string[]>;
+	/**
+	 * The caps the server enforces, so the page does not retype them: comment
+	 * count, comment length, and quote length, from `feedback.ts`.
+	 */
+	limits: { comments: number; comment: number; quote: number };
 	/** Whether the review may approve the plan (only the `exit_plan_mode` flow). */
 	canApprove: boolean;
 	/** Per-session secret the client echoes on every request. */

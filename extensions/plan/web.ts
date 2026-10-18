@@ -16,10 +16,23 @@ import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
-import { parseFeedback, stripFeedback, type PlanAnnotation } from "./feedback.ts";
+import {
+	MAX_ANNOTATIONS,
+	MAX_COMMENT_LENGTH,
+	MAX_QUOTE_LENGTH,
+	parseFeedback,
+	stripFeedback,
+	type PlanAnnotation,
+} from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
 import { changedSections, extractPlanSections, extractPlanSteps } from "./steps.ts";
-import { handleReviewRequest, type ReviewContext, type ServeResponse, type SaveResult } from "./web-router.ts";
+import {
+	handleReviewRequest,
+	JSON_HEADERS,
+	type ReviewContext,
+	type ServeResponse,
+	type SaveResult,
+} from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
 /** How a browser review ended. */
@@ -66,6 +79,8 @@ export interface PlanWebReviewDeps {
 	port?: number;
 	/** Override the closed-tab grace; the default leaves a reload time to reconnect. */
 	dropGraceMs?: number;
+	/** Override the accepted body size; a test keeps it small. */
+	maxBodyBytes?: number;
 }
 
 /** Largest feedback body accepted, in bytes. */
@@ -73,21 +88,37 @@ const MAX_BODY_BYTES = 1024 * 1024;
 /** Grace period before an empty client set counts as a closed tab. */
 const DROP_GRACE_MS = 1500;
 
-function readBody(request: IncomingMessage): Promise<string | undefined> {
+/** A request body, or the fact that it was too large to read. */
+type BodyResult = { ok: true; body: string } | { ok: false };
+
+/**
+ * Read a request body, stopping at {@link MAX_BODY_BYTES}. An oversize body is
+ * reported rather than destroyed here, so the handler can still answer 413 over
+ * the open socket instead of the client seeing a dropped connection.
+ */
+function readBody(request: IncomingMessage, limit: number): Promise<BodyResult> {
 	return new Promise((resolve) => {
 		const chunks: Buffer[] = [];
 		let size = 0;
+		let done = false;
+		const settle = (result: BodyResult): void => {
+			if (done) return;
+			done = true;
+			resolve(result);
+		};
 		request.on("data", (chunk: Buffer) => {
+			if (done) return;
 			size += chunk.length;
-			if (size > MAX_BODY_BYTES) {
-				resolve(undefined);
-				request.destroy();
+			if (size > limit) {
+				chunks.length = 0;
+				request.pause();
+				settle({ ok: false });
 				return;
 			}
 			chunks.push(chunk);
 		});
-		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-		request.on("error", () => resolve(undefined));
+		request.on("end", () => settle({ ok: true, body: Buffer.concat(chunks).toString("utf-8") }));
+		request.on("error", () => settle({ ok: false }));
 	});
 }
 
@@ -117,6 +148,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 	): Promise<PlanReviewSession | undefined> => {
 		const { signal } = options;
 		const canApprove = options.canApprove === true;
+		const maxBody = deps.maxBodyBytes ?? MAX_BODY_BYTES;
 		const token = (deps.token ?? (() => randomBytes(16).toString("hex")))();
 		let settled = false;
 		let resolveDone!: (result: PlanReviewResult) => void;
@@ -195,6 +227,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					total: stepList.length,
 				},
 				code,
+				limits: { comments: MAX_ANNOTATIONS, comment: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
 				token,
 				canApprove,
 			};
@@ -247,19 +280,21 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const server = createServer((request, response) => {
 			void (async () => {
 				const method = request.method ?? "GET";
-				const body = method.toUpperCase() === "POST" ? await readBody(request) : "";
-				if (body === undefined) {
-					response.writeHead(413, { "Content-Type": "application/json" });
+				const read =
+					method.toUpperCase() === "POST" ? await readBody(request, maxBody) : { ok: true as const, body: "" };
+				if (!read.ok) {
+					response.writeHead(413, { ...JSON_HEADERS, Connection: "close" });
 					response.end(JSON.stringify({ error: "The request body is too large." }));
 					return;
 				}
+				const body = read.body;
 				let result: ServeResponse;
 				try {
 					result = await handleReviewRequest(context, method, request.url ?? "/", request.headers, body);
 				} catch {
 					result = {
 						status: 500,
-						headers: { "Content-Type": "application/json" },
+						headers: { ...JSON_HEADERS },
 						body: JSON.stringify({ error: "Internal error" }),
 					};
 				}
@@ -284,15 +319,24 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					return;
 				}
 				// A save or cancel only resolves the session after its response is on the
-				// wire; otherwise `close()` would force-close the socket mid-reply.
-				response.end(result.body ?? "", () => {
-					if (!pendingResult) return;
+				// wire; otherwise `close()` would force-close the socket mid-reply. The
+				// `close` path covers a client that walks away before the flush callback
+				// runs, so a settle cannot be lost with the socket.
+				const settlePending = (): void => {
 					const terminal = pendingResult;
+					if (!terminal) return;
 					pendingResult = undefined;
 					finish(terminal);
-				});
+				};
+				response.end(result.body ?? "", settlePending);
+				response.on("close", settlePending);
 			})();
 		});
+
+		// An accept-level error (EMFILE and friends) is emitted on the server, and an
+		// `error` event with no listener would take the host down mid-review. The
+		// review still ends through its own paths: cancel, abort, drop, or shutdown.
+		server.on("error", () => {});
 
 		const preferred = deps.port ?? ports.get(plan.path) ?? 0;
 		let port: number | undefined;

@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
 import { settle } from "../../test/helpers/process.ts";
-import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
+import {
+	formatFeedback,
+	MAX_ANNOTATIONS,
+	MAX_COMMENT_LENGTH,
+	MAX_QUOTE_LENGTH,
+	type PlanAnnotation,
+} from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession } from "./web.ts";
 
@@ -229,6 +235,33 @@ describe("createPlanWebReview", () => {
 		// Closing the tab for real is a drop nobody answers.
 		second.abort();
 		expect((await session.done).status).toBe("cancelled");
+	});
+
+	test("rejects an oversize body with a JSON 413, not a dropped connection", async () => {
+		const { store } = fakeStore("# Plan\n");
+		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, maxBodyBytes: 64 });
+		const session = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		const response = await fetch(feedbackUrl(session), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ annotations: [{ anchor: 0, comment: "x".repeat(200) }] }),
+		});
+		expect(response.status).toBe(413);
+		expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		await fetch(cancelUrl(session), { method: "POST" });
+		expect((await session.done).status).toBe("cancelled");
+	});
+
+	test("hands the client the server's own caps", async () => {
+		const session = await start("# Plan\n");
+		const html = await (await fetch(session.url)).text();
+		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
+		expect(JSON.parse(island![1]).limits).toEqual({
+			comments: MAX_ANNOTATIONS,
+			comment: MAX_COMMENT_LENGTH,
+			quote: MAX_QUOTE_LENGTH,
+		});
 	});
 
 	test("close is idempotent and closeAll stops every session", async () => {

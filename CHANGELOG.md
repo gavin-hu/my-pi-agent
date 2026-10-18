@@ -102,6 +102,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: a tab-indented code fence is prose for both parsers, so the review
   screen and the browser no longer disagree about where a section or a step
   starts, which had shifted every browser comment anchor after such a fence.
+- `plan`: the browser review page can no longer be framed. Its CSP adds
+  `frame-ancestors 'none'`, `base-uri 'self'`, and `form-action 'none'`, and it
+  sends `X-Frame-Options: DENY`, so a local page cannot clickjack
+  **Approve & run** — the one control with a side effect.
+- `plan`: an oversized feedback body now gets a JSON `413` through the same
+  header envelope as every other reply instead of having its socket destroyed
+  under it, and a reply the client walks away from can no longer leave the
+  review waiting.
+- `plan`: the review page takes its comment and quote caps from the server via
+  the data island (so the comment length is enforced while typing), submits a
+  comment only after an IME composition ends, keeps its active block highlighted
+  after a re-render, and shows the server's own reason when a save is rejected.
 
 ## [0.12.0] - 2026-10-18
 
