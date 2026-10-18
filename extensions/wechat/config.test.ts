@@ -45,6 +45,12 @@ describe("normalizeConfig", () => {
 		expect(high.maxMediaBytes).toBe(100 * 1024 * 1024);
 	});
 
+	test("clamps maxInboundChars into range", () => {
+		expect(normalizeConfig({ maxInboundChars: 10 }, DEFAULT_CONFIG).maxInboundChars).toBe(1000);
+		expect(normalizeConfig({ maxInboundChars: 999_999 }, DEFAULT_CONFIG).maxInboundChars).toBe(100_000);
+		expect(normalizeConfig({ maxInboundChars: 5000 }, DEFAULT_CONFIG).maxInboundChars).toBe(5000);
+	});
+
 	test("cleans the CDN base URL of trailing slashes", () => {
 		const config = normalizeConfig({ cdnBaseUrl: "  https://cdn.example.com/c2c///  " }, DEFAULT_CONFIG);
 		expect(config.cdnBaseUrl).toBe("https://cdn.example.com/c2c");

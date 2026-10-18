@@ -22,6 +22,8 @@ export interface WechatConfig {
 	cdnBaseUrl: string;
 	/** Inbound media larger than this is skipped. */
 	maxMediaBytes: number;
+	/** Inbound text longer than this is truncated before it reaches the model. */
+	maxInboundChars: number;
 	/** Send a typing indicator while an inbound turn is being generated. */
 	typingIndicator: boolean;
 	/** Route interactive dialogs raised during a WeChat turn back to WeChat. */
@@ -41,6 +43,7 @@ export const DEFAULT_CONFIG: WechatConfig = {
 	channelVersion: "0.1.0",
 	cdnBaseUrl: "https://novac2c.cdn.weixin.qq.com/c2c",
 	maxMediaBytes: 20 * 1024 * 1024,
+	maxInboundChars: 8000,
 	typingIndicator: true,
 	remotePrompts: true,
 };
@@ -78,6 +81,9 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	}
 	if (raw.maxMediaBytes !== undefined) {
 		config.maxMediaBytes = clampInteger(raw.maxMediaBytes, base.maxMediaBytes, 1024, 100 * 1024 * 1024);
+	}
+	if (raw.maxInboundChars !== undefined) {
+		config.maxInboundChars = clampInteger(raw.maxInboundChars, base.maxInboundChars, 1000, 100_000);
 	}
 	if (typeof raw.typingIndicator === "boolean") {
 		config.typingIndicator = raw.typingIndicator;

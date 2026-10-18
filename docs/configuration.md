@@ -86,8 +86,8 @@ malformed document, so it is safe to re-run.
 
 The `wechat` extension also keeps state under `<agent-dir>/wechat/`:
 `credentials.json` (mode `0600`, every stored account plus the active one),
-`state.json` (the poll cursor,
-the owner, and per-peer reply tokens), `media/` (downloaded inbound files), and
+`state.json` (the poll cursor, the owner, per-peer reply tokens, and the recent
+message ids used to ignore a replay), `media/` (downloaded inbound files), and
 `poller.lock` (one runtime owns the account at a time). This is login and runtime
 state, not user configuration.
 

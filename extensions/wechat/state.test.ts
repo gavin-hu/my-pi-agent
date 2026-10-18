@@ -2,7 +2,17 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../../test/helpers/env.ts";
-import { emptyState, findPeer, readState, recordInbound, writeState } from "./state.ts";
+import {
+	emptyState,
+	findPeer,
+	readState,
+	recordInbound,
+	rememberMessage,
+	SEEN_MAX,
+	SEEN_TTL_MS,
+	seenMessage,
+	writeState,
+} from "./state.ts";
 
 function newPath(): string {
 	return join(tempDir("wechat-state-"), "state.json");
@@ -48,6 +58,38 @@ describe("state", () => {
 
 	test("findPeer returns undefined for an unknown peer", () => {
 		expect(findPeer(emptyState(), "nobody")).toBeUndefined();
+	});
+
+	test("remembers a message id by normalized peer and expires it", () => {
+		const state = emptyState();
+		rememberMessage(state, "alice@im.wechat", 7, 1000);
+		expect(seenMessage(state, "alice", 7)).toBe(true);
+		expect(seenMessage(state, "ALICE", 7)).toBe(true);
+		expect(seenMessage(state, "alice", 8)).toBe(false);
+		expect(seenMessage(state, "bob", 7)).toBe(false);
+
+		// One hour later the entry is stale; remembering a newer id prunes it.
+		rememberMessage(state, "alice", 9, 1000 + SEEN_TTL_MS + 1);
+		expect(seenMessage(state, "alice", 7)).toBe(false);
+		expect(seenMessage(state, "alice", 9)).toBe(true);
+	});
+
+	test("caps the remembered ids", () => {
+		const state = emptyState();
+		for (let id = 0; id < SEEN_MAX + 10; id++) rememberMessage(state, "alice", id, 1000);
+		expect(state.seen).toHaveLength(SEEN_MAX);
+		expect(seenMessage(state, "alice", 0)).toBe(false);
+		expect(seenMessage(state, "alice", SEEN_MAX + 9)).toBe(true);
+	});
+
+	test("round-trips seen ids and drops malformed entries", () => {
+		const path = newPath();
+		writeState(path, {
+			cursor: "",
+			peers: {},
+			seen: [{ peer: "alice", id: 1, at: 5 }, { peer: "", id: 2, at: 5 }, { peer: "bob", id: "x", at: 5 } as never],
+		});
+		expect(readState(path).seen).toEqual([{ peer: "alice", id: 1, at: 5 }]);
 	});
 
 	test("findPeer prefers the freshest duplicate left by an older version", () => {

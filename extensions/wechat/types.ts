@@ -107,6 +107,16 @@ export interface WechatState {
 	cursor: string;
 	ownerId?: string;
 	peers: Record<string, PeerState>;
+	/** Recently handled inbound ids, so a replay is answered once. */
+	seen?: SeenMessage[];
+}
+
+/** One handled inbound message, keyed by the normalized peer and its id. */
+export interface SeenMessage {
+	peer: string;
+	id: number;
+	/** Epoch milliseconds; entries older than the window are pruned. */
+	at: number;
 }
 
 /** A queued inbound message awaiting a turn. */

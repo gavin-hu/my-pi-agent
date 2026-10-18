@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: a server replay of an already-handled message is ignored, keyed by
+  the WeChat message id and remembered in `state.json` for an hour (500 ids
+  across peers), so a reconnect or a reload cannot answer twice. Inbound text is
+  capped by `maxInboundChars` (8000 by default, clamped 1000–100000) with a
+  truncation marker for the model, instead of an unbounded paste reaching it.
 - `plan`: both review surfaces mark what changed since the previous review of
   the same plan. The review screen adds a `N sections changed since your last
   review` line and appends `· changed` to the current section in the scroll row,

@@ -8,9 +8,14 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { PeerState, WechatState } from "./types.ts";
+import type { PeerState, SeenMessage, WechatState } from "./types.ts";
 import { wechatDir } from "./credentials.ts";
 import { peerKey } from "./format.ts";
+
+/** How long a handled message id is remembered for a replay. */
+export const SEEN_TTL_MS = 60 * 60 * 1000;
+/** How many handled ids are kept across all peers. */
+export const SEEN_MAX = 500;
 
 /** The default state file path. */
 export function statePath(): string {
@@ -32,6 +37,15 @@ function normalizePeer(value: unknown): PeerState | undefined {
 	return peer;
 }
 
+function normalizeSeen(value: unknown): SeenMessage | undefined {
+	if (!value || typeof value !== "object") return undefined;
+	const raw = value as Record<string, unknown>;
+	if (typeof raw.peer !== "string" || raw.peer === "") return undefined;
+	if (typeof raw.id !== "number" || !Number.isFinite(raw.id)) return undefined;
+	if (typeof raw.at !== "number" || !Number.isFinite(raw.at)) return undefined;
+	return { peer: raw.peer, id: raw.id, at: raw.at };
+}
+
 /** Read and validate the state file; a missing/corrupt file yields empty state. */
 export function readState(path: string): WechatState {
 	try {
@@ -46,10 +60,18 @@ export function readState(path: string): WechatState {
 				if (peer) peers[id] = peer;
 			}
 		}
+		const seen: SeenMessage[] = [];
+		if (Array.isArray(raw.seen)) {
+			for (const value of raw.seen) {
+				const entry = normalizeSeen(value);
+				if (entry) seen.push(entry);
+			}
+		}
 		return {
 			cursor: typeof raw.cursor === "string" ? raw.cursor : "",
 			ownerId: typeof raw.ownerId === "string" && raw.ownerId ? raw.ownerId : undefined,
 			peers,
+			...(seen.length > 0 ? { seen: seen.slice(-SEEN_MAX) } : {}),
 		};
 	} catch {
 		return emptyState();
@@ -90,6 +112,21 @@ function storedKey(state: WechatState, peer: string): string {
 /** The peer's entry, accepting either id form. */
 export function findPeer(state: WechatState, peer: string): PeerState | undefined {
 	return state.peers[storedKey(state, peer)];
+}
+
+/** Whether this message id was already handled for the peer. */
+export function seenMessage(state: WechatState, peer: string, id: number): boolean {
+	const key = peerKey(peer);
+	return (state.seen ?? []).some((entry) => entry.peer === key && entry.id === id);
+}
+
+/** Remember a handled message id, pruning expired entries and capping the list. */
+export function rememberMessage(state: WechatState, peer: string, id: number, now: number): void {
+	const key = peerKey(peer);
+	const cutoff = now - SEEN_TTL_MS;
+	const seen = (state.seen ?? []).filter((entry) => entry.at >= cutoff);
+	if (!seen.some((entry) => entry.peer === key && entry.id === id)) seen.push({ peer: key, id, at: now });
+	state.seen = seen.slice(-SEEN_MAX);
 }
 
 /** Record an inbound message: store the reply token and the seen time. */

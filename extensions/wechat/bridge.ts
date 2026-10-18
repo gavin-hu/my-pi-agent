@@ -37,7 +37,7 @@ import { sendLocalFile } from "./outbound.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { createPeerWorker, type PeerItem, type PeerState, type PeerWorker } from "./peer-worker.ts";
 import type { PeerSession } from "./peer-session.ts";
-import { emptyState, findPeer, recordInbound } from "./state.ts";
+import { emptyState, findPeer, recordInbound, rememberMessage, seenMessage } from "./state.ts";
 import {
 	expandSnippet,
 	findSlashCommand,
@@ -698,19 +698,36 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		if (!isInboundMessage(message)) return;
 		const peer = message.from_user_id as string;
 		const { text: rawText, media, unsupported } = parseInbound(message.item_list);
-		let text = rawText;
-		// A reply to a pending prompt is consumed here, before admission and
-		// queueing, so it never starts a turn of its own.
-		if (interaction.handleInbound(peer, text)) return;
 		const owner = state.ownerId ?? account?.ilinkUserId;
+		// Admission comes first: a refused sender never reaches the state file, a
+		// pending prompt, or the queue.
 		if (!isAllowedPeer(peer, owner, deps.config.allowedPeers)) {
 			refused += 1;
 			if (refusedPeers.size < 5) refusedPeers.add(peerLabel(peer));
 			return;
 		}
-		const language = languageOf(peer, text);
-		recordInbound(state, peer, message.context_token, deps.now());
+		// A server replay of an already handled message must not answer twice. The
+		// id is persisted, so a reload or reconnect cannot resurrect it.
+		const messageId = message.message_id;
+		if (typeof messageId === "number" && messageId !== 0 && seenMessage(state, peer, messageId)) return;
+
+		let text = rawText;
+		const cap = deps.config.maxInboundChars;
+		if (text.length > cap) {
+			const total = text.length;
+			text = `${text.slice(0, cap)}\n[WeChat message truncated: showing ${cap} of ${total} characters]`;
+			notify(`WeChat message truncated to ${cap} characters.`, "warning");
+		}
+
+		const now = deps.now();
+		recordInbound(state, peer, message.context_token, now);
+		if (typeof messageId === "number" && messageId !== 0) rememberMessage(state, peer, messageId, now);
 		deps.saveState(state);
+
+		// A reply to a pending prompt is consumed here, before queueing, so it never
+		// starts a turn of its own. A duplicate answer was stopped by the id check.
+		if (interaction.handleInbound(peer, text)) return;
+		const language = languageOf(peer, text);
 		const item: InboundItem = {
 			peer,
 			contextToken: message.context_token ?? findPeer(state, peer)?.lastContextToken,

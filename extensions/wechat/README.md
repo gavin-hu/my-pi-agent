@@ -157,6 +157,8 @@ needs. Per action:
 | Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at 90 seconds and cancelled at three minutes. |
 | Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state; `/new` is declined while their run is in flight. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
+| Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
+| Pastes a very long message | The first `maxInboundChars` characters reach the model, followed by a truncation marker, instead of an unbounded prompt. |
 | Gets an aborted turn | `已停止。` / “Stopped.” |
 | Gets a turn that produced no text | `这条处理完了，但没有文字输出。` / “That turn finished without any text to send.” |
 | Gets a turn that could not start | `处理失败，请稍后重试。` / “Something went wrong — please try again.”, and the terminal says why. |
@@ -238,6 +240,7 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
   "channelVersion": "0.1.0", // sent as base_info.channel_version
   "cdnBaseUrl": "https://novac2c.cdn.weixin.qq.com/c2c", // CDN media base
   "maxMediaBytes": 20971520, // inbound media larger than this is skipped
+  "maxInboundChars": 8000, // inbound text longer than this is truncated
   "typingIndicator": true,   // show typing while a turn is generated
   "remotePrompts": true,     // answer interactive dialogs on WeChat during a WeChat turn
   "pollHoldMs": 0            // experimental: ask the server for a shorter long-poll hold
@@ -246,8 +249,9 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
 
 State lives under `<agent-dir>/wechat/`: `credentials.json` (mode `0600`, every
 stored account plus the active one), `state.json` (cursor, owner, per-peer reply
-tokens), `media/` (downloaded inbound files), `sessions/<peer>/` (one conversation
-per peer), and `poller.lock` (stops two sessions polling one account).
+tokens, and recently handled message ids), `media/` (downloaded inbound files),
+`sessions/<peer>/` (one conversation per peer), and `poller.lock` (stops two
+sessions polling one account).
 
 ### The long-poll hold
 
@@ -280,7 +284,8 @@ never touches the stored cursor.
   transcript.
 - Inbound media is **untrusted**: images become model image content, and files
   are saved under `<agent-dir>/wechat/media/` with sanitized names and a size cap
-  (`maxMediaBytes`). Nothing is executed.
+  (`maxMediaBytes`). Inbound text is capped by `maxInboundChars` before it reaches
+  the model, and a replayed message id is answered once. Nothing is executed.
 - Credentials are written `0600` and redacted from diagnostics; egress is only to
   the Weixin endpoint.
 - Automated or unofficial WeChat use can violate WeChat's terms and risk account
@@ -463,7 +468,7 @@ status, which is what the old start/stop guidance used to do.
 | `status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`) and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `paint`). |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
-| `state.ts` | `state.json` (cursor, owner, per-peer tokens). |
+| `state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids). |
 | `lock.ts` | Poller lockfile. |
 | `format.ts` | Sanitize, chunk, and label helpers. |
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |

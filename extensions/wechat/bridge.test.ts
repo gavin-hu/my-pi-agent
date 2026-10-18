@@ -32,6 +32,11 @@ function inbound(text: string, peer = owner, contextToken: string | undefined = 
 	};
 }
 
+/** A message carrying the server's id, for the replay guard. */
+function inboundWithId(text: string, id: number, peer = owner): WeixinMessage {
+	return { ...inbound(text, peer), message_id: id };
+}
+
 function inboundImage(peer = owner): WeixinMessage {
 	return {
 		from_user_id: peer,
@@ -554,6 +559,72 @@ describe("bridge", () => {
 		expect(saved).toEqual([]);
 		expect(bridge.status().peerCount).toBe(1);
 		void bridge.close();
+	});
+});
+
+describe("bridge inbound guard", () => {
+	test("answers a replayed message id once", async () => {
+		const { client } = makeClient([updates([inboundWithId("hi", 42), inboundWithId("hi", 42)])]);
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+		await settle();
+		expect(injected).toHaveLength(1);
+		await bridge.close();
+	});
+
+	test("remembers the id across a reopen", async () => {
+		const first = makeClient([updates([inboundWithId("hi", 7)])]);
+		let saved: WechatState | undefined;
+		const { deps, injected } = makeDeps(
+			first.client,
+			{
+				saveState: (state) => {
+					saved = structuredClone(state);
+				},
+			},
+			{ hold: true },
+		);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+		await bridge.close();
+
+		const second = makeClient([updates([inboundWithId("hi", 7)])]);
+		const reopened = makeDeps(
+			second.client,
+			{ loadState: () => structuredClone(saved as WechatState) },
+			{ hold: true },
+		);
+		const bridge2 = createBridge(reopened.deps);
+		bridge2.open();
+		await settle();
+		await settle();
+		// The replay died on the persisted id, so no peer session was opened.
+		expect(reopened.injected).toEqual([]);
+		await bridge2.close();
+	});
+
+	test("truncates an oversized message and marks it", async () => {
+		const long = "x".repeat(1200);
+		const { client } = makeClient([updates([inbound(long)])]);
+		const notifications: string[] = [];
+		const { deps, injected } = makeDeps(
+			client,
+			{
+				config: { ...DEFAULT_CONFIG, maxInboundChars: 1000 },
+				notify: (message) => notifications.push(message),
+			},
+			{ hold: true },
+		);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+		expect(injected[0]).toContain("[WeChat message truncated: showing 1000 of 1200 characters]");
+		expect(injected[0].startsWith("x".repeat(1000))).toBe(true);
+		expect(notifications.some((message) => message.includes("truncated to 1000 characters"))).toBe(true);
+		await bridge.close();
 	});
 });
 
