@@ -23,9 +23,9 @@ How the `list_worktrees` call and its result look in the transcript — the call
 ## What it does
 
 - `enter_worktree` creates `<repo>/.pi/worktrees/<name>` on branch
-  `worktree-<name>` cut from `origin/main` (or enters an existing worktree by
-  `path`) and rebinds the session's working root to it. `origin/main` lags the
-  local `main` when a push is infrequent, so rebase onto `main` after entering.
+  `worktree-<name>` cut from `origin/main` (which can lag the local `main`), or
+  enters an existing worktree by `path`, and rebinds the session's working root
+  to it.
 - `exit_worktree` returns to the main checkout. A clean worktree is removed
   automatically; one with uncommitted changes or new commits prompts (or is
   kept in non-interactive mode). A branch that still holds work (uncommitted
@@ -217,6 +217,10 @@ use, falling back to directory mtime for a worktree with no record.
   writes are guarded (relative paths are not isolated), and `list_worktrees`
   reports it. `skipOverrides` is read at load time, from the process working
   directory.
+- `git branch --merged main` calls a worktree branch merged whenever it matches
+  its base, so a worktree that never committed looks landed while its
+  uncommitted work is still there. Read `git -C <path> status` before removing
+  one; `list_worktrees` reports the same clean/merged flags.
 - The guard is best-effort at the shell level: command substitution, `eval`, and
   `sh -c` are only covered when `blockUnparsableCommands` is enabled, and real
   isolation of arbitrary shell writes needs an OS sandbox. `/worktree` names the
