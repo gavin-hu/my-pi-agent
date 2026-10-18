@@ -322,15 +322,17 @@ describe("job runtime — send", () => {
 		expect(h.children[0].stdinSink?.ended).toBe(true);
 	});
 
+	// Detached stdin is POSIX-only: Windows refuses the detach before the pipe is
+	// considered, so these pin the host instead of the one the suite runs on.
 	test("rejects stdin on a detached job", () => {
-		const h = makeHarness();
+		const h = makeHarness({ isWindows: () => false });
 		const { ctx } = makeCtx();
 		h.runtime.load(ctx);
 		expect(() => h.runtime.start({ command: "cat", stdin: true, detached: true }, ctx)).toThrow("cannot take stdin");
 	});
 
 	test("rejects stdin when detached is the configured default", () => {
-		const h = makeHarness({ config: { detachedByDefault: true } });
+		const h = makeHarness({ isWindows: () => false, config: { detachedByDefault: true } });
 		const { ctx } = makeCtx();
 		h.runtime.load(ctx);
 		expect(() => h.runtime.start({ command: "cat", stdin: true }, ctx)).toThrow("cannot take stdin");
@@ -685,7 +687,8 @@ describe("job runtime — pending, clear, status", () => {
 	});
 
 	test("shutdown kills non-detached jobs and keeps detached ones", async () => {
-		const h = makeHarness();
+		// Detached jobs exist on POSIX only; pin the host rather than the runner's.
+		const h = makeHarness({ isWindows: () => false });
 		const { ctx } = makeCtx();
 		h.runtime.load(ctx);
 		h.runtime.start({ command: "a" }, ctx);
