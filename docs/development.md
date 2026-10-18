@@ -25,6 +25,7 @@ repositories.
 | `bun run format` | `biome format --write .`. |
 | `bun run format:check` | `biome format .`, check only. |
 | `bun run check:serial` | `bun run check` with the serial suite. |
+| `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots` | Regenerate the screenshots and hero under `assets/` (macOS only). |
 | `bun run screenshot:plan <plan.md>` | Render one plan through the browser review page and capture it as a full-page PNG with headless Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot; set `PI_CHROME` for a non-default Chrome. |
@@ -41,8 +42,9 @@ The suite is organized by tier; the full contract is in
    through the shared `createFakePi` / `fakeCtx`.
 3. **Surface / TUI tests** — fields, width bounds, ordering, and glyphs, never
    literal column padding.
-4. **Package-level tests** — cross-cutting contracts (`naming`,
-   `prompt-budget`, `release`, `structure`, `theme`).
+4. **Package-level tests** — cross-cutting contracts (`naming`, `docs-truth`,
+   `extension-load`, `config-docs`, `prompt-budget`, `release`, `structure`,
+   `theme`).
 
 Tests are deterministic by construction: inject `now`, `spawn`, `kill`,
 `liveness`, and a clock rather than stubbing globals. Real git is allowed only
@@ -72,6 +74,34 @@ so an unprivileged Windows checkout still passes with skips instead of failures.
 `@earendil-works/pi-*` and `typebox` are `peerDependencies` supplied by the Pi
 host; they are installed as dev dependencies here only for typechecking and
 tests.
+
+### Compatibility floor
+
+The dev dependencies pin a floor (`^1.0.4`, resolved by `bun.lock`); `bun run
+check` proves the package against exactly that. The floor is not the ceiling: the
+`compat` CI job installs the **newest published** peers and runs `typecheck` and
+the serial suite against them, so a Pi release that breaks the package is visible
+without waiting for someone to bump the lockfile.
+
+- It runs on every push to `main`, on a weekly schedule, and on demand — never on
+a pull request, because an upstream release must not fail a change that did not
+touch it. A red `compat` run against `main` is the signal.
+- Its first step after installing prints the resolved versions, and the job
+summary carries the same table, so a run names what it was tested against.
+- `test/extension-load.test.ts` is the registration half: it loads every entry in
+`package.json`'s `pi.extensions` through the fake runtime, so a host change that
+breaks loading fails on every platform and on every pull request.
+
+Reproduce it locally (the peer bump is not committed — this is a measurement,
+not an upgrade):
+
+```bash
+bun add --dev @earendil-works/pi-agent-core@latest @earendil-works/pi-ai@latest \
+  @earendil-works/pi-coding-agent@latest @earendil-works/pi-tui@latest typebox@latest
+bun run compat:versions
+bun run typecheck && bun run test:serial
+git checkout package.json bun.lock && bun install --frozen-lockfile
+```
 
 ## Release
 

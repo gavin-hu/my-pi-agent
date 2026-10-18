@@ -17,6 +17,10 @@ bun run test    # bun test --parallel=4 --timeout 30000
 ```
 
 - Run `bun run check` after code changes and fix every failure.
+- A peer change is proved against the newest Pi, not just the locked one: the
+  `compat` CI job installs the newest published peers and runs typecheck plus the
+  serial suite. Reproduce it locally as `docs/development.md` describes; do not
+  commit the peer bump.
 - Run any test you add or change and iterate until it passes.
 - Do not commit unless the user asks.
 
