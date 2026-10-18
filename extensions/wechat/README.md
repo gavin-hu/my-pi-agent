@@ -222,6 +222,8 @@ then the text before the dialogs. Before the choices it also posts a short
 digest — the title, the step count, and the first steps — so the review is
 answerable from the chat even if the file bubble is never opened, and a file or
 digest the bridge cannot deliver is reported on the terminal instead of vanishing.
+The choices also include **Send the full plan**, which posts the plan text and
+asks again, so the whole plan is reachable without the attachment.
 The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
 (`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a

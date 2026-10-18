@@ -63,7 +63,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   it for approval. The user approves, keeps planning, or asks for a refinement.
   On a remote turn (WeChat) the plan file is sent first, then a digest of its
   title, step count, and first steps, then the choices, so the review is still
-  answerable when the attachment is not opened.
+  answerable when the attachment is not opened. The choices include **Send the
+  full plan**, which posts the plan text and asks again.
 - **Browser review on demand.** Press `w` on the review screen (or run
   `/plan review [path]`) to open the plan in a local browser: a reading-first
   page with the plan's H1 as its title, GitHub's Markdown content column, a

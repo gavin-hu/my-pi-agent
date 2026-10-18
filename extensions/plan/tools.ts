@@ -210,6 +210,9 @@ interface PlanReviewOutcome {
 	refinement?: string;
 }
 
+/** A dialog-only choice: post the full plan text, then ask again. Never returned. */
+type ReviewChoice = PlanReviewOutcome | { action: "send" };
+
 /** Prompt shown by the dialog-based refine editor in non-TUI modes. */
 const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, Esc to cancel)";
 
@@ -251,41 +254,51 @@ async function reviewPlan(
 	plan: { path: string; relativePath: string; content: string; bytes: number },
 	previous?: string,
 ): Promise<PlanReviewOutcome> {
-	return askHuman(ctx, {
-		custom: async () => {
-			const outcome = await ctx.ui.custom<PlanReviewOutcome | undefined>(
-				(tui, theme, _keybindings, done) =>
-					new PlanViewComponent({
-						plan,
-						previous,
-						theme,
-						onClose: (action, refinement) => done({ action, refinement }),
-						requestRender: () => tui.requestRender(),
-						viewportRows: () => tui.terminal?.rows,
-						tui,
-					}),
-				FULL_SCREEN_OVERLAY,
-			);
-			return outcome ?? { action: "keep" };
-		},
-		dialogs: async () => {
-			const choice = await ctx.ui.select("Plan mode — what next?", [
-				"Approve and execute",
-				"Refine the plan",
-				"Keep planning",
-			]);
-			if (choice === "Approve and execute") return { action: "approve" };
-			if (choice === "Refine the plan") return { action: "refine" };
-			return { action: "keep" };
-		},
-		// A remote turn gets the plan file up front, falling back to the full text;
-		// a local TUI turn ignores both and renders the component. The digest goes
-		// out either way so the choices stay answerable when a phone client does not
-		// render the file bubble.
-		file: { path: plan.path, name: basename(plan.relativePath) },
-		body: plan.content,
-		note: planReviewDigest(plan.content),
-	});
+	// The first pass sends the file (or the full text when it fails) and the
+	// digest; asking for the full plan re-enters with the text only, then shows
+	// the choices again.
+	let sentFullText = false;
+	for (;;) {
+		const outcome = await askHuman<ReviewChoice>(ctx, {
+			custom: async () => {
+				const outcome = await ctx.ui.custom<PlanReviewOutcome | undefined>(
+					(tui, theme, _keybindings, done) =>
+						new PlanViewComponent({
+							plan,
+							previous,
+							theme,
+							onClose: (action, refinement) => done({ action, refinement }),
+							requestRender: () => tui.requestRender(),
+							viewportRows: () => tui.terminal?.rows,
+							tui,
+						}),
+					FULL_SCREEN_OVERLAY,
+				);
+				return outcome ?? { action: "keep" };
+			},
+			dialogs: async () => {
+				const choice = await ctx.ui.select("Plan mode — what next?", [
+					"Approve and execute",
+					"Send the full plan",
+					"Refine the plan",
+					"Keep planning",
+				]);
+				if (choice === "Approve and execute") return { action: "approve" };
+				if (choice === "Send the full plan") return { action: "send" };
+				if (choice === "Refine the plan") return { action: "refine" };
+				return { action: "keep" };
+			},
+			// A remote turn gets the plan file up front, falling back to the full text;
+			// a local TUI turn ignores both and renders the component. The digest goes
+			// out either way so the choices stay answerable when a phone client does not
+			// render the file bubble.
+			file: sentFullText ? undefined : { path: plan.path, name: basename(plan.relativePath) },
+			body: plan.content,
+			note: sentFullText ? undefined : planReviewDigest(plan.content),
+		});
+		if (outcome.action !== "send") return outcome;
+		sentFullText = true;
+	}
 }
 
 export function registerTools(

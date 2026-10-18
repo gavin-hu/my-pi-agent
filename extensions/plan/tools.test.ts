@@ -692,6 +692,24 @@ describe("exit_plan_mode", () => {
 		expect(posted.at(-1)).toContain("Plan: Test plan (1 step)");
 	});
 
+	test("sends the full plan on request, then asks again", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
+
+		const { ctx, selects, posted, files } = remoteCtx({
+			cwd: root,
+			select: ["Send the full plan", "Approve and execute"],
+		});
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details.approved).toBe(true);
+		// The file went out on the first pass; the second pass posts the text instead.
+		expect(files).toHaveLength(1);
+		expect(selects[0]).toContain("Send the full plan");
+		expect(selects).toHaveLength(2);
+		expect(posted.some((text) => text.includes("# Test plan") && text.includes("1. Do it"))).toBe(true);
+	});
+
 	// The review sizes itself to the whole terminal, so it must be an overlay.
 	// Mounted in the editor slot of Pi's dock it would share the terminal with the
 	// transcript, status line, widgets, and footer, and the layout would clip the

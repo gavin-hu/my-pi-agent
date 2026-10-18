@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: a remote plan review now offers **Send the full plan** alongside the
+  choices; it posts the plan's text and asks again, so the whole plan is
+  readable even when the file bubble is never opened.
 - `wechat`: `/history [n]` answers with the last messages of the sender's own
   conversation (default 8, at most 20), read from its newest session without
   resuming or writing it. A turn that compacts its context now says so once
