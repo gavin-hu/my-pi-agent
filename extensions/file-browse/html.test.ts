@@ -613,6 +613,32 @@ describe("diff view", () => {
 		expect(renderFilePage(page)).not.toContain('href="/diff/a.txt"');
 	});
 
+	test("renders the too-large page and the binary page", () => {
+		fixture = makeFixture();
+		const base = {
+			rootLabel: fixture.root,
+			rel: "big.bin",
+			tree,
+			maxFileBytes: 4096,
+			file: { lines: [], truncated: false, totalLines: 0, mtimeMs: MTIME_MS },
+		};
+
+		const tooLarge = renderFilePage({ ...base, file: { ...base.file, kind: "tooLarge", size: 9_000_000, mime: "" } });
+		expect(tooLarge).toContain("Larger than the 4.0 kB inline limit.");
+		expect(tooLarge).toContain('href="/raw/big.bin"');
+		// The stylesheet names the class too, so the element is what is asserted.
+		expect(tooLarge).not.toContain('<pre class="bf-code');
+
+		const binary = renderFilePage({
+			...base,
+			rel: "bin.dat",
+			file: { ...base.file, kind: "binary", size: 6, mime: "application/octet-stream" },
+		});
+		expect(binary).toContain("Looks like a binary file.");
+		expect(binary).toContain("6 B · application/octet-stream");
+		expect(binary).toContain('href="/raw/bin.dat"');
+	});
+
 	test("lists changed files with status, mode links, and the stat", () => {
 		fixture = makeFixture();
 		const rows = [
@@ -707,6 +733,30 @@ describe("renderDiffLines", () => {
 		const html = renderDiffLines([{ kind: "add", text: "<img src=x onerror=alert(1)>", newNo: 1 }]);
 		expect(html).not.toContain("<img");
 		expect(html).toContain("&lt;img");
+	});
+
+	test("highlights a hunk's context lines alongside its changes", () => {
+		// A real diff carries context lines between its changes, and they take part in
+		// the pairing that keeps the highlighted old and new documents aligned.
+		const html = renderDiffLines(
+			[
+				{ kind: "hunk", text: "@@ -1,3 +1,3 @@" },
+				{ kind: "ctx", text: "const keep = 1;", oldNo: 1, newNo: 1 },
+				{ kind: "del", text: "const old = 2;", oldNo: 2 },
+				{ kind: "add", text: "const next = 2;", newNo: 2 },
+				{ kind: "ctx", text: "const after = 3;", oldNo: 3, newNo: 3 },
+			],
+			"ts",
+		);
+
+		// Four keywords are highlighted (both context lines and both changes), and the
+		// context rows carry their own class, not the add or del gutter.
+		expect(html.match(/tok-keyword/g)?.length).toBe(4);
+		expect(html).toContain("keep = ");
+		expect(html).toContain("after = ");
+		expect((html.match(/bf-diff-line--ctx/g) ?? []).length).toBe(2);
+		expect((html.match(/bf-diff-line--add/g) ?? []).length).toBe(1);
+		expect((html.match(/bf-diff-line--del/g) ?? []).length).toBe(1);
 	});
 
 	test("highlights changed lines with the file language", () => {
