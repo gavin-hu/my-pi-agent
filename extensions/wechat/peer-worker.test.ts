@@ -15,18 +15,38 @@ function fakeSession(options: { answers?: string[]; holdFirst?: boolean } = {}) 
 	let disposed = 0;
 	const waiters: Array<() => void> = [];
 	let last = "";
+	const listeners: Array<(event: unknown) => void> = [];
+	const emit = (delta: string): void => {
+		if (!delta) return;
+		for (const listener of listeners) {
+			listener({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta } });
+		}
+	};
 	const session = {
 		isIdle: true,
 		getLastAssistantText: () => last,
+		subscribe(listener: (event: unknown) => void): () => void {
+			listeners.push(listener);
+			return () => {
+				const index = listeners.indexOf(listener);
+				if (index >= 0) listeners.splice(index, 1);
+			};
+		},
 		async prompt(content: unknown): Promise<void> {
 			prompts.push(content);
 			if (options.holdFirst && prompts.length === 1) {
 				await new Promise<void>((resolve) => waiters.push(resolve));
 			}
 			last = options.answers?.shift() ?? "";
+			// Stream the answer like a provider would, then finish.
+			emit(last);
 		},
 		async abort(): Promise<void> {
 			abort += 1;
+			for (const resolve of waiters.splice(0)) resolve();
+		},
+		/** Let a held prompt finish normally. */
+		release(): void {
 			for (const resolve of waiters.splice(0)) resolve();
 		},
 		dispose(): void {
@@ -36,6 +56,8 @@ function fakeSession(options: { answers?: string[]; holdFirst?: boolean } = {}) 
 	return {
 		peerSession: { session: session as unknown as AgentSession, dispose: () => session.dispose() } as PeerSession,
 		session,
+		emit,
+		release: () => session.release(),
 		prompts,
 		aborts: () => abort,
 		disposed: () => disposed,
@@ -96,6 +118,53 @@ describe("peer worker", () => {
 		await settle();
 		expect(sessions[0]?.prompts).toEqual(["first", "second\nthird"]);
 		expect(sent.map((message) => message.text)).toEqual(["one", "two"]);
+	});
+
+	test("sends each paragraph as it arrives, instead of one lump", async () => {
+		const { worker, sent, sessions } = harness({ holdFirst: true, answers: [""] });
+		worker.enqueue(item("tell me a story"));
+		await settle();
+
+		// The provider streams: the first paragraph is out while the turn runs.
+		sessions[0]?.emit("Once upon a time.\n\n");
+		sessions[0]?.emit("The end.");
+		await settle();
+		expect(sent.map((message) => message.text)).toEqual(["Once upon a time."]);
+
+		sessions[0]?.release();
+		await settle();
+		await settle();
+		// The remainder follows at the end, and nothing is sent twice.
+		expect(sent.map((message) => message.text)).toEqual(["Once upon a time.", "The end."]);
+	});
+
+	test("drops the unsent remainder when the peer stops the turn", async () => {
+		const { worker, sent, sessions } = harness({ holdFirst: true });
+		worker.enqueue(item("long answer"));
+		await settle();
+
+		sessions[0]?.emit("first bit\n\n");
+		await settle();
+		expect(worker.abort("alice@im.wechat")).toBe(true);
+		await settle();
+		await settle();
+
+		// What already went out stays; nothing else is sent except the stop line.
+		expect(sent.map((message) => message.text)).toEqual(["first bit", "fallback:stopped"]);
+	});
+
+	test("puts the attachment line on the first part only", async () => {
+		const { worker, sent, sessions } = harness({ holdFirst: true, answers: [""] });
+		worker.enqueue({ ...item("look"), prefix: "one attachment was unreadable" });
+		await settle();
+
+		sessions[0]?.emit("first\n\n");
+		sessions[0]?.emit("second");
+		sessions[0]?.release();
+		await settle();
+		await settle();
+
+		expect(sent.map((message) => message.text)).toEqual(["one attachment was unreadable\n\nfirst", "second"]);
 	});
 
 	test("reports the running turn and hands the slot to the next peer", async () => {

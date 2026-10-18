@@ -806,8 +806,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			// each peer's history stays on disk.
 			worker = createPeerWorker({
 				openSession: (peer, options) => deps.openSession(peer, { fresh: options.fresh, channel: interaction }),
+				// Each part is delivered as its own bubble; the worker puts the
+				// attachment line on the first one.
 				send: async (item, text) => {
-					await reply(item, item.prefix ? `${item.prefix}\n\n${text}` : text);
+					await reply(item, text);
 				},
 				fallback: (item, reason) => notice(reason, item.language),
 				onStart: (item) => {

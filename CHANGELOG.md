@@ -133,6 +133,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that session's own text, so the two conversations cannot contaminate each
   other. Sessions resume on the next message and are disposed after 30 minutes
   idle; turns run one at a time across peers so a forwarded dialog has one owner.
+- `wechat`: a reply streams to the chat instead of arriving as one lump. Parts go
+  out at a paragraph boundary, after two silent seconds, or at 400 characters,
+  and the remainder is sent when the turn ends — so a minute-long answer is
+  readable while it is being produced. A part longer than `maxReplyChars` is
+  still numbered, and the attachment line rides on the first part only.
 - `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
   their conversation is doing, and how long), alongside `/new` and `/help`.
 - `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with

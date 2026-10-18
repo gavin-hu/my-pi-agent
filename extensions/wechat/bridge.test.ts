@@ -166,6 +166,9 @@ function fakePeer(script: Script): FakePeer {
 			last = answer;
 		},
 		getLastAssistantText: () => last,
+		// No deltas: the worker falls back to the final text, as a non-streaming
+		// provider would.
+		subscribe: () => () => {},
 		async abort(): Promise<void> {
 			const resolve = pending;
 			pending = undefined;
@@ -176,7 +179,7 @@ function fakePeer(script: Script): FakePeer {
 		},
 	};
 	return {
-		peerSession: { session, dispose: () => session.dispose() } as PeerSession,
+		peerSession: { session, dispose: () => session.dispose() } as unknown as PeerSession,
 		session,
 		prompts,
 		release: (answer?: string) => {

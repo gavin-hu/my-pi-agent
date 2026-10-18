@@ -33,9 +33,11 @@ How the `send_wechat` call and its result look in the transcript — the call li
   referenced by path. Voice uses the transcript the server provides. An
   attachment the bridge could not read (too large, a failed download, no key) is
   reported to the peer and to the model instead of vanishing.
-- **Outbound** — replies are delivered automatically as plain chat text
-  (Markdown fences, headings, and emphasis markers are flattened), and an answer
-  longer than `maxReplyChars` arrives in numbered parts (`[1/3] …`). The
+- **Outbound** — replies stream to the chat as they are produced: a part goes out
+  at each paragraph boundary, after two silent seconds, or at 400 characters,
+  whichever comes first, so a long answer is not one long silence. Text is plain
+  chat text (Markdown fences, headings, and emphasis markers are flattened), and
+  a single part longer than `maxReplyChars` still arrives in numbered parts. The
   owner-only `send_wechat` tool lets the model message the owner proactively; it
   is refused while a turn with that peer is in flight, so the answer cannot
   arrive twice.
@@ -146,7 +148,7 @@ needs. Per action:
 | Sends while another peer's turn runs | One line after four seconds, then one more at a minute (`前面还有一条正在处理…` / “Your message is queued behind another conversation…”), and the answer when the slot frees. |
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
-| Reads a long answer | Delivered in numbered parts (`[1/3] …`) once it exceeds `maxReplyChars`. |
+| Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and numbered (`[1/3] …`) only when a single part exceeds `maxReplyChars`. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
 | Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at 90 seconds and cancelled at three minutes. |
 | Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state; `/new` is declined while their run is in flight. |
@@ -297,8 +299,9 @@ files), and `poller.lock` (stops two sessions polling one account).
   message only when a `getupdates` request returns, measured at ~18 s per cycle
   here. The bridge reports a wedged or rejected poll, but it cannot make the
   first reaction faster than one cycle.
-- A reply is sent when the run settles, so a long answer arrives as one message
-  (split only by `maxReplyChars`), not token by token.
+- Parts are flushed at a paragraph boundary, after two silent seconds, or at 400
+  characters, so an answer that stalls mid-paragraph still arrives in pieces. A
+  part that is itself longer than `maxReplyChars` is numbered.
 - A `/wechat new`, `/reload`, fork, or process exit during a WeChat turn abandons
   that turn's reply: the shutdown aborts the send, and the peer gets nothing.
 - Inbound **video** is not handled, and there is no group-chat support. Voice is
@@ -399,7 +402,8 @@ status, which is what the old start/stop guidance used to do.
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge, open peer sessions from the host context. |
 | `bridge.ts` | The shared loop: poll, admission, media, typing, notices, reply transport, connection state, abort; hands each message to the peer worker. |
 | `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, and this bridge excluded from its resources. |
-| `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, outcome to one reply, idle-session sweep. |
+| `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep. |
+| `reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `commands.ts` | `/wechat login|new|status|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login, and logout; every verb declines while a WeChat turn owns the dialogs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |

@@ -25,6 +25,7 @@
 
 import type { ImageContent } from "@earendil-works/pi-ai";
 import type { PeerSession } from "./peer-session.ts";
+import { createReplyPipeline } from "./reply-pipeline.ts";
 
 /** One admitted, media-resolved inbound message. */
 export interface PeerItem {
@@ -60,6 +61,9 @@ export interface PeerWorkerDeps {
 	concurrency?: number;
 	/** Dispose an idle session after this long. `0` disables the idle sweep. */
 	idleTimeoutMs?: number;
+	/** Streamed part size and quiet window for the reply pipeline. */
+	partChars?: number;
+	quietMs?: number;
 	now?: () => number;
 	armTimer?: (ms: number, fn: () => void) => () => void;
 }
@@ -210,23 +214,54 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		return target.opening;
 	}
 
-	/** Run one turn and turn its outcome into exactly one peer-facing message. */
+	/**
+	 * Run one turn, streaming its text to the peer as it arrives.
+	 *
+	 * The pipeline owns the boundary decisions (paragraph, quiet period, size) and
+	 * the serialization, so parts cannot overtake each other. The outcome is
+	 * decided once the run ends: an abort drops the unsent remainder, a finished
+	 * turn sends it, and a turn that produced nothing at all says so.
+	 */
 	async function runTurn(item: PeerItem, opened: PeerSession): Promise<void> {
 		const session = opened.session;
+		let prefixed = false;
+		/** The media/attachment line rides on the first part only. */
+		const sendPart = async (part: string): Promise<void> => {
+			const body = prefixed || !item.prefix ? part : `${item.prefix}\n\n${part}`;
+			prefixed = true;
+			await deps.send(item, body);
+		};
+		const pipeline = createReplyPipeline({
+			sendPart,
+			armTimer,
+			partChars: deps.partChars,
+			quietMs: deps.quietMs,
+		});
+		const unsubscribe = session.subscribe((event) => {
+			if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
+				pipeline.push(event.assistantMessageEvent.delta);
+			}
+		});
+
 		let reason: TurnFallback | undefined;
-		let text: string | undefined;
 		try {
 			await session.prompt(item.text, item.images ? { images: item.images } : undefined);
 			if (aborted.delete(item.peer)) {
-				// `prompt` resolves for an aborted run too, so the request decides the
-				// outcome; a partial answer is not sent after `/stop`.
+				// The peer asked to stop: drop what was not sent yet and say so.
+				pipeline.drop();
 				reason = "stopped";
 			} else {
-				text = session.getLastAssistantText();
-				if (!text) reason = "noText";
+				// A provider that does not stream gives no deltas; use its final text.
+				if (pipeline.text() === "") {
+					const final = session.getLastAssistantText();
+					if (final) pipeline.push(final);
+				}
+				await pipeline.finish();
+				if (pipeline.sent() === "") reason = "noText";
 			}
 		} catch (error) {
 			// A rejection is either the peer's own `/stop` or a real failure.
+			pipeline.drop();
 			const wasAborted = aborted.delete(item.peer);
 			reason = wasAborted ? "stopped" : "failed";
 			if (!wasAborted) {
@@ -235,9 +270,10 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					"warning",
 				);
 			}
+		} finally {
+			unsubscribe();
 		}
-		const body = text && text.trim() !== "" ? text : deps.fallback(item, reason ?? "noText");
-		await deps.send(item, body);
+		if (reason) await sendPart(deps.fallback(item, reason));
 	}
 
 	/** The next peer with work, so a finished turn can hand its slot on. */
