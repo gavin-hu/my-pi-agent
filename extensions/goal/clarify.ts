@@ -1,24 +1,24 @@
 /**
- * Host orchestration for the goal comprehension step: the nested clarifier
- * calls, their cancellable TUI loaders, the in-command questionnaire, and the
- * confirm/edit dialog.
+ * Host orchestration for the goal comprehension step: the clarifier call, its
+ * cancellable TUI loader, the in-command questionnaire, and the confirm/edit
+ * dialog.
  *
- * The loop's target is understanding what the user wants. The first call asks
- * the model whether it understands the goal and, if not, what it needs to know;
- * the command asks those questions through host dialogs; a second call folds the
- * answers into the final restatement; the editor lets the user confirm or
- * correct it. The flow never throws and never half-applies: a failed,
- * timed-out, cancelled, or unusable comprehension falls back to the text the
- * user typed, and a dismissed dialog cancels the whole command.
+ * The loop's target is understanding what the user wants. One call asks the
+ * model whether it understands the goal and, when it cannot yet, what it needs
+ * to know; the command asks those questions through host dialogs and carries
+ * the answers into the editor, where the user confirms or corrects the goal.
+ * The flow never throws and never half-applies: a failed, timed-out, cancelled,
+ * or unusable comprehension falls back to the text the user typed, and a
+ * dismissed dialog cancels the whole command.
  */
 
 import { BorderedLoader, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { UserMessage } from "@earendil-works/pi-ai";
 import { sanitizeLine } from "../../lib/format.ts";
 import { type Clarification, type ClarifyAnswer, type ClarifyQuestion, parseClarification } from "./clarify-parse.ts";
-import { buildClarifyMessages, buildRefineMessages } from "./clarify-prompt.ts";
+import { buildClarifyMessages } from "./clarify-prompt.ts";
 
-/** Bound on each clarifier model call, in milliseconds. */
+/** Bound on the clarifier model call, in milliseconds. */
 const CLARIFY_TIMEOUT_MS = 30_000;
 
 /** The slice of the context the clarify step reads. */
@@ -26,9 +26,6 @@ export type ClarifyContext = Pick<ExtensionContext, "mode" | "ui" | "signal" | "
 
 /** Loader text shown while the comprehension call runs. */
 const LOADER_MESSAGE = "Understanding goal…";
-
-/** Loader text shown while the goal is restated from the answers. */
-const REFINE_LOADER_MESSAGE = "Updating the goal…";
 
 /** The confirm/edit dialog title, reading as a confirmation of understanding. */
 const EDITOR_TITLE = "Confirm the goal — Enter to save, Esc to cancel";
@@ -79,74 +76,54 @@ function assistantText(response: { content?: unknown }): string {
 	return parts.join("\n");
 }
 
-/** Runs a nested operation, optionally behind the TUI loader. */
-type CompleterRun = <T>(fn: (signal: AbortSignal | undefined) => Promise<T>) => Promise<T | undefined>;
-
-/** The context slice the completer needs. */
-type CompleterContext = Pick<ExtensionContext, "model" | "modelRegistry" | "signal">;
-
 /**
- * Build one clarifier caller.
+ * One clarifier model call, behind the TUI loader.
  *
- * `buildMessages` produces the request; the call runs through `run` (the loader
- * wrapper) with an `AbortController` aborted on timeout, on the session signal,
- * or when the loader is cancelled. Any throw becomes `undefined`, so a provider
- * failure never blocks the command.
+ * The call is aborted on timeout, on the session signal, or when the loader is
+ * cancelled, and any failure becomes `undefined` so a provider error never
+ * blocks the command. Nothing from the conversation is sent: the model must not
+ * invent scope the user did not state.
  */
-function createCompleter(
-	ctx: CompleterContext,
-	timeoutMs: number,
-	run: CompleterRun,
-	buildMessages: () => { systemPrompt: string; messages: UserMessage[] },
-): () => Promise<string | undefined> {
-	return async () => {
-		const model = ctx.model;
-		if (!model) return undefined;
-
-		const { systemPrompt, messages } = buildMessages();
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), timeoutMs);
-		const onAbort = () => controller.abort();
-		ctx.signal?.addEventListener("abort", onAbort, { once: true });
-		try {
-			return await run(async (signal) => {
-				if (signal) signal.addEventListener("abort", () => controller.abort(), { once: true });
-				const response = await ctx.modelRegistry.complete(
-					model,
-					{ systemPrompt, messages },
-					{ signal: controller.signal, cacheRetention: "none" },
-				);
-				if (response.stopReason === "aborted") return undefined;
-				return assistantText(response);
-			});
-		} catch {
-			return undefined;
-		} finally {
-			clearTimeout(timer);
-			ctx.signal?.removeEventListener("abort", onAbort);
-		}
-	};
-}
-
-/** Run one clarifier call behind its loader and return the raw reply. */
-async function completeOnce(
+async function askClarifier(
 	ctx: ClarifyContext,
-	loaderMessage: string,
 	buildMessages: () => { systemPrompt: string; messages: UserMessage[] },
 ): Promise<string | undefined> {
-	return createCompleter(ctx, CLARIFY_TIMEOUT_MS, (run) => withLoader(ctx, loaderMessage, run), buildMessages)();
+	const model = ctx.model;
+	if (!model) return undefined;
+
+	const { systemPrompt, messages } = buildMessages();
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), CLARIFY_TIMEOUT_MS);
+	const onAbort = () => controller.abort();
+	ctx.signal?.addEventListener("abort", onAbort, { once: true });
+	try {
+		return await withLoader(ctx, LOADER_MESSAGE, async (signal) => {
+			if (signal) signal.addEventListener("abort", () => controller.abort(), { once: true });
+			const response = await ctx.modelRegistry.complete(
+				model,
+				{ systemPrompt, messages },
+				{ signal: controller.signal, cacheRetention: "none" },
+			);
+			if (response.stopReason === "aborted") return undefined;
+			return assistantText(response);
+		});
+	} catch {
+		return undefined;
+	} finally {
+		clearTimeout(timer);
+		ctx.signal?.removeEventListener("abort", onAbort);
+	}
 }
 
 /**
- * One comprehension call on the session model, parsed into a
- * {@link Clarification}.
+ * The comprehension call, parsed into a {@link Clarification}.
  *
  * Returns `undefined` when there is no dialog UI or no model, or when the call
  * fails, times out, is cancelled, or returns nothing usable.
  */
 export async function clarifyGoalPrompt(ctx: ClarifyContext, text: string): Promise<Clarification | undefined> {
 	if (!ctx.hasUI || !ctx.model) return undefined;
-	return parseClarification(await completeOnce(ctx, LOADER_MESSAGE, () => buildClarifyMessages(text)));
+	return parseClarification(await askClarifier(ctx, () => buildClarifyMessages(text)));
 }
 
 /**
@@ -155,7 +132,7 @@ export async function clarifyGoalPrompt(ctx: ClarifyContext, text: string): Prom
  * A question with options uses a selector; a free-form question uses a text
  * input. Resolves `undefined` when any dialog is dismissed, so the caller cancels
  * the whole command; an empty answer is skipped. The answer is sanitized to one
- * line, since it is folded into a model message and later the goal.
+ * line, since it is folded into the goal the editor holds.
  */
 async function askQuestions(
 	ctx: Pick<ClarifyContext, "ui">,
@@ -178,19 +155,15 @@ async function askQuestions(
 }
 
 /**
- * Fold the user's answers into the final restatement of the goal.
+ * Carry the answers into the editor as notes under the restatement.
  *
- * Returns `undefined` on any failure, so the caller falls back to the first
- * restatement.
+ * No model call rewrites the goal from the answers, so they are shown verbatim
+ * with the question that asked for them: the user folds them into the sentence
+ * or deletes them, and whatever the editor holds is what gets recorded.
  */
-async function refineWithAnswers(
-	ctx: ClarifyContext,
-	original: string,
-	goal: string,
-	answers: readonly ClarifyAnswer[],
-): Promise<string | undefined> {
-	const reply = await completeOnce(ctx, REFINE_LOADER_MESSAGE, () => buildRefineMessages(original, goal, answers));
-	return parseClarification(reply)?.goal || undefined;
+function withAnswers(goal: string, answers: readonly ClarifyAnswer[]): string {
+	if (answers.length === 0) return goal;
+	return [goal, "", ...answers.map((answer) => `Also: ${answer.question} → ${answer.answer}`)].join("\n");
 }
 
 /** Open the confirm/edit dialog, or cancel when it is dismissed. */
@@ -201,7 +174,7 @@ async function editOrCancel(ctx: ClarifyContext, prefill: string): Promise<GoalP
 
 /**
  * Run the understanding loop for `/goal <prompt>`: comprehend, ask what is
- * missing, re-comprehend, then let the user confirm or correct the goal.
+ * missing, then let the user confirm or correct the goal.
  *
  * Without a dialog UI or a model the typed text is used unchanged, so the
  * command never blocks on the loop in print or JSON mode. A failed comprehension
@@ -224,11 +197,7 @@ export async function prepareGoalPrompt(ctx: ClarifyContext, typed: string): Pro
 			ctx.ui.notify("Goal not set.", "info");
 			return { action: "cancel" };
 		}
-		if (answers.length > 0) {
-			const refined = await refineWithAnswers(ctx, typed, proposed, answers);
-			if (refined) proposed = refined;
-			else ctx.ui.notify("Could not update the goal from your answers; edit it below.", "info");
-		}
+		proposed = withAnswers(proposed, answers);
 	}
 	return editOrCancel(ctx, proposed);
 }
