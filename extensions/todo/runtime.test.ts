@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { EMPTY_LIST_MUTATIONS } from "./nudge.ts";
 import { createTodoRuntime } from "./runtime.ts";
 import type { Todo } from "./types.ts";
 
@@ -81,6 +82,22 @@ describe("TodoRuntime lag tracking", () => {
 		runtime.setTodos([completed("done")]);
 		runtime.noteWork();
 		expect(runtime.nudgeDue()).toBe(false);
+	});
+
+	test("an untouched empty list needs repeated work, and a clear answers it", () => {
+		const runtime = createTodoRuntime();
+		for (let i = 1; i < EMPTY_LIST_MUTATIONS; i++) {
+			runtime.noteWork();
+			expect(runtime.nudgeDue()).toBe(false);
+		}
+		runtime.noteWork();
+		expect(runtime.nudgeDue()).toBe(true);
+
+		// A clear is the model's own answer, so it stops the empty-list path.
+		const cleared = createTodoRuntime();
+		cleared.setTodos([]);
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) cleared.noteWork();
+		expect(cleared.nudgeDue()).toBe(false);
 	});
 
 	test("resetNudge clears the window but leaves the reminder active", () => {

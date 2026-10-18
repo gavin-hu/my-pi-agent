@@ -37,22 +37,52 @@ export function isMutatingTool(toolName: string, annotations?: ToolAnnotations):
 }
 
 /**
- * Whether a reminder is due: work happened since the last update, no reminder
- * was sent for it yet, and the list still has an unfinished item.
+ * Successful mutating calls needed before a run with no list at all is worth a
+ * reminder. A plan that was never started has no item to fall behind, and a
+ * false positive costs a whole extra model request, so one edit is not enough
+ * evidence that the work needed a list.
  */
-export function shouldNudge(dirty: boolean, nudged: boolean, todos: Todo[]): boolean {
-	return dirty && !nudged && hasOpenTodos(todos);
+export const EMPTY_LIST_MUTATIONS = 3;
+
+/** What the current turn knows about its work and the list. */
+export interface NudgeState {
+	/** Successful mutating calls since the turn began or the list was last written. */
+	mutations: number;
+	/** Whether the model wrote or cleared the list since the turn began. */
+	touched: boolean;
+	/** Whether a reminder was already sent this turn. */
+	nudged: boolean;
+	/** The current list. */
+	todos: Todo[];
+}
+
+/**
+ * Whether a reminder is due. With an unfinished item, one mutation is enough.
+ * With no list at all, only repeated work is: a list the model wrote or cleared
+ * this turn is its own answer, so an explicit clear is never second-guessed.
+ */
+export function shouldNudge({ mutations, touched, nudged, todos }: NudgeState): boolean {
+	if (nudged || mutations <= 0) return false;
+	if (hasOpenTodos(todos)) return true;
+	return todos.length === 0 && !touched && mutations >= EMPTY_LIST_MUTATIONS;
 }
 
 /** Marker on the injected reminder, so it is recognizable and filterable. */
 export const TODO_NUDGE_MARKER = "[TODO SYNC]";
 
 /**
- * Model-facing reminder injected before settlement. Points at the item the list
- * currently considers active, so the model can correct it without rereading the
- * whole list.
+ * Model-facing reminder injected before settlement. For a list with unfinished
+ * work it points at the item the list currently considers active, so the model
+ * can correct it without rereading the whole list; for no list at all it asks
+ * for one.
  */
 export function formatNudge(todos: Todo[]): string {
+	if (todos.length === 0) {
+		return (
+			`${TODO_NUDGE_MARKER} Several files or commands were changed but no todo list was recorded. ` +
+			"Call the todo tool with the steps of the current work, then continue."
+		);
+	}
 	const current = currentTodo(todos);
 	const item = current ? (current.activeForm ?? current.content) : undefined;
 	const pointer = item ? ` The list still points at "${item}".` : "";
