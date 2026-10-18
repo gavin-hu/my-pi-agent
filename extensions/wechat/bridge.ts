@@ -507,6 +507,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			armTimer(TURN_NOTICE_MS, () => {
 				slowTimers.delete(peer);
 				if (worker?.state(peer).status !== "running") return;
+				// A turn waiting on an unanswered dialog is not "still working": the
+				// prompt itself nudges at 90 seconds, and saying both reads as noise.
+				if (interaction.hasPending()) return;
 				void reply({ peer, contextToken }, notice("stillWorking", languageOf(peer)));
 			}),
 		);

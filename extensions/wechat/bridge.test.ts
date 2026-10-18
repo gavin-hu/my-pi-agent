@@ -1062,6 +1062,29 @@ describe("bridge peer feedback", () => {
 		await bridge.close();
 	});
 
+	test("does not say still-working while a dialog is waiting for an answer", async () => {
+		const timers = fakeTimers();
+		const { client, sent } = makeClient([updates([inbound("slow")])]);
+		const { deps, peers } = makeDeps(client, { armTimer: timers.arm }, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 1);
+
+		// The turn asks the peer a question and waits for the answer.
+		const answer = bridge.channel().request({ kind: "confirm", title: "Sure?" });
+		await waitFor(() => bridge.status().promptPending);
+		timers.fire();
+		await settle();
+		// The prompt nudges for itself; "still working" would be a second bubble.
+		const texts = sent.map((message) => message.text).join("\n");
+		expect(texts).not.toContain("Still working");
+		expect(texts).toContain("Sure?");
+
+		bridge.channel().handleInbound(owner, "yes");
+		await answer;
+		await bridge.close();
+	});
+
 	test("says the running turn is still going after a while", async () => {
 		const timers = fakeTimers();
 		const { client, sent } = makeClient([updates([inbound("slow")])]);
