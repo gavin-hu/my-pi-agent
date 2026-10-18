@@ -66,6 +66,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: the entry READMEs read as a front door again. The bytefly table cell
+  dropped from 1,135 characters to two sentences, with the control-center
+  sections, the settings list, the notify detail, and the pricing left to
+  `docs/extensions.md` and the extension's own README; the two themes moved out
+  of the extension table into their own section, which says installing the pack
+  does not select one and that the screenshots use `bytefly-dark`; the
+  `## Requirements` section folded into Quick start, where its prereqs are read;
+  the intro stopped previewing the promise bullets the roadmap quotes; and the
+  pack's once-per-session npm version request is now disclosed next to the
+  install steps. An npm badge and the trust-boundary line it links to in
+  `docs/security.md` complete the change.
+
+- docs: the `@vX.Y.Z` install pins in the two entry READMEs and
+  `docs/getting-started.md` name the released version again (`0.8.0` and `0.7.0`
+  were stale). `test/release.test.ts` now checks every pin against
+  `package.json`, and the release step that bumps the version bumps them too.
+
+- docs: `test/naming.test.ts` holds the front door's tool column to the code
+  both ways — every backticked tool-shaped token in the two entry READMEs is a
+  registered tool, every registered tool is named there, and the English and
+  Chinese tables agree. The `/bytefly` subcommand names (`doctor`, `settings`)
+  are the reviewed exception, and an unused allowance fails.
+
+- packaging: `files` no longer ships `assets/**`, so an install drops from
+  7.4 MB to 2.3 MB unpacked (416 files to 373). Nothing reads the screenshots at
+  runtime and `pi.image` already used a raw GitHub URL; the README's image links
+  still resolve on GitHub.
+
 - `document`: extraction now has a per-call deadline, `document.extractTimeoutMs`
   (30 s by default, clamped 1 s – 5 min). A parser that outlasts it is abandoned
   and the read fails with the limit named, instead of holding the turn open on a

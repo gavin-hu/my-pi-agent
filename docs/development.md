@@ -155,7 +155,9 @@ machine whose default registry is a read-only mirror (for example
    [`../package.json`](../package.json), move the `Unreleased`
    entries in [`../CHANGELOG.md`](../CHANGELOG.md) under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
-   update the link refs at the bottom of that file.
+   update the link refs at the bottom of that file. Bump the `@vX.Y.Z` install
+   pins in the two entry READMEs and [`getting-started.md`](./getting-started.md)
+   in the same commit; `test/release.test.ts` fails on a stale pin.
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it:
@@ -191,5 +193,5 @@ creating a release for an older version run `gh release edit vX.Y.Z --latest` on
 the newest tag. Publishing a draft does not change which release is latest.
 
 `test/release.test.ts` ties the package version, the newest dated changelog
-heading, and the newest `vX.Y.Z` tag together, so a release that skips a step
-fails CI.
+heading, the newest `vX.Y.Z` tag, and the install pins the docs offer together,
+so a release that skips a step fails CI.

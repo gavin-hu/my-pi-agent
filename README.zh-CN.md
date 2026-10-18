@@ -3,12 +3,12 @@
 [English](./README.md) · **简体中文**
 
 [![CI](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/%40gavin-hu%2Fmy-pi-agent)](https://www.npmjs.com/package/@gavin-hu/my-pi-agent)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
 
-先规划，再行动；委派工作，保持主检出区干净，并让上下文跨会话延续。
-`my-pi-agent` 是一个 [Pi](https://pi.dev) 包，新增十六个扩展和两个主题 —— 安装
-整个包，关掉你不需要的部分，其余照常使用 Pi。
+`my-pi-agent` 是一个 [Pi](https://pi.dev) 包，在你已经使用的智能体之上新增十六个
+扩展和两个主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
 
 ![一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏](assets/chrome.png)
 
@@ -19,7 +19,6 @@
 - [包含内容](#包含内容)
 - [配置](#配置)
 - [文档](#文档)
-- [环境要求](#环境要求)
 - [参与贡献](#参与贡献)
 - [许可证](#许可证)
 
@@ -48,10 +47,15 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
 ```bash
 pi install npm:@gavin-hu/my-pi-agent                       # 从 npm 安装
 pi install git:github.com/gavin-hu/my-pi-agent             # 从 git 安装
-pi install git:github.com/gavin-hu/my-pi-agent@v0.8.0      # 固定到某个版本
+pi install git:github.com/gavin-hu/my-pi-agent@v0.12.0     # 固定到某个版本
 pi install ./ -l                                           # 仅项目本地（.pi/settings.json）
 pi -e .                                                    # 试运行一次
 ```
+
+`git` 需在 `PATH` 上，供 [`worktree`](./extensions/worktree/) 与
+[`rewind`](./extensions/rewind/) 使用；其余部分会优雅降级或禁用，
+`/bytefly doctor` 会指出缺少什么，包括可选的运行时组件。
+Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都会执行。
 
 然后在 Pi 中：
 
@@ -65,10 +69,14 @@ pi -e .                                                    # 试运行一次
 - `/settings` → **Theme** 选择主题。
 - `/plan <任务>` 以只读规划模式开始一个任务。
 
+还有一件包会自行做的事：每次交互式会话启动时，`bytefly` 向 npm 询问最新发布
+版本，当你的版本较旧时在头部标出。不会发送任何会话内容，`PI_OFFLINE` 可跳过
+该请求；信任边界见 [`docs/security.md`](./docs/security.md)。
+
 ## 包含内容
 
-十六个扩展和两个主题，按你想达成的目标分组。每个扩展自己的 `README.md` 提供完整的
-工具与命令说明。
+十六个扩展，按你想达成的目标分组，外加两个主题。每个扩展自己的 `README.md`
+提供完整的工具与命令说明。
 
 ### 规划与委派
 
@@ -104,8 +112,15 @@ pi -e .                                                    # 试运行一次
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings` 子命令）、`run_doctor` | 主题化头部与宽度自适应页脚、每条用户消息上方的两行 `You` 铭牌、已完成回合之间的分隔线、共享的转录通知、以调用行为标题并将结果正文挂在轨道下两列的工具块（轨道字形由 `chrome.rail` 设置）、Pi 工作行上的实时用时计数、`/bytefly` 控制中心——Extensions 区列出每个扩展及其健康状况并启用或禁用一个扩展，另有一个 Settings 区，按六个分组提供十项常用偏好，包括对通知标题的行内文本编辑（`/bytefly settings`）；`/bytefly doctor` 打印 doctor 报告；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知；另外每次交互式会话启动时会检查 npm 上已发布的版本，落后时在头部标出 `↑0.12.0` 并发出一次转录通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
-| [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | GitHub 风格的深色调色板及其浅色搭档，并支持可选的自动浅色/深色切换。 |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知。`bytefly.json` 是每个扩展都会读取的配置文档。 |
+
+### 主题
+
+[`bytefly-dark`](./themes/bytefly-dark.json) 是 GitHub 风格的深色调色板，
+[`bytefly-light`](./themes/bytefly-light.json) 是其浅色搭档，并支持可选的自动
+浅色/深色切换。安装本包不会改变你的主题：通过 `/settings` → **Theme** 选择，
+或设置 `"theme": "bytefly-light/bytefly-dark"` 以自动切换。本 README 的截图
+使用 `bytefly-dark`。
 
 ### 截图
 
@@ -164,14 +179,6 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 | [开发](./docs/development.md) | 本地设置、检查、测试、跨平台注意事项与发布流程。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |
 | [路线图](./ROADMAP.md) | 包的下一步方向，按 README 的承诺分组，并列出每条事项的依据。 |
-
-## 环境要求
-
-- **Pi** —— 需要一个可用的安装；`my-pi-agent` 是一个包，不是分叉。
-- **操作系统** —— Windows、macOS 和 Linux；完整检查套件在三者的 CI 上都会运行。
-- **git** 需在 `PATH` 上，供 `worktree` 和 `rewind` 扩展使用；其余部分会优雅降级或
-  禁用，`/bytefly doctor` 会告诉你缺什么。
-- 可选的运行时组件（例如用于 HTML 导出的浏览器）由 `/bytefly doctor` 按扩展报告。
 
 ## 参与贡献
 

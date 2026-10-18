@@ -59,7 +59,6 @@
     "url": "https://github.com/gavin-hu/my-pi-agent.git"
   },
   "files": [
-    "assets/**",
     "extensions/**",
     "lib/**",
     "themes/**",
