@@ -125,6 +125,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: `write_plan` reports the step caps when a plan exceeds them — more than
+  50 steps, or a step longer than 200 characters — instead of leaving the model
+  to discover later that the tail cannot be seeded or ticked. The plan file keeps
+  the full text; the note names what approval will shorten.
+- `plan`: `set_plan_steps` accepts an optional `expected` text with each update.
+  When the plan was reordered or rewritten between approval and ticking, the
+  call is refused with the text now at that step number instead of silently
+  marking the wrong step; the whole batch still validates before anything is
+  written. The approval message asks the model to pass it.
+- `plan`: approval merges the plan's steps into the todo list instead of
+  replacing it. Existing items keep their place and status, a step whose text is
+  already there is skipped, and the item cap defers the rest, so approving a plan
+  no longer discards the work the user was already tracking. The approval
+  message says how many steps were added, skipped, kept, and deferred.
+- `plan`: a bare `/plan review` works in a session that did not write the plan.
+  When no plan path is remembered it opens the newest file in the plans
+  directory (newest modification time) instead of reporting that there is
+  nothing to review, so a plan written before `/resume` is still reviewable.
+- `plan`: approval seeds the plan's `## Steps` section instead of every top-level
+  bullet in the file. Prose lists under Context, Approach, or Risks no longer
+  become todos, and the 50-step cap now applies to the checklist that actually
+  holds the steps, so a long plan's steps stay addressable by `set_plan_steps`.
+  A plan without a `Steps` heading keeps the previous behavior (the shallowest
+  list in the document).
 - `wechat`: an `allowedPeers` entry matches a sender whether or not it carries
   the `@im.wechat` suffix, and case/whitespace no longer matter, so the id shown
   by `/wechat status` (the label without the suffix) can be pasted straight into

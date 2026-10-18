@@ -29,7 +29,17 @@ import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
-import { PLAN_OUTLINE, extractPlanSteps, type PlanStep, type StepUpdate } from "./steps.ts";
+import {
+	MAX_STEP_LENGTH,
+	MAX_STEPS,
+	PLAN_OUTLINE,
+	extractPlanSteps,
+	planStepSummary,
+	type PlanStep,
+	type PlanStepSummary,
+	type StepUpdate,
+} from "./steps.ts";
+import { DEFAULT_TODO_MAX, lastTodos, mergeTodos, type TodoMerge } from "./todos.ts";
 import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
 import { createPlanWebReview, type PlanReviewResult, type PlanReviewSession, type PlanWebReview } from "./web.ts";
@@ -64,6 +74,12 @@ const StepUpdateParams = Type.Object({
 	status: StringEnum(["pending", "completed"] as const, {
 		description: "The step's new state.",
 	}),
+	expected: Type.Optional(
+		Type.String({
+			description:
+				"The step's text as exit_plan_mode listed it. When given, the update is refused if the step at that number no longer matches, so a reordered plan is caught instead of mis-ticked.",
+		}),
+	),
 });
 
 const SetPlanStepsParams = Type.Object({
@@ -72,7 +88,8 @@ const SetPlanStepsParams = Type.Object({
 	}),
 	updates: Type.Array(StepUpdateParams, {
 		minItems: 1,
-		description: "The steps to set; each entry sets one step's checkbox, and the last entry wins for a duplicate step.",
+		description:
+			"The steps to set; each entry sets one step's checkbox, and the last entry wins for a duplicate step. Pass expected as well to refuse a stale step number.",
 	}),
 });
 
@@ -98,6 +115,23 @@ function preview(plan: string): { body: string; more: number } {
 	return { body: lines.slice(0, PREVIEW_LINES).join("\n"), more: lines.length - PREVIEW_LINES };
 }
 
+/**
+ * One sentence for `write_plan` when the step list is larger than approval can
+ * track, so the model can shorten it instead of discovering the cap later.
+ */
+function stepCapNote({ total, elided }: PlanStepSummary): string {
+	const notes: string[] = [];
+	if (total > MAX_STEPS) {
+		notes.push(`the plan has ${total} steps and only the first ${MAX_STEPS} can be seeded or ticked`);
+	}
+	if (elided > 0) {
+		notes.push(
+			`${elided} step${elided === 1 ? " is" : "s are"} longer than ${MAX_STEP_LENGTH} characters and will be shortened in the todo list`,
+		);
+	}
+	return notes.length > 0 ? ` Note: ${notes.join("; ")}.` : "";
+}
+
 /** "Step 2" or "Steps 1, 2" for a set of step numbers. */
 function stepLabel(steps: number[]): string {
 	return `${steps.length === 1 ? "Step" : "Steps"} ${steps.join(", ")}`;
@@ -113,22 +147,61 @@ function describeUpdates(updates: StepUpdate[]): string {
 	return parts.join("; ");
 }
 
-/** Seed the todo list with the plan's steps; returns what was recorded. */
+/**
+ * The todo tool's item cap, read from its registered schema so the merge stops
+ * before the nested call would reject the list. Falls back to the documented
+ * default when the tool is absent or has not declared one.
+ */
+function todoMaxItems(pi: ExtensionAPI): number {
+	const info = pi.getAllTools().find((tool) => tool.name === TODO_TOOL);
+	const parameters = info?.parameters as { properties?: { todos?: { maxItems?: unknown } } } | undefined;
+	const max = parameters?.properties?.todos?.maxItems;
+	return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : DEFAULT_TODO_MAX;
+}
+
+/**
+ * Record the plan's steps in the todo list. The list is whole-list replacement,
+ * so the steps are merged into what the branch already holds: existing items
+ * keep their place and status, duplicates are skipped, and the cap defers the
+ * rest. Returns what happened for the approval message.
+ */
 async function seedTodos(
+	pi: ExtensionAPI,
 	ctx: ExtensionToolContext,
 	plan: string,
-): Promise<{ recorded: number; steps: PlanStep[]; error?: string }> {
+): Promise<{ steps: PlanStep[]; merged?: TodoMerge; error?: string }> {
 	const steps = extractPlanSteps(plan);
-	if (steps.length === 0) return { recorded: 0, steps };
-	const outcome = await ctx.executeTool(TODO_TOOL, {
-		todos: steps.map((step) => ({ content: step.content, status: step.status })),
-	});
-	if (!outcome.isError) return { recorded: steps.length, steps };
+	if (steps.length === 0) return { steps };
+	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi));
+	// Nothing new to write: every step is already in the list (or the list is
+	// full), so a whole-list rewrite would only churn the todo widget.
+	if (merged.added === 0) return { steps, merged };
+	const outcome = await ctx.executeTool(TODO_TOOL, { todos: merged.todos });
+	if (!outcome.isError) return { steps, merged };
 	// The nested call fails both when the tool is unavailable and when it rejects
 	// the steps; surface its first line so the caller reports the real reason.
 	const part = outcome.result?.content?.find((entry) => entry.type === "text");
 	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
-	return { recorded: 0, steps, error: firstLine ? sanitizeLine(firstLine) : undefined };
+	return { steps, merged, error: firstLine ? sanitizeLine(firstLine) : undefined };
+}
+
+/** What the merge did, for the approval message; `steps` is the plan's step count. */
+function mergeSummary(merged: TodoMerge, steps: PlanStep[]): string {
+	const total = steps.length;
+	const counted = `${merged.added + merged.skipped} of ${total} plan step${total === 1 ? "" : "s"}`;
+	const notes = [
+		merged.skipped > 0 ? `${merged.skipped} already present` : "",
+		merged.kept > 0 ? `${merged.kept} existing kept` : "",
+		merged.deferred > 0 ? `${merged.deferred} deferred, list full` : "",
+	].filter(Boolean);
+	const suffix = notes.length > 0 ? ` (${notes.join(", ")})` : "";
+	const tick = `Tick each one off in the file with ${SET_PLAN_STEPS_TOOL} as you finish it, passing the step's text as \`expected\`.`;
+	if (merged.added === 0 && merged.skipped === 0) {
+		return ` The todo list is full, so no plan steps were added${suffix}. Keep these steps in mind. ${tick}`;
+	}
+	if (merged.added === 0)
+		return ` ${total === 1 ? "The plan's step is" : "Every plan step is"} already in the todo list${suffix}. ${tick}`;
+	return ` Merged ${counted} into the todo list${suffix}. ${tick}`;
 }
 
 /** The review choice plus the refinement the user typed in the TUI, if any. */
@@ -298,7 +371,7 @@ export function registerTools(
 					content: [
 						{
 							type: "text",
-							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}`,
+							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepCapNote(planStepSummary(args.content))}`,
 						},
 					],
 					details: { path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
@@ -489,7 +562,7 @@ export function registerTools(
 			}
 
 			runtime.disable(ctx);
-			const { recorded, steps, error } = await seedTodos(ctx, file.content);
+			const { steps, merged, error } = await seedTodos(pi, ctx, file.content);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps
@@ -497,11 +570,13 @@ export function registerTools(
 							.join("\n")}`
 					: "";
 			const tail =
-				recorded > 0
-					? ` Recorded ${recorded} step${recorded === 1 ? "" : "s"} in the todo list. As you finish each step, mark it done there and tick it off in the file with ${SET_PLAN_STEPS_TOOL}.`
-					: steps.length > 0
-						? ` Could not record the steps in the todo list${error ? `: ${error}` : ""}. Keep these steps in mind and tick them off with ${SET_PLAN_STEPS_TOOL} as you go.`
-						: " If the todo tool is available, record the steps with it before you start.";
+				steps.length === 0
+					? " The plan has no steps to record."
+					: error
+						? ` Could not record the steps in the todo list: ${error}. Keep these steps in mind and tick them off with ${SET_PLAN_STEPS_TOOL} as you go.`
+						: merged
+							? mergeSummary(merged, steps)
+							: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${SET_PLAN_STEPS_TOOL}.`;
 			const browserNote = browserComments.length
 				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(browserComments)}`
 				: "";
@@ -567,10 +642,10 @@ export function registerTools(
 			"Keep an approved plan file current by setting the checkboxes of the given top-level steps in place. Each step " +
 			"number matches the order the plan was approved in; a step can be marked completed or reopened. Only the " +
 			"checkboxes change; the step text is left as written. The file is rewritten once, and nothing changes when any " +
-			"step is out of range.",
+			"step is out of range or an entry's expected text no longer matches the file.",
 		promptSnippet: "Tick steps off in the approved plan file.",
 		promptGuidelines: [
-			"After a plan is approved, call set_plan_steps as you complete steps so the plan file stays current.",
+			"After a plan is approved, call set_plan_steps as you complete steps, passing each step's text as expected so a reordered plan is refused instead of mis-ticked.",
 		],
 		parameters: SetPlanStepsParams,
 		executionMode: "sequential",

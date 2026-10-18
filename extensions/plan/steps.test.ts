@@ -6,6 +6,8 @@ import {
 	PLAN_SECTIONS,
 	extractPlanSections,
 	extractPlanSteps,
+	matchesStepText,
+	planStepSummary,
 	setStepStatuses,
 } from "./steps.ts";
 
@@ -106,6 +108,92 @@ describe("extractPlanSteps", () => {
 	test("returns nothing for a plan without steps", () => {
 		expect(extractPlanSteps("Just some prose.")).toEqual([]);
 		expect(extractPlanSteps("")).toEqual([]);
+	});
+});
+
+describe("extractPlanSteps — the Steps section", () => {
+	test("reads only the Steps section when the plan has one", () => {
+		const plan = [
+			"# Plan",
+			"## Context",
+			"- the repo is large",
+			"- prior art exists",
+			"## Approach",
+			"- use a cache",
+			"## Steps",
+			"- [ ] Add the cache",
+			"- [ ] Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
+	});
+
+	test("keeps nested notes inside the section but not as steps", () => {
+		const plan = [
+			"## Steps",
+			"1. Add the cache",
+			"   - a nested note",
+			"### Check the cache",
+			"2. Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
+	});
+
+	test("an empty Steps section means no steps", () => {
+		const plan = ["## Steps", "", "## Risks", "- stale reads"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([]);
+	});
+
+	test("ignores a Steps heading inside a fence", () => {
+		const plan = ["```md", "## Steps", "- not a step", "```", "- Real step"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Real step")]);
+	});
+
+	test("falls back to the whole plan without a Steps heading", () => {
+		const plan = ["## Goal", "- first", "## Approach", "- second"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("first"), pending("second")]);
+	});
+
+	test("matches the heading case-insensitively and through emphasis", () => {
+		const plan = ["## **STEPS**", "- One", "## Risks", "- two"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("One")]);
+	});
+
+	test("setStepStatuses edits the section-scoped steps", () => {
+		const plan = ["## Context", "- prose", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
+		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
+			["## Context", "- prose", "## Steps", "- [x] One", "- [ ] Two"].join("\n"),
+		);
+	});
+});
+
+describe("planStepSummary", () => {
+	test("counts past the cap", () => {
+		const plan = Array.from({ length: MAX_STEPS + 3 }, (_, index) => `${index + 1}. step ${index}`).join("\n");
+		expect(planStepSummary(plan)).toEqual({ total: MAX_STEPS + 3, elided: 0 });
+	});
+
+	test("counts steps whose text will be shortened", () => {
+		const plan = `1. ${"x".repeat(MAX_STEP_LENGTH + 1)}\n2. Short`;
+		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 1 });
+	});
+
+	test("scopes the count to the Steps section", () => {
+		const plan = ["## Context", "- prose", "## Steps", "- One", "- Two"].join("\n");
+		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 0 });
+	});
+});
+
+describe("matchesStepText", () => {
+	test("ignores case, surrounding space, and collapsed whitespace", () => {
+		expect(matchesStepText("Add  the cache", " add the CACHE ")).toBe(true);
+	});
+
+	test("rejects text that moved", () => {
+		expect(matchesStepText("Add the cache", "Wire it")).toBe(false);
 	});
 });
 

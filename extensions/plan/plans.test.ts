@@ -1,5 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	lutimesSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	symlinkSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -153,6 +163,53 @@ describe("createPlanStore — read", () => {
 	});
 });
 
+describe("createPlanStore — latest", () => {
+	test("returns the newest plan by modification time", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const older = await store.write(root, { title: "Older", content: "old" });
+		const newer = await store.write(root, { title: "Newer", content: "new" });
+		utimesSync(older.path, 1_700_000_000, 1_700_000_000);
+		utimesSync(newer.path, 1_700_000_100, 1_700_000_100);
+
+		expect((await store.latest(root))?.path).toBe(newer.path);
+		expect((await store.latest(root))?.content).toBe("new");
+	});
+
+	test("ignores the plans directory's own files", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Kept", content: "body" });
+		const dir = await store.dirFor(root);
+		const notes = join(dir, "notes.txt");
+		writeFileSync(notes, "not a plan");
+		utimesSync(notes, 2_000_000_000, 2_000_000_000);
+
+		expect((await store.latest(root))?.path).toBe(file.path);
+	});
+
+	test("returns undefined before any plan is written", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		expect(await store.latest(root)).toBeUndefined();
+	});
+
+	symlinkTest("skips a symlinked plan", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Real", content: "body" });
+		const dir = await store.dirFor(root);
+		const outside = join(root, "outside.md");
+		writeFileSync(outside, "secret");
+		const link = join(dir, "link.md");
+		symlinkSync(outside, link);
+		// The link itself is the newest entry by lstat, and must still be skipped.
+		lutimesSync(link, 2_000_000_000, 2_000_000_000);
+
+		expect((await store.latest(root))?.path).toBe(file.path);
+	});
+});
+
 describe("createPlanStore — containment", () => {
 	test("refuses to overwrite the directory's .gitignore or a non-markdown file", async () => {
 		const root = tempDir();
@@ -218,6 +275,28 @@ describe("createPlanStore — containment", () => {
 });
 
 describe("createPlanStore — setSteps", () => {
+	test("refuses a stale expected text and writes nothing", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "## Steps\n- [ ] One\n- [ ] Two" });
+
+		await expect(
+			store.setSteps(root, file.path, [{ step: 2, status: "completed", expected: "Wire it" }]),
+		).rejects.toThrow('Step 2 is no longer "Wire it"; the file now has "Two"');
+		expect(readFileSync(file.path, "utf-8")).toBe("## Steps\n- [ ] One\n- [ ] Two");
+	});
+
+	test("accepts an expected text that matches after normalization", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "1. Add the cache\n2. Wire it" });
+
+		const updated = await store.setSteps(root, file.path, [
+			{ step: 1, status: "completed", expected: " add   the CACHE " },
+		]);
+		expect(updated.content).toBe("1. [x] Add the cache\n2. Wire it");
+	});
+
 	test("ticks off a step and returns the rewritten plan", async () => {
 		const root = tempDir();
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });

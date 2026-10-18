@@ -14,13 +14,13 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../../lib/git/index.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
 import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
-import { extractPlanSteps, setStepStatuses, type StepUpdate } from "./steps.ts";
+import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
 export const MAX_PLAN_BYTES = 256 * 1024;
@@ -57,6 +57,8 @@ export interface PlanStore {
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
+	/** The newest plan file in the plans directory, or undefined when there is none. */
+	latest(cwd: string): Promise<StoredPlan | undefined>;
 	/** Set the given top-level steps' checkboxes in an existing plan. Throws when the file or any step is invalid. */
 	setSteps(cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan>;
 	/** Replace the plan's stored browser feedback. Throws when the file is missing or outside the plans directory. */
@@ -225,13 +227,27 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const setSteps = async (cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan> => {
 		const plan = await read(cwd, planPath);
 		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
-		const total = extractPlanSteps(plan.content).length;
+		const steps = extractPlanSteps(plan.content);
+		const total = steps.length;
 		const outOfRange = updates.find(
 			(update) => !Number.isInteger(update.step) || update.step < 1 || update.step > total,
 		);
 		if (outOfRange) {
 			const range = total === 0 ? "it has no steps" : `valid steps are 1 to ${total}`;
 			throw new Error(`Step ${outOfRange.step} is out of range; ${range}.`);
+		}
+		// A caller-supplied text is the guard against a reordered plan: refuse the
+		// whole batch rather than tick the step that moved into that number.
+		const stale = updates.find((update) => {
+			if (update.expected === undefined) return false;
+			const step = steps[update.step - 1];
+			return step === undefined || !matchesStepText(step.content, update.expected);
+		});
+		if (stale) {
+			const actual = steps[stale.step - 1]?.content;
+			throw new Error(
+				`Step ${stale.step} is no longer "${stale.expected}"; the file now has "${actual ?? "no step"}". Re-read the plan and pass the current step number.`,
+			);
 		}
 		const updated = setStepStatuses(plan.content, updates);
 		if (!updated) throw new Error("Could not update the plan steps; pass steps from the plan file.");
@@ -262,5 +278,37 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		};
 	};
 
-	return { dirFor, write, read, setSteps, saveFeedback };
+	/**
+	 * The newest plan file in the plans directory, for a bare `/plan review` in a
+	 * later session. Markdown non-dotfiles only, symlinks skipped like every other
+	 * read, newest mtime first with the name (which carries the stamp) as the tie
+	 * break.
+	 */
+	const latest = async (cwd: string): Promise<StoredPlan | undefined> => {
+		const dir = await dirFor(cwd);
+		let names: string[];
+		try {
+			names = readdirSync(dir);
+		} catch {
+			return undefined;
+		}
+		let newest: { path: string; mtime: number } | undefined;
+		for (const name of names) {
+			const path = join(dir, name);
+			if (!isPlanFileName(path)) continue;
+			try {
+				// lstat, not stat: a symlink is never a reviewable plan.
+				const stat = lstatSync(path);
+				if (!stat.isFile()) continue;
+				if (!newest || stat.mtimeMs > newest.mtime || (stat.mtimeMs === newest.mtime && path > newest.path)) {
+					newest = { path, mtime: stat.mtimeMs };
+				}
+			} catch {
+				// A vanished entry is not a candidate.
+			}
+		}
+		return newest ? read(cwd, newest.path) : undefined;
+	};
+
+	return { dirFor, write, read, latest, setSteps, saveFeedback };
 }

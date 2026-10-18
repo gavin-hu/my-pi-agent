@@ -10,7 +10,9 @@ import type { PlanAnnotation } from "./feedback.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { MAX_STEPS } from "./steps.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
+import { TODO_TOOL } from "../../lib/tool-names.ts";
 
 function repoExec(root: string) {
 	return async (command: string, args: string[]) =>
@@ -19,11 +21,12 @@ function repoExec(root: string) {
 			: { stdout: "", stderr: "", code: 1 };
 }
 
-function setup(web?: PlanWebReview) {
+function setup(web?: PlanWebReview, options: { allTools?: any[] } = {}) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
 	const fake = makeFakePi({
 		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
 		exec: repoExec(root),
+		allTools: options.allTools,
 	});
 	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
 	registerTools(fake.pi, runtime, web);
@@ -39,6 +42,20 @@ function setup(web?: PlanWebReview) {
 }
 
 const call = (tool: any, params: unknown, ctx: any) => tool.execute("call-1", params, undefined, undefined, ctx);
+
+/** A branch carrying one successful todo tool result. */
+function todoBranch(todos: Array<{ content: string; status: string }>, error?: string): unknown[] {
+	return [
+		{
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolName: TODO_TOOL,
+				details: error === undefined ? { todos, action: "write" } : { todos, action: "write", error },
+			},
+		},
+	];
+}
 
 /** A web review controller whose session resolves with `annotations` saved. */
 function webThatSaves(annotations: PlanAnnotation[]): PlanWebReview {
@@ -188,6 +205,27 @@ describe("write_plan", () => {
 		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan`);
 	});
 
+	test("warns when the plan has more steps than approval can track", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const steps = Array.from({ length: MAX_STEPS + 1 }, (_, index) => `- [ ] step ${index}`).join("\n");
+		const { ctx } = fakeCtx({ cwd: root });
+
+		const result = await call(write, { title: "Big", content: `## Steps\n${steps}` }, ctx);
+
+		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} steps and only the first ${MAX_STEPS}`);
+	});
+
+	test("does not warn for a plan within the step caps", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const { ctx } = fakeCtx({ cwd: root });
+
+		const result = await call(write, { title: "Fine", content: "## Steps\n- [ ] One" }, ctx);
+
+		expect(result.content[0].text).not.toContain("Note:");
+	});
+
 	test("reports a write failure as an error result", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
@@ -322,6 +360,121 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("source of truth");
 		expect(result.content[0].text).toContain("1. [ ] Read the parser");
 		expect(result.content[0].text).toContain(SET_PLAN_STEPS_TOOL);
+	});
+
+	test("seeds only the Steps section, not prose bullets", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = [
+			"# Plan",
+			"## Context",
+			"- the repo is large",
+			"## Approach",
+			"- use a cache",
+			"## Steps",
+			"- [ ] Add the cache",
+			"- [ ] Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0].args).toEqual({
+			todos: [
+				{ content: "Add the cache", status: "pending" },
+				{ content: "Wire it", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).not.toContain("the repo is large");
+		expect(result.content[0].text).not.toContain("use a cache");
+	});
+
+	test("merges the plan's steps into the existing todo list", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = ["## Steps", "- [ ] Read the parser", "- [ ] Add a tokenizer"].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+
+		const { ctx, toolCalls } = fakeCtx({
+			select: "Approve and execute",
+			cwd: root,
+			branch: todoBranch([{ content: "Fix the flaky test", status: "pending" }]),
+		});
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0].args).toEqual({
+			todos: [
+				{ content: "Fix the flaky test", status: "pending" },
+				{ content: "Read the parser", status: "pending" },
+				{ content: "Add a tokenizer", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).toContain("Merged 2 of 2 plan steps into the todo list (1 existing kept)");
+	});
+
+	test("skips a step the list already has", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = ["## Steps", "- [ ] Fix the flaky test", "- [ ] Add a token bucket"].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+
+		const { ctx, toolCalls } = fakeCtx({
+			select: "Approve and execute",
+			cwd: root,
+			branch: todoBranch([{ content: "  fix   the FLAKY test ", status: "completed" }]),
+		});
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0].args).toEqual({
+			todos: [
+				{ content: "fix   the FLAKY test", status: "completed" },
+				{ content: "Add a token bucket", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).toContain("1 already present");
+	});
+
+	test("does not rewrite a todo list that already holds every step", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "## Steps\n- [ ] Only step");
+
+		const { ctx, toolCalls } = fakeCtx({
+			select: "Approve and execute",
+			cwd: root,
+			branch: todoBranch([{ content: "Only step", status: "completed" }]),
+		});
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls).toHaveLength(0);
+		expect(result.content[0].text).toContain("already in the todo list");
+	});
+
+	test("stops at the todo tool's advertised cap and defers the rest", async () => {
+		const { enter, exit, write, runtime, root } = setup(undefined, {
+			allTools: [{ name: TODO_TOOL, parameters: { properties: { todos: { maxItems: 2 } } } }],
+		});
+		await enterPlan(enter, runtime, root);
+		const plan = ["## Steps", "- [ ] One", "- [ ] Two", "- [ ] Three"].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+
+		const { ctx, toolCalls } = fakeCtx({
+			select: "Approve and execute",
+			cwd: root,
+			branch: todoBranch([{ content: "Existing", status: "pending" }]),
+		});
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0].args).toEqual({
+			todos: [
+				{ content: "Existing", status: "pending" },
+				{ content: "One", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).toContain("2 deferred, list full");
 	});
 
 	test("accepts a plan_path relative to the working directory", async () => {
@@ -565,6 +718,41 @@ describe("set_plan_steps", () => {
 		expect(result.isError).toBeUndefined();
 		expect(details.done).toBe(0);
 		expect(readFileSync(planPath, "utf-8")).toBe("- [ ] First\n- Second");
+	});
+
+	test("refuses a stale expected text and leaves the file unchanged", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 2, status: "completed", expected: "Wire it" }] },
+			ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain('Step 2 is no longer "Wire it"; the file now has "Two"');
+		expect(readFileSync(planPath, "utf-8")).toBe("1. One\n2. Two");
+	});
+
+	test("accepts an expected text that matches after normalization", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "  ONE " }] },
+			ctx,
+		);
+
+		expect(result.isError).toBeUndefined();
+		expect(readFileSync(planPath, "utf-8")).toBe("1. [x] One\n2. Two");
 	});
 
 	test("refuses when any step is out of range and leaves the file unchanged", async () => {

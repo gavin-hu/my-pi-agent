@@ -14,9 +14,15 @@ export interface FakePi {
 }
 
 /** Minimal `ExtensionAPI` double covering the surface the plan-mode extension uses. */
-export function makeFakePi(options: { active?: string[]; planFlag?: boolean; exec?: any } = {}): FakePi {
+export function makeFakePi(
+	options: { active?: string[]; planFlag?: boolean; exec?: any; allTools?: any[] } = {},
+): FakePi {
 	const defaultActive = ["read", "bash", "edit", "write", "grep", "find", "ls"];
-	const fake = createFakePi({ active: options.active ?? defaultActive, exec: options.exec });
+	const fake = createFakePi({
+		active: options.active ?? defaultActive,
+		exec: options.exec,
+		allTools: options.allTools,
+	});
 	fake.pi.registerFlag = (name: string, opts: any) => {
 		fake.flags.set(name, { ...opts, default: name === "plan" && options.planFlag ? true : opts.default });
 	};

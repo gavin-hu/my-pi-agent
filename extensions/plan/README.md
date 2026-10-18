@@ -46,13 +46,14 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
   `## Risks`, and `## Verification` — and the model is guided to follow it. This
   is guidance only: any markdown is accepted, stored, and rendered as written.
-- **Trackable steps.** Steps are written as `- [ ]` checkboxes; approval seeds
-  them into `todo`.
+- **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
+  section; approval seeds them into `todo`.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
 - **Kept current.** After approval, `set_plan_steps` flips the checkboxes of
   the steps you name in the file, so the plan mirrors what has actually been
-  done.
+  done. Pass the step's text as `expected` and an update whose step number moved
+  is refused instead of ticking the wrong line.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
 - **Browser review on demand.** Press `w` on the review screen (or run
@@ -66,10 +67,15 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 - **The file is the source of truth.** On approval the model follows the plan
   file's steps; refinements rewrite the same file (`write_plan` with
   `plan_path`), so the reviewed artifact is the executed artifact.
-- **Steps become todos.** On approval, the plan's top-level numbered/bulleted
-  steps are recorded with the `todo` tool (via `ctx.executeTool`); steps marked
-  `- [x]` (or `[DONE:n]`) seed as completed, and nested sub-bullets are treated
-  as notes.
+- **Steps become todos.** On approval, the top-level numbered/bulleted items of
+  the plan's `Steps` section are recorded with the `todo` tool (via
+  `ctx.executeTool`); steps marked `- [x]` (or `[DONE:n]`) seed as completed, and
+  nested sub-bullets are treated as notes. The list is a merge, not a
+  replacement: existing items keep their place and status, a step whose text is
+  already there is skipped, and the tool's item cap defers the rest instead of
+  dropping anything. A plan without a `Steps` heading keeps the older rule — the
+  shallowest list in the document — so prose bullets in a plan that follows the
+  outline never become todos.
 - **Branch-aware.** The enabled flag is a custom session entry, so `/resume` and
   `/tree` restore the right mode.
 
@@ -80,7 +86,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
 | `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. |
-| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
+| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and optionally `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
 
 ### Commands and flags
 
@@ -108,9 +114,11 @@ which does not forward `Ctrl+Alt+P`). The footer shows `⋮ plan` while plan mod
 is on, and `⋮ plan · <plan-file>` once the model has written a plan.
 
 `/plan review` is the one reserved subcommand. Bare `/plan review` reviews the
-most recent plan; `/plan review <path>.md` (or a path with a separator) reviews
-that plan. A line that merely starts with the word — `review the auth flow` — is
-still treated as a planning task, so the subcommand never swallows one.
+plan this session wrote, or, in a later session, the newest plan file in the
+plans directory (newest modification time); `/plan review <path>.md` (or a path
+with a separator) reviews that plan. A line that merely starts with the word —
+`review the auth flow` — is still treated as a planning task, so the subcommand
+never swallows one.
 
 ## Behaviour by mode
 
@@ -354,6 +362,9 @@ file and returns them to the model.
   security boundary (see [Security](#security)).
 - The plans directory is the only index; there is no registry and no persisted
   plan metadata.
+- Approval tracks at most 50 steps, and a step longer than 200 characters is
+  shortened in the todo list and the approval listing. `write_plan` reports both
+  cases when they apply; the plan file itself always keeps the full text.
 - Browser review needs a local browser: the server is loopback-only, so a remote
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user
@@ -376,7 +387,7 @@ file and returns them to the model.
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`); no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
-| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
 
@@ -401,9 +412,14 @@ file and returns them to the model.
   so symlinks and the directory's own `.gitignore` are never writable targets.
 - **Approval seeds `todo` via `ctx.executeTool`.** The event bus carries no
   `ctx`, so a listener could not refresh the todo widget; calling the real tool
-  runs its validation and widget sync and needs no change to `todo`. Only
-  top-level list items become steps. A rejected seed reports the nested tool's
-  own reason in the approval message instead of failing silently.
+  runs its validation and widget sync and needs no change to `todo`. Only the
+  top-level list items of the `Steps` section become steps (the whole document
+  is the fallback when that heading is absent), so the outline's prose lists
+  never seed the list. The list is whole-list replacement, so the current items
+  are read back from the branch's last `todo` result (the published state
+  channel; no import from that extension) and the steps are merged into them.
+  A rejected seed reports the nested tool's own reason in the approval message
+  instead of failing silently.
 - **The outline guides, it does not enforce.** `write_plan` documents the
   canonical shape in its description and stores whatever markdown it is given;
   no section is required and nothing is rewritten. That keeps the model free to
@@ -415,8 +431,11 @@ file and returns them to the model.
 - **`set_plan_steps` is a second contained write.** It changes only the named
   steps' checkboxes, in an existing markdown plan inside the plans directory
   (`isContainedPlan`), in a single all-or-nothing write — refusing every entry
-  if any step is out of range — and refuses while plan mode is on, so the
-  read-only guarantee and the path backstop are unchanged.
+  if any step is out of range or an entry's `expected` text no longer matches —
+  and refuses while plan mode is on, so the read-only guarantee and the path
+  backstop are unchanged. The optional `expected` is what makes an ordinal safe:
+  a plan edited between approval and ticking is caught instead of silently
+  marking the step that moved into that number.
 - **Direction: enforce capabilities at the tool boundary.** (1) A shared
   default-deny policy classifies every call as read-only or mutating instead of
   maintaining a mutator list. (2) Read-only delegation is enforced in the child
@@ -451,7 +470,8 @@ file and returns them to the model.
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/`setSteps`/`saveFeedback`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, `write`/`read`/`latest`/`setSteps`/`saveFeedback`. |
+| `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction, heading sections, and the checkbox edit. |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`. |
