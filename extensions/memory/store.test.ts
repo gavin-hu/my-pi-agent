@@ -6,6 +6,7 @@ import {
 	applyAdd,
 	applyClear,
 	applyForget,
+	applyMerge,
 	applyUpdate,
 	duplicateKey,
 	MAX_MEMORY_BYTES,
@@ -131,6 +132,35 @@ describe("applyUpdate", () => {
 		const content = "- one\n";
 		expect(applyUpdate(content, "missing", "two")).toEqual({ content, changed: false });
 		expect(applyUpdate(content, "one", "one")).toEqual({ content, changed: false });
+	});
+});
+
+describe("applyMerge", () => {
+	const stored = ["<!-- header -->", "", "- one", "- two", "- three", ""].join("\n");
+
+	test("replaces the first note in place and drops the second", () => {
+		const result = applyMerge(stored, "one", "two", "one and two");
+		expect(result.changed).toBe(true);
+		expect(parseEntries(result.content)).toEqual(["one and two", "three"]);
+		// The merged note keeps the first note's position, so the order a reader
+		// learned is the order they still see.
+		expect(result.content).toContain("- one and two\n- three");
+	});
+
+	test("leaves the header, prose, and every other note untouched", () => {
+		const result = applyMerge(stored, "two", "three", "two and three");
+		expect(result.content.startsWith("<!-- header -->\n\n- one\n")).toBe(true);
+		expect(parseEntries(result.content)).toEqual(["one", "two and three"]);
+	});
+
+	test("changes nothing when either note is absent", () => {
+		const result = applyMerge(stored, "one", "missing", "merged");
+		expect(result).toEqual({ content: stored, changed: false });
+		expect(applyMerge(stored, "missing", "one", "merged").changed).toBe(false);
+	});
+
+	test("changes nothing when both names are the same note", () => {
+		expect(applyMerge(stored, "one", "one", "merged")).toEqual({ content: stored, changed: false });
 	});
 });
 

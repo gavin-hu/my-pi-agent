@@ -7,6 +7,11 @@
  * without the component owning any authoritative state. Navigation and scroll
  * math come from `lib/tui/cursor.ts` and the screen chrome from `lib/tui/chrome.ts`;
  * the inline note editor is the shared `Editor` from `@earendil-works/pi-tui`.
+ *
+ * `m` marks one note as a merge source and `m` on a second note in the same
+ * scope opens the editor, pre-filled with both notes so the user writes the
+ * merged wording. The merge is one write: the store replaces the first note and
+ * drops the second.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -53,6 +58,8 @@ export interface MemoryPickerCallbacks {
 	add(scope: MemoryScope, text: string): Promise<{ changed: boolean; existing?: string }>;
 	update(scope: MemoryScope, from: string, to: string): Promise<boolean>;
 	forget(scope: MemoryScope, entry: string): Promise<boolean>;
+	/** Merge two notes in `scope` into one, in a single write. */
+	merge(scope: MemoryScope, first: string, second: string, merged: string): Promise<boolean>;
 }
 
 /** One note in the flat, filtered list. */
@@ -72,11 +79,15 @@ export class MemoryPickerComponent implements Component {
 	private readonly editor: Editor;
 
 	private filter: MemoryFilter = "all";
-	private mode: "list" | "edit" | "add" = "list";
+	private mode: "list" | "edit" | "add" | "merge" = "list";
 	/** Scope the inline editor writes to. */
 	private editorScope: MemoryScope = "project";
 	/** Note being edited, or undefined while adding. */
 	private editing: Note | undefined;
+	/** The two notes a merge editor will combine. */
+	private mergePair: { first: Note; second: Note } | undefined;
+	/** The note marked with `m`, awaiting a second `m` to merge into it. */
+	private mergeSource: Note | undefined;
 	/** Note awaiting a y/N forget confirmation. */
 	private confirm: Note | undefined;
 	/** Transient feedback shown in place of the hint. */
@@ -161,8 +172,47 @@ export class MemoryPickerComponent implements Component {
 		}
 		this.mode = "edit";
 		this.editing = note;
+		this.mergePair = undefined;
 		this.editorScope = note.scope;
 		this.editor.setText(note.text);
+		this.syncEditorFocus();
+		this.requestRender();
+	}
+
+	/**
+	 * `m`: mark the focused note, unmark it, or open the merge editor for a marked
+	 * pair. The mark survives navigation so the second note can be found.
+	 */
+	private toggleMerge(note: Note | undefined): void {
+		if (!note) return;
+		const source = this.mergeSource;
+		if (source && noteKey(source) === noteKey(note)) {
+			this.mergeSource = undefined;
+			this.requestRender();
+			return;
+		}
+		if (source) {
+			this.startMerge(source, note);
+			return;
+		}
+		this.mergeSource = note;
+		this.notice = undefined;
+		this.requestRender();
+	}
+
+	/** Open the editor for a marked pair, pre-filled with both notes to rewrite. */
+	private startMerge(first: Note, second: Note): void {
+		if (first.scope !== second.scope) {
+			this.notice = "A merge combines two notes in the same scope.";
+			this.requestRender();
+			return;
+		}
+		this.mode = "merge";
+		this.editing = undefined;
+		this.mergePair = { first, second };
+		this.editorScope = first.scope;
+		// The user writes the merged wording; the seed only saves retyping both notes.
+		this.editor.setText(`${first.text}; ${second.text}`.slice(0, MAX_NOTE_CHARS));
 		this.syncEditorFocus();
 		this.requestRender();
 	}
@@ -170,6 +220,7 @@ export class MemoryPickerComponent implements Component {
 	private startAdd(): void {
 		this.mode = "add";
 		this.editing = undefined;
+		this.mergePair = undefined;
 		this.editorScope = this.activeScope();
 		this.editor.setText("");
 		this.syncEditorFocus();
@@ -179,6 +230,8 @@ export class MemoryPickerComponent implements Component {
 	private cancelEditor(): void {
 		this.mode = "list";
 		this.editing = undefined;
+		this.mergePair = undefined;
+		this.mergeSource = undefined;
 		this.syncEditorFocus();
 		this.notice = undefined;
 		this.requestRender();
@@ -188,8 +241,11 @@ export class MemoryPickerComponent implements Component {
 		const text = sanitizeLine(value).trim();
 		const editing = this.editing;
 		const scope = this.editorScope;
+		const pair = this.mergePair;
 		this.mode = "list";
 		this.editing = undefined;
+		this.mergePair = undefined;
+		this.mergeSource = undefined;
 		this.syncEditorFocus();
 
 		if (text.length === 0) {
@@ -204,6 +260,12 @@ export class MemoryPickerComponent implements Component {
 		}
 
 		this.run(async () => {
+			if (pair) {
+				await this.callbacks.merge(pair.first.scope, pair.first.text, pair.second.text, text);
+				this.notice = `Merged 2 ${scopeLabel(pair.first.scope)} notes.`;
+				this.selectedKey = noteKey({ scope: pair.first.scope, text });
+				return;
+			}
 			if (editing) {
 				if (text === editing.text) {
 					this.notice = "Unchanged.";
@@ -248,11 +310,21 @@ export class MemoryPickerComponent implements Component {
 			.catch((error: unknown) => {
 				this.notice = `Memory not saved: ${messageOf(error)}`;
 			})
-			.then(() => this.requestRender());
+			.then(() => {
+				this.dropStaleMergeSource();
+				this.requestRender();
+			});
+	}
+
+	/** A merge source that a mutation removed is no longer a valid target. */
+	private dropStaleMergeSource(): void {
+		const source = this.mergeSource;
+		if (!source) return;
+		if (!this.notes().some((note) => noteKey(note) === noteKey(source))) this.mergeSource = undefined;
 	}
 
 	private syncEditorFocus(): void {
-		this.editor.focused = this.componentFocused && (this.mode === "edit" || this.mode === "add");
+		this.editor.focused = this.componentFocused && this.mode !== "list";
 	}
 
 	private handleConfirm(data: string): void {
@@ -270,7 +342,7 @@ export class MemoryPickerComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		if (this.mode === "edit" || this.mode === "add") {
+		if (this.mode !== "list") {
 			if (isCloseKey(data) || matchesKey(data, Key.escape)) {
 				this.cancelEditor();
 				return;
@@ -284,6 +356,12 @@ export class MemoryPickerComponent implements Component {
 			return;
 		}
 		if (isCloseKey(data) || data === "q") {
+			// With a mark set, the first Esc cancels the merge instead of closing the screen.
+			if (this.mergeSource) {
+				this.mergeSource = undefined;
+				this.requestRender();
+				return;
+			}
 			this.onClose();
 			return;
 		}
@@ -308,6 +386,7 @@ export class MemoryPickerComponent implements Component {
 		if (matchesKey(data, Key.tab) || data === "s") this.cycleFilter();
 		else if (matchesKey(data, Key.enter) || data === "e") this.startEdit(focused);
 		else if (data === "a") this.startAdd();
+		else if (data === "m") this.toggleMerge(focused);
 		else if (data === "d") {
 			if (!focused) return;
 			this.confirm = focused;
@@ -355,9 +434,11 @@ export class MemoryPickerComponent implements Component {
 	/** One note row: selection marker, scope tag, and the sanitized note text. */
 	private noteRow(note: Note, selected: boolean, width: number): string {
 		const tag = `${paint(this.theme, "meta", scopeLabel(note.scope))} ${paint(this.theme, "faint", "·")}`;
+		const source = this.mergeSource;
+		const marked = source !== undefined && noteKey(source) === noteKey(note);
 		return listRow(this.theme, width, {
 			selected,
-			leading: tag,
+			leading: marked ? `${tag} ${paint(this.theme, "warn", "merge")}` : tag,
 			label: sanitizeLine(note.text),
 			labelRole: selected ? "accent" : "label",
 		});
@@ -372,17 +453,20 @@ export class MemoryPickerComponent implements Component {
 	}
 
 	private renderEditor(width: number): string[] {
-		const verb = this.mode === "edit" ? "Edit" : "Add";
+		const verb = this.mode === "edit" ? "Edit" : this.mode === "merge" ? "Merge" : "Add";
 		const scope = scopeLabel(this.editorScope);
 		const pad = width > 1 ? " " : "";
+		const summary =
+			this.mode === "edit"
+				? "Editing the focused note"
+				: this.mode === "merge"
+					? `Merging 2 ${scope} notes into one`
+					: `New ${scope} note`;
 		const body: string[] = [];
 		for (const line of this.editor.render(Math.max(1, width - 2))) body.push(`${pad}${line}`);
 		return dockListFrame({
 			header: titleRule(this.theme, width, `Memory · ${verb} ${scope}`),
-			summary: clip(
-				`  ${paint(this.theme, "meta", this.mode === "edit" ? "Editing the focused note" : `New ${scope} note`)}`,
-				width,
-			),
+			summary: clip(`  ${paint(this.theme, "meta", summary)}`, width),
 			body,
 			hint: screenHint(this.theme, width, ["Enter save", "Esc cancel"]),
 		});
@@ -391,7 +475,7 @@ export class MemoryPickerComponent implements Component {
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		this.syncEditorFocus();
-		if (this.mode === "edit" || this.mode === "add") return this.renderEditor(w);
+		if (this.mode !== "list") return this.renderEditor(w);
 
 		const notes = this.notes();
 		this.cursor.visible = fitRows(this.viewportRowsSource, notes.length, CHROME, SCREEN_DEFAULT_ROWS);
@@ -411,7 +495,18 @@ export class MemoryPickerComponent implements Component {
 			? clip(`  ${paint(this.theme, "warn", this.confirmPrompt())}`, w)
 			: this.notice !== undefined
 				? clip(`  ${paint(this.theme, "meta", this.notice)}`, w)
-				: screenHint(this.theme, w, ["Esc close", "Enter/e edit", "a add", "d forget", "s/Tab scope", "↑/↓", "g/G"]);
+				: this.mergeSource
+					? screenHint(this.theme, w, ["m merge into the focused note", "Esc cancel merge", "↑/↓"])
+					: screenHint(this.theme, w, [
+							"Esc close",
+							"Enter/e edit",
+							"a add",
+							"d forget",
+							"m merge",
+							"s/Tab scope",
+							"↑/↓",
+							"g/G",
+						]);
 
 		return dockListFrame({
 			header: titleRule(this.theme, w, "Memory"),

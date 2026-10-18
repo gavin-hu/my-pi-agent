@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `memory`: `/memory doctor` reports store health — note counts and file bytes
+  per scope, how much of `maxInjectBytes` the injection uses and which scope's
+  notes it omits, and the near-duplicate pairs the conservative comparison key
+  already treats as one fact. It is read-only. The picker gains `m`: mark a
+  note, then `m` on a second note in the same scope to merge the pair in one
+  atomic write, with the merged wording edited in the shared inline editor.
+
 - docs: `test/docs-truth.test.ts` holds `docs/extensions.md` to the code: every
   command and flag registered with `pi.registerCommand`/`registerFlag` must be
   named in the catalog, every command or flag the catalog names must be

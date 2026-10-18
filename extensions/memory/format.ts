@@ -104,13 +104,21 @@ export function formatNotice(entries: MemoryEntries): string {
 }
 
 /**
- * The hidden `[MEMORY]` context body, or `undefined` when nothing is stored.
+ * The hidden `[MEMORY]` context body split into its lines, plus what did not fit.
  *
  * Sections are emitted project-then-global. When the notes do not fit under
  * `maxBytes`, the remainder is replaced by one `(+N more)` tail so the model
- * knows to call the tool for the rest.
+ * knows to call the tool for the rest. `omitted` says which store overflowed, for
+ * the health report; `buildInjection` only needs the lines.
  */
-export function buildInjection(entries: MemoryEntries, maxBytes: number): string | undefined {
+export interface InjectionPlan {
+	lines: string[];
+	/** Notes that did not fit, per scope. */
+	omitted: Record<MemoryScope, number>;
+}
+
+/** Plan the injected body, or `undefined` when nothing is stored. */
+export function injectionPlan(entries: MemoryEntries, maxBytes: number): InjectionPlan | undefined {
 	const sections: Array<[MemoryScope, string[]]> = [];
 	if (entries.project.length > 0) sections.push(["project", entries.project]);
 	if (entries.global.length > 0) sections.push(["global", entries.global]);
@@ -119,7 +127,7 @@ export function buildInjection(entries: MemoryEntries, maxBytes: number): string
 	const lines = [MEMORY_CONTEXT_MARKER, INTRO];
 	let used = lines.reduce((total, line) => total + bytes(line) + 1, 0);
 	const limit = Math.max(0, maxBytes - TAIL_RESERVE);
-	let omitted = 0;
+	const omitted: Record<MemoryScope, number> = { project: 0, global: 0 };
 
 	for (const [scope, list] of sections) {
 		const header = `${scope}:`;
@@ -127,7 +135,7 @@ export function buildInjection(entries: MemoryEntries, maxBytes: number): string
 		for (const entry of list) {
 			const line = `- ${entry}`;
 			if (used + bytes(header) + 1 + bytes(line) + 1 > limit) {
-				omitted += 1;
+				omitted[scope] += 1;
 				continue;
 			}
 			rendered.push(line);
@@ -138,6 +146,15 @@ export function buildInjection(entries: MemoryEntries, maxBytes: number): string
 			used += bytes(header) + 1;
 		}
 	}
-	if (omitted > 0) lines.push(`- (+${omitted} more; use the memory tool)`);
-	return lines.join("\n");
+	const missing = omitted.project + omitted.global;
+	if (missing > 0) lines.push(`- (+${missing} more; use the memory tool)`);
+	return { lines, omitted };
+}
+
+/**
+ * The hidden `[MEMORY]` context body, or `undefined` when nothing is stored.
+ * Bounded by `maxBytes`, with one tail naming what did not fit.
+ */
+export function buildInjection(entries: MemoryEntries, maxBytes: number): string | undefined {
+	return injectionPlan(entries, maxBytes)?.lines.join("\n");
 }

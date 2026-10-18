@@ -15,6 +15,7 @@ import {
 	applyAdd,
 	applyClear,
 	applyForget,
+	applyMerge,
 	applyUpdate,
 	memoryFileStamp,
 	mutateMemoryFile,
@@ -61,6 +62,10 @@ export interface MemoryRuntime {
 	update(scope: MemoryScope, from: string, to: string): Promise<boolean>;
 	forget(scope: MemoryScope, entry: string): Promise<boolean>;
 	clear(scope: MemoryScope): Promise<boolean>;
+	/** File size of each store in bytes; `undefined` when it was not read. */
+	sizes(): Record<MemoryScope, number | undefined>;
+	/** Merge two notes in `scope` into one, in a single write. */
+	merge(scope: MemoryScope, first: string, second: string, merged: string): Promise<boolean>;
 	/** Drop cached state on shutdown. */
 	reset(): void;
 }
@@ -150,6 +155,14 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		},
 		config: () => config,
 		paths: () => paths,
+		sizes: () => {
+			// A store we may not read reports no size, the same way `refresh` refuses
+			// to cache a stamp for it.
+			return {
+				project: trusted ? stampOf("project")?.size : undefined,
+				global: stampOf("global")?.size,
+			};
+		},
 		trusted: () => trusted,
 		entries: () => {
 			refresh();
@@ -185,6 +198,12 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		async clear(scope) {
 			requireTrusted(scope);
 			const result = await mutateMemoryFile(pathFor(scope), applyClear);
+			commit(scope, result.entries);
+			return result.changed;
+		},
+		async merge(scope, first, second, merged) {
+			requireTrusted(scope);
+			const result = await mutateMemoryFile(pathFor(scope), (content) => applyMerge(content, first, second, merged));
 			commit(scope, result.entries);
 			return result.changed;
 		},

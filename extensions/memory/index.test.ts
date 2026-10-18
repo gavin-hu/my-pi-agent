@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { utimesSync } from "node:fs";
+import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
@@ -69,7 +70,7 @@ describe("memory extension", () => {
 			(suite.pi.commands.get("memory").getArgumentCompletions(prefix) ?? []).map(
 				(item: { label: string }) => item.label,
 			);
-		expect(complete("")).toEqual(["list", "path", "reload", "edit", "clear"]);
+		expect(complete("")).toEqual(["list", "path", "reload", "doctor", "edit", "clear"]);
 		expect(complete("edit ")).toEqual(["project", "global"]);
 		expect(complete("clear g")).toEqual(["global"]);
 	});
@@ -186,6 +187,42 @@ describe("memory extension", () => {
 		const notice = suite.ctx.notices.at(-1);
 		expect(notice.message).toContain("Unknown /memory subcommand");
 		expect(notice.kind).toBe("warning");
+	});
+
+	test("/memory doctor reports counts, the injection budget, and duplicates", async () => {
+		suite.write("project", "- Use bun\n- use bun.\n");
+		suite.write("global", "- global note\n");
+		await suite.start();
+
+		await suite.pi.commands.get("memory").handler("doctor", suite.ctx);
+
+		const last = suite.notices.at(-1) ?? "";
+		expect(last).toContain("Memory health");
+		expect(last).toMatch(/project\s+2 notes/);
+		expect(last).toMatch(/global\s+1 note/);
+		expect(last).toContain("all notes fit");
+		expect(last).toContain("1 pair");
+		expect(last).toContain('"Use bun"');
+	});
+
+	test("/memory doctor names the notes the cap drops", async () => {
+		const notes = Array.from({ length: 40 }, (_, index) => `- note ${index} ${"x".repeat(40)}`);
+		suite.write("global", `${notes.join("\n")}\n`);
+		mkdirSync(join(suite.cwd, ".pi"), { recursive: true });
+		writeFileSync(join(suite.cwd, ".pi", "bytefly.json"), JSON.stringify({ memory: { maxInjectBytes: 512 } }));
+		await suite.start();
+
+		await suite.pi.commands.get("memory").handler("doctor", suite.ctx);
+
+		expect(suite.notices.at(-1)).toMatch(/omitted \(global \d+\)/);
+	});
+
+	test("/memory doctor works without a store and in a non-TUI mode", async () => {
+		await suite.start();
+		await suite.pi.commands.get("memory").handler("doctor", { ...suite.ctx, mode: "print" });
+		const last = suite.notices.at(-1) ?? "";
+		expect(last).toContain("Memory health");
+		expect(last).toContain("nothing to inject");
 	});
 
 	test("/memory path reports the resolved files and trust", async () => {
