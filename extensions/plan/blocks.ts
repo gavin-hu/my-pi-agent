@@ -14,6 +14,8 @@
  * step.
  */
 
+import { normalizeHeadingText } from "./steps.ts";
+
 /** How a block is rendered and grouped. */
 export type PlanBlockKind = "heading" | "paragraph" | "list" | "code" | "quote" | "table" | "hr" | "blank";
 
@@ -203,12 +205,7 @@ const HEADING_PARTS = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
 
 /** Strip the inline markdown an outline label should not show. */
 function headingText(raw: string): string {
-	return raw
-		.replace(/\*\*([^*]+)\*\*/g, "$1")
-		.replace(/\*([^*]+)\*/g, "$1")
-		.replace(/`([^`]+)`/g, "$1")
-		.replace(/\s+/g, " ")
-		.trim();
+	return normalizeHeadingText(raw);
 }
 
 /** The plan's headings in order, for the outline. */

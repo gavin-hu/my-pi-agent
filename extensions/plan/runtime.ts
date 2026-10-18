@@ -58,6 +58,10 @@ export interface PlanRuntime {
 	lastPlanPath(): string | undefined;
 	/** Remember a written plan and repaint the footer. */
 	setLastPlan(ctx: ExtensionContext, path: string): void;
+	/** The content a review last presented for `path`, for the changed markers. */
+	reviewed(path: string): string | undefined;
+	/** Remember what a review just presented; memory only, keyed by resolved path. */
+	markReviewed(path: string, content: string): void;
 }
 
 /** The last plan-mode entry on the branch, with the tools it hid. */
@@ -103,6 +107,10 @@ export function createPlanRuntime(
 ): PlanRuntime {
 	let enabled = false;
 	let lastPlanPath: string | undefined;
+	// The content each plan path last showed in a review, so the next review can
+	// mark what changed. Memory only: a resumed session has no baseline and shows
+	// no markers, which is better than claiming everything changed.
+	const reviewedPlans = new Map<string, string>();
 	// Tools plan mode deactivated, so disabling restores exactly those and does
 	// not re-activate a tool another extension intentionally hid.
 	let removedForPlan: string[] = [];
@@ -191,6 +199,10 @@ export function createPlanRuntime(
 		setLastPlan: (ctx, path) => {
 			lastPlanPath = path;
 			setStatus(ctx);
+		},
+		reviewed: (path) => reviewedPlans.get(resolve(path)),
+		markReviewed: (path, content) => {
+			reviewedPlans.set(resolve(path), content);
 		},
 	};
 }

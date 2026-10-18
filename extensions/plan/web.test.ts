@@ -70,6 +70,14 @@ describe("createPlanWebReview", () => {
 		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan" }]);
 	});
 
+	test("marks the outline section that changed since the previous review", async () => {
+		const session = await start("# Plan\n\nNew body\n", [], { previous: "# Plan\n\nOld body\n" });
+		const html = await (await fetch(session.url)).text();
+		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
+		const data = JSON.parse(island![1]);
+		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan", changed: true }]);
+	});
+
 	test("uses the plan's H1 as the review title and falls back to the slug", async () => {
 		const titled = await start("# Add rate limiting\n\nBody\n");
 		const titledHtml = await (await fetch(titled.url)).text();

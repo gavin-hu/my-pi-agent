@@ -18,6 +18,7 @@ import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { codeBody, fenceInfo, planBlocks, planHeadings } from "./blocks.ts";
 import { parseFeedback, stripFeedback, type PlanAnnotation } from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
+import { changedSections } from "./steps.ts";
 import { handleReviewRequest, type ReviewContext, type ServeResponse, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
@@ -45,6 +46,8 @@ export interface PlanReviewOptions {
 	signal?: AbortSignal;
 	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
 	canApprove?: boolean;
+	/** The content the previous review showed, so this page can mark changed sections. */
+	previous?: string;
 }
 
 /** Starts and tracks review sessions. */
@@ -130,6 +133,10 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// The stripped plan the page last rendered; a save must anchor against a file
 		// that still matches it, or the comments land beside the wrong text.
 		let baseline = stripFeedback(plan.content);
+		// Section titles that differ from what the previous review showed. Feedback
+		// is stripped on both sides, so a comment never reads as an edit.
+		const changed =
+			options.previous === undefined ? new Set<string>() : changedSections(stripFeedback(options.previous), baseline);
 		let savedPlan: StoredPlan | undefined;
 		// Set by `onSaved`/`onCancel`; resolved once the HTTP response has flushed,
 		// so the caller cannot close the socket before the browser sees the reply.
@@ -159,6 +166,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					line: heading.line,
 					level: heading.level,
 					text: heading.text,
+					...(changed.has(heading.text) ? { changed: true } : {}),
 				})),
 				code,
 				token,

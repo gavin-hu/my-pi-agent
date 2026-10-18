@@ -593,6 +593,31 @@ describe("exit_plan_mode", () => {
 		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
 	});
 
+	test("a second review compares against what the first one showed", async () => {
+		const { web, starts } = webThatApproves([]);
+		const { enter, exit, write, runtime, root } = setup(web);
+		await enterPlan(enter, runtime, root);
+		const ctx = fakeCtx({ cwd: root }).ctx;
+		const planPath = await savePlan(write, ctx, "## Goal\nOld body\n## Steps\n- [ ] One");
+
+		const first = fakeCtx({ mode: "tui", cwd: root }).ctx;
+		first.ui.custom = async () => ({ action: "refine", refinement: "tighten the goal" });
+		await call(exit, { plan_path: planPath }, first);
+
+		await call(
+			write,
+			{ title: "Test plan", content: "## Goal\nNew body\n## Steps\n- [ ] One", plan_path: planPath },
+			ctx,
+		);
+
+		const second = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root }).ctx;
+		const result = await call(exit, { plan_path: planPath }, second);
+
+		expect(result.details.approved).toBe(true);
+		expect(starts[0].previous).toContain("Old body");
+		expect(starts[0].previous).not.toContain("New body");
+	});
+
 	test("a browser approve leaves plan mode and seeds the todo list", async () => {
 		const annotations: PlanAnnotation[] = [{ anchor: 0, quote: "one", comment: "ship it" }];
 		const { web, starts } = webThatApproves(annotations);
@@ -603,7 +628,7 @@ describe("exit_plan_mode", () => {
 		const { ctx, toolCalls } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 
-		expect(starts[0]).toEqual({ canApprove: true });
+		expect(starts[0]).toMatchObject({ canApprove: true });
 		expect(result.details.approved).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
 		expect(activeTools()).toContain("write");

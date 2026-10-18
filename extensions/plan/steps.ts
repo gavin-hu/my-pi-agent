@@ -84,16 +84,25 @@ const HEADING = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 const DONE_MARKER = /\[DONE:\d+\]/gi;
 
-/** Strip inline markdown emphasis and code, then collapse to one clean line. */
-function plainText(text: string): string {
+/**
+ * A heading or step label as the review surfaces compare it: inline emphasis and
+ * code removed, whitespace collapsed. Exported so `blocks.ts` labels an outline
+ * entry the same way `extractPlanSections` labels its section, which is what
+ * lets the browser mark a changed section.
+ */
+export function normalizeHeadingText(text: string): string {
 	return text
 		.replace(/\*\*([^*]+)\*\*/g, "$1")
 		.replace(/\*([^*]+)\*/g, "$1")
 		.replace(/(?<![A-Za-z0-9_])_([^_]+)_(?![A-Za-z0-9_])/g, "$1")
 		.replace(/`([^`]+)`/g, "$1")
-		.replace(DONE_MARKER, "")
 		.replace(/\s+/g, " ")
 		.trim();
+}
+
+/** Strip inline markdown emphasis and code, then collapse to one clean line. */
+function plainText(text: string): string {
+	return normalizeHeadingText(text.replace(DONE_MARKER, ""));
 }
 
 /** Strip a leading checkbox (and any done marker) and report completion. */
@@ -270,6 +279,32 @@ export function setStepStatuses(plan: string, updates: StepUpdate[]): string | u
 		lines[target.line] = `${" ".repeat(target.indent)}${target.lead}${checkbox} ${text}`;
 	}
 	return lines.join("\n");
+}
+
+/**
+ * Titles (normalized) whose section text differs between two plan revisions, or
+ * that are new in `current`. Revision snapshots are the caller's to provide;
+ * strip stored feedback first so a review comment does not look like an edit.
+ * Duplicate headings are compared by occurrence, and a changed title marks every
+ * section with that title — plans following the canonical outline have none.
+ */
+export function changedSections(previous: string, current: string): Set<string> {
+	const before = new Map<string, string[]>();
+	for (const section of extractPlanSections(previous)) {
+		const texts = before.get(section.title);
+		if (texts) texts.push(section.text.trim());
+		else before.set(section.title, [section.text.trim()]);
+	}
+
+	const seen = new Map<string, number>();
+	const changed = new Set<string>();
+	for (const section of extractPlanSections(current)) {
+		const index = seen.get(section.title) ?? 0;
+		seen.set(section.title, index + 1);
+		const prior = before.get(section.title)?.[index];
+		if (prior === undefined || prior !== section.text.trim()) changed.add(section.title);
+	}
+	return changed;
 }
 
 /**

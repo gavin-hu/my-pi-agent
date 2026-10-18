@@ -45,7 +45,8 @@ import { titleRule } from "../../lib/tui/rules.ts";
 import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { extractPlanSections } from "./steps.ts";
+import { changedSections, extractPlanSections } from "./steps.ts";
+import { stripFeedback } from "./feedback.ts";
 
 /** What the user chose from the read/review screen. */
 export type PlanViewAction = "approve" | "refine" | "keep" | "browser";
@@ -54,6 +55,8 @@ export type PlanViewAction = "approve" | "refine" | "keep" | "browser";
 interface SectionOffset {
 	title: string;
 	offset: number;
+	/** True when this section changed since the previous review. */
+	changed?: boolean;
 }
 
 /** Rendered body lines for a width, plus the section offsets into them. */
@@ -61,10 +64,17 @@ interface BodyCache {
 	width: number;
 	lines: string[];
 	sections: SectionOffset[];
+	/** Sections that differ from what the previous review showed. */
+	changedCount: number;
 }
 
 export interface PlanViewOptions {
 	plan: StoredPlan;
+	/**
+	 * The content the previous review of this plan showed, when there was one.
+	 * Used only to mark the sections that changed since then.
+	 */
+	previous?: string;
 	theme: Theme;
 	/**
 	 * Called once when the screen closes. `refinement` carries the typed text
@@ -134,19 +144,29 @@ function planMarkdownTheme(theme: Theme, base: MarkdownTheme): MarkdownTheme {
 }
 
 /** Scroll position below the body: a gauge, the percent, and the visible range. */
-function scrollRow(theme: Theme, width: number, offset: number, end: number, total: number, section?: string): string {
+function scrollRow(
+	theme: Theme,
+	width: number,
+	offset: number,
+	end: number,
+	total: number,
+	section?: SectionOffset,
+): string {
 	const maxOffset = Math.max(0, total - (end - offset));
 	const percent = maxOffset > 0 ? Math.round((offset / maxOffset) * 100) : 100;
 	const bar = gaugeBar(theme, { percent, blocks: GAUGE_SEGMENTS, role: "accent", emptyRole: "faint" });
 	const head = `${bar} ${paint(theme, "accent", `${percent}%`)}`;
 	const range = paint(theme, "faint", `lines ${offset + 1}–${end} of ${total}`);
-	const label = section ? paint(theme, "meta", `${GLYPHS.plan} ${section}`) : "";
+	const name = section?.title ? paint(theme, "meta", `${GLYPHS.plan} ${section.title}`) : "";
+	const label = name && section?.changed ? name + paint(theme, "accent", " · changed") : name;
 	// Keep the gauge and percent; drop the range first, then the section label, on a
-	// narrow terminal.
+	// narrow terminal. The marker-less `name` candidate keeps the section visible
+	// when the label with its `· changed` suffix no longer fits.
 	const candidates = [
 		`  ${head}  ${[label, range].filter(Boolean).join("  ")}`,
 		`  ${head}  ${range}`,
 		label ? `  ${head}  ${label}` : "",
+		name ? `  ${head}  ${name}` : "",
 		`  ${head}`,
 	];
 	for (const candidate of candidates) {
@@ -184,7 +204,12 @@ export class PlanViewComponent implements Component {
 		const padding = width >= MIN_PADDED_WIDTH ? BODY_PADDING : 0;
 		const base = this.options.markdownTheme ?? getMarkdownTheme();
 		const theme = planMarkdownTheme(this.theme, base);
-		const chunks = extractPlanSections(sanitizePlanText(this.options.plan.content));
+		const current = sanitizePlanText(this.options.plan.content);
+		const changed =
+			this.options.previous === undefined
+				? new Set<string>()
+				: changedSections(stripFeedback(this.options.previous), stripFeedback(current));
+		const chunks = extractPlanSections(current);
 		const lines: string[] = [];
 		const sections: SectionOffset[] = [];
 		chunks.forEach((chunk, index) => {
@@ -193,13 +218,17 @@ export class PlanViewComponent implements Component {
 			const rendered = new Markdown(chunk.text, padding, 0, theme)
 				.render(width)
 				.map((line) => truncateToWidth(line.trimEnd(), width));
-			sections.push({ title: chunk.title, offset: lines.length });
+			sections.push({
+				title: chunk.title,
+				offset: lines.length,
+				...(changed.has(chunk.title) ? { changed: true } : {}),
+			});
 			lines.push(...rendered);
 			// Sections render independently, so restore the blank line a heading-only
 			// chunk omits before the next section.
 			if (index < chunks.length - 1 && lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
 		});
-		this.cache = { width, lines, sections };
+		this.cache = { width, lines, sections, changedCount: chunks.filter((chunk) => changed.has(chunk.title)).length };
 		return this.cache;
 	}
 
@@ -337,12 +366,14 @@ export class PlanViewComponent implements Component {
 		const title = planTitle(basename(plan.path));
 
 		const previousWidth = this.cache?.width;
-		const built = plan.content.trim() ? this.build(w) : { width: w, lines: [], sections: [] };
+		const built = plan.content.trim() ? this.build(w) : { width: w, lines: [], sections: [], changedCount: 0 };
 		const body = built.lines;
 		const sections = built.sections;
+		const changedCount = built.changedCount;
 		const editorLines = this.editing ? (this.editor?.render(Math.max(1, w - 2)) ?? []) : [];
 		const editorRows = editorLines.length > 0 ? editorLines.length + 2 : 0;
-		const chrome = CHROME_ROWS + (body.length === 0 ? 1 : 0) + editorRows;
+		const changedRows = changedCount > 0 ? 1 : 0;
+		const chrome = CHROME_ROWS + changedRows + (body.length === 0 ? 1 : 0) + editorRows;
 		const visible = viewportRows(this.options.viewportRows, { chrome, fallback: DEFAULT_ROWS });
 		this.visible = visible;
 		const maxOffset = Math.max(0, body.length - visible);
@@ -353,10 +384,16 @@ export class PlanViewComponent implements Component {
 		}
 		this.maxOffset = maxOffset;
 		this.offset = Math.min(Math.max(0, this.offset), maxOffset);
-		const sectionLabel = this.currentSection(sections)?.title;
+		const sectionLabel = this.currentSection(sections);
 
 		const lines: string[] = [titleRule(theme, w, truncateToWidth(`Plan Review · ${title}`, Math.max(1, w - 6)))];
 		lines.push("");
+		if (changedCount > 0) {
+			const noun = changedCount === 1 ? "section" : "sections";
+			lines.push(
+				truncateToWidth(`  ${paint(theme, "accent", `${changedCount} ${noun} changed since your last review`)}`, w),
+			);
+		}
 
 		const end = Math.min(body.length, this.offset + visible);
 		for (let i = this.offset; i < end; i++) lines.push(body[i]);

@@ -152,4 +152,10 @@ describe("REVIEW_CLIENT_JS", () => {
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("theme-toggle")');
 		expect(REVIEW_CLIENT_JS).toContain("prefers-color-scheme: light");
 	});
+
+	test("marks a changed outline section with a labelled dot", () => {
+		expect(REVIEW_CLIENT_JS).toContain('"review-changed"');
+		expect(REVIEW_CLIENT_JS).toContain("Changed since your last review");
+		expect(REVIEW_CLIENT_JS).toContain("item.changed");
+	});
 });

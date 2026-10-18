@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
+import { REVIEW_CSS, renderReviewPage, type ReviewPageData } from "./web-page.ts";
 
 function page(overrides: Partial<ReviewPageData> = {}): string {
 	return renderReviewPage({
@@ -21,6 +21,9 @@ function island(html: string): Record<string, any> {
 }
 
 describe("renderReviewPage", () => {
+	test("styles the changed-section marker", () => {
+		expect(REVIEW_CSS).toContain(".review-changed");
+	});
 	test("loads the first-party client, the shared theme, and the actions", () => {
 		const html = page();
 		expect(html).toContain('<script src="/client.js" defer>');

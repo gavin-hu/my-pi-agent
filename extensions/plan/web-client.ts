@@ -457,6 +457,13 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       var label = el("span", "review-nav__link");
       label.textContent = item.text;
       link.appendChild(label);
+      if (item.changed) {
+        var dot = el("span", "review-changed");
+        dot.setAttribute("role", "img");
+        dot.setAttribute("aria-label", "Changed since your last review");
+        dot.title = "Changed since your last review";
+        link.appendChild(dot);
+      }
       var count = el("span", "review-nav__count");
       count.hidden = true;
       link.appendChild(count);
