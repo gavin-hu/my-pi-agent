@@ -14,7 +14,6 @@ import { gaugeBar } from "../../../../lib/tui/gauge.ts";
 import { chip } from "../../../../lib/tui/rows.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
 import { CONFIG } from "../config.ts";
-import { RECORDED_CURRENCY } from "../price/config.ts";
 import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./format.ts";
 import { compactStatus, dropStatusDetail } from "./status.ts";
 import type { Segment, StatusSnapshot } from "../types.ts";
@@ -172,20 +171,14 @@ export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 }
 
 export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const { cost, recordedCost } = snapshot.usage;
-	if (cost === 0 && recordedCost === 0) return null;
-	// In CNY mode a fallback amount is dollars and the rated one is yuan, so a
-	// session that mixes them shows both instead of a summed nonsense. USD mode
-	// puts every record in `cost`, so this branch never splits it.
-	const amounts: string[] = [];
-	if (cost > 0) amounts.push(formatCost(cost, snapshot.currency));
-	if (recordedCost > 0) amounts.push(formatCost(recordedCost, RECORDED_CURRENCY));
+	const { cost } = snapshot.usage;
+	if (cost === 0) return null;
 	return {
 		id: "cost",
 		weight: 2,
 		droppable: true,
 		separator: faint(theme, CONFIG.separators.item),
-		forms: [paint(theme, "meta", amounts.join(" + "))],
+		forms: [paint(theme, "meta", formatCost(cost, snapshot.currency))],
 	};
 }
 

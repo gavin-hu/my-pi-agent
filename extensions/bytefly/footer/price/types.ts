@@ -54,8 +54,6 @@ export interface PeakSchedule {
 /** Everything the price calculation is configured with. */
 export interface ByteflyConfig {
 	currency: Currency;
-	/** Fall back to Pi's recorded cost for a record that no rate matches. */
-	fallbackToRecordedCost: boolean;
 	/** Rates keyed by `provider/model`, matched through wildcards. */
 	rates: Readonly<Record<string, ModelRates>>;
 	peak: PeakSchedule;

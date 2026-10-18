@@ -160,7 +160,7 @@ describe("bytefly writes", () => {
 			globalDoc: {
 				$schema: "https://example.test/meta.json",
 				version: 1,
-				price: { currency: { symbol: "$", decimals: 2 }, fallbackToRecordedCost: true },
+				price: { currency: { symbol: "$", decimals: 2 } },
 				notify: { enabled: true },
 			},
 		});
@@ -170,7 +170,7 @@ describe("bytefly writes", () => {
 		expect(readJson(globalPath)).toEqual({
 			$schema: "https://example.test/meta.json",
 			version: 1,
-			price: { currency: { symbol: "$", decimals: 3 }, fallbackToRecordedCost: true },
+			price: { currency: { symbol: "$", decimals: 3 } },
 			notify: { enabled: true },
 		});
 		expect(valueOf(runtime, "global", "price.currency.decimals")).toBe("3");
@@ -188,16 +188,12 @@ describe("bytefly writes", () => {
 		expect(valueOf(runtime, "project", "price.currency.decimals")).toBe("0");
 	});
 
-	test("writes the delivery method as a string and the fallback as a boolean", async () => {
+	test("writes the delivery method as a string", async () => {
 		const { runtime, globalPath } = boot();
 
 		await runtime.change("global", "notify.method");
-		await runtime.change("global", "price.fallbackToRecordedCost");
 
-		expect(readJson(globalPath)).toEqual({
-			notify: { method: "osc777" },
-			price: { fallbackToRecordedCost: false },
-		});
+		expect(readJson(globalPath)).toEqual({ notify: { method: "osc777" } });
 		expect(valueOf(runtime, "global", "notify.method")).toBe("osc777");
 	});
 

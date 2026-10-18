@@ -247,18 +247,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "price", path: ["currency", "decimals"] },
 	},
 	{
-		id: "price.fallbackToRecordedCost",
-		group: "pricing",
-		label: "Recorded cost fallback",
-		description: "CNY mode: show Pi's recorded dollar cost for a model with no configured rate.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "true",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "price", path: ["fallbackToRecordedCost"] },
-	},
-	{
 		id: "chrome.rail",
 		group: "transcript",
 		label: "Rail glyph",

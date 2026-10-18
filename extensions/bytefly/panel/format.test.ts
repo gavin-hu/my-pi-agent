@@ -170,19 +170,19 @@ describe("sections", () => {
 	});
 
 	test("prints one settings headline for non-TUI modes", () => {
-		expect(formatSettingsHeadline("global", 12)).toBe("bytefly: Settings · Global · 12 settings");
-		expect(formatSettingsHeadline("project", 9)).toBe("bytefly: Settings · Project · 9 settings");
+		expect(formatSettingsHeadline("global", 11)).toBe("bytefly: Settings · Global · 11 settings");
+		expect(formatSettingsHeadline("project", 8)).toBe("bytefly: Settings · Project · 8 settings");
 	});
 
 	test("lists settings in groups with their values", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "global");
 		const text = formatSettingsListing(views, "global");
 
-		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 12 settings");
+		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 11 settings");
 		expect(text).toContain("Startup (1)");
 		expect(text).toContain("Notifications (3)");
 		expect(text).toContain("Diagnostics (1)");
-		expect(text).toContain("Pricing (4)");
+		expect(text).toContain("Pricing (3)");
 		expect(text).toContain("Transcript (2)");
 		expect(text).toContain("Terminal (1)");
 		expect(text).toContain("Bytefly startup TUI: Off");
@@ -193,14 +193,13 @@ describe("sections", () => {
 		expect(text).toContain("Currency: CNY (¥)");
 		expect(text).toContain("Currency symbol: ¥");
 		expect(text).toContain("Cost decimals: 2");
-		expect(text).toContain("Recorded cost fallback: On");
 	});
 
 	test("names the missing app rows in the project listing", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "project");
 		const text = formatSettingsListing(views, "project");
 
-		expect(text).toContain("Project · 9 settings");
+		expect(text).toContain("Project · 8 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});

@@ -4,9 +4,8 @@
  * `createPricer` owns the two things that must not be rebuilt per record: the
  * matching rates and the timezone formatter. `currency.code` chooses the
  * algorithm: CNY prices matched records from `rates` and `peak`, while USD
- * totals Pi's recorded dollar cost and ignores both. In CNY mode a record with
- * no matching rate contributes Pi's recorded cost, which is in USD, so it is
- * totalled separately rather than added to the rated yuan total.
+ * totals Pi's recorded dollar cost and ignores both. A CNY-mode record with no
+ * matching rate contributes nothing: an unpriced model shows no price at all.
  */
 
 import { emptyUsage } from "../collect/entries.ts";
@@ -53,11 +52,7 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 				continue;
 			}
 			const rates = findRates(config.rates, record.provider, record.model);
-			if (rates === undefined) {
-				// Pi's recorded amount is dollars; it never joins the rated total.
-				if (config.fallbackToRecordedCost) totals.recordedCost += record.recordedCost;
-				continue;
-			}
+			if (rates === undefined) continue;
 			totals.cost += ratedCost(config, format, record, rates);
 		}
 		return totals;

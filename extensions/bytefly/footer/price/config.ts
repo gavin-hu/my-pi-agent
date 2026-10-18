@@ -26,8 +26,8 @@ const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
  * Pi's catalog prices every call in dollars at one flat rate, which is wrong
  * twice over for DeepSeek: the bill is in yuan, and peak hours cost double.
  * These are the published peak figures; `DEFAULT_PEAK` supplies the tariff. A
- * `bytefly.json` entry with the same key replaces one of these, and every
- * other provider still falls back to Pi's recorded cost.
+ * `bytefly.json` entry with the same key replaces one of these. A model with no
+ * matching entry contributes no cost; USD mode uses Pi's recorded cost instead.
  *
  * Source: <https://api-docs.deepseek.com/quick_start/pricing>.
  */
@@ -60,16 +60,8 @@ export const CURRENCY_DEFAULTS: Readonly<Record<CurrencyCode, Currency>> = {
 /** Yuan, the currency `DEFAULT_RATES` is stated in. */
 export const DEFAULT_CURRENCY: Currency = CURRENCY_DEFAULTS.CNY;
 
-/**
- * The currency Pi's recorded cost is in, for a CNY-mode record that no rate
- * matched. The three decimals are Pi's own, so a fraction of a cent is not
- * rounded away.
- */
-export const RECORDED_CURRENCY: Currency = CURRENCY_DEFAULTS.USD;
-
 export const DEFAULT_BYTEFLY_CONFIG: ByteflyConfig = {
 	currency: DEFAULT_CURRENCY,
-	fallbackToRecordedCost: true,
 	rates: DEFAULT_RATES,
 	peak: DEFAULT_PEAK,
 };
@@ -163,8 +155,6 @@ export function normalizeByteflyConfig(raw: Record<string, unknown> | undefined,
 	if (!raw) return base;
 	return {
 		currency: currencyValue(raw.currency, base.currency),
-		fallbackToRecordedCost:
-			typeof raw.fallbackToRecordedCost === "boolean" ? raw.fallbackToRecordedCost : base.fallbackToRecordedCost,
 		rates: ratesValue(raw.rates, base.rates),
 		peak: peakValue(raw.peak, base.peak),
 	};

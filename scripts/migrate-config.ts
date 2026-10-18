@@ -17,7 +17,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readJsonResult, SHARED_CONFIG_FILE, writeConfigFile } from "../lib/config.ts";
 
 /** Top-level bytefly keys that now live under `price`. */
-const PRICE_KEYS = ["currency", "fallbackToRecordedCost", "rates", "peak"] as const;
+const PRICE_KEYS = ["currency", "rates", "peak"] as const;
 
 /** Legacy file name to the top-level section it becomes. */
 export const LEGACY_FILES: ReadonlyArray<readonly [file: string, section: string]> = [

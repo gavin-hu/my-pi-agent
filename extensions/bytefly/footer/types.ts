@@ -34,8 +34,6 @@ export interface UsageTotals {
 	cacheWrite: number;
 	/** Cost in the configured currency: rated in CNY mode, Pi's recorded amount in USD mode. */
 	cost: number;
-	/** In CNY mode, Pi's USD amount for a record no rate matched. Zero in USD mode. */
-	recordedCost: number;
 }
 
 /** Context-window usage for the active model. */

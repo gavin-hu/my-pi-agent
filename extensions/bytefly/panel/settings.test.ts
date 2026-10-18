@@ -53,7 +53,6 @@ describe("catalogue", () => {
 			"price.currency.code",
 			"price.currency.symbol",
 			"price.currency.decimals",
-			"price.fallbackToRecordedCost",
 			"chrome.rail",
 			"outputPad",
 			"showHardwareCursor",
@@ -70,7 +69,6 @@ describe("catalogue", () => {
 			"price.currency.code",
 			"price.currency.symbol",
 			"price.currency.decimals",
-			"price.fallbackToRecordedCost",
 			"chrome.rail",
 			"outputPad",
 			"showHardwareCursor",
@@ -83,11 +81,10 @@ describe("catalogue", () => {
 			"price.currency.code",
 			"price.currency.symbol",
 			"price.currency.decimals",
-			"price.fallbackToRecordedCost",
 			"chrome.rail",
 		]);
-		expect(countSettings("global")).toBe(12);
-		expect(countSettings("project")).toBe(9);
+		expect(countSettings("global")).toBe(11);
+		expect(countSettings("project")).toBe(8);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -100,11 +97,11 @@ describe("catalogue", () => {
 			"terminal",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 4, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 3, 2, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([3, 1, 4, 1]);
+		expect(project.map((group) => group.views.length)).toEqual([3, 1, 3, 1]);
 	});
 });
 
@@ -120,7 +117,6 @@ describe("values", () => {
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.currency.symbol", "¥", "¥", "default"],
 			["price.currency.decimals", "2", "2", "default"],
-			["price.fallbackToRecordedCost", "true", "On", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
 			["outputPad", "1", "1", "default"],
 			["showHardwareCursor", "false", "Off", "default"],
@@ -128,7 +124,6 @@ describe("values", () => {
 
 		const project = settingViews(snapshot(), "project");
 		expect(project.map((entry) => entry.origin)).toEqual([
-			"inherited",
 			"inherited",
 			"inherited",
 			"inherited",
@@ -147,7 +142,7 @@ describe("values", () => {
 				notify: { enabled: true, method: "osc99" },
 				chrome: { rail: "│" },
 				doctor: { proactive: false },
-				price: { currency: { symbol: "$", decimals: 4 }, fallbackToRecordedCost: false },
+				price: { currency: { symbol: "$", decimals: 4 } },
 			},
 		});
 
@@ -158,7 +153,6 @@ describe("values", () => {
 		expect(view("notify.method", "global", snap).valueLabel).toBe("OSC 99");
 		expect(view("doctor.proactive", "global", snap).valueLabel).toBe("Off");
 		expect(view("price.currency.decimals", "global", snap).value).toBe("4");
-		expect(view("price.fallbackToRecordedCost", "global", snap).valueLabel).toBe("Off");
 		expect(view("chrome.rail", "global", snap).value).toBe("│");
 		expect(view("outputPad", "global", snap).value).toBe("0");
 		expect(view("showHardwareCursor", "global", snap).valueLabel).toBe("On");

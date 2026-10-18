@@ -81,7 +81,9 @@ function keyPaths(value: unknown, prefix = ""): Array<[path: string, value: unkn
 	if (!isRecord(value)) return [[prefix, value]];
 	const entries = Object.entries(value);
 	if (entries.length === 0) return [[prefix, value]];
-	if (entries.every(([, entry]) => isRecord(entry))) return [[prefix, value]];
+	// A nested all-record object is a free-form map such as `price.rates`; the
+	// root is the section itself, so its objects are nested keys, not map values.
+	if (prefix !== "" && entries.every(([, entry]) => isRecord(entry))) return [[prefix, value]];
 	return entries.flatMap(([key, entry]) => keyPaths(entry, prefix ? `${prefix}.${key}` : key));
 }
 

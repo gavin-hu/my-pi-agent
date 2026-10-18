@@ -41,14 +41,12 @@ const record = (overrides: Partial<UsageRecord> = {}): UsageRecord => ({
 test("USD mode totals Pi's recorded cost and ignores rates and peak", () => {
 	const usd = config({
 		currency: { code: "USD", symbol: "$", decimals: 3 },
-		fallbackToRecordedCost: false,
 	});
 	const totals = createPricer(usd)([
 		record({ recordedCost: 0.4 }),
 		record({ provider: "deepseek", model: "deepseek-flash", input: 1_000_000, recordedCost: 0.25 }),
 	]);
 	expect(totals.cost).toBeCloseTo(0.65);
-	expect(totals.recordedCost).toBe(0);
 	expect(totals.input).toBe(1_000_000);
 });
 
@@ -98,22 +96,15 @@ describe("createPricer", () => {
 		expect(totals.cost).toBeCloseTo(36);
 	});
 
-	test("falls back to Pi's recorded cost for a model with no rate", () => {
+	test("leaves a model with no matching rate out of the total", () => {
 		const totals = createPricer(config())([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]);
 		expect(totals.cost).toBe(0);
-		expect(totals.recordedCost).toBeCloseTo(0.31);
-	});
-
-	test("drops an unmatched record when the fallback is off", () => {
-		const price = createPricer(config({ fallbackToRecordedCost: false }));
-		expect(price([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]).recordedCost).toBe(0);
 	});
 
 	test("honours an explicit zero rate over the recorded cost", () => {
 		const free = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 };
 		const totals = createPricer(config({ rates: { "*": free } }))([record({ recordedCost: 5 })]);
 		expect(totals.cost).toBe(0);
-		expect(totals.recordedCost).toBe(0);
 	});
 
 	test("totals the tokens alongside the cost", () => {
@@ -126,14 +117,12 @@ describe("createPricer", () => {
 		expect(totals.cacheWrite).toBe(5);
 	});
 
-	test("keeps a priced and a recorded record in separate totals", () => {
+	test("totals only the records a rate matched", () => {
 		const price = createPricer(deepseek());
 		const totals = price([
 			record({ input: 1_000_000, at: MONDAY_PEAK }),
 			record({ provider: "openai", model: "gpt-5", recordedCost: 0.5 }),
 		]);
-		// Yuan and dollars never meet in one number.
 		expect(totals.cost).toBeCloseTo(2);
-		expect(totals.recordedCost).toBeCloseTo(0.5);
 	});
 });

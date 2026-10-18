@@ -64,7 +64,7 @@ Then, from inside Pi:
   clears a project override with `x`.
 - `/bytefly settings` opens the control center's Settings section: bytefly
   startup TUI, desktop notifications and their delivery method, the proactive
-  health check, the cost precision and recorded-cost fallback, the transcript
+  health check, the currency and cost precision, the transcript
   rail glyph, output padding, and the hardware cursor, with `Space`/`Enter` to
   change a value and `Tab` for Global/Project scope.
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —

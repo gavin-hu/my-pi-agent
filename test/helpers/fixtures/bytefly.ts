@@ -130,7 +130,7 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 		model: { id: "opus-4.5", provider: "anthropic", reasoning: true },
 		thinkingLevel: "high",
 		context: { tokens: 124000, contextWindow: 200000, percent: 62 },
-		usage: { input: 42000, output: 8000, cacheRead: 96000, cacheWrite: 0, cost: 0.31, recordedCost: 0 },
+		usage: { input: 42000, output: 8000, cacheRead: 96000, cacheWrite: 0, cost: 0.31 },
 		currency: { code: "USD", symbol: "$", decimals: 2 },
 		cacheHitRate: 87,
 		providerCount: 1,

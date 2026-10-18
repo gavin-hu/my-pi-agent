@@ -27,12 +27,9 @@ describe("normalizeByteflyConfig", () => {
 	});
 
 	test("yields the defaults for garbage instead of throwing", () => {
-		expect(
-			normalizeByteflyConfig(
-				{ currency: "¥", rates: [], peak: 7, fallbackToRecordedCost: "yes" },
-				DEFAULT_BYTEFLY_CONFIG,
-			),
-		).toEqual(DEFAULT_BYTEFLY_CONFIG);
+		expect(normalizeByteflyConfig({ currency: "¥", rates: [], peak: 7 }, DEFAULT_BYTEFLY_CONFIG)).toEqual(
+			DEFAULT_BYTEFLY_CONFIG,
+		);
 		expect(
 			normalizeByteflyConfig(
 				{ currency: { symbol: 5, decimals: "x" }, rates: { "a/b": "cheap" }, peak: { timezone: [], windows: "all" } },
@@ -140,13 +137,12 @@ describe("loadByteflyConfig", () => {
 
 	test("layers the global file, then the project file over it", () => {
 		writeConfig(join(cwd, ".pi"), "bytefly.json", {
-			price: { currency: { symbol: "¥" }, fallbackToRecordedCost: false },
+			price: { currency: { symbol: "¥" } },
 		});
 		return withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", { price: { currency: { symbol: "€", decimals: 3 } } });
 			const config = loadByteflyConfig(cwd);
 			expect(config.currency).toEqual({ code: "CNY", symbol: "¥", decimals: 3 });
-			expect(config.fallbackToRecordedCost).toBe(false);
 		});
 	});
 

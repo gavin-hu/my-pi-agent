@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: a model with no matching CNY rate now shows no cost instead of
+  Pi's recorded dollars; the mixed `¥ + $` display and the
+  `fallbackToRecordedCost` setting are gone. USD mode still totals Pi's
+  recorded cost for every model.
 - `goal`: `/goal <prompt>` no longer makes a second model call to rewrite the
   goal from the answers to its questions. The answers arrive in the confirm/edit
   dialog as `Also: <question> → <answer>` notes under the restatement, so the
