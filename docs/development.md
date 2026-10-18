@@ -242,6 +242,19 @@ pins Node 24, which ships npm 11. Provenance records the commit, the workflow, a
 the runner, so `npm audit signatures` and the npmjs.com badge can verify that the
 published tarball was built from this repository's tagged tree.
 
+None of that setup is checked when it is saved. An entry naming a different
+repository, workflow filename (`.yml` included), or environment — case included —
+is accepted silently, and fails only at publish time as `ENEEDAUTH`: "This
+command requires you to be logged in", which reads like a missing credential
+rather than a refused OIDC exchange. Only verbose logging tells them apart —
+`NPM_CONFIG_LOGLEVEL=verbose npm publish` prints the exchange request,
+`POST …/-/npm/v1/oidc/token/exchange/package/@scope%2fname`, and it answers
+`package not found` when no entry matched this run. A token in `.npmrc` produces
+the same `ENEEDAUTH` by skipping the exchange, and a placeholder one fails the PUT
+with `E404` — which is why `test/release.test.ts` forbids `registry-url` and
+`token` on `setup-node`. An existing entry cannot be edited: delete it and create
+it again, up to ten per package.
+
 `test/release.test.ts` ties the package version, the newest dated changelog
 heading, the newest `vX.Y.Z` tag, and the install pins the docs offer together,
 so a release that skips a step fails CI.
