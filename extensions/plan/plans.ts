@@ -295,7 +295,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	/**
 	 * Write the browser review comments into an existing plan, replacing any
 	 * feedback already stored there. The file must already be a contained plan,
-	 * so this is the same path-safe write as `setStep`.
+	 * so this is the same path-safe write as `setSteps`.
 	 */
 	const saveFeedback = async (cwd: string, planPath: string, annotations: PlanAnnotation[]): Promise<StoredPlan> => {
 		const plan = await read(cwd, planPath);

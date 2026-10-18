@@ -58,13 +58,13 @@ async function reviewInBrowser(
 	// to the newest plan file in the plans directory.
 	const file = path ? await runtime.plans.read(ctx.cwd, path) : await runtime.plans.latest(ctx.cwd);
 	if (!file) {
-		if (path) ctx.ui.notify(`plan review: no plan file at ${path}`, "error");
-		else ctx.ui.notify("plan review: no plan to review; write one with write_plan or pass a path.", "warning");
+		if (path) ctx.ui.notify(`Plan review: no plan file at ${path}`, "error");
+		else ctx.ui.notify("Plan review: no plan to review; write one with write_plan or pass a path.", "warning");
 		return;
 	}
 	// The server is loopback-only, so a remote turn cannot drive it.
 	if (isRemoteTurn(ctx)) {
-		ctx.ui.notify("plan review: browser review needs the local machine.", "warning");
+		ctx.ui.notify("Plan review: browser review needs the local machine.", "warning");
 		return;
 	}
 
@@ -76,21 +76,21 @@ async function reviewInBrowser(
 		// the baseline for a plan nobody saw.
 		onOpened: (session) => {
 			runtime.markReviewed(file.path, file.content);
-			ctx.ui.notify(`plan review: opened ${session.url}`, "info");
+			ctx.ui.notify(`Plan review: opened ${session.url}`, "info");
 		},
 	});
 	if (!result) {
-		ctx.ui.notify("plan review: could not start the browser review server.", "error");
+		ctx.ui.notify("Plan review: could not start the browser review server.", "error");
 		return;
 	}
 
 	if (result.status === "cancelled") {
-		ctx.ui.notify("plan review: closed without saving.", "info");
+		ctx.ui.notify("Plan review: closed without saving.", "info");
 		return;
 	}
 	const summary = feedbackSummary(result.annotations);
 	if (!summary) {
-		ctx.ui.notify("plan review: saved with no comments.", "info");
+		ctx.ui.notify("Plan review: saved with no comments.", "info");
 		return;
 	}
 	const message = runtime.isEnabled()

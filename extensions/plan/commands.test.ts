@@ -218,7 +218,7 @@ describe("/plan review", () => {
 		await pi.commands.get("plan").handler("review", ctx);
 
 		expect(marks).toEqual([]);
-		expect(notifications).toContain("plan review: could not start the browser review server.");
+		expect(notifications).toContain("Plan review: could not start the browser review server.");
 	});
 
 	test("still treats other arguments as a task", async () => {
