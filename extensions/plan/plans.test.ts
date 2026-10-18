@@ -275,6 +275,28 @@ describe("createPlanStore — containment", () => {
 });
 
 describe("createPlanStore — setSteps", () => {
+	test("refuses a stale expected text and writes nothing", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "## Steps\n- [ ] One\n- [ ] Two" });
+
+		await expect(
+			store.setSteps(root, file.path, [{ step: 2, status: "completed", expected: "Wire it" }]),
+		).rejects.toThrow('Step 2 is no longer "Wire it"; the file now has "Two"');
+		expect(readFileSync(file.path, "utf-8")).toBe("## Steps\n- [ ] One\n- [ ] Two");
+	});
+
+	test("accepts an expected text that matches after normalization", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "1. Add the cache\n2. Wire it" });
+
+		const updated = await store.setSteps(root, file.path, [
+			{ step: 1, status: "completed", expected: " add   the CACHE " },
+		]);
+		expect(updated.content).toBe("1. [x] Add the cache\n2. Wire it");
+	});
+
 	test("ticks off a step and returns the rewritten plan", async () => {
 		const root = tempDir();
 		const store = createPlanStore(repoPi(root), { now: () => FIXED });

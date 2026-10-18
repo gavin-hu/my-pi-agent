@@ -125,6 +125,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: `set_plan_steps` accepts an optional `expected` text with each update.
+  When the plan was reordered or rewritten between approval and ticking, the
+  call is refused with the text now at that step number instead of silently
+  marking the wrong step; the whole batch still validates before anything is
+  written. The approval message asks the model to pass it.
 - `plan`: approval merges the plan's steps into the todo list instead of
   replacing it. Existing items keep their place and status, a step whose text is
   already there is skipped, and the item cap defers the rest, so approving a plan

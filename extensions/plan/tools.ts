@@ -65,6 +65,12 @@ const StepUpdateParams = Type.Object({
 	status: StringEnum(["pending", "completed"] as const, {
 		description: "The step's new state.",
 	}),
+	expected: Type.Optional(
+		Type.String({
+			description:
+				"The step's text as exit_plan_mode listed it. When given, the update is refused if the step at that number no longer matches, so a reordered plan is caught instead of mis-ticked.",
+		}),
+	),
 });
 
 const SetPlanStepsParams = Type.Object({
@@ -73,7 +79,8 @@ const SetPlanStepsParams = Type.Object({
 	}),
 	updates: Type.Array(StepUpdateParams, {
 		minItems: 1,
-		description: "The steps to set; each entry sets one step's checkbox, and the last entry wins for a duplicate step.",
+		description:
+			"The steps to set; each entry sets one step's checkbox, and the last entry wins for a duplicate step. Pass expected as well to refuse a stale step number.",
 	}),
 });
 
@@ -162,7 +169,7 @@ function mergeSummary(merged: TodoMerge, steps: PlanStep[]): string {
 		merged.deferred > 0 ? `${merged.deferred} deferred, list full` : "",
 	].filter(Boolean);
 	const suffix = notes.length > 0 ? ` (${notes.join(", ")})` : "";
-	const tick = `Tick each one off in the file with ${SET_PLAN_STEPS_TOOL} as you finish it.`;
+	const tick = `Tick each one off in the file with ${SET_PLAN_STEPS_TOOL} as you finish it, passing the step's text as \`expected\`.`;
 	if (merged.added === 0 && merged.skipped === 0) {
 		return ` The todo list is full, so no plan steps were added${suffix}. Keep these steps in mind. ${tick}`;
 	}
@@ -609,10 +616,10 @@ export function registerTools(
 			"Keep an approved plan file current by setting the checkboxes of the given top-level steps in place. Each step " +
 			"number matches the order the plan was approved in; a step can be marked completed or reopened. Only the " +
 			"checkboxes change; the step text is left as written. The file is rewritten once, and nothing changes when any " +
-			"step is out of range.",
+			"step is out of range or an entry's expected text no longer matches the file.",
 		promptSnippet: "Tick steps off in the approved plan file.",
 		promptGuidelines: [
-			"After a plan is approved, call set_plan_steps as you complete steps so the plan file stays current.",
+			"After a plan is approved, call set_plan_steps as you complete steps, passing each step's text as expected so a reordered plan is refused instead of mis-ticked.",
 		],
 		parameters: SetPlanStepsParams,
 		executionMode: "sequential",

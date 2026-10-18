@@ -211,6 +211,18 @@ export function extractPlanSteps(plan: string): PlanStep[] {
 export interface StepUpdate {
 	step: number;
 	status: PlanStep["status"];
+	/**
+	 * The step's text when the plan was approved. When given, the update is
+	 * refused if the step at that number no longer carries this text, so a
+	 * reordered or rewritten plan is caught instead of ticking the wrong step.
+	 */
+	expected?: string;
+}
+
+/** Whether the step text now at a number still matches what the caller expected. */
+export function matchesStepText(actual: string, expected: string): boolean {
+	const normalize = (text: string): string => text.trim().replace(/\s+/g, " ").toLowerCase();
+	return normalize(actual) === normalize(expected);
 }
 
 /**

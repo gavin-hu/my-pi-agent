@@ -52,7 +52,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   names the section you are in, and jumps between sections with `n`/`p`.
 - **Kept current.** After approval, `set_plan_steps` flips the checkboxes of
   the steps you name in the file, so the plan mirrors what has actually been
-  done.
+  done. Pass the step's text as `expected` and an update whose step number moved
+  is refused instead of ticking the wrong line.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
 - **Browser review on demand.** Press `w` on the review screen (or run
@@ -85,7 +86,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
 | `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. |
-| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
+| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and optionally `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
 
 ### Commands and flags
 
@@ -427,8 +428,11 @@ file and returns them to the model.
 - **`set_plan_steps` is a second contained write.** It changes only the named
   steps' checkboxes, in an existing markdown plan inside the plans directory
   (`isContainedPlan`), in a single all-or-nothing write — refusing every entry
-  if any step is out of range — and refuses while plan mode is on, so the
-  read-only guarantee and the path backstop are unchanged.
+  if any step is out of range or an entry's `expected` text no longer matches —
+  and refuses while plan mode is on, so the read-only guarantee and the path
+  backstop are unchanged. The optional `expected` is what makes an ordinal safe:
+  a plan edited between approval and ticking is caught instead of silently
+  marking the step that moved into that number.
 - **Direction: enforce capabilities at the tool boundary.** (1) A shared
   default-deny policy classifies every call as read-only or mutating instead of
   maintaining a mutator list. (2) Read-only delegation is enforced in the child

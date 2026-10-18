@@ -698,6 +698,41 @@ describe("set_plan_steps", () => {
 		expect(readFileSync(planPath, "utf-8")).toBe("- [ ] First\n- Second");
 	});
 
+	test("refuses a stale expected text and leaves the file unchanged", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 2, status: "completed", expected: "Wire it" }] },
+			ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain('Step 2 is no longer "Wire it"; the file now has "Two"');
+		expect(readFileSync(planPath, "utf-8")).toBe("1. One\n2. Two");
+	});
+
+	test("accepts an expected text that matches after normalization", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "  ONE " }] },
+			ctx,
+		);
+
+		expect(result.isError).toBeUndefined();
+		expect(readFileSync(planPath, "utf-8")).toBe("1. [x] One\n2. Two");
+	});
+
 	test("refuses when any step is out of range and leaves the file unchanged", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);

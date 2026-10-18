@@ -20,7 +20,7 @@ import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works
 import { repoRootFor } from "../../lib/git/index.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
 import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
-import { extractPlanSteps, setStepStatuses, type StepUpdate } from "./steps.ts";
+import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
 export const MAX_PLAN_BYTES = 256 * 1024;
@@ -227,13 +227,27 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const setSteps = async (cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan> => {
 		const plan = await read(cwd, planPath);
 		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
-		const total = extractPlanSteps(plan.content).length;
+		const steps = extractPlanSteps(plan.content);
+		const total = steps.length;
 		const outOfRange = updates.find(
 			(update) => !Number.isInteger(update.step) || update.step < 1 || update.step > total,
 		);
 		if (outOfRange) {
 			const range = total === 0 ? "it has no steps" : `valid steps are 1 to ${total}`;
 			throw new Error(`Step ${outOfRange.step} is out of range; ${range}.`);
+		}
+		// A caller-supplied text is the guard against a reordered plan: refuse the
+		// whole batch rather than tick the step that moved into that number.
+		const stale = updates.find((update) => {
+			if (update.expected === undefined) return false;
+			const step = steps[update.step - 1];
+			return step === undefined || !matchesStepText(step.content, update.expected);
+		});
+		if (stale) {
+			const actual = steps[stale.step - 1]?.content;
+			throw new Error(
+				`Step ${stale.step} is no longer "${stale.expected}"; the file now has "${actual ?? "no step"}". Re-read the plan and pass the current step number.`,
+			);
 		}
 		const updated = setStepStatuses(plan.content, updates);
 		if (!updated) throw new Error("Could not update the plan steps; pass steps from the plan file.");

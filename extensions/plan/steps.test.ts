@@ -6,6 +6,7 @@ import {
 	PLAN_SECTIONS,
 	extractPlanSections,
 	extractPlanSteps,
+	matchesStepText,
 	setStepStatuses,
 } from "./steps.ts";
 
@@ -165,6 +166,16 @@ describe("extractPlanSteps — the Steps section", () => {
 		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
 			["## Context", "- prose", "## Steps", "- [x] One", "- [ ] Two"].join("\n"),
 		);
+	});
+});
+
+describe("matchesStepText", () => {
+	test("ignores case, surrounding space, and collapsed whitespace", () => {
+		expect(matchesStepText("Add  the cache", " add the CACHE ")).toBe(true);
+	});
+
+	test("rejects text that moved", () => {
+		expect(matchesStepText("Add the cache", "Wire it")).toBe(false);
 	});
 });
 
