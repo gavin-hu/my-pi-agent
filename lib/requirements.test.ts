@@ -426,3 +426,85 @@ describe("provider check", () => {
 		expect(JSON.stringify(report.findings)).not.toContain("super-secret");
 	});
 });
+
+describe("safety checks", () => {
+	/** Seams whose config read answers per path, with everything else satisfied. */
+	function configSeams(documents: Record<string, unknown>): ProbeSeams {
+		return seams({
+			readJson: (path: string) => {
+				const document = documents[path];
+				return document === undefined
+					? { state: "absent" as const }
+					: { state: "ok" as const, value: document as Record<string, unknown> };
+			},
+		});
+	}
+
+	/** A `bytefly.json` document with the worktree powershell switch set. */
+	const withSwitch = (value: unknown): Record<string, unknown> => ({
+		worktree: { guard: { blockPowershell: value } },
+	});
+
+	test("passes when nothing configures the switch", async () => {
+		const report = await probeExtension("worktree", configSeams({}));
+		const finding = find(report, "worktree.guard.blockPowershell");
+		expect(finding?.severity).toBe("ok");
+		expect(finding?.detail).toBe("`powershell` is refused while the session is isolated");
+		expect(finding?.hint).toBeUndefined();
+	});
+
+	test("passes when the switch is on, in either scope", async () => {
+		for (const documents of [
+			{ [agentPath("bytefly.json")]: withSwitch(true) },
+			{ [projectPath("bytefly.json")]: withSwitch(true) },
+		]) {
+			const report = await probeExtension("worktree", configSeams(documents));
+			expect(find(report, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+		}
+	});
+
+	test("warns when a document turns the refusal off", async () => {
+		const report = await probeExtension("worktree", configSeams({ [agentPath("bytefly.json")]: withSwitch(false) }));
+		const finding = find(report, "worktree.guard.blockPowershell");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toBe(
+			`is false in ${agentPath("bytefly.json")} — ` +
+				"`powershell` runs unguarded, with its relative paths against the main checkout",
+		);
+		expect(finding?.hint).toContain("worktree.guard.blockPowershell");
+	});
+
+	test("lets the project scope win over the global one, in both directions", async () => {
+		const offGlobally = await probeExtension(
+			"worktree",
+			configSeams({ [agentPath("bytefly.json")]: withSwitch(false), [projectPath("bytefly.json")]: withSwitch(true) }),
+		);
+		expect(find(offGlobally, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+
+		const offInProject = await probeExtension(
+			"worktree",
+			configSeams({ [agentPath("bytefly.json")]: withSwitch(true), [projectPath("bytefly.json")]: withSwitch(false) }),
+		);
+		expect(find(offInProject, "worktree.guard.blockPowershell")?.severity).toBe("degraded");
+	});
+
+	test("a document without the section says nothing either way", async () => {
+		const report = await probeExtension("worktree", configSeams({ [projectPath("bytefly.json")]: { price: {} } }));
+		expect(find(report, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+	});
+
+	test("does not guess when a document is unreadable", async () => {
+		// The safe verdict: a broken file is not evidence that the switch is off, and
+		// `bytefly doctor` reports the file itself (it is the extension that declares
+		// `bytefly.json` as a config file, so the malformed-JSON finding is its own).
+		const report = await probeExtension(
+			"worktree",
+			seams({
+				readJson: (path: string) =>
+					path === agentPath("bytefly.json") ? { state: "error", error: "Unexpected token" } : { state: "absent" },
+			}),
+		);
+		expect(find(report, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+		expect(report.findings.filter((finding) => finding.severity === "degraded")).toEqual([]);
+	});
+});

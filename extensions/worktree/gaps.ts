@@ -2,9 +2,10 @@
  * The isolation gaps a worktree session carries, as data (pure).
  *
  * Re-rooting is not the same as isolating: Pi has no mutable session cwd, so a
- * shell the user runs directly still runs in the main checkout; the Windows
- * `powershell` tool has no worktree surface; and a command whose git behavior
- * cannot be verified passes the guard unless `blockUnparsableCommands` is set.
+ * shell the user runs directly still runs in the main checkout; a command whose
+ * git behavior cannot be verified passes the guard unless
+ * `blockUnparsableCommands` is set; and the Windows `powershell` tool has no
+ * worktree surface, so the guard refuses it unless `blockPowershell` is off.
  * The README documents all three, which is no help mid-task, so the session
  * names them where the user already looks: `/worktree` status, and `doctor`.
  *
@@ -43,10 +44,12 @@ export function isolationGaps(input: GapInput): IsolationGap[] {
 			detail: "runs in the main checkout; Pi has no mutable session cwd",
 		},
 	];
-	if (input.platform === "win32" && input.activeTools.includes("powershell")) {
+	// Only while the guard lets the tool through: refusing it closes the gap, and a
+	// switch that reopens it is exactly what this row is for.
+	if (input.platform === "win32" && input.activeTools.includes("powershell") && !input.config.guard.blockPowershell) {
 		gaps.push({
 			surface: "powershell",
-			detail: "not re-rooted or guarded; only the model's own tools are",
+			detail: "allowed by worktree.guard.blockPowershell: false; not re-rooted or guarded",
 		});
 	}
 	if (!input.config.guard.blockUnparsableCommands) {

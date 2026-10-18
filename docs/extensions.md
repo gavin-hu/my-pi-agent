@@ -132,7 +132,8 @@ manage the worktrees it creates. The model keeps calling `read` / `write` /
 `edit` / `bash` with ordinary relative paths; only the effective root changes.
 `exit_worktree` returns to the main checkout — a clean worktree is removed, and
 one with uncommitted changes or new commits is never discarded silently. Cleanup
-refuses to throw work away, and path and shell escapes are guarded.
+refuses to throw work away, path and shell escapes are guarded, and the Windows
+`powershell` tool is refused while isolated because it cannot be re-rooted.
 
 Tools: `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`.
 Commands and flags: `/worktree*`, `--worktree <name>`.

@@ -38,17 +38,18 @@ describe("isolationGaps", () => {
 		expect(surfaces(input({ config }))).toEqual(["! shell"]);
 	});
 
-	test("names powershell only on Windows, and only when the tool is active", () => {
-		expect(surfaces(input({ platform: "win32", activeTools: ["read", "bash", "powershell"] }))).toEqual([
+	test("names powershell only on Windows, with the tool active, and only when it is allowed through", () => {
+		const allowed = testConfig({ guard: { blockPowershell: false } }) as WorktreeConfig;
+		const windows = { platform: "win32", activeTools: ["read", "bash", "powershell"], config: allowed };
+
+		expect(surfaces(input(windows))).toEqual(["! shell", "powershell", "unverifiable"]);
+		// Refusing the tool is isolation, so there is no gap to report.
+		expect(surfaces(input({ ...windows, config: testConfig() as WorktreeConfig }))).toEqual([
 			"! shell",
-			"powershell",
 			"unverifiable",
 		]);
-		expect(surfaces(input({ platform: "win32", activeTools: ["read", "bash"] }))).toEqual(["! shell", "unverifiable"]);
-		expect(surfaces(input({ platform: "darwin", activeTools: ["read", "bash", "powershell"] }))).toEqual([
-			"! shell",
-			"unverifiable",
-		]);
+		expect(surfaces(input({ ...windows, activeTools: ["read", "bash"] }))).toEqual(["! shell", "unverifiable"]);
+		expect(surfaces(input({ ...windows, platform: "darwin" }))).toEqual(["! shell", "unverifiable"]);
 	});
 });
 
@@ -58,10 +59,13 @@ describe("gapLines", () => {
 	});
 
 	test("pads the labels to the longest surface", () => {
-		expect(gapLines(isolationGaps(input({ platform: "win32", activeTools: ["powershell"] })))).toEqual([
-			"  ! shell       runs in the main checkout; Pi has no mutable session cwd",
-			"  powershell    not re-rooted or guarded; only the model's own tools are",
-			"  unverifiable  $(...), backticks, eval, and sh -c pass through (blockUnparsableCommands is off)",
-		]);
+		const allowed = testConfig({ guard: { blockPowershell: false } }) as WorktreeConfig;
+		expect(gapLines(isolationGaps(input({ platform: "win32", activeTools: ["powershell"], config: allowed })))).toEqual(
+			[
+				"  ! shell       runs in the main checkout; Pi has no mutable session cwd",
+				"  powershell    allowed by worktree.guard.blockPowershell: false; not re-rooted or guarded",
+				"  unverifiable  $(...), backticks, eval, and sh -c pass through (blockUnparsableCommands is off)",
+			],
+		);
 	});
 });

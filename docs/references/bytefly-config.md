@@ -257,3 +257,4 @@ active working directory.
 | `guard.blockGitRedirects` | boolean | `true` | | Block git commands aimed at the main checkout. |
 | `guard.blockSymlinkEscapes` | boolean | `true` | | Block writes whose real path leaves the worktree through a symlink. |
 | `guard.blockUnparsableCommands` | boolean | `false` | | Block shell commands whose git behaviour cannot be verified. |
+| `guard.blockPowershell` | boolean | `true` | | Refuse the `powershell` tool while isolated; it is not re-rooted or guarded, so its relative paths would resolve at the main checkout. `false` allows it and is reported as a gap by `/worktree` and as `degraded` by `doctor`. |

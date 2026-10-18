@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { analyzeBashCommand, guardFileTool, isUnverifiable, resolveUnder } from "./guard.ts";
+import { analyzeBashCommand, guardFileTool, guardPowershellTool, isUnverifiable, resolveUnder } from "./guard.ts";
 import { isInsideReal } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -203,6 +203,29 @@ describe("analyzeBashCommand", () => {
 		expect(analyzeBashCommand("echo GIT_DIR=/etc/hosts", ROOT, config())).toBeUndefined();
 		expect(analyzeBashCommand("env GIT_DIR=/main/.git git status", ROOT, config())?.block).toBe(true);
 		expect(analyzeBashCommand("env -i GIT_DIR=/main/.git git status", ROOT, config())?.block).toBe(true);
+	});
+});
+
+describe("guardPowershellTool", () => {
+	test("refuses the tool while isolated, naming the way out", () => {
+		const block = guardPowershellTool(config());
+
+		expect(block?.block).toBe(true);
+		expect(block?.reason).toContain("not re-rooted or guarded");
+		expect(block?.reason).toContain("Use bash");
+		expect(block?.reason).toContain("exit the worktree");
+		expect(block?.reason).toContain("worktree.guard.blockPowershell");
+	});
+
+	test("refuses a Windows escape attempt instead of trying to parse it", () => {
+		// The shape that motivated the guard: a relative-path tool that would edit
+		// the main checkout, spelled in a grammar the bash checks cannot read.
+		expect(guardPowershellTool(config())?.block).toBe(true);
+		expect(guardPowershellTool(config())?.reason).toContain("main checkout");
+	});
+
+	test("lets the tool through when the switch is off", () => {
+		expect(guardPowershellTool(config({ blockPowershell: false }))).toBeUndefined();
 	});
 });
 

@@ -15,7 +15,7 @@
  */
 
 import { join } from "node:path";
-import { type JsonReadResult, SHARED_CONFIG_FILE } from "./config.ts";
+import { configSection, configValueAt, type JsonReadResult, SHARED_CONFIG_FILE } from "./config.ts";
 import type { WebSearchProviderEvent } from "./events.ts";
 import { getPiInvocation, type PiInvocation } from "./pi-invocation.ts";
 
@@ -87,7 +87,38 @@ export interface ProviderCheck {
 	hint: string;
 }
 
-export type RequirementCheck = BinaryCheck | ModuleCheck | StateCheck | InvocationCheck | NotifyCheck | ProviderCheck;
+/**
+ * A config switch whose "off" value trades a safety net away.
+ *
+ * A prerequisite table can already say "this is missing"; this says "you turned
+ * this protection off", which is the other way an extension ends up degraded
+ * without anything being absent. The value is read from `bytefly.json` (global,
+ * then project, project wins), so the check needs no extension to publish
+ * anything — the switch is the whole fact.
+ */
+export interface SafetyCheck {
+	kind: "safety";
+	/** The `bytefly.json` section that owns the switch. */
+	section: string;
+	/** The key path inside that section. */
+	keyPath: readonly string[];
+	/** The value that means the net is off. */
+	off: boolean;
+	/** What the switch protects, for the passing case. */
+	enables: string;
+	/** What is true once it is off, for the degraded case. */
+	disabled: string;
+	hint: string;
+}
+
+export type RequirementCheck =
+	| BinaryCheck
+	| ModuleCheck
+	| StateCheck
+	| InvocationCheck
+	| NotifyCheck
+	| ProviderCheck
+	| SafetyCheck;
 
 /** What an extension needs, split by how badly it needs it. */
 export interface ExtensionRequirements {
@@ -152,9 +183,20 @@ function gitCheck(enables: string): BinaryCheck {
 export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	worktree: {
 		requires: [gitCheck("worktree isolation")],
+		optional: [
+			{
+				kind: "safety",
+				section: "worktree",
+				keyPath: ["guard", "blockPowershell"],
+				off: false,
+				enables: "`powershell` is refused while the session is isolated",
+				disabled: "`powershell` runs unguarded, with its relative paths against the main checkout",
+				hint: "set `worktree.guard.blockPowershell` back to true, or use `bash`, which is re-rooted and guarded.",
+			},
+		],
 		notes: [
 			"`.worktreeinclude` symlinks need symlink support (Windows Developer Mode).",
-			"Your own `!` shell and Windows `powershell` are not re-rooted or guarded; only the model's own tools are.",
+			"Your own `!` shell is not re-rooted or guarded; only the model's own tools are.",
 			"Commands whose git behavior cannot be verified pass through unless `worktree.guard.blockUnparsableCommands` is set.",
 		],
 	},
@@ -408,6 +450,50 @@ async function providerFindings(
 	return findings;
 }
 
+/**
+ * The effective value of one config leaf, global then project. An absent or
+ * unparseable document contributes nothing — the malformed-JSON check owns that
+ * case — so this returns `undefined` rather than a guess.
+ */
+function configLeaf(check: SafetyCheck, seams: ProbeSeams): { value: unknown; path: string } | undefined {
+	const candidates = [
+		join(seams.dirs.agentDir, SHARED_CONFIG_FILE),
+		join(seams.dirs.cwd, seams.dirs.configDirName, SHARED_CONFIG_FILE),
+	];
+	let found: { value: unknown; path: string } | undefined;
+	for (const path of candidates) {
+		const result = seams.readJson(path);
+		if (result.state !== "ok") continue;
+		const section = configSection(result.value, check.section);
+		const value = configValueAt(section, check.keyPath);
+		if (value !== undefined) found = { value, path };
+	}
+	return found;
+}
+
+/** The findings for a switch whose off value trades a safety net away. */
+function safetyFindings(
+	extension: string,
+	check: SafetyCheck,
+	failSeverity: FindingSeverity,
+	seams: ProbeSeams,
+): Finding[] {
+	const leaf = configLeaf(check, seams);
+	const label = [check.section, ...check.keyPath].join(".");
+	if (leaf?.value === check.off) {
+		return [
+			{
+				extension,
+				check: label,
+				severity: failSeverity,
+				detail: `is ${String(check.off)} in ${leaf.path} — ${check.disabled}`,
+				hint: check.hint,
+			},
+		];
+	}
+	return [{ extension, check: label, severity: "ok", detail: check.enables }];
+}
+
 /** Run one check. `failSeverity` comes from which list the check sits in. */
 async function runCheck(
 	extension: string,
@@ -523,6 +609,8 @@ async function runCheck(
 		}
 		case "provider":
 			return providerFindings(extension, check, failSeverity, seams);
+		case "safety":
+			return safetyFindings(extension, check, failSeverity, seams);
 	}
 }
 
