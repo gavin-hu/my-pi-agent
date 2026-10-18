@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-18
+
 ### Added
 
 - docs: [`ROADMAP.md`](./ROADMAP.md) records the next work, grouped by the
@@ -1866,7 +1868,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.4...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.12.0
 [0.11.4]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.4
 [0.11.3]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.3
 [0.11.2]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.2
