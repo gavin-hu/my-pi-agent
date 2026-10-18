@@ -69,7 +69,9 @@ Curate `[Unreleased]` before the release commit: read it against
 bullet, with no bullet describing a state that was reverted earlier in the same
 window.
 
-1. Bump `version` in `package.json`.
+1. Bump `version` in `package.json`, and the `@vX.Y.Z` install pins in
+   `README.md`, `README.zh-CN.md`, and `docs/getting-started.md`;
+   `test/release.test.ts` fails on a pin that still names the old version.
 2. In `CHANGELOG.md`, move the `## [Unreleased]` entries under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
    update the link refs at the bottom: `[X.Y.Z]` points at the new release URL

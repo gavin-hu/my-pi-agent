@@ -6,14 +6,20 @@
  * push the tag. Nothing else checks that those three agree, so a missed bump or
  * a mistyped tag would ship silently. This test ties them together.
  *
+ * The same flow bumps the install pins the entry READMEs and the getting-started
+ * guide offer as the copy-paste way to hold a release, so those are checked
+ * against the package version too: a pin is only useful while it names a version
+ * that exists.
+ *
  * The tag half needs tags in the clone; CI checks out with `fetch-depth: 0` so
  * they are present. A shallow clone without tags skips only that half.
  */
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { walkFiles } from "./helpers/files.ts";
 
 const repo = join(import.meta.dir, "..");
 
@@ -82,6 +88,32 @@ const packageVersion = String(packageJson.version);
 const newestChangelog = newest(changelogVersions(readFileSync(join(repo, "CHANGELOG.md"), "utf-8")));
 const newestTag = newest(tagVersions() ?? []);
 
+/** A `git:github.com/gavin-hu/my-pi-agent@vX.Y.Z` install pin. */
+const PIN = /github\.com\/gavin-hu\/my-pi-agent@(v\d+\.\d+\.\d+)/g;
+
+/** Normalise separators so a reported path reads the same on Windows. */
+const posix = (path: string): string => path.replaceAll("\\", "/");
+
+/**
+ * The docs that offer a copy-paste pin: the two entry READMEs and every page
+ * under `docs/`. `CHANGELOG.md` is history, not an instruction, so it stays out.
+ */
+function pinnedDocs(): string[] {
+	return [join(repo, "README.md"), join(repo, "README.zh-CN.md")].concat(
+		walkFiles(join(repo, "docs")).filter((file) => file.endsWith(".md")),
+	);
+}
+
+/** Every pin the docs offer, as `path: vX.Y.Z`. */
+function docPins(): string[] {
+	const pins: string[] = [];
+	for (const file of pinnedDocs()) {
+		const text = readFileSync(file, "utf-8");
+		for (const match of text.matchAll(PIN)) pins.push(`${posix(relative(repo, file))}: ${match[1]}`);
+	}
+	return pins.sort();
+}
+
 describe("release consistency", () => {
 	test("package.json declares a semver version", () => {
 		expect(parseVersion(packageVersion), `package.json version "${packageVersion}" is not X.Y.Z`).toBeDefined();
@@ -99,5 +131,15 @@ describe("release consistency", () => {
 			return;
 		}
 		expect(format(newestTag)).toBe(packageVersion);
+	});
+
+	test("every install pin names the package version", () => {
+		const stale = docPins().filter((pin) => pin.split(": ")[1] !== `v${packageVersion}`);
+		expect(stale, `bump these to v${packageVersion} with the package version`).toEqual([]);
+	});
+
+	test("offers at least one pin to check", () => {
+		// A regex that stopped matching would make the test above vacuously pass.
+		expect(docPins().length).toBeGreaterThan(0);
 	});
 });
