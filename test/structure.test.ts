@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix as posixPath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { REQUIREMENTS } from "../lib/requirements.ts";
 import { SHARED_CONFIG_FILE } from "../lib/config.ts";
@@ -16,6 +16,14 @@ import { walkFiles } from "./helpers/files.ts";
 
 /** Normalise separators so path comparisons work on Windows too. */
 const posix = (p: string): string => p.replaceAll("\\", "/");
+
+/**
+ * A path in posix form, from parts that may arrive with either separator.
+ * The doc-link guard slices a path at `/` to find the linking doc's directory, so
+ * the host's `join` returning backslashes on Windows would make every root doc's
+ * links look broken.
+ */
+const docPath = (...parts: string[]): string => posix(posixPath.join(...parts));
 
 const repo = posix(join(import.meta.dir, ".."));
 const testDir = posix(join(import.meta.dir, "..", "test"));
@@ -276,10 +284,10 @@ describe("prerequisite declarations", () => {
 describe("doc links", () => {
 	/** Every Markdown doc a user or contributor reads, from the root and the doc trees. */
 	function docFiles(): string[] {
-		const trees = ["docs", "extensions", "lib", "test", ".github"].map((dir) => join(repo, dir));
+		const trees = ["docs", "extensions", "lib", "test", ".github"].map((dir) => docPath(repo, dir));
 		const rootDocs = readdirSync(repo)
 			.filter((name) => name.endsWith(".md"))
-			.map((name) => join(repo, name));
+			.map((name) => docPath(repo, name));
 		return [...rootDocs, ...trees.flatMap((tree) => walkFiles(tree))].filter((file) => file.endsWith(".md")).sort();
 	}
 
@@ -318,6 +326,10 @@ describe("doc links", () => {
 		return anchors;
 	}
 
+	test("a doc path keeps one separator style whatever the host's join does", () => {
+		expect(docPath("D:\\a\\my-pi-agent", "docs", "..", "README.md")).toBe("D:/a/my-pi-agent/README.md");
+	});
+
 	test("every relative doc link resolves, anchor included", () => {
 		const offenders: string[] = [];
 		for (const file of docFiles()) {
@@ -328,7 +340,7 @@ describe("doc links", () => {
 				const hash = link.indexOf("#");
 				const target = hash === -1 ? link : link.slice(0, hash);
 				const anchor = hash === -1 ? "" : link.slice(hash + 1);
-				const path = target === "" ? file : posix(join(dir, target));
+				const path = target === "" ? file : docPath(dir, target);
 				if (!existsSync(path)) {
 					offenders.push(`${relative}: ${link} (no such path)`);
 					continue;
