@@ -3,7 +3,7 @@ import { registerCommands } from "./commands.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { StoredPlan } from "./plans.ts";
 import type { PlanRuntime } from "./runtime.ts";
-import type { PlanReviewResult, PlanWebReview } from "./web.ts";
+import type { PlanReviewOptions, PlanReviewResult, PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 
@@ -13,15 +13,20 @@ function plan(content = "- one"): StoredPlan {
 	return { path: PATH, relativePath: ".pi/plans/2026-10-14-1600-demo.md", content, bytes: content.length };
 }
 
-function fakeRuntime(options: { file?: StoredPlan; latest?: StoredPlan; last?: string; enabled?: boolean } = {}) {
+function fakeRuntime(
+	options: { file?: StoredPlan; latest?: StoredPlan; last?: string; enabled?: boolean; previous?: string } = {},
+) {
 	const readCalls: string[] = [];
 	const latestCalls: string[] = [];
+	const marks: Array<{ path: string; content: string }> = [];
 	const file = options.file;
 	const runtime = {
 		isEnabled: () => options.enabled ?? false,
 		enable: () => {},
 		toggle: () => {},
 		lastPlanPath: () => options.last ?? file?.path,
+		reviewed: () => options.previous,
+		markReviewed: (path: string, content: string) => marks.push({ path, content }),
 		plans: {
 			read: async (_cwd: string, path: string) => {
 				readCalls.push(path);
@@ -33,15 +38,17 @@ function fakeRuntime(options: { file?: StoredPlan; latest?: StoredPlan; last?: s
 			},
 		},
 	};
-	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls };
+	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, marks };
 }
 
 function fakeWeb(result: PlanReviewResult) {
 	const started: StoredPlan[] = [];
+	const starts: PlanReviewOptions[] = [];
 	const closeCalls: number[] = [];
 	const web: PlanWebReview = {
-		start: async (_cwd, candidate) => {
+		start: async (_cwd, candidate, options) => {
 			started.push(candidate);
+			starts.push(options ?? {});
 			return {
 				url: "http://127.0.0.1:1234/?token=tok",
 				port: 1234,
@@ -53,7 +60,7 @@ function fakeWeb(result: PlanReviewResult) {
 		},
 		closeAll: async () => {},
 	};
-	return { web, started, closeCalls };
+	return { web, started, starts, closeCalls };
 }
 
 function saved(p: StoredPlan, annotations: PlanAnnotation[]): PlanReviewResult {
@@ -65,14 +72,15 @@ function setup(options: {
 	latest?: StoredPlan;
 	last?: string;
 	enabled?: boolean;
+	previous?: string;
 	result: PlanReviewResult;
 }) {
-	const { runtime, readCalls, latestCalls } = fakeRuntime(options);
-	const { web, started, closeCalls } = fakeWeb(options.result);
+	const { runtime, readCalls, latestCalls, marks } = fakeRuntime(options);
+	const { web, started, starts, closeCalls } = fakeWeb(options.result);
 	const pi = makeFakePi();
 	registerCommands(pi.pi, runtime, web);
 	const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
-	return { pi, ctx, notifications, runtime, readCalls, latestCalls, started, closeCalls };
+	return { pi, ctx, notifications, runtime, readCalls, latestCalls, marks, started, starts, closeCalls };
 }
 
 describe("/plan review", () => {
@@ -121,6 +129,16 @@ describe("/plan review", () => {
 		expect(latestCalls).toEqual(["/repo"]);
 		expect(readCalls).toEqual([]);
 		expect(started).toEqual([file]);
+	});
+
+	test("hands the previous review's content to the browser", async () => {
+		const file = plan();
+		const { pi, ctx, starts, marks } = setup({ file, previous: "# Old", result: { status: "cancelled" } });
+
+		await pi.commands.get("plan").handler("review", ctx);
+
+		expect(starts[0].previous).toBe("# Old");
+		expect(marks).toEqual([{ path: file.path, content: file.content }]);
 	});
 
 	test("prefers the session's own plan over the newest file", async () => {

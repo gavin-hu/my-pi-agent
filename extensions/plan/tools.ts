@@ -222,6 +222,7 @@ const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, E
 async function reviewPlan(
 	ctx: ExtensionToolContext,
 	plan: { path: string; relativePath: string; content: string; bytes: number },
+	previous?: string,
 ): Promise<PlanReviewOutcome> {
 	return askHuman(ctx, {
 		custom: async () => {
@@ -229,6 +230,7 @@ async function reviewPlan(
 				(tui, theme, _keybindings, done) =>
 					new PlanViewComponent({
 						plan,
+						previous,
 						theme,
 						onClose: (action, refinement) => done({ action, refinement }),
 						requestRender: () => tui.requestRender(),
@@ -465,7 +467,18 @@ export function registerTools(
 				};
 			}
 
-			let outcome = await reviewPlan(ctx, file);
+			// What the last review showed this file, so this one can mark the changes.
+			// Mark before presenting: the next review compares against what is on
+			// screen now, not against a revision the user never saw.
+			let presentedPrevious: string | undefined;
+			const present = (candidate: { path: string; relativePath: string; content: string; bytes: number }) => {
+				const previous = runtime.reviewed(candidate.path);
+				runtime.markReviewed(candidate.path, candidate.content);
+				presentedPrevious = previous;
+				return reviewPlan(ctx, candidate, previous);
+			};
+
+			let outcome = await present(file);
 			// Comments carried by a browser approval, reported alongside the approval.
 			let browserComments: PlanAnnotation[] = [];
 			// Review, refine, and browser review all loop back here until the user
@@ -475,12 +488,14 @@ export function registerTools(
 			// as "not approved".
 			for (;;) {
 				if (outcome.action === "browser") {
+					// The review screen that produced this choice already marked the
+					// content it showed, so the page compares against that baseline.
 					const session: PlanReviewSession | undefined = await web
-						.start(ctx.cwd, file, { canApprove: true })
+						.start(ctx.cwd, file, { canApprove: true, previous: presentedPrevious })
 						.catch(() => undefined);
 					if (!session) {
 						ctx.ui.notify("Plan review: could not start the browser review server.", "error");
-						outcome = await reviewPlan(ctx, file);
+						outcome = await present(file);
 						continue;
 					}
 					ctx.ui.notify(`Plan review: opened ${session.url}`, "info");
@@ -517,13 +532,13 @@ export function registerTools(
 					}
 					// Cancelled or the tab closed: re-read the file and review again.
 					file = (await runtime.plans.read(ctx.cwd, file.path)) ?? file;
-					outcome = await reviewPlan(ctx, file);
+					outcome = await present(file);
 					continue;
 				}
 				if (outcome.action === "refine" && !outcome.refinement) {
 					const refinement = (await ctx.ui.editor(REFINE_PROMPT, ""))?.trim();
 					if (refinement) outcome = { action: "refine", refinement };
-					else outcome = await reviewPlan(ctx, file);
+					else outcome = await present(file);
 					continue;
 				}
 				if (outcome.action === "refine") {

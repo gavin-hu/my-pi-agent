@@ -4,6 +4,7 @@ import {
 	MAX_STEP_LENGTH,
 	PLAN_OUTLINE,
 	PLAN_SECTIONS,
+	changedSections,
 	extractPlanSections,
 	extractPlanSteps,
 	matchesStepText,
@@ -194,6 +195,38 @@ describe("matchesStepText", () => {
 
 	test("rejects text that moved", () => {
 		expect(matchesStepText("Add the cache", "Wire it")).toBe(false);
+	});
+});
+
+describe("changedSections", () => {
+	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
+
+	test("returns nothing for an identical plan", () => {
+		expect(changedSections(before, before)).toEqual(new Set());
+	});
+
+	test("marks a section whose text changed", () => {
+		expect(changedSections(before, before.replace("Ship it.", "Ship it well."))).toEqual(new Set(["Goal"]));
+	});
+
+	test("marks a new section", () => {
+		expect(changedSections(before, `${before}\n## Risks\n- stale reads`)).toEqual(new Set(["Risks"]));
+	});
+
+	test("does not mark a removed section", () => {
+		expect(changedSections(before, ["# Plan", "## Goal", "Ship it."].join("\n"))).toEqual(new Set());
+	});
+
+	test("marks a duplicate title when either occurrence changed", () => {
+		const previous = ["## Steps", "- One", "## Steps", "- Two"].join("\n");
+		const current = ["## Steps", "- One", "## Steps", "- Two more"].join("\n");
+		expect(changedSections(previous, current)).toEqual(new Set(["Steps"]));
+	});
+
+	test("normalizes an emphasized heading", () => {
+		const previous = ["## **Goal**", "Old"].join("\n");
+		const current = ["## Goal", "New"].join("\n");
+		expect(changedSections(previous, current)).toEqual(new Set(["Goal"]));
 	});
 });
 

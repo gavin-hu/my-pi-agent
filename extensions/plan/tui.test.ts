@@ -27,6 +27,8 @@ interface SetupOptions {
 	theme?: any;
 	markdownTheme?: any;
 	path?: string;
+	/** Content the previous review showed, for the changed markers. */
+	previous?: string;
 }
 
 function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", options: SetupOptions = {}) {
@@ -36,6 +38,7 @@ function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", optio
 	const theme = options.theme ?? fakeTheme;
 	const component = new PlanViewComponent({
 		plan: plan(content, options.path),
+		previous: options.previous,
 		theme,
 		markdownTheme: options.markdownTheme ?? fakeMarkdownTheme(theme),
 		onClose: (action, refinement) => {
@@ -421,5 +424,43 @@ describe("PlanViewComponent — inline refine", () => {
 		const { component, actions } = setup();
 		component.handleInput("r");
 		expect(actions).toEqual(["refine"]);
+	});
+});
+
+describe("PlanViewComponent — changed since the last review", () => {
+	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
+	const after = ["# Plan", "## Goal", "Ship it well.", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
+
+	/** The scroll row, one above the hint row and the trailing blank. */
+	const scrollLine = (component: PlanViewComponent): string => render(component, 80).at(-3) ?? "";
+
+	test("summarizes the sections that changed", () => {
+		const { component } = setup(after, { previous: before });
+		expect(render(component, 100).join("\n")).toContain("2 sections changed since your last review");
+	});
+
+	test("says nothing on a first review or an unchanged plan", () => {
+		expect(render(setup(after).component, 100).join("\n")).not.toContain("changed since your last review");
+		expect(render(setup(after, { previous: after }).component, 100).join("\n")).not.toContain(
+			"changed since your last review",
+		);
+	});
+
+	test("marks the current section in the scroll row", () => {
+		const long = Array.from({ length: 60 }, (_, index) => `line ${index}`).join("\n");
+		const { component } = setup(`# Plan\n${long}\nchanged line`, {
+			rows: 20,
+			previous: `# Plan\n${long}`,
+		});
+		expect(scrollLine(component)).toContain("Plan · changed");
+	});
+
+	test("stays within the width with the summary", () => {
+		const { component } = setup(after, { previous: before });
+		for (const width of [80, 40, 20, 12, 6]) {
+			for (const line of render(component, width)) {
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
+		}
 	});
 });

@@ -203,6 +203,25 @@ describe("plan runtime — persistence and status", () => {
 	});
 });
 
+describe("plan runtime — review snapshots", () => {
+	test("remembers the content a review showed, per plan path", () => {
+		const { runtime } = setup();
+		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBeUndefined();
+
+		runtime.markReviewed("/repo/.pi/plans/a.md", "# A");
+
+		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBe("# A");
+		expect(runtime.reviewed("/repo/.pi/plans/b.md")).toBeUndefined();
+	});
+
+	test("a new mark replaces the previous content", () => {
+		const { runtime } = setup();
+		runtime.markReviewed("/repo/.pi/plans/a.md", "# A");
+		runtime.markReviewed("/repo/.pi/plans/a.md", "# A v2");
+		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBe("# A v2");
+	});
+});
+
 describe("plan runtime — branch restore", () => {
 	test("restores the hidden tools of the branch it left plan mode on", () => {
 		const { runtime, ctx, activeTools, pi } = setup({ active: ["read", "write", "edit"] });

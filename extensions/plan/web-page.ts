@@ -35,6 +35,8 @@ export interface ReviewOutlineItem {
 	level: number;
 	/** Heading text. */
 	text: string;
+	/** True when this section changed since the previous review of the plan. */
+	changed?: boolean;
 }
 
 /** Everything the browser needs to render one plan review. */
@@ -92,6 +94,7 @@ ${WEB_COMPONENTS_CSS}
 .review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:var(--fw-semibold)}
 .review-nav__link{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent);font:var(--fs-xs)/18px var(--font-mono);text-align:center}
+.review-changed{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .review-nav .lvl-2 a{padding-left:18px}
 .review-nav .lvl-3 a{padding-left:30px}
 .review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:42px}

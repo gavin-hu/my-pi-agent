@@ -50,6 +50,11 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   section; approval seeds them into `todo`.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
+- **What changed since the last review.** After a refinement, the review screen
+  names how many sections changed, marks the current one in the scroll row, and
+  the browser outline dots each changed section, so a re-review does not mean
+  re-reading the whole plan. The baseline is what the previous review in this
+  session showed; a resumed session starts without markers.
 - **Kept current.** After approval, `set_plan_steps` flips the checkboxes of
   the steps you name in the file, so the plan mirrors what has actually been
   done. Pass the step's text as `expected` and an update whose step number moved
@@ -132,7 +137,9 @@ actions (`a approve & run` in `success`, `r refine` in `accent`).
 `a` ends plan mode, restores write access, and seeds `todo`; `r` keeps the plan
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
-model the plan was not approved. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
+model the plan was not approved. When the plan changed since the previous review
+in this session, a summary line under the title names how many sections changed
+and the scroll row appends `· changed` to the current section. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
 `PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. Press `n`/`p` to jump to
 the next or previous heading; the scroll row names the current section when the
 plan has more than one. When the plan overflows,
@@ -297,7 +304,9 @@ file and returns them to the model.
   in a rail in the left margin, so annotating never reflows the text.
 - **Section outline and facts.** Headings become a sticky outline with jump
   links, an active-section highlight, and a per-section comment count; the panel
-  above it reports the plan's checkbox steps (`n/m`) and total comments.
+  above it reports the plan's checkbox steps (`n/m`) and total comments. A
+  section that changed since the previous review in this session carries a dot
+  (its `title` and accessible label say so); an unchanged plan shows none.
 - **Inline threads.** A comment renders directly under the block it anchors to,
   labelled and indented as a thread, so it reads in place and the plan keeps one
   measure at every width. There is no separate column to reflow.
@@ -362,6 +371,9 @@ file and returns them to the model.
   security boundary (see [Security](#security)).
 - The plans directory is the only index; there is no registry and no persisted
   plan metadata.
+- Changed markers need a prior review of the same plan in the same session. A
+  resumed or new session has no baseline, so it shows no markers rather than
+  marking the whole plan as changed.
 - Approval tracks at most 50 steps, and a step longer than 200 characters is
   shortened in the todo list and the approval listing. `write_plan` reports both
   cases when they apply; the plan file itself always keeps the full text.
@@ -387,7 +399,7 @@ file and returns them to the model.
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`); no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
-| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. The content each review showed is kept in runtime memory (keyed by resolved path) for the changed markers. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
 
@@ -420,6 +432,12 @@ file and returns them to the model.
   channel; no import from that extension) and the steps are merged into them.
   A rejected seed reports the nested tool's own reason in the approval message
   instead of failing silently.
+- **Changed markers compare what was shown, not revisions on disk.** A review
+  result is only meaningful next to the text the reviewer already read, so the
+  runtime keeps the content each review presented (keyed by resolved path) and
+  `changedSections` diffs section title and text against it. Stored feedback is
+  stripped from both sides, so a review comment never reads as an edit, and the
+  same helper feeds the terminal summary and the browser outline.
 - **The outline guides, it does not enforce.** `write_plan` documents the
   canonical shape in its description and stores whatever markdown it is given;
   no section is required and nothing is rewritten. That keeps the model free to
@@ -472,14 +490,14 @@ file and returns them to the model.
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, `write`/`read`/`latest`/`setSteps`/`saveFeedback`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
-| `steps.ts` | Plan-document structure (pure): the outline, step extraction, heading sections, and the checkbox edit. |
+| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the section diff, and the checkbox edit. |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
-| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, section jump, scroll gauge, approve/refine/browser/keep). |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, approve/refine/browser/keep). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the loopback server, the section outline and code highlighting, and the save/approve/cancel/abort session. |
+| `web.ts` | `createPlanWebReview`: the loopback server, the section outline (with changed-section flags) and code highlighting, and the save/approve/cancel/abort session. |
 | `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes. |
 | `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet), its data island, and inline CSS. |
 | `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/approve/back). |

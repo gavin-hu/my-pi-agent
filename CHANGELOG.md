@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: both review surfaces mark what changed since the previous review of
+  the same plan. The review screen adds a `N sections changed since your last
+  review` line and appends `· changed` to the current section in the scroll row,
+  and the browser outline dots each changed section. The baseline is the content
+  the previous review in the same session showed, with stored review comments
+  stripped, so a resumed session shows no markers instead of marking everything.
 - Tool transcript: every tool renders a rejected call as one sanitized `Error:`
   line in the error role, long-running `web_fetch`, `web_search`, `read_doc`,
   `run_doctor`, and `job wait` show a live elapsed label, and a finished long

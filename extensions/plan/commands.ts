@@ -67,7 +67,9 @@ async function reviewInBrowser(
 		return;
 	}
 
-	const session = await web.start(ctx.cwd, file).catch(() => undefined);
+	const previous = runtime.reviewed(file.path);
+	runtime.markReviewed(file.path, file.content);
+	const session = await web.start(ctx.cwd, file, { previous }).catch(() => undefined);
 	if (!session) {
 		ctx.ui.notify("plan review: could not start the browser review server.", "error");
 		return;
