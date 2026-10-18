@@ -23,23 +23,37 @@ import { GOAL_ENTRY_TYPE, type Goal } from "./types.ts";
 /** Title of the record-only edit dialog, spelling out both exits. */
 const EDIT_TITLE = "Goal — Enter to save, Esc to cancel";
 
-/** Completion values for the goal keywords: `set`/`edit`/`raw` take an argument. */
-const GOAL_COMPLETIONS = [
-	{ value: "set ", label: "set" },
-	{ value: "edit ", label: "edit" },
-	{ value: "raw ", label: "raw" },
-	{ value: "clear", label: "clear" },
-	{ value: "done", label: "done" },
-	{ value: "achieved", label: "achieved" },
-	{ value: "help", label: "help" },
-	{ value: "-h", label: "-h" },
-	{ value: "--help", label: "--help" },
+/**
+ * One reserved `/goal` verb: the word, what a bare occurrence means, and whether
+ * it takes the rest of the line as its argument.
+ */
+type GoalVerb =
+	| { word: string; kind: "usage" | "clear" | "done"; argument: "none" }
+	| { word: string; kind: "raw"; argument: "required" }
+	| { word: string; kind: "record"; argument: "required" | "optional" };
+
+/**
+ * The single list behind the parser, the completions, and the help text, so a
+ * new verb cannot land in one of them and be missing from another.
+ * `set`/`edit` share the `record` kind; the two words are interchangeable.
+ */
+export const GOAL_VERBS: readonly GoalVerb[] = [
+	{ word: "set", kind: "record", argument: "optional" },
+	{ word: "edit", kind: "record", argument: "optional" },
+	{ word: "raw", kind: "raw", argument: "required" },
+	{ word: "clear", kind: "clear", argument: "none" },
+	{ word: "done", kind: "done", argument: "none" },
+	{ word: "achieved", kind: "done", argument: "none" },
+	{ word: "help", kind: "usage", argument: "none" },
+	{ word: "-h", kind: "usage", argument: "none" },
+	{ word: "--help", kind: "usage", argument: "none" },
 ];
 
-/** `/goal set <text>` and `/goal edit <text>`: `text` is optional. */
-const RECORD_PATTERN = /^(set|edit)(?:\s+([\s\S]*))?$/i;
-/** `/goal raw <text>`: `text` is required. */
-const RAW_PATTERN = /^raw(?:\s+([\s\S]*))?$/i;
+/** Completion values: a verb that takes an argument completes with a space. */
+const GOAL_COMPLETIONS = GOAL_VERBS.map((verb) => ({
+	value: verb.argument === "none" ? verb.word : `${verb.word} `,
+	label: verb.word,
+}));
 
 /** One parsed `/goal` invocation. */
 export type GoalCommand =
@@ -55,30 +69,22 @@ export type GoalCommand =
 /**
  * Parse `/goal`'s argument into one command.
  *
- * Keywords match whole words, so `setfoo` and `edit-foo` are free-form prompts,
- * not malformed keywords. Only `help`/`clear`/`done`/`achieved` are reserved
- * without an argument; anything else is a prompt.
+ * Only the first word is looked up, so a keyword matches a whole word: `setfoo`
+ * and `edit-foo` are free-form prompts, not malformed keywords, and a verb that
+ * takes no argument leaves the whole line a prompt (`clear the cache`). Anything
+ * unlisted is a prompt.
  */
 export function parseGoalCommand(input: string): GoalCommand {
 	const text = input.trim();
 	if (!text) return { kind: "show" };
 
-	const keyword = text.toLowerCase();
-	if (keyword === "help" || keyword === "-h" || keyword === "--help") return { kind: "usage" };
-	if (keyword === "clear") return { kind: "clear" };
-	if (keyword === "done" || keyword === "achieved") return { kind: "done" };
-
-	const record = RECORD_PATTERN.exec(text);
-	if (record) {
-		const objective = (record[2] ?? "").trim();
-		return objective ? { kind: "record", text: objective } : { kind: "editor" };
-	}
-	const raw = RAW_PATTERN.exec(text);
-	if (raw) {
-		const objective = (raw[1] ?? "").trim();
-		return objective ? { kind: "raw", text: objective } : { kind: "usage" };
-	}
-	return { kind: "prompt", text };
+	const head = text.split(/\s+/, 1)[0] ?? "";
+	const rest = text.slice(head.length).trim();
+	const verb = GOAL_VERBS.find((candidate) => candidate.word === head.toLowerCase());
+	if (!verb) return { kind: "prompt", text };
+	if (verb.argument === "none") return rest ? { kind: "prompt", text } : { kind: verb.kind };
+	if (verb.kind === "raw") return rest ? { kind: "raw", text: rest } : { kind: "usage" };
+	return rest ? { kind: "record", text: rest } : { kind: "editor" };
 }
 
 /**
@@ -87,7 +93,7 @@ export function parseGoalCommand(input: string): GoalCommand {
  * once the prefix contains a space (or the start of the prompt does not look
  * like a keyword) the argument is left to the user.
  */
-function completeGoalArg(prefix: string): Array<{ value: string; label: string }> | null {
+export function completeGoalArg(prefix: string): Array<{ value: string; label: string }> | null {
 	const text = prefix.trimStart();
 	if (text.includes(" ")) return null;
 	const items = GOAL_COMPLETIONS.filter((item) => item.label.startsWith(text));

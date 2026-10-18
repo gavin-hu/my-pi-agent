@@ -232,6 +232,11 @@ depends on config.
   same channel), never by importing the `todo` extension. Only the text is
   affected: `details` and `structuredContent` stay the goal alone, and the
   transcript result is still the status header.
+- **One verb table.** `GOAL_VERBS` is the only list of reserved words: the
+  parser looks a first word up in it, the completions are generated from it, and
+  a test asserts every word is offered as a completion and named in `GOAL_HELP`.
+  Adding a verb without documenting or completing it fails that test instead of
+  drifting silently.
 - **Sanitize at the boundary.** `normalizeGoal` and `parseClarification` both route
   model text through `lib/format.ts`'s `sanitizeLine`, so an embedded newline
   cannot corrupt the widget and raw escapes cannot restyle the terminal.
@@ -252,7 +257,7 @@ depends on config.
 | `tui.ts` | The persistent goal widget and the transcript status header. |
 | `runtime.ts` | Session-scoped state and widget synchronization. |
 | `tools.ts` | `goal` tool registration and rendering. |
-| `commands.ts` | `/goal`. |
+| `commands.ts` | `/goal`: the `GOAL_VERBS` table, the argument parser, the completions, and the command handler. |
 
 ## Testing
 
