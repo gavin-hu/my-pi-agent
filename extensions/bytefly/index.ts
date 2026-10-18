@@ -72,8 +72,9 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerTurnSeparator(pi, pad);
 	registerWorkingTimer(pi);
 	const doctor = registerDoctor(pi, deps.doctor);
-	registerPanel(pi, { doctor, discover: deps.extensions?.discover });
 	registerNotify(pi, deps.notify);
-	// Last, so a version that arrives after startup can re-install the header.
-	registerUpdate(pi, updates, { ...deps.update, onUpdate: () => header.refresh() });
+	// The returned handle is what `/bytefly update` re-runs, so the update surface is
+	// registered before the panel that offers the command.
+	const update = registerUpdate(pi, updates, { ...deps.update, onUpdate: () => header.refresh() });
+	registerPanel(pi, { doctor, update, discover: deps.extensions?.discover });
 }

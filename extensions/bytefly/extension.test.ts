@@ -1,14 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import bytefly from "./index.ts";
 import { coloringTheme, emit, fakeTheme } from "../../test/helpers/fakes.ts";
+import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
-import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/bytefly.ts";
+import {
+	bootBytefly,
+	fakeFooterCtx,
+	makeFakePi,
+	OFFLINE_UPDATE,
+	renderFooter,
+} from "../../test/helpers/fixtures/bytefly.ts";
 import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
 /** A million-token Opus call, so a configured rate lands on a round number. */
@@ -35,7 +41,7 @@ describe("bytefly extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
 			const { pi, tools, commands, handlers, markdownTransformers, messageRenderers, toolRenderers } = makeFakePi();
-			bytefly(pi);
+			bootBytefly(pi);
 			expect(tools.size).toBe(0);
 			expect(commands.size).toBe(0);
 			expect(handlers.size).toBe(0);
@@ -47,13 +53,13 @@ describe("bytefly extension", () => {
 
 	test("registers the /bytefly command", () => {
 		const { pi, commands } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		expect(commands.has("bytefly")).toBe(true);
 	});
 
 	test("registers the doctor surface", () => {
 		const { pi, tools, commands } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const tool = tools.get("run_doctor");
 		expect(tool?.annotations.readOnlyHint).toBe(true);
 		expect(commands.has("bytefly")).toBe(true);
@@ -62,20 +68,20 @@ describe("bytefly extension", () => {
 
 	test("registers the notify capability", () => {
 		const { pi, handlers } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		// `ui_prompt_start` is notify's own hook; the separator shares `agent_settled`.
 		expect(handlers.has("ui_prompt_start")).toBe(true);
 	});
 
 	test("registers the user-message transformer", () => {
 		const { pi, markdownTransformers } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		expect(markdownTransformers).toHaveLength(1);
 	});
 
 	test("drives the working timer while the working row is up", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, workingMessages } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "turn_start", {}, ctx);
@@ -87,13 +93,13 @@ describe("bytefly extension", () => {
 
 	test("registers the notice renderer", () => {
 		const { pi, messageRenderers } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		expect(messageRenderers.has(NOTICE_TYPE)).toBe(true);
 	});
 
 	test("shares one output pad between the notice and the turn separator", () => {
 		const { pi, messageRenderers, renderers } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 
 		// A notice is handed Pi's pad; it insets by it and records it for the rest.
 		const notice = messageRenderers.get(NOTICE_TYPE);
@@ -113,13 +119,13 @@ describe("bytefly extension", () => {
 
 	test("registers the tool-block resolver", () => {
 		const { pi, toolRenderers } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		expect(toolRenderers).toHaveLength(1);
 	});
 
 	test("installs the footer on session start in interactive mode", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -130,7 +136,7 @@ describe("bytefly extension", () => {
 
 	test("shows a finished child run in the footer's separate roll-up", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footers, footerData } = fakeFooterCtx({
 			mode: "tui",
 			entries: [
@@ -166,7 +172,7 @@ describe("bytefly extension", () => {
 
 	test("a new session starts the roll-up from zero", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footers, footerData } = fakeFooterCtx({ mode: "tui" });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 		pi.events.emit(SUBAGENT_FINISHED_CHANNEL, {
@@ -190,7 +196,7 @@ describe("bytefly extension", () => {
 
 	test("does not install the footer outside interactive mode", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footers } = fakeFooterCtx({ mode: "print" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -200,7 +206,7 @@ describe("bytefly extension", () => {
 
 	test("installs the header on session start in interactive mode", async () => {
 		const { pi } = makeFakePi({ settings: { quietStartup: true } });
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -211,7 +217,7 @@ describe("bytefly extension", () => {
 
 	test("does not install the header outside interactive mode", async () => {
 		const { pi } = makeFakePi({ settings: { quietStartup: true } });
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "print" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -221,7 +227,7 @@ describe("bytefly extension", () => {
 
 	test("restores the built-in header on shutdown", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_shutdown", {}, ctx);
@@ -231,7 +237,7 @@ describe("bytefly extension", () => {
 
 	test("renders the nameplate through the installed header factory", async () => {
 		const { pi } = makeFakePi({ settings: { quietStartup: true } });
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -249,7 +255,7 @@ describe("bytefly extension", () => {
 			[0, 0, 2],
 		] as const) {
 			const { pi } = makeFakePi({ settings: { quietStartup: true, outputPad } });
-			bytefly(pi);
+			bootBytefly(pi);
 			const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 			await emit(pi, "session_start", { reason: "startup" }, ctx);
 			const lines = headers
@@ -264,7 +270,7 @@ describe("bytefly extension", () => {
 
 	test("restores the built-in footer on shutdown", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "session_shutdown", {}, ctx);
@@ -274,7 +280,7 @@ describe("bytefly extension", () => {
 
 	test("registers one /bytefly command", () => {
 		const { pi, commands } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		expect(commands.has("bytefly")).toBe(true);
 		expect(commands.has("extensions")).toBe(false);
 		expect(commands.has("doctor")).toBe(false);
@@ -282,7 +288,7 @@ describe("bytefly extension", () => {
 
 	test("completes extension names, not the retired chrome toggles", () => {
 		const { pi, commands } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const labels = commands
 			.get("bytefly")
 			.getArgumentCompletions("")
@@ -294,10 +300,22 @@ describe("bytefly extension", () => {
 		expect(labels).not.toContain("status");
 	});
 
+	test("reaches the update check from /bytefly update", async () => {
+		const { pi, commands } = makeFakePi();
+		// The injected registry answer is what the command reports, so the wiring is
+		// proven without a request and without touching the agent directory.
+		bootBytefly(pi, { update: { ...OFFLINE_UPDATE, isOffline: () => false, fetchLatest: async () => "99.0.0" } });
+		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+
+		await commands.get("bytefly").handler("update", ctx);
+
+		expect(notifications.at(-1)).toContain("v99.0.0 is available");
+	});
+
 	test("keeps the chrome installed when the panel runs", async () => {
 		const { pi, commands } = makeFakePi({ settings: { quietStartup: true } });
 		const discovery = makeDiscovery({ global: [makeItem({ path: "/agent/extensions/one.ts" })] }).discovery;
-		bytefly(pi, { extensions: { discover: async () => discovery } });
+		bootBytefly(pi, { extensions: { discover: async () => discovery } });
 		const { ctx, footers, headers } = fakeFooterCtx({ mode: "tui", trusted: true });
 
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
@@ -313,7 +331,7 @@ describe("bytefly extension", () => {
 
 	test("renders two footer lines through the installed factory", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", context: undefined });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
@@ -326,7 +344,7 @@ describe("bytefly extension", () => {
 
 	test("reads the live theme on every render", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui" });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
 
@@ -339,7 +357,7 @@ describe("bytefly extension", () => {
 
 	test("prices the cost from a bytefly.json rate", async () => {
 		const { pi } = makeFakePi();
-		bytefly(pi);
+		bootBytefly(pi);
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
 
 		await withAgentDir(async (agentDir) => {

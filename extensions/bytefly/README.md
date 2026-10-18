@@ -281,12 +281,15 @@ method follows the terminal (OSC 777, OSC 99, a Windows toast) or falls back to
 the platform notifier (`osascript`, `notify-send`); see
 [Notifications](#notifications).
 
-**Update check.** Once per interactive session, in the background, the loaded
+**Update check.** In the background at an interactive session's start, the loaded
 version is compared with the published `@gavin-hu/my-pi-agent` on npm. A newer
 one puts `↑0.12.0` after the header's chrome version and posts one transcript
-notice naming `pi update --extensions`. The check is skipped when `PI_OFFLINE`
-is set, makes no request outside `tui`, and a failed request is silent; see
-[Update check](#update-check).
+notice naming `pi update --extensions` and its release URL. The answer is cached
+in `<agentDir>/bytefly/update.json` with the time it was read, so a session
+starting inside the 24-hour window reuses it instead of repeating the request,
+and `/bytefly update` re-runs the check on demand. The check is skipped when
+`PI_OFFLINE` is set, makes no request outside `tui`, and a failed background
+request is silent; see [Update check](#update-check).
 
 ## Commands
 
@@ -295,9 +298,10 @@ is set, makes no request outside `tui`, and a failed request is silent; see
 | `/bytefly [extension] [refresh]` | Open the control center on Extensions. In `tui` it mounts a docked list; every other mode prints the grouped listing, or one extension's full findings when named. |
 | `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints the grouped settings listing with each row's value. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
+| `/bytefly update` | Re-run the published-version check now, ignoring the cache window, and report what it found — the newest version, an available release with its URL, `PI_OFFLINE`, or an unreadable registry. It resolves no packages and probes no extension. |
 
 Tab completes the subcommands, extension names after `doctor`, and `refresh`;
-`/bytefly settings` takes no name.
+`/bytefly settings` and `/bytefly update` take no name.
 
 ## Behaviour by mode
 
@@ -791,6 +795,7 @@ reports it once, in the two places it already owns:
  bytefly · 0.12.0 is available
  ╎ ◌ current · v0.11.4
  ╎ ◌ update · pi update --extensions
+ ╎ ◌ release · https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.12.0
 ```
 
 The marker is the shared `↑` glyph and the newest version — the arrow is one cell
@@ -810,10 +815,27 @@ fired without awaiting at `session_start` (Pi awaits handlers, and a five-second
 registry call must not hold the first prompt) with a five-second abort. Only a
 strictly newer, parseable semver announces anything: a non-ok status, a body
 that is not JSON, a missing version, a network error, or an older or equal
-version is silent. Nothing is cached to disk and nothing is retried, so a
-session that starts offline simply sees no marker. `PI_OFFLINE` (Pi's own
-switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
-`pi.dev` request.
+version is silent. `PI_OFFLINE` (Pi's own switch) turns the check off;
+`PI_SKIP_VERSION_CHECK` only governs Pi's `pi.dev` request.
+
+The answer is cached in `<agentDir>/bytefly/update.json` as `latest` plus the
+epoch milliseconds it was read at. A session that starts inside the 24-hour
+window reuses that entry — painting the marker and posting the notice from it —
+instead of repeating the request, so a working day of sessions costs one read.
+Past the window the check runs again and rewrites the entry; a failed read writes
+nothing, so the next session tries again. Offline, the cached entry is used with
+no request and no write, because a stale version is still the best answer
+available and the marker is advisory.
+
+`/bytefly update` is the on-demand half: it ignores the window, reads the registry
+now, records and paints the result, and prints one line — `up to date — v0.12.0
+is the newest published version`, `v0.13.0 is available (current 0.12.0) —
+https://…/releases/tag/v0.13.0`, `the update check was skipped (PI_OFFLINE is
+set)`, or `could not read the published version`. It resolves no packages, probes
+no extension, and posts no second notice, so a session open for days can see a
+release without a restart. Opening the control center never checks: the screen has
+no update surface, and the only request paths are `session_start` and this
+command.
 
 ## Limitations
 
@@ -834,9 +856,10 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
   string. The per-trigger notify flags (`notify.turnFinished`, `needsInput`,
   `jobFinished`), arrays (`doctor.skip`), a numeric range (`doctor.timeoutMs`),
   the `rates` table, and `price.peak` are still `bytefly.json` edits.
-- **`doctor` is a reserved first argument.** `/bytefly doctor` always selects the
-  report, so an extension literally named `doctor` cannot be narrowed to by
-  name. `settings` is reserved the same way.
+- **`doctor`, `settings`, and `update` are reserved first arguments.**
+  `/bytefly doctor` always selects the report, so an extension literally named
+  `doctor` cannot be narrowed to by name; `settings` and `update` are reserved
+  the same way.
 - **The picker manages only the `extensions` resource type.** Skills, prompts,
   and themes are handled by Pi's own `pi config`.
 - **Built-in extensions are not listed** (`builtin:mcp`, `builtin:codemode`, …):
@@ -847,17 +870,19 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
   published under another tag, or a checkout ahead of npm reports nothing, and
   there is no channel or prerelease preference: `0.11.4` is behind `0.12.0`
   whether or not a `0.12.0-beta.1` exists.
-- **One check per session, with no refresh.** It runs at `session_start` in
-  `tui` mode; `/bytefly` and `doctor` do not report it, nothing is cached to
-  disk, and a failed or slow request is simply not retried that session.
+- **The cache window is fixed at 24 hours.** It runs at `session_start` in `tui`
+  mode and reuses an entry younger than that; there is no setting for it, and
+  `/bytefly` and `doctor` do not report the version. A failed or slow background
+  request is retried by the next session, or immediately by `/bytefly update`.
 - **The marker needs the bytefly startup TUI.** It lives on the custom header,
   so with `quietStartup` off the notice is the whole signal.
 - **Pi may report the same update.** An npm-installed copy can also show Pi's
   own `Package Updates Available` block; the two checks are independent and
   `pi update --extensions` satisfies both.
-- **No auto-update and no release notes.** The notice names a command instead
-  of running one, and the notice renderer has no link support, so there is no
-  changelog URL.
+- **No auto-update, and the release URL is text only.** The notice names a
+  command instead of running one, and the notice renderer cannot open a link, so
+  the release row prints the URL and nothing more — no changelog body, no way to
+  click through from the transcript.
 - **Project toggles are two-state per press** (`enable`/`disable`). `x` clears
   the override, which is the third state; a resource with no project entry in
   `pi config` is still managed there.
@@ -961,10 +986,10 @@ rather than showing a wrong value.
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`, `openWorldHint: false`), direct exposure and active on registration (the defaults, so not declared), with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Update check | `session_start` in `tui` mode, when `PI_OFFLINE` is off, fires `fetchLatestVersion()` without awaiting, so the handler never holds the prompt. The registry read is a fixed `GET` of npm's `latest` document over an injected `fetch`, bounded by an abort timeout; a strictly newer, parseable semver is recorded in the per-load `UpdateSource`, `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice. A generation counter drops a reply that lands after `session_shutdown`, and a per-load flag keeps it to one announcement. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it is on whenever `PI_OFFLINE` is off. |
+| Update check | `session_start` in `tui` mode reads `<agentDir>/bytefly/update.json` and, when the entry is inside `UPDATE_CACHE_TTL_MS` (24 h), records it without a request; otherwise it fires `fetchLatestVersion()` without awaiting, so the handler never holds the prompt, and writes the answer back. The registry read is a fixed `GET` of npm's `latest` document over an injected `fetch`, bounded by an abort timeout; a strictly newer, parseable semver is recorded in the per-load `UpdateSource`, `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice with its release URL. `PI_OFFLINE` uses the cache with no request and no write. `/bytefly update` calls the returned `UpdateHandle.recheck()`, which bypasses the window, records, paints, and returns an `UpdateOutcome`; a generation counter drops a background reply that lands after `session_shutdown`, and a per-load flag keeps it to one announcement. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it is on whenever `PI_OFFLINE` is off, and its 24 h window is not configurable. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds one version in the per-load `UpdateSource` and writes nothing to the session or a file. |
+| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds one version in the per-load `UpdateSource` and writes no session entry; its one file is `<agentDir>/bytefly/update.json`, the cached `latest` plus `checkedAt`, written atomically and read back on the next session. |
 | Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, loads the notify config and subscribes to the job bus, and starts the published-version check; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, drops the notify bus subscription, and clears the recorded version. |
 
 ## Design notes
@@ -1208,7 +1233,7 @@ elapsed counter on Pi's working row), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
 and its probe runtime), `notify/`, and `update/` (the published-version check
-behind the header marker). The chrome and the screen are drawn from
+behind the header marker, its disk cache, and the on-demand re-check). The chrome and the screen are drawn from
 the package's [`lib/tui/`](../../lib/tui/) design system (tokens, rules, rows,
 columns, gauge), so the look follows the active theme.
 
@@ -1279,9 +1304,10 @@ columns, gauge), so the look follows the active theme.
 | `notify/register.ts` | Registers the three triggers, loads the config at `session_start`, and owns the job-bus subscription. |
 | `update/check.ts` | The one registry read: the `latest` URL, the abort timeout, the `FetchLike` seam, and the failure-to-`undefined` mapping. |
 | `update/version.ts` | Pure semver parsing and `isNewerVersion`, including prerelease precedence. |
-| `update/state.ts` | `UpdateSource` and `createUpdateState`: the newest known version, one record per load. |
-| `update/format.ts` | `updateMarker` and `updateNotice`: the header's `↑0.12.0` and the two-row transcript notice. |
-| `update/register.ts` | The session-start check: the async read, the `PI_OFFLINE` and `tui` gates, the once-per-load announcement, and the shutdown generation guard. |
+| `update/state.ts` | `UpdateSource` and `createUpdateState` (the newest known version, one record per load), plus `UpdateOutcome`, the four answers an explicit re-check can give. |
+| `update/cache.ts` | The disk cache: `<agentDir>/bytefly/update.json`, the 24 h window in `isFresh`, a validated read that degrades to a miss, and the atomic write. |
+| `update/format.ts` | `updateMarker`, `updateNotice`, `releaseUrl`, and `updateOutcomeText`: the header's `↑0.12.0`, the transcript notice with its release row, and the one line `/bytefly update` prints. |
+| `update/register.ts` | The lifecycle: the cache-first session-start read, the async registry call, the `PI_OFFLINE` and `tui` gates, the once-per-load announcement, the shutdown generation guard, and the `recheck()` handle `/bytefly update` calls. |
 
 ## Testing
 
@@ -1325,9 +1351,12 @@ delivery over recording seams (`notify/dispatch`), and its three triggers,
 reload, and shutdown through `registerNotify` (`notify/register`). The update
 check is covered by the version-ordering table (`update/version`), the transport
 with an injected fetch (`update/check`), the per-load store (`update/state`), the
-marker and notice wording (`update/format`), and its lifecycle — once per load,
-silent on failure or an older version, skipped offline and outside `tui`, and
-immune to a reply that lands after shutdown (`update/register`).
+marker, notice, and release-URL wording (`update/format`), the cache read, write,
+and window (`update/cache`), and its lifecycle — a fresh entry reused without a
+request, a stale one re-read and rewritten, silent on failure or an older version,
+cache-only offline, skipped outside `tui`, an explicit `recheck()` that ignores
+the window, and immunity to a reply that lands after shutdown
+(`update/register`).
 The user-message nameplate is covered by its pure transform
 (`message/format`, including a render through pi-tui's real `Markdown`) and its
 registration (`message/register`), plus the factory check in `extension`.

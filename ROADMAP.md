@@ -62,17 +62,17 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S5 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F6 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C9, F1–F6 |
 
 ## If only three things ship
 
-1. **C2 — Re-checkable updates.** The npm update check should cache with a
-   timestamp and re-run on demand, so a release is visible without a restart.
-2. **S1 — Guard parity on Windows.** Block `powershell` escapes in the worktree
+1. **S1 — Guard parity on Windows.** Block `powershell` escapes in the worktree
    guard the way plan mode already does, or report the gap as `degraded`.
-3. **F1 — Release provenance.** Publish npm with `--provenance` from a protected
+2. **F1 — Release provenance.** Publish npm with `--provenance` from a protected
    workflow that still requires the per-release approval, so a published release
    is verifiably built from this repository.
+3. **C1 — Settings completion.** Close the scalar-only gap in the control center,
+   starting with the notify trigger toggles and `doctor.timeoutMs`.
 
 ## Horizons
 
@@ -262,8 +262,8 @@ runs, an update check, and two themes.
   README).
 - The picker manages only the `extensions` resource type and does not list
   built-in extensions (`bytefly` README).
-- The update check reads npm `latest` once per session, has no refresh, no
-  channel preference, and no release-notes link (`bytefly` README).
+- The update check has no channel or prerelease preference, and its 24-hour
+  cache window is not configurable (`bytefly` README).
 - Only DeepSeek has a built-in rate table (`bytefly` README).
 
 **Now**
@@ -281,34 +281,30 @@ this section contributes no `Now` item.
   `visibleWidth(glyph) === 1` or the transcript indent breaks. Arrays and tables
   stay JSON with a pointer to the config reference. *Done when* no scalar
   setting is JSON-only and a two-column glyph is refused with a reason.
-- **C2 — Re-checkable updates.** Cache the npm result with a timestamp and let
-  `/bytefly` re-run the check; show the release URL as text. *Done when* opening
-  the screen never adds a network call and offline stays silent.
-
 **Later**
 
-- **C3 — Provider rate packs.** Add published rates for the major hosted
+- **C2 — Provider rate packs.** Add published rates for the major hosted
   providers (Anthropic, OpenAI, Google), each with an effective date and a
   "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
   fallback. *Done when* no network is required and an unknown model still shows
   no invented price.
-- **C4 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
+- **C3 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
   pairs in both themes. *Done when* the test fails on a palette regression, not
   on a theme swap.
-- **C5 — Control-center breadth.** *Decision first:* do themes, skills, and
+- **C4 — Control-center breadth.** *Decision first:* do themes, skills, and
   prompts belong in the picker or stay with `pi config`? If added, they need the
   same health and scope rules as extensions.
-- **C6 — Spend guardrail.** A session budget in `price` that warns once at a
+- **C5 — Spend guardrail.** A session budget in `price` that warns once at a
   threshold and can notify through the existing capability. No hard stop by
   default.
-- **C7 — Price freshness.** Record when a built-in table was last verified and
+- **C6 — Price freshness.** Record when a built-in table was last verified and
   surface its age in `doctor`, so a tariff change is visible instead of silently
   wrong.
-- **C8 — Update channels.** An opt-in prerelease or tagged-channel preference,
+- **C7 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
-- **C9 — Update action.** Offer `pi update --extensions` from the control
+- **C8 — Update action.** Offer `pi update --extensions` from the control
   center behind a confirmation, only if the host exposes a safe way to run it.
-- **C10 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C9 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 ## 5. Foundations
@@ -357,7 +353,7 @@ it.
 | `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
-| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |
+| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C4` is the decision, not a fix. |
 | `watch`: cannot raise an OS notification | `P2` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 

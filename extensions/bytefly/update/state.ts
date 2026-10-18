@@ -1,5 +1,6 @@
 /**
- * Where a surface reads the newest published version this load found.
+ * Where a surface reads the newest published version this load found, and what an
+ * explicit re-check reported.
  *
  * The check resolves after the session started, so the header cannot be handed
  * the value up front: it reads through this store on every apply, and the
@@ -15,6 +16,17 @@ export interface UpdateSource {
 	/** Record a version, or clear it with no argument. */
 	set(latest?: string): void;
 }
+
+/**
+ * What one explicit re-check found. The background check reports nothing — nobody
+ * asked — so this vocabulary exists only for `/bytefly update`, where a failure or
+ * a skip is an answer rather than silence.
+ */
+export type UpdateOutcome =
+	| { kind: "offline" }
+	| { kind: "failed" }
+	| { kind: "current"; latest: string }
+	| { kind: "available"; latest: string };
 
 /** A store holding at most one version. */
 export function createUpdateState(): UpdateSource {
