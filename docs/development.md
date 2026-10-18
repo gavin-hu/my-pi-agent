@@ -149,9 +149,11 @@ machine whose default registry is a read-only mirror (for example
 `registry.npmmirror.com`) serves reads but rejects the publish with `E401`.
 
 1. Work on a branch in a worktree (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)).
-2. Curate `[Unreleased]` against `git log <last-tag>..main` so every user-visible
-   change has exactly one scoped bullet, with no bullet describing a state that
-   was reverted earlier in the same window. Then bump `version` in
+2. The changelog bullet for a change is written in the same commit as the change,
+   so this step is mechanical: read `[Unreleased]` against
+   `git log <last-tag>..main` and give every user-visible change exactly one
+   scoped bullet, with no bullet describing a state that was reverted earlier in
+   the same window. Then bump `version` in
    [`../package.json`](../package.json), move the `Unreleased`
    entries in [`../CHANGELOG.md`](../CHANGELOG.md) under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
@@ -160,12 +162,16 @@ machine whose default registry is a read-only mirror (for example
    in the same commit; `test/release.test.ts` fails on a stale pin.
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
-5. Tag `main`'s HEAD and push it:
+5. Tag `main`'s HEAD and push it with `main`, never after it:
 
    ```bash
    git tag -a vX.Y.Z -m "vX.Y.Z"
-   git push origin main && git push origin vX.Y.Z
+   git push origin vX.Y.Z main
    ```
+
+   A `main`-first push races CI's `fetch-depth: 0` checkout: the first release
+   job to start before the tag arrives fails `test/release.test.ts` with "newest
+   git tag is the package version", and re-running that job clears it.
 
 6. Create the GitHub release with that changelog section (heading included) as
    its body:

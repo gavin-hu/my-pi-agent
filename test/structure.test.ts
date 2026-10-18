@@ -272,3 +272,22 @@ describe("prerequisite declarations", () => {
 		expect(offenders).toEqual([]);
 	});
 });
+
+describe("doc links", () => {
+	/** Docs whose relative links must resolve; a `lib/tui` rename breaks them silently. */
+	const LINKED_DOCS = ["AGENTS.md", "lib/tui/README.md"];
+	const RELATIVE_LINK = /\]\((\.\/[^)\s]+)\)/g;
+
+	test("the agent and TUI contracts link to files that exist", () => {
+		const offenders: string[] = [];
+		for (const doc of LINKED_DOCS) {
+			const file = posix(join(repo, doc));
+			const dir = file.slice(0, file.lastIndexOf("/"));
+			for (const [, link] of readFileSync(file, "utf-8").matchAll(RELATIVE_LINK)) {
+				const target = link.replace(/#.*$/, "");
+				if (!existsSync(posix(join(dir, target)))) offenders.push(`${doc}: ${link}`);
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+});

@@ -1,10 +1,11 @@
 /**
  * Release consistency guard.
  *
- * The release flow (see AGENTS.md) is mechanical: bump `package.json`, move the
- * `[Unreleased]` entries under a dated `## [X.Y.Z]` heading, tag `main`, and
- * push the tag. Nothing else checks that those three agree, so a missed bump or
- * a mistyped tag would ship silently. This test ties them together.
+ * The release flow (see `docs/development.md#release`) is mechanical: bump
+ * `package.json`, move the `[Unreleased]` entries under a dated `## [X.Y.Z]`
+ * heading, tag `main`, and push the tag with `main`. Nothing else checks that
+ * those three agree, so a missed bump or a mistyped tag would ship silently.
+ * This test ties them together.
  *
  * The same flow bumps the install pins the entry READMEs and the getting-started
  * guide offer as the copy-paste way to hold a release, so those are checked

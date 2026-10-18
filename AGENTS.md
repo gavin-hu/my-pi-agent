@@ -22,7 +22,6 @@ bun run test    # bun test --parallel=4 --timeout 30000
   serial suite. Reproduce it locally as `docs/development.md` describes; do not
   commit the peer bump.
 - Run any test you add or change and iterate until it passes.
-- Do not commit unless the user asks.
 
 ## Git workflow (`main` treated as protected)
 
@@ -34,12 +33,14 @@ local merge into `main` is allowed; a pull request is optional.
 
 - **Start every task in a worktree.** Under Pi with this package loaded, use
   `enter_worktree <name>`; otherwise
-  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. One worktree per
-  task; keep the `main` checkout clean.
+  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It branches from
+  `origin/main`, which lags the local `main` here, so rebase onto `main` right
+  after entering. One worktree per task; keep the `main` checkout clean.
 - **Ask before ending the task.** When the work is done, ask the user how to
   reconcile the branch (commit, merge, keep, or discard) and only call
   `exit_worktree` (or `git worktree remove`) after they decide. Never exit on
-  your own initiative, so uncommitted work is not discarded without a choice.
+  your own initiative, so uncommitted work is not discarded without a choice,
+  and never commit unless the user asks.
 - Before committing: run `bun run check`, check `git status`, and stage explicit
   paths. Never `git add -A` / `git add .`.
 - Never `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, or
@@ -52,61 +53,32 @@ local merge into `main` is allowed; a pull request is optional.
 ## Release
 
 Distribution is git and npm: `main` is installable as a git Pi package, and every
-release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`
-plus a matching GitHub release whose body is that version's `CHANGELOG.md`
-section, heading included, and an `npm publish` of the package. This section is
-the source of truth; the user-facing copy is `docs/development.md`, so keep the
-two in sync.
-Prepare it on a branch like any other change:
+release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`, a
+matching GitHub release whose body is that version's `CHANGELOG.md` section with
+the heading included, and an `npm publish` of the package.
 
-`npm publish` is irreversible and publishes publicly: get the user's approval
-for that specific run before executing it, and treat approval for an earlier
-release as expired. Stop and ask rather than publishing to keep the steps in
-sequence.
+The steps are normative in
+[`docs/development.md`](./docs/development.md#release) — read them there before
+starting, and prepare the release on a branch in a worktree like any other
+change. This section holds only what an agent must not get wrong:
 
-Curate `[Unreleased]` before the release commit: read it against
-`git log <last-tag>..main` so every user-visible change has exactly one scoped
-bullet, with no bullet describing a state that was reverted earlier in the same
-window.
-
-1. Bump `version` in `package.json`, and the `@vX.Y.Z` install pins in
-   `README.md`, `README.zh-CN.md`, and `docs/getting-started.md`;
-   `test/release.test.ts` fails on a pin that still names the old version.
-2. In `CHANGELOG.md`, move the `## [Unreleased]` entries under
-   `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
-   update the link refs at the bottom: `[X.Y.Z]` points at the new release URL
-   and `[Unreleased]` compares from `vX.Y.Z`.
-3. Run `bun run check`.
-4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
-5. Tag `main`'s HEAD (the merge commit, or the branch tip when the merge
-   fast-forwards) and push `main` with it:
-
-   ```bash
-   git tag -a vX.Y.Z -m "vX.Y.Z"
-   git push origin main && git push origin vX.Y.Z
-   ```
-
-6. Publish the release from that changelog section:
-
-   ```bash
-   bun run release:notes X.Y.Z > section.md
-   gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
-   rm section.md
-   ```
-
-7. Publish the npm package from the same commit (`publishConfig.access` is
-   `public`; the `pi-package` keyword and `pi` manifest make it a Pi package),
-   only after the user approves that specific run.
-   Name the registry explicitly: a machine whose default registry is a read-only
-   mirror serves reads but rejects the publish with `E401`.
-
-   ```bash
-   npm publish --registry https://registry.npmjs.org/
-   ```
-
-GitHub marks the release with the newest creation date as "Latest", so after
-creating a release for an older version, run `gh release edit vX.Y.Z --latest`
-on the newest tag. Publishing a draft does not change which release is latest.
+- `npm publish` is irreversible and publishes publicly: get the user's approval
+  for that specific run before executing it, and treat approval for an earlier
+  release as expired. Stop and ask rather than skipping ahead to keep the steps
+  in sequence.
+- Push the tag with `main`, never after it: `git push origin vX.Y.Z main`. A
+  `main`-first push races CI's `fetch-depth: 0` checkout, and the first release
+  job to start before the tag arrives fails `test/release.test.ts` with "newest
+  git tag is the package version". Re-running that job clears it.
+- The `[Unreleased]` bullet lands in the same commit as the change it describes,
+  which makes the release commit mechanical. Read `[Unreleased]` against
+  `git log <last-tag>..main` before making it: every user-visible change needs
+  exactly one scoped bullet, and no bullet may describe a state that was
+  reverted earlier in the same window.
+- After creating a release for an older version, run
+  `gh release edit vX.Y.Z --latest` on the newest tag: GitHub marks the newest
+  creation date as "Latest", and publishing a draft does not change which
+  release is latest.
 
 ## Invariants
 
@@ -124,7 +96,7 @@ why.
   (or a custom entry) and is rebuilt from `ctx.sessionManager.getBranch()`;
   widgets are derived, never authoritative.
 - Sanitize model text at the boundary before it reaches a widget or the
-  terminal.
+  terminal; `lib/tui/README.md` names the helper for each case.
 - A rejected tool call returns an error carrying the previous state; never
   half-apply.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
@@ -157,71 +129,21 @@ renderer change is measured, and its determinism gate runs in the suite.
 Follow Pi's built-in TUI design system; do not invent a private visual
 language. Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
 and [Themes](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/themes.md)
-docs are normative. In this package the shared implementation is the `lib/tui/`
-design system — [`tokens.ts`](./lib/tui/tokens.ts) (semantic roles),
-[`chrome.ts`](./lib/tui/chrome.ts) (screen frame and hints),
-[`rules.ts`](./lib/tui/rules.ts) (the rule grammar and glyph),
-[`indent.ts`](./lib/tui/indent.ts) (the transcript block indent, with an optional rail prefix),
-[`rows.ts`](./lib/tui/rows.ts) (list rows, checkboxes, chips, empty states),
-[`columns.ts`](./lib/tui/columns.ts) (width math),
-[`gauge.ts`](./lib/tui/gauge.ts) (the gauge),
-[`line-pane.ts`](./lib/tui/line-pane.ts) (a scrollable log/match pane),
-[`status-controller.ts`](./lib/tui/status-controller.ts) (footer chips),
-[`glyphs.ts`](./lib/tui/glyphs.ts) (glyphs and status keys),
-[`tool.ts`](./lib/tui/tool.ts) (the tool-transcript kit: call title, width-safe
-call line, sanitized error, elapsed timer),
-[`render-cache.ts`](./lib/tui/render-cache.ts) (the per-instance line memo a
-component that derives its lines renders through), and
-[`cursor.ts`](./lib/tui/cursor.ts)
-(`ListCursor` by index, `IdCursor` by id) —
-use it rather than re-deriving chrome, glyphs, or scroll math.
+docs are normative, and [`lib/tui/README.md`](./lib/tui/README.md) is this
+package's contract for them: host components before custom code, the block
+grammar, the shared primitives, color roles, width math, sanitizing at the
+boundary, keyboard bindings, and the render rules.
 
-- Prefer the host before custom code: `ctx.ui.select` / `confirm` / `input` /
-  `editor`, then `notify` / `setStatus` / `setWidget`, then the pi-tui
-  components. Reach for `ctx.ui.custom()` or a tool/entry renderer only when a
-  surface needs its own layout or input, and never build a second terminal
-  renderer.
-- Match the built-in block grammar: one leading blank line per transcript
-  block, nothing trailing (the host owns spacing); frame screens with a plain
-  `─` rule, not box corners.
-- Reach for a `lib/tui/` primitive before composing your own: `titleRule` /
-  `titleRule` for a heading, `listRow` / `checkbox` for a list, `gaugeBar` for
-  a meter, `emptyState` for an empty screen, and `splitRow` / `fitCells` for two
-  columns.
-- Speak the built-in visual language: resolve colors through a `lib/tui/tokens.ts`
-  role (`paint(theme, role, text)`), never a literal ANSI, hex, or a Pi token
-  named inline; use `screenHint` / Pi's `keyHint` for the hint row, and the
-  shared `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead
-  of retyped literals.
-- Width is terminal columns, not string length. Use `visibleWidth`,
-  `truncateToWidth`, and `wrapTextWithAnsi`; every returned line must fit the
-  width, and width arithmetic starts from `Math.max(1, width)`.
-- Compact by default, expand for detail: label-first one-line widgets, with
-  more revealed on demand or on a dedicated screen.
-- Sanitize at the boundary: run model- or file-authored text through
-  `sanitizeLine` before it reaches a widget or the terminal — it neutralizes
-  control characters and then collapses to one line. `stripControlChars` alone
-  is for multi-line text that must keep its newlines.
-- Keyboard first, and consistent. Use `matchesKey` / `Key`, give every mouse
-  interaction a keyboard path, and keep the shared bindings: Esc closes,
-  `j` / `k` and arrows scroll, `g` / `G` and Home/End jump.
+Three traps are worth repeating here because each one fails silently:
+
 - Reserve the name `focused` for a real focus `get` / `set` pair. Pi's
-  `setFocus` duck-types a focusable with `"focused" in component` and then
-  assigns a boolean there, so any other member of that name — a method, say — is
-  silently shadowed and the first call throws at runtime.
-- Components are derived and cheap. Implement `Component` with `invalidate()`,
-  update an instance in place, read live state on each render, and call
-  `requestRender()` only after state changes; never hold themed strings in
-  state unless `invalidate()` rebuilds them. A widget is derived from state,
-  never authoritative. Pi renders the whole tree every frame, so a component that
-  derives its lines from another one memoizes them with `RenderCache` (keyed on
-  width and the source lines' identity) and drops the memo in `invalidate()`;
-  re-deriving every line per frame is what makes a long transcript feel slow.
-- Size from the live viewport: `titleRule`, `viewportRows`, `fitRows`, and
-  `ListCursor`, fed by a `ViewportRowsSource` (number or getter) with a sensible
-  fallback, so a resize is picked up. List screens stay docked; only the plan
-  review uses `FULL_SCREEN_OVERLAY`.
-- A TUI module gets a sibling `tui.test.ts`; see [`test/README.md`](./test/README.md).
+  `setFocus` duck-types with `"focused" in component` and then assigns a boolean
+  there, so any other member of that name is shadowed and the first call throws.
+- A widget is derived from state, never authoritative: read live state on each
+  render and call `requestRender()` only after a change.
+- A component that derives its lines from another component's output memoizes
+  them with `RenderCache` and drops the memo in `invalidate()`. Re-deriving every
+  line per frame is what makes a long transcript feel slow.
 
 ## Prompt conventions
 
@@ -307,8 +229,8 @@ One doc per audience. Do not duplicate across them:
   `references/` for exhaustive listings a hand edit is checked against.
 - `AGENTS.md` (this file) — the machine-facing contract and the repo
   invariants.
-- `extensions/<name>/README.md`, `lib/README.md`, `test/README.md` — the deep
-  per-area contracts.
+- `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
+  `test/README.md` — the deep per-area contracts.
 
 When behavior changes, update the catalog (`docs/extensions.md`), the relevant
 `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
@@ -322,6 +244,8 @@ When behavior changes, update the catalog (`docs/extensions.md`), the relevant
 - [`test/README.md`](./test/README.md) — test principles, co-located layout,
   and helper conventions.
 - [`lib/README.md`](./lib/README.md) — shared helpers, host seams, module rules.
+- [`lib/tui/README.md`](./lib/tui/README.md) — the terminal design system every
+  interactive surface draws with.
 - [`extensions/<name>/README.md`](./extensions/) — each extension's full tool
   and command surface, Pi integration contract, design notes, and file map.
 - [`extensions/worktree/README.md`](./extensions/worktree/README.md) — the

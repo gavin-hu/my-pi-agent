@@ -23,8 +23,9 @@ How the `list_worktrees` call and its result look in the transcript — the call
 ## What it does
 
 - `enter_worktree` creates `<repo>/.pi/worktrees/<name>` on branch
-  `worktree-<name>` (or enters an existing worktree by `path`) and rebinds the
-  session's working root to it.
+  `worktree-<name>` cut from `origin/main` (or enters an existing worktree by
+  `path`) and rebinds the session's working root to it. `origin/main` lags the
+  local `main` when a push is infrequent, so rebase onto `main` after entering.
 - `exit_worktree` returns to the main checkout. A clean worktree is removed
   automatically; one with uncommitted changes or new commits prompts (or is
   kept in non-interactive mode). A branch that still holds work (uncommitted
