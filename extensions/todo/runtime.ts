@@ -4,10 +4,10 @@
  *
  * The list is reconstructed from the active branch on session start and tree
  * navigation, and the persistent widget mirrors it whenever it changes. Only
- * interactive (`tui`) sessions get a widget; the widget's row budget and
- * whether a finished list stays visible come from the todo config. The same
- * runtime carries the lag-tracking flags the `agent_before_settle` reminder
- * reads, so they reset with the session and the branch.
+ * interactive (`tui`) sessions get a widget; whether a finished list stays
+ * visible comes from the todo config. The same runtime carries the lag-tracking
+ * counters the `agent_before_settle` reminder reads, so they reset with the
+ * session and the branch.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -53,11 +53,14 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 	let lastTuiCtx: ExtensionContext | undefined;
 	// True while a dock screen owns the editor slot; the rail stays hidden.
 	let suppressed = false;
-	// Lag tracking: `dirty` is set when a mutating tool runs and cleared by a
-	// todo update, `nudged` caps the reminder to one per user turn, and
-	// `nudgeActive` marks an injected reminder as current so `context` keeps it
-	// for the continuation and drops it on the next user turn.
-	let dirty = false;
+	// Lag tracking: `mutations` counts successful mutating calls since the list
+	// was last written, `touched` records that the model wrote or cleared the
+	// list this turn (so an explicit clear is not second-guessed), `nudged` caps
+	// the reminder to one per user turn, and `nudgeActive` marks an injected
+	// reminder as current so `context` keeps it for the continuation and drops it
+	// on the next user turn.
+	let mutations = 0;
+	let touched = false;
 	let nudged = false;
 	let nudgeActive = false;
 	// Screens watching the list (for example the open `/todos` screen) so they
@@ -104,13 +107,15 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 			todos = next;
 			// A todo update is the model syncing the list, so the lag is cleared.
 			// `nudged` is not: the reminder stays capped at one per user turn.
-			dirty = false;
+			mutations = 0;
+			touched = true;
 			syncWidget(ctx);
 			notify();
 		},
 		reconstruct: (ctx) => {
 			todos = reconstructTodos(ctx.sessionManager.getBranch());
-			dirty = false;
+			mutations = 0;
+			touched = false;
 			nudged = false;
 			nudgeActive = false;
 			syncWidget(ctx);
@@ -120,9 +125,9 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 			config = next;
 		},
 		noteWork: () => {
-			dirty = true;
+			mutations++;
 		},
-		nudgeDue: () => shouldNudge(dirty, nudged, todos),
+		nudgeDue: () => shouldNudge({ mutations, touched, nudged, todos }),
 		markNudged: () => {
 			nudged = true;
 			nudgeActive = true;
@@ -132,7 +137,8 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 		},
 		isNudgeActive: () => nudgeActive,
 		resetNudge: () => {
-			dirty = false;
+			mutations = 0;
+			touched = false;
 			nudged = false;
 		},
 		onChange: (listener) => {

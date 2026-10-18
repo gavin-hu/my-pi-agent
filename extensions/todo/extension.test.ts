@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import todo, { TODO_NUDGE_CONTEXT_TYPE } from "./index.ts";
-import { TODO_NUDGE_MARKER } from "./nudge.ts";
+import { EMPTY_LIST_MUTATIONS, TODO_NUDGE_MARKER } from "./nudge.ts";
 import { TOOL_NAME } from "./tools.ts";
 import type { Todo } from "./types.ts";
 import { emit, emitFirst, makeFakePi } from "../../test/helpers/fakes.ts";
@@ -132,11 +132,11 @@ describe("todo extension", () => {
 
 describe("todo lag reminder", () => {
 	async function started(branch: unknown[] = []) {
-		const { pi, handlers } = makeFakePi();
+		const { pi, handlers, tools } = makeFakePi();
 		todo(pi);
 		const { ctx } = fakeCtx({ mode: "print", branch });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		return { pi, handlers, ctx };
+		return { pi, handlers, tools, ctx };
 	}
 
 	const settle = { type: "agent_before_settle", outcome: "completed", entries: [] } as const;
@@ -192,6 +192,29 @@ describe("todo lag reminder", () => {
 		await emit(pi, "tool_execution_end", work, ctx);
 		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
 		expect(result).toBeUndefined();
+	});
+
+	test("does not remind for a single edit with no list", async () => {
+		const { pi, ctx } = await started();
+		await emit(pi, "tool_execution_end", work, ctx);
+		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeUndefined();
+	});
+
+	test("reminds after repeated work with no list", async () => {
+		const { pi, ctx } = await started();
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
+
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result.continue).toBe(true);
+		expect(result.entries[0].content).toContain("no todo list was recorded");
+	});
+
+	test("does not second-guess a list the model cleared this turn", async () => {
+		const { pi, tools, ctx } = await started();
+		await tools.get(TOOL_NAME).execute("call-1", { todos: [] }, undefined, undefined, ctx);
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
+
+		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeUndefined();
 	});
 
 	test("reminds at most once per user turn", async () => {
