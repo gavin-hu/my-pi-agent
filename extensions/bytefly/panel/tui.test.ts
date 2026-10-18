@@ -22,6 +22,14 @@ const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolv
 
 const packageItem = (name: string, enabled = true): ResourceItem => packageExtension(name, enabled) as ResourceItem;
 
+/** A copy of `source` with the leaf at `path` set; the writer's shape, in memory. */
+function withLeaf(source: Record<string, unknown>, path: readonly string[], value: unknown): Record<string, unknown> {
+	const [head, ...rest] = path;
+	if (head === undefined) return source;
+	if (rest.length === 0) return { ...source, [head]: value };
+	return { ...source, [head]: withLeaf((source[head] as Record<string, unknown> | undefined) ?? {}, rest, value) };
+}
+
 /** A settings surface over an in-memory snapshot, for rendering and interaction. */
 function makeSettings(
 	options: { app?: Settings; global?: Record<string, unknown>; project?: Record<string, unknown> } = {},
@@ -48,7 +56,7 @@ function makeSettings(
 			} else if (config) {
 				const document = scope === "global" ? snapshot.global : snapshot.project;
 				const section = (document[config.section] ?? {}) as Record<string, unknown>;
-				document[config.section] = { ...section, [config.key]: storedValue(view, next.value) };
+				document[config.section] = withLeaf(section, config.path, storedValue(view, next.value));
 			}
 			dirty = true;
 			changes.push(`${scope}:${id}`);
@@ -474,9 +482,10 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("5 settings");
+		expect(text).toContain("9 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
+		expect(text).toContain("Delivery method");
 		expect(text).toContain("Rail glyph");
 		expect(text).not.toContain("No settings yet.");
 		expect(text).not.toContain("plan/index.ts");
@@ -491,7 +500,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 5 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 9 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -503,7 +512,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 2 settings");
+		expect(text).toContain("Project · 6 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -519,7 +528,7 @@ describe("PanelComponent sections", () => {
 		// Project drops the app rows; the cursor lands on the nearest remaining row,
 		// not back at the top of the list.
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 2 settings");
+		expect(component.render(80).join("\n")).toContain("Project · 6 settings");
 		expect(selected()).toContain("Rail glyph");
 	});
 
@@ -530,7 +539,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 5 settings");
+		expect(refused).toContain("Global · 9 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 

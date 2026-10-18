@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `bytefly`: `/bytefly settings` grows from five rows to nine. The new rows
+  cover the notification delivery method, the proactive health check, and the
+  cost precision and recorded-cost fallback under new Diagnostics and Pricing
+  groups, and a `bytefly.json` row can now edit a nested leaf such as
+  `price.currency.decimals` without disturbing its siblings.
+
 ## [0.11.4] - 2026-10-18
 
 ### Added

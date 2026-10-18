@@ -11,7 +11,7 @@
 
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, type QuietStartup } from "@earendil-works/pi-coding-agent";
-import { readJson, SHARED_CONFIG_FILE, writeConfigValue } from "../../../lib/config.ts";
+import { readJson, SHARED_CONFIG_FILE, writeConfigValueAt } from "../../../lib/config.ts";
 import type { SettingsStore, WriteScope } from "../picker/types.ts";
 import {
 	countSettings,
@@ -123,10 +123,10 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 				} else {
 					const config = row.config;
 					if (!config) throw new Error(`Setting ${row.id} has no config section`);
-					writeConfigValue(
+					writeConfigValueAt(
 						configPath(scope, deps.cwd, deps.agentDir),
 						config.section,
-						config.key,
+						config.path,
 						storedValue(row, next.value),
 					);
 				}

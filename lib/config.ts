@@ -139,6 +139,22 @@ export function configSection(
 	return asRecord(raw?.[key]);
 }
 
+/**
+ * The value at `path` in a document or section, or `undefined` when a step is
+ * absent or not an object. A one-element path reads a top-level key, so this
+ * also answers "is this setting stated here" for the flat case. `raw` may be an
+ * untrusted JSON value or an already-normalized config object.
+ */
+export function configValueAt(raw: unknown, path: readonly string[]): unknown {
+	let current: unknown = raw;
+	for (const key of path) {
+		const record = asRecord(current);
+		if (!record) return undefined;
+		current = record[key];
+	}
+	return current;
+}
+
 /** Options for {@link loadConfigSection}. */
 export interface SectionOptions {
 	/** Agent directory override; `worktree` resolves it explicitly. */
@@ -197,10 +213,36 @@ function readEditableDocument(path: string): Record<string, unknown> {
  * malformed document.
  */
 export function writeConfigValue(path: string, section: string, key: string, value: unknown): void {
+	writeConfigValueAt(path, section, [key], value);
+}
+
+/**
+ * Set the leaf at `keyPath` in one top-level section, with the same guarantees
+ * as {@link writeConfigValue}: siblings, other sections, and metadata survive,
+ * and the file and the section are created when absent. Intermediate objects
+ * are created as needed; a non-object in the way is replaced, because a refused
+ * edit would leave a hand-written typo unfixable from the screen. Refuses a
+ * malformed document and an empty path.
+ */
+export function writeConfigValueAt(path: string, section: string, keyPath: readonly string[], value: unknown): void {
+	if (keyPath.length === 0) throw new Error(`Cannot update ${path}: empty key path`);
 	const document = readEditableDocument(path);
 	const current = configSection(document, section) ?? {};
-	document[section] = { ...current, [key]: value };
+	document[section] = setPath(current, keyPath, value);
 	writeConfigFile(path, document);
+}
+
+/** Copy `source` with the leaf at `path` replaced; every sibling key is kept. */
+function setPath(source: Record<string, unknown>, path: readonly string[], value: unknown): Record<string, unknown> {
+	const [head] = path;
+	const next = { ...source };
+	if (head === undefined) return next;
+	if (path.length === 1) {
+		next[head] = value;
+		return next;
+	}
+	next[head] = setPath(asRecord(source[head]) ?? {}, path.slice(1), value);
+	return next;
 }
 
 /**

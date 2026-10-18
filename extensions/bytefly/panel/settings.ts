@@ -1,19 +1,22 @@
 /**
  * The Settings section's catalogue and value arithmetic.
  *
- * A row is one preference: an app setting from Pi's `settings.json`, or a key
- * in a `bytefly.json` section. This module is pure — descriptors, a snapshot to
+ * A row is one preference: an app setting from Pi's `settings.json`, or a leaf
+ * of a `bytefly.json` section. This module is pure — descriptors, a snapshot to
  * views, cycling, validation, and grouping — so the screen and the runtime share
  * one definition and the tests need no host.
  *
- * The catalogue is deliberately curated. The schema walker is a later step;
- * five rows prove the row types (boolean checkbox, enum cycle), both scopes,
- * and both write paths first.
+ * The catalogue is deliberately curated: one proven row family at a time. It
+ * covers scalars (a boolean checkbox, an enum cycle), both scopes, both write
+ * paths, and — with `price.currency.decimals` — one nested key. Arrays, nested
+ * tariffs, credentials, and free text are still JSON edits.
  */
 
-import { configSection } from "../../../lib/config.ts";
+import { configSection, configValueAt } from "../../../lib/config.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../chrome.ts";
+import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
+import { DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig } from "../footer/price/config.ts";
 import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 
@@ -38,8 +41,14 @@ export interface SettingGroup {
 	label: string;
 }
 
-/** A `bytefly.json` location for a row. */
-type SettingConfig = { section: "notify"; key: "enabled" } | { section: "chrome"; key: "rail" };
+/** The `bytefly.json` sections the Settings section can read and write. */
+export type ConfigSectionName = "notify" | "chrome" | "doctor" | "price";
+
+/** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
+export interface SettingConfig {
+	section: ConfigSectionName;
+	path: readonly string[];
+}
 
 /** The static definition of one preference. */
 export interface SettingDescriptor {
@@ -55,7 +64,9 @@ export interface SettingDescriptor {
 	options: readonly SettingOption[];
 	/** The value shown when neither file sets the key. */
 	fallback: string;
-	/** For `bytefly` rows: the section and key this row edits. */
+	/** The JSON type the row stores; string when omitted. */
+	json?: "boolean" | "number";
+	/** For `bytefly` rows: the section and leaf path this row edits. */
 	config?: SettingConfig;
 }
 
@@ -86,6 +97,8 @@ export interface GroupedSettings {
 export const SETTING_GROUPS: readonly SettingGroup[] = [
 	{ key: "startup", label: "Startup" },
 	{ key: "notifications", label: "Notifications" },
+	{ key: "diagnostics", label: "Diagnostics" },
+	{ key: "pricing", label: "Pricing" },
 	{ key: "transcript", label: "Transcript" },
 	{ key: "terminal", label: "Terminal" },
 ];
@@ -103,6 +116,22 @@ const RAIL_OPTIONS: readonly SettingOption[] = [
 	{ value: "▏", label: "▏" },
 ];
 
+/** The notify section's delivery methods, labeled by the surface each reaches. */
+const METHOD_OPTIONS: readonly SettingOption[] = [
+	{ value: "auto", label: "Auto" },
+	{ value: "osc777", label: "OSC 777" },
+	{ value: "osc99", label: "OSC 99" },
+	{ value: "toast", label: "Windows toast" },
+	{ value: "osascript", label: "macOS" },
+	{ value: "notify-send", label: "Linux" },
+];
+
+/** Cost precision 0-4, the range the `price` section clamps `decimals` to. */
+const DECIMALS_OPTIONS: readonly SettingOption[] = [0, 1, 2, 3, 4].map((value) => ({
+	value: String(value),
+	label: String(value),
+}));
+
 /** The v1 catalogue, in screen order. */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
@@ -113,6 +142,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		source: "app",
 		kind: "boolean",
 		fallback: "false",
+		json: "boolean",
 		options: ON_OFF,
 	},
 	{
@@ -123,8 +153,56 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "false",
+		json: "boolean",
 		options: ON_OFF,
-		config: { section: "notify", key: "enabled" },
+		config: { section: "notify", path: ["enabled"] },
+	},
+	{
+		id: "notify.method",
+		group: "notifications",
+		label: "Delivery method",
+		description: "How a notification is delivered; Auto picks from the terminal, then the platform.",
+		source: "bytefly",
+		kind: "enum",
+		fallback: "auto",
+		options: METHOD_OPTIONS,
+		config: { section: "notify", path: ["method"] },
+	},
+	{
+		id: "doctor.proactive",
+		group: "diagnostics",
+		label: "Proactive health check",
+		description: "Probe enabled extensions at session start and warn about a missing requirement.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "doctor", path: ["proactive"] },
+	},
+	{
+		id: "price.currency.decimals",
+		group: "pricing",
+		label: "Cost decimals",
+		description: "Digits shown after the decimal point in the footer's cost total.",
+		source: "bytefly",
+		kind: "enum",
+		fallback: "2",
+		json: "number",
+		options: DECIMALS_OPTIONS,
+		config: { section: "price", path: ["currency", "decimals"] },
+	},
+	{
+		id: "price.fallbackToRecordedCost",
+		group: "pricing",
+		label: "Recorded cost fallback",
+		description: "Show Pi's recorded cost for a model with no configured rate, instead of no total.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "price", path: ["fallbackToRecordedCost"] },
 	},
 	{
 		id: "chrome.rail",
@@ -135,7 +213,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		kind: "enum",
 		fallback: GLYPHS.divider,
 		options: RAIL_OPTIONS,
-		config: { section: "chrome", key: "rail" },
+		config: { section: "chrome", path: ["rail"] },
 	},
 	{
 		id: "outputPad",
@@ -145,6 +223,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		source: "app",
 		kind: "enum",
 		fallback: "1",
+		json: "number",
 		options: [
 			{ value: "0", label: "0" },
 			{ value: "1", label: "1" },
@@ -158,6 +237,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		source: "app",
 		kind: "boolean",
 		fallback: "false",
+		json: "boolean",
 		options: ON_OFF,
 	},
 ];
@@ -204,14 +284,34 @@ function appValue(snapshot: SettingsSnapshot, row: SettingDescriptor): { value: 
 	}
 }
 
-/** Whether a project section sets `key`, so the origin is truthful. */
-function originFor(config: SettingConfig, snapshot: SettingsSnapshot, scope: WriteScope): SettingOrigin {
-	const globalRaw = configSection(snapshot.global, config.section);
-	const projectRaw = scope === "project" ? configSection(snapshot.project, config.section) : undefined;
-	if (projectRaw && config.key in projectRaw) return "project";
-	if (scope === "project") return "inherited";
-	return globalRaw && config.key in globalRaw ? "global" : "default";
+/** Whether a document states this row's leaf, so the origin is truthful. */
+function statesConfig(config: SettingConfig, document: Record<string, unknown>): boolean {
+	return configValueAt(document, [config.section, ...config.path]) !== undefined;
 }
+
+/** Where the effective value came from: the project file, the personal one, or nothing. */
+function originFor(config: SettingConfig, snapshot: SettingsSnapshot, scope: WriteScope): SettingOrigin {
+	if (scope === "project") return statesConfig(config, snapshot.project) ? "project" : "inherited";
+	return statesConfig(config, snapshot.global) ? "global" : "default";
+}
+
+/** Read one leaf of a `bytefly.json` section: project over global over defaults. */
+type SectionReader = (
+	globalRaw: Record<string, unknown> | undefined,
+	projectRaw: Record<string, unknown> | undefined,
+	path: readonly string[],
+) => unknown;
+
+const SECTION_READERS: Record<ConfigSectionName, SectionReader> = {
+	notify: (globalRaw, projectRaw, path) =>
+		configValueAt(normalizeNotifyConfig(projectRaw, normalizeNotifyConfig(globalRaw, DEFAULT_NOTIFY_CONFIG)), path),
+	chrome: (globalRaw, projectRaw, path) =>
+		configValueAt(normalizeChromeConfig(projectRaw, normalizeChromeConfig(globalRaw, DEFAULT_CHROME_CONFIG)), path),
+	doctor: (globalRaw, projectRaw, path) =>
+		configValueAt(normalizeDoctorConfig(projectRaw, normalizeDoctorConfig(globalRaw, DEFAULT_DOCTOR_CONFIG)), path),
+	price: (globalRaw, projectRaw, path) =>
+		configValueAt(normalizeByteflyConfig(projectRaw, normalizeByteflyConfig(globalRaw, DEFAULT_BYTEFLY_CONFIG)), path),
+};
 
 /** Read a `bytefly.json` preference, normalized over the global section. */
 function byteflyValue(
@@ -223,15 +323,11 @@ function byteflyValue(
 	if (!config) throw new Error(`Setting ${row.id} has no config section`);
 	const globalRaw = configSection(snapshot.global, config.section);
 	const projectRaw = scope === "project" ? configSection(snapshot.project, config.section) : undefined;
-	const origin = originFor(config, snapshot, scope);
-	if (config.section === "notify") {
-		const global = normalizeNotifyConfig(globalRaw, DEFAULT_NOTIFY_CONFIG);
-		const effective = normalizeNotifyConfig(projectRaw, global);
-		return { value: effective.enabled ? "true" : "false", origin };
-	}
-	const global = normalizeChromeConfig(globalRaw, DEFAULT_CHROME_CONFIG);
-	const effective = normalizeChromeConfig(projectRaw, global);
-	return { value: effective.rail, origin };
+	const leaf = SECTION_READERS[config.section](globalRaw, projectRaw, config.path);
+	return {
+		value: leaf === undefined ? row.fallback : String(leaf),
+		origin: originFor(config, snapshot, scope),
+	};
 }
 
 /** Build the rows for `scope` from a snapshot. */
@@ -248,19 +344,15 @@ export function nextValue(row: SettingDescriptor, current: string): SettingOptio
 	return row.options[(index + 1) % row.options.length] as SettingOption;
 }
 
-/** The JSON value a raw option stores, per row. */
+/** The JSON value a raw option stores, per the row's declared JSON type. */
 export function storedValue(row: SettingDescriptor, raw: string): unknown {
-	switch (row.id) {
-		case "outputPad":
-			return raw === "1" ? 1 : 0;
-		case "byteflyUi":
-		case "notify.enabled":
-		case "showHardwareCursor":
+	switch (row.json) {
+		case "boolean":
 			return raw === "true";
-		case "chrome.rail":
-			return raw;
+		case "number":
+			return Number(raw);
 		default:
-			throw new Error(`Unknown setting ${row.id}`);
+			return raw;
 	}
 }
 

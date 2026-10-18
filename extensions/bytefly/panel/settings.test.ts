@@ -32,11 +32,24 @@ function view(id: string, scope: WriteScope, snap: SettingsSnapshot) {
 	return found;
 }
 
+/** The `bytefly.json` document that states one row's leaf, for a read test. */
+function documentFor(row: SettingDescriptor, value: unknown): Record<string, unknown> {
+	const config = row.config;
+	if (!config) return {};
+	let patch: unknown = value;
+	for (const key of [...config.path].reverse()) patch = { [key]: patch };
+	return { [config.section]: patch };
+}
+
 describe("catalogue", () => {
-	test("lists the five v1 rows in screen order", () => {
+	test("lists the curated rows in screen order", () => {
 		expect(SETTING_ROWS.map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"notify.enabled",
+			"notify.method",
+			"doctor.proactive",
+			"price.currency.decimals",
+			"price.fallbackToRecordedCost",
 			"chrome.rail",
 			"outputPad",
 			"showHardwareCursor",
@@ -47,20 +60,41 @@ describe("catalogue", () => {
 		expect(rowsForScope("global").map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"notify.enabled",
+			"notify.method",
+			"doctor.proactive",
+			"price.currency.decimals",
+			"price.fallbackToRecordedCost",
 			"chrome.rail",
 			"outputPad",
 			"showHardwareCursor",
 		]);
-		expect(rowsForScope("project").map((entry) => entry.id)).toEqual(["notify.enabled", "chrome.rail"]);
-		expect(countSettings("global")).toBe(5);
-		expect(countSettings("project")).toBe(2);
+		expect(rowsForScope("project").map((entry) => entry.id)).toEqual([
+			"notify.enabled",
+			"notify.method",
+			"doctor.proactive",
+			"price.currency.decimals",
+			"price.fallbackToRecordedCost",
+			"chrome.rail",
+		]);
+		expect(countSettings("global")).toBe(9);
+		expect(countSettings("project")).toBe(6);
 	});
 
 	test("orders the groups and drops an empty one", () => {
-		expect(SETTING_GROUPS.map((group) => group.key)).toEqual(["startup", "notifications", "transcript", "terminal"]);
-		const grouped = groupViews(settingViews(snapshot(), "project"));
-		expect(grouped.map((group) => group.key)).toEqual(["notifications", "transcript"]);
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 1]);
+		expect(SETTING_GROUPS.map((group) => group.key)).toEqual([
+			"startup",
+			"notifications",
+			"diagnostics",
+			"pricing",
+			"transcript",
+			"terminal",
+		]);
+		const grouped = groupViews(settingViews(snapshot(), "global"));
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 2, 1, 2, 2, 1]);
+
+		const project = groupViews(settingViews(snapshot(), "project"));
+		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
+		expect(project.map((group) => group.views.length)).toEqual([2, 1, 2, 1]);
 	});
 });
 
@@ -70,28 +104,55 @@ describe("values", () => {
 		expect(global.map((entry) => [entry.id, entry.value, entry.valueLabel, entry.origin])).toEqual([
 			["byteflyUi", "false", "Off", "default"],
 			["notify.enabled", "false", "Off", "default"],
+			["notify.method", "auto", "Auto", "default"],
+			["doctor.proactive", "true", "On", "default"],
+			["price.currency.decimals", "2", "2", "default"],
+			["price.fallbackToRecordedCost", "true", "On", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
 			["outputPad", "1", "1", "default"],
 			["showHardwareCursor", "false", "Off", "default"],
 		]);
 
 		const project = settingViews(snapshot(), "project");
-		expect(project.map((entry) => entry.origin)).toEqual(["inherited", "inherited"]);
+		expect(project.map((entry) => entry.origin)).toEqual([
+			"inherited",
+			"inherited",
+			"inherited",
+			"inherited",
+			"inherited",
+			"inherited",
+		]);
 	});
 
 	test("reads configured app and bytefly values", () => {
 		const snap = snapshot({
 			app: { quietStartup: true, outputPad: 0, showHardwareCursor: true } as Settings,
-			global: { notify: { enabled: true }, chrome: { rail: "│" } },
+			global: {
+				notify: { enabled: true, method: "osc99" },
+				chrome: { rail: "│" },
+				doctor: { proactive: false },
+				price: { currency: { symbol: "$", decimals: 4 }, fallbackToRecordedCost: false },
+			},
 		});
 
 		expect(view("byteflyUi", "global", snap).valueLabel).toBe("On");
 		expect(view("byteflyUi", "global", snap).origin).toBe("global");
 		expect(view("notify.enabled", "global", snap).valueLabel).toBe("On");
 		expect(view("notify.enabled", "global", snap).origin).toBe("global");
+		expect(view("notify.method", "global", snap).valueLabel).toBe("OSC 99");
+		expect(view("doctor.proactive", "global", snap).valueLabel).toBe("Off");
+		expect(view("price.currency.decimals", "global", snap).value).toBe("4");
+		expect(view("price.fallbackToRecordedCost", "global", snap).valueLabel).toBe("Off");
 		expect(view("chrome.rail", "global", snap).value).toBe("│");
 		expect(view("outputPad", "global", snap).value).toBe("0");
 		expect(view("showHardwareCursor", "global", snap).valueLabel).toBe("On");
+	});
+
+	test("clamps a nested value the loader would clamp", () => {
+		const snap = snapshot({ global: { price: { currency: { decimals: 9 } } } });
+
+		expect(view("price.currency.decimals", "global", snap).value).toBe("4");
+		expect(view("price.currency.decimals", "global", snap).origin).toBe("global");
 	});
 
 	test("reads a hand-set header-only startup as bytefly UI off", () => {
@@ -103,12 +164,14 @@ describe("values", () => {
 
 	test("inherits the global value in Project scope until a project key overrides it", () => {
 		const snap = snapshot({
-			global: { notify: { enabled: true }, chrome: { rail: "│" } },
-			project: { notify: { enabled: false } },
+			global: { notify: { enabled: true }, chrome: { rail: "│" }, price: { currency: { decimals: 2 } } },
+			project: { notify: { enabled: false }, price: { currency: { decimals: 3 } } },
 		});
 
 		expect(view("notify.enabled", "project", snap).valueLabel).toBe("Off");
 		expect(view("notify.enabled", "project", snap).origin).toBe("project");
+		expect(view("price.currency.decimals", "project", snap).value).toBe("3");
+		expect(view("price.currency.decimals", "project", snap).origin).toBe("project");
 		expect(view("chrome.rail", "project", snap).value).toBe("│");
 		expect(view("chrome.rail", "project", snap).origin).toBe("inherited");
 	});
@@ -142,6 +205,18 @@ describe("cycling", () => {
 		expect(nextValue(row("chrome.rail"), "|").value).toBe(GLYPHS.divider);
 	});
 
+	test("cycles the delivery method through every surface and wraps", () => {
+		const method = row("notify.method");
+		expect(nextValue(method, "auto").value).toBe("osc777");
+		expect(nextValue(method, "notify-send").value).toBe("auto");
+	});
+
+	test("cycles the cost precision and wraps at the top of the range", () => {
+		const decimals = row("price.currency.decimals");
+		expect(nextValue(decimals, "2").value).toBe("3");
+		expect(nextValue(decimals, "4").value).toBe("0");
+	});
+
 	test("keeps every rail option to one visible column", () => {
 		for (const option of row("chrome.rail").options) {
 			expect([...option.value]).toHaveLength(1);
@@ -157,7 +232,26 @@ describe("stored values", () => {
 		expect(storedValue(row("outputPad"), "0")).toBe(0);
 		expect(storedValue(row("outputPad"), "1")).toBe(1);
 		expect(storedValue(row("notify.enabled"), "true")).toBe(true);
+		expect(storedValue(row("notify.method"), "osc99")).toBe("osc99");
+		expect(storedValue(row("price.currency.decimals"), "3")).toBe(3);
 		expect(storedValue(row("chrome.rail"), "│")).toBe("│");
+	});
+
+	test("declares a JSON type for every boolean row", () => {
+		for (const entry of SETTING_ROWS.filter((candidate) => candidate.kind === "boolean")) {
+			expect(entry.json).toBe("boolean");
+			expect(entry.options.map((option) => option.value)).toEqual(["false", "true"]);
+		}
+	});
+
+	test("round-trips every curated option through its stored value", () => {
+		for (const entry of SETTING_ROWS.filter((candidate) => candidate.source === "bytefly")) {
+			for (const option of entry.options) {
+				const snap = snapshot({ global: documentFor(entry, storedValue(entry, option.value)) });
+				const read = view(entry.id, "global", snap);
+				expect([entry.id, option.value, read.value]).toEqual([entry.id, option.value, option.value]);
+			}
+		}
 	});
 
 	test("accepts only curated options", () => {
