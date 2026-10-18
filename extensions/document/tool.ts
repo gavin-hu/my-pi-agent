@@ -18,6 +18,7 @@ import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
 import { reuseText } from "../../lib/tui/chrome.ts";
 import { elapsedSuffix, reuseCallText, startToolProgress, syncElapsedTimer } from "../../lib/tui/tool.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
+import { withDeadline } from "./deadline.ts";
 import type { DocExtractor } from "./extract/file.ts";
 import { detectFormat, supportedExtensions, unsupportedHint, type FormatId } from "./formats.ts";
 import { formatDoc } from "./paging.ts";
@@ -63,6 +64,8 @@ async function statFile(abs: string, display: string, maxFileBytes: number): Pro
 /** Per-format extractor overrides, for tests; the format table supplies the rest. */
 export interface DocToolDeps {
 	extractors?: Partial<Record<FormatId, DocExtractor>>;
+	/** Test seam: replace the configured `document.extractTimeoutMs`. */
+	timeoutMs?: number;
 }
 
 export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void {
@@ -71,7 +74,8 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 		label: "Read document",
 		description:
 			"Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file and return its extracted text, pageable with " +
-			"startIndex/maxChars. Extraction runs in process, so no external tools are needed.",
+			"startIndex/maxChars. Extraction runs in process, so no external tools are needed; a read that outlasts " +
+			"document.extractTimeoutMs fails with the limit named.",
 		promptSnippet: "Read a PDF, DOCX, DOC, ODT, RTF, or XLSX as text, paged with startIndex/maxChars.",
 		promptGuidelines: [
 			"Use read_doc for .pdf/.docx/.doc/.odt/.rtf/.xlsx; the built-in read tool is for text and images.",
@@ -101,8 +105,15 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 
 			const size = await statFile(abs, display, config.maxFileBytes);
 			const extractor = deps.extractors?.[format.id] ?? format.extract;
+			const timeoutMs = deps.timeoutMs ?? config.extractTimeoutMs;
 			startToolProgress(onUpdate);
-			const text = await extractor({ path: abs, signal });
+			const text = await withDeadline(() => extractor({ path: abs, signal }), {
+				timeoutMs,
+				signal,
+				timeoutMessage:
+					`Extraction of ${display} did not finish within ${timeoutMs} ms (document.extractTimeoutMs). ` +
+					`The ${format.label} parser was abandoned; raise the limit or read a smaller file.`,
+			});
 
 			const startIndex = typeof args.startIndex === "number" ? Math.max(0, Math.round(args.startIndex)) : 0;
 			const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxChars;

@@ -199,8 +199,8 @@ Command: `/browse`.
 ### document
 
 `read_doc` extracts plain text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in
-process, paged with `startIndex` / `maxChars` and confined to the effective
-working directory.
+process, paged with `startIndex` / `maxChars`, bounded by a per-call
+`extractTimeoutMs` deadline, and confined to the effective working directory.
 
 Tool: `read_doc`.
 

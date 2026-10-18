@@ -61,17 +61,17 @@ screenshots.
 | Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P3, P5–P7 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S6 |
 | Remember across sessions | Works; the store reports its own health | S1 |
-| Reach the web and your files | Broad; formats and remote media are thin | W1–W10 |
+| Reach the web and your files | Broad; formats and remote media are thin | W1–W9 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F6 |
 
 ## If only three things ship
 
-1. **W1 — Extraction deadline.** A pathological PDF should hit a deadline and be
-   abandoned cleanly, not pin the process on a file nobody can interrupt.
-2. **W2 — `.doc` fixture.** The legacy `.doc` path is only tested for its error
+1. **W1 — `.doc` fixture.** The legacy `.doc` path is only tested for its error
    message; a fixture makes the success path real.
-3. **P1 — Plan index.** Plans are files with no index; a reader who wants an old
+2. **P1 — Plan index.** Plans are files with no index; a reader who wants an old
    plan has to know its path.
+3. **S1 — Note promotion.** A note learned in one repository should graduate to
+   global scope from the picker, without a manual file copy.
 
 ## Horizons
 
@@ -234,38 +234,34 @@ This section contributes no `Now` item.
 
 **Now**
 
-- **W1 — Extraction deadline.** Add a per-call timeout and abort to `read_doc`
-  so a pathological PDF cannot pin the process; keep `maxFileBytes` and
-  `maxChars` unchanged. *Done when* the error names the limit and the library's
-  work is abandoned cleanly.
-- **W2 — `.doc` fixture.** Add a small OLE `.doc` fixture so the legacy path is
+- **W1 — `.doc` fixture.** Add a small OLE `.doc` fixture so the legacy path is
   tested for success, not only for its error message.
 
 **Next**
 
-- **W3 — Provider diagnostics.** On an explicit refresh, `doctor` names the
+- **W2 — Provider diagnostics.** On an explicit refresh, `doctor` names the
   active search provider, whether its endpoint is reachable, and which key
   environment variable is missing. Probes stay injected and testable offline.
 
 **Later**
 
-- **W4 — PPTX and EPUB.** Add both to the `document` registry using libraries
+- **W3 — PPTX and EPUB.** Add both to the `document` registry using libraries
   already present where possible (`fflate`, `fast-xml-parser`), lazily imported.
   This reverses a documented non-goal; approve before building.
-- **W5 — Per-peer WeChat concurrency.** Give each peer its own interaction
+- **W4 — Per-peer WeChat concurrency.** Give each peer its own interaction
   channel and a fair queue, so two peers can run at once while each peer's own
   turns stay serial. *Done when* a forwarded dialog still has exactly one
   owner.
-- **W6 — Outbound images.** Send images such as plan screenshots or generated
+- **W5 — Outbound images.** Send images such as plan screenshots or generated
   plots to a peer, not only text and files. This reverses a non-goal; confirm the
   API shape first.
-- **W7 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
+- **W6 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
   readable text instead of a raw blob. No model call and no new dependency.
-- **W8 — Group chats.** A separate admission and routing model, not a flag on
+- **W7 — Group chats.** A separate admission and routing model, not a flag on
   the current bridge.
-- **W9 — OCR.** Only if a local, dependency-light engine earns its install
+- **W8 — OCR.** Only if a local, dependency-light engine earns its install
   size; otherwise keep the explicit non-goal.
-- **W10 — Readability engine.** Replace the heuristic extractor only with a
+- **W9 — Readability engine.** Replace the heuristic extractor only with a
   measured improvement on a fixture set.
 
 ## 4. Chrome and upkeep
@@ -380,7 +376,8 @@ it.
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S3`. |
 | `rewind`: a restore is all-or-nothing | A non-goal until `S3`; the confirmation already previews the change. |
-| `document`: no OCR | `W9` is a non-goal until a dependency-light engine exists. |
+| `document`: no OCR | `W8` is a non-goal until a dependency-light engine exists. |
+| `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |
 | `watch`: cannot raise an OS notification | `P6` reverses it; the in-session alert is documented until then. |
