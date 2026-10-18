@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-18
+
 ### Added
 
 - `bytefly`: `/bytefly settings` grows from five rows to nine. The new rows
@@ -25,8 +27,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `bytefly`: `bytefly.json` is documented in
   [`docs/configuration-reference.md`](./docs/configuration-reference.md), one
   table per section with each key's type, default, and bounds. It replaces
-  `assets/bytefly.schema.json` (editor completion for the file goes with it),
-  and `config:migrate` no longer stamps `$schema`.
+  `assets/bytefly.schema.json`, so editor completion for the file goes with it —
+  delete a `$schema` line that points at that URL — and `config:migrate` no
+  longer stamps `$schema`.
+
+### Fixed
+
+- `web-access`: the README's sample document shows the real default for
+  `search.endpoint` (`""`, not a localhost URL).
+- `wechat`: the README's sample document no longer shows `pollHoldMs: 0` as a
+  default; the setting is unset by default and anything below `1000` clears it.
 
 ## [0.11.4] - 2026-10-18
 
@@ -1724,7 +1734,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.4...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.12.0
 [0.11.4]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.4
 [0.11.3]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.3
 [0.11.2]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.2
