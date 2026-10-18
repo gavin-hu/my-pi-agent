@@ -37,6 +37,24 @@ export const DEFAULT_RATES: Readonly<Record<string, ModelRates>> = {
 };
 
 /**
+ * The same two models in DeepSeek's published dollars, per million tokens at the
+ * peak rate; `offPeakMultiplier` halves them off-peak. The published table has no
+ * cache-write line, so `cacheWrite` is 0 here exactly as in the yuan table.
+ *
+ * Source: <https://api-docs.deepseek.com/quick_start/pricing> (USD table).
+ */
+export const DEFAULT_RATES_USD: Readonly<Record<string, ModelRates>> = {
+	"deepseek/deepseek-flash": { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0, offPeakMultiplier: 0.5 },
+	"deepseek/deepseek-v4-pro": { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 0, offPeakMultiplier: 0.5 },
+};
+
+/** The built-in table for each currency: `rates` are stated in the selected one. */
+export const DEFAULT_RATES_BY_CURRENCY: Readonly<Record<CurrencyCode, Readonly<Record<string, ModelRates>>>> = {
+	CNY: DEFAULT_RATES,
+	USD: DEFAULT_RATES_USD,
+};
+
+/**
  * DeepSeek's peak hours, in the zone the provider states them in: 01:00-04:00
  * and 06:00-10:00 UTC on weekdays, which is 09:00-12:00 and 14:00-18:00 in
  * Shanghai. Every other hour, and the whole weekend, is off-peak. Chinese
@@ -154,9 +172,14 @@ function peakValue(raw: unknown, base: PeakSchedule): PeakSchedule {
 /** Validate a raw config object over `base`. Total: never throws, never guesses. */
 export function normalizeByteflyConfig(raw: Record<string, unknown> | undefined, base: ByteflyConfig): ByteflyConfig {
 	if (!raw) return base;
+	const currency = currencyValue(raw.currency, base.currency);
+	// `rates` are stated in the selected currency, so a layer that switches the
+	// code starts from that currency's table instead of reinterpreting the old
+	// numbers in the new unit. A layer that sets both merges onto the new table.
+	const rateBase = currency.code === base.currency.code ? base.rates : DEFAULT_RATES_BY_CURRENCY[currency.code];
 	return {
-		currency: currencyValue(raw.currency, base.currency),
-		rates: ratesValue(raw.rates, base.rates),
+		currency,
+		rates: ratesValue(raw.rates, rateBase),
 		peak: peakValue(raw.peak, base.peak),
 	};
 }

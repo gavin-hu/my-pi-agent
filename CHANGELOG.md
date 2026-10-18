@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: DeepSeek is priced in dollars as well as yuan. The `USD` algorithm
+  now reads a built-in table of DeepSeek's published dollar rates (cache-hit
+  `$0.006`/`$0.044`, cache-miss `$0.30`/`$1.32`, output `$1.20`/`$3.96` per
+  million at peak, half off-peak) and applies the same peak windows, instead of
+  only totalling Pi's recorded cost. `rates` follows `currency.code`, so a
+  document that sets `USD` and no table gets the dollar one, and a model with no
+  rate still falls back to Pi's recorded dollars.
+
+### Added
+
 - `bytefly`: the footer price now has two algorithms selected by
   `price.currency.code`. `CNY` (the default) prices matched models from the
   yuan `rates` and `peak` schedule; `USD` totals Pi's recorded dollar cost and

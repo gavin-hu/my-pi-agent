@@ -29,14 +29,18 @@ reload. `/bytefly settings` edits `currency.code` and `currency.decimals`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `currency.code` | string | `"CNY"` | `CNY`, `USD` | Pricing algorithm: `CNY` uses `rates` and `peak`; `USD` totals Pi's recorded cost and ignores both. |
+| `currency.code` | string | `"CNY"` | `CNY`, `USD` | Pricing algorithm, and which built-in table `rates` starts from. Both apply `peak`; only `USD` falls back to Pi's recorded dollars for an unmatched model. |
 | `currency.decimals` | integer | `2` | `0`–`4` | Digits after the decimal point. |
-| `rates` | object | DeepSeek's published rates | One entry per `provider/model` | Per-million-token prices; merged key by key across the global and project documents. |
+| `rates` | object | DeepSeek's published rates in the selected currency | One entry per `provider/model` | Per-million-token prices; merged key by key across the global and project documents. |
 | `peak.timezone` | string | `"Asia/Shanghai"` | An IANA zone | Zone the peak windows are stated in; an unknown zone drops the whole schedule. |
 | `peak.windows` | array | DeepSeek's weekday windows | Up to 16 entries | The peak windows. |
 
-`rates` are yuan prices for the `CNY` algorithm. Choosing a currency also writes its default precision; that can be overridden
-afterwards. The symbol follows the code and is not configurable. A `rates` entry takes `input`, `output`, `cacheRead`, and `cacheWrite` (number,
+`rates` are stated in the currency `currency.code` selects: `CNY` starts from
+DeepSeek's published yuan table and `USD` from its published dollar table, and a
+hand-written entry is read in that same unit. Switching the code therefore
+starts from the other built-in table instead of reinterpreting your numbers, and
+a `rates` stated in the same section as the code merges over it. Choosing a
+currency also writes its default precision; that can be overridden afterwards. The symbol follows the code and is not configurable. A `rates` entry takes `input`, `output`, `cacheRead`, and `cacheWrite` (number,
 `0`–`1000000`, default `0`) and `offPeakMultiplier` (number, `0`–`1`, default
 `1`). A key present in both documents replaces the other. An entry stating none
 of the five numbers is ignored.
