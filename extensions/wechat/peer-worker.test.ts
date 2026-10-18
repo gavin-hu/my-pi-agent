@@ -194,6 +194,32 @@ describe("peer worker", () => {
 		expect(sent.map((message) => message.text)).toEqual(["first"]);
 	});
 
+	test("disposes a session that finishes opening after close", async () => {
+		const disposed: number[] = [];
+		let resolveOpen: ((session: PeerSession) => void) | undefined;
+		const worker = createPeerWorker({
+			openSession: async () =>
+				await new Promise<PeerSession>((resolve) => {
+					resolveOpen = resolve;
+				}),
+			send: async () => true,
+			fallback: (_target, reason) => `fallback:${reason}`,
+			idleTimeoutMs: 0,
+		});
+		worker.enqueue(item("slow to open"));
+		await settle();
+		// The bridge closes while the session is still being built.
+		await worker.close();
+		resolveOpen?.({
+			session: { dispose: () => disposed.push(1) } as never,
+			dispose: () => disposed.push(1),
+		});
+		await settle();
+		await settle();
+		// The late session is disposed instead of leaking, and the turn reports failure.
+		expect(disposed).toHaveLength(1);
+	});
+
 	test("reports the running turn and hands the slot to the next peer", async () => {
 		const { worker, sessions } = harness({ holdFirst: true });
 		worker.enqueue(item("alice task", "alice@im.wechat"));

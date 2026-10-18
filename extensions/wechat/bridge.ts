@@ -213,6 +213,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const languages = new Map<string, PeerLanguage>();
 	/** Peers already told that the queue is full, until it drains. */
 	const overflow = new Set<string>();
+	/** Messages being resolved (media download) before they reach the queue. */
+	const admitting = new Map<string, number>();
+	/** Per-peer admission chain, so two media messages keep their arrival order. */
+	const admitChains = new Map<string, Promise<void>>();
 	const slashCommands = deps.slashCommands ?? SLASH_COMMANDS;
 
 	/** One worker per open connection: it owns the queues and the peer sessions. */
@@ -231,6 +235,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	function handleExpired(): void {
 		running = false;
 		expired = true;
+		// An expiry can be discovered by a send while the loop is parked in
+		// `getUpdates`; abort it so it cannot wake up beside a later `open()`.
+		abort?.abort();
 		publishState();
 		deps.onExpired?.();
 		notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
@@ -711,7 +718,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				return;
 			}
 		}
-		if ((worker?.state(peer).queued ?? 0) >= MAX_QUEUE) {
+		// A slot is reserved here, before the download, so a burst of media cannot
+		// all pass the check and then enqueue together.
+		const busy = (worker?.state(peer).queued ?? 0) + (admitting.get(peer) ?? 0);
+		if (busy >= MAX_QUEUE) {
 			// Refuse rather than grow without bound; one notice per episode, not per
 			// dropped message.
 			if (!overflow.has(peer)) {
@@ -722,7 +732,25 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 		keepTyping(peer, item.contextToken);
 		armAck(item);
-		void admit(item);
+		admitting.set(peer, (admitting.get(peer) ?? 0) + 1);
+		const previous = admitChains.get(peer) ?? Promise.resolve();
+		const next = previous
+			.then(async () => {
+				await admit(item);
+			})
+			.catch((error) => {
+				// One bad admission must not stall the peer's chain forever.
+				notify(`WeChat could not accept a message: ${messageOf(error)}`, "warning");
+			})
+			.finally(() => {
+				const left = (admitting.get(peer) ?? 1) - 1;
+				if (left > 0) admitting.set(peer, left);
+				else admitting.delete(peer);
+			});
+		admitChains.set(peer, next);
+		void next.finally(() => {
+			if (admitChains.get(peer) === next) admitChains.delete(peer);
+		});
 	}
 
 	async function loop(signal: AbortSignal): Promise<void> {
@@ -809,6 +837,14 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	return {
 		open(): void {
 			if (running) return;
+			// A run that expired keeps its worker (and therefore its peer sessions)
+			// and may still have a loop parked in `getUpdates`. Both are replaced
+			// here, so the old ones must stop first: otherwise two pollers share one
+			// cursor, and the old peer sessions are never disposed.
+			abort?.abort();
+			abort = undefined;
+			void worker?.close();
+			worker = undefined;
 			const loaded = deps.loadAccount();
 			if (!loaded) throw new WechatError("Not logged in. Run /wechat login first.");
 			if (!deps.acquireLock()) {
@@ -860,6 +896,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 					void typingOff(item.peer);
 					pruneTyping();
 					languages.set(item.peer, item.language);
+					// The flood notice is per episode: clear it once the queue drains.
+					const left = (worker?.state(item.peer).queued ?? 0) + (admitting.get(item.peer) ?? 0);
+					if (left === 0) overflow.delete(item.peer);
 				},
 				notify,
 				now: deps.now,

@@ -338,6 +338,91 @@ describe("bridge", () => {
 		await bridge.close();
 	});
 
+	test("a reopen after an expiry releases the old worker's sessions", async () => {
+		const { client } = makeClient([
+			updates([inbound("hi")]),
+			{ ret: 0, errcode: -14, msgs: [], buf: "" },
+			updates([inbound("again")]),
+		]);
+		const { deps, peers } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => peers.length === 1 && (peers[0]?.prompts.length ?? 0) === 1);
+		await waitFor(() => bridge.status().expired);
+
+		// The turn was still running when the token expired. Reopening replaces the
+		// worker, so the old session must be disposed and the old loop must not wake.
+		bridge.open();
+		await waitFor(() => peers[0]?.disposed() === 1);
+		expect(bridge.status().open).toBe(true);
+
+		// The new connection serves the next message with a fresh session.
+		await waitFor(() => peers.length === 2 && (peers[1]?.prompts.length ?? 0) === 1);
+		expect(peers[1]?.prompts[0]?.text).toBe("again");
+		await bridge.close();
+	});
+
+	test("caps a burst of media messages by reserving slots before the download", async () => {
+		const images = Array.from({ length: 10 }, () => inboundImage());
+		const { client, sent } = makeClient([updates(images)], {
+			media: Object.fromEntries(images.map(() => ["https://cdn/i", encrypt(Buffer.from([0x89, 0x50, 0x4e, 0x47]))])),
+		});
+		const { deps, peers } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => peers.length === 1 && (peers[0]?.prompts.length ?? 0) === 1);
+
+		// The burst is bounded by the cap, not by the batch size; the rest get one line.
+		await waitFor(() => bridge.status().queued >= 7);
+		await waitFor(() => sent.length === 1);
+		expect(bridge.status().queued).toBeLessThanOrEqual(8);
+		expect(sent[0]?.text).toBe("Too many messages queued — please wait a moment.");
+		await settle();
+		expect(sent).toHaveLength(1);
+		await bridge.close();
+	});
+
+	test("keeps media messages in arrival order even when a download is slow", async () => {
+		const withImage = (text: string, url: string) => {
+			const message = inbound(text);
+			message.item_list = [
+				...(message.item_list ?? []),
+				{ type: 2, image_item: { media: { full_url: url }, aeskey: key.toString("hex") } },
+			];
+			return message;
+		};
+		const plain = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+		const base = makeClient(
+			[
+				updates([inbound("hold")]),
+				updates([withImage("first", "https://cdn/1"), withImage("second", "https://cdn/2")]),
+			],
+			{
+				media: { "https://cdn/1": encrypt(plain), "https://cdn/2": encrypt(plain) },
+			},
+		);
+		const client = {
+			...base.client,
+			downloadCdn: async (ref: { full_url?: string }) => {
+				// The first image is the slow one; without an arrival-order chain the
+				// second would enqueue first and the merged prompt would be reversed.
+				if (ref.full_url === "https://cdn/1") await settle(5);
+				return encrypt(plain);
+			},
+		} as unknown as WechatClient;
+		const { deps, peers } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 1);
+		// Both wait behind the running turn and merge into one prompt, in order.
+		await waitFor(() => bridge.status().queued === 2);
+
+		peers[0]?.release("pong");
+		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 2);
+		expect(peers[0]?.prompts[1]?.text).toBe("first\nsecond");
+		await bridge.close();
+	});
+
 	test("stops and reports when the session expires", async () => {
 		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
 		let expired = 0;

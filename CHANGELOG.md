@@ -152,6 +152,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the remainder is sent when the turn ends — so a minute-long answer is
   readable while it is being produced. A part longer than `maxReplyChars` is
   still numbered, and the attachment line rides on the first part only.
+- `wechat`: reopening the bridge after a token expiry now stops the old worker
+  and aborts its parked poll loop first, so the previous peer sessions are
+  disposed and two pollers can never share one cursor. A media burst is admitted
+  in arrival order and reserves its queue slot before the download, so a batch of
+  photos can no longer slip past the queue cap or be answered out of order. Free
+  text from an "Other" answer is keyed to the peer who typed it, and a session
+  that finishes opening after a close is disposed instead of leaked.
 - `wechat`: a turn waiting on an unanswered dialog no longer also gets the
   30-second `还在处理这条…` line; the prompt's own reminder covers that wait.
 - `wechat`: a rejected reply now reports the server's own `errmsg` (for example

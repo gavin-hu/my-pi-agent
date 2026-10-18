@@ -204,6 +204,12 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			target.opening = deps
 				.openSession(peer, { fresh: startFresh })
 				.then((opened) => {
+					// The bridge may have closed (or reset this peer) while the session
+					// was being built; dispose it instead of leaking it.
+					if (closed || peers.get(peer) !== target) {
+						opened.dispose();
+						throw new Error("The WeChat bridge closed while opening the session.");
+					}
 					target.session = opened;
 					return opened;
 				})

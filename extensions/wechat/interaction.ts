@@ -61,8 +61,12 @@ interface Pending {
 export function createWechatInteractionChannel(deps: WechatInteractionDeps): WechatInteractionChannel {
 	const arm = deps.armTimer ?? defaultTimer;
 	let pending: Pending | undefined;
-	/** Free text captured from a `select` "Other" reply, for the next `input`. */
-	let other: string | undefined;
+	/**
+	 * Free text captured from a `select` "Other" reply, per peer: the immediately
+	 * following `input` for that peer returns it. Keyed so one peer's free text can
+	 * never become another peer's answer.
+	 */
+	const other = new Map<string, string>();
 
 	function settle(answer: InteractionAnswer): void {
 		const current = pending;
@@ -92,14 +96,16 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 		},
 
 		async request(request: InteractionRequest, signal?: AbortSignal): Promise<InteractionAnswer> {
-			// A `select` that resolved to "Other" stashes its text; the immediately
-			// following `input` returns it without another round-trip.
-			if (request.kind === "input" && other !== undefined) {
-				const value = other;
-				other = undefined;
-				return { kind: "value", value };
+			// A `select` that resolved to "Other" stashes its text for that peer; the
+			// immediately following `input` from the same peer returns it without
+			// another round-trip.
+			const asking = deps.activePeer();
+			const stashed = asking === undefined ? undefined : other.get(asking);
+			if (request.kind === "input" && asking !== undefined && stashed !== undefined) {
+				other.delete(asking);
+				return { kind: "value", value: stashed };
 			}
-			if (request.kind !== "input") other = undefined;
+			if (request.kind !== "input" && asking !== undefined) other.delete(asking);
 
 			if (signal?.aborted || !this.isActive()) return { kind: "cancelled" };
 			if (pending) return { kind: "cancelled" };
@@ -136,7 +142,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 					void deps.send(formatPrompt(current.request, { retry: true }));
 					return true;
 				case "other":
-					other = parsed.text;
+					other.set(peer, parsed.text);
 					settle({ kind: "value", value: INTERACTION_OTHER_LABEL });
 					return true;
 				case "value":
@@ -152,7 +158,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 		},
 
 		reset(): void {
-			other = undefined;
+			other.clear();
 			settle({ kind: "cancelled" });
 		},
 	};

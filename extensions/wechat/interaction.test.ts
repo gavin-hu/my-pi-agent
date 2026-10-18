@@ -238,3 +238,29 @@ describe("reset", () => {
 		expect(await input).toEqual({ kind: "value", value: "typed" });
 	});
 });
+
+/**
+ * Free text from an "Other" answer belongs to the peer who typed it. One prompt
+ * runs at a time, but a stash keyed globally would hand peer A's text to peer B's
+ * next input.
+ */
+describe("other-answer ownership", () => {
+	test("returns free text to the peer who typed it, and to nobody else", async () => {
+		const { channel, sent, setPeer } = setup("alice");
+		const aliceSelect = channel.request(SELECT);
+		expect(channel.handleInbound("alice", "something else")).toBe(true);
+		expect(await aliceSelect).toEqual({ kind: "value", value: INTERACTION_OTHER_LABEL });
+
+		// Another peer asks for input first: Alice's text must not leak into it.
+		setPeer("bob");
+		const bobInput = channel.request(INPUT);
+		expect(channel.handleInbound("bob", "bob answer")).toBe(true);
+		expect(await bobInput).toEqual({ kind: "value", value: "bob answer" });
+
+		// Alice's own next input still gets her stashed text, without a round-trip.
+		setPeer("alice");
+		expect(await channel.request(INPUT)).toEqual({ kind: "value", value: "something else" });
+		// The stashed answer costs no prompt; only the two real prompts were sent.
+		expect(sent).toHaveLength(2);
+	});
+});
