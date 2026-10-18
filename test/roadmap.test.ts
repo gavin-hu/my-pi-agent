@@ -175,6 +175,6 @@ describe("roadmap horizons", () => {
 	test("names the top three items the file ranks first", () => {
 		const section = roadmap.slice(roadmap.indexOf("## If only three things ship"), roadmap.indexOf("## Horizons"));
 		const named = [...section.matchAll(/\*\*([PSWCF]\d+) — /g)].map((match) => match[1]);
-		expect(named).toEqual(["C1", "S1", "C3"]);
+		expect(named).toEqual(["C1", "C3", "F1"]);
 	});
 });

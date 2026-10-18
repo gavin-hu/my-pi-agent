@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `worktree`: `exit_worktree` now ends with a `Handoff:` block — the branch, how
+  many commits it holds beyond the merge target, whether that target already
+  contains them, and the `git switch … && git merge --no-ff …` and
+  `gh pr create --head … --fill` commands that finish the task. It is reported for
+  every outcome (kept, removed with the branch kept, removed with it deleted), so
+  "nothing to merge" is an answer too, and `details.handoff` carries the same
+  facts. The tool still never commits, merges, pushes, or opens the PR: the merge
+  target is `origin/HEAD`'s branch, falling back to the main checkout's own branch
+  when there is no remote, and a branch it cannot resolve prints no command rather
+  than guessing `main`.
+
 - `watch` / `bytefly`: a `wake` watcher that matches while the agent is idle now
   also raises a desktop notification, through bytefly's notify capability — so an
   unattended watcher reaches the user instead of waiting for someone to look at the

@@ -54,7 +54,10 @@ local merge into `main` is allowed; a pull request is optional.
 - **Ask before ending the task.** When the work is done, ask the user how to
   reconcile the branch (commit, merge, keep, or discard) and only call
   `exit_worktree` (or `git worktree remove`) after they decide. Never exit on
-  your own initiative, so uncommitted work is not discarded without a choice.
+  your own initiative, so uncommitted work is not discarded without a choice. The
+  exit result ends with a `Handoff:` block naming the branch, its commits, and the
+  exact merge or pull-request command — use that command rather than retyping a
+  branch name.
 - **Never commit unless the user asks.** Work left on a worktree is easy to
   inspect and easy to drop; a commit is neither, so leave it to the user.
 - Before committing: check `git status` and stage explicit paths. Never

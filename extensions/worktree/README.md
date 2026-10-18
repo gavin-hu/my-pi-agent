@@ -28,7 +28,11 @@ How the `list_worktrees` call and its result look in the transcript — the call
   to it.
 - `exit_worktree` returns to the main checkout. A clean worktree is removed
   automatically; one with uncommitted changes or new commits prompts (or is
-  kept in non-interactive mode). A branch that still holds work (uncommitted
+  kept in non-interactive mode). Its result ends with a **handoff**: the branch,
+  how many commits it holds beyond the merge target, whether that target already
+  contains them, and the `git merge --no-ff` and `gh pr create` commands that
+  finish the task. The tool never commits, merges, pushes, or opens the PR. A
+  branch that still holds work (uncommitted
   changes, or commits not reachable from the recorded base) is never
   force-deleted, even with `remove: true`.
 - While isolated, `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` all resolve
@@ -80,7 +84,7 @@ The model surface mirrors this with four tools:
 | Tool | Usage |
 |---|---|
 | `enter_worktree` | `name` to create a worktree, or `path` to enter an existing one. Errors if already isolated. |
-| `exit_worktree` | optional `remove` and `keepBranch`. Returns the clean/keep/remove decision. |
+| `exit_worktree` | optional `remove` and `keepBranch`. Returns the clean/keep/remove decision and a `handoff` (`branch`, `base`, `ahead`, `merged`). |
 | `prune_worktrees` | no parameters. Removes eligible managed worktrees and reports the rest. |
 | `list_worktrees` | no parameters. Read-only status: active root, inactive overrides, isolation gaps, managed worktrees. |
 
@@ -249,7 +253,7 @@ use, falling back to directory mtime for a worktree with no record.
 | Contract | Detail |
 |---|---|
 | Registration | The default export calls `registerWorktree`: root-tool overrides, the `--worktree` flag, lifecycle listeners, model tools, and the `/worktree` command. Nothing long-lived starts at load. |
-| Tools | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` via `registerTool`. All `executionMode: "sequential"`. Annotations: `enter_worktree` destructive + open-world; `exit_worktree`/`prune_worktrees` destructive; `list_worktrees` read-only. No `outputSchema`; structured state is returned in tool-result `details`. |
+| Tools | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` via `registerTool`. All `executionMode: "sequential"`. Annotations: `enter_worktree` destructive + open-world; `exit_worktree`/`prune_worktrees` destructive; `list_worktrees` read-only. No `outputSchema`; structured state is returned in tool-result `details` — `exit_worktree` carries `{ state, removed, handoff }`, where `handoff` is `{ branch, base, ahead, merged }`. |
 | Built-in overrides | `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` are re-registered under the same names with `defaultActive: false`; each spreads the built-in definition and replaces only `execute`. `skipOverrides` is applied at load time. `powershell` is deliberately not overridden: it cannot be re-rooted without a guard, so the `tool_call` handler refuses it (see `guard.blockPowershell`). |
 | Commands | `/worktree` via `registerCommand`, with argument completions for the subcommands and exit flags. |
 | Flags | `--worktree` via `registerFlag`. |
@@ -292,6 +296,12 @@ use, falling back to directory mtime for a worktree with no record.
 - **Never force out work.** `exit_worktree` never force-deletes a branch that
   still holds uncommitted changes or commits not reachable from the recorded
   base, even with `remove: true`.
+- **A handoff is read, not performed.** The exit reports the branch's state and
+  the command that finishes it, because a merge touches the main checkout and can
+  conflict — the user should be the one in that state. The merge target is
+  `origin/HEAD`'s branch, falling back to the main checkout's own branch when the
+  repository has no remote; when neither resolves, the block names the branch and
+  prints no command rather than guessing `main`.
 - **Lock, then prune.** Entering a managed worktree takes a `git worktree lock`
   so a concurrent sweep cannot remove it; prune releases stale locks first and
   keeps any worktree it cannot safely remove, with a reason.
@@ -309,6 +319,7 @@ use, falling back to directory mtime for a worktree with no record.
 | `lifecycle.ts` | Barrel: `enterWorktree` / `exitWorktree` / `pruneWorktrees` / status |
 | `errors.ts` | Cancellation error that distinguishes a user decline from a failure |
 | `enter.ts` / `exit.ts` / `prune.ts` | The lifecycle phases |
+| `handoff.ts` | The `Handoff:` block an exit leaves: the branch's lead, whether the base contains it, and the merge or PR command. |
 | `tools.ts` / `commands.ts` | Model tools / slash commands |
 | `root-tools.ts` | Load-time built-in overrides bound to the active root |
 | `git.ts` | Git plumbing (shared runner + read helpers) |

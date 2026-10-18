@@ -6,7 +6,17 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config.ts";
 import { WorktreeCancelledError } from "./errors.ts";
-import { deleteBranch, inspectWork, lockWorktree, unlockWorktree, worktreeRemove } from "./git.ts";
+import {
+	currentBranch,
+	defaultBranch,
+	deleteBranch,
+	inspectWork,
+	isBranchMerged,
+	lockWorktree,
+	unlockWorktree,
+	worktreeRemove,
+} from "./git.ts";
+import { handoffLines, type Handoff } from "./handoff.ts";
 import { removeRecord, touchRecord } from "./registry.ts";
 import { applyWorktreeEnv, clearConfigCache, getActive, publishWorktree, setActive, setStatus } from "./runtime.ts";
 import { persistState, type WorktreeState } from "./state.ts";
@@ -17,11 +27,30 @@ export interface ExitOptions {
 	keepBranch?: boolean;
 }
 
+/**
+ * What the branch holds and how to finish it, computed after the outcome is known.
+ * A failed lookup degrades to the facts already in hand: an exit that succeeded
+ * must not fail because the default branch could not be read.
+ */
+async function describeHandoff(pi: ExtensionAPI, state: WorktreeState, ahead: number): Promise<Handoff> {
+	if (!state.branch) return { branch: null, base: null, ahead, merged: false };
+	try {
+		// `origin/HEAD` names the merge target when the repository has a remote; a
+		// local-only repository has none, and the main checkout's own branch is the
+		// branch a merge would actually land on.
+		const base = (await defaultBranch(pi, state.repoRoot)) ?? (await currentBranch(pi, state.repoRoot)) ?? null;
+		const merged = base ? await isBranchMerged(pi, state.repoRoot, state.branch, base) : false;
+		return { branch: state.branch, base, ahead, merged };
+	} catch {
+		return { branch: state.branch, base: null, ahead, merged: false };
+	}
+}
+
 export async function exitWorktree(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	options: ExitOptions,
-): Promise<{ state: WorktreeState; removed: boolean; output: string }> {
+): Promise<{ state: WorktreeState; removed: boolean; handoff: Handoff; output: string }> {
 	const state = getActive();
 	if (!state) throw new Error("Not currently in a worktree.");
 	if (state.borrowed) {
@@ -118,5 +147,8 @@ export async function exitWorktree(
 		touchRecord(state.repoRoot, config, state.path);
 	}
 
-	return { state, removed, output: lines.join("\n") };
+	const handoff = await describeHandoff(pi, state, ahead);
+	lines.push(...handoffLines(handoff));
+
+	return { state, removed, handoff, output: lines.join("\n") };
 }
