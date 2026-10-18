@@ -8,354 +8,170 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `worktree`: `exit_worktree` now ends with a `Handoff:` block — the branch, how
-  many commits it holds beyond the merge target, whether that target already
-  contains them, and the `git switch … && git merge --no-ff …` and
-  `gh pr create --head … --fill` commands that finish the task. It is reported for
-  every outcome (kept, removed with the branch kept, removed with it deleted), so
-  "nothing to merge" is an answer too, and `details.handoff` carries the same
-  facts. The tool still never commits, merges, pushes, or opens the PR: the merge
-  target is `origin/HEAD`'s branch, falling back to the main checkout's own branch
-  when there is no remote, and a branch it cannot resolve prints no command rather
-  than guessing `main`.
+- `worktree`: `exit_worktree` ends with a `Handoff:` block naming the branch, its
+  commits beyond the merge target, whether that target contains them, and the
+  command that finishes the task. It still never commits, merges, or pushes.
 
 - `watch` / `bytefly`: a `wake` watcher that matches while the agent is idle now
-  also raises a desktop notification, through bytefly's notify capability — so an
-  unattended watcher reaches the user instead of waiting for someone to look at the
-  terminal. `watch` announces the match on `my-pi-agent/watch-match` (the cycle's
-  count, the watcher, its newest line) and never learns how a notification is
-  sent; the new `notify.matchFound` trigger (on by default, with a **Watcher
-  matched** row in the control center) gates it alongside `notify.enabled`. The
-  body names the matched line, sanitized and clipped to 80 characters, because the
-  line is the alert; a match the agent was busy for is still reported at the next
-  turn without a notification.
+  also raises a desktop notification through bytefly's notify capability, gated by
+  `notify.matchFound` (on by default). A busy match still waits for the next turn.
 
-- `rewind`: a code rewind can now restore **some** paths instead of the whole
-  tree. When code moves, `/rewind` asks **Restore what?** — `Everything (N files)`
-  or `Choose paths…` — and the checklist lists every changed path grouped by
-  directory with an `M`/`D`/`A` mark, all of them selected so `Enter` twice keeps
-  the old behavior. `Space` toggles a file or a directory, `a`/`n` select all or
-  none, and the confirmation previews only the chosen subset before anything is
-  written. The subset restore uses the same temporary index and pre-restore
-  safety snapshot, so the real index and HEAD stay untouched either way; the
-  checklist is TUI-only, and other modes restore everything as before.
+- `rewind`: a code rewind can restore **some** paths instead of the whole tree —
+  `Everything (N files)` or a `Choose paths…` checklist marked `M`/`D`/`A`, all
+  selected, written through the same temporary index and safety snapshot.
 
-- `bytefly`: the Settings section covers every scalar preference in
-  `bytefly.json`. Three new toggles narrow what is announced —
-  `notify.turnFinished`, `notify.needsInput`, `notify.jobFinished` — and **Probe
-  timeout** edits `doctor.timeoutMs`, the first numeric row, whose rule states the
-  loader's own 100–30000 range so a typed value is never silently clamped on the
-  next read. **Rail glyph** is now a text row: any single-column glyph is
-  accepted, validated by the same predicate `chrome.ts` normalizes with, and a
-  two-column or control-character glyph is refused with a reason instead of being
-  replaced later.
+- `bytefly`: Settings covers every scalar in `bytefly.json`, including the three
+  announce toggles, **Probe timeout** (`doctor.timeoutMs`), and **Rail glyph**,
+  which now refuses a two-column or control-character glyph with a reason.
 
-- docs: `test/structure.test.ts` holds every Markdown doc to the links it offers —
-  each `./`, `../`, and `#` target from the root docs, `docs/`, `lib/`, `test/`,
-  `.github/`, and each `extensions/*/README.md` must resolve, and a `#anchor`
-  must name a real heading (GitHub's repeat suffix and CJK anchors included).
-  The stale link it found is fixed: bytefly's pointer to the extension screen
-  now names `#the-control-center`, where the heading moved.
-
-- docs: the extension catalog is now guarded like the entry READMEs.
-  `test/naming.test.ts` holds its per-extension `Tool:` / `Tools:` lines to the
-  registered tool set in both directions, and every registered tool must still
-  be named there; `test/docs-truth.test.ts` requires each entry in
-  `package.json`'s `pi.extensions` to have a `### <name>` section linking its
-  README. A tool rename or a new tool-only extension can no longer leave the
-  catalog stale or silent.
-
-- docs: the catalog's gallery paragraph names the plan and worktree tools
-  instead of collapsing them into "the plan tools" and "the worktree tools", so
-  every registered tool is listed there, and `test/naming.test.ts` holds that
-  paragraph to the registry alongside the per-extension `Tool:` lines. The
-  catalog's groups and per-group order are now held to the root README's
-  extension tables by `test/docs-truth.test.ts`, and the intro no longer claims
-  a `pi` manifest order the catalog does not follow.
-
-- docs: the configuration reference opens with a contents list, held to every
-  section by `test/config-docs.test.ts`. The doc-link guard now hyphenates each
-  space the way GitHub does instead of collapsing a run, so an em dash between
-  words leaves two hyphens and the reference's section anchors resolve.
+- ci: `test/structure.test.ts`, `test/naming.test.ts`, `test/docs-truth.test.ts`,
+  and `test/docs-parity.test.ts` now hold every doc link and anchor, the catalog,
+  and both entry READMEs to the registered surface. The drift they found is fixed.
 
 - docs: `getting-started.md` explains how to start a custom theme from the shipped
   JSON, and the entry READMEs and catalog no longer state counts that drift.
 
-- ci: npm publishing moved into the repository, as
-  `.github/workflows/publish.yml`. A manual dispatch names the release version
-  twice, the job then waits for the `npm` environment's required review, checks
-  out the tag instead of a branch, proves the tag is on `main` and that its
-  `package.json` is that version, runs the same checks CI runs, and publishes
-  with `--provenance` through npm trusted publishing — so no publish token is
-  stored and every tarball carries a signed attestation of the commit and
-  workflow that built it. `publishConfig.provenance` is `true`, which makes a
-  local `npm publish` fail rather than ship an unsigned tarball, and
-  `docs/development.md` gained the one-time setup (trusted publisher entry,
-  environment reviewer) it needs.
+- ci: npm publishing moved into the repository. A `publish.yml` dispatch names the
+  version twice, waits for the `npm` environment review, then publishes the tag
+  with `--provenance` — no stored token, and a signed attestation per tarball.
 
-- `worktree`: the Windows `powershell` tool is now refused while a session is
-  isolated. It was never re-rooted, so its relative paths resolved at the main
-  checkout — the one the worktree exists to protect — and its grammar (backtick
-  escapes, `Set-Location`, `$env:GIT_DIR`) is not what the bash guard reads, so
-  re-rooting it without a parser would have looked isolated and not been.
-  `worktree.guard.blockPowershell` (default `true`) turns the refusal off; that
-  trade is then reported: `/worktree` keeps listing the gap, and `doctor` reports
-  the switch as `degraded` through a new config-driven `safety` check.
+- `worktree`: the Windows `powershell` tool is refused while isolated, because it
+  was never re-rooted and its grammar is not what the bash guard reads.
+  `worktree.guard.blockPowershell` turns the refusal off and reports the trade.
 
-- `bytefly`: the published-version check now caches its answer in
-  `<agentDir>/bytefly/update.json` with the time it was read, so a session that
-  starts inside the 24-hour window reuses it instead of repeating the request,
-  and the new `/bytefly update` re-runs the check on demand — reporting the
-  newest version, an available release, a `PI_OFFLINE` skip, or an unreadable
-  registry. The notice and that report print the GitHub release URL as text, and
-  opening the control center still makes no request.
+- `bytefly`: the published-version check caches its answer for 24 hours, and the
+  new `/bytefly update` re-runs it on demand — reporting the newest version, an
+  available release, an offline skip, or an unreadable registry.
 
-- `web-access` / `bytefly`: `run_doctor` now reports what `web_search` actually
-  resolved to instead of only whether `unpdf` is installed — the provider id and
-  why it won (an explicit choice, the `auto` rule, or the keyless default), the
-  API-key variable when the provider takes a key and no literal `apiKey` is set,
-  and whether that variable is present. The key itself is never reported, only
-  its variable name. Reachability of a configured SearXNG `endpoint` is probed
-  only on an explicit `/bytefly doctor … refresh`, so a session-start check stays
-  offline; `web-access` publishes the facts at `session_start` on
-  `my-pi-agent/web-search-provider`, so the doctor reads a summary rather than
-  importing the extension.
+- `web-access` / `bytefly`: `run_doctor` now reports what `web_search` resolved
+  to — the provider, why it won, and the key's variable name when one is needed,
+  never the key. A SearXNG endpoint is probed only on an explicit refresh.
 
-- `plan`: approval now carries the plan's `## Verification` section into the todo
-  list as the final item (`Verify: …`, one line, elided like a long step), so the
-  definition of done travels with the work. It is not a plan step: it is ticked in
-  the todo list, never counts against the 50-step cap, and `set_plan_steps`
-  numbering is unchanged; a plan with no `Verification` section, or no `Steps`
-  heading (whose shallowest list is already the plan), is seeded exactly as before.
+- `plan`: approval carries the plan's `## Verification` section into the todo list
+  as a final `Verify: …` item, so the definition of done travels with the work. It
+  never counts against the 50-step cap, and `set_plan_steps` numbering is unchanged.
 
-- `subagent` / `bytefly`: a finished child run now publishes
-  `my-pi-agent/subagent-finished` with its provider, model, token counts, Pi's
-  recorded cost, and finish time, and the footer shows the session's delegated
-  runs as their own `↳ 3 · ¥0.12` roll-up. The child spend is a second figure:
-  the session total is never restated, the roll-up is priced with the same rate
-  table (so a currency change moves both), it covers the last 500 runs of the
-  current process, and a run that produced no assistant message publishes
-  nothing.
+- `subagent` / `bytefly`: the footer shows delegated runs as their own
+  `↳ 3 · ¥0.12` roll-up, priced from the same rate table and covering the last 500
+  runs. The session total is never restated or folded in.
 
-- `plan`: the objective now crosses the plan boundary in both directions. While
-  planning, the injected context restates an active session goal as one bullet
-  (sanitized and clipped, so the context stays inside its prompt budget); on
-  approval, when the session has no goal at all, one confirm offers to record the
-  plan's title as the goal — never replacing an existing one, and with no extra
-  model call. `lib/goal-state.ts` is the shared reader (and now owns the goal
-  entry type and objective limit), so `plan` never imports `goal`.
+- `plan`: an active session goal is restated in the injected planning context, and
+  approving a plan with no goal offers to record its title as one — never replacing
+  an existing goal, and with no extra model call.
 
-- `memory`: `p` in the `/memory` picker moves the focused note to the other
-  scope, so a fact learned in one repository can graduate to global memory
-  without a manual copy. The move writes the destination first and removes the
-  source second, so a failed second write leaves a duplicate (which
-  `/memory doctor` reports and `m` merges) rather than losing the note; a move
-  into an untrusted project is refused before any write.
+- `memory`: `p` in the `/memory` picker moves a note to the other scope, writing
+  the destination before removing the source, so a failed second write leaves a
+  duplicate (which `m` merges) rather than losing the note.
 
-- `plan`: `/plan list` indexes the plans directory. It walks `.pi/plans` (the
-  worktree's own directory inside a worktree), one bounded read per plan, and
-  shows each plan's title, modified time, and step progress, newest first — a
-  docked list in the TUI where `Enter` opens the plan's review, and a notice with
-  every path in other modes. No registry file is added.
+- `plan`: `/plan list` walks `.pi/plans` and shows each plan's title, modified
+  time, and step progress, newest first — a docked list whose `Enter` opens the
+  review, and a notice with every path in other modes.
 
-- dev: the legacy `.doc` extractor is tested against a real Word 97 file —
-  `test/helpers/fixtures/files/legacy.doc`, two paragraphs generated once with
-  LibreOffice (`soffice --headless --convert-to doc`, or `textutil -convert doc`
-  on macOS) and committed — so the OLE path is covered for success, not only for
-  its error message. Both the extractor and `read_doc` end to end read it.
+- `document`: the legacy `.doc` path is covered end to end by a committed Word 97
+  fixture, so its OLE branch is tested for success and not only for its error.
 
-- docs: `test/docs-parity.test.ts` holds the two entry READMEs together —
-  `README.md` and `README.zh-CN.md` must agree on section structure, table rows,
-  and the relative links and images a reader follows, while translated text,
-  anchors, and the language switcher stay out of the comparison. The drift it
-  found is fixed: the Chinese `/bytefly` bullets now name the override reset, the
-  delivery method, the health check, and the currency/cost precision; the bytefly
-  row mentions inline text editing; and the Documentation table gained the
-  configuration reference row. Policy: the entry READMEs stay in sync, deep docs
-  stay English until a translation owner exists.
+- dev: `bun run bench:render` measures 500 and 2000 tool blocks at 80 and 120
+  columns — lines, median and p95 frame time, heap per frame, and render-memo hits.
+  Its determinism half runs in the suite.
 
-- dev: `bun run bench:render` measures a long session — 500 and 2000 tool blocks
-  at 80 and 120 columns through the real renderers — and reports lines, median and
-  p95 frame time, heap per frame, and how many blocks came back from their render
-  memo. The deterministic half runs in the suite (`scripts/render-bench.test.ts`):
-  a repeat frame must be the same lines and every line must fit the width. The
-  timings stay a pre-release reading with a budget in `docs/development.md`, not a
-  CI threshold.
+- ci: a `compat` job installs the newest published Pi peers, runs typecheck and the
+  serial suite, and records the resolved versions; `test/extension-load.test.ts`
+  loads every manifest entry, so a host change that breaks loading fails on any OS.
 
-- ci/docs: a `compat` job proves the package against the newest published Pi. It
-  installs `@earendil-works/pi-*` and `typebox` at `latest` (the peer ranges stay
-  `"*"`), runs typecheck and the serial suite, and records the resolved versions
-  with the new `bun run compat:versions` (`scripts/peer-versions.ts`), also as a
-  markdown table in the job summary. It runs on push to `main`, weekly, and on
-  demand — never on a pull request, so an upstream release cannot fail an
-  unrelated change. `test/extension-load.test.ts` loads every entry in the `pi`
-  manifest through the fake runtime, so a host change that breaks loading fails on
-  every platform; `docs/development.md` documents the floor and how to reproduce
-  it locally.
+- `memory`: `/memory doctor` reports store health — note counts, bytes, how much of
+  `maxInjectBytes` the injection uses and which scope it omits, and the
+  near-duplicate pairs the comparison key treats as one fact. `m` merges a pair.
 
-- `memory`: `/memory doctor` reports store health — note counts and file bytes
-  per scope, how much of `maxInjectBytes` the injection uses and which scope's
-  notes it omits, and the near-duplicate pairs the conservative comparison key
-  already treats as one fact. It is read-only. The picker gains `m`: mark a
-  note, then `m` on a second note in the same scope to merge the pair in one
-  atomic write, with the merged wording edited in the shared inline editor.
-
-- docs: `test/docs-truth.test.ts` holds `docs/extensions.md` to the code: every
-  command and flag registered with `pi.registerCommand`/`registerFlag` must be
-  named in the catalog, every command or flag the catalog names must be
-  registered (with a reviewed allowlist for Pi's own commands and the WeChat
-  peers' chat commands), and each name must be a string literal so the scan can
-  see it. A renamed command or a stale catalog line now fails CI.
-
-- `worktree`: `/worktree status` and `list_worktrees` now name what isolation does
-  not cover instead of leaving it to the README — the user's own `!` shell,
-  Windows `powershell` with that tool active, and shell commands whose git
-  behavior the guard cannot verify. The last one reports how many passed through
-  this session, since the transcript cannot show them; `doctor` notes the same
-  gaps on the `worktree` extension.
+- `worktree`: `/worktree status` and `list_worktrees` name what isolation does not
+  cover — your own `!` shell, Windows `powershell`, and shell commands the guard
+  cannot verify, counting how many passed through this session.
 
 ### Changed
 
-- dev: the changelog holds one subsection set per release window. A second
-  `### Added` had landed in `0.11.1` (two sessions merging into `[Unreleased]` in
-  the same cycle) and `0.5.1` listed `Fixed` before `Changed`; both are merged and
-  reordered, and `test/release.test.ts` now fails on a repeated or out-of-order
-  subsection, on a name outside Keep a Changelog's set, or on a subsection with no
-  bullet under it.
+- docs: the changelog holds one subsection set per release window; the duplicated
+  `0.11.1` and misordered `0.5.1` windows are merged and reordered, and
+  `test/release.test.ts` fails a repeated or empty subsection.
 
-- themes: `test/theme.test.ts` now measures WCAG AA at the layer the package
-  paints with — every semantic role from `lib/tui/tokens.ts` against the canvas,
-  and the selected-row pair against `selectedBg` — instead of only per Pi token,
-  so a palette edit that makes text unreadable fails the suite. The run found one
-  real failure: dark `faint` (`dim`) sat at 4.12, and `dim` moves from `#6e7681` to
-  `#7d8590` (5.07, still a visible step below `muted` at 6.15). The metric itself
-  is pinned against known ratios (black on white is 21, `#767676` on white is
-  ≈4.54) so a broken formula cannot pass every theme quietly. The deterministic
-  galleries (`assets/tool-renderings.png`, `assets/tools/*.png`) are regenerated
-  for the new shade; the live-session screenshots are untouched.
+- `themes`: `test/theme.test.ts` measures WCAG AA per semantic role at the layer
+  the package paints with, which found dark `dim` at 4.12; it moves from `#6e7681`
+  to `#7d8590`, and the galleries and the `chrome.png` hero are regenerated.
 
-- `job`: `detached: true` is now refused on Windows instead of starting a job that
-  silently did not detach — it kept the parent's pipes, died with the session, and
-  never reported a code. The error names the three alternatives (`detached:
-  false`, WSL, a `subagent`); `job.detachedByDefault` is inert there rather than
-  failing every start with a config set on another machine, and `doctor` names
-  both facts plus the unrecoverable exit code.
+- `job`: `detached: true` is refused on Windows instead of starting a job that
+  silently did not detach. `job.detachedByDefault` is inert there rather than
+  failing every start with a config set elsewhere; `doctor` names both.
 
-- docs: the configuration reference is `docs/references/bytefly-config.md`.
-  The old path said "configuration...reference" twice, once in the directory and
-  once in the suffix, and read as a sibling of `docs/configuration.md`, which
-  covers resolution and environment variables instead of keys. Every guide,
-  README, and the `test/config-docs.test.ts` guard follow the new path, and so
-  do the two links in the released 0.12.0 section, which would otherwise dangle.
+- docs: the configuration reference is `docs/references/bytefly-config.md`, since
+  the old path repeated "configuration...reference" and read as a sibling of
+  `docs/configuration.md`; it now opens with a contents list held to every section.
 
-- docs: the entry READMEs read as a front door again. The bytefly table cell
-  dropped from 1,135 characters to two sentences, with the control-center
-  sections, the settings list, the notify detail, and the pricing left to
-  `docs/extensions.md` and the extension's own README; the two themes moved out
-  of the extension table into their own section, which says installing the pack
-  does not select one and that the screenshots use `bytefly-dark`; the
-  `## Requirements` section folded into Quick start, where its prereqs are read;
-  the intro stopped previewing the promise bullets the roadmap quotes; and the
-  pack's once-per-session npm version request is now disclosed next to the
-  install steps. An npm badge and the trust-boundary line it links to in
-  `docs/security.md` complete the change.
+- docs: the entry READMEs read as a front door again — a two-sentence bytefly
+  cell, themes in their own section, Requirements folded into Quick start, and the
+  once-per-session version request disclosed next to the install steps.
 
 - docs: the `@vX.Y.Z` install pins in the two entry READMEs and
-  `docs/getting-started.md` name the released version again (`0.8.0` and `0.7.0`
-  were stale). `test/release.test.ts` now checks every pin against
-  `package.json`, and the release step that bumps the version bumps them too.
+  `docs/getting-started.md` name the released version again, and
+  `test/release.test.ts` now checks every pin against `package.json`.
 
-- docs: `test/naming.test.ts` holds the front door's tool column to the code
-  both ways — every backticked tool-shaped token in the two entry READMEs is a
-  registered tool, every registered tool is named there, and the English and
-  Chinese tables agree. The `/bytefly` subcommand names (`doctor`, `settings`)
-  are the reviewed exception, and an unused allowance fails.
+- packaging: `files` no longer ships `assets/**`, so an install drops from 7.4 MB
+  to 2.3 MB unpacked. Nothing reads the screenshots at runtime, and the README's
+  image links still resolve on GitHub.
 
-- packaging: `files` no longer ships `assets/**`, so an install drops from
-  7.4 MB to 2.3 MB unpacked (416 files to 373). Nothing reads the screenshots at
-  runtime and `pi.image` already used a raw GitHub URL; the README's image links
-  still resolve on GitHub.
+- `document`: extraction has a per-call deadline, `document.extractTimeoutMs`
+  (30 s, clamped 1 s – 5 min). A parser that outlasts it is abandoned and the read
+  fails with the limit named; one that never yields still cannot be preempted.
 
-- `document`: extraction now has a per-call deadline, `document.extractTimeoutMs`
-  (30 s by default, clamped 1 s – 5 min). A parser that outlasts it is abandoned
-  and the read fails with the limit named, instead of holding the turn open on a
-  pathological document; a late result is discarded and `maxFileBytes`/
-  `maxChars` are unchanged. A parser that never yields to the event loop still
-  cannot be preempted — that residue is documented rather than hidden.
+- `plan`: `write_plan` and `exit_plan_mode` refuse more than the 50 steps approval
+  tracks, naming the count, the cap, and the fix, instead of writing a plan and
+  silently dropping every step past 50 at approval.
 
-- `plan`: `write_plan` refuses a plan whose `Steps` section has more than the 50
-  top-level steps approval tracks, and `exit_plan_mode` refuses to present one,
-  each naming the count, the cap, and the fix. Previously the plan was written
-  and a note mentioned the overflow, so approval silently dropped every step past
-  50 after the user had reviewed them. A step longer than 200 characters is still
-  shortened in the todo list only.
+- `plan`: the review baseline is a `plan-baseline` session entry of per-section
+  digests rather than text in runtime memory, so a resumed session or a `/tree`
+  restore keeps its changed-section markers.
 
-- `plan`: the review baseline is now a `plan-baseline` session entry holding one
-  digest per heading section, rather than the previous plan text kept in runtime
-  memory. A resumed session or a `/tree` restore therefore keeps the
-  changed-section markers of the branch it lands on, instead of showing none; a
-  review that shows the same content appends nothing.
+- `web-access`: independent `web_fetch` calls run in parallel again — its page
+  cache only does synchronous map work, so serialising them only delayed the URLs
+  the model asked for in one turn. `web_search` keeps its sequential mode.
 
-- `web-access`: independent `web_fetch` calls run in parallel again. The tool was
-  marked `sequential` on the theory that its page cache needed it, but the cache
-  only does synchronous map operations and a duplicate fetch is wasted work, not
-  a wrong entry; the serialisation only delayed URLs the model requested in one
-  turn. `web_search` keeps its sequential mode, because its throttle is not
-  concurrency-safe.
+- `web-access`: paging and `find` no longer expand a page into an array of
+  one-character strings; `charLength` walks in place and `sliceChars` cuts by
+  offset.
 
-- `web-access`: code-point position math no longer expands a page into an array
-  of one-character strings. `charLength` walks in place and a new `sliceChars`
-  cuts by offset, so paging and `find` on a multi-megabyte page stop allocating
-  millions of strings per call.
-
-- `web-access`: `web_fetch`'s `find` output is now part of the `maxChars`
-  budget. At the schema's ceilings (`maxMatches: 50`, `contextChars: 2000`) the
-  passages alone could exceed `maxOutputChars`; the result keeps the passages
-  that fit and says whether `maxMatches` or the budget hid the rest.
+- `web-access`: `web_fetch`'s `find` passages now count against the `maxChars`
+  budget, and the result says whether `maxMatches` or the budget hid the rest.
 
 ### Fixed
 
-- `worktree`: a redirect to `/dev/null` is no longer refused as an escape. The
-  guard checks every redirection target against the worktree, and the null device
-  is outside it, so the ordinary `2>/dev/null` idiom was blocked — including in
-  the `bash` calls the guard is meant to leave alone. A target that discards its
-  stream escapes nothing, and every other device path is still refused.
+- `worktree`: a redirect to `/dev/null` is no longer refused as an escape. A target
+  that discards its stream escapes nothing; every other device path is still
+  refused, and `2>/dev/null` inside `bash` works again.
 
-- `plan`: a restored review baseline is looked up by a canonical plan path, so
-  the changed-section markers survive on Windows and for a branch that recorded
-  the same plan under a different spelling. The stored entry was read back
-  verbatim while the lookup resolved the path, so the two never met.
+- `plan`: a restored review baseline is looked up by a canonical plan path, so its
+  changed-section markers survive on Windows and on a branch that recorded the same
+  plan under another spelling.
 
-- `rewind`: `before_agent_start` narrows the host's event union instead of
-  reading `prompt` off it, so the package typechecks against Pi 1.3 — where a
-  custom message (a wake) is its own event with no prompt — while a user run
-  still records its prompt summary.
+- `rewind`: `before_agent_start` narrows the host's event union instead of reading
+  `prompt` off it, so the package typechecks against Pi 1.3, where a wake is its
+  own event, while a user run still records its prompt summary.
 
-- `web-access`: `web_fetch` decodes a page by its byte-order mark, the declared
-  `Content-Type` charset, or the page's own `<meta charset>`, falling back to
-  UTF-8. A GBK/GB18030 page used to arrive as replacement characters; an unknown
-  label still falls back instead of failing the fetch.
+- `web-access`: `web_fetch` decodes by byte-order mark, declared charset, or the
+  page's own `<meta charset>`, falling back to UTF-8 — a GBK page used to arrive as
+  replacement characters.
 
-- `web-access`: `maxBytes` is enforced while the response body streams in. The
-  old read buffered the whole `arrayBuffer()` first, so a chunked or
-  gzip-compressed response was fully materialised (and decompressed) before the
-  size was checked.
+- `web-access`: `maxBytes` is enforced while the body streams in, so a chunked or
+  gzip-compressed response is no longer fully materialised before its size is
+  checked.
 
-- `plan`: the review sidebar scrolls again when its outline is taller than
-  the window. The shell put the scroll on the `.bf-panel` inside the
-  `<details>`, but a browser lays a details' content out in a block wrapper with
-  no definite height that takes no part in its flex layout, so the panel kept its
-  content height and the sidebar only clipped it. The sidebar now scrolls on its
-  own box; the review's inert flex rule is gone with it.
+- `plan`: the review sidebar scrolls again when its outline is taller than the
+  window; a details' content wrapper had no definite height, so the panel kept its
+  content height and the sidebar only clipped it.
 
-- `file-browse`: a long file tree now scrolls in its own pane under the pinned
-  quick-open trigger and path filter, instead of scrolling them away with it;
-  narrow screens still expand the tree in the page. The pane and the disclosure
-  share one breakpoint, so no viewport width falls between them.
+- `file-browse`: a long file tree scrolls in its own pane under the pinned
+  quick-open trigger and filter, sharing one breakpoint with the narrow-screen
+  disclosure so no width falls between them.
 
-- `file-browse`: a page render resolves its path once, and the change totals
-  come from the `--stat` pass rather than a second `git diff --shortstat`, so
-  navigating no longer repeats the `stat` or spawns an extra git process.
+- `file-browse`: a page render resolves its path once and takes the change totals
+  from the `--stat` pass, so navigating no longer repeats the `stat` or spawns an
+  extra git process.
 
 ## [0.12.0] - 2026-10-18
 
