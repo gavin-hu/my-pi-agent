@@ -12,6 +12,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { messageOf } from "./errors.ts";
+import { formatHealth, memoryHealth } from "./doctor.ts";
 import { formatNotice, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";
 import { MemoryPickerComponent } from "./tui.ts";
@@ -30,10 +31,10 @@ function notify(ctx: ExtensionCommandContext, message: string, kind: "info" | "w
 }
 
 /** `/memory` subcommands and the scope argument accepted by `edit`/`clear`. */
-const MEMORY_SUBCOMMANDS = ["list", "path", "reload", "edit", "clear"];
+const MEMORY_SUBCOMMANDS = ["list", "path", "reload", "doctor", "edit", "clear"];
 
 /** Usage line shared by the command description and the unknown-subcommand warning. */
-const MEMORY_USAGE = "/memory [list | path | reload | edit [project|global] | clear [project|global]]";
+const MEMORY_USAGE = "/memory [list | path | reload | doctor | edit [project|global] | clear [project|global]]";
 
 /** Subcommand on the first token, scope on the second for `edit`/`clear`. */
 function completeMemoryArg(prefix: string): Array<{ value: string; label: string }> | null {
@@ -74,6 +75,7 @@ async function openPicker(pi: ExtensionAPI, runtime: MemoryRuntime, ctx: Extensi
 						add: (scope, text) => runtime.add(scope, text),
 						update: (scope, from, to) => runtime.update(scope, from, to),
 						forget: (scope, entry) => runtime.forget(scope, entry),
+						merge: (scope, first, second, merged) => runtime.merge(scope, first, second, merged),
 					},
 					() => {
 						stopTimer();
@@ -137,6 +139,21 @@ export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void
 						result.changed.length > 0
 							? `Reloaded ${result.changed.map(scopeLabel).join(", ")} memory.`
 							: "Memory is already up to date.",
+					);
+					return;
+				}
+				case "doctor": {
+					// Read-only: the report names what to fix, and `m` in the picker merges a pair.
+					notify(
+						ctx,
+						formatHealth(
+							memoryHealth({
+								entries: runtime.entries(),
+								sizes: runtime.sizes(),
+								trusted: runtime.trusted(),
+								config: runtime.config(),
+							}),
+						),
 					);
 					return;
 				}

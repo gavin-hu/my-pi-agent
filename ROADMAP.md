@@ -59,27 +59,27 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | P1–P2, P4 |
 | Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P3, P5–P7 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S7 |
-| Remember across sessions | Works; store hygiene is manual | S1–S2 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S6 |
+| Remember across sessions | Works; the store reports its own health | S1 |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W10 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F9 |
 
 ## If only three things ship
 
-1. **S1 — Memory health.** A store that grew past its injection budget should say
-   so, and two notes should be mergeable, before "remember across sessions"
-   drifts into "remember roughly".
-2. **F2 — Compatibility floor.** Install the newest Pi peer packages and run the
+1. **F2 — Compatibility floor.** Install the newest Pi peer packages and run the
    suite against them, so the tested range is a fact rather than a hope.
-3. **F3 — Long-session benchmark.** A long session should stay inside a measured
+2. **F3 — Long-session benchmark.** A long session should stay inside a measured
    render budget, not only pass its tests on a warm laptop.
+3. **F1 — Docs parity.** The two entry READMEs stay in sync, with a parity test
+   on their headings, tables, and links, so the Chinese front door does not
+   drift from the English one.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** (highest priority) | Are the promises true? | No known stale doc; every isolation gap is visible in the session; the suite runs on a named Pi range and a long-session benchmark holds. |
-| **Next** (queued) | Does the daily loop feel finished? | Plan-to-execution handoff, memory hygiene, settings completeness, provider diagnostics. |
+| **Next** (queued) | Does the daily loop feel finished? | Plan-to-execution handoff, note promotion, settings completeness, provider diagnostics. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -173,38 +173,39 @@ contributes no `Now` item.
   README).
 - Rewind is all-or-nothing and captures no ignored file (see
   [Deliberately left thin](#deliberately-left-thin)).
-- Memory injection truncates a large store with a tail note; `forget` is exact
-  and near-duplicate matching is deliberately conservative (`memory` README).
+- Memory injection truncates a large store with a tail note, and `forget` is
+  exact; `/memory doctor` names the notes the cap drops and the near-duplicate
+  pairs the conservative key considers equal, and `m` in the picker merges them
+  (`memory` README).
 
 **Now**
 
-- **S1 — Memory health.** `/memory doctor` reports note count, bytes,
-  over-budget stores, and near-duplicates; the picker can merge two notes into
-  one. Dedupe stays conservative. *Done when* no injection path changes and a
-  merge is atomic.
+Nothing here makes a false promise today: the store reports its own health, the
+remaining gaps are documented behavior, and dedupe stays conservative by design.
+This section contributes no `Now` item.
 
 **Next**
 
-- **S2 — Note promotion.** Move a note between project and global scope from the
+- **S1 — Note promotion.** Move a note between project and global scope from the
   `/memory` picker, so a fact learned in one repository can graduate without a
   manual file copy.
-- **S3 — Guard parity on Windows.** Block `powershell` escapes in the worktree
+- **S2 — Guard parity on Windows.** Block `powershell` escapes in the worktree
   guard the way plan mode already does, or report the gap as `degraded`. *Done
   when* a Windows test covers an escape attempt.
 
 **Later**
 
-- **S4 — Partial restore.** Per-file or per-directory rewind from a snapshot,
+- **S3 — Partial restore.** Per-file or per-directory rewind from a snapshot,
   with the same confirmation and dirty-tree rules that the whole-tree restore
   already has. This reverses the current all-or-nothing non-goal; design the UI
   before the tool.
-- **S5 — Worktree handoff.** A checked way to leave a worktree with a commit and
+- **S4 — Worktree handoff.** A checked way to leave a worktree with a commit and
   a merge or pull-request hint, without becoming a general branch manager. The
   branch flow in `AGENTS.md` is the contract to keep.
-- **S6 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S5 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics.
-- **S7 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S6 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -384,10 +385,10 @@ it.
 
 | Limitation | Why it has no item |
 |---|---|
-| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard. Revisit with `S6`. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard. Revisit with `S5`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
-| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S4`. |
-| `rewind`: a restore is all-or-nothing | A non-goal until `S4`; the confirmation already previews the change. |
+| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S3`. |
+| `rewind`: a restore is all-or-nothing | A non-goal until `S3`; the confirmation already previews the change. |
 | `document`: no OCR | `W9` is a non-goal until a dependency-light engine exists. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |
@@ -406,7 +407,7 @@ above.
   `test/config-docs.test.ts`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
-  `P5`, `S3`.
+  `P5`, `S2`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — `P2`.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
