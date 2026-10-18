@@ -123,6 +123,19 @@ why.
   `promptGuidelines`, injected context) is budgeted. Keep each channel to its
   one job; `test/prompt-budget.test.ts` holds the injected-context ceilings.
 
+## Code quality
+
+Extension code is read far more often than it is written. Leave every module
+tidy: one job per file, logic a second extension would need in `lib/` rather
+than copied, names that say what the thing does, no dead branches or
+commented-out code, and no comment that restates the line it sits on.
+Readability beats cleverness — an obvious loop beats a dense one-liner.
+
+Performance is part of the same bar. Do work once per render rather than per
+frame, take the cheap path before allocating, and keep nothing that grows with
+the transcript or the session unbounded. A change that makes a long session feel
+slow is a bug even when every test passes.
+
 ## TUI design conventions
 
 Follow Pi's built-in TUI design system; do not invent a private visual
