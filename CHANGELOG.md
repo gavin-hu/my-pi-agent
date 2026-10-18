@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-18
+
 ### Added
 
 - `wechat`: `/wechat stop <peer>` and `/wechat reset <peer>` act on one peer
@@ -303,13 +305,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the photo, and an attachment-only message is answered instead of dropped. A
   voice note the server gave no transcript for and a video are also answered
   with a one-line notice.
-- `wechat`: a session that connects on `session_start` now answers inbound
-  messages. The bridge keeps the handle the host events, the tool, and the
-  commands read instead of dropping it, so turns are captured and settled
-  rather than injected and left unanswered; the already-open guard is real too,
-  so the RPC double `session_start` on a session switch no longer starts a
-  second poller, and `session_shutdown` stops polling instead of leaving it
-  running.
+- `wechat`: a stored account now connects on `session_start` through the same
+  bridge handle the commands and tools read, and the already-open guard holds,
+  so the RPC double `session_start` on a session switch cannot start a second
+  poller; `session_shutdown` stops polling instead of leaving it running.
 - `wechat`: `/wechat` typed at the terminal no longer opens its dialogs over a
   WeChat turn. `status` prints the one-line summary, and `login`/`logout` report
   that they are unavailable until the turn finishes, instead of crashing on a
@@ -331,26 +330,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   subcommand completions carry the same line; the control screen's keys accept
   their uppercase form, and `logout` in a mode without a dialog reports that it
   needs one instead of doing nothing.
-- `wechat`: a WeChat turn that could not start no longer wedges the bridge. The
-  host rejects `sendUserMessage` asynchronously when the session went busy in
-  between, and that rejection was unobserved, so `active` stayed set and every
-  later message queued forever with no acknowledgement. The injection is awaited,
-  a 15-second start watchdog covers a run that never reports itself, and both
-  release the turn, say so in the terminal, and answer the peer with
-  `处理失败，请稍后重试。`.
 - `wechat`: a finished turn with no text now says `这条处理完了，但没有文字输出。`
-  instead of `已停止。`, which is reserved for a turn that was actually aborted
-  (`agent_settled` carries the flag).
+  instead of `已停止。`, which is reserved for a turn that was actually aborted.
 - `wechat`: a reply is never silently dropped. A non-zero `ret`/`errcode` from
   `sendmessage` (other than the expiry code) is reported in the terminal with how
   many parts went out, and a reply that formats down to nothing is reported
   instead of counting as delivered.
-- `wechat`: waiting is no longer silent. A message queued behind a busy terminal
-  session gets one line at four seconds and one more at a minute
-  (`终端会话正忙…`), and a turn still running after 30 seconds says
-  `还在处理这条…` once. A second message sent after the acknowledgement is still
-  merged into the same turn, so the peer gets one answer rather than a second
-  “working on it”.
 - `wechat`: the poll loop is guarded. `getupdates` gets a watchdog derived from
   the server's own `longpolling_timeout_ms` (fallback 90 s, floor 30 s, +15 s)
   and retries a wedged request with the same cursor, and a body-level
@@ -1659,7 +1644,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.0
 [0.10.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.10.0
 [0.9.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.9.0
 [0.8.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.8.1
