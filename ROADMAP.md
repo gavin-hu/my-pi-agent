@@ -59,7 +59,7 @@ screenshots.
 
 ## Promise ledger
 
-| README promise | Today | Next move |
+| README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | — |
 | Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1 |
@@ -68,10 +68,16 @@ screenshots.
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C6, F1–F2 |
 
+The last row is a paraphrase: the README says "Everything is optional and
+independently toggleable" and "the package upgrades with Pi like any other."
+The column is *Open items*, not the `Next` tier, because a ledger row can be
+closed by work parked in any horizon.
+
 ## If only three things ship
 
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
-   each dated, so the footer stops under-reporting non-DeepSeek models.
+   each dated, so a non-DeepSeek model whose tariff a table can express is priced
+   from a published rate instead of showing no price at all.
 2. **C2 — Control-center breadth.** *Decision first:* whether themes, skills, and
    prompts belong in the picker or stay with `pi config`; if they do, they need the
    same health and scope rules as extensions.
@@ -79,11 +85,14 @@ screenshots.
    surface its age in `doctor`, so a tariff change is visible instead of silently
    wrong.
 
+All three sit in `Now`; the ranking and the tier do not disagree about which work
+comes first.
+
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the numbers honest and the coverage real? | `C1` ships: no hosted model under-reports its cost, and every page the package serves is covered through its router without a browser. |
+| **Now** (highest priority) | Are the numbers honest? | `C1`–`C3` ship: a built-in tariff is dated and its age is visible in `doctor`, a model whose tariff a table cannot express keeps Pi's recorded cost, and `C2`'s picker decision is recorded. |
 | **Next** (queued) | Does the daily loop feel finished? | `P1` ships: per-run delegation transcripts under a retention rule. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
@@ -264,15 +273,24 @@ runs, an update check, and two themes.
 
 **Now**
 
-Nothing here makes a false promise today. The gaps above are documented
-behavior, and the one that is not (`C2`, control-center breadth) needs a decision
-before it is work. The money the chrome reports has one gap left:
+Nothing above is a false promise; the picker gap is a scope decision rather than
+a fix, so it is an item rather than a row. The money the chrome reports has one
+gap left:
 
 - **C1 — Provider rate packs.** Add published rates for the major hosted
   providers (Anthropic, OpenAI, Google), each with an effective date and a
   "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
-  fallback. *Done when* no network is required and an unknown model still shows
-  no invented price.
+  fallback. Scope it to a tariff a table can express: where the README's "no
+  tiers, no special cache writes" limitation applies, the model keeps Pi's
+  recorded cost instead of a guessed rate. *Done when* no network is required,
+  a model the table cannot express never prices below its recorded cost, and an
+  unknown model still shows no invented price.
+- **C2 — Control-center breadth.** *Decision first:* do themes, skills, and
+  prompts belong in the picker or stay with `pi config`? If added, they need the
+  same health and scope rules as extensions.
+- **C3 — Price freshness.** Record when a built-in table was last verified and
+  surface its age in `doctor`, so a tariff change is visible instead of silently
+  wrong.
 
 **Next**
 
@@ -281,12 +299,6 @@ contributes no `Next` item.
 
 **Later**
 
-- **C2 — Control-center breadth.** *Decision first:* do themes, skills, and
-  prompts belong in the picker or stay with `pi config`? If added, they need the
-  same health and scope rules as extensions.
-- **C3 — Price freshness.** Record when a built-in table was last verified and
-  surface its age in `doctor`, so a tariff change is visible instead of silently
-  wrong.
 - **C4 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
 - **C5 — Update action.** Offer `pi update --extensions` from the control
@@ -327,11 +339,20 @@ it.
 |---|---|
 | `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S1`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
+| `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file, so no reviewed step is lost. Revisit if an approval surface must show a full step. |
+| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. Revisit if one view over several repositories is actually needed. |
+| `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns. Revisit with `P1`, which needs a per-run store anyway. |
+| `watch`: only a **wake** match found while the agent is idle raises a notification | A busy match is queued for the next turn, where the agent is already the listener. Revisit if a match during a long turn has to interrupt. |
+| `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S1`, which changes what "guarded" means. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
-| `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
+| `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |
+| `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. Revisit if a dropped note becomes invisible. |
+| `web-access`: the keyless search returns answers and related topics rather than a result list | That is the provider's shape, not a parsing gap; SearXNG and Brave return a list. Revisit if the keyless default changes. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
-| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C2` is the decision, not a fix. |
+| `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit with `C2`, which would widen the picker. |
+| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. `C2` decides the picker's scope, not this. |
+| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C4`. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 | CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`, filed 2026-10-16) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3, the latest release; revisit when both close, then delete `check:serial` from the matrix. |
 
@@ -343,8 +364,8 @@ above.
 
 - Every README promise has shipped behavior, a named limitation, or a `doctor`
   finding, and every limitation with no item has a row in *Deliberately left
-  thin* — enforced by `test/docs-truth.test.ts`, `test/naming.test.ts`, and
-  `test/config-docs.test.ts`.
+  thin*. A review rule, not a test: read the extension READMEs against this file
+  at each release; the truth tests below pin the surface, not this triage.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   a partial rewind, and WeChat turn shutdown each either preserve the work or say
   what was lost.
@@ -362,7 +383,7 @@ above.
   and npm version cannot drift — `test/release.test.ts` holds the version, the
   install pins, and the changelog's one-set-per-window shape.
 - Docs truth tests cover tools, commands, and config keys, and this roadmap's own
-  item numbers and links resolve — `test/naming.test.ts`,
+  item numbers, links, and bucket caps resolve — `test/naming.test.ts`,
   `test/docs-truth.test.ts`, `test/config-docs.test.ts`, and
   `test/roadmap.test.ts`.
 
