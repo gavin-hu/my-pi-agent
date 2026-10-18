@@ -74,6 +74,7 @@ How the `send_wechat` call and its result look in the transcript — the call li
 | `/wechat login` | QR login; on scan, stores credentials, replaces a running poller, and starts the bridge. |
 | `/wechat new` | Start a fresh *host* session. Peer conversations are independent and survive it; they use an inbound `/new`. |
 | `/wechat status` | The same control screen as a bare `/wechat` (the one-line summary while a peer turn runs). |
+| `/wechat doctor` | Print a read-only health report: connection and token age, last poll and hold, lock holder, per-peer session/queue, recent failures. |
 | `/wechat stop <peer>` | Stop that peer's running turn; reports when nothing was running. |
 | `/wechat reset <peer>` | Start a fresh conversation for that peer; refused while its turn runs. |
 | `/wechat logout` | Confirm, then clear credentials, drop the bridge, and stop polling. |
@@ -304,6 +305,9 @@ never touches the stored cursor.
 
 ## Troubleshooting
 
+- **First, run `/wechat doctor`.** It prints the connection, token age, last
+  poll, poller lock, per-peer queue/session age, and the last failure, which
+  answers most "why is the bot quiet?" questions in one screen.
 - **`Another Pi session is already polling this WeChat account.`** — one runtime
   owns the account at a time, tracked by `<agent-dir>/wechat/poller.lock`.
   Quit the other `pi` process. A lock left by a process that already exited is
@@ -382,7 +386,7 @@ sessions are in-process).
 
 | Integration point | Detail |
 |---|---|
-| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `stop <peer>`, `reset <peer>`, `logout`, `help`; bare `/wechat` opens the control screen. |
+| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `doctor`, `stop <peer>`, `reset <peer>`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
@@ -497,6 +501,7 @@ status, which is what the old start/stop guidance used to do.
 | `remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
 | `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
 | `history.ts` | Read-only `/history`: opens the peer's newest session, formats the last user/assistant messages, and never writes. |
+| `doctor.ts` | The plain-text `/wechat doctor` report: connection/token age, poll, lock, peer sessions, recent failures, and config. |
 | `types.ts` | Wire and domain types. |
 
 ## Testing

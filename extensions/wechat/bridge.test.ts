@@ -47,6 +47,7 @@ describe("bridge", () => {
 		bridge.open();
 		await waitFor(() => peers.length === 1 && peers[0].prompts.length === 1);
 		expect(peers[0]?.prompts[0]?.text).toBe("ping");
+		expect(bridge.status().peerStates[0]?.state.sessionAgeMs).toBe(0);
 
 		peers[0]?.release("pong");
 		await waitFor(() => sent.length === 1);
@@ -239,6 +240,46 @@ describe("bridge", () => {
 		await bridge.close();
 	});
 
+	test("reports doctor telemetry after a poll", async () => {
+		const { client } = makeClient([updates([])]);
+		const { deps } = makeDeps(client, {
+			config: { ...DEFAULT_CONFIG, pollHoldMs: 5000 },
+			now: () => 5000,
+			loadLock: () => ({ pid: 7, at: 1000 }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().lastPollAt !== undefined);
+		const status = bridge.status();
+		expect(status.startedAt).toBe(5000);
+		expect(status.tokenCreatedAt).toBe(account.createdAt);
+		expect(status.lock).toEqual({ pid: 7, at: 1000 });
+		expect(status.pollHoldMs).toBe(5000);
+		await bridge.close();
+	});
+
+	test("records the last rejected poll", async () => {
+		let first = true;
+		const base = makeClient([]);
+		const client = {
+			...base.client,
+			getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+				if (first) {
+					first = false;
+					return { ret: -1, msgs: [], buf: "" };
+				}
+				await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+				throw new Error("aborted");
+			},
+		} as unknown as WechatClient;
+		const { deps } = makeDeps(client, { pollTimeout: () => 10 });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().lastPollError !== undefined);
+		expect(bridge.status().lastPollError).toContain("rejected ret -1");
+		await bridge.close();
+	});
+
 	test("close releases the lock and reopens cleanly", async () => {
 		const { client } = makeClient([]);
 		const { deps, released } = makeDeps(client);
@@ -384,6 +425,7 @@ describe("bridge sendToOwner", () => {
 		bridge.open();
 		expect(await bridge.sendToOwner("hello")).toEqual({ ok: true });
 		expect(sent[0]).toEqual({ to: owner, text: "hello", contextToken: "ctx" });
+		expect(bridge.status().lastSendError).toBeUndefined();
 		await bridge.close();
 	});
 
@@ -549,6 +591,7 @@ describe("bridge resilience", () => {
 		bridge.open();
 		const result = await bridge.sendToOwner("hello");
 		expect(result).toEqual({ ok: false, error: "Weixin rejected the message (ret -2: context token invalid)." });
+		expect(bridge.status().lastSendError).toContain("rejected");
 		await bridge.close();
 	});
 

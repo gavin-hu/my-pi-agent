@@ -45,6 +45,9 @@ export interface PollDeps {
 	onMessages: (messages: WeixinMessage[]) => void;
 	refreshLock: () => void;
 	isRunning: () => boolean;
+	now: () => number;
+	/** Report the last poll attempt, for the doctor/status. */
+	onPoll?: (result: { at: number; error?: string; holdMs?: number }) => void;
 	pollTimeout: (serverHintMs: number | undefined) => number;
 }
 
@@ -82,6 +85,10 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 				} catch (error) {
 					if (signal.aborted || !deps.isRunning()) break;
 					if (watchdog.signal.aborted) {
+						deps.onPoll?.({
+							at: deps.now(),
+							error: `timed out after ${Math.round(watchdogMs / 1000)}s`,
+						});
 						// A wedged request, not a server answer: retry at once with the same
 						// cursor, so nothing is skipped, and say so once.
 						if (!timeoutNotified) {
@@ -90,6 +97,7 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 						}
 						continue;
 					}
+					deps.onPoll?.({ at: deps.now(), error: messageOf(error) });
 					deps.notify(`WeChat poll failed: ${messageOf(error)}`, "warning");
 					try {
 						await deps.sleep(BACKOFF_MS, signal);
@@ -112,6 +120,7 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 					if (!rejectedNotified) {
 						rejectedNotified = true;
 						const code = (response.ret ?? 0) !== 0 ? response.ret : (response.errcode ?? 0);
+						deps.onPoll?.({ at: deps.now(), error: `rejected ret ${code}` });
 						deps.notify(`WeChat poll rejected (ret ${code}); retrying.`, "warning");
 					}
 					try {
@@ -130,6 +139,7 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 				}
 				deps.onMessages(response.msgs);
 				deps.refreshLock();
+				deps.onPoll?.({ at: deps.now(), holdMs: serverHint ?? deps.holdMs() });
 			}
 		},
 	};

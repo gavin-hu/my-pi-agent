@@ -236,6 +236,16 @@ describe("the /wechat command", () => {
 		}
 	});
 
+	test("prints a health report on doctor", async () => {
+		const { deps } = harness({ status: bridgeStatus({ open: true, lastPollAt: 500, lock: { pid: 1, at: 1 } }) });
+		const { ctx, notices } = fakeCtx();
+		await handler(deps)("doctor", ctx);
+		const text = notices.at(-1)?.message ?? "";
+		expect(text).toContain("wechat — health");
+		expect(text).toContain("Poll");
+		expect(text).toContain("Lock");
+	});
+
 	test("opens the control screen for a bare command and runs the chosen action", async () => {
 		const started: number[] = [];
 		const { deps } = harness();

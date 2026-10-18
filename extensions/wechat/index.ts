@@ -23,7 +23,7 @@ import { registerCommands, type CommandDeps } from "./commands.ts";
 import { messageOf } from "./errors.ts";
 import { loadWechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
-import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
+import { acquireLock, lockPath, readLock, refreshLock, releaseLock } from "./lock.ts";
 import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer-session.ts";
 import { createPeerUIContext } from "./remote-ui.ts";
 import { peerKey } from "./format.ts";
@@ -127,6 +127,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			acquireLock: () => acquireLock(lockPath(), lockDeps()),
 			refreshLock: () => refreshLock(lockPath(), lockDeps()),
 			releaseLock: () => releaseLock(lockPath(), process.pid),
+			loadLock: () => readLock(lockPath()),
 			notify: (message, kind) => {
 				ctxRef?.ui.notify(message, kind);
 			},

@@ -16,6 +16,7 @@ import { supportsCustomUI } from "../../lib/interaction.ts";
 import type { Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
+import { doctorReport } from "./doctor.ts";
 import { peerLabel, peerKey } from "./format.ts";
 import { waitForLogin, type LoginOutcome } from "./login.ts";
 import { defaultSleep } from "./timer.ts";
@@ -50,6 +51,7 @@ export const WECHAT_COMMANDS = [
 	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge" },
 	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)" },
 	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)" },
+	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures" },
 	{ verb: "stop", description: "Stop one peer's running turn: /wechat stop <peer>" },
 	{ verb: "reset", description: "Start a fresh conversation for one peer: /wechat reset <peer>" },
 	{ verb: "logout", description: "Clear the stored account and stop the bridge" },
@@ -96,6 +98,18 @@ function busyWithPeerTurn(ctx: ExtensionContext, deps: CommandDeps, verb: string
 		"warning",
 	);
 	return true;
+}
+
+/** Print the read-only health report, in the TUI, over RPC, or in a script. */
+async function runDoctor(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
+	ctx.ui.notify(
+		doctorReport({
+			status: deps.getBridge()?.status(),
+			account: deps.primaryAccount(),
+			config: deps.loadConfig(ctx.cwd),
+			now: deps.now(),
+		}),
+	);
 }
 
 /**
@@ -296,6 +310,8 @@ async function dispatch(
 			return runNew(ctx, deps);
 		case "status":
 			return runPanel(ctx, deps);
+		case "doctor":
+			return runDoctor(ctx, deps);
 		case "stop":
 			return runPeerAction(ctx, deps, "stop", peerArg);
 		case "reset":
@@ -311,7 +327,7 @@ async function dispatch(
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
 		description:
-			"WeChat bridge. /wechat opens the control screen (login | new | status | stop | reset | logout | help)",
+			"WeChat bridge. /wechat opens the control screen (login | new | status | doctor | stop | reset | logout | help)",
 		getArgumentCompletions: completeSubcommand,
 		handler: async (args, ctx) => {
 			const [sub = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);

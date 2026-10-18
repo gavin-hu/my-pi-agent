@@ -75,6 +75,8 @@ export interface PeerState {
 	queued: number;
 	/** How long the running turn has been going, in milliseconds. */
 	runningMs?: number;
+	/** How long the peer's session has been open, when one is open. */
+	sessionAgeMs?: number;
 }
 
 export interface PeerSnapshot {
@@ -110,6 +112,8 @@ interface PeerEntry {
 	/** Monotonic start time of the running turn, for `runningMs`. */
 	startedAt?: number;
 	session?: PeerSession;
+	/** When the current session opened, for the doctor's session age. */
+	sessionSince?: number;
 	opening?: Promise<PeerSession>;
 	disposeTimer?: () => void;
 }
@@ -164,15 +168,18 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	function stateOf(peer: string): PeerState {
 		const target = peers.get(peer);
 		if (!target) return { status: "idle", queued: 0 };
+		const sessionAge =
+			target.sessionSince === undefined ? undefined : { sessionAgeMs: Math.max(0, now() - target.sessionSince) };
 		if (target.running) {
 			return {
 				status: "running",
 				queued: target.queue.length + target.merged,
 				runningMs: target.startedAt === undefined ? 0 : now() - target.startedAt,
+				...sessionAge,
 			};
 		}
 		const queued = target.queue.length + target.merged;
-		return { status: queued > 0 ? "queued" : "idle", queued };
+		return { status: queued > 0 ? "queued" : "idle", queued, ...sessionAge };
 	}
 
 	/** Drop the peer's session and queue. */
@@ -182,6 +189,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		cancelIdleSweep(target);
 		target.session?.dispose();
 		target.session = undefined;
+		target.sessionSince = undefined;
 		target.opening = undefined;
 	}
 
@@ -212,6 +220,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 						throw new Error("The WeChat bridge closed while opening the session.");
 					}
 					target.session = opened;
+					target.sessionSince = now();
 					return opened;
 				})
 				.finally(() => {

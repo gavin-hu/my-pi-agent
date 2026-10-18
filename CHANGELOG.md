@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: `/wechat doctor` prints a read-only health report — connection and
+  token age, the last poll and hold, the poller lock, per-peer session/queue
+  age, and the last send/poll failure — from the same status facts the control
+  screen reads.
 - `wechat`: `/wechat stop <peer>` and `/wechat reset <peer>` act on one peer
   from the terminal, by id or label; a refused sender is also named once in a
   terminal notice, so a new sender can be allowlisted without opening the

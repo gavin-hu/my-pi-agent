@@ -48,10 +48,19 @@ function parseLock(text: string): LockInfo | undefined {
 	}
 }
 
+/** The raw lock record, or undefined when the file is missing or corrupt. */
+export function readLock(path: string): LockInfo | undefined {
+	try {
+		if (!existsSync(path)) return undefined;
+		return parseLock(readFileSync(path, "utf-8"));
+	} catch {
+		return undefined;
+	}
+}
+
 /** True when the existing lock blocks a new owner. */
 export function isLocked(path: string, deps: LockDeps): boolean {
-	if (!existsSync(path)) return false;
-	const info = parseLock(readFileSync(path, "utf-8"));
+	const info = readLock(path);
 	if (!info) return false;
 	if (info.pid === deps.pid) return false;
 	const stale = deps.now() - info.at > (deps.staleMs ?? DEFAULT_STALE_MS);

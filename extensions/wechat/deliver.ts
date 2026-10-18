@@ -49,6 +49,10 @@ export interface DeliveryDeps {
 	onExpired: () => void;
 	/** Drop a peer's cached reply token. */
 	forgetToken: (peer: string) => void;
+	/** The last send failure, for the doctor/status. */
+	onSendError?: (message: string) => void;
+	/** A message got through; clear the last failure. */
+	onSent?: () => void;
 }
 
 /** The bridge's outbound surface. */
@@ -137,9 +141,13 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 			if (failureNotified.has(target.peer)) return;
 			failureNotified.add(target.peer);
 			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
+			deps.onSendError?.(messageOf(error));
 			deps.notify(`WeChat ${label} failed${partial}: ${messageOf(error)}`, "warning");
 		});
-		if (!failed && delivery.ok) failureNotified.delete(target.peer);
+		if (!failed && delivery.ok) {
+			failureNotified.delete(target.peer);
+			deps.onSent?.();
+		}
 		return delivery.ok;
 	}
 
@@ -169,7 +177,11 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 			});
 			// `sendLocalFile` reports only success, and the caller may fall back to text;
 			// without this line the operator would never know the attachment was dropped.
-			if (!sent && !signal?.aborted) deps.notify(`WeChat file delivery failed for ${fileName}.`, "warning");
+			if (!sent && !signal?.aborted) {
+				deps.onSendError?.(`file delivery failed: ${fileName}`);
+				deps.notify(`WeChat file delivery failed for ${fileName}.`, "warning");
+			}
+			if (sent) deps.onSent?.();
 			return sent;
 		},
 
@@ -178,11 +190,13 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 			const delivery = await deliverText(owner, contextToken, text, signal, (error, progress) => {
 				deps.forgetToken(owner);
 				const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
+				deps.onSendError?.(messageOf(error));
 				failure = `${messageOf(error)}${partial}`;
 			});
 			if (delivery.expired) return { ok: false, error: "WeChat session expired." };
 			if (delivery.empty) return { ok: false, error: "Nothing to send after formatting." };
 			if (!delivery.ok) return { ok: false, error: failure ?? "WeChat send failed." };
+			deps.onSent?.();
 			return { ok: true };
 		},
 

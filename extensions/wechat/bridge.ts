@@ -95,6 +95,8 @@ export interface BridgeDeps {
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** Called whenever the bridge's connection state changes, for a status chip. */
 	onStateChange?: (state: BridgeState) => void;
+	/** Read the poller lock, for the doctor. */
+	loadLock?: () => { pid: number; at: number } | undefined;
 }
 
 export interface BridgeStatus {
@@ -114,6 +116,20 @@ export interface BridgeStatus {
 	mediaDropped: number;
 	/** Whether a remote dialog prompt is waiting for an answer. */
 	promptPending: boolean;
+	/** When this connection opened. */
+	startedAt?: number;
+	/** When the last poll settled, successful or not. */
+	lastPollAt?: number;
+	/** The last poll failure, cleared by a successful poll. */
+	lastPollError?: string;
+	/** The last outbound send failure, cleared by a successful send. */
+	lastSendError?: string;
+	/** The long-poll hold currently in use (server hint or configured). */
+	pollHoldMs?: number;
+	/** The stored account's login time. */
+	tokenCreatedAt?: number;
+	/** The poller lock on disk, for the doctor. */
+	lock?: { pid: number; at: number };
 }
 
 export interface SendResult {
@@ -144,6 +160,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const armTimer = deps.armTimer ?? defaultTimer;
 	let running = false;
 	let expired = false;
+	let startedAt: number | undefined;
+	let lastPollAt: number | undefined;
+	let lastPollError: string | undefined;
+	let lastSendError: string | undefined;
+	let pollHoldMs: number | undefined;
 	let abort: AbortController | undefined;
 	let loopPromise: Promise<void> | undefined;
 	let client: WechatClient | undefined;
@@ -204,6 +225,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		notify,
 		onExpired: handleExpired,
 		forgetToken,
+		onSendError: (message) => {
+			lastSendError = message;
+		},
+		onSent: () => {
+			lastSendError = undefined;
+		},
 	});
 
 	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
@@ -420,6 +447,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		refreshLock: deps.refreshLock,
 		isRunning: () => running,
 		pollTimeout,
+		now: deps.now,
+		onPoll: (result) => {
+			lastPollAt = result.at;
+			lastPollError = result.error;
+			if (result.holdMs !== undefined) pollHoldMs = result.holdMs;
+		},
 	});
 
 	/**
@@ -438,6 +471,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		budget.reset();
 		admission.reset();
 		inbound.reset();
+		lastPollAt = undefined;
+		lastPollError = undefined;
+		lastSendError = undefined;
+		pollHoldMs = undefined;
 	}
 
 	function releaseSafe(): void {
@@ -482,6 +519,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			running = true;
 			expired = false;
 			resetEphemeral();
+			startedAt = deps.now();
 			// One worker per connection: it owns the per-peer queues and sessions, so
 			// a login (or a reconnect after an expiry) starts from a clean slate while
 			// each peer's history stays on disk.
@@ -573,6 +611,13 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				refusedPeers: [...refusedPeers],
 				mediaDropped: inbound.dropped(),
 				promptPending: interaction.hasPending(),
+				startedAt,
+				lastPollAt,
+				lastPollError,
+				lastSendError,
+				pollHoldMs: pollHoldMs ?? deps.config.pollHoldMs,
+				tokenCreatedAt: account?.createdAt,
+				lock: deps.loadLock?.(),
 			};
 		},
 
