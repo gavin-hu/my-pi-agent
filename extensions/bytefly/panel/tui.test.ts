@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
@@ -715,7 +716,7 @@ describe("PanelComponent sections", () => {
 
 		const text = component.render(80).join("\n");
 		expect(text).toContain("Bytefly startup TUI — Pi setting");
-		expect(text).toContain("Global · /agent/settings.json");
+		expect(text).toContain(`Global · ${join("/agent", "settings.json")}`);
 	});
 
 	test("keeps every line within the width in both sections", () => {
