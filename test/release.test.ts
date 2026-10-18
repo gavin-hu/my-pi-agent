@@ -144,3 +144,135 @@ describe("release consistency", () => {
 		expect(docPins().length).toBeGreaterThan(0);
 	});
 });
+
+/**
+ * The publish path, asserted as data.
+ *
+ * Publishing runs in `.github/workflows/publish.yml`, not on a maintainer's
+ * machine, so the invariants that make that safe — a dispatch, a confirmation, a
+ * protected environment, an OIDC token, checks on the tagged tree, and
+ * `--provenance` — are read out of the workflow here. A YAML edit that quietly
+ * drops one of them fails the suite instead of shipping an unsigned tarball.
+ */
+
+interface WorkflowStep {
+	uses?: string;
+	name?: string;
+	run?: string;
+	with?: Record<string, unknown>;
+	env?: Record<string, string>;
+}
+
+interface WorkflowJob {
+	environment?: string;
+	permissions?: Record<string, string>;
+	steps?: WorkflowStep[];
+}
+
+interface Workflow {
+	on?: Record<string, unknown>;
+	permissions?: Record<string, string>;
+	jobs?: Record<string, WorkflowJob>;
+}
+
+function publishWorkflow(): { text: string; workflow: Workflow } {
+	const text = readFileSync(join(repo, ".github", "workflows", "publish.yml"), "utf-8");
+	return { text, workflow: Bun.YAML.parse(text) as Workflow };
+}
+
+describe("the publish workflow", () => {
+	const { text, workflow } = publishWorkflow();
+	const job = workflow.jobs?.publish ?? {};
+	const steps = job.steps ?? [];
+	/** The steps that run a shell command, in order. */
+	const commands = steps.map((step) => step.run ?? "").filter((run) => run !== "");
+
+	test("publishes only from an explicit dispatch, never from a push", () => {
+		// A tag push would publish without asking anyone, so the dispatch is the
+		// only trigger there is.
+		expect(Object.keys(workflow.on ?? {})).toEqual(["workflow_dispatch"]);
+	});
+
+	test("requires a version and a confirmation that repeats it", () => {
+		const inputs = (workflow.on?.workflow_dispatch as { inputs?: Record<string, { required?: boolean }> }).inputs ?? {};
+		expect(Object.keys(inputs).sort()).toEqual(["confirm", "version"]);
+		expect(inputs.version?.required).toBe(true);
+		expect(inputs.confirm?.required).toBe(true);
+		const confirm = commands.find((run) => run.includes("$CONFIRM")) ?? "";
+		expect(confirm).toContain('"$VERSION" != "$CONFIRM"');
+	});
+
+	test("runs in the protected environment whose review is the approval", () => {
+		expect(job.environment).toBe("npm");
+		// The trusted publisher names the same environment, so the approval a human
+		// gives here is the one npm authorised.
+		expect(text).toContain("Trusted publishing");
+	});
+
+	test("asks for the OIDC token and nothing else writable", () => {
+		expect(job.permissions).toEqual({ contents: "read", "id-token": "write" });
+		const writable: string[] = [];
+		for (const [name, value] of Object.entries(job.permissions ?? {})) if (value === "write") writable.push(name);
+		expect(writable).toEqual(["id-token"]);
+		expect(workflow.permissions?.contents).toBe("read");
+	});
+
+	test("checks out the tag with its history and tags", () => {
+		const checkout = steps.find((step) => step.uses?.startsWith("actions/checkout"));
+		expect(checkout?.with?.ref).toBe("v${{ inputs.version }}");
+		expect(checkout?.with?.["fetch-depth"]).toBe(0);
+		expect(checkout?.with?.["fetch-tags"]).toBe(true);
+	});
+
+	test("proves the tag is on main and the tree is that version", () => {
+		expect(commands.some((run) => run.includes("merge-base --is-ancestor"))).toBe(true);
+		expect(commands.some((run) => run.includes("require('./package.json').version"))).toBe(true);
+	});
+
+	test("runs the checks before it publishes", () => {
+		const check = commands.findIndex((run) => run.includes("bun run check"));
+		const publish = commands.findIndex((run) => run.includes("npm publish"));
+		expect(check).toBeGreaterThanOrEqual(0);
+		expect(publish).toBeGreaterThan(check);
+	});
+
+	test("publishes with provenance and no stored token", () => {
+		const publish = commands.find((run) => run.includes("npm publish")) ?? "";
+		expect(publish).toContain("--provenance");
+		expect(publish).toContain("https://registry.npmjs.org/");
+		// Trusted publishing: an OIDC token instead of a long-lived credential.
+		expect(text).not.toContain("NODE_AUTH_TOKEN");
+		expect(text).not.toContain("NPM_TOKEN");
+		expect(text).not.toContain("secrets.");
+	});
+
+	test("refuses to publish a tarball without provenance from anywhere else", () => {
+		// `publishConfig.provenance` makes a local `npm publish` fail, so the workflow
+		// above is the only path that works rather than only the documented one.
+		const publishConfig = (
+			JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as {
+				publishConfig?: { provenance?: boolean };
+			}
+		).publishConfig;
+		expect(publishConfig?.provenance).toBe(true);
+	});
+});
+
+describe("the release guide", () => {
+	const guide = readFileSync(join(repo, "docs", "development.md"), "utf-8");
+	const agents = readFileSync(join(repo, "AGENTS.md"), "utf-8");
+
+	test("names the workflow and provenance", () => {
+		expect(guide).toContain("publish.yml");
+		expect(guide).toContain("--provenance");
+	});
+
+	test("no longer offers a local npm publish", () => {
+		// The old step was `npm publish --registry ...` on the maintainer's machine.
+		expect(guide).not.toMatch(/^\s*npm publish /m);
+	});
+
+	test("says the agent publishes through the workflow", () => {
+		expect(agents).toContain("publish.yml");
+	});
+});

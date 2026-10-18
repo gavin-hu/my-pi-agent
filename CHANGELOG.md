@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- ci: npm publishing moved into the repository, as
+  `.github/workflows/publish.yml`. A manual dispatch names the release version
+  twice, the job then waits for the `npm` environment's required review, checks
+  out the tag instead of a branch, proves the tag is on `main` and that its
+  `package.json` is that version, runs the same checks CI runs, and publishes
+  with `--provenance` through npm trusted publishing — so no publish token is
+  stored and every tarball carries a signed attestation of the commit and
+  workflow that built it. `publishConfig.provenance` is `true`, which makes a
+  local `npm publish` fail rather than ship an unsigned tarball, and
+  `docs/development.md` gained the one-time setup (trusted publisher entry,
+  environment reviewer) it needs.
+
 - `worktree`: the Windows `powershell` tool is now refused while a session is
   isolated. It was never re-rooted, so its relative paths resolved at the main
   checkout — the one the worktree exists to protect — and its grammar (backtick
