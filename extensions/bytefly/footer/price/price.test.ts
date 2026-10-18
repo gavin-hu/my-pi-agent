@@ -85,19 +85,21 @@ describe("createPricer", () => {
 	});
 
 	test("falls back to Pi's recorded cost for a model with no rate", () => {
-		expect(
-			createPricer(config())([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]).cost,
-		).toBeCloseTo(0.31);
+		const totals = createPricer(config())([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]);
+		expect(totals.cost).toBe(0);
+		expect(totals.recordedCost).toBeCloseTo(0.31);
 	});
 
 	test("drops an unmatched record when the fallback is off", () => {
 		const price = createPricer(config({ fallbackToRecordedCost: false }));
-		expect(price([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]).cost).toBe(0);
+		expect(price([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]).recordedCost).toBe(0);
 	});
 
 	test("honours an explicit zero rate over the recorded cost", () => {
 		const free = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 };
-		expect(createPricer(config({ rates: { "*": free } }))([record({ recordedCost: 5 })]).cost).toBe(0);
+		const totals = createPricer(config({ rates: { "*": free } }))([record({ recordedCost: 5 })]);
+		expect(totals.cost).toBe(0);
+		expect(totals.recordedCost).toBe(0);
 	});
 
 	test("totals the tokens alongside the cost", () => {
@@ -110,12 +112,14 @@ describe("createPricer", () => {
 		expect(totals.cacheWrite).toBe(5);
 	});
 
-	test("sums a mix of priced and recorded records", () => {
+	test("keeps a priced and a recorded record in separate totals", () => {
 		const price = createPricer(deepseek());
 		const totals = price([
 			record({ input: 1_000_000, at: MONDAY_PEAK }),
 			record({ provider: "openai", model: "gpt-5", recordedCost: 0.5 }),
 		]);
-		expect(totals.cost).toBeCloseTo(2.5);
+		// Yuan and dollars never meet in one number.
+		expect(totals.cost).toBeCloseTo(2);
+		expect(totals.recordedCost).toBeCloseTo(0.5);
 	});
 });

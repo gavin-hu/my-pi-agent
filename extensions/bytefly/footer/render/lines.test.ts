@@ -83,9 +83,24 @@ describe("buildLines", () => {
 		expect(browse.separator).toBe(" · ");
 	});
 
+	test("shows a recorded amount as its own dollar figure beside the configured one", () => {
+		const [, line2] = buildLines(
+			fullSnapshot({
+				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 9.9, recordedCost: 0.31 },
+				currency: { symbol: "¥", decimals: 2 },
+			}),
+			fakeTheme,
+			"/home/u",
+		);
+		const cost = line2.left.find((segment) => segment.id === "cost")!;
+
+		// Two currencies, never summed: the recorded amount keeps Pi's dollars.
+		expect(cost.forms[0]).toBe("¥9.90 + $0.310");
+	});
+
 	test("omits zero-valued directions in the token meter", () => {
 		const [, line2] = buildLines(
-			fullSnapshot({ usage: { input: 42000, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0.31 } }),
+			fullSnapshot({ usage: { input: 42000, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0.31, recordedCost: 0 } }),
 			fakeTheme,
 			"/home/u",
 		);
@@ -97,7 +112,7 @@ describe("buildLines", () => {
 	test("omits zero-valued cache components", () => {
 		const [, line2] = buildLines(
 			fullSnapshot({
-				usage: { input: 0, output: 0, cacheRead: 96000, cacheWrite: 0, cost: 0 },
+				usage: { input: 0, output: 0, cacheRead: 96000, cacheWrite: 0, cost: 0, recordedCost: 0 },
 				cacheHitRate: 87,
 			}),
 			fakeTheme,
@@ -111,7 +126,7 @@ describe("buildLines", () => {
 	test("omits the cache segment when nothing was cached, even at a 0% hit rate", () => {
 		const [, line2] = buildLines(
 			fullSnapshot({
-				usage: { input: 100, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+				usage: { input: 100, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, recordedCost: 0 },
 				cacheHitRate: 0,
 			}),
 			fakeTheme,
@@ -124,7 +139,7 @@ describe("buildLines", () => {
 	test("shows cache tokens without a hit rate when no rate is known", () => {
 		const [, line2] = buildLines(
 			fullSnapshot({
-				usage: { input: 0, output: 0, cacheRead: 96000, cacheWrite: 0, cost: 0 },
+				usage: { input: 0, output: 0, cacheRead: 96000, cacheWrite: 0, cost: 0, recordedCost: 0 },
 				cacheHitRate: null,
 			}),
 			fakeTheme,
@@ -158,7 +173,7 @@ describe("buildLines", () => {
 	test("omits zero-value meters on a fresh session", () => {
 		const snapshot = fullSnapshot({
 			context: { tokens: null, contextWindow: 200000, percent: null },
-			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, recordedCost: 0 },
 			cacheHitRate: null,
 		});
 		const [, line2] = buildLines(snapshot, fakeTheme, "/home/u");

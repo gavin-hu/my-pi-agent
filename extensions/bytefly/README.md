@@ -74,9 +74,10 @@ in [`header/config.ts`](./header/config.ts).
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
 ```
 
-(The examples show the default `¥` symbol. For a model the built-in table does
-not cover, the number stays Pi's recorded USD amount — see the currency note
-under [Configuration](#configuration).)
+(The examples show the default `¥` symbol. A model the built-in table does not
+cover keeps Pi's recorded dollar amount, shown beside the configured one as
+`¥2.50 + $0.31` rather than added to it — see the currency note under
+[Configuration](#configuration).)
 
 With no plan mode there is no mode slot, so the `╎` is omitted:
 
@@ -366,13 +367,13 @@ override one model without restating the rest; a key present in both is replaced
 not merged field by field. No windows means every moment is peak, so a rate with
 `offPeakMultiplier: 0.5` and no schedule stays flat.
 
-**Mixing currencies is the sharp edge of the built-in default.** A record priced
-from `rates` or the built-in table is in `currency.symbol` units — yuan for
-DeepSeek — while a record that fell back carries Pi's USD number under that same
-symbol. A session mixing DeepSeek with another provider therefore sums two
-currencies into one number. Either cover every model you use (a `"*"` catch-all
-helps) and set `fallbackToRecordedCost: false`, or set the symbol to `"$"` and
-treat the rates purely as an off-peak correction.
+**A fallback record is a separate dollar amount.** A record priced from `rates`
+or the built-in table is in `currency.symbol` units — yuan for DeepSeek — while
+a record that fell back carries Pi's USD number. The bar shows the two side by
+side (`¥2.50 + $0.31`) and never converts or sums them, so a session that mixes
+providers cannot print one misleading total. To see a single figure, cover every
+model you use (a `"*"` catch-all helps) or set `fallbackToRecordedCost: false`;
+the built-in default prices only DeepSeek.
 
 ### When each section is read
 
@@ -430,7 +431,8 @@ they match:
   at peak, because it cannot be dated.
 - **Which source.** A record with no matching rate — built-in or configured —
   keeps Pi's recorded cost, or contributes nothing when
-  `fallbackToRecordedCost` is `false`.
+  `fallbackToRecordedCost` is `false`. The recorded amount is in dollars, so it
+  is totalled and shown separately from the configured currency.
 
 For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
 published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
@@ -841,7 +843,14 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
   Anthropic's 2× one-hour cache write are not modelled; Pi's recorded cost
   covers those models when no rate is configured.
 - **No FX conversion.** A fallback record is USD and is never converted into
-  the configured currency.
+  the configured currency; it is shown as its own `$` amount beside it.
+- **Two built-in footer indicators cannot be reproduced.** Pi's `(auto)` marks
+  that auto-compaction is on, and its `(sub)` marks a subscription-backed
+  provider. Auto-compaction is session state on Pi's own session object, and
+  `ReadonlyFooterDataProvider` exposes only the branch, the extension statuses,
+  and the provider count; `isUsingSubscription` lives on the internal model
+  runtime, not on the `ModelRegistry` an extension receives. A subscription
+  session therefore shows no cost segment at all, where Pi's footer said `(sub)`.
 - **The displayed number is the total, rounded once** — not the sum of rounded
   records.
 - **`doctor` can only check what is declared.** A new extension with no
@@ -1183,10 +1192,10 @@ columns, gauge), so the look follows the active theme.
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
 | `footer/price/types.ts` | `Currency`, `ModelRates`, `PeakWindow`/`PeakSchedule`, `ByteflyConfig`. |
-| `footer/price/config.ts` | The `price` section of `bytefly.json`: schema, defaults, built-in DeepSeek rates/tariff, normalizer, loader. |
+| `footer/price/config.ts` | The `price` section of `bytefly.json`: schema, defaults, built-in DeepSeek rates/tariff, the recorded-cost currency, normalizer, loader. |
 | `footer/price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
 | `footer/price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
-| `footer/price/price.ts` | Records → totals: rates, peak multiplier, recorded-cost fallback. |
+| `footer/price/price.ts` | Records → totals: rated cost, peak multiplier, and the separate recorded-cost total. |
 | `footer/render/format.ts` | Generic formatters (tokens, cost in the configured currency, cwd, the context role, truncation). |
 | `footer/render/status.ts` | Status-chip transforms: `compactStatus` and `dropStatusDetail`. |
 | `footer/render/segments.ts` | The segment builders: forms, weights, separators, roles. |
