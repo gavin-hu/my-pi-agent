@@ -227,7 +227,8 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		id: "price.currency.code",
 		group: "pricing",
 		label: "Currency",
-		description: "CNY prices DeepSeek from its yuan rates; USD uses Pi's recorded dollar cost.",
+		description:
+			"CNY prices DeepSeek from its yuan rates; USD from its published dollars, falling back to Pi's recorded cost.",
 		source: "bytefly",
 		kind: "enum",
 		fallback: DEFAULT_CURRENCY.code,

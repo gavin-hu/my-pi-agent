@@ -253,8 +253,8 @@ whose call body carries the result. There is no status band. While the working
 row is up it also advances a live elapsed counter (`Working… 12s`) on Pi's
 working message, handing it back to Pi when the row comes down. DeepSeek is
 priced out of the
-box from its published yuan rates and peak tariff, or from Pi's recorded USD
-cost when `price.currency.code` is `USD`; `bytefly.json` adds or overrides
+box from its published yuan rates and peak tariff, or from its published
+dollar table when `price.currency.code` is `USD`; `bytefly.json` adds or overrides
 per-model rates with an optional peak/off-peak schedule. It also owns the `/bytefly` control center — a
 keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` settings

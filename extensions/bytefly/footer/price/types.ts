@@ -12,9 +12,10 @@ export type CurrencyCode = "CNY" | "USD";
 /** How a cost is calculated and rendered. */
 export interface Currency {
 	/**
-	 * Which algorithm totals the session: `CNY` prices matched records from
-	 * `rates` and the peak schedule; `USD` totals Pi's recorded dollar cost and
-	 * ignores `rates` and `peak`.
+	 * Which table `rates` starts from, and what an unmatched model contributes:
+	 * both currencies price a matched record from `rates` and the peak schedule,
+	 * while `CNY` gives an unmatched model no cost and `USD` adds Pi's recorded
+	 * dollars for it.
 	 */
 	code: CurrencyCode;
 	/** Digits after the decimal point. The symbol follows from `code`. */

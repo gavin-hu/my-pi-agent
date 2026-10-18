@@ -9,8 +9,9 @@
  *
  * The built-in table is DeepSeek's published yuan pricing, with the peak
  * schedule that doubles the price during peak hours. It is the default value of
- * `rates`: the CNY algorithm uses it. The USD algorithm ignores rates and peak
- * and totals Pi's recorded cost instead, so `currency.code` chooses the method.
+ * `rates`: `currency.code` chooses which table that is, and the peak schedule
+ * applies to both. Only an unmatched model differs — `CNY` contributes no cost
+ * for it, while `USD` adds Pi's recorded dollars.
  */
 
 import { asRecord, clampInteger, clampNumber, cleanString, loadConfigSection } from "../../../../lib/config.ts";

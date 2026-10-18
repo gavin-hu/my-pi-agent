@@ -11,8 +11,10 @@ an opt-in notify capability that raises an OS notification when a run finishes,
 a job finishes, or the agent asks for input, and a published-version check that
 marks the header and posts one notice when a newer bytefly is on npm.
 DeepSeek is priced from the provider's published yuan rates and peak tariff by
-default; set `price.currency.code` to `USD` to total Pi's recorded dollar cost
-instead. Any other model can be priced from your own yuan rates when Pi's
+default; set `price.currency.code` to `USD` to price it from the provider's
+published dollar table instead, under the same peak windows, with Pi's recorded
+dollars covering a model the table does not list. Any other model can be priced
+from your own yuan rates when Pi's
 catalog does not match what a provider actually charges.
 
 ```
@@ -76,10 +78,10 @@ in [`header/config.ts`](./header/config.ts).
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
 ```
 
-(The examples show the default `¥` symbol. A model the built-in table does not
-cover keeps Pi's recorded dollar amount, shown beside the configured one as
-`¥2.50 + $0.31` rather than added to it — see the currency note under
-[Configuration](#configuration).)
+(The examples show the default `¥` symbol. A model that neither `rates` nor the
+built-in table covers contributes nothing in `CNY` mode, so the bar shows no
+figure rather than a guessed one; `USD` mode adds Pi's recorded dollars for that
+record instead — see the currency note under [Configuration](#configuration).)
 
 With no plan mode there is no mode slot, so the `╎` is omitted:
 
@@ -118,7 +120,7 @@ shows as `¥<0.01` rather than `¥0.00`.
 
 DeepSeek needs no config file at all: the bar prices it from the published yuan
 rates and peak tariff built into [`footer/price/config.ts`](./footer/price/config.ts).
-A `bytefly.json` can switch to Pi's recorded USD cost, add models of your own,
+A `bytefly.json` can switch to the published dollar table, add models of your own,
 or replace a built-in entry:
 
 ```

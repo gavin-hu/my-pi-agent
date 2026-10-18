@@ -113,9 +113,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `bytefly`: the README no longer states the rail-glyph limitation twice, and
-  its Settings table is one table again, with a currency note that says what
-  choosing a currency writes — precision, not the symbol that was removed.
+- `bytefly`: the README no longer states the rail-glyph limitation twice, its
+  Settings table is one table again, and the Currency row and price section both
+  say what `USD` mode prices — the published dollar table, with Pi's recorded
+  dollars only for a model that table does not list — instead of the recorded
+  total it replaced.
 - docs: the `wechat` README no longer says there is no pause, and the Chinese
   README's `bytefly` row names ten settings across six groups like the English
   one.
