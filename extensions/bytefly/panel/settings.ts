@@ -173,6 +173,24 @@ function integerRule(min: number, max: number): TextRule {
 	};
 }
 
+/**
+ * A text rule for a money amount inside an inclusive range: a whole number or a
+ * decimal with up to four places, matching the loader's clamp for `price.budget`.
+ * `0` is a legitimate value (the guardrail is off), so it is not rejected.
+ */
+function amountRule(min: number, max: number): TextRule {
+	return {
+		maxLength: 16,
+		validate(raw) {
+			const text = raw.trim();
+			if (!/^\d+(?:\.\d{1,4})?$/.test(text)) return `Use an amount like 5 or 2.50, ${min} to ${max}.`;
+			const value = Number(text);
+			if (!Number.isFinite(value) || value < min || value > max) return `Out of range: ${min} to ${max}.`;
+			return undefined;
+		},
+	};
+}
+
 /** The rail's rule: the loader drops anything that is not one column. */
 const RAIL_RULE: TextRule = {
 	maxLength: 4,
@@ -338,6 +356,19 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		json: "number",
 		options: DECIMALS_OPTIONS,
 		config: { section: "price", path: ["currency", "decimals"] },
+	},
+	{
+		id: "price.budget",
+		group: "pricing",
+		label: "Session budget",
+		description: "Warn once when the session's cost reaches this amount; 0 is off. It never stops a turn.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "0",
+		json: "number",
+		options: [],
+		text: amountRule(0, 10_000_000),
+		config: { section: "price", path: ["budget"] },
 	},
 	{
 		id: "chrome.rail",

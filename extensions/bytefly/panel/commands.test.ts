@@ -275,7 +275,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 15 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 16 settings");
 		expect(notifications.at(-1)).toContain("Bytefly startup TUI: Off");
 		expect(notifications.at(-1)).toContain("Delivery method: Auto");
 		expect(notifications.at(-1)).toContain("Cost decimals: 2");
@@ -293,7 +293,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("Global · 15 settings");
+		expect(rendered).toContain("Global · 16 settings");
 		expect(rendered).toContain("Bytefly startup TUI");
 	});
 

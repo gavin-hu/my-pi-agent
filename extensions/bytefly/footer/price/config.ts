@@ -86,9 +86,12 @@ export const DEFAULT_BYTEFLY_CONFIG: ByteflyConfig = {
 	currency: DEFAULT_CURRENCY,
 	rates: DEFAULT_RATES,
 	peak: DEFAULT_PEAK,
+	budget: 0,
 };
 
 const MAX_DECIMALS = 4;
+/** Upper bound for `budget`; large enough for any real session, small enough to clamp a typo. */
+const MAX_BUDGET = 10_000_000;
 const MAX_RATE = 1_000_000;
 const MAX_RATE_KEYS = 200;
 const MAX_WINDOWS = 16;
@@ -182,6 +185,7 @@ export function normalizeByteflyConfig(raw: Record<string, unknown> | undefined,
 		currency,
 		rates: ratesValue(raw.rates, rateBase),
 		peak: peakValue(raw.peak, base.peak),
+		budget: clampNumber(raw.budget, base.budget, 0, MAX_BUDGET),
 	};
 }
 
