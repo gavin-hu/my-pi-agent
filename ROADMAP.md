@@ -62,17 +62,17 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S7 |
 | Remember across sessions | Works; store hygiene is manual | S1–S2 |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W10 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F10 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F9 |
 
 ## If only three things ship
 
-1. **F2 — Docs truth test.** Prevent the class of defect where a shipped command
-   is documented as absent.
-2. **S1 — Memory health.** A store that grew past its injection budget should say
+1. **S1 — Memory health.** A store that grew past its injection budget should say
    so, and two notes should be mergeable, before "remember across sessions"
    drifts into "remember roughly".
-3. **F3 — Compatibility floor.** Install the newest Pi peer packages and run the
+2. **F2 — Compatibility floor.** Install the newest Pi peer packages and run the
    suite against them, so the tested range is a fact rather than a hope.
+3. **F3 — Long-session benchmark.** A long session should stay inside a measured
+   render budget, not only pass its tests on a warm laptop.
 
 ## Horizons
 
@@ -346,38 +346,34 @@ These are not a README pillar, but every promise depends on them.
 - **F1 — Docs parity.** Keep the Chinese README in line and add a parity test
   for section headings, table rows, and links. Policy: the two entry READMEs
   stay in sync; deep docs remain English until a translation owner exists.
-- **F2 — Docs truth test.** Extend the existing config-docs and naming checks to
-  commands and documented flags: a command named in `docs/extensions.md` must be
-  registered, and a key in the config reference must exist. *Done when* a
-  renamed command or removed key fails CI.
-- **F3 — Compatibility floor.** Add a CI job that installs the newest Pi peer
+- **F2 — Compatibility floor.** Add a CI job that installs the newest Pi peer
   packages, runs typecheck and the suite, and loads every extension through the
   fake runtime; document the tested range. Peer ranges stay `"*"`; the job names
   what was tested.
-- **F4 — Long-session benchmark.** A script reports render time and allocations
+- **F3 — Long-session benchmark.** A script reports render time and allocations
   for 500 and 2000 tool blocks at 80 and 120 columns. Keep the hard gate
   deterministic (same input, same line array) and treat wall-clock as a
   pre-release check, not a flaky CI test.
 
 **Next**
 
-- **F5 — Release provenance.** Publish npm with `--provenance` from a protected
+- **F4 — Release provenance.** Publish npm with `--provenance` from a protected
   workflow that still requires the per-release approval `AGENTS.md` mandates;
   update the release guide to match.
 
 **Later**
 
-- **F6 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
+- **F5 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
   serial suite and remove the workaround when fixed, so all three operating
   systems run one command.
-- **F7 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
+- **F6 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
   window; add a check if duplicate subsection headings recur.
-- **F8 — Test expansion.** Browser-page and plan-review coverage through the
+- **F7 — Test expansion.** Browser-page and plan-review coverage through the
   pure router and rendered HTML, without a real browser in CI.
-- **F9 — Dependency budget.** A check that a new runtime dependency is
+- **F8 — Dependency budget.** A check that a new runtime dependency is
   lazy-loaded unless it is needed at registration, matching the `document` and
   `web-access` pattern.
-- **F10 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
+- **F9 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
 
 ## Deliberately left thin
@@ -406,19 +402,22 @@ above.
 
 - Every README promise has shipped behavior, a named limitation, or a `doctor`
   finding, and every limitation with no item has a row in *Deliberately left
-  thin* — `F2`.
+  thin* — enforced by `test/docs-truth.test.ts`, `test/naming.test.ts`, and
+  `test/config-docs.test.ts`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
   `P5`, `S3`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — `P2`.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
-  suites, with a named tested Pi range — `F3`, `F6`.
-- A long-session benchmark stays within its budget — `F4`.
+  suites, with a named tested Pi range — `F2`, `F5`.
+- A long-session benchmark stays within its budget — `F3`.
 - A release is one reviewed command path with provenance, and the tag, changelog,
-  and npm version cannot drift — `F5`, `F7`.
+  and npm version cannot drift — `F4`, `F6`.
 - Docs truth tests cover tools, commands, and config keys, and this roadmap's own
-  item numbers and links resolve — `F2`.
+  item numbers and links resolve — `test/naming.test.ts`,
+  `test/docs-truth.test.ts`, `test/config-docs.test.ts`, and
+  `test/roadmap.test.ts`.
 
 ## Explicit non-goals
 

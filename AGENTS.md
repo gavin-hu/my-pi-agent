@@ -125,6 +125,9 @@ why.
   with a `"*"` range, never `dependencies`.
 - Adding or renaming a tool also means updating `test/naming.test.ts` and the
   catalog in `docs/extensions.md` (and the group it belongs to in `README.md`).
+  Adding or renaming a command or flag means updating the catalog too, and
+  registering it with a string literal: `test/docs-truth.test.ts` compares the
+  two lists in both directions.
 - Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
   `promptGuidelines`, injected context) is budgeted. Keep each channel to its
   one job; `test/prompt-budget.test.ts` holds the injected-context ceilings.

@@ -53,8 +53,8 @@ gate is stated in the test.
    clock for relative timestamps.
 4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
-   `test/tool-render.test.ts`, `test/roadmap.test.ts`) — cross-cutting
-   contracts. No extension test may
+   `test/tool-render.test.ts`, `test/roadmap.test.ts`, `test/docs-truth.test.ts`)
+   — cross-cutting contracts. No extension test may
    duplicate these. `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
    and that a second render of the same component at the same width returns the
@@ -69,7 +69,10 @@ gate is stated in the test.
    contiguous item ids, resolving links and id references, and the per-horizon
    item cap. It cannot tell that an item has already shipped — that stays a
    judgement made against `git log <last-tag>..main` when the roadmap is
-   reviewed.
+   reviewed. `docs-truth.test.ts` holds the catalog's command and flag names to
+   the `registerCommand`/`registerFlag` calls in extension source, in both
+   directions, and requires each name to be a string literal so the scan sees it;
+   the configuration reference is the same contract in `config-docs.test.ts`.
 
 Rule of thumb: if a test needs `mock.module`, a global stub, or a real timer,
 the code under test is missing a seam. Add the seam instead of the mock.
@@ -194,10 +197,11 @@ test/
   README.md
   helpers/                 # ALL shared doubles and fixtures
     fakes.ts  context.ts  process.ts  env.ts  entries.ts
-    git.ts    platform.ts  preload.ts  clock.ts
+    git.ts    platform.ts  preload.ts  clock.ts  files.ts
     fixtures/<name>.ts     # extension-specific fixtures
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, and boundary guards
+  docs-truth.test.ts       # catalog commands and flags vs registrations
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract
 ```
@@ -207,7 +211,8 @@ Rules:
 - Every directory under `extensions/` contains at least one co-located test.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
-  `structure.test.ts`, `prompt-budget.test.ts`, and `theme.test.ts`.
+  `structure.test.ts`, `docs-truth.test.ts`, `prompt-budget.test.ts`,
+  `theme.test.ts`, and the other package-level contracts listed above.
 - A co-located test's file stem matches the source module it covers. The only
   exceptions are the documented aggregates in `structure.test.ts`.
 
