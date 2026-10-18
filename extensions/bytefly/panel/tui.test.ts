@@ -551,7 +551,7 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("10 settings");
+		expect(text).toContain("14 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Delivery method");
@@ -569,7 +569,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 10 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 14 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -581,7 +581,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 7 settings");
+		expect(text).toContain("Project · 11 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -597,7 +597,7 @@ describe("PanelComponent sections", () => {
 		// Project drops the app rows; the cursor lands on the nearest remaining row,
 		// not back at the top of the list.
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 7 settings");
+		expect(component.render(80).join("\n")).toContain("Project · 11 settings");
 		expect(selected()).toContain("Rail glyph");
 	});
 
@@ -608,7 +608,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 10 settings");
+		expect(refused).toContain("Global · 14 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 
@@ -852,6 +852,23 @@ describe("PanelComponent text editing", () => {
 		}
 		throw new Error(`never reached ${label}`);
 	}
+
+	test("opens the editor on the rail glyph and the probe timeout", () => {
+		const rail = build({ items: [], section: "settings", globalDoc: { chrome: { rail: "┃" } } });
+		focus(rail.component, "Rail glyph");
+		rail.component.handleInput(" ");
+
+		// A text row never cycles: Space opens the editor on the current glyph.
+		const railText = rail.component.render(80).join("\n");
+		expect(railText).toContain("┃▏");
+		expect(railText).toContain("Esc cancel");
+
+		const timeout = build({ items: [], section: "settings", globalDoc: { doctor: { timeoutMs: 3000 } } });
+		focus(timeout.component, "Probe timeout");
+		timeout.component.handleInput("\r");
+
+		expect(timeout.component.render(80).join("\n")).toContain("3000▏");
+	});
 
 	test("Enter opens the editor on the stored value and shows the editor keys", () => {
 		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });

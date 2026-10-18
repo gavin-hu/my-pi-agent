@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: the Settings section covers every scalar preference in
+  `bytefly.json`. Three new toggles narrow what is announced —
+  `notify.turnFinished`, `notify.needsInput`, `notify.jobFinished` — and **Probe
+  timeout** edits `doctor.timeoutMs`, the first numeric row, whose rule states the
+  loader's own 100–30000 range so a typed value is never silently clamped on the
+  next read. **Rail glyph** is now a text row: any single-column glyph is
+  accepted, validated by the same predicate `chrome.ts` normalizes with, and a
+  two-column or control-character glyph is refused with a reason instead of being
+  replaced later. Fourteen rows across six groups.
+
 - docs: `test/structure.test.ts` holds every Markdown doc to the links it offers —
   each `./`, `../`, and `#` target from the root docs, `docs/`, `lib/`, `test/`,
   `.github/`, and each `extensions/*/README.md` must resolve, and a `#anchor`

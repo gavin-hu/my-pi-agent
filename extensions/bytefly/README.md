@@ -584,20 +584,24 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists ten preferences in six groups:
+switch, with its own cursor. It lists fourteen preferences in six groups:
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 10 settings
+  Extensions · Settings                           Global · 14 settings
 
   Startup (1)
 ❯ ◻ Bytefly startup TUI                                            Off
-  Notifications (3)
+  Notifications (6)
   ◻ Desktop notifications                                          Off
+  ◼ Turn finished                                                   On
+  ◼ Needs input                                                     On
+  ◼ Job finished                                                    On
     Delivery method                                               Auto
     Notification title                                              Pi
-  Diagnostics (1)
+  Diagnostics (2)
   ◼ Proactive health check                                          On
+    Probe timeout                                                 2000
   Pricing (2)
     Currency                                                    CNY (¥)
     Cost decimals                                                    2
@@ -617,12 +621,16 @@ bytefly ────────────────────────
 |---|---|---|---|
 | Startup | Bytefly startup TUI | Pi `settings.json` (`quietStartup`) | Off, On |
 | Notifications | Desktop notifications | `notify.enabled` | Off, On |
+| Notifications | Turn finished | `notify.turnFinished` | Off, On |
+| Notifications | Needs input | `notify.needsInput` | Off, On |
+| Notifications | Job finished | `notify.jobFinished` | Off, On |
 | Notifications | Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
 | Notifications | Notification title | `notify.title` | Text, up to 40 characters |
 | Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
+| Diagnostics | Probe timeout | `doctor.timeoutMs` | Number, 100–30000 ms |
 | Pricing | Currency | `price.currency.code` | CNY, USD |
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
-| Transcript | Rail glyph | `chrome.rail` | `╎`, `│`, `┃`, `▏` |
+| Transcript | Rail glyph | `chrome.rail` | Text, exactly one column |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |
 
@@ -630,7 +638,8 @@ Choosing **Currency** also writes that currency's default precision. Both rows
 stay editable afterwards, so the footer follows the explicit values.
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
-forward, and a text row opens an inline editor on its value. The detail pane names the source, describes the preference, and shows
+forward, and a text row opens an inline editor on its value — the notification
+title, the probe timeout, and the rail glyph. The detail pane names the source, describes the preference, and shows
 where the value is written — `Global · ~/.pi/agent/settings.json`, `Project ·
 .pi/bytefly.json`, or `Inherited from Global · .pi/bytefly.json`. A successful
 change marks the screen `Saved · reload to apply` — even when the terminal is too
@@ -645,7 +654,7 @@ with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
-scope therefore lists the six `bytefly.json` rows and a
+scope therefore lists the eleven `bytefly.json` rows and a
 `App settings are Global only.` note rather than promising a write that cannot
 happen. A `bytefly.json` row writes one leaf in the selected scope (a depth-1
 key, or a nested one such as `price.currency.decimals`) through a per-key
@@ -655,14 +664,18 @@ malformed document is refused with a notice instead of overwritten.
 The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
 
 ```
-bytefly: Settings · Global · 9 settings
+bytefly: Settings · Global · 14 settings
 
 Startup (1)
   Bytefly startup TUI: Off
 
-Notifications (2)
+Notifications (6)
   Desktop notifications: Off
+  Turn finished: On
+  Needs input: On
+  Job finished: On
   Delivery method: Auto
+  Notification title: Pi
 ...
 ```
 
@@ -850,12 +863,12 @@ command.
 - **Project overrides of app settings are not shown.** App rows read the
   personal file; a `.pi/settings.json` override still wins at runtime, and
   `pi config` is the place to manage it.
-- **The rail glyph picker is curated.** Four one-column glyphs are offered; a
-  custom glyph is still a `bytefly.json` edit.
-- **Settings cover scalars only.** A row is a boolean, a short enum, or a short
-  string. The per-trigger notify flags (`notify.turnFinished`, `needsInput`,
-  `jobFinished`), arrays (`doctor.skip`), a numeric range (`doctor.timeoutMs`),
-  the `rates` table, and `price.peak` are still `bytefly.json` edits.
+- **Arrays and tables stay JSON.** A row is one boolean, enum, string, or number.
+  `doctor.skip` (an array), the `rates` table, and `price.peak` (a nested object)
+  are still `bytefly.json` edits; every scalar preference has a row.
+- **A custom rail glyph must be one column.** The editor refuses anything else,
+  because a two-column glyph would push every railed body one cell right; the
+  former four-glyph menu is now the description's example list.
 - **`doctor`, `settings`, and `update` are reserved first arguments.**
   `/bytefly doctor` always selects the report, so an extension literally named
   `doctor` cannot be narrowed to by name; `settings` and `update` are reserved
@@ -1180,16 +1193,18 @@ rather than showing a wrong value.
 - **The install hint has one home.** `document` and `web-access` format their
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
-- **Settings are a curated table, not a schema walker.** Eleven rows prove the
-  row types — a boolean, an enum, and a short string with its own rule — both
-  scopes, both write paths, and one nested leaf (`price.currency.decimals`). A row states its section and the path to its
-  leaf, and one reader per section resolves it project-over-global-over-defaults
-  through the same normalizer the extension loads with, so the screen and the
-  runtime cannot disagree about a value. A generic walker would expose keys the
-  screen cannot edit safely yet — arrays, nested tariffs, free text,
-  credentials — so the catalogue grows one proven family at a time. App rows are
-  Global-only because Pi's setters write the personal file; Project scope lists
-  only the `bytefly.json` rows it can actually write.
+- **Settings are a curated table, not a schema walker.** Fourteen rows cover
+  every scalar preference across four kinds — a boolean, an enum, a string with
+  its own rule, and a number — both scopes, both write paths, and one nested leaf
+  (`price.currency.decimals`). A row states its section and the path to its leaf,
+  and one reader per section resolves it project-over-global-over-defaults through
+  the same normalizer the extension loads with, so the screen and the runtime
+  cannot disagree about a value; a text row's rule calls the same predicate the
+  loader uses, so an accepted value is never replaced on the next read. A generic
+  walker would expose keys the screen cannot edit safely — arrays, nested
+  tariffs, credentials — so the catalogue grows one proven family at a time. App
+  rows are Global-only because Pi's setters write the personal file; Project
+  scope lists only the `bytefly.json` rows it can actually write.
 - **The doctor is quiet unless the bytefly startup TUI is on.** Only `missing`
   findings post a notice, only for enabled extensions, only with a UI, only once
   per session, and only when Pi's `quietStartup` is `true` — the same state that

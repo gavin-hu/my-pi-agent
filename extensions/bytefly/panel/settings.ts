@@ -6,15 +6,16 @@
  * views, cycling, validation, and grouping — so the screen and the runtime share
  * one definition and the tests need no host.
  *
- * The catalogue is deliberately curated: one proven row family at a time. It
- * covers scalars (a boolean checkbox, an enum cycle, a short string with its own
- * rule), both scopes, both write paths, and — with `price.currency.decimals` —
- * one nested key. Arrays, nested tariffs, and credentials are still JSON edits.
+ * The catalogue covers every scalar preference: booleans, enums, short strings,
+ * and — with `doctor.timeoutMs` — a number. Each row states its own rule, so a
+ * value the screen accepts is a value the loader keeps. Arrays (`doctor.skip`),
+ * the `rates` table, and `price.peak` stay JSON edits: a list, a table, and a
+ * nested object are not one row.
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../chrome.ts";
+import { DEFAULT_CHROME_CONFIG, isRailGlyph, normalizeChromeConfig } from "../chrome.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
@@ -136,14 +137,6 @@ const ON_OFF: readonly SettingOption[] = [
 	{ value: "true", label: "On" },
 ];
 
-/** Rail glyphs offered in the curated picker; every one is one column. */
-const RAIL_OPTIONS: readonly SettingOption[] = [
-	{ value: GLYPHS.divider, label: GLYPHS.divider },
-	{ value: "│", label: "│" },
-	{ value: "┃", label: "┃" },
-	{ value: "▏", label: "▏" },
-];
-
 /** The notify section's delivery methods, labeled by the surface each reaches. */
 const METHOD_OPTIONS: readonly SettingOption[] = [
 	{ value: "auto", label: "Auto" },
@@ -159,6 +152,33 @@ const DECIMALS_OPTIONS: readonly SettingOption[] = [0, 1, 2, 3, 4].map((value) =
 	value: String(value),
 	label: String(value),
 }));
+
+/**
+ * A text rule for a whole number inside an inclusive range.
+ *
+ * The bounds are the loader's own (`doctor.timeoutMs` is clamped to 100-30000),
+ * so an accepted value is never silently clamped on the next read. `maxLength`
+ * only stops a runaway buffer; `validate` is the rule.
+ */
+function integerRule(min: number, max: number): TextRule {
+	return {
+		maxLength: String(max).length + 2,
+		validate(raw) {
+			const text = raw.trim();
+			if (!/^\d+$/.test(text)) return `Use a whole number, ${min} to ${max}.`;
+			const value = Number(text);
+			if (value < min || value > max) return `Out of range: ${min} to ${max}.`;
+			return undefined;
+		},
+	};
+}
+
+/** The rail's rule: the loader drops anything that is not one column. */
+const RAIL_RULE: TextRule = {
+	maxLength: 4,
+	validate: (raw) =>
+		isRailGlyph(raw) ? undefined : "Use exactly one column: a single glyph, with no spaces or control characters.",
+};
 
 /** The v1 catalogue, in screen order. */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
@@ -184,6 +204,42 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		json: "boolean",
 		options: ON_OFF,
 		config: { section: "notify", path: ["enabled"] },
+	},
+	{
+		id: "notify.turnFinished",
+		group: "notifications",
+		label: "Turn finished",
+		description: "Announce it when a full agent run settles.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["turnFinished"] },
+	},
+	{
+		id: "notify.needsInput",
+		group: "notifications",
+		label: "Needs input",
+		description: "Announce it when the agent opens a prompt and waits for an answer.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["needsInput"] },
+	},
+	{
+		id: "notify.jobFinished",
+		group: "notifications",
+		label: "Job finished",
+		description: "Announce it when a background job or watcher settles.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["jobFinished"] },
 	},
 	{
 		id: "notify.method",
@@ -224,6 +280,19 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "doctor", path: ["proactive"] },
 	},
 	{
+		id: "doctor.timeoutMs",
+		group: "diagnostics",
+		label: "Probe timeout",
+		description: "How long one doctor probe may take, in milliseconds; 100 to 30000.",
+		source: "bytefly",
+		kind: "text",
+		fallback: String(DEFAULT_DOCTOR_CONFIG.timeoutMs),
+		json: "number",
+		options: [],
+		text: integerRule(100, 30_000),
+		config: { section: "doctor", path: ["timeoutMs"] },
+	},
+	{
 		id: "price.currency.code",
 		group: "pricing",
 		label: "Currency",
@@ -262,11 +331,12 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		id: "chrome.rail",
 		group: "transcript",
 		label: "Rail glyph",
-		description: "The single-column glyph that leads a tool result or notice body.",
+		description: "The single-column glyph that leads a tool result or notice body, e.g. ╎ │ ┃ ▏.",
 		source: "bytefly",
-		kind: "enum",
+		kind: "text",
 		fallback: GLYPHS.divider,
-		options: RAIL_OPTIONS,
+		options: [],
+		text: RAIL_RULE,
 		config: { section: "chrome", path: ["rail"] },
 	},
 	{
