@@ -248,8 +248,12 @@ export class StatusScreenComponent implements Component {
 
 	constructor(private readonly options: StatusScreenOptions) {}
 
-	/** The focused peer, or undefined when the list is empty. */
-	private focused(view: StatusView): PeerRow | undefined {
+	/**
+	 * The focused peer, or undefined when the list is empty. Not named `focused`:
+	 * the host duck-types focusables with `"focused" in component` and writes a
+	 * boolean there, which would shadow the method.
+	 */
+	private focusedPeer(view: StatusView): PeerRow | undefined {
 		const rows = view.peerRows;
 		if (rows.length === 0) return undefined;
 		return rows[this.cursor.indexOf(rows, (row) => row.id ?? row.label)];
@@ -276,7 +280,7 @@ export class StatusScreenComponent implements Component {
 
 	handleInput(data: string): void {
 		const view = this.options.view();
-		const peer = this.focused(view);
+		const peer = this.focusedPeer(view);
 		if (isCloseKey(data)) {
 			this.options.onClose("close");
 			return;
@@ -357,7 +361,7 @@ export class StatusScreenComponent implements Component {
 		const rows = view.peerRows;
 		this.cursor.visible = Math.min(MAX_PEER_ROWS, Math.max(1, rows.length));
 		this.cursor.clamp(rows, (row) => row.id ?? row.label);
-		const peer = this.focused(view);
+		const peer = this.focusedPeer(view);
 		if (rows.length > 0) this.cursor.ensureVisible(this.cursor.indexOf(rows, (row) => row.id ?? row.label));
 		const start = this.cursor.scroll;
 		const end = Math.min(rows.length, start + this.cursor.visible);

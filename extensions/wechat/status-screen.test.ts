@@ -340,4 +340,11 @@ describe("StatusScreenComponent", () => {
 		const { screen } = component(view({ bridge: true, account: "owner", connection: "open" }));
 		for (const line of screen.render(20)) expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 	});
+
+	test("exposes no member named focused for the host to overwrite", () => {
+		const { screen } = component(view({ bridge: true, connection: "open", peerRows: peers }));
+		// Pi's setFocus duck-types focusables with `"focused" in component` and then
+		// assigns a boolean there, which would shadow a method of that name.
+		expect("focused" in screen).toBe(false);
+	});
 });
