@@ -244,7 +244,7 @@ describe("renderFilePage", () => {
 		expect(html).toContain("th .bf-sort{pointer-events:none");
 		expect(html).toContain('id="copy-status"');
 		expect(html).toContain(".sr-only{");
-		expect(html).toContain('<details class="bf-app__sidebar" open>');
+		expect(html).toContain('<details class="bf-app__sidebar browse-sidebar" open>');
 		expect(html).toContain('<summary class="bf-panel__summary">');
 		expect(html).not.toContain("max-width:1400px");
 		expect(html).not.toContain("max-width:1200px");
@@ -255,6 +255,14 @@ describe("renderFilePage", () => {
 			".bf-code{margin:0;padding:var(--space-3) 0 var(--space-4);flex:1 1 auto;min-height:0;overflow:auto;",
 		);
 		expect(html).toContain(".bf-panel{min-width:0;overflow:auto;overscroll-behavior:contain}");
+		// The filter and quick open stay pinned while the tree scrolls in its own
+		// pane; the sidebar is a details, so the panel fills it absolutely.
+		expect(html).toContain("@media (min-width:861px){");
+		expect(html).toContain(".browse-sidebar{position:relative;overflow:hidden}");
+		expect(html).toContain(
+			".browse-side{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}",
+		);
+		expect(html).toContain(".browse-side .bf-tree{flex:1 1 auto;min-height:0;overflow:auto}");
 		expect(html).toContain(".bf-app__body{flex:1 1 auto;min-height:0;display:grid");
 		expect(html).toContain("overscroll-behavior:contain");
 		expect(html).toContain("flex-wrap:wrap");

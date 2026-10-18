@@ -169,6 +169,16 @@ body.palette-open{overflow:hidden}
 .browse-keys dt{white-space:nowrap}
 .browse-keys dd{margin:0;color:var(--muted);font-size:var(--fs-sm)}
 .browse-kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--fs-xs) var(--font-mono);text-align:center}
+/* Wide screens: pin quick open and the filter, and scroll the tree on its own
+   box. The sidebar is a details element, whose content sits in an anonymous
+   wrapper with no definite height, so the panel fills the sidebar by absolute
+   positioning; below the 860px breakpoint the disclosure keeps normal page
+   scroll. */
+@media (min-width:861px){
+.browse-sidebar{position:relative;overflow:hidden}
+.browse-side{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.browse-side .bf-tree{flex:1 1 auto;min-height:0;overflow:auto}
+}
 @media (max-width:820px){
 .browse-root{order:9;flex:1 1 100%;direction:ltr;text-align:left}
 }
@@ -238,7 +248,7 @@ ${SPRITE}
   <button type="button" class="bf-btn bf-btn--icon bf-theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light and dark theme"><span class="theme-glyph" aria-hidden="true">☾</span></button>
 </div><div class="browse-progress" aria-hidden="true"><span class="browse-progress__fill" id="progress-fill"></span></div></header>
 <div class="bf-app__body">
-  <details class="bf-app__sidebar" open>
+  <details class="bf-app__sidebar browse-sidebar" open>
     <summary class="bf-panel__summary">Files</summary>
     <aside class="bf-panel browse-side">
       <button type="button" class="browse-quick-open" id="quick-open" aria-haspopup="dialog"><span>quick open</span><kbd>/</kbd></button>

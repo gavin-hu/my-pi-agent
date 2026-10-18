@@ -22,8 +22,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   opens the browser (unless `autoOpen: false`).
 - **Two-pane UI.** A server-rendered tree, directory listings, and file pages,
   progressively enhanced by one first-party script (filter, lazy tree
-  expansion, thumbnail fallback). Below 860px the tree collapses into a
-  `Files` disclosure above the listing. A hairline progress bar tracks whichever
+  expansion, thumbnail fallback). The tree scrolls in its own pane with quick
+  open and the filter pinned above it; below 860px it collapses into a `Files`
+  disclosure above the listing. A hairline progress bar tracks whichever
   column is scrolling (the card body for a file or diff, the main column
   otherwise), and the served folder names the root page.
 - **Rich previews.** Text, rendered Markdown, images (thumbnails), and
@@ -222,11 +223,14 @@ document and the project document (project wins):
   non-matching rows while keeping ancestors, disclosure triangles lazily
   `fetch("/api/tree")`, broken thumbnails fall back to the category icon, the
   listing headers sort in place, the wrap toggle is remembered, and the copy
-  buttons use the clipboard. Without JS the page still browses and renders
-  Markdown, and the JS-only controls (filter, disclosure, actions, quick open)
-  are hidden; the sort buttons lose their pointer so they do not look live. The
-  palette is the shared Bytefly web theme (`lib/web/tokens.ts`), derived from the
-  `bytefly-dark`/`bytefly-light` terminal themes; it follows
+  buttons use the clipboard. On wide screens the tree is its own scroll pane
+  under the pinned filter and quick-open trigger; the sidebar is a `<details>`
+  whose content wrapper has no definite height, so the panel fills it
+  absolutely and the tree flexes inside. Without JS the page still browses and
+  renders Markdown, and the JS-only controls (filter, disclosure, actions, quick
+  open) are hidden; the sort buttons lose their pointer so they do not look
+  live. The palette is the shared Bytefly web theme (`lib/web/tokens.ts`),
+  derived from the `bytefly-dark`/`bytefly-light` terminal themes; it follows
   `prefers-color-scheme` until an explicit choice sets `data-theme` on the root:
   `/theme.js` applies the saved choice in the head before first paint, and the
   header toggle flips and stores it (`pi-web-theme` in `localStorage`, the key

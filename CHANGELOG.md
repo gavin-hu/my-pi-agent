@@ -167,6 +167,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   content height and the sidebar only clipped it. The sidebar now scrolls on its
   own box; the plan review's inert flex rule is gone with it.
 
+- `file-browse`: a long file tree now scrolls in its own pane under the pinned
+  quick-open trigger and path filter, instead of scrolling them away with it;
+  narrow screens still expand the tree in the page.
+
 ## [0.12.0] - 2026-10-18
 
 ### Added
