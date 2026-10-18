@@ -176,6 +176,10 @@ use it rather than re-deriving chrome, glyphs, or scroll math.
 - Keyboard first, and consistent. Use `matchesKey` / `Key`, give every mouse
   interaction a keyboard path, and keep the shared bindings: Esc closes,
   `j` / `k` and arrows scroll, `g` / `G` and Home/End jump.
+- Reserve the name `focused` for a real focus `get` / `set` pair. Pi's
+  `setFocus` duck-types a focusable with `"focused" in component` and then
+  assigns a boolean there, so any other member of that name — a method, say — is
+  silently shadowed and the first call throws at runtime.
 - Components are derived and cheap. Implement `Component` with `invalidate()`,
   update an instance in place, read live state on each render, and call
   `requestRender()` only after state changes; never hold themed strings in

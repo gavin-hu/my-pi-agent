@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `wechat`: the `/wechat` control screen no longer crashes the host with
+  `this.focused is not a function`. The host duck-types a focusable component
+  with `"focused" in component` and writes a boolean there, which shadowed the
+  screen's private `focused` method; it is now `focusedPeer`.
+
 ## [0.11.2] - 2026-10-18
 
 ### Fixed
