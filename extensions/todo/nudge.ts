@@ -23,7 +23,12 @@ import type { Todo } from "./types.ts";
  * writers and shells. Kept explicit so a reader or an MCP tool that does not
  * declare a hint cannot force a continuation.
  */
-export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit", "bash", "powershell"]);
+export const FILE_WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit"]);
+
+/** Tools that run a command, where reading and writing look the same by name. */
+export const SHELL_TOOL_NAMES: ReadonlySet<string> = new Set(["bash", "powershell"]);
+
+export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set([...FILE_WRITE_TOOL_NAMES, ...SHELL_TOOL_NAMES]);
 
 /**
  * Whether a finished tool call counts as work for lag detection. The `todo`
@@ -34,6 +39,18 @@ export function isMutatingTool(toolName: string, annotations?: ToolAnnotations):
 	if (toolName === TODO_TOOL) return false;
 	if (MUTATING_TOOL_NAMES.has(toolName)) return true;
 	return annotations?.readOnlyHint === false;
+}
+
+/**
+ * Whether a finished tool call can have changed files, as opposed to a shell
+ * command that may only have read them. The reminder for a run that never
+ * started a list needs this: three `rg` calls are investigation, not unplanned
+ * work, and a shell call cannot be told apart from one that wrote. So it is a
+ * mutating call that is not a shell.
+ */
+export function isFileWrite(toolName: string, annotations?: ToolAnnotations): boolean {
+	if (toolName === TODO_TOOL || SHELL_TOOL_NAMES.has(toolName)) return false;
+	return isMutatingTool(toolName, annotations);
 }
 
 /**
@@ -48,6 +65,8 @@ export const EMPTY_LIST_MUTATIONS = 3;
 export interface NudgeState {
 	/** Successful mutating calls since the turn began or the list was last written. */
 	mutations: number;
+	/** How many of those can change files, as opposed to a shell command that may have read. */
+	writes: number;
 	/** Whether the model wrote or cleared the list since the turn began. */
 	touched: boolean;
 	/** Whether a reminder was already sent this turn. */
@@ -58,13 +77,15 @@ export interface NudgeState {
 
 /**
  * Whether a reminder is due. With an unfinished item, one mutation is enough.
- * With no list at all, only repeated work is: a list the model wrote or cleared
- * this turn is its own answer, so an explicit clear is never second-guessed.
+ * With no list at all, the turn must also have written something: repeated
+ * inspection with no file change is not unplanned work. A list the model wrote
+ * or cleared this turn is its own answer, so an explicit clear is never
+ * second-guessed.
  */
-export function shouldNudge({ mutations, touched, nudged, todos }: NudgeState): boolean {
+export function shouldNudge({ mutations, writes, touched, nudged, todos }: NudgeState): boolean {
 	if (nudged || mutations <= 0) return false;
 	if (hasOpenTodos(todos)) return true;
-	return todos.length === 0 && !touched && mutations >= EMPTY_LIST_MUTATIONS;
+	return todos.length === 0 && !touched && writes > 0 && mutations >= EMPTY_LIST_MUTATIONS;
 }
 
 /** Marker on the injected reminder, so it is recognizable and filterable. */
@@ -79,8 +100,8 @@ export const TODO_NUDGE_MARKER = "[TODO SYNC]";
 export function formatNudge(todos: Todo[]): string {
 	if (todos.length === 0) {
 		return (
-			`${TODO_NUDGE_MARKER} Several files or commands were changed but no todo list was recorded. ` +
-			"Call the todo tool with the steps of the current work, then continue."
+			`${TODO_NUDGE_MARKER} Work happened but no todo list was recorded. ` +
+			"Call the todo tool with the steps of this work, then continue."
 		);
 	}
 	const current = currentTodo(todos);

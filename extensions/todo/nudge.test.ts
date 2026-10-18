@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	EMPTY_LIST_MUTATIONS,
 	formatNudge,
+	isFileWrite,
 	isMutatingTool,
 	MUTATING_TOOL_NAMES,
 	type NudgeState,
@@ -35,9 +36,31 @@ describe("isMutatingTool", () => {
 	});
 });
 
+describe("isFileWrite", () => {
+	test("the built-in writers can change files", () => {
+		expect(isFileWrite("write")).toBe(true);
+		expect(isFileWrite("edit")).toBe(true);
+	});
+
+	test("a shell call cannot be told apart from a read, so it is not a write", () => {
+		for (const name of ["bash", "powershell"]) expect(isFileWrite(name)).toBe(false);
+	});
+
+	test("the todo call and readers are never writes", () => {
+		expect(isFileWrite("todo", { readOnlyHint: false })).toBe(false);
+		expect(isFileWrite("read")).toBe(false);
+	});
+
+	test("an unknown mutator declaring readOnlyHint false counts as one", () => {
+		expect(isFileWrite("some_mcp_tool")).toBe(false);
+		expect(isFileWrite("some_mcp_tool", { readOnlyHint: false })).toBe(true);
+	});
+});
+
 describe("shouldNudge", () => {
 	const state = (overrides: Partial<NudgeState> = {}): NudgeState => ({
 		mutations: 1,
+		writes: 1,
 		touched: false,
 		nudged: false,
 		todos: [pending("one")],
@@ -50,9 +73,13 @@ describe("shouldNudge", () => {
 		expect(shouldNudge(state({ nudged: true }))).toBe(false);
 	});
 
-	test("no list at all is due only after repeated work", () => {
+	test("no list at all is due only after repeated work that wrote something", () => {
 		expect(shouldNudge(state({ todos: [], mutations: EMPTY_LIST_MUTATIONS - 1 }))).toBe(false);
 		expect(shouldNudge(state({ todos: [], mutations: EMPTY_LIST_MUTATIONS }))).toBe(true);
+	});
+
+	test("repeated shell reads with no write are investigation, not unplanned work", () => {
+		expect(shouldNudge(state({ todos: [], writes: 0, mutations: EMPTY_LIST_MUTATIONS }))).toBe(false);
 	});
 
 	test("a list the model wrote or cleared this turn is left alone", () => {

@@ -84,19 +84,23 @@ describe("TodoRuntime lag tracking", () => {
 		expect(runtime.nudgeDue()).toBe(false);
 	});
 
-	test("an untouched empty list needs repeated work, and a clear answers it", () => {
+	test("an untouched empty list needs repeated work that wrote something", () => {
+		const shellOnly = createTodoRuntime();
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) shellOnly.noteWork();
+		expect(shellOnly.nudgeDue()).toBe(false);
+
 		const runtime = createTodoRuntime();
 		for (let i = 1; i < EMPTY_LIST_MUTATIONS; i++) {
 			runtime.noteWork();
 			expect(runtime.nudgeDue()).toBe(false);
 		}
-		runtime.noteWork();
+		runtime.noteWork(true);
 		expect(runtime.nudgeDue()).toBe(true);
 
 		// A clear is the model's own answer, so it stops the empty-list path.
 		const cleared = createTodoRuntime();
 		cleared.setTodos([]);
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) cleared.noteWork();
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) cleared.noteWork(true);
 		expect(cleared.nudgeDue()).toBe(false);
 	});
 

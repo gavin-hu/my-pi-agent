@@ -209,6 +209,15 @@ describe("todo lag reminder", () => {
 		expect(result.entries[0].content).toContain("no todo list was recorded");
 	});
 
+	test("does not remind for repeated shell reads with no list", async () => {
+		const { pi, ctx } = await started();
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) {
+			await emit(pi, "tool_execution_end", { type: "tool_execution_end", toolName: "bash" }, ctx);
+		}
+
+		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeUndefined();
+	});
+
 	test("does not second-guess a list the model cleared this turn", async () => {
 		const { pi, tools, ctx } = await started();
 		await tools.get(TOOL_NAME).execute("call-1", { todos: [] }, undefined, undefined, ctx);

@@ -16,7 +16,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerCommands } from "./commands.ts";
 import { loadTodoConfig } from "./config.ts";
-import { formatNudge, isMutatingTool } from "./nudge.ts";
+import { formatNudge, isFileWrite, isMutatingTool } from "./nudge.ts";
 import { createTodoRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
@@ -55,11 +55,13 @@ export default function todo(pi: ExtensionAPI) {
 
 	// Only work that can change the working tree sets the lag flag; read-only
 	// tools and the todo call itself are ignored. A failed or blocked call changed
-	// nothing, so it must not force a reminder.
+	// nothing, so it must not force a reminder. A shell call counts as work but
+	// not as a write: its name cannot tell `rg` from `git commit`.
 	pi.on("tool_execution_end", (event) => {
 		if (event.isError) return;
 		const annotations = pi.getAllTools().find((tool) => tool.name === event.toolName)?.annotations;
-		if (isMutatingTool(event.toolName, annotations)) runtime.noteWork();
+		if (!isMutatingTool(event.toolName, annotations)) return;
+		runtime.noteWork(isFileWrite(event.toolName, annotations));
 	});
 
 	// When the run is about to settle with unfinished work done since the last
