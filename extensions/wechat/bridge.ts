@@ -725,7 +725,13 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		// pending prompt, or the queue.
 		if (!isAllowedPeer(peer, owner, deps.config.allowedPeers)) {
 			refused += 1;
-			if (refusedPeers.size < 5) refusedPeers.add(peerLabel(peer));
+			const label = peerLabel(peer);
+			// Name a new sender once, so the operator can allowlist it from the
+			// terminal; the cap keeps a spam run from filling the list.
+			if (refusedPeers.size < 5 && !refusedPeers.has(label)) {
+				refusedPeers.add(label);
+				notify(`WeChat refused a message from ${label}. Add it to allowedPeers to admit.`, "warning");
+			}
 			return;
 		}
 		// A server replay of an already handled message must not answer twice. The

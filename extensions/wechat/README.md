@@ -60,7 +60,8 @@ How the `send_wechat` call and its result look in the transcript — the call li
 - **Owner-only by default** — only the account owner (who scanned the login QR)
   can drive the agent; `allowedPeers` opts in others. An entry matches either id
   form (`alice` or `alice@im.wechat`), and a refused sender is named in
-  `/wechat status` so the id to allowlist can be copied from there.
+  `/wechat status` and in one terminal notice, so the id to allowlist can be
+  copied from either.
 - **Session-bound** — the bridge runs while an account is stored and the Pi
   process is alive; it starts on `session_start`, and `/wechat logout` clears the
   account and stops it. The peer sessions outlive it on disk.
@@ -73,6 +74,8 @@ How the `send_wechat` call and its result look in the transcript — the call li
 | `/wechat login` | QR login; on scan, stores credentials, replaces a running poller, and starts the bridge. |
 | `/wechat new` | Start a fresh *host* session. Peer conversations are independent and survive it; they use an inbound `/new`. |
 | `/wechat status` | The same control screen as a bare `/wechat` (the one-line summary while a peer turn runs). |
+| `/wechat stop <peer>` | Stop that peer's running turn; reports when nothing was running. |
+| `/wechat reset <peer>` | Start a fresh conversation for that peer; refused while its turn runs. |
 | `/wechat logout` | Confirm, then clear credentials, drop the bridge, and stop polling. |
 | `/wechat help` | List the subcommands with a line each. |
 
@@ -379,7 +382,7 @@ sessions are in-process).
 
 | Integration point | Detail |
 |---|---|
-| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`, `help`; bare `/wechat` opens the control screen. |
+| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `stop <peer>`, `reset <peer>`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |

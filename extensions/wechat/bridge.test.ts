@@ -295,6 +295,21 @@ describe("bridge", () => {
 		await bridge.close();
 	});
 
+	test("names a refused sender once in the terminal", async () => {
+		const notifications: string[] = [];
+		const { client } = makeClient([
+			updates([inbound("hi", "stranger@im.wechat"), inbound("again", "stranger@im.wechat")]),
+		]);
+		const { deps } = makeDeps(client, { notify: (message) => notifications.push(message) });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().refused === 2);
+		const named = notifications.filter((message) => message.includes("refused a message from stranger"));
+		expect(named).toHaveLength(1);
+		expect(named[0]).toContain("allowedPeers");
+		await bridge.close();
+	});
+
 	test("refuses to open without credentials", () => {
 		const { client } = makeClient([]);
 		const { deps } = makeDeps(client, { loadAccount: () => undefined });

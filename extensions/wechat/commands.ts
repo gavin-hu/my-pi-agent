@@ -16,7 +16,7 @@ import { supportsCustomUI } from "../../lib/interaction.ts";
 import type { Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
-import { peerLabel } from "./format.ts";
+import { peerLabel, peerKey } from "./format.ts";
 import { defaultSleep, waitForLogin, type LoginOutcome } from "./login.ts";
 import { LoginScreenComponent, type LoginViewState } from "./login-screen.ts";
 import { qrLines } from "./qrcode.ts";
@@ -49,6 +49,8 @@ export const WECHAT_COMMANDS = [
 	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge" },
 	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)" },
 	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)" },
+	{ verb: "stop", description: "Stop one peer's running turn: /wechat stop <peer>" },
+	{ verb: "reset", description: "Start a fresh conversation for one peer: /wechat reset <peer>" },
 	{ verb: "logout", description: "Clear the stored account and stop the bridge" },
 	{ verb: "help", description: "List these commands" },
 ] as const satisfies readonly WechatCommand[];
@@ -248,8 +250,47 @@ function completeSubcommand(prefix: string): Array<{ value: string; label: strin
 	return items.length > 0 ? items.map(({ verb, description }) => ({ value: verb, label: verb, description })) : null;
 }
 
+/** Act on one peer from the terminal: stop its turn or reset its conversation. */
+async function runPeerAction(
+	ctx: ExtensionCommandContext,
+	deps: CommandDeps,
+	verb: "stop" | "reset",
+	args: string,
+): Promise<void> {
+	const bridge = deps.getBridge();
+	if (!bridge) {
+		ctx.ui.notify("WeChat bridge is not started. Run /wechat login first.", "warning");
+		return;
+	}
+	const wanted = args.trim();
+	const known = bridge.status().peerStates.map((row) => peerLabel(row.peer));
+	const entry = wanted ? bridge.status().peerStates.find((row) => peerKey(row.peer) === peerKey(wanted)) : undefined;
+	if (!entry) {
+		ctx.ui.notify(
+			`Unknown WeChat peer${wanted ? ` "${wanted}"` : ""}. Known: ${known.join(", ") || "none yet"}.`,
+			"warning",
+		);
+		return;
+	}
+	const label = peerLabel(entry.peer);
+	if (verb === "stop") {
+		ctx.ui.notify(bridge.stop(entry.peer) ? `Stopping ${label}'s turn.` : `${label} has no running turn.`);
+		return;
+	}
+	ctx.ui.notify(
+		bridge.reset(entry.peer)
+			? `Started a fresh conversation for ${label}.`
+			: `${label} is running; stop it before starting a new conversation.`,
+	);
+}
+
 /** Run one verb. The control screen reuses this so a key and a subcommand agree. */
-async function dispatch(verb: WechatVerb, ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
+async function dispatch(
+	verb: WechatVerb,
+	ctx: ExtensionCommandContext,
+	deps: CommandDeps,
+	peerArg = "",
+): Promise<void> {
 	switch (verb) {
 		case "login":
 			return runLogin(ctx, deps);
@@ -257,6 +298,10 @@ async function dispatch(verb: WechatVerb, ctx: ExtensionCommandContext, deps: Co
 			return runNew(ctx, deps);
 		case "status":
 			return runPanel(ctx, deps);
+		case "stop":
+			return runPeerAction(ctx, deps, "stop", peerArg);
+		case "reset":
+			return runPeerAction(ctx, deps, "reset", peerArg);
 		case "logout":
 			return runLogout(ctx, deps);
 		case "help":
@@ -267,16 +312,17 @@ async function dispatch(verb: WechatVerb, ctx: ExtensionCommandContext, deps: Co
 
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
-		description: "WeChat bridge. /wechat opens the control screen (login | new | status | logout | help)",
+		description:
+			"WeChat bridge. /wechat opens the control screen (login | new | status | stop | reset | logout | help)",
 		getArgumentCompletions: completeSubcommand,
 		handler: async (args, ctx) => {
-			const [sub = "status"] = args.trim().split(/\s+/).filter(Boolean);
+			const [sub = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
 			const verb = sub.toLowerCase();
 			if (!isWechatVerb(verb)) {
 				ctx.ui.notify(`Unknown wechat command "${sub}". Try ${WECHAT_USAGE}.`, "warning");
 				return;
 			}
-			return dispatch(verb, ctx, deps);
+			return dispatch(verb, ctx, deps, rest.join(" "));
 		},
 	});
 }

@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: `/wechat stop <peer>` and `/wechat reset <peer>` act on one peer
+  from the terminal, by id or label; a refused sender is also named once in a
+  terminal notice, so a new sender can be allowlisted without opening the
+  control screen.
 - `wechat`: an admitted peer can be narrowed to a tool allowlist with
   `peers[<id>].tools` (an empty list leaves none), and `maxTurnsPerHour` caps a
   peer's turns in a rolling hour with one notice when it is reached. Both are

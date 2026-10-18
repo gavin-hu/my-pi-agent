@@ -37,13 +37,27 @@ interface Harness {
 	opens: () => number;
 	ensured: () => number;
 	logouts: () => number;
+	/** Peers passed to `bridge.stop` / `bridge.reset`, in order. */
+	stops: string[];
+	resets: string[];
 	/** Bridge lifecycle calls in order, so a restart is asserted as one sequence. */
 	events: string[];
 }
 
-function harness(options: { open?: () => void; status?: BridgeStatus; bridge?: boolean } = {}): Harness {
+function harness(
+	options: {
+		open?: () => void;
+		status?: BridgeStatus;
+		bridge?: boolean;
+		/** Result of `stop` / `reset`; default true. */
+		stop?: boolean;
+		reset?: boolean;
+	} = {},
+): Harness {
 	const saved: BotCredentials[] = [];
 	const events: string[] = [];
+	const stops: string[] = [];
+	const resets: string[] = [];
 	let ensured = 0;
 	let logouts = 0;
 	const status = options.status ?? bridgeStatus();
@@ -56,6 +70,14 @@ function harness(options: { open?: () => void; status?: BridgeStatus; bridge?: b
 			events.push("close");
 		},
 		status: () => status,
+		stop: (peer: string) => {
+			stops.push(peer);
+			return options.stop ?? true;
+		},
+		reset: (peer: string) => {
+			resets.push(peer);
+			return options.reset ?? true;
+		},
 	} as unknown as Bridge;
 	const exists = options.bridge ?? true;
 	return {
@@ -80,6 +102,8 @@ function harness(options: { open?: () => void; status?: BridgeStatus; bridge?: b
 		opens: () => events.filter((event) => event === "open").length,
 		ensured: () => ensured,
 		logouts: () => logouts,
+		stops,
+		resets,
 		events,
 	};
 }
@@ -248,6 +272,56 @@ describe("the /wechat command", () => {
 			{ value: "logout", label: "logout", description: expect.stringContaining("account") },
 		]);
 		expect(complete("login ")).toBeNull();
+	});
+});
+
+/**
+ * While a peer turn runs, the terminal's own dialogs still work (the bridge does
+ * not adapt the host UI), but a `/wechat` verb that would stop the bridge or
+ * replace the host session declines instead.
+ */
+describe("peer controls", () => {
+	const state = bridgeStatus({
+		peerStates: [{ peer: "alice@im.wechat", state: { status: "running", queued: 0 } }],
+	});
+	function handler(deps: CommandDeps) {
+		const fake = createFakePi();
+		registerCommands(fake.pi, deps);
+		const registered = fake.commands.get("wechat")?.handler;
+		if (!registered) throw new Error("command not registered");
+		return registered;
+	}
+
+	test("stops a peer by either id form", async () => {
+		const h = harness({ status: state, stop: true });
+		const { ctx, notices } = fakeCtx();
+		await handler(h.deps)("stop alice", ctx);
+		expect(h.stops).toEqual(["alice@im.wechat"]);
+		expect(notices.at(-1)?.message).toContain("Stopping alice");
+	});
+
+	test("resets a peer conversation", async () => {
+		const h = harness({ status: state, reset: true });
+		const { ctx, notices } = fakeCtx();
+		await handler(h.deps)("reset ALICE@im.wechat", ctx);
+		expect(h.resets).toEqual(["alice@im.wechat"]);
+		expect(notices.at(-1)?.message).toContain("fresh conversation for alice");
+	});
+
+	test("refuses a reset while the peer runs", async () => {
+		const h = harness({ status: state, reset: false });
+		const { ctx, notices } = fakeCtx();
+		await handler(h.deps)("reset alice", ctx);
+		expect(notices.at(-1)?.message).toContain("stop it before");
+	});
+
+	test("names the known peers on an unknown target", async () => {
+		const h = harness({ status: state });
+		const { ctx, notices } = fakeCtx();
+		await handler(h.deps)("stop nobody", ctx);
+		expect(h.stops).toEqual([]);
+		expect(notices.at(-1)?.message).toContain('Unknown WeChat peer "nobody"');
+		expect(notices.at(-1)?.message).toContain("alice");
 	});
 });
 
