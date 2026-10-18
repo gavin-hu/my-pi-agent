@@ -66,7 +66,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C6, F1–F2 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C5, F1–F2 |
 
 ## If only three things ship
 
@@ -75,9 +75,8 @@ screenshots.
 2. **C2 — Control-center breadth.** *Decision first:* whether themes, skills, and
    prompts belong in the picker or stay with `pi config`; if they do, they need the
    same health and scope rules as extensions.
-3. **C3 — Price freshness.** Record when a built-in rate table was last verified and
-   surface its age in `doctor`, so a tariff change is visible instead of silently
-   wrong.
+3. **F1 — Dependency budget.** A check that a new runtime dependency is lazy-loaded
+   unless it is needed at registration, so the install stays small.
 
 ## Horizons
 
@@ -266,13 +265,13 @@ runs, an update check, and two themes.
 
 Nothing here makes a false promise today. The gaps above are documented
 behavior, and the one that is not (`C2`, control-center breadth) needs a decision
-before it is work. The money the chrome reports has one gap left:
+before it is work. The money the chrome reports is dated but thin:
 
 - **C1 — Provider rate packs.** Add published rates for the major hosted
-  providers (Anthropic, OpenAI, Google), each with an effective date and a
-  "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
-  fallback. *Done when* no network is required and an unknown model still shows
-  no invented price.
+  providers (Anthropic, OpenAI, Google), each with an effective date; the age
+  report `doctor` now prints for the built-in tables extends to theirs. Keep Pi's
+  recorded cost as the fallback. *Done when* no network is required and an unknown
+  model still shows no invented price.
 
 **Next**
 
@@ -284,14 +283,11 @@ contributes no `Next` item.
 - **C2 — Control-center breadth.** *Decision first:* do themes, skills, and
   prompts belong in the picker or stay with `pi config`? If added, they need the
   same health and scope rules as extensions.
-- **C3 — Price freshness.** Record when a built-in table was last verified and
-  surface its age in `doctor`, so a tariff change is visible instead of silently
-  wrong.
-- **C4 — Update channels.** An opt-in prerelease or tagged-channel preference,
+- **C3 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
-- **C5 — Update action.** Offer `pi update --extensions` from the control
+- **C4 — Update action.** Offer `pi update --extensions` from the control
   center behind a confirmation, only if the host exposes a safe way to run it.
-- **C6 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C5 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 ## 5. Foundations

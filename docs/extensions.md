@@ -268,9 +268,10 @@ working message, handing it back to Pi when the row comes down. DeepSeek is
 priced out of the
 box from its published yuan rates and peak tariff, or from its published
 dollar table when `price.currency.code` is `USD`; `bytefly.json` adds or overrides
-per-model rates with an optional peak/off-peak schedule, and `price.budget` warns
-once — in the transcript and, with notify on, on the desktop — when a session's cost
-reaches it, without stopping anything. It also owns the `/bytefly` control center — a
+per-model rates with an optional peak/off-peak schedule; the built-in tables record
+when they were last verified, and `doctor` reports how old that is; and `price.budget`
+warns once — in the transcript and, with notify on, on the desktop — when a session's
+cost reaches it, without stopping anything. It also owns the `/bytefly` control center — a
 keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` settings
 checkbox and one verdict (`off` when switched off, `env disabled` when

@@ -3,7 +3,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { withAgentDir } from "../../../../test/helpers/env.ts";
-import { DEFAULT_RATES, DEFAULT_BYTEFLY_CONFIG, loadByteflyConfig, normalizeByteflyConfig } from "./config.ts";
+import {
+	DEFAULT_RATES,
+	DEFAULT_BYTEFLY_CONFIG,
+	loadByteflyConfig,
+	normalizeByteflyConfig,
+	PRICE_VERIFIED_AT,
+} from "./config.ts";
 
 let cwd = "";
 
@@ -221,5 +227,19 @@ describe("the table follows the currency", () => {
 		expect(usd.rates["deepseek/deepseek-flash"]?.output).toBe(9);
 		expect(usd.rates["deepseek/deepseek-flash"]?.input).toBe(0);
 		expect(usd.rates["deepseek/deepseek-v4-pro"]?.input).toBe(1.32);
+	});
+});
+
+describe("PRICE_VERIFIED_AT", () => {
+	test("is a real calendar date, not one that rolls over", () => {
+		expect(PRICE_VERIFIED_AT).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		const [year, month, day] = PRICE_VERIFIED_AT.split("-").map(Number) as [number, number, number];
+		// A month's real length, so 2026-02-31 cannot pass as a date.
+		const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+		const lengths = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+		expect(month).toBeGreaterThanOrEqual(1);
+		expect(month).toBeLessThanOrEqual(12);
+		expect(day).toBeGreaterThanOrEqual(1);
+		expect(day).toBeLessThanOrEqual(lengths[month - 1] as number);
 	});
 });

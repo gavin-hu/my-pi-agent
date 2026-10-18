@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: the built-in DeepSeek rate tables now carry the day they were last
+  checked against the published tariff, and `run_doctor` reports how old that is —
+  `ok` inside a 90-day window, `degraded` beyond it with the source URL to re-check.
+  A re-pricing therefore becomes a visible warning instead of a quietly wrong cost
+  total. The date records 2026-10-18, when the tables were checked against DeepSeek's published USD figures
+  and peak schedule; the tables themselves are unchanged.
+
 - dev: the browse and plan-review pages are covered through their pure routers and
   rendered HTML, with no browser: a failing `git` diff provider now proves it
   degrades to a page without change markers (and 404 for a single file) instead of

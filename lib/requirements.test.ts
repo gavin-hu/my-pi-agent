@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
+	ageInDays,
 	canDeliver,
 	hardRequirementExtensions,
 	missingFindings,
@@ -516,5 +517,68 @@ describe("safety checks", () => {
 		);
 		expect(find(report, "worktree.guard.blockPowershell")?.severity).toBe("ok");
 		expect(report.findings.filter((finding) => finding.severity === "degraded")).toEqual([]);
+	});
+});
+
+describe("ageInDays", () => {
+	const now = Date.parse("2026-10-19T12:00:00Z");
+
+	test("counts whole days since a date", () => {
+		expect(ageInDays("2026-10-19", now)).toBe(0);
+		expect(ageInDays("2026-10-18", now)).toBe(1);
+		expect(ageInDays("2026-07-21", now)).toBe(90);
+	});
+
+	test("rejects anything that is not a real calendar date", () => {
+		for (const bad of ["", "19/10/2026", "2026-1-9", "2026-02-31", "2026-13-01", "not a date"]) {
+			expect(ageInDays(bad, now), bad).toBeUndefined();
+		}
+	});
+
+	test("reads a day of clock skew as fresh, and anything further ahead as a typo", () => {
+		// A record made in a timezone ahead of UTC is not a mistake.
+		expect(ageInDays("2026-10-20", now)).toBe(0);
+		expect(ageInDays("2026-10-21", now)).toBeUndefined();
+	});
+});
+
+describe("age checks", () => {
+	/** 2026-10-19 is the recorded date; the clock below is set relative to it. */
+	const VERIFIED = "2026-10-19";
+	const at = (iso: string): number => Date.parse(iso + "T00:00:00Z");
+
+	/** The age finding bytefly's declaration produces at that clock. */
+	async function ageFinding(date: string | undefined, clock: string) {
+		const report = await probeExtension(
+			"bytefly",
+			seams({ priceVerifiedAt: () => date, now: () => at(clock), readJson: () => ({ state: "absent" }) }),
+		);
+		return find(report, "the built-in DeepSeek rate tables");
+	}
+
+	test("passes a recent record and names its age", async () => {
+		const finding = await ageFinding(VERIFIED, "2026-10-22");
+		expect(finding?.severity).toBe("ok");
+		expect(finding?.detail).toBe("the built-in DeepSeek rate tables last checked 3 days ago");
+	});
+
+	test("still passes at the window's edge", async () => {
+		// 90 days on from 2026-10-19.
+		expect((await ageFinding(VERIFIED, "2027-01-17"))?.severity).toBe("ok");
+	});
+
+	test("warns once the record is stale, with the re-check hint", async () => {
+		const finding = await ageFinding(VERIFIED, "2027-01-18");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toContain("beyond the 90-day window");
+		expect(finding?.hint).toContain("api-docs.deepseek.com");
+	});
+
+	test("says so when no date is recorded or it does not parse", async () => {
+		for (const date of [undefined, "someday"]) {
+			const finding = await ageFinding(date, "2026-10-22");
+			expect(finding?.severity).toBe("info");
+			expect(finding?.detail).toContain("no verification date");
+		}
 	});
 });
