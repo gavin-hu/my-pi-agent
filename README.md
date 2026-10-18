@@ -60,7 +60,8 @@ pi -e .                                                    # try it for one run
 Then, from inside Pi:
 
 - `/bytefly [extension] [refresh]` opens the control center on Extensions, lists
-  every loaded extension with its runtime health, and enables or disables one.
+  every loaded extension with its runtime health, enables or disables one, and
+  clears a project override with `x`.
 - `/bytefly settings` opens the control center's Settings section: bytefly
   startup TUI, desktop notifications and their delivery method, the proactive
   health check, the cost precision and recorded-cost fallback, the transcript

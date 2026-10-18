@@ -265,7 +265,8 @@ hardware cursor — with each row's value and its source file. `Space` toggles t
 focused extension and `Enter` expands
 its findings (per row, into the free height); in Settings `Space`/`Enter` change
 the focused row. `Tab` switches Global/Project scope, `←`/`→` switch sections,
-and `r` re-probes. The screen mounts on the session's cached findings and probes
+`x` clears a project override in Project scope, and `r` re-probes. The screen
+mounts on the session's cached findings and probes
 on the first Extensions view, so opening it or `/bytefly settings` is instant.
 App rows are Global-only; `bytefly.json` rows write the selected scope one key
 at a time. `/bytefly settings` opens the Settings section,

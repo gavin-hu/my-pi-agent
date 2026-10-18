@@ -299,6 +299,21 @@ export class PanelComponent implements Component {
 			.then(() => this.options.requestRender());
 	}
 
+	/** Drop the focused extension's project override, restoring the inherited row. */
+	private clearOverride(): void {
+		const entry = this.activeEntries()[this.cursor.selected];
+		if (entry?.kind !== "row") return;
+		const item = entry.row.item;
+		if (!item) {
+			this.notify(`${entry.row.label} is not resolved; there is no override to clear.`);
+			return;
+		}
+		this.chain = this.chain
+			.then(() => this.options.runtime.clearOverride(item))
+			.catch(() => undefined)
+			.then(() => this.options.requestRender());
+	}
+
 	/** Change the focused setting, if the section has one. */
 	private changeSetting(): void {
 		const entry = this.activeEntries()[this.cursor.selected];
@@ -441,6 +456,12 @@ export class PanelComponent implements Component {
 			void this.refresh(true);
 			return;
 		}
+		// Only Project scope can hold an override, so the key does not exist in
+		// Global scope and the hint row does not offer it there.
+		if (matchesKey(data, "x") && this.options.runtime.scope() === "project") {
+			this.clearOverride();
+			return;
+		}
 		this.navigate(data);
 	}
 
@@ -502,6 +523,7 @@ export class PanelComponent implements Component {
 						"Space toggle",
 						expanded ? "Enter collapse" : "Enter detail",
 						"Tab scope",
+						...(this.options.runtime.scope() === "project" ? ["x inherit"] : []),
 						this.refreshing ? "refreshing…" : "r refresh",
 						"↑/↓ select",
 					];

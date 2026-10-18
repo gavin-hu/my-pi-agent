@@ -85,12 +85,19 @@ function build(options: {
 	settings?: SettingsSurface;
 }) {
 	const store = options.store ?? makeStore();
-	const { discovery } = makeDiscovery({
+	const { discovery, projectStore } = makeDiscovery({
 		global: options.items,
 		globalStore: store,
 		trusted: options.trusted ?? true,
 	});
-	const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+	// Mirrors the command: a runtime refusal or write failure lands in the frame.
+	const holder: { component?: PanelComponent } = {};
+	const runtime = createExtensionsPickerRuntime({
+		discovery,
+		cwd: "/proj",
+		agentDir: "/agent",
+		onError: (message) => holder.component?.notify(message),
+	});
 	let closed = 0;
 	const reports = options.reports ?? [];
 	const settings =
@@ -114,7 +121,8 @@ function build(options: {
 			closed += 1;
 		},
 	});
-	return { component, runtime, store, settings, closedCount: () => closed };
+	holder.component = component;
+	return { component, runtime, store, projectStore, settings, closedCount: () => closed };
 }
 
 describe("PanelComponent rendering", () => {
@@ -384,6 +392,55 @@ describe("PanelComponent input", () => {
 		expect(runtime.scope()).toBe("project");
 	});
 
+	test("x clears the project override the toggle wrote", async () => {
+		const item = makeItem({ path: "/agent/extensions/auto.ts" });
+		const { component, projectStore } = build({ items: [item], reports: [] });
+
+		component.handleInput("\t");
+		component.handleInput(" ");
+		await settle();
+		await settle();
+		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([
+			"/agent/extensions/auto.ts",
+			"-/agent/extensions/auto.ts",
+		]);
+
+		component.handleInput("x");
+		await settle();
+		await settle();
+
+		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([]);
+		const row = component.render(80).find((line) => line.includes("auto.ts"));
+		expect(row).toContain(GLYPHS.boxOn);
+		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
+	});
+
+	test("x explains a row with no project override and writes nothing", async () => {
+		const { component, projectStore } = build({ items: [packageItem("plan")], reports: [] });
+
+		component.handleInput("\t");
+		component.handleInput("x");
+		await settle();
+		await settle();
+
+		expect(projectStore.calls.setProjectExtensionPaths).toEqual([]);
+		const text = component.render(80).join("\n");
+		expect(text).toContain("No project override for plan/index.ts.");
+		expect(text).not.toContain("Esc close");
+	});
+
+	test("offers x in Project scope only", () => {
+		const global = build({ items: [packageItem("plan")], reports: [] });
+		expect(global.component.render(120).join("\n")).not.toContain("x inherit");
+
+		global.component.handleInput("x");
+		expect(global.store.calls.setExtensionPaths).toEqual([]);
+
+		const project = build({ items: [packageItem("plan")], reports: [] });
+		project.component.handleInput("\t");
+		expect(project.component.render(120).join("\n")).toContain("x inherit");
+	});
+
 	test("Escape closes the screen", () => {
 		const { component, closedCount } = build({ items: [packageItem("plan")], reports: [] });
 
@@ -435,6 +492,7 @@ describe("PanelComponent input", () => {
 			projectAvailable: () => true,
 			isDirty: () => false,
 			toggle: async () => {},
+			clearOverride: async () => {},
 			onChange: () => () => {},
 		};
 		const component = new PanelComponent({
