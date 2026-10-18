@@ -99,6 +99,12 @@ export interface AskHumanOptions<T> {
 	file?: { path: string; name: string };
 	/** Text a remote channel posts before the dialogs, or when the file fails. */
 	body?: string;
+	/**
+	 * A short digest a remote channel posts before the dialogs even when the file
+	 * was delivered. Use it for the decision-relevant summary of an artifact whose
+	 * attachment may never be opened (a phone client can hide a file bubble).
+	 */
+	note?: string;
 }
 
 /**
@@ -125,6 +131,9 @@ export async function askHuman<T>(
 			} else if (options.body) {
 				await channel.post(options.body);
 			}
+			// A digest is sent even when the file went out: the attachment may never be
+			// opened, and the choice still has to be answerable from the chat itself.
+			if (options.note) await channel.post(options.note);
 		} catch {
 			// The preface is best-effort; the dialogs still run.
 		}

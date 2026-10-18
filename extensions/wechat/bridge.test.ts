@@ -996,6 +996,43 @@ describe("bridge remote prompts", () => {
 		await bridge.close();
 	});
 
+	test("reports a failed message preface once instead of dropping it", async () => {
+		const notifications: string[] = [];
+		const base = makeClient([updates([inbound("q")])]);
+		const client = {
+			...base.client,
+			sendMessage: async () => ({ ret: -1 }),
+		} as unknown as WechatClient;
+		const { deps, injected } = makeDeps(client, { notify: (message) => notifications.push(message) }, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		// A dialog preface (or the plan digest) that cannot be sent must not look like
+		// a preface that never existed: the peer would be left with only the choices.
+		await bridge.channel().post("plan digest");
+		await bridge.channel().post("second try");
+		const failures = notifications.filter((message) => message.includes("message delivery failed"));
+		expect(failures).toHaveLength(1);
+		await bridge.close();
+	});
+
+	test("reports a failed file preface on the terminal", async () => {
+		const notifications: string[] = [];
+		// `makeClient` has no upload endpoint, so the CDN upload fails like a real one.
+		const { client } = makeClient([updates([inbound("q")])]);
+		const { deps, injected } = makeDeps(client, { notify: (message) => notifications.push(message) }, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const path = join(tempDir("wechat-bridge-file-"), "plan.md");
+		writeFileSync(path, "plan");
+		expect(await bridge.channel().postFile(path, "plan.md")).toBe(false);
+		expect(notifications.some((message) => message.includes("file delivery failed for plan.md"))).toBe(true);
+		await bridge.close();
+	});
+
 	test("resolves a pending prompt as cancelled when the bridge closes", async () => {
 		const { client, sent } = controllableClient();
 		const { deps, injected } = makeDeps(client, {}, { hold: true });

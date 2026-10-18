@@ -657,12 +657,16 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, customCalls, files } = remoteCtx({ cwd: root, select: "Approve and execute" });
+		const { ctx, customCalls, files, posted } = remoteCtx({ cwd: root, select: "Approve and execute" });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
 		expect(customCalls).toEqual([]);
 		// The plan file is sent before the choices.
 		expect(files).toEqual([{ path: planPath, name: basename(planPath) }]);
+		// A digest follows, so the choice is answerable if the file is never opened.
+		const digest = posted.at(-1) ?? "";
+		expect(digest).toContain("Plan (1 step)");
+		expect(digest).toContain("1. Do it");
 	});
 
 	test("falls back to the plan text when the file cannot be sent", async () => {
@@ -674,6 +678,18 @@ describe("exit_plan_mode", () => {
 		setFileResult(false);
 		await call(exit, { plan_path: planPath }, ctx);
 		expect(posted[0]).toContain("Do it");
+		// The digest still follows the fallback text.
+		expect(posted.at(-1)).toContain("Plan (1 step)");
+	});
+
+	test("the digest names the plan title when the file has one", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
+
+		const { ctx, posted } = remoteCtx({ cwd: root, select: "Keep planning" });
+		await call(exit, { plan_path: planPath }, ctx);
+		expect(posted.at(-1)).toContain("Plan: Test plan (1 step)");
 	});
 
 	// The review sizes itself to the whole terminal, so it must be an overlay.

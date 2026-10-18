@@ -61,6 +61,9 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   is refused instead of ticking the wrong line.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
+  On a remote turn (WeChat) the plan file is sent first, then a digest of its
+  title, step count, and first steps, then the choices, so the review is still
+  answerable when the attachment is not opened.
 - **Browser review on demand.** Press `w` on the review screen (or run
   `/plan review [path]`) to open the plan in a local browser: a reading-first
   page with the plan's H1 as its title, GitHub's Markdown content column, a

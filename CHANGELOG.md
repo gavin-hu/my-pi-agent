@@ -207,6 +207,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a plan review now sends a short digest — the plan's title, step
+  count, and first steps — before the approve/refine choices, so the review can
+  be answered from the chat even when the file bubble is never opened. A plan
+  file or message preface the bridge cannot deliver is reported on the terminal
+  instead of failing silently and leaving the peer with only the choices.
 - `plan`: plan files are written atomically — a hidden sibling temp file, then a
   rename — for a new plan, a refinement, a `set_plan_steps` edit, and a browser
   feedback save. An interrupted or failed write now leaves the previous file

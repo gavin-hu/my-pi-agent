@@ -213,6 +213,33 @@ interface PlanReviewOutcome {
 /** Prompt shown by the dialog-based refine editor in non-TUI modes. */
 const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, Esc to cancel)";
 
+/** How much of one step the remote digest shows. */
+const DIGEST_STEP_CHARS = 90;
+
+/**
+ * A one-message digest of the plan for a remote review.
+ *
+ * The file is the primary artifact, but a phone client may never render or open
+ * it, and the peer still has to choose approve / refine. The digest carries the
+ * title, the step count, and the first few steps; the full text follows as a
+ * file or as the fallback message.
+ */
+function planReviewDigest(content: string): string {
+	const title = /^#\s+(.+)$/m.exec(content)?.[1]?.trim();
+	const steps = extractPlanSteps(content);
+	const count = steps.length;
+	const head = `Plan${title ? `: ${title}` : ""}${count > 0 ? ` (${count} step${count === 1 ? "" : "s"})` : ""}`;
+	const preview = steps.slice(0, 3).map((step, index) => {
+		const text = step.content.replace(/\s+/g, " ").trim();
+		const shown = text.length > DIGEST_STEP_CHARS ? `${text.slice(0, DIGEST_STEP_CHARS - 1)}…` : text;
+		return `${index + 1}. ${shown}`;
+	});
+	const more = count > preview.length ? `… (${count - preview.length} more)` : "";
+	return [head, ...preview, more, "The full plan is attached above, or sent as text if the file failed."]
+		.filter((line) => line !== "")
+		.join("\n");
+}
+
 /**
  * Ask the user to review the plan file. The TUI opens the scrollable review
  * screen (with an inline refine editor); dialog-capable modes (RPC) fall back
@@ -252,9 +279,12 @@ async function reviewPlan(
 			return { action: "keep" };
 		},
 		// A remote turn gets the plan file up front, falling back to the full text;
-		// a local TUI turn ignores both and renders the component.
+		// a local TUI turn ignores both and renders the component. The digest goes
+		// out either way so the choices stay answerable when a phone client does not
+		// render the file bubble.
 		file: { path: plan.path, name: basename(plan.relativePath) },
 		body: plan.content,
+		note: planReviewDigest(plan.content),
 	});
 }
 

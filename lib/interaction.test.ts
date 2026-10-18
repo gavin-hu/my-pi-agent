@@ -14,15 +14,19 @@ import {
 function fakeChannel(active = true) {
 	const posted: string[] = [];
 	const files: Array<{ path: string; name: string }> = [];
+	/** Deliveries in call order, so a preface ordering can be pinned. */
+	const events: string[] = [];
 	let fileResult = true;
 	const channel: InteractionChannel = {
 		isActive: () => active,
 		request: async () => ({ kind: "cancelled" }),
 		post: async (text) => {
 			posted.push(text);
+			events.push(`post:${text}`);
 		},
 		postFile: async (path, name) => {
 			files.push({ path, name });
+			events.push(`file:${name}`);
 			return fileResult;
 		},
 	};
@@ -30,6 +34,7 @@ function fakeChannel(active = true) {
 		channel,
 		posted,
 		files,
+		events,
 		setActive: (value: boolean) => {
 			channel.isActive = () => value;
 		},
@@ -124,6 +129,46 @@ describe("askHuman", () => {
 			body: "fallback",
 		});
 		expect(posted).toEqual(["fallback"]);
+	});
+
+	test("posts the digest after the file, before the dialogs", async () => {
+		const { channel, files, events } = fakeChannel();
+		const result = await askHuman(carrier("tui", channel) as never, {
+			custom: rich,
+			dialogs: text,
+			file: { path: "/tmp/plan.md", name: "plan.md" },
+			body: "fallback",
+			note: "Plan: Demo (2 steps)",
+		});
+		expect(result).toBe("text");
+		expect(files).toHaveLength(1);
+		// The file goes out first; the digest follows, so the choices make sense even
+		// when the attachment is never opened.
+		expect(events).toEqual(["file:plan.md", "post:Plan: Demo (2 steps)"]);
+	});
+
+	test("posts the fallback text and then the digest", async () => {
+		const { channel, posted, setFileResult } = fakeChannel();
+		setFileResult(false);
+		await askHuman(carrier("tui", channel) as never, {
+			custom: rich,
+			dialogs: text,
+			file: { path: "/tmp/plan.md", name: "plan.md" },
+			body: "full plan",
+			note: "digest",
+		});
+		expect(posted).toEqual(["full plan", "digest"]);
+	});
+
+	test("posts no digest for a local turn", async () => {
+		const { posted } = fakeChannel();
+		const result = await askHuman(carrier("tui") as never, {
+			custom: rich,
+			dialogs: text,
+			note: "digest",
+		});
+		expect(result).toBe("rich");
+		expect(posted).toEqual([]);
 	});
 
 	test("posts a body when there is no file", async () => {

@@ -214,7 +214,11 @@ A remote prompt can deliver a local file first. `exit_plan_mode` uses this to
 send the plan file itself before the three choices, so WeChat sees the whole plan
 (a long one falls back to chunked text if the upload fails). The peer session's
 UI context carries the bridge channel, so `askHuman` finds it and posts the file
-then the text before the dialogs. The flow mirrors the
+then the text before the dialogs. Before the choices it also posts a short
+digest — the title, the step count, and the first steps — so the review is
+answerable from the chat even if the file bubble is never opened, and a file or
+digest the bridge cannot deliver is reported on the terminal instead of vanishing.
+The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
 (`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a
 `type: 4` file item. Only the plan review uses it today; images, video, and voice

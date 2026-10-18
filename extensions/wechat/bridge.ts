@@ -294,8 +294,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		return true;
 	}
 
-	/** Peers already reported as unable to receive, until a reply gets through. */
-	const replyFailureNotified = new Set<string>();
+	/** Peers already reported as unable to receive, until a send gets through. */
+	const sendFailureNotified = new Set<string>();
 
 	/**
 	 * Send one bubble to a peer and report whether it was delivered.
@@ -310,12 +310,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			failed = true;
 			if (abort?.signal.aborted) return;
 			forgetToken(item.peer);
-			if (replyFailureNotified.has(item.peer)) return;
-			replyFailureNotified.add(item.peer);
+			if (sendFailureNotified.has(item.peer)) return;
+			sendFailureNotified.add(item.peer);
 			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
 			notify(`WeChat reply failed${partial}: ${messageOf(error)}`, "warning");
 		});
-		if (!failed && delivered) replyFailureNotified.delete(item.peer);
+		if (!failed && delivered) sendFailureNotified.delete(item.peer);
 		return failed ? false : delivered;
 	}
 
@@ -354,18 +354,38 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 	}
 
-	/** Send a text message to the peer owning the in-flight turn, chunked. */
+	/**
+	 * Send a text message to the peer owning the in-flight turn, chunked.
+	 *
+	 * A failure is reported on the terminal once per peer, the same way a reply
+	 * failure is: this carries a dialog preface (and the plan digest), and a silent
+	 * failure would leave the peer with only the choices, as if nothing preceded
+	 * them.
+	 */
 	async function sendPrompt(text: string, signal?: AbortSignal): Promise<boolean> {
 		const current = worker?.current();
 		if (!current) return false;
-		return sendChunked(current.peer, current.contextToken, text, signal ?? abort?.signal, () => {});
+		const activeSignal = signal ?? abort?.signal;
+		let failed = false;
+		const delivered = await sendChunked(current.peer, current.contextToken, text, activeSignal, (error, progress) => {
+			failed = true;
+			if (activeSignal?.aborted) return;
+			forgetToken(current.peer);
+			if (sendFailureNotified.has(current.peer)) return;
+			sendFailureNotified.add(current.peer);
+			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
+			notify(`WeChat message delivery failed${partial}: ${messageOf(error)}`, "warning");
+		});
+		if (!failed && delivered) sendFailureNotified.delete(current.peer);
+		return failed ? false : delivered;
 	}
 
 	/** Upload and send a local file to the peer owning the in-flight turn. */
 	async function sendFileToPeer(filePath: string, fileName: string, signal?: AbortSignal): Promise<boolean> {
 		const current = worker?.current();
 		if (!client || !account || !current) return false;
-		return sendLocalFile({
+		const activeSignal = signal ?? abort?.signal;
+		const sent = await sendLocalFile({
 			client,
 			account,
 			cdnBaseUrl: deps.config.cdnBaseUrl,
@@ -374,8 +394,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			contextToken: current.contextToken,
 			filePath,
 			fileName,
-			signal: signal ?? abort?.signal,
+			signal: activeSignal,
 		});
+		// `sendLocalFile` reports only success, and the caller may fall back to text;
+		// without this line the operator would never know the attachment was dropped.
+		if (!sent && !activeSignal?.aborted) notify(`WeChat file delivery failed for ${fileName}.`, "warning");
+		return sent;
 	}
 
 	const interaction = createWechatInteractionChannel({
