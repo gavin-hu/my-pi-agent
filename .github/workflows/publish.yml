@@ -104,15 +104,14 @@ jobs:
       - name: Run checks
         run: bun run check:serial
 
-      # Node 24 ships npm 11, which trusted publishing requires (>= 11.5.1). No
-      # `registry-url` here: it makes setup-node write an `.npmrc` with a
-      # placeholder `_authToken`, and npm then sends that instead of exchanging
-      # the OIDC token, which npmjs answers with E404. The publish step names the
-      # registry itself.
+      # The registry is named by the publish step and nothing else is needed here:
+      # no `registry-url`, which makes setup-node write an `.npmrc` with a
+      # placeholder `_authToken` that npm sends instead of exchanging the OIDC
+      # token (npmjs answers E404 for it), and no `cache`, whose only accepted
+      # values are package-manager names (`cache: false` fails the step outright).
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: false
 
       - name: Publish with provenance
         run: npm publish --provenance --registry https://registry.npmjs.org/
