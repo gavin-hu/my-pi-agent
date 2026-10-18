@@ -1,10 +1,12 @@
 /**
  * Cross-cutting render contract: every registered tool draws lines that fit the
- * width it is given, and a rejected call renders as a sanitized error.
+ * width it is given, a rejected call renders as a sanitized error, and bytefly's
+ * frame reuses the lines it already rendered when nothing changed.
  *
  * The per-tool suites cover each renderer's content. This one proves the shape
  * they all share, because bytefly frames every tool block: a line that overflows
- * its width pushes the rail, and an unsanitized message reaches the terminal.
+ * its width pushes the rail, an unsanitized message reaches the terminal, and a
+ * frame that re-derives every block per render makes a long transcript slow.
  * Registration only — no session hook runs, so nothing touches disk or network.
  */
 
@@ -96,6 +98,34 @@ describe("tool render contract", () => {
 				}
 				expectBounded(lines, width, `${name} call at ${width}`);
 			}
+		}
+	});
+
+	test("bytefly's frame reuses its lines on an unchanged frame", () => {
+		const fake = createFakePi();
+		for (const extension of EXTENSIONS) extension(fake.pi);
+		const frame: any = fake.toolRenderers[0];
+		expect(frame, "bytefly registered no tool frame").toBeDefined();
+		const rejected: any = {
+			content: [{ type: "text", text: "Error: Permission denied" }],
+			details: {},
+			isError: true,
+		};
+
+		for (const [name, tool] of fake.tools) {
+			const wrapped = frame(name, () => tool);
+			const call = wrapped.renderCall({}, fakeTheme, context({ state: {} }));
+			const firstCall = call.render(80);
+			expect(call.render(80), `${name} call rebuilt an unchanged frame`).toBe(firstCall);
+
+			const result = wrapped.renderResult(
+				rejected,
+				{ expanded: false, isPartial: false },
+				fakeTheme,
+				context({ state: {}, isError: true }),
+			);
+			const firstResult = result.render(80);
+			expect(result.render(80), `${name} result rebuilt an unchanged frame`).toBe(firstResult);
 		}
 	});
 

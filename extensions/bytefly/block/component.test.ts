@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Text } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme, innerOf, ROLE_SGR, roleSgrTheme } from "../../../test/helpers/fakes.ts";
-import { headlineWithToolName, recolorCallHeadline, recolorShellCall, toolBlockLines } from "./component.ts";
+import { headlineWithToolName, recolorCallHeadline, recolorShellCall, ToolBlock, toolBlockLines } from "./component.ts";
 
 describe("toolBlockLines", () => {
 	test("adds outputPad to the indent", () => {
@@ -183,6 +183,58 @@ describe("headlineWithToolName", () => {
 
 	test("sanitizes the tool name", () => {
 		expect(headlineWithToolName("$ ls", "ba\u0007sh")).toBe("ba sh ls");
+	});
+});
+
+describe("ToolBlock", () => {
+	test("returns the same lines on a repeat render at the same width", () => {
+		const block = new ToolBlock(innerOf(["a"]), 0, { trimLeading: true, rail: "╎" });
+
+		expect(block.render(40)).toBe(block.render(40));
+	});
+
+	test("rebuilds when the width changes", () => {
+		const block = new ToolBlock(innerOf(["a"]), 0);
+		const first = block.render(40);
+
+		expect(block.render(41)).not.toBe(first);
+		expect(block.render(41)).toEqual(["  a"]);
+	});
+
+	test("rebuilds after invalidate even when nothing else changed", () => {
+		const block = new ToolBlock(innerOf(["a"]), 0);
+		const first = block.render(40);
+
+		block.invalidate();
+
+		expect(block.render(40)).not.toBe(first);
+	});
+
+	test("rebuilds when the inner returns new lines", () => {
+		let lines = ["a"];
+		const block = new ToolBlock({ render: () => lines, invalidate: () => {} }, 0);
+
+		block.render(40);
+		lines = ["b"];
+
+		expect(block.render(40)).toEqual(["  b"]);
+	});
+
+	test("invalidates the inner it wraps", () => {
+		let invalidations = 0;
+		const block = new ToolBlock(
+			{
+				render: () => ["a"],
+				invalidate: () => {
+					invalidations++;
+				},
+			},
+			0,
+		);
+
+		block.invalidate();
+
+		expect(invalidations).toBe(1);
 	});
 });
 

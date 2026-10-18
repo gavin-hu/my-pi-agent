@@ -80,6 +80,40 @@ function bodyPrefix(indent: number, rail: string | undefined): string {
 }
 
 /**
+ * A source line with no visible text; an image sequence is never blank. Tested
+ * on the block's own line, not the placed one, so a rail glyph does not make an
+ * empty body line read as content.
+ */
+function isBlankBody(line: string): boolean {
+	return !IMAGE_LINE.test(line) && isBlank(line);
+}
+
+/**
+ * Whether a placed line already fits its width.
+ *
+ * A tab expands to three columns, so a line carrying one always needs measuring.
+ * Otherwise a string no longer than the width cannot be wider — painted text only
+ * inflates `length` — so only a longer one is measured, which is worth doing
+ * because `visibleWidth` falls back to grapheme segmentation for the non-ASCII
+ * glyphs a transcript uses.
+ */
+function fitsWidth(placed: string, width: number): boolean {
+	if (placed.includes("\t")) return visibleWidth(placed) <= width;
+	return placed.length <= width || visibleWidth(placed) <= width;
+}
+
+/**
+ * Place a line behind `prefix`, clipped to `width`.
+ *
+ * `truncateToWidth` measures and rebuilds the whole line on every call, and
+ * placing runs per line, so a line that already fits is a plain concat instead.
+ */
+function place(prefix: string, line: string, width: number, clip: string): string {
+	const placed = `${prefix}${line}`;
+	return fitsWidth(placed, width) ? placed : truncateToWidth(placed, width, clip);
+}
+
+/**
  * Indent each line of an already-rendered block by `indent` columns, clipping
  * each to `width`. The block should be built at `width - indent` so nothing is
  * lost to the prefix; the clip is only a safety net. A line carrying an image
@@ -96,6 +130,7 @@ export function indentBlockLines(body: readonly string[], width: number, options
 	const indent = clampIndent(options.indent ?? 0, w);
 	const prefix = bodyPrefix(indent, options.rail);
 	const plainPrefix = " ".repeat(indent);
+	const clip = options.bodyClip ?? "";
 
 	// The headline is the first line with something to say; it leads at the base.
 	let headline: string | undefined;
@@ -115,33 +150,30 @@ export function indentBlockLines(body: readonly string[], width: number, options
 		while (railStart < rest.length && !isBlank(rest[railStart] ?? "")) railStart++;
 	}
 
-	const lines: string[] = [];
-	const blank: boolean[] = [];
+	const placed: string[] = [];
 	for (const [index, line] of rest.entries()) {
-		if (IMAGE_LINE.test(line)) {
-			lines.push(line);
-			blank.push(false);
-			continue;
-		}
-		lines.push(truncateToWidth(`${index < railStart ? plainPrefix : prefix}${line}`, w, options.bodyClip ?? ""));
-		blank.push(isBlank(line));
+		placed.push(IMAGE_LINE.test(line) ? line : place(index < railStart ? plainPrefix : prefix, line, w, clip));
 	}
+
+	// Trim by index over the source, which lines up one-to-one with the placed
+	// lines, so a blank scan only walks the run it drops instead of every line.
+	let start = 0;
+	let end = rest.length;
 	if (options.trimLeading) {
-		while (blank.length > 0 && blank[0]) {
-			lines.shift();
-			blank.shift();
-		}
+		while (start < end && isBlankBody(rest[start] ?? "")) start++;
 	}
 	if (options.trimTrailing !== false) {
-		while (blank.length > 0 && blank[blank.length - 1]) {
-			lines.pop();
-			blank.pop();
-		}
+		while (end > start && isBlankBody(rest[end - 1] ?? "")) end--;
 	}
-	if (headline !== undefined) {
-		const base = Math.max(0, indent - BODY_INDENT);
-		lines.unshift(truncateToWidth(`${" ".repeat(base)}${headline}`, w, "…"));
+
+	const lead =
+		headline === undefined ? undefined : place(" ".repeat(Math.max(0, indent - BODY_INDENT)), headline, w, "…");
+	if (start === 0 && end === placed.length) {
+		if (lead !== undefined) placed.unshift(lead);
+		return placed;
 	}
+	const lines = placed.slice(start, end);
+	if (lead !== undefined) lines.unshift(lead);
 	return lines;
 }
 
@@ -154,7 +186,8 @@ export function indentBlockLines(body: readonly string[], width: number, options
 export function bodyLines(inner: Component | undefined, width: number, indent = 0): string[] {
 	if (!inner) return [];
 	const w = Math.max(1, width);
-	const prefixWidth = visibleWidth(bodyPrefix(clampIndent(indent, w), undefined));
+	// The prefix is spaces here (no rail), so its width is the clamped indent.
+	const prefixWidth = clampIndent(indent, w);
 	return inner.render(Math.max(1, w - prefixWidth));
 }
 

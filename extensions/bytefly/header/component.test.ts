@@ -187,6 +187,54 @@ describe("ByteflyHeader", () => {
 		theme = coloringTheme;
 		expect(component.render(80)[0]).toContain("[accent]█▀█");
 	});
+
+	test("returns the same lines on a repeat render", () => {
+		const component = new ByteflyHeader(
+			() => fakeTheme,
+			() => view(),
+			"1.2.0",
+		);
+
+		expect(component.render(80)).toBe(component.render(80));
+	});
+
+	test("rebuilds when the width, the view, or a keybinding changes", () => {
+		let headerView = view();
+		const component = new ByteflyHeader(
+			() => fakeTheme,
+			() => headerView,
+			"1.2.0",
+		);
+		const first = component.render(80);
+
+		expect(component.render(81)).not.toBe(first);
+		headerView = { ...view(), halfBlocks: false };
+		expect(component.render(81)).not.toBe(first);
+
+		const beforeRebind = component.render(81);
+		setKeybindings(
+			new KeybindingsManager({
+				...TUI_KEYBINDINGS,
+				...APP_BINDINGS,
+				"app.interrupt": { defaultKeys: "ctrl+q", description: "Cancel or abort" },
+			}),
+		);
+		expect(component.render(81)).not.toBe(beforeRebind);
+		expect(component.render(81).join("\n")).toContain("ctrl+q");
+	});
+
+	test("rebuilds after invalidate even when nothing else changed", () => {
+		const component = new ByteflyHeader(
+			() => fakeTheme,
+			() => view(),
+			"1.2.0",
+		);
+		const first = component.render(80);
+
+		component.invalidate();
+
+		expect(component.render(80)).not.toBe(first);
+	});
 });
 
 describe("bytefly header factory", () => {

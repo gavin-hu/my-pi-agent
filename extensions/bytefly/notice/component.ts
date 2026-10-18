@@ -17,6 +17,7 @@ import type { NoticeDetails, NoticeItem, NoticeSeverity } from "../../../lib/not
 import { GLYPH_GAP, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { BODY_INDENT, indentBlockLines } from "../../../lib/tui/indent.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
+import { RenderCache } from "../../../lib/tui/render-cache.ts";
 import { DEFAULT_RAIL_GLYPH, railGlyph } from "../chrome.ts";
 import { NOTICE_CONFIG } from "./config.ts";
 
@@ -88,8 +89,17 @@ export function noticeLines(
 	});
 }
 
-/** The notice block Pi mounts for a custom message carrying `NoticeDetails`. */
+/**
+ * The notice block Pi mounts for a custom message carrying `NoticeDetails`.
+ *
+ * `render` runs on every frame Pi draws and the lines are a pure function of the
+ * fixed fields, so they are memoized on the width (`RenderCache`); a theme change
+ * rebuilds the component (`CustomMessageComponent.invalidate` re-runs the
+ * renderer), and `invalidate` drops the memo in case it does not.
+ */
 export class NoticeComponent implements Component {
+	private readonly cache = new RenderCache();
+
 	constructor(
 		private readonly details: NoticeDetails,
 		private readonly theme: Theme,
@@ -98,10 +108,11 @@ export class NoticeComponent implements Component {
 	) {}
 
 	invalidate(): void {
-		// The rail is rebuilt from the live theme on every render.
+		this.cache.invalidate();
 	}
 
 	render(width: number): string[] {
-		return noticeLines(this.details, this.theme, Math.max(1, width), this.pad, this.glyph);
+		const w = Math.max(1, width);
+		return this.cache.lines(w, undefined, () => noticeLines(this.details, this.theme, w, this.pad, this.glyph));
 	}
 }

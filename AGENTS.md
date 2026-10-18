@@ -140,7 +140,10 @@ design system — [`tokens.ts`](./lib/tui/tokens.ts) (semantic roles),
 [`status-controller.ts`](./lib/tui/status-controller.ts) (footer chips),
 [`glyphs.ts`](./lib/tui/glyphs.ts) (glyphs and status keys),
 [`tool.ts`](./lib/tui/tool.ts) (the tool-transcript kit: call title, width-safe
-call line, sanitized error, elapsed timer), and [`cursor.ts`](./lib/tui/cursor.ts)
+call line, sanitized error, elapsed timer),
+[`render-cache.ts`](./lib/tui/render-cache.ts) (the per-instance line memo a
+component that derives its lines renders through), and
+[`cursor.ts`](./lib/tui/cursor.ts)
 (`ListCursor` by index, `IdCursor` by id) —
 use it rather than re-deriving chrome, glyphs, or scroll math.
 
@@ -177,7 +180,10 @@ use it rather than re-deriving chrome, glyphs, or scroll math.
   update an instance in place, read live state on each render, and call
   `requestRender()` only after state changes; never hold themed strings in
   state unless `invalidate()` rebuilds them. A widget is derived from state,
-  never authoritative.
+  never authoritative. Pi renders the whole tree every frame, so a component that
+  derives its lines from another one memoizes them with `RenderCache` (keyed on
+  width and the source lines' identity) and drops the memo in `invalidate()`;
+  re-deriving every line per frame is what makes a long transcript feel slow.
 - Size from the live viewport: `titleRule`, `viewportRows`, `fitRows`, and
   `ListCursor`, fed by a `ViewportRowsSource` (number or getter) with a sensible
   fallback, so a resize is picked up. List screens stay docked; only the plan

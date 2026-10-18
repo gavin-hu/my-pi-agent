@@ -56,6 +56,21 @@ describe("indentBlockLines", () => {
 		expect(visibleWidth(line ?? "")).toBeLessThanOrEqual(10);
 	});
 
+	test("leaves a line that fits exactly at the width unclipped", () => {
+		const body = "x".repeat(8);
+		expect(indentBlockLines([body], 10, { indent: 2, bodyClip: "…" })).toEqual([`  ${body}`]);
+	});
+
+	test("measures the fit in columns, so a wide glyph is not clipped by length", () => {
+		// Two characters, four columns: it fits a six-column block and must keep both.
+		expect(indentBlockLines(["你好"], 6, { indent: 2, bodyClip: "…" })).toEqual(["  你好"]);
+	});
+
+	test("clips a line carrying a tab instead of trusting its measured width", () => {
+		const [line] = indentBlockLines([`a\tb${"x".repeat(40)}`], 10, { indent: 2, bodyClip: "…" });
+		expect(visibleWidth(line ?? "")).toBeLessThanOrEqual(10);
+	});
+
 	test("leads with a headline at the base and the body directly under it", () => {
 		expect(indentBlockLines(["read src/cli.ts", "a", "b"], 40, { indent: 2, headline: true })).toEqual([
 			"read src/cli.ts",
