@@ -23,7 +23,7 @@ export function planModeNotice(enabled: boolean): string {
 	return enabled ? ENABLED_NOTICE : DISABLED_NOTICE;
 }
 
-/** The plan path a `/plan review` line names, or undefined for the most recent plan. */
+/** The plan path a `/plan review` line names, or undefined to review the newest plan. */
 function reviewTarget(args: string): string | undefined {
 	const target = args.slice(REVIEW_PREFIX.length).trim();
 	return target === "" ? undefined : target;
@@ -53,13 +53,12 @@ async function reviewInBrowser(
 	ctx: ExtensionContext,
 ): Promise<void> {
 	const path = planPath ?? runtime.lastPlanPath();
-	if (!path) {
-		ctx.ui.notify("plan review: no plan to review; write one with write_plan or pass a path.", "warning");
-		return;
-	}
-	const file = await runtime.plans.read(ctx.cwd, path);
+	// A bare `/plan review` in a later session has no remembered path, so fall back
+	// to the newest plan file in the plans directory.
+	const file = path ? await runtime.plans.read(ctx.cwd, path) : await runtime.plans.latest(ctx.cwd);
 	if (!file) {
-		ctx.ui.notify(`plan review: no plan file at ${path}`, "error");
+		if (path) ctx.ui.notify(`plan review: no plan file at ${path}`, "error");
+		else ctx.ui.notify("plan review: no plan to review; write one with write_plan or pass a path.", "warning");
 		return;
 	}
 	// The server is loopback-only, so a remote turn cannot drive it.

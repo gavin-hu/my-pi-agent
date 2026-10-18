@@ -13,8 +13,9 @@ function plan(content = "- one"): StoredPlan {
 	return { path: PATH, relativePath: ".pi/plans/2026-10-14-1600-demo.md", content, bytes: content.length };
 }
 
-function fakeRuntime(options: { file?: StoredPlan; last?: string; enabled?: boolean } = {}) {
+function fakeRuntime(options: { file?: StoredPlan; latest?: StoredPlan; last?: string; enabled?: boolean } = {}) {
 	const readCalls: string[] = [];
+	const latestCalls: string[] = [];
 	const file = options.file;
 	const runtime = {
 		isEnabled: () => options.enabled ?? false,
@@ -26,9 +27,13 @@ function fakeRuntime(options: { file?: StoredPlan; last?: string; enabled?: bool
 				readCalls.push(path);
 				return file;
 			},
+			latest: async (cwd: string) => {
+				latestCalls.push(cwd);
+				return options.latest;
+			},
 		},
 	};
-	return { runtime: runtime as unknown as PlanRuntime, readCalls };
+	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls };
 }
 
 function fakeWeb(result: PlanReviewResult) {
@@ -55,13 +60,19 @@ function saved(p: StoredPlan, annotations: PlanAnnotation[]): PlanReviewResult {
 	return { status: "saved", plan: p, annotations };
 }
 
-function setup(options: { file?: StoredPlan; last?: string; enabled?: boolean; result: PlanReviewResult }) {
-	const { runtime, readCalls } = fakeRuntime(options);
+function setup(options: {
+	file?: StoredPlan;
+	latest?: StoredPlan;
+	last?: string;
+	enabled?: boolean;
+	result: PlanReviewResult;
+}) {
+	const { runtime, readCalls, latestCalls } = fakeRuntime(options);
 	const { web, started, closeCalls } = fakeWeb(options.result);
 	const pi = makeFakePi();
 	registerCommands(pi.pi, runtime, web);
 	const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
-	return { pi, ctx, notifications, runtime, readCalls, started, closeCalls };
+	return { pi, ctx, notifications, runtime, readCalls, latestCalls, started, closeCalls };
 }
 
 describe("/plan review", () => {
@@ -99,6 +110,33 @@ describe("/plan review", () => {
 		await pi.commands.get("plan").handler("review /repo/.pi/plans/other.md", ctx);
 
 		expect(readCalls).toEqual(["/repo/.pi/plans/other.md"]);
+	});
+
+	test("falls back to the newest plan when the session has not written one", async () => {
+		const file = plan("- from an earlier session");
+		const { pi, ctx, latestCalls, readCalls, started } = setup({ latest: file, result: saved(file, []) });
+
+		await pi.commands.get("plan").handler("review", ctx);
+
+		expect(latestCalls).toEqual(["/repo"]);
+		expect(readCalls).toEqual([]);
+		expect(started).toEqual([file]);
+	});
+
+	test("prefers the session's own plan over the newest file", async () => {
+		const file = plan();
+		const other = plan("- newer on disk");
+		const { pi, ctx, latestCalls, readCalls, started } = setup({
+			file,
+			latest: other,
+			result: saved(file, []),
+		});
+
+		await pi.commands.get("plan").handler("review", ctx);
+
+		expect(readCalls).toEqual([file.path]);
+		expect(latestCalls).toEqual([]);
+		expect(started).toEqual([file]);
 	});
 
 	test("warns and sends nothing when there is no plan", async () => {

@@ -14,7 +14,7 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../../lib/git/index.ts";
@@ -57,6 +57,8 @@ export interface PlanStore {
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
+	/** The newest plan file in the plans directory, or undefined when there is none. */
+	latest(cwd: string): Promise<StoredPlan | undefined>;
 	/** Set the given top-level steps' checkboxes in an existing plan. Throws when the file or any step is invalid. */
 	setSteps(cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan>;
 	/** Replace the plan's stored browser feedback. Throws when the file is missing or outside the plans directory. */
@@ -262,5 +264,37 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		};
 	};
 
-	return { dirFor, write, read, setSteps, saveFeedback };
+	/**
+	 * The newest plan file in the plans directory, for a bare `/plan review` in a
+	 * later session. Markdown non-dotfiles only, symlinks skipped like every other
+	 * read, newest mtime first with the name (which carries the stamp) as the tie
+	 * break.
+	 */
+	const latest = async (cwd: string): Promise<StoredPlan | undefined> => {
+		const dir = await dirFor(cwd);
+		let names: string[];
+		try {
+			names = readdirSync(dir);
+		} catch {
+			return undefined;
+		}
+		let newest: { path: string; mtime: number } | undefined;
+		for (const name of names) {
+			const path = join(dir, name);
+			if (!isPlanFileName(path)) continue;
+			try {
+				// lstat, not stat: a symlink is never a reviewable plan.
+				const stat = lstatSync(path);
+				if (!stat.isFile()) continue;
+				if (!newest || stat.mtimeMs > newest.mtime || (stat.mtimeMs === newest.mtime && path > newest.path)) {
+					newest = { path, mtime: stat.mtimeMs };
+				}
+			} catch {
+				// A vanished entry is not a candidate.
+			}
+		}
+		return newest ? read(cwd, newest.path) : undefined;
+	};
+
+	return { dirFor, write, read, latest, setSteps, saveFeedback };
 }

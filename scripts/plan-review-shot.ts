@@ -103,6 +103,7 @@ function screenshotStore(plan: StoredPlan): PlanStore {
 		setSteps: readOnly,
 		saveFeedback: readOnly,
 		read: async () => plan,
+		latest: async () => plan,
 	};
 }
 

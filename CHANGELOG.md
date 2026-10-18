@@ -125,6 +125,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a bare `/plan review` works in a session that did not write the plan.
+  When no plan path is remembered it opens the newest file in the plans
+  directory (newest modification time) instead of reporting that there is
+  nothing to review, so a plan written before `/resume` is still reviewable.
 - `plan`: approval seeds the plan's `## Steps` section instead of every top-level
   bullet in the file. Prose lists under Context, Approach, or Risks no longer
   become todos, and the 50-step cap now applies to the checklist that actually

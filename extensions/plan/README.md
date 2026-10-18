@@ -110,9 +110,11 @@ which does not forward `Ctrl+Alt+P`). The footer shows `⋮ plan` while plan mod
 is on, and `⋮ plan · <plan-file>` once the model has written a plan.
 
 `/plan review` is the one reserved subcommand. Bare `/plan review` reviews the
-most recent plan; `/plan review <path>.md` (or a path with a separator) reviews
-that plan. A line that merely starts with the word — `review the auth flow` — is
-still treated as a planning task, so the subcommand never swallows one.
+plan this session wrote, or, in a later session, the newest plan file in the
+plans directory (newest modification time); `/plan review <path>.md` (or a path
+with a separator) reviews that plan. A line that merely starts with the word —
+`review the auth flow` — is still treated as a planning task, so the subcommand
+never swallows one.
 
 ## Behaviour by mode
 
@@ -455,7 +457,7 @@ file and returns them to the model.
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, write/read/`setSteps`/`saveFeedback`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, `write`/`read`/`latest`/`setSteps`/`saveFeedback`. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction, heading sections, and the checkbox edit. |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`. |
