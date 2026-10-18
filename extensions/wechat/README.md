@@ -272,7 +272,7 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
   "maxInboundChars": 8000, // inbound text longer than this is truncated
   "typingIndicator": true,   // show typing while a turn is generated
   "remotePrompts": true,     // answer interactive dialogs on WeChat during a WeChat turn
-  "pollHoldMs": 0            // experimental: ask the server for a shorter long-poll hold
+  // "pollHoldMs": 3000      // experimental: request a shorter long-poll hold; unset by default
 }
 ```
 
