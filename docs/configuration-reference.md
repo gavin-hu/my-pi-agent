@@ -10,9 +10,10 @@ Two conventions:
 - A key whose value is a free-form map or an array of objects gets one row, and
   its child shape is described under the table.
 
-The four bytefly sections are checked against the code by
-`test/config-docs.test.ts`; the rest are transcribed from each loader, and the
-extension's own `README.md` remains the place for behaviour beyond the keys.
+Every section is checked against the defaults its loader exports by
+`test/config-docs.test.ts`, so a renamed key or a changed default fails the
+suite; each extension's own `README.md` remains the place for behaviour beyond
+the keys.
 
 ## Document metadata
 
