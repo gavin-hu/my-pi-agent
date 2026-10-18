@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/watch.ts";
 import { registerCommands } from "./commands.ts";
 
@@ -56,5 +56,30 @@ describe("watch command handler outside the TUI", () => {
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);
 		await command.handler("stop w1", ctx);
 		expect(ctx.notices.at(-1)?.message).toBe("Stopped w1.");
+	});
+});
+
+describe("watch command screen", () => {
+	test("the refresh timer does not poll the runtime", async () => {
+		const { h, ctx, command } = setup();
+		ctx.mode = "tui";
+		let ticks = 0;
+		h.runtime.tick = () => {
+			ticks++;
+		};
+
+		await command.handler("", ctx);
+		const factory = ctx.customCalls.at(-1);
+		expect(typeof factory).toBe("function");
+
+		jest.useFakeTimers();
+		try {
+			const component = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
+			jest.advanceTimersByTime(5000);
+			expect(ticks).toBe(0);
+			component.handleInput("q");
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });

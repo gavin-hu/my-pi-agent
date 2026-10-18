@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/watch.ts";
+import { makeCtx, makeHarnessSuite, settle } from "../../test/helpers/fixtures/watch.ts";
 
 const suite = makeHarnessSuite();
 afterEach(() => suite.cleanup());
@@ -67,6 +67,37 @@ describe("file sources", () => {
 		const { ctx } = makeCtx({ cwd: h.dir });
 		expect(() => h.runtime.add({ path: "missing.log", pattern: "x" }, ctx)).toThrow(/file not found/);
 	});
+
+	test("refuses a path that is not a regular file", () => {
+		const h = suite.makeHarness();
+		const { ctx } = makeCtx({ cwd: h.dir });
+		expect(() => h.runtime.add({ path: h.dir, pattern: "x" }, ctx)).toThrow(/not a regular file/);
+	});
+
+	test("a path replaced by a directory is skipped, not thrown", () => {
+		const h = suite.makeHarness();
+		const { ctx } = makeCtx({ cwd: h.dir });
+		h.runtime.load(ctx);
+		const path = join(h.dir, "app.log");
+		writeFileSync(path, "error one\n");
+		const watch = h.runtime.add({ path, pattern: "error", fromStart: true }, ctx);
+		h.runtime.tick();
+
+		rmSync(path);
+		mkdirSync(path);
+
+		expect(() => h.runtime.tick()).not.toThrow();
+		expect(h.runtime.get(watch.id)?.status).toBe("running");
+	});
+});
+
+describe("configuration", () => {
+	test("refuses add when watch is disabled", () => {
+		const h = suite.makeHarness({ config: { enabled: false } });
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		expect(() => h.runtime.add({ command: "build", pattern: "x" }, ctx)).toThrow(/watch is disabled/);
+	});
 });
 
 describe("command sources", () => {
@@ -107,6 +138,31 @@ describe("command sources", () => {
 		expect(h.kills[0]?.signal).toBe("SIGTERM");
 	});
 
+	test("a stopped command that never closes is escalated to SIGKILL", async () => {
+		const h = suite.makeHarness();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
+
+		h.runtime.stop(watch.id);
+		await settle();
+
+		expect(h.kills.some((kill) => kill.signal === "SIGKILL" && kill.force === true)).toBe(true);
+	});
+
+	test("a command that closes after SIGTERM is not force-killed", async () => {
+		const h = suite.makeHarness();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
+
+		h.runtime.stop(watch.id);
+		h.children[0].close(null, "SIGTERM");
+		await settle();
+
+		expect(h.kills.some((kill) => kill.signal === "SIGKILL")).toBe(false);
+	});
+
 	test("clear refuses a running watcher unless all is set", () => {
 		const h = suite.makeHarness();
 		const { ctx } = makeCtx();
@@ -128,7 +184,8 @@ describe("command sources", () => {
 		await h.runtime.shutdown();
 
 		expect(h.runtime.list()).toHaveLength(0);
-		expect(h.kills.length).toBeGreaterThan(0);
+		expect(h.kills.some((kill) => kill.signal === "SIGTERM")).toBe(true);
+		expect(h.kills.some((kill) => kill.signal === "SIGKILL" && kill.force === true)).toBe(true);
 	});
 });
 
