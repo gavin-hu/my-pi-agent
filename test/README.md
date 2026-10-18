@@ -55,7 +55,12 @@ gate is stated in the test.
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
    `test/tool-render.test.ts`) — cross-cutting contracts. No extension test may
    duplicate these. `tool-render.test.ts` renders every registered tool's call
-   and a rejected result at 80/48/40 and asserts the shared shape.
+   and result through bytefly's frame at 80/48/40 and asserts the shared shape,
+   and that a second render of the same component at the same width returns the
+   same line array — the deterministic half of the render-cache contract, since
+   a renderer that rebuilds its lines every frame is correct but slow. The
+   states it covers are the ones a row really renders: streaming arguments, a
+   settled call, and a collapsed, expanded, or partial result.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
    the tag is present; the tag assertion is skipped in a clone that has none.

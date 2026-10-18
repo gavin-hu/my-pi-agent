@@ -46,6 +46,21 @@ const EXTENSIONS: Array<(pi: any) => void> = [
 /** The widths the transcript is exercised at: wide, split, and narrow. */
 const WIDTHS = [80, 48, 40];
 
+/**
+ * The call and result states a row actually renders: arguments still streaming
+ * in, a settled call, a collapsed or expanded result, and a partial result.
+ */
+const CALL_STATES = [
+	{ argsComplete: false, isPartial: true },
+	{ argsComplete: true, isPartial: false },
+];
+
+const RESULT_STATES = [
+	{ expanded: false, isPartial: false },
+	{ expanded: true, isPartial: false },
+	{ expanded: false, isPartial: true },
+];
+
 /** Control characters that must never reach the terminal; SGR may. */
 const RAW_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
 
@@ -114,18 +129,23 @@ describe("tool render contract", () => {
 
 		for (const [name, tool] of fake.tools) {
 			const wrapped = frame(name, () => tool);
-			const call = wrapped.renderCall({}, fakeTheme, context({ state: {} }));
-			const firstCall = call.render(80);
-			expect(call.render(80), `${name} call rebuilt an unchanged frame`).toBe(firstCall);
-
-			const result = wrapped.renderResult(
-				rejected,
-				{ expanded: false, isPartial: false },
-				fakeTheme,
-				context({ state: {}, isError: true }),
-			);
-			const firstResult = result.render(80);
-			expect(result.render(80), `${name} result rebuilt an unchanged frame`).toBe(firstResult);
+			for (const width of WIDTHS) {
+				for (const state of CALL_STATES) {
+					const call = wrapped.renderCall({}, fakeTheme, context({ state: {}, ...state }));
+					const first = call.render(width);
+					expect(call.render(width), `${name} call rebuilt at ${width}`).toBe(first);
+				}
+				for (const state of RESULT_STATES) {
+					const result = wrapped.renderResult(
+						rejected,
+						{ expanded: state.expanded, isPartial: state.isPartial },
+						fakeTheme,
+						context({ state: {}, isError: true, ...state }),
+					);
+					const first = result.render(width);
+					expect(result.render(width), `${name} result rebuilt at ${width}`).toBe(first);
+				}
+			}
 		}
 	});
 
