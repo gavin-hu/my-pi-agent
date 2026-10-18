@@ -20,6 +20,7 @@ function setup(overrides: Partial<ReviewContext> = {}) {
 			blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
 			annotations: [],
 			outline: [],
+			steps: { done: 0, total: 0 },
 			code: {},
 			canApprove: true,
 			token: "tok",

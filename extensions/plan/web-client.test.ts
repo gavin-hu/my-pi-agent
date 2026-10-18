@@ -133,6 +133,8 @@ describe("REVIEW_CLIENT_JS", () => {
 	test("tracks the review facts and reading progress", () => {
 		expect(REVIEW_CLIENT_JS).toContain("function renderFacts()");
 		expect(REVIEW_CLIENT_JS).toContain('"step-fill"');
+		// The server computes the step count from the same list approval seeds.
+		expect(REVIEW_CLIENT_JS).toContain("data.steps");
 		expect(REVIEW_CLIENT_JS).toContain("function updateProgress()");
 		expect(REVIEW_CLIENT_JS).toContain('"progress-fill"');
 	});
