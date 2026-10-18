@@ -11,12 +11,18 @@ links to, not here.
 ## Commands
 
 ```bash
+bun install     # once per worktree: it has no node_modules of its own
 bun run check   # format:check + typecheck + test
 bun run format  # biome format --write .
 bun run test    # bun test --parallel=4 --timeout 30000
 ```
 
-- Run `bun run check` after code changes and fix every failure.
+- Run `bun run check` after code changes and fix every failure. A fresh worktree
+  has no `node_modules`, so install once first; otherwise typecheck stops on
+  `scripts/theme.ts` and says nothing about your change.
+- That check skips the gated `rewind` and `worktree` suites unless `CI` or
+  `PI_SLOW_TESTS=1` is set. Run `PI_SLOW_TESTS=1 bun run test` when touching
+  either; CI runs them.
 - A peer change is proved against the newest Pi, not just the locked one: the
   `compat` CI job installs the newest published peers and runs typecheck plus the
   serial suite. Reproduce it locally as `docs/development.md` describes; do not
@@ -39,16 +45,19 @@ local merge into `main` is allowed; a pull request is optional.
 - **Ask before ending the task.** When the work is done, ask the user how to
   reconcile the branch (commit, merge, keep, or discard) and only call
   `exit_worktree` (or `git worktree remove`) after they decide. Never exit on
-  your own initiative, so uncommitted work is not discarded without a choice,
-  and never commit unless the user asks.
+  your own initiative, so uncommitted work is not discarded without a choice.
+- **Never commit unless the user asks.** Work left on a worktree is easy to
+  inspect and easy to drop; a commit is neither, so leave it to the user.
 - Before committing: run `bun run check`, check `git status`, and stage explicit
   paths. Never `git add -A` / `git add .`.
 - Never `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, or
   `git commit --no-verify`.
 - Never force-push `main`. Parallel sessions and subagents inherit the worktree
   through `PI_WORKTREE_ROOT`, so they cannot edit the `main` checkout.
-- Commit format: `type(scope): summary`, scope is the extension name, with a
-  short why-body for non-trivial changes.
+- Commit format: `type(scope): summary`, where `scope` is the extension name,
+  the shared area (`lib`, `docs`, `test`, `ci`), or a comma list when one change
+  spans two (`fix(plan,rewind): …`). Add a short why-body for non-trivial
+  changes.
 
 ## Release
 
@@ -99,6 +108,11 @@ why.
   widgets are derived, never authoritative.
 - Sanitize model text at the boundary before it reaches a widget or the
   terminal; `lib/tui/README.md` names the helper for each case.
+- A path is data, not a string. Compare it as a resolved path, build it with the
+  platform joiner (`resolve`, `join`, or `path.posix` for repo-relative docs),
+  and canonicalize it before it becomes a state key. Never assert a literal
+  `a/b` against a value the code built with `join`: macOS stays green and only
+  Windows fails.
 - A rejected tool call returns an error carrying the previous state; never
   half-apply.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
@@ -236,6 +250,10 @@ One doc per audience. Do not duplicate across them:
 
 When behavior changes, update the catalog (`docs/extensions.md`), the relevant
 `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
+
+Renaming a heading or moving a file also means fixing the links to it:
+`test/structure.test.ts` resolves every relative link and `#anchor` in the root
+docs, `docs/`, `lib/`, `test/`, `.github/`, and `extensions/`.
 
 ## Read more
 
