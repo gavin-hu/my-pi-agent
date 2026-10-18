@@ -185,7 +185,8 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	"file-open": {
 		notes: [
 			"The `/open` command and its notification need an interactive UI; the `open_path` tool works without one.",
-			"Launching the OS handler is best-effort: a failure is reported, and the tool result still names the target.",
+			"Launching the OS handler is best-effort: a launcher that fails to start, or exits non-zero on macOS and Linux, is reported; Windows `explorer` can exit non-zero after a successful open.",
+			"The tool result names the target even when the launch fails.",
 		],
 	},
 	memory: {

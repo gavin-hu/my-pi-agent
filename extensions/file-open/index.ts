@@ -25,8 +25,9 @@ export default function fileOpen(pi: ExtensionAPI, deps: FileOpenDeps = {}): voi
 
 	/**
 	 * Resolve `raw` against the effective root and hand it to the native
-	 * handler. A launch failure is reported through `ctx.ui.notify` because the
-	 * handler runs detached; the target is returned for the caller's message.
+	 * handler. A start failure, or a non-zero exit where the platform reports
+	 * one, goes through `ctx.ui.notify` because the handler runs detached; the
+	 * target is returned for the caller's message.
 	 */
 	const launch = (mode: OpenMode, raw: string, ctx: ExtensionContext): string => {
 		const root = resolveEffectiveCwd(ctx.cwd);
@@ -84,7 +85,7 @@ export default function fileOpen(pi: ExtensionAPI, deps: FileOpenDeps = {}): voi
 			const rest = trimmed.replace(/^-r\b\s*/, "").trim();
 			try {
 				const target = launch(reveal ? "reveal" : "open", rest, ctx);
-				ctx.ui.notify(`${reveal ? "Revealed" : "Opened"} ${target}`, "info");
+				ctx.ui.notify(`${reveal ? "Revealing" : "Opening"} ${target}`, "info");
 			} catch (error) {
 				ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 			}

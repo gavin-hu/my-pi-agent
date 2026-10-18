@@ -62,6 +62,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell commands no longer count as work that needed a plan. A list the model
   wrote or cleared in the same turn is left alone, and a single call still never
   triggers a reminder.
+- `file-open`: a launcher that refuses a target is now reported on macOS and
+  Linux — a non-zero exit from `open` / `xdg-open` becomes a `Could not open`
+  notice instead of silence — and `/open` says `Opening <path>` first so the two
+  notices do not contradict each other. Windows opens through `explorer` instead
+  of `cmd /c start`, so `cmd` no longer expands `%NAME%` in a path; `explorer`'s
+  exit status stays untrusted, and that gap is documented.
 
 ### Fixed
 
