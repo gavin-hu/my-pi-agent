@@ -344,7 +344,7 @@ totals Pi's recorded cost instead.
 ```json
 {
   "price": {
-    "currency": { "code": "CNY", "symbol": "¥", "decimals": 2 },
+    "currency": { "code": "CNY", "decimals": 2 },
     "rates": {
       "deepseek/deepseek-flash":  { "input": 2, "output": 8, "cacheRead": 0.04, "cacheWrite": 0, "offPeakMultiplier": 0.5 },
       "deepseek/deepseek-v4-pro": { "input": 9, "output": 27, "cacheRead": 0.3, "cacheWrite": 0, "offPeakMultiplier": 0.5 }
@@ -432,8 +432,8 @@ it with its own rates for the models they match:
   `USD`. `CNY` prices matched records from `rates` and `peak`; `USD` totals
   Pi's recorded dollar cost for every record and ignores `rates` and `peak`.
   The two are separate methods, not an exchange rate: neither mode converts
-  one currency into the other. `currency.symbol` and `currency.decimals` only
-  change how the total is printed.
+  one currency into the other. `currency.decimals` only changes how the total
+  is printed; the symbol follows the code.
 - **Which source.** In `CNY` mode a record with no matching rate — built-in or
   configured — contributes nothing, so the footer shows no cost for it.
   `USD` mode totals Pi's recorded dollar cost for every record instead.
@@ -569,11 +569,11 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists eleven preferences in six groups:
+switch, with its own cursor. It lists ten preferences in six groups:
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 11 settings
+  Extensions · Settings                           Global · 10 settings
 
   Startup (1)
 ❯ ◻ Bytefly startup TUI                                            Off
@@ -583,10 +583,9 @@ bytefly ────────────────────────
     Notification title                                              Pi
   Diagnostics (1)
   ◼ Proactive health check                                          On
-  Pricing (3)
-    Currency symbol                                                  ¥
+  Pricing (2)
+    Currency                                                    CNY (¥)
     Cost decimals                                                    2
-  ◼ Recorded cost fallback                                          On
   Transcript (2)
     Rail glyph                                                       ╎
     Output padding                                                   1
@@ -607,7 +606,6 @@ bytefly ────────────────────────
 | Notifications | Notification title | `notify.title` | Text, up to 40 characters |
 | Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
 | Pricing | Currency | `price.currency.code` | CNY, USD |
-| Pricing | Currency symbol | `price.currency.symbol` | Text, up to 4 characters |
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
 
 Choosing **Currency** also writes that currency's symbol and precision. Both
@@ -818,7 +816,7 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
   `jobFinished`), arrays (`doctor.skip`), a numeric range (`doctor.timeoutMs`),
   the `rates` table, and `price.peak` are still `bytefly.json` edits.
 - **The rail glyph picker stays curated.** Four one-column glyphs are offered;
-  the text editor is for the title and the currency symbol, not for the rail.
+  the text editor is for the notification title, not for the rail.
 - **`doctor` is a reserved first argument.** `/bytefly doctor` always selects the
   report, so an extension literally named `doctor` cannot be narrowed to by
   name. `settings` is reserved the same way.

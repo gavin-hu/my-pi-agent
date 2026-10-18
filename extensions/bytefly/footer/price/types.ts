@@ -17,9 +17,7 @@ export interface Currency {
 	 * ignores `rates` and `peak`.
 	 */
 	code: CurrencyCode;
-	/** Printed before the number, e.g. `$` or `¥`. */
-	symbol: string;
-	/** Digits after the decimal point. */
+	/** Digits after the decimal point. The symbol follows from `code`. */
 	decimals: number;
 }
 

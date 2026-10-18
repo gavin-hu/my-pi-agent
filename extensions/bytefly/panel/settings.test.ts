@@ -51,7 +51,6 @@ describe("catalogue", () => {
 			"notify.title",
 			"doctor.proactive",
 			"price.currency.code",
-			"price.currency.symbol",
 			"price.currency.decimals",
 			"chrome.rail",
 			"outputPad",
@@ -67,7 +66,6 @@ describe("catalogue", () => {
 			"notify.title",
 			"doctor.proactive",
 			"price.currency.code",
-			"price.currency.symbol",
 			"price.currency.decimals",
 			"chrome.rail",
 			"outputPad",
@@ -79,12 +77,11 @@ describe("catalogue", () => {
 			"notify.title",
 			"doctor.proactive",
 			"price.currency.code",
-			"price.currency.symbol",
 			"price.currency.decimals",
 			"chrome.rail",
 		]);
-		expect(countSettings("global")).toBe(11);
-		expect(countSettings("project")).toBe(8);
+		expect(countSettings("global")).toBe(10);
+		expect(countSettings("project")).toBe(7);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -97,11 +94,11 @@ describe("catalogue", () => {
 			"terminal",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 3, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 2, 2, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([3, 1, 3, 1]);
+		expect(project.map((group) => group.views.length)).toEqual([3, 1, 2, 1]);
 	});
 });
 
@@ -115,7 +112,6 @@ describe("values", () => {
 			["notify.title", "Pi", "Pi", "default"],
 			["doctor.proactive", "true", "On", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
-			["price.currency.symbol", "¥", "¥", "default"],
 			["price.currency.decimals", "2", "2", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
 			["outputPad", "1", "1", "default"],
@@ -124,7 +120,6 @@ describe("values", () => {
 
 		const project = settingViews(snapshot(), "project");
 		expect(project.map((entry) => entry.origin)).toEqual([
-			"inherited",
 			"inherited",
 			"inherited",
 			"inherited",
@@ -142,7 +137,7 @@ describe("values", () => {
 				notify: { enabled: true, method: "osc99" },
 				chrome: { rail: "│" },
 				doctor: { proactive: false },
-				price: { currency: { symbol: "$", decimals: 4 } },
+				price: { currency: { decimals: 4 } },
 			},
 		});
 
@@ -280,15 +275,6 @@ describe("text rows", () => {
 		expect(textError(title, "   ")).toBe("A title is required.");
 	});
 
-	test("holds the symbol to the length the loader slices to", () => {
-		const symbol = row("price.currency.symbol");
-		expect(textError(symbol, "$")).toBeUndefined();
-		expect(textError(symbol, "CHF")).toBeUndefined();
-		expect(textError(symbol, "$US$")).toBeUndefined();
-		expect(textError(symbol, "$USD$")).toContain("the limit is 4");
-		expect(textError(symbol, "")).toBe("A symbol is required.");
-	});
-
 	test("refuses to treat a cycling row as text", () => {
 		expect(textError(row("notify.enabled"), "true")).toContain("is not a text setting");
 	});
@@ -297,11 +283,10 @@ describe("text rows", () => {
 		expect(nextValue(row("notify.title"), "Pinned").value).toBe("Pinned");
 	});
 
-	test("reads a stored title and symbol from the document", () => {
-		const snap = snapshot({ global: { notify: { title: "Pinned" }, price: { currency: { symbol: "$" } } } });
+	test("reads a stored title from the document", () => {
+		const snap = snapshot({ global: { notify: { title: "Pinned" } } });
 
 		expect(view("notify.title", "global", snap).value).toBe("Pinned");
 		expect(view("notify.title", "global", snap).origin).toBe("global");
-		expect(view("price.currency.symbol", "global", snap).value).toBe("$");
 	});
 });

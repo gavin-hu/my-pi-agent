@@ -24,9 +24,9 @@ const millionTokens = (): unknown[] => [
 ];
 
 /** A price config for the fake session's model, in the given currency. */
-const rateConfig = (symbol: string): string =>
+const rateConfig = (code: "CNY" | "USD"): string =>
 	JSON.stringify({
-		price: { currency: { symbol, decimals: 2 }, rates: { "anthropic/opus-4.5": { input: 2.5 } } },
+		price: { currency: { code, decimals: 2 }, rates: { "anthropic/opus-4.5": { input: 2.5 } } },
 	});
 
 describe("bytefly extension", () => {
@@ -281,7 +281,7 @@ describe("bytefly extension", () => {
 		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
 
 		await withAgentDir(async (agentDir) => {
-			writeFileSync(join(agentDir, "bytefly.json"), rateConfig("¥"));
+			writeFileSync(join(agentDir, "bytefly.json"), rateConfig("CNY"));
 			await emit(pi, "session_start", { reason: "startup" }, ctx);
 		});
 

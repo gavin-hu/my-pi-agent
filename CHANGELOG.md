@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the `Currency symbol` setting and the `currency.symbol` key are
+  gone. The symbol now follows `currency.code` (`CNY` → `¥`, `USD` → `$`), so
+  the two cannot disagree. `currency.decimals` still controls precision.
+
 - `bytefly`: a model with no matching CNY rate now shows no cost instead of
   Pi's recorded dollars; the mixed `¥ + $` display and the
   `fallbackToRecordedCost` setting are gone. USD mode still totals Pi's

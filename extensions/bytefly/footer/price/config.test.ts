@@ -32,7 +32,7 @@ describe("normalizeByteflyConfig", () => {
 		);
 		expect(
 			normalizeByteflyConfig(
-				{ currency: { symbol: 5, decimals: "x" }, rates: { "a/b": "cheap" }, peak: { timezone: [], windows: "all" } },
+				{ currency: { decimals: "x" }, rates: { "a/b": "cheap" }, peak: { timezone: [], windows: "all" } },
 				DEFAULT_BYTEFLY_CONFIG,
 			),
 		).toEqual(DEFAULT_BYTEFLY_CONFIG);
@@ -42,33 +42,29 @@ describe("normalizeByteflyConfig", () => {
 		expect(normalizeByteflyConfig({ bar: { width: 12 } }, DEFAULT_BYTEFLY_CONFIG)).toEqual(DEFAULT_BYTEFLY_CONFIG);
 	});
 
-	test("reads the currency, capped and clamped", () => {
-		const config = normalizeByteflyConfig({ currency: { symbol: " MONEY ", decimals: 9 } }, DEFAULT_BYTEFLY_CONFIG);
-		expect(config.currency).toEqual({ code: "CNY", symbol: "MONE", decimals: 4 });
+	test("reads and clamps the currency precision", () => {
+		const config = normalizeByteflyConfig({ currency: { decimals: 9 } }, DEFAULT_BYTEFLY_CONFIG);
+		expect(config.currency).toEqual({ code: "CNY", decimals: 4 });
 		expect(normalizeByteflyConfig({ currency: { decimals: -1 } }, DEFAULT_BYTEFLY_CONFIG).currency).toEqual({
 			code: "CNY",
-			symbol: "¥",
 			decimals: 0,
 		});
 	});
 
 	test("switches the algorithm with the currency code and supplies its defaults", () => {
 		const usd = normalizeByteflyConfig({ currency: { code: "usd" } }, DEFAULT_BYTEFLY_CONFIG);
-		expect(usd.currency).toEqual({ code: "USD", symbol: "$", decimals: 3 });
-		const custom = normalizeByteflyConfig(
-			{ currency: { code: "USD", symbol: "US$", decimals: 2 } },
-			DEFAULT_BYTEFLY_CONFIG,
-		);
-		expect(custom.currency).toEqual({ code: "USD", symbol: "US$", decimals: 2 });
+		expect(usd.currency).toEqual({ code: "USD", decimals: 3 });
+		const custom = normalizeByteflyConfig({ currency: { code: "USD", decimals: 2 } }, DEFAULT_BYTEFLY_CONFIG);
+		expect(custom.currency).toEqual({ code: "USD", decimals: 2 });
 		// An unsupported code is a typo, not a third algorithm.
 		expect(normalizeByteflyConfig({ currency: { code: "EUR" } }, DEFAULT_BYTEFLY_CONFIG).currency.code).toBe("CNY");
 	});
 
-	test("a project currency code replaces a customized global symbol", () => {
+	test("a project currency code supplies the new currency's precision", () => {
 		writeConfig(join(cwd, ".pi"), "bytefly.json", { price: { currency: { code: "USD" } } });
 		return withAgentDir((agentDir) => {
-			writeConfig(agentDir, "bytefly.json", { price: { currency: { symbol: "€", decimals: 3 } } });
-			expect(loadByteflyConfig(cwd).currency).toEqual({ code: "USD", symbol: "$", decimals: 3 });
+			writeConfig(agentDir, "bytefly.json", { price: { currency: { decimals: 0 } } });
+			expect(loadByteflyConfig(cwd).currency).toEqual({ code: "USD", decimals: 3 });
 		});
 	});
 
@@ -128,7 +124,7 @@ describe("loadByteflyConfig", () => {
 	test("prices DeepSeek in yuan with no file at all", () => {
 		return withAgentDir(() => {
 			const config = loadByteflyConfig(cwd);
-			expect(config.currency).toEqual({ code: "CNY", symbol: "¥", decimals: 2 });
+			expect(config.currency).toEqual({ code: "CNY", decimals: 2 });
 			expect(config.rates["deepseek/deepseek-flash"]).toEqual(DEFAULT_RATES["deepseek/deepseek-flash"]);
 			expect(config.peak.timezone).toBe("Asia/Shanghai");
 			expect(config.peak.windows).toHaveLength(2);
@@ -137,12 +133,12 @@ describe("loadByteflyConfig", () => {
 
 	test("layers the global file, then the project file over it", () => {
 		writeConfig(join(cwd, ".pi"), "bytefly.json", {
-			price: { currency: { symbol: "¥" } },
+			price: { currency: {} },
 		});
 		return withAgentDir((agentDir) => {
-			writeConfig(agentDir, "bytefly.json", { price: { currency: { symbol: "€", decimals: 3 } } });
+			writeConfig(agentDir, "bytefly.json", { price: { currency: { decimals: 3 } } });
 			const config = loadByteflyConfig(cwd);
-			expect(config.currency).toEqual({ code: "CNY", symbol: "¥", decimals: 3 });
+			expect(config.currency).toEqual({ code: "CNY", decimals: 3 });
 		});
 	});
 

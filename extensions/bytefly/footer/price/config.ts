@@ -51,10 +51,13 @@ export const DEFAULT_PEAK: PeakSchedule = {
 	],
 };
 
-/** The symbol and precision each algorithm supplies when a config sets only its code. */
+/** The symbol each algorithm prints. It is not configurable, so it can never disagree with the code. */
+export const CURRENCY_SYMBOLS: Readonly<Record<CurrencyCode, string>> = { CNY: "¥", USD: "$" };
+
+/** The default precision each algorithm supplies when a config sets only its code. */
 export const CURRENCY_DEFAULTS: Readonly<Record<CurrencyCode, Currency>> = {
-	CNY: { code: "CNY", symbol: "¥", decimals: 2 },
-	USD: { code: "USD", symbol: "$", decimals: 3 },
+	CNY: { code: "CNY", decimals: 2 },
+	USD: { code: "USD", decimals: 3 },
 };
 
 /** Yuan, the currency `DEFAULT_RATES` is stated in. */
@@ -66,7 +69,6 @@ export const DEFAULT_BYTEFLY_CONFIG: ByteflyConfig = {
 	peak: DEFAULT_PEAK,
 };
 
-const MAX_SYMBOL_LENGTH = 4;
 const MAX_DECIMALS = 4;
 const MAX_RATE = 1_000_000;
 const MAX_RATE_KEYS = 200;
@@ -92,12 +94,11 @@ function currencyValue(raw: unknown, base: Currency): Currency {
 	const value = asRecord(raw);
 	if (!value) return base;
 	const code = currencyCode(value.code, base.code);
-	// A changed code supplies its own symbol and precision unless this layer
-	// overrides them; an unchanged code keeps a symbol customized above it.
+	// A changed code supplies its own default precision unless this layer
+	// overrides it; an unchanged code keeps the precision customized above it.
 	const display = code !== base.code ? CURRENCY_DEFAULTS[code] : base;
 	return {
 		code,
-		symbol: cleanString(value.symbol, display.symbol).slice(0, MAX_SYMBOL_LENGTH),
 		decimals: clampInteger(value.decimals, display.decimals, 0, MAX_DECIMALS),
 	};
 }

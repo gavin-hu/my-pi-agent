@@ -151,7 +151,7 @@ describe("bytefly writes", () => {
 		expect(valueOf(runtime, "global", "price.currency.code")).toBe("CNY");
 		await runtime.change("global", "price.currency.code");
 
-		expect(readJson(globalPath)).toEqual({ price: { currency: { code: "USD", symbol: "$", decimals: 3 } } });
+		expect(readJson(globalPath)).toEqual({ price: { currency: { code: "USD", decimals: 3 } } });
 		expect(valueOf(runtime, "global", "price.currency.code")).toBe("USD");
 	});
 

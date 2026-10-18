@@ -132,10 +132,9 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 					const path = configPath(scope, deps.cwd, deps.agentDir);
 					writeConfigValueAt(path, config.section, config.path, storedValue(row, next.value));
 					if (row.id === "price.currency.code") {
-						// Choosing a currency also sets its symbol and precision, so the
-						// screen and the footer agree; both remain overridable afterwards.
+						// Choosing a currency also sets its default precision, so the screen
+						// and the footer agree; the precision remains overridable.
 						const currency = CURRENCY_DEFAULTS[next.value as CurrencyCode];
-						writeConfigValueAt(path, "price", ["currency", "symbol"], currency.symbol);
 						writeConfigValueAt(path, "price", ["currency", "decimals"], currency.decimals);
 					}
 				}

@@ -19,7 +19,7 @@ const rate = { input: 2, output: 8, cacheRead: 0.04, cacheWrite: 0, offPeakMulti
 /** A DeepSeek flash config: ¥2 / ¥8 per million, half price off-peak. */
 const deepseek = (overrides: Partial<ByteflyConfig> = {}): ByteflyConfig =>
 	config({
-		currency: { code: "CNY", symbol: "¥", decimals: 2 },
+		currency: { code: "CNY", decimals: 2 },
 		rates: { "deepseek/deepseek-flash": rate },
 		peak: { timezone: "Asia/Shanghai", windows: [{ days: [1, 2, 3, 4, 5], from: 540, to: 720 }] },
 		...overrides,
@@ -40,7 +40,7 @@ const record = (overrides: Partial<UsageRecord> = {}): UsageRecord => ({
 
 test("USD mode totals Pi's recorded cost and ignores rates and peak", () => {
 	const usd = config({
-		currency: { code: "USD", symbol: "$", decimals: 3 },
+		currency: { code: "USD", decimals: 3 },
 	});
 	const totals = createPricer(usd)([
 		record({ recordedCost: 0.4 }),

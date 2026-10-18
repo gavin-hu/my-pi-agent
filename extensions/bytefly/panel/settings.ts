@@ -220,21 +220,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "price", path: ["currency", "code"] },
 	},
 	{
-		id: "price.currency.symbol",
-		group: "pricing",
-		label: "Currency symbol",
-		description: "Printed before the footer's cost total; a currency change supplies its default.",
-		source: "bytefly",
-		kind: "text",
-		fallback: "¥",
-		options: [],
-		text: {
-			maxLength: 4,
-			validate: (raw) => (raw.trim() === "" ? "A symbol is required." : undefined),
-		},
-		config: { section: "price", path: ["currency", "symbol"] },
-	},
-	{
 		id: "price.currency.decimals",
 		group: "pricing",
 		label: "Cost decimals",

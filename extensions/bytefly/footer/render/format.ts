@@ -11,7 +11,7 @@ import { shortenPath } from "../../../../lib/format.ts";
 import { gaugeRole } from "../../../../lib/tui/gauge.ts";
 import type { TuiRole } from "../../../../lib/tui/tokens.ts";
 import { CONFIG } from "../config.ts";
-import { DEFAULT_CURRENCY } from "../price/config.ts";
+import { CURRENCY_SYMBOLS, DEFAULT_CURRENCY } from "../price/config.ts";
 import type { Currency } from "../price/types.ts";
 
 /** Theme tokens for the reasoning-effort indicator. */
@@ -31,7 +31,8 @@ export type ThinkingColor =
  * `¥<0.01` — so a small cost is never reported as free.
  */
 export function formatCost(cost: number, currency: Currency = DEFAULT_CURRENCY): string {
-	const { symbol, decimals } = currency;
+	const { decimals } = currency;
+	const symbol = CURRENCY_SYMBOLS[currency.code];
 	if (!Number.isFinite(cost) || cost <= 0) return `${symbol}${(0).toFixed(decimals)}`;
 	const minimum = 10 ** -decimals;
 	if (cost < minimum) return `${symbol}<${minimum.toFixed(decimals)}`;
