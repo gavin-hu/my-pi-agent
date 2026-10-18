@@ -35,6 +35,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The stale link it found is fixed: bytefly's pointer to the extension screen
   now names `#the-control-center`, where the heading moved.
 
+- docs: the extension catalog is now guarded like the entry READMEs.
+  `test/naming.test.ts` holds its per-extension `Tool:` / `Tools:` lines to the
+  registered tool set in both directions, and every registered tool must still
+  be named there; `test/docs-truth.test.ts` requires each entry in
+  `package.json`'s `pi.extensions` to have a `### <name>` section linking its
+  README. A tool rename or a new tool-only extension can no longer leave the
+  catalog stale or silent.
+
 - ci: npm publishing moved into the repository, as
   `.github/workflows/publish.yml`. A manual dispatch names the release version
   twice, the job then waits for the `npm` environment's required review, checks

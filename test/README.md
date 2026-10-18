@@ -70,10 +70,13 @@ gate is stated in the test.
    contiguous item ids, resolving links and id references, and the per-horizon
    item cap. It cannot tell that an item has already shipped — that stays a
    judgement made against `git log <last-tag>..main` when the roadmap is
-   reviewed. `docs-truth.test.ts` holds the catalog's command and flag names to
-   the `registerCommand`/`registerFlag` calls in extension source, in both
-   directions, and requires each name to be a string literal so the scan sees it;
-   the configuration reference is the same contract in `config-docs.test.ts`.
+   reviewed. `docs-truth.test.ts` holds the catalog to the manifest and to the
+   `registerCommand`/`registerFlag` calls in extension source, in both
+   directions: every manifest extension needs a `### <name>` section linking its
+   README, and every catalog command and flag needs a registration, while each
+   name must be a string literal so the scan sees it. The catalog's tool names
+   are the same contract in `naming.test.ts`, and the configuration reference
+   is the same contract in `config-docs.test.ts`.
 
 Rule of thumb: if a test needs `mock.module`, a global stub, or a real timer,
 the code under test is missing a seam. Add the seam instead of the mock.
@@ -204,7 +207,7 @@ test/
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, boundary, and doc-link (path + anchor) guards
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
-  docs-truth.test.ts       # catalog commands and flags vs registrations
+  docs-truth.test.ts       # catalog sections, commands, and flags vs the code
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
