@@ -145,6 +145,8 @@ export interface BridgeStatus {
 	queued: number;
 	/** Whether a turn is running right now. */
 	running: boolean;
+	/** One entry per peer that has work or a live session, for the control screen. */
+	peerStates: Array<{ peer: string; state: PeerState }>;
 	refused: number;
 	/** Labels of the senders refused since the bridge opened, newest last, capped. */
 	refusedPeers: string[];
@@ -888,6 +890,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		status(): BridgeStatus {
 			const states = worker?.snapshot() ?? [];
 			return {
+				peerStates: states,
 				open: running,
 				expired,
 				owner: state.ownerId ?? account?.ilinkUserId,

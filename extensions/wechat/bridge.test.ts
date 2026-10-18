@@ -296,6 +296,24 @@ describe("bridge", () => {
 		expect(() => bridge.open()).toThrow();
 	});
 
+	test("reports each peer's conversation state for the control screen", async () => {
+		const other = "friend@im.wechat";
+		const { client } = makeClient([updates([inbound("mine"), inbound("theirs", other)])]);
+		const { deps } = makeDeps(
+			client,
+			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] } },
+			{ hold: true, answers: ["for me", "for them"] },
+		);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().queued === 1);
+
+		const states = bridge.status().peerStates;
+		expect(states.find((entry) => entry.peer === owner)?.state).toMatchObject({ status: "running" });
+		expect(states.find((entry) => entry.peer === other)?.state).toMatchObject({ status: "queued", queued: 1 });
+		await bridge.close();
+	});
+
 	test("stops and reports when the session expires", async () => {
 		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
 		let expired = 0;

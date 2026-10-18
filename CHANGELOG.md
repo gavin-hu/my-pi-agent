@@ -138,6 +138,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the remainder is sent when the turn ends — so a minute-long answer is
   readable while it is being produced. A part longer than `maxReplyChars` is
   still numbered, and the attachment line rides on the first part only.
+- `wechat`: the `/wechat` control screen lists each peer conversation with what it
+  is doing (`running 42s, 1 queued` / `queued 2` / `idle`), capped at five rows,
+  and the one-line summary names the peer whose turn is running.
 - `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
   their conversation is doing, and how long), alongside `/new` and `/help`.
 - `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with

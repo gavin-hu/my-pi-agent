@@ -23,6 +23,7 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 		running: false,
 		peerCount: 0,
 		queued: 0,
+		peerStates: [],
 		refused: 0,
 		refusedPeers: [],
 		mediaDropped: 0,

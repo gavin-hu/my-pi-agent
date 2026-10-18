@@ -92,7 +92,8 @@ A session that expires while running keeps the `✆ wechat expired` chip:
 one-step recovery.
 
 In the TUI, `/wechat` opens a control screen with the account, connection
-state, owner, activity counters, and any pending remote prompt. Keys: `l` log in
+state, owner, per-peer conversation rows (what each peer is doing, how long, and
+what is queued behind it), activity counters, and any pending remote prompt. Keys: `l` log in
 or reconnect, `n` start a new session, `o` log out, `r` refresh, and Esc closes.
 The subcommands above are shortcuts for the same actions and the only route
 outside the TUI; an unknown subcommand reports the valid ones.
