@@ -46,8 +46,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
   `## Risks`, and `## Verification` — and the model is guided to follow it. This
   is guidance only: any markdown is accepted, stored, and rendered as written.
-- **Trackable steps.** Steps are written as `- [ ]` checkboxes; approval seeds
-  them into `todo`.
+- **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
+  section; approval seeds them into `todo`.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
 - **Kept current.** After approval, `set_plan_steps` flips the checkboxes of
@@ -66,10 +66,12 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 - **The file is the source of truth.** On approval the model follows the plan
   file's steps; refinements rewrite the same file (`write_plan` with
   `plan_path`), so the reviewed artifact is the executed artifact.
-- **Steps become todos.** On approval, the plan's top-level numbered/bulleted
-  steps are recorded with the `todo` tool (via `ctx.executeTool`); steps marked
-  `- [x]` (or `[DONE:n]`) seed as completed, and nested sub-bullets are treated
-  as notes.
+- **Steps become todos.** On approval, the top-level numbered/bulleted items of
+  the plan's `Steps` section are recorded with the `todo` tool (via
+  `ctx.executeTool`); steps marked `- [x]` (or `[DONE:n]`) seed as completed, and
+  nested sub-bullets are treated as notes. A plan without a `Steps` heading
+  keeps the older rule — the shallowest list in the document — so prose bullets
+  in a plan that follows the outline never become todos.
 - **Branch-aware.** The enabled flag is a custom session entry, so `/resume` and
   `/tree` restore the right mode.
 
@@ -401,9 +403,11 @@ file and returns them to the model.
   so symlinks and the directory's own `.gitignore` are never writable targets.
 - **Approval seeds `todo` via `ctx.executeTool`.** The event bus carries no
   `ctx`, so a listener could not refresh the todo widget; calling the real tool
-  runs its validation and widget sync and needs no change to `todo`. Only
-  top-level list items become steps. A rejected seed reports the nested tool's
-  own reason in the approval message instead of failing silently.
+  runs its validation and widget sync and needs no change to `todo`. Only the
+  top-level list items of the `Steps` section become steps (the whole document
+  is the fallback when that heading is absent), so the outline's prose lists
+  never seed the list. A rejected seed reports the nested tool's own reason in
+  the approval message instead of failing silently.
 - **The outline guides, it does not enforce.** `write_plan` documents the
   canonical shape in its description and stores whatever markdown it is given;
   no section is required and nothing is rewritten. That keeps the model free to

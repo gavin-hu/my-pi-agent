@@ -109,6 +109,65 @@ describe("extractPlanSteps", () => {
 	});
 });
 
+describe("extractPlanSteps — the Steps section", () => {
+	test("reads only the Steps section when the plan has one", () => {
+		const plan = [
+			"# Plan",
+			"## Context",
+			"- the repo is large",
+			"- prior art exists",
+			"## Approach",
+			"- use a cache",
+			"## Steps",
+			"- [ ] Add the cache",
+			"- [ ] Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
+	});
+
+	test("keeps nested notes inside the section but not as steps", () => {
+		const plan = [
+			"## Steps",
+			"1. Add the cache",
+			"   - a nested note",
+			"### Check the cache",
+			"2. Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
+	});
+
+	test("an empty Steps section means no steps", () => {
+		const plan = ["## Steps", "", "## Risks", "- stale reads"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([]);
+	});
+
+	test("ignores a Steps heading inside a fence", () => {
+		const plan = ["```md", "## Steps", "- not a step", "```", "- Real step"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Real step")]);
+	});
+
+	test("falls back to the whole plan without a Steps heading", () => {
+		const plan = ["## Goal", "- first", "## Approach", "- second"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("first"), pending("second")]);
+	});
+
+	test("matches the heading case-insensitively and through emphasis", () => {
+		const plan = ["## **STEPS**", "- One", "## Risks", "- two"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("One")]);
+	});
+
+	test("setStepStatuses edits the section-scoped steps", () => {
+		const plan = ["## Context", "- prose", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
+		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
+			["## Context", "- prose", "## Steps", "- [x] One", "- [ ] Two"].join("\n"),
+		);
+	});
+});
+
 describe("PLAN_OUTLINE", () => {
 	test("documents every section and a checkbox step", () => {
 		for (const title of PLAN_SECTIONS) expect(PLAN_OUTLINE).toContain(`## ${title}`);

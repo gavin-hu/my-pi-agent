@@ -8,9 +8,11 @@
  * the tools, the store, and the renderer agree on one parser.
  *
  * Only top-level list items become steps: nested sub-bullets are notes, and the
- * shallowest list level is treated as the plan. List items inside fenced code
- * blocks are ignored. A `- [ ]` / `- [x]` checkbox or a `[DONE:n]` marker sets
- * the status.
+ * shallowest list level is treated as the plan. When the plan has a `Steps`
+ * section (the canonical outline's heading), only that section's list items are
+ * steps, so prose bullets elsewhere never seed the todo list or consume the
+ * step cap. List items inside fenced code blocks are ignored. A `- [ ]` / `- [x]`
+ * checkbox or a `[DONE:n]` marker sets the status.
  */
 
 /** Most steps seeded from one plan. */
@@ -134,12 +136,51 @@ function scanListItems(plan: string): PlanListItem[] {
 }
 
 /**
- * The plan's top-level steps in order: the shallowest list level, de-duplicated,
- * capped. Extraction, the review gauge, and checkbox edits all index into this,
- * so they agree on what counts as a step.
+ * Source range of the plan's `Steps` section: the first heading named `Steps`
+ * (any level, outside a fence) through the next heading of the same or a higher
+ * level. Undefined when the plan has no such heading, which keeps the
+ * whole-document fallback for plans written before the outline.
+ */
+function stepsSection(plan: string): { start: number; end: number } | undefined {
+	const lines = plan.split("\n");
+	let fence: string | undefined;
+	let start = -1;
+	let level = 0;
+	for (let index = 0; index < lines.length; index++) {
+		const line = lines[index];
+		const fenceMatch = line.match(FENCE);
+		if (fenceMatch) {
+			if (fence === undefined) fence = fenceMatch[1][0];
+			else if (fence === fenceMatch[1][0]) fence = undefined;
+			continue;
+		}
+		if (fence !== undefined) continue;
+		const heading = line.match(HEADING);
+		if (!heading) continue;
+		const depth = heading[1].length;
+		if (start < 0) {
+			if (plainText(heading[2]).toLowerCase() !== "steps") continue;
+			start = index;
+			level = depth;
+			continue;
+		}
+		// A deeper heading is a subsection of Steps; same or higher ends it.
+		if (depth <= level) return { start, end: index };
+	}
+	return start < 0 ? undefined : { start, end: lines.length };
+}
+
+/**
+ * The plan's top-level steps in order: the shallowest list level of the `Steps`
+ * section (or of the whole plan when there is none), de-duplicated, capped.
+ * Extraction, the review gauge, and checkbox edits all index into this, so they
+ * agree on what counts as a step.
  */
 function topLevelItems(plan: string): PlanListItem[] {
-	const items = scanListItems(plan);
+	const section = stepsSection(plan);
+	const items = scanListItems(plan).filter(
+		(item) => section === undefined || (item.line > section.start && item.line < section.end),
+	);
 	// The shallowest list is the plan; deeper items are nested notes.
 	let baseIndent = Number.POSITIVE_INFINITY;
 	for (const item of items) baseIndent = Math.min(baseIndent, item.indent);

@@ -324,6 +324,36 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain(SET_PLAN_STEPS_TOOL);
 	});
 
+	test("seeds only the Steps section, not prose bullets", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = [
+			"# Plan",
+			"## Context",
+			"- the repo is large",
+			"## Approach",
+			"- use a cache",
+			"## Steps",
+			"- [ ] Add the cache",
+			"- [ ] Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0].args).toEqual({
+			todos: [
+				{ content: "Add the cache", status: "pending" },
+				{ content: "Wire it", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).not.toContain("the repo is large");
+		expect(result.content[0].text).not.toContain("use a cache");
+	});
+
 	test("accepts a plan_path relative to the working directory", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);

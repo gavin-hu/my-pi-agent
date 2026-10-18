@@ -125,6 +125,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: approval seeds the plan's `## Steps` section instead of every top-level
+  bullet in the file. Prose lists under Context, Approach, or Risks no longer
+  become todos, and the 50-step cap now applies to the checklist that actually
+  holds the steps, so a long plan's steps stay addressable by `set_plan_steps`.
+  A plan without a `Steps` heading keeps the previous behavior (the shallowest
+  list in the document).
 - `wechat`: an `allowedPeers` entry matches a sender whether or not it carries
   the `@im.wechat` suffix, and case/whitespace no longer matter, so the id shown
   by `/wechat status` (the label without the suffix) can be pasted straight into
