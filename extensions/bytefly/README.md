@@ -565,20 +565,22 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists nine preferences in six groups:
+switch, with its own cursor. It lists eleven preferences in six groups:
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                            Global · 9 settings
+  Extensions · Settings                           Global · 11 settings
 
   Startup (1)
 ❯ ◻ Bytefly startup TUI                                            Off
-  Notifications (2)
+  Notifications (3)
   ◻ Desktop notifications                                          Off
     Delivery method                                               Auto
+    Notification title                                              Pi
   Diagnostics (1)
   ◼ Proactive health check                                          On
-  Pricing (2)
+  Pricing (3)
+    Currency symbol                                                  ¥
     Cost decimals                                                    2
   ◼ Recorded cost fallback                                          On
   Transcript (2)
@@ -598,7 +600,9 @@ bytefly ────────────────────────
 | Startup | Bytefly startup TUI | Pi `settings.json` (`quietStartup`) | Off, On |
 | Notifications | Desktop notifications | `notify.enabled` | Off, On |
 | Notifications | Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
+| Notifications | Notification title | `notify.title` | Text, up to 40 characters |
 | Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
+| Pricing | Currency symbol | `price.currency.symbol` | Text, up to 4 characters |
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
 | Pricing | Recorded cost fallback | `price.fallbackToRecordedCost` | Off, On |
 | Transcript | Rail glyph | `chrome.rail` | `╎`, `│`, `┃`, `▏` |
@@ -606,7 +610,7 @@ bytefly ────────────────────────
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
-forward. The detail pane names the source, describes the preference, and shows
+forward, and a text row opens an inline editor on its value. The detail pane names the source, describes the preference, and shows
 where the value is written — `Global · ~/.pi/agent/settings.json`, `Project ·
 .pi/bytefly.json`, or `Inherited from Global · .pi/bytefly.json`. A successful
 change marks the screen `Saved · reload to apply` — even when the terminal is too
@@ -661,9 +665,12 @@ headline; a named extension prints its full findings instead.
 | Key | Effect |
 |---|---|
 | `←` / `→` | Show the Extensions or Settings section. |
-| `Space` | Toggle the focused extension (Extensions); change the focused setting (Settings). |
+| `Space` | Toggle the focused extension (Extensions); change the focused setting (Settings), or open the editor on a text row. |
 | `x` | Clear the focused extension's project override (Extensions, Project scope). |
-| `Enter` | Expand or collapse the focused extension's findings (Extensions); change the focused setting (Settings). |
+| `Enter` | Expand or collapse the focused extension's findings (Extensions); change the focused setting, or open the editor on a text row (Settings). |
+| `←` / `→`, `Home` / `End` | Move the editor's caret while a text row is being edited. |
+| `Backspace` / `Delete`, `Ctrl+U` | Edit the buffer: delete a character, or clear it. |
+| `Enter` / `Esc` (editing) | Save the buffer, or cancel and restore the stored value. |
 | `Tab` | Switch between Global and Project scope, in either section. |
 | `r` | Re-probe the doctor (Extensions). |
 | `↑`/`↓`, `j`/`k` | Move the selection, in either section. |
@@ -799,11 +806,12 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
   `pi config` is the place to manage it.
 - **The rail glyph picker is curated.** Four one-column glyphs are offered; a
   custom glyph is still a `bytefly.json` edit.
-- **Settings cover scalars only.** A row is a boolean or a short enum. Free text
-  (`notify.title`, `price.currency.symbol`), the per-trigger notify flags
-  (`notify.turnFinished`, `needsInput`, `jobFinished`), arrays (`doctor.skip`), a
-  numeric range (`doctor.timeoutMs`), the `rates` table, and `price.peak` are
-  still `bytefly.json` edits.
+- **Settings cover scalars only.** A row is a boolean, a short enum, or a short
+  string. The per-trigger notify flags (`notify.turnFinished`, `needsInput`,
+  `jobFinished`), arrays (`doctor.skip`), a numeric range (`doctor.timeoutMs`),
+  the `rates` table, and `price.peak` are still `bytefly.json` edits.
+- **The rail glyph picker stays curated.** Four one-column glyphs are offered;
+  the text editor is for the title and the currency symbol, not for the rail.
 - **`doctor` is a reserved first argument.** `/bytefly doctor` always selects the
   report, so an extension literally named `doctor` cannot be narrowed to by
   name. `settings` is reserved the same way.
@@ -1121,9 +1129,9 @@ rather than showing a wrong value.
 - **The install hint has one home.** `document` and `web-access` format their
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
-- **Settings are a curated table, not a schema walker.** Nine rows prove the
-  row types, both scopes, both write paths, and one nested leaf
-  (`price.currency.decimals`). A row states its section and the path to its
+- **Settings are a curated table, not a schema walker.** Eleven rows prove the
+  row types — a boolean, an enum, and a short string with its own rule — both
+  scopes, both write paths, and one nested leaf (`price.currency.decimals`). A row states its section and the path to its
   leaf, and one reader per section resolves it project-over-global-over-defaults
   through the same normalizer the extension loads with, so the screen and the
   runtime cannot disagree about a value. A generic walker would expose keys the

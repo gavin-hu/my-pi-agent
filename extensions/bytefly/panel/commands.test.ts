@@ -44,6 +44,10 @@ function fakeSettings(options: { dirty?: boolean; snapshot?: SettingsSnapshot } 
 		change: async () => {
 			dirty = true;
 		},
+		setValue: async () => {
+			dirty = true;
+			return true;
+		},
 		isDirty: () => dirty,
 		onChange: () => () => {},
 	};
@@ -251,7 +255,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 9 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 11 settings");
 		expect(notifications.at(-1)).toContain("Bytefly startup TUI: Off");
 		expect(notifications.at(-1)).toContain("Delivery method: Auto");
 		expect(notifications.at(-1)).toContain("Cost decimals: 2");
@@ -269,7 +273,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("Global · 9 settings");
+		expect(rendered).toContain("Global · 11 settings");
 		expect(rendered).toContain("Bytefly startup TUI");
 	});
 

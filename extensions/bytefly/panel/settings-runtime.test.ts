@@ -217,3 +217,35 @@ describe("change notifications", () => {
 		expect(changes).toBe(1);
 	});
 });
+
+describe("text writes", () => {
+	test("stores the value the user typed at its leaf", async () => {
+		const { runtime, globalPath } = boot({
+			globalDoc: { notify: { enabled: true, title: "Pi" } },
+		});
+
+		expect(await runtime.setValue("global", "notify.title", "Build finished")).toBe(true);
+
+		expect(readJson(globalPath)).toEqual({ notify: { enabled: true, title: "Build finished" } });
+		expect(valueOf(runtime, "global", "notify.title")).toBe("Build finished");
+		expect(runtime.isDirty()).toBe(true);
+	});
+
+	test("refuses a value its rule rejects and writes nothing", async () => {
+		const { runtime, notices, globalPath } = boot({ globalDoc: { notify: { title: "Pi" } } });
+
+		expect(await runtime.setValue("global", "notify.title", "x".repeat(41))).toBe(false);
+
+		expect(notices.at(-1)).toContain("the limit is 40");
+		expect(readJson(globalPath)).toEqual({ notify: { title: "Pi" } });
+		expect(runtime.isDirty()).toBe(false);
+		expect(valueOf(runtime, "global", "notify.title")).toBe("Pi");
+	});
+
+	test("refuses a row that is not a text row", async () => {
+		const { runtime, notices } = boot();
+
+		expect(await runtime.setValue("global", "notify.enabled", "true")).toBe(false);
+		expect(notices.at(-1)).toContain("cannot be edited as text");
+	});
+});

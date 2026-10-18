@@ -40,7 +40,14 @@ import {
 	SCREEN_DEFAULT_ROWS,
 	sectionBar,
 } from "./tui/frame.ts";
-import { projectNote, settingDetail, settingRow, settingsHints, settingsSummary } from "./tui/settings-view.ts";
+import {
+	editHints,
+	projectNote,
+	settingDetail,
+	settingRow,
+	settingsHints,
+	settingsSummary,
+} from "./tui/settings-view.ts";
 
 /** Terminal rows, or `undefined` when the height is unknown. */
 function totalRows(source: ViewportRowsSource | undefined): number | undefined {
@@ -94,6 +101,8 @@ export class PanelComponent implements Component {
 	private probed = false;
 	/** Transient feedback (a refusal or a failed write), shown in the hint row. */
 	private notice: string | undefined;
+	/** The text row being edited: its id, the buffer, and the caret offset. */
+	private editing: { id: string; buffer: string; caret: number } | undefined;
 	/** The visible section. */
 	private section: PanelSection;
 
@@ -208,16 +217,92 @@ export class PanelComponent implements Component {
 			.then(() => this.options.requestRender());
 	}
 
-	/** Change the focused setting, if the section has one. */
+	/** Change the focused setting: cycle it, or open the editor for a text row. */
 	private changeSetting(): void {
 		const entry = this.activeEntries()[this.cursor.selected];
 		if (entry?.kind !== "setting") return;
+		const view = entry.setting;
+		if (view.kind === "text") {
+			this.editing = { id: view.id, buffer: view.value, caret: view.value.length };
+			this.options.requestRender();
+			return;
+		}
 		const scope = this.options.runtime.scope();
-		const id = entry.setting.id;
 		this.chain = this.chain
-			.then(() => this.options.settings.change(scope, id))
+			.then(() => this.options.settings.change(scope, view.id))
 			.catch((error: unknown) => this.notify(error instanceof Error ? error.message : String(error)))
 			.then(() => this.options.requestRender());
+	}
+
+	/** Store the editor's buffer; a refusal keeps it open with the reason shown. */
+	private commitEdit(): void {
+		const editing = this.editing;
+		if (!editing) return;
+		const scope = this.options.runtime.scope();
+		this.chain = this.chain
+			.then(() => this.options.settings.setValue(scope, editing.id, editing.buffer))
+			.then((saved) => {
+				if (saved) this.editing = undefined;
+			})
+			.catch((error: unknown) => this.notify(error instanceof Error ? error.message : String(error)))
+			.then(() => this.options.requestRender());
+	}
+
+	/** The text row being edited, read live so a scope switch cannot point at a stale row. */
+	private editingRow(): { view: ReturnType<SettingsSurface["views"]>[number] } | undefined {
+		const editing = this.editing;
+		if (!editing) return undefined;
+		const scope = this.options.runtime.scope();
+		const view = this.options.settings.views(scope).find((entry) => entry.id === editing.id);
+		return view ? { view } : undefined;
+	}
+
+	/**
+	 * Editor keys. `Esc` cancels the edit rather than closing the screen, and
+	 * everything else the screen binds is inert until the editor closes.
+	 */
+	private handleEditingInput(data: string): void {
+		const editing = this.editing;
+		if (!editing) return;
+		if (isCloseKey(data)) {
+			this.editing = undefined;
+			this.options.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.enter)) {
+			void this.commitEdit();
+			return;
+		}
+		const { buffer, caret } = editing;
+		if (matchesKey(data, Key.backspace)) {
+			if (caret > 0)
+				this.editing = { ...editing, buffer: buffer.slice(0, caret - 1) + buffer.slice(caret), caret: caret - 1 };
+		} else if (matchesKey(data, Key.delete)) {
+			if (caret < buffer.length)
+				this.editing = { ...editing, buffer: buffer.slice(0, caret) + buffer.slice(caret + 1) };
+		} else if (matchesKey(data, Key.left)) {
+			this.editing = { ...editing, caret: Math.max(0, caret - 1) };
+		} else if (matchesKey(data, Key.right)) {
+			this.editing = { ...editing, caret: Math.min(buffer.length, caret + 1) };
+		} else if (matchesKey(data, Key.home) || data === "\u0001") {
+			this.editing = { ...editing, caret: 0 };
+		} else if (matchesKey(data, Key.end) || data === "\u0005") {
+			this.editing = { ...editing, caret: buffer.length };
+		} else if (matchesKey(data, "ctrl+u")) {
+			this.editing = { ...editing, buffer: "", caret: 0 };
+		} else {
+			// Anything else must be printable; control sequences are not text.
+			const typed = [...data].filter((char) => char >= " " && char !== "\u007f").join("");
+			const max = this.editingRow()?.view.text?.maxLength;
+			if (typed && max !== undefined && buffer.length + typed.length <= max) {
+				this.editing = {
+					...editing,
+					buffer: buffer.slice(0, caret) + typed + buffer.slice(caret),
+					caret: caret + typed.length,
+				};
+			}
+		}
+		this.options.requestRender();
 	}
 
 	/**
@@ -311,6 +396,10 @@ export class PanelComponent implements Component {
 	}
 
 	handleInput(data: string): void {
+		if (this.editing) {
+			this.handleEditingInput(data);
+			return;
+		}
 		if (isCloseKey(data)) {
 			this.options.onClose();
 			return;
@@ -360,6 +449,13 @@ export class PanelComponent implements Component {
 	}
 
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		// A click while editing leaves the editor the way `Esc` does: nothing is
+		// written behind the screen.
+		if (this.editing) {
+			this.editing = undefined;
+			this.options.requestRender();
+			return { handled: true };
+		}
 		const delta = wheelDelta(event);
 		if (delta !== undefined) {
 			this.move(delta);
@@ -381,6 +477,7 @@ export class PanelComponent implements Component {
 
 	/** Key hints for the active section; whole hints drop as the width runs out. */
 	private hint(width: number, expanded = false): string {
+		if (this.editing) return hintLine(this.theme, width, editHints());
 		const hints =
 			this.section === "settings"
 				? settingsHints()
@@ -470,7 +567,8 @@ export class PanelComponent implements Component {
 			const entry = entries[index];
 			if (entry.kind === "group") body.push(groupLine(this.theme, width, entry));
 			else if (entry.kind === "setting") {
-				body.push(settingRow(this.theme, width, entry.setting, index === this.cursor.selected));
+				const editing = this.editing?.id === entry.setting.id ? this.editing : undefined;
+				body.push(settingRow(this.theme, width, entry.setting, index === this.cursor.selected, editing));
 			}
 		}
 

@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: text settings are editable on the `/bytefly settings` screen. A text
+  row opens an inline editor with a caret (`←`/`→`, `Home`/`End`, `Backspace`,
+  `Ctrl+U`), `Enter` saves, and `Esc` cancels without touching the file; a value
+  that breaks the row's rule keeps the editor open and says why. The new
+  `notify.title` and `price.currency.symbol` rows use it, so both stop being
+  JSON-only.
 - `bytefly`: `doctor` reports an explicit `notify.method` this host cannot
   deliver — a platform notifier on another platform, or an OSC method with no
   terminal — as a `degraded` finding on `bytefly`, with the fix in its hint. A
