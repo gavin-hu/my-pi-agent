@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- docs: `ROADMAP.md` is re-derived from the tree: the three ranked items are now
+  the `Now` bucket instead of being split across `Now` and `Later`, `C1` is scoped
+  to a tariff a table can express so it cannot undercut Pi's recorded cost, the
+  `Now` exit condition no longer asks for router coverage that already landed, the
+  ledger column is *Open items* rather than a second meaning of `Next`, and every
+  limitation the "thin" sections name now has a row in *Deliberately left thin*
+  (plan display cap, plan index, subagent cost, `watch` notifications,
+  `skipOverrides`, rewind's TUI-only checklist, `memory` truncation, keyless search,
+  JSON-only settings, the update cache window) with the OCR row dropped because
+  `W6` covers it. The 1.0 gate no longer claims a truth test enforces that triage.
+
 - dev: the browse and plan-review pages are covered through their pure routers and
   rendered HTML, with no browser: a failing `git` diff provider now proves it
   degrades to a page without change markers (and 404 for a single file) instead of
