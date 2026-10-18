@@ -310,6 +310,38 @@ describe("extension boundaries", () => {
 	});
 });
 
+describe("lib value-only", () => {
+	/**
+	 * A module-scope `let` / `var`: unindented, so a `let` inside a function stays
+	 * local to its closure, which is the only state `lib/` may hold.
+	 */
+	const MODULE_BINDING = /^(?:export\s+)?(?:let|var)\b/;
+	/**
+	 * The mutable containers state takes when it is not a `let`. `new Set(...)` is
+	 * not here on purpose: a keyword table is data, and the one shape this bans is
+	 * a container a module can add to while it lives.
+	 */
+	const MODULE_CONTAINER = /^(?:export\s+)?const\s+[A-Za-z_$][\w$]*[^=]*=\s*(?:new\s+(?:Map|WeakMap|Array)\b|\[\])/;
+
+	test("lib/ keeps no module-level state", () => {
+		// Pi loads each extension with its own module cache, so a module variable here
+		// is one copy per extension, not one shared value. lib/README.md states it.
+		const offenders: string[] = [];
+		for (const file of sourceFiles(libDir)) {
+			readFileSync(file, "utf-8")
+				.split("\n")
+				.forEach((line, index) => {
+					if (MODULE_BINDING.test(line) || MODULE_CONTAINER.test(line)) {
+						offenders.push(
+							`${file.slice(repo.length + 1)}:${index + 1}: module-level state; carry it in the caller's closure`,
+						);
+					}
+				});
+		}
+		expect(offenders).toEqual([]);
+	});
+});
+
 describe("prerequisite declarations", () => {
 	test("every extension declares its runtime prerequisites", () => {
 		const undeclared = dirsOf(extensionsDir).filter((name) => REQUIREMENTS[name] === undefined);

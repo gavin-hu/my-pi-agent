@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { clip, clipMiddle, fitCells, flowCells, padTo, splitRow } from "./columns.ts";
+import { clip, clipMiddle, fitCells, flowCells, LABEL_WIDTH, labelLine, padTo, splitRow } from "./columns.ts";
 
 /** A representative mix: ASCII, a CJK sample, and a themed string. */
 const SAMPLES = ["Extensions", "日本語のリスト", "\u001b[31mred\u001b[39m text", "a", ""];
@@ -65,6 +65,18 @@ describe("padTo", () => {
 
 	test("treats a wide glyph as two columns", () => {
 		expect(visibleWidth(padTo("日本", 6))).toBe(6);
+	});
+});
+
+describe("labelLine", () => {
+	test("collapses to one line and clips at the label width", () => {
+		expect(labelLine("a\nb\tc")).toBe("a b c");
+		expect(labelLine("a\u0007b")).toBe("a b");
+		expect(visibleWidth(labelLine("x".repeat(LABEL_WIDTH + 20)))).toBe(LABEL_WIDTH);
+	});
+
+	test("uses the sanitizer it is given", () => {
+		expect(labelLine("a\u0007b", () => "kept")).toBe("kept");
 	});
 });
 

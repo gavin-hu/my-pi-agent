@@ -4,8 +4,10 @@ Small modules imported by two or more extensions. Pi loads each extension with
 an **isolated module cache**, so these are *value-only* libraries: pure
 functions, constants, and classes. Never keep cross-extension state here — a
 module-level variable would have one copy per extension, not one shared copy.
-The single exception is the event-bus pattern in `rails.ts`, where the state
-lives in the caller's closure, not in this module.
+`test/structure.test.ts` fails a module-scope `let`, `var`, `Map`, `WeakMap`, or
+empty array, so this is a test and not a convention. The single exception is the
+event-bus pattern in `rails.ts`, where the state lives in the caller's closure,
+not in this module.
 
 This directory sits outside `extensions/` on purpose: nothing here is a
 loadable extension entrypoint, and every module is a contract shared *between*

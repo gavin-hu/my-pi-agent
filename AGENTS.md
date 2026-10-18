@@ -110,7 +110,8 @@ Easy to get wrong, and not caught by types or tests. The linked docs explain
 why.
 
 - `lib/` is shared by extensions that load with isolated module caches, so it
-  must stay value-only: no module-level state.
+  must stay value-only: no module-level state, which `test/structure.test.ts`
+  asserts.
 - No extension imports another extension's modules. Shared tool and parameter
   names live in `lib/tool-names.ts`; shared glyphs and status keys in
   `lib/tui/glyphs.ts`.

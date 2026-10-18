@@ -207,6 +207,16 @@ a different `extensions/<other>/`, in every form: `from`, a side-effect import,
 parameter names in `lib/tool-names.ts`, glyphs and status keys in `lib/tui/glyphs.ts`,
 everything else under `lib/`.
 
+## lib/ is value-only (enforced)
+
+State is the other half of the same boundary: Pi gives each extension its own
+module cache, so a module variable in `lib/` is one copy per extension rather
+than one shared value. `test/structure.test.ts` fails an unindented `let` or
+`var`, and a module-scope `Map`, `WeakMap`, or empty array, anywhere under `lib/`.
+A `new Set` is allowed because a keyword table is data; the state that has to
+live somewhere is carried in the caller's closure, as `rails.ts` does. A `let`
+inside a function is the closure and stays.
+
 ## Layout
 
 Tests are co-located with the source they cover. `test/` holds only shared
