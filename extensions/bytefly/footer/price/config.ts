@@ -79,6 +79,18 @@ export const CURRENCY_DEFAULTS: Readonly<Record<CurrencyCode, Currency>> = {
 	USD: { code: "USD", decimals: 3 },
 };
 
+/**
+ * The day the built-in tables were last checked against the published page.
+ *
+ * `doctor` reports how old this is, so a tariff change is visible instead of
+ * silently wrong. What was checked on this date (UTC): DeepSeek's published USD figures
+ * (flash $0.3 in / $1.2 out per 1M, cache hit $0.006; v4-pro $1.32 / $3.96, cache
+ * hit $0.044), the off-peak rule (half the peak rate), and the peak windows (01:00
+ * - 04:00 and 06:00 - 10:00 UTC, Monday to Friday). The yuan table is the same
+ * page's CNY view. Re-check the page, then update this date.
+ */
+export const PRICE_VERIFIED_AT = "2026-10-18";
+
 /** Yuan, the currency `DEFAULT_RATES` is stated in. */
 export const DEFAULT_CURRENCY: Currency = CURRENCY_DEFAULTS.CNY;
 

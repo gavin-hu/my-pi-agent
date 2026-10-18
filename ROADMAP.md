@@ -66,7 +66,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C6, F1–F2 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C5, F1–F2 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -81,18 +81,16 @@ closed by work parked in any horizon.
 2. **C2 — Control-center breadth.** *Decision first:* whether themes, skills, and
    prompts belong in the picker or stay with `pi config`; if they do, they need the
    same health and scope rules as extensions.
-3. **C3 — Price freshness.** Record when a built-in rate table was last verified and
-   surface its age in `doctor`, so a tariff change is visible instead of silently
-   wrong.
+3. **F1 — Dependency budget.** A check that a new runtime dependency is lazy-loaded
+   unless it is needed at registration, so an install stays small.
 
-All three sit in `Now`; the ranking and the tier do not disagree about which work
-comes first.
+The first two sit in `Now`; this one is the smallest foundation gap left.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the numbers honest? | `C1`–`C3` ship: a built-in tariff is dated and its age is visible in `doctor`, a model whose tariff a table cannot express keeps Pi's recorded cost, and `C2`'s picker decision is recorded. |
+| **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the picker's scope decision is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
 | **Next** (queued) | Does the daily loop feel finished? | `P1` ships: per-run delegation transcripts under a retention rule. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
@@ -278,9 +276,9 @@ a fix, so it is an item rather than a row. The money the chrome reports has one
 gap left:
 
 - **C1 — Provider rate packs.** Add published rates for the major hosted
-  providers (Anthropic, OpenAI, Google), each with an effective date and a
-  "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
-  fallback. Scope it to a tariff a table can express: where the README's "no
+  providers (Anthropic, OpenAI, Google), each with an effective date; the age
+  report `doctor` now prints for the built-in tables extends to theirs. Keep Pi's
+  recorded cost as the fallback. Scope it to a tariff a table can express: where the README's "no
   tiers, no special cache writes" limitation applies, the model keeps Pi's
   recorded cost instead of a guessed rate. *Done when* no network is required,
   a model the table cannot express never prices below its recorded cost, and an
@@ -288,9 +286,6 @@ gap left:
 - **C2 — Control-center breadth.** *Decision first:* do themes, skills, and
   prompts belong in the picker or stay with `pi config`? If added, they need the
   same health and scope rules as extensions.
-- **C3 — Price freshness.** Record when a built-in table was last verified and
-  surface its age in `doctor`, so a tariff change is visible instead of silently
-  wrong.
 
 **Next**
 
@@ -299,11 +294,11 @@ contributes no `Next` item.
 
 **Later**
 
-- **C4 — Update channels.** An opt-in prerelease or tagged-channel preference,
+- **C3 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
-- **C5 — Update action.** Offer `pi update --extensions` from the control
+- **C4 — Update action.** Offer `pi update --extensions` from the control
   center behind a confirmation, only if the host exposes a safe way to run it.
-- **C6 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C5 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 ## 5. Foundations
@@ -352,7 +347,7 @@ it.
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit with `C2`, which would widen the picker. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. `C2` decides the picker's scope, not this. |
-| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C4`. |
+| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C3`. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 | CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`, filed 2026-10-16) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3, the latest release; revisit when both close, then delete `check:serial` from the matrix. |
 

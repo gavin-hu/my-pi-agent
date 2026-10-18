@@ -10,6 +10,7 @@
 
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { WebSearchProviderEvent } from "../../../lib/events.ts";
+import { PRICE_VERIFIED_AT } from "../footer/price/config.ts";
 import { readJsonResult } from "../../../lib/config.ts";
 import { isExtensionEnabled } from "../../../lib/env.ts";
 import {
@@ -96,6 +97,7 @@ export function createDoctorRuntime(
 		searchProvider: () => searchProvider,
 		reach: probeReach,
 		refresh,
+		priceVerifiedAt: () => PRICE_VERIFIED_AT,
 		...deps.seams,
 	});
 

@@ -111,6 +111,21 @@ export interface SafetyCheck {
 	hint: string;
 }
 
+/**
+ * A fact that ages: something checked by hand on a date, which is still worth
+ * trusting only for a while. The date arrives through a seam because `lib/` cannot
+ * import the extension that owns the record.
+ */
+export interface AgeCheck {
+	kind: "age";
+	/** What was verified, phrased for the report, e.g. `the built-in rate tables`. */
+	what: string;
+	/** Days after which the record counts as stale. */
+	maxAgeDays: number;
+	enables: string;
+	hint: string;
+}
+
 export type RequirementCheck =
 	| BinaryCheck
 	| ModuleCheck
@@ -118,7 +133,8 @@ export type RequirementCheck =
 	| InvocationCheck
 	| NotifyCheck
 	| ProviderCheck
-	| SafetyCheck;
+	| SafetyCheck
+	| AgeCheck;
 
 /** What an extension needs, split by how badly it needs it. */
 export interface ExtensionRequirements {
@@ -275,6 +291,13 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		configFiles: [SHARED_CONFIG_FILE],
 		optional: [
 			{
+				kind: "age",
+				what: "the built-in DeepSeek rate tables",
+				maxAgeDays: 90,
+				enables: "the footer's cost total tracks the published tariff",
+				hint: "re-check https://api-docs.deepseek.com/quick_start/pricing against `footer/price/config.ts`, then update `PRICE_VERIFIED_AT`.",
+			},
+			{
 				kind: "notify",
 				enables: "the configured notification delivery",
 				hint: 'set "notify.method" to "auto" in bytefly.json, or choose one this host can deliver.',
@@ -328,6 +351,10 @@ export interface ProbeSeams {
 	reach?: (url: string) => Promise<{ ok: boolean; error?: string }>;
 	/** True when the caller asked for an explicit refresh, which is when a probe may touch the network. */
 	refresh?: boolean;
+	/** The day a hand-checked record was verified, as `YYYY-MM-DD`, when the extension records one. */
+	priceVerifiedAt?: () => string | undefined;
+	/** The clock the age check reads; defaults to the process clock. */
+	now?: () => number;
 }
 
 /**
@@ -494,6 +521,56 @@ function safetyFindings(
 	return [{ extension, check: label, severity: "ok", detail: check.enables }];
 }
 
+/**
+ * Whole days between an ISO `YYYY-MM-DD` date and `now`, or undefined for a date
+ * that does not parse or does not exist on the calendar.
+ *
+ * A date up to a day in the future reads as zero days old: a record made in a
+ * timezone ahead of UTC is not a typo, and reporting it as missing would hide a
+ * fresh record. Anything further ahead is a typo, so it is not a date.
+ */
+export function ageInDays(date: string, now: number): number | undefined {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+	const stamp = Date.parse(`${date}T00:00:00Z`);
+	if (!Number.isFinite(stamp)) return undefined;
+	// `Date.parse` accepts 2026-02-31 by rolling it into March; reject the roll.
+	if (new Date(stamp).toISOString().slice(0, 10) !== date) return undefined;
+	const days = Math.floor((now - stamp) / 86_400_000);
+	if (days >= 0) return days;
+	// One day of skew is a timezone, not a mistake.
+	return days >= -1 ? 0 : undefined;
+}
+
+/** The findings for a fact that ages. */
+function ageFindings(extension: string, check: AgeCheck, failSeverity: FindingSeverity, seams: ProbeSeams): Finding[] {
+	const label = check.what;
+	const date = seams.priceVerifiedAt?.();
+	const age = date === undefined ? undefined : ageInDays(date, (seams.now ?? Date.now)());
+	if (date === undefined || age === undefined) {
+		return [
+			{
+				extension,
+				check: label,
+				severity: "info",
+				detail: `no verification date is recorded for ${label}`,
+			},
+		];
+	}
+	const days = `${age} day${age === 1 ? "" : "s"} ago`;
+	if (age <= check.maxAgeDays) {
+		return [{ extension, check: label, severity: "ok", detail: `${label} last checked ${days}` }];
+	}
+	return [
+		{
+			extension,
+			check: label,
+			severity: failSeverity,
+			detail: `${label} were last checked ${days}, beyond the ${check.maxAgeDays}-day window — ${check.enables}`,
+			hint: check.hint,
+		},
+	];
+}
+
 /** Run one check. `failSeverity` comes from which list the check sits in. */
 async function runCheck(
 	extension: string,
@@ -611,6 +688,8 @@ async function runCheck(
 			return providerFindings(extension, check, failSeverity, seams);
 		case "safety":
 			return safetyFindings(extension, check, failSeverity, seams);
+		case "age":
+			return ageFindings(extension, check, failSeverity, seams);
 	}
 }
 

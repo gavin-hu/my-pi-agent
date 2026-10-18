@@ -126,8 +126,10 @@ shows as `¥<0.01` rather than `¥0.00`.
 
 DeepSeek needs no config file at all: the bar prices it from the published yuan
 rates and peak tariff built into [`footer/price/config.ts`](./footer/price/config.ts).
-A `bytefly.json` can switch to the published dollar table, add models of your own,
-or replace a built-in entry:
+Those tables record the day they were last checked against the published tariff,
+and `doctor` reports how old that is, so a re-pricing shows up as a warning instead
+of a quietly wrong total. A `bytefly.json` can switch to the published dollar table,
+add models of your own, or replace a built-in entry:
 
 ```
 ~/repo/project                                                          ⎇ main
@@ -702,6 +704,12 @@ problems: `missing` means an enabled extension cannot do its job, `degraded`
 means reduced capability — an optional package that is absent, a config file
 that fails to parse, a login that has not happened. Doctor never changes
 anything and never installs anything.
+
+It also reports what has **aged**: the built-in DeepSeek rate tables carry the day
+they were last checked against the published tariff (`PRICE_VERIFIED_AT` in
+`footer/price/config.ts`), and the report says how old that is — `ok` inside the
+90-day window, `degraded` beyond it with the source URL to re-check. A tariff change
+therefore becomes a visible warning instead of a quietly wrong cost total.
 
 `web-access` publishes what it resolved at `session_start`, so the report names
 the search provider and why it won (an explicit choice, the `auto` rule, or the
