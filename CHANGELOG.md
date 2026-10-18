@@ -64,6 +64,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `goal`: the README now says that `/goal set <prompt>` and
   `/goal edit <prompt>` replace an active goal without the confirmation
   `/goal <prompt>` asks for.
+- `plan`: an aborted turn now closes the browser review. `exit_plan_mode`
+  forwards the call's abort signal to the review server, so aborting returns
+  "not approved" instead of leaving the tool waiting on a page nobody can
+  answer, which is what the README already promised.
+- `plan`: an approval that came from the browser carries its comments in the
+  tool result's `details.annotations`, not only in the result text, so the
+  review an approval was conditioned on survives with the result.
+- `plan`: `/plan review` no longer consumes the changed-section baseline when
+  the review server fails to start, and a resumed or tree-restored session
+  starts without one, so the markers match what the docs promise.
 
 ## [0.12.0] - 2026-10-18
 

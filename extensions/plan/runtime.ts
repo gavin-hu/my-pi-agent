@@ -177,6 +177,10 @@ export function createPlanRuntime(
 		toggle: (ctx) => setEnabled(!enabled, ctx, true),
 		restore: (ctx) => {
 			lastPlanPath = undefined;
+			// The baseline belongs to the branch that was reviewed: a resumed or
+			// tree-restored session starts without one rather than marking every section
+			// changed against a review this branch never showed.
+			reviewedPlans.clear();
 			const persisted = readPersistedState(ctx);
 			// `--plan` starts a fresh session in plan mode; an explicit persisted
 			// choice (including a later disable) wins over the launch flag.
