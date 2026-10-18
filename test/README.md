@@ -54,7 +54,8 @@ gate is stated in the test.
 4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
    `test/tool-render.test.ts`, `test/roadmap.test.ts`, `test/docs-truth.test.ts`,
-   `test/extension-load.test.ts`) — cross-cutting contracts. No extension test may
+   `test/docs-parity.test.ts`, `test/extension-load.test.ts`) — cross-cutting
+   contracts. No extension test may
    duplicate these. `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
    and that a second render of the same component at the same width returns the
@@ -201,6 +202,7 @@ test/
     fixtures/<name>.ts     # extension-specific fixtures
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, and boundary guards
+  docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
   docs-truth.test.ts       # catalog commands and flags vs registrations
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   prompt-budget.test.ts    # injected-context size ceilings
@@ -212,9 +214,9 @@ Rules:
 - Every directory under `extensions/` contains at least one co-located test.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
-  `structure.test.ts`, `docs-truth.test.ts`, `extension-load.test.ts`,
-  `prompt-budget.test.ts`, `theme.test.ts`, and the other package-level contracts
-  listed above.
+  `structure.test.ts`, `docs-truth.test.ts`, `docs-parity.test.ts`,
+  `extension-load.test.ts`, `prompt-budget.test.ts`, `theme.test.ts`, and the
+  other package-level contracts listed above.
 - A co-located test's file stem matches the source module it covers. The only
   exceptions are the documented aggregates in `structure.test.ts`.
 

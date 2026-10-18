@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- docs: `test/docs-parity.test.ts` holds the two entry READMEs together —
+  `README.md` and `README.zh-CN.md` must agree on section structure, table rows,
+  and the relative links and images a reader follows, while translated text,
+  anchors, and the language switcher stay out of the comparison. The drift it
+  found is fixed: the Chinese `/bytefly` bullets now name the override reset, the
+  delivery method, the health check, and the currency/cost precision; the bytefly
+  row mentions inline text editing; and the Documentation table gained the
+  configuration reference row. Policy: the entry READMEs stay in sync, deep docs
+  stay English until a translation owner exists.
+
 - dev: `bun run bench:render` measures a long session — 500 and 2000 tool blocks
   at 80 and 120 columns through the real renderers — and reports lines, median and
   p95 frame time, heap per frame, and how many blocks came back from their render
