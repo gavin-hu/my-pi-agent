@@ -53,6 +53,7 @@ import {
 	noteUnverifiableCommand,
 	publishWorktree,
 	resetDiagnostics,
+	resetGitignoreOffer,
 	setActive,
 	setBaseCwd,
 	setInactiveOverrides,
@@ -91,6 +92,7 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 		setActive(null);
 		clearConfigCache();
 		resetDiagnostics();
+		resetGitignoreOffer();
 
 		// A child `pi` process (subagent) inherits an active worktree. Bind to
 		// it without creating, locking, or persisting anything; the parent owns

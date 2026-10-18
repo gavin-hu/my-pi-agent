@@ -1,6 +1,11 @@
 node_modules/
+
+# Pi runtime state: session settings, plans, memory, and the managed worktrees.
 .pi/
+
+# OS scratch
 .DS_Store
+
+# Build and packaging leftovers
 *.log
 *.tgz
-.pi/worktrees/

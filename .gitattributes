@@ -13,3 +13,6 @@
 *.doc binary
 *.woff binary
 *.woff2 binary
+
+# Collapse the lockfile in PR review; `git diff` still shows it locally.
+bun.lock linguist-generated

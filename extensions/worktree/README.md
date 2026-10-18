@@ -122,9 +122,15 @@ exclude the name here to load alongside it. It is read when the extension
 loads, from the process working directory; reload after changing it. `/worktree`
 and `list_worktrees` list any overridden tool that is not re-rooted.
 
-Add the worktree directory to `.gitignore`:
+`.gitignore` must cover the managed directory, or worktrees show up as untracked
+files in the main checkout. `enter_worktree` offers once per session to append
+`.pi/worktrees/`, and skips the offer when `git check-ignore` already reports the
+directory as ignored, so a wider rule is enough and no literal line is needed:
 
 ```
+# either, when the rest of `.pi/` is disposable
+.pi/
+# or, when other `.pi/` state must stay tracked
 .pi/worktrees/
 ```
 
