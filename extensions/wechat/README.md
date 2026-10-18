@@ -363,7 +363,7 @@ sessions are in-process).
 | Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
-| Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller. |
+| Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. |
 | Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
 | Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state). |
 | Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer and marking the context for `askHuman`'s file/text preface. The terminal's shared `ctx.ui` is deliberately not adapted: a host turn is never answered remotely, so its dialogs stay local even while a peer turn runs. |
@@ -385,6 +385,16 @@ session, so a message starts immediately, the answer is that session's own
 `getLastAssistantText()`, and the terminal transcript never sees the exchange.
 The bridge keeps only what is genuinely shared: one poll loop per account, the
 media pipeline, admission, the typing indicator, and the notices.
+
+A peer session carries one extra piece of context: a short channel contract
+(`channel.ts`) appended to its system prompt, telling the model the reader is on
+a phone chat and cannot see this terminal, the tool output, or the filesystem,
+and that a command it does not run is a command nobody runs. It is a static
+append rather than a per-turn injection so it stays out of the conversation
+history and stays cacheable, and it deliberately says nothing about individual
+tools (their own descriptions cover usage) or answer length (the reply pipeline
+handles splitting). Project instructions still apply; the contract changes how
+the answer is presented, not how carefully the work is done.
 
 Media and typing stay at the boundary: downloads go to a fixed CDN with a size
 cap, filenames are sanitized before use, and typing is best-effort. The send tool
@@ -433,7 +443,8 @@ status, which is what the old start/stop guidance used to do.
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge, open peer sessions from the host context. |
 | `bridge.ts` | The shared loop: poll, admission, media, typing, notices, reply transport, connection state, abort; hands each message to the peer worker. |
-| `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, and this bridge excluded from its resources. |
+| `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
+| `channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
 | `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep. |
 | `reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `commands.ts` | `/wechat login|new|status|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login, and logout; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |

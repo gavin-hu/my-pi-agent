@@ -216,7 +216,9 @@ A bridge to WeChat over the Weixin iLink bot API. Each admitted sender gets thei
 own Pi session (own history, own context, the package's tools), so inbound text,
 images (as model image content), and files (saved and referenced by path) start a
 turn immediately, independent of the terminal, and the reply is sent back with a
-typing indicator. The bridge starts automatically once an account is stored.
+typing indicator. Each peer session is told it is answering in a phone chat
+window, so replies are shaped for the chat rather than for a terminal. The bridge
+starts automatically once an account is stored.
 `/wechat` opens a control screen (`login`, `new`, `status`, `logout`, `help`) in
 the TUI and prints a one-line summary elsewhere (or while a peer turn is
 running). Peers can also send `/new`,

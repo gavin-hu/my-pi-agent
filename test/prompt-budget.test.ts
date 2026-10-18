@@ -8,6 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
 import { PLAN_MODE_CONTEXT, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
+import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/channel.ts";
 import { formatWorktreeSection } from "../extensions/worktree/index.ts";
 import type { WorktreeState } from "../extensions/worktree/state.ts";
 
@@ -40,5 +41,14 @@ describe("injected prompt budget", () => {
 
 	test("an inherited worktree says not to exit it", () => {
 		expect(formatWorktreeSection({ ...WORKTREE, borrowed: true })).toContain("inherited");
+	});
+
+	test("the wechat channel contract stays within its ceiling and names the medium", () => {
+		// Always on for every peer request: keep it small, and keep the two rules
+		// that a terminal-shaped answer gets wrong (the phone, and commands).
+		expect(WECHAT_CHANNEL_PROMPT.length).toBeLessThanOrEqual(700);
+		expect(WECHAT_CHANNEL_PROMPT.split("\n").length).toBeLessThanOrEqual(12);
+		expect(WECHAT_CHANNEL_PROMPT).toContain("phone chat");
+		expect(WECHAT_CHANNEL_PROMPT).toContain("run a command");
 	});
 });

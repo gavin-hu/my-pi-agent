@@ -32,6 +32,7 @@ import {
 	SessionManager,
 } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
+import { WECHAT_CHANNEL_PROMPT } from "./channel.ts";
 import { peerKey } from "./format.ts";
 
 /** The SDK pieces a peer session needs; injected so tests never load resources. */
@@ -114,6 +115,26 @@ function describeError(error: ExtensionError): string {
 }
 
 /**
+ * The resource loader a peer session uses by default.
+ *
+ * Standard discovery (the package's other extensions, skills, context files)
+ * with this bridge removed, so the peer keeps the real toolset without a second
+ * poller, plus the channel contract that tells the model it is answering in a
+ * phone chat window rather than at this terminal.
+ *
+ * Exported so a test can assert the append survives `reload()`; the loader only
+ * exposes it through `getAppendSystemPrompt()`.
+ */
+export function buildPeerLoader(cwd: string, agentDir: string): DefaultResourceLoader {
+	return new DefaultResourceLoader({
+		cwd,
+		agentDir,
+		extensionsOverride: withoutWechatExtensions,
+		appendSystemPrompt: [WECHAT_CHANNEL_PROMPT],
+	});
+}
+
+/**
  * Open, or resume, the session for one peer.
  *
  * The returned session is not subscribed to anything: the caller drives it with
@@ -122,13 +143,7 @@ function describeError(error: ExtensionError): string {
  */
 export async function openPeerSession(peer: string, options: PeerSessionOptions): Promise<PeerSession> {
 	const create = options.seams?.create ?? createAgentSession;
-	const buildLoader =
-		options.seams?.loader ??
-		((cwd: string, agentDir: string) =>
-			// Standard discovery (the package's other extensions, skills, context
-			// files) with this bridge removed, so the peer keeps the real toolset
-			// without a second poller.
-			new DefaultResourceLoader({ cwd, agentDir, extensionsOverride: withoutWechatExtensions }));
+	const buildLoader = options.seams?.loader ?? buildPeerLoader;
 
 	const sessionManager = options.fresh
 		? SessionManager.create(options.cwd, peerSessionDir(options.sessionsDir, peer))

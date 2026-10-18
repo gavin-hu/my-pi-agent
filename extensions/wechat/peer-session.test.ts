@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import type { AgentSession, CreateAgentSessionOptions, LoadExtensionsResult } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
-import { isWechatExtensionPath, openPeerSession, peerSessionDir, withoutWechatExtensions } from "./peer-session.ts";
+import {
+	isWechatExtensionPath,
+	buildPeerLoader,
+	openPeerSession,
+	peerSessionDir,
+	withoutWechatExtensions,
+} from "./peer-session.ts";
+import { WECHAT_CHANNEL_PROMPT } from "./channel.ts";
 
 const peer = "o9cq805LvMzHEsv0mfq0XwZPJruI@im.wechat";
 
@@ -88,6 +95,17 @@ describe("peerSessionDir", () => {
 		const root = tempDir("wechat-sessions-");
 		expect(peerSessionDir(root, peer)).toBe(join(root, "o9cq805lvmzhesv0mfq0xwzpjrui"));
 		expect(peerSessionDir(root, "alice")).toBe(join(root, "alice"));
+	});
+});
+
+describe("buildPeerLoader", () => {
+	test("appends the channel contract and keeps it across reload", async () => {
+		const root = tempDir("wechat-loader-");
+		const loader = buildPeerLoader(root, root);
+		// `reload()` is what openPeerSession calls before creating the session; the
+		// append must survive it, or the model never sees the channel contract.
+		await loader.reload();
+		expect(loader.getAppendSystemPrompt()).toEqual([WECHAT_CHANNEL_PROMPT]);
 	});
 });
 
