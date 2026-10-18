@@ -19,7 +19,17 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+	statSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
@@ -587,8 +597,9 @@ async function waitForTurn(session: string, timeoutMs: number): Promise<void> {
  * chrome is the shipped code rather than a mock. `-ne` isolates the package from
  * anything else installed, `--offline` drops the startup update check (so an
  * outdated local `pi` cannot put an "Update Available" box in the hero),
- * `--no-themes` avoids a collision with an installed copy, and the worktree env
- * is cleared so no banner line is printed.
+ * `--no-themes` avoids a collision with an installed copy, the worktree env is
+ * cleared so no banner line is printed, and the hero runs on its own agent dir so
+ * no line about the capturing machine's live state can reach the frame.
  */
 async function captureChrome(): Promise<void> {
 	const session = join(tmpdir(), "pi-screenshot-chrome.jsonl");
@@ -600,6 +611,24 @@ async function captureChrome(): Promise<void> {
 	// is left alone and a fresh temp one is used instead.
 	const named = join(homedir(), "retry-policy");
 	const demo = existsSync(named) ? mkdtempSync(join(homedir(), "pi-hero-")) : named;
+	// The hero's own agent dir, seeded with the live one's top-level JSON: auth,
+	// model definitions, and bytefly's config, so the turn still runs and the
+	// chrome is the configured one. No directory is copied — a live WeChat bridge
+	// would otherwise put "another session is already polling" in the frame, and
+	// no session history belongs in a screenshot.
+	const agentDir = mkdtempSync(join(tmpdir(), "pi-hero-agent-"));
+	const liveAgentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	for (const entry of readdirSync(liveAgentDir)) {
+		const from = join(liveAgentDir, entry);
+		if (entry.endsWith(".json") && statSync(from).isFile()) copyFileSync(from, join(agentDir, entry));
+	}
+	// Pi keeps the helper binaries it downloads (`fd`, `rg`) in `<agentDir>/bin` and
+	// warns when they are missing, so the hero gets that directory by reference.
+	// It is a link, not a copy: unlinking it in the cleanup below leaves the live
+	// one alone.
+	const liveBin = join(liveAgentDir, "bin");
+	const agentBin = join(agentDir, "bin");
+	if (existsSync(liveBin)) symlinkSync(liveBin, agentBin, "dir");
 	execFileSync("git", ["init", "-q", "-b", "feature/retry-policy", demo]);
 	writeFileSync(join(demo, "retry.ts"), "export const retries = 3;\n");
 	execFileSync("git", ["-C", demo, "add", "-A"]);
@@ -615,7 +644,8 @@ async function captureChrome(): Promise<void> {
 		"Add the retry budget",
 	]);
 	const command =
-		`cd ${shellQuote(demo)} && unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; ` +
+		`cd ${shellQuote(demo)} && export PI_CODING_AGENT_DIR=${shellQuote(agentDir)} && ` +
+		"unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; " +
 		`for n in \${(k)parameters}; do case \${n:u} in *KEY*|*TOKEN*|*SECRET*|*PASSWORD*) unset $n ;; esac; done; ` +
 		`${shellQuote(pi)} -ne --offline -e ${shellQuote(repo)} --no-themes ` +
 		`--theme ${shellQuote(join(repo, "themes", "bytefly-dark.json"))} --use-theme bytefly-dark ` +
@@ -652,6 +682,8 @@ async function captureChrome(): Promise<void> {
 		closeWindow(id);
 		rmSync(session, { force: true });
 		rmSync(demo, { recursive: true, force: true });
+		rmSync(agentBin, { force: true });
+		rmSync(agentDir, { recursive: true, force: true });
 	}
 }
 

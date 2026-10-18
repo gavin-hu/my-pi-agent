@@ -21,11 +21,15 @@ across `/resume` and `/tree`, and honest where a platform cannot deliver.
 - Four product groups in the README: plan and delegate, keep work safe, reach
   the world, chrome and upkeep.
 - Foundations that hold: no build step, no fork, every extension optional,
-  three-OS CI, a shared `lib/tui/` design system, budgeted prompt context, 268
-  co-located test files and seven package-level ones.
+  three-OS CI, a shared `lib/tui/` design system, budgeted prompt context, and
+  package-level guards that hold the docs, the catalog, the release window, and
+  this file to the tree.
 - Recent releases focused on the plan review browser, CNY/USD pricing, inline
   text editing in `/bytefly settings`, and moving exhaustive docs into
-  `docs/references/`.
+  `docs/references/`. `0.13.0` adds subset rewind, the `wake` desktop alert,
+  `/plan list`, the worktree handoff block, isolation gaps named in the session,
+  one reviewed publish path with provenance, a Pi-compat job, and a long-session
+  benchmark.
 
 ## How items are ordered
 
@@ -78,13 +82,18 @@ screenshots.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the promises true? | No known stale doc; every isolation gap is visible in the session; the suite runs on a named Pi range and a long-session benchmark holds. |
-| **Next** (queued) | Does the daily loop feel finished? | Plan-to-execution handoff, note promotion, settings completeness. |
+| **Now** (highest priority) | Are the numbers honest and the coverage real? | `C1`, `C3`, and `F1` ship: no hosted model under-reports its cost, a session budget warns once before it is spent, and the browser page is covered through its router without a real browser. |
+| **Next** (queued) | Does the daily loop feel finished? | `P1` ships: per-run delegation transcripts under a retention rule. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
 whatever is ready; this project releases often and treats the changelog, not
 this file, as the record of what shipped.
+
+The previous `Now` — no stale doc, every isolation gap visible in the session, a
+named Pi range, and a long-session benchmark — closed with `0.13.0`, and the
+previous `Next` closed with it: note promotion, settings completeness, and the
+worktree handoff all shipped, so the handoff item is gone rather than ticked.
 
 ## 1. Plan and delegate
 
@@ -256,7 +265,16 @@ runs, an update check, and two themes.
 
 Nothing here makes a false promise today. The gaps above are documented
 behavior, and the one that is not (`C2`, control-center breadth) needs a decision
-before it is work, so this section contributes no `Now` item.
+before it is work. What is left is the money the chrome already reports:
+
+- **C1 — Provider rate packs.** Add published rates for the major hosted
+  providers (Anthropic, OpenAI, Google), each with an effective date and a
+  "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
+  fallback. *Done when* no network is required and an unknown model still shows
+  no invented price.
+- **C3 — Spend guardrail.** A session budget in `price` that warns once at a
+  threshold and can notify through the existing capability. No hard stop by
+  default.
 
 **Next**
 
@@ -265,17 +283,9 @@ contributes no `Next` item.
 
 **Later**
 
-- **C1 — Provider rate packs.** Add published rates for the major hosted
-  providers (Anthropic, OpenAI, Google), each with an effective date and a
-  "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
-  fallback. *Done when* no network is required and an unknown model still shows
-  no invented price.
 - **C2 — Control-center breadth.** *Decision first:* do themes, skills, and
   prompts belong in the picker or stay with `pi config`? If added, they need the
   same health and scope rules as extensions.
-- **C3 — Spend guardrail.** A session budget in `price` that warns once at a
-  threshold and can notify through the existing capability. No hard stop by
-  default.
 - **C4 — Price freshness.** Record when a built-in table was last verified and
   surface its age in `doctor`, so a tariff change is visible instead of silently
   wrong.
@@ -293,8 +303,11 @@ These are not a README pillar, but every promise depends on them.
 **Now**
 
 Nothing here makes a false promise today: the docs are checked against the code,
-the catalog, and each other, and the remaining gaps are listed as items below.
-This section contributes no `Now` item.
+the catalog, and each other. What no doc guard can give is coverage of the
+surfaces those docs describe:
+
+- **F1 — Test expansion.** Browser-page and plan-review coverage through the
+  pure router and rendered HTML, without a real browser in CI.
 
 **Next**
 
@@ -303,8 +316,6 @@ provenance-attested path. This section contributes no `Next` item.
 
 **Later**
 
-- **F1 — Test expansion.** Browser-page and plan-review coverage through the
-  pure router and rendered HTML, without a real browser in CI.
 - **F2 — Dependency budget.** A check that a new runtime dependency is
   lazy-loaded unless it is needed at registration, matching the `document` and
   `web-access` pattern.
@@ -390,5 +401,5 @@ These stay out unless a roadmap item says otherwise:
 - Renumbering an item means grepping the Promise ledger, the three-things list,
   and the section intros; `test/roadmap.test.ts` fails on a dangling ID or a
   bucket over the cap.
-- Small, self-contained first tasks: the Chinese README parity test, the `.doc`
-  fixture, the docs truth check.
+- Small, self-contained first tasks: the dependency budget (`F2`), and the SBOM
+  (`F3`) once a consumer asks for one.
