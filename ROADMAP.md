@@ -62,16 +62,17 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C8, F1–F5 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C8, F1–F4 |
 
 ## If only three things ship
 
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
-2. **F1 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
-   serial suite, so all three systems run one command.
-3. **C2 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
+2. **C2 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
    pairs in both themes, so a palette edit cannot quietly make text unreadable.
+3. **P1 — Alerts where the user is.** Route a `watch` wake match through
+   bytefly's notify capability, so an unattended alert reaches the desktop the
+   way a finished job already does.
 
 ## Horizons
 
@@ -309,17 +310,14 @@ provenance-attested path. This section contributes no `Next` item.
 
 **Later**
 
-- **F1 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
-  serial suite and remove the workaround when fixed, so all three operating
-  systems run one command.
-- **F2 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
+- **F1 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
   window; add a check if duplicate subsection headings recur.
-- **F3 — Test expansion.** Browser-page and plan-review coverage through the
+- **F2 — Test expansion.** Browser-page and plan-review coverage through the
   pure router and rendered HTML, without a real browser in CI.
-- **F4 — Dependency budget.** A check that a new runtime dependency is
+- **F3 — Dependency budget.** A check that a new runtime dependency is
   lazy-loaded unless it is needed at registration, matching the `document` and
   `web-access` pattern.
-- **F5 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
+- **F4 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
 
 ## Deliberately left thin
@@ -339,6 +337,7 @@ it.
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C3` is the decision, not a fix. |
 | `watch`: cannot raise an OS notification | `P1` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
+| CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`, filed 2026-10-16) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3, the latest release; revisit when both close, then delete `check:serial` from the matrix. |
 
 ## 1.0 readiness
 
@@ -358,11 +357,13 @@ above.
   tool-result `details` rebuilt from `getBranch()`, pinned by its extension's
   tests.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
-  suites, and the compat job names the newest Pi it passed against — `F1`.
+  suites, and the compat job names the newest Pi it passed against. macOS runs it
+  serially until the upstream hang is fixed (see
+  [Deliberately left thin](#deliberately-left-thin)).
 - A long-session benchmark stays within its budget — measured with
   `bun run bench:render` at each release.
 - A release is one reviewed command path with provenance, and the tag, changelog,
-  and npm version cannot drift — publishing ships; `F2` covers the changelog
+  and npm version cannot drift — publishing ships; `F1` covers the changelog
   hygiene that remains.
 - Docs truth tests cover tools, commands, and config keys, and this roadmap's own
   item numbers and links resolve — `test/naming.test.ts`,
