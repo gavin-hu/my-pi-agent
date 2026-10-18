@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: `/plan list` indexes the plans directory. It walks `.pi/plans` (the
+  worktree's own directory inside a worktree), one bounded read per plan, and
+  shows each plan's title, modified time, and step progress, newest first — a
+  docked list in the TUI where `Enter` opens the plan's review, and a notice with
+  every path in other modes. No registry file is added.
+
 - dev: the legacy `.doc` extractor is tested against a real Word 97 file —
   `test/helpers/fixtures/files/legacy.doc`, two paragraphs generated once with
   LibreOffice (`soffice --headless --convert-to doc`, or `textutil -convert doc`

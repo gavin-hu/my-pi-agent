@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { registerCommands } from "./commands.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
-import type { StoredPlan } from "./plans.ts";
+import type { PlanSummary, StoredPlan } from "./plans.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import type { PlanReviewOptions, PlanReviewResult, PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
@@ -15,12 +15,21 @@ function plan(content = "- one"): StoredPlan {
 }
 
 function fakeRuntime(
-	options: { file?: StoredPlan; latest?: StoredPlan; last?: string; enabled?: boolean; baseline?: string } = {},
+	options: {
+		file?: StoredPlan;
+		latest?: StoredPlan;
+		last?: string;
+		enabled?: boolean;
+		baseline?: string;
+		summaries?: PlanSummary[];
+	} = {},
 ) {
 	const readCalls: string[] = [];
 	const latestCalls: string[] = [];
+	const indexCalls: string[] = [];
 	const marks: Array<{ path: string; content: string }> = [];
 	const file = options.file;
+	const summaries: PlanSummary[] = options.summaries ?? [];
 	const runtime = {
 		isEnabled: () => options.enabled ?? false,
 		enable: () => {},
@@ -37,9 +46,14 @@ function fakeRuntime(
 				latestCalls.push(cwd);
 				return options.latest;
 			},
+			index: async (cwd: string) => {
+				indexCalls.push(cwd);
+				return summaries;
+			},
+			dirFor: async () => "/repo/.pi/plans",
 		},
 	};
-	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, marks };
+	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, indexCalls, marks };
 }
 
 function fakeWeb(result: PlanReviewResult) {
@@ -74,14 +88,15 @@ function setup(options: {
 	last?: string;
 	enabled?: boolean;
 	baseline?: string;
+	summaries?: PlanSummary[];
 	result: PlanReviewResult;
 }) {
-	const { runtime, readCalls, latestCalls, marks } = fakeRuntime(options);
+	const { runtime, readCalls, latestCalls, indexCalls, marks } = fakeRuntime(options);
 	const { web, started, starts, closeCalls } = fakeWeb(options.result);
 	const pi = makeFakePi();
 	registerCommands(pi.pi, runtime, web);
 	const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
-	return { pi, ctx, notifications, runtime, readCalls, latestCalls, marks, started, starts, closeCalls };
+	return { pi, ctx, notifications, runtime, readCalls, latestCalls, indexCalls, marks, started, starts, closeCalls };
 }
 
 describe("/plan review", () => {
@@ -220,6 +235,76 @@ describe("/plan review", () => {
 
 		expect(marks).toEqual([]);
 		expect(notifications).toContain("Plan review: could not start the browser review server.");
+	});
+
+	describe("/plan list", () => {
+		const summaries: PlanSummary[] = [
+			{
+				path: "/repo/.pi/plans/2026-10-16-1030-add-rate-limiting.md",
+				relativePath: ".pi/plans/2026-10-16-1030-add-rate-limiting.md",
+				title: "Add rate limiting",
+				modified: Date.UTC(2026, 9, 16, 10, 30),
+				bytes: 512,
+				steps: { done: 3, total: 7 },
+			},
+		];
+
+		test("lists the plans directory as a notice outside the TUI", async () => {
+			const { pi, ctx, notifications, indexCalls } = setup({ result: { status: "cancelled" }, summaries });
+
+			await pi.commands.get("plan").handler("list", ctx);
+
+			expect(indexCalls).toEqual(["/repo"]);
+			expect(notifications.at(-1)).toContain("Add rate limiting — 3/7 steps");
+			expect(pi.sentMessages).toEqual([]);
+			expect(ctx.customCalls).toHaveLength(0);
+		});
+
+		test("opens a picker in the TUI and reviews the chosen plan", async () => {
+			const { pi, readCalls, started } = setup({
+				file: plan(),
+				summaries,
+				result: { status: "saved", plan: plan(), annotations: [] },
+			});
+			const { ctx: tuiCtx, notifications } = fakeCtx({ mode: "tui", cwd: "/repo" });
+			// The screen selects the first plan immediately, as Enter on a focused row does.
+			tuiCtx.ui.custom = async (factory: any) => {
+				const component = factory(
+					{ requestRender: () => {}, terminal: { rows: 24, columns: 80 } },
+					fakeCtx({ mode: "tui" }).ctx.ui.theme,
+					{},
+					() => {},
+				);
+				component.handleInput("\r");
+				return undefined;
+			};
+
+			await pi.commands.get("plan").handler("list", tuiCtx);
+
+			// The chosen row is what the review reads, and the browser was opened for it.
+			expect(readCalls).toEqual([summaries[0]?.path]);
+			expect(started).toHaveLength(1);
+			expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
+		});
+
+		test("completes list alongside review", () => {
+			const { pi } = setup({ result: { status: "cancelled" } });
+			const complete = (prefix: string): string[] =>
+				(pi.commands.get("plan").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
+
+			expect(complete("")).toEqual(["list", "review"]);
+			expect(complete("li")).toEqual(["list"]);
+			expect(complete("r")).toEqual(["review"]);
+			expect(complete("review ")).toEqual([]);
+		});
+
+		test("treats a sentence starting with list as a task", async () => {
+			const { pi, ctx } = setup({ result: { status: "cancelled" }, summaries });
+
+			await pi.commands.get("plan").handler("list the untracked files", ctx);
+
+			expect(pi.sentMessages).toEqual([{ content: "list the untracked files", options: undefined }]);
+		});
 	});
 
 	test("still treats other arguments as a task", async () => {
