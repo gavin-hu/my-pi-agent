@@ -142,11 +142,12 @@ Distribution is git and npm: `main` is installable as a git Pi package, and ever
 release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`
 plus a matching GitHub release whose body is the changelog section.
 
-The first publish needs an authenticated npm account (`npm login`); after that
-`npm publish` uses the token in `~/.npmrc`. `publishConfig.access` is `public`,
-so the scoped package is published publicly. Name the registry explicitly: a
-machine whose default registry is a read-only mirror (for example
-`registry.npmmirror.com`) serves reads but rejects the publish with `E401`.
+Publishing runs in CI, in
+[`../.github/workflows/publish.yml`](../.github/workflows/publish.yml): a manual
+dispatch of the tag, an environment review for approval, the same checks CI runs,
+and `npm publish --provenance`. No npm publish token is stored anywhere — the job
+authenticates with npm trusted publishing (OIDC). See
+[one-time setup](#one-time-publish-setup).
 
 1. Work on a branch in a worktree (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)).
 2. The changelog bullet for a change is written in the same commit as the change,
@@ -186,17 +187,54 @@ machine whose default registry is a read-only mirror (for example
    non-zero when that version has no changelog section, so a mistyped version
    fails before `gh` runs.
 
-7. Publish the npm package from the same commit, only after the user approves
+7. Publish from that tag with the release workflow, only after the user approves
    that specific run — a publish is irreversible and public, and approval for an
    earlier release does not carry over:
 
    ```bash
-   npm publish --registry https://registry.npmjs.org/
+   gh workflow run publish.yml -f version=X.Y.Z -f confirm=X.Y.Z
+   gh run watch "$(gh run list --workflow publish.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
    ```
+
+   The run then waits for the `npm` environment review (the approval), checks out
+   `vX.Y.Z` rather than a branch, proves the tag is on `main` and that its
+   `package.json` is that version, runs `bun run check:serial`, and publishes with
+   `--provenance` through npm trusted publishing. There is no token to leak and no
+   local publish path: `publishConfig.provenance` is `true`, so `npm publish` from
+   a developer machine fails instead of shipping an unsigned tarball.
 
 GitHub marks the release with the newest creation date as "Latest", so after
 creating a release for an older version run `gh release edit vX.Y.Z --latest` on
 the newest tag. Publishing a draft does not change which release is latest.
+
+`publishConfig.access` is `public`, so the scoped package is published publicly.
+The workflow names the registry explicitly for the same reason the local flow
+used to: a machine whose default registry is a read-only mirror (for example
+`registry.npmmirror.com`) serves reads but rejects a publish with `E401`.
+
+### One-time publish setup
+
+Both settings live outside this repository and are needed exactly once.
+
+1. **npmjs.com** → the package → Settings → Trusted publishing → GitHub Actions:
+   organization `gavin-hu`, repository `my-pi-agent`, workflow `publish.yml`,
+   environment `npm`, and tick **Allow npm publish** — a configuration created
+   after 2026-09-03 defaults to stage-publish only and would reject the workflow.
+   The first publish must succeed within two days of saving, or the configuration
+   expires and has to be deleted and recreated with the first publish done again.
+2. **GitHub** → Settings → Environments → create `npm` and add a required
+   reviewer. That reviewer is the per-release approval; the workflow also names
+   the version twice, so a dispatch copied from the previous release fails on the
+   confirmation.
+
+After the first successful run, set the package's publishing access to **Require
+two-factor authentication and disallow tokens**: trusted publishing keeps working
+(it uses OIDC), and a leaked token stops being a publish path.
+
+Trusted publishing needs npm CLI 11.5.1 and Node 22.14 or newer; the workflow
+pins Node 24, which ships npm 11. Provenance records the commit, the workflow, and
+the runner, so `npm audit signatures` and the npmjs.com badge can verify that the
+published tarball was built from this repository's tagged tree.
 
 `test/release.test.ts` ties the package version, the newest dated changelog
 heading, the newest `vX.Y.Z` tag, and the install pins the docs offer together,

@@ -62,18 +62,17 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S4 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C9, F1–F6 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C9, F1–F5 |
 
 ## If only three things ship
 
-1. **F1 — Release provenance.** Publish npm with `--provenance` from a protected
-   workflow that still requires the per-release approval, so a published release
-   is verifiably built from this repository.
-2. **C1 — Settings completion.** Close the scalar-only gap in the control center,
+1. **C1 — Settings completion.** Close the scalar-only gap in the control center,
    starting with the notify trigger toggles and `doctor.timeoutMs`.
-3. **P1 — Job parity on Windows.** A detached job should either survive the
+2. **P1 — Job parity on Windows.** A detached job should either survive the
    session or be refused with a clear message, and unknown exit codes should be
    named in `doctor`.
+3. **S1 — Partial restore.** Per-file or per-directory rewind, so restoring one
+   file does not mean restoring the tree.
 
 ## Horizons
 
@@ -319,23 +318,22 @@ This section contributes no `Now` item.
 
 **Next**
 
-- **F1 — Release provenance.** Publish npm with `--provenance` from a protected
-  workflow that still requires the per-release approval `AGENTS.md` mandates;
-  update the release guide to match.
+Nothing here is queued: every publish now goes through one reviewed,
+provenance-attested path. This section contributes no `Next` item.
 
 **Later**
 
-- **F2 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
+- **F1 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
   serial suite and remove the workaround when fixed, so all three operating
   systems run one command.
-- **F3 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
+- **F2 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
   window; add a check if duplicate subsection headings recur.
-- **F4 — Test expansion.** Browser-page and plan-review coverage through the
+- **F3 — Test expansion.** Browser-page and plan-review coverage through the
   pure router and rendered HTML, without a real browser in CI.
-- **F5 — Dependency budget.** A check that a new runtime dependency is
+- **F4 — Dependency budget.** A check that a new runtime dependency is
   lazy-loaded unless it is needed at registration, matching the `document` and
   `web-access` pattern.
-- **F6 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
+- **F5 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
 
 ## Deliberately left thin
@@ -375,11 +373,12 @@ above.
   tool-result `details` rebuilt from `getBranch()`, pinned by its extension's
   tests.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
-  suites, and the compat job names the newest Pi it passed against — `F2`.
+  suites, and the compat job names the newest Pi it passed against — `F1`.
 - A long-session benchmark stays within its budget — measured with
   `bun run bench:render` at each release.
 - A release is one reviewed command path with provenance, and the tag, changelog,
-  and npm version cannot drift — `F1`, `F3`.
+  and npm version cannot drift — publishing ships; `F2` covers the changelog
+  hygiene that remains.
 - Docs truth tests cover tools, commands, and config keys, and this roadmap's own
   item numbers and links resolve — `test/naming.test.ts`,
   `test/docs-truth.test.ts`, `test/config-docs.test.ts`, and

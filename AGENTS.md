@@ -55,16 +55,18 @@ local merge into `main` is allowed; a pull request is optional.
 Distribution is git and npm: `main` is installable as a git Pi package, and every
 release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`, a
 matching GitHub release whose body is that version's `CHANGELOG.md` section with
-the heading included, and an `npm publish` of the package.
+the heading included, and a dispatch of the `publish.yml` workflow for that tag.
 
 The steps are normative in
 [`docs/development.md`](./docs/development.md#release) — read them there before
 starting, and prepare the release on a branch in a worktree like any other
 change. This section holds only what an agent must not get wrong:
 
-- `npm publish` is irreversible and publishes publicly: get the user's approval
-  for that specific run before executing it, and treat approval for an earlier
-  release as expired. Stop and ask rather than skipping ahead to keep the steps
+- Publishing is irreversible and public, and it happens only through
+  `publish.yml` — never `npm publish` locally, which `publishConfig.provenance`
+  refuses anyway. Get the user's approval for that specific dispatch, treat
+  approval for an earlier release as expired, and wait for the `npm` environment
+  review to complete. Stop and ask rather than skipping ahead to keep the steps
   in sequence.
 - Push the tag with `main`, never after it: `git push origin vX.Y.Z main`. A
   `main`-first push races CI's `fetch-depth: 0` checkout, and the first release

@@ -1,0 +1,115 @@
+# Publishing is irreversible and public, so this workflow is the only publish
+# path: a manual dispatch that names the version twice, a protected `npm`
+# environment whose review is the per-release approval, and the same checks CI
+# runs — all on the tagged tree, never on a branch head.
+#
+# Authentication is npm trusted publishing: the job mints an OIDC token
+# (`id-token: write`) that npm exchanges for a short-lived publish credential, so
+# no publish token is stored in this repository. Provenance comes with it —
+# `--provenance` states the intent, and npm would reject it outside a supported
+# CI provider rather than ship an unsigned tarball.
+#
+# One-time setup, in docs/development.md#release:
+#   - npmjs.com → the package → Settings → Trusted publishing: organization
+#     `gavin-hu`, repository `my-pi-agent`, workflow `publish.yml`, environment
+#     `npm`, and **Allow npm publish** (configurations created after 2026-09-03
+#     default to stage-publish only).
+#   - GitHub → Settings → Environments → `npm`: a required reviewer. Without it
+#     the dispatch alone gates publishing.
+
+name: Publish
+
+on:
+  # Never a tag push: tagging is preparation, and publishing needs an approval
+  # per run. `confirm` is what stops a copied dispatch from the last release.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Released version without the leading v (must be tagged vX.Y.Z)
+        required: true
+        type: string
+      confirm:
+        description: Repeat the version to confirm this publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish (npm, provenance)
+    runs-on: ubuntu-latest
+    # The approval gate: the environment's required reviewer, and the environment
+    # name the npm trusted publisher is bound to.
+    environment: npm
+    permissions:
+      contents: read
+      # The only write this workflow may perform: mint the OIDC token npm
+      # exchanges for a publish credential.
+      id-token: write
+    steps:
+      - name: Refuse an unconfirmed dispatch
+        env:
+          VERSION: ${{ inputs.version }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$VERSION" != "$CONFIRM" ]; then
+            echo "::error::confirm must repeat the version exactly"
+            exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::version must be X.Y.Z, without a leading v"
+            exit 1
+          fi
+
+      # The tag, not the branch: what is published is what was tagged and tested.
+      # `fetch-depth: 0` and `fetch-tags` bring the history and tags that the
+      # ancestry check and `test/release.test.ts` need.
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Prove the tag is on main
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Checkout fetches only the ref it was given, so name main explicitly.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+            echo "::error::v$VERSION is not an ancestor of origin/main"
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: Prove the tagged tree is that version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          tagged=$(bun -p "require('./package.json').version")
+          if [ "$tagged" != "$VERSION" ]; then
+            echo "::error::tag v$VERSION contains package.json $tagged"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # The gate: the same checks CI runs, on the exact tree being published.
+      - name: Run checks
+        run: bun run check:serial
+
+      # Node 24 ships npm 11, which trusted publishing requires (>= 11.5.1).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Publish with provenance
+        run: npm publish --provenance --registry https://registry.npmjs.org/
