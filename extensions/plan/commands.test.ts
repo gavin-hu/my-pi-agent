@@ -202,6 +202,25 @@ describe("/plan review", () => {
 		expect(notifications.some((message) => message.includes("local machine"))).toBe(true);
 	});
 
+	test("a review server that cannot start leaves the baseline unmarked", async () => {
+		const file = plan();
+		const { runtime, marks } = fakeRuntime({ file });
+		const web: PlanWebReview = {
+			start: async () => {
+				throw new Error("bind failed");
+			},
+			closeAll: async () => {},
+		};
+		const pi = makeFakePi();
+		registerCommands(pi.pi, runtime, web);
+		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("review", ctx);
+
+		expect(marks).toEqual([]);
+		expect(notifications).toContain("plan review: could not start the browser review server.");
+	});
+
 	test("still treats other arguments as a task", async () => {
 		const { pi, ctx } = setup({ result: { status: "cancelled" } });
 

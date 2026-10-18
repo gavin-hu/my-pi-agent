@@ -17,18 +17,16 @@
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
-import { basename } from "node:path";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
-import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { lastTodos } from "../../lib/todo-state.ts";
-import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
-import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
+import { feedbackSummary } from "./feedback.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import {
 	MAX_STEP_LENGTH,
@@ -41,9 +39,10 @@ import {
 	type StepUpdate,
 } from "./steps.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, type TodoMerge } from "./todos.ts";
-import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
+import { reviewPlan } from "./review.ts";
+import { sanitizePlanText } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
-import { createPlanWebReview, type PlanReviewResult, type PlanReviewSession, type PlanWebReview } from "./web.ts";
+import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 
 const ExitPlanModeParams = Type.Object({
 	plan_path: Type.String({
@@ -203,103 +202,6 @@ function mergeSummary(merged: TodoMerge, steps: PlanStep[]): string {
 	if (merged.added === 0)
 		return ` ${total === 1 ? "The plan's step is" : "Every plan step is"} already in the todo list${suffix}. ${tick}`;
 	return ` Merged ${counted} into the todo list${suffix}. ${tick}`;
-}
-
-/** The review choice plus the refinement the user typed in the TUI, if any. */
-interface PlanReviewOutcome {
-	action: PlanViewAction;
-	refinement?: string;
-}
-
-/** A dialog-only choice: post the full plan text, then ask again. Never returned. */
-type ReviewChoice = PlanReviewOutcome | { action: "send" };
-
-/** Prompt shown by the dialog-based refine editor in non-TUI modes. */
-const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, Esc to cancel)";
-
-/** How much of one step the remote digest shows. */
-const DIGEST_STEP_CHARS = 90;
-
-/**
- * A one-message digest of the plan for a remote review.
- *
- * The file is the primary artifact, but a phone client may never render or open
- * it, and the peer still has to choose approve / refine. The digest carries the
- * title, the step count, and the first few steps; the full text follows as a
- * file or as the fallback message.
- */
-function planReviewDigest(content: string): string {
-	const title = /^#\s+(.+)$/m.exec(content)?.[1]?.trim();
-	const steps = extractPlanSteps(content);
-	const count = steps.length;
-	const head = `Plan${title ? `: ${title}` : ""}${count > 0 ? ` (${count} step${count === 1 ? "" : "s"})` : ""}`;
-	const preview = steps.slice(0, 3).map((step, index) => {
-		const text = step.content.replace(/\s+/g, " ").trim();
-		const shown = text.length > DIGEST_STEP_CHARS ? `${text.slice(0, DIGEST_STEP_CHARS - 1)}…` : text;
-		return `${index + 1}. ${shown}`;
-	});
-	const more = count > preview.length ? `… (${count - preview.length} more)` : "";
-	return [head, ...preview, more, "The full plan is attached above, or sent as text if the file failed."]
-		.filter((line) => line !== "")
-		.join("\n");
-}
-
-/**
- * Ask the user to review the plan file. The TUI opens the scrollable review
- * screen (with an inline refine editor); dialog-capable modes (RPC) fall back
- * to a select plus the refine editor; the caller has already refused when there
- * is no UI.
- */
-async function reviewPlan(
-	ctx: ExtensionToolContext,
-	plan: { path: string; relativePath: string; content: string; bytes: number },
-	previous?: string,
-): Promise<PlanReviewOutcome> {
-	// The first pass sends the file (or the full text when it fails) and the
-	// digest; asking for the full plan re-enters with the text only, then shows
-	// the choices again.
-	let sentFullText = false;
-	for (;;) {
-		const outcome = await askHuman<ReviewChoice>(ctx, {
-			custom: async () => {
-				const outcome = await ctx.ui.custom<PlanReviewOutcome | undefined>(
-					(tui, theme, _keybindings, done) =>
-						new PlanViewComponent({
-							plan,
-							previous,
-							theme,
-							onClose: (action, refinement) => done({ action, refinement }),
-							requestRender: () => tui.requestRender(),
-							viewportRows: () => tui.terminal?.rows,
-							tui,
-						}),
-					FULL_SCREEN_OVERLAY,
-				);
-				return outcome ?? { action: "keep" };
-			},
-			dialogs: async () => {
-				const choice = await ctx.ui.select("Plan mode — what next?", [
-					"Approve and execute",
-					"Send the full plan",
-					"Refine the plan",
-					"Keep planning",
-				]);
-				if (choice === "Approve and execute") return { action: "approve" };
-				if (choice === "Send the full plan") return { action: "send" };
-				if (choice === "Refine the plan") return { action: "refine" };
-				return { action: "keep" };
-			},
-			// A remote turn gets the plan file up front, falling back to the full text;
-			// a local TUI turn ignores both and renders the component. The digest goes
-			// out either way so the choices stay answerable when a phone client does not
-			// render the file bubble.
-			file: sentFullText ? undefined : { path: plan.path, name: basename(plan.relativePath) },
-			body: plan.content,
-			note: sentFullText ? undefined : planReviewDigest(plan.content),
-		});
-		if (outcome.action !== "send") return outcome;
-		sentFullText = true;
-	}
 }
 
 export function registerTools(
@@ -467,7 +369,7 @@ export function registerTools(
 		// execute is the human gate, so an outer prompt would only double-ask.
 		annotations: { readOnlyHint: true, openWorldHint: false },
 
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const planPath = (params as ExitPlanModeArgs).plan_path.trim();
 
 			if (!runtime.isEnabled()) {
@@ -478,7 +380,7 @@ export function registerTools(
 				};
 			}
 
-			let file = await runtime.plans.read(ctx.cwd, planPath);
+			const file = await runtime.plans.read(ctx.cwd, planPath);
 			if (!file) {
 				return {
 					content: [
@@ -511,117 +413,57 @@ export function registerTools(
 				};
 			}
 
-			// What the last review showed this file, so this one can mark the changes.
-			// Mark before presenting: the next review compares against what is on
-			// screen now, not against a revision the user never saw.
-			let presentedPrevious: string | undefined;
-			const present = (candidate: { path: string; relativePath: string; content: string; bytes: number }) => {
-				const previous = runtime.reviewed(candidate.path);
-				runtime.markReviewed(candidate.path, candidate.content);
-				presentedPrevious = previous;
-				return reviewPlan(ctx, candidate, previous);
-			};
+			// One decision, however the session is attached; `review.ts` owns the loop,
+			// the baseline, and closing the browser review when the turn is aborted.
+			const decision = await reviewPlan({
+				ctx,
+				web,
+				plans: runtime.plans,
+				baselines: runtime,
+				plan: file,
+				signal,
+			});
 
-			let outcome = await present(file);
-			// Comments carried by a browser approval, reported alongside the approval.
-			let browserComments: PlanAnnotation[] = [];
-			// Review, refine, and browser review all loop back here until the user
-			// approves, keeps planning, or a refinement is handed to the model. The
-			// dialog-based refine editor carries no text from the review screen, so an
-			// empty or cancelled editor returns to the review instead of being reported
-			// as "not approved".
-			for (;;) {
-				if (outcome.action === "browser") {
-					// The review screen that produced this choice already marked the
-					// content it showed, so the page compares against that baseline.
-					const session: PlanReviewSession | undefined = await web
-						.start(ctx.cwd, file, { canApprove: true, previous: presentedPrevious })
-						.catch(() => undefined);
-					if (!session) {
-						ctx.ui.notify("Plan review: could not start the browser review server.", "error");
-						outcome = await present(file);
-						continue;
-					}
-					ctx.ui.notify(`Plan review: opened ${session.url}`, "info");
-					const result: PlanReviewResult = await session.done;
-					await session.close();
-					if (result.status === "approved") {
-						// Approve from the browser is the TUI's approve: keep the comments it
-						// carried and fall through to the shared approval path below.
-						file = result.plan;
-						browserComments = result.annotations;
-						outcome = { action: "approve" };
-						continue;
-					}
-					if (result.status === "saved") {
-						// The comments are already in the file; hand them back as a refinement so
-						// the model revises the same plan and calls exit_plan_mode again.
-						const refinement = feedbackSummary(result.annotations) || "See the review comments in the plan file.";
-						return {
-							content: [
-								{
-									type: "text",
-									text: `The user reviewed the plan in the browser and left feedback:\n${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
-								},
-							],
-							details: {
-								approved: false,
-								plan: result.plan.content,
-								planPath: result.plan.path,
-								relativePath: result.plan.relativePath,
-								refined: true,
-								refinement,
-							} satisfies ExitPlanModeDetails,
-						};
-					}
-					// Cancelled or the tab closed: re-read the file and review again.
-					file = (await runtime.plans.read(ctx.cwd, file.path)) ?? file;
-					outcome = await present(file);
-					continue;
-				}
-				if (outcome.action === "refine" && !outcome.refinement) {
-					const refinement = (await ctx.ui.editor(REFINE_PROMPT, ""))?.trim();
-					if (refinement) outcome = { action: "refine", refinement };
-					else outcome = await present(file);
-					continue;
-				}
-				if (outcome.action === "refine") {
-					const refinement = outcome.refinement ?? "";
-					return {
-						content: [
-							{
-								type: "text",
-								text: `The user asked to refine the plan: ${refinement}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
-							},
-						],
-						details: {
-							approved: false,
-							plan: file.content,
-							planPath: file.path,
-							relativePath: file.relativePath,
-							refined: true,
-							refinement,
-						} satisfies ExitPlanModeDetails,
-					};
-				}
-				if (outcome.action !== "approve") {
-					return {
-						content: [
-							{ type: "text", text: "Plan not approved. Stay in plan mode, ask what to change, and revise the plan." },
-						],
-						details: {
-							approved: false,
-							plan: file.content,
-							planPath: file.path,
-							relativePath: file.relativePath,
-						} satisfies ExitPlanModeDetails,
-					};
-				}
-				break;
+			if (decision.action === "refine") {
+				// A browser save already wrote its comments into the file; either way the
+				// model revises the same plan and presents it again.
+				const feedback = decision.fromBrowser
+					? `The user reviewed the plan in the browser and left feedback:\n${decision.refinement}`
+					: `The user asked to refine the plan: ${decision.refinement}`;
+				return {
+					content: [
+						{
+							type: "text",
+							text: `${feedback}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`,
+						},
+					],
+					details: {
+						approved: false,
+						plan: decision.plan.content,
+						planPath: decision.plan.path,
+						relativePath: decision.plan.relativePath,
+						refined: true,
+						refinement: decision.refinement,
+						annotations: decision.comments.length > 0 ? decision.comments : undefined,
+					} satisfies ExitPlanModeDetails,
+				};
+			}
+			if (decision.action === "keep") {
+				return {
+					content: [
+						{ type: "text", text: "Plan not approved. Stay in plan mode, ask what to change, and revise the plan." },
+					],
+					details: {
+						approved: false,
+						plan: decision.plan.content,
+						planPath: decision.plan.path,
+						relativePath: decision.plan.relativePath,
+					} satisfies ExitPlanModeDetails,
+				};
 			}
 
 			runtime.disable(ctx);
-			const { steps, merged, error } = await seedTodos(pi, ctx, file.content);
+			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps
@@ -636,21 +478,22 @@ export function registerTools(
 						: merged
 							? mergeSummary(merged, steps)
 							: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${SET_PLAN_STEPS_TOOL}.`;
-			const browserNote = browserComments.length
-				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(browserComments)}`
+			const browserNote = decision.comments.length
+				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(decision.comments)}`
 				: "";
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${file.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${listing}`,
+						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${listing}`,
 					},
 				],
 				details: {
 					approved: true,
-					plan: file.content,
-					planPath: file.path,
-					relativePath: file.relativePath,
+					plan: decision.plan.content,
+					planPath: decision.plan.path,
+					relativePath: decision.plan.relativePath,
+					annotations: decision.comments.length > 0 ? decision.comments : undefined,
 				} satisfies ExitPlanModeDetails,
 			};
 		},

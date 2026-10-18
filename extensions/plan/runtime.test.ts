@@ -220,6 +220,15 @@ describe("plan runtime — review snapshots", () => {
 		runtime.markReviewed("/repo/.pi/plans/a.md", "# A v2");
 		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBe("# A v2");
 	});
+
+	test("a branch restore drops the baseline, so a resumed session has none", () => {
+		const { runtime } = setup();
+		runtime.markReviewed("/repo/.pi/plans/a.md", "# A");
+
+		runtime.restore(fakeCtx({ branch: [stateEntry(true)] }).ctx);
+
+		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBeUndefined();
+	});
 });
 
 describe("plan runtime — branch restore", () => {

@@ -174,6 +174,10 @@ instead of opening a server nobody can use. The browser's **Approve & run** is
 offered only for the review `exit_plan_mode` opens, since only that flow owns
 leaving plan mode; `/plan review` stays comment-only.
 
+Aborting the turn closes a browser review. `exit_plan_mode` forwards the call's
+abort signal to the review server, so an aborted turn returns "not approved"
+and stops listening instead of waiting on a page nobody is watching.
+
 ### Transcript
 
 The three tool rows reuse the transcript component, and `exit_plan_mode`
@@ -406,7 +410,7 @@ file and returns them to the model.
 
 | Integration point | How |
 |---|---|
-| Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`); no `outputSchema`/`structuredContent`. |
+| Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. The content each review showed is kept in runtime memory (keyed by resolved path) for the changed markers. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
@@ -414,6 +418,13 @@ file and returns them to the model.
 
 ## Design notes
 
+- **One review loop owns the human gate.** `review.ts` asks however the session
+  is attached — TUI screen, dialog plus editor, remote file plus digest, or
+  browser — and returns one `ReviewDecision`, so `exit_plan_mode` and
+  `/plan review` no longer carry two copies of the browser lifecycle and the
+  tool's own `for(;;)` with a `continue` per outcome. The loop also owns the
+  baseline rule (mark what the screen showed, after it showed it) and forwards
+  the call's abort signal, which is what closes a review on an aborted turn.
 - **Two tools, not one.** `EnterPlanMode`/`ExitPlanMode` are a pair: entering is
   consent to explore read-only, exiting is consent to act. A single toggle tool
   cannot express "the model wants to plan but the user declines".
@@ -500,8 +511,9 @@ file and returns them to the model.
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the section diff, and the checkbox edit. |
-| `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
-| `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`. |
+| `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status, the review baseline. |
+| `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`: schemas, results, transcripts, and the approval-time todo seed. |
+| `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, approve/refine/browser/keep). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |

@@ -11,6 +11,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { isRemoteTurn } from "../../lib/interaction.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
+import { runBrowserReview } from "./review.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 
@@ -68,15 +69,20 @@ async function reviewInBrowser(
 	}
 
 	const previous = runtime.reviewed(file.path);
-	runtime.markReviewed(file.path, file.content);
-	const session = await web.start(ctx.cwd, file, { previous }).catch(() => undefined);
-	if (!session) {
+	const result = await runBrowserReview(web, ctx.cwd, file, {
+		canApprove: false,
+		previous,
+		// Mark only once the page is actually open: a failed start must not consume
+		// the baseline for a plan nobody saw.
+		onOpened: (session) => {
+			runtime.markReviewed(file.path, file.content);
+			ctx.ui.notify(`plan review: opened ${session.url}`, "info");
+		},
+	});
+	if (!result) {
 		ctx.ui.notify("plan review: could not start the browser review server.", "error");
 		return;
 	}
-	ctx.ui.notify(`plan review: opened ${session.url}`, "info");
-	const result = await session.done;
-	await session.close();
 
 	if (result.status === "cancelled") {
 		ctx.ui.notify("plan review: closed without saving.", "info");

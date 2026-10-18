@@ -630,11 +630,30 @@ describe("exit_plan_mode", () => {
 
 		expect(starts[0]).toMatchObject({ canApprove: true });
 		expect(result.details.approved).toBe(true);
+		// The comments the approval was conditioned on travel with the result.
+		expect(result.details.annotations).toEqual(annotations);
 		expect(runtime.isEnabled()).toBe(false);
 		expect(activeTools()).toContain("write");
 		expect(toolCalls[0]?.name).toBe("todo");
 		expect(result.content[0].text).toContain("Plan approved");
 		expect(result.content[0].text).toContain("ship it");
+	});
+
+	test("an aborted call never opens the browser review", async () => {
+		const { web, starts } = webThatApproves([]);
+		const { enter, exit, write, runtime, root } = setup(web);
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- one");
+
+		const controller = new AbortController();
+		controller.abort();
+		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const result = await exit.execute("call-1", { plan_path: planPath }, controller.signal, undefined, ctx);
+
+		expect(starts).toEqual([]);
+		expect(result.details.approved).toBe(false);
+		expect(result.content[0].text).toContain("Plan not approved");
+		expect(runtime.isEnabled()).toBe(true);
 	});
 
 	test("a cancelled browser review returns to the review screen", async () => {

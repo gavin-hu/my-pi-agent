@@ -2,6 +2,7 @@
  * Shared types for the plan-mode extension.
  */
 
+import type { PlanAnnotation } from "./feedback.ts";
 import type { StepUpdate } from "./steps.ts";
 
 /** Persisted (custom entry) plan-mode state. */
@@ -62,6 +63,8 @@ export interface ExitPlanModeDetails {
 	refined?: boolean;
 	/** The refinement the user typed, when `refined` is true. */
 	refinement?: string;
+	/** Comments the review carried when it approved or requested a refinement. */
+	annotations?: PlanAnnotation[];
 	/** True when no interactive UI was available to ask for approval. */
 	unavailable?: boolean;
 }
