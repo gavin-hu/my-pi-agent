@@ -610,12 +610,12 @@ bytefly ────────────────────────
 | Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
 | Pricing | Currency | `price.currency.code` | CNY, USD |
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
-
-Choosing **Currency** also writes that currency's symbol and precision. Both
-remain editable afterwards, and the footer follows the explicit values.
 | Transcript | Rail glyph | `chrome.rail` | `╎`, `│`, `┃`, `▏` |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |
+
+Choosing **Currency** also writes that currency's default precision. Both rows
+stay editable afterwards, so the footer follows the explicit values.
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
 forward, and a text row opens an inline editor on its value. The detail pane names the source, describes the preference, and shows
@@ -818,8 +818,6 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
   string. The per-trigger notify flags (`notify.turnFinished`, `needsInput`,
   `jobFinished`), arrays (`doctor.skip`), a numeric range (`doctor.timeoutMs`),
   the `rates` table, and `price.peak` are still `bytefly.json` edits.
-- **The rail glyph picker stays curated.** Four one-column glyphs are offered;
-  the text editor is for the notification title, not for the rail.
 - **`doctor` is a reserved first argument.** `/bytefly doctor` always selects the
   report, so an extension literally named `doctor` cannot be narrowed to by
   name. `settings` is reserved the same way.

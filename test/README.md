@@ -53,7 +53,8 @@ gate is stated in the test.
    clock for relative timestamps.
 4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
-   `test/tool-render.test.ts`) — cross-cutting contracts. No extension test may
+   `test/tool-render.test.ts`, `test/roadmap.test.ts`) — cross-cutting
+   contracts. No extension test may
    duplicate these. `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
    and that a second render of the same component at the same width returns the
@@ -64,6 +65,11 @@ gate is stated in the test.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
    the tag is present; the tag assertion is skipped in a clone that has none.
+   `roadmap.test.ts` pins the mechanical half of `ROADMAP.md`: unique and
+   contiguous item ids, resolving links and id references, and the per-horizon
+   item cap. It cannot tell that an item has already shipped — that stays a
+   judgement made against `git log <last-tag>..main` when the roadmap is
+   reviewed.
 
 Rule of thumb: if a test needs `mock.module`, a global stub, or a real timer,
 the code under test is missing a seam. Add the seam instead of the mock.

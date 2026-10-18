@@ -18,9 +18,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only totalling Pi's recorded cost. `rates` follows `currency.code`, so a
   document that sets `USD` and no table gets the dollar one, and a model with no
   rate still falls back to Pi's recorded dollars.
-
-### Added
-
 - `bytefly`: the footer price now has two algorithms selected by
   `price.currency.code`. `CNY` (the default) prices matched models from the
   yuan `rates` and `peak` schedule; `USD` totals Pi's recorded dollar cost and
@@ -40,6 +37,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: [`ROADMAP.md`](./ROADMAP.md) is re-derived from the tree rather than the
+  last tag. Items that had already shipped are gone, the step-budget gap is
+  named, `Now` and `Next` hold at most ten items each, and a new *Deliberately
+  left thin* table says why the remaining documented limitations have no item.
 - docs: the configuration reference moved to
   [`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md),
   so the exhaustive listings sit in their own directory; every guide and README
@@ -92,6 +93,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: the README no longer states the rail-glyph limitation twice, and
+  its Settings table is one table again, with a currency note that says what
+  choosing a currency writes — precision, not the symbol that was removed.
 - docs: the `wechat` README no longer says there is no pause, and the Chinese
   README's `bytefly` row names ten settings across six groups like the English
   one.
