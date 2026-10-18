@@ -70,6 +70,11 @@ export function markGitignoreOffered(): void {
 	gitignoreOffered = true;
 }
 
+/** Re-arm the offer for the next session; `session_start` owns the reset. */
+export function resetGitignoreOffer(): void {
+	gitignoreOffered = false;
+}
+
 /**
  * Count a bash command the guard let through without being able to verify it.
  * Session-scoped on purpose: it is the one gap a user cannot see in the

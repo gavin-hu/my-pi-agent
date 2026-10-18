@@ -17,6 +17,7 @@ import {
 	currentBranch,
 	fetchPrRef,
 	hasCommits,
+	isIgnored,
 	lockWorktree,
 	mergeBase,
 	parsePrReference,
@@ -54,12 +55,19 @@ function generateName(): string {
 }
 
 /** Offer once per session to ignore the managed worktree directory. */
-async function maybeIgnoreWorktreeDir(ctx: ExtensionContext, root: string, config: WorktreeConfig): Promise<void> {
+async function maybeIgnoreWorktreeDir(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	root: string,
+	config: WorktreeConfig,
+): Promise<void> {
 	if (isGitignoreOffered()) return;
 	if (!ctx.hasUI) return;
 	markGitignoreOffered();
 
 	const entry = `${config.dir.replace(/\/+$/, "")}/`;
+	if (await isIgnored(pi, root, entry)) return;
+
 	const gitignorePath = join(root, ".gitignore");
 	let content = "";
 	try {
@@ -67,7 +75,6 @@ async function maybeIgnoreWorktreeDir(ctx: ExtensionContext, root: string, confi
 	} catch {
 		return;
 	}
-	if (content.split(/\r?\n/).some((line) => line.trim() === entry || line.trim() === config.dir)) return;
 
 	const confirmed = await ctx.ui.confirm(
 		"Add the worktree directory to .gitignore?",
@@ -225,7 +232,7 @@ export async function enterWorktree(
 	let copiedIncludes: string[] = [];
 	if (!existed) {
 		copiedIncludes = await copyIncludes(pi, root, target, includePatterns(root, config.include), config.dir);
-		await maybeIgnoreWorktreeDir(ctx, root, config);
+		await maybeIgnoreWorktreeDir(pi, ctx, root, config);
 	}
 
 	const state: WorktreeState = {

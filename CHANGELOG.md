@@ -40,6 +40,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- worktree: the `enter_worktree` offer to ignore the managed directory asks git
+  (`git check-ignore`) instead of string-matching `.gitignore`, so a repository
+  whose wider rule already covers it (`.pi/`) no longer gets a prompt claiming the
+  directory "is not ignored". The offer is also re-armed on `session_start`, so it
+  is once per session rather than once per process.
+
 - `watch`: `enabled: false` in the `watch` config section now refuses `add` with
   "watch is disabled."; the key was documented but never read.
 

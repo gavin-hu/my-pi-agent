@@ -259,6 +259,15 @@ export async function deleteBranch(
 	return { ok: false, error: outcome.error || `Could not delete branch ${branch}` };
 }
 
+/**
+ * Whether git ignores `path` in `dir`. Asks git rather than matching ignore
+ * text, so a directory covered by a wider rule also counts as ignored.
+ */
+export async function isIgnored(pi: ExtensionAPI, dir: string, path: string): Promise<boolean> {
+	const result = await git(pi, ["check-ignore", "-q", "--", path], dir);
+	return result.code === 0;
+}
+
 /** Porcelain status lines for a working tree; empty when clean. */
 export async function statusEntries(pi: ExtensionAPI, dir: string): Promise<string[]> {
 	const result = await git(pi, ["status", "--porcelain"], dir);
