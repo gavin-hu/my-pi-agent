@@ -59,7 +59,7 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | — |
 | Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C7, F1–F3 |
@@ -68,12 +68,11 @@ screenshots.
 
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
-2. **S1 — Worktree handoff.** A checked way to leave a worktree with a commit and
-   a merge or pull-request hint, which is where the branch flow in `AGENTS.md`
-   actually ends.
-3. **C3 — Spend guardrail.** A session budget in `price` that warns once at a
+2. **C3 — Spend guardrail.** A session budget in `price` that warns once at a
    threshold and can raise a notification through the capability that already
    exists. No hard stop by default.
+3. **F1 — Test expansion.** Browser-page and plan-review coverage through the pure
+   router and rendered HTML, without a real browser in CI.
 
 ## Horizons
 
@@ -166,13 +165,10 @@ rest is either structural or later work. This section contributes no `Next` item
 
 **Later**
 
-- **S1 — Worktree handoff.** A checked way to leave a worktree with a commit and
-  a merge or pull-request hint, without becoming a general branch manager. The
-  branch flow in `AGENTS.md` is the contract to keep.
-- **S2 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S1 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics.
-- **S3 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S2 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -323,7 +319,7 @@ it.
 
 | Limitation | Why it has no item |
 |---|---|
-| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S3`. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S1`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
 | `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
