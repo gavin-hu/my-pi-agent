@@ -138,6 +138,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the remainder is sent when the turn ends — so a minute-long answer is
   readable while it is being produced. A part longer than `maxReplyChars` is
   still numbered, and the attachment line rides on the first part only.
+- `wechat`: a peer session now gets the package's whole tool surface. Two SDK
+  details made it silently thinner: a freshly built resource loader has discovered
+  nothing until `reload()` is called, and an SDK session only declares the
+  settings' default tools, so the tools extensions register were present but never
+  shown to the model. Both are handled in `openPeerSession`, so a peer session
+  matches the terminal's tools instead of `read`/`bash`/`edit`/`write`.
 - `wechat`: an opt-in `pollHoldMs` asks the server for a shorter `getupdates`
   long-poll hold, which is the floor on how fast a message can be seen (~18 s on
   the server's default). The request field is only sent when configured, since

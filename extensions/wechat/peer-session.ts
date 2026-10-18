@@ -84,6 +84,30 @@ export function withoutWechatExtensions(base: LoadExtensionsResult): LoadExtensi
 	return extensions.length === base.extensions.length ? base : { ...base, extensions };
 }
 
+/**
+ * Add every directly-exposed tool to the session's active set.
+ *
+ * An SDK session starts with the settings' default selection, which is the
+ * built-in tools; tools that extensions register are present but not declared to
+ * the model. A peer should get the same toolset the terminal session has, so the
+ * directly-exposed ones (`direct`, the "active on registration" default) are
+ * activated. `codemode`/`deferred`/`model-only` tools stay as the session left
+ * them, and anything the settings exclude never reaches `getAllTools()`.
+ */
+export function activateDirectTools(session: {
+	getActiveToolNames(): string[];
+	getAllTools(): Array<{ name: string; exposure: string }>;
+	setActiveToolsByName(names: string[]): void;
+}): string[] {
+	const active = new Set(session.getActiveToolNames());
+	for (const tool of session.getAllTools()) {
+		if (tool.exposure === "direct") active.add(tool.name);
+	}
+	const names = [...active];
+	session.setActiveToolsByName(names);
+	return names;
+}
+
 function describeError(error: ExtensionError): string {
 	const where = error.extensionPath.split("/").slice(-2).join("/");
 	return `${where} (${error.event}): ${error.error}`;
@@ -109,12 +133,16 @@ export async function openPeerSession(peer: string, options: PeerSessionOptions)
 	const sessionManager = options.fresh
 		? SessionManager.create(options.cwd, peerSessionDir(options.sessionsDir, peer))
 		: SessionManager.continueRecent(options.cwd, peerSessionDir(options.sessionsDir, peer));
+	// A freshly built loader has discovered nothing yet; the session would then be
+	// created with no extensions and only the built-in tools.
+	const resourceLoader = buildLoader(options.cwd, options.agentDir);
+	await resourceLoader.reload();
 	const { session } = await create({
 		cwd: options.cwd,
 		model: options.model,
 		thinkingLevel: options.thinkingLevel,
 		sessionManager,
-		resourceLoader: buildLoader(options.cwd, options.agentDir),
+		resourceLoader,
 	});
 
 	await session.bindExtensions({
@@ -124,6 +152,10 @@ export async function openPeerSession(peer: string, options: PeerSessionOptions)
 		uiContext: options.uiContext,
 		onError: (error) => options.onError?.(describeError(error)),
 	});
+	// Extensions register their tools during load; the SDK session only declares
+	// the settings' default selection, so the peer would otherwise see read/bash/
+	// edit/write and none of the package's tools.
+	activateDirectTools(session);
 
 	return {
 		session,

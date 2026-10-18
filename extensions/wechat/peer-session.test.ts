@@ -12,16 +12,23 @@ interface Bound {
 	onError?: (error: { extensionPath: string; event: string; error: string }) => void;
 }
 
-function fakeSession(): {
+function fakeSession(tools = [{ name: "read", exposure: "direct" }]): {
 	session: AgentSession;
 	bound: () => Bound | undefined;
 	disposed: () => number;
+	active: () => string[];
 } {
 	let bound: Bound | undefined;
 	let disposals = 0;
+	let active = tools.filter((tool) => tool.exposure === "direct").map((tool) => tool.name);
 	const session = {
 		bindExtensions: async (bindings: Bound) => {
 			bound = bindings;
+		},
+		getActiveToolNames: () => [...active],
+		getAllTools: () => tools,
+		setActiveToolsByName: (names: string[]) => {
+			active = [...names];
 		},
 		dispose: () => {
 			disposals += 1;
@@ -31,6 +38,7 @@ function fakeSession(): {
 		session: session as unknown as AgentSession,
 		bound: () => bound,
 		disposed: () => disposals,
+		active: () => [...active],
 	};
 }
 
@@ -90,7 +98,8 @@ describe("openPeerSession", () => {
 		const created: CreateAgentSessionOptions[] = [];
 		const loaders: Array<[string, string]> = [];
 		const uiContext = { custom: () => undefined } as never;
-		const loaded = {} as never;
+		let reloads = 0;
+		const loaded = { reload: async () => void (reloads += 1) } as never;
 
 		const opened = await openPeerSession(peer, {
 			cwd: root,
@@ -110,6 +119,8 @@ describe("openPeerSession", () => {
 		});
 
 		expect(loaders).toEqual([[root, root]]);
+		// A fresh loader has discovered nothing yet, so it must be reloaded first.
+		expect(reloads).toBe(1);
 		expect(created[0]?.cwd).toBe(root);
 		expect(created[0]?.resourceLoader).toBe(loaded);
 		// One conversation per peer, resumed from that peer's directory.
@@ -124,6 +135,27 @@ describe("openPeerSession", () => {
 		expect(fake.disposed()).toBe(1);
 	});
 
+	test("activates the tools the extensions registered", async () => {
+		const root = tempDir("wechat-peer-");
+		const fake = fakeSession([
+			{ name: "read", exposure: "direct" },
+			{ name: "todo", exposure: "direct" },
+			{ name: "open_path", exposure: "codemode" },
+		]);
+		await openPeerSession(peer, {
+			cwd: root,
+			agentDir: root,
+			sessionsDir: join(root, "sessions"),
+			uiContext: {} as never,
+			seams: {
+				create: async () => ({ session: fake.session }) as never,
+				loader: (() => ({ reload: async () => {} })) as never,
+			},
+		});
+		// The peer gets the package's tools; a codemode tool stays as it was.
+		expect(fake.active().sort()).toEqual(["read", "todo"]);
+	});
+
 	test("reports an extension error with where it happened", async () => {
 		const root = tempDir("wechat-peer-");
 		const messages: string[] = [];
@@ -136,7 +168,7 @@ describe("openPeerSession", () => {
 			onError: (message) => messages.push(message),
 			seams: {
 				create: async () => ({ session: fake.session }) as never,
-				loader: (() => ({})) as never,
+				loader: (() => ({ reload: async () => {} })) as never,
 			},
 		});
 
