@@ -15,6 +15,7 @@ deep technical contracts live outside this directory and are linked below.
 | [Architecture](./architecture.md) | How the package, its extensions, and `lib/` fit together. |
 | [Development](./development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./security.md) | Trust boundaries for the loopback and remote surfaces. |
+| [Roadmap](../ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |
 
 Exhaustive listings that a hand edit is checked against live in
 [`references/`](./references/); the guides link to them instead of restating

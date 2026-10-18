@@ -392,8 +392,9 @@ never touches the stored cursor.
   supplies a `context_token` only then).
 - Slash commands are fixed built-ins; there is no user-defined snippet or action
   list yet, and `/new`, `/stop`, `/status`, and `/help` are registered.
-- There is no pause. The bridge runs whenever an account is stored, and
-  `/wechat logout` is the only way to stop it (and it discards the credentials).
+- Pause is runtime-local. `/wechat pause` stops polling and releases the lock,
+  but a reload, `/new`, or restart builds a fresh running bridge; only
+  `/wechat logout` stops it persistently (and discards the credentials).
 
 ## Non-goals
 

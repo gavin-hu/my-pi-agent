@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- docs: [`ROADMAP.md`](./ROADMAP.md) records the next work, grouped by the
+  README's promises, with the evidence behind each item; the README and docs
+  index link to it.
 - `bytefly`: DeepSeek is priced in dollars as well as yuan. The `USD` algorithm
   now reads a built-in table of DeepSeek's published dollar rates (cache-hit
   `$0.006`/`$0.044`, cache-miss `$0.30`/`$1.32`, output `$1.20`/`$3.96` per
@@ -83,6 +86,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- docs: the `wechat` README no longer says there is no pause, and the Chinese
+  README's `bytefly` row names ten settings across six groups like the English
+  one.
 - `goal`: the README now says that `/goal set <prompt>` and
   `/goal edit <prompt>` replace an active goal without the confirmation
   `/goal <prompt>` asks for.

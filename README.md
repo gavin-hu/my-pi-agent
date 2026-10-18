@@ -174,6 +174,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | [Architecture](./docs/architecture.md) | How the package, its extensions, and `lib/` fit together. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
+| [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |
 
 ## Requirements
 
