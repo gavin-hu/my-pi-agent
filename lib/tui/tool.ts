@@ -46,10 +46,17 @@ export type CallClip = "end" | "middle";
  * under bytefly's frame, could be railed). `end` preserves the start of prose;
  * `middle` keeps both the head and the tail of a path or URL. It exposes `.text`
  * and `.setText` because bytefly's block resolver rewrites the headline in place.
+ *
+ * `render` runs on every frame Pi draws, so the clipped lines are memoized on the
+ * text and the width, the way Pi's own `Text` does; `setText` and `invalidate`
+ * drop them.
  */
 export class ToolCallText implements Component {
 	text: string;
 	readonly clip: CallClip;
+	private cachedWidth: number | null = null;
+	private cachedText = "";
+	private cachedLines: string[] = [];
 
 	constructor(initial = "", clip: CallClip = "end") {
 		this.text = initial;
@@ -58,15 +65,22 @@ export class ToolCallText implements Component {
 
 	setText(text: string): void {
 		this.text = text;
+		this.cachedWidth = null;
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.cachedWidth = null;
+	}
 
 	render(width: number): string[] {
 		const w = Math.max(1, Math.floor(width));
-		return this.text
+		if (this.cachedWidth === w && this.cachedText === this.text) return this.cachedLines;
+		this.cachedLines = this.text
 			.split("\n")
 			.map((line) => (this.clip === "middle" ? clipMiddle(line, w) : truncateToWidth(line, w, "…")));
+		this.cachedWidth = w;
+		this.cachedText = this.text;
+		return this.cachedLines;
 	}
 }
 

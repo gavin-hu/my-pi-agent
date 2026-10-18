@@ -38,6 +38,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: a transcript now renders in a fraction of a frame once drawn. The
+  tool block and the notice memoize the lines they place on the width and the
+  body their inner renderer returned, the tool call line memoizes on its text,
+  the header on its shape and help chords, and the footer's context estimate
+  joins its pricing scan in the leaf-keyed memo. A repeat frame is one
+  comparison instead of a clip and a repaint per line, so a long session stays
+  responsive, and a theme change or expand toggle still rebuilds every themed
+  string.
 - Tool transcript: call lines now clip to the terminal width instead of wrapping
   into the railed body (middle clip for a path or URL, so its head and tail
   survive). `read_doc` reads a not-yet-streamed path as pending instead of

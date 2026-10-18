@@ -924,6 +924,22 @@ rather than showing a wrong value.
   producer also lets `job` and `watch` share one prune
   (`pruneStaleNotices`) keyed on `details.source`, so neither drops the other's
   note from context.
+- **Every block is framed once, then reused.** Pi renders the whole component
+  tree on every frame — a keystroke, a streamed token, the footer's own repaint —
+  and bytefly's frame is a pure transform of the lines its inner renderer just
+  produced. Re-running that transform per frame meant a `truncateToWidth` per
+  body line per frame (about 8 µs a line, so a few hundred tool blocks cost tens
+  of milliseconds a frame), and because it returned fresh strings it also
+  defeated Pi's own identity caches. `ToolBlock` and `NoticeComponent` now render
+  through `lib/tui/render-cache.ts`: the placed lines are memoized on the width
+  and the body array the inner returned, so a repeat frame is one comparison and
+  the unchanged strings let Pi's `Box` and diff fast paths do their work. The
+  memo is dropped in `invalidate()`, which Pi calls on a theme change and on an
+  expand toggle, so no themed string outlives its theme. `indentBlockLines` only
+  measures a line it cannot prove fits, and the header memoizes on the width,
+  theme, shape, and the help chords it prints, so a live rebind still repaints.
+  The footer's context estimate joins its pricing scan in the leaf-keyed memo:
+  both are O(session) work the host recomputes from scratch.
 - **The frame delegates; it does not re-render.** Pi resolves tool renderers
   through the extension chain, and the resolved object is the definition the row
   reads, so a resolver can override `renderShell` and wrap `next()`'s

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import type { NoticeDetails } from "../../../lib/notice.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
-import { noticeLines } from "./component.ts";
+import { NoticeComponent, noticeLines } from "./component.ts";
 
 const details: NoticeDetails = {
 	source: "job",
@@ -94,5 +94,29 @@ describe("noticeLines", () => {
 		const clean: NoticeDetails = { source: "job", title: "all good", items: [{ label: "j1", severity: "ok" }] };
 		expect(noticeLines(clean, coloringTheme, 80).join("\n")).toContain("[success]");
 		expect(noticeLines(details, coloringTheme, 80).join("\n")).toContain("[error]");
+	});
+});
+
+describe("NoticeComponent", () => {
+	test("returns the same lines on a repeat render at the same width", () => {
+		const component = new NoticeComponent(details, fakeTheme, 1, "╎");
+
+		expect(component.render(80)).toBe(component.render(80));
+	});
+
+	test("rebuilds when the width changes", () => {
+		const component = new NoticeComponent(details, fakeTheme);
+		const first = component.render(80);
+
+		expect(component.render(40)).not.toBe(first);
+	});
+
+	test("rebuilds after invalidate even when nothing else changed", () => {
+		const component = new NoticeComponent(details, fakeTheme);
+		const first = component.render(80);
+
+		component.invalidate();
+
+		expect(component.render(80)).not.toBe(first);
 	});
 });

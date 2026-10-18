@@ -53,6 +53,12 @@ function helpParts(entry: HelpEntry): { key: string; description: string } {
 
 /** The themed header component. */
 export class ByteflyHeader implements Component {
+	private cachedWidth: number | null = null;
+	private cachedTheme: Theme | undefined;
+	private cachedView = "";
+	private cachedKeys = "";
+	private cachedLines: string[] = [];
+
 	constructor(
 		private readonly getTheme: () => Theme,
 		private readonly view: () => HeaderView,
@@ -60,13 +66,46 @@ export class ByteflyHeader implements Component {
 	) {}
 
 	invalidate(): void {
-		// Every themed string is built in `render` from the live theme.
+		this.cachedWidth = null;
 	}
 
+	/**
+	 * The header is static, so the lines are memoized on everything they read: the
+	 * width, the theme, the resolved shape, and the key chords the help rows print.
+	 * `keyText` is re-read every frame, so a live rebind still shows.
+	 */
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const theme = this.getTheme();
 		const view = this.view();
+		const viewKey = `${view.showVersion}:${view.halfBlocks}:${view.pad}`;
+		const keys = this.keySignature();
+		if (
+			this.cachedWidth === w &&
+			this.cachedTheme === theme &&
+			this.cachedView === viewKey &&
+			this.cachedKeys === keys
+		) {
+			return this.cachedLines;
+		}
+		this.cachedLines = this.build(w, theme, view);
+		this.cachedWidth = w;
+		this.cachedTheme = theme;
+		this.cachedView = viewKey;
+		this.cachedKeys = keys;
+		return this.cachedLines;
+	}
+
+	/** The chord of every help binding, so a rebind repaints the help rows. */
+	private keySignature(): string {
+		const chords: string[] = [];
+		for (const row of HEADER_CONFIG.help) {
+			for (const entry of row) chords.push(helpParts(entry).key);
+		}
+		return chords.join("\u0000");
+	}
+
+	private build(w: number, theme: Theme, view: HeaderView): string[] {
 		const { nameRole, chromeRole, detailRole, chromeTagline, chromeName, chromeVersion, help } = HEADER_CONFIG;
 		const padWidth = Math.max(0, Math.min(Math.floor(view.pad), Math.max(0, w - 1)));
 		const pad = " ".repeat(padWidth);

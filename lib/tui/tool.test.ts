@@ -52,6 +52,30 @@ describe("ToolCallText", () => {
 		expect(new ToolCallText().render(20)).toEqual([""]);
 	});
 
+	test("returns the same lines on a repeat render at the same width", () => {
+		const component = new ToolCallText("read src/a.ts", "end");
+
+		expect(component.render(40)).toBe(component.render(40));
+	});
+
+	test("rebuilds when the text or the width changes", () => {
+		const component = new ToolCallText("read src/a.ts", "end");
+		const first = component.render(40);
+
+		expect(component.render(41)).not.toBe(first);
+		component.setText("read src/b.ts");
+		expect(component.render(41)[0]).toContain("src/b.ts");
+	});
+
+	test("rebuilds after invalidate even when nothing else changed", () => {
+		const component = new ToolCallText("read src/a.ts", "end");
+		const first = component.render(40);
+
+		component.invalidate();
+
+		expect(component.render(40)).not.toBe(first);
+	});
+
 	test("reuseCallText reuses the same component and clip mode", () => {
 		const first = reuseCallText(undefined, "a", "end");
 		expect(reuseCallText(first, "b", "end")).toBe(first);

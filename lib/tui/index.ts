@@ -9,8 +9,9 @@
  * grammar), `rows.ts` (list rows, checkboxes, chips, empty states), `gauge.ts`
  * (the context gauge), `indent.ts` (the transcript block indent), and
  * `line-pane.ts` (the scrollable log/match pane), and
- * `tool.ts` (the shared tool-transcript kit: call title, width-safe call line,
- * sanitized error, and the running timer).
+ * (the shared tool-transcript kit: call title, width-safe call line,
+ * sanitized error, and the running timer), and `render-cache.ts` (the
+ * per-instance line memo a derived component renders through).
  *
  * Value-only, like every `lib/` module: pure functions, constants, and classes,
  * with no module-level state.
@@ -23,6 +24,7 @@ export * from "./gauge.ts";
 export * from "./glyphs.ts";
 export * from "./line-pane.ts";
 export * from "./indent.ts";
+export * from "./render-cache.ts";
 export * from "./rows.ts";
 export * from "./rules.ts";
 export * from "./status-controller.ts";

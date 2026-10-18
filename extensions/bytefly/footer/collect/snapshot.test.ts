@@ -124,4 +124,27 @@ describe("createSnapshotReader", () => {
 		read(ctx, footerData);
 		expect(reads).toBe(2);
 	});
+
+	test("memoizes the context estimate until the leaf or the model moves", () => {
+		let estimates = 0;
+		const ctx = makeCtx({
+			getContextUsage: () => {
+				estimates++;
+				return { tokens: 124000, contextWindow: 200000, percent: 62 };
+			},
+		});
+		const read = createSnapshotReader(DEFAULT_BYTEFLY_CONFIG);
+
+		read(ctx, footerData);
+		read(ctx, footerData);
+		expect(estimates).toBe(1);
+
+		ctx.sessionManager.getLeafId = () => "leaf-2";
+		read(ctx, footerData);
+		expect(estimates).toBe(2);
+
+		ctx.model = { ...ctx.model, id: "sonnet-4.5" };
+		read(ctx, footerData);
+		expect(estimates).toBe(3);
+	});
 });

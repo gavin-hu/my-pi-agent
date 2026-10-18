@@ -29,6 +29,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { BODY_INDENT, bodyLines, indentBlockLines } from "../../../lib/tui/indent.ts";
+import { RenderCache } from "../../../lib/tui/render-cache.ts";
 import { paintPrefix } from "../../../lib/tui/tokens.ts";
 
 /** How one tool-block frame is drawn. */
@@ -215,19 +216,19 @@ function callContinuationCount(body: readonly string[], toolName: string | undef
 }
 
 /**
- * Indent `inner` under the block's headline: the body at `outputPad + BODY_INDENT`,
- * the headline (when asked for) at `outputPad`. `width` clips the headline again
- * after its prompt is rewritten, so a longer tool name cannot overflow.
+ * Frame body lines that are already rendered at the indent's width: indent them,
+ * and when a headline was asked for, rewrite and clip it. Split from
+ * `toolBlockLines` so `ToolBlock` can render its inner once and memoize the
+ * frame on the result.
  */
-export function toolBlockLines(
-	inner: Component | undefined,
+function frameLines(
+	body: readonly string[],
 	width: number,
 	outputPad: number,
 	options: ToolBlockOptions = {},
 ): string[] {
 	const w = Math.max(1, width);
 	const indent = (outputPad ?? 0) + BODY_INDENT;
-	const body = bodyLines(inner, w, indent);
 	const lines = indentBlockLines(body, w, {
 		indent,
 		rail: options.rail,
@@ -264,8 +265,35 @@ export function toolBlockLines(
 	return lines;
 }
 
-/** The frame Pi mounts in place of its background box for a tool row. */
+/**
+ * Indent `inner` under the block's headline: the body at `outputPad + BODY_INDENT`,
+ * the headline (when asked for) at `outputPad`. `width` clips the headline again
+ * after its prompt is rewritten, so a longer tool name cannot overflow.
+ */
+export function toolBlockLines(
+	inner: Component | undefined,
+	width: number,
+	outputPad: number,
+	options: ToolBlockOptions = {},
+): string[] {
+	const w = Math.max(1, width);
+	const indent = (outputPad ?? 0) + BODY_INDENT;
+	return frameLines(bodyLines(inner, w, indent), w, outputPad, options);
+}
+
+/**
+ * The frame Pi mounts in place of its background box for a tool row.
+ *
+ * `render` runs on every frame Pi draws, and the frame is a pure transform of
+ * the body it has already placed, so the placed lines are memoized on the width
+ * and the body the inner just returned (`RenderCache`): a repeat frame is one
+ * comparison, and the unchanged strings let Pi's own `Box`/diff caches take their
+ * identity fast paths. `invalidate` drops the memo, so a theme change or an
+ * expand toggle rebuilds the themed strings.
+ */
 export class ToolBlock implements Component {
+	private readonly cache = new RenderCache();
+
 	constructor(
 		private readonly inner: Component | undefined,
 		private readonly outputPad: number,
@@ -274,9 +302,13 @@ export class ToolBlock implements Component {
 
 	invalidate(): void {
 		this.inner?.invalidate();
+		this.cache.invalidate();
 	}
 
 	render(width: number): string[] {
-		return toolBlockLines(this.inner, Math.max(1, width), this.outputPad, this.options);
+		const w = Math.max(1, width);
+		const indent = (this.outputPad ?? 0) + BODY_INDENT;
+		const body = bodyLines(this.inner, w, indent);
+		return this.cache.lines(w, body, () => frameLines(body, w, this.outputPad, this.options));
 	}
 }
