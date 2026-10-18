@@ -177,3 +177,51 @@ describe("worktree env sync", () => {
 		});
 	});
 });
+
+describe.skipIf(!runSlowSuites)("worktree isolation gaps", () => {
+	/** The status text `list_worktrees` returns, which `/worktree status` also prints. */
+	async function statusText(harness: Awaited<ReturnType<typeof bootWorktree>>): Promise<string> {
+		const result = await harness.run(WORKTREE_TOOLS.list);
+		return result.content[0].text;
+	}
+
+	test("names the shell it cannot isolate while the session is isolated", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "gaps" } });
+
+		const text = await statusText(harness);
+
+		expect(text).toContain("Not isolated:");
+		expect(text).toContain("! shell");
+		expect(text).toContain("unverifiable");
+		expect(text).not.toContain("ran this session");
+	});
+
+	test("counts a command the guard let through unverified", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "gaps" } });
+
+		await emitEvent(harness.pi, "tool_call", { toolName: "bash", input: { command: "echo $(pwd)" } }, harness.ctx);
+
+		expect(await statusText(harness)).toContain("1 ran this session");
+	});
+
+	test("does not count a command it could verify", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "gaps" } });
+
+		await emitEvent(harness.pi, "tool_call", { toolName: "bash", input: { command: "git status" } }, harness.ctx);
+
+		expect(await statusText(harness)).not.toContain("ran this session");
+	});
+
+	test("says nothing about gaps outside a worktree", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo);
+
+		const text = await statusText(harness);
+
+		expect(text).toContain("Not in a worktree.");
+		expect(text).not.toContain("Not isolated:");
+	});
+});

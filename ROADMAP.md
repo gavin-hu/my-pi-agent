@@ -59,19 +59,20 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | P1–P3, P5 |
 | Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P4, P6–P8 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S8 |
-| Remember across sessions | Works; store hygiene is manual | S2–S3 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S7 |
+| Remember across sessions | Works; store hygiene is manual | S1–S2 |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W10 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F10 |
 
 ## If only three things ship
 
-1. **S1 — Isolation status.** "Never wreck the checkout" becomes honest when the
-   gaps are named in the session instead of only in a README.
-2. **P1 — Step budget honesty.** A plan the user reviewed must not lose the steps
+1. **P1 — Step budget honesty.** A plan the user reviewed must not lose the steps
    approval cannot track; refuse the overflow at write time.
-3. **F2 — Docs truth test.** Prevent the class of defect where a shipped command
+2. **F2 — Docs truth test.** Prevent the class of defect where a shipped command
    is documented as absent.
+3. **S1 — Memory health.** A store that grew past its injection budget should say
+   so, and two notes should be mergeable, before "remember across sessions"
+   drifts into "remember roughly".
 
 ## Horizons
 
@@ -180,39 +181,33 @@ this file, as the record of what shipped.
 
 **Now**
 
-- **S1 — Isolation status.** `/worktree status` already names a skipped override
-  and every managed worktree; extend it and `doctor` to the rest of the unguarded
-  surfaces in this session — the user's `!` shell, Windows `powershell`, and any
-  path the guard cannot parse. *Done when* every gap the `worktree` README
-  documents is either visible in the session or listed in *Deliberately left
-  thin*.
-- **S2 — Memory health.** `/memory doctor` reports note count, bytes,
+- **S1 — Memory health.** `/memory doctor` reports note count, bytes,
   over-budget stores, and near-duplicates; the picker can merge two notes into
   one. Dedupe stays conservative. *Done when* no injection path changes and a
   merge is atomic.
 
 **Next**
 
-- **S3 — Note promotion.** Move a note between project and global scope from the
+- **S2 — Note promotion.** Move a note between project and global scope from the
   `/memory` picker, so a fact learned in one repository can graduate without a
   manual file copy.
-- **S4 — Guard parity on Windows.** Block `powershell` escapes in the worktree
+- **S3 — Guard parity on Windows.** Block `powershell` escapes in the worktree
   guard the way plan mode already does, or report the gap as `degraded`. *Done
   when* a Windows test covers an escape attempt.
 
 **Later**
 
-- **S5 — Partial restore.** Per-file or per-directory rewind from a snapshot,
+- **S4 — Partial restore.** Per-file or per-directory rewind from a snapshot,
   with the same confirmation and dirty-tree rules that the whole-tree restore
   already has. This reverses the current all-or-nothing non-goal; design the UI
   before the tool.
-- **S6 — Worktree handoff.** A checked way to leave a worktree with a commit and
+- **S5 — Worktree handoff.** A checked way to leave a worktree with a commit and
   a merge or pull-request hint, without becoming a general branch manager. The
   branch flow in `AGENTS.md` is the contract to keep.
-- **S7 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S6 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics.
-- **S8 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S7 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -396,10 +391,10 @@ it.
 
 | Limitation | Why it has no item |
 |---|---|
-| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard. Revisit with `S7`. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard. Revisit with `S6`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
-| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S5`. |
-| `rewind`: a restore is all-or-nothing | A non-goal until `S5`; the confirmation already previews the change. |
+| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S4`. |
+| `rewind`: a restore is all-or-nothing | A non-goal until `S4`; the confirmation already previews the change. |
 | `document`: no OCR | `W9` is a non-goal until a dependency-light engine exists. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |
@@ -417,7 +412,7 @@ above.
   thin* — `F2`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
-  `P1`, `P6`, `S1`, `S4`.
+  `P1`, `P6`, `S3`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — `P3`.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git

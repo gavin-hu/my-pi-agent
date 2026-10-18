@@ -224,8 +224,12 @@ function pathEscapes(root: string, raw: string): boolean {
 	return !isInside(root, resolve(root, expanded.path));
 }
 
-/** Check 4: constructs whose text does not spell out the git command that runs. */
-function looksUnparsable(command: string): boolean {
+/**
+ * Constructs whose text does not spell out the git command that runs. Exported
+ * so the `tool_call` handler counts exactly the commands this check would have
+ * refused, instead of guessing at a second list.
+ */
+export function isUnverifiable(command: string): boolean {
 	return /\$\(|`|\$\{!|\beval\b|\b(?:sh|bash|zsh|dash|ksh)\s+-c\b/.test(command);
 }
 
@@ -553,7 +557,7 @@ export function analyzeBashCommand(command: string, root: string, config: Worktr
 		return { block: true, reason: `${redirect} Exit the worktree to operate on the main checkout.` };
 	}
 
-	if (config.guard.blockUnparsableCommands && looksUnparsable(command)) {
+	if (config.guard.blockUnparsableCommands && isUnverifiable(command)) {
 		return {
 			block: true,
 			reason:
