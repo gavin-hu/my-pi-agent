@@ -294,7 +294,10 @@ and keep user-facing content above the contributor sections.
 One doc per audience. Do not duplicate across them:
 
 - `README.md` — the end-user front door: what the package is, install, the
-  grouped catalog, configuration, and links onward.
+  grouped catalog, configuration, and links onward. `README.zh-CN.md` mirrors it
+  section for section: the two entry READMEs stay in sync, and
+  `test/docs-parity.test.ts` enforces the shared headings, table rows, and
+  relative links. Deep docs stay English until a translation owner exists.
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants rather than restating them.
 - `docs/` — repo-level guides: `getting-started`, `extensions` (the full
