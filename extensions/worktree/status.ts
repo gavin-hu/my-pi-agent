@@ -6,9 +6,10 @@
 import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config.ts";
+import { gapLines, isolationGaps } from "./gaps.ts";
 import { canonicalize, type CheckoutCheck, defaultBranch, listManagedWorktrees, repoRoot } from "./git.ts";
 import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
-import { getActive, getInactiveOverrides } from "./runtime.ts";
+import { configFor, getActive, getInactiveOverrides, getUnverifiableCommands } from "./runtime.ts";
 import type { WorktreeState } from "./state.ts";
 
 export function worktreeLabel(state: WorktreeState): string {
@@ -79,7 +80,7 @@ function relativeDay(at: number): string {
 	return `${days}d ago`;
 }
 
-/** Human-readable status: current worktree, override conflicts, managed worktrees. */
+/** Human-readable status: current worktree, override conflicts, gaps, managed worktrees. */
 export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string> {
 	const current = getActive();
 	const lines: string[] = [];
@@ -92,6 +93,18 @@ export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): P
 	const inactive = getInactiveOverrides();
 	if (inactive.length > 0) {
 		lines.push("", `Isolation not active for: ${inactive.join(", ")} (their default implementation is in use).`);
+	}
+	if (current) {
+		// What isolation does not cover, from the same rules `doctor` reports: a gap
+		// the user cannot see is a gap they cannot weigh.
+		const gaps = isolationGaps({
+			platform: process.platform,
+			activeTools: pi.getActiveTools(),
+			config: configFor(current.repoRoot),
+			unverifiableCommands: getUnverifiableCommands(),
+		});
+		const gapBlock = gapLines(gaps);
+		if (gapBlock.length > 0) lines.push("", "Not isolated:", ...gapBlock);
 	}
 
 	const root = current?.repoRoot ?? (await repoRoot(pi, ctx.cwd));

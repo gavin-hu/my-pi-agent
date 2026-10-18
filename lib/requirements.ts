@@ -138,7 +138,11 @@ function gitCheck(enables: string): BinaryCheck {
 export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	worktree: {
 		requires: [gitCheck("worktree isolation")],
-		notes: ["`.worktreeinclude` symlinks need symlink support (Windows Developer Mode)."],
+		notes: [
+			"`.worktreeinclude` symlinks need symlink support (Windows Developer Mode).",
+			"Your own `!` shell and Windows `powershell` are not re-rooted or guarded; only the model's own tools are.",
+			"Commands whose git behavior cannot be verified pass through unless `worktree.guard.blockUnparsableCommands` is set.",
+		],
 	},
 	rewind: {
 		requires: [gitCheck("rewind snapshots")],

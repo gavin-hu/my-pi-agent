@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { analyzeBashCommand, guardFileTool, resolveUnder } from "./guard.ts";
+import { analyzeBashCommand, guardFileTool, isUnverifiable, resolveUnder } from "./guard.ts";
 import { isInsideReal } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -111,6 +111,17 @@ describe("analyzeBashCommand", () => {
 		expect(
 			analyzeBashCommand("bash -c 'git -C /main status'", ROOT, config({ blockUnparsableCommands: true }))?.block,
 		).toBe(true);
+	});
+
+	test("isUnverifiable names exactly what the opt-in check refuses", () => {
+		for (const command of ["echo $(pwd)", "echo `pwd`", "eval 'git status'", "sh -c 'git status'", "echo ${!x}"]) {
+			expect(isUnverifiable(command)).toBe(true);
+		}
+		// Quote-blind by design, like the check it names: it errs toward "cannot
+		// verify" rather than parsing a command shape it already gave up on.
+		for (const command of ["git status", "git commit -m 'a message'", "ls -la"]) {
+			expect(isUnverifiable(command)).toBe(false);
+		}
 	});
 
 	test("blocks redirects that only escape after shell expansion", () => {

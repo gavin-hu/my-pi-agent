@@ -56,6 +56,21 @@ changes; a branch that still holds work is kept. Declining a confirmation
 (entering an outside path, exiting a worktree with work) is reported as normal
 feedback, not an error.
 
+`/worktree status` (and `list_worktrees`) reports the active worktree, any
+override that is not re-rooted, what isolation does not cover, and the managed
+worktrees:
+
+```text
+Not isolated:
+  ! shell       runs in the main checkout; Pi has no mutable session cwd
+  powershell    not re-rooted or guarded; only the model's own tools are
+  unverifiable  $(...), backticks, eval, and sh -c pass through (blockUnparsableCommands is off); 2 ran this session
+```
+
+`powershell` appears only on Windows with that tool active, and `unverifiable`
+only while `guard.blockUnparsableCommands` is off; its trailing count is this
+session's, reset at session start. `doctor` notes the same gaps for `worktree`.
+
 The model surface mirrors this with four tools:
 
 | Tool | Usage |
@@ -63,7 +78,7 @@ The model surface mirrors this with four tools:
 | `enter_worktree` | `name` to create a worktree, or `path` to enter an existing one. Errors if already isolated. |
 | `exit_worktree` | optional `remove` and `keepBranch`. Returns the clean/keep/remove decision. |
 | `prune_worktrees` | no parameters. Removes eligible managed worktrees and reports the rest. |
-| `list_worktrees` | no parameters. Read-only status: active root, inactive overrides, managed worktrees. |
+| `list_worktrees` | no parameters. Read-only status: active root, inactive overrides, isolation gaps, managed worktrees. |
 
 ## Configuration
 
@@ -189,11 +204,13 @@ use, falling back to directory mtime for a worktree with no record.
   directory.
 - The guard is best-effort at the shell level: command substitution, `eval`, and
   `sh -c` are only covered when `blockUnparsableCommands` is enabled, and real
-  isolation of arbitrary shell writes needs an OS sandbox.
+  isolation of arbitrary shell writes needs an OS sandbox. `/worktree` names the
+  gap and counts the commands that passed through it this session.
 - Only the model's `bash` tool is re-rooted and guarded. A shell command the
   user runs directly (`!` in the TUI / the `user_bash` event) is not re-rooted
   and still runs in the main checkout; Pi has no mutable session cwd to change
-  that. `/worktree` and `list_worktrees` report the active root.
+  that. `/worktree` and `list_worktrees` report the active root, and list the
+  shell under `Not isolated:` on every status read.
 
 ## Non-goals
 
@@ -214,7 +231,7 @@ use, falling back to directory mtime for a worktree with no record.
 | Built-in overrides | `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` are re-registered under the same names with `defaultActive: false`; each spreads the built-in definition and replaces only `execute`. `skipOverrides` is applied at load time. |
 | Commands | `/worktree` via `registerCommand`, with argument completions for the subcommands and exit flags. |
 | Flags | `--worktree` via `registerFlag`. |
-| Events | `session_start` (bind inherited env, restore or refuse recorded state, read the flag), `session_shutdown` (release the lock, clear status), `before_agent_start` (set the prompt cwd and worktree section), `tool_call` (guard). |
+| Events | `session_start` (bind inherited env, restore or refuse recorded state, read the flag), `session_shutdown` (release the lock, clear status), `before_agent_start` (set the prompt cwd and worktree section), `tool_call` (guard, and count a command it lets through unverified). |
 | State | The binding is a custom session entry (`worktree`) written with `pi.appendEntry` and rebuilt from `ctx.sessionManager.getBranch()` on `session_start`. `.pi/worktrees/index.json` is a disposable managed-record cache, reconciled against `git worktree list`. Child processes inherit `PI_WORKTREE_*` env. |
 | UI/events | Status chip via `ctx.ui.setStatus`; `worktree:changed` published on `pi.events`. |
 
@@ -229,6 +246,13 @@ use, falling back to directory mtime for a worktree with no record.
 - **Two layers: re-root and guard.** Re-rooting relative paths is not enough on
   its own — an absolute path, `cd`, or `git -C` still escapes. The guard runs
   centrally from the `tool_call` handler, so nested tool calls are covered too.
+- **A gap the user cannot see is a gap they cannot weigh.** Re-rooting is not
+  isolating: Pi has no mutable session cwd, so the user's own `!` shell stays in
+  the main checkout, `powershell` has no worktree surface, and an unverifiable
+  command passes by default. Those rules live in `gaps.ts` as data, the status
+  text renders them, `doctor` notes them, and the `tool_call` handler counts the
+  one gap the transcript cannot show: a command the guard let through without
+  verifying it. Enforcing them is separate work, not a reporting concern.
 - **Core model: Checkout / Managed record / Binding.** A *Checkout* is a real
   `git worktree` and git is authoritative about it. A *Managed record* is
   provenance and usage in a disposable index. A *Binding* is this session's
@@ -266,6 +290,7 @@ use, falling back to directory mtime for a worktree with no record.
 | `root-tools.ts` | Load-time built-in overrides bound to the active root |
 | `git.ts` | Git plumbing (shared runner + read helpers) |
 | `guard.ts` | Path, shell, and git-redirect isolation checks |
+| `gaps.ts` | The isolation gaps a session carries, and how they read (pure) |
 | `include.ts` | `.worktreeinclude` matcher and copy |
 | `config.ts` / `state.ts` / `status.ts` | Config, session entry shape, status text |
 | `registry.ts` | Disposable managed-worktree index + derived status |

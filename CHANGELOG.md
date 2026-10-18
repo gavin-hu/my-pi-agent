@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `worktree`: `/worktree status` and `list_worktrees` now name what isolation does
+  not cover instead of leaving it to the README — the user's own `!` shell,
+  Windows `powershell` with that tool active, and shell commands whose git
+  behavior the guard cannot verify. The last one reports how many passed through
+  this session, since the transcript cannot show them; `doctor` notes the same
+  gaps on the `worktree` extension.
+
 ### Changed
 
 - `plan`: the review baseline is now a `plan-baseline` session entry holding one
