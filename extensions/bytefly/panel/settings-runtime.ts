@@ -12,8 +12,6 @@
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, type QuietStartup } from "@earendil-works/pi-coding-agent";
 import { readJson, SHARED_CONFIG_FILE, writeConfigValueAt } from "../../../lib/config.ts";
-import { CURRENCY_DEFAULTS } from "../footer/price/config.ts";
-import type { CurrencyCode } from "../footer/price/types.ts";
 import type { SettingsStore, WriteScope } from "../picker/types.ts";
 import {
 	countSettings,
@@ -87,6 +85,15 @@ function applyAppSetting(store: SettingsStore, row: SettingDescriptor, raw: stri
 	}
 }
 
+/** Why `row` cannot be written in `scope`, or `undefined` when it can. */
+function refusal(row: SettingDescriptor, scope: WriteScope, trusted: boolean): string | undefined {
+	if (scope === "project" && !trusted) {
+		return "Project is not trusted; settings can only be changed in Global scope.";
+	}
+	if (row.source === "app" && scope !== "global") return `${row.label} is a Global setting.`;
+	return undefined;
+}
+
 /** Create the Settings runtime for one screen invocation. */
 export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntime {
 	let snapshot = readSnapshot(deps);
@@ -97,18 +104,42 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 		for (const listener of listeners) listener();
 	};
 
+	/**
+	 * Write one row's value, including the extra leaves the row declares. Throws
+	 * with the reason a write failed; the caller formats it and leaves the
+	 * displayed value alone.
+	 */
+	const write = async (scope: WriteScope, row: SettingDescriptor, raw: string): Promise<void> => {
+		if (row.source === "app") {
+			applyAppSetting(deps.stores.global, row, raw);
+			await deps.stores.global.flush();
+			const first = deps.stores.global.drainErrors()[0];
+			if (first) throw first.error;
+			return;
+		}
+		const config = row.config;
+		if (!config) throw new Error(`Setting ${row.id} has no config section`);
+		const path = configPath(scope, deps.cwd, deps.agentDir);
+		writeConfigValueAt(path, config.section, config.path, storedValue(row, raw));
+		for (const leaf of row.also?.(raw) ?? []) writeConfigValueAt(path, leaf.section, leaf.path, leaf.value);
+	};
+
+	/** Take a completed write: re-read the snapshot, mark it dirty, repaint. */
+	const committed = (): void => {
+		snapshot = readSnapshot(deps);
+		dirty = true;
+		emit();
+	};
+
 	return {
 		views: (scope) => settingViews(snapshot, scope),
 		count: (scope) => countSettings(scope),
 		change: async (scope, id) => {
 			const row = SETTING_ROWS.find((entry) => entry.id === id);
 			if (!row) return;
-			if (scope === "project" && !deps.trusted) {
-				deps.onError?.("Project is not trusted; settings can only be changed in Global scope.");
-				return;
-			}
-			if (row.source === "app" && scope !== "global") {
-				deps.onError?.(`${row.label} is a Global setting.`);
+			const refused = refusal(row, scope, deps.trusted);
+			if (refused !== undefined) {
+				deps.onError?.(refused);
 				return;
 			}
 			const current = settingViews(snapshot, scope).find((entry) => entry.id === id);
@@ -118,34 +149,13 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 				deps.onError?.(`Cannot save ${row.label}: unknown value.`);
 				return;
 			}
-
 			try {
-				if (row.source === "app") {
-					applyAppSetting(deps.stores.global, row, next.value);
-					await deps.stores.global.flush();
-					const errors = deps.stores.global.drainErrors();
-					const first = errors[0];
-					if (first) throw first.error;
-				} else {
-					const config = row.config;
-					if (!config) throw new Error(`Setting ${row.id} has no config section`);
-					const path = configPath(scope, deps.cwd, deps.agentDir);
-					writeConfigValueAt(path, config.section, config.path, storedValue(row, next.value));
-					if (row.id === "price.currency.code") {
-						// Choosing a currency also sets its default precision, so the screen
-						// and the footer agree; the precision remains overridable.
-						const currency = CURRENCY_DEFAULTS[next.value as CurrencyCode];
-						writeConfigValueAt(path, "price", ["currency", "decimals"], currency.decimals);
-					}
-				}
+				await write(scope, row, next.value);
 			} catch (error) {
 				deps.onError?.(`Could not save ${row.label}: ${error instanceof Error ? error.message : String(error)}`);
 				return;
 			}
-
-			snapshot = readSnapshot(deps);
-			dirty = true;
-			emit();
+			committed();
 		},
 		async setValue(scope, id, raw) {
 			const row = SETTING_ROWS.find((entry) => entry.id === id);
@@ -153,32 +163,23 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 				deps.onError?.(`${row?.label ?? id} cannot be edited as text.`);
 				return false;
 			}
-			if (scope === "project" && !deps.trusted) {
-				deps.onError?.("Project is not trusted; settings can only be changed in Global scope.");
+			const refused = refusal(row, scope, deps.trusted);
+			if (refused !== undefined) {
+				deps.onError?.(refused);
 				return false;
 			}
-			if (row.source === "app" && scope !== "global") {
-				deps.onError?.(`${row.label} is a Global setting.`);
+			const invalid = textError(row, raw);
+			if (invalid !== undefined) {
+				deps.onError?.(invalid);
 				return false;
 			}
-			const refusal = textError(row, raw);
-			if (refusal !== undefined) {
-				deps.onError?.(refusal);
-				return false;
-			}
-
 			try {
-				const config = row.config;
-				if (!config) throw new Error(`Setting ${row.id} has no config section`);
-				writeConfigValueAt(configPath(scope, deps.cwd, deps.agentDir), config.section, config.path, raw);
+				await write(scope, row, raw);
 			} catch (error) {
 				deps.onError?.(`Could not save ${row.label}: ${error instanceof Error ? error.message : String(error)}`);
 				return false;
 			}
-
-			snapshot = readSnapshot(deps);
-			dirty = true;
-			emit();
+			committed();
 			return true;
 		},
 		isDirty: () => dirty,

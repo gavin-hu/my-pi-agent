@@ -673,7 +673,7 @@ headline; a named extension prints its full findings instead.
 | `Space` | Toggle the focused extension (Extensions); change the focused setting (Settings), or open the editor on a text row. |
 | `x` | Clear the focused extension's project override (Extensions, Project scope). |
 | `Enter` | Expand or collapse the focused extension's findings (Extensions); change the focused setting, or open the editor on a text row (Settings). |
-| `←` / `→`, `Home` / `End` | Move the editor's caret while a text row is being edited. |
+| `←` / `→`, `Home` / `End` (`Ctrl+A` / `Ctrl+E`) | Move the editor's caret while a text row is being edited. |
 | `Backspace` / `Delete`, `Ctrl+U` | Edit the buffer: delete a character, or clear it. |
 | `Enter` / `Esc` (editing) | Save the buffer, or cancel and restore the stored value. |
 | `Tab` | Switch between Global and Project scope, in either section. |

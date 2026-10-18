@@ -7,16 +7,22 @@
  * one definition and the tests need no host.
  *
  * The catalogue is deliberately curated: one proven row family at a time. It
- * covers scalars (a boolean checkbox, an enum cycle), both scopes, both write
- * paths, and — with `price.currency.decimals` — one nested key. Arrays, nested
- * tariffs, credentials, and free text are still JSON edits.
+ * covers scalars (a boolean checkbox, an enum cycle, a short string with its own
+ * rule), both scopes, both write paths, and — with `price.currency.decimals` —
+ * one nested key. Arrays, nested tariffs, and credentials are still JSON edits.
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../chrome.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
-import { DEFAULT_BYTEFLY_CONFIG, DEFAULT_CURRENCY, normalizeByteflyConfig } from "../footer/price/config.ts";
+import {
+	CURRENCY_DEFAULTS,
+	DEFAULT_BYTEFLY_CONFIG,
+	DEFAULT_CURRENCY,
+	normalizeByteflyConfig,
+} from "../footer/price/config.ts";
+import type { CurrencyCode } from "../footer/price/types.ts";
 import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 
@@ -58,6 +64,13 @@ export interface SettingConfig {
 	path: readonly string[];
 }
 
+/** One `bytefly.json` leaf a row writes alongside its own. */
+export interface SettingLeaf {
+	section: ConfigSectionName;
+	path: readonly string[];
+	value: unknown;
+}
+
 /** The static definition of one preference. */
 export interface SettingDescriptor {
 	/** Stable identity, also the focus key. */
@@ -78,6 +91,11 @@ export interface SettingDescriptor {
 	json?: "boolean" | "number";
 	/** For `bytefly` rows: the section and leaf path this row edits. */
 	config?: SettingConfig;
+	/**
+	 * Extra leaves written with this row's own, for a value that implies another.
+	 * Kept on the row so the writer stays generic and the rule is stated once.
+	 */
+	also?: (raw: string) => readonly SettingLeaf[];
 }
 
 /** A row with the value read from one scope. */
@@ -218,6 +236,14 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 			{ value: "USD", label: "USD ($)" },
 		],
 		config: { section: "price", path: ["currency", "code"] },
+		// Choosing a currency also sets its default precision, so the screen and the
+		// footer agree; the precision stays overridable afterwards.
+		also: (raw) => {
+			const currency = CURRENCY_DEFAULTS[raw as CurrencyCode];
+			return currency === undefined
+				? []
+				: [{ section: "price", path: ["currency", "decimals"], value: currency.decimals }];
+		},
 	},
 	{
 		id: "price.currency.decimals",

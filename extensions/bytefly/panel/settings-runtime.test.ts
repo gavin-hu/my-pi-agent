@@ -255,3 +255,15 @@ describe("text writes", () => {
 		expect(notices.at(-1)).toContain("cannot be edited as text");
 	});
 });
+
+describe("one guard for both write paths", () => {
+	test("setValue refuses in Project scope for the same reason change does", async () => {
+		const { runtime, notices, globalPath } = boot({ trusted: false, globalDoc: { notify: { title: "Pi" } } });
+
+		expect(await runtime.setValue("project", "notify.title", "Pinned")).toBe(false);
+
+		expect(notices.at(-1)).toBe("Project is not trusted; settings can only be changed in Global scope.");
+		expect(readJson(globalPath)).toEqual({ notify: { title: "Pi" } });
+		expect(runtime.isDirty()).toBe(false);
+	});
+});

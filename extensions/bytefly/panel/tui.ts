@@ -284,9 +284,12 @@ export class PanelComponent implements Component {
 			this.editing = { ...editing, caret: Math.max(0, caret - 1) };
 		} else if (matchesKey(data, Key.right)) {
 			this.editing = { ...editing, caret: Math.min(buffer.length, caret + 1) };
-		} else if (matchesKey(data, Key.home) || data === "\u0001") {
+			// `Ctrl+A`/`Ctrl+E` are the emacs spellings of Home/End, which pi-tui's
+			// `Key.home`/`Key.end` do not match; both are offered because a terminal
+			// may send either.
+		} else if (matchesKey(data, Key.home) || matchesKey(data, "ctrl+a")) {
 			this.editing = { ...editing, caret: 0 };
-		} else if (matchesKey(data, Key.end) || data === "\u0005") {
+		} else if (matchesKey(data, Key.end) || matchesKey(data, "ctrl+e")) {
 			this.editing = { ...editing, caret: buffer.length };
 		} else if (matchesKey(data, "ctrl+u")) {
 			this.editing = { ...editing, buffer: "", caret: 0 };
