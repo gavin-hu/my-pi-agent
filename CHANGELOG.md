@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-10-18
+
 ### Fixed
 
 - `wechat`: the refused-sender and dropped-media counters reset when the bridge
@@ -1653,7 +1655,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.2
 [0.11.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.1
 [0.10.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.10.0
 [0.9.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.9.0
