@@ -38,10 +38,11 @@ How the `job` call and its result look in the transcript — the call line as a 
   killing, and clearing.
 - Reports finished jobs to the model at the start of the next turn, or — for
   jobs started with `wake: true` — by triggering one turn.
-- Kills session-owned jobs on shutdown so no process is left behind; start a
-  job with `detached: true` to keep it running and reattach next session. A
-  detached POSIX job points its own output straight at its log file, so it keeps
-  logging after this process ends.
+- Kills session-owned jobs on shutdown so no process is left behind; on POSIX,
+  start a job with `detached: true` to keep it running and reattach next session.
+  A detached job points its own output straight at its log file, so it keeps
+  logging after this process ends. Windows has neither a process group to leave
+  nor a shell `EXIT` trap, so it refuses the detach instead of faking one.
 
 ## Tool
 
@@ -53,7 +54,7 @@ How the `job` call and its result look in the transcript — the call line as a 
 | `cwd` | Working directory (`start`); defaults to the session cwd. |
 | `label` | Short display label (`start`); defaults to the command. |
 | `wake` | Wake the agent with one triggered turn when it finishes (`start`). |
-| `detached` | Leave it running when the session ends (`start`). |
+| `detached` | Leave it running when the session ends (`start`); POSIX only, refused on Windows. |
 | `stdin` | Give the job a stdin pipe so `send` can write to it (`start`); not with `detached`. |
 | `id` | Job id such as `j1` (`status`/`logs`/`send`/`kill`/`wait`/`clear`). |
 | `lines` | Log lines to return (`logs`, 1–2000). |
@@ -191,7 +192,7 @@ document, project wins):
 | `enabled` | `true` | Track jobs at all. |
 | `showStatus` | `true` | Show the `▸ N` / `✗ N` status chips. |
 | `wakeOnFinish` | `false` | Wake the agent when any job finishes. |
-| `detachedByDefault` | `false` | Leave jobs running when the session ends. |
+| `detachedByDefault` | `false` | Leave jobs running when the session ends; inert on Windows. |
 | `maxJobs` | `20` | Finished jobs kept before the oldest are pruned. |
 | `maxLogLines` | `100` | Log lines returned by `logs`. |
 | `maxLogBytes` | `8388608` | Bytes a log segment may reach before it rotates to `<id>.log.1`; `0` keeps logs unbounded. |
@@ -214,8 +215,8 @@ rewritten.
 - **`unknown` still has no exit code on some paths.** A POSIX job is wrapped in
   an `EXIT` trap that writes `$?` to a per-job `.status` file, so a job
   reattached after its session died reports its real exit code. `exec cmd`
-  replaces the shell and bypasses the trap, and Windows has no equivalent, so
-  those jobs settle as `unknown`.
+  replaces the shell and bypasses the trap, and a Windows job has no equivalent,
+  so those settle as `unknown`.
 - **Another session's jobs are shown, but not managed here.** Records are merged
   from every session file so ids stay unique and a peer's job is not reaped, and
   `list`/`/jobs` show them tagged `peer` (a dead session's records are adopted
@@ -236,10 +237,13 @@ rewritten.
   keep appending to the moved inode, or lose everything. Its log therefore grows
   without the `maxLogBytes` cap; `logs` still reads a bounded tail, and the file
   can be emptied by hand.
-- **Windows is best-effort.** Tree-kill uses `taskkill /T`; POSIX uses process
-  groups. A detached job only escapes the parent process on POSIX, where its
-  shell writes the log directly; on Windows it keeps the parent pipe and is
-  captured only until the session ends.
+- **Windows cannot detach a job.** There is no process group to leave and no
+  shell `EXIT` trap, so `detached: true` is refused with the three alternatives
+  (`detached: false`, WSL, a `subagent`) rather than starting a job that would
+  die with the session while claiming to outlive it. `job.detachedByDefault` is
+  inert there instead of failing every start with a config set on another
+  machine, and `doctor` names both facts. Tree-kill is still `taskkill /T`, and a
+  job reported only after its process is gone settles as `unknown`.
 
 ## Non-goals
 

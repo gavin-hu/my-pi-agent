@@ -134,7 +134,7 @@ ignored, and an absent id keeps its registry default.
 | `enabled` | boolean | `true` | | Track jobs at all. |
 | `showStatus` | boolean | `true` | | Show the `▸ N` / `✗ N` chips while jobs run or a failure is unreported. |
 | `wakeOnFinish` | boolean | `false` | | Default `wake` for a new job: trigger one agent turn when it finishes. |
-| `detachedByDefault` | boolean | `false` | | Leave jobs running when the session ends unless a job opts out. |
+| `detachedByDefault` | boolean | `false` | | Leave jobs running when the session ends unless a job opts out; inert on Windows, which refuses to detach. |
 | `maxJobs` | integer | `20` | `1`–`500` | Finished jobs kept in the registry before the oldest are pruned. |
 | `maxLogLines` | integer | `100` | `1`–`5000` | Log lines returned to the model by `logs`. |
 | `maxLogBytes` | integer | `8388608` | `0`–`1073741824` | Bytes a log segment may reach before it rotates to `<id>.log.1`; `0` keeps logs unbounded. |

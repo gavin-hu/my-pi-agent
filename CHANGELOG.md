@@ -160,6 +160,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `job`: `detached: true` is now refused on Windows instead of starting a job that
+  silently did not detach — it kept the parent's pipes, died with the session, and
+  never reported a code. The error names the three alternatives (`detached:
+  false`, WSL, a `subagent`); `job.detachedByDefault` is inert there rather than
+  failing every start with a config set on another machine, and `doctor` names
+  both facts plus the unrecoverable exit code.
+
 - docs: the configuration reference is `docs/references/bytefly-config.md`.
   The old path said "configuration...reference" twice, once in the directory and
   once in the suffix, and read as a sibling of `docs/configuration.md`, which
