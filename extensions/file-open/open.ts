@@ -5,7 +5,7 @@
  * runs is asserted without a process. `openTarget` takes an injectable spawn so
  * a test launches nothing. Opening is best-effort: the caller decides what to do
  * with a failure, which is reported through `onError` rather than thrown, since
- * `spawn` reports a missing handler asynchronously.
+ * the launcher reports a start failure and a non-zero exit asynchronously.
  */
 
 import { spawn } from "node:child_process";
@@ -19,6 +19,11 @@ export type OpenMode = "open" | "reveal";
 export interface NativeCommand {
 	command: string;
 	args: string[];
+	/**
+	 * Whether a non-zero exit means the target was not opened. Windows
+	 * `explorer` can exit non-zero after a successful open, so it opts out.
+	 */
+	exitMeansFailure: boolean;
 }
 
 /**
@@ -51,49 +56,75 @@ export function buildCommand(
 	platform: NodeJS.Platform = process.platform,
 ): NativeCommand {
 	if (platform === "darwin") {
-		return mode === "reveal" ? { command: "open", args: ["-R", target] } : { command: "open", args: [target] };
+		return mode === "reveal"
+			? { command: "open", args: ["-R", target], exitMeansFailure: true }
+			: { command: "open", args: [target], exitMeansFailure: true };
 	}
 	if (platform === "win32") {
+		// `explorer` opens with the default handler without routing the path
+		// through cmd, which would expand `%NAME%` inside it.
 		return mode === "reveal"
-			? { command: "explorer", args: [`/select,${target}`] }
-			: { command: "cmd", args: ["/c", "start", "", target] };
+			? { command: "explorer", args: [`/select,${target}`], exitMeansFailure: false }
+			: { command: "explorer", args: [target], exitMeansFailure: false };
 	}
 	// Linux et al. xdg-open has no "select" verb, so reveal opens the parent.
-	return { command: "xdg-open", args: [mode === "reveal" ? dirname(target) : target] };
+	return {
+		command: "xdg-open",
+		args: [mode === "reveal" ? dirname(target) : target],
+		exitMeansFailure: true,
+	};
+}
+
+/** The child surface `openTarget` listens on; an injected launcher may return none. */
+export interface LauncherChild {
+	on(event: "error", listener: (error: Error) => void): unknown;
+	on(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
 }
 
 /** A launcher seam; the default spawns the command detached. */
-export type SpawnFn = (command: string, args: string[]) => unknown;
+export type SpawnFn = (command: string, args: string[]) => LauncherChild | undefined;
 
 export interface OpenTargetOptions {
 	/** Platform to build the command for; defaults to the running one. */
 	platform?: NodeJS.Platform;
 	/** Override the launcher (tests). */
 	spawn?: SpawnFn;
-	/** Called when the handler cannot be started or reports an error. */
+	/** Called once when the handler cannot start, or exits non-zero where that is meaningful. */
 	onError?: (error: Error) => void;
 }
 
+/** Spawn the handler detached so the application outlives the session. */
+const spawnDetached: SpawnFn = (command, args) => {
+	const child = spawn(command, args, { detached: true, stdio: "ignore" });
+	child.unref();
+	return child;
+};
+
 /** Start the native handler for `target`, detached so it outlives the session. */
 export function openTarget(mode: OpenMode, target: string, options: OpenTargetOptions = {}): void {
-	const { command, args } = buildCommand(mode, target, options.platform);
-	const onError = options.onError;
+	const { command, args, exitMeansFailure } = buildCommand(mode, target, options.platform);
+	const launch = options.spawn ?? spawnDetached;
 
-	if (options.spawn) {
-		try {
-			options.spawn(command, args);
-		} catch (error) {
-			onError?.(toError(error));
-		}
-		return;
-	}
+	// A start failure and an exit both arrive asynchronously; report at most
+	// one, since both can fire for the same launch.
+	let reported = false;
+	const report = (error: Error): void => {
+		if (reported) return;
+		reported = true;
+		options.onError?.(error);
+	};
 
 	try {
-		const child = spawn(command, args, { detached: true, stdio: "ignore" });
-		child.on("error", (error) => onError?.(error));
-		child.unref();
+		const child = launch(command, args);
+		child?.on("error", report);
+		if (child && exitMeansFailure) {
+			child.on("exit", (code, signal) => {
+				if (signal) report(new Error(`the OS handler was stopped by ${signal}`));
+				else if (code !== 0) report(new Error(`the OS handler exited with status ${code}`));
+			});
+		}
 	} catch (error) {
-		onError?.(toError(error));
+		report(toError(error));
 	}
 }
 

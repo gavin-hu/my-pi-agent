@@ -113,7 +113,7 @@ describe("file-open extension", () => {
 		await commands.get("open").handler("", ctx);
 
 		expect(calls).toEqual([{ mode: "open", target: CWD }]);
-		expect(notices.at(-1)).toEqual({ message: `Opened ${CWD}`, kind: "info" });
+		expect(notices.at(-1)).toEqual({ message: `Opening ${CWD}`, kind: "info" });
 	});
 
 	test("the /open command reveals with the -r flag", async () => {
@@ -125,7 +125,7 @@ describe("file-open extension", () => {
 		await commands.get("open").handler("-r open.ts", ctx);
 
 		expect(calls).toEqual([{ mode: "reveal", target: join(CWD, "open.ts") }]);
-		expect(notices.at(-1)?.message).toContain("Revealed");
+		expect(notices.at(-1)?.message).toContain("Revealing");
 	});
 
 	test("the /open command reports a missing path", async () => {

@@ -28,12 +28,14 @@ pi install ./                               # install the package for a user
 ## What it does
 
 - Opens a file or directory with the OS-native application: `open` on macOS,
-  `cmd /c start` on Windows, `xdg-open` on Linux.
+  `explorer` on Windows, `xdg-open` on Linux.
 - Reveals it in the file manager instead with `-r` (or `reveal: true`): `open -R`
   on macOS, `explorer /select,` on Windows, and the containing directory on
   Linux, which has no "select" verb.
 - Unwraps the editor's `@` file-mention prefix and surrounding quotes, so
   `/open @src/app.ts` and `/open @"my file.txt"` both work.
+- Reports a launcher that cannot be started, and (on macOS and Linux) a launcher
+  that exits non-zero because no handler accepted the target.
 - Resolves relative paths against the effective working directory, so under the
   `worktree` extension `/open .` opens the isolated worktree.
 - Launches the handler detached, so it outlives the Pi session.
@@ -47,14 +49,17 @@ pi install ./                               # install the package for a user
 
 The `-r` flag must come first. A missing path is reported through a notification
 and nothing is launched. An empty argument means the working directory. The
-command needs an interactive terminal UI.
+command first reports `Opening <path>` (or `Revealing <path>`); a launcher that
+starts but then fails adds a `Could not open` error notification. The command
+needs an interactive terminal UI.
 
 ## Tool
 
 `open_path` — `exposure: "codemode"`, inactive by default, not read-only,
-open-world (`openWorldHint: true` because it starts an OS process). It is
-listed by the `codemode` tool and reachable through `ctx.executeTool`; it is not
-declared to the model unless activated.
+open-world (`openWorldHint: true` because it starts an OS process). It is listed
+by the `codemode` tool for a script to call as `tools.open_path(...)`, and an
+extension can reach it through `ctx.executeTool`; it is not declared to the
+model unless activated.
 
 | Parameter | Type | Meaning |
 |---|---|---|
@@ -68,10 +73,11 @@ Result (`details` / `structuredContent`):
 | `target` | The absolute path that was handled. |
 | `reveal` | Whether it was revealed rather than opened. |
 
-The model-facing `content` is `Opened <target>` or `Revealed <target>`. A path
-that does not exist is thrown as an error naming the resolved path; a launch
-failure is reported through `ctx.ui.notify` because the handler runs detached,
-and the tool result still names the target.
+The model-facing `content` is `Opened <target>` or `Revealed <target>` — the
+handler was started, not proof that it succeeded. A path that does not exist is
+thrown as an error naming the resolved path; a launcher that cannot be started,
+or (on macOS and Linux) exits non-zero, is reported through `ctx.ui.notify`
+because the handler runs detached, and the tool result still names the target.
 
 ## Behaviour by mode
 
@@ -94,12 +100,18 @@ JSON, and print modes; a codemode script can call it in any of them. Only the
 - **Not confined.** Unlike `read_doc`, the tool opens any path on the machine:
   confinement would defeat its purpose of showing the user a file wherever it
   lives. Relative paths resolve against the effective worktree root.
-- **Best-effort launch.** A missing handler or a refused launch is reported, not
-  retried.
+- **Best-effort launch.** A launcher that cannot be started is reported, and so
+  is a non-zero exit on macOS and Linux, where `open` and `xdg-open` return a
+  failure status when no handler accepts the target. Windows `explorer` can exit
+  non-zero after a successful open, so only a failure to start is reported
+  there. Nothing is retried.
 
 ## Limitations
 
 - Reveal has no native meaning on Linux, so it opens the containing directory.
+- On Windows a refused target is not reported: `explorer` does not relay the
+  failure and its exit status is unreliable, so `/open` and `open_path` can only
+  report that the launcher started.
 - A launch that the OS accepts but the user never sees (a backgrounded app, a
   hidden window) is not detected: `spawn` reports only that the process started.
 - `-r` is parsed only as the first token of `/open`, so a path that genuinely
@@ -115,7 +127,7 @@ JSON, and print modes; a codemode script can call it in any of them. Only the
 | Command | `/open [path]` and `/open -r [path]`; reports through `ctx.ui.notify`. |
 | State | None persisted, and none needed: every call is independent. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks; the factory holds no long-lived resources. |
-| Host seams | `resolveEffectiveCwd` and `isExtensionEnabled` (`lib/env.ts`), `stripControlChars` (`lib/format.ts`), `spawn` / `open` / `xdg-open` / `cmd` / `explorer` (via the injected launcher in `open.ts`). |
+| Host seams | `resolveEffectiveCwd` and `isExtensionEnabled` (`lib/env.ts`), `stripControlChars` (`lib/format.ts`), `spawn` / `open` / `xdg-open` / `explorer` (via the injected launcher in `open.ts`). |
 | Config | None. |
 
 ## Design notes
@@ -123,8 +135,11 @@ JSON, and print modes; a codemode script can call it in any of them. Only the
 `buildCommand` and `normalizeTarget` are pure and `openTarget` takes an injected
 launcher, so the command for each platform is asserted without a process and a
 test launches nothing. The launch is best-effort: `spawn` reports a missing
-handler asynchronously, so the failure goes to `onError` (and a notification)
-rather than being thrown from a synchronous call the tool could catch.
+launcher asynchronously and the child reports its exit, so both failures go to
+`onError` (and a notification) rather than being thrown from a synchronous call
+the tool could catch. `exitMeansFailure` opts Windows out because `explorer` can
+exit non-zero after a successful open. Windows opens through `explorer` rather
+than `cmd /c start` so cmd cannot re-parse a path containing `%`.
 
 The tool is `codemode`-exposed, matching how it was configured before the move:
 opening a native app is a side effect the user should trigger, so it stays out
@@ -135,7 +150,7 @@ of the model's active tool set unless a script explicitly reaches for it.
 | Module | Responsibility |
 |---|---|
 | `index.ts` | The extension factory: registers `open_path` and the `/open` command, resolves the target, and routes a launch failure to `ctx.ui.notify`. |
-| `open.ts` | `normalizeTarget` and `buildCommand` (pure), `resolveTarget` (existence check), and `openTarget` with the injectable launcher. |
+| `open.ts` | `normalizeTarget` and `buildCommand` (pure), `resolveTarget` (existence check), and `openTarget` with the injectable launcher, which reports a start failure and a meaningful non-zero exit. |
 | `schema.ts` | `TOOL_NAME`, the TypeBox `parameters` / `outputSchema`, and the `OpenPathArgs` / `OpenPathResult` types. |
 | `open.test.ts` | Pure-module tests for normalization, resolution, per-platform commands, and the launcher seam. |
 | `extension.test.ts` | Extension-surface tests: registration, disabling, the tool call, and the command. |

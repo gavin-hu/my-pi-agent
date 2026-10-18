@@ -80,6 +80,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: the documented plan outline now asks for file-anchored, verifiable
   steps and states the goal's non-goals; the outline test pins the section
   order.
+- `file-open`: a launcher that refuses a target is now reported on macOS and
+  Linux — a non-zero exit from `open` / `xdg-open` becomes a `Could not open`
+  notice instead of silence — and `/open` says `Opening <path>` first so the two
+  notices do not contradict each other. Windows opens through `explorer` instead
+  of `cmd /c start`, so `cmd` no longer expands `%NAME%` in a path; `explorer`'s
+  exit status stays untrusted, and that gap is documented.
 
 ### Fixed
 
