@@ -220,6 +220,11 @@ Rules:
   other package-level contracts listed above.
 - A co-located test's file stem matches the source module it covers. The only
   exceptions are the documented aggregates in `structure.test.ts`.
+- A test that asserts platform behaviour pins it through the injectable seam
+  (`isWindows: () => false`) rather than the ambient `process.platform`: the
+  suite runs on all three OSes and the seam is how the other two are simulated.
+  `process.platform` stays for what genuinely needs the real host — symlink
+  creation, a detached child's own output, a shell `EXIT` trap.
 
 ## Imports
 
