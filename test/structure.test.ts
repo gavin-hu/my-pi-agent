@@ -40,6 +40,7 @@ function walkFiles(dir: string, out: string[] = []): string[] {
 }
 
 const ROOT_TEST_FILES = new Set([
+	"config-docs.test.ts",
 	"naming.test.ts",
 	"prompt-budget.test.ts",
 	"release.test.ts",

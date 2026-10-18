@@ -8,13 +8,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `bytefly`: `x` clears the focused extension's project override in the control
-  center's Project scope, dropping the `+`/`-` entry a toggle wrote (and the
-  path or package entry beside it) so the row returns to its inherited state
-  without a `pi config` round-trip.
-
-### Added
-
 - `bytefly`: `/bytefly settings` grows from five rows to nine. The new rows
   cover the notification delivery method, the proactive health check, and the
   cost precision and recorded-cost fallback under new Diagnostics and Pricing
@@ -25,6 +18,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `↑0.12.0` to the header's chrome version and posts one transcript notice
   naming `pi update --extensions`; `PI_OFFLINE` skips the check and a failed
   request is silent.
+- `bytefly`: `x` clears the focused extension's project override in the control
+  center's Project scope, dropping the `+`/`-` entry a toggle wrote (and the
+  path or package entry beside it) so the row returns to its inherited state
+  without a `pi config` round-trip.
+- `bytefly`: `bytefly.json` is documented in
+  [`docs/configuration-reference.md`](./docs/configuration-reference.md), one
+  table per section with each key's type, default, and bounds. It replaces
+  `assets/bytefly.schema.json` (editor completion for the file goes with it),
+  and `config:migrate` no longer stamps `$schema`.
 
 ## [0.11.4] - 2026-10-18
 

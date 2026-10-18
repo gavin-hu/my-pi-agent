@@ -2,8 +2,10 @@
 
 Most extensions need no configuration. Every setting that is configurable lives
 in one shared document, `bytefly.json`, under a top-level section named for the
-extension — bytefly itself owns `price`, `notify`, and `doctor`. The keys are
-documented in each extension's own `README.md`.
+extension — bytefly itself owns `price`, `notify`, `doctor`, and `chrome`. Every
+key is listed in the
+[configuration reference](./configuration-reference.md); each extension's own
+`README.md` covers the behaviour around the keys.
 
 ## How config resolves
 
@@ -22,7 +24,6 @@ the file remains the source of truth and a hand edit is still valid.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json",
   "version": 1,
   "price": { "currency": { "symbol": "¥", "decimals": 2 } },
   "notify": { "enabled": true },
@@ -32,8 +33,9 @@ the file remains the source of truth and a hand edit is still valid.
 }
 ```
 
-`$schema` and `version` are metadata; the loaders ignore them. `version` is not
-required and defaults to `1`.
+`$schema` and `version` are metadata. The loaders ignore `$schema` (it is any
+pointer a user adds) and read `version` only to warn about a newer document;
+`version` is not required and defaults to `1`.
 
 ## Section index
 
@@ -57,15 +59,11 @@ repository root rather than the active working directory.
 
 `plan`, `question`, `subagent`, and `file-open` read no configuration.
 
-## JSON Schema
+## Full reference
 
-[`assets/bytefly.schema.json`](../assets/bytefly.schema.json) describes the
-document and every section. Point `$schema` at it for editor completion and
-validation:
-
-```json
-{ "$schema": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json" }
-```
+The [configuration reference](./configuration-reference.md) lists every section
+and key with its type, default, and bounds — the authoritative list for a hand
+edit.
 
 ## Migrating from the old per-extension files
 
@@ -78,9 +76,9 @@ bun run config:migrate --project <repo-root>   # add --dry-run to preview, --kee
 ```
 
 It moves each legacy file into its section, moves bytefly's former top-level
-`currency`/`rates`/`peak` under `price`, stamps `version` and `$schema`, and
-deletes the legacy files. It skips an existing section and refuses to touch a
-malformed document, so it is safe to re-run.
+`currency`/`rates`/`peak` under `price`, stamps `version`, and deletes the legacy
+files. It skips an existing section and refuses to touch a malformed document,
+so it is safe to re-run.
 
 ## State
 

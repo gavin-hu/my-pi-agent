@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { readJson, SHARED_CONFIG_FILE } from "../lib/config.ts";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
-import { migrate, migrateDocument, migrateScope, SCHEMA_URL } from "./migrate-config.ts";
+import { migrate, migrateDocument, migrateScope } from "./migrate-config.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -26,11 +26,17 @@ describe("migrateDocument", () => {
 		expect(document.notify).toEqual({ enabled: true });
 		expect("currency" in document).toBe(false);
 		expect(document.version).toBe(1);
-		expect(document.$schema).toBe(SCHEMA_URL);
+		// The document carries no schema pointer: `assets/bytefly.schema.json` is gone.
+		expect(document.$schema).toBeUndefined();
+	});
+
+	test("leaves a hand-written $schema alone and does not add one", () => {
+		const { document } = migrateDocument({ $schema: "https://example.test/meta.json" });
+		expect(document.$schema).toBe("https://example.test/meta.json");
 	});
 
 	test("is idempotent on an already-migrated document", () => {
-		const once = migrateDocument({ price: { currency: { symbol: "¥" } }, version: 1, $schema: SCHEMA_URL });
+		const once = migrateDocument({ price: { currency: { symbol: "¥" } }, version: 1 });
 		const twice = migrateDocument(once.document);
 		expect(twice.changed).toBe(false);
 		expect(twice.document).toEqual(once.document);

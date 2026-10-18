@@ -4,9 +4,9 @@
  * Every extension used to read its own `<name>.json`; they now read a top-level
  * section of one document. This script moves each legacy file's content into its
  * section, moves bytefly's own top-level `currency`/`rates`/`peak` under `price`,
- * stamps `version` and `$schema`, and (unless `--keep`) deletes the legacy
- * files. It never reads a legacy file that is malformed and never overwrites an
- * existing section, so a partial migration is safe to re-run.
+ * stamps `version`, and (unless `--keep`) deletes the legacy files. It never
+ * reads a legacy file that is malformed and never overwrites an existing section,
+ * so a partial migration is safe to re-run.
  *
  * Run:  bun run config:migrate [--project <dir>] [--dry-run] [--keep]
  */
@@ -15,9 +15,6 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readJsonResult, SHARED_CONFIG_FILE, writeConfigFile } from "../lib/config.ts";
-
-/** The schema URL stamped into a migrated document. */
-export const SCHEMA_URL = "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json";
 
 /** Top-level bytefly keys that now live under `price`. */
 const PRICE_KEYS = ["currency", "fallbackToRecordedCost", "rates", "peak"] as const;
@@ -61,7 +58,7 @@ export interface ScopeResult {
 	wrote: boolean;
 }
 
-/** Move bytefly's own price keys under `price` and stamp `version` / `$schema`. */
+/** Move bytefly's own price keys under `price` and stamp `version`. */
 export function migrateDocument(document: Record<string, unknown>): {
 	document: Record<string, unknown>;
 	changed: boolean;
@@ -83,10 +80,6 @@ export function migrateDocument(document: Record<string, unknown>): {
 
 	if (next.version === undefined) {
 		next.version = 1;
-		changed = true;
-	}
-	if (next.$schema === undefined) {
-		next.$schema = SCHEMA_URL;
 		changed = true;
 	}
 
