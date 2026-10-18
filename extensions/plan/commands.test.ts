@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { registerCommands } from "./commands.ts";
 import type { PlanAnnotation } from "./feedback.ts";
+import { sectionDigests } from "./plan-text.ts";
 import type { StoredPlan } from "./plans.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import type { PlanReviewOptions, PlanReviewResult, PlanWebReview } from "./web.ts";
@@ -14,7 +15,7 @@ function plan(content = "- one"): StoredPlan {
 }
 
 function fakeRuntime(
-	options: { file?: StoredPlan; latest?: StoredPlan; last?: string; enabled?: boolean; previous?: string } = {},
+	options: { file?: StoredPlan; latest?: StoredPlan; last?: string; enabled?: boolean; baseline?: string } = {},
 ) {
 	const readCalls: string[] = [];
 	const latestCalls: string[] = [];
@@ -25,7 +26,7 @@ function fakeRuntime(
 		enable: () => {},
 		toggle: () => {},
 		lastPlanPath: () => options.last ?? file?.path,
-		reviewed: () => options.previous,
+		reviewed: () => (options.baseline === undefined ? undefined : sectionDigests(options.baseline)),
 		markReviewed: (path: string, content: string) => marks.push({ path, content }),
 		plans: {
 			read: async (_cwd: string, path: string) => {
@@ -72,7 +73,7 @@ function setup(options: {
 	latest?: StoredPlan;
 	last?: string;
 	enabled?: boolean;
-	previous?: string;
+	baseline?: string;
 	result: PlanReviewResult;
 }) {
 	const { runtime, readCalls, latestCalls, marks } = fakeRuntime(options);
@@ -131,13 +132,13 @@ describe("/plan review", () => {
 		expect(started).toEqual([file]);
 	});
 
-	test("hands the previous review's content to the browser", async () => {
+	test("hands the previous review's sections to the browser", async () => {
 		const file = plan();
-		const { pi, ctx, starts, marks } = setup({ file, previous: "# Old", result: { status: "cancelled" } });
+		const { pi, ctx, starts, marks } = setup({ file, baseline: "# Old", result: { status: "cancelled" } });
 
 		await pi.commands.get("plan").handler("review", ctx);
 
-		expect(starts[0].previous).toBe("# Old");
+		expect(starts[0].baseline).toEqual(sectionDigests("# Old"));
 		expect(marks).toEqual([{ path: file.path, content: file.content }]);
 	});
 

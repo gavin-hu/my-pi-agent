@@ -1,10 +1,6 @@
 /**
  * Terminal rendering for the plan review screen.
  *
- * `sanitizePlanText` is exported so the transcript renderer (`tools.ts`) can
- * strip control characters from plan text with the same rules the review screen
- * uses.
- *
  * `PlanViewComponent` is the scrollable review screen `exit_plan_mode` opens
  * for approval. The plan body is rendered by Pi's own `Markdown` component with
  * the active Markdown theme, so headings, lists, code, links, and quotes match
@@ -30,7 +26,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { sanitizeLine, stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import {
 	editorTheme,
 	screenHint,
@@ -45,8 +41,8 @@ import { titleRule } from "../../lib/tui/rules.ts";
 import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { changedSections, extractPlanSections } from "./steps.ts";
-import { stripFeedback } from "./feedback.ts";
+import { changedSections, sanitizePlanText, type SectionDigest } from "./plan-text.ts";
+import { extractPlanSections } from "./steps.ts";
 
 /** What the user chose from the read/review screen. */
 export type PlanViewAction = "approve" | "refine" | "keep" | "browser";
@@ -71,10 +67,10 @@ interface BodyCache {
 export interface PlanViewOptions {
 	plan: StoredPlan;
 	/**
-	 * The content the previous review of this plan showed, when there was one.
-	 * Used only to mark the sections that changed since then.
+	 * The section digests the previous review of this plan showed, when there was
+	 * one. Used only to mark the sections that changed since then.
 	 */
-	previous?: string;
+	baseline?: SectionDigest[];
 	theme: Theme;
 	/**
 	 * Called once when the screen closes. `refinement` carries the typed text
@@ -110,17 +106,6 @@ const PRIMARY_HINTS: ScreenHint[] = [
 const SCROLL_HINTS: ScreenHint[] = ["↑/↓ or k/j scroll", "space/b page", "g/G ends"];
 /** Section-jump hint, shown when the plan has more than one heading section. */
 const SECTION_HINTS: ScreenHint[] = ["n/p section"];
-/** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
-const TAB_WIDTH = 4;
-
-/**
- * Replace control characters (including ESC and the C1 block) and expand tabs
- * so model-authored plan text cannot drive the terminal. Newlines are kept, so
- * callers can still render or split the text line by line.
- */
-export function sanitizePlanText(text: string): string {
-	return stripControlChars(text.replace(/\t/g, " ".repeat(TAB_WIDTH)));
-}
 
 /** A task checkbox in a list marker: `- [x] `, `1. [ ] `. */
 const TASK_MARKER = /^([-*+]|\d+[.)])(\s+)(\[([ xX])\])(\s*)$/;
@@ -210,13 +195,7 @@ export class PlanViewComponent implements Component {
 		const base = this.options.markdownTheme ?? getMarkdownTheme();
 		const theme = planMarkdownTheme(this.theme, base);
 		const current = sanitizePlanText(this.options.plan.content);
-		// Both sides of the diff get the same normalization: the baseline is stored
-		// raw, so sanitizing only `current` would report a tab as a change on every
-		// review.
-		const changed =
-			this.options.previous === undefined
-				? []
-				: changedSections(stripFeedback(sanitizePlanText(this.options.previous)), stripFeedback(current));
+		const changed = changedSections(this.options.baseline, current);
 		const chunks = extractPlanSections(current);
 		const lines: string[] = [];
 		const sections: SectionOffset[] = [];

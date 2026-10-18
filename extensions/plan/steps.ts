@@ -5,7 +5,9 @@
  * guided to write, the top-level steps that seed `todo` and drive the review
  * gauge, the heading sections the review screen navigates, and the in-place
  * checkbox edit that keeps the file current after approval. All of it is pure so
- * the tools, the store, and the renderer agree on one parser.
+ * the tools, the store, and the renderer agree on one parser. The review's
+ * section comparison lives in `plan-text.ts`, which owns the text normalization
+ * the digest is computed over.
  *
  * Only top-level list items become steps: nested sub-bullets are notes, and the
  * shallowest list level is treated as the plan. When the plan has a `Steps`
@@ -292,30 +294,6 @@ export function setStepStatuses(plan: string, updates: StepUpdate[]): string | u
 		lines[target.line] = `${" ".repeat(target.indent)}${target.lead}${checkbox} ${text}`;
 	}
 	return lines.join("\n");
-}
-
-/**
- * Per-section change flags for a second review: `boolean[]` aligned with
- * `extractPlanSections(current)`, so duplicate headings are flagged by
- * occurrence rather than by title. Revision snapshots are the caller's to
- * provide; strip stored feedback first so a review comment does not look like
- * an edit.
- */
-export function changedSections(previous: string, current: string): boolean[] {
-	const before = new Map<string, string[]>();
-	for (const section of extractPlanSections(previous)) {
-		const texts = before.get(section.title);
-		if (texts) texts.push(section.text.trim());
-		else before.set(section.title, [section.text.trim()]);
-	}
-
-	const seen = new Map<string, number>();
-	return extractPlanSections(current).map((section) => {
-		const index = seen.get(section.title) ?? 0;
-		seen.set(section.title, index + 1);
-		const prior = before.get(section.title)?.[index];
-		return prior === undefined || prior !== section.text.trim();
-	});
 }
 
 /**

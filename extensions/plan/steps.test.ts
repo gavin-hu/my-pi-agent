@@ -4,7 +4,6 @@ import {
 	MAX_STEP_LENGTH,
 	PLAN_OUTLINE,
 	PLAN_SECTIONS,
-	changedSections,
 	extractPlanSections,
 	extractPlanSteps,
 	matchesStepText,
@@ -195,42 +194,6 @@ describe("matchesStepText", () => {
 
 	test("rejects text that moved", () => {
 		expect(matchesStepText("Add the cache", "Wire it")).toBe(false);
-	});
-});
-
-describe("changedSections", () => {
-	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
-
-	test("returns nothing for an identical plan", () => {
-		expect(changedSections(before, before)).toEqual([false, false, false]);
-	});
-
-	test("marks a section whose text changed", () => {
-		expect(changedSections(before, before.replace("Ship it.", "Ship it well."))).toEqual([false, true, false]);
-	});
-
-	test("marks a new section", () => {
-		expect(changedSections(before, `${before}\n## Risks\n- stale reads`)).toEqual([false, false, false, true]);
-	});
-
-	test("does not mark a removed section", () => {
-		// The array follows the current plan, so a dropped section only shortens it.
-		expect(changedSections(before, ["# Plan", "## Goal", "Ship it."].join("\n"))).toEqual([false, false]);
-	});
-
-	test("flags a duplicate title by occurrence, not by title", () => {
-		const previous = ["## Steps", "- One", "## Steps", "- Two"].join("\n");
-		// Only the second occurrence changed, so only it is flagged.
-		expect(changedSections(previous, ["## Steps", "- One", "## Steps", "- Two more"].join("\n"))).toEqual([
-			false,
-			true,
-		]);
-	});
-
-	test("normalizes an emphasized heading", () => {
-		const previous = ["## **Goal**", "Old"].join("\n");
-		const current = ["## Goal", "New"].join("\n");
-		expect(changedSections(previous, current)).toEqual([true]);
 	});
 });
 

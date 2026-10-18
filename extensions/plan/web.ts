@@ -25,7 +25,8 @@ import {
 	type PlanAnnotation,
 } from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
-import { changedSections, extractPlanSections, extractPlanSteps } from "./steps.ts";
+import { changedSections, type SectionDigest } from "./plan-text.ts";
+import { extractPlanSections, extractPlanSteps } from "./steps.ts";
 import {
 	handleReviewRequest,
 	JSON_HEADERS,
@@ -59,8 +60,8 @@ export interface PlanReviewOptions {
 	signal?: AbortSignal;
 	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
 	canApprove?: boolean;
-	/** The content the previous review showed, so this page can mark changed sections. */
-	previous?: string;
+	/** The section digests the previous review showed, so this page can mark changed sections. */
+	baseline?: SectionDigest[];
 }
 
 /** Starts and tracks review sessions. */
@@ -166,31 +167,31 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 
 		// The stripped plan the page last rendered; a save must anchor against a file
 		// that still matches it, or the comments land beside the wrong text.
-		let baseline = stripFeedback(plan.content);
+		let pageText = stripFeedback(plan.content);
 		let savedPlan: StoredPlan | undefined;
 		// Set by `onSaved`/`onCancel`; resolved once the HTTP response has flushed,
 		// so the caller cannot close the socket before the browser sees the reply.
 		let pendingResult: PlanReviewResult | undefined;
 
 		/**
-		 * Re-read the plan into `baseline` and return it. Named apart from the page
+		 * Re-read the plan into `pageText` and return it. Named apart from the page
 		 * build because it writes the state a later save validates against, so a `GET`
 		 * does not hide that write inside what looks like a read.
 		 */
-		const refreshBaseline = async (): Promise<StoredPlan> => {
+		const refreshPageText = async (): Promise<StoredPlan> => {
 			const current = (await store.read(cwd, plan.path)) ?? plan;
-			baseline = stripFeedback(current.content);
+			pageText = stripFeedback(current.content);
 			return current;
 		};
 
 		const page = async (): Promise<ReviewPageData> => {
-			const stored = await refreshBaseline();
-			const current = baseline;
+			const stored = await refreshPageText();
+			const current = pageText;
 			const blocks = planBlocks(current);
 			const sections = extractPlanSections(current);
 			// Per-occurrence change flags, aligned with the sections list: the same shape
 			// the terminal review renders, so duplicate headings cannot both light up.
-			const changed = options.previous === undefined ? [] : changedSections(stripFeedback(options.previous), current);
+			const changed = changedSections(options.baseline, current);
 			const outline = sections.flatMap((section, index) =>
 				section.title === ""
 					? []
@@ -236,7 +237,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const save = async (annotations: PlanAnnotation[]): Promise<SaveResult> => {
 			const current = await store.read(cwd, plan.path);
 			if (!current) return { ok: false, status: 404, message: "The plan file is gone." };
-			if (stripFeedback(current.content) !== baseline) {
+			if (stripFeedback(current.content) !== pageText) {
 				return { ok: false, status: 409, message: "The plan changed on disk; reload the page and review again." };
 			}
 			try {

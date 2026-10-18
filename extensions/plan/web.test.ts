@@ -8,6 +8,7 @@ import {
 	MAX_QUOTE_LENGTH,
 	type PlanAnnotation,
 } from "./feedback.ts";
+import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession } from "./web.ts";
 
@@ -96,7 +97,7 @@ describe("createPlanWebReview", () => {
 	});
 
 	test("marks the outline section that changed since the previous review", async () => {
-		const session = await start("# Plan\n\nNew body\n", [], { previous: "# Plan\n\nOld body\n" });
+		const session = await start("# Plan\n\nNew body\n", [], { baseline: sectionDigests("# Plan\n\nOld body\n") });
 		const html = await (await fetch(session.url)).text();
 		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
 		const data = JSON.parse(island![1]);
@@ -106,7 +107,7 @@ describe("createPlanWebReview", () => {
 	test("marks only the occurrence of a duplicate heading that changed", async () => {
 		const plan = ["# Plan", "## Notes", "a", "## Notes", "b"].join("\n");
 		const previous = ["# Plan", "## Notes", "a", "## Notes", "B"].join("\n");
-		const session = await start(plan, [], { previous });
+		const session = await start(plan, [], { baseline: sectionDigests(previous) });
 		const html = await (await fetch(session.url)).text();
 		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
 		const data = JSON.parse(island![1]);

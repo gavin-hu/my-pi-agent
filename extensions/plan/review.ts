@@ -18,6 +18,7 @@ import { askHuman } from "../../lib/interaction.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui/chrome.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
+import type { SectionDigest } from "./plan-text.ts";
 import { extractPlanSteps } from "./steps.ts";
 import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 import type { PlanReviewResult, PlanReviewSession, PlanWebReview } from "./web.ts";
@@ -47,7 +48,9 @@ export type ReviewDecision =
 
 /** What the previous review showed, so this one can mark what changed. */
 export interface ReviewBaselines {
-	reviewed(path: string): string | undefined;
+	/** The sections the last review of `path` showed, when this branch has one. */
+	reviewed(path: string): SectionDigest[] | undefined;
+	/** Remember what a review just showed, as a session entry on this branch. */
 	markReviewed(path: string, content: string): void;
 }
 
@@ -106,7 +109,7 @@ function planReviewDigest(content: string): string {
 async function askPlanReview(
 	ctx: ExtensionToolContext,
 	plan: StoredPlan,
-	previous: string | undefined,
+	baseline: SectionDigest[] | undefined,
 ): Promise<PlanReviewChoice> {
 	let sentFullText = false;
 	for (;;) {
@@ -116,7 +119,7 @@ async function askPlanReview(
 					(tui, theme, _keybindings, done) =>
 						new PlanViewComponent({
 							plan,
-							previous,
+							baseline,
 							theme,
 							onClose: (action, refinement) => done({ action, refinement }),
 							requestRender: () => tui.requestRender(),
@@ -156,8 +159,8 @@ async function askPlanReview(
 export interface BrowserReviewOptions {
 	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
 	canApprove: boolean;
-	/** The content the previous review showed, so the page can mark changed sections. */
-	previous?: string;
+	/** The section digests the previous review showed, for the changed markers. */
+	baseline?: SectionDigest[];
 	/** Aborting the turn closes the session as cancelled. */
 	signal?: AbortSignal;
 	/** Called once the server is listening and the browser was opened. */
@@ -176,7 +179,7 @@ export async function runBrowserReview(
 ): Promise<PlanReviewResult | undefined> {
 	if (options.signal?.aborted) return { status: "cancelled" };
 	const session = await web
-		.start(cwd, plan, { canApprove: options.canApprove, previous: options.previous, signal: options.signal })
+		.start(cwd, plan, { canApprove: options.canApprove, baseline: options.baseline, signal: options.signal })
 		.catch(() => undefined);
 	if (!session) return undefined;
 	options.onOpened?.(session);
@@ -200,8 +203,8 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 		if (signal?.aborted) return { action: "keep", plan };
 		// Read the baseline before the screen and mark it after, so what the next
 		// review compares against is the content this one actually showed.
-		const previous = baselines.reviewed(plan.path);
-		const choice = await askPlanReview(ctx, plan, previous);
+		const baseline = baselines.reviewed(plan.path);
+		const choice = await askPlanReview(ctx, plan, baseline);
 		baselines.markReviewed(plan.path, plan.content);
 
 		if (choice.action === "approve") return { action: "approve", plan, comments: [] };
@@ -218,7 +221,7 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 
 		const result = await runBrowserReview(web, ctx.cwd, plan, {
 			canApprove: true,
-			previous,
+			baseline,
 			signal,
 			onOpened: (session) => ctx.ui.notify(`Plan review: opened ${session.url}`, "info"),
 		});

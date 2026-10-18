@@ -57,8 +57,8 @@ screenshots.
 
 | README promise | Today | Next move |
 |---|---|---|
-| Plan, then execute | Strong; review state and plan history have gaps | P1–P4, P6 |
-| Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P5, P7–P9 |
+| Plan, then execute | Strong; review state and plan history have gaps | P1–P3, P5 |
+| Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P4, P6–P8 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S8 |
 | Remember across sessions | Works; store hygiene is manual | S2–S3 |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W10 |
@@ -66,10 +66,10 @@ screenshots.
 
 ## If only three things ship
 
-1. **P1 — Review continuity.** The plan is the pack's central promise; it has to
-   survive a resume.
-2. **S1 — Isolation status.** "Never wreck the checkout" becomes honest when the
+1. **S1 — Isolation status.** "Never wreck the checkout" becomes honest when the
    gaps are named in the session instead of only in a README.
+2. **P1 — Step budget honesty.** A plan the user reviewed must not lose the steps
+   approval cannot track; refuse the overflow at write time.
 3. **F2 — Docs truth test.** Prevent the class of defect where a shipped command
    is documented as absent.
 
@@ -77,7 +77,7 @@ screenshots.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the promises true? | No known stale doc; the reviewed plan survives a resume; every isolation gap is visible in the session; the suite runs on a named Pi range and a long-session benchmark holds. |
+| **Now** (highest priority) | Are the promises true? | No known stale doc; every isolation gap is visible in the session; the suite runs on a named Pi range and a long-session benchmark holds. |
 | **Next** (queued) | Does the daily loop feel finished? | Plan-to-execution handoff, memory hygiene, settings completeness, provider diagnostics. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
@@ -99,8 +99,6 @@ this file, as the record of what shipped.
 
 **Where the promise is thin**
 
-- Changed-section markers need a same-session baseline; a resumed session shows
-  none (`plan` README).
 - Approval tracks at most 50 steps and shortens a step over 200 characters in
   the todo list (`plan` README).
 - The plans directory is the only index; there is no way to discover or list
@@ -112,11 +110,7 @@ this file, as the record of what shipped.
 
 **Now**
 
-- **P1 — Review continuity.** Persist the reviewed section baseline as a session
-  entry (a hash per heading) so `/resume` and `/tree` mark only what actually
-  changed. *Done when* a resumed session reviews a plan and the markers match
-  the same session's.
-- **P2 — Step budget honesty.** `write_plan` refuses a plan with more than 50
+- **P1 — Step budget honesty.** `write_plan` refuses a plan with more than 50
   steps and asks for grouped steps, instead of letting approval silently drop
   the overflow after the user has reviewed the whole plan. The 200-character
   shortening stays a display rule, because the plan file keeps the full text.
@@ -125,35 +119,35 @@ this file, as the record of what shipped.
 
 **Next**
 
-- **P3 — Plan index.** Add `/plan list` over `.pi/plans` with title, modified
+- **P2 — Plan index.** Add `/plan list` over `.pi/plans` with title, modified
   time, step progress, and a path to reopen. Walk the directory; add no registry
   file. *Done when* 100 plans list from `readdir` and one bounded read per plan,
   and worktrees are respected.
-- **P4 — Objective handoff.** When plan mode starts with an active goal, put the
+- **P3 — Objective handoff.** When plan mode starts with an active goal, put the
   goal in the planning context; when a plan is approved with no goal, offer to
   record one. *Done when* the handoff costs no extra model call and never
   overwrites an existing goal.
-- **P5 — Delegation accounting.** Publish a finished-subagent event, following
+- **P4 — Delegation accounting.** Publish a finished-subagent event, following
   the `job` pattern in `lib/events.ts`, so bytefly can show a separate child-run
   roll-up. The roll-up stays a separate total: folding child spend into the
   session's own total remains a non-goal, so the footer's parent figure is never
   restated. *Done when* the child roll-up is separate, the parent total is
   untouched, and the `subagent` README's cost bullet points at where the roll-up
   appears.
-- **P6 — Verification handoff.** Approval merges `## Steps` into the todo list;
+- **P5 — Verification handoff.** Approval merges `## Steps` into the todo list;
   also carry the plan's `## Verification` section as the final checklist item,
   so the definition of done cannot be lost between approval and execution.
 
 **Later**
 
-- **P7 — Job parity on Windows.** A detached job should either survive the
+- **P6 — Job parity on Windows.** A detached job should either survive the
   session or be refused with a clear message, and unknown exit codes should be
   named in `doctor`. *Decision first:* how much Windows process control is in
   scope.
-- **P8 — Alerts where the user is.** Route a `wake` match through bytefly's
+- **P7 — Alerts where the user is.** Route a `wake` match through bytefly's
   notify capability when notifications are enabled. *Decision first:* this
   reverses a documented `watch` non-goal.
-- **P9 — Delegation artifacts.** Optional per-run transcripts under
+- **P8 — Delegation artifacts.** Optional per-run transcripts under
   `.pi/subagents/` for audit and handoff. This reverses the current
   no-persistence non-goal; only with a retention rule.
 
@@ -409,7 +403,7 @@ it.
 | `document`: no OCR | `W9` is a non-goal until a dependency-light engine exists. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |
-| `watch`: cannot raise an OS notification | `P8` reverses it; the in-session alert is documented until then. |
+| `watch`: cannot raise an OS notification | `P7` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 
 ## 1.0 readiness
@@ -423,9 +417,9 @@ above.
   thin* — `F2`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
-  `P2`, `P7`, `S1`, `S4`.
+  `P1`, `P6`, `S1`, `S4`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
-  mode, worktree binding, and the rewind timeline — `P1`, `P4`.
+  mode, worktree binding, and the rewind timeline — `P3`.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
   suites, with a named tested Pi range — `F3`, `F6`.
 - A long-session benchmark stays within its budget — `F4`.

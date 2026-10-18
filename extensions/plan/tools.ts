@@ -40,7 +40,7 @@ import {
 } from "./steps.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, type TodoMerge } from "./todos.ts";
 import { reviewPlan } from "./review.ts";
-import { sanitizePlanText } from "./tui.ts";
+import { sanitizePlanText } from "./plan-text.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
 import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 

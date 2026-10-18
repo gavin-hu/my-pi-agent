@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PlanAnnotation } from "./feedback.ts";
+import { sectionDigests } from "./plan-text.ts";
 import type { StoredPlan } from "./plans.ts";
 import { type ReviewBaselines, reviewPlan, runBrowserReview } from "./review.ts";
 import type { PlanReviewOptions, PlanReviewResult, PlanWebReview } from "./web.ts";
@@ -14,13 +15,13 @@ function plan(content = "# Plan\n\n## Steps\n- [ ] one"): StoredPlan {
 /** A baselines seam that records what was marked and reports the last one. */
 function baselines(initial?: string): ReviewBaselines & { marked: Array<{ path: string; content: string }> } {
 	const marked: Array<{ path: string; content: string }> = [];
-	let shown = initial;
+	let shown = initial === undefined ? undefined : sectionDigests(initial);
 	return {
 		marked,
 		reviewed: () => shown,
 		markReviewed: (path, content) => {
 			marked.push({ path, content });
-			shown = content;
+			shown = sectionDigests(content);
 		},
 	};
 }
@@ -223,7 +224,7 @@ describe("reviewPlan — the review gate", () => {
 
 		await reviewPlan({ ctx, web, plans: readingPlans(plan("# New plan")), baselines: seam, plan: plan("# New plan") });
 
-		expect(starts[0]?.previous).toBe("# Old plan");
+		expect(starts[0]?.baseline).toEqual(sectionDigests("# Old plan"));
 		expect(seam.marked).toEqual([{ path: PLAN_PATH, content: "# New plan" }]);
 	});
 
