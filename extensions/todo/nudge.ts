@@ -18,17 +18,15 @@ import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
 
+/** Tools that run a command, where reading and writing look the same by name. */
+const SHELL_TOOL_NAMES: ReadonlySet<string> = new Set(["bash", "powershell"]);
+
 /**
  * Tools whose calls mean the working tree may have changed: the built-in
- * writers and shells. Kept explicit so a reader or an MCP tool that does not
+ * writers and the shells. Kept explicit so a reader or an MCP tool that does not
  * declare a hint cannot force a continuation.
  */
-export const FILE_WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit"]);
-
-/** Tools that run a command, where reading and writing look the same by name. */
-export const SHELL_TOOL_NAMES: ReadonlySet<string> = new Set(["bash", "powershell"]);
-
-export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set([...FILE_WRITE_TOOL_NAMES, ...SHELL_TOOL_NAMES]);
+export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit", ...SHELL_TOOL_NAMES]);
 
 /**
  * Whether a finished tool call counts as work for lag detection. The `todo`
