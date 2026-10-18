@@ -63,7 +63,11 @@ PI_SLOW_TESTS=1 bun run test
 
 CI runs the macOS job through `bun run check:serial` because a `--parallel`
 worker on macOS can drop the subprocess exit notification for its first spawn
-and hang a git-using test.
+and hang a git-using test. The cause is upstream: `oven-sh/bun#41024` and
+`#39709` are open against Bun 1.4.3, and `#45483` (filed 2026-10-16) describes
+the same lost-exit path. When both close, delete the `check:serial` step and run
+`bun run check` on all three systems; [`ROADMAP.md`](../ROADMAP.md)
+*Deliberately left thin* records the same condition.
 
 ## Performance
 
