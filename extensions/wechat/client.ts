@@ -219,15 +219,23 @@ export class WechatClient {
 		};
 	}
 
-	/** `POST /ilink/bot/getupdates` — long-poll for inbound messages. */
-	async getUpdates(account: BotCredentials, cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> {
+	/**
+	 * `POST /ilink/bot/getupdates` — long-poll for inbound messages.
+	 *
+	 * `holdMs` asks the server for a shorter hold. The protocol mirrors the field
+	 * back in `longpolling_timeout_ms`, but whether the server honours a request
+	 * for a different value is unverified, so it is only sent when configured.
+	 */
+	async getUpdates(
+		account: BotCredentials,
+		cursor: string,
+		signal?: AbortSignal,
+		options: { holdMs?: number } = {},
+	): Promise<UpdatesResponse> {
 		const url = `${account.baseUrl}/ilink/bot/getupdates`;
-		const data = await this.post(
-			url,
-			this.authHeaders(account),
-			{ get_updates_buf: cursor, base_info: this.baseInfo() },
-			signal,
-		);
+		const body: Record<string, unknown> = { get_updates_buf: cursor, base_info: this.baseInfo() };
+		if (options.holdMs !== undefined) body.longpolling_timeout_ms = options.holdMs;
+		const data = await this.post(url, this.authHeaders(account), body, signal);
 		return {
 			ret: asNumber(data.ret),
 			errcode: asNumber(data.errcode),

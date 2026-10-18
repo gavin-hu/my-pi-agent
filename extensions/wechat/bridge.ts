@@ -701,7 +701,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		let rejectedNotified = false;
 		while (running && !signal.aborted) {
 			if (!client || !account) break;
-			const watchdogMs = pollTimeout(serverHint);
+			const watchdogMs = pollTimeout(serverHint ?? deps.config.pollHoldMs);
 			// A cancellable watchdog: `AbortSignal.timeout` cannot be cleared, and a
 			// pending timer per poll would keep the process awake long after the request
 			// settled. Unref'd, so a wedged poll never holds a shutdown open either.
@@ -710,7 +710,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			(watchdogTimer as { unref?: () => void }).unref?.();
 			let response;
 			try {
-				response = await client.getUpdates(account, state.cursor, AbortSignal.any([signal, watchdog.signal]));
+				response = await client.getUpdates(account, state.cursor, AbortSignal.any([signal, watchdog.signal]), {
+					holdMs: deps.config.pollHoldMs,
+				});
 			} catch (error) {
 				if (signal.aborted || !running) break;
 				if (watchdog.signal.aborted) {

@@ -138,6 +138,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the remainder is sent when the turn ends — so a minute-long answer is
   readable while it is being produced. A part longer than `maxReplyChars` is
   still numbered, and the attachment line rides on the first part only.
+- `wechat`: an opt-in `pollHoldMs` asks the server for a shorter `getupdates`
+  long-poll hold, which is the floor on how fast a message can be seen (~18 s on
+  the server's default). The request field is only sent when configured, since
+  the protocol does not document whether the server honours it;
+  `scripts/wechat-poll-probe.ts` measures the effect on a real account and
+  refuses to run while a bridge is polling.
 - `wechat`: the `/wechat` control screen lists each peer conversation with what it
   is doing (`running 42s, 1 queued` / `queued 2` / `idle`), capped at five rows,
   and the one-line summary names the peer whose turn is running.

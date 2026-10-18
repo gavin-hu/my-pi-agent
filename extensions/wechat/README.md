@@ -228,13 +228,35 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
   "cdnBaseUrl": "https://novac2c.cdn.weixin.qq.com/c2c", // CDN media base
   "maxMediaBytes": 20971520, // inbound media larger than this is skipped
   "typingIndicator": true,   // show typing while a turn is generated
-  "remotePrompts": true      // answer interactive dialogs on WeChat during a WeChat turn
+  "remotePrompts": true,     // answer interactive dialogs on WeChat during a WeChat turn
+  "pollHoldMs": 0            // experimental: ask the server for a shorter long-poll hold
 }
 ```
 
 State lives under `<agent-dir>/wechat/`: `credentials.json` (mode `0600`),
 `state.json` (cursor, owner, per-peer reply tokens), `media/` (downloaded inbound
-files), and `poller.lock` (stops two sessions polling one account).
+files), `sessions/<peer>/` (one conversation per peer), and `poller.lock` (stops
+two sessions polling one account).
+
+### The long-poll hold
+
+A WeChat message is only visible to Pi when a `getupdates` request returns, and
+the server decides how long it holds one. Measured here: **~18 s**, which is the
+floor on how fast the bot can react to anything.
+
+`pollHoldMs` asks the server for a shorter hold. The response mirrors
+`longpolling_timeout_ms`, but whether the server *honours* a request for a
+different value is not documented, so it is opt-in and unset by default. To find
+out on your account, quit `pi` and run this from a repository checkout:
+
+```bash
+bun scripts/wechat-poll-probe.ts 3000
+```
+
+It prints the requested hold, the measured one, and the value the server echoed,
+then says whether the request was honoured. It refuses to run while a bridge is
+polling (two clients on one account can steal each other's messages), and it
+never touches the stored cursor.
 
 ## Security
 

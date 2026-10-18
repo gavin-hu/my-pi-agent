@@ -314,6 +314,30 @@ describe("bridge", () => {
 		await bridge.close();
 	});
 
+	test("passes a configured poll hold to the transport", async () => {
+		const holds: Array<number | undefined> = [];
+		const base = makeClient([]);
+		const client = {
+			...base.client,
+			getUpdates: async (
+				_account: BotCredentials,
+				_cursor: string,
+				signal?: AbortSignal,
+				options?: { holdMs?: number },
+			): Promise<UpdatesResponse> => {
+				holds.push(options?.holdMs);
+				await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+				throw new Error("aborted");
+			},
+		} as unknown as WechatClient;
+		const { deps } = makeDeps(client, { config: { ...DEFAULT_CONFIG, pollHoldMs: 3000 } });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => holds.length >= 1);
+		expect(holds[0]).toBe(3000);
+		await bridge.close();
+	});
+
 	test("stops and reports when the session expires", async () => {
 		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
 		let expired = 0;
