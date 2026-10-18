@@ -22,6 +22,8 @@ import type { PendingMatch, WatchMatch, WatchRecord, WatchSource } from "./types
 const MAX_CHUNK = 1024 * 1024;
 /** A line without a newline is flushed once it grows past this. */
 const MAX_LINE_BYTES = 1024 * 1024;
+/** Grace period before a stopped command is escalated to SIGKILL. */
+const KILL_GRACE_MS = 2000;
 
 /** Internal watcher state: the public record plus non-serializable fields. */
 interface Internal {
@@ -50,6 +52,7 @@ interface Internal {
 	rawLines: string[];
 	matches: WatchMatch[];
 	child?: SpawnedProcess;
+	killTimer?: ReturnType<typeof setTimeout>;
 	notified: boolean;
 	seq: number;
 }
@@ -95,6 +98,8 @@ export interface WatchRuntimeOptions {
 	config?: WatchConfig;
 	/** When false, never create a real interval; tests call `tick()` directly. */
 	autoClock?: boolean;
+	/** Grace before SIGTERM escalates to SIGKILL; default {@link KILL_GRACE_MS}. */
+	killGraceMs?: number;
 }
 
 export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRuntime {
@@ -103,6 +108,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	const now = options.now ?? (() => Date.now());
 	const fixedConfig = options.config;
 	const autoClock = options.autoClock ?? true;
+	const killGraceMs = options.killGraceMs ?? KILL_GRACE_MS;
 
 	let config: WatchConfig = fixedConfig ?? DEFAULT_CONFIG;
 	const watches = new Map<string, Internal>();
@@ -243,15 +249,60 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		emit(w, rest, time);
 	};
 
-	const killChild = (w: Internal): void => {
+	const clearKillTimer = (w: Internal): void => {
+		if (w.killTimer) {
+			clearTimeout(w.killTimer);
+			w.killTimer = undefined;
+		}
+	};
+
+	const killChild = (w: Internal, signal: "SIGTERM" | "SIGKILL"): void => {
 		const pid = w.pid;
 		try {
-			if (pid !== undefined) killTree(pid, "SIGTERM");
-			else w.child?.kill("SIGTERM");
+			if (pid !== undefined) killTree(pid, signal, signal === "SIGKILL");
+			else w.child?.kill(signal);
 		} catch {
 			// Best-effort: the child may already be gone.
 		}
-		w.child = undefined;
+	};
+
+	/** SIGTERM a command, escalating to SIGKILL when it has not closed in time. */
+	const terminateChild = (w: Internal): void => {
+		clearKillTimer(w);
+		killChild(w, "SIGTERM");
+		if (w.pid === undefined && !w.child) return;
+		w.killTimer = setTimeout(() => {
+			w.killTimer = undefined;
+			if (w.child) killChild(w, "SIGKILL");
+		}, killGraceMs);
+		w.killTimer.unref?.();
+	};
+
+	/** Resolve when every command has closed, or after `ms`, whichever comes first. */
+	const waitForChildren = (watches: Internal[], ms: number): Promise<void> => {
+		const alive = watches.filter((w) => w.child !== undefined);
+		if (alive.length === 0) return Promise.resolve();
+		return new Promise((resolve) => {
+			let remaining = alive.length;
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			const settle = (): void => {
+				if (--remaining > 0) return;
+				if (timer !== undefined) clearTimeout(timer);
+				resolve();
+			};
+			for (const w of alive) {
+				let done = false;
+				const once = (): void => {
+					if (done) return;
+					done = true;
+					settle();
+				};
+				w.child?.on("close", once);
+				w.child?.on("error", once);
+			}
+			timer = setTimeout(resolve, ms);
+			timer.unref?.();
+		});
 	};
 
 	const pollFile = (w: Internal, time: number): void => {
@@ -278,6 +329,9 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 			const read = readSync(fd, buffer, 0, length, w.offset);
 			w.offset += read;
 			consume(w, buffer.subarray(0, read), time);
+		} catch {
+			// The path can vanish or change type between stat and read (rotation, a
+			// replacement); skip this tick and pick it up next time.
 		} finally {
 			if (fd !== undefined) {
 				try {
@@ -305,22 +359,24 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		child.stdout?.on("data", onData);
 		child.stderr?.on("data", onData);
 		child.on("close", (code, signal) => {
+			clearKillTimer(w);
+			w.child = undefined;
 			if (w.status !== "running") return;
 			flushPending(w, now());
 			w.status = "exited";
 			w.exitCode = code;
 			w.signal = signal;
 			w.endedAt = now();
-			w.child = undefined;
 			ui.paint();
 			if (runningCount() === 0) stopClock();
 		});
 		child.on("error", (error) => {
+			clearKillTimer(w);
+			w.child = undefined;
 			if (w.status !== "running") return;
 			w.status = "error";
 			w.error = error.message;
 			w.endedAt = now();
-			w.child = undefined;
 			ui.paint();
 			if (runningCount() === 0) stopClock();
 		});
@@ -337,6 +393,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	};
 
 	const add = (opts: AddWatchOptions, ctx: ExtensionContext): WatchRecord => {
+		if (!config.enabled) throw new Error("watch is disabled.");
 		if (watches.size >= config.maxWatchers) {
 			throw new Error(`at most ${config.maxWatchers} watchers; stop one first.`);
 		}
@@ -349,11 +406,13 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 					cwd: opts.cwd ? (isAbsolute(opts.cwd) ? opts.cwd : resolve(base, opts.cwd)) : base,
 				};
 		if (source.kind === "file") {
+			let info: ReturnType<typeof statSync>;
 			try {
-				statSync(source.path ?? "");
+				info = statSync(source.path ?? "");
 			} catch {
 				throw new Error(`file not found: ${source.path}`);
 			}
+			if (!info.isFile()) throw new Error(`not a regular file: ${source.path}`);
 		}
 		const caseSensitive = opts.caseSensitive ?? false;
 		const regex = compileRegex(opts.pattern, caseSensitive);
@@ -423,7 +482,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		const w = watches.get(id);
 		if (!w || w.status !== "running") return false;
 		flushPending(w, now());
-		killChild(w);
+		terminateChild(w);
 		w.status = "stopped";
 		w.endedAt = now();
 		ui.paint();
@@ -473,7 +532,13 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	const load = (ctx: ExtensionContext): void => {
 		disposed = false;
 		stopClock();
-		for (const w of watches.values()) if (w.status === "running") killChild(w);
+		for (const w of watches.values()) {
+			if (w.status !== "running") continue;
+			w.status = "stopped";
+			clearKillTimer(w);
+			killChild(w, "SIGKILL");
+			w.child = undefined;
+		}
 		watches.clear();
 		counter = 0;
 		config = fixedConfig ?? loadConfig(ctx.cwd);
@@ -484,12 +549,18 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	const shutdown = async (): Promise<void> => {
 		disposed = true;
 		stopClock();
-		for (const w of watches.values()) {
-			if (w.status !== "running") continue;
+		const running = [...watches.values()].filter((w) => w.status === "running");
+		for (const w of running) {
 			flushPending(w, now());
-			killChild(w);
 			w.status = "stopped";
 			w.endedAt = now();
+			clearKillTimer(w);
+			killChild(w, "SIGTERM");
+		}
+		await waitForChildren(running, killGraceMs);
+		for (const w of running) {
+			clearKillTimer(w);
+			if (w.child) killChild(w, "SIGKILL");
 		}
 		watches.clear();
 		ui.detach();

@@ -27,6 +27,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the total the footer already priced, and **Session budget** joins the control
   center's Pricing rows (sixteen preferences now).
 
+### Fixed
+
+- `watch`: `enabled: false` in the `watch` config section now refuses `add` with
+  "watch is disabled."; the key was documented but never read.
+
+- `watch`: `add` refuses a path that is not a regular file, and a file that
+  vanishes or changes type between a stat and a read is skipped for that tick
+  instead of throwing out of the poll timer and taking the session down.
+
+- `watch`: stopping a command watcher, or ending the session with one running,
+  now escalates SIGTERM to SIGKILL after a 2 s grace, so a command that ignores
+  SIGTERM no longer outlives the session.
+
+- `watch`: the `/watch` screen refreshes from live state without calling the
+  runtime's poll tick, so opening it no longer changes the configured `pollMs`
+  cadence.
+
 ## [0.13.0] - 2026-10-18
 
 ### Added

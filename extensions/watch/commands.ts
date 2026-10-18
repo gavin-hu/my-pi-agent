@@ -14,7 +14,7 @@ import type { WatchRuntime } from "./runtime.ts";
 import { WatchListComponent } from "./tui.ts";
 
 /** How often the open screen re-reads live state. */
-const POLL_MS = 500;
+const REFRESH_MS = 500;
 
 const SUBCOMMANDS = [
 	{ value: "list", label: "list" },
@@ -125,12 +125,13 @@ export function registerCommands(pi: ExtensionAPI, runtime: WatchRuntime): void 
 							() => tui.terminal?.rows,
 						);
 
+						// The runtime's own clock owns file polling; this only refreshes
+						// what the screen shows, so opening it cannot change the poll cadence.
 						timer = setInterval(() => {
-							runtime.tick();
 							const open = component.currentLineId();
 							if (open) component.refreshLines(open);
 							tui.requestRender();
-						}, POLL_MS);
+						}, REFRESH_MS);
 						timer.unref?.();
 
 						return component;

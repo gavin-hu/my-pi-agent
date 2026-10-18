@@ -8,7 +8,7 @@ import { makeClock, type Clock } from "../clock.ts";
 import { fakeCtx as sharedFakeCtx, type FakeCtxResult } from "../context.ts";
 import { makeJobSpawn, type JobChild } from "../process.ts";
 
-export { makeJobSpawn as makeFakeSpawn, JobChild as FakeChild, waitFor } from "../process.ts";
+export { makeJobSpawn as makeFakeSpawn, JobChild as FakeChild, settle, waitFor } from "../process.ts";
 
 export type FakeCtx = FakeCtxResult;
 
@@ -52,6 +52,9 @@ export function makeHarness(
 		now: () => clock.advance(10),
 		config,
 		autoClock: false,
+		// The fake child never closes on a signal, so escalation must be immediate
+		// for a stop test to observe the force kill.
+		killGraceMs: 0,
 	});
 
 	return {

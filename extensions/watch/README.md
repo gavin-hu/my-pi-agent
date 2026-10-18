@@ -33,8 +33,9 @@ How the `watch` call and its result look in the transcript — the call line as 
   match is announced on `my-pi-agent/watch-match`, which bytefly's
   [notify](../bytefly/README.md#notifications) capability turns into a desktop
   notification when `notify.enabled` and `notify.matchFound` are on.
-- Watchers are session-only: `shutdown` flushes a partial line, kills every
-  command's process tree, and clears the chips.
+- Watchers are session-only: `shutdown` flushes a partial line, sends SIGTERM to
+  every command's process tree (escalating to SIGKILL after a short grace), and
+  clears the chips.
 
 ## Tool
 
@@ -42,7 +43,7 @@ How the `watch` call and its result look in the transcript — the call line as 
 |---|---|
 | `name` | `watch` |
 | `action` | `add` \| `list` \| `status` \| `matches` \| `logs` \| `stop` \| `clear` |
-| `path` | File to tail (`add`); exactly one of `path`/`command`. |
+| `path` | Regular file to tail (`add`); exactly one of `path`/`command`. |
 | `command` | Shell command whose output to tail (`add`). |
 | `cwd` | Working directory for a command source; defaults to the effective cwd. |
 | `pattern` | Regular expression a line must match (`add`, required). |
@@ -131,7 +132,7 @@ value is clamped; a missing or malformed document is ignored.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `enabled` | `true` | Track watchers at all. |
+| `enabled` | `true` | Allow `add`; `false` refuses to start a watcher. |
 | `showStatus` | `true` | Show the two status chips. |
 | `wakeOnMatch` | `false` | Default for a new watcher's `wake`; a per-watcher `wake` overrides it. |
 | `maxWatchers` | `20` | Live watchers before `add` is refused. |
@@ -160,6 +161,8 @@ other.
 
 - A file watcher polls, so a new line can take up to `pollMs` to surface; it does
   not use `fs.watch`.
+- `add` requires a path that exists and is a regular file; a directory, FIFO, or
+  a file created after the call is refused.
 - A watcher holds live state in memory and is stopped on shutdown; a detached or
   resumed session starts with no watchers.
 - `matches` and `logs` keep bounded histories (`maxMatches`/`maxLogLines`), so
@@ -200,7 +203,10 @@ UTF-8 sequence split across a read boundary is never mangled. State is
 session-only by design: a watcher is a live process or file position, not
 transcript state, so it cannot be faithfully rebuilt from a `/tree` fork. Match
 delivery mirrors `job` — reported at the next turn, with `wake` triggering one
-turn — so a match is never dropped when the wake window is busy.
+turn — so a match is never dropped when the wake window is busy. Stopping a
+command sends SIGTERM to its process group and escalates to SIGKILL after a 2 s
+grace; shutdown waits the same grace, so a command that ignores SIGTERM cannot
+outlive the session.
 
 ## Files
 

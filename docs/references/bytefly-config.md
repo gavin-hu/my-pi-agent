@@ -168,7 +168,7 @@ ignored, and an absent id keeps its registry default.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `enabled` | boolean | `true` | | Track watchers at all. |
+| `enabled` | boolean | `true` | | Allow `add`; `false` refuses to start a watcher. |
 | `showStatus` | boolean | `true` | | Show the chips while watchers run or a match is unreported. |
 | `wakeOnMatch` | boolean | `false` | | Default `wake` for a new watcher: trigger one agent turn on a match. |
 | `maxWatchers` | integer | `20` | `1`–`200` | Live watchers kept before `add` is refused. |
