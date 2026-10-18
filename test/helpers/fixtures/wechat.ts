@@ -166,6 +166,7 @@ export function fakePeerSession(answer: string | (() => string)): {
 			last = typeof answer === "function" ? answer() : answer;
 		},
 		getLastAssistantText: () => last,
+		subscribe: () => () => {},
 		async abort(): Promise<void> {},
 		dispose(): void {
 			disposals += 1;
