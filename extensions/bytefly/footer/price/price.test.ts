@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_BYTEFLY_CONFIG } from "./config.ts";
+import { DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig } from "./config.ts";
 import type { ByteflyConfig } from "./types.ts";
 import type { UsageRecord } from "../types.ts";
 import { createPricer } from "./price.ts";
@@ -38,16 +38,47 @@ const record = (overrides: Partial<UsageRecord> = {}): UsageRecord => ({
 	...overrides,
 });
 
-test("USD mode totals Pi's recorded cost and ignores rates and peak", () => {
-	const usd = config({
-		currency: { code: "USD", decimals: 3 },
+describe("USD pricing", () => {
+	// Through the loader, so the dollar table is the one a USD document gets.
+	const usd = (overrides: Partial<ByteflyConfig> = {}): ByteflyConfig => ({
+		...normalizeByteflyConfig({ currency: { code: "USD" } }, DEFAULT_BYTEFLY_CONFIG),
+		...overrides,
 	});
-	const totals = createPricer(usd)([
-		record({ recordedCost: 0.4 }),
-		record({ provider: "deepseek", model: "deepseek-flash", input: 1_000_000, recordedCost: 0.25 }),
-	]);
-	expect(totals.cost).toBeCloseTo(0.65);
-	expect(totals.input).toBe(1_000_000);
+
+	test("prices a covered model from the dollar table, at peak and off-peak", () => {
+		const price = createPricer(usd());
+		const peak = price([record({ input: 1_000_000, output: 1_000_000, at: MONDAY_PEAK })]);
+		const offPeak = price([record({ input: 1_000_000, output: 1_000_000, at: MONDAY_OFF_PEAK })]);
+
+		// Flash: $0.30 in + $1.20 out at peak, half of that off-peak.
+		expect(peak.cost).toBeCloseTo(1.5);
+		expect(offPeak.cost).toBeCloseTo(0.75);
+	});
+
+	test("prices the pro model from the dollar table", () => {
+		const price = createPricer(usd());
+		const totals = price([record({ model: "deepseek-v4-pro", input: 1_000_000, output: 1_000_000, at: MONDAY_PEAK })]);
+
+		// Pro: $1.32 in + $3.96 out at peak.
+		expect(totals.cost).toBeCloseTo(5.28);
+	});
+
+	test("falls back to Pi's recorded dollars for a model the table does not cover", () => {
+		const price = createPricer(usd());
+		const totals = price([
+			record({ provider: "other", model: "unpriced", recordedCost: 0.4 }),
+			record({ input: 1_000_000, recordedCost: 0.25, at: MONDAY_PEAK }),
+		]);
+
+		expect(totals.cost).toBeCloseTo(0.4 + 0.3);
+		expect(totals.input).toBe(1_000_000);
+	});
+
+	test("keeps CNY mode out of the recorded fallback", () => {
+		const totals = createPricer(deepseek())([record({ provider: "other", model: "unpriced", recordedCost: 0.4 })]);
+
+		expect(totals.cost).toBe(0);
+	});
 });
 
 describe("createPricer", () => {

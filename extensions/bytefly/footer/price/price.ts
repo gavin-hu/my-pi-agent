@@ -34,10 +34,11 @@ function tokenCost(record: UsageRecord, rates: ModelRates): number {
  * its price always describe the same set of records.
  */
 export function createPricer(config: ByteflyConfig): (records: readonly UsageRecord[]) => UsageTotals {
-	const recorded = config.currency.code === "USD";
-	// Building a formatter is the expensive part, and only the CNY algorithm
-	// with a schedule needs one.
-	const format = !recorded && config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
+	// Both currencies price from `rates` and the tariff; they differ only in what
+	// an unmatched model falls back to, and Pi's recorded cost is already dollars.
+	const dollars = config.currency.code === "USD";
+	// Building a formatter is the expensive part, and only a schedule needs one.
+	const format = config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
 
 	return (records) => {
 		const totals = emptyUsage();
@@ -46,14 +47,12 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 			totals.output += record.output;
 			totals.cacheRead += record.cacheRead;
 			totals.cacheWrite += record.cacheWrite;
-			if (recorded) {
-				// USD mode is Pi's own catalog total: no rates, no peak schedule.
-				totals.cost += record.recordedCost;
+			const rates = findRates(config.rates, record.provider, record.model);
+			if (rates !== undefined) {
+				totals.cost += ratedCost(config, format, record, rates);
 				continue;
 			}
-			const rates = findRates(config.rates, record.provider, record.model);
-			if (rates === undefined) continue;
-			totals.cost += ratedCost(config, format, record, rates);
+			if (dollars) totals.cost += record.recordedCost;
 		}
 		return totals;
 	};

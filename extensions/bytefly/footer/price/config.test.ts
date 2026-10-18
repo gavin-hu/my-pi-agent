@@ -193,3 +193,33 @@ describe("loadByteflyConfig", () => {
 		});
 	});
 });
+
+describe("the table follows the currency", () => {
+	test("a USD document gets the dollar table without stating one", () => {
+		const usd = normalizeByteflyConfig({ currency: { code: "USD" } }, DEFAULT_BYTEFLY_CONFIG);
+
+		expect(usd.rates["deepseek/deepseek-flash"]?.input).toBe(0.3);
+		expect(usd.rates["deepseek/deepseek-v4-pro"]?.output).toBe(3.96);
+		expect(usd.currency.decimals).toBe(3);
+	});
+
+	test("switching the code does not reinterpret a hand-written table", () => {
+		const cny = normalizeByteflyConfig({ rates: { "acme/model": { input: 7, output: 7 } } }, DEFAULT_BYTEFLY_CONFIG);
+		const usd = normalizeByteflyConfig({ currency: { code: "USD" } }, cny);
+
+		// The custom yuan entry does not survive into dollars as if it were one.
+		expect(usd.rates["acme/model"]).toBeUndefined();
+		expect(usd.rates["deepseek/deepseek-flash"]?.input).toBe(0.3);
+	});
+
+	test("rates stated with the code merge over that currency's table", () => {
+		const usd = normalizeByteflyConfig(
+			{ currency: { code: "USD" }, rates: { "deepseek/deepseek-flash": { output: 9 } } },
+			DEFAULT_BYTEFLY_CONFIG,
+		);
+
+		expect(usd.rates["deepseek/deepseek-flash"]?.output).toBe(9);
+		expect(usd.rates["deepseek/deepseek-flash"]?.input).toBe(0);
+		expect(usd.rates["deepseek/deepseek-v4-pro"]?.input).toBe(1.32);
+	});
+});
