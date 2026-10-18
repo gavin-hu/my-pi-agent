@@ -125,6 +125,21 @@ describe("bridge remote prompts", () => {
 		await bridge.close();
 	});
 
+	test("reports the waiting prompt for the control screen", async () => {
+		const { client } = controllableClient();
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A"] });
+		expect(bridge.status().prompt).toMatchObject({ peer: owner, kind: "select", title: "Pick" });
+		bridge.channel().cancel();
+		expect(await answer).toEqual({ kind: "cancelled" });
+		expect(bridge.status().prompt).toBeUndefined();
+		await bridge.close();
+	});
+
 	test("resolves a pending prompt as cancelled when the bridge closes", async () => {
 		const { client, sent } = controllableClient();
 		const { deps, injected } = makeDeps(client, {}, { hold: true });

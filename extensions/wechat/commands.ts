@@ -1,5 +1,5 @@
 /**
- * The `/wechat` command: `login`, `new`, `status`, `logout`, `help`.
+ * The `/wechat` command: `login`, `new`, `status`, `logout`, `allow`, `help`.
  *
  * The command is the operator's single entry point. `/wechat` (or `/wechat
  * status`) opens the control screen, where every action is a key; the verb
@@ -11,9 +11,17 @@
  * declines while a WeChat peer turn is running.
  */
 
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+	CONFIG_DIR_NAME,
+	type ExtensionAPI,
+	type ExtensionCommandContext,
+	type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
+import { join } from "node:path";
+import { writeConfigValue } from "../../lib/config.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { supportsCustomUI } from "../../lib/interaction.ts";
-import type { Bridge } from "./bridge.ts";
+import { isAllowedPeer, type Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
 import { doctorReport } from "./doctor.ts";
@@ -57,6 +65,7 @@ export const WECHAT_COMMANDS = [
 	{ verb: "stop", description: "Stop one peer's running turn: /wechat stop <peer>" },
 	{ verb: "reset", description: "Start a fresh conversation for one peer: /wechat reset <peer>" },
 	{ verb: "history", description: "Print one peer's recent messages: /wechat history <peer> [n]" },
+	{ verb: "allow", description: "Allow a refused sender in the project config: /wechat allow [peer]" },
 	{ verb: "logout", description: "Clear the stored account and stop the bridge" },
 	{ verb: "help", description: "List these commands" },
 ] as const satisfies readonly WechatCommand[];
@@ -113,6 +122,41 @@ async function runDoctor(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 			now: deps.now(),
 		}),
 	);
+}
+
+/** Add a refused sender to the project config after the operator confirms. */
+async function runAllow(ctx: ExtensionContext, deps: CommandDeps, peerArg?: string): Promise<void> {
+	if (!ctx.hasUI) {
+		ctx.ui.notify("WeChat allow needs a confirmation dialog, which this mode has no UI for.", "warning");
+		return;
+	}
+	const candidate = peerArg?.trim() || (await chooseRefused(ctx, deps));
+	if (!candidate) return;
+	const config = deps.loadConfig(ctx.cwd);
+	if (isAllowedPeer(candidate, undefined, config.allowedPeers)) {
+		ctx.ui.notify(`${sanitizeLine(peerLabel(candidate))} is already allowed.`);
+		return;
+	}
+	const relative = join(CONFIG_DIR_NAME, "bytefly.json");
+	const label = sanitizeLine(peerLabel(candidate));
+	const confirmed = await ctx.ui.confirm(`Allow ${label}?`, `Add this sender to wechat.allowedPeers in ${relative}?`);
+	if (!confirmed) return;
+	try {
+		writeConfigValue(join(ctx.cwd, relative), "wechat", "allowedPeers", [...config.allowedPeers, candidate]);
+		ctx.ui.notify(`Saved ${label} to ${relative}. Run /reload or restart Pi to apply.`);
+	} catch (error) {
+		ctx.ui.notify(`Could not save the allowlist: ${messageOf(error)}`, "error");
+	}
+}
+
+/** Pick one of the refused senders, or explain that there is nothing to allow. */
+async function chooseRefused(ctx: ExtensionContext, deps: CommandDeps): Promise<string | undefined> {
+	const refused = deps.getBridge()?.status().refusedPeers ?? [];
+	if (refused.length === 0) {
+		ctx.ui.notify("No refused sender to allow.", "warning");
+		return undefined;
+	}
+	return ctx.ui.select("Allow which sender?", refused);
 }
 
 /** Print one peer's recent messages; read-only, and works without a live session. */
@@ -263,12 +307,22 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 							? `Started a fresh conversation for ${peerLabel(peer)}.`
 							: `${peerLabel(peer)} is running; stop it before starting fresh.`;
 					},
+					cancelPrompt: () => {
+						const bridge = deps.getBridge();
+						if (!bridge?.status().promptPending) return "No prompt is waiting.";
+						bridge.channel().cancel();
+						return "Cancelled the waiting prompt.";
+					},
 				},
 				requestRender: () => tui.requestRender(),
 			}),
 	);
 	if (typeof action === "object" && action?.kind === "history") {
 		await runHistory(ctx, deps, action.peer);
+		return;
+	}
+	if (typeof action === "object" && action?.kind === "allow") {
+		await runAllow(ctx, deps);
 		return;
 	}
 	switch (action) {
@@ -354,6 +408,8 @@ async function dispatch(
 			return runDoctor(ctx, deps);
 		case "history":
 			return runHistory(ctx, deps, peerArg);
+		case "allow":
+			return runAllow(ctx, deps, peerArg || undefined);
 		case "stop":
 			return runPeerAction(ctx, deps, "stop", peerArg);
 		case "reset":
@@ -369,7 +425,7 @@ async function dispatch(
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
 		description:
-			"WeChat bridge. /wechat opens the control screen (login | new | status | doctor | stop | reset | history | logout | help)",
+			"WeChat bridge. /wechat opens the control screen (login | new | status | doctor | stop | reset | history | allow | logout | help)",
 		getArgumentCompletions: completeSubcommand,
 		handler: async (args, ctx) => {
 			const [sub = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);

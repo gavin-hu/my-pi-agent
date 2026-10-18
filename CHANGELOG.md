@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `wechat`: the control screen can allow a refused sender with `a`, and
+  `/wechat allow [peer]` does the same from the command. It confirms against the
+  sender and the exact file, appends one entry to `wechat.allowedPeers` in the
+  project `.pi/bytefly.json` without touching sibling keys, and says that a
+  `/reload` or restart applies it. A malformed config is reported, never
+  overwritten.
+- `wechat`: the waiting prompt now shows its peer, question, and age, and `c` on
+  the control screen withdraws it: the peer is told once and the model receives
+  `cancelled`.
+
 ### Fixed
 
 - `wechat`: the `/wechat` control screen no longer crashes the host with

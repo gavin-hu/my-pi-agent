@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import type { Bridge, BridgeStatus } from "./bridge.ts";
@@ -235,6 +239,68 @@ describe("the /wechat command", () => {
 		for (const command of WECHAT_COMMANDS) {
 			expect(help).toContain(`/wechat ${command.verb} — ${command.description}`);
 		}
+	});
+
+	test("allows a refused sender in the project config after confirmation", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "wechat-allow-"));
+		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
+		const { ctx, notices, confirms } = fakeCtx({ cwd: dir, select: "alice", confirm: true });
+		await handler(deps)("allow", ctx);
+		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
+		expect(JSON.parse(readFileSync(file, "utf8")).wechat.allowedPeers).toEqual(["alice"]);
+		expect(confirms[0]?.message).toContain("bytefly.json");
+		expect(notices.at(-1)?.message).toContain("/reload");
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	test("writes nothing when the allow confirmation is declined", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "wechat-allow-"));
+		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
+		const { ctx } = fakeCtx({ cwd: dir, select: "alice", confirm: false });
+		await handler(deps)("allow", ctx);
+		expect(existsSync(join(dir, CONFIG_DIR_NAME, "bytefly.json"))).toBe(false);
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	test("allows an explicit peer without the picker", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "wechat-allow-"));
+		const { deps } = harness();
+		const { ctx, selects } = fakeCtx({ cwd: dir, confirm: true });
+		await handler(deps)("allow bob", ctx);
+		expect(selects).toEqual([]);
+		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
+		expect(JSON.parse(readFileSync(file, "utf8")).wechat.allowedPeers).toEqual(["bob"]);
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	test("explains when there is nobody refused to allow", async () => {
+		const { deps } = harness();
+		const { ctx, notices, selects } = fakeCtx({ confirm: true });
+		await handler(deps)("allow", ctx);
+		expect(selects).toEqual([]);
+		expect(notices.at(-1)?.message).toContain("No refused sender");
+	});
+
+	test("does not overwrite a malformed project config", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "wechat-allow-"));
+		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
+		mkdirSync(join(dir, CONFIG_DIR_NAME), { recursive: true });
+		writeFileSync(file, "{ broken");
+		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
+		const { ctx, notices } = fakeCtx({ cwd: dir, select: "alice", confirm: true });
+		await handler(deps)("allow", ctx);
+		expect(notices.at(-1)?.kind).toBe("error");
+		expect(readFileSync(file, "utf8")).toBe("{ broken");
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	test("reports a sender that is already allowed", async () => {
+		const { deps } = harness();
+		deps.loadConfig = () => ({ ...DEFAULT_CONFIG, allowedPeers: ["alice"] });
+		const { ctx, notices, confirms } = fakeCtx({ select: "alice", confirm: true });
+		await handler(deps)("allow alice", ctx);
+		expect(confirms).toEqual([]);
+		expect(notices.at(-1)?.message).toContain("already allowed");
 	});
 
 	test("prints a peer's recent history", async () => {

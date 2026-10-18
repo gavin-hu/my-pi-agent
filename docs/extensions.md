@@ -220,7 +220,7 @@ typing indicator. Each peer session is told it is answering in a phone chat
 window, so replies are shaped for the chat rather than for a terminal. The bridge
 starts automatically once an account is stored.
 `/wechat` opens a control screen (`login`, `new`, `status`, `doctor`, `stop`,
-`reset`, `history`, `logout`, `help`) in
+`reset`, `history`, `allow`, `logout`, `help`) in
 the TUI and prints a one-line summary elsewhere (or while a peer turn is
 running). Peers can also send `/new`,
 `/stop`, `/status`, and `/help`. The `send_wechat` tool messages the account owner

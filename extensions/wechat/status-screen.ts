@@ -11,6 +11,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
+import { formatDuration, sanitizeLine } from "../../lib/format.ts";
 import { screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { formatRange, IdCursor, isCloseKey, navIntent } from "../../lib/tui/cursor.ts";
@@ -29,7 +30,7 @@ export type StatusConnection = "open" | "expired" | "closed";
  * What the status screen closed with: a global action, a peer history request,
  * or `close`.
  */
-export type StatusAction = "close" | "login" | "new" | "logout" | { kind: "history"; peer: string };
+export type StatusAction = "close" | "login" | "new" | "logout" | { kind: "history"; peer: string } | { kind: "allow" };
 
 /** The facts the status screen and the one-line summary render. */
 export interface StatusView {
@@ -47,6 +48,10 @@ export interface StatusView {
 	refusedPeers: string[];
 	mediaDropped: number;
 	promptPending: boolean;
+	/** The waiting prompt's peer, title, and start time. */
+	prompt?: { peer: string; title: string; startedAt: number };
+	/** The clock the view was built with, for the prompt age. */
+	now?: number;
 }
 
 /** One peer's line in the control screen. */
@@ -68,7 +73,11 @@ export function connectionOf(status: BridgeStatus | undefined): StatusConnection
 }
 
 /** Build the view from the stored account and the live bridge status. */
-export function statusView(account: BotCredentials | undefined, status: BridgeStatus | undefined): StatusView {
+export function statusView(
+	account: BotCredentials | undefined,
+	status: BridgeStatus | undefined,
+	now: number = Date.now(),
+): StatusView {
 	return {
 		bridge: status !== undefined,
 		account: account ? peerLabel(account.ilinkUserId) : undefined,
@@ -87,6 +96,14 @@ export function statusView(account: BotCredentials | undefined, status: BridgeSt
 		refusedPeers: status?.refusedPeers ?? [],
 		mediaDropped: status?.mediaDropped ?? 0,
 		promptPending: status?.promptPending ?? false,
+		prompt: status?.prompt
+			? {
+					peer: sanitizeLine(peerLabel(status.prompt.peer)),
+					title: sanitizeLine(status.prompt.title),
+					startedAt: status.prompt.startedAt,
+				}
+			: undefined,
+		now,
 	};
 }
 
@@ -165,7 +182,12 @@ export function statusBody(view: StatusView, theme: Theme, width: number, select
 		lines.push(row(theme, target, "Queued", String(view.queued), "meta"));
 		if (view.refused > 0) lines.push(row(theme, target, "Refused", refusedValue(view), "meta"));
 		if (view.mediaDropped > 0) lines.push(row(theme, target, "Media", `${view.mediaDropped} dropped`, "meta"));
-		if (view.promptPending) lines.push(row(theme, target, "Prompt", "waiting for a reply", "accent"));
+		if (view.prompt) {
+			const age = formatDuration(Math.max(0, (view.now ?? Date.now()) - view.prompt.startedAt));
+			lines.push(row(theme, target, "Prompt", `${view.prompt.peer} · ${view.prompt.title} · ${age}`, "accent"));
+		} else if (view.promptPending) {
+			lines.push(row(theme, target, "Prompt", "waiting for a reply", "accent"));
+		}
 		lines.push(...peerLines(view.peerRows, theme, target, selection));
 	}
 	if (view.connection === "expired") {
@@ -227,6 +249,8 @@ export interface StatusActions {
 	stop(peer: string): string;
 	/** Start a fresh conversation for the peer; returns the line to flash. */
 	reset(peer: string): string;
+	/** Withdraw the waiting prompt; returns the line to flash. */
+	cancelPrompt(): string;
 }
 
 export interface StatusScreenOptions {
@@ -299,6 +323,18 @@ export class StatusScreenComponent implements Component {
 		}
 		if (data === "r" || data === "R") {
 			this.setFlash(undefined);
+			return;
+		}
+		if (data === "a" || data === "A") {
+			this.options.onClose({ kind: "allow" });
+			return;
+		}
+		if (data === "c" || data === "C") {
+			if (!view.prompt) {
+				this.setFlash("No prompt waiting.");
+				return;
+			}
+			this.setFlash(this.options.actions?.cancelPrompt() ?? "Prompt cancel is unavailable.");
 			return;
 		}
 		if (data === "s" || data === "S" || data === "d" || data === "D" || data === "h" || data === "H") {

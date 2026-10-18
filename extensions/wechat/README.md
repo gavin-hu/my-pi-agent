@@ -61,7 +61,9 @@ How the `send_wechat` call and its result look in the transcript — the call li
   can drive the agent; `allowedPeers` opts in others. An entry matches either id
   form (`alice` or `alice@im.wechat`), and a refused sender is named in
   `/wechat status` and in one terminal notice, so the id to allowlist can be
-  copied from either.
+  copied from either. `a` on the control screen or `/wechat allow [peer]` writes
+  one entry into the project config; the running bridge picks it up on the next
+  `/reload` or restart, and the confirmation names the file.
 - **Session-bound** — the bridge runs while an account is stored and the Pi
   process is alive; it starts on `session_start`, and `/wechat logout` clears the
   account and stops it. The peer sessions outlive it on disk.
@@ -78,6 +80,7 @@ How the `send_wechat` call and its result look in the transcript — the call li
 | `/wechat stop <peer>` | Stop that peer's running turn; reports when nothing was running. |
 | `/wechat reset <peer>` | Start a fresh conversation for that peer; refused while its turn runs. |
 | `/wechat history <peer> [n]` | Print that peer's recent messages (default 10, max 20); read-only, and works without a live session. |
+| `/wechat allow [peer]` | Add a refused sender to `wechat.allowedPeers` in the project `.pi/bytefly.json`, after a confirmation that names the file. Without an argument it offers the refused senders. |
 | `/wechat logout` | Confirm, then clear credentials, drop the bridge, and stop polling. |
 | `/wechat help` | List the subcommands with a line each. |
 
@@ -100,13 +103,15 @@ one-step recovery.
 
 In the TUI, `/wechat` opens a control screen with the account, connection
 state, owner, per-peer conversation rows (what each peer is doing, how long, and
-what is queued behind it), activity counters, and any pending remote prompt.
+what is queued behind it), activity counters, and the waiting remote prompt
+(peer, question, and age).
 `j`/`k` (or the arrows) move the focus over peer rows; `s` stops the focused
 peer's turn and `d` starts a fresh conversation for it, both in place; `h` closes
-the screen and prints that peer's history. `l` logs in or reconnects, `n` starts
-a new session, `o` logs out, `r` refreshes, and Esc closes. The subcommands above
-are shortcuts for the same actions and the only route outside the TUI; an
-unknown subcommand reports the valid ones.
+the screen and prints that peer's history; `a` closes it and offers the refused
+senders to allow; `c` withdraws the waiting prompt. `l` logs in or reconnects,
+`n` starts a new session, `o` logs out, `r` refreshes, and Esc closes. The
+subcommands above are shortcuts for the same actions and the only route outside
+the TUI; an unknown subcommand reports the valid ones.
 
 A peer turn runs in its own session, but it still owns the bridge, so a `/wechat`
 command typed at the terminal declines while one is running: `status` prints the
@@ -390,7 +395,7 @@ sessions are in-process).
 
 | Integration point | Detail |
 |---|---|
-| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `doctor`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `logout`, `help`; bare `/wechat` opens the control screen. |
+| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `doctor`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `allow [peer]`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |

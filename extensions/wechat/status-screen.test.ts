@@ -186,6 +186,21 @@ describe("statusBody", () => {
 		expect(body).toContain("waiting for a reply");
 	});
 
+	test("shows the waiting prompt's peer, title, and age", () => {
+		const built = view({
+			bridge: true,
+			account: "owner",
+			connection: "open",
+			promptPending: true,
+			prompt: { peer: "alice", title: "Pick one", startedAt: 1_000 },
+			now: 43_000,
+		});
+		const body = statusBody(built, fakeTheme, 60).join("\n");
+		expect(body).toContain("alice");
+		expect(body).toContain("Pick one");
+		expect(body).toContain("42.0s");
+	});
+
 	test("shows the expiry recovery line", () => {
 		const body = statusBody(view({ bridge: true, account: "owner", connection: "expired" }), fakeTheme, 60).join("\n");
 		expect(body).toContain("press l to log in again");
@@ -228,6 +243,7 @@ const peers = [
 function withActions() {
 	const stops: string[] = [];
 	const resets: string[] = [];
+	const cancels: string[] = [];
 	const built = component(view({ bridge: true, connection: "open", peerRows: peers }), {
 		stop: (peer) => {
 			stops.push(peer);
@@ -237,8 +253,12 @@ function withActions() {
 			resets.push(peer);
 			return `Reset ${peer}.`;
 		},
+		cancelPrompt: () => {
+			cancels.push("cancel");
+			return "Cancelled the waiting prompt.";
+		},
 	});
-	return { ...built, stops, resets };
+	return { ...built, stops, resets, cancels };
 }
 
 describe("peer actions", () => {
@@ -262,6 +282,44 @@ describe("peer actions", () => {
 		screen.handleInput("d");
 		expect(resets).toEqual(["alice@im.wechat"]);
 		expect(screen.render(60).join("\n")).toContain("Reset alice@im.wechat.");
+	});
+
+	test("cancels the waiting prompt on c and flashes the result", () => {
+		const cancels: string[] = [];
+		const { screen } = component(
+			view({
+				bridge: true,
+				connection: "open",
+				promptPending: true,
+				prompt: { peer: "alice", title: "Pick one", startedAt: 1_000 },
+			}),
+			{
+				stop: () => "",
+				reset: () => "",
+				cancelPrompt: () => {
+					cancels.push("cancel");
+					return "Cancelled the waiting prompt.";
+				},
+			},
+		);
+		screen.handleInput("c");
+		expect(cancels).toEqual(["cancel"]);
+		expect(screen.render(60).join("\n")).toContain("Cancelled the waiting prompt.");
+	});
+
+	test("explains when there is no prompt to cancel", () => {
+		const { screen, cancels } = withActions();
+		screen.handleInput("c");
+		expect(cancels).toEqual([]);
+		expect(screen.render(60).join("\n")).toContain("No prompt waiting.");
+	});
+
+	test("asks to allow a refused sender on a", () => {
+		const { screen, actions } = component(
+			view({ bridge: true, connection: "open", refused: 1, refusedPeers: ["alice"] }),
+		);
+		screen.handleInput("a");
+		expect(actions).toEqual([{ kind: "allow" }]);
 	});
 
 	test("opens the focused peer's history", () => {

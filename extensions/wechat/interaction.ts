@@ -38,6 +38,8 @@ export interface WechatInteractionDeps {
 	language: () => PeerLanguage;
 	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
 	armTimer?: ArmTimer;
+	/** Clock for the prompt's start time; defaults to `Date.now`. */
+	now?: () => number;
 }
 
 export interface WechatInteractionChannel extends InteractionChannel {
@@ -45,13 +47,27 @@ export interface WechatInteractionChannel extends InteractionChannel {
 	handleInbound(peer: string, text: string): boolean;
 	/** Whether a prompt is currently waiting for a reply. */
 	hasPending(): boolean;
+	/** The waiting prompt, for the control screen; undefined when none waits. */
+	pendingInfo(): PendingPromptInfo | undefined;
+	/** Withdraw the waiting prompt: tell the peer and resolve it cancelled. */
+	cancel(): void;
 	/** Drop any pending prompt (turn settled or the bridge stopped). */
 	reset(): void;
+}
+
+/** The waiting prompt, as the control screen reads it. */
+export interface PendingPromptInfo {
+	peer: string;
+	kind: InteractionRequest["kind"];
+	title: string;
+	/** When the prompt was registered, in epoch milliseconds. */
+	startedAt: number;
 }
 
 interface Pending {
 	request: InteractionRequest;
 	peer: string;
+	startedAt: number;
 	resolve: (answer: InteractionAnswer) => void;
 	signal?: AbortSignal;
 	onAbort: () => void;
@@ -61,6 +77,7 @@ interface Pending {
 
 export function createWechatInteractionChannel(deps: WechatInteractionDeps): WechatInteractionChannel {
 	const arm = deps.armTimer ?? defaultTimer;
+	const now = deps.now ?? Date.now;
 	let pending: Pending | undefined;
 	/**
 	 * Free text captured from a `select` "Other" reply, per peer: the immediately
@@ -86,6 +103,26 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 
 		hasPending(): boolean {
 			return pending !== undefined;
+		},
+
+		pendingInfo(): PendingPromptInfo | undefined {
+			const current = pending;
+			return current === undefined
+				? undefined
+				: {
+						peer: current.peer,
+						kind: current.request.kind,
+						title: current.request.title,
+						startedAt: current.startedAt,
+					};
+		},
+
+		cancel(): void {
+			if (!pending) return;
+			// The peer saw the prompt; one line says it was withdrawn. `reset` is the
+			// silent cleanup path and deliberately does not send this.
+			void deps.send(notice("timeout", deps.language()));
+			settle({ kind: "cancelled" });
 		},
 
 		async post(text: string, signal?: AbortSignal): Promise<void> {
@@ -117,7 +154,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			const cancelTimers: Array<() => void> = [];
 			const answer = new Promise<InteractionAnswer>((resolve) => {
 				const onAbort = () => settle({ kind: "cancelled" });
-				pending = { request, peer, resolve, signal, onAbort, cancelTimers };
+				pending = { request, peer, startedAt: now(), resolve, signal, onAbort, cancelTimers };
 				signal?.addEventListener("abort", onAbort, { once: true });
 				// An ignored question must not freeze the session: nudge once, then
 				// cancel so the model gets a clean answer instead of a hang.

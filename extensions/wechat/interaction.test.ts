@@ -30,7 +30,10 @@ function fakeTimers(): { arm: ArmTimer; fire: (ms: number) => void; armed: () =>
 	};
 }
 
-function setup(initialPeer: string | undefined = "owner", options: { timer?: ArmTimer; language?: PeerLanguage } = {}) {
+function setup(
+	initialPeer: string | undefined = "owner",
+	options: { timer?: ArmTimer; language?: PeerLanguage; now?: () => number } = {},
+) {
 	const sent: string[] = [];
 	const files: Array<{ path: string; name: string }> = [];
 	let peer: string | undefined = initialPeer;
@@ -46,6 +49,7 @@ function setup(initialPeer: string | undefined = "owner", options: { timer?: Arm
 		activePeer: () => peer,
 		language: () => options.language ?? "en",
 		armTimer: options.timer,
+		now: options.now,
 	};
 	const channel = createWechatInteractionChannel(deps);
 	return { channel, sent, files, setPeer: (value: string | undefined) => (peer = value) };
@@ -83,6 +87,39 @@ describe("hasPending", () => {
 		channel.handleInbound("owner", "1");
 		await answer;
 		expect(channel.hasPending()).toBe(false);
+	});
+});
+
+describe("pending prompt details", () => {
+	test("exposes the peer, kind, title, and start time", async () => {
+		const { channel } = setup("alice", { now: () => 1_000 });
+		const answer = channel.request(SELECT);
+		expect(channel.pendingInfo()).toEqual({
+			peer: "alice",
+			kind: "select",
+			title: "Pick",
+			startedAt: 1_000,
+		});
+		expect(channel.handleInbound("alice", "2")).toBe(true);
+		expect(await answer).toEqual({ kind: "value", value: "B" });
+		expect(channel.pendingInfo()).toBeUndefined();
+	});
+
+	test("cancels on demand, tells the peer once, and clears the prompt", async () => {
+		const { channel, sent } = setup();
+		const answer = channel.request(SELECT);
+		channel.cancel();
+		expect(await answer).toEqual({ kind: "cancelled" });
+		expect(sent.at(-1)).toBe("That question timed out.");
+		expect(channel.hasPending()).toBe(false);
+	});
+
+	test("reset stays silent: it is cleanup, not a withdrawal", async () => {
+		const { channel, sent } = setup();
+		const answer = channel.request(SELECT);
+		channel.reset();
+		expect(await answer).toEqual({ kind: "cancelled" });
+		expect(sent).toHaveLength(1);
 	});
 });
 

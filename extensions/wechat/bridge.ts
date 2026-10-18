@@ -25,7 +25,11 @@ import { messageOf } from "./errors.ts";
 import { parseInbound, peerKey, peerLabel, peerLanguage, sanitizeInbound, type PeerLanguage } from "./format.ts";
 import { notice } from "./notices.ts";
 import { createPresence } from "./presence.ts";
-import { createWechatInteractionChannel, type WechatInteractionChannel } from "./interaction.ts";
+import {
+	createWechatInteractionChannel,
+	type PendingPromptInfo,
+	type WechatInteractionChannel,
+} from "./interaction.ts";
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
 import { createPeerWorker, type PeerState, type PeerWorker } from "./peer-worker.ts";
 import type { PeerSession } from "./peer-session.ts";
@@ -116,6 +120,8 @@ export interface BridgeStatus {
 	mediaDropped: number;
 	/** Whether a remote dialog prompt is waiting for an answer. */
 	promptPending: boolean;
+	/** The waiting prompt's peer, kind, title, and age. */
+	prompt?: PendingPromptInfo;
 	/** When this connection opened. */
 	startedAt?: number;
 	/** When the last poll settled, successful or not. */
@@ -611,6 +617,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				refusedPeers: [...refusedPeers],
 				mediaDropped: inbound.dropped(),
 				promptPending: interaction.hasPending(),
+				prompt: interaction.pendingInfo(),
 				startedAt,
 				lastPollAt,
 				lastPollError,
