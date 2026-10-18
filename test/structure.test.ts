@@ -303,7 +303,7 @@ describe("doc links", () => {
 			.toLowerCase()
 			.replace(/[^\p{L}\p{N} _-]/gu, "")
 			.trim()
-			.replace(/\s+/g, "-");
+			.replace(/ /g, "-");
 	}
 
 	/** The anchors a rendered page offers, including GitHub's `-1`, `-2` suffixes for repeats. */
@@ -328,6 +328,11 @@ describe("doc links", () => {
 
 	test("a doc path keeps one separator style whatever the host's join does", () => {
 		expect(docPath("D:\\a\\my-pi-agent", "docs", "..", "README.md")).toBe("D:/a/my-pi-agent/README.md");
+	});
+
+	test("hyphenates each space, so an em dash between words leaves two", () => {
+		// GitHub replaces every space, it does not collapse a run of them.
+		expect(anchorOf("`price` — cost calculation")).toBe("price--cost-calculation");
 	});
 
 	test("every relative doc link resolves, anchor included", () => {

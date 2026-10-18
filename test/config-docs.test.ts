@@ -37,6 +37,12 @@ const docs = join(import.meta.dir, "..", "docs");
 const reference = readFileSync(join(docs, "references", "bytefly-config.md"), "utf-8");
 const configuration = readFileSync(join(docs, "configuration.md"), "utf-8");
 
+/** The reference's top-level headings, in order. */
+const headings = reference
+	.split("\n")
+	.filter((line) => line.startsWith("## "))
+	.map((line) => line.slice(3).trim());
+
 /** A documented key whose loader has no default. */
 const NO_DEFAULT = new Set(["pollHoldMs"]);
 
@@ -149,6 +155,13 @@ function indexedSections(): string[] {
 }
 
 describe("configuration reference", () => {
+	test("lists every section in its contents", () => {
+		const sections = headings.filter((heading) => heading !== "Contents");
+		expect(sections.length, "the reference has no sections").toBeGreaterThan(0);
+		const missing = sections.filter((heading) => !reference.includes(`[${heading}](`));
+		expect(missing, "add a contents link for every section").toEqual([]);
+	});
+
 	test("documents every section the configuration index lists, and no others", () => {
 		const documented = reference
 			.split("\n")

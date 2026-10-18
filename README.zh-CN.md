@@ -7,8 +7,8 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
 
-`my-pi-agent` 是一个 [Pi](https://pi.dev) 包，在你已经使用的智能体之上新增十六个
-扩展和两个主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
+`my-pi-agent` 是一个 [Pi](https://pi.dev) 包，在你已经使用的智能体之上新增一组精选
+扩展和主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
 
 ![一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏](assets/chrome.png)
 

@@ -7,8 +7,8 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
 
-`my-pi-agent` is a single [Pi](https://pi.dev) package that adds sixteen
-extensions and two themes to the agent you already use — install the pack, turn
+`my-pi-agent` is a single [Pi](https://pi.dev) package that adds a curated set
+of extensions and themes to the agent you already use — install the pack, turn
 off what you do not want, and keep using Pi unchanged.
 
 ![A terminal window running the Pi TUI with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar](assets/chrome.png)

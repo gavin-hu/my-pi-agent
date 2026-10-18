@@ -273,7 +273,7 @@ keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` settings
 checkbox and one verdict (`off` when switched off, `env disabled` when
 `PI_DISABLED_EXTENSIONS` excludes it, otherwise its worst-severity health), and
-Settings, fourteen curated preferences in six groups — bytefly startup TUI,
+Settings, the curated preferences — bytefly startup TUI,
 desktop notifications, the four triggers that narrow them, their delivery method
 and title, the proactive health check and its probe timeout, the currency and cost
 precision, the rail glyph, output padding, and the hardware cursor — with each
