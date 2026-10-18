@@ -157,7 +157,8 @@ Durable cross-session notes as human-editable markdown: global notes under the
 agent directory, project notes under the repo root's `.pi/`. Add, update, or
 forget notes, and list what is stored; an active note set is injected as a
 hidden `[MEMORY]` context before each run. `/memory` opens a picker to add,
-edit, forget, or merge notes (and otherwise lists, edits, or clears them), and
+edit, forget, merge, or move notes between scopes (and otherwise lists, edits, or
+clears them), and
 `/memory doctor` reports store health: counts, bytes, the notes the injection
 budget drops, and near-duplicate pairs.
 

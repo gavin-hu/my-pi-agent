@@ -59,20 +59,21 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | P1, P3 |
 | Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P2, P4–P6 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S6 |
-| Remember across sessions | Works; the store reports its own health | S1 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S5 |
+| Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W8 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F6 |
 
 ## If only three things ship
 
-1. **S1 — Note promotion.** A note learned in one repository should graduate to
-   global scope from the picker, without a manual file copy.
-2. **P1 — Objective handoff.** Starting plan mode with a goal, or approving a plan
+1. **P1 — Objective handoff.** Starting plan mode with a goal, or approving a plan
    with none, should carry the objective across the boundary without a second
    model call.
-3. **P2 — Delegation accounting.** A child run's cost should be visible as its own
+2. **P2 — Delegation accounting.** A child run's cost should be visible as its own
    roll-up, without folding it into the parent total.
+3. **P3 — Verification handoff.** The plan's `## Verification` section should
+   survive approval as the final checklist item, so the definition of done cannot
+   be lost between approval and execution.
 
 ## Horizons
 
@@ -156,7 +157,7 @@ contributes no `Now` item.
 - `rewind`: one git-ref snapshot per prompt, restore code/conversation/both,
   with `max` and `autoPrune`.
 - `memory`: project and global markdown notes, injected each run, managed
-  through `/memory`.
+  through `/memory` (add, edit, forget, merge, and move between scopes).
 
 **Where the promise is thin**
 
@@ -182,26 +183,23 @@ This section contributes no `Now` item.
 
 **Next**
 
-- **S1 — Note promotion.** Move a note between project and global scope from the
-  `/memory` picker, so a fact learned in one repository can graduate without a
-  manual file copy.
-- **S2 — Guard parity on Windows.** Block `powershell` escapes in the worktree
+- **S1 — Guard parity on Windows.** Block `powershell` escapes in the worktree
   guard the way plan mode already does, or report the gap as `degraded`. *Done
   when* a Windows test covers an escape attempt.
 
 **Later**
 
-- **S3 — Partial restore.** Per-file or per-directory rewind from a snapshot,
+- **S2 — Partial restore.** Per-file or per-directory rewind from a snapshot,
   with the same confirmation and dirty-tree rules that the whole-tree restore
   already has. This reverses the current all-or-nothing non-goal; design the UI
   before the tool.
-- **S4 — Worktree handoff.** A checked way to leave a worktree with a commit and
+- **S3 — Worktree handoff.** A checked way to leave a worktree with a commit and
   a merge or pull-request hint, without becoming a general branch manager. The
   branch flow in `AGENTS.md` is the contract to keep.
-- **S5 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S4 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics.
-- **S6 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S5 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -370,10 +368,10 @@ it.
 
 | Limitation | Why it has no item |
 |---|---|
-| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard. Revisit with `S5`. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard. Revisit with `S4`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
-| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S3`. |
-| `rewind`: a restore is all-or-nothing | A non-goal until `S3`; the confirmation already previews the change. |
+| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S2`. |
+| `rewind`: a restore is all-or-nothing | A non-goal until `S2`; the confirmation already previews the change. |
 | `document`: no OCR | `W7` is a non-goal until a dependency-light engine exists. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
@@ -393,7 +391,7 @@ above.
   `test/config-docs.test.ts`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
-  `P4`, `S2`.
+  `P4`, `S1`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — `P1`.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git

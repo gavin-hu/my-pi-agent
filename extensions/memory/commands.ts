@@ -76,6 +76,7 @@ async function openPicker(pi: ExtensionAPI, runtime: MemoryRuntime, ctx: Extensi
 						update: (scope, from, to) => runtime.update(scope, from, to),
 						forget: (scope, entry) => runtime.forget(scope, entry),
 						merge: (scope, first, second, merged) => runtime.merge(scope, first, second, merged),
+						move: (from, to, text) => runtime.move(from, to, text),
 					},
 					() => {
 						stopTimer();

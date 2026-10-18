@@ -39,8 +39,8 @@ How the `memory` call and its result look in the transcript — the call line as
 - Re-reads each store when its file changes on disk (compared by mtime and size),
   so an external edit lands in the same session without a restart.
 - Exposes `/memory`: in the TUI it opens a picker to add, edit, or forget a
-  single note, merge two notes into one, filter by scope, and reload; elsewhere
-  it lists the store. `/memory path`, `edit`, and `clear` print the file paths,
+  single note, merge two notes into one, move a note to the other scope, filter
+  by scope, and reload; elsewhere it lists the store. `/memory path`, `edit`, and `clear` print the file paths,
   open the multi-line editor, and clear a scope; `/memory doctor` reports store
   health.
 - Reports store health with `/memory doctor`: note counts and file bytes per
@@ -97,7 +97,7 @@ or stem both survive.
 
 | Command | What it does |
 |---|---|
-| `/memory` | In the TUI, open the picker (add, edit, forget, or merge notes; `s`/Tab filters by scope; `r` reloads). Other modes notify the stored notes. |
+| `/memory` | In the TUI, open the picker (add, edit, forget, merge, or move notes; `s`/Tab filters by scope; `r` reloads). Other modes notify the stored notes. |
 | `/memory list` | Notify the stored notes and counts. |
 | `/memory path` | Notify the two file paths and whether the project store is trusted. |
 | `/memory reload` | Re-read the stores from disk and report what changed. |
@@ -116,6 +116,7 @@ memory in one call.
 | `a` | Add a note to the active scope. |
 | `d` | Forget the focused note after a `y`/`N` confirm. |
 | `m` | Mark the focused note as a merge source; `m` on a second note in the same scope opens the editor pre-filled with `"<first>; <second>"`. `m` on the marked note unmarks it. |
+| `p` | Move the focused note to the other scope: project → global, or global → project. No confirmation; `p` again moves it back, and a move into an untrusted project is refused. |
 | `s` / `Tab` | Cycle the scope filter. |
 | `r` | Re-read the stores. |
 | `Esc` | Cancel the mark, the editor, or the screen, in that order. |
@@ -123,6 +124,12 @@ memory in one call.
 A merge is one write: the store replaces the first note in place and drops the
 second, so a cancelled or failed merge leaves both notes as they were. Two notes
 in different scopes are refused — the stores are separate files.
+
+A move is two writes across those files, ordered target first: the note is added
+to the destination and only then removed from the source. If the second write
+fails the note is in both scopes — a duplicate `/memory doctor` reports and `m`
+merges — rather than gone. A note the destination already holds is not
+duplicated, and the move still removes it from the source.
 
 ## Behaviour by mode
 
@@ -246,7 +253,7 @@ when consolidating, or merge the pair in the picker afterward.
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
 | `errors.ts` | `messageOf`, the shared error-text extraction for the tool and command. |
-| `tui.ts` | The `/memory` picker component (note list, inline editor, merge mark, scope filter), drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
+| `tui.ts` | The `/memory` picker component (note list, inline editor, merge mark, scope move, scope filter), drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `tools.ts` | `registerTool("memory", …)`. |
 | `commands.ts` | `registerCommand("memory", …)`. |
 

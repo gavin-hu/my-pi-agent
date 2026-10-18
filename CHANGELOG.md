@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `memory`: `p` in the `/memory` picker moves the focused note to the other
+  scope, so a fact learned in one repository can graduate to global memory
+  without a manual copy. The move writes the destination first and removes the
+  source second, so a failed second write leaves a duplicate (which
+  `/memory doctor` reports and `m` merges) rather than losing the note; a move
+  into an untrusted project is refused before any write.
+
 - `plan`: `/plan list` indexes the plans directory. It walks `.pi/plans` (the
   worktree's own directory inside a worktree), one bounded read per plan, and
   shows each plan's title, modified time, and step progress, newest first — a

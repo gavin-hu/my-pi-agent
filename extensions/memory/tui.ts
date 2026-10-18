@@ -11,7 +11,8 @@
  * `m` marks one note as a merge source and `m` on a second note in the same
  * scope opens the editor, pre-filled with both notes so the user writes the
  * merged wording. The merge is one write: the store replaces the first note and
- * drops the second.
+ * drops the second. `p` moves the focused note to the other scope, which is two
+ * writes ordered target-first so a failure leaves a duplicate, never a loss.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -60,6 +61,8 @@ export interface MemoryPickerCallbacks {
 	forget(scope: MemoryScope, entry: string): Promise<boolean>;
 	/** Merge two notes in `scope` into one, in a single write. */
 	merge(scope: MemoryScope, first: string, second: string, merged: string): Promise<boolean>;
+	/** Move a note to the other scope: written there first, then removed here. */
+	move(from: MemoryScope, to: MemoryScope, entry: string): Promise<{ moved: boolean; existing?: string }>;
 }
 
 /** One note in the flat, filtered list. */
@@ -298,6 +301,30 @@ export class MemoryPickerComponent implements Component {
 		});
 	}
 
+	/** `p`: move the focused note to the other scope, target first. */
+	private moveNote(note: Note | undefined): void {
+		if (!note) return;
+		const to: MemoryScope = note.scope === "project" ? "global" : "project";
+		if (to === "project" && !this.callbacks.trusted()) {
+			this.notice = "Project memory is unavailable for an untrusted project.";
+			this.requestRender();
+			return;
+		}
+		const from = note.scope;
+		const text = note.text;
+		this.run(async () => {
+			const result = await this.callbacks.move(from, to, text);
+			if (!result.moved) {
+				this.notice = `Added to ${scopeLabel(to)}; the ${scopeLabel(from)} note was already gone.`;
+			} else if (result.existing !== undefined) {
+				this.notice = `Moved to ${scopeLabel(to)} (it was already there).`;
+			} else {
+				this.notice = `Moved to ${scopeLabel(to)}.`;
+			}
+			this.selectedKey = noteKey({ scope: to, text });
+		});
+	}
+
 	private reload(): void {
 		this.notice = this.callbacks.refresh() ? "Reloaded memory." : "Memory is already up to date.";
 		this.requestRender();
@@ -387,6 +414,7 @@ export class MemoryPickerComponent implements Component {
 		else if (matchesKey(data, Key.enter) || data === "e") this.startEdit(focused);
 		else if (data === "a") this.startAdd();
 		else if (data === "m") this.toggleMerge(focused);
+		else if (data === "p") this.moveNote(focused);
 		else if (data === "d") {
 			if (!focused) return;
 			this.confirm = focused;
@@ -503,6 +531,7 @@ export class MemoryPickerComponent implements Component {
 							"a add",
 							"d forget",
 							"m merge",
+							"p move",
 							"s/Tab scope",
 							"↑/↓",
 							"g/G",
