@@ -106,6 +106,15 @@ describe("formatChangeSummary and formatRestoreText", () => {
 		expect(formatChangeSummary(2, 1)).toBe("2 files changed, 1 created");
 	});
 
+	test("restore text names the subset a partial restore covered", () => {
+		expect(formatRestoreText({ id: "z", commit: "c", root: "/r", changed: 1, removed: 0, of: 5 })).toContain(
+			"1 of 5 files changed",
+		);
+		expect(formatRestoreText({ id: "z", commit: "c", root: "/r", changed: 2, removed: 0, of: 4 })).toContain(
+			"2 of 4 files changed",
+		);
+	});
+
 	test("restore text reports changes and a safety snapshot", () => {
 		expect(formatRestoreText({ id: "z", commit: "c", root: "/r", changed: 2, removed: 1 })).toContain(
 			"2 files changed, 1 removed",

@@ -143,8 +143,10 @@ Commands and flags: `/worktree*`, `--worktree <name>`.
 ### rewind
 
 Automatic per-prompt snapshots stored under `refs/pi/rewind`, plus `/rewind` to
-restore code, conversation, or both. A `↺ N` status chip shows the available
-snapshots. Parallel tool calls in one prompt share a single snapshot.
+restore code, conversation, or both — and, when code moves, a checklist that
+restores only the chosen paths instead of the whole tree. A `↺ N` status chip
+shows the available snapshots. Parallel tool calls in one prompt share a single
+snapshot.
 
 <img src="../assets/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%">
 

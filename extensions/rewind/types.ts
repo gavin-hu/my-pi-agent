@@ -53,6 +53,8 @@ export interface RestoreSummary {
 	changed: number;
 	/** Files deleted because they were created after the snapshot. */
 	removed: number;
+	/** Paths the whole diff touched, present only when a subset was restored. */
+	of?: number;
 	/** Id of the pre-restore safety snapshot, when one was taken. */
 	safety?: string;
 }

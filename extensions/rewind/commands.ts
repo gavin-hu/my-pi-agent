@@ -61,7 +61,7 @@ async function openRewind(pi: ExtensionAPI, runtime: RewindRuntime, ctx: Extensi
 
 	const point = await withRailsSuppressed(pi, () => choosePoint(ctx, points));
 	if (!point) return;
-	await rewindTo(runtime, ctx, root, point);
+	await rewindTo(pi, runtime, ctx, root, point);
 }
 
 export function registerCommands(pi: ExtensionAPI, runtime: RewindRuntime): void {

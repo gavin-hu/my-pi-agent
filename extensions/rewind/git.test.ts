@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	addedPaths,
 	busyGitState,
-	changedCount,
 	currentBranch,
 	diffStat,
 	gitDir,
+	nameStatus,
 	repoRoot,
+	restorePaths,
 	revParse,
 	treeFromWorkingTree,
 } from "./git.ts";
@@ -49,14 +49,48 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 		await runGit(["clean", "-fdq"], { cwd: repo });
 	});
 
-	test("addedPaths, changedCount, and diffStat describe a tree diff", async () => {
+	test("nameStatus and diffStat describe a tree diff", async () => {
 		const before = (await revParse(runGit, repo, "HEAD^{tree}")) as string;
 		writeFileSync(join(repo, "new.txt"), "new\n");
 		writeFileSync(join(repo, "README.md"), "changed\n");
 		const current = await treeFromWorkingTree(runGit, repo, indexFileFor(repo, "diff"), true);
-		expect(await addedPaths(runGit, repo, before, current)).toEqual(["new.txt"]);
-		expect(await changedCount(runGit, repo, before, current, "MD")).toBe(1);
+		expect(await nameStatus(runGit, repo, before, current)).toEqual([
+			{ path: "README.md", change: "modified" },
+			{ path: "new.txt", change: "added" },
+		]);
 		expect(await diffStat(runGit, repo, before, current)).toContain("README.md");
+		await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
+		await runGit(["clean", "-fdq"], { cwd: repo });
+	});
+
+	test("nameStatus and diffStat take a literal pathspec", async () => {
+		const before = (await revParse(runGit, repo, "HEAD^{tree}")) as string;
+		writeFileSync(join(repo, "new.txt"), "new\n");
+		writeFileSync(join(repo, "README.md"), "changed\n");
+		const current = await treeFromWorkingTree(runGit, repo, indexFileFor(repo, "pathspec"), true);
+
+		expect(await nameStatus(runGit, repo, before, current, ["new.txt"])).toEqual([
+			{ path: "new.txt", change: "added" },
+		]);
+		expect(await diffStat(runGit, repo, before, current, ["new.txt"])).not.toContain("README.md");
+
+		await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
+		await runGit(["clean", "-fdq"], { cwd: repo });
+	});
+
+	test("restorePaths rewrites only the named paths, leaving the real index alone", async () => {
+		const commit = (await revParse(runGit, repo, "HEAD")) as string;
+		writeFileSync(join(repo, "README.md"), "changed\n");
+		writeFileSync(join(repo, "other.txt"), "changed too\n");
+
+		await restorePaths(runGit, repo, commit, indexFileFor(repo, "partial"), ["README.md"]);
+
+		expect(readFileSync(join(repo, "README.md"), "utf-8")).not.toBe("changed\n");
+		// Not selected, so untouched.
+		expect(readFileSync(join(repo, "other.txt"), "utf-8")).toBe("changed too\n");
+		// The real index never sees the checkout.
+		expect((await runGit(["diff", "--cached", "--name-only"], { cwd: repo })).stdout.trim()).toBe("");
+
 		await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
 		await runGit(["clean", "-fdq"], { cwd: repo });
 	});

@@ -22,6 +22,7 @@ import {
 	runGitOrThrow as run,
 	type RunGit,
 } from "../../lib/git/index.ts";
+import { parseNameStatus, type ChangedPath } from "./paths.ts";
 
 // Re-export exactly the shared helpers this extension consumes, so rewind code
 // has one git import surface instead of reaching into `lib/git` directly.
@@ -128,33 +129,70 @@ export async function readTreeReset(runGit: RunGit, cwd: string, commit: string,
 	await run(runGit, ["read-tree", "--reset", "-u", commit], { cwd, env: { GIT_INDEX_FILE: indexFile } });
 }
 
-/** Paths added between two trees (present in `to`, absent from `from`). */
-export async function addedPaths(runGit: RunGit, cwd: string, from: string, to: string): Promise<string[]> {
-	const result = await runGit(["diff", "--no-color", "--name-only", "--diff-filter=A", from, to], { cwd });
-	if (result.code !== 0) return [];
-	return result.stdout.split("\n").filter((line) => line.trim().length > 0);
+/**
+ * A pathspec that matches `path` literally.
+ *
+ * The paths come from `git diff` output, so a file named `weird[1].txt` is a real
+ * possibility; without `:(literal)` git would read it as a glob and restore the
+ * wrong thing (or nothing).
+ */
+function literalPathspec(path: string): string {
+	return `:(literal)${path}`;
 }
 
-/** `git diff --stat` between two trees. */
-export async function diffStat(runGit: RunGit, cwd: string, from: string, to: string): Promise<string> {
-	const result = await runGit(["diff", "--no-color", "--stat", from, to, "--"], { cwd });
-	return result.code === 0 ? result.stdout.trim() : "";
-}
-
-/** Count of paths changed between two trees, optionally filtered by diff status. */
-export async function changedCount(
+/**
+ * The changed paths between two trees, with how each changed.
+ *
+ * One call replaces the separate added-path and changed-count queries, so the
+ * preview, the checklist, and the apply step all read the same list.
+ */
+export async function nameStatus(
 	runGit: RunGit,
 	cwd: string,
 	from: string,
 	to: string,
-	filter?: string,
-): Promise<number> {
-	const args = ["diff", "--no-color", "--name-only"];
-	if (filter) args.push(`--diff-filter=${filter}`);
-	args.push(from, to, "--");
+	paths?: readonly string[],
+): Promise<ChangedPath[]> {
+	const args = ["diff", "--no-color", "--name-status", from, to, "--"];
+	if (paths) args.push(...paths.map(literalPathspec));
 	const result = await runGit(args, { cwd });
-	if (result.code !== 0) return 0;
-	return result.stdout.split("\n").filter((line) => line.trim().length > 0).length;
+	return result.code === 0 ? parseNameStatus(result.stdout) : [];
+}
+
+/** `git diff --stat` between two trees, optionally limited to `paths`. */
+export async function diffStat(
+	runGit: RunGit,
+	cwd: string,
+	from: string,
+	to: string,
+	paths?: readonly string[],
+): Promise<string> {
+	const args = ["diff", "--no-color", "--stat", from, to, "--"];
+	if (paths) args.push(...paths.map(literalPathspec));
+	const result = await runGit(args, { cwd });
+	return result.code === 0 ? result.stdout.trim() : "";
+}
+
+/**
+ * Rewrite the given paths in the working tree from `commit`.
+ *
+ * `read-tree --reset -u` takes no pathspec, so a partial restore checks the paths
+ * out of the snapshot instead. The index it writes is the temporary one, so the
+ * real index stays untouched exactly as the whole-tree reset leaves it. Callers
+ * pass only paths present in `commit`; an added path is deleted, not checked out.
+ */
+export async function restorePaths(
+	runGit: RunGit,
+	cwd: string,
+	commit: string,
+	indexFile: string,
+	paths: readonly string[],
+): Promise<void> {
+	if (paths.length === 0) return;
+	await run(runGit, ["checkout", commit, "--", ...paths.map(literalPathspec)], {
+		cwd,
+		env: { GIT_INDEX_FILE: indexFile },
+	});
 }
 
 /** Label of an in-progress git operation that a rewind must not clobber, if any. */
