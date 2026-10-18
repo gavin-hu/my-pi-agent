@@ -62,6 +62,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell commands no longer count as work that needed a plan. A list the model
   wrote or cleared in the same turn is left alone, and a single call still never
   triggers a reminder.
+- `plan`: the documented plan outline now asks for file-anchored, verifiable
+  steps and states the goal's non-goals; the outline test pins the section
+  order.
 
 ### Fixed
 

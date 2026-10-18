@@ -231,9 +231,13 @@ describe("changedSections", () => {
 });
 
 describe("PLAN_OUTLINE", () => {
-	test("documents every section and a checkbox step", () => {
-		for (const title of PLAN_SECTIONS) expect(PLAN_OUTLINE).toContain(`## ${title}`);
-		expect(PLAN_OUTLINE).toContain("- [ ] ");
+	test("documents the sections in order and a checkbox step", () => {
+		const headings = PLAN_OUTLINE.split("\n")
+			.filter((line) => line.startsWith("## "))
+			.map((line) => line.slice(3).trim());
+		expect(headings).toEqual([...PLAN_SECTIONS]);
+		expect(PLAN_OUTLINE.startsWith("# <Title>")).toBe(true);
+		expect(PLAN_OUTLINE.split("## Steps")[1].split("\n## ")[0]).toContain("- [ ] ");
 	});
 });
 
