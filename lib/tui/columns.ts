@@ -10,6 +10,10 @@
  */
 
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { sanitizeLine } from "../format.ts";
+
+/** The columns a label gets before it stops reading as a label. */
+export const LABEL_WIDTH = 48;
 
 /** A usable origin: terminal arithmetic starts from one column, never zero. */
 function columns(width: number): number {
@@ -43,6 +47,19 @@ export function clipMiddle(text: string, width: number, ellipsis = "…"): strin
 	const head = truncateToWidth(text, headWidth, "");
 	const tail = tailWidth > 0 ? sliceByColumn(text, visibleWidth(text) - tailWidth, tailWidth, true) : "";
 	return clip(`${head}${ellipsis}${tail}`, w, ellipsis);
+}
+
+/**
+ * A single-line label clipped to {@link LABEL_WIDTH}.
+ *
+ * The sanitizer runs first, then the clip: cutting the raw text first would put
+ * a cut inside an escape sequence a sanitizer can no longer recognize, and a
+ * newline would be left to break the row in two. The default is
+ * {@link sanitizeLine}; an extension with its own log- or file-authored text
+ * passes that sanitizer instead.
+ */
+export function labelLine(text: string, sanitize: (text: string) => string = sanitizeLine): string {
+	return clip(sanitize(text), LABEL_WIDTH);
 }
 
 /** Pad `text` on the right to exactly `width` columns. Never truncates. */
