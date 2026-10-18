@@ -134,6 +134,7 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 		currency: { code: "USD", decimals: 2 },
 		cacheHitRate: 87,
 		providerCount: 1,
+		delegation: { runs: 0, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } },
 		...overrides,
 	};
 }

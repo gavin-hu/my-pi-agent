@@ -10,7 +10,9 @@
  *
  * The bus carries no state. `rails.ts` and `worktree` publish their own channels
  * from the modules that own them; a channel crosses an extension boundary only
- * when the payload is the whole contract, which is the case here.
+ * when the payload is the whole contract, which is the case here: `job` publishes
+ * a finished job for bytefly's notify capability, and `subagent` publishes a
+ * finished child run for bytefly's footer roll-up.
  */
 
 /** EventBus channel: a background job reached a terminal state. */
@@ -24,6 +26,38 @@ export const JOB_FINISHED_CHANNEL = "my-pi-agent/job-finished";
  * job never appears on this channel.
  */
 export type FinishedJobStatus = "exited" | "failed" | "killed" | "unknown";
+
+/** EventBus channel: one subagent run finished (a child `pi` process exited). */
+export const SUBAGENT_FINISHED_CHANNEL = "my-pi-agent/subagent-finished";
+
+/**
+ * Payload on {@link SUBAGENT_FINISHED_CHANNEL}: what one finished child run spent.
+ *
+ * It carries the *pricing inputs* rather than a total, because the consumer prices
+ * them with the same rate table and currency as the session's own cost, and a
+ * currency change must re-price them rather than leave a figure in the old unit.
+ * `recordedCost` is Pi's own dollar figure for the child's assistant calls.
+ *
+ * A run that produced no assistant message (an unknown agent, a spawn failure)
+ * publishes nothing: there is no spend to account for.
+ */
+export interface SubagentFinishedEvent {
+	/** Agent that ran, e.g. `explorer`. */
+	agent: string;
+	/** Provider and model the child reported, when it reported one. */
+	provider: string | null;
+	model: string | null;
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+	/** Pi's recorded cost for the child's calls, in USD. */
+	recordedCost: number;
+	/** Epoch ms when the run finished, or `null` when unknown. */
+	at: number | null;
+	/** Child process exit code; a model-level failure still exits 0. */
+	exitCode: number;
+}
 
 /** Payload on {@link JOB_FINISHED_CHANNEL}: one job that just stopped. */
 export interface JobFinishedEvent {

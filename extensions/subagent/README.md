@@ -236,7 +236,13 @@ step's `Output`.
   they are not written to the parent session.
 - **No cost attribution to the parent session.** A subagent's tokens and cost are
   captured in the tool result and shown in the transcript, but they belong to a
-  separate process and are not added to the dispatching session's totals.
+  separate process and are not added to the dispatching session's totals. Instead,
+  each finished run publishes `my-pi-agent/subagent-finished`
+  (`SubagentFinishedEvent` in `lib/events.ts`) and bytefly's footer shows the
+  session's child runs as their own `↳` roll-up, priced separately from the
+  session total (the last 500 runs). The roll-up is per process: a resumed session
+  starts from zero, and a run that never produced an assistant message publishes
+  nothing.
 
 ## Pi integration
 

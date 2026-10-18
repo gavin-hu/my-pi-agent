@@ -355,6 +355,11 @@ const CHROME_SNAPSHOT: StatusSnapshot = {
 	currency: { code: "USD", decimals: 2 },
 	cacheHitRate: 87,
 	providerCount: 1,
+	// Two delegated runs, priced separately: the parent `usage` above is unchanged.
+	delegation: {
+		runs: 2,
+		usage: { input: 18000, output: 2400, cacheRead: 0, cacheWrite: 0, cost: 0.06 },
+	},
 };
 
 /** The notice the preview shows: the shape `job`/`watch` post to the transcript. */

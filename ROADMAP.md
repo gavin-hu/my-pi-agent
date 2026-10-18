@@ -57,8 +57,8 @@ screenshots.
 
 | README promise | Today | Next move |
 |---|---|---|
-| Plan, then execute | Strong; review state and plan history have gaps | P2 |
-| Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P1, P3–P5 |
+| Plan, then execute | Strong; review state and plan history have gaps | P1 |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P2–P4 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S5 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W8 |
@@ -66,13 +66,13 @@ screenshots.
 
 ## If only three things ship
 
-1. **P1 — Delegation accounting.** A child run's cost should be visible as its own
-   roll-up, without folding it into the parent total.
-2. **P2 — Verification handoff.** The plan's `## Verification` section should
+1. **P1 — Verification handoff.** The plan's `## Verification` section should
    survive approval as the final checklist item, so the definition of done cannot
    be lost between approval and execution.
-3. **W1 — Provider diagnostics.** `doctor` should name the active search provider,
+2. **W1 — Provider diagnostics.** `doctor` should name the active search provider,
    whether its endpoint is reachable, and which key variable is missing.
+3. **C2 — Re-checkable updates.** The npm update check should cache with a
+   timestamp and re-run on demand, so a release is visible without a restart.
 
 ## Horizons
 
@@ -104,8 +104,9 @@ this file, as the record of what shipped.
   approval listing (`plan` README); the plan file keeps the full text.
 - Prior plans are only discoverable through `/plan list`, which walks the
   directory on demand; there is no cross-repository history (`plan` README).
-- A subagent's tokens and cost are shown in its result but not attributed to the
-  parent session (`subagent` README).
+- A subagent's tokens and cost are published for bytefly's `↳` footer roll-up but
+  deliberately never added to the parent session's total, and the roll-up starts
+  from zero after `/resume` (`subagent` README).
 - `watch` cannot use bytefly's OS notification channel by design (`watch`
   README).
 
@@ -117,27 +118,20 @@ contributes no `Now` item.
 
 **Next**
 
-- **P1 — Delegation accounting.** Publish a finished-subagent event, following
-  the `job` pattern in `lib/events.ts`, so bytefly can show a separate child-run
-  roll-up. The roll-up stays a separate total: folding child spend into the
-  session's own total remains a non-goal, so the footer's parent figure is never
-  restated. *Done when* the child roll-up is separate, the parent total is
-  untouched, and the `subagent` README's cost bullet points at where the roll-up
-  appears.
-- **P2 — Verification handoff.** Approval merges `## Steps` into the todo list;
+- **P1 — Verification handoff.** Approval merges `## Steps` into the todo list;
   also carry the plan's `## Verification` section as the final checklist item,
   so the definition of done cannot be lost between approval and execution.
 
 **Later**
 
-- **P3 — Job parity on Windows.** A detached job should either survive the
+- **P2 — Job parity on Windows.** A detached job should either survive the
   session or be refused with a clear message, and unknown exit codes should be
   named in `doctor`. *Decision first:* how much Windows process control is in
   scope.
-- **P4 — Alerts where the user is.** Route a `wake` match through bytefly's
+- **P3 — Alerts where the user is.** Route a `wake` match through bytefly's
   notify capability when notifications are enabled. *Decision first:* this
   reverses a documented `watch` non-goal.
-- **P5 — Delegation artifacts.** Optional per-run transcripts under
+- **P4 — Delegation artifacts.** Optional per-run transcripts under
   `.pi/subagents/` for audit and handoff. This reverses the current
   no-persistence non-goal; only with a retention rule.
 
@@ -371,7 +365,7 @@ it.
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |
-| `watch`: cannot raise an OS notification | `P4` reverses it; the in-session alert is documented until then. |
+| `watch`: cannot raise an OS notification | `P3` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 
 ## 1.0 readiness
@@ -386,7 +380,7 @@ above.
   `test/config-docs.test.ts`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
-  `P3`, `S1`.
+  `P2`, `S1`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — each a session entry or
   tool-result `details` rebuilt from `getBranch()`, pinned by its extension's

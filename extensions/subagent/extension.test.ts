@@ -7,6 +7,7 @@ import type { RunOptions } from "./run.ts";
 import { emptyUsage } from "./stream.ts";
 import type { SingleResult } from "./types.ts";
 import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
+import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -43,7 +44,7 @@ function register(run: (options: RunOptions) => Promise<SingleResult>) {
 	subagent(pi, { run });
 	const tool = tools.get(TOOL_NAME);
 	if (!tool) throw new Error("subagent tool was not registered");
-	return tool;
+	return Object.assign(tool, { pi });
 }
 
 function call(tool: any, params: unknown, ctx = fakeToolCtx()): Promise<any> {
@@ -244,5 +245,101 @@ describe("subagent chain mode", () => {
 
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("Chain stopped at step 1");
+	});
+});
+
+describe("subagent accounting", () => {
+	/** A run that reports one assistant turn with usage and a model. */
+	function spending(agent: string, input = 1000, output = 200, cost = 0.02): SingleResult {
+		return {
+			agent,
+			task: "t",
+			exitCode: 0,
+			messages: [assistantMessage("done")],
+			stderr: "",
+			provider: "anthropic",
+			model: "opus-4.5",
+			usage: { ...emptyUsage(), input, output, cacheRead: 50, cacheWrite: 0, cost, turns: 1 },
+			finishedAt: 1_700_000_000_000,
+		};
+	}
+
+	/** Record every event a tool emits, by wrapping its `pi.events.emit`. */
+	function recordEvents(tool: any): unknown[] {
+		const seen: unknown[] = [];
+		tool.pi.events.on(SUBAGENT_FINISHED_CHANNEL, (event: unknown) => seen.push(event));
+		return seen;
+	}
+
+	test("a single run publishes what it spent", async () => {
+		const tool = register(async () => spending("explorer"));
+		const events = recordEvents(tool);
+
+		await call(tool, { agent: "explorer", task: "look" });
+
+		expect(events).toEqual([
+			{
+				agent: "explorer",
+				provider: "anthropic",
+				model: "opus-4.5",
+				input: 1000,
+				output: 200,
+				cacheRead: 50,
+				cacheWrite: 0,
+				recordedCost: 0.02,
+				at: 1_700_000_000_000,
+				exitCode: 0,
+			},
+		]);
+	});
+
+	test("parallel runs publish one event per task", async () => {
+		const tool = register(async (options) => spending(options.agentName));
+		const events = recordEvents(tool);
+
+		await call(tool, {
+			tasks: [
+				{ agent: "explorer", task: "a" },
+				{ agent: "worker", task: "b" },
+			],
+		});
+
+		expect(events).toHaveLength(2);
+		expect((events as Array<{ agent: string }>).map((event) => event.agent).sort()).toEqual(["explorer", "worker"]);
+	});
+
+	test("a chain publishes one event per step", async () => {
+		const tool = register(async (options) => spending(options.agentName));
+		const events = recordEvents(tool);
+
+		await call(tool, {
+			chain: [
+				{ agent: "explorer", task: "a" },
+				{ agent: "worker", task: "b {previous}" },
+			],
+		});
+
+		expect(events).toHaveLength(2);
+	});
+
+	test("a run with no usage publishes nothing", async () => {
+		const tool = register(async () => failure("ghost", "Unknown agent"));
+		const events = recordEvents(tool);
+
+		await call(tool, { agent: "ghost", task: "look" });
+
+		expect(events).toEqual([]);
+	});
+
+	test("a throwing event bus does not fail the call", async () => {
+		const tool = register(async () => spending("explorer"));
+		tool.pi.events.on(SUBAGENT_FINISHED_CHANNEL, () => {
+			throw new Error("listener exploded");
+		});
+
+		const result = await call(tool, { agent: "explorer", task: "look" });
+
+		expect(result.isError).toBeUndefined();
+		expect(result.details.results[0].exitCode).toBe(0);
 	});
 });

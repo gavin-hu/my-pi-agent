@@ -70,6 +70,17 @@ export interface StatusSnapshot {
 	/** Latest cache hit rate as a percentage, or `null` when unknown. */
 	cacheHitRate: number | null;
 	providerCount: number;
+	/**
+	 * What this session's delegated child runs spent, priced like `usage` but kept
+	 * apart from it: the session total never includes child spend.
+	 */
+	delegation: DelegationTotals;
+}
+
+/** Child-run totals: how many runs finished, and what the retained window spent. */
+export interface DelegationTotals {
+	runs: number;
+	usage: UsageTotals;
 }
 
 /** One renderable piece of a line. */

@@ -182,6 +182,33 @@ export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | n
 	};
 }
 
+/**
+ * Child-run spend, next to the session's own cost and never inside it: a
+ * subagent runs in its own process, so its tokens are not the session's. The
+ * roll-up covers the ledger's retained window (the last 500 runs).
+ */
+export function delegationSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const { runs, usage } = snapshot.delegation;
+	if (runs === 0) return null;
+	const icon = CONFIG.icons.delegation;
+	const cost = formatCost(usage.cost, snapshot.currency);
+	// Detailed first; the run count survives longer than the price, because "some
+	// delegation happened" is the part a narrow bar can still say.
+	const forms = [
+		`${paint(theme, "meta", `${icon} ${runs} · ${cost}`)}`,
+		`${paint(theme, "meta", `${icon} ${cost}`)}`,
+		paint(theme, "meta", `${icon} ${runs}`),
+		paint(theme, "meta", icon),
+	];
+	return {
+		id: "delegation",
+		weight: 4,
+		droppable: true,
+		separator: faint(theme, CONFIG.separators.item),
+		forms,
+	};
+}
+
 export function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { input, output } = snapshot.usage;
 	if (input === 0 && output === 0) return null;
