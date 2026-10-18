@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The compatibility floor: a Pi release can arrive while `main` is quiet, so the
+  # newest-peer job also runs on a weekly sweep and on demand. It never runs on a
+  # pull request (see the `compat` job's `if:`), so an upstream release cannot
+  # fail an unrelated change.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,6 +18,9 @@ permissions:
 jobs:
   check:
     name: check (${{ matrix.os }})
+    # The schedule exists for the newest-peer job below; a weekly three-OS re-run
+    # of the locked suite would prove nothing new. Push and PR cover `check`.
+    if: github.event_name != 'schedule'
     runs-on: ${{ matrix.os }}
     strategy:
       # Report every OS even if one fails, so a Windows-only regression is
@@ -48,3 +58,52 @@ jobs:
       - name: Run checks (serial suite)
         if: matrix.os == 'macos-latest'
         run: bun run check:serial
+
+  # Proves the package against the newest published Pi, not the versions the
+  # lockfile pinned. Peer ranges stay "*" because the host supplies them, so this
+  # job is the record of what the package was tested against: it prints the
+  # resolved peer versions before running, and `test/extension-load.test.ts` loads
+  # every extension through the fake runtime in the same run.
+  compat:
+    name: compat (newest pi peers)
+    # Deliberately not on PRs: a Pi release landing overnight must not fail a
+    # change that has nothing to do with it. Drift is reported against `main` and
+    # against the weekly sweep, where it belongs.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # `test/release.test.ts` compares the package version with the newest tag.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: Install the locked dependencies
+        run: bun install --frozen-lockfile
+
+      # `@latest` on the five peers only; the rest of the tree keeps the lockfile.
+      # The runner is throwaway, so the rewritten package.json/lock are not kept.
+      - name: Install the newest published peers
+        run: |
+          bun add --dev \
+            @earendil-works/pi-agent-core@latest \
+            @earendil-works/pi-ai@latest \
+            @earendil-works/pi-coding-agent@latest \
+            @earendil-works/pi-tui@latest \
+            typebox@latest
+
+      # Before the checks, so a failing run still names the versions that broke it.
+      - name: Record the tested peer versions
+        run: bun run compat:versions
+
+      - name: Typecheck against the newest peers
+        run: bun run typecheck
+
+      # Serial, like the macOS check: a `--parallel` worker can drop the
+      # subprocess exit notification for its first spawn on a small runner
+      # (oven-sh/bun#39709), which would fail this job for an unrelated reason.
+      - name: Run the suite against the newest peers
+        run: bun run test:serial

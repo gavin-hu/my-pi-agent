@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- ci/docs: a `compat` job proves the package against the newest published Pi. It
+  installs `@earendil-works/pi-*` and `typebox` at `latest` (the peer ranges stay
+  `"*"`), runs typecheck and the serial suite, and records the resolved versions
+  with the new `bun run compat:versions` (`scripts/peer-versions.ts`), also as a
+  markdown table in the job summary. It runs on push to `main`, weekly, and on
+  demand — never on a pull request, so an upstream release cannot fail an
+  unrelated change. `test/extension-load.test.ts` loads every entry in the `pi`
+  manifest through the fake runtime, so a host change that breaks loading fails on
+  every platform; `docs/development.md` documents the floor and how to reproduce
+  it locally.
+
 - `memory`: `/memory doctor` reports store health — note counts and file bytes
   per scope, how much of `maxInjectBytes` the injection uses and which scope's
   notes it omits, and the near-duplicate pairs the conservative comparison key
