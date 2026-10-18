@@ -58,7 +58,7 @@ screenshots.
 | README promise | Today | Next move |
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | — |
-| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1–P3 |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1–P2 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S4 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
@@ -66,13 +66,12 @@ screenshots.
 
 ## If only three things ship
 
-1. **P1 — Job parity on Windows.** A detached job should either survive the
-   session or be refused with a clear message, and unknown exit codes should be
-   named in `doctor`.
-2. **S1 — Partial restore.** Per-file or per-directory rewind, so restoring one
+1. **S1 — Partial restore.** Per-file or per-directory rewind, so restoring one
    file does not mean restoring the tree.
-3. **C1 — Provider rate packs.** Published rates for the major hosted providers,
+2. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
+3. **F1 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
+   serial suite, so all three systems run one command.
 
 ## Horizons
 
@@ -118,14 +117,10 @@ contributes no `Now` item.
 
 **Next**
 
-- **P1 — Job parity on Windows.** A detached job should either survive the
-  session or be refused with a clear message, and unknown exit codes should be
-  named in `doctor`. *Decision first:* how much Windows process control is in
-  scope.
-- **P2 — Alerts where the user is.** Route a `wake` match through bytefly's
+- **P1 — Alerts where the user is.** Route a `wake` match through bytefly's
   notify capability when notifications are enabled. *Decision first:* this
   reverses a documented `watch` non-goal.
-- **P3 — Delegation artifacts.** Optional per-run transcripts under
+- **P2 — Delegation artifacts.** Optional per-run transcripts under
   `.pi/subagents/` for audit and handoff. This reverses the current
   no-persistence non-goal; only with a retention rule.
 
@@ -347,7 +342,7 @@ it.
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C3` is the decision, not a fix. |
-| `watch`: cannot raise an OS notification | `P2` reverses it; the in-session alert is documented until then. |
+| `watch`: cannot raise an OS notification | `P1` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 
 ## 1.0 readiness
@@ -362,7 +357,7 @@ above.
   `test/config-docs.test.ts`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
-  `P1`, `S1`.
+  `S1`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — each a session entry or
   tool-result `details` rebuilt from `getBranch()`, pinned by its extension's

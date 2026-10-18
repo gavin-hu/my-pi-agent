@@ -7,8 +7,10 @@
  * shell never has to quote it). A later session reads that file when it finds a
  * dead pid and reports `exited`/`failed` instead of `unknown`.
  *
- * Windows shells have no equivalent trap, so those jobs keep the old behavior:
- * a reattached job with no code stays `unknown`.
+ * Windows shells have no equivalent trap. A Windows job is never detached (the
+ * runtime refuses it), so the missing trap is not a second limitation: a job
+ * reported only after its process is gone still settles as `unknown`, which
+ * `doctor` names.
  */
 
 import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";

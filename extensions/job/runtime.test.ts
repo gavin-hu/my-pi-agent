@@ -337,6 +337,75 @@ describe("job runtime — send", () => {
 	});
 });
 
+describe("job runtime — Windows", () => {
+	/** A harness that believes it is Windows, whichever host is running the test. */
+	const windows = (options: Parameters<typeof makeHarness>[0] = {}) =>
+		makeHarness({ ...options, isWindows: () => true });
+
+	test("refuses an explicit detach, naming every way out", () => {
+		const h = windows();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+
+		let message = "";
+		try {
+			h.runtime.start({ command: "sleep 60", detached: true }, ctx);
+		} catch (error) {
+			message = (error as Error).message;
+		}
+
+		expect(message).toContain("cannot outlive the session on Windows");
+		expect(message).toContain("detached: false");
+		expect(message).toContain("WSL");
+		expect(message).toContain("subagent");
+	});
+
+	test("a refused start spawns nothing and reserves no id", () => {
+		const h = windows();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+
+		expect(() => h.runtime.start({ command: "sleep 60", detached: true }, ctx)).toThrow();
+		expect(h.children).toHaveLength(0);
+		expect(h.runtime.list()).toEqual([]);
+
+		// The next accepted start is the first id, not the one the refusal burned.
+		expect(h.runtime.start({ command: "true" }, ctx).id).toBe("j1");
+	});
+
+	test("ignores a configured detach default instead of failing every start", () => {
+		const h = windows({ config: { detachedByDefault: true } });
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+
+		const job = h.runtime.start({ command: "true" }, ctx);
+
+		expect(job.detached).toBe(false);
+		expect(job.statusPath).toBeNull();
+	});
+
+	test("starts an attached job when the call asks for one", () => {
+		const h = windows();
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+
+		const job = h.runtime.start({ command: "true", detached: false }, ctx);
+
+		expect(job.detached).toBe(false);
+		// Attached jobs keep a parent-owned log stream and their exit code from the
+		// child's own `close`, which is the whole Windows story.
+		expect(readLog(job.logPath)).toBe("");
+	});
+
+	test("still detaches on POSIX, so the refusal cannot leak across platforms", () => {
+		const h = makeHarness({ isWindows: () => false });
+		const { ctx } = makeCtx();
+		h.runtime.load(ctx);
+
+		expect(h.runtime.start({ command: "true", detached: true }, ctx).detached).toBe(true);
+	});
+});
+
 describe("job runtime — logs", () => {
 	test("returns a sanitized tail", async () => {
 		const h = makeHarness();

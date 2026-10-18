@@ -127,6 +127,8 @@ export interface RuntimeOptions {
 	killTree?: KillTreeFn;
 	startToken?: StartTokenFn;
 	now?: () => number;
+	/** Platform seam: whether this is Windows. Defaults to the running platform. */
+	isWindows?: () => boolean;
 	/** Fixed config, for tests; production loads it per cwd. */
 	config?: JobsConfig;
 }
@@ -202,6 +204,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const killTree = options.killTree ?? defaultKillTree;
 	const startToken = options.startToken ?? defaultStartToken;
 	const now = options.now ?? (() => Date.now());
+	const isWindows = options.isWindows ?? (() => process.platform === "win32");
 
 	const jobs = new Map<string, Job>();
 	const handles = new Map<string, Handle>();
@@ -717,7 +720,20 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (!config.enabled) throw new Error("jobs are disabled.");
 		ui.attach(ctx);
 		const wantsStdin = startOptions.stdin === true;
-		const detached = startOptions.detached ?? config.detachedByDefault;
+		// Windows has no process group to leave and no shell `EXIT` trap to record an
+		// exit code, so a job there cannot outlive the session: refusing an explicit
+		// detach is the honest answer, and it happens before any id is reserved.
+		// `detachedByDefault` stays inert instead of failing every start with a config
+		// the user set on another machine; `doctor` names that.
+		const windows = isWindows();
+		if (windows && startOptions.detached === true) {
+			throw new Error(
+				"A detached job cannot outlive the session on Windows: there is no process group to leave " +
+					"and no shell EXIT trap to record its exit code. Start it with `detached: false`, " +
+					"run it under WSL, or move the work into a `subagent`.",
+			);
+		}
+		const detached = windows ? false : (startOptions.detached ?? config.detachedByDefault);
 		// A detached job outlives this process, so a stdin pipe owned by this session
 		// would hand it EOF the moment the session ends; refuse instead of silently
 		// dropping the pipe (or the detach).
@@ -732,14 +748,15 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		// so a peer that advanced the shared counter cannot hand us a live job's id.
 		const id = store.nextId(jobs.keys());
 		const logPath = store.logPath(id);
-		const statusPath = process.platform === "win32" ? null : store.statusPath(id);
-		// A detached POSIX job points its own output at the log, so it keeps logging
-		// and survives after this process ends; Windows keeps the parent pipe.
-		const detachOutput = detached && process.platform !== "win32";
+		// Only a POSIX shell has an `EXIT` trap to record a status, and only a detached
+		// job points its own output at the log so it keeps logging after this process
+		// ends (which on Windows is never: `detached` is false there).
+		const statusPath = windows ? null : store.statusPath(id);
+		const detachOutput = detached;
 
 		// Wrap the command so a POSIX shell records its exit status; the path travels
 		// in the environment so the shell never has to quote it.
-		const program = withExitTrap(startOptions.command, process.platform === "win32", detachOutput);
+		const program = withExitTrap(startOptions.command, windows, detachOutput);
 		const env: NodeJS.ProcessEnv = { ...process.env };
 		if (statusPath) env[STATUS_ENV] = statusPath;
 		if (detachOutput) env[LOG_ENV] = logPath;

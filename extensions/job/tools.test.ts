@@ -10,8 +10,8 @@ const suite = makeHarnessSuite();
 const makeHarness = suite.makeHarness;
 afterEach(() => suite.cleanup());
 
-function setup() {
-	const h = makeHarness();
+function setup(options: Parameters<typeof makeHarness>[0] = {}) {
+	const h = makeHarness(options);
 	const { pi, tools } = createFakePi();
 	jobs(pi, { runtime: h.runtime });
 	const { ctx } = makeCtx();
@@ -29,6 +29,17 @@ describe("job tool", () => {
 		expect(result.content[0].text).toContain("Started j1");
 		expect(result.details.action).toBe("start");
 		expect(result.details.job.id).toBe("j1");
+	});
+
+	test("returns the Windows detach refusal as a tool error", async () => {
+		const { call, h } = setup({ isWindows: () => true });
+
+		const result = await call({ action: "start", command: "sleep 60", detached: true });
+
+		// The model reads the error, not a crash: it names every way out.
+		expect(result.content[0].text).toContain("cannot outlive the session on Windows");
+		expect(result.content[0].text).toContain("subagent");
+		expect(h.children).toHaveLength(0);
 	});
 
 	test("lists jobs", async () => {

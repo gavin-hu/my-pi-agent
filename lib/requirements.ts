@@ -224,7 +224,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	},
 	job: {
 		notes: [
-			"Windows: no POSIX `EXIT` trap, so a reattached job's status stays `unknown`.",
+			"Windows: a job cannot be detached (`detached: true` is refused and `job.detachedByDefault` is inert), and a job reported only after its process is gone stays `unknown` — there is no shell `EXIT` trap.",
 			"`ps` is used for the pid-reuse guard and is POSIX-only.",
 		],
 	},

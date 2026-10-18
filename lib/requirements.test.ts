@@ -207,6 +207,16 @@ describe("report shape", () => {
 		expect(note?.detail).toContain("TUI only");
 	});
 
+	test("names the Windows job facts, matching the runtime's refusal", async () => {
+		const report = await probeExtension("job", seams());
+		const notes = report.findings.filter((finding) => finding.check === "platform");
+		const detail = notes.map((finding) => finding.detail).join("\n");
+		// The note and the `start` error have to agree about what is and is not possible.
+		expect(detail).toContain("detached: true` is refused");
+		expect(detail).toContain("detachedByDefault` is inert");
+		expect(detail).toContain("unknown");
+	});
+
 	test("probes every declared extension in order", async () => {
 		const reports = await probeAll(seams());
 		expect(reports.map((report) => report.extension)).toEqual(Object.keys(REQUIREMENTS));
