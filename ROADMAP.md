@@ -26,7 +26,10 @@ across `/resume` and `/tree`, and honest where a platform cannot deliver.
   this file to the tree.
 - Recent releases focused on the plan review browser, CNY/USD pricing, inline
   text editing in `/bytefly settings`, and moving exhaustive docs into
-  `docs/references/`.
+  `docs/references/`. `0.13.0` adds subset rewind, the `wake` desktop alert,
+  `/plan list`, the worktree handoff block, isolation gaps named in the session,
+  one reviewed publish path with provenance, a Pi-compat job, and a long-session
+  benchmark.
 
 ## How items are ordered
 
