@@ -22,6 +22,7 @@ function setup(overrides: Partial<ReviewContext> = {}) {
 			outline: [],
 			steps: { done: 0, total: 0 },
 			code: {},
+			limits: { comments: 200, comment: 2000, quote: 500 },
 			canApprove: true,
 			token: "tok",
 		}),
@@ -67,6 +68,12 @@ describe("handleReviewRequest — routes", () => {
 		expect(response.status).toBe(200);
 		expect(response.body).toContain('id="review-data"');
 		expect(response.headers["Content-Security-Policy"]).toContain("default-src 'none'");
+	});
+
+	test("refuses to be framed, so Approve cannot be clickjacked", async () => {
+		const response = await GET("/?token=tok");
+		expect(response.headers["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+		expect(response.headers["X-Frame-Options"]).toBe("DENY");
 	});
 
 	test("rejects the page without the token", async () => {

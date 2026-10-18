@@ -17,12 +17,15 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
 
   var dataNode = document.getElementById("review-data");
-  var fallback = { blocks: [], annotations: [], outline: [], steps: { done: 0, total: 0 }, code: {}, token: "" };
+  // The caps come from the island, which takes them from the server's own
+  // validation; the fallback only guards a page whose island failed to parse.
+  var fallback = { blocks: [], annotations: [], outline: [], steps: { done: 0, total: 0 }, code: {}, limits: { comments: 200, comment: 2000, quote: 500 }, token: "" };
   var data = fallback;
   if (dataNode && dataNode.textContent) {
     try { data = JSON.parse(dataNode.textContent); } catch (error) { data = fallback; }
   }
   var token = typeof data.token === "string" ? data.token : "";
+  var limits = data.limits || fallback.limits;
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
   var approved = false;
@@ -34,6 +37,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var pendingQuote = null;
   var activeIndex = -1;
   var outlineItems = {};
+  var stream = null;
 
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
@@ -94,12 +98,20 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     stateEl.className = "bf-chip bf-chip--accent review-state" + (tone ? " bf-chip--" + tone : "");
   }
 
-  function safeHref(url) {
+  // A link is rendered only for an http(s) or mailto target. Resolving against
+  // the review origin is what catches a target that only looks relative: the
+  // URL parser strips a tab or newline, so "/\t/evil.com" is cross-origin once
+  // it is parsed, and a disguised target must stay text.
+  function safeHref(url, base) {
     var trimmed = String(url).trim();
-    if (/^[\\/]{2}/.test(trimmed)) return null;
-    if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return null;
-    return trimmed;
+    if (!trimmed || /^\/\//.test(trimmed)) return null;
+    var resolved;
+    try { resolved = new URL(trimmed, base); } catch (error) { return null; }
+    if (resolved.protocol === "mailto:") return trimmed;
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
+    if (resolved.username || resolved.password) return null;
+    if (resolved.origin === new URL(base).origin) return resolved.href;
+    return /^https?:\/\//i.test(trimmed) ? resolved.href : null;
   }
 
   // Inline token order matters: code, emphasis, and links are matched before a
@@ -120,7 +132,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         var em = el("em"); em.textContent = match[1]; container.appendChild(em); return;
       }
       if ((match = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part))) {
-        var href = safeHref(match[2]);
+        var href = safeHref(match[2], location.href);
         if (!href) { container.appendChild(document.createTextNode(part)); return; }
         var link = el("a"); link.textContent = match[1]; link.href = href; link.target = "_blank"; link.rel = "noreferrer noopener";
         container.appendChild(link); return;
@@ -133,7 +145,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         }
         var dot = url.indexOf(".");
         var target = /^www\./i.test(url) ? "http://" + url : url;
-        var safe = dot > 0 && /\.[^./]/.test(url.slice(dot)) ? safeHref(target) : null;
+        var safe = dot > 0 && /\.[^./]/.test(url.slice(dot)) ? safeHref(target, location.href) : null;
         if (safe) {
           var auto = el("a");
           auto.textContent = url;
@@ -311,7 +323,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (!selection || selection.isCollapsed) return "";
     var range = selection.rangeCount ? selection.getRangeAt(0) : null;
     if (!range || !wrap.contains(range.commonAncestorContainer)) return "";
-    return selection.toString().replace(/\s+/g, " ").trim().slice(0, 500);
+    return selection.toString().replace(/\s+/g, " ").trim().slice(0, limits.quote);
   }
 
   function commentsBoxAfter(wrap) {
@@ -325,7 +337,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   // Enter submits a comment; Shift+Enter is left for the browser.
   function submitOnEnter(area, submit) {
     area.addEventListener("keydown", function (event) {
-      if (event.key !== "Enter" || event.shiftKey) return;
+      // An IME uses Enter to commit a composition; submitting then would send a
+      // half-typed comment.
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
       event.preventDefault();
       submit();
     });
@@ -343,6 +357,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var area = el("textarea", "bf-textarea");
     area.placeholder = "Leave feedback on this part of the plan (Enter to add)";
     area.setAttribute("aria-label", "Comment");
+    area.maxLength = limits.comment;
     composer.appendChild(area);
     var row = el("div", "bf-composer__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
@@ -351,7 +366,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var submit = function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
-      if (annotations.length >= 200) { setStatus("Comment limit reached (200).", "error"); return; }
+      if (annotations.length >= limits.comments) { setStatus("Comment limit reached (" + limits.comments + ").", "error"); return; }
       annotations.push(quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment });
       dirty = true;
       renderPlan();
@@ -369,6 +384,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     var area = el("textarea", "bf-textarea");
     area.value = annotation.comment;
     area.setAttribute("aria-label", "Edit comment");
+    area.maxLength = limits.comment;
     card.appendChild(area);
     var row = el("div", "bf-comment__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
@@ -585,6 +601,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       planEl.appendChild(box);
     }
     planEl.scrollTop = scrollTop;
+    // The DOM was rebuilt, so the active block's class is gone; restore it in
+    // place rather than scrolling, so j/k resume where the reviewer was.
+    var active = activeIndex >= 0 ? blockElements()[activeIndex] : null;
+    if (active) active.classList.add("bf-block--active");
     renderFacts();
     observeSections();
     updateState();
@@ -633,6 +653,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     controls.appendChild(reload);
   }
 
+  // The stream exists only to notice a closed tab. Once the review is settled it
+  // has no job, and leaving it open retries a dead port until the tab closes.
+  function settleStream() {
+    if (stream && stream.close) { stream.close(); stream = null; }
+  }
+
   // Save and approve share the same POST shape; only the route, the settled
   // flag, and the wording differ. Both persist the current annotations.
   function submit(url, okText, failText, mark) {
@@ -644,6 +670,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       if (response.ok) {
         mark();
         dirty = false;
+        settleStream();
         setStatus(okText, "saved");
         lockActions();
         updateState();
@@ -656,7 +683,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         offerReload();
         return;
       }
-      throw new Error("server returned " + response.status);
+      // Surface the server's own reason (a malformed comment, a stale body)
+      // rather than a bare status code.
+      return response.json().then(
+        function (payload) { throw new Error(payload && payload.error ? payload.error : "server returned " + response.status); },
+        function () { throw new Error("server returned " + response.status); }
+      );
     }).catch(function (error) {
       setStatus(failText + error.message, "error");
     });
@@ -677,6 +709,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   function cancel() {
     if (saved || approved || closed) return;
     closed = true;
+    settleStream();
     lockActions();
     setStatus("Closing\u2026");
     updateState();
@@ -742,18 +775,18 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (event.key === "s") { event.preventDefault(); save(); return; }
   });
 
-  window.addEventListener("beforeunload", function () {
-    if (saved || approved || closed) return;
-    var url = "/api/cancel?token=" + encodeURIComponent(token);
-    if (navigator.sendBeacon) navigator.sendBeacon(url);
-  });
+  // A closed tab is detected by the stream below: the server sees the last
+  // client go away and cancels after a grace period, and a reload reconnects
+  // inside it. A beacon here would cancel the review on every reload, including
+  // the reload a 409 offers.
 
   window.addEventListener("scroll", updateProgress);
   window.addEventListener("resize", updateProgress);
+  window.addEventListener("pagehide", settleStream);
   if (planEl) planEl.addEventListener("scroll", updateProgress);
 
   try {
-    var stream = new EventSource("/events?token=" + encodeURIComponent(token));
+    stream = new EventSource("/events?token=" + encodeURIComponent(token));
     stream.addEventListener("open", function () { connected = true; everConnected = true; updateState(); });
     stream.addEventListener("error", function () {
       // The server ends the stream once the review is settled; keep showing the

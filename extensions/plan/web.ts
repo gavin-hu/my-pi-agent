@@ -15,11 +15,24 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
-import { codeBody, fenceInfo, planBlocks, planHeadings } from "./blocks.ts";
-import { parseFeedback, stripFeedback, type PlanAnnotation } from "./feedback.ts";
+import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
+import {
+	MAX_ANNOTATIONS,
+	MAX_COMMENT_LENGTH,
+	MAX_QUOTE_LENGTH,
+	parseFeedback,
+	stripFeedback,
+	type PlanAnnotation,
+} from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
-import { changedSections, extractPlanSteps } from "./steps.ts";
-import { handleReviewRequest, type ReviewContext, type ServeResponse, type SaveResult } from "./web-router.ts";
+import { changedSections, extractPlanSections, extractPlanSteps } from "./steps.ts";
+import {
+	handleReviewRequest,
+	JSON_HEADERS,
+	type ReviewContext,
+	type ServeResponse,
+	type SaveResult,
+} from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
 /** How a browser review ended. */
@@ -64,6 +77,10 @@ export interface PlanWebReviewDeps {
 	token?: () => string;
 	/** Override the bind port; the default `0` lets the OS pick. */
 	port?: number;
+	/** Override the closed-tab grace; the default leaves a reload time to reconnect. */
+	dropGraceMs?: number;
+	/** Override the accepted body size; a test keeps it small. */
+	maxBodyBytes?: number;
 }
 
 /** Largest feedback body accepted, in bytes. */
@@ -71,21 +88,37 @@ const MAX_BODY_BYTES = 1024 * 1024;
 /** Grace period before an empty client set counts as a closed tab. */
 const DROP_GRACE_MS = 1500;
 
-function readBody(request: IncomingMessage): Promise<string | undefined> {
+/** A request body, or the fact that it was too large to read. */
+type BodyResult = { ok: true; body: string } | { ok: false };
+
+/**
+ * Read a request body, stopping at {@link MAX_BODY_BYTES}. An oversize body is
+ * reported rather than destroyed here, so the handler can still answer 413 over
+ * the open socket instead of the client seeing a dropped connection.
+ */
+function readBody(request: IncomingMessage, limit: number): Promise<BodyResult> {
 	return new Promise((resolve) => {
 		const chunks: Buffer[] = [];
 		let size = 0;
+		let done = false;
+		const settle = (result: BodyResult): void => {
+			if (done) return;
+			done = true;
+			resolve(result);
+		};
 		request.on("data", (chunk: Buffer) => {
+			if (done) return;
 			size += chunk.length;
-			if (size > MAX_BODY_BYTES) {
-				resolve(undefined);
-				request.destroy();
+			if (size > limit) {
+				chunks.length = 0;
+				request.pause();
+				settle({ ok: false });
 				return;
 			}
 			chunks.push(chunk);
 		});
-		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-		request.on("error", () => resolve(undefined));
+		request.on("end", () => settle({ ok: true, body: Buffer.concat(chunks).toString("utf-8") }));
+		request.on("error", () => settle({ ok: false }));
 	});
 }
 
@@ -115,6 +148,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 	): Promise<PlanReviewSession | undefined> => {
 		const { signal } = options;
 		const canApprove = options.canApprove === true;
+		const maxBody = deps.maxBodyBytes ?? MAX_BODY_BYTES;
 		const token = (deps.token ?? (() => randomBytes(16).toString("hex")))();
 		let settled = false;
 		let resolveDone!: (result: PlanReviewResult) => void;
@@ -133,23 +167,46 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// The stripped plan the page last rendered; a save must anchor against a file
 		// that still matches it, or the comments land beside the wrong text.
 		let baseline = stripFeedback(plan.content);
-		// Section titles that differ from what the previous review showed. Feedback
-		// is stripped on both sides, so a comment never reads as an edit.
-		const changed =
-			options.previous === undefined ? new Set<string>() : changedSections(stripFeedback(options.previous), baseline);
 		let savedPlan: StoredPlan | undefined;
 		// Set by `onSaved`/`onCancel`; resolved once the HTTP response has flushed,
 		// so the caller cannot close the socket before the browser sees the reply.
 		let pendingResult: PlanReviewResult | undefined;
 
-		const page = async (): Promise<ReviewPageData> => {
+		/**
+		 * Re-read the plan into `baseline` and return it. Named apart from the page
+		 * build because it writes the state a later save validates against, so a `GET`
+		 * does not hide that write inside what looks like a read.
+		 */
+		const refreshBaseline = async (): Promise<StoredPlan> => {
 			const current = (await store.read(cwd, plan.path)) ?? plan;
 			baseline = stripFeedback(current.content);
-			const blocks = planBlocks(baseline);
-			const headings = planHeadings(blocks);
+			return current;
+		};
+
+		const page = async (): Promise<ReviewPageData> => {
+			const stored = await refreshBaseline();
+			const current = baseline;
+			const blocks = planBlocks(current);
+			const sections = extractPlanSections(current);
+			// Per-occurrence change flags, aligned with the sections list: the same shape
+			// the terminal review renders, so duplicate headings cannot both light up.
+			const changed = options.previous === undefined ? [] : changedSections(stripFeedback(options.previous), current);
+			const outline = sections.flatMap((section, index) =>
+				section.title === ""
+					? []
+					: [
+							{
+								id: `s-${section.line}`,
+								line: section.line,
+								level: section.level,
+								text: section.title,
+								...(changed[index] ? { changed: true } : {}),
+							},
+						],
+			);
 			// The same step list approval seeds and set_plan_steps indexes, so the page's
 			// progress cannot disagree with the todo list.
-			const stepList = extractPlanSteps(baseline);
+			const stepList = extractPlanSteps(current);
 			// Highlight code blocks once, at the boundary: the client copies only the
 			// tok-* spans out of the server-escaped HTML.
 			const code: Record<string, string[]> = {};
@@ -161,21 +218,16 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			return {
 				// The document's own H1 reads better than the file-name slug, and the
 				// slug is still the fallback for a plan that starts with something else.
-				title: headings.find((heading) => heading.level === 1)?.text || planTitle(basename(current.path)),
+				title: sections.find((section) => section.level === 1)?.title || planTitle(basename(plan.path)),
 				blocks,
-				annotations: parseFeedback(current.content),
-				outline: headings.map((heading) => ({
-					id: `s-${heading.line}`,
-					line: heading.line,
-					level: heading.level,
-					text: heading.text,
-					...(changed.has(heading.text) ? { changed: true } : {}),
-				})),
+				annotations: parseFeedback(stored.content),
+				outline,
 				steps: {
 					done: stepList.filter((step) => step.status === "completed").length,
 					total: stepList.length,
 				},
 				code,
+				limits: { comments: MAX_ANNOTATIONS, comment: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
 				token,
 				canApprove,
 			};
@@ -215,31 +267,34 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// button and the abort signal are the deterministic paths.
 		const clients = new Set<ServerResponse>();
 		let hadClient = false;
+		const dropGrace = deps.dropGraceMs ?? DROP_GRACE_MS;
 		const scheduleDrop = (): void => {
 			if (clients.size > 0 || !hadClient || settled || dropTimer) return;
 			dropTimer = setTimeout(() => {
 				dropTimer = undefined;
 				if (clients.size === 0) finish({ status: "cancelled" });
-			}, DROP_GRACE_MS);
+			}, dropGrace);
 			(dropTimer as { unref?: () => void }).unref?.();
 		};
 
 		const server = createServer((request, response) => {
 			void (async () => {
 				const method = request.method ?? "GET";
-				const body = method.toUpperCase() === "POST" ? await readBody(request) : "";
-				if (body === undefined) {
-					response.writeHead(413, { "Content-Type": "application/json" });
+				const read =
+					method.toUpperCase() === "POST" ? await readBody(request, maxBody) : { ok: true as const, body: "" };
+				if (!read.ok) {
+					response.writeHead(413, { ...JSON_HEADERS, Connection: "close" });
 					response.end(JSON.stringify({ error: "The request body is too large." }));
 					return;
 				}
+				const body = read.body;
 				let result: ServeResponse;
 				try {
 					result = await handleReviewRequest(context, method, request.url ?? "/", request.headers, body);
 				} catch {
 					result = {
 						status: 500,
-						headers: { "Content-Type": "application/json" },
+						headers: { ...JSON_HEADERS },
 						body: JSON.stringify({ error: "Internal error" }),
 					};
 				}
@@ -264,15 +319,24 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					return;
 				}
 				// A save or cancel only resolves the session after its response is on the
-				// wire; otherwise `close()` would force-close the socket mid-reply.
-				response.end(result.body ?? "", () => {
-					if (!pendingResult) return;
+				// wire; otherwise `close()` would force-close the socket mid-reply. The
+				// `close` path covers a client that walks away before the flush callback
+				// runs, so a settle cannot be lost with the socket.
+				const settlePending = (): void => {
 					const terminal = pendingResult;
+					if (!terminal) return;
 					pendingResult = undefined;
 					finish(terminal);
-				});
+				};
+				response.end(result.body ?? "", settlePending);
+				response.on("close", settlePending);
 			})();
 		});
+
+		// An accept-level error (EMFILE and friends) is emitted on the server, and an
+		// `error` event with no listener would take the host down mid-review. The
+		// review still ends through its own paths: cancel, abort, drop, or shutdown.
+		server.on("error", () => {});
 
 		const preferred = deps.port ?? ports.get(plan.path) ?? 0;
 		let port: number | undefined;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme, fakeMarkdownTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+import { coloringTheme, fakeMarkdownTheme, fakeTheme, roleSgrTheme } from "../../test/helpers/fakes.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import type { StoredPlan } from "./plans.ts";
 import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
@@ -68,6 +68,30 @@ describe("PlanViewComponent — render", () => {
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 			}
 		}
+	});
+
+	test("keeps a wrapped task item's continuation indent", () => {
+		// The themed marker is narrower than the `- [ ] ` it replaces, and pi-tui
+		// derives a continuation line's indent from the original marker. Without
+		// padding, the overflow lands at the body indent as a stray fragment instead
+		// of staying under the item.
+		const step = "Record every resolved step with its owner, the file it touched, and the reason it was accepted";
+		const { component } = setup(`# Plan\n\n## Steps\n- [ ] ${step}`, {
+			theme: roleSgrTheme,
+			markdownTheme: fakeMarkdownTheme(roleSgrTheme),
+		});
+		const strip = (line: string): string => line.replace(/\u001b\[[0-9;]*m/g, "");
+		const lines = render(component, 40).map(strip);
+		const start = lines.findIndex((line) => line.includes("◻"));
+		const end = lines.findIndex((line) => line.includes("Esc keep planning"));
+		const body = lines.slice(start, end).filter((line) => line !== "");
+		const [first, ...rest] = body;
+
+		expect(first).toContain("Record");
+		expect(rest.length).toBeGreaterThan(1);
+		for (const line of rest) expect(line.startsWith("        ")).toBe(true);
+		// The padding must not eat text either.
+		expect(body.join(" ").replace(/\s+/g, " ")).toContain(step);
 	});
 
 	test("shows the title and body without the file path", () => {
@@ -462,5 +486,20 @@ describe("PlanViewComponent — changed since the last review", () => {
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 			}
 		}
+	});
+
+	test("counts one section for a duplicate heading that changed once", () => {
+		const previous = ["# Plan", "## Notes", "a", "## Notes", "b"].join("\n");
+		const current = ["# Plan", "## Notes", "a", "## Notes", "B"].join("\n");
+		const { component } = setup(current, { previous });
+		expect(render(component, 100).join("\n")).toContain("1 section changed since your last review");
+	});
+
+	test("a plan with a tab is unchanged after being shown once", () => {
+		// The baseline is stored raw while the body is sanitized, so comparing them
+		// without normalizing reports the same tab as a change on every review.
+		const tabbed = ["# Plan", "## Goal", "\tTabbed body", "## Steps", "- [ ] One"].join("\n");
+		const { component } = setup(tabbed, { previous: tabbed });
+		expect(render(component, 100).join("\n")).not.toContain("changed since your last review");
 	});
 });

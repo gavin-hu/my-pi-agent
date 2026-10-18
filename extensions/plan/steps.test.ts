@@ -202,31 +202,35 @@ describe("changedSections", () => {
 	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
 
 	test("returns nothing for an identical plan", () => {
-		expect(changedSections(before, before)).toEqual(new Set());
+		expect(changedSections(before, before)).toEqual([false, false, false]);
 	});
 
 	test("marks a section whose text changed", () => {
-		expect(changedSections(before, before.replace("Ship it.", "Ship it well."))).toEqual(new Set(["Goal"]));
+		expect(changedSections(before, before.replace("Ship it.", "Ship it well."))).toEqual([false, true, false]);
 	});
 
 	test("marks a new section", () => {
-		expect(changedSections(before, `${before}\n## Risks\n- stale reads`)).toEqual(new Set(["Risks"]));
+		expect(changedSections(before, `${before}\n## Risks\n- stale reads`)).toEqual([false, false, false, true]);
 	});
 
 	test("does not mark a removed section", () => {
-		expect(changedSections(before, ["# Plan", "## Goal", "Ship it."].join("\n"))).toEqual(new Set());
+		// The array follows the current plan, so a dropped section only shortens it.
+		expect(changedSections(before, ["# Plan", "## Goal", "Ship it."].join("\n"))).toEqual([false, false]);
 	});
 
-	test("marks a duplicate title when either occurrence changed", () => {
+	test("flags a duplicate title by occurrence, not by title", () => {
 		const previous = ["## Steps", "- One", "## Steps", "- Two"].join("\n");
-		const current = ["## Steps", "- One", "## Steps", "- Two more"].join("\n");
-		expect(changedSections(previous, current)).toEqual(new Set(["Steps"]));
+		// Only the second occurrence changed, so only it is flagged.
+		expect(changedSections(previous, ["## Steps", "- One", "## Steps", "- Two more"].join("\n"))).toEqual([
+			false,
+			true,
+		]);
 	});
 
 	test("normalizes an emphasized heading", () => {
 		const previous = ["## **Goal**", "Old"].join("\n");
 		const current = ["## Goal", "New"].join("\n");
-		expect(changedSections(previous, current)).toEqual(new Set(["Goal"]));
+		expect(changedSections(previous, current)).toEqual([true]);
 	});
 });
 
@@ -261,9 +265,30 @@ describe("extractPlanSections", () => {
 		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["Real", "Also real"]);
 	});
 
+	test("reads a tab-indented fence as prose, the same as the block parser", () => {
+		// The fence rule is shared with `blocks.ts`, whose rule is spaces-only: a
+		// tab-indented fence must not be code for one parser and prose for the other.
+		const plan = ["\t```", "## Inside", "\t```", "## After"].join("\n");
+		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["", "Inside", "After"]);
+	});
+
 	test("returns nothing for an empty plan", () => {
 		expect(extractPlanSections("")).toEqual([]);
 		expect(extractPlanSections("\n\n")).toEqual([]);
+	});
+
+	test("reports each heading's source line and level", () => {
+		const plan = ["# Title", "", "## **Goal**", "", "### `Code` step"].join("\n");
+		expect(extractPlanSections(plan).map((s) => ({ line: s.line, level: s.level, title: s.title }))).toEqual([
+			{ line: 0, level: 1, title: "Title" },
+			{ line: 2, level: 2, title: "Goal" },
+			{ line: 4, level: 3, title: "Code step" },
+		]);
+	});
+
+	test("keeps a heading's own trailing hash, not a closing run", () => {
+		expect(extractPlanSections("## C#\nx")[0].title).toBe("C#");
+		expect(extractPlanSections("## Notes ##\nx")[0].title).toBe("Notes");
 	});
 });
 

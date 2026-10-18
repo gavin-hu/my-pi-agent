@@ -231,8 +231,11 @@ command. The read-only guarantee is layered:
   transcript and in non-TUI notices; a plan file cannot drive the terminal.
 - **Loopback browser review.** The review server binds `127.0.0.1` and requires a
   random per-session token in the URL, rejects a missing or foreign `Host`
-  header, serves only `GET`/`POST`, and caps the request body; the page renders plan and comment text
-  with DOM text nodes, never `innerHTML`, so a plan cannot script the reviewer.
+  header, serves only `GET`, `HEAD`, and `POST`, and caps the request body; the
+  page renders plan and comment text with DOM text nodes, never `innerHTML`, so a
+  plan cannot script the reviewer. The page also refuses to be framed
+  (`frame-ancestors 'none'` and `X-Frame-Options: DENY`), so a local page cannot
+  clickjack **Approve & run**.
 
 ## Read-only git shell
 
@@ -360,12 +363,13 @@ file and returns them to the model.
   update, depending on the mode).
 - **Loopback and tokenized.** The server binds `127.0.0.1`, carries a random
   per-session token in the URL, rejects a missing or foreign `Host` header,
-  serves only `GET` and `POST`, and caps the request body. A save or cancel
+  serves only `GET`, `HEAD`, and `POST`, and caps the request body. A save or cancel
   resolves the session only after its HTTP response is delivered, so the browser
   never sees a false "Failed to fetch". The last bound port is remembered per
   plan, so reviewing the same plan again reuses the origin (and the browser's
-  saved theme with it). It is closed on save, cancel, tab close, or
-  `session_shutdown`.
+  saved theme with it). It is closed on save, cancel, a dropped event stream, or
+  `session_shutdown`; a reload reconnects inside that grace, so refreshing or
+  reloading a conflicted page does not end the review.
 
 | Route | Result |
 |---|---|

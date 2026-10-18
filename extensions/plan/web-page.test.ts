@@ -9,6 +9,7 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 		outline: [{ id: "s-0", line: 0, level: 1, text: "Add rate limiting" }],
 		steps: { done: 0, total: 0 },
 		code: {},
+		limits: { comments: 200, comment: 2000, quote: 500 },
 		canApprove: true,
 		token: "secret-token",
 		...overrides,
@@ -153,6 +154,8 @@ describe("renderReviewPage", () => {
 		expect(data.relativePath).toBeUndefined();
 		expect(data.outline[0]).toEqual({ id: "s-0", line: 0, level: 1, text: "Add rate limiting" });
 		expect(data.code["2"][0]).toContain("tok-keyword");
+		// The client reads its caps from here, so the island is the one contract.
+		expect(data.limits).toEqual({ comments: 200, comment: 2000, quote: 500 });
 	});
 
 	test("escapes a plan line that contains a closing script tag", () => {

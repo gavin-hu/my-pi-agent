@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { blockAt, codeBody, fenceInfo, planBlocks, planHeadings, type PlanBlockKind } from "./blocks.ts";
+import { blockAt, codeBody, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
 
 /** `start:end:kind` for each block, so a whole parse is one comparable list. */
 function outline(plan: string): string[] {
@@ -80,6 +80,13 @@ describe("planBlocks", () => {
 		expect(outline("a\r\n\r\nb")).toEqual(["0:0:paragraph", "1:1:blank", "2:2:paragraph"]);
 		expect(planBlocks("a\r\nb")[0].lines).toEqual(["a", "b"]);
 	});
+
+	test("treats a tab-indented fence as prose, the same as the section parser", () => {
+		// The fence rule is shared with `steps.ts` and allows up to three spaces; a
+		// tab-indented fence must not shift annotation anchors by being code here
+		// and prose in the review screen.
+		expect(planBlocks("\t```\n- [ ] inside\n\t```\n").some((block) => block.kind === "code")).toBe(false);
+	});
 });
 
 describe("blockAt", () => {
@@ -94,25 +101,6 @@ describe("blockAt", () => {
 
 	test("falls back to the nearest block before an unknown line", () => {
 		expect(blockAt(blocks, 99)?.start).toBe(3);
-	});
-});
-
-describe("planHeadings", () => {
-	test("collects headings with level, line, and stripped text", () => {
-		const blocks = planBlocks("# Title\n\n## **Goal**\n\n### `Code` step\n");
-		expect(planHeadings(blocks)).toEqual([
-			{ line: 0, level: 1, text: "Title" },
-			{ line: 2, level: 2, text: "Goal" },
-			{ line: 4, level: 3, text: "Code step" },
-		]);
-	});
-
-	test("ignores a heading inside a fence", () => {
-		expect(planHeadings(planBlocks("```\n# not a heading\n```"))).toEqual([]);
-	});
-
-	test("returns nothing for a plan without headings", () => {
-		expect(planHeadings(planBlocks("just text"))).toEqual([]);
 	});
 });
 

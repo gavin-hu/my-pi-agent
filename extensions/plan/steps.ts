@@ -61,6 +61,10 @@ export interface PlanSection {
 	title: string;
 	/** The section's markdown, including its heading line. */
 	text: string;
+	/** 0-based source line of the section's heading (0 for the preamble). */
+	line: number;
+	/** Heading level, or 0 for the preamble before the first heading. */
+	level: number;
 }
 
 /** A top-level list item located in the source. */
@@ -78,10 +82,19 @@ interface PlanListItem {
 /** A top-level numbered or bulleted list item, capturing its parts. */
 const LIST_ITEM = /^([ \t]*)((?:\d+[.)]|[-*+])\s+)(.*\S)\s*$/;
 const CHECKBOX = /^\[([ xX])\]\s*(.*)$/;
-/** A markdown heading outside a fence, capturing its level and text. */
-const HEADING = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
-/** A markdown code-fence opener or closer (backticks or tildes). */
-const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
+/**
+ * A markdown heading outside a fence, capturing its level and text: up to three
+ * leading spaces, a space after the hashes, and a closing hash run only when a
+ * space separates it. Shared with `blocks.ts`, so the section split and the
+ * browser outline read a heading line the same way, and `## C#` keeps its title.
+ */
+export const HEADING = /^ {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/;
+/**
+ * A markdown code-fence opener or closer (backticks or tildes). Shared with
+ * `blocks.ts`: a tab-indented fence is prose for both parsers, never code for
+ * one and prose for the other.
+ */
+export const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const DONE_MARKER = /\[DONE:\d+\]/gi;
 
 /**
@@ -282,13 +295,13 @@ export function setStepStatuses(plan: string, updates: StepUpdate[]): string | u
 }
 
 /**
- * Titles (normalized) whose section text differs between two plan revisions, or
- * that are new in `current`. Revision snapshots are the caller's to provide;
- * strip stored feedback first so a review comment does not look like an edit.
- * Duplicate headings are compared by occurrence, and a changed title marks every
- * section with that title — plans following the canonical outline have none.
+ * Per-section change flags for a second review: `boolean[]` aligned with
+ * `extractPlanSections(current)`, so duplicate headings are flagged by
+ * occurrence rather than by title. Revision snapshots are the caller's to
+ * provide; strip stored feedback first so a review comment does not look like
+ * an edit.
  */
-export function changedSections(previous: string, current: string): Set<string> {
+export function changedSections(previous: string, current: string): boolean[] {
 	const before = new Map<string, string[]>();
 	for (const section of extractPlanSections(previous)) {
 		const texts = before.get(section.title);
@@ -297,14 +310,12 @@ export function changedSections(previous: string, current: string): Set<string> 
 	}
 
 	const seen = new Map<string, number>();
-	const changed = new Set<string>();
-	for (const section of extractPlanSections(current)) {
+	return extractPlanSections(current).map((section) => {
 		const index = seen.get(section.title) ?? 0;
 		seen.set(section.title, index + 1);
 		const prior = before.get(section.title)?.[index];
-		if (prior === undefined || prior !== section.text.trim()) changed.add(section.title);
-	}
-	return changed;
+		return prior === undefined || prior !== section.text.trim();
+	});
 }
 
 /**
@@ -323,7 +334,7 @@ export function extractPlanSections(plan: string): PlanSection[] {
 		current = undefined;
 	};
 
-	for (const line of plan.split("\n")) {
+	plan.split("\n").forEach((line, index) => {
 		const fenceMatch = line.match(FENCE);
 		if (fenceMatch) {
 			if (fence === undefined) fence = fenceMatch[1][0];
@@ -332,13 +343,13 @@ export function extractPlanSections(plan: string): PlanSection[] {
 			const heading = line.match(HEADING);
 			if (heading) {
 				flush();
-				current = { title: plainText(heading[2]), text: line };
-				continue;
+				current = { title: plainText(heading[2]), text: line, line: index, level: heading[1].length };
+				return;
 			}
 		}
-		if (current === undefined) current = { title: "", text: line };
+		if (current === undefined) current = { title: "", text: line, line: 0, level: 0 };
 		else current.text += `\n${line}`;
-	}
+	});
 
 	flush();
 	return sections;

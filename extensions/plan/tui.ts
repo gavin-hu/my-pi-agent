@@ -30,7 +30,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine, stripControlChars } from "../../lib/format.ts";
 import {
 	editorTheme,
 	screenHint,
@@ -128,8 +128,11 @@ const TASK_MARKER = /^([-*+]|\d+[.)])(\s+)(\[([ xX])\])(\s*)$/;
 /**
  * Wrap the Markdown theme so task checkboxes read at a glance with the shared
  * `◼`/`◻` vocabulary, the same box the bytefly screen and the question dialog
- * draw. The replacement is one column wide instead of the bracket's three, so a
- * wrapped list continuation shifts left by two.
+ * draw. The box is one column wide instead of the bracket's three, so the two
+ * freed columns are kept as padding: pi-tui derives a continuation line's indent
+ * from the original marker's width, and shortening the marker without padding
+ * hangs every wrapped task line two columns too far right, where the width
+ * truncation clips its tail.
  */
 function planMarkdownTheme(theme: Theme, base: MarkdownTheme): MarkdownTheme {
 	return {
@@ -138,7 +141,9 @@ function planMarkdownTheme(theme: Theme, base: MarkdownTheme): MarkdownTheme {
 			const match = TASK_MARKER.exec(text);
 			if (!match) return base.listBullet(text);
 			const [, bullet, gap, , mark, trail] = match;
-			return `${base.listBullet(`${bullet}${gap}`)}${checkbox(theme, mark.toLowerCase() === "x")}${trail}`;
+			const themed = `${base.listBullet(`${bullet}${gap}`)}${checkbox(theme, mark.toLowerCase() === "x")}`;
+			const pad = Math.max(0, visibleWidth(text) - visibleWidth(themed) - visibleWidth(trail));
+			return `${themed}${" ".repeat(pad)}${trail}`;
 		},
 	};
 }
@@ -205,10 +210,13 @@ export class PlanViewComponent implements Component {
 		const base = this.options.markdownTheme ?? getMarkdownTheme();
 		const theme = planMarkdownTheme(this.theme, base);
 		const current = sanitizePlanText(this.options.plan.content);
+		// Both sides of the diff get the same normalization: the baseline is stored
+		// raw, so sanitizing only `current` would report a tab as a change on every
+		// review.
 		const changed =
 			this.options.previous === undefined
-				? new Set<string>()
-				: changedSections(stripFeedback(this.options.previous), stripFeedback(current));
+				? []
+				: changedSections(stripFeedback(sanitizePlanText(this.options.previous)), stripFeedback(current));
 		const chunks = extractPlanSections(current);
 		const lines: string[] = [];
 		const sections: SectionOffset[] = [];
@@ -221,14 +229,14 @@ export class PlanViewComponent implements Component {
 			sections.push({
 				title: chunk.title,
 				offset: lines.length,
-				...(changed.has(chunk.title) ? { changed: true } : {}),
+				...(changed[index] ? { changed: true } : {}),
 			});
 			lines.push(...rendered);
 			// Sections render independently, so restore the blank line a heading-only
 			// chunk omits before the next section.
 			if (index < chunks.length - 1 && lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
 		});
-		this.cache = { width, lines, sections, changedCount: chunks.filter((chunk) => changed.has(chunk.title)).length };
+		this.cache = { width, lines, sections, changedCount: changed.filter(Boolean).length };
 		return this.cache;
 	}
 
@@ -363,7 +371,7 @@ export class PlanViewComponent implements Component {
 		const theme = this.theme;
 		const w = Math.max(1, width);
 		const plan = this.options.plan;
-		const title = planTitle(basename(plan.path));
+		const title = sanitizeLine(planTitle(basename(plan.path)));
 
 		const previousWidth = this.cache?.width;
 		const built = plan.content.trim() ? this.build(w) : { width: w, lines: [], sections: [], changedCount: 0 };
