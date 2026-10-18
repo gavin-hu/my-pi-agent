@@ -251,8 +251,10 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 5 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 9 settings");
 		expect(notifications.at(-1)).toContain("Bytefly startup TUI: Off");
+		expect(notifications.at(-1)).toContain("Delivery method: Auto");
+		expect(notifications.at(-1)).toContain("Cost decimals: 2");
 	});
 
 	test("mounts the dock screen on the Settings section in TUI mode", async () => {
@@ -267,7 +269,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("Global · 5 settings");
+		expect(rendered).toContain("Global · 9 settings");
 		expect(rendered).toContain("Bytefly startup TUI");
 	});
 

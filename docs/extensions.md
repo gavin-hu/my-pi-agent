@@ -258,9 +258,11 @@ keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` settings
 checkbox and one verdict (`off` when switched off, `env disabled` when
 `PI_DISABLED_EXTENSIONS` excludes it, otherwise its worst-severity health), and
-Settings, five curated preferences — bytefly startup TUI, desktop notifications,
-the rail glyph, output padding, and the hardware cursor — with each row's value
-and its source file. `Space` toggles the focused extension and `Enter` expands
+Settings, nine curated preferences in six groups — bytefly startup TUI, desktop
+notifications and their delivery method, the proactive health check, the cost
+precision and recorded-cost fallback, the rail glyph, output padding, and the
+hardware cursor — with each row's value and its source file. `Space` toggles the
+focused extension and `Enter` expands
 its findings (per row, into the free height); in Settings `Space`/`Enter` change
 the focused row. `Tab` switches Global/Project scope, `←`/`→` switch sections,
 and `r` re-probes. The screen mounts on the session's cached findings and probes

@@ -164,34 +164,40 @@ describe("sections", () => {
 	});
 
 	test("states the scope and the settings count", () => {
-		expect(settingsSummarySegments("global", 5).map((segment) => segment.text)).toEqual(["Global", "5 settings"]);
-		expect(settingsSummarySegments("project", 2).map((segment) => segment.text)).toEqual(["Project", "2 settings"]);
+		expect(settingsSummarySegments("global", 9).map((segment) => segment.text)).toEqual(["Global", "9 settings"]);
+		expect(settingsSummarySegments("project", 6).map((segment) => segment.text)).toEqual(["Project", "6 settings"]);
 		expect(settingsSummarySegments("global", 1).map((segment) => segment.text)).toEqual(["Global", "1 setting"]);
 	});
 
 	test("prints one settings headline for non-TUI modes", () => {
-		expect(formatSettingsHeadline("global", 5)).toBe("bytefly: Settings · Global · 5 settings");
-		expect(formatSettingsHeadline("project", 2)).toBe("bytefly: Settings · Project · 2 settings");
+		expect(formatSettingsHeadline("global", 9)).toBe("bytefly: Settings · Global · 9 settings");
+		expect(formatSettingsHeadline("project", 6)).toBe("bytefly: Settings · Project · 6 settings");
 	});
 
 	test("lists settings in groups with their values", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "global");
 		const text = formatSettingsListing(views, "global");
 
-		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 5 settings");
+		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 9 settings");
 		expect(text).toContain("Startup (1)");
-		expect(text).toContain("Notifications (1)");
+		expect(text).toContain("Notifications (2)");
+		expect(text).toContain("Diagnostics (1)");
+		expect(text).toContain("Pricing (2)");
 		expect(text).toContain("Transcript (2)");
 		expect(text).toContain("Terminal (1)");
 		expect(text).toContain("Bytefly startup TUI: Off");
 		expect(text).toContain("Desktop notifications: Off");
+		expect(text).toContain("Delivery method: Auto");
+		expect(text).toContain("Proactive health check: On");
+		expect(text).toContain("Cost decimals: 2");
+		expect(text).toContain("Recorded cost fallback: On");
 	});
 
 	test("names the missing app rows in the project listing", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "project");
 		const text = formatSettingsListing(views, "project");
 
-		expect(text).toContain("Project · 2 settings");
+		expect(text).toContain("Project · 6 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
