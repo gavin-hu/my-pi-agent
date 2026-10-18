@@ -226,6 +226,38 @@ function elide(content: string): string {
 	return content.length > MAX_STEP_LENGTH ? `${content.slice(0, MAX_STEP_LENGTH - 1).trimEnd()}…` : content;
 }
 
+/** A list marker with an optional checkbox, at any indent. */
+const LIST_PREFIX = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/;
+
+/**
+ * The plan's `Verification` section as one trailing checklist item, or
+ * `undefined` when the plan has none.
+ *
+ * The section is prose ("commands and checks"), and a todo item is one line, so
+ * the lines are stripped of list markers and inline emphasis and joined with
+ * `; `, prefixed with `Verify:` and elided like a long step. The item is
+ * deliberately *not* a plan step: it is not in the `Steps` section, so it must
+ * not count against the step cap or appear in `set_plan_steps` numbering.
+ *
+ * A plan with no `Steps` heading feeds its shallowest list as steps (the older
+ * rule), so that list already covers the verification bullets; appending a
+ * summary of them would duplicate them, and there is nothing to carry.
+ */
+export function verificationItem(plan: string): PlanStep | undefined {
+	if (stepsSection(plan) === undefined) return undefined;
+	const section = extractPlanSections(plan).find(
+		(candidate) => candidate.level > 0 && candidate.title.toLowerCase() === "verification",
+	);
+	if (!section) return undefined;
+	const items = section.text
+		.split("\n")
+		.slice(1)
+		.map((line) => plainText(line.replace(LIST_PREFIX, "")))
+		.filter(Boolean);
+	if (items.length === 0) return undefined;
+	return { content: elide(`Verify: ${items.join("; ")}`), status: "pending" };
+}
+
 /** Top-level steps from a plan, in order. */
 export function extractPlanSteps(plan: string): PlanStep[] {
 	return topLevelItems(plan).map((item) => ({ content: elide(item.step.content), status: item.step.status }));

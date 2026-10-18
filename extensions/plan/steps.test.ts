@@ -9,6 +9,7 @@ import {
 	matchesStepText,
 	planStepSummary,
 	setStepStatuses,
+	verificationItem,
 } from "./steps.ts";
 
 const pending = (content: string) => ({ content, status: "pending" as const });
@@ -326,5 +327,55 @@ describe("setStepStatuses", () => {
 				{ step: 9, status: "completed" },
 			]),
 		).toBeUndefined();
+	});
+});
+
+describe("verificationItem", () => {
+	const plan = (verification: string): string =>
+		["# Plan", "", "## Steps", "- [ ] One", "", "## Verification", verification].join("\n");
+
+	test("collapses the section into one trailing item", () => {
+		expect(verificationItem(plan("- `bun run check` passes\n- approve and merge"))).toEqual({
+			content: "Verify: bun run check passes; approve and merge",
+			status: "pending",
+		});
+	});
+
+	test("finds the heading whatever its case or emphasis", () => {
+		const source = ["# Plan", "## Steps", "- [ ] One", "## **VERIFICATION**", "Run the suite"].join("\n");
+		expect(verificationItem(source)?.content).toBe("Verify: Run the suite");
+	});
+
+	test("strips checkboxes and numbered markers", () => {
+		const source = plan("1. [ ] first check\n2. second check");
+		expect(verificationItem(source)?.content).toBe("Verify: first check; second check");
+	});
+
+	test("ignores a verification heading inside a fence", () => {
+		const source = ["# Plan", "```md", "## Verification", "- not a section", "```"].join("\n");
+		expect(verificationItem(source)).toBeUndefined();
+	});
+
+	test("returns undefined without the section, or with an empty one", () => {
+		expect(verificationItem("# Plan\n\n## Steps\n- [ ] One")).toBeUndefined();
+		expect(verificationItem(plan("   "))).toBeUndefined();
+	});
+
+	test("elides a long section like a long step", () => {
+		const item = verificationItem(plan("- " + "x".repeat(400)));
+		expect(item?.content.length).toBe(MAX_STEP_LENGTH);
+		expect(item?.content.endsWith("…")).toBe(true);
+	});
+
+	test("uses the first of two verification headings", () => {
+		const source = ["# Plan", "## Steps", "- [ ] One", "## Verification", "first", "## Verification", "second"].join(
+			"\n",
+		);
+		expect(verificationItem(source)?.content).toBe("Verify: first");
+	});
+
+	test("returns undefined for a plan with no Steps heading, whose list is the plan", () => {
+		const source = ["# Plan", "## Verification", "- run the suite"].join("\n");
+		expect(verificationItem(source)).toBeUndefined();
 	});
 });

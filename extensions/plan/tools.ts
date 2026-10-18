@@ -35,6 +35,7 @@ import {
 	PLAN_OUTLINE,
 	extractPlanSteps,
 	planStepSummary,
+	verificationItem,
 	type PlanStep,
 	type StepUpdate,
 } from "./steps.ts";
@@ -174,11 +175,12 @@ async function seedTodos(
 	plan: string,
 ): Promise<{ steps: PlanStep[]; merged?: TodoMerge; error?: string }> {
 	const steps = extractPlanSteps(plan);
-	if (steps.length === 0) return { steps };
-	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi));
-	// Nothing new to write: every step is already in the list (or the list is
-	// full), so a whole-list rewrite would only churn the todo widget.
-	if (merged.added === 0) return { steps, merged };
+	const verification = verificationItem(plan);
+	if (steps.length === 0 && !verification) return { steps };
+	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi), verification);
+	// Nothing new to write: every step (and the verification item) is already in
+	// the list, or the list is full, so a rewrite would only churn the widget.
+	if (merged.added === 0 && merged.trailing !== "added") return { steps, merged };
 	const outcome = await ctx.executeTool(TODO_TOOL, { todos: merged.todos });
 	if (!outcome.isError) return { steps, merged };
 	// The nested call fails both when the tool is unavailable and when it rejects
@@ -221,6 +223,21 @@ function planObjective(plan: StoredPlan): string {
 	const heading = /^ {0,3}#\s+(.+)$/m.exec(plan.content)?.[1];
 	const title = heading === undefined ? "" : sanitizeLine(heading).trim();
 	return title || planTitle(basename(plan.path));
+}
+
+/**
+ * One sentence about the plan's verification item, or "" when the plan has none
+ * (or it was already in the list). The item is a todo, not a plan step, so it is
+ * ticked in the list rather than in the file.
+ */
+function verificationNote(merged: TodoMerge | undefined): string {
+	if (merged?.trailing === "added") {
+		return "\nThe plan's verification section is the last todo item; tick it in the todo list, not in the file.";
+	}
+	if (merged?.trailing === "deferred") {
+		return "\nThe plan's verification section did not fit in the full todo list; keep it in mind.";
+	}
+	return "";
 }
 
 /** What the merge did, for the approval message; `steps` is the plan's step count. */
@@ -554,6 +571,7 @@ export function registerTools(
 						: merged
 							? mergeSummary(merged, steps)
 							: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${SET_PLAN_STEPS_TOOL}.`;
+			const verification = verificationNote(merged);
 			const goalNote =
 				goal.recorded === undefined
 					? ""
@@ -567,7 +585,7 @@ export function registerTools(
 				content: [
 					{
 						type: "text",
-						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${goalNote}${listing}`,
+						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${verification}${goalNote}${listing}`,
 					},
 				],
 				details: {
