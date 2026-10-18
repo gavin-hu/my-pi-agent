@@ -403,7 +403,7 @@ named by `doctor`; a wrong-typed value falls back to its default, and a
 wrong-typed timezone drops the peak schedule rather than the session.
 
 The notify capability is **off by default**: `enabled: true` is the whole setup
-needed for an unattended run, and the three trigger flags then narrow what is
+needed for an unattended run, and the four trigger flags then narrow what is
 announced (see [Notifications](#notifications)).
 
 The proactive doctor check is part of the bytefly startup TUI, so it posts only
@@ -977,8 +977,8 @@ command.
 - No status chip for the doctor report: it is on demand plus one notice, not a
   permanent footer segment.
 - No notification for individual tool calls, message turns, or subagent steps:
-  the three triggers — a settled run, a prompt mid-run, a finished job — are the
-  whole surface.
+  the four triggers — a settled run, a prompt mid-run, a finished job, a watcher
+  match — are the whole surface.
 - No sound, action buttons, notification history, or de-duplication; a
   notification is a fire-and-forget message, not an inbox.
 - No frozen per-run working duration: the counter is live and is handed back to
@@ -1203,8 +1203,8 @@ rather than showing a wrong value.
 - **The install hint has one home.** `document` and `web-access` format their
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
-- **Settings are a curated table, not a schema walker.** Fourteen rows cover
-  every scalar preference across four kinds — a boolean, an enum, a string with
+- **Settings are a curated table, not a schema walker.** The rows cover every
+  scalar preference across four kinds — a boolean, an enum, a string with
   its own rule, and a number — both scopes, both write paths, and one nested leaf
   (`price.currency.decimals`). A row states its section and the path to its leaf,
   and one reader per section resolves it project-over-global-over-defaults through
@@ -1325,8 +1325,8 @@ columns, gauge), so the look follows the active theme.
 | `notify/types.ts` | `NotifyConfig`, `NotifyMethod`, and the method list. |
 | `notify/config.ts` | The `notify` section of `bytefly.json`: defaults, validation, loader. |
 | `notify/dispatch.ts` | Method selection and delivery: OSC 777/99, Windows toast, `osascript`, `notify-send`, over injected seams. |
-| `notify/format.ts` | Pure notification text: session label and the turn / input / job bodies. |
-| `notify/register.ts` | Registers the three triggers, loads the config at `session_start`, and owns the job-bus subscription. |
+| `notify/format.ts` | Pure notification text: session label and the turn / input / job / watch bodies. |
+| `notify/register.ts` | Registers the four triggers, loads the config at `session_start`, and owns the job- and watch-bus subscriptions. |
 | `update/check.ts` | The one registry read: the `latest` URL, the abort timeout, the `FetchLike` seam, and the failure-to-`undefined` mapping. |
 | `update/version.ts` | Pure semver parsing and `isNewerVersion`, including prerelease precedence. |
 | `update/state.ts` | `UpdateSource` and `createUpdateState` (the newest known version, one record per load), plus `UpdateOutcome`, the four answers an explicit re-check can give. |
@@ -1372,7 +1372,7 @@ formatting (`doctor/format`), its config loader (`doctor/config`), and
 registration, the proactive notice, the session cache, and `run_doctor`
 through the factory (`doctor/register`). The notify capability is covered by its section loader
 (`notify/config`), the pure text builders (`notify/format`), method selection and
-delivery over recording seams (`notify/dispatch`), and its three triggers,
+delivery over recording seams (`notify/dispatch`), and its four triggers,
 reload, and shutdown through `registerNotify` (`notify/register`). The update
 check is covered by the version-ordering table (`update/version`), the transport
 with an injected fetch (`update/check`), the per-load store (`update/state`), the
