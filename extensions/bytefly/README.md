@@ -311,39 +311,32 @@ print/JSON/RPC run gets an OS-level notification or none.
 
 ## Configuration
 
-The header is tuned in [`header/config.ts`](./header/config.ts) — the mark and
-identity theme tokens, the tagline, and the grouped help entries (each naming a
-Pi keybinding resolved live or a raw command prefix). The footer's
-content and layout are tuned in [`footer/config.ts`](./footer/config.ts) —
-thresholds, gauge
-glyphs and widths, separators, icons, and status keys. The turn separator has no
-JSON either: its glyph, label prefix, padding, and colors are tuned in
-[`separator/config.ts`](./separator/config.ts).
+Two things are JSON: the transcript rail's glyph (`chrome.rail`, default `╎`,
+read at `session_start`/`session_tree`) and this extension's three config
+sections — `price`, `notify`, and `doctor`. Everything else about the look is
+tuned in code: the header in [`header/config.ts`](./header/config.ts) (mark and
+identity tokens, tagline, grouped help), the footer in
+[`footer/config.ts`](./footer/config.ts) (thresholds, gauge glyphs and widths,
+separators, icons, status keys), and the turn separator in
+[`separator/config.ts`](./separator/config.ts) (glyph, label prefix, padding,
+colors).
 
-The transcript rail's glyph is the one chrome value that is JSON-configurable:
-the `chrome` section's `rail` key (default `╎`) picks a single-column rail glyph,
-read at `session_start`/`session_tree`. Everything else about the chrome is tuned
-in code.
+Every key of every section is listed with its type, default, and bounds in the
+[configuration reference](../../docs/configuration-reference.md); this section
+covers what that table cannot — when each section is read, and what the cost
+does when no rate matches.
 
-Everything JSON-configurable lives in `bytefly.json`, one shared document with a
-top-level section per extension (see [Configuration](../../docs/configuration.md)).
-It is read from the global document, then `<cwd>/.pi/bytefly.json`. The old
-per-extension files
-(`document.json`, `jobs.json`, …) are no longer read; run
-`bun run config:migrate` to move them into the shared document.
+`bytefly.json` is one shared document with a top-level section per extension (see
+[Configuration](../../docs/configuration.md)). It is read from the global
+document, then `<cwd>/.pi/bytefly.json`, project winning. The old per-extension
+files (`document.json`, `jobs.json`, …) are no longer read; `bun run config:migrate`
+moves them into the shared document.
 
-The price
-calculation is configured by the `price` section of the shared `bytefly.json`
-(see [Configuration](../../docs/configuration.md)), read from
-`~/.pi/agent/bytefly.json`, then `<cwd>/.pi/bytefly.json` (project wins).
-
-Both documents are optional, and neither is needed for DeepSeek. The built-in
-table is the base layer for every session: DeepSeek is priced in yuan at the
-published peak and off-peak rates, and every other model keeps Pi's recorded
-cost, whose number comes from Pi's catalog. A document can change the currency,
-replace a built-in rate, or add rates of your own. A malformed document is
-ignored, a wrong-typed value falls back to its default, and an unknown timezone
-drops the schedule rather than the session.
+Neither document is needed for DeepSeek. The built-in table is the base layer for
+every session: DeepSeek is priced in yuan at the published peak and off-peak
+rates, and every other model keeps Pi's recorded cost, whose number comes from
+Pi's catalog. A document can change the currency, replace a built-in rate, or add
+rates of your own.
 
 ```json
 {
@@ -365,27 +358,13 @@ drops the schedule rather than the session.
 }
 ```
 
-That file restates the built-in defaults, so on its own it changes nothing; it
-is shown to document every key at once.
-
-| Key | Meaning |
-|---|---|
-| `currency.symbol` | Printed before the number; at most four characters. Default `¥`. |
-| `currency.decimals` | Digits after the point, 0–4. Default `2`. |
-| `fallbackToRecordedCost` | Use Pi's recorded cost for a record no rate matches. Default `true`. |
-| `rates` | Per-million-token prices in `currency`, keyed by `provider/model`; the built-in DeepSeek table is the base, and a key stated here replaces its entry. |
-| `rates.<key>.input` · `output` · `cacheRead` · `cacheWrite` | Rate per token class; a class left out is free. |
-| `rates.<key>.offPeakMultiplier` | Multiplier outside every peak window, 0–1. Default `1`. |
-| `peak.timezone` | The IANA zone the windows are stated in. |
-| `peak.windows` | `days` (1 = Monday … 7 = Sunday; omitted means every day), `from` inclusive, `to` exclusive, `HH:MM` local; a `to` before `from` wraps midnight. An empty list means every moment is peak. |
+That file restates the built-in defaults, so on its own it changes nothing; it is
+shown to document every key at once.
 
 Rates merge key by key across the two documents, so a project document can
 override one model without restating the rest; a key present in both is replaced,
 not merged field by field. No windows means every moment is peak, so a rate with
-`offPeakMultiplier: 0.5` and no schedule stays flat. The `price` section is read
-once per install — at `session_start`, and again on a `session_tree` change — so
-a new session or tree change picks up an edit; there is no toggle, and nothing
-watches the file.
+`offPeakMultiplier: 0.5` and no schedule stays flat.
 
 **Mixing currencies is the sharp edge of the built-in default.** A record priced
 from `rates` or the built-in table is in `currency.symbol` units — yuan for
@@ -395,71 +374,30 @@ currencies into one number. Either cover every model you use (a `"*"` catch-all
 helps) and set `fallbackToRecordedCost: false`, or set the symbol to `"$"` and
 treat the rates purely as an off-peak correction.
 
-### The `notify` section
+### When each section is read
 
-The notify capability reads the same shared `bytefly.json`, under its own
-top-level `notify` key.
-It is **off by default**; `enabled: true` is the whole setup needed for an
-unattended run, and the three trigger flags then narrow what is announced. The
-price section and the notify section are parsed independently, so a wrong-typed
-value in one never reaches the other.
-
-```json
-{
-  "notify": {
-    "enabled": true,
-    "turnFinished": true,
-    "needsInput": true,
-    "jobFinished": true,
-    "method": "auto",
-    "title": "Pi"
-  }
-}
-```
-
-| Key | Default | Meaning |
+| Section | Read at | Applies to |
 |---|---|---|
-| `enabled` | `false` | Master switch. A notification on every turn is intrusive, so it is opt-in. |
-| `turnFinished` | `true` | Notify when a full agent run settles and Pi waits for the next message. An aborted run is never announced. |
-| `needsInput` | `true` | Notify when the agent opens a prompt mid-run (`select`, `confirm`, `input`, `editor`, `custom`). A prompt the user typed while idle does not fire. |
-| `jobFinished` | `true` | Notify when a background `job` reaches a terminal state. |
-| `method` | `auto` | `auto`, `osascript`, `notify-send`, `toast`, `osc777`, or `osc99`. An explicit method that the environment cannot deliver is a no-op. |
-| `title` | `Pi` | Notification title, clamped to 40 characters. |
+| `chrome` | `session_start`, `session_tree` | the rail glyph |
+| `price` | the footer install (`session_start`, `session_tree`) | the cost total |
+| `notify` | `session_start` | which events are announced, and how |
+| `doctor` | `session_start` | the proactive check |
 
-A `notify` section is read at `session_start`, so a new session or `/reload`
-picks up an edit.
+Nothing watches a file, so an edit applies at the next read — a reload, a new
+session, or a tree change. A malformed document is ignored by every loader and
+named by `doctor`; a wrong-typed value falls back to its default, and a
+wrong-typed timezone drops the peak schedule rather than the session.
 
-### The `doctor` section
+The notify capability is **off by default**: `enabled: true` is the whole setup
+needed for an unattended run, and the three trigger flags then narrow what is
+announced (see [Notifications](#notifications)).
 
-The doctor surface reads the same shared `bytefly.json`, under its own top-level
-`doctor` key:
-
-```json
-{
-  "doctor": {
-    "proactive": true,
-    "timeoutMs": 2000,
-    "skip": []
-  }
-}
-```
-
-| Key | Default | Meaning |
-|---|---|---|
-| `proactive` | `true` | Probe the extensions with hard requirements at session start and post one notice when something is missing. |
-| `timeoutMs` | `2000` | Per-probe timeout for one spawned command, clamped to 100–30000. |
-| `skip` | `[]` | Extension names to leave out of every report. |
-
-A malformed `bytefly.json` is ignored like every other config file — and named
-by the report `doctor` produces. The section is read at `session_start`, so a
-new session or `/reload` picks up an edit.
-
-Wherever it runs, the proactive check is part of the bytefly startup TUI, so it
-posts only when Pi starts with `"quietStartup": true`, the same setting that
-hides Pi's own header and loaded-resource listing. `false`, `"header"`, and
-unset leave Pi's startup surface in charge, so the notice stays silent. When it
-does post, the notice enters the message flow once per
-session, so it stays in scrollback and the model reads the same sentence.
+The proactive doctor check is part of the bytefly startup TUI, so it posts only
+when Pi starts with `"quietStartup": true`, the same setting that hides Pi's own
+header and loaded-resource listing. `false`, `"header"`, and unset leave Pi's
+startup surface in charge, so the notice stays silent. When it does post, the
+notice enters the message flow once per session, so it stays in scrollback and
+the model reads the same sentence.
 
 ## Security
 
@@ -1083,14 +1021,12 @@ rather than showing a wrong value.
   after a `╎` keeps the percentage in a fixed place while the mode stays
   visible as the meters drop.
 - **Statuses are routed, not repeated.** The built-in footer renders every
-  `setStatus` value on its own line; the bar splits them by meaning (`worktree`
-  and `browse` are location, plan/alert is mode). The [wechat](../wechat/)
-  extension publishes `✆ wechat` while its bridge runs, joining the mode/alert
-  slot; this is why the bar must render `getExtensionStatuses()` at all.
-- **Browse joins the git state.** The `◉ <port>` chip is routed beside `⎇` branch
-  and `⑂` worktree rather than after `pwd`, so the left zone stays the
-  filesystem identity (path + session name) and every "where am I / what is
-  running" fact sits on line 1 right.
+  `setStatus` value on its own line, so the bar sorts them by meaning instead:
+  `worktree` and `browse` are location, so the `◉ <port>` chip sits beside `⎇`
+  branch and `⑂` worktree and the left zone stays the filesystem identity; a
+  plan or a failed job is mode or alert, so it takes the slot after the gauge.
+  The [wechat](../wechat/) extension publishes `✆ wechat` while its bridge runs,
+  which is why the bar has to render `getExtensionStatuses()` at all.
 - **Segments degrade; they do not clip.** Each `Segment` carries progressively
   shorter `forms` and a `weight`; the layout advances the lowest-priority form
   or drops the lowest-priority segment, and only truncates once everything is
