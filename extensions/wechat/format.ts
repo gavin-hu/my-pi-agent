@@ -97,6 +97,7 @@ export type NoticeKind =
 	| "stopped"
 	| "noText"
 	| "compacted"
+	| "budget"
 	| "promptWaiting"
 	| "timeout"
 	| "failed"
@@ -136,6 +137,10 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	compacted: {
 		zh: "对话较长，上下文已压缩；更早的细节可能记不全。",
 		en: "The conversation was compacted to stay within context; earlier details may be fuzzy.",
+	},
+	budget: {
+		zh: "这一小时的消息有点多，稍后再试。",
+		en: "You've reached this hour's message limit — please try again later.",
 	},
 	promptWaiting: {
 		zh: "还在等你的回复，约 1 分钟后超时。",

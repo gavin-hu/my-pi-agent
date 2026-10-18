@@ -239,6 +239,8 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
 // bytefly.json → "wechat"
 {
   "allowedPeers": [],        // extra peers, by id or label (alice / alice@im.wechat)
+  "peers": {},              // per-peer overrides, e.g. { "alice": { "tools": ["read", "todo"] } }
+  "maxTurnsPerHour": 0,     // turns per peer per rolling hour; 0 = unlimited
   "maxReplyChars": 4000,     // replies longer than this are split into messages
   "botAgent": "pi-wechat",   // sent as base_info.bot_agent
   "channelVersion": "0.1.0", // sent as base_info.channel_version
@@ -283,7 +285,9 @@ never touches the stored cursor.
   session **with that session's tools** (including `bash`/`write`/`edit`).
   Admission control is the only gate: the default is **owner-only**, and
   `allowedPeers` is an explicit opt-in. A refused sender is counted and named in
-  `/wechat status`, not run.
+  `/wechat status`, not run. `peers[<id>].tools` narrows an admitted peer to a
+  tool allowlist (an empty list leaves it with none), so an extra peer need not
+  get `bash`.
 - Inbound text is sanitized (control characters stripped) before it reaches the
   transcript.
 - Inbound media is **untrusted**: images become model image content, and files
@@ -331,9 +335,11 @@ never touches the stored cursor.
 - An expired bridge or a `/wechat logout` is silence on the phone: the token that
   would carry a notice is the one that expired, so only the terminal chip and
   `/wechat status` say what happened.
-- Turns run one at a time across peers by default (`concurrency`), so a second
-  peer's message waits for the first peer's turn. That keeps a forwarded dialog
-  unambiguous; a peer who is waiting is acknowledged and told why.
+- Turns run one at a time across peers, fixed at one: a second peer's message
+  waits for the first peer's turn. That keeps a forwarded dialog unambiguous
+  (the shared interaction channel has one owner); a peer who is waiting is
+  acknowledged and told why. More concurrency needs a per-peer channel, not a
+  config value.
 - Each peer conversation is a full Pi session: it carries its own context and
   costs its own model tokens, and it loads the package's tools (minus this
   bridge) in the same workspace. The idle sweep disposes a session after 30
@@ -376,7 +382,7 @@ sessions are in-process).
 | Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
-| Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. |
+| Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
 | Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
 | Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state, `history` → a read-only read of that peer's newest session). |
 | Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer and marking the context for `askHuman`'s file/text preface. The terminal's shared `ctx.ui` is deliberately not adapted: a host turn is never answered remotely, so its dialogs stay local even while a peer turn runs. |

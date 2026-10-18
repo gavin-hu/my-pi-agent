@@ -56,6 +56,10 @@ export interface PeerSessionOptions {
 	onError?: (message: string) => void;
 	/** Start an empty conversation instead of resuming this peer's last one. */
 	fresh?: boolean;
+	/** Tools this peer may use; absent keeps the full set, an empty list keeps none. */
+	toolAllowlist?: string[];
+	/** A non-fatal warning (for example an allowlist naming an unknown tool). */
+	onWarning?: (message: string) => void;
 	seams?: PeerSessionSeams;
 }
 
@@ -170,7 +174,16 @@ export async function openPeerSession(peer: string, options: PeerSessionOptions)
 	// Extensions register their tools during load; the SDK session only declares
 	// the settings' default selection, so the peer would otherwise see read/bash/
 	// edit/write and none of the package's tools.
-	activateDirectTools(session);
+	const active = activateDirectTools(session);
+	if (options.toolAllowlist) {
+		const allowed = new Set(options.toolAllowlist);
+		const available = new Set(session.getAllTools().map((tool) => tool.name));
+		const unknown = options.toolAllowlist.filter((name) => !available.has(name));
+		if (unknown.length > 0) {
+			options.onWarning?.(`WeChat peer ${peer} allowlist names unknown tools: ${unknown.join(", ")}`);
+		}
+		session.setActiveToolsByName(active.filter((name) => allowed.has(name)));
+	}
 
 	return {
 		session,

@@ -154,6 +154,7 @@ describe("notice", () => {
 		"stopped",
 		"noText",
 		"compacted",
+		"budget",
 		"timeout",
 		"failed",
 		"newBusy",

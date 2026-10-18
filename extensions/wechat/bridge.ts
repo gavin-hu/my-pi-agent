@@ -215,6 +215,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const languages = new Map<string, PeerLanguage>();
 	/** Peers already told that the queue is full, until it drains. */
 	const overflow = new Set<string>();
+	/** When each peer's recent turns started, for the hourly cap. */
+	const turnTimes = new Map<string, number[]>();
 	/** Messages being resolved (media download) before they reach the queue. */
 	const admitting = new Map<string, number>();
 	/** Per-peer admission chain, so two media messages keep their arrival order. */
@@ -459,6 +461,23 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	/** Whether a peer has a turn running or a message waiting. */
 	function hasWork(peer: string): boolean {
 		return (worker?.state(peer).status ?? "idle") !== "idle";
+	}
+
+	/** Reserve a turn in the peer's rolling hour; false when the cap is reached. */
+	function allowTurn(peer: string): boolean {
+		const limit = deps.config.maxTurnsPerHour;
+		if (limit <= 0) return true;
+		const key = peerKey(peer);
+		const now = deps.now();
+		const cutoff = now - 60 * 60 * 1000;
+		const times = (turnTimes.get(key) ?? []).filter((at) => at >= cutoff);
+		if (times.length >= limit) {
+			turnTimes.set(key, times);
+			return false;
+		}
+		times.push(now);
+		turnTimes.set(key, times);
+		return true;
 	}
 
 	/** The peer's language: from this text, else the last one they wrote. */
@@ -764,6 +783,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 		// A slot is reserved here, before the download, so a burst of media cannot
 		// all pass the check and then enqueue together.
+		if (!allowTurn(peer)) {
+			void reply(item, notice("budget", language));
+			return;
+		}
 		const busy = (worker?.state(peer).queued ?? 0) + (admitting.get(peer) ?? 0);
 		if (busy >= MAX_QUEUE) {
 			// Refuse rather than grow without bound; one notice per episode, not per
@@ -915,6 +938,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			languages.clear();
 			ackedAt.clear();
 			overflow.clear();
+			turnTimes.clear();
 			stopAllTyping();
 			cancelAllAcks();
 			interaction.reset();
@@ -983,6 +1007,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			stopAllTyping();
 			cancelAllAcks();
 			overflow.clear();
+			turnTimes.clear();
 			interaction.reset();
 			publishState();
 			releaseSafe();

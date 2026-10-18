@@ -25,6 +25,7 @@ import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./cred
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
 import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer-session.ts";
 import { createPeerUIContext } from "./remote-ui.ts";
+import { peerKey } from "./format.ts";
 import { readPeerHistory } from "./history.ts";
 import { SLASH_COMMANDS } from "./slash.ts";
 import { readState, statePath, writeState } from "./state.ts";
@@ -83,6 +84,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	const build = (ctx: ExtensionContext): Bridge => {
 		ctxRef = ctx;
 		const config = loadWechatConfig(ctx.cwd);
+		const peerTools = new Map(Object.entries(config.peers).map(([id, peer]) => [peerKey(id), peer.tools] as const));
 		return createBridge({
 			config,
 			now: () => Date.now(),
@@ -101,6 +103,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 						prompts: config.remotePrompts,
 					}),
 					onError: (message) => ctxRef?.ui.notify(`WeChat peer session: ${message}`, "warning"),
+					onWarning: (message) => ctxRef?.ui.notify(message, "warning"),
+					toolAllowlist: peerTools.get(peerKey(peer)),
 					fresh: options.fresh,
 				}),
 			mediaDir: () => join(wechatDir(), "media"),

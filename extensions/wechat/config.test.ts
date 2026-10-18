@@ -51,6 +51,27 @@ describe("normalizeConfig", () => {
 		expect(normalizeConfig({ maxInboundChars: 5000 }, DEFAULT_CONFIG).maxInboundChars).toBe(5000);
 	});
 
+	test("normalizes per-peer tool allowlists", () => {
+		const config = normalizeConfig(
+			{
+				peers: {
+					" alice ": { tools: ["read", " todo ", 7, ""] },
+					bob: {},
+					bad: "nope",
+					"": { tools: ["read"] },
+				},
+			},
+			DEFAULT_CONFIG,
+		);
+		expect(config.peers).toEqual({ alice: { tools: ["read", "todo"] }, bob: {} });
+	});
+
+	test("clamps maxTurnsPerHour", () => {
+		expect(normalizeConfig({ maxTurnsPerHour: -5 }, DEFAULT_CONFIG).maxTurnsPerHour).toBe(0);
+		expect(normalizeConfig({ maxTurnsPerHour: 10_000 }, DEFAULT_CONFIG).maxTurnsPerHour).toBe(500);
+		expect(normalizeConfig({ maxTurnsPerHour: 12 }, DEFAULT_CONFIG).maxTurnsPerHour).toBe(12);
+	});
+
 	test("cleans the CDN base URL of trailing slashes", () => {
 		const config = normalizeConfig({ cdnBaseUrl: "  https://cdn.example.com/c2c///  " }, DEFAULT_CONFIG);
 		expect(config.cdnBaseUrl).toBe("https://cdn.example.com/c2c");

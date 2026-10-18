@@ -1294,6 +1294,18 @@ describe("bridge peer feedback", () => {
 		await bridge.close();
 	});
 
+	test("refuses a turn beyond the hourly cap", async () => {
+		const { client, sent } = makeClient([updates([inbound("one"), inbound("two")])]);
+		const { deps } = makeDeps(client, { config: { ...DEFAULT_CONFIG, maxTurnsPerHour: 1 } }, { answers: ["pong"] });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => sent.length === 2);
+		expect(sent.some((message) => message.text === "pong")).toBe(true);
+		const limits = sent.filter((message) => message.text.includes("message limit"));
+		expect(limits).toHaveLength(1);
+		await bridge.close();
+	});
+
 	test("declines /new while a run is in flight", async () => {
 		const { client, sent, deliver } = controllableClient();
 		const { deps, injected } = makeDeps(client, {}, { hold: true });

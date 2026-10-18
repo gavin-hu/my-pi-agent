@@ -9,9 +9,19 @@
 
 import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";
 
+/** Per-peer overrides, keyed by id or label (both forms match). */
+export interface WechatPeerConfig {
+	/** Active tool names; absent keeps the full set, an empty list disables tools. */
+	tools?: string[];
+}
+
 export interface WechatConfig {
 	/** Extra peers allowed to drive the agent; the owner is always allowed. */
 	allowedPeers: string[];
+	/** Per-peer overrides; an id matches with or without the suffix. */
+	peers: Record<string, WechatPeerConfig>;
+	/** Turns allowed per peer in a rolling hour; 0 disables the cap. */
+	maxTurnsPerHour: number;
 	/** Replies longer than this are split into multiple messages. */
 	maxReplyChars: number;
 	/** Observability identifier sent as `base_info.bot_agent`. */
@@ -38,6 +48,8 @@ export interface WechatConfig {
 
 export const DEFAULT_CONFIG: WechatConfig = {
 	allowedPeers: [],
+	peers: {},
+	maxTurnsPerHour: 0,
 	maxReplyChars: 4000,
 	botAgent: "pi-wechat",
 	channelVersion: "0.1.0",
@@ -51,6 +63,30 @@ export const DEFAULT_CONFIG: WechatConfig = {
 /** A cleaned, slash-free base URL. */
 function toBaseUrl(value: unknown, fallback: string): string {
 	return cleanString(value, fallback).replace(/\/+$/, "");
+}
+
+/** Per-peer overrides; malformed entries and ids are dropped, tools are cleaned. */
+function normalizePeers(value: unknown): Record<string, WechatPeerConfig> | undefined {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+	const peers: Record<string, WechatPeerConfig> = {};
+	for (const [rawId, raw] of Object.entries(value as Record<string, unknown>)) {
+		const id = rawId.trim();
+		if (!id || !raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+		const tools = (raw as Record<string, unknown>).tools;
+		if (tools === undefined) {
+			peers[id] = {};
+			continue;
+		}
+		if (!Array.isArray(tools)) continue;
+		peers[id] = {
+			tools: tools
+				.filter((name): name is string => typeof name === "string")
+				.map((name) => name.trim())
+				.filter((name) => name !== "")
+				.slice(0, 200),
+		};
+	}
+	return Object.keys(peers).length > 0 ? peers : undefined;
 }
 
 function toStringArray(value: unknown): string[] | undefined {
@@ -67,6 +103,11 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	if (!raw) return config;
 	const peers = toStringArray(raw.allowedPeers);
 	if (peers) config.allowedPeers = peers;
+	const peerConfigs = normalizePeers(raw.peers);
+	if (peerConfigs) config.peers = peerConfigs;
+	if (raw.maxTurnsPerHour !== undefined) {
+		config.maxTurnsPerHour = clampInteger(raw.maxTurnsPerHour, base.maxTurnsPerHour, 0, 500);
+	}
 	if (raw.maxReplyChars !== undefined) {
 		config.maxReplyChars = clampInteger(raw.maxReplyChars, base.maxReplyChars, 1, 20000);
 	}

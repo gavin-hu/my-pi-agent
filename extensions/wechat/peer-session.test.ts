@@ -174,6 +174,52 @@ describe("openPeerSession", () => {
 		expect(fake.active().sort()).toEqual(["read", "todo"]);
 	});
 
+	test("keeps only the allowlisted tools", async () => {
+		const root = tempDir("wechat-peer-");
+		const fake = fakeSession([
+			{ name: "read", exposure: "direct" },
+			{ name: "todo", exposure: "direct" },
+			{ name: "open_path", exposure: "codemode" },
+		]);
+		const warnings: string[] = [];
+		await openPeerSession(peer, {
+			cwd: root,
+			agentDir: root,
+			sessionsDir: join(root, "sessions"),
+			uiContext: {} as never,
+			toolAllowlist: ["todo", "open_path"],
+			onWarning: (message) => warnings.push(message),
+			seams: {
+				create: async () => ({ session: fake.session }) as never,
+				loader: (() => ({ reload: async () => {} })) as never,
+			},
+		});
+		// `open_path` is codemode, so it was not active to begin with; the allowlist
+		// keeps the intersection rather than activating it.
+		expect(fake.active()).toEqual(["todo"]);
+		expect(warnings).toEqual([]);
+	});
+
+	test("an allowlist of unknown names leaves no tools and warns", async () => {
+		const root = tempDir("wechat-peer-");
+		const fake = fakeSession([{ name: "read", exposure: "direct" }]);
+		const warnings: string[] = [];
+		await openPeerSession(peer, {
+			cwd: root,
+			agentDir: root,
+			sessionsDir: join(root, "sessions"),
+			uiContext: {} as never,
+			toolAllowlist: ["nope"],
+			onWarning: (message) => warnings.push(message),
+			seams: {
+				create: async () => ({ session: fake.session }) as never,
+				loader: (() => ({ reload: async () => {} })) as never,
+			},
+		});
+		expect(fake.active()).toEqual([]);
+		expect(warnings[0]).toContain("unknown tools: nope");
+	});
+
 	test("reports an extension error with where it happened", async () => {
 		const root = tempDir("wechat-peer-");
 		const messages: string[] = [];

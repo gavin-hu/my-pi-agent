@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: an admitted peer can be narrowed to a tool allowlist with
+  `peers[<id>].tools` (an empty list leaves none), and `maxTurnsPerHour` caps a
+  peer's turns in a rolling hour with one notice when it is reached. Both are
+  opt-in; with no config the owner keeps the full toolset, and the hourly cap is
+  in memory, so a reload starts a fresh window.
 - `wechat`: a remote plan review now offers **Send the full plan** alongside the
   choices; it posts the plan's text and asks again, so the whole plan is
   readable even when the file bubble is never opened.
