@@ -104,7 +104,7 @@ pi -e .                                                    # 试运行一次
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings` 子命令）、`run_doctor` | 主题化头部与宽度自适应页脚、每条用户消息上方的两行 `You` 铭牌、已完成回合之间的分隔线、共享的转录通知、以调用行为标题并将结果正文挂在轨道下两列的工具块（轨道字形由 `chrome.rail` 设置）、Pi 工作行上的实时用时计数、`/bytefly` 控制中心——Extensions 区列出每个扩展及其健康状况并启用或禁用一个扩展，另有一个 Settings 区，提供五项常用偏好（`/bytefly settings`）；`/bytefly doctor` 打印 doctor 报告；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知；另外每次交互式会话启动时会检查 npm 上已发布的版本，落后时在头部标出 `↑0.12.0` 并发出一次转录通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings` 子命令）、`run_doctor` | 主题化头部与宽度自适应页脚、每条用户消息上方的两行 `You` 铭牌、已完成回合之间的分隔线、共享的转录通知、以调用行为标题并将结果正文挂在轨道下两列的工具块（轨道字形由 `chrome.rail` 设置）、Pi 工作行上的实时用时计数、`/bytefly` 控制中心——Extensions 区列出每个扩展及其健康状况并启用或禁用一个扩展，另有一个 Settings 区，按六个分组提供十项常用偏好（`/bytefly settings`）；`/bytefly doctor` 打印 doctor 报告；以及可选的 `notify` 能力：当一次运行或后台任务结束、或智能体请求输入时发出系统通知；另外每次交互式会话启动时会检查 npm 上已发布的版本，落后时在头部标出 `↑0.12.0` 并发出一次转录通知。DeepSeek 开箱即定价，`bytefly.json` 是每个扩展都会读取的共享配置文档。 |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | GitHub 风格的深色调色板及其浅色搭档，并支持可选的自动浅色/深色切换。 |
 
 ### 截图
@@ -162,6 +162,7 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 | [架构](./docs/architecture.md) | 包、各扩展与 `lib/` 如何协同。 |
 | [开发](./docs/development.md) | 本地设置、检查、测试、跨平台注意事项与发布流程。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |
+| [路线图](./ROADMAP.md) | 包的下一步方向，按 README 的承诺分组，并列出每条事项的依据。 |
 
 ## 环境要求
 
