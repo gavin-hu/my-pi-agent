@@ -55,6 +55,11 @@ the source of truth; the user-facing copy is `docs/development.md`, so keep the
 two in sync.
 Prepare it on a branch like any other change:
 
+`npm publish` is irreversible and publishes publicly: get the user's approval
+for that specific run before executing it, and treat approval for an earlier
+release as expired. Stop and ask rather than publishing to keep the steps in
+sequence.
+
 Curate `[Unreleased]` before the release commit: read it against
 `git log <last-tag>..main` so every user-visible change has exactly one scoped
 bullet, with no bullet describing a state that was reverted earlier in the same
@@ -84,7 +89,8 @@ window.
    ```
 
 7. Publish the npm package from the same commit (`publishConfig.access` is
-   `public`; the `pi-package` keyword and `pi` manifest make it a Pi package).
+   `public`; the `pi-package` keyword and `pi` manifest make it a Pi package),
+   only after the user approves that specific run.
    Name the registry explicitly: a machine whose default registry is a read-only
    mirror serves reads but rejects the publish with `E401`.
 
