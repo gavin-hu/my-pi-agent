@@ -47,7 +47,9 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   `## Risks`, and `## Verification` — and the model is guided to follow it. This
   is guidance only: any markdown is accepted, stored, and rendered as written.
 - **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
-  section; approval seeds them into `todo`.
+  section; approval seeds them into `todo`. A plan with more than 50 top-level
+  steps is refused rather than truncated, so approval never drops a step you
+  reviewed.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
 - **What changed since the last review.** After a refinement, the review screen
@@ -96,8 +98,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | Tool | Active | Purpose |
 |---|---|---|
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
-| `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
-| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. |
+| `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. A plan with more than 50 top-level steps in its `Steps` section is refused, with the cap and the fix named, and nothing is written. |
+| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Refuses a file whose step list is over the cap, before the review screen. |
 | `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and optionally `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
 
 ### Commands and flags
@@ -390,9 +392,11 @@ file and returns them to the model.
   security boundary (see [Security](#security)).
 - The plans directory is the only index; there is no registry and no persisted
   plan metadata.
-- Approval tracks at most 50 steps, and a step longer than 200 characters is
-  shortened in the todo list and the approval listing. `write_plan` reports both
-  cases when they apply; the plan file itself always keeps the full text.
+- Approval tracks at most 50 steps: `write_plan` refuses a larger plan, and
+  `exit_plan_mode` refuses to present one, so no reviewed step is silently
+  dropped. A step longer than 200 characters is shortened in the todo list and
+  the approval listing — a display rule only, because the plan file always keeps
+  the full text.
 - Browser review needs a local browser: the server is loopback-only, so a remote
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user
@@ -455,6 +459,12 @@ file and returns them to the model.
   channel; no import from that extension) and the steps are merged into them.
   A rejected seed reports the nested tool's own reason in the approval message
   instead of failing silently.
+- **A cap is enforced where it can still be fixed.** Both refusal points —
+  `write_plan` and `exit_plan_mode` — sit before the write and before the review,
+  because those are the moments the model can still regroup the steps. A note on
+  a successful write would arrive after the file existed and the review had
+  already listed every step, which is exactly when the overflow becomes lost
+  work.
 - **Changed markers compare what was shown, not revisions on disk.** A review
   result is only meaningful next to the text the reviewer already read, so every
   review marks the sections it presented (keyed by resolved path) and

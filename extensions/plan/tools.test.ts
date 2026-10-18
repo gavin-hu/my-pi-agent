@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
@@ -206,18 +206,58 @@ describe("write_plan", () => {
 		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan`);
 	});
 
-	test("warns when the plan has more steps than approval can track", async () => {
+	/** A plan whose `Steps` section holds `count` top-level steps. */
+	function planWithSteps(count: number): string {
+		const steps = Array.from({ length: count }, (_, index) => `- [ ] step ${index}`).join("\n");
+		return `## Steps\n${steps}`;
+	}
+
+	test("refuses a plan with more steps than approval can track", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const steps = Array.from({ length: MAX_STEPS + 1 }, (_, index) => `- [ ] step ${index}`).join("\n");
 		const { ctx } = fakeCtx({ cwd: root });
 
-		const result = await call(write, { title: "Big", content: `## Steps\n${steps}` }, ctx);
+		const result = await call(write, { title: "Big", content: planWithSteps(MAX_STEPS + 1) }, ctx);
 
-		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} steps and only the first ${MAX_STEPS}`);
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} top-level steps`);
+		expect(result.content[0].text).toContain(`at most ${MAX_STEPS}`);
+		expect(result.content[0].text).toContain("Nothing was written");
+		expect(result.details).toBeUndefined();
+		expect(runtime.lastPlanPath()).toBeUndefined();
 	});
 
-	test("does not warn for a plan within the step caps", async () => {
+	test("writes an exactly-full plan, which still approves", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const full = planWithSteps(MAX_STEPS);
+
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, full);
+		expect(readFileSync(planPath, "utf-8")).toBe(full);
+
+		await approvePlan(exit, planPath, root);
+		expect(runtime.isEnabled()).toBe(false);
+	});
+
+	test("a refinement over the cap leaves the plan file unchanged", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const original = planWithSteps(2);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, original);
+		const { ctx } = fakeCtx({ cwd: root });
+
+		const result = await call(
+			write,
+			{ title: "Test plan", content: planWithSteps(MAX_STEPS + 1), plan_path: planPath },
+			ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain(`at most ${MAX_STEPS}`);
+		expect(readFileSync(planPath, "utf-8")).toBe(original);
+	});
+
+	test("does not add a note for a plan within the step caps", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const { ctx } = fakeCtx({ cwd: root });
@@ -315,6 +355,27 @@ describe("exit_plan_mode", () => {
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.details.unavailable).toBe(true);
+		expect(runtime.isEnabled()).toBe(true);
+	});
+
+	test("refuses to present a plan file over the step cap", async () => {
+		const { enter, exit, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		// A hand-edited (or older-session) file can exceed the cap without write_plan.
+		const plansDir = join(root, ".pi", "plans");
+		mkdirSync(plansDir, { recursive: true });
+		const steps = Array.from({ length: MAX_STEPS + 1 }, (_, index) => `- [ ] step ${index}`).join("\n");
+		const planPath = join(plansDir, "big.md");
+		writeFileSync(planPath, `## Steps\n${steps}`);
+
+		const { ctx } = fakeCtx({ select: "Approve and execute", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.details.approved).toBe(false);
+		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} top-level steps`);
+		expect(result.content[0].text).toContain("write_plan");
+		// Nothing was approved: the session is still planning.
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
