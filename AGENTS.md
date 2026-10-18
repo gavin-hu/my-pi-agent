@@ -52,16 +52,17 @@ local merge into `main` is allowed; a pull request is optional.
   your own initiative, so uncommitted work is not discarded without a choice.
 - **Never commit unless the user asks.** Work left on a worktree is easy to
   inspect and easy to drop; a commit is neither, so leave it to the user.
-- Before committing: run `bun run check`, check `git status`, and stage explicit
-  paths. Never `git add -A` / `git add .`.
+- Before committing: check `git status` and stage explicit paths. Never
+  `git add -A` / `git add .`.
 - Another session may merge into `main` while you work. Rebase before merging,
   re-run `bun run check` on the merged tree, and remember that
   `git push origin main` publishes whatever else is on `main`, not just your
   branch.
 - Never `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, or
   `git commit --no-verify`.
-- Never force-push `main`. Parallel sessions and subagents inherit the worktree
-  through `PI_WORKTREE_ROOT`, so they cannot edit the `main` checkout.
+- Never force-push `main`. Subagents and any `pi` started from a tool inherit
+  the worktree through `PI_WORKTREE_ROOT`, so they cannot edit the `main`
+  checkout.
 - Commit format: `type(scope): summary`, where `scope` is the extension name,
   the shared area (`lib`, `docs`, `test`, `ci`), or a comma list when one change
   spans two (`fix(plan,rewind): …`). Add a short why-body for non-trivial
