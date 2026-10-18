@@ -272,7 +272,7 @@ underneath, and `run_doctor` returns the same report as text and typed data.
 Only a missing
 *hard* requirement posts a notice at session start; everything else waits in the
 report.
-See [The bytefly screen](#the-bytefly-screen).
+See [The control center](#the-control-center).
 
 **Notify.** Off by default, one `notify` section in `bytefly.json` turns on OS
 notifications for unattended runs: when a full agent run settles, when a

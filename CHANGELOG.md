@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- docs: `test/structure.test.ts` holds every Markdown doc to the links it offers —
+  each `./`, `../`, and `#` target from the root docs, `docs/`, `lib/`, `test/`,
+  `.github/`, and each `extensions/*/README.md` must resolve, and a `#anchor`
+  must name a real heading (GitHub's repeat suffix and CJK anchors included).
+  The stale link it found is fixed: bytefly's pointer to the extension screen
+  now names `#the-control-center`, where the heading moved.
+
 - `worktree`: the Windows `powershell` tool is now refused while a session is
   isolated. It was never re-rooted, so its relative paths resolved at the main
   checkout — the one the worktree exists to protect — and its grammar (backtick
