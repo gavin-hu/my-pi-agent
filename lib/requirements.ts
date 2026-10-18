@@ -16,6 +16,7 @@
 
 import { join } from "node:path";
 import { type JsonReadResult, SHARED_CONFIG_FILE } from "./config.ts";
+import type { WebSearchProviderEvent } from "./events.ts";
 import { getPiInvocation, type PiInvocation } from "./pi-invocation.ts";
 
 /** How a check came out. Only `missing` is worth interrupting a session for. */
@@ -73,7 +74,20 @@ export interface NotifyCheck {
 	hint: string;
 }
 
-export type RequirementCheck = BinaryCheck | ModuleCheck | StateCheck | InvocationCheck | NotifyCheck;
+/**
+ * The resolved `web_search` provider, as `web-access` publishes it.
+ *
+ * The provider list, each provider's configuration test, and the `auto` rule live
+ * in `web-access`, so the check reads a published summary rather than rebuilding
+ * any of it here; the payload never carries the key itself.
+ */
+export interface ProviderCheck {
+	kind: "provider";
+	enables: string;
+	hint: string;
+}
+
+export type RequirementCheck = BinaryCheck | ModuleCheck | StateCheck | InvocationCheck | NotifyCheck | ProviderCheck;
 
 /** What an extension needs, split by how badly it needs it. */
 export interface ExtensionRequirements {
@@ -179,7 +193,14 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		],
 	},
 	"web-access": {
-		optional: [{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() }],
+		optional: [
+			{ kind: "module", name: "unpdf", enables: "PDF text extraction in `web_fetch`", hint: pdfGuidance() },
+			{
+				kind: "provider",
+				enables: "`web_search` through the configured provider",
+				hint: "set `web-access.search.provider` and its `endpoint`/`apiKeyEnv`/`apiKey` in bytefly.json, or export the key variable.",
+			},
+		],
 	},
 	"file-browse": {
 		optional: [gitCheck("the branch chip and the diff view")],
@@ -257,6 +278,14 @@ export interface ProbeSeams {
 	notify?: () => { enabled: boolean; method: string } | undefined;
 	/** Whether stdout is a terminal, which the OSC methods need; defaults to true. */
 	isTTY?: boolean;
+	/** The search provider `web-access` resolved for this session, when it published one. */
+	searchProvider?: () => WebSearchProviderEvent | undefined;
+	/** Read an environment variable; defaults to the process environment. */
+	env?: (name: string) => string | undefined;
+	/** Probe a URL's reachability; only called when `refresh` is true. */
+	reach?: (url: string) => Promise<{ ok: boolean; error?: string }>;
+	/** True when the caller asked for an explicit refresh, which is when a probe may touch the network. */
+	refresh?: boolean;
 }
 
 /**
@@ -296,13 +325,96 @@ async function probeCode(invocation: PiInvocation, seams: ProbeSeams): Promise<n
 	}
 }
 
+/**
+ * The findings for the `web_search` provider check.
+ *
+ * Up to three separate facts, because they have three different fixes: which
+ * provider is in use, whether its key variable is set, and — only on an explicit
+ * refresh — whether its configurable endpoint answers.
+ */
+async function providerFindings(
+	extension: string,
+	check: ProviderCheck,
+	failSeverity: FindingSeverity,
+	seams: ProbeSeams,
+): Promise<Finding[]> {
+	const facts = seams.searchProvider?.();
+	if (!facts) {
+		return [
+			{
+				extension,
+				check: "web-access.search.provider",
+				severity: "info",
+				detail: "web-access has not reported a search provider in this session",
+			},
+		];
+	}
+
+	const findings: Finding[] = [];
+	findings.push({
+		extension,
+		check: "web-access.search.provider",
+		severity: facts.configured ? "ok" : failSeverity,
+		detail: facts.configured
+			? `resolved to ${facts.provider} (${facts.reason})`
+			: `resolved to ${facts.provider} (${facts.reason}), which is not configured — ${check.enables}`,
+		...(!facts.configured ? { hint: check.hint } : {}),
+	});
+
+	const env = seams.env ?? ((name: string) => process.env[name]);
+	if (facts.apiKeyEnv && !facts.keyConfigured) {
+		const present = (env(facts.apiKeyEnv) ?? "").trim() !== "";
+		findings.push({
+			extension,
+			check: facts.apiKeyEnv,
+			severity: present ? "ok" : failSeverity,
+			detail: present
+				? `${facts.apiKeyEnv} is set — the ${facts.provider} API key`
+				: `the API key for ${facts.provider} is missing — ${facts.apiKeyEnv} is not set`,
+			...(present ? {} : { hint: `export ${facts.apiKeyEnv}, or set web-access.search.apiKey in bytefly.json.` }),
+		});
+	}
+
+	// Reachability is the one probe that touches the network, so it runs only when
+	// the caller asked for an explicit refresh.
+	if (seams.refresh === true && facts.endpoint !== null) {
+		const reach = seams.reach;
+		if (!reach) {
+			findings.push({
+				extension,
+				check: facts.endpoint,
+				severity: "info",
+				detail: "no reachability probe is available in this context",
+			});
+		} else {
+			const outcome = await reach(facts.endpoint).catch((error: unknown) => ({
+				ok: false,
+				error: error instanceof Error ? error.message : String(error),
+			}));
+			findings.push({
+				extension,
+				check: facts.endpoint,
+				severity: outcome.ok ? "ok" : failSeverity,
+				detail: outcome.ok
+					? `${facts.endpoint} answered`
+					: `${facts.endpoint} did not answer (${outcome.error ?? "no response"})`,
+				...(outcome.ok
+					? {}
+					: { hint: "check web-access.search.endpoint in bytefly.json, or that the SearXNG server is running." }),
+			});
+		}
+	}
+
+	return findings;
+}
+
 /** Run one check. `failSeverity` comes from which list the check sits in. */
 async function runCheck(
 	extension: string,
 	check: RequirementCheck,
 	failSeverity: FindingSeverity,
 	seams: ProbeSeams,
-): Promise<Finding> {
+): Promise<Finding[]> {
 	switch (check.kind) {
 		case "binary": {
 			const invocation = check.invocation?.() ?? {
@@ -310,91 +422,107 @@ async function runCheck(
 				args: [...(check.probeArgs ?? ["--version"])],
 			};
 			const code = await probeCode(invocation, seams);
-			return code === 0
-				? { extension, check: check.name, severity: "ok", detail: check.enables }
-				: {
-						extension,
-						check: check.name,
-						severity: failSeverity,
-						detail: `not found on PATH — ${check.enables}`,
-						hint: check.hint,
-					};
+			return [
+				code === 0
+					? { extension, check: check.name, severity: "ok", detail: check.enables }
+					: {
+							extension,
+							check: check.name,
+							severity: failSeverity,
+							detail: `not found on PATH — ${check.enables}`,
+							hint: check.hint,
+						},
+			];
 		}
 		case "module": {
 			const load = seams.loadModule ?? defaultLoadModule;
 			try {
 				await load(check.name);
 			} catch {
-				return {
-					extension,
-					check: check.name,
-					severity: failSeverity,
-					detail: `not installed — ${check.enables}`,
-					hint: check.hint,
-				};
+				return [
+					{
+						extension,
+						check: check.name,
+						severity: failSeverity,
+						detail: `not installed — ${check.enables}`,
+						hint: check.hint,
+					},
+				];
 			}
-			return { extension, check: check.name, severity: "ok", detail: check.enables };
+			return [{ extension, check: check.name, severity: "ok", detail: check.enables }];
 		}
 		case "state": {
 			const path = join(scopeDir(check.scope, seams.dirs), check.file);
 			const result = seams.readJson(path);
-			if (result.state === "ok") return { extension, check: path, severity: "ok", detail: check.enables };
+			if (result.state === "ok") return [{ extension, check: path, severity: "ok", detail: check.enables }];
 			if (result.state === "absent") {
-				return {
+				return [
+					{
+						extension,
+						check: path,
+						severity: failSeverity,
+						detail: `missing — ${check.enables}`,
+						hint: check.hint,
+					},
+				];
+			}
+			return [
+				{
 					extension,
 					check: path,
 					severity: failSeverity,
-					detail: `missing — ${check.enables}`,
+					detail: `unreadable (${result.error}) — ${check.enables}`,
 					hint: check.hint,
-				};
-			}
-			return {
-				extension,
-				check: path,
-				severity: failSeverity,
-				detail: `unreadable (${result.error}) — ${check.enables}`,
-				hint: check.hint,
-			};
+				},
+			];
 		}
 		case "invocation": {
 			const invocation = seams.invocation?.() ?? getPiInvocation(["--version"]);
 			// Reusing the running interpreter cannot fail: the process is running.
 			const code = invocation.command === process.execPath ? 0 : await probeCode(invocation, seams);
-			return code === 0
-				? { extension, check: invocation.command, severity: "ok", detail: check.enables }
-				: {
-						extension,
-						check: invocation.command,
-						severity: failSeverity,
-						detail: `cannot be run — ${check.enables}`,
-						hint: check.hint,
-					};
+			return [
+				code === 0
+					? { extension, check: invocation.command, severity: "ok", detail: check.enables }
+					: {
+							extension,
+							check: invocation.command,
+							severity: failSeverity,
+							detail: `cannot be run — ${check.enables}`,
+							hint: check.hint,
+						},
+			];
 		}
 		case "notify": {
 			const notify = seams.notify?.();
 			if (!notify?.enabled) {
-				return { extension, check: "notify.method", severity: "ok", detail: "notifications are off" };
+				return [{ extension, check: "notify.method", severity: "ok", detail: "notifications are off" }];
 			}
 			const env = { platform: seams.platform, isTTY: seams.isTTY ?? true };
 			if (canDeliver(notify.method, env)) {
-				return {
+				return [
+					{
+						extension,
+						check: "notify.method",
+						severity: "ok",
+						detail:
+							notify.method === "auto"
+								? "auto picks a route from the environment"
+								: `"${notify.method}" delivers on ${seams.platform}`,
+					},
+				];
+			}
+			return [
+				{
 					extension,
 					check: "notify.method",
-					severity: "ok",
-					detail:
-						notify.method === "auto"
-							? "auto picks a route from the environment"
-							: `"${notify.method}" delivers on ${seams.platform}`,
-				};
-			}
-			return {
-				extension,
-				check: "notify.method",
-				severity: failSeverity,
-				detail: `"${notify.method}" cannot deliver on ${seams.platform} — ${check.enables}`,
-				hint: check.hint,
-			};
+					severity: failSeverity,
+					detail: `"${notify.method}" cannot deliver on ${seams.platform} — ${check.enables}`,
+					hint: check.hint,
+				},
+			];
 		}
+		case "provider":
+			return providerFindings(extension, check, failSeverity, seams);
 	}
 }
 
@@ -465,8 +593,8 @@ export async function probeExtension(extension: string, seams: ProbeSeams): Prom
 	}
 
 	const findings: Finding[] = [];
-	for (const check of spec.requires ?? []) findings.push(await runCheck(extension, check, "missing", seams));
-	for (const check of spec.optional ?? []) findings.push(await runCheck(extension, check, "degraded", seams));
+	for (const check of spec.requires ?? []) findings.push(...(await runCheck(extension, check, "missing", seams)));
+	for (const check of spec.optional ?? []) findings.push(...(await runCheck(extension, check, "degraded", seams)));
 	findings.push(...configFindings(extension, spec, seams));
 	for (const note of spec.notes ?? []) {
 		findings.push({ extension, check: "platform", severity: "info", detail: note });

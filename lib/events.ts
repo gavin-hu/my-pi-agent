@@ -59,6 +59,33 @@ export interface SubagentFinishedEvent {
 	exitCode: number;
 }
 
+/** EventBus channel: `web-access` resolved its search provider for this session. */
+export const WEB_SEARCH_PROVIDER_CHANNEL = "my-pi-agent/web-search-provider";
+
+/**
+ * Payload on {@link WEB_SEARCH_PROVIDER_CHANNEL}: what `web_search` will use.
+ *
+ * `web-access` owns the provider registry, each provider's `isConfigured`, and the
+ * `auto` resolution rule, so it is the only place those facts can come from: this
+ * event is how `doctor` learns them without importing an extension. The key
+ * itself is never published — only the variable name and whether a literal key is
+ * configured — so a diagnostic can never leak a secret into a log or a notice.
+ */
+export interface WebSearchProviderEvent {
+	/** Resolved backend id, e.g. `searxng`. */
+	provider: string;
+	/** Why this provider won: an explicit choice, one that is configured, or the keyless default. */
+	reason: "explicit" | "configured" | "default";
+	/** Whether the resolved provider's configuration is enough to call it. */
+	configured: boolean;
+	/** URL a refresh may probe, when the provider has a configurable endpoint. */
+	endpoint: string | null;
+	/** Environment variable a key would come from, when the provider takes one. */
+	apiKeyEnv: string | null;
+	/** Whether a literal key is configured, so a missing variable is not the whole story. */
+	keyConfigured: boolean;
+}
+
 /** Payload on {@link JOB_FINISHED_CHANNEL}: one job that just stopped. */
 export interface JobFinishedEvent {
 	/** Job id, e.g. `j3`. */

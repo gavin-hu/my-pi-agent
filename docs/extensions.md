@@ -286,7 +286,9 @@ at a time. `/bytefly settings` opens the Settings section,
 `/bytefly doctor [extension] [refresh]` prints the doctor report (the same
 screen in `tui`), and every other mode prints the grouped listing or one
 extension's full findings. The read-only `run_doctor` tool returns the same
-report, and its proactive session-start notice enters the message flow through
+report — including the search provider `web-access` resolved, its API-key
+variable, and, only on an explicit `refresh`, whether its configured endpoint
+answers — and its proactive session-start notice enters the message flow through
 the shared notice renderer, shown only when the bytefly startup TUI is on
 (Pi's `quietStartup: true`). An opt-in notify capability raises an
 OS notification when a run or a background job finishes or the agent asks for

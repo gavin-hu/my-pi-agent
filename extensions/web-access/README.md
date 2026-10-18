@@ -178,6 +178,13 @@ The SearXNG instance must have the **JSON API enabled** (`format=json` in its
 `settings.yml`); most public instances disable it, so a self-hosted instance is
 recommended. If the response is not JSON, the error says so.
 
+`run_doctor` reports what this session actually resolved to — the provider id and
+whether it came from an explicit choice, the `auto` rule, or the keyless default;
+the API-key variable when the provider takes one and no literal `apiKey` is set,
+and whether that variable is present; and, only on an explicit `refresh`, whether
+the configured `endpoint` answers. The key is never reported, only its variable
+name. See [`bytefly`](../bytefly/README.md#what-it-does) for the report.
+
 | Parameter | Type | Notes |
 |---|---|---|
 | `query` | string | 1–400 chars, required, any language |

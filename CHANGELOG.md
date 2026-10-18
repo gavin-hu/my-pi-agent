@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `web-access` / `bytefly`: `run_doctor` now reports what `web_search` actually
+  resolved to instead of only whether `unpdf` is installed — the provider id and
+  why it won (an explicit choice, the `auto` rule, or the keyless default), the
+  API-key variable when the provider takes a key and no literal `apiKey` is set,
+  and whether that variable is present. The key itself is never reported, only
+  its variable name. Reachability of a configured SearXNG `endpoint` is probed
+  only on an explicit `/bytefly doctor … refresh`, so a session-start check stays
+  offline; `web-access` publishes the facts at `session_start` on
+  `my-pi-agent/web-search-provider`, so the doctor reads a summary rather than
+  importing the extension.
+
 - `plan`: approval now carries the plan's `## Verification` section into the todo
   list as the final item (`Verify: …`, one line, elided like a long step), so the
   definition of done travels with the work. It is not a plan step: it is ticked in

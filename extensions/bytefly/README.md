@@ -670,6 +670,14 @@ means reduced capability — an optional package that is absent, a config file
 that fails to parse, a login that has not happened. Doctor never changes
 anything and never installs anything.
 
+`web-access` publishes what it resolved at `session_start`, so the report names
+the search provider and why it won (an explicit choice, the `auto` rule, or the
+keyless default), and — when the provider takes a key and no literal `apiKey` is
+set — its API-key variable and whether that variable is set. The key value is
+never part of the report, only its variable name. Reachability is the one check
+that touches the network, so it runs only on an explicit `/bytefly refresh`:
+a session-start check stays offline.
+
 `/bytefly <extension>` narrows the same screen to that extension; `Enter`
 expands its findings, including the checks that passed, into the free height.
 `/bytefly refresh` ignores the findings cached earlier in the session. Every
