@@ -33,7 +33,7 @@ import {
 	type Theme,
 	type ToolRenderers,
 } from "@earendil-works/pi-coding-agent";
-import { Markdown } from "@earendil-works/pi-tui";
+import { Markdown, type Component } from "@earendil-works/pi-tui";
 import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
 import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { nameplate } from "../extensions/bytefly/message/format.ts";
@@ -160,6 +160,36 @@ function context(fixture: ToolFixture): any {
 	};
 }
 
+/**
+ * The call and result components for one fixture, built once.
+ *
+ * A transcript keeps a tool row's components and re-renders them every frame, so
+ * a consumer that measures frames needs the same: these are the components the
+ * gallery renders once and the benchmark re-renders.
+ */
+function toolComponents(
+	resolve: ReturnType<typeof harness>["resolve"],
+	fixture: ToolFixture,
+	base: ToolRenderers | undefined,
+): { call?: Component; result?: Component } | undefined {
+	// A variant fixture (`web_fetch-rejected`) renders the real tool's renderer;
+	// its own name is only the gallery label.
+	const wrapped = resolve(fixture.tool ?? fixture.name, () => base);
+	if (!wrapped) return undefined;
+	const ctx = context(fixture);
+	// Build both components first: a result can update the call component it
+	// shares state with (edit moves its diff onto the call), so the call is
+	// rendered only after the result has had its say.
+	const call = wrapped.renderCall?.(ctx.args, theme, ctx);
+	let result: Component | undefined;
+	if (wrapped.renderResult && fixture.result) {
+		const resultArg = fixture.result as unknown as AgentToolResult<unknown>;
+		const options = { expanded: ctx.expanded, isPartial: ctx.isPartial };
+		result = wrapped.renderResult(resultArg, options, theme, ctx);
+	}
+	return { call, result };
+}
+
 /** A tool block: the call and its result, as the transcript shows them. */
 function toolLines(
 	resolve: ReturnType<typeof harness>["resolve"],
@@ -167,25 +197,44 @@ function toolLines(
 	base: ToolRenderers | undefined,
 	width: number,
 ): string[] {
-	// A variant fixture (`web_fetch-rejected`) renders the real tool's renderer;
-	// its own name is only the gallery label.
-	const wrapped = resolve(fixture.tool ?? fixture.name, () => base);
-	if (!wrapped) return [`(no renderer for ${fixture.name})`];
-	const ctx = context(fixture);
-	// Build both components first: a result can update the call component it
-	// shares state with (edit moves its diff onto the call), so the call is
-	// rendered only after the result has had its say.
-	const call = wrapped.renderCall?.(ctx.args, theme, ctx);
-	let resultComponent;
-	if (wrapped.renderResult && fixture.result) {
-		const result = fixture.result as unknown as AgentToolResult<unknown>;
-		const options = { expanded: ctx.expanded, isPartial: ctx.isPartial };
-		resultComponent = wrapped.renderResult(result, options, theme, ctx);
-	}
+	const built = toolComponents(resolve, fixture, base);
+	if (!built) return [`(no renderer for ${fixture.name})`];
 	const lines: string[] = [];
-	if (call) lines.push(...call.render(width));
-	if (resultComponent) lines.push(...resultComponent.render(width));
+	if (built.call) lines.push(...built.call.render(width));
+	if (built.result) lines.push(...built.result.render(width));
 	return lines;
+}
+
+/** One fixture's retained components, for a consumer that renders frames. */
+export interface RenderingComponents {
+	name: string;
+	group: ToolFixture["group"];
+	components: Component[];
+}
+
+/**
+ * Every tool fixture's retained components, in gallery order, built once.
+ *
+ * Transcript surfaces (`user-message`, `notice`, `turn-rule`) are excluded: they
+ * are not tool rows, so a frame-by-frame benchmark of a tool transcript has
+ * nothing to re-render there.
+ */
+export function renderingComponents(): RenderingComponents[] {
+	setThemeInstance(theme);
+	const { resolve, tools } = harness();
+	const builtins = builtinDefinitions();
+	const out: RenderingComponents[] = [];
+	for (const fixture of FIXTURES) {
+		if (fixture.group === "transcript") continue;
+		const base = fixture.group === "builtin" ? builtins[fixture.name] : tools.get(fixture.tool ?? fixture.name);
+		const built = toolComponents(resolve, fixture, base);
+		if (!built) continue;
+		const components = [built.call, built.result].filter(
+			(component): component is Component => component !== undefined,
+		);
+		if (components.length > 0) out.push({ name: fixture.name, group: fixture.group, components });
+	}
+	return out;
 }
 
 /** A transcript surface, drawn by bytefly's own component. */
