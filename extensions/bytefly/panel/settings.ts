@@ -16,7 +16,7 @@ import { configSection, configValueAt } from "../../../lib/config.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../chrome.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
-import { DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig } from "../footer/price/config.ts";
+import { DEFAULT_BYTEFLY_CONFIG, DEFAULT_CURRENCY, normalizeByteflyConfig } from "../footer/price/config.ts";
 import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 
@@ -206,10 +206,24 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "doctor", path: ["proactive"] },
 	},
 	{
+		id: "price.currency.code",
+		group: "pricing",
+		label: "Currency",
+		description: "CNY prices DeepSeek from its yuan rates; USD uses Pi's recorded dollar cost.",
+		source: "bytefly",
+		kind: "enum",
+		fallback: DEFAULT_CURRENCY.code,
+		options: [
+			{ value: "CNY", label: "CNY (¥)" },
+			{ value: "USD", label: "USD ($)" },
+		],
+		config: { section: "price", path: ["currency", "code"] },
+	},
+	{
 		id: "price.currency.symbol",
 		group: "pricing",
 		label: "Currency symbol",
-		description: "Printed before the footer's cost total; up to 4 characters.",
+		description: "Printed before the footer's cost total; a currency change supplies its default.",
 		source: "bytefly",
 		kind: "text",
 		fallback: "¥",
@@ -236,7 +250,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		id: "price.fallbackToRecordedCost",
 		group: "pricing",
 		label: "Recorded cost fallback",
-		description: "Show Pi's recorded cost for a model with no configured rate, instead of no total.",
+		description: "CNY mode: show Pi's recorded dollar cost for a model with no configured rate.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",

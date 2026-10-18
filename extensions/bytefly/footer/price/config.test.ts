@@ -47,10 +47,31 @@ describe("normalizeByteflyConfig", () => {
 
 	test("reads the currency, capped and clamped", () => {
 		const config = normalizeByteflyConfig({ currency: { symbol: " MONEY ", decimals: 9 } }, DEFAULT_BYTEFLY_CONFIG);
-		expect(config.currency).toEqual({ symbol: "MONE", decimals: 4 });
+		expect(config.currency).toEqual({ code: "CNY", symbol: "MONE", decimals: 4 });
 		expect(normalizeByteflyConfig({ currency: { decimals: -1 } }, DEFAULT_BYTEFLY_CONFIG).currency).toEqual({
+			code: "CNY",
 			symbol: "¥",
 			decimals: 0,
+		});
+	});
+
+	test("switches the algorithm with the currency code and supplies its defaults", () => {
+		const usd = normalizeByteflyConfig({ currency: { code: "usd" } }, DEFAULT_BYTEFLY_CONFIG);
+		expect(usd.currency).toEqual({ code: "USD", symbol: "$", decimals: 3 });
+		const custom = normalizeByteflyConfig(
+			{ currency: { code: "USD", symbol: "US$", decimals: 2 } },
+			DEFAULT_BYTEFLY_CONFIG,
+		);
+		expect(custom.currency).toEqual({ code: "USD", symbol: "US$", decimals: 2 });
+		// An unsupported code is a typo, not a third algorithm.
+		expect(normalizeByteflyConfig({ currency: { code: "EUR" } }, DEFAULT_BYTEFLY_CONFIG).currency.code).toBe("CNY");
+	});
+
+	test("a project currency code replaces a customized global symbol", () => {
+		writeConfig(join(cwd, ".pi"), "bytefly.json", { price: { currency: { code: "USD" } } });
+		return withAgentDir((agentDir) => {
+			writeConfig(agentDir, "bytefly.json", { price: { currency: { symbol: "€", decimals: 3 } } });
+			expect(loadByteflyConfig(cwd).currency).toEqual({ code: "USD", symbol: "$", decimals: 3 });
 		});
 	});
 
@@ -110,7 +131,7 @@ describe("loadByteflyConfig", () => {
 	test("prices DeepSeek in yuan with no file at all", () => {
 		return withAgentDir(() => {
 			const config = loadByteflyConfig(cwd);
-			expect(config.currency).toEqual({ symbol: "¥", decimals: 2 });
+			expect(config.currency).toEqual({ code: "CNY", symbol: "¥", decimals: 2 });
 			expect(config.rates["deepseek/deepseek-flash"]).toEqual(DEFAULT_RATES["deepseek/deepseek-flash"]);
 			expect(config.peak.timezone).toBe("Asia/Shanghai");
 			expect(config.peak.windows).toHaveLength(2);
@@ -124,7 +145,7 @@ describe("loadByteflyConfig", () => {
 		return withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", { price: { currency: { symbol: "€", decimals: 3 } } });
 			const config = loadByteflyConfig(cwd);
-			expect(config.currency).toEqual({ symbol: "¥", decimals: 3 });
+			expect(config.currency).toEqual({ code: "CNY", symbol: "¥", decimals: 3 });
 			expect(config.fallbackToRecordedCost).toBe(false);
 		});
 	});

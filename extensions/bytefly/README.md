@@ -11,8 +11,9 @@ an opt-in notify capability that raises an OS notification when a run finishes,
 a job finishes, or the agent asks for input, and a published-version check that
 marks the header and posts one notice when a newer bytefly is on npm.
 DeepSeek is priced from the provider's published yuan rates and peak tariff by
-default, and any other model can be priced from your own rates when Pi's catalog
-does not match what a provider actually charges.
+default; set `price.currency.code` to `USD` to total Pi's recorded dollar cost
+instead. Any other model can be priced from your own yuan rates when Pi's
+catalog does not match what a provider actually charges.
 
 ```
 pi --extension ./extensions/bytefly   # load just this extension
@@ -115,8 +116,9 @@ rounding to a misleading `¥0.3` — and a positive amount below one minor unit
 shows as `¥<0.01` rather than `¥0.00`.
 
 DeepSeek needs no config file at all: the bar prices it from the published yuan
-rates and peak tariff built into [`footer/price/config.ts`](./footer/price/config.ts). A
-`bytefly.json` adds models of your own, or replaces a built-in entry:
+rates and peak tariff built into [`footer/price/config.ts`](./footer/price/config.ts).
+A `bytefly.json` can switch to Pi's recorded USD cost, add models of your own,
+or replace a built-in entry:
 
 ```
 ~/repo/project                                                          ⎇ main
@@ -342,7 +344,7 @@ rates of your own.
 ```json
 {
   "price": {
-    "currency": { "symbol": "¥", "decimals": 2 },
+    "currency": { "code": "CNY", "symbol": "¥", "decimals": 2 },
     "fallbackToRecordedCost": true,
     "rates": {
       "deepseek/deepseek-flash":  { "input": 2, "output": 8, "cacheRead": 0.04, "cacheWrite": 0, "offPeakMultiplier": 0.5 },
@@ -411,8 +413,8 @@ the model reads the same sentence.
 ## Cost calculation
 
 Pi prices every model call from its bundled catalog in USD, and the provider API
-never returns a price. Built-in and configured rates replace that for the models
-they match:
+never returns a price. The footer can total that catalog directly, or replace
+it with its own rates for the models they match:
 
 - **Which built-in rates.** [`footer/price/config.ts`](./footer/price/config.ts) ships DeepSeek's published
   yuan prices, with the peak schedule that doubles the price during peak hours
@@ -429,10 +431,16 @@ they match:
   applied at the local time the tokens were actually spent: an off-peak turn
   stays off-peak when peak starts. A record with no usable timestamp is priced
   at peak, because it cannot be dated.
-- **Which source.** A record with no matching rate — built-in or configured —
-  keeps Pi's recorded cost, or contributes nothing when
-  `fallbackToRecordedCost` is `false`. The recorded amount is in dollars, so it
-  is totalled and shown separately from the configured currency.
+- **Which algorithm.** `price.currency.code` chooses `CNY` (the default) or
+  `USD`. `CNY` prices matched records from `rates` and `peak`; `USD` totals
+  Pi's recorded dollar cost for every record and ignores `rates` and `peak`.
+  The two are separate methods, not an exchange rate: neither mode converts
+  one currency into the other. `currency.symbol` and `currency.decimals` only
+  change how the total is printed.
+- **Which source.** In `CNY` mode a record with no matching rate — built-in or
+  configured — keeps Pi's recorded cost, or contributes nothing when
+  `fallbackToRecordedCost` is `false`. That recorded amount is in dollars, so
+  it is totalled and shown separately from the rated yuan total.
 
 For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
 published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
@@ -602,9 +610,13 @@ bytefly ────────────────────────
 | Notifications | Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
 | Notifications | Notification title | `notify.title` | Text, up to 40 characters |
 | Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
+| Pricing | Currency | `price.currency.code` | CNY, USD |
 | Pricing | Currency symbol | `price.currency.symbol` | Text, up to 4 characters |
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
 | Pricing | Recorded cost fallback | `price.fallbackToRecordedCost` | Off, On |
+
+Choosing **Currency** also writes that currency's symbol and precision. Both
+remain editable afterwards, and the footer follows the explicit values.
 | Transcript | Rail glyph | `chrome.rail` | `╎`, `│`, `┃`, `▏` |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |

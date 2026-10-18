@@ -32,9 +32,9 @@ export interface UsageTotals {
 	output: number;
 	cacheRead: number;
 	cacheWrite: number;
-	/** Cost priced from the configured rates, in the configured currency. */
+	/** Cost in the configured currency: rated in CNY mode, Pi's recorded amount in USD mode. */
 	cost: number;
-	/** Cost taken from Pi's recorded amount for a record no rate matched, in USD. */
+	/** In CNY mode, Pi's USD amount for a record no rate matched. Zero in USD mode. */
 	recordedCost: number;
 }
 

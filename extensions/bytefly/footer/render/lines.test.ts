@@ -87,7 +87,7 @@ describe("buildLines", () => {
 		const [, line2] = buildLines(
 			fullSnapshot({
 				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 9.9, recordedCost: 0.31 },
-				currency: { symbol: "¥", decimals: 2 },
+				currency: { code: "CNY", symbol: "¥", decimals: 2 },
 			}),
 			fakeTheme,
 			"/home/u",

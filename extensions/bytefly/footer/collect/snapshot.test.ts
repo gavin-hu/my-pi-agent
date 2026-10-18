@@ -49,7 +49,7 @@ const millionTokens = (): any =>
 
 const priced = (overrides: Partial<ByteflyConfig> = {}): ByteflyConfig => ({
 	...DEFAULT_BYTEFLY_CONFIG,
-	currency: { symbol: "¥", decimals: 2 },
+	currency: { code: "CNY", symbol: "¥", decimals: 2 },
 	rates: { "anthropic/opus-4.5": { input: 2.5, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 } },
 	...overrides,
 });
@@ -67,7 +67,7 @@ describe("createSnapshotReader", () => {
 		expect(snapshot.thinkingLevel).toBe("high");
 		expect(snapshot.context).toEqual({ tokens: 124000, contextWindow: 200000, percent: 62 });
 		expect(snapshot.usage.recordedCost).toBeCloseTo(0.01);
-		expect(snapshot.currency).toEqual({ symbol: "¥", decimals: 2 });
+		expect(snapshot.currency).toEqual({ code: "CNY", symbol: "¥", decimals: 2 });
 		expect(snapshot.cacheHitRate).toBeCloseTo(50);
 		expect(snapshot.providerCount).toBe(2);
 	});
@@ -98,7 +98,7 @@ describe("createSnapshotReader", () => {
 		const snapshot = read(millionTokens(), footerData);
 
 		expect(snapshot.usage.cost).toBeCloseTo(2.5);
-		expect(snapshot.currency).toEqual({ symbol: "¥", decimals: 2 });
+		expect(snapshot.currency).toEqual({ code: "CNY", symbol: "¥", decimals: 2 });
 	});
 
 	test("memoizes the usage scan until the branch leaf moves", () => {

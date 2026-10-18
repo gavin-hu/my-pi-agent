@@ -550,11 +550,11 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("11 settings");
+		expect(text).toContain("12 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Delivery method");
-		expect(text).toContain("Rail glyph");
+		expect(text).toContain("Currency");
 		expect(text).not.toContain("No settings yet.");
 		expect(text).not.toContain("plan/index.ts");
 	});
@@ -568,7 +568,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 11 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 12 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -580,7 +580,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 8 settings");
+		expect(text).toContain("Project · 9 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -596,7 +596,7 @@ describe("PanelComponent sections", () => {
 		// Project drops the app rows; the cursor lands on the nearest remaining row,
 		// not back at the top of the list.
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 8 settings");
+		expect(component.render(80).join("\n")).toContain("Project · 9 settings");
 		expect(selected()).toContain("Rail glyph");
 	});
 
@@ -607,7 +607,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 11 settings");
+		expect(refused).toContain("Global · 12 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 

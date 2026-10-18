@@ -25,7 +25,7 @@ the file remains the source of truth and a hand edit is still valid.
 ```json
 {
   "version": 1,
-  "price": { "currency": { "symbol": "¥", "decimals": 2 } },
+  "price": { "currency": { "code": "CNY", "symbol": "¥", "decimals": 2 } },
   "notify": { "enabled": true },
   "chrome": { "rail": "│" },
   "job": { "wakeOnFinish": true },

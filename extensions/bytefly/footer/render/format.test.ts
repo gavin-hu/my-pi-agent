@@ -31,16 +31,16 @@ describe("formatCost", () => {
 	});
 
 	test("renders another currency at its own precision", () => {
-		expect(formatCost(12.5, { symbol: "$", decimals: 2 })).toBe("$12.50");
-		expect(formatCost(0.004, { symbol: "$", decimals: 2 })).toBe("$<0.01");
-		expect(formatCost(0, { symbol: "$", decimals: 2 })).toBe("$0.00");
-		expect(formatCost(12.3456, { symbol: "$", decimals: 3 })).toBe("$12.346");
+		expect(formatCost(12.5, { code: "USD", symbol: "$", decimals: 2 })).toBe("$12.50");
+		expect(formatCost(0.004, { code: "USD", symbol: "$", decimals: 2 })).toBe("$<0.01");
+		expect(formatCost(0, { code: "USD", symbol: "$", decimals: 2 })).toBe("$0.00");
+		expect(formatCost(12.3456, { code: "USD", symbol: "$", decimals: 3 })).toBe("$12.346");
 	});
 
 	test("never renders a positive sub-unit cost as zero at any precision", () => {
-		expect(formatCost(0.4, { symbol: "$", decimals: 0 })).toBe("$<1");
-		expect(formatCost(0.4, { symbol: "¥", decimals: 0 })).toBe("¥<1");
-		expect(formatCost(0.004, { symbol: "$", decimals: 2 })).toBe("$<0.01");
+		expect(formatCost(0.4, { code: "USD", symbol: "$", decimals: 0 })).toBe("$<1");
+		expect(formatCost(0.4, { code: "CNY", symbol: "¥", decimals: 0 })).toBe("¥<1");
+		expect(formatCost(0.004, { code: "USD", symbol: "$", decimals: 2 })).toBe("$<0.01");
 	});
 });
 

@@ -174,8 +174,9 @@ export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { cost, recordedCost } = snapshot.usage;
 	if (cost === 0 && recordedCost === 0) return null;
-	// A fallback amount is dollars and the rated one is the configured currency,
-	// so a session that mixes them shows both instead of a summed nonsense.
+	// In CNY mode a fallback amount is dollars and the rated one is yuan, so a
+	// session that mixes them shows both instead of a summed nonsense. USD mode
+	// puts every record in `cost`, so this branch never splits it.
 	const amounts: string[] = [];
 	if (cost > 0) amounts.push(formatCost(cost, snapshot.currency));
 	if (recordedCost > 0) amounts.push(formatCost(recordedCost, RECORDED_CURRENCY));

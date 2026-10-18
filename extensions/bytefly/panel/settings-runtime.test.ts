@@ -145,6 +145,16 @@ describe("bytefly writes", () => {
 		expect(readJson(globalPath)).toEqual({ chrome: { rail: "╎" } });
 	});
 
+	test("cycles the currency algorithm", async () => {
+		const { runtime, globalPath } = boot();
+
+		expect(valueOf(runtime, "global", "price.currency.code")).toBe("CNY");
+		await runtime.change("global", "price.currency.code");
+
+		expect(readJson(globalPath)).toEqual({ price: { currency: { code: "USD", symbol: "$", decimals: 3 } } });
+		expect(valueOf(runtime, "global", "price.currency.code")).toBe("USD");
+	});
+
 	test("writes a nested leaf and keeps the section's siblings and metadata", async () => {
 		const { runtime, globalPath } = boot({
 			globalDoc: {

@@ -6,15 +6,24 @@
  * `../types.ts`.
  */
 
-/** How a cost is rendered. */
+/** The two pricing algorithms, named by the currency they total. */
+export type CurrencyCode = "CNY" | "USD";
+
+/** How a cost is calculated and rendered. */
 export interface Currency {
+	/**
+	 * Which algorithm totals the session: `CNY` prices matched records from
+	 * `rates` and the peak schedule; `USD` totals Pi's recorded dollar cost and
+	 * ignores `rates` and `peak`.
+	 */
+	code: CurrencyCode;
 	/** Printed before the number, e.g. `$` or `¥`. */
 	symbol: string;
 	/** Digits after the decimal point. */
 	decimals: number;
 }
 
-/** Per-million-token rates for one model, expressed in the configured currency. */
+/** Per-million-token rates for one model, in yuan; used by the CNY algorithm. */
 export interface ModelRates {
 	input: number;
 	output: number;

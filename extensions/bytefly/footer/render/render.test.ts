@@ -37,7 +37,7 @@ describe("status bar render", () => {
 	});
 
 	test("renders the cost in the configured currency", () => {
-		const [, line2] = render(100, fullSnapshot({ currency: { symbol: "¥", decimals: 2 } }));
+		const [, line2] = render(100, fullSnapshot({ currency: { code: "CNY", symbol: "¥", decimals: 2 } }));
 
 		expect(line2).toContain("¥0.31");
 	});

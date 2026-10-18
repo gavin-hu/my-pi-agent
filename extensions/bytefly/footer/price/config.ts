@@ -9,13 +9,13 @@
  *
  * The built-in table is DeepSeek's published yuan pricing, with the peak
  * schedule that doubles the price during peak hours. It is the default value of
- * `rates`, so nothing here is provider-specific: another provider's currency
- * and tariff are stated in `bytefly.json`.
+ * `rates`: the CNY algorithm uses it. The USD algorithm ignores rates and peak
+ * and totals Pi's recorded cost instead, so `currency.code` chooses the method.
  */
 
 import { asRecord, clampInteger, clampNumber, cleanString, loadConfigSection } from "../../../../lib/config.ts";
 import { parseWindow } from "./schedule.ts";
-import type { ByteflyConfig, Currency, ModelRates, PeakSchedule, PeakWindow } from "./types.ts";
+import type { ByteflyConfig, Currency, CurrencyCode, ModelRates, PeakSchedule, PeakWindow } from "./types.ts";
 
 /** Monday to Friday, the days DeepSeek charges its peak rate. */
 const WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5];
@@ -51,17 +51,21 @@ export const DEFAULT_PEAK: PeakSchedule = {
 	],
 };
 
-/** Rendered-currency default: yuan, the currency `DEFAULT_RATES` is stated in. */
-export const DEFAULT_CURRENCY: Currency = { symbol: "¥", decimals: 2 };
+/** The symbol and precision each algorithm supplies when a config sets only its code. */
+export const CURRENCY_DEFAULTS: Readonly<Record<CurrencyCode, Currency>> = {
+	CNY: { code: "CNY", symbol: "¥", decimals: 2 },
+	USD: { code: "USD", symbol: "$", decimals: 3 },
+};
+
+/** Yuan, the currency `DEFAULT_RATES` is stated in. */
+export const DEFAULT_CURRENCY: Currency = CURRENCY_DEFAULTS.CNY;
 
 /**
- * The currency Pi's recorded cost is in.
- *
- * Pi prices every call in dollars, so a record no rate matched is shown as its
- * own `$` amount instead of being added to the configured one. The three
- * decimals are Pi's own, so a fraction of a cent is not rounded away.
+ * The currency Pi's recorded cost is in, for a CNY-mode record that no rate
+ * matched. The three decimals are Pi's own, so a fraction of a cent is not
+ * rounded away.
  */
-export const RECORDED_CURRENCY: Currency = { symbol: "$", decimals: 3 };
+export const RECORDED_CURRENCY: Currency = CURRENCY_DEFAULTS.USD;
 
 export const DEFAULT_BYTEFLY_CONFIG: ByteflyConfig = {
 	currency: DEFAULT_CURRENCY,
@@ -86,12 +90,23 @@ function acceptsTimeZone(timezone: string): boolean {
 	}
 }
 
+/** A supported ISO code, or the base code for a missing/mistyped value. */
+function currencyCode(raw: unknown, base: CurrencyCode): CurrencyCode {
+	const text = typeof raw === "string" ? raw.trim().toUpperCase() : "";
+	return text === "CNY" || text === "USD" ? text : base;
+}
+
 function currencyValue(raw: unknown, base: Currency): Currency {
 	const value = asRecord(raw);
 	if (!value) return base;
+	const code = currencyCode(value.code, base.code);
+	// A changed code supplies its own symbol and precision unless this layer
+	// overrides them; an unchanged code keeps a symbol customized above it.
+	const display = code !== base.code ? CURRENCY_DEFAULTS[code] : base;
 	return {
-		symbol: cleanString(value.symbol, base.symbol).slice(0, MAX_SYMBOL_LENGTH),
-		decimals: clampInteger(value.decimals, base.decimals, 0, MAX_DECIMALS),
+		code,
+		symbol: cleanString(value.symbol, display.symbol).slice(0, MAX_SYMBOL_LENGTH),
+		decimals: clampInteger(value.decimals, display.decimals, 0, MAX_DECIMALS),
 	};
 }
 

@@ -12,6 +12,8 @@
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, type QuietStartup } from "@earendil-works/pi-coding-agent";
 import { readJson, SHARED_CONFIG_FILE, writeConfigValueAt } from "../../../lib/config.ts";
+import { CURRENCY_DEFAULTS } from "../footer/price/config.ts";
+import type { CurrencyCode } from "../footer/price/types.ts";
 import type { SettingsStore, WriteScope } from "../picker/types.ts";
 import {
 	countSettings,
@@ -127,12 +129,15 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 				} else {
 					const config = row.config;
 					if (!config) throw new Error(`Setting ${row.id} has no config section`);
-					writeConfigValueAt(
-						configPath(scope, deps.cwd, deps.agentDir),
-						config.section,
-						config.path,
-						storedValue(row, next.value),
-					);
+					const path = configPath(scope, deps.cwd, deps.agentDir);
+					writeConfigValueAt(path, config.section, config.path, storedValue(row, next.value));
+					if (row.id === "price.currency.code") {
+						// Choosing a currency also sets its symbol and precision, so the
+						// screen and the footer agree; both remain overridable afterwards.
+						const currency = CURRENCY_DEFAULTS[next.value as CurrencyCode];
+						writeConfigValueAt(path, "price", ["currency", "symbol"], currency.symbol);
+						writeConfigValueAt(path, "price", ["currency", "decimals"], currency.decimals);
+					}
 				}
 			} catch (error) {
 				deps.onError?.(`Could not save ${row.label}: ${error instanceof Error ? error.message : String(error)}`);

@@ -50,6 +50,7 @@ describe("catalogue", () => {
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
+			"price.currency.code",
 			"price.currency.symbol",
 			"price.currency.decimals",
 			"price.fallbackToRecordedCost",
@@ -66,6 +67,7 @@ describe("catalogue", () => {
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
+			"price.currency.code",
 			"price.currency.symbol",
 			"price.currency.decimals",
 			"price.fallbackToRecordedCost",
@@ -78,13 +80,14 @@ describe("catalogue", () => {
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
+			"price.currency.code",
 			"price.currency.symbol",
 			"price.currency.decimals",
 			"price.fallbackToRecordedCost",
 			"chrome.rail",
 		]);
-		expect(countSettings("global")).toBe(11);
-		expect(countSettings("project")).toBe(8);
+		expect(countSettings("global")).toBe(12);
+		expect(countSettings("project")).toBe(9);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -97,11 +100,11 @@ describe("catalogue", () => {
 			"terminal",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 3, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 4, 2, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([3, 1, 3, 1]);
+		expect(project.map((group) => group.views.length)).toEqual([3, 1, 4, 1]);
 	});
 });
 
@@ -114,6 +117,7 @@ describe("values", () => {
 			["notify.method", "auto", "Auto", "default"],
 			["notify.title", "Pi", "Pi", "default"],
 			["doctor.proactive", "true", "On", "default"],
+			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.currency.symbol", "¥", "¥", "default"],
 			["price.currency.decimals", "2", "2", "default"],
 			["price.fallbackToRecordedCost", "true", "On", "default"],
@@ -124,6 +128,7 @@ describe("values", () => {
 
 		const project = settingViews(snapshot(), "project");
 		expect(project.map((entry) => entry.origin)).toEqual([
+			"inherited",
 			"inherited",
 			"inherited",
 			"inherited",

@@ -2,9 +2,11 @@
  * Price usage records from configured rates.
  *
  * `createPricer` owns the two things that must not be rebuilt per record: the
- * matching rates and the timezone formatter. A record with no matching rate
- * contributes Pi's recorded cost, which is in USD, so it is totalled separately
- * from the configured currency rather than added to it.
+ * matching rates and the timezone formatter. `currency.code` chooses the
+ * algorithm: CNY prices matched records from `rates` and `peak`, while USD
+ * totals Pi's recorded dollar cost and ignores both. In CNY mode a record with
+ * no matching rate contributes Pi's recorded cost, which is in USD, so it is
+ * totalled separately rather than added to the rated yuan total.
  */
 
 import { emptyUsage } from "../collect/entries.ts";
@@ -33,8 +35,10 @@ function tokenCost(record: UsageRecord, rates: ModelRates): number {
  * its price always describe the same set of records.
  */
 export function createPricer(config: ByteflyConfig): (records: readonly UsageRecord[]) => UsageTotals {
-	// Building a formatter is the expensive part, and only a schedule needs one.
-	const format = config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
+	const recorded = config.currency.code === "USD";
+	// Building a formatter is the expensive part, and only the CNY algorithm
+	// with a schedule needs one.
+	const format = !recorded && config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
 
 	return (records) => {
 		const totals = emptyUsage();
@@ -43,9 +47,14 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 			totals.output += record.output;
 			totals.cacheRead += record.cacheRead;
 			totals.cacheWrite += record.cacheWrite;
+			if (recorded) {
+				// USD mode is Pi's own catalog total: no rates, no peak schedule.
+				totals.cost += record.recordedCost;
+				continue;
+			}
 			const rates = findRates(config.rates, record.provider, record.model);
 			if (rates === undefined) {
-				// Pi's recorded amount is dollars; it never joins the configured total.
+				// Pi's recorded amount is dollars; it never joins the rated total.
 				if (config.fallbackToRecordedCost) totals.recordedCost += record.recordedCost;
 				continue;
 			}
