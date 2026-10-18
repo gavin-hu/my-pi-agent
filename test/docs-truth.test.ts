@@ -1,11 +1,11 @@
 /**
- * Contract guard for the command and flag names `docs/extensions.md` promises.
+ * Contract guard for the catalog `docs/extensions.md` promises.
  *
- * The catalog is the package-level surface: a shipped command that never appears
- * there is invisible to a reader, and a catalog entry for a command that no
- * longer exists describes a tree that is gone. So the two sets must be equal, and
- * this test derives both itself — the catalog is the reviewed list, not a
- * snapshot beside it.
+ * The catalog is the package-level surface: an extension a reader never finds
+ * there is invisible, and a catalog entry for a command, flag, section, or
+ * README that no longer exists describes a tree that is gone. So the sets must
+ * be equal, and this test derives the code side itself — the catalog is the
+ * reviewed list, not a snapshot beside it.
  *
  * The code side is scanned rather than loaded. Loading all sixteen extensions
  * through the fake runtime would prove registration wiring instead of names, and
@@ -21,8 +21,12 @@
  * with a reason each. That list is reviewed vocabulary, not a parking lot: a new
  * token there is a decision about what the catalog may say.
  *
- * The configuration half of the same contract lives in `config-docs.test.ts`,
- * and the registered tool set is pinned by `naming.test.ts`.
+ * Coverage reads `package.json`'s `pi.extensions`, which
+ * `extension-load.test.ts` holds to the directories on disk, and requires each
+ * entry to have a `### <name>` section ending in a `[Full README]` link.
+ *
+ * Tool names are the same contract in `naming.test.ts`, and the configuration
+ * reference is the same contract in `config-docs.test.ts`.
  */
 
 import { readFileSync } from "node:fs";
@@ -32,6 +36,14 @@ import { walkFiles } from "./helpers/files.ts";
 
 const root = join(import.meta.dir, "..");
 const catalog = readFileSync(join(root, "docs", "extensions.md"), "utf-8");
+
+/** The extension entry files the package manifest declares. */
+const manifest: string[] = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")).pi.extensions;
+
+/** A manifest entry's directory name, from `./extensions/<name>/index.ts`. */
+function extensionName(entry: string): string | undefined {
+	return /^\.\/extensions\/([^/]+)\/index\.ts$/.exec(entry)?.[1];
+}
 
 /** A name passed to `pi.registerCommand` / `pi.registerFlag`. */
 const REGISTRATION = /register(Command|Flag)\(\s*"([^"]+)"/g;
@@ -129,5 +141,21 @@ describe("catalog commands and flags", () => {
 		const used = new Set([...docs.commands, ...docs.flags]);
 		const stale = [...FOREIGN.keys()].filter((name) => !used.has(name)).sort();
 		expect(stale).toEqual([]);
+	});
+});
+
+describe("catalog coverage", () => {
+	test("reads every manifest entry as an extensions/<name> directory", () => {
+		// A parser that stopped matching would make the coverage check vacuous.
+		const unreadable = manifest.filter((entry) => extensionName(entry) === undefined);
+		expect(unreadable, "declare each entry as ./extensions/<name>/index.ts").toEqual([]);
+	});
+
+	test("gives every extension a section that links its README", () => {
+		const extensions = manifest.map(extensionName).filter((name): name is string => name !== undefined);
+		const missing = extensions.filter(
+			(name) => !catalog.includes(`\n### ${name}\n`) || !catalog.includes(`(../extensions/${name}/README.md)`),
+		);
+		expect(missing, "add a `### <name>` section with a [Full README] link to docs/extensions.md").toEqual([]);
 	});
 });
