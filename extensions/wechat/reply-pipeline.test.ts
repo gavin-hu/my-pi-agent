@@ -105,4 +105,17 @@ describe("reply pipeline", () => {
 		await finished;
 		expect(parts).toEqual(["one", "two", "three"]);
 	});
+
+	test("sent() reports text handed to the transport, even when a send is rejected", async () => {
+		const pipeline = createReplyPipeline({
+			// `sent()` answers "did the turn produce text to send", not "was it
+			// delivered"; a rejected part is a transport failure the bridge reports.
+			sendPart: async () => undefined,
+			armTimer: () => () => {},
+		});
+		pipeline.push("produced\n\n");
+		await settle();
+		await pipeline.finish();
+		expect(pipeline.sent()).toBe("produced");
+	});
 });

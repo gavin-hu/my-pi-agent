@@ -207,6 +207,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a fenced code block's body is no longer rewritten when a reply is
+  flattened for chat. Heading markers, emphasis, and backticks inside a fence
+  survive (the fence lines still go), and blank runs inside code are kept; text
+  outside a fence is flattened as before.
 - `wechat`: a plan review now sends a short digest — the plan's title, step
   count, and first steps — before the approve/refine choices, so the review can
   be answered from the chat even when the file bubble is never opened. A plan

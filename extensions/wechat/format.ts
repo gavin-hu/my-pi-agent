@@ -27,21 +27,37 @@ export function sanitizeInbound(text: string): string {
  */
 export function toWechatText(text: string): string {
 	const lines = stripControlChars(text.replace(/\r\n?/g, "\n")).split("\n");
-	const kept = lines
-		// Drop a fence line (``` or ~~~, with an optional language tag); the content
-		// between fences stays.
-		.filter((line) => !/^\s*(```|~~~)/.test(line))
-		.map((line) =>
-			line
-				.replace(/^\s{0,3}#{1,6}\s+/, "")
-				.replace(/\*\*|__|~~/g, "")
-				.replace(/`/g, "")
-				.replace(/[ \t]+$/, ""),
-		);
-	return kept
-		.join("\n")
-		.replace(/\n{3,}/g, "\n\n")
-		.trim();
+	const kept: string[] = [];
+	let fenced = false;
+	let blank = false;
+	for (const line of lines) {
+		// A fence line is dropped. The body between fences is kept verbatim: a
+		// shell comment, a backtick, or a line that looks like Markdown is code, not
+		// formatting, and rewriting it changes what the reader copies.
+		if (/^\s*(```|~~~)/.test(line)) {
+			fenced = !fenced;
+			continue;
+		}
+		if (fenced) {
+			kept.push(line);
+			continue;
+		}
+		const flat = line
+			.replace(/^\s{0,3}#{1,6}\s+/, "")
+			.replace(/\*\*|__|~~/g, "")
+			.replace(/`/g, "")
+			.replace(/[ \t]+$/, "");
+		// Collapse a run of blank lines outside code, as the whole-text replace did.
+		if (flat === "") {
+			if (blank) continue;
+			blank = true;
+			kept.push("");
+			continue;
+		}
+		blank = false;
+		kept.push(flat);
+	}
+	return kept.join("\n").trim();
 }
 
 /**

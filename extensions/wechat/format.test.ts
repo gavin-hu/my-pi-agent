@@ -104,8 +104,20 @@ describe("parseInbound", () => {
 describe("toWechatText", () => {
 	test("drops fences and keeps the code block body verbatim", () => {
 		const text = toWechatText(["Look:", "```ts", "const a = `x`;", "```"].join("\n"));
-		// The fence line goes; the body loses only its inline backticks.
-		expect(text).toBe("Look:\nconst a = x;");
+		// The fence line goes; the body is what the reader would copy.
+		expect(text).toBe("Look:\nconst a = `x`;");
+	});
+
+	test("does not rewrite Markdown-looking lines inside a fence", () => {
+		const text = toWechatText(
+			["```bash", "# not a heading", "echo `date` **bold** ~~gone~~", "```", "## Heading"].join("\n"),
+		);
+		expect(text).toBe("# not a heading\necho `date` **bold** ~~gone~~\nHeading");
+	});
+
+	test("keeps blank runs inside a fence but collapses them outside", () => {
+		const text = toWechatText(["```", "a", "", "", "b", "```", "", "", "c"].join("\n"));
+		expect(text).toBe("a\n\n\nb\n\nc");
 	});
 
 	test("strips heading, emphasis, and inline-code markers", () => {
