@@ -3,6 +3,25 @@
 Every key `bytefly.json` accepts, section by section. Resolution, migration, and
 the state and environment files live in [Configuration](../configuration.md).
 
+## Contents
+
+- [Document metadata](#document-metadata)
+- [`price` — cost calculation](#price--cost-calculation)
+- [`notify` — OS notifications](#notify--os-notifications)
+- [`doctor` — diagnostics](#doctor--diagnostics)
+- [`chrome` — transcript chrome](#chrome--transcript-chrome)
+- [`document` — document extraction](#document--document-extraction)
+- [`file-browse` — the local file server](#file-browse--the-local-file-server)
+- [`goal` — the goal widget](#goal--the-goal-widget)
+- [`job` — background jobs](#job--background-jobs)
+- [`watch` — file and command watchers](#watch--file-and-command-watchers)
+- [`memory` — durable notes](#memory--durable-notes)
+- [`rewind` — snapshots](#rewind--snapshots)
+- [`todo` — the todo widget](#todo--the-todo-widget)
+- [`web-access` — search and fetch](#web-access--search-and-fetch)
+- [`wechat` — the WeChat bridge](#wechat--the-wechat-bridge)
+- [`worktree` — isolated worktrees](#worktree--isolated-worktrees)
+
 Two conventions:
 
 - The key column is the dotted path inside the section, so `currency.decimals`

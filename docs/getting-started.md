@@ -64,6 +64,12 @@ the terminal's background, so the live canvas stays your terminal's color — se
 it to `#0d1117` for the intended look. HTML exports use the theme's
 `export.pageBg`, so they are unaffected.
 
+A theme is ordinary Pi theme JSON: to build your own, start from
+[`themes/bytefly-dark.json`](../themes/bytefly-dark.json) and follow Pi's
+[Themes](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/themes.md)
+reference. The shipped palettes are held to WCAG AA per semantic role by
+`test/theme.test.ts`.
+
 ## Disabling extensions
 
 Every extension in this package is on by default. Set `PI_DISABLED_EXTENSIONS`

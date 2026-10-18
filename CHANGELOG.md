@@ -62,6 +62,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   extension tables by `test/docs-truth.test.ts`, and the intro no longer claims
   a `pi` manifest order the catalog does not follow.
 
+- docs: the configuration reference opens with a contents list, held to every
+  section by `test/config-docs.test.ts`. The doc-link guard now hyphenates each
+  space the way GitHub does instead of collapsing a run, so an em dash between
+  words leaves two hyphens and the reference's section anchors resolve.
+
+- docs: `getting-started.md` explains how to start a custom theme from the shipped
+  JSON, and the entry READMEs and catalog no longer state counts that drift
+  (sixteen extensions, two themes, fourteen preferences in six groups).
+
 - ci: npm publishing moved into the repository, as
   `.github/workflows/publish.yml`. A manual dispatch names the release version
   twice, the job then waits for the `npm` environment's required review, checks
