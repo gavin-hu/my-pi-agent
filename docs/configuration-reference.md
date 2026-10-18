@@ -58,6 +58,11 @@ Read at `session_start`; `/bytefly settings` edits `enabled` and `method`.
 | `method` | string | `"auto"` | `auto`, `osc777`, `osc99`, `toast`, `osascript`, `notify-send` | Delivery route; `auto` picks from the terminal, then the platform. |
 | `title` | string | `"Pi"` | Up to 40 characters | Notification title. |
 
+An explicit `method` this host cannot deliver — a platform notifier on another
+platform, or an OSC method with no terminal — is reported by `doctor` as a
+`degraded` finding and is still dropped at send time; `auto` never is, because
+it picks from the environment.
+
 ## `doctor` — diagnostics
 
 Read at `session_start`; `/bytefly settings` edits `proactive`.

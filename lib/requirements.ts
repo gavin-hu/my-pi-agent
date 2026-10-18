@@ -61,7 +61,19 @@ export interface InvocationCheck {
 	hint: string;
 }
 
-export type RequirementCheck = BinaryCheck | ModuleCheck | StateCheck | InvocationCheck;
+/**
+ * The notification delivery bytefly is configured for.
+ *
+ * The configured method belongs to the notify capability, so it arrives through
+ * {@link ProbeSeams.notify}; whether this host can honour it is decided here.
+ */
+export interface NotifyCheck {
+	kind: "notify";
+	enables: string;
+	hint: string;
+}
+
+export type RequirementCheck = BinaryCheck | ModuleCheck | StateCheck | InvocationCheck | NotifyCheck;
 
 /** What an extension needs, split by how badly it needs it. */
 export interface ExtensionRequirements {
@@ -193,6 +205,13 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	},
 	bytefly: {
 		configFiles: [SHARED_CONFIG_FILE],
+		optional: [
+			{
+				kind: "notify",
+				enables: "the configured notification delivery",
+				hint: 'set "notify.method" to "auto" in bytefly.json, or choose one this host can deliver.',
+			},
+		],
 		notes: [
 			"TUI only for the header, footer, and turn rule; `/bytefly` prints a listing and `/bytefly doctor` the report in RPC, JSON, and print modes.",
 			"The panel writes extension enablement through Pi's own settings; project scope requires a trusted project.",
@@ -229,6 +248,35 @@ export interface ProbeSeams {
 	loadModule?: (name: string) => Promise<unknown>;
 	/** Resolve the nested-pi command; defaults to {@link getPiInvocation}. */
 	invocation?: () => PiInvocation;
+	/** The notify capability's configured delivery, or absent when it is not in play. */
+	notify?: () => { enabled: boolean; method: string } | undefined;
+	/** Whether stdout is a terminal, which the OSC methods need; defaults to true. */
+	isTTY?: boolean;
+}
+
+/**
+ * Whether `method` can deliver on this host.
+ *
+ * `auto` inspects the environment itself, so it always can; the OSC methods need
+ * a terminal to write to; the rest are platform-specific. An unknown id counts
+ * as deliverable because bytefly's own loader already rejects one.
+ */
+export function canDeliver(method: string, env: { platform: NodeJS.Platform; isTTY: boolean }): boolean {
+	switch (method) {
+		case "auto":
+			return true;
+		case "osc777":
+		case "osc99":
+			return env.isTTY;
+		case "toast":
+			return env.platform === "win32";
+		case "osascript":
+			return env.platform === "darwin";
+		case "notify-send":
+			return env.platform === "linux";
+		default:
+			return true;
+	}
 }
 
 const defaultLoadModule = (name: string): Promise<unknown> => import(name);
@@ -316,6 +364,31 @@ async function runCheck(
 						detail: `cannot be run — ${check.enables}`,
 						hint: check.hint,
 					};
+		}
+		case "notify": {
+			const notify = seams.notify?.();
+			if (!notify?.enabled) {
+				return { extension, check: "notify.method", severity: "ok", detail: "notifications are off" };
+			}
+			const env = { platform: seams.platform, isTTY: seams.isTTY ?? true };
+			if (canDeliver(notify.method, env)) {
+				return {
+					extension,
+					check: "notify.method",
+					severity: "ok",
+					detail:
+						notify.method === "auto"
+							? "auto picks a route from the environment"
+							: `"${notify.method}" delivers on ${seams.platform}`,
+				};
+			}
+			return {
+				extension,
+				check: "notify.method",
+				severity: failSeverity,
+				detail: `"${notify.method}" cannot deliver on ${seams.platform} — ${check.enables}`,
+				hint: check.hint,
+			};
 		}
 	}
 }

@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `bytefly`: `doctor` reports an explicit `notify.method` this host cannot
+  deliver — a platform notifier on another platform, or an OSC method with no
+  terminal — as a `degraded` finding on `bytefly`, with the fix in its hint. A
+  method that suits the host, `auto`, and a disabled capability all stay `ok`.
+
 ### Changed
 
 - `todo`: the lag reminder also covers work that never got a list. A run that

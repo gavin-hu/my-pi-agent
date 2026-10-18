@@ -749,7 +749,7 @@ has a keyboard path.
 | wechat | — | `wechat/credentials.json` (not logged in) |
 | job | — | Windows has no `EXIT` trap; `ps` is POSIX-only |
 | todo, goal | — | their config files |
-| bytefly | — | TUI only for the header, footer, and turn rule; the screen's project scope needs a trusted project; `bytefly.json` |
+| bytefly | — | TUI only for the header, footer, and turn rule; the screen's project scope needs a trusted project; an explicit `notify.method` this host cannot deliver; `bytefly.json` |
 | question | — | needs an interactive UI |
 
 Every extension that reads a config file also gets the malformed-JSON check:
@@ -925,8 +925,9 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
   prompt raised during a run, not a process waiting on stdin: jobs are
   fire-and-observe, so that state does not exist.
 - **An explicit `method` is honored blindly.** Point `method` at a notifier the
-  host lacks (or an OSC method off a TTY) and the notification is silently
-  dropped; only `auto` inspects the environment.
+  host lacks (or an OSC method off a TTY) and the notification is dropped; only
+  `auto` inspects the environment. `doctor` now reports the mismatch as a
+  `degraded` finding, which says what to change but does not fix it for you.
 - **The working counter is one global row.** `setWorkingMessage` drives the
   single working row, so bytefly and any other extension setting it race — last
   writer wins — and the message is reset to Pi's default at `agent_end`. If the

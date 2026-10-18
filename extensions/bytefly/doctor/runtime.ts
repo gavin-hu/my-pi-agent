@@ -19,10 +19,24 @@ import {
 	type ExtensionReport,
 	type ProbeSeams,
 } from "../../../lib/requirements.ts";
+import { loadNotifyConfig } from "../notify/config.ts";
 import { DEFAULT_CONFIG, type DoctorConfig } from "./config.ts";
 
 /** Seams a test may replace; everything else is built from the host. */
 export type DoctorSeamOverrides = Partial<ProbeSeams>;
+
+/**
+ * The notify capability's configured delivery, read fresh from the document.
+ *
+ * Reading at probe time rather than from the session's snapshot means a
+ * corrected method shows up on the next `r` instead of only after a reload.
+ */
+export function notifySeam(cwd: string): () => { enabled: boolean; method: string } {
+	return () => {
+		const notify = loadNotifyConfig(cwd);
+		return { enabled: notify.enabled, method: notify.method };
+	};
+}
 
 export interface DoctorRuntime {
 	/** Point the runtime at a session: its cwd and effective config. */
@@ -56,6 +70,8 @@ export function createDoctorRuntime(
 		dirs: { agentDir: getAgentDir(), cwd, configDirName: CONFIG_DIR_NAME },
 		platform: process.platform,
 		isEnabled: (extension) => isExtensionEnabled(extension) && !config.skip.includes(extension),
+		notify: notifySeam(cwd),
+		isTTY: process.stdout.isTTY === true,
 		...deps.seams,
 	});
 

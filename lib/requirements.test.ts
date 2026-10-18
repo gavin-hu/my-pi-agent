@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
+	canDeliver,
 	hardRequirementExtensions,
 	missingFindings,
 	pdfGuidance,
@@ -228,5 +229,77 @@ describe("install guidance", () => {
 describe("hard requirement extensions", () => {
 	test("lists exactly the extensions that can warn at session start", () => {
 		expect(hardRequirementExtensions().sort()).toEqual(["rewind", "subagent", "worktree"]);
+	});
+});
+
+describe("canDeliver", () => {
+	const tty = { platform: "linux" as const, isTTY: true };
+
+	test("auto always delivers, because it reads the environment itself", () => {
+		expect(canDeliver("auto", { platform: "linux", isTTY: false })).toBe(true);
+		expect(canDeliver("auto", { platform: "win32", isTTY: false })).toBe(true);
+	});
+
+	test("the OSC methods need a terminal to write to", () => {
+		expect(canDeliver("osc777", tty)).toBe(true);
+		expect(canDeliver("osc99", tty)).toBe(true);
+		expect(canDeliver("osc777", { platform: "darwin", isTTY: false })).toBe(false);
+		expect(canDeliver("osc99", { platform: "darwin", isTTY: false })).toBe(false);
+	});
+
+	test("the platform notifiers only deliver on their platform", () => {
+		expect(canDeliver("toast", { platform: "win32", isTTY: true })).toBe(true);
+		expect(canDeliver("toast", tty)).toBe(false);
+		expect(canDeliver("osascript", { platform: "darwin", isTTY: true })).toBe(true);
+		expect(canDeliver("osascript", tty)).toBe(false);
+		expect(canDeliver("notify-send", tty)).toBe(true);
+		expect(canDeliver("notify-send", { platform: "darwin", isTTY: true })).toBe(false);
+	});
+
+	test("leaves an unknown method to the loader that rejected it", () => {
+		expect(canDeliver("carrier-pigeon", tty)).toBe(true);
+	});
+});
+
+describe("the notify check", () => {
+	const notify = (config: { enabled: boolean; method: string }) => () => config;
+
+	test("is ok while notifications are off, whatever the method", async () => {
+		const report = await probeExtension("bytefly", seams({ notify: notify({ enabled: false, method: "toast" }) }));
+		expect(find(report, "notify.method")?.severity).toBe("ok");
+		expect(find(report, "notify.method")?.detail).toContain("notifications are off");
+	});
+
+	test("is ok when the configured method suits this host", async () => {
+		const report = await probeExtension("bytefly", seams({ notify: notify({ enabled: true, method: "osascript" }) }));
+		expect(find(report, "notify.method")?.severity).toBe("ok");
+		expect(find(report, "notify.method")?.detail).toBe('"osascript" delivers on darwin');
+	});
+
+	test("is ok for auto and says what auto does", async () => {
+		const report = await probeExtension("bytefly", seams({ notify: notify({ enabled: true, method: "auto" }) }));
+		expect(find(report, "notify.method")?.severity).toBe("ok");
+		expect(find(report, "notify.method")?.detail).toContain("auto picks a route from the environment");
+	});
+
+	test("degrades to one named finding when the method cannot deliver", async () => {
+		const report = await probeExtension("bytefly", seams({ notify: notify({ enabled: true, method: "notify-send" }) }));
+		const finding = find(report, "notify.method");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toContain('"notify-send" cannot deliver on darwin');
+		expect(finding?.hint).toContain('"notify.method"');
+	});
+
+	test("degrades an OSC method with no terminal behind it", async () => {
+		const report = await probeExtension(
+			"bytefly",
+			seams({ notify: notify({ enabled: true, method: "osc777" }), isTTY: false }),
+		);
+		expect(find(report, "notify.method")?.severity).toBe("degraded");
+	});
+
+	test("reports ok when the capability is absent, so the check never invents a problem", async () => {
+		const report = await probeExtension("bytefly", seams());
+		expect(find(report, "notify.method")?.severity).toBe("ok");
 	});
 });
