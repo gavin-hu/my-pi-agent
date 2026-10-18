@@ -94,12 +94,20 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     stateEl.className = "bf-chip bf-chip--accent review-state" + (tone ? " bf-chip--" + tone : "");
   }
 
-  function safeHref(url) {
+  // A link is rendered only for an http(s) or mailto target. Resolving against
+  // the review origin is what catches a target that only looks relative: the
+  // URL parser strips a tab or newline, so "/\t/evil.com" is cross-origin once
+  // it is parsed, and a disguised target must stay text.
+  function safeHref(url, base) {
     var trimmed = String(url).trim();
-    if (/^[\\/]{2}/.test(trimmed)) return null;
-    if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return null;
-    return trimmed;
+    if (!trimmed || /^\/\//.test(trimmed)) return null;
+    var resolved;
+    try { resolved = new URL(trimmed, base); } catch (error) { return null; }
+    if (resolved.protocol === "mailto:") return trimmed;
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
+    if (resolved.username || resolved.password) return null;
+    if (resolved.origin === new URL(base).origin) return resolved.href;
+    return /^https?:\/\//i.test(trimmed) ? resolved.href : null;
   }
 
   // Inline token order matters: code, emphasis, and links are matched before a
@@ -120,7 +128,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         var em = el("em"); em.textContent = match[1]; container.appendChild(em); return;
       }
       if ((match = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part))) {
-        var href = safeHref(match[2]);
+        var href = safeHref(match[2], location.href);
         if (!href) { container.appendChild(document.createTextNode(part)); return; }
         var link = el("a"); link.textContent = match[1]; link.href = href; link.target = "_blank"; link.rel = "noreferrer noopener";
         container.appendChild(link); return;
@@ -133,7 +141,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
         }
         var dot = url.indexOf(".");
         var target = /^www\./i.test(url) ? "http://" + url : url;
-        var safe = dot > 0 && /\.[^./]/.test(url.slice(dot)) ? safeHref(target) : null;
+        var safe = dot > 0 && /\.[^./]/.test(url.slice(dot)) ? safeHref(target, location.href) : null;
         if (safe) {
           var auto = el("a");
           auto.textContent = url;
@@ -742,11 +750,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (event.key === "s") { event.preventDefault(); save(); return; }
   });
 
-  window.addEventListener("beforeunload", function () {
-    if (saved || approved || closed) return;
-    var url = "/api/cancel?token=" + encodeURIComponent(token);
-    if (navigator.sendBeacon) navigator.sendBeacon(url);
-  });
+  // A closed tab is detected by the stream below: the server sees the last
+  // client go away and cancels after a grace period, and a reload reconnects
+  // inside it. A beacon here would cancel the review on every reload, including
+  // the reload a 409 offers.
 
   window.addEventListener("scroll", updateProgress);
   window.addEventListener("resize", updateProgress);

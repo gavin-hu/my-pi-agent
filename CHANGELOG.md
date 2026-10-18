@@ -78,6 +78,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: `/plan review` no longer consumes the changed-section baseline when
   the review server fails to start, and a resumed or tree-restored session
   starts without one, so the markers match what the docs promise.
+- `plan`: a wrapped task step keeps its continuation indent. The review screen
+  draws `◻` in place of `[ ]`, and pi-tui indents a wrapped line from the marker
+  it was given, so the two freed columns are padded back instead of shifting the
+  rest of the item to the body margin.
+- `plan`: reloading the browser review no longer cancels it. The page sent a
+  cancel on unload, so F5 and the **Reload** a save conflict offers both closed
+  the server under the reloaded page; a closed tab is still detected, by the
+  event stream dropping.
+- `plan`: a plan link is rendered only for an http(s) or mailto target, resolved
+  against the review page. A target that is cross-origin only after the URL
+  parser strips a tab or newline (`/\t/evil.com`) stays text instead of becoming
+  a link.
+- `plan`: a plan containing a tab is no longer reported as changed on every
+  review. The review diffs its baseline against the sanitized body, so it now
+  normalizes both sides the same way.
+- `plan`: two sections with the same title are marked and counted separately, so
+  editing the second `## Notes` no longer lights up both in the review screen
+  and the browser outline.
+- `plan`: a heading keeps a trailing hash that is part of its text (`## C#`),
+  and only a closing run separated by a space (`## Notes ##`) is stripped. The
+  heading rule is now shared by the review screen and the browser outline.
+- `plan`: a tab-indented code fence is prose for both parsers, so the review
+  screen and the browser no longer disagree about where a section or a step
+  starts, which had shifted every browser comment anchor after such a fence.
 
 ## [0.12.0] - 2026-10-18
 

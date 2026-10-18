@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
+import { settle } from "../../test/helpers/process.ts";
 import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession } from "./web.ts";
@@ -94,6 +95,16 @@ describe("createPlanWebReview", () => {
 		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
 		const data = JSON.parse(island![1]);
 		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan", changed: true }]);
+	});
+
+	test("marks only the occurrence of a duplicate heading that changed", async () => {
+		const plan = ["# Plan", "## Notes", "a", "## Notes", "b"].join("\n");
+		const previous = ["# Plan", "## Notes", "a", "## Notes", "B"].join("\n");
+		const session = await start(plan, [], { previous });
+		const html = await (await fetch(session.url)).text();
+		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
+		const data = JSON.parse(island![1]);
+		expect(data.outline.map((item: { changed?: boolean }) => item.changed === true)).toEqual([false, false, true]);
 	});
 
 	test("uses the plan's H1 as the review title and falls back to the slug", async () => {
@@ -193,6 +204,31 @@ describe("createPlanWebReview", () => {
 		controller.abort();
 		expect((await session.done).status).toBe("cancelled");
 		await session.close();
+	});
+
+	test("a reload that reconnects inside the grace does not cancel the review", async () => {
+		const { store } = fakeStore("# Plan\n");
+		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, dropGraceMs: 40 });
+		const session = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		const events = `http://127.0.0.1:${session.port}/events?token=tok`;
+
+		// The page loads, then reloads: its stream drops and a new one arrives.
+		const first = new AbortController();
+		const page = await fetch(events, { signal: first.signal });
+		expect(page.status).toBe(200);
+		await page.body?.getReader().read();
+		first.abort();
+		await settle(10);
+
+		const second = new AbortController();
+		expect((await fetch(events, { signal: second.signal })).status).toBe(200);
+
+		const outcome = await Promise.race([session.done.then(() => "settled"), settle(120).then(() => "pending")]);
+		expect(outcome).toBe("pending");
+
+		// Closing the tab for real is a drop nobody answers.
+		second.abort();
+		expect((await session.done).status).toBe("cancelled");
 	});
 
 	test("close is idempotent and closeAll stops every session", async () => {

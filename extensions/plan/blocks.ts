@@ -14,7 +14,7 @@
  * step.
  */
 
-import { normalizeHeadingText } from "./steps.ts";
+import { FENCE, HEADING } from "./steps.ts";
 
 /** How a block is rendered and grouped. */
 export type PlanBlockKind = "heading" | "paragraph" | "list" | "code" | "quote" | "table" | "hr" | "blank";
@@ -30,10 +30,6 @@ export interface PlanBlock {
 	lines: string[];
 }
 
-/** ATX heading outside a fence. */
-const HEADING = /^ {0,3}#{1,6}(?:\s|$)/;
-/** Code-fence opener or closer (backticks or tildes). */
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 /** A list marker with its leading indentation and trailing gap. */
 const LIST_ITEM = /^( *)([-*+]|\d+[.)])(\s+)/;
 /** A blockquote line. */
@@ -188,36 +184,6 @@ export function blockAt(blocks: PlanBlock[], line: number): PlanBlock | undefine
 		candidate = block;
 	}
 	return candidate;
-}
-
-/** A heading in a plan, for the review page's section outline. */
-export interface PlanHeading {
-	/** 0-based source line of the heading. */
-	line: number;
-	/** Heading level, 1-6. */
-	level: number;
-	/** Heading text with inline markdown removed. */
-	text: string;
-}
-
-/** ATX heading with its captured level and raw text. */
-const HEADING_PARTS = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
-
-/** Strip the inline markdown an outline label should not show. */
-function headingText(raw: string): string {
-	return normalizeHeadingText(raw);
-}
-
-/** The plan's headings in order, for the outline. */
-export function planHeadings(blocks: PlanBlock[]): PlanHeading[] {
-	const headings: PlanHeading[] = [];
-	for (const block of blocks) {
-		if (block.kind !== "heading") continue;
-		const match = block.lines[0]?.match(HEADING_PARTS);
-		if (!match) continue;
-		headings.push({ line: block.start, level: match[1].length, text: headingText(match[2]) });
-	}
-	return headings;
 }
 
 /** The source inside a fenced code block, without its opening and closing fence lines. */
