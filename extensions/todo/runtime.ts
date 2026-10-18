@@ -27,8 +27,8 @@ export interface TodoRuntime {
 	reconstruct(ctx: ExtensionContext): void;
 	/** Apply the widget config (loaded per session). */
 	setConfig(config: TodoConfig): void;
-	/** Record that a mutating tool ran since the last update. */
-	noteWork(): void;
+	/** Record a successful mutating call; `fileWrite` marks one that can change files. */
+	noteWork(fileWrite?: boolean): void;
 	/** Whether a lag reminder is due and has not been sent for it yet. */
 	nudgeDue(): boolean;
 	/** Mark the current lag as reminded, activating the injected reminder. */
@@ -54,12 +54,13 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 	// True while a dock screen owns the editor slot; the rail stays hidden.
 	let suppressed = false;
 	// Lag tracking: `mutations` counts successful mutating calls since the list
-	// was last written, `touched` records that the model wrote or cleared the
-	// list this turn (so an explicit clear is not second-guessed), `nudged` caps
-	// the reminder to one per user turn, and `nudgeActive` marks an injected
-	// reminder as current so `context` keeps it for the continuation and drops it
-	// on the next user turn.
+	// was last written and `writes` how many of those can change files,
+	// `touched` records that the model wrote or cleared the list this turn (so an
+	// explicit clear is not second-guessed), `nudged` caps the reminder to one per
+	// user turn, and `nudgeActive` marks an injected reminder as current so
+	// `context` keeps it for the continuation and drops it on the next user turn.
 	let mutations = 0;
+	let writes = 0;
 	let touched = false;
 	let nudged = false;
 	let nudgeActive = false;
@@ -108,6 +109,7 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 			// A todo update is the model syncing the list, so the lag is cleared.
 			// `nudged` is not: the reminder stays capped at one per user turn.
 			mutations = 0;
+			writes = 0;
 			touched = true;
 			syncWidget(ctx);
 			notify();
@@ -115,6 +117,7 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 		reconstruct: (ctx) => {
 			todos = reconstructTodos(ctx.sessionManager.getBranch());
 			mutations = 0;
+			writes = 0;
 			touched = false;
 			nudged = false;
 			nudgeActive = false;
@@ -124,10 +127,11 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 		setConfig: (next) => {
 			config = next;
 		},
-		noteWork: () => {
+		noteWork: (fileWrite = false) => {
 			mutations++;
+			if (fileWrite) writes++;
 		},
-		nudgeDue: () => shouldNudge({ mutations, touched, nudged, todos }),
+		nudgeDue: () => shouldNudge({ mutations, writes, touched, nudged, todos }),
 		markNudged: () => {
 			nudged = true;
 			nudgeActive = true;
@@ -138,6 +142,7 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 		isNudgeActive: () => nudgeActive,
 		resetNudge: () => {
 			mutations = 0;
+			writes = 0;
 			touched = false;
 			nudged = false;
 		},

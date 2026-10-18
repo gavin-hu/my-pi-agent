@@ -16,10 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - `todo`: the lag reminder also covers work that never got a list. A run that
-  settles after three or more successful mutating calls with an empty list is
-  asked to record one, and a list the model wrote or cleared in the same turn is
-  left alone, so a deliberate clear is never second-guessed. A single edit still
-  never triggers a reminder.
+  settles after three successful mutating calls with an empty list is asked to
+  record one, provided at least one of them can change files, so three read-only
+  shell commands no longer count as work that needed a plan. A list the model
+  wrote or cleared in the same turn is left alone, and a single call still never
+  triggers a reminder.
 
 ## [0.12.0] - 2026-10-18
 
