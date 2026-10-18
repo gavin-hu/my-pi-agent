@@ -25,6 +25,7 @@ import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./cred
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
 import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer-session.ts";
 import { createPeerUIContext } from "./remote-ui.ts";
+import { readPeerHistory } from "./history.ts";
 import { SLASH_COMMANDS } from "./slash.ts";
 import { readState, statePath, writeState } from "./state.ts";
 import { registerTools } from "./tools.ts";
@@ -103,6 +104,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 					fresh: options.fresh,
 				}),
 			mediaDir: () => join(wechatDir(), "media"),
+			readHistory: (peer, count) =>
+				readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count),
 			slashCommands: SLASH_COMMANDS,
 			loadAccount: () => primaryAccount(),
 			loadState: () => readState(statePath()),

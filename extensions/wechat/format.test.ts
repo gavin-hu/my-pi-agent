@@ -153,6 +153,7 @@ describe("notice", () => {
 		"unsupported",
 		"stopped",
 		"noText",
+		"compacted",
 		"timeout",
 		"failed",
 		"newBusy",

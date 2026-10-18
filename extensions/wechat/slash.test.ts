@@ -59,7 +59,11 @@ describe("expandSnippet", () => {
 });
 
 describe("built-in /stop and /status", () => {
-	function context(overrides: Partial<SlashContext> = {}, state: SlashPeerState = { status: "idle", queued: 0 }) {
+	function context(
+		overrides: Partial<SlashContext> = {},
+		state: SlashPeerState = { status: "idle", queued: 0 },
+		history: (count: number) => Promise<string> = async () => "",
+	) {
 		const replies: string[] = [];
 		let stopped = 0;
 		const ctx = {
@@ -77,6 +81,7 @@ describe("built-in /stop and /status", () => {
 					return stopped === 1 && state.status === "running";
 				},
 				status: () => state,
+				history,
 			},
 			...overrides,
 		} satisfies SlashContext;
@@ -118,6 +123,32 @@ describe("built-in /stop and /status", () => {
 		const { ctx, replies } = context({ language: "zh" }, { status: "running", queued: 0, runningMs: 3000 });
 		await command?.run?.(ctx);
 		expect(replies[0]).toContain("正在处理，已用 3 秒");
+	});
+
+	test("/history replies with the peer's own recent messages", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "history");
+		const { ctx, replies } = context({}, { status: "idle", queued: 0 }, async () => "You: hi\nMe: hello");
+		await command?.run?.(ctx);
+		expect(replies).toEqual(["You: hi\nMe: hello"]);
+	});
+
+	test("/history defaults to 8 and caps the request at 20", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "history");
+		const counts: number[] = [];
+		const { ctx } = context({}, { status: "idle", queued: 0 }, async (count) => {
+			counts.push(count);
+			return "";
+		});
+		await command?.run?.({ ...ctx, args: "" });
+		await command?.run?.({ ...ctx, args: "99" });
+		expect(counts).toEqual([8, 20]);
+	});
+
+	test("/history says so when there is nothing yet", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "history");
+		const { ctx, replies } = context({}, { status: "idle", queued: 0 });
+		await command?.run?.(ctx);
+		expect(replies).toEqual(["No history yet in this conversation."]);
 	});
 });
 

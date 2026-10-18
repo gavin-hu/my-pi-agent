@@ -112,6 +112,8 @@ export interface BridgeDeps {
 	openSession: (peer: string, options: { fresh: boolean; channel: WechatInteractionChannel }) => Promise<PeerSession>;
 	/** Directory where inbound files are saved. */
 	mediaDir: () => string;
+	/** Read the peer's own recent messages for `/history`; read-only. */
+	readHistory: (peer: string, count: number) => Promise<string>;
 	/** Built-in inbound slash commands. Defaults to {@link SLASH_COMMANDS}. */
 	slashCommands?: readonly SlashCommand[];
 	loadAccount: () => BotCredentials | undefined;
@@ -344,6 +346,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				},
 				stop: () => worker?.abort(item.peer) ?? false,
 				status: () => worker?.state(item.peer) ?? { status: "idle", queued: 0 },
+				history: (count) => worker?.history(item.peer, count) ?? Promise.resolve(""),
 			},
 		};
 		try {
@@ -924,6 +927,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// attachment line on the first one. A false result stops the stream.
 				send: (item, text) => reply(item, text),
 				fallback: (item, reason) => notice(reason, item.language),
+				readHistory: deps.readHistory,
 				onStart: (item) => {
 					cancelAck(item.peer);
 					stopBusyNotice(item.peer);

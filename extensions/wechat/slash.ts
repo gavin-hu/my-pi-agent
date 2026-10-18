@@ -30,6 +30,8 @@ export interface SlashSessionControls {
 	stop: () => boolean;
 	/** What the sender's conversation is doing. */
 	status: () => SlashPeerState;
+	/** The last `count` messages of the sender's own conversation. */
+	history?: (count: number) => Promise<string>;
 }
 
 /** The environment an action handler runs in. */
@@ -167,6 +169,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 			await ctx.reply(
 				localized(ctx.language, `正在处理，已用 ${seconds} 秒${queued}。`, `Working — ${seconds}s so far${queued}.`),
 			);
+		},
+	},
+	{
+		name: "history",
+		summary: "Show recent messages in this conversation",
+		summaryZh: "查看最近几条对话",
+		kind: "action",
+		run: async (ctx) => {
+			const requested = Number.parseInt(ctx.args, 10);
+			const count = Math.min(20, Math.max(1, Number.isFinite(requested) ? requested : 8));
+			const text = (await ctx.session.history?.(count)) ?? "";
+			await ctx.reply(text || (ctx.language === "zh" ? "还没有历史消息。" : "No history yet in this conversation."));
 		},
 	},
 	{

@@ -215,6 +215,7 @@ function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = {}, scr
 			return peer.peerSession;
 		},
 		mediaDir: () => tempDir("wechat-files-"),
+		readHistory: async () => "",
 		loadAccount: () => account,
 		loadState: () => ({ cursor: "", peers: {} }),
 		saveState: (state) => saved.push(state),
@@ -867,6 +868,18 @@ describe("bridge sendToOwner", () => {
 });
 
 describe("bridge slash commands", () => {
+	test("answers /history from the peer's own session", async () => {
+		const { client, sent } = makeClient([updates([inbound("/history")])]);
+		const { deps } = makeDeps(client, {
+			readHistory: async (peer, count) => `${peer} ${count}\nYou: hi`,
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => sent.length === 1);
+		expect(sent[0]?.text).toContain("You: hi");
+		await bridge.close();
+	});
+
 	test("expands a snippet command into the injected turn", async () => {
 		const commands: SlashCommand[] = [{ name: "sum", summary: "s", kind: "snippet", snippet: "Summarize." }];
 		const { client } = makeClient([updates([inbound("/sum extra")])]);

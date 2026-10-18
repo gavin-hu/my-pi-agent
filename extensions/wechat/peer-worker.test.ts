@@ -22,6 +22,10 @@ function fakeSession(options: { answers?: string[]; holdFirst?: boolean } = {}) 
 			listener({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta } });
 		}
 	};
+	/** Emit an arbitrary session event, for compaction and other non-text events. */
+	const emitEvent = (event: unknown): void => {
+		for (const listener of listeners) listener(event);
+	};
 	const session = {
 		isIdle: true,
 		getLastAssistantText: () => last,
@@ -57,6 +61,7 @@ function fakeSession(options: { answers?: string[]; holdFirst?: boolean } = {}) 
 		peerSession: { session: session as unknown as AgentSession, dispose: () => session.dispose() } as PeerSession,
 		session,
 		emit,
+		emitEvent,
 		release: () => session.release(),
 		prompts,
 		aborts: () => abort,
@@ -297,6 +302,29 @@ describe("peer worker", () => {
 		worker.enqueue(item("ping"));
 		await settle();
 		expect(sent[0]?.text).toBe("fallback:noText");
+	});
+
+	test("says the conversation was compacted after the answer", async () => {
+		const sent: Array<{ peer: string; text: string }> = [];
+		const fake = fakeSession({ answers: ["answer"] });
+		const original = fake.session.prompt.bind(fake.session);
+		fake.session.prompt = async (content: unknown) => {
+			fake.emitEvent({ type: "compaction_end", reason: "threshold", result: undefined, aborted: false });
+			await original(content);
+		};
+		const worker = createPeerWorker({
+			openSession: async () => fake.peerSession,
+			send: async (target, text) => {
+				sent.push({ peer: target.peer, text });
+				return true;
+			},
+			fallback: (_item, reason) => `fallback:${reason}`,
+			armTimer: () => () => {},
+		});
+		worker.enqueue(item("ping"));
+		await settle();
+		await settle();
+		expect(sent.map((entry) => entry.text)).toEqual(["answer", "fallback:compacted"]);
 	});
 
 	test("says failed and keeps the queue moving when a turn throws", async () => {

@@ -43,13 +43,15 @@ export interface PeerItem {
 }
 
 /** What the worker says to the peer when a turn ends without text of its own. */
-export type TurnFallback = "stopped" | "noText" | "failed";
+export type TurnFallback = "stopped" | "noText" | "failed" | "compacted";
 
 export interface PeerWorkerDeps {
 	/** Open (or resume) one peer's session; the bridge owns the directory layout. */
 	openSession: (peer: string, options: { fresh: boolean }) => Promise<PeerSession>;
 	/** Deliver one turn's text to the peer; false stops the rest of a stream. */
 	send: (item: PeerItem, text: string) => Promise<boolean>;
+	/** Read the peer's own recent messages, for `/history`; read-only. */
+	readHistory?: (peer: string, count: number) => Promise<string>;
 	/** The fallback line for a turn that produced no text. */
 	fallback: (item: PeerItem, reason: TurnFallback) => string;
 	/** A turn started / finished for this item, for typing and notices. */
@@ -94,6 +96,8 @@ export interface PeerWorker {
 	/** The turn running right now, if any (one with the default concurrency). */
 	current(): PeerItem | undefined;
 	state(peer: string): PeerState;
+	/** The peer's own recent messages, for `/history`. */
+	history(peer: string, count: number): Promise<string>;
 	snapshot(): PeerSnapshot[];
 	/** Drop every session; queued messages are dropped with them. */
 	close(): Promise<void>;
@@ -246,7 +250,13 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			partChars: deps.partChars,
 			quietMs: deps.quietMs,
 		});
+		/** The session compacted this turn, so the peer is told its older detail is fuzzy. */
+		let compacted = false;
 		const unsubscribe = session.subscribe((event) => {
+			if (event.type === "compaction_end" && !event.aborted) {
+				compacted = true;
+				return;
+			}
 			if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
 				pipeline.push(event.assistantMessageEvent.delta);
 			}
@@ -283,6 +293,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			unsubscribe();
 		}
 		if (reason) await sendPart(deps.fallback(item, reason));
+		if (compacted) await sendPart(deps.fallback(item, "compacted"));
 	}
 
 	/** The next peer with work, so a finished turn can hand its slot on. */
@@ -374,6 +385,10 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 
 		state(peer: string): PeerState {
 			return stateOf(peer);
+		},
+
+		history(peer: string, count: number): Promise<string> {
+			return deps.readHistory?.(peer, count) ?? Promise.resolve("");
 		},
 
 		snapshot(): PeerSnapshot[] {

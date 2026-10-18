@@ -96,6 +96,7 @@ export type NoticeKind =
 	| "unsupported"
 	| "stopped"
 	| "noText"
+	| "compacted"
 	| "promptWaiting"
 	| "timeout"
 	| "failed"
@@ -131,6 +132,10 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	noText: {
 		zh: "这条处理完了，但没有文字输出。",
 		en: "That turn finished without any text to send.",
+	},
+	compacted: {
+		zh: "对话较长，上下文已压缩；更早的细节可能记不全。",
+		en: "The conversation was compacted to stay within context; earlier details may be fuzzy.",
 	},
 	promptWaiting: {
 		zh: "还在等你的回复，约 1 分钟后超时。",

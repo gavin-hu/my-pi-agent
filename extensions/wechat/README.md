@@ -118,6 +118,7 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 | `/new` | action | Start a fresh conversation for that peer (owner only); declined while their turn runs. |
 | `/stop` | action | Stop that peer's running turn; the turn itself answers `已停止。` / `Stopped.`. |
 | `/status` | action | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. |
+| `/history [n]` | action | The last `n` messages of this conversation (default 8, max 20), one line each. |
 | `/help` | action | Reply with the available commands. |
 
 - **Snippets** expand a predefined body into the user turn (typing, queueing,
@@ -127,9 +128,9 @@ becomes a turn, so a command never reaches the model unless it is unknown.
   (or a path-like `/usr/...`) falls through to the model as ordinary text, and a
   message carrying media is never treated as a command.
 - `/new` is owner-only: an extra `allowedPeers` peer that sends it is refused
-  like any other unauthorized sender. `/stop`, `/status`, and `/help` are
-  available to any admitted peer, and each acts only on the sender's own
-  conversation.
+  like any other unauthorized sender. `/stop`, `/status`, `/history`, and
+  `/help` are available to any admitted peer, and each acts only on the sender's
+  own conversation.
 
 ## Behaviour by mode
 
@@ -156,6 +157,7 @@ needs. Per action:
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
 | Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at 90 seconds and cancelled at three minutes. |
 | Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state; `/new` is declined while their run is in flight. |
+| Types `/history` | The last eight messages of this conversation (or the requested number, up to 20), one line each. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
 | Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
 | Pastes a very long message | The first `maxInboundChars` characters reach the model, followed by a truncation marker, instead of an unbounded prompt. |
@@ -374,7 +376,7 @@ sessions are in-process).
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. |
 | Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
-| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state). |
+| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state, `history` → a read-only read of that peer's newest session). |
 | Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer and marking the context for `askHuman`'s file/text preface. The terminal's shared `ctx.ui` is deliberately not adapted: a host turn is never answered remotely, so its dialogs stay local even while a peer turn runs. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
@@ -474,7 +476,8 @@ status, which is what the old start/stop guidance used to do.
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
 | `prompt.ts` | Pure prompt formatting and reply parsing. |
 | `remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
-| `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
+| `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
+| `history.ts` | Read-only `/history`: opens the peer's newest session, formats the last user/assistant messages, and never writes. |
 | `types.ts` | Wire and domain types. |
 
 ## Testing

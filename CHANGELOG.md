@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: `/history [n]` answers with the last messages of the sender's own
+  conversation (default 8, at most 20), read from its newest session without
+  resuming or writing it. A turn that compacts its context now says so once
+  after the answer (`上下文较长，已压缩…` / “The conversation was compacted…”), so
+  a peer knows why earlier detail became fuzzy.
 - `wechat`: a server replay of an already-handled message is ignored, keyed by
   the WeChat message id and remembered in `state.json` for an hour (500 ids
   across peers), so a reconnect or a reload cannot answer twice. Inbound text is
