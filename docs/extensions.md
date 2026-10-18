@@ -116,8 +116,9 @@ Tail a file or a command's merged output and match each new line against a
 regular expression, with an optional exclude list and case-insensitive matching
 by default. A `⊚ N` chip shows running watchers and `! N` shows unreported
 matches; matching lines are sanitized, alerted, and reported as a bytefly notice
-at the next turn, or wake a turn immediately when a watcher was added `wake: true`.
-Watchers are session-only and stopped on session shutdown.
+at the next turn, or wake a turn immediately when a watcher was added `wake: true`
+— which also lets bytefly's notify capability raise a desktop alert. Watchers are
+session-only and stopped on session shutdown.
 
 Tool: `watch`. Command: `/watch`.
 
@@ -273,7 +274,7 @@ resolved Pi extension with one row per extension carrying its `◼`/`◻` settin
 checkbox and one verdict (`off` when switched off, `env disabled` when
 `PI_DISABLED_EXTENSIONS` excludes it, otherwise its worst-severity health), and
 Settings, fourteen curated preferences in six groups — bytefly startup TUI,
-desktop notifications, the three triggers that narrow them, their delivery method
+desktop notifications, the four triggers that narrow them, their delivery method
 and title, the proactive health check and its probe timeout, the currency and cost
 precision, the rail glyph, output padding, and the hardware cursor — with each
 row's value and its source file. A boolean toggles, an enum cycles, and a text row opens an inline
@@ -295,8 +296,9 @@ variable, and, only on an explicit `refresh`, whether its configured endpoint
 answers — and its proactive session-start notice enters the message flow through
 the shared notice renderer, shown only when the bytefly startup TUI is on
 (Pi's `quietStartup: true`). An opt-in notify capability raises an
-OS notification when a run or a background job finishes or the agent asks for
-input, configured through the `notify` section of `bytefly.json`, for
+OS notification when a run or a background job finishes, when the agent asks for
+input, or when a `watch` wake match fires, configured through the `notify`
+section of `bytefly.json`, for
 unattended runs. In an interactive session it also compares the loaded version
 with the published `@gavin-hu/my-pi-agent` on npm: a newer one adds `↑0.12.0` to
 the header's chrome version and posts one notice naming

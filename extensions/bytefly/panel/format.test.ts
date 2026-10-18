@@ -170,17 +170,17 @@ describe("sections", () => {
 	});
 
 	test("prints one settings headline for non-TUI modes", () => {
-		expect(formatSettingsHeadline("global", 14)).toBe("bytefly: Settings · Global · 14 settings");
-		expect(formatSettingsHeadline("project", 11)).toBe("bytefly: Settings · Project · 11 settings");
+		expect(formatSettingsHeadline("global", 15)).toBe("bytefly: Settings · Global · 15 settings");
+		expect(formatSettingsHeadline("project", 12)).toBe("bytefly: Settings · Project · 12 settings");
 	});
 
 	test("lists settings in groups with their values", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "global");
 		const text = formatSettingsListing(views, "global");
 
-		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 14 settings");
+		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 15 settings");
 		expect(text).toContain("Startup (1)");
-		expect(text).toContain("Notifications (6)");
+		expect(text).toContain("Notifications (7)");
 		expect(text).toContain("Diagnostics (2)");
 		expect(text).toContain("Pricing (2)");
 		expect(text).toContain("Transcript (2)");
@@ -202,7 +202,7 @@ describe("sections", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "project");
 		const text = formatSettingsListing(views, "project");
 
-		expect(text).toContain("Project · 11 settings");
+		expect(text).toContain("Project · 12 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});

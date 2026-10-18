@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `watch` / `bytefly`: a `wake` watcher that matches while the agent is idle now
+  also raises a desktop notification, through bytefly's notify capability — so an
+  unattended watcher reaches the user instead of waiting for someone to look at the
+  terminal. `watch` announces the match on `my-pi-agent/watch-match` (the cycle's
+  count, the watcher, its newest line) and never learns how a notification is
+  sent; the new `notify.matchFound` trigger (on by default, with a **Watcher
+  matched** row in the control center) gates it alongside `notify.enabled`. The
+  body names the matched line, sanitized and clipped to 80 characters, because the
+  line is the alert; a match the agent was busy for is still reported at the next
+  turn without a notification.
+
 - `rewind`: a code rewind can now restore **some** paths instead of the whole
   tree. When code moves, `/rewind` asks **Restore what?** — `Everything (N files)`
   or `Choose paths…` — and the checklist lists every changed path grouped by

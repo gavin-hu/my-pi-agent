@@ -27,6 +27,30 @@ export const JOB_FINISHED_CHANNEL = "my-pi-agent/job-finished";
  */
 export type FinishedJobStatus = "exited" | "failed" | "killed" | "unknown";
 
+/** EventBus channel: a `watch` wake match fired while the agent was idle. */
+export const WATCH_MATCH_CHANNEL = "my-pi-agent/watch-match";
+
+/**
+ * Payload on {@link WATCH_MATCH_CHANNEL}: what a wake match saw.
+ *
+ * Emitted by `watch` and consumed by bytefly's notify capability, so the two can
+ * agree on an alert without `watch` learning about delivery methods. The line is
+ * **raw** — the matched text is arbitrary file or process output — and the
+ * consumer sanitizes it before it reaches a notification, exactly as it does for a
+ * job label. `count` covers the whole wake cycle, so one notification can say how
+ * many lines matched while the body describes the newest one.
+ */
+export interface WatchMatchEvent {
+	/** How many matches were pending when the wake fired. */
+	count: number;
+	/** The watcher that matched, e.g. `w3`. */
+	watcherId: string;
+	/** Its label, e.g. `build`. */
+	label: string;
+	/** The newest matched line, unsanitized. */
+	line: string;
+}
+
 /** EventBus channel: one subagent run finished (a child `pi` process exited). */
 export const SUBAGENT_FINISHED_CHANNEL = "my-pi-agent/subagent-finished";
 

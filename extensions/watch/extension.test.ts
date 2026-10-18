@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { WATCH_MATCH_CHANNEL } from "../../lib/events.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createFakePi, emit, emitFirst, type AnyHandler } from "../../test/helpers/fakes.ts";
@@ -64,6 +65,54 @@ describe("watch extension", () => {
 		expect(sent).toHaveLength(1);
 		expect(sent[0].options.triggerTurn).toBe(true);
 		expect(sent[0].message.customType).toBe(NOTICE_TYPE);
+	});
+
+	test("announces the whole wake cycle, describing its newest match", async () => {
+		const { h, pi, ctx } = setup();
+		const seen: unknown[] = [];
+		pi.sendMessage = () => {};
+		pi.events.on(WATCH_MATCH_CHANNEL, (data: unknown) => seen.push(data));
+
+		await emit(pi, "session_start", {}, ctx);
+		h.runtime.add({ command: "build", pattern: "FAIL", label: "ci", wake: true }, ctx);
+
+		// A match during a run is collected, not woken for; the next one, once the
+		// agent is idle, wakes and carries both.
+		await emit(pi, "agent_start", {}, ctx);
+		h.children[0].write("FAIL: one\n");
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
+		h.children[0].write("FAIL: two\n");
+
+		expect(seen).toHaveLength(1);
+		expect(seen[0]).toMatchObject({ count: 2, label: "ci", line: "FAIL: two" });
+		expect((seen[0] as { watcherId: string }).watcherId).toMatch(/^w\d+$/);
+	});
+
+	test("does not announce a match it did not wake for", async () => {
+		const { h, pi, ctx } = setup();
+		const seen: unknown[] = [];
+		pi.events.on(WATCH_MATCH_CHANNEL, (data: unknown) => seen.push(data));
+
+		await emit(pi, "session_start", {}, ctx);
+		h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
+		h.children[0].write("FAIL\n");
+
+		expect(seen).toEqual([]);
+	});
+
+	test("a throwing listener still wakes the agent", async () => {
+		const { h, pi, ctx } = setup();
+		const sent: unknown[] = [];
+		pi.sendMessage = (...args: unknown[]) => sent.push(args);
+		pi.events.on(WATCH_MATCH_CHANNEL, () => {
+			throw new Error("listener exploded");
+		});
+
+		await emit(pi, "session_start", {}, ctx);
+		h.runtime.add({ command: "build", pattern: "FAIL", wake: true }, ctx);
+		h.children[0].write("FAIL\n");
+
+		expect(sent).toHaveLength(1);
 	});
 
 	test("does not wake for a non-wake watcher", async () => {

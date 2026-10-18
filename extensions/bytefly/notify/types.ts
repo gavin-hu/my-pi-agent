@@ -21,6 +21,8 @@ export interface NotifyConfig {
 	needsInput: boolean;
 	/** Notify when a background `job` finishes. */
 	jobFinished: boolean;
+	/** Notify when a `watch` wake match fires while the agent is idle. */
+	matchFound: boolean;
 	/** Delivery method; `auto` chooses by terminal and platform. */
 	method: NotifyMethod;
 	/** Notification title, e.g. `Pi`. */

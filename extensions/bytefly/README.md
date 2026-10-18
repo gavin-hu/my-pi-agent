@@ -276,7 +276,8 @@ See [The control center](#the-control-center).
 
 **Notify.** Off by default, one `notify` section in `bytefly.json` turns on OS
 notifications for unattended runs: when a full agent run settles, when a
-background job finishes, and when the agent opens a prompt asking for input. The
+background job finishes, when the agent opens a prompt asking for input, and when
+a `watch` wake match fires while the agent is idle. The
 method follows the terminal (OSC 777, OSC 99, a Windows toast) or falls back to
 the platform notifier (`osascript`, `notify-send`); see
 [Notifications](#notifications).
@@ -584,19 +585,20 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists fourteen preferences in six groups:
+switch, with its own cursor. It lists fifteen preferences in six groups:
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 14 settings
+  Extensions · Settings                           Global · 15 settings
 
   Startup (1)
 ❯ ◻ Bytefly startup TUI                                            Off
-  Notifications (6)
+  Notifications (7)
   ◻ Desktop notifications                                          Off
   ◼ Turn finished                                                   On
   ◼ Needs input                                                     On
   ◼ Job finished                                                    On
+  ◼ Watcher matched                                                 On
     Delivery method                                               Auto
     Notification title                                              Pi
   Diagnostics (2)
@@ -624,6 +626,7 @@ bytefly ────────────────────────
 | Notifications | Turn finished | `notify.turnFinished` | Off, On |
 | Notifications | Needs input | `notify.needsInput` | Off, On |
 | Notifications | Job finished | `notify.jobFinished` | Off, On |
+| Notifications | Watcher matched | `notify.matchFound` | Off, On |
 | Notifications | Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
 | Notifications | Notification title | `notify.title` | Text, up to 40 characters |
 | Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
@@ -654,7 +657,7 @@ with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
-scope therefore lists the eleven `bytefly.json` rows and a
+scope therefore lists the twelve `bytefly.json` rows and a
 `App settings are Global only.` note rather than promising a write that cannot
 happen. A `bytefly.json` row writes one leaf in the selected scope (a depth-1
 key, or a nested one such as `price.currency.decimals`) through a per-key
@@ -664,16 +667,17 @@ malformed document is refused with a notice instead of overwritten.
 The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
 
 ```
-bytefly: Settings · Global · 14 settings
+bytefly: Settings · Global · 15 settings
 
 Startup (1)
   Bytefly startup TUI: Off
 
-Notifications (6)
+Notifications (7)
   Desktop notifications: Off
   Turn finished: On
   Needs input: On
   Job finished: On
+  Watcher matched: On
   Delivery method: Auto
   Notification title: Pi
 ...
@@ -749,7 +753,7 @@ the same entry in `lib/requirements.ts`, so the two cannot drift.
 
 The notify capability exists for unattended runs: start a long turn, leave the
 terminal, and get a desktop notification when Pi needs you — or when it is done.
-It fires on three events, each independently switchable in the `notify` section
+It fires on four events, each independently switchable in the `notify` section
 of `bytefly.json` (see [Configuration](#configuration)):
 
 - **A run settled** (`agent_settled`). Pi finished the turn and waits for the
@@ -762,6 +766,12 @@ of `bytefly.json` (see [Configuration](#configuration)):
 - **A background job finished.** The [job](../job/) extension announces each
   terminal transition on the shared `pi.events` bus
   (`my-pi-agent/job-finished`); bytefly listens and never imports it.
+- **A watcher matched.** A [watch](../watch/) whose `wake` is on matched while the
+  agent was idle, and announced it on `my-pi-agent/watch-match` with the cycle's
+  count, the watcher, and its newest line. The body names that line, sanitized and
+  clipped to 80 characters, because the line is the alert: a watch usually tails a
+  build or an error log. A match the agent was busy for does not notify — it is
+  collected for the next turn instead.
 
 ### Delivery method
 

@@ -60,6 +60,7 @@ Read at `session_start`; `/bytefly settings` edits `enabled`, `method`, and
 | `turnFinished` | boolean | `true` | | Announce a run that settled. |
 | `needsInput` | boolean | `true` | | Announce a prompt raised during a run. |
 | `jobFinished` | boolean | `true` | | Announce a finished background job. |
+| `matchFound` | boolean | `true` | | Announce a `watch` wake match: a watcher with `wake` on matched while the agent was idle. |
 | `method` | string | `"auto"` | `auto`, `osc777`, `osc99`, `toast`, `osascript`, `notify-send` | Delivery route; `auto` picks from the terminal, then the platform. |
 | `title` | string | `"Pi"` | Up to 40 characters | Notification title. |
 

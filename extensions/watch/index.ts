@@ -12,6 +12,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { WATCH_MATCH_CHANNEL, type WatchMatchEvent } from "../../lib/events.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { noticeMessage, type NoticeMessage, pruneStaleNotices } from "../../lib/notice.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
@@ -80,6 +81,24 @@ export default function watch(pi: ExtensionAPI, deps: WatchDeps = {}): void {
 			waking = true;
 		} catch {
 			// Waking is best-effort; the next turn still reports the matches.
+			return;
+		}
+		// A wake means the user is away from the terminal, so the alert also leaves
+		// the process. bytefly's notify capability owns delivery; this publishes the
+		// fact and never learns how it is sent. The newest match is the one an alert
+		// is about, while the count covers the whole cycle.
+		const newest = pending[pending.length - 1];
+		if (!newest) return;
+		try {
+			const event: WatchMatchEvent = {
+				count: pending.length,
+				watcherId: newest.watcherId,
+				label: newest.label,
+				line: newest.line,
+			};
+			pi.events.emit(WATCH_MATCH_CHANNEL, event);
+		} catch {
+			// A throwing listener must not cost the wake that already happened.
 		}
 	};
 
