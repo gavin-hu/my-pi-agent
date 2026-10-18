@@ -5,13 +5,14 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	readdirSync,
 	realpathSync,
 	symlinkSync,
 	utimesSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp } from "./plans.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -207,6 +208,31 @@ describe("createPlanStore — latest", () => {
 		lutimesSync(link, 2_000_000_000, 2_000_000_000);
 
 		expect((await store.latest(root))?.path).toBe(file.path);
+	});
+});
+
+describe("createPlanStore — atomic writes", () => {
+	test("rewrites a plan in place without leaving a temp file", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Refine", content: "v1" });
+
+		await store.write(root, { title: "Refine", content: "v2", planPath: file.path });
+
+		const dir = await store.dirFor(root);
+		expect(readFileSync(file.path, "utf-8")).toBe("v2");
+		expect(readdirSync(dir).sort()).toEqual([".gitignore", basename(file.path)]);
+	});
+
+	test("a step edit leaves no temp file either", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Steps", content: "- One" });
+
+		await store.setSteps(root, file.path, [{ step: 1, status: "completed" }]);
+
+		const dir = await store.dirFor(root);
+		expect(readdirSync(dir).sort()).toEqual([".gitignore", basename(file.path)]);
 	});
 });
 

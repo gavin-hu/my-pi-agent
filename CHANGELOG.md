@@ -205,6 +205,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: plan files are written atomically — a hidden sibling temp file, then a
+  rename — for a new plan, a refinement, a `set_plan_steps` edit, and a browser
+  feedback save. An interrupted or failed write now leaves the previous file
+  intact instead of a truncated plan, and the temp name never reads as a plan.
+- `plan`: the read-only git guard also refuses `git cat-file --filters` (which
+  runs a configured smudge filter) and the attached `git grep -O…` forms (which
+  open a pager or run a command), closing two ways around the read-only shell.
 - `wechat`: a second `/wechat login` now switches the bridge to the account that
   was just scanned. The credentials file keeps every stored account but records
   the last confirmed one as active, so logging in as B no longer leaves the

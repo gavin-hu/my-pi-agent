@@ -214,7 +214,10 @@ command. The read-only guarantee is layered:
   matched by source path, so a same-named tool from another extension cannot
   borrow the exemption.
 - **Contained writes.** `write_plan` only writes markdown non-dotfiles whose
-  real parent resolves inside the plans directory.
+  real parent resolves inside the plans directory, and every plan write —
+  create, refine, `set_plan_steps`, browser feedback — goes through a hidden
+  temp file followed by a rename, so an interrupted write cannot leave a
+  truncated plan.
 - **Sanitized model text.** The plan file is model-authored, so `exit_plan_mode`
   strips control characters from the plan body before rendering it in the
   transcript and in non-TUI notices; a plan file cannot drive the terminal.
@@ -490,7 +493,7 @@ file and returns them to the model.
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, `write`/`read`/`latest`/`setSteps`/`saveFeedback`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the section diff, and the checkbox edit. |
 | `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status. |
@@ -505,6 +508,7 @@ file and returns them to the model.
 | `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/approve/back). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
+| [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, and shared markup. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
