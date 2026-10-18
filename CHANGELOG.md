@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-10-18
+
 ### Added
 
 - `wechat`: `/wechat pause` stops polling while keeping the account and peer
@@ -1700,7 +1702,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.3...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.4...HEAD
+[0.11.4]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.4
 [0.11.3]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.3
 [0.11.2]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.2
 [0.11.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.1
