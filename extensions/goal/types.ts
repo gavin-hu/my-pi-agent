@@ -15,8 +15,12 @@ export const GOAL_ACTIONS = ["set", "achieve", "clear"] as const;
 
 export type GoalAction = (typeof GOAL_ACTIONS)[number];
 
-/** Custom-entry type used to persist a goal set outside the tool (the `/goal` command). */
-export const GOAL_ENTRY_TYPE = "goal";
+/**
+ * Custom-entry type used to persist a goal set outside the tool (the `/goal`
+ * command). Owned by `lib/goal-state.ts` because another extension's reader
+ * dispatches on it; re-exported here so goal's own modules keep one import.
+ */
+export { GOAL_ENTRY_TYPE } from "../../lib/goal-state.ts";
 
 /** How an achieved goal renders in the persistent widget. */
 export type AchievedStyle = "show" | "hide";

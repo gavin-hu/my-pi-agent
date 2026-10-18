@@ -8,6 +8,7 @@ import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx, makeFakePi, planModeMessage, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { otherMessage } from "../../test/helpers/entries.ts";
+import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 
 /** A pi instance that has been started with plan mode restored as enabled. */
 async function enabledPi() {
@@ -228,6 +229,32 @@ describe("plan-mode context", () => {
 		expect(result.message.content).toContain(PLAN_MODE_MARKER);
 		expect(result.message.content).toContain("write_plan");
 		expect(result.message.display).toBe(false);
+	});
+
+	test("restates an active session goal while planning", async () => {
+		const fakePi = makeFakePi({ active: ["read", "bash", ENTER_TOOL] });
+		planMode(fakePi.pi);
+		const { ctx } = fakeCtx({
+			branch: [stateEntry(true), resultEntry({ objective: "Add rate limiting", status: "active" })],
+		});
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
+
+		const [result] = await emit(fakePi.pi, "before_agent_start", {}, ctx);
+
+		expect(result.message.content).toContain("- Current session goal: Add rate limiting");
+	});
+
+	test("does not restate an achieved goal", async () => {
+		const fakePi = makeFakePi({ active: ["read", "bash", ENTER_TOOL] });
+		planMode(fakePi.pi);
+		const { ctx } = fakeCtx({
+			branch: [stateEntry(true), resultEntry({ objective: "done already", status: "achieved" })],
+		});
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
+
+		const [result] = await emit(fakePi.pi, "before_agent_start", {}, ctx);
+
+		expect(result.message.content).not.toContain("Current session goal");
 	});
 
 	test("does not inject when disabled", async () => {
