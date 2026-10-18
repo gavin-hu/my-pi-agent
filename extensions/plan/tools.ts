@@ -19,7 +19,8 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
-import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { lastGoal } from "../../lib/goal-state.ts";
+import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { lastTodos } from "../../lib/todo-state.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
@@ -37,6 +38,8 @@ import {
 	type PlanStep,
 	type StepUpdate,
 } from "./steps.ts";
+import { basename } from "node:path";
+import { planTitle, type StoredPlan } from "./plans.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, type TodoMerge } from "./todos.ts";
 import { reviewPlan } from "./review.ts";
 import { sanitizePlanText } from "./plan-text.ts";
@@ -183,6 +186,41 @@ async function seedTodos(
 	const part = outcome.result?.content?.find((entry) => entry.type === "text");
 	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
 	return { steps, merged, error: firstLine ? sanitizeLine(firstLine) : undefined };
+}
+
+/** What the goal offer did: `recorded` undefined when there was nothing to offer. */
+interface GoalOffer {
+	objective: string;
+	recorded?: boolean;
+	error?: string;
+}
+
+/**
+ * Offer to record the approved plan as the session goal — only when the session
+ * has no goal at all (an active or achieved one is the user's, never replaced) and
+ * the session can ask. The objective is the plan's own `# title`, or the file-name
+ * slug; recording runs through the goal tool, so validation and the widget stay
+ * goal's, and no model turn is spent.
+ */
+async function offerSessionGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOffer> {
+	const objective = planObjective(plan);
+	if (!ctx.hasUI) return { objective };
+	// The branch already carries a goal: leave it alone, and say nothing.
+	if (lastGoal(ctx.sessionManager.getBranch()) !== null) return { objective };
+	const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);
+	if (!approved) return { objective };
+	const outcome = await ctx.executeTool(GOAL_TOOL, { objective });
+	if (!outcome.isError) return { objective, recorded: true };
+	const part = outcome.result?.content?.find((entry) => entry.type === "text");
+	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
+	return { objective, recorded: false, error: firstLine ? sanitizeLine(firstLine) : undefined };
+}
+
+/** The plan's own title: its first `# heading`, else the file-name slug. */
+function planObjective(plan: StoredPlan): string {
+	const heading = /^ {0,3}#\s+(.+)$/m.exec(plan.content)?.[1];
+	const title = heading === undefined ? "" : sanitizeLine(heading).trim();
+	return title || planTitle(basename(plan.path));
 }
 
 /** What the merge did, for the approval message; `steps` is the plan's step count. */
@@ -501,6 +539,7 @@ export function registerTools(
 
 			runtime.disable(ctx);
 			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
+			const goal = await offerSessionGoal(ctx, decision.plan);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps
@@ -515,6 +554,12 @@ export function registerTools(
 						: merged
 							? mergeSummary(merged, steps)
 							: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${SET_PLAN_STEPS_TOOL}.`;
+			const goalNote =
+				goal.recorded === undefined
+					? ""
+					: goal.recorded
+						? ` Recorded the session goal: ${goal.objective}.`
+						: ` Could not record the session goal: ${goal.error ?? "unknown error"}. Use the goal tool to set it.`;
 			const browserNote = decision.comments.length
 				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(decision.comments)}`
 				: "";
@@ -522,7 +567,7 @@ export function registerTools(
 				content: [
 					{
 						type: "text",
-						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${listing}`,
+						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${goalNote}${listing}`,
 					},
 				],
 				details: {

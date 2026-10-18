@@ -93,6 +93,10 @@ the branch, so the note appears whether the todos were written by the model, by
 
 `goal` is allowlisted in `plan-mode` (alongside `todo`), so the model can record
 or update the objective during read-only exploration without leaving plan mode.
+Plan mode also reads the goal: it restates an active one in its injected context,
+and when a plan is approved with no goal at all it offers to record the plan's
+title as the goal (`lib/goal-state.ts` is the reader). An existing goal — active
+or achieved — is never replaced by that offer.
 
 ### `/goal` command
 
@@ -232,7 +236,9 @@ depends on config.
   todo list still holds open items appends one line to the model-facing result
   naming the count. The list is replayed from the branch by
   `lib/todo-state.ts` (shared with plan's approval-time merge, which reads the
-  same channel), never by importing the `todo` extension. Only the text is
+  same channel), never by importing the `todo` extension. The same reasoning
+  applies to the goal itself: `lib/goal-state.ts` owns the entry type and the
+  objective limit, and plan reads the published goal through it. Only the text is
   affected: `details` and `structuredContent` stay the goal alone, and the
   transcript result is still the status header.
 - **One verb table.** `GOAL_VERBS` is the only list of reserved words: the

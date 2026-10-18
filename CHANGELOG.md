@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: the objective now crosses the plan boundary in both directions. While
+  planning, the injected context restates an active session goal as one bullet
+  (sanitized and clipped, so the context stays inside its prompt budget); on
+  approval, when the session has no goal at all, one confirm offers to record the
+  plan's title as the goal — never replacing an existing one, and with no extra
+  model call. `lib/goal-state.ts` is the shared reader (and now owns the goal
+  entry type and objective limit), so `plan` never imports `goal`.
+
 - `memory`: `p` in the `/memory` picker moves the focused note to the other
   scope, so a fact learned in one repository can graduate to global memory
   without a manual copy. The move writes the destination first and removes the

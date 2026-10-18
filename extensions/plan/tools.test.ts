@@ -10,6 +10,7 @@ import { registerTools } from "./tools.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { MAX_STEPS } from "./steps.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
@@ -653,6 +654,66 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("browser");
 		expect(runtime.isEnabled()).toBe(true);
 		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
+	});
+
+	describe("the session-goal offer", () => {
+		/** Approve `content` through the dialog path with the given fake ctx options. */
+		async function approve(
+			content: string,
+			options: { confirm?: boolean; branch?: unknown[]; executeError?: string } = {},
+		) {
+			const { enter, exit, write, runtime, root } = setup();
+			await enterPlan(enter, runtime, root);
+			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
+			const fake = fakeCtx({
+				select: "Approve and execute",
+				confirm: options.confirm ?? true,
+				branch: options.branch,
+				executeError: options.executeError,
+				cwd: root,
+			});
+			const result = await call(exit, { plan_path: planPath }, fake.ctx);
+			return { ...fake, result };
+		}
+
+		test("offers the plan's title and records it as the goal when accepted", async () => {
+			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One");
+
+			expect(confirms.map((call) => call.message)).toEqual(["Add rate limiting"]);
+			expect(
+				toolCalls.some(
+					(call) => call.name === "goal" && (call.args as { objective: string }).objective === "Add rate limiting",
+				),
+			).toBe(true);
+			expect(result.content[0].text).toContain("Recorded the session goal: Add rate limiting.");
+		});
+
+		test("records nothing when the offer is declined", async () => {
+			const { toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", { confirm: false });
+
+			expect(toolCalls.some((call) => call.name === "goal")).toBe(false);
+			expect(result.content[0].text).not.toContain("Recorded the session goal");
+		});
+
+		test("leaves an existing goal alone without asking", async () => {
+			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
+				branch: [resultEntry({ objective: "the user's own goal", status: "active" })],
+			});
+
+			expect(confirms).toEqual([]);
+			expect(toolCalls.some((call) => call.name === "goal")).toBe(false);
+			expect(result.content[0].text).not.toContain("session goal");
+		});
+
+		test("reports a goal the goal tool refused", async () => {
+			const { result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
+				executeError: "objective is longer than 2000 characters.",
+			});
+
+			expect(result.content[0].text).toContain(
+				"Could not record the session goal: objective is longer than 2000 characters.",
+			);
+		});
 	});
 
 	test("a second review compares against what the first one showed", async () => {

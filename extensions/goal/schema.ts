@@ -9,10 +9,14 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
+import { MAX_GOAL_OBJECTIVE } from "../../lib/goal-state.ts";
 import { GOAL_ACTIONS, GOAL_STATUSES, type Goal, type GoalStatus } from "./types.ts";
 
-/** Maximum length of the objective. */
-export const MAX_OBJECTIVE = 2000;
+/**
+ * Maximum length of the objective. Owned by `lib/goal-state.ts`, so a reader of
+ * the published state applies the same limit as this validator.
+ */
+export const MAX_OBJECTIVE = MAX_GOAL_OBJECTIVE;
 
 const GoalStatusEnum = StringEnum(GOAL_STATUSES, {
 	description: 'Whether the goal is still being pursued. Defaults to "active".',

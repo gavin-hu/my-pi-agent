@@ -32,7 +32,8 @@ export interface FakeCtxOptions {
 	theme?: { fg(color: string, text: string): string; bold?(text: string): string };
 	isIdle?: () => boolean;
 	navigateTree?: (targetId: string) => unknown;
-	executeError?: boolean;
+	/** Make every nested `executeTool` call fail; a string also becomes its message. */
+	executeError?: boolean | string;
 	/** Extra fields merged onto the context (and context UI) after construction. */
 	extra?: Record<string, unknown>;
 }
@@ -154,10 +155,15 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		},
 		executeTool: async (name: string, args: unknown) => {
 			toolCalls.push({ name, args });
+			// A string names the reason the nested tool reports, so a caller that
+			// surfaces the nested message can be tested against the real shape.
+			const message = typeof executeError === "string" ? executeError : undefined;
 			return {
-				isError: executeError,
+				isError: executeError !== false,
 				toolCall: { name, arguments: args },
-				result: { content: [], details: undefined },
+				result: message
+					? { content: [{ type: "text", text: message }], details: undefined }
+					: { content: [], details: undefined },
 			};
 		},
 		// Recorded arrays are exposed on `ctx` for tests that read them directly.
@@ -203,7 +209,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		setCustom: (value) => {
 			customResult = value;
 		},
-		setExecuteError: (value) => {
+		setExecuteError: (value: boolean | string) => {
 			executeError = value;
 		},
 	};
