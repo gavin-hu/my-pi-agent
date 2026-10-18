@@ -101,6 +101,28 @@ describe.skipIf(!runSlowSuites)("exitWorktree", () => {
 		expect(result.details.handoff).toMatchObject({ branch: "worktree-hand", base: "main", ahead: 1, merged: false });
 	});
 
+	test("counts against the base branch, not the commit recorded at entry", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
+		const harness = await bootWorktree(repo);
+		await harness.run(WORKTREE_TOOLS.enter, { name: "rebased" });
+		const dir = worktreePath(repo, "rebased");
+
+		// The base branch moves on after the worktree was cut, which is what a rebase
+		// or a peer merge does; only the worktree's own commit is its lead.
+		writeFileSync(join(repo, "elsewhere.txt"), "x");
+		await execP("git", ["add", "."], { cwd: repo });
+		await execP("git", ["commit", "-qm", "base moved"], { cwd: repo });
+
+		writeFileSync(join(dir, "mine.txt"), "x");
+		await execP("git", ["add", "."], { cwd: dir });
+		await execP("git", ["commit", "-qm", "mine"], { cwd: dir });
+
+		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+
+		expect(result.content[0].text).toContain("Handoff: worktree-rebased is 1 commit ahead of main.");
+		expect(result.details.handoff).toMatchObject({ base: "main", ahead: 1, merged: false });
+	});
+
 	test("says there is nothing to merge once the branch was deleted", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
 		const harness = await bootWorktree(repo);
