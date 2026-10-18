@@ -235,7 +235,7 @@ describe("writeConfigValue", () => {
 		const dir = temps.track(tempDir("pi-config-value-"));
 		const path = join(dir, SHARED_CONFIG_FILE);
 		writeConfigFile(path, {
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			notify: { enabled: false, title: "Pi" },
 			memory: { inject: true },
@@ -244,7 +244,7 @@ describe("writeConfigValue", () => {
 		writeConfigValue(path, "notify", "enabled", true);
 
 		expect(readJson(path)).toEqual({
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			notify: { enabled: true, title: "Pi" },
 			memory: { inject: true },
@@ -276,7 +276,7 @@ describe("writeConfigValueAt", () => {
 		const dir = temps.track(tempDir("pi-config-path-"));
 		const path = join(dir, SHARED_CONFIG_FILE);
 		writeConfigFile(path, {
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			price: { currency: { symbol: "¥", decimals: 2 }, fallbackToRecordedCost: true },
 			notify: { enabled: true },
@@ -285,7 +285,7 @@ describe("writeConfigValueAt", () => {
 		writeConfigValueAt(path, "price", ["currency", "decimals"], 3);
 
 		expect(readJson(path)).toEqual({
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			price: { currency: { symbol: "¥", decimals: 3 }, fallbackToRecordedCost: true },
 			notify: { enabled: true },

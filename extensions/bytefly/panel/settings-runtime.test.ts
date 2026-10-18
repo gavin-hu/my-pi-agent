@@ -106,7 +106,7 @@ describe("bytefly writes", () => {
 	test("writes one key to the global document and preserves siblings and metadata", async () => {
 		const { runtime, globalPath } = boot({
 			globalDoc: {
-				$schema: "https://example.test/bytefly.schema.json",
+				$schema: "https://example.test/meta.json",
 				version: 1,
 				notify: { title: "Pi" },
 				memory: { inject: true },
@@ -116,7 +116,7 @@ describe("bytefly writes", () => {
 		await runtime.change("global", "notify.enabled");
 
 		expect(readJson(globalPath)).toEqual({
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			notify: { title: "Pi", enabled: true },
 			memory: { inject: true },
@@ -148,7 +148,7 @@ describe("bytefly writes", () => {
 	test("writes a nested leaf and keeps the section's siblings and metadata", async () => {
 		const { runtime, globalPath } = boot({
 			globalDoc: {
-				$schema: "https://example.test/bytefly.schema.json",
+				$schema: "https://example.test/meta.json",
 				version: 1,
 				price: { currency: { symbol: "$", decimals: 2 }, fallbackToRecordedCost: true },
 				notify: { enabled: true },
@@ -158,7 +158,7 @@ describe("bytefly writes", () => {
 		await runtime.change("global", "price.currency.decimals");
 
 		expect(readJson(globalPath)).toEqual({
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			price: { currency: { symbol: "$", decimals: 3 }, fallbackToRecordedCost: true },
 			notify: { enabled: true },
