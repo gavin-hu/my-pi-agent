@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { isRemoteTurn } from "../../lib/interaction.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir } from "../../test/helpers/env.ts";
@@ -10,8 +11,9 @@ import {
 	updates,
 	writeAccount,
 } from "../../test/helpers/fixtures/wechat.ts";
-import { waitFor } from "../../test/helpers/process.ts";
+import { settle, waitFor } from "../../test/helpers/process.ts";
 import wechat, { wechatChip } from "./index.ts";
+import type { PeerSession } from "./peer-session.ts";
 
 describe("wechat extension", () => {
 	test("registers the /wechat command", () => {
@@ -122,6 +124,58 @@ describe("wechat lifecycle", () => {
 			expect(client.sent[0]).toMatchObject({ to: "owner@im.wechat", text: "hi from pi" });
 			expect(fake.sentMessages).toEqual([]);
 
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
+	test("keeps the terminal's dialogs local while a peer turn runs", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const fake = createFakePi();
+			const client = fakeWechatClient([updates([inboundText("hello")])]);
+			let release!: () => void;
+			const held = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const session = {
+				async prompt(): Promise<void> {
+					await held;
+				},
+				getLastAssistantText: () => "",
+				subscribe: () => () => {},
+				async abort(): Promise<void> {
+					release();
+				},
+				dispose(): void {},
+			};
+			wechat(fake.pi, {
+				createClient: client.createClient,
+				sleep: client.sleep,
+				openSession: async () => ({ session, dispose: () => {} }) as unknown as PeerSession,
+			});
+			const { ctx, notifications, selects } = fakeCtx({ mode: "tui", cwd: dir, hasUI: true, select: "local" });
+			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+			await waitFor(() => client.polls() >= 1);
+
+			// The peer turn is in flight: the control screen's summary says so.
+			const command = fake.commands.get("wechat").handler;
+			let summary = "";
+			for (let attempt = 0; attempt < 50 && !summary.includes("running"); attempt++) {
+				await command("status", ctx);
+				summary = notifications.at(-1) ?? "";
+				if (!summary.includes("running")) await settle();
+			}
+			expect(summary, "the peer turn should be running").toContain("running");
+
+			// The host UI is not adapted to the peer's channel: a terminal dialog
+			// stays in the terminal instead of being answered on the phone.
+			expect(isRemoteTurn({ ui: ctx.ui })).toBe(false);
+			expect(await ctx.ui.select("Pick", ["A", "B"])).toBe("local");
+			expect(selects).toHaveLength(1);
+
+			release();
+			// The held turn produced no text, so the bridge sends its noText fallback.
+			await waitFor(() => client.sent.length === 1);
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});
 	});

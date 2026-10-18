@@ -1,149 +1,53 @@
 import { describe, expect, test } from "bun:test";
-import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import {
+	askHuman,
 	type InteractionAnswer,
 	type InteractionChannel,
 	type InteractionRequest,
 	isRemoteTurn,
+	remoteChannel,
 } from "../../lib/interaction.ts";
-import { createPeerUIContext, installRemoteUI } from "./remote-ui.ts";
-
-function fakeUI() {
-	const calls = { select: 0, confirm: 0, input: 0, editor: 0, custom: 0 };
-	const original = {
-		select: async () => {
-			calls.select += 1;
-			return "local-select";
-		},
-		confirm: async () => {
-			calls.confirm += 1;
-			return true;
-		},
-		input: async () => {
-			calls.input += 1;
-			return "local-input";
-		},
-		editor: async () => {
-			calls.editor += 1;
-			return "local-editor";
-		},
-		custom: async () => {
-			calls.custom += 1;
-			return "local-custom";
-		},
-	};
-	const ui = { ...original } as unknown as ExtensionUIContext;
-	return { ui, calls, original };
-}
+import { createPeerUIContext } from "./remote-ui.ts";
 
 function fakeChannel(answer: InteractionAnswer = { kind: "value", value: "remote" }) {
 	const requests: InteractionRequest[] = [];
-	let active = true;
+	const posted: string[] = [];
+	const files: Array<{ path: string; name: string }> = [];
+	/** Every delivery in call order, so the preface-before-dialogs contract is pinned. */
+	const events: string[] = [];
 	let next = answer;
+	let fileResult = true;
 	const channel: InteractionChannel = {
-		isActive: () => active,
+		isActive: () => true,
 		request: async (request) => {
 			requests.push(request);
+			events.push(`request:${request.kind}`);
 			return next;
 		},
-		post: async () => {},
-		postFile: async () => true,
+		post: async (text) => {
+			posted.push(text);
+			events.push(`post:${text}`);
+		},
+		postFile: async (path, name) => {
+			files.push({ path, name });
+			events.push(`file:${name}`);
+			return fileResult;
+		},
 	};
 	return {
 		channel,
 		requests,
-		setActive: (value: boolean) => {
-			active = value;
-		},
+		posted,
+		files,
+		events,
 		setAnswer: (value: InteractionAnswer) => {
 			next = value;
 		},
+		setFileResult: (value: boolean) => {
+			fileResult = value;
+		},
 	};
 }
-
-describe("remote routing", () => {
-	test("routes select to the channel while active", async () => {
-		const { ui, calls } = fakeUI();
-		const { channel, requests } = fakeChannel();
-		installRemoteUI(ui, channel);
-		expect(await ui.select("Pick", ["A", "B"])).toBe("remote");
-		expect(requests).toEqual([{ kind: "select", title: "Pick", options: ["A", "B"] }]);
-		expect(calls.select).toBe(0);
-	});
-
-	test("maps confirm answers to booleans", async () => {
-		const { ui } = fakeUI();
-		const { channel, setAnswer } = fakeChannel();
-		installRemoteUI(ui, channel);
-		setAnswer({ kind: "confirmed", confirmed: true });
-		expect(await ui.confirm("Sure?", "body")).toBe(true);
-		setAnswer({ kind: "confirmed", confirmed: false });
-		expect(await ui.confirm("Sure?", "body")).toBe(false);
-		setAnswer({ kind: "cancelled" });
-		expect(await ui.confirm("Sure?", "body")).toBe(false);
-	});
-
-	test("maps input, editor, and a cancelled answer", async () => {
-		const { ui } = fakeUI();
-		const { channel, setAnswer } = fakeChannel();
-		installRemoteUI(ui, channel);
-		setAnswer({ kind: "value", value: "typed" });
-		expect(await ui.input("Name", "hint")).toBe("typed");
-		expect(await ui.editor("Edit", "prefill")).toBe("typed");
-		setAnswer({ kind: "cancelled" });
-		expect(await ui.select("Pick", ["A"])).toBeUndefined();
-	});
-
-	test("returns undefined for custom while active", async () => {
-		const { ui, calls } = fakeUI();
-		const { channel } = fakeChannel();
-		installRemoteUI(ui, channel);
-		const custom = ui.custom as (factory: unknown) => Promise<unknown>;
-		expect(await custom(async () => ({}))).toBeUndefined();
-		expect(calls.custom).toBe(0);
-	});
-});
-
-describe("local fallback", () => {
-	test("delegates every dialog to the originals while inactive", async () => {
-		const { ui, calls } = fakeUI();
-		const { channel } = fakeChannel();
-		channel.isActive = () => false;
-		installRemoteUI(ui, channel);
-		expect(await ui.select("Pick", ["A"])).toBe("local-select");
-		expect(await ui.confirm("Sure?", "body")).toBe(true);
-		expect(await ui.input("Name")).toBe("local-input");
-		expect(await ui.editor("Edit")).toBe("local-editor");
-		const custom = ui.custom as (factory: unknown) => Promise<unknown>;
-		expect(await custom(async () => ({}))).toBe("local-custom");
-		expect(calls).toEqual({ select: 1, confirm: 1, input: 1, editor: 1, custom: 1 });
-	});
-});
-
-describe("marker", () => {
-	test("reports remote ownership through isRemoteTurn", () => {
-		const { ui } = fakeUI();
-		const { channel, setActive } = fakeChannel();
-		installRemoteUI(ui, channel);
-		expect(isRemoteTurn({ ui })).toBe(true);
-		setActive(false);
-		expect(isRemoteTurn({ ui })).toBe(false);
-	});
-});
-
-describe("install and uninstall", () => {
-	test("re-installing reuses the original methods", async () => {
-		const { ui, calls, original } = fakeUI();
-		const { channel } = fakeChannel();
-		const uninstall = installRemoteUI(ui, channel);
-		installRemoteUI(ui, channel);
-		uninstall();
-		expect(ui.select).toBe(original.select as never);
-		expect(isRemoteTurn({ ui })).toBe(false);
-		expect(await ui.select("Pick", ["A"])).toBe("local-select");
-		expect(calls.select).toBe(1);
-	});
-});
 
 /**
  * A peer session has no terminal, so its extensions get a UI bound to that
@@ -160,17 +64,18 @@ describe("peer UI context", () => {
 	});
 
 	test("maps a confirm answer to a boolean", async () => {
-		const { channel } = fakeChannel();
+		const { channel, setAnswer } = fakeChannel();
 		const ui = createPeerUIContext(channel);
+		setAnswer({ kind: "confirmed", confirmed: true });
+		expect(await ui.confirm("Sure?", "body")).toBe(true);
+		setAnswer({ kind: "confirmed", confirmed: false });
+		expect(await ui.confirm("Sure?", "body")).toBe(false);
+		setAnswer({ kind: "cancelled" });
 		expect(await ui.confirm("Sure?", "body")).toBe(false);
 	});
 
 	test("posts a notification to the peer and reports it locally", () => {
-		const { channel } = fakeChannel();
-		const posted: string[] = [];
-		channel.post = async (text) => {
-			posted.push(text);
-		};
+		const { channel, posted } = fakeChannel();
 		const notices: string[] = [];
 		const ui = createPeerUIContext(channel, (message) => notices.push(message));
 		ui.notify("heads up", "warning");
@@ -197,5 +102,84 @@ describe("peer UI context", () => {
 		expect(ui.getTheme("x")).toBeUndefined();
 		// A theme object exists so a renderer that never runs cannot crash on load.
 		expect(ui.theme).toBeDefined();
+	});
+});
+
+/**
+ * The peer context carries the channel marker `askHuman` reads. The terminal's
+ * own UI is never marked, so a local turn keeps its full-screen dialogs even
+ * while a peer turn runs.
+ */
+describe("peer turn marker", () => {
+	test("reports the channel through remoteChannel and isRemoteTurn", () => {
+		const { channel } = fakeChannel();
+		const ui = createPeerUIContext(channel);
+		expect(remoteChannel({ ui })).toBe(channel);
+		expect(isRemoteTurn({ ui })).toBe(true);
+	});
+
+	test("askHuman sends the file preface to the peer before the dialogs", async () => {
+		const { channel, events } = fakeChannel();
+		const ui = createPeerUIContext(channel);
+		const answer = await askHuman(
+			{ ui, mode: "rpc" },
+			{
+				custom: async () => "custom",
+				dialogs: async () => ui.select("Plan mode — what next?", ["Approve and execute"]),
+				file: { path: "/tmp/plan.md", name: "plan.md" },
+				body: "the plan",
+			},
+		);
+		// One ordered log: the file goes out first, then the dialog.
+		expect(events).toEqual(["file:plan.md", "request:select"]);
+		expect(answer).toBe("remote");
+	});
+
+	test("falls back to the body when the file could not be sent", async () => {
+		const { channel, events, setFileResult } = fakeChannel();
+		setFileResult(false);
+		const ui = createPeerUIContext(channel);
+		await askHuman(
+			{ ui, mode: "rpc" },
+			{
+				custom: async () => "custom",
+				dialogs: async () => ui.select("Plan mode — what next?", ["Keep planning"]),
+				file: { path: "/tmp/plan.md", name: "plan.md" },
+				body: "the plan",
+			},
+		);
+		expect(events).toEqual(["file:plan.md", "post:the plan", "request:select"]);
+	});
+});
+
+/**
+ * The `remotePrompts` setting turns forwarding off: a dialog is answered as
+ * cancelled instead of being sent to the phone, and the marker is absent so
+ * `askHuman` does not try to deliver a preface either.
+ */
+describe("peer UI context with prompts disabled", () => {
+	test("answers every dialog as cancelled without asking the peer", async () => {
+		const { channel, requests } = fakeChannel();
+		const ui = createPeerUIContext(channel, undefined, { prompts: false });
+		expect(await ui.select("Pick", ["A"])).toBeUndefined();
+		expect(await ui.input("Name")).toBeUndefined();
+		expect(await ui.editor("Edit")).toBeUndefined();
+		expect(await ui.confirm("Sure?", "body")).toBe(false);
+		expect(requests).toEqual([]);
+	});
+
+	test("does not mark the context as remote", () => {
+		const { channel } = fakeChannel();
+		const ui = createPeerUIContext(channel, undefined, { prompts: false });
+		expect(remoteChannel({ ui })).toBeUndefined();
+		expect(isRemoteTurn({ ui })).toBe(false);
+	});
+
+	test("still posts notifications to the peer", async () => {
+		const { channel, posted } = fakeChannel();
+		const ui = createPeerUIContext(channel, undefined, { prompts: false });
+		ui.notify("heads up");
+		await Promise.resolve();
+		expect(posted).toEqual(["heads up"]);
 	});
 });

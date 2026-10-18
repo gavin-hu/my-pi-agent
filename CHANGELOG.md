@@ -44,6 +44,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: a terminal turn keeps its own dialogs while a WeChat peer turn runs.
+  The bridge no longer adapts the terminal's shared `ctx.ui`, which used to route
+  a local prompt (and its answer) to whichever peer happened to be running; the
+  peer session's own UI context carries the channel instead, which also restores
+  the plan-file preface before a peer review. `/wechat` still declines
+  `login`/`new`/`logout` and prints the summary for `status` while a peer turn
+  runs, now read from the bridge's own state, and `remotePrompts: false` now
+  actually stops forwarding: a dialog is answered as cancelled.
 - `wechat`: the README gains a “What the peer experiences” section — what the
   sender sees for a queued message, a burst, an unreadable attachment, an
   unanswered prompt, a split answer, and an expired bridge — alongside the

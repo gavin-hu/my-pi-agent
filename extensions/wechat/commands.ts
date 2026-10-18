@@ -8,11 +8,11 @@
  * step, and the bridge otherwise auto-starts on `session_start` while an account
  * exists. `new` starts a fresh session (an inbound `/new` dispatches it), and
  * `logout` discards the account and stops the bridge. Every dialog-backed verb
- * declines while a WeChat turn owns the dialogs.
+ * declines while a WeChat peer turn is running.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { isRemoteTurn, supportsCustomUI } from "../../lib/interaction.ts";
+import { supportsCustomUI } from "../../lib/interaction.ts";
 import type { Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
@@ -77,14 +77,20 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * Whether a WeChat turn currently owns the dialogs, reported instead of opening
- * a screen. While it runs, `ctx.ui.custom` resolves `undefined` (the remote
- * adapter refuses full-screen components) and `ctx.ui.select`/`confirm` are
- * forwarded to WeChat, so a terminal-side command must decline rather than
- * open its dialog on the phone or read back nothing.
+ * Whether a peer turn is running anywhere on the bridge.
+ *
+ * Peer turns run in their own sessions, so this is a bridge fact — not the
+ * terminal turn's UI mode. It is what a terminal-side `/wechat` verb checks:
+ * `new` would replace the host session and shut the bridge down under the peer's
+ * answer, and `login`/`logout` would drop the connection mid-turn.
  */
-function busyWithRemoteTurn(ctx: ExtensionContext, verb: string): boolean {
-	if (!isRemoteTurn(ctx)) return false;
+function peerTurnRunning(deps: CommandDeps): boolean {
+	return deps.getBridge()?.status().running === true;
+}
+
+/** Whether a peer turn currently blocks this verb, reported instead of running it. */
+function busyWithPeerTurn(ctx: ExtensionContext, deps: CommandDeps, verb: string): boolean {
+	if (!peerTurnRunning(deps)) return false;
 	ctx.ui.notify(
 		`A WeChat turn is in progress, so /wechat ${verb} is unavailable here. Finish the turn, then retry.`,
 		"warning",
@@ -133,7 +139,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		ctx.ui.notify("WeChat login needs the interactive terminal UI.", "warning");
 		return;
 	}
-	if (busyWithRemoteTurn(ctx, "login")) return;
+	if (busyWithPeerTurn(ctx, deps, "login")) return;
 	const client = deps.createLoginClient(ctx.cwd);
 	const config = deps.loadConfig(ctx.cwd);
 
@@ -177,28 +183,28 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 }
 
 /**
- * Start a fresh session. Reachable as `/wechat new` from the terminal and
- * dispatched by the inbound `/new` command; the new `session_start` auto-opens
- * the bridge again because the account is stored.
+ * Start a fresh host session for `/wechat new`; the next `session_start`
+ * auto-opens the bridge again because the account is stored.
  */
-export async function runNew(ctx: ExtensionCommandContext): Promise<void> {
-	// A WeChat turn is a real run in this session: replacing the session under it
-	// drops the turn, stops the bridge on shutdown, and leaves the peer unanswered.
-	// The inbound `/new` declines the same case through `activeTurn`.
-	if (busyWithRemoteTurn(ctx, "new")) return;
+export async function runNew(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
+	// A WeChat peer turn is a real run on this bridge: replacing the host session
+	// emits `session_shutdown`, which stops the poller and abandons that turn, so
+	// the peer would be left unanswered. The inbound `/new` declines the same case
+	// through `activeTurn`.
+	if (busyWithPeerTurn(ctx, deps, "new")) return;
 	await ctx.newSession();
 }
 
 /**
  * The control screen: connection facts plus every action as a key. Outside the
- * TUI, and during a WeChat turn (which owns the dialogs), it collapses to the
- * one-line summary. The screen returns an action instead of running it, so the
- * QR login screen is never opened while the control screen still owns input
- * focus.
+ * TUI, and during a peer turn (whose shutdown a screen action could race), it
+ * collapses to the one-line summary. The screen returns an action instead of
+ * running it, so the QR login screen is never opened while the control screen
+ * still owns input focus.
  */
 async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
 	const view = (): StatusView => statusView(deps.primaryAccount(), deps.getBridge()?.status());
-	if (!supportsCustomUI(ctx)) {
+	if (peerTurnRunning(deps) || !supportsCustomUI(ctx)) {
 		ctx.ui.notify(statusLine(view()));
 		return;
 	}
@@ -227,7 +233,7 @@ async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 		ctx.ui.notify("WeChat logout needs a confirmation dialog, which this mode has no UI for.", "warning");
 		return;
 	}
-	if (busyWithRemoteTurn(ctx, "logout")) return;
+	if (busyWithPeerTurn(ctx, deps, "logout")) return;
 	if (!(await ctx.ui.confirm("Log out of WeChat?", "Remove the stored credentials and close the bridge."))) return;
 	await deps.getBridge()?.close();
 	deps.logout();
@@ -248,7 +254,7 @@ async function dispatch(verb: WechatVerb, ctx: ExtensionCommandContext, deps: Co
 		case "login":
 			return runLogin(ctx, deps);
 		case "new":
-			return runNew(ctx);
+			return runNew(ctx, deps);
 		case "status":
 			return runPanel(ctx, deps);
 		case "logout":

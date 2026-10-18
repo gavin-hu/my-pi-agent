@@ -218,7 +218,8 @@ images (as model image content), and files (saved and referenced by path) start 
 turn immediately, independent of the terminal, and the reply is sent back with a
 typing indicator. The bridge starts automatically once an account is stored.
 `/wechat` opens a control screen (`login`, `new`, `status`, `logout`, `help`) in
-the TUI and prints a one-line summary elsewhere. Peers can also send `/new`,
+the TUI and prints a one-line summary elsewhere (or while a peer turn is
+running). Peers can also send `/new`,
 `/stop`, `/status`, and `/help`. The `send_wechat` tool messages the account owner
 only.
 

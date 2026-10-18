@@ -1,9 +1,10 @@
 /**
- * wechat — a thin bridge between the live Pi session and WeChat.
+ * wechat — a bridge between Pi and WeChat, one session per admitted peer.
  *
- * The live Pi session is the agent: an inbound WeChat message becomes a user
- * turn (`pi.sendUserMessage`), and the assistant's reply is sent back. The
- * bridge follows the stored account: it opens on `session_start` while
+ * Each peer's message becomes a turn in that peer's own Pi session (its own
+ * history, model context, and tools), and that session's answer is sent back.
+ * The terminal session is never injected into, so the two conversations cannot
+ * mix. The bridge follows the stored account: it opens on `session_start` while
  * credentials exist (and after `/wechat login`), and `/wechat logout` is the
  * only way to discard the account and stop it. `/wechat` opens the control
  * screen. See `README.md`.
@@ -23,7 +24,7 @@ import { loadWechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
 import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer-session.ts";
-import { createPeerUIContext, installRemoteUI } from "./remote-ui.ts";
+import { createPeerUIContext } from "./remote-ui.ts";
 import { SLASH_COMMANDS } from "./slash.ts";
 import { readState, statePath, writeState } from "./state.ts";
 import { registerTools } from "./tools.ts";
@@ -64,15 +65,6 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 
 	let bridge: Bridge | undefined;
 	let ctxRef: ExtensionContext | undefined;
-	let uninstallRemoteUI: (() => void) | undefined;
-	let remotePromptsEnabled = false;
-
-	/** Point the shared UI's dialog routing at the bridge's channel. */
-	const installAdapter = (ctx: ExtensionContext, target: Bridge): void => {
-		if (!ctx.hasUI) return;
-		uninstallRemoteUI?.();
-		uninstallRemoteUI = installRemoteUI(ctx.ui, target.channel());
-	};
 
 	const lockDeps = () => ({
 		now: () => Date.now(),
@@ -90,8 +82,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	const build = (ctx: ExtensionContext): Bridge => {
 		ctxRef = ctx;
 		const config = loadWechatConfig(ctx.cwd);
-		remotePromptsEnabled = config.remotePrompts;
-		const created = createBridge({
+		return createBridge({
 			config,
 			now: () => Date.now(),
 			// Each peer gets its own session under the WeChat state dir, with the host's
@@ -103,7 +94,11 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 					sessionsDir: join(wechatDir(), "sessions"),
 					model: ctxRef?.model,
 					thinkingLevel: ctxRef?.thinkingLevel,
-					uiContext: createPeerUIContext(options.channel, (message) => ctxRef?.ui.notify(message)),
+					// The peer's dialogs go to that peer only when `remotePrompts` is on;
+					// the terminal's own UI is never adapted, so a local turn keeps its dialogs.
+					uiContext: createPeerUIContext(options.channel, (message) => ctxRef?.ui.notify(message), {
+						prompts: config.remotePrompts,
+					}),
 					onError: (message) => ctxRef?.ui.notify(`WeChat peer session: ${message}`, "warning"),
 					fresh: options.fresh,
 				}),
@@ -137,8 +132,6 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 				}
 			},
 		});
-		if (config.remotePrompts) installAdapter(ctx, created);
-		return created;
 	};
 
 	/**
@@ -183,8 +176,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			clearCredentials();
 			// The account is the on/off switch: without one there is nothing to report,
 			// so drop the handle rather than leave `/wechat` showing the old owner and
-			// counters. The next `ensureBridge`/`autoStart` builds a fresh bridge (and
-			// re-installs the remote UI adapter) from the new account.
+			// counters. The next `ensureBridge`/`autoStart` builds a fresh bridge from
+			// the new account.
 			bridge = undefined;
 		},
 		now: () => Date.now(),
@@ -195,16 +188,12 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		ctxRef = ctx;
-		// `/reload` rebuilds the runner's UI object; re-point the adapter at it.
-		if (bridge && remotePromptsEnabled) installAdapter(ctx, bridge);
 		// Stored credentials mean the bridge should be polling, so a new session
 		// (startup, reload, `/new`, resume, fork) reconnects it without a command.
 		autoStart(ctx);
 	});
 	pi.on("session_shutdown", async () => {
 		// Shutdown is emitted before the host resets the UI, so the chip is still ours to clear.
-		uninstallRemoteUI?.();
-		uninstallRemoteUI = undefined;
 		ctxRef?.ui.setStatus(STATUS_KEYS.wechat, undefined);
 		try {
 			await bridge?.shutdown();

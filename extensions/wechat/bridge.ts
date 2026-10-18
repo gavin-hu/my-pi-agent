@@ -171,7 +171,7 @@ export interface Bridge {
 	/** What one peer's conversation is doing, for `/status`. */
 	peerState(peer: string): PeerState;
 	status(): BridgeStatus;
-	/** The remote interaction channel the UI adapter routes prompts through. */
+	/** The remote interaction channel the peer sessions route their dialogs through. */
 	channel(): WechatInteractionChannel;
 	/** Message the owner proactively. Owner-only and text-only by design. */
 	sendToOwner(text: string): Promise<SendResult>;

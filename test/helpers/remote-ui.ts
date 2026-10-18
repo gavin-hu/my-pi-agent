@@ -1,9 +1,10 @@
 /**
  * A context double whose shared `ui` reports a remote-answered turn.
  *
- * Mirrors what `installRemoteUI` installs in production, so an extension can be
- * tested on its remote path (dialogs instead of a full-screen component, with an
- * optional file/text preface) without a bridge. See `lib/interaction.ts`.
+ * Mirrors the marker `createPeerUIContext` installs on a peer session's UI, so an
+ * extension can be tested on its remote path (dialogs instead of a full-screen
+ * component, with an optional file/text preface) without a bridge. See
+ * `lib/interaction.ts`.
  */
 
 import { INTERACTION_TURN_KEY, type InteractionChannel } from "../../lib/interaction.ts";

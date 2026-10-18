@@ -51,8 +51,8 @@ How the `send_wechat` call and its result look in the transcript — the call li
   (`/stop`), restart (`/new`), and ask what is happening (`/status`).
 - **Remote prompts** — the peer session's own UI is bound to that peer, so
   `ask_user_question`, plan approval, and any other dialog raised inside a
-  WeChat turn is sent to WeChat and answered there. Terminal turns keep the TUI
-  (`remotePrompts`, on by default).
+  WeChat turn is sent to WeChat and answered there. Terminal turns keep the TUI,
+  including while a peer turn runs (`remotePrompts`, on by default).
 - **Status chip** — the status bar shows `✆ wechat` while the bridge runs and
   keeps an error-colored `✆ wechat expired` after a session expiry
   (`ctx.ui.setStatus`), so the outage stays visible until `/wechat login`
@@ -72,7 +72,7 @@ How the `send_wechat` call and its result look in the transcript — the call li
 | `/wechat` | TUI: the control screen. Elsewhere: a one-line summary. |
 | `/wechat login` | QR login; on scan, stores credentials, replaces a running poller, and starts the bridge. |
 | `/wechat new` | Start a fresh *host* session. Peer conversations are independent and survive it; they use an inbound `/new`. |
-| `/wechat status` | The same control screen as a bare `/wechat`. |
+| `/wechat status` | The same control screen as a bare `/wechat` (the one-line summary while a peer turn runs). |
 | `/wechat logout` | Confirm, then clear credentials, drop the bridge, and stop polling. |
 | `/wechat help` | List the subcommands with a line each. |
 
@@ -98,12 +98,13 @@ or reconnect, `n` start a new session, `o` log out, `r` refresh, and Esc closes.
 The subcommands above are shortcuts for the same actions and the only route
 outside the TUI; an unknown subcommand reports the valid ones.
 
-A WeChat turn owns the session and its dialogs while it runs, so a `/wechat`
-command typed at the terminal then declines instead of acting on a turn that is
-still being answered: `status` prints the one-line summary, and
-`login`/`logout`/`new` reply that they are unavailable until the turn finishes.
-(`/wechat new` would otherwise replace the session under the run and leave the
-peer unanswered.)
+A peer turn runs in its own session, but it still owns the bridge, so a `/wechat`
+command typed at the terminal declines while one is running: `status` prints the
+one-line summary, and `login`/`logout`/`new` reply that they are unavailable
+until the turn finishes. (`login`/`logout` would drop the connection mid-turn and
+`new` would replace the host session, stopping the poller and leaving the peer
+unanswered.) The terminal's own dialogs are unaffected: they are never forwarded
+to a peer.
 
 ## Slash commands
 
@@ -201,13 +202,17 @@ Each peer session is created with its own UI context (`bindExtensions` with
 `mode: "rpc"`), so its dialogs go to that peer by construction rather than by
 wrapping the terminal's UI. A full-screen `custom` component has nothing to draw
 on, so it stays unavailable, exactly as over RPC. Set `remotePrompts: false` to
-create peer sessions without forwarding. See [Design notes](#design-notes).
+create peer sessions without forwarding: a dialog is then answered as cancelled,
+so a peer turn can still run but cannot ask a question the operator did not route
+to WeChat. See [Design notes](#design-notes).
 
 ## Outbound files
 
 A remote prompt can deliver a local file first. `exit_plan_mode` uses this to
 send the plan file itself before the three choices, so WeChat sees the whole plan
-(a long one falls back to chunked text if the upload fails). The flow mirrors the
+(a long one falls back to chunked text if the upload fails). The peer session's
+UI context carries the bridge channel, so `askHuman` finds it and posts the file
+then the text before the dialogs. The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
 (`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a
 `type: 4` file item. Only the plan review uses it today; images, video, and voice
@@ -355,14 +360,14 @@ sessions are in-process).
 |---|---|
 | Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
-| Events | `session_start` (record the live context, re-point the terminal UI adapter, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop, uninstall adapter). No host run events: peer turns are not the host session's runs. |
+| Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller. |
 | Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
 | Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state). |
-| Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer. `installRemoteUI(ctx.ui, channel)` still wraps the terminal's shared `ctx.ui` so a WeChat turn that somehow runs there keeps its prompts. |
+| Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer and marking the context for `askHuman`'s file/text preface. The terminal's shared `ctx.ui` is deliberately not adapted: a host turn is never answered remotely, so its dialogs stay local even while a peer turn runs. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
-| Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a WeChat turn owns the dialogs. |
+| Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a peer turn runs. |
 
 ## Design notes
 
@@ -385,9 +390,11 @@ is owner-only so untrusted generated text cannot be aimed at another account.
 
 Peer dialogs need no host seam: `AgentSession.bindExtensions` takes the UI
 context, so `createPeerUIContext` hands the peer session a UI whose dialogs are
-that peer's channel. `installRemoteUI` remains only for the terminal's shared
-`ctx.ui`, kept because the plan tool and `ask_user_question` call `askHuman` from
-`lib/interaction.ts` and a turn can still run in the host session.
+that peer's channel, marks it so `askHuman` delivers the optional file/text
+preface, and answers as cancelled when `remotePrompts` is off. The terminal's
+shared `ctx.ui` is deliberately left alone — with one session per peer there is
+no remote turn in the host, and adapting it routed a terminal turn's prompt to
+whichever peer happened to be running.
 
 Outbound files use the CDN upload flow (`getuploadurl`, AES-128-ECB ciphertext,
 `x-encrypted-param`) and reuse the same AES-128-ECB and key decoders as inbound
@@ -427,7 +434,7 @@ status, which is what the old start/stop guidance used to do.
 | `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, and this bridge excluded from its resources. |
 | `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep. |
 | `reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
-| `commands.ts` | `/wechat login|new|status|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login, and logout; every verb declines while a WeChat turn owns the dialogs. |
+| `commands.ts` | `/wechat login|new|status|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login, and logout; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
 | `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
@@ -443,7 +450,7 @@ status, which is what the old start/stop guidance used to do.
 | `format.ts` | Sanitize, chunk, and label helpers. |
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
 | `prompt.ts` | Pure prompt formatting and reply parsing. |
-| `remote-ui.ts` | The terminal-UI adapter: wraps the shared `ctx.ui` dialogs and installs the remote-turn marker. Also `createPeerUIContext`, the UI a peer session gets. |
+| `remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
 | `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
 | `types.ts` | Wire and domain types. |
 

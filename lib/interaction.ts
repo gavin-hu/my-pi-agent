@@ -2,16 +2,17 @@
  * Cross-extension contract for routing interactive prompts to whichever channel
  * owns the current turn.
  *
- * Pi exposes no extension-facing way to replace `ctx.ui`; a remote transport
- * (WeChat) therefore wraps the shared `ctx.ui` object and installs its
- * {@link InteractionChannel} under {@link INTERACTION_TURN_KEY}. Consumers never
- * read `ctx.mode` to choose a rich component vs. text dialogs; they call
+ * A transport that answers prompts outside the terminal marks the UI context it
+ * owns with its {@link InteractionChannel} under {@link INTERACTION_TURN_KEY}.
+ * WeChat marks the *peer session's* own UI context, not the terminal's shared
+ * `ctx.ui`, so a terminal turn always keeps its dialogs. Consumers never read
+ * `ctx.mode` to choose a rich component vs. text dialogs; they call
  * {@link askHuman}, so a remote turn falls back to dialogs (with an optional file
  * or text preface) and a local TUI turn keeps its full-screen UI.
  *
- * Value-only: constants, types, and pure functions. The marker travels on the
- * host's `ctx.ui` object, which every extension shares, and is keyed by a string
- * (not a Symbol) so it is identical across Pi's isolated extension module caches.
+ * Value-only: constants, types, and pure functions. The marker travels on the UI
+ * context the transport created and is keyed by a string (not a Symbol) so it is
+ * identical across Pi's isolated extension module caches.
  */
 
 import type { ExtensionContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
@@ -19,7 +20,7 @@ import type { ExtensionContext, ExtensionUIContext } from "@earendil-works/pi-co
 /** The host run modes, derived because the package does not export the union. */
 export type InteractionMode = ExtensionContext["mode"];
 
-/** The `ctx.ui` property a remote adapter installs its channel under. */
+/** The `ctx.ui` property a remote transport marks with the channel that owns its turn. */
 export const INTERACTION_TURN_KEY = "isRemoteTurn";
 
 /** Label of the automatic free-form entry appended to every `select` option list. */
@@ -72,7 +73,7 @@ function asChannel(value: unknown): InteractionChannel | undefined {
 	return typeof candidate.isActive === "function" ? (value as InteractionChannel) : undefined;
 }
 
-/** The remote channel that owns the current turn, or undefined. */
+/** The remote channel marked on this UI context, or undefined when it is local. */
 export function remoteChannel(ctx: UIContextCarrier): InteractionChannel | undefined {
 	const ui = ctx.ui as Record<string, unknown> | undefined;
 	const channel = asChannel(ui?.[INTERACTION_TURN_KEY]);

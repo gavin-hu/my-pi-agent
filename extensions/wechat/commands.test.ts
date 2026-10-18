@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
-import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import type { Bridge, BridgeStatus } from "./bridge.ts";
 import { finishLogin, registerCommands, runNew, WECHAT_COMMANDS, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
@@ -159,13 +158,14 @@ describe("runNew", () => {
 				},
 			},
 		});
-		await runNew(ctx);
+		await runNew(ctx, harness().deps);
 		expect(started).toBe(1);
 	});
 
-	test("declines while a WeChat turn owns the session", async () => {
+	test("declines while a peer turn runs", async () => {
 		let started = 0;
-		const { ctx, notices } = remoteCtx({
+		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { ctx, notices } = fakeCtx({
 			extra: {
 				newSession: async () => {
 					started += 1;
@@ -173,8 +173,8 @@ describe("runNew", () => {
 				},
 			},
 		});
-		await runNew(ctx);
-		// Replacing the session here would drop the turn and silence the peer.
+		await runNew(ctx, deps);
+		// Replacing the session here would stop the bridge and drop the peer's turn.
 		expect(started).toBe(0);
 		expect(notices.at(-1)?.kind).toBe("warning");
 		expect(notices.at(-1)?.message).toContain("/wechat new");
@@ -252,9 +252,9 @@ describe("the /wechat command", () => {
 });
 
 /**
- * While a WeChat turn owns the dialogs, `ctx.ui.custom` resolves `undefined` and
- * the dialog routes to WeChat, so a terminal-side command must decline instead
- * of opening a screen on the phone or reading back nothing.
+ * While a peer turn runs, the terminal's own dialogs still work (the bridge does
+ * not adapt the host UI), but a `/wechat` verb that would stop the bridge or
+ * replace the host session declines instead.
  */
 describe("the /wechat command during a WeChat turn", () => {
 	function handler(deps: CommandDeps) {
@@ -266,16 +266,16 @@ describe("the /wechat command during a WeChat turn", () => {
 	}
 
 	test("prints the one-line summary instead of opening the control screen", async () => {
-		const { deps } = harness();
-		const { ctx, notifications, customCalls } = remoteCtx();
+		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { ctx, notifications, customCalls } = fakeCtx({ custom: "close" });
 		await handler(deps)("status", ctx);
 		expect(customCalls).toEqual([]);
 		expect(notifications.at(-1)).toContain("wechat:");
 	});
 
 	test("declines logout before asking for a confirmation", async () => {
-		const { deps, logouts } = harness();
-		const { ctx, notices, confirms } = remoteCtx();
+		const { deps, logouts } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { ctx, notices, confirms } = fakeCtx({ hasUI: true, confirm: true });
 		await handler(deps)("logout", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
 		expect(notices.at(-1)?.message).toContain("/wechat logout");
@@ -285,8 +285,8 @@ describe("the /wechat command during a WeChat turn", () => {
 
 	test("declines new instead of replacing the session under the turn", async () => {
 		let started = 0;
-		const { deps } = harness();
-		const { ctx, notices } = remoteCtx({
+		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { ctx, notices } = fakeCtx({
 			extra: {
 				newSession: async () => {
 					started += 1;
@@ -300,11 +300,25 @@ describe("the /wechat command during a WeChat turn", () => {
 	});
 
 	test("declines login before fetching a QR code", async () => {
-		const { deps } = harness();
-		const { ctx, notices } = remoteCtx();
+		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { ctx, notices } = fakeCtx();
 		// The harness login client throws, so reaching it would fail this test.
 		await handler(deps)("login", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
 		expect(notices.at(-1)?.message).toContain("/wechat login");
+	});
+
+	test("opens the control screen again once the peer turn settles", async () => {
+		const running = bridgeStatus({ open: true, running: true });
+		const { deps } = harness({ status: running });
+		const { ctx, customCalls } = fakeCtx({ custom: "close" });
+		const command = handler(deps);
+		await command("status", ctx);
+		expect(customCalls).toEqual([]);
+
+		// The bridge reports the turn gone; the next `/wechat` is local again.
+		running.running = false;
+		await command("status", ctx);
+		expect(customCalls.length).toBe(1);
 	});
 });
