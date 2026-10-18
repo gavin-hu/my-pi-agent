@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { GoalResult, GoalWidget, goalWidgetLines, WIDGET_KEY } from "./tui.ts";
+import { GoalHeader, GoalWidget, goalWidgetLines, WIDGET_KEY } from "./tui.ts";
 import type { Goal } from "./types.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 
@@ -65,22 +65,22 @@ describe("GoalWidget", () => {
 	});
 });
 
-describe("GoalResult", () => {
+describe("GoalHeader", () => {
 	test("the status header under a blank separator, with no repeated objective", () => {
-		const lines = new GoalResult(active, theme).render(40);
+		const lines = new GoalHeader(active, theme).render(40);
 		expect(lines).toEqual(["", "Goal · active"]);
 	});
 
 	test("clips the header to the width", () => {
 		for (const width of [1, 3, 8, 40]) {
-			for (const line of new GoalResult(active, theme).render(width)) {
+			for (const line of new GoalHeader(active, theme).render(width)) {
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 			}
 		}
 	});
 
 	test("updates in place for reuse", () => {
-		const view = new GoalResult(active, theme);
+		const view = new GoalHeader(active, theme);
 		view.update(achieved, theme);
 		expect(view.render(40)).toEqual(["", "Goal · achieved"]);
 	});

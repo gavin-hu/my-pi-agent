@@ -51,10 +51,18 @@ export function goalObjective(goal: Goal, theme: Theme): string {
 	return goal.status === "achieved" ? paint(theme, "faint", goal.objective) : paint(theme, "label", goal.objective);
 }
 
-/** Model-facing result text. */
-export function formatGoalText(goal: Goal | null): string {
+/**
+ * Model-facing result text. `openTodos` counts the todo items the branch still
+ * has open, so marking a goal achieved can point at work the list still holds.
+ */
+export function formatGoalText(goal: Goal | null, openTodos = 0): string {
 	if (goal === null) return "Goal cleared.";
-	if (goal.status === "achieved") return `Goal achieved: ${goal.objective}`;
+	if (goal.status === "achieved") {
+		const text = `Goal achieved: ${goal.objective}`;
+		if (openTodos <= 0) return text;
+		const items = openTodos === 1 ? "1 todo item is" : `${openTodos} todo items are`;
+		return `${text}\n${items} still open; close or clear the list if that work is done.`;
+	}
 	return `Goal: ${goal.objective}\nKeep this objective in mind as you work, and mark it achieved with the goal tool when it is done.`;
 }
 

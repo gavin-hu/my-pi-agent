@@ -21,7 +21,11 @@ How the `goal` call and its result look in the transcript — the call line as a
   objective. Send the complete objective every call; an empty objective clears
   it.
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
-  is done.
+  is done. Achieving it while the branch's todo list still has open items names
+  the count in the result (`1 todo item is still open…`), so the model closes the
+  *how* instead of declaring the *what* done over an unfinished list. The count
+  is read from the branch through `lib/todo-state.ts`; the structured result is
+  unchanged.
 - Shows a persistent one-line rail above the editor whenever a goal exists,
   label-first to match the [`todo`](../todo/) widget, pinned at the top of the
   `Goal / Todos` stack when both are loaded:
@@ -79,6 +83,13 @@ line: control characters (including `ESC`) become spaces and any whitespace run
 (newlines, tabs, repeated spaces) collapses to one space. This keeps the widget
 to one logical line and stops model text from injecting terminal sequences.
 
+A successful `status: "achieved"` call also appends one line to the model-facing
+text when the branch's todo list still has open items — `3 todo items are still
+open; close or clear the list if that work is done.` The list is replayed from
+the branch, so the note appears whether the todos were written by the model, by
+`/todos`, or by an approved plan. It is text only: `details`,
+`structuredContent`, and the transcript header are unaffected.
+
 `goal` is allowlisted in `plan-mode` (alongside `todo`), so the model can record
 or update the objective during read-only exploration without leaving plan mode.
 
@@ -92,7 +103,7 @@ entry; `reconstructGoal` replays both entry kinds in branch order.
 | `/goal` | Show the current goal, or the command usage when none is set. |
 | `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, re-comprehend, then confirm/edit — and start the run. Replacing a live goal is confirmed first. |
 | `/goal raw <prompt>` | Skip the loop: record the typed words verbatim and start the run. |
-| `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. |
+| `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. An explicit `set`/`edit <text>` replaces an active goal without asking, since the command already says so. |
 | `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
 | `/goal done` (or `/goal achieved`) | Mark the current goal achieved (idempotent). |
 | `/goal clear` | Clear the goal. |
@@ -214,6 +225,13 @@ depends on config.
   the status header alone (`Goal · active`), because the call line above it
   already carries the objective; it does not restate it. `achieved: "show"`
   restores the dimmed widget line; config only affects presentation.
+- **Completing the *what* checks the *how*.** Marking a goal achieved while the
+  todo list still holds open items appends one line to the model-facing result
+  naming the count. The list is replayed from the branch by
+  `lib/todo-state.ts` (shared with plan's approval-time merge, which reads the
+  same channel), never by importing the `todo` extension. Only the text is
+  affected: `details` and `structuredContent` stay the goal alone, and the
+  transcript result is still the status header.
 - **Sanitize at the boundary.** `normalizeGoal` and `parseClarification` both route
   model text through `lib/format.ts`'s `sanitizeLine`, so an embedded newline
   cannot corrupt the widget and raw escapes cannot restyle the terminal.
