@@ -65,7 +65,14 @@ function fakeSession(options: { answers?: string[]; holdFirst?: boolean } = {}) 
 }
 
 function harness(
-	options: { answers?: string[]; holdFirst?: boolean; idleTimeoutMs?: number; concurrency?: number } = {},
+	options: {
+		answers?: string[];
+		holdFirst?: boolean;
+		idleTimeoutMs?: number;
+		concurrency?: number;
+		/** Whether the transport accepts a part; defaults to yes. */
+		accept?: (text: string) => boolean;
+	} = {},
 ) {
 	const sent: Array<{ peer: string; text: string }> = [];
 	const notices: string[] = [];
@@ -81,6 +88,7 @@ function harness(
 		},
 		send: async (target, text) => {
 			sent.push({ peer: target.peer, text });
+			return options.accept?.(text) ?? true;
 		},
 		fallback: (_target, reason) => `fallback:${reason}`,
 		notify: (message) => notices.push(message),
@@ -165,6 +173,25 @@ describe("peer worker", () => {
 		await settle();
 
 		expect(sent.map((message) => message.text)).toEqual(["one attachment was unreadable\n\nfirst", "second"]);
+	});
+
+	test("stops a stream once a part is rejected", async () => {
+		const { worker, sent, sessions } = harness({
+			holdFirst: true,
+			answers: [""],
+			accept: () => false,
+		});
+		worker.enqueue(item("go"));
+		await settle();
+
+		sessions[0]?.emit("first\n\n");
+		sessions[0]?.emit("second");
+		sessions[0]?.release();
+		await settle();
+		await settle();
+
+		// The transport rejected the first part, so the second is not attempted.
+		expect(sent.map((message) => message.text)).toEqual(["first"]);
 	});
 
 	test("reports the running turn and hands the slot to the next peer", async () => {
@@ -263,6 +290,7 @@ describe("peer worker", () => {
 			},
 			send: async (target, text) => {
 				sent.push({ peer: target.peer, text });
+				return true;
 			},
 			fallback: (_target, reason) => `fallback:${reason}`,
 			notify: (message) => notices.push(message),

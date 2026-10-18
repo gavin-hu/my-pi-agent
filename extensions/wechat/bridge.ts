@@ -270,7 +270,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// instead of letting the answer vanish.
 				if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
 					const code = response.ret ?? response.errcode;
-					onError(new WechatError(`Weixin rejected the message (ret ${code}).`), {
+					// The server's own description is the only way to tell a bad token
+					// from a rate limit, so it is part of the error.
+					const detail = response.errmsg ? `: ${response.errmsg}` : "";
+					onError(new WechatError(`Weixin rejected the message (ret ${code}${detail}).`), {
 						sent: index,
 						total: chunks.length,
 					});
@@ -284,12 +287,37 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		return true;
 	}
 
-	async function reply(item: { peer: string; contextToken?: string }, text: string): Promise<void> {
-		await sendChunked(item.peer, item.contextToken, text, abort?.signal, (error, progress) => {
+	/** Peers already reported as unable to receive, until a reply gets through. */
+	const replyFailureNotified = new Set<string>();
+
+	/**
+	 * Send one bubble to a peer and report whether it was delivered.
+	 *
+	 * A rejection is reported once per outage rather than once per streamed part,
+	 * and the peer's stored reply token is forgotten: a token the server rejects is
+	 * the likely cause, and the next inbound message brings a fresh one.
+	 */
+	async function reply(item: { peer: string; contextToken?: string }, text: string): Promise<boolean> {
+		let failed = false;
+		const delivered = await sendChunked(item.peer, item.contextToken, text, abort?.signal, (error, progress) => {
+			failed = true;
 			if (abort?.signal.aborted) return;
+			forgetToken(item.peer);
+			if (replyFailureNotified.has(item.peer)) return;
+			replyFailureNotified.add(item.peer);
 			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
 			notify(`WeChat reply failed${partial}: ${messageOf(error)}`, "warning");
 		});
+		if (!failed && delivered) replyFailureNotified.delete(item.peer);
+		return failed ? false : delivered;
+	}
+
+	/** Drop a peer's cached reply token, so the next inbound message replaces it. */
+	function forgetToken(peer: string): void {
+		const entry = state.peers[peer];
+		if (!entry?.lastContextToken) return;
+		delete entry.lastContextToken;
+		deps.saveState(state);
 	}
 
 	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
@@ -298,7 +326,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		const ctx: SlashContext = {
 			args,
 			peer: item.peer,
-			reply: (text) => reply(item, text),
+			reply: async (text) => {
+				await reply(item, text);
+			},
 			activeTurn: worker?.state(item.peer).status === "running",
 			language: languageOf(item.peer),
 			session: {
@@ -811,10 +841,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			worker = createPeerWorker({
 				openSession: (peer, options) => deps.openSession(peer, { fresh: options.fresh, channel: interaction }),
 				// Each part is delivered as its own bubble; the worker puts the
-				// attachment line on the first one.
-				send: async (item, text) => {
-					await reply(item, text);
-				},
+				// attachment line on the first one. A false result stops the stream.
+				send: (item, text) => reply(item, text),
 				fallback: (item, reason) => notice(reason, item.language),
 				onStart: (item) => {
 					cancelAck(item.peer);
@@ -930,6 +958,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 					if (isSessionExpired(response)) {
 						handleExpired();
 						return { ok: false, error: "WeChat session expired." };
+					}
+					if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
+						// A body-level rejection is not a delivery; the tool must say so.
+						const code = response.ret ?? response.errcode;
+						return { ok: false, error: `Weixin rejected the message (ret ${code}).` };
 					}
 				} catch (error) {
 					return { ok: false, error: messageOf(error) };

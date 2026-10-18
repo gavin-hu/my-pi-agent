@@ -158,6 +158,8 @@ export interface UpdatesResponse {
 export interface SendResponse {
 	ret?: number;
 	errcode?: number;
+	/** The server's own description of a rejected send, when it sends one. */
+	errmsg?: string;
 }
 
 /** `getconfig` response: the per-user typing ticket. */

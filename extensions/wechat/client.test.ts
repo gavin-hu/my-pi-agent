@@ -93,6 +93,13 @@ describe("getUpdates", () => {
 });
 
 describe("sendMessage", () => {
+	test("surfaces the server's description of a rejected send", async () => {
+		const { http } = recorder([jsonResponse({ ret: -2, errmsg: "context token invalid" })]);
+		const response = await client(http).sendMessage(account, { to: "peer", text: "hi" });
+		expect(response.ret).toBe(-2);
+		expect(response.errmsg).toBe("context token invalid");
+	});
+
 	test("builds a text message with the reply token", async () => {
 		const { calls, http } = recorder([jsonResponse({ ret: 0 })]);
 		await client(http).sendMessage(account, { to: "peer", text: "hi", contextToken: "ctx" });

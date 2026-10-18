@@ -152,6 +152,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the remainder is sent when the turn ends — so a minute-long answer is
   readable while it is being produced. A part longer than `maxReplyChars` is
   still numbered, and the attachment line rides on the first part only.
+- `wechat`: a rejected reply now reports the server's own `errmsg` (for example
+  `ret -2: context token invalid`) and does so **once per outage** instead of once
+  per streamed part; the rest of a streamed answer is not sent after the first
+  failure, the rejected peer's stored reply token is forgotten so the next inbound
+  message replaces it, and `send_wechat` reports a body-level rejection instead of
+  claiming delivery.
 - `wechat`: a peer session now gets the package's whole tool surface. Two SDK
   details made it silently thinner: a freshly built resource loader has discovered
   nothing until `reload()` is called, and an SDK session only declares the

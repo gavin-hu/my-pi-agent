@@ -48,8 +48,8 @@ export type TurnFallback = "stopped" | "noText" | "failed";
 export interface PeerWorkerDeps {
 	/** Open (or resume) one peer's session; the bridge owns the directory layout. */
 	openSession: (peer: string, options: { fresh: boolean }) => Promise<PeerSession>;
-	/** Deliver one turn's text to the peer, in whatever parts the transport wants. */
-	send: (item: PeerItem, text: string) => Promise<void>;
+	/** Deliver one turn's text to the peer; false stops the rest of a stream. */
+	send: (item: PeerItem, text: string) => Promise<boolean>;
 	/** The fallback line for a turn that produced no text. */
 	fallback: (item: PeerItem, reason: TurnFallback) => string;
 	/** A turn started / finished for this item, for typing and notices. */
@@ -225,11 +225,14 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	async function runTurn(item: PeerItem, opened: PeerSession): Promise<void> {
 		const session = opened.session;
 		let prefixed = false;
+		/** Once a part is rejected, the rest of the answer would fail too. */
+		let blocked = false;
 		/** The media/attachment line rides on the first part only. */
 		const sendPart = async (part: string): Promise<void> => {
+			if (blocked) return;
 			const body = prefixed || !item.prefix ? part : `${item.prefix}\n\n${part}`;
 			prefixed = true;
-			await deps.send(item, body);
+			blocked = !(await deps.send(item, body));
 		};
 		const pipeline = createReplyPipeline({
 			sendPart,

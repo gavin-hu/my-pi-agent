@@ -262,7 +262,11 @@ export class WechatClient {
 		};
 		if (args.contextToken) msg.context_token = args.contextToken;
 		const data = await this.post(url, this.authHeaders(account), { msg, base_info: this.baseInfo() }, signal);
-		return { ret: asNumber(data.ret), errcode: asNumber(data.errcode) };
+		return {
+			ret: asNumber(data.ret),
+			errcode: asNumber(data.errcode),
+			errmsg: asString(data.errmsg),
+		};
 	}
 
 	/** `POST /ilink/bot/getuploadurl` — the CDN upload target for a file. */
@@ -316,7 +320,11 @@ export class WechatClient {
 		};
 		if (args.contextToken) msg.context_token = args.contextToken;
 		const data = await this.post(url, this.authHeaders(account), { msg, base_info: this.baseInfo() }, signal);
-		return { ret: asNumber(data.ret), errcode: asNumber(data.errcode) };
+		return {
+			ret: asNumber(data.ret),
+			errcode: asNumber(data.errcode),
+			errmsg: asString(data.errmsg),
+		};
 	}
 
 	/** `POST /ilink/bot/getconfig` — the per-user typing ticket. */

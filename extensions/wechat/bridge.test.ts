@@ -1109,6 +1109,53 @@ describe("bridge resilience", () => {
 		await bridge.close();
 	});
 
+	test("reports one rejected reply, forgets the token, and does not retry parts", async () => {
+		const notifications: string[] = [];
+		const base = makeClient([updates([inbound("q")])]);
+		let sends = 0;
+		const client = {
+			...base.client,
+			sendMessage: async () => {
+				sends += 1;
+				return { ret: -2, errmsg: "context token invalid" };
+			},
+		} as unknown as WechatClient;
+		const { deps, saved } = makeDeps(
+			client,
+			{ config: { ...DEFAULT_CONFIG, maxReplyChars: 4 }, notify: (message) => notifications.push(message) },
+			{ answers: ["abcdefgh"] },
+		);
+		const bridge = createBridge(deps);
+		bridge.open();
+
+		await waitFor(() => notifications.length === 1);
+		// The server's own words are in the notice; it is reported once, not per part.
+		expect(notifications[0]).toContain("ret -2");
+		expect(notifications[0]).toContain("context token invalid");
+		expect(notifications[0]).toContain("after 0 of 2 parts");
+		// The first part failed, so the second was never attempted.
+		expect(sends).toBe(1);
+		// A rejected token is forgotten; the next inbound message replaces it.
+		expect(saved.at(-1)?.peers[owner]?.lastContextToken).toBeUndefined();
+		await bridge.close();
+	});
+
+	test("send_wechat reports a rejected send instead of claiming delivery", async () => {
+		const base = makeClient([]);
+		const client = {
+			...base.client,
+			sendMessage: async () => ({ ret: -2, errmsg: "context token invalid" }),
+		} as unknown as WechatClient;
+		const { deps } = makeDeps(client, {
+			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		const result = await bridge.sendToOwner("hello");
+		expect(result).toEqual({ ok: false, error: "Weixin rejected the message (ret -2)." });
+		await bridge.close();
+	});
+
 	test("retries a wedged poll and reports it once", async () => {
 		const notifications: string[] = [];
 		let polls = 0;
