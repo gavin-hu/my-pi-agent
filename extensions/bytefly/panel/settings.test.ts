@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { isRailGlyph } from "../chrome.ts";
+import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG } from "../doctor/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 import {
 	SETTING_GROUPS,
@@ -47,9 +48,13 @@ describe("catalogue", () => {
 		expect(SETTING_ROWS.map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"notify.enabled",
+			"notify.turnFinished",
+			"notify.needsInput",
+			"notify.jobFinished",
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
+			"doctor.timeoutMs",
 			"price.currency.code",
 			"price.currency.decimals",
 			"chrome.rail",
@@ -62,26 +67,28 @@ describe("catalogue", () => {
 		expect(rowsForScope("global").map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"notify.enabled",
+			"notify.turnFinished",
+			"notify.needsInput",
+			"notify.jobFinished",
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
+			"doctor.timeoutMs",
 			"price.currency.code",
 			"price.currency.decimals",
 			"chrome.rail",
 			"outputPad",
 			"showHardwareCursor",
 		]);
-		expect(rowsForScope("project").map((entry) => entry.id)).toEqual([
-			"notify.enabled",
-			"notify.method",
-			"notify.title",
-			"doctor.proactive",
-			"price.currency.code",
-			"price.currency.decimals",
-			"chrome.rail",
-		]);
-		expect(countSettings("global")).toBe(10);
-		expect(countSettings("project")).toBe(7);
+		// Every `bytefly.json` row is writable in Project scope; the three Pi rows
+		// have no project setter.
+		expect(rowsForScope("project").map((entry) => entry.id)).toEqual(
+			rowsForScope("global")
+				.filter((entry) => entry.source === "bytefly")
+				.map((entry) => entry.id),
+		);
+		expect(countSettings("global")).toBe(14);
+		expect(countSettings("project")).toBe(11);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -94,11 +101,11 @@ describe("catalogue", () => {
 			"terminal",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 2, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 6, 2, 2, 2, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([3, 1, 2, 1]);
+		expect(project.map((group) => group.views.length)).toEqual([6, 2, 2, 1]);
 	});
 });
 
@@ -108,9 +115,13 @@ describe("values", () => {
 		expect(global.map((entry) => [entry.id, entry.value, entry.valueLabel, entry.origin])).toEqual([
 			["byteflyUi", "false", "Off", "default"],
 			["notify.enabled", "false", "Off", "default"],
+			["notify.turnFinished", "true", "On", "default"],
+			["notify.needsInput", "true", "On", "default"],
+			["notify.jobFinished", "true", "On", "default"],
 			["notify.method", "auto", "Auto", "default"],
 			["notify.title", "Pi", "Pi", "default"],
 			["doctor.proactive", "true", "On", "default"],
+			["doctor.timeoutMs", "2000", "2000", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.currency.decimals", "2", "2", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
@@ -119,15 +130,7 @@ describe("values", () => {
 		]);
 
 		const project = settingViews(snapshot(), "project");
-		expect(project.map((entry) => entry.origin)).toEqual([
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-		]);
+		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 11 }, () => "inherited"));
 	});
 
 	test("reads configured app and bytefly values", () => {
@@ -205,9 +208,9 @@ describe("cycling", () => {
 		expect(nextValue(pad, "0").value).toBe("1");
 	});
 
-	test("starts a custom rail glyph at the first curated option", () => {
-		expect(nextValue(row("chrome.rail"), "╎").value).toBe("│");
-		expect(nextValue(row("chrome.rail"), "|").value).toBe(GLYPHS.divider);
+	test("leaves the rail glyph alone: it is typed, not cycled", () => {
+		expect(nextValue(row("chrome.rail"), "╎").value).toBe("╎");
+		expect(nextValue(row("chrome.rail"), "|").value).toBe("|");
 	});
 
 	test("cycles the delivery method through every surface and wraps", () => {
@@ -222,10 +225,39 @@ describe("cycling", () => {
 		expect(nextValue(decimals, "4").value).toBe("0");
 	});
 
-	test("keeps every rail option to one visible column", () => {
-		for (const option of row("chrome.rail").options) {
-			expect([...option.value]).toHaveLength(1);
-			expect(visibleWidth(option.value)).toBe(1);
+	test("keeps the rail rule and the loader on one definition", () => {
+		// The row's rule is `chrome.ts`'s, so what the editor accepts is what the
+		// next read keeps.
+		for (const glyph of [GLYPHS.divider, "│", "┃", "▏", "|", "#"]) {
+			expect(isRailGlyph(glyph), glyph).toBe(true);
+			expect(textError(row("chrome.rail"), glyph)).toBeUndefined();
+		}
+		// A space is one column and the loader accepts it, so the rule must too.
+		expect(textError(row("chrome.rail"), " ")).toBeUndefined();
+		for (const bad of ["", "ab", "\u001b", "あ", "😀"]) {
+			expect(isRailGlyph(bad), JSON.stringify(bad)).toBe(false);
+			expect(textError(row("chrome.rail"), bad), JSON.stringify(bad)).toContain("one column");
+		}
+	});
+
+	test("states the probe timeout's rule at the loader's own bounds", () => {
+		const timeout = row("doctor.timeoutMs");
+		expect(textError(timeout, "2000")).toBeUndefined();
+		expect(textError(timeout, "100")).toBeUndefined();
+		expect(textError(timeout, String(DEFAULT_DOCTOR_CONFIG.timeoutMs))).toBeUndefined();
+		// Exactly the range `normalizeConfig` clamps to: outside it the file would be
+		// silently clamped on the next read, which is the bug this row prevents.
+		expect(textError(timeout, "99")).toContain("Out of range");
+		expect(textError(timeout, "30001")).toContain("Out of range");
+		expect(textError(timeout, "2s")).toContain("whole number");
+		expect(textError(timeout, "")).toContain("whole number");
+		expect(textError(timeout, "-1")).toContain("whole number");
+	});
+
+	test("every row's fallback passes its own rule", () => {
+		for (const entry of SETTING_ROWS) {
+			if (entry.kind !== "text") continue;
+			expect(textError(entry, entry.fallback), entry.id).toBeUndefined();
 		}
 	});
 });

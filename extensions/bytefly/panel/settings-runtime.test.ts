@@ -137,12 +137,28 @@ describe("bytefly writes", () => {
 		expect(valueOf(runtime, "project", "notify.enabled")).toBe("false");
 	});
 
-	test("cycles a custom rail glyph back onto the curated set", async () => {
-		const { runtime, globalPath } = boot({ globalDoc: { chrome: { rail: "|" } } });
+	test("stores a typed rail glyph and refuses a two-column one", async () => {
+		const { runtime, globalPath, notices } = boot();
 
-		await runtime.change("global", "chrome.rail");
+		expect(await runtime.setValue("global", "chrome.rail", "┃")).toBe(true);
+		expect(readJson(globalPath)).toEqual({ chrome: { rail: "┃" } });
 
-		expect(readJson(globalPath)).toEqual({ chrome: { rail: "╎" } });
+		// The loader would replace a two-column glyph on the next read, so the rule
+		// refuses it before the file can hold it.
+		expect(await runtime.setValue("global", "chrome.rail", "あ")).toBe(false);
+		expect(notices.at(-1)).toContain("one column");
+		expect(readJson(globalPath)).toEqual({ chrome: { rail: "┃" } });
+	});
+
+	test("stores the probe timeout as a number and refuses a non-number", async () => {
+		const { runtime, globalPath, notices } = boot();
+
+		expect(await runtime.setValue("global", "doctor.timeoutMs", "3000")).toBe(true);
+		expect(readJson(globalPath)).toEqual({ doctor: { timeoutMs: 3000 } });
+
+		expect(await runtime.setValue("global", "doctor.timeoutMs", "soon")).toBe(false);
+		expect(notices.at(-1)).toContain("whole number");
+		expect(readJson(globalPath)).toEqual({ doctor: { timeoutMs: 3000 } });
 	});
 
 	test("cycles the currency algorithm", async () => {

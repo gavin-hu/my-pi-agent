@@ -62,17 +62,17 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S4 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C9, F1–F5 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C8, F1–F5 |
 
 ## If only three things ship
 
-1. **C1 — Settings completion.** Close the scalar-only gap in the control center,
-   starting with the notify trigger toggles and `doctor.timeoutMs`.
-2. **P1 — Job parity on Windows.** A detached job should either survive the
+1. **P1 — Job parity on Windows.** A detached job should either survive the
    session or be refused with a clear message, and unknown exit codes should be
    named in `doctor`.
-3. **S1 — Partial restore.** Per-file or per-directory rewind, so restoring one
+2. **S1 — Partial restore.** Per-file or per-directory rewind, so restoring one
    file does not mean restoring the tree.
+3. **C1 — Provider rate packs.** Published rates for the major hosted providers,
+   each dated, so the footer stops under-reporting non-DeepSeek models.
 
 ## Horizons
 
@@ -243,22 +243,21 @@ Nothing here is queued: the search provider's configuration is now reported by
 
 ## 4. Chrome and upkeep
 
-**README promise:** the `/bytefly` control center, ten curated settings, priced
+**README promise:** the `/bytefly` control center, fourteen curated settings, priced
 runs, an update check, and two themes.
 
 **Today**
 
 - Bytefly owns the header, footer, turn rule, notices, tool frame, live working
   row, control center, doctor, notify, price, and update check.
-- Settings exposes ten scalar rows across six groups, with inline text editing.
+- Settings exposes fourteen rows across six groups, with inline text editing.
 - DeepSeek is priced from its published CNY and USD tables, with peak and
   off-peak windows.
 
 **Where the promise is thin**
 
-- Settings cover scalars only: notify trigger flags, `doctor.skip`,
-  `doctor.timeoutMs`, the `rates` table, and `price.peak` remain JSON (`bytefly`
-  README).
+- Settings cover scalars only: `doctor.skip` (an array), the `rates` table, and
+  `price.peak` (a nested object) remain JSON (`bytefly` README).
 - The picker manages only the `extensions` resource type and does not list
   built-in extensions (`bytefly` README).
 - The update check has no channel or prerelease preference, and its 24-hour
@@ -268,42 +267,38 @@ runs, an update check, and two themes.
 **Now**
 
 Nothing here makes a false promise today. The gaps above are documented
-behavior, and the one that is not (`C1`) needs a decision before it is work, so
-this section contributes no `Now` item.
+behavior, and the one that is not (`C3`, control-center breadth) needs a decision
+before it is work, so this section contributes no `Now` item.
 
 **Next**
 
-- **C1 — Settings completion.** Add the notify trigger toggles and a numeric
-  `doctor.timeoutMs` row, and allow a custom rail glyph through the text editor.
-  *Decision first:* the glyph half reverses the `bytefly` README's "the rail
-  glyph picker stays curated" limitation, and the accepted value must satisfy
-  `visibleWidth(glyph) === 1` or the transcript indent breaks. Arrays and tables
-  stay JSON with a pointer to the config reference. *Done when* no scalar
-  setting is JSON-only and a two-column glyph is refused with a reason.
+Nothing here is queued: every scalar preference now has a row. This section
+contributes no `Next` item.
+
 **Later**
 
-- **C2 — Provider rate packs.** Add published rates for the major hosted
+- **C1 — Provider rate packs.** Add published rates for the major hosted
   providers (Anthropic, OpenAI, Google), each with an effective date and a
   "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
   fallback. *Done when* no network is required and an unknown model still shows
   no invented price.
-- **C3 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
+- **C2 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
   pairs in both themes. *Done when* the test fails on a palette regression, not
   on a theme swap.
-- **C4 — Control-center breadth.** *Decision first:* do themes, skills, and
+- **C3 — Control-center breadth.** *Decision first:* do themes, skills, and
   prompts belong in the picker or stay with `pi config`? If added, they need the
   same health and scope rules as extensions.
-- **C5 — Spend guardrail.** A session budget in `price` that warns once at a
+- **C4 — Spend guardrail.** A session budget in `price` that warns once at a
   threshold and can notify through the existing capability. No hard stop by
   default.
-- **C6 — Price freshness.** Record when a built-in table was last verified and
+- **C5 — Price freshness.** Record when a built-in table was last verified and
   surface its age in `doctor`, so a tariff change is visible instead of silently
   wrong.
-- **C7 — Update channels.** An opt-in prerelease or tagged-channel preference,
+- **C6 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
-- **C8 — Update action.** Offer `pi update --extensions` from the control
+- **C7 — Update action.** Offer `pi update --extensions` from the control
   center behind a confirmation, only if the host exposes a safe way to run it.
-- **C9 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C8 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 ## 5. Foundations
@@ -351,7 +346,7 @@ it.
 | `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
-| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C4` is the decision, not a fix. |
+| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C3` is the decision, not a fix. |
 | `watch`: cannot raise an OS notification | `P2` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 

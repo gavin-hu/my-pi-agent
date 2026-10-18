@@ -270,11 +270,11 @@ keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` settings
 checkbox and one verdict (`off` when switched off, `env disabled` when
 `PI_DISABLED_EXTENSIONS` excludes it, otherwise its worst-severity health), and
-Settings, ten curated preferences in six groups — bytefly startup TUI,
-desktop notifications, their delivery method and title, the proactive health
-check, the currency and cost precision, the rail
-glyph, output padding, and the hardware cursor — with each row's value and its
-source file. A boolean toggles, an enum cycles, and a text row opens an inline
+Settings, fourteen curated preferences in six groups — bytefly startup TUI,
+desktop notifications, the three triggers that narrow them, their delivery method
+and title, the proactive health check and its probe timeout, the currency and cost
+precision, the rail glyph, output padding, and the hardware cursor — with each
+row's value and its source file. A boolean toggles, an enum cycles, and a text row opens an inline
 editor with its own caret, save, and cancel keys. `Space` toggles the
 focused extension and `Enter` expands
 its findings (per row, into the free height); in Settings `Space`/`Enter` change

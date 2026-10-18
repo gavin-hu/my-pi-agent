@@ -50,8 +50,13 @@ export const DEFAULT_RAIL_GLYPH: string = GLYPHS.divider;
 
 export const DEFAULT_CHROME_CONFIG: ChromeConfig = { rail: DEFAULT_RAIL_GLYPH };
 
-/** Whether `value` is a single, unstyled terminal column. */
-function isRailGlyph(value: string): boolean {
+/**
+ * Whether `value` is a single, unstyled terminal column.
+ *
+ * The Settings row validates with this same function, so the editor cannot save
+ * a glyph the next read would replace.
+ */
+export function isRailGlyph(value: string): boolean {
 	// Control characters first: a bare ESC confuses a width measurement.
 	if (/[\u0000-\u001f\u007f]/.test(value)) return false;
 	return [...value].length === 1 && visibleWidth(value) === 1;
