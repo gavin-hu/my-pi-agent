@@ -40,6 +40,16 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("response.ok");
 	});
 
+	test("folds the whole tree from one control and reveals filtered matches", () => {
+		expect(CLIENT_JS).toContain("function paint");
+		expect(CLIENT_JS).toContain("function setAll");
+		expect(CLIENT_JS).toContain("fold-all");
+		expect(CLIENT_JS).toContain('event.key === "-"');
+		// A query opens every list, so a fold cannot hide a match, and clearing it
+		// restores the tree's own state.
+		expect(CLIENT_JS).toContain('query !== "" || li.dataset.open === "true"');
+	});
+
 	test("collapses the sidebar on narrow viewports", () => {
 		expect(CLIENT_JS).toContain("details.bf-app__sidebar");
 		expect(CLIENT_JS).toContain("matchMedia");

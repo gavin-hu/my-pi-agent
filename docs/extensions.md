@@ -203,9 +203,9 @@ Markdown preview (heading anchors, an on-this-page outline, GitHub's centred
 content column, autolinked bare URLs, styled tables and images), sortable
 listings, copy and wrap, image
 thumbnails, per-language icons, a filter over a tree that scrolls in its own
-pane, a fuzzy quick-open palette, a
-keyboard sheet (`/`, `u`, `r`, `n`/`p`, `?`) over a reading-progress bar, and a
-read-only git diff view (`/diff` overview and per-file unified diffs with
+pane, a fold-all control over the tree, a fuzzy quick-open palette, a
+keyboard sheet (`-`, `/`, `u`, `r`, `n`/`p`, `?`) over a reading-progress bar,
+and a read-only git diff view (`/diff` overview and per-file unified diffs with
 `head` / `staged` / `worktree` scopes, syntax-highlighted changed lines, pinned
 hunk headers, and change markers in the listing and tree). No dependencies,
 with a `◉ <port>` status chip while it runs.

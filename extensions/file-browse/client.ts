@@ -17,6 +17,7 @@ export const CLIENT_JS = `(function () {
 	"use strict";
 	var tree = document.querySelector("nav.bf-tree");
 	var filter = document.getElementById("filter");
+	var foldAllButton = document.getElementById("fold-all");
 	var rows = Array.prototype.slice.call(document.querySelectorAll("table.bf-table tbody tr"));
 	var query = "";
 
@@ -106,6 +107,9 @@ export const CLIENT_JS = `(function () {
 			var path = row.getAttribute("data-path") || row.getAttribute("data-name") || "";
 			row.hidden = !matches(path);
 		});
+		// Lists are repainted too: while a query is active every list is shown, and
+		// clearing the query brings the folds back.
+		if (tree) Array.prototype.forEach.call(tree.querySelectorAll("li[data-open]"), paint);
 	}
 
 	if (filter) {
@@ -115,11 +119,57 @@ export const CLIENT_JS = `(function () {
 		});
 	}
 
-	function setOpen(li, twisty, list, open) {
-		li.dataset.open = open ? "true" : "false";
-		twisty.textContent = open ? "\\u25BE" : "\\u25B8";
-		twisty.setAttribute("aria-expanded", open ? "true" : "false");
+	// Visibility is derived: the intent in data-open, opened up while a filter is
+	// active so a fold cannot hide a match.
+	function isOpen(li) {
+		return query !== "" || li.dataset.open === "true";
+	}
+
+	function paint(li) {
+		var row = li.querySelector(":scope > .bf-tree__row");
+		var twisty = row ? row.querySelector(":scope > .bf-tree__tw") : null;
+		if (!twisty || twisty.tagName !== "BUTTON") return;
+		var open = isOpen(li);
+		// A pending load owns the glyph until it lands or fails.
+		if (!li.dataset.loading && !li.dataset.error) {
+			twisty.textContent = open ? "\\u25BE" : "\\u25B8";
+			twisty.setAttribute("aria-expanded", open ? "true" : "false");
+		}
+		var list = li.querySelector(":scope > ul");
 		if (list) list.hidden = !open;
+	}
+
+	function setOpen(li, open) {
+		li.dataset.open = open ? "true" : "false";
+		paint(li);
+	}
+
+	// Every dir with rendered children: what the fold-all control acts on.
+	function foldableDirs() {
+		var dirs = [];
+		if (!tree) return dirs;
+		Array.prototype.forEach.call(tree.querySelectorAll("li"), function (li) {
+			if (li.querySelector(":scope > ul")) dirs.push(li);
+		});
+		return dirs;
+	}
+
+	function syncFoldButton() {
+		if (!foldAllButton) return;
+		var dirs = foldableDirs();
+		var open = 0;
+		dirs.forEach(function (li) {
+			if (li.dataset.open === "true") open++;
+		});
+		foldAllButton.hidden = dirs.length === 0;
+		foldAllButton.textContent = open > 0 ? "fold all" : "expand all";
+	}
+
+	function setAll(open) {
+		foldableDirs().forEach(function (li) {
+			setOpen(li, open);
+		});
+		syncFoldButton();
 	}
 
 	function loadChildren(li, twisty, path) {
@@ -141,7 +191,7 @@ export const CLIENT_JS = `(function () {
 				li.appendChild(built);
 				delete li.dataset.loading;
 				delete li.dataset.error;
-				setOpen(li, twisty, built, true);
+				setOpen(li, true);
 				twisty.setAttribute("aria-busy", "false");
 				twisty.setAttribute("aria-label", name);
 				applyFilter();
@@ -166,11 +216,11 @@ export const CLIENT_JS = `(function () {
 			if (!li) return;
 			var list = li.querySelector(":scope > ul");
 			if (li.dataset.open === "true") {
-				setOpen(li, twisty, list, false);
+				setOpen(li, false);
 				return;
 			}
 			if (list) {
-				setOpen(li, twisty, list, true);
+				setOpen(li, true);
 				applyFilter();
 				return;
 			}
@@ -649,9 +699,25 @@ export const CLIENT_JS = `(function () {
 		} else if (event.key === "p" && hunkAnchors.length > 0) {
 			event.preventDefault();
 			moveHunk(-1);
+		} else if (event.key === "-" && foldAllButton) {
+			event.preventDefault();
+			foldAllButton.click();
 		}
 	});
 
 	if (quickOpenButton) quickOpenButton.addEventListener("click", openPalette);
+	if (foldAllButton) {
+		foldAllButton.addEventListener("click", function () {
+			// The control folds when anything is open, and expands when nothing is.
+			var open = false;
+			foldableDirs().forEach(function (li) {
+				if (li.dataset.open === "true") open = true;
+			});
+			setAll(!open);
+		});
+	}
+
+	// The control starts in the state the rendered tree implies.
+	syncFoldButton();
 })();
 `;
