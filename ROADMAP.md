@@ -62,18 +62,18 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C7, F1–F4 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C7, F1–F3 |
 
 ## If only three things ship
 
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
-2. **F1 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
-   window, with a check if duplicate subsections recur, so a release's notes read
-   as one story.
-3. **S1 — Worktree handoff.** A checked way to leave a worktree with a commit and
+2. **S1 — Worktree handoff.** A checked way to leave a worktree with a commit and
    a merge or pull-request hint, which is where the branch flow in `AGENTS.md`
    actually ends.
+3. **C3 — Spend guardrail.** A session budget in `price` that warns once at a
+   threshold and can raise a notification through the capability that already
+   exists. No hard stop by default.
 
 ## Horizons
 
@@ -305,14 +305,12 @@ provenance-attested path. This section contributes no `Next` item.
 
 **Later**
 
-- **F1 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
-  window; add a check if duplicate subsection headings recur.
-- **F2 — Test expansion.** Browser-page and plan-review coverage through the
+- **F1 — Test expansion.** Browser-page and plan-review coverage through the
   pure router and rendered HTML, without a real browser in CI.
-- **F3 — Dependency budget.** A check that a new runtime dependency is
+- **F2 — Dependency budget.** A check that a new runtime dependency is
   lazy-loaded unless it is needed at registration, matching the `document` and
   `web-access` pattern.
-- **F4 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
+- **F3 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
 
 ## Deliberately left thin
@@ -357,8 +355,8 @@ above.
 - A long-session benchmark stays within its budget — measured with
   `bun run bench:render` at each release.
 - A release is one reviewed command path with provenance, and the tag, changelog,
-  and npm version cannot drift — publishing ships; `F1` covers the changelog
-  hygiene that remains.
+  and npm version cannot drift — `test/release.test.ts` holds the version, the
+  install pins, and the changelog's one-set-per-window shape.
 - Docs truth tests cover tools, commands, and config keys, and this roadmap's own
   item numbers and links resolve — `test/naming.test.ts`,
   `test/docs-truth.test.ts`, `test/config-docs.test.ts`, and
