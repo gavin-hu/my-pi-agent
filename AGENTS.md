@@ -22,7 +22,12 @@ bun run test    # bun test --parallel=4 --timeout 30000
   `scripts/theme.ts` and says nothing about your change.
 - That check skips the gated `rewind` and `worktree` suites unless `CI` or
   `PI_SLOW_TESTS=1` is set. Run `PI_SLOW_TESTS=1 bun run test` when touching
-  either; CI runs them.
+  either; CI runs them. On macOS a `--parallel` worker can drop a subprocess exit
+  notification and hang a git-using test, so `bun run check:serial` is the
+  fallback there.
+- A new package-level test file also goes into `ROOT_TEST_FILES` in
+  `test/structure.test.ts`: that set is compared exactly, and listing the file
+  there is the whole registration.
 - A peer change is proved against the newest Pi, not just the locked one: the
   `compat` CI job installs the newest published peers and runs typecheck plus the
   serial suite. Reproduce it locally as `docs/development.md` describes; do not
@@ -50,6 +55,10 @@ local merge into `main` is allowed; a pull request is optional.
   inspect and easy to drop; a commit is neither, so leave it to the user.
 - Before committing: run `bun run check`, check `git status`, and stage explicit
   paths. Never `git add -A` / `git add .`.
+- Another session may merge into `main` while you work. Rebase before merging,
+  re-run `bun run check` on the merged tree, and remember that
+  `git push origin main` publishes whatever else is on `main`, not just your
+  branch.
 - Never `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, or
   `git commit --no-verify`.
 - Never force-push `main`. Parallel sessions and subagents inherit the worktree
@@ -122,6 +131,9 @@ why.
   Adding or renaming a command or flag means updating the catalog too, and
   registering it with a string literal: `test/docs-truth.test.ts` compares the
   two lists in both directions.
+- Adding an extension is more than the code: the `pi` manifest, the catalog,
+  `README.md` and its `README.zh-CN.md` mirror (compared row by row), and
+  `lib/tool-names.ts` if it shares a name. `CONTRIBUTING.md` lists the steps.
 - Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
   `promptGuidelines`, injected context) is budgeted. Keep each channel to its
   one job; `test/prompt-budget.test.ts` holds the injected-context ceilings.
@@ -243,6 +255,9 @@ One doc per audience. Do not duplicate across them:
 - `docs/` — repo-level guides: `getting-started`, `extensions` (the full
   catalog), `configuration`, `architecture`, `development`, `security`, and
   `references/` for exhaustive listings a hand edit is checked against.
+- `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
+  its ids, links, citations, and bucket caps, and shipping an item means
+  renumbering or removing it in the same commit.
 - `AGENTS.md` (this file) — the machine-facing contract and the repo
   invariants.
 - `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
