@@ -3,7 +3,8 @@
  *
  * `createPricer` owns the two things that must not be rebuilt per record: the
  * matching rates and the timezone formatter. A record with no matching rate
- * keeps Pi's recorded cost (in USD) unless the config turns that fallback off.
+ * contributes Pi's recorded cost, which is in USD, so it is totalled separately
+ * from the configured currency rather than added to it.
  */
 
 import { emptyUsage } from "../collect/entries.ts";
@@ -42,16 +43,25 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 			totals.output += record.output;
 			totals.cacheRead += record.cacheRead;
 			totals.cacheWrite += record.cacheWrite;
-			totals.cost += recordCost(config, format, record);
+			const rates = findRates(config.rates, record.provider, record.model);
+			if (rates === undefined) {
+				// Pi's recorded amount is dollars; it never joins the configured total.
+				if (config.fallbackToRecordedCost) totals.recordedCost += record.recordedCost;
+				continue;
+			}
+			totals.cost += ratedCost(config, format, record, rates);
 		}
 		return totals;
 	};
 }
 
-/** One record's cost: the configured rate, or Pi's recorded value. */
-function recordCost(config: ByteflyConfig, format: Intl.DateTimeFormat | null, record: UsageRecord): number {
-	const rates = findRates(config.rates, record.provider, record.model);
-	if (rates === undefined) return config.fallbackToRecordedCost ? record.recordedCost : 0;
+/** One record's cost at its matched rates, after the peak schedule. */
+function ratedCost(
+	config: ByteflyConfig,
+	format: Intl.DateTimeFormat | null,
+	record: UsageRecord,
+	rates: ModelRates,
+): number {
 	const cost = tokenCost(record, rates);
 	// An undated record is never discounted: we cannot tell which tariff applied.
 	if (format === null || record.at === null) return cost;

@@ -15,6 +15,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the footer no longer sums a fallback record's dollars into the
+  configured currency. A model with no matching rate shows Pi's recorded amount
+  as its own `$` figure beside the rated total (`¥2.50 + $0.31`), so a session
+  that mixes a priced provider with an unpriced one cannot print a total in the
+  wrong unit.
 - `todo`: the lag reminder also covers work that never got a list. A run that
   settles after three successful mutating calls with an empty list is asked to
   record one, provided at least one of them can change files, so three read-only
