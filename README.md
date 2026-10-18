@@ -148,7 +148,7 @@ document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and merged with
 `<cwd>/.pi/bytefly.json` (project wins), under a top-level section named for the
 extension. Each extension's `README.md` covers the behaviour around its keys,
 [`docs/configuration.md`](./docs/configuration.md) indexes the sections, and
-[`docs/configuration-reference.md`](./docs/configuration-reference.md) lists
+[`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md) lists
 every key with its type, default, and bounds.
 
 Every extension is on by default. To load the pack without some of them, set
@@ -170,7 +170,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | [Getting started](./docs/getting-started.md) | Requirements, install options, verifying the load, themes. |
 | [Extensions](./docs/extensions.md) | The full catalog of every extension and theme. |
 | [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
-| [Configuration reference](./docs/configuration-reference.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
+| [Configuration reference](./docs/references/configuration-reference.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
 | [Architecture](./docs/architecture.md) | How the package, its extensions, and `lib/` fit together. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |

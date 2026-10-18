@@ -11,10 +11,14 @@ deep technical contracts live outside this directory and are linked below.
 | [Getting started](./getting-started.md) | Requirements, install options, verifying the load, themes, disabling extensions. |
 | [Extensions](./extensions.md) | The full catalog of every extension and theme, with its tools and commands. |
 | [Configuration](./configuration.md) | Config-file resolution, the per-extension index, and environment variables. |
-| [Configuration reference](./configuration-reference.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
+| [Configuration reference](./references/configuration-reference.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
 | [Architecture](./architecture.md) | How the package, its extensions, and `lib/` fit together. |
 | [Development](./development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./security.md) | Trust boundaries for the loopback and remote surfaces. |
+
+Exhaustive listings that a hand edit is checked against live in
+[`references/`](./references/); the guides link to them instead of restating
+them.
 
 ## Deep contracts
 

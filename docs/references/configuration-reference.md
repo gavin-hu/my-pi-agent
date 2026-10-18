@@ -1,7 +1,7 @@
 # Configuration reference
 
 Every key `bytefly.json` accepts, section by section. Resolution, migration, and
-the state and environment files live in [Configuration](./configuration.md).
+the state and environment files live in [Configuration](../configuration.md).
 
 Two conventions:
 

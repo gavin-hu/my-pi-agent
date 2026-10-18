@@ -27,6 +27,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: the configuration reference moved to
+  [`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md),
+  so the exhaustive listings sit in their own directory; every guide and README
+  link points at the new path.
+
 - `bytefly`: the `Currency symbol` setting and the `currency.symbol` key are
   gone. The symbol now follows `currency.code` (`CNY` → `¥`, `USD` → `$`), so
   the two cannot disagree. `currency.decimals` still controls precision.
