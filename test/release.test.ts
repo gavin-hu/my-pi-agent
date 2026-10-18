@@ -252,6 +252,18 @@ describe("the publish workflow", () => {
 		expect(text).not.toContain("secrets.");
 	});
 
+	test("leaves the registry credential to the OIDC exchange", () => {
+		// `registry-url` makes `setup-node` write an `.npmrc` holding a placeholder
+		// `_authToken`. npm sends that token instead of exchanging the OIDC one and
+		// npmjs answers E404 — a scan of this file cannot see it, because the file is
+		// written at run time, so the input itself is the thing to forbid.
+		expect(text).not.toContain("registry-url:");
+		const setupNode = steps.find((step) => step.uses?.startsWith("actions/setup-node"));
+		expect(setupNode).toBeDefined();
+		expect(setupNode?.with).not.toHaveProperty("registry-url");
+		expect(setupNode?.with).not.toHaveProperty("token");
+	});
+
 	test("refuses to publish a tarball without provenance from anywhere else", () => {
 		// `publishConfig.provenance` makes a local `npm publish` fail, so the workflow
 		// above is the only path that works rather than only the documented one.
