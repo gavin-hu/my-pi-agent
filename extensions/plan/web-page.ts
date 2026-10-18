@@ -16,6 +16,7 @@
 import {
 	brandLockup,
 	docHead,
+	SIDEBAR_COLLAPSE_MAX,
 	themeToggle,
 	WEB_BASE_CSS,
 	WEB_COMPONENTS_CSS,
@@ -171,7 +172,7 @@ ${WEB_COMPONENTS_CSS}
 .review-nav .lvl-2 a,.review-nav .lvl-3 a,.review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:8px}
 .review-hints{display:none}
 }
-@media (max-width:860px){
+@media (max-width:${SIDEBAR_COLLAPSE_MAX}px){
 .bf-review{padding:var(--space-4) 18px 80px}
 .review-nav__title{display:none}
 }

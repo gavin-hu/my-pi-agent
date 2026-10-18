@@ -198,16 +198,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   gzip-compressed response was fully materialised (and decompressed) before the
   size was checked.
 
-- `file-browse`, `plan`: the sidebar scrolls again when its tree or outline is
-  taller than the window. The shell put the scroll on the `.bf-panel` inside the
+- `plan`: the review sidebar scrolls again when its outline is taller than
+  the window. The shell put the scroll on the `.bf-panel` inside the
   `<details>`, but a browser lays a details' content out in a block wrapper with
   no definite height that takes no part in its flex layout, so the panel kept its
   content height and the sidebar only clipped it. The sidebar now scrolls on its
-  own box; the plan review's inert flex rule is gone with it.
+  own box; the review's inert flex rule is gone with it.
 
 - `file-browse`: a long file tree now scrolls in its own pane under the pinned
   quick-open trigger and path filter, instead of scrolling them away with it;
-  narrow screens still expand the tree in the page.
+  narrow screens still expand the tree in the page. The pane and the disclosure
+  share one breakpoint, so no viewport width falls between them.
+
+- `file-browse`: a page render resolves its path once, and the change totals
+  come from the `--stat` pass rather than a second `git diff --shortstat`, so
+  navigating no longer repeats the `stat` or spawns an extra git process.
 
 ## [0.12.0] - 2026-10-18
 

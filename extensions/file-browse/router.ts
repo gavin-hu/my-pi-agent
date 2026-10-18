@@ -7,6 +7,7 @@
  * tested without a socket.
  */
 
+import type { Stats } from "node:fs";
 import { stat } from "node:fs/promises";
 import { THEME_JS } from "../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
@@ -87,8 +88,8 @@ function jsonResponse(status: number, value: unknown): ServeResponse {
 	};
 }
 
-async function treeFor(ctx: ServeContext, _currentRel: string): Promise<TreeNode> {
-	return buildTree(ctx.root, _currentRel, ctx.config.maxDirEntries);
+async function treeFor(ctx: ServeContext, currentRel: string): Promise<TreeNode> {
+	return buildTree(ctx.root, currentRel, ctx.config.maxDirEntries);
 }
 
 /** Resolve the header's git context, never failing the request. */
@@ -153,18 +154,30 @@ async function errorResponse(
 		status,
 		message,
 		tree,
-		rel: "",
 		git: await gitFor(ctx),
 	});
 	return { status, headers: { ...HTML_SECURITY, ...extra }, body };
 }
 
-async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse> {
+/** Resolve a request path once and render the directory or file page it names. */
+async function renderPath(ctx: ServeContext, rawRel: string, raw: boolean): Promise<ServeResponse> {
 	const abs = await resolveRequestPath(ctx.root, rawRel);
 	const rel = relativePath(ctx.root, abs);
-	const info = await stat(abs).catch(() => undefined);
-	if (!info || !info.isDirectory()) return view(ctx, rawRel, false);
+	const info: Stats | undefined = await stat(abs).catch(() => undefined);
+	if (info?.isDirectory()) return directoryResponse(ctx, rel);
+	if (!info) throw new HttpError(404, "That path does not exist.");
+	return fileResponse(ctx, rel, raw);
+}
 
+async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse> {
+	return renderPath(ctx, rawRel, false);
+}
+
+async function view(ctx: ServeContext, rawRel: string, raw: boolean): Promise<ServeResponse> {
+	return renderPath(ctx, rawRel, raw);
+}
+
+async function directoryResponse(ctx: ServeContext, rel: string): Promise<ServeResponse> {
 	const listing = await listDirectory(ctx.root, rel, ctx.config.maxDirEntries);
 	const tree = await treeFor(ctx, rel);
 	const git = await gitFor(ctx);
@@ -184,13 +197,7 @@ async function browse(ctx: ServeContext, rawRel: string): Promise<ServeResponse>
 	);
 }
 
-async function view(ctx: ServeContext, rawRel: string, raw: boolean): Promise<ServeResponse> {
-	const abs = await resolveRequestPath(ctx.root, rawRel);
-	const rel = relativePath(ctx.root, abs);
-	const info = await stat(abs).catch(() => undefined);
-	if (info?.isDirectory()) return browse(ctx, rawRel);
-	if (!info) throw new HttpError(404, "That path does not exist.");
-
+async function fileResponse(ctx: ServeContext, rel: string, raw: boolean): Promise<ServeResponse> {
 	const file = await readFileView(ctx.root, rel, ctx.config.maxFileBytes, ctx.config.maxTextLines, ctx.config.markdown);
 	const tree = await treeFor(ctx, rel);
 	const git = await gitFor(ctx);
@@ -375,7 +382,9 @@ export async function handleRequest(
 		if (pathname.startsWith("/raw/")) return await raw(ctx, pathname.slice("/raw/".length));
 		return errorResponse(ctx, 404, "That page does not exist.");
 	} catch (error) {
-		if (error instanceof HttpError) return errorResponse(ctx, error.status, error.message);
-		return errorResponse(ctx, 500, "Something went wrong reading that path.");
+		const status = error instanceof HttpError ? error.status : 500;
+		const message = error instanceof HttpError ? error.message : "Something went wrong reading that path.";
+		if (pathname.startsWith("/api/")) return jsonResponse(status, { error: message });
+		return errorResponse(ctx, status, message);
 	}
 }

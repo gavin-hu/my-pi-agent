@@ -277,7 +277,7 @@ document and the project document (project wins):
   `--cached` before the first commit), `staged` against the index, and
   `worktree` against the index from the other side. An untracked file renders as
   all-add through `readFileView`, so binary and over-size handling is shared
-  with the file view. `git diff --shortstat` supplies the chip totals and
+  with the file view. `git diff --stat` supplies the chip totals and
   `changeDirs` derives the directory markers; the changed lines are highlighted
   per hunk by rebuilding the old and new sides for `lib/highlight`.
 - **Streaming responses.** The server streams `filePath` responses and

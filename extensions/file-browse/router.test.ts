@@ -129,6 +129,13 @@ describe("routing", () => {
 		expect(payload.entries[0].iconHref).toMatch(/^#i-/);
 	});
 
+	test("returns JSON for an API error instead of rendering a page", async () => {
+		const response = await handleRequest(context(), "GET", "/api/tree?path=missing", {});
+		expect(response.status).toBe(404);
+		expect(response.headers["Content-Type"]).toContain("application/json");
+		expect(JSON.parse(text(response))).toEqual({ error: "That folder could not be read." });
+	});
+
 	test("streams raw files with disposition and the hardened CSP", async () => {
 		const textFile = await handleRequest(context(), "GET", "/raw/a.txt", {});
 		expect(textFile.filePath).toBeDefined();

@@ -98,8 +98,10 @@ describe("createGitDiff", () => {
 			ROOT,
 			HEAD_OK,
 			["status --porcelain=v1", { stdout: " M a.txt\0?? new file.txt\0" }],
-			["diff --no-color --stat HEAD --", { stdout: " a.txt | 1 +\n 1 file changed, 1 insertion(+)\n" }],
-			["diff --no-color --shortstat HEAD --", { stdout: " 1 file changed, 5 insertions(+), 3 deletions(-)\n" }],
+			[
+				"diff --no-color --stat HEAD --",
+				{ stdout: " a.txt | 4 +-\n 1 file changed, 5 insertions(+), 3 deletions(-)\n" },
+			],
 		]);
 		const diff = createGitDiff(createFakePi({ exec: stub.exec }).pi, "/repo");
 		const list = await diff.list("head");
@@ -110,7 +112,31 @@ describe("createGitDiff", () => {
 		expect(list?.deletions).toBe(3);
 	});
 
-	test("reports zero totals when there is no shortstat", async () => {
+	test("reads the totals from the single --stat pass", async () => {
+		let diffs = 0;
+		const exec = async (_command: string, args: string[]) => {
+			const key = args.join(" ");
+			if (key.startsWith("rev-parse --show-toplevel")) return { stdout: "/repo\n", stderr: "", code: 0 };
+			if (key.startsWith("rev-parse --verify")) return { stdout: "abc1234\n", stderr: "", code: 0 };
+			if (key.startsWith("status --porcelain=v1")) return { stdout: " M a.txt\0", stderr: "", code: 0 };
+			if (key.startsWith("diff --no-color")) {
+				diffs++;
+				return {
+					stdout: " a.txt | 4 +-\n 1 file changed, 5 insertions(+), 3 deletions(-)\n",
+					stderr: "",
+					code: 0,
+				};
+			}
+			return { stdout: "", stderr: "unexpected", code: 1 };
+		};
+		const diff = createGitDiff(createFakePi({ exec }).pi, "/repo");
+		const list = await diff.list("head");
+		expect(diffs).toBe(1);
+		expect(list?.insertions).toBe(5);
+		expect(list?.deletions).toBe(3);
+	});
+
+	test("reports zero totals when the stat is empty", async () => {
 		const stub = gitStub([
 			ROOT,
 			HEAD_OK,

@@ -257,7 +257,7 @@ describe("renderFilePage", () => {
 		expect(html).toContain(".bf-panel{min-width:0;overflow:auto;overscroll-behavior:contain}");
 		// The filter and quick open stay pinned while the tree scrolls in its own
 		// pane; the sidebar is a details, so the panel fills it absolutely.
-		expect(html).toContain("@media (min-width:861px){");
+		expect(html).toContain("@media not (max-width:860px){");
 		expect(html).toContain(".browse-sidebar{position:relative;overflow:hidden}");
 		expect(html).toContain(
 			".browse-side{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}",
@@ -813,6 +813,26 @@ describe("viewing surface", () => {
 		expect(html).toContain("Markdown ·");
 		expect(html).not.toContain("application/octet-stream");
 		expect(html).toContain("read-only · sub/b.md</footer>");
+	});
+
+	test("escapes the footer path", () => {
+		fixture = makeFixture();
+		const html = renderFilePage({
+			rootLabel: fixture.root,
+			rel: "a<b>.txt",
+			tree,
+			maxFileBytes: 1_000_000,
+			file: {
+				kind: "text",
+				lines: ["x"],
+				truncated: false,
+				totalLines: 1,
+				size: 1,
+				mtimeMs: MTIME_MS,
+				mime: "text/plain",
+			},
+		});
+		expect(html).toContain("read-only · a&lt;b&gt;.txt</footer>");
 	});
 
 	test("measures the rendered Markdown column and ships the review chrome", () => {

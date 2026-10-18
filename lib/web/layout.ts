@@ -18,8 +18,13 @@
  * The sidebar scrolls on its own box rather than on the `.bf-panel` it holds:
  * a `<details>` lays its content out in a block wrapper with no definite
  * height that takes no part in the element's flex layout, so a flex child there
- * keeps its content height and the sidebar would only clip it.
+ * keeps its content height and the sidebar would only clip it. A page that
+ * needs pinned chrome above its own scroll pane (file-browse) fills that
+ * wrapper absolutely and scrolls an inner region instead.
  */
+
+/** Viewport width, in px, at and below which the sidebar becomes a disclosure. */
+export const SIDEBAR_COLLAPSE_MAX = 860;
 
 export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height:100vh;min-height:0;overflow:hidden;background:var(--canvas);color:var(--text);font:var(--fs-base)/var(--lh-normal) var(--font-ui)}
 .bf-app__header{position:sticky;top:0;z-index:2;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border)}
@@ -27,7 +32,7 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
 .bf-app__sidebar{display:flex;flex-direction:column;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border)}
 .bf-app__main{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:var(--space-5) var(--space-6)}
 .bf-app__footer{flex:0 0 auto;border-top:1px solid var(--border);color:var(--muted);font-size:var(--fs-sm);padding:var(--space-3) var(--space-6)}
-@media (max-width:860px){
+@media (max-width:${SIDEBAR_COLLAPSE_MAX}px){
 .bf-app{height:auto;min-height:100vh;overflow:visible}
 .bf-app__body{flex:none;grid-template-columns:1fr}
 .bf-app__sidebar{display:block;position:static;max-height:none;overflow:visible;border-right:0;border-bottom:1px solid var(--border)}

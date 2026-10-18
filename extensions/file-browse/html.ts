@@ -12,6 +12,7 @@ import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import {
 	brandLockup,
 	docHead,
+	SIDEBAR_COLLAPSE_MAX,
 	WEB_BASE_CSS,
 	WEB_COMPONENTS_CSS,
 	WEB_LAYOUT_CSS,
@@ -61,7 +62,7 @@ export interface ChangeSummary {
 }
 
 /** Whether a path carries a change marker: a changed file, or a directory above one. */
-export function isChanged(summary: ChangeSummary | undefined, rel: string, isDir: boolean): boolean {
+function isChanged(summary: ChangeSummary | undefined, rel: string, isDir: boolean): boolean {
 	if (!summary || !rel) return false;
 	return isDir ? summary.dirs.has(rel) : summary.files.has(rel);
 }
@@ -172,9 +173,9 @@ body.palette-open{overflow:hidden}
 /* Wide screens: pin quick open and the filter, and scroll the tree on its own
    box. The sidebar is a details element, whose content sits in an anonymous
    wrapper with no definite height, so the panel fills the sidebar by absolute
-   positioning; below the 860px breakpoint the disclosure keeps normal page
+   positioning; below the sidebar breakpoint the disclosure keeps normal page
    scroll. */
-@media (min-width:861px){
+@media not (max-width:${SIDEBAR_COLLAPSE_MAX}px){
 .browse-sidebar{position:relative;overflow:hidden}
 .browse-side{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
 .browse-side .bf-tree{flex:1 1 auto;min-height:0;overflow:auto}
@@ -262,7 +263,7 @@ ${SPRITE}
 ${layout.main}
   </main>
 </div>
-<footer class="bf-app__footer">served from ${escapeHtml(layout.rootLabel)} · read-only · ${layout.footerNote}</footer>
+<footer class="bf-app__footer">served from ${escapeHtml(layout.rootLabel)} · read-only · ${escapeHtml(layout.footerNote)}</footer>
 ${layout.keys && layout.keys.length > 0 ? renderKeysSheet(layout.keys) : ""}
 <script src="/app.js" defer></script>
 </body>
@@ -293,7 +294,7 @@ function renderTreeNode(node: TreeNode, currentRel: string, summary?: ChangeSumm
 	const expanded = node.children.length > 0;
 	const isDir = node.isDir;
 	const spec = isDir ? FOLDER_ICON : languageOf(node.name);
-	const href = isDir ? (node.rel ? `/browse/${encodePath(node.rel)}` : "/browse/") : `/view/${encodePath(node.rel)}`;
+	const href = hrefFor(node);
 	const current = node.rel === currentRel ? ` aria-current="page"` : "";
 	const twisty = isDir
 		? `<button type="button" class="bf-tree__tw bf-tree__tw--toggle" aria-expanded="${expanded}" aria-label="${escapeHtml(node.name)}">${expanded ? "▾" : "▸"}</button>`
@@ -505,7 +506,7 @@ export function renderFilePage(page: FilePage): string {
 		mainClass: rendered ? "browse-page browse-measure" : "browse-page",
 		keys,
 		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
-		footerNote: escapeHtml(page.rel),
+		footerNote: page.rel,
 		git: page.git,
 		summary: page.summary,
 	});
@@ -725,7 +726,7 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 		mainClass: "browse-page",
 		keys,
 		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
-		footerNote: `diff · ${escapeHtml(modeScope(page.mode))}`,
+		footerNote: `diff · ${modeScope(page.mode)}`,
 		git: page.git,
 		summary: page.summary,
 	});
@@ -736,7 +737,6 @@ export interface ErrorPage {
 	status: number;
 	message: string;
 	tree: TreeNode;
-	rel: string;
 	git?: GitStatus;
 }
 

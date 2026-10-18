@@ -137,8 +137,8 @@ interface RepoState {
 const INSERTIONS = /(\d+) insertions?\(\+\)/;
 const DELETIONS = /(\d+) deletions?\(-\)/;
 
-/** A count from a `--shortstat` line, or `0` when the line does not carry it. */
-function shortstatCount(text: string, pattern: RegExp): number {
+/** A count from a diffstat summary line, or `0` when the line does not carry it. */
+function summaryCount(text: string, pattern: RegExp): number {
 	const match = pattern.exec(text);
 	return match ? Number(match[1]) : 0;
 }
@@ -218,17 +218,16 @@ export function createGitDiff(
 			const current = await state();
 			if (!current) return undefined;
 			const args = diffArgs(effectiveMode(mode, current.hasCommits));
-			const [stat, shortstat] = await Promise.all([
-				run(["diff", "--no-color", "--stat", ...args, "--"], { cwd: root }),
-				run(["diff", "--no-color", "--shortstat", ...args, "--"], { cwd: root }),
-			]);
-			const summary = shortstat.code === 0 ? shortstat.stdout : "";
+			const stat = await run(["diff", "--no-color", "--stat", ...args, "--"], { cwd: root });
+			const output = stat.code === 0 ? stat.stdout : "";
+			const trimmed = output.trimEnd();
+			const summary = trimmed.slice(trimmed.lastIndexOf("\n") + 1);
 			return {
 				mode,
 				files: current.files.filter((file) => inMode(file, mode)),
-				stat: stat.code === 0 ? stat.stdout.trim() : "",
-				insertions: shortstatCount(summary, INSERTIONS),
-				deletions: shortstatCount(summary, DELETIONS),
+				stat: output.trim(),
+				insertions: summaryCount(summary, INSERTIONS),
+				deletions: summaryCount(summary, DELETIONS),
 			};
 		},
 		async file(rel, mode) {
