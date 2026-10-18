@@ -44,12 +44,13 @@ the keys.
 ## `price` — cost calculation
 
 The footer's cost total. Read once per footer install, so a change needs a
-reload. `/bytefly settings` edits `currency.code` and `currency.decimals`.
+reload. `/bytefly settings` edits `currency.code`, `currency.decimals`, and `budget`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `currency.code` | string | `"CNY"` | `CNY`, `USD` | Pricing algorithm, and which built-in table `rates` starts from. Both apply `peak`; only `USD` falls back to Pi's recorded dollars for an unmatched model. |
 | `currency.decimals` | integer | `2` | `0`–`4` | Digits after the decimal point. |
+| `budget` | number | `0` | `0`–`10000000` | Session spend that triggers one warning, in the selected currency; `0` turns the guardrail off. It warns; it never stops a turn. |
 | `rates` | object | DeepSeek's published rates in the selected currency | One entry per `provider/model` | Per-million-token prices; merged key by key across the global and project documents. |
 | `peak.timezone` | string | `"Asia/Shanghai"` | An IANA zone | Zone the peak windows are stated in; an unknown zone drops the whole schedule. |
 | `peak.windows` | array | DeepSeek's weekday windows | Up to 16 entries | The peak windows. |

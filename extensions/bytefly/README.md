@@ -134,6 +134,16 @@ or replace a built-in entry:
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥2.50 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
 
+**Session budget.** `price.budget` puts a threshold under that total, in the same
+currency: when the session's cost reaches it, one `bytefly · Session budget
+reached` notice names what was spent against the budget, and one OS notification
+follows when notify is enabled. It is an alert, not a limit — no turn is blocked or
+aborted — and it fires once per session, on the turn where the crossing becomes
+final (the run settling), because a warning per turn after that is noise. `0`, the
+default, turns it off. The check reads the total the footer already priced, and
+the footer exists only in `tui` sessions, so a print or JSON run has no budget
+alert; the footer's own numbers are visible in every interactive session.
+
 **User message.** Every user message opens with a two-row `You` nameplate —
 the label over a rule that spans the width — above the message:
 
@@ -585,11 +595,11 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists fifteen preferences in six groups:
+switch, with its own cursor. It lists sixteen preferences in six groups:
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 15 settings
+  Extensions · Settings                           Global · 16 settings
 
   Startup (1)
 ❯ ◻ Bytefly startup TUI                                            Off
@@ -604,9 +614,10 @@ bytefly ────────────────────────
   Diagnostics (2)
   ◼ Proactive health check                                          On
     Probe timeout                                                 2000
-  Pricing (2)
+  Pricing (3)
     Currency                                                    CNY (¥)
     Cost decimals                                                    2
+    Session budget                                                   0
   Transcript (2)
     Rail glyph                                                       ╎
     Output padding                                                   1
@@ -633,6 +644,7 @@ bytefly ────────────────────────
 | Diagnostics | Probe timeout | `doctor.timeoutMs` | Number, 100–30000 ms |
 | Pricing | Currency | `price.currency.code` | CNY, USD |
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
+| Pricing | Session budget | `price.budget` | Number, `0` = off |
 | Transcript | Rail glyph | `chrome.rail` | Text, exactly one column |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |
@@ -657,7 +669,7 @@ with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
-scope therefore lists the twelve `bytefly.json` rows and a
+scope therefore lists the thirteen `bytefly.json` rows and a
 `App settings are Global only.` note rather than promising a write that cannot
 happen. A `bytefly.json` row writes one leaf in the selected scope (a depth-1
 key, or a nested one such as `price.currency.decimals`) through a per-key
@@ -667,7 +679,7 @@ malformed document is refused with a notice instead of overwritten.
 The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
 
 ```
-bytefly: Settings · Global · 15 settings
+bytefly: Settings · Global · 16 settings
 
 Startup (1)
   Bytefly startup TUI: Off

@@ -13,6 +13,8 @@ interface Harness {
 	ctx: any;
 	written: string[];
 	ran: Array<{ command: string; args: string[] }>;
+	/** The capability's handle, for the paths another bytefly module drives. */
+	handle: { notify: (body: string) => void };
 }
 
 const finished = { id: "j1", label: "build", status: "exited", exitCode: 0, signal: null };
@@ -41,9 +43,9 @@ async function scenario(notify: Record<string, unknown> | undefined, fn: (h: Har
 		};
 		const { pi } = createFakePi();
 		const ctx = fakeFooterCtx({ mode: "tui", sessionName: "project" }).ctx;
-		registerNotify(pi, { seams });
+		const handle = registerNotify(pi, { seams });
 		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		await fn({ pi, ctx, written, ran });
+		await fn({ pi, ctx, written, ran, handle });
 	});
 }
 
@@ -180,6 +182,22 @@ describe("registerNotify — watch matches", () => {
 		await scenario({ enabled: true, method: "osc777" }, async (h) => {
 			await emit(h.pi, "session_shutdown", { reason: "quit" }, h.ctx);
 			h.pi.events.emit(WATCH_MATCH_CHANNEL, match);
+			expect(h.written).toEqual([]);
+		});
+	});
+});
+
+describe("registerNotify — the handle", () => {
+	test("sends one notification with the configured title when enabled", async () => {
+		await scenario({ enabled: true, method: "osc777", title: "Build" }, async (h) => {
+			h.handle.notify("Session budget reached · ¥1.00 of ¥1.00");
+			expect(h.written).toEqual(["\x1b]777;notify;Build;Session budget reached · ¥1.00 of ¥1.00\x07"]);
+		});
+	});
+
+	test("is inert while notifications are off", async () => {
+		await scenario({ enabled: false, method: "osc777" }, async (h) => {
+			h.handle.notify("Session budget reached");
 			expect(h.written).toEqual([]);
 		});
 	});

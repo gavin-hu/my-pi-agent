@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `bytefly`: `price.budget` puts a session budget under the footer's cost total, in
+  the selected currency. The first turn that pushes the session's spend to it posts
+  one `bytefly · Session budget reached` notice naming the figures and, when notify
+  is enabled, one OS notification — through the same capability the run, job, and
+  watcher triggers use. It is an alert, not a limit: nothing is blocked or aborted,
+  it fires once per session, and `0` (the default) leaves it off. The check reads
+  the total the footer already priced, and **Session budget** joins the control
+  center's Pricing rows (sixteen preferences now).
+
 ## [0.13.0] - 2026-10-18
 
 ### Added

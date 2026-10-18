@@ -55,8 +55,14 @@ function isWatchMatch(value: unknown): value is WatchMatchEvent {
 	);
 }
 
+/** What the notify capability offers the rest of bytefly. */
+export interface NotifyHandle {
+	/** Raise one notification; inert while `notify.enabled` is off. */
+	notify(body: string): void;
+}
+
 /** Register the notification triggers. */
-export function registerNotify(pi: ExtensionAPI, deps: NotifyDeps = {}): void {
+export function registerNotify(pi: ExtensionAPI, deps: NotifyDeps = {}): NotifyHandle {
 	const seams = deps.seams ?? defaultSeams();
 	let config: NotifyConfig = DEFAULT_NOTIFY_CONFIG;
 	let busy = false;
@@ -106,4 +112,12 @@ export function registerNotify(pi: ExtensionAPI, deps: NotifyDeps = {}): void {
 		while (unsubscribes.length > 0) unsubscribes.pop()?.();
 		busy = false;
 	});
+
+	return {
+		notify(body) {
+			// The master switch governs every path, including one another capability asks for.
+			if (!config.enabled) return;
+			fire(body);
+		},
+	};
 }

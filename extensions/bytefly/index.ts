@@ -59,7 +59,10 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	// the header reads it, so the marker and every re-install agree.
 	const updates = createUpdateState();
 	const header = registerHeader(pi, updates);
-	registerFooter(pi);
+	// Notify first, so the footer's budget guardrail can raise one OS notification
+	// through the same capability the triggers use instead of a second dispatch path.
+	const notifications = registerNotify(pi, deps.notify);
+	registerFooter(pi, { notify: notifications.notify });
 	registerUserMessage(pi);
 	// One store per load: the tool frame and the notice record Pi's output pad and
 	// the turn separator reads it, so bytefly's transcript blocks share one margin.
@@ -72,7 +75,6 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerTurnSeparator(pi, pad);
 	registerWorkingTimer(pi);
 	const doctor = registerDoctor(pi, deps.doctor);
-	registerNotify(pi, deps.notify);
 	// The returned handle is what `/bytefly update` re-runs, so the update surface is
 	// registered before the panel that offers the command.
 	const update = registerUpdate(pi, updates, { ...deps.update, onUpdate: () => header.refresh() });

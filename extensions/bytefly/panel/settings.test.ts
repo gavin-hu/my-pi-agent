@@ -58,6 +58,7 @@ describe("catalogue", () => {
 			"doctor.timeoutMs",
 			"price.currency.code",
 			"price.currency.decimals",
+			"price.budget",
 			"chrome.rail",
 			"outputPad",
 			"showHardwareCursor",
@@ -78,6 +79,7 @@ describe("catalogue", () => {
 			"doctor.timeoutMs",
 			"price.currency.code",
 			"price.currency.decimals",
+			"price.budget",
 			"chrome.rail",
 			"outputPad",
 			"showHardwareCursor",
@@ -89,8 +91,8 @@ describe("catalogue", () => {
 				.filter((entry) => entry.source === "bytefly")
 				.map((entry) => entry.id),
 		);
-		expect(countSettings("global")).toBe(15);
-		expect(countSettings("project")).toBe(12);
+		expect(countSettings("global")).toBe(16);
+		expect(countSettings("project")).toBe(13);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -103,11 +105,11 @@ describe("catalogue", () => {
 			"terminal",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 2, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 3, 2, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([7, 2, 2, 1]);
+		expect(project.map((group) => group.views.length)).toEqual([7, 2, 3, 1]);
 	});
 });
 
@@ -127,13 +129,14 @@ describe("values", () => {
 			["doctor.timeoutMs", "2000", "2000", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.currency.decimals", "2", "2", "default"],
+			["price.budget", "0", "0", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
 			["outputPad", "1", "1", "default"],
 			["showHardwareCursor", "false", "Off", "default"],
 		]);
 
 		const project = settingViews(snapshot(), "project");
-		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 12 }, () => "inherited"));
+		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 13 }, () => "inherited"));
 	});
 
 	test("reads configured app and bytefly values", () => {
@@ -255,6 +258,16 @@ describe("cycling", () => {
 		expect(textError(timeout, "2s")).toContain("whole number");
 		expect(textError(timeout, "")).toContain("whole number");
 		expect(textError(timeout, "-1")).toContain("whole number");
+	});
+
+	test("states the budget's rule with the loader's own bounds", () => {
+		const budget = row("price.budget");
+		for (const good of ["0", "5", "2.50", "0.0001", "9999999"]) {
+			expect(textError(budget, good), good).toBeUndefined();
+		}
+		for (const bad of ["", "-1", "5.", ".5", "5.00001", "10000001", "ten"]) {
+			expect(textError(budget, bad), bad).toBeDefined();
+		}
 	});
 
 	test("every row's fallback passes its own rule", () => {
