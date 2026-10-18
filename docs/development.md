@@ -154,11 +154,9 @@ authenticates with npm trusted publishing (OIDC). See
 [one-time setup](#one-time-publish-setup).
 
 1. Work on a branch in a worktree (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)).
-2. The changelog bullet for a change is written in the same commit as the change,
-   so this step is mechanical: read `[Unreleased]` against
-   `git log <last-tag>..main` and give every user-visible change exactly one
-   scoped bullet, with no bullet describing a state that was reverted earlier in
-   the same window. Then bump `version` in
+2. Read `[Unreleased]` against `git log <last-tag>..main`: every user-visible
+   change needs exactly one scoped bullet, and no bullet may describe a state
+   reverted earlier in the same window. Then bump `version` in
    [`../package.json`](../package.json), move the `Unreleased`
    entries in [`../CHANGELOG.md`](../CHANGELOG.md) under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and

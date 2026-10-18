@@ -22,9 +22,8 @@ bun run test    # bun test --parallel=4 --timeout 30000
   `scripts/theme.ts` and says nothing about your change.
 - That check skips the gated `rewind` and `worktree` suites unless `CI` or
   `PI_SLOW_TESTS=1` is set. Run `PI_SLOW_TESTS=1 bun run test` when touching
-  either; CI runs them. On macOS a `--parallel` worker can drop a subprocess exit
-  notification and hang a git-using test, so `bun run check:serial` is the
-  fallback there.
+  either; CI runs them. On macOS, fall back to `bun run check:serial` when a
+  git-using test hangs.
 - A new package-level test file also goes into `ROOT_TEST_FILES` in
   `test/structure.test.ts`: that set is compared exactly, and listing the file
   there is the whole registration.
@@ -95,10 +94,6 @@ change. This section holds only what an agent must not get wrong:
   `git log <last-tag>..main` before making it: every user-visible change needs
   exactly one scoped bullet, and no bullet may describe a state that was
   reverted earlier in the same window.
-- After creating a release for an older version, run
-  `gh release edit vX.Y.Z --latest` on the newest tag: GitHub marks the newest
-  creation date as "Latest", and publishing a draft does not change which
-  release is latest.
 
 ## Invariants
 
