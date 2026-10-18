@@ -59,19 +59,19 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | — |
 | Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1–P2 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S4 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C8, F1–F5 |
 
 ## If only three things ship
 
-1. **S1 — Partial restore.** Per-file or per-directory rewind, so restoring one
-   file does not mean restoring the tree.
-2. **C1 — Provider rate packs.** Published rates for the major hosted providers,
+1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
-3. **F1 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
+2. **F1 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
    serial suite, so all three systems run one command.
+3. **C2 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
+   pairs in both themes, so a palette edit cannot quietly make text unreadable.
 
 ## Horizons
 
@@ -132,8 +132,8 @@ contributes no `Now` item.
 
 - `worktree`: re-roots the built-in file and shell tools, guards absolute paths
   and shell escapes, and refuses to discard a dirty worktree.
-- `rewind`: one git-ref snapshot per prompt, restore code/conversation/both,
-  with `max` and `autoPrune`.
+- `rewind`: one git-ref snapshot per prompt, restore code (whole tree or a chosen
+  subset of paths), conversation, or both, with `max` and `autoPrune`.
 - `memory`: project and global markdown notes, injected each run, managed
   through `/memory` (add, edit, forget, merge, and move between scopes).
 
@@ -146,7 +146,7 @@ contributes no `Now` item.
 - Shell escape detection is best-effort; `eval`, `sh -c`, and command
   substitution are covered only behind `blockUnparsableCommands` (`worktree`
   README).
-- Rewind is all-or-nothing and captures no ignored file (see
+- Rewind captures no ignored file, and the path checklist needs a TUI (see
   [Deliberately left thin](#deliberately-left-thin)).
 - Memory injection truncates a large store with a tail note, and `forget` is
   exact; `/memory doctor` names the notes the cap drops and the near-duplicate
@@ -161,22 +161,18 @@ This section contributes no `Now` item.
 
 **Next**
 
-Nothing here is queued: the one gap that could be closed by refusing a tool is
-closed, and the rest are structural. This section contributes no `Next` item.
+Nothing here is queued: a rewind can restore a subset of the snapshot now, and the
+rest is either structural or later work. This section contributes no `Next` item.
 
 **Later**
 
-- **S1 — Partial restore.** Per-file or per-directory rewind from a snapshot,
-  with the same confirmation and dirty-tree rules that the whole-tree restore
-  already has. This reverses the current all-or-nothing non-goal; design the UI
-  before the tool.
-- **S2 — Worktree handoff.** A checked way to leave a worktree with a commit and
+- **S1 — Worktree handoff.** A checked way to leave a worktree with a commit and
   a merge or pull-request hint, without becoming a general branch manager. The
   branch flow in `AGENTS.md` is the contract to keep.
-- **S3 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S2 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics.
-- **S4 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S3 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -336,8 +332,7 @@ it.
 |---|---|
 | `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S3`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
-| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S1`. |
-| `rewind`: a restore is all-or-nothing | A non-goal until `S1`; the confirmation already previews the change. |
+| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
 | `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
@@ -356,8 +351,8 @@ above.
   thin* — enforced by `test/docs-truth.test.ts`, `test/naming.test.ts`, and
   `test/config-docs.test.ts`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
-  and WeChat turn shutdown each either preserve the work or say what was lost —
-  `S1`.
+  a partial rewind, and WeChat turn shutdown each either preserve the work or say
+  what was lost.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — each a session entry or
   tool-result `details` rebuilt from `getBranch()`, pinned by its extension's

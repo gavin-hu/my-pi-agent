@@ -87,6 +87,91 @@ describe.skipIf(!runSlowSuites)("rewind", () => {
 		}
 	});
 
+	test("a partial restore rewrites only the selected paths", async () => {
+		const partial = await makeRepo("pi-rw-restore-partial-");
+		cleanups.push(partial);
+		mkdirSync(join(partial, "src"), { recursive: true });
+		writeFileSync(join(partial, "a.txt"), "a1\n");
+		writeFileSync(join(partial, "src", "b.txt"), "b1\n");
+		writeFileSync(join(partial, "src", "gone.txt"), "gone1\n");
+		await runGit(["add", "."], { cwd: partial });
+		await runGit(["commit", "-qm", "base"], { cwd: partial });
+		const snapshot = await createSnapshot({ runGit, now: () => 1000, idFactory: () => "p1" }, snapshotInput(partial));
+
+		writeFileSync(join(partial, "a.txt"), "a2\n");
+		writeFileSync(join(partial, "src", "b.txt"), "b2\n");
+		rmSync(join(partial, "src", "gone.txt"));
+		writeFileSync(join(partial, "src", "added.txt"), "new\n");
+
+		const all = await planRestore({ runGit }, { root: partial, indexFile: indexFileFor(partial), target: snapshot });
+		expect(all.ok && all.plan.changed).toBe(3);
+		expect(all.ok && all.plan.removed).toBe(1);
+
+		const subset = ["a.txt", "src/added.txt"];
+		const plan = await planRestore(
+			{ runGit },
+			{ root: partial, indexFile: indexFileFor(partial), target: snapshot, paths: subset },
+		);
+		expect(plan.ok).toBe(true);
+		if (!plan.ok) return;
+		expect(plan.plan.paths.map((entry) => entry.path).sort()).toEqual(["a.txt", "src/added.txt"]);
+		expect(plan.plan.changed).toBe(1);
+		expect(plan.plan.removed).toBe(1);
+		expect(plan.plan.diff).toContain("a.txt");
+		expect(plan.plan.diff).not.toContain("b.txt");
+
+		const summary = await applyRestore(
+			{ runGit },
+			{ root: partial, indexFile: indexFileFor(partial), target: snapshot, paths: subset },
+		);
+		expect(summary.changed).toBe(1);
+		expect(summary.removed).toBe(1);
+		// The subset says how much of the whole diff it covers.
+		expect(summary.of).toBe(4);
+
+		expect(readFileSync(join(partial, "a.txt"), "utf-8")).toBe("a1\n");
+		expect(existsSync(join(partial, "src", "added.txt"))).toBe(false);
+		// Unselected paths keep the post-snapshot state, deletion included.
+		expect(readFileSync(join(partial, "src", "b.txt"), "utf-8")).toBe("b2\n");
+		expect(existsSync(join(partial, "src", "gone.txt"))).toBe(false);
+		// The real index never sees the restore, partial or not.
+		expect((await runGit(["diff", "--cached", "--name-only"], { cwd: partial })).stdout.trim()).toBe("");
+	});
+
+	test("a partial restore of a deletion brings the file back", async () => {
+		const back = await makeRepo("pi-rw-restore-undelete-");
+		cleanups.push(back);
+		writeFileSync(join(back, "keep.txt"), "keep1\n");
+		await runGit(["add", "."], { cwd: back });
+		await runGit(["commit", "-qm", "base"], { cwd: back });
+		const snapshot = await createSnapshot({ runGit, now: () => 1000, idFactory: () => "u1" }, snapshotInput(back));
+
+		rmSync(join(back, "keep.txt"));
+		await applyRestore(
+			{ runGit },
+			{ root: back, indexFile: indexFileFor(back), target: snapshot, paths: ["keep.txt"] },
+		);
+
+		expect(readFileSync(join(back, "keep.txt"), "utf-8")).toBe("keep1\n");
+	});
+
+	test("a path with a glob character restores literally", async () => {
+		const weird = await makeRepo("pi-rw-restore-glob-");
+		cleanups.push(weird);
+		writeFileSync(join(weird, "weird[1].txt"), "one\n");
+		await runGit(["add", "."], { cwd: weird });
+		await runGit(["commit", "-qm", "base"], { cwd: weird });
+		const snapshot = await createSnapshot({ runGit, now: () => 1000, idFactory: () => "g1" }, snapshotInput(weird));
+
+		writeFileSync(join(weird, "weird[1].txt"), "two\n");
+		await applyRestore(
+			{ runGit },
+			{ root: weird, indexFile: indexFileFor(weird), target: snapshot, paths: ["weird[1].txt"] },
+		);
+
+		expect(readFileSync(join(weird, "weird[1].txt"), "utf-8")).toBe("one\n");
+	});
+
 	test("restores nested files without touching siblings", async () => {
 		// A well-formed snapshot from a normal repo restores a nested file in place.
 		const fresh = await makeRepo("pi-rw-restore-nested-");

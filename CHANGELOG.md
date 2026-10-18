@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `rewind`: a code rewind can now restore **some** paths instead of the whole
+  tree. When code moves, `/rewind` asks **Restore what?** — `Everything (N files)`
+  or `Choose paths…` — and the checklist lists every changed path grouped by
+  directory with an `M`/`D`/`A` mark, all of them selected so `Enter` twice keeps
+  the old behavior. `Space` toggles a file or a directory, `a`/`n` select all or
+  none, and the confirmation previews only the chosen subset before anything is
+  written. The subset restore uses the same temporary index and pre-restore
+  safety snapshot, so the real index and HEAD stay untouched either way; the
+  checklist is TUI-only, and other modes restore everything as before.
+
 - `bytefly`: the Settings section covers every scalar preference in
   `bytefly.json`. Three new toggles narrow what is announced —
   `notify.turnFinished`, `notify.needsInput`, `notify.jobFinished` — and **Probe

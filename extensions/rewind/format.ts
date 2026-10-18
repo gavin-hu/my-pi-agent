@@ -131,11 +131,11 @@ export function previewDiffText(diff: string, maxLines = DIFF_PREVIEW_LINES): st
 	return [...lines.slice(0, maxLines), `… ${lines.length - maxLines} more lines`].join("\n");
 }
 
-/** Restore confirmation text. */
+/** Restore confirmation text; a partial restore also names how much it covered. */
 export function formatRestoreText(summary: RestoreSummary): string {
-	const parts = [
-		`Restored snapshot #${summary.id}: ${summary.changed} file${summary.changed === 1 ? "" : "s"} changed`,
-	];
+	const scope = summary.of === undefined ? "" : ` of ${summary.of}`;
+	const files = `${summary.changed}${scope} file${summary.changed === 1 && summary.of === undefined ? "" : "s"}`;
+	const parts = [`Restored snapshot #${summary.id}: ${files} changed`];
 	if (summary.removed > 0) parts.push(`${summary.removed} removed`);
 	const line = `${parts.join(", ")}.`;
 	const safety = summary.safety ? ` A safety snapshot #${summary.safety} captures the pre-restore state.` : "";

@@ -12,6 +12,7 @@ import {
 	WRITE_TOOL,
 } from "../../test/helpers/fixtures/rewind.ts";
 import { cleanup, makeRepo } from "../../test/helpers/git.ts";
+import { choosePaths } from "./rewind.ts";
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
@@ -113,5 +114,73 @@ describe.skipIf(!runSlowSuites)("/rewind command", () => {
 		// navigateTree is a no-op at the leaf, so the prompt is set manually.
 		expect(ctx.navigations).toEqual(["e1"]);
 		expect(ctx.editorSets).toEqual(["do the task"]);
+	});
+});
+
+// Not gated on the slow suite: the path step decides what to restore, and it never
+// touches git.
+describe("/rewind path step", () => {
+	const changed = [
+		{ path: "a.txt", change: "modified" as const },
+		{ path: "src/b.txt", change: "added" as const },
+	];
+
+	test("non-TUI modes restore everything without mounting a screen", async () => {
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: "/tmp", hasUI: true, mode: "rpc" });
+		let mounted = 0;
+		ctx.ui.custom = async () => {
+			mounted += 1;
+			return undefined;
+		};
+
+		expect(await choosePaths(fake.pi, ctx, changed)).toEqual({ kind: "all" });
+		expect(mounted).toBe(0);
+	});
+
+	test("an empty diff has nothing to choose", async () => {
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: "/tmp", hasUI: true, mode: "tui" });
+
+		expect(await choosePaths(fake.pi, ctx, [])).toEqual({ kind: "all" });
+	});
+
+	test("offers the whole diff first and cancels when the dialog is dismissed", async () => {
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: "/tmp", hasUI: true, mode: "tui" });
+		const titles: string[] = [];
+		ctx.ui.select = async (title: string) => {
+			titles.push(title);
+			return undefined;
+		};
+
+		expect(await choosePaths(fake.pi, ctx, changed)).toEqual({ kind: "cancel" });
+		expect(titles[0]).toBe("Restore what?");
+	});
+
+	test("takes the whole diff from the first answer", async () => {
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: "/tmp", hasUI: true, mode: "tui" });
+		ctx.ui.select = async () => "Everything (2 files)";
+
+		expect(await choosePaths(fake.pi, ctx, changed)).toEqual({ kind: "all" });
+	});
+
+	test("mounts the checklist and returns the paths it reports", async () => {
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: "/tmp", hasUI: true, mode: "tui" });
+		ctx.ui.select = async () => "Choose paths…";
+		ctx.ui.custom = async () => ["src/b.txt"];
+
+		expect(await choosePaths(fake.pi, ctx, changed)).toEqual({ kind: "some", paths: ["src/b.txt"] });
+	});
+
+	test("a cancelled checklist cancels the rewind", async () => {
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: "/tmp", hasUI: true, mode: "tui" });
+		ctx.ui.select = async () => "Choose paths…";
+		ctx.ui.custom = async () => undefined;
+
+		expect(await choosePaths(fake.pi, ctx, changed)).toEqual({ kind: "cancel" });
 	});
 });
