@@ -202,7 +202,7 @@ test/
     fixtures/<name>.ts     # extension-specific fixtures
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
-  structure.test.ts        # layout, banned-pattern, and boundary guards
+  structure.test.ts        # layout, banned-pattern, boundary, and doc-link guards
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
   docs-truth.test.ts       # catalog commands and flags vs registrations
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime

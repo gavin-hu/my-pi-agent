@@ -31,5 +31,6 @@ These are the authoritative references the guides summarize:
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | The contributor entry point. |
 | [`../extensions/<name>/README.md`](../extensions/) | One doc per extension: full tool surface, Pi integration, and design notes. |
 | [`../lib/README.md`](../lib/README.md) | Shared helpers and the host seams. |
+| [`../lib/tui/README.md`](../lib/tui/README.md) | The terminal design system: host-before-custom, block grammar, primitives, width, focus, and the render rules. |
 | [`../test/README.md`](../test/README.md) | Test principles, tiers, and helper conventions. |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | Release notes. |

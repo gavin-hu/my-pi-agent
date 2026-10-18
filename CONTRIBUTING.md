@@ -35,6 +35,9 @@ enter_worktree <name>
 git worktree add .pi/worktrees/<name> -b worktree-<name>
 ```
 
+The branch is cut from `origin/main`, which lags the local `main` when pushes are
+infrequent, so rebase onto `main` right after entering.
+
 When the work is done, ask how to reconcile the branch (commit, merge, keep, or
 discard) before removing the worktree. Never `git add -A` or `git add .`; stage
 explicit paths. Never `git reset --hard`, `git checkout .`, `git clean -fd`,
