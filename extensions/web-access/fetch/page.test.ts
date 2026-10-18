@@ -51,6 +51,36 @@ function pdfResponse(): HttpResponse {
 	};
 }
 
+/** "中文页面" in GBK. */
+const GBK_TEXT = new Uint8Array([0xd6, 0xd0, 0xce, 0xc4, 0xd2, 0xb3, 0xc3, 0xe6]);
+
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+	const total = parts.reduce((sum, part) => sum + part.length, 0);
+	const merged = new Uint8Array(total);
+	let offset = 0;
+	for (const part of parts) {
+		merged.set(part, offset);
+		offset += part.length;
+	}
+	return merged;
+}
+
+function gbkPage(prefix: string): HttpResponse {
+	const bytes = concatBytes(
+		new TextEncoder().encode(`<html><head><title>${prefix}</title></head><body><article><p>`),
+		GBK_TEXT,
+		new TextEncoder().encode("</p></article></body></html>"),
+	);
+	return {
+		status: 200,
+		body: "",
+		contentType: "text/html",
+		finalUrl: "https://1.1.1.1/gbk",
+		sizeBytes: bytes.length,
+		bytes,
+	};
+}
+
 describe("runFetch redirects", () => {
 	test("follows a redirect to a public address", async () => {
 		const seen: string[] = [];
@@ -108,6 +138,31 @@ describe("runFetch redirects", () => {
 		expect(received?.headers?.["Content-Type"]).toBe("application/json");
 		expect(received?.headers?.["User-Agent"]).toBe(config.userAgent);
 		expect(received?.redirect).toBe("manual");
+	});
+});
+
+describe("runFetch charset", () => {
+	test("decodes a page whose header declares GBK", async () => {
+		const page = gbkPage("");
+		page.contentType = "text/html; charset=gbk";
+		const runner: HttpRunner = () => Promise.resolve(page);
+		const result = await runFetch("https://1.1.1.1/gbk", baseRequest(), config, undefined, { http: runner });
+		expect(result.text).toContain("中文页面");
+		expect(result.text).not.toContain("\uFFFD");
+	});
+
+	test("falls back to the page's own <meta charset>", async () => {
+		const runner: HttpRunner = () => Promise.resolve(gbkPage('<meta charset="gbk">'));
+		const result = await runFetch("https://1.1.1.1/gbk", baseRequest(), config, undefined, { http: runner });
+		expect(result.text).toContain("中文页面");
+		expect(result.text).not.toContain("\uFFFD");
+	});
+
+	test("keeps using the decoded body when raw bytes are absent", async () => {
+		const page = { ...html("<article><p>Hello</p></article>"), bytes: undefined };
+		const runner: HttpRunner = () => Promise.resolve(page);
+		const result = await runFetch("https://1.1.1.1/start", baseRequest(), config, undefined, { http: runner });
+		expect(result.text).toContain("Hello");
 	});
 });
 

@@ -158,7 +158,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changed-section markers of the branch it lands on, instead of showing none; a
   review that shows the same content appends nothing.
 
+- `web-access`: independent `web_fetch` calls run in parallel again. The tool was
+  marked `sequential` on the theory that its page cache needed it, but the cache
+  only does synchronous map operations and a duplicate fetch is wasted work, not
+  a wrong entry; the serialisation only delayed URLs the model requested in one
+  turn. `web_search` keeps its sequential mode, because its throttle is not
+  concurrency-safe.
+
+- `web-access`: code-point position math no longer expands a page into an array
+  of one-character strings. `charLength` walks in place and a new `sliceChars`
+  cuts by offset, so paging and `find` on a multi-megabyte page stop allocating
+  millions of strings per call.
+
+- `web-access`: `web_fetch`'s `find` output is now part of the `maxChars`
+  budget. At the schema's ceilings (`maxMatches: 50`, `contextChars: 2000`) the
+  passages alone could exceed `maxOutputChars`; the result keeps the passages
+  that fit and says whether `maxMatches` or the budget hid the rest.
+
 ### Fixed
+
+- `web-access`: `web_fetch` decodes a page by its byte-order mark, the declared
+  `Content-Type` charset, or the page's own `<meta charset>`, falling back to
+  UTF-8. A GBK/GB18030 page used to arrive as replacement characters; an unknown
+  label still falls back instead of failing the fetch.
+
+- `web-access`: `maxBytes` is enforced while the response body streams in. The
+  old read buffered the whole `arrayBuffer()` first, so a chunked or
+  gzip-compressed response was fully materialised (and decompressed) before the
+  size was checked.
 
 - `file-browse`, `plan`: the sidebar scrolls again when its tree or outline is
   taller than the window. The shell put the scroll on the `.bf-panel` inside the

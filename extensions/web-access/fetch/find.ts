@@ -13,7 +13,7 @@
  * model already receives, not the raw HTML.
  */
 
-import { toChars } from "../text.ts";
+import { charLength, sliceChars } from "../text.ts";
 
 export type FindMode = "insensitive" | "exact" | "fuzzy";
 
@@ -46,12 +46,12 @@ export function toCodePointOffset(text: string, utf16Index: number): number {
 	return offset;
 }
 
-function passageAround(points: string[], start: number, end: number, contextChars: number): string {
+function passageAround(text: string, start: number, end: number, contextChars: number, total: number): string {
 	const from = Math.max(0, start - contextChars);
-	const to = Math.min(points.length, end + contextChars);
+	const to = Math.min(total, end + contextChars);
 	const prefix = from > 0 ? "…" : "";
-	const suffix = to < points.length ? "…" : "";
-	return `${prefix}${points.slice(from, to).join("").trim()}${suffix}`;
+	const suffix = to < total ? "…" : "";
+	return `${prefix}${sliceChars(text, from, to).trim()}${suffix}`;
 }
 
 function substringMatches(text: string, query: string, insensitive: boolean): Array<[number, number]> {
@@ -131,7 +131,7 @@ function fuzzyMatches(text: string, query: string): Array<[number, number]> {
  */
 export function findPassages(text: string, queries: string[], options: FindOptions): Passage[] {
 	if (text.length === 0) return [];
-	const points = toChars(text);
+	const total = charLength(text);
 	const results: Passage[] = [];
 	const seen = new Set<string>();
 
@@ -150,7 +150,11 @@ export function findPassages(text: string, queries: string[], options: FindOptio
 			if (seen.has(key)) continue;
 			seen.add(key);
 			const endOffset = toCodePointOffset(text, end);
-			results.push({ query: trimmed, offset, passage: passageAround(points, offset, endOffset, options.contextChars) });
+			results.push({
+				query: trimmed,
+				offset,
+				passage: passageAround(text, offset, endOffset, options.contextChars, total),
+			});
 		}
 	}
 

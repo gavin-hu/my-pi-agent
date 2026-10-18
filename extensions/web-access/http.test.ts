@@ -7,6 +7,20 @@ import {
 	HttpUnavailableError,
 } from "./http.ts";
 
+/** A response whose body is a real stream, so the runner reads it chunk by chunk. */
+function streamedResponse(chunks: string[], init: { cancel?: () => void } = {}): Response {
+	const body = new ReadableStream<Uint8Array>({
+		start(controller) {
+			for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk));
+			if (!init.cancel) controller.close();
+		},
+		cancel() {
+			init.cancel?.();
+		},
+	});
+	return { status: 200, url: "https://x/", headers: new Headers(), body } as unknown as Response;
+}
+
 describe("createFetchRunner", () => {
 	test("returns status, body, content type, final url, and size", async () => {
 		const response = {
@@ -25,6 +39,21 @@ describe("createFetchRunner", () => {
 		expect(result.finalUrl).toBe("https://final.example/");
 		expect(result.sizeBytes).toBe(5);
 		expect(Array.from(result.bytes ?? [])).toEqual([104, 101, 108, 108, 111]);
+	});
+
+	test("decodes the body with the declared charset", async () => {
+		const gbk = new Uint8Array([0xd6, 0xd0, 0xce, 0xc4, 0xd2, 0xb3, 0xc3, 0xe6]);
+		const response = {
+			status: 200,
+			url: "https://x/",
+			headers: new Headers({ "content-type": "text/html; charset=gbk" }),
+			arrayBuffer: async () => gbk.buffer,
+		} as unknown as Response;
+		const result = await createFetchRunner((async () => response) as unknown as typeof fetch)({
+			url: "https://x/",
+			timeoutMs: 1000,
+		});
+		expect(result.body).toBe("中文页面");
 	});
 
 	test("passes redirect: manual and reports the location header", async () => {
@@ -81,6 +110,23 @@ describe("createFetchRunner", () => {
 		await expect(createFetchRunner(fetchImpl)({ url: "https://x/", timeoutMs: 1000, maxBytes: 5 })).rejects.toThrow(
 			HttpTooLargeError,
 		);
+	});
+
+	test("assembles a multi-chunk stream under the byte limit", async () => {
+		const fetchImpl = (async () => streamedResponse(["ab", "cd"])) as unknown as typeof fetch;
+		const result = await createFetchRunner(fetchImpl)({ url: "https://x/", timeoutMs: 1000, maxBytes: 10 });
+		expect(result.body).toBe("abcd");
+		expect(result.sizeBytes).toBe(4);
+	});
+
+	test("cancels a streamed body that exceeds the byte limit", async () => {
+		let cancelled = false;
+		const fetchImpl = (async () =>
+			streamedResponse(["0123456789"], { cancel: () => (cancelled = true) })) as unknown as typeof fetch;
+		await expect(createFetchRunner(fetchImpl)({ url: "https://x/", timeoutMs: 1000, maxBytes: 5 })).rejects.toThrow(
+			HttpTooLargeError,
+		);
+		expect(cancelled).toBe(true);
 	});
 
 	test("times out a hanging request", async () => {

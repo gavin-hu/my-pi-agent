@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { charLength, toChars, truncateChars } from "./text.ts";
+import { charLength, sliceChars, truncateChars } from "./text.ts";
 
 describe("charLength", () => {
 	test("counts code points, not UTF-16 units", () => {
@@ -9,9 +9,24 @@ describe("charLength", () => {
 	});
 });
 
-describe("toChars", () => {
-	test("splits into one-code-point strings", () => {
-		expect(toChars("a👍")).toEqual(["a", "👍"]);
+describe("sliceChars", () => {
+	test("slices by code point", () => {
+		expect(sliceChars("a👍b", 0, 2)).toBe("a👍");
+		expect(sliceChars("a👍b", 1, 3)).toBe("👍b");
+		expect(sliceChars("广州早茶", 1, 3)).toBe("州早");
+	});
+
+	test("clamps and defaults to the end", () => {
+		expect(sliceChars("abc", 0)).toBe("abc");
+		expect(sliceChars("abc", 2)).toBe("c");
+		expect(sliceChars("abc", 0, 10)).toBe("abc");
+		expect(sliceChars("abc", 10)).toBe("");
+		expect(sliceChars("abc", -2, 1)).toBe("a");
+	});
+
+	test("never splits a surrogate pair", () => {
+		expect(sliceChars("👍🏽", 0, 1)).toBe("👍");
+		expect(sliceChars("👍🏽", 1)).toBe("🏽");
 	});
 });
 

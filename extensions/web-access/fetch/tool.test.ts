@@ -36,6 +36,8 @@ describe("web_fetch tool", () => {
 		expect(tool.exposure).toBeUndefined();
 		expect(tool.defaultActive).toBeUndefined();
 		expect(tool.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true });
+		// Sibling fetches run in parallel; the page cache is safe under interleaving.
+		expect(tool.executionMode).toBeUndefined();
 		expect(tool.outputSchema).toBeDefined();
 		expect(typeof tool.renderCall).toBe("function");
 		expect(typeof tool.renderResult).toBe("function");
@@ -115,6 +117,26 @@ describe("web_fetch tool", () => {
 		expect(page.matches).toHaveLength(3);
 		expect(page.matchesTruncated).toBe(true);
 		expect(result.content[0].text).toContain("raise maxMatches");
+	});
+
+	test("notes when the character budget hid matches", async () => {
+		const paragraph = `<p>hit ${"x".repeat(150)}</p>`;
+		const body = `<html><head><title>Many</title></head><body><article>${paragraph.repeat(10)}</article></body></html>`;
+		const { tool } = installTool(() => Promise.resolve(htmlResponse(body, "https://1.1.1.1/many")));
+
+		const result = await tool.execute(
+			"call-find-budget",
+			{ url: "https://1.1.1.1/many", find: ["hit"], maxMatches: 10, contextChars: 150, maxChars: 400 },
+			undefined,
+			undefined,
+			ctx,
+		);
+		const page = result.details;
+
+		expect(page.matches.length).toBeLessThan(10);
+		expect(page.matchesTruncated).toBe(true);
+		expect(Array.from(result.content[0].text).length).toBeLessThanOrEqual(400);
+		expect(result.content[0].text).toContain(`showing ${page.matches.length} of 10 matches`);
 	});
 
 	test("serves a second call from the cache without refetching", async () => {

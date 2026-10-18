@@ -28,6 +28,9 @@ How the `web_search` and `web_fetch` calls and their results look in the transcr
   always with no configuration required.
 - Registers `web_fetch`, which fetches a URL (GET or POST) and
   returns readable text with links kept as `[text](url)`.
+- Decodes by the byte-order mark, the declared `Content-Type` charset, or the
+  page's own `<meta charset>`, so a GBK/GB18030 page reads as text instead of
+  replacement characters.
 - Pages long output and reports the next `startIndex` (`nextIndex` in
   `structuredContent`); `find` returns matching passages instead of the whole
   page, and says when the match cap hid further hits.
@@ -148,6 +151,8 @@ as `Authorization: Bearer <key>`; for Brave it is sent as
   cannot redirect into a private address.
 - Transport headers (`Host`, `Content-Length`, `Connection`, `Transfer-Encoding`,
   and similar) are refused, and request bodies are capped.
+- `maxBytes` is enforced while the body streams in: a chunked or compressed
+  response is abandoned at the limit instead of being buffered whole.
 
 ## `web_search`
 
@@ -200,7 +205,7 @@ address. Loopback, private, link-local, and cloud-metadata addresses are refused
 | `headers` | object | Extra request headers (transport headers are refused) |
 | `body` | string | POST body; implies `method: "POST"` unless set explicitly |
 | `startIndex` | integer | Code-point offset to start from (default 0) |
-| `maxChars` | integer | ≥200; capped by `maxOutputChars` |
+| `maxChars` | integer | ≥200; capped by `maxOutputChars`; also caps `find` output |
 | `find` | string[] | 1–10 strings; return matching passages instead of the page |
 | `mode` | enum | `insensitive` (default) \| `exact` \| `fuzzy` |
 | `contextChars` | integer | 0–2000 chars of context per match (default 200) |
@@ -209,10 +214,14 @@ address. Loopback, private, link-local, and cloud-metadata addresses are refused
 
 Long pages are paged: a truncated page names the `startIndex` to use next, inside
 its own character budget, and `structuredContent` repeats it as `nextIndex`.
-Fetched pages are cached for the registration, so paging and `find` do not
-refetch. POST responses and requests with custom headers are never cached.
+A `find` result spends the same `maxChars` budget: passages are added while they
+fit, and the note names `maxMatches` when the match cap hid the rest or
+`maxChars`/`contextChars` when the budget did. Fetched pages are cached for the
+registration, so paging and `find` do not refetch. POST responses and requests
+with custom headers are never cached.
 `structuredContent` is the page object, with an `error` field when the fetch
-failed and `matchesTruncated` when `maxMatches` capped the match list.
+failed and `matchesTruncated` when the match cap or the `maxChars` budget hid
+matches.
 
 ```
 web_fetch({ url: "https://pi.dev/" })
@@ -243,6 +252,9 @@ the content type and size.
 - **Heuristic extraction**: `web_fetch` strips scripts/styles/nav/footer and
   prefers `<main>`/`<article>`, but is not a full readability engine. PDF
   extraction is optional (`unpdf`) and off unless installed.
+- **`find` output is budgeted.** With `maxMatches: 50` and `contextChars: 2000`
+  the passages alone would exceed `maxOutputChars`; the result shows the passages
+  that fit and names the knob to change.
 - **The page cache is in-memory and per registration**; a page can be stale
   within a session. `refresh: true` refetches, and it is cleared on
   `session_start` and `session_shutdown`.
@@ -279,7 +291,12 @@ the content type and size.
   live at the top level (`text.ts`, `html.ts`, `transcript.ts`, `http.ts`).
 - **Shared transport.** [`http.ts`](./http.ts) holds the fetch runner
   (`HttpRunner`, `createFetchRunner`, HTTP error types), used by both halves and
-  injectable for tests.
+  injectable for tests. It reads the body through a byte-counting stream, so
+  `maxBytes` stops a chunked or compressed response before it is buffered whole.
+- **Charset-aware decoding.** [`charset.ts`](./charset.ts) is the one place a
+  byte body becomes text: BOM first, then the declared `Content-Type` charset,
+  then the page's own `<meta charset>`, then UTF-8. An unknown label falls back
+  to UTF-8 instead of failing the fetch.
 - **One config file, isolated sections.** `config.ts` reads the global then
   project file and validates each section with its half's normalizer; unknown
   keys and malformed files are ignored.
@@ -302,7 +319,11 @@ the content type and size.
   mutable is held at module scope.
 - **The paging budget is explicit.** `formatPage` counts the header and the
   truncation note against `maxChars`, so a paged page always carries its
-  `startIndex` hint inside the limit.
+  `startIndex` hint inside the limit. `formatMatches` applies the same rule to
+  `find`: it includes the passages that fit and names the knob that hid the rest.
+- **Code points without a copy.** [`text.ts`](./text.ts) counts and slices by
+  walking the string in place, so a multi-megabyte page is never expanded into an
+  array of one-character strings on every call.
 - **One JSON boundary per concern.** `search/json.ts` owns `requestJson` (status
   check and parse error) and `collectResults` (title + http(s) URL + de-dupe), so
   the three providers cannot drift on either.
@@ -321,7 +342,8 @@ the content type and size.
 |---|---|
 | `index.ts` | Register both tools |
 | `config.ts` | The `web-access` section of `bytefly.json` loader (via `lib/config.ts`) |
-| `http.ts` | Shared fetch runner and HTTP error types |
+| `http.ts` | Shared fetch runner and HTTP error types; caps the body while streaming |
+| `charset.ts` | Charset-aware body decoding (BOM, header, `<meta>`, UTF-8 fallback) |
 | `text.ts` | Shared code-point length, slice, and truncation helpers |
 | `html.ts` | Shared HTML entity decoding |
 | `transcript.ts` | Shared `oneLine` sanitizer for both transcript renderers |
@@ -353,11 +375,12 @@ the content type and size.
 `config.test.ts` and `index.test.ts`. It covers the shared runner (via injected
 `fetch`), the provider registry and resolution, each provider's URL builder and
 parser (DuckDuckGo, SearXNG, Brave), the orchestration pipeline and throttle,
-redirect re-validation (per-hop SSRF with literal IPs), method/header/body
-validation, the nested config merge and section isolation, extraction,
-formatting/paging through the tool (including a regression test that a truncated
-page keeps its `startIndex` hint), find and its cap notice, the per-registration
-cache, the SSRF guard, the injected PDF dependency, and both tools'
-registration/execution. Tests inject the runner, throttle, and PDF extractor
+charset decoding (declared, `<meta>`, and BOM precedence), a streamed body over
+the byte cap, redirect re-validation (per-hop SSRF with literal IPs),
+method/header/body validation, the nested config merge and section isolation,
+extraction, formatting/paging through the tool (including a regression test that
+a truncated page keeps its `startIndex` hint), find and its cap/budget notices,
+the per-registration cache, the SSRF guard, the injected PDF dependency, and both
+tools' registration/execution. Tests inject the runner, throttle, and PDF extractor
 through the tools' dependencies, so no network or PDF library is needed; the
 runtime smoke test only asserts registration.

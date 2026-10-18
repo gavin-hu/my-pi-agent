@@ -173,8 +173,9 @@ Tool: `memory`. Command: `/memory`.
 Web access with two tools. `web_search` searches through a pluggable provider —
 keyless DuckDuckGo by default, with optional self-hosted SearXNG or a keyed
 Brave search. `web_fetch` GETs or POSTs a URL and returns readable text, with
-paging, `find`, per-hop SSRF checks against private/internal addresses, and
-optional PDF extraction. Configuration lives in the `web-access` section of
+charset-aware extraction, paging, `find` inside the same character budget,
+per-hop SSRF checks against private/internal addresses, and optional PDF
+extraction. Configuration lives in the `web-access` section of
 `bytefly.json`.
 
 Tools: `web_search`, `web_fetch`.
