@@ -18,7 +18,7 @@ import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { codeBody, fenceInfo, planBlocks, planHeadings } from "./blocks.ts";
 import { parseFeedback, stripFeedback, type PlanAnnotation } from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
-import { changedSections } from "./steps.ts";
+import { changedSections, extractPlanSteps } from "./steps.ts";
 import { handleReviewRequest, type ReviewContext, type ServeResponse, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
@@ -147,6 +147,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			baseline = stripFeedback(current.content);
 			const blocks = planBlocks(baseline);
 			const headings = planHeadings(blocks);
+			// The same step list approval seeds and set_plan_steps indexes, so the page's
+			// progress cannot disagree with the todo list.
+			const stepList = extractPlanSteps(baseline);
 			// Highlight code blocks once, at the boundary: the client copies only the
 			// tok-* spans out of the server-escaped HTML.
 			const code: Record<string, string[]> = {};
@@ -168,6 +171,10 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					text: heading.text,
 					...(changed.has(heading.text) ? { changed: true } : {}),
 				})),
+				steps: {
+					done: stepList.filter((step) => step.status === "completed").length,
+					total: stepList.length,
+				},
 				code,
 				token,
 				canApprove,

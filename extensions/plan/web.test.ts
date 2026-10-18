@@ -70,6 +70,24 @@ describe("createPlanWebReview", () => {
 		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan" }]);
 	});
 
+	test("reports the Steps section progress, not every checkbox", async () => {
+		const plan = [
+			"# Plan",
+			"## Context",
+			"- [ ] not a step",
+			"## Steps",
+			"- [x] Done one",
+			"- [ ] Pending one",
+			"## Verification",
+			"- [ ] not a step either",
+		].join("\n");
+		const session = await start(plan);
+		const html = await (await fetch(session.url)).text();
+		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
+		const data = JSON.parse(island![1]);
+		expect(data.steps).toEqual({ done: 1, total: 2 });
+	});
+
 	test("marks the outline section that changed since the previous review", async () => {
 		const session = await start("# Plan\n\nNew body\n", [], { previous: "# Plan\n\nOld body\n" });
 		const html = await (await fetch(session.url)).text();

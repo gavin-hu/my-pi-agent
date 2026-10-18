@@ -49,6 +49,12 @@ export interface ReviewPageData {
 	annotations: PlanAnnotation[];
 	/** Section outline, in document order. */
 	outline: ReviewOutlineItem[];
+	/**
+	 * The plan's step progress, from the same `extractPlanSteps` the approval and
+	 * `set_plan_steps` use: the `Steps` section when there is one, so the page
+	 * agrees with what approval seeds rather than counting every checkbox.
+	 */
+	steps: { done: number; total: number };
 	/** Highlighted HTML per line, keyed by the code block's 0-based start line. */
 	code: Record<string, string[]>;
 	/** Whether the review may approve the plan (only the `exit_plan_mode` flow). */

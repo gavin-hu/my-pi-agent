@@ -7,6 +7,7 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 		blocks: [{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] }],
 		annotations: [],
 		outline: [{ id: "s-0", line: 0, level: 1, text: "Add rate limiting" }],
+		steps: { done: 0, total: 0 },
 		code: {},
 		canApprove: true,
 		token: "secret-token",
@@ -148,7 +149,7 @@ describe("renderReviewPage", () => {
 		const data = island(page({ code: { "2": ['<span class="tok-keyword">const</span>'] } }));
 		expect(data.title).toBe("Add rate limiting");
 		expect(data.token).toBe("secret-token");
-		expect(data.steps).toBeUndefined();
+		expect(data.steps).toEqual({ done: 0, total: 0 });
 		expect(data.relativePath).toBeUndefined();
 		expect(data.outline[0]).toEqual({ id: "s-0", line: 0, level: 1, text: "Add rate limiting" });
 		expect(data.code["2"][0]).toContain("tok-keyword");

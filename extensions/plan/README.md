@@ -65,7 +65,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   `/plan review [path]`) to open the plan in a local browser: a reading-first
   page with the plan's H1 as its title, GitHub's Markdown content column, a
   comment rail in
-  the left margin, and live section and step progress. Select text to leave an
+  the left margin, and live section and step progress — the step count comes from
+  the same `Steps` section list approval seeds. Select text to leave an
   inline comment, and save them back into the plan file itself as
   `> [!REVIEW]` lines. Saved comments return to the model as a refinement
   request.
@@ -286,7 +287,7 @@ in the default browser on `127.0.0.1`. The page is a reading-first review
 surface: a sticky header carrying the plan's H1 (falling back to the file-name
 slug), a live status chip (connection, comment count, and unsaved changes), the
 theme toggle, and the review actions, over a hairline reading-progress bar. A
-sticky side panel shows the plan's step progress and comment count above a
+sticky side panel shows the plan's `Steps` section progress and comment count above a
 **section outline**, and the document is GitHub's Markdown content column — one centred
 measure of at most 1012px with a comment rail in its left margin. Every block
 reveals a **+ Comment** action on hover; select
@@ -304,7 +305,8 @@ file and returns them to the model.
   in a rail in the left margin, so annotating never reflows the text.
 - **Section outline and facts.** Headings become a sticky outline with jump
   links, an active-section highlight, and a per-section comment count; the panel
-  above it reports the plan's checkbox steps (`n/m`) and total comments. A
+  above it reports the `Steps` section's progress (`n/m`, the same list approval
+  seeds) and total comments. A
   section that changed since the previous review in this session carries a dot
   (its `title` and accessible label say so); an unchanged plan shows none.
 - **Inline threads.** A comment renders directly under the block it anchors to,

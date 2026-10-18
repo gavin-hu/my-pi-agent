@@ -17,7 +17,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
 
   var dataNode = document.getElementById("review-data");
-  var fallback = { blocks: [], annotations: [], outline: [], code: {}, token: "" };
+  var fallback = { blocks: [], annotations: [], outline: [], steps: { done: 0, total: 0 }, code: {}, token: "" };
   var data = fallback;
   if (dataNode && dataNode.textContent) {
     try { data = JSON.parse(dataNode.textContent); } catch (error) { data = fallback; }
@@ -483,22 +483,13 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   // Review facts: the plan's step progress, and the comments per section.
   function renderFacts() {
-    var items = Array.isArray(data.blocks) ? data.blocks : [];
-    var done = 0;
-    var total = 0;
-    items.forEach(function (block) {
-      if (block.kind !== "list") return;
-      (block.lines || []).forEach(function (line) {
-        var box = /^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]/.exec(line);
-        if (!box) return;
-        total += 1;
-        if (box[1].toLowerCase() === "x") done += 1;
-      });
-    });
+    // The server counts the same step list approval seeds, so this never
+    // disagrees with the todo list over a checkbox outside the Steps section.
+    var steps = data.steps || { done: 0, total: 0 };
     var stepFill = document.getElementById("step-fill");
-    if (stepFill) stepFill.style.width = (total > 0 ? Math.round((done / total) * 100) : 0) + "%";
+    if (stepFill) stepFill.style.width = (steps.total > 0 ? Math.round((steps.done / steps.total) * 100) : 0) + "%";
     var stepCount = document.getElementById("step-count");
-    if (stepCount) stepCount.textContent = done + "/" + total;
+    if (stepCount) stepCount.textContent = steps.done + "/" + steps.total;
     var totalEl = document.getElementById("comment-total");
     if (totalEl) totalEl.textContent = String(annotations.length);
     Object.keys(outlineItems).forEach(function (line) { outlineItems[line].hidden = true; });

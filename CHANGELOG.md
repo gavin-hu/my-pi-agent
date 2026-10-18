@@ -139,6 +139,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: the browser review's Steps counter uses the same `Steps` section list
+  as approval and `set_plan_steps`, instead of counting every checkbox in the
+  document. A checklist outside `Steps` (for example in `Verification`) no longer
+  makes the page report a different progress than the todo list it seeds.
 - `plan`: `write_plan` reports the step caps when a plan exceeds them — more than
   50 steps, or a step longer than 200 characters — instead of leaving the model
   to discover later that the tail cannot be seeded or ticked. The plan file keeps
