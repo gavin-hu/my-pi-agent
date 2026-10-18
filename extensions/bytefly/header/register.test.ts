@@ -80,7 +80,7 @@ describe("header update marker", () => {
 		const { pi, ctx, headers } = boot({ quietStartup: true });
 		await emit(pi, "session_start", {}, ctx);
 
-		expect(renderLast(headers)[1]).not.toContain("↑");
+		expect(renderLast(headers)[2]).not.toContain("↑");
 	});
 
 	test("re-installs the header with the marker once the store holds a version", async () => {
@@ -91,7 +91,7 @@ describe("header update marker", () => {
 		handle.refresh();
 
 		expect(headers).toHaveLength(2);
-		expect(renderLast(headers)[1]).toContain("↑0.12.0");
+		expect(renderLast(headers)[2]).toContain("↑0.12.0");
 	});
 
 	test("does nothing on refresh before a session started", () => {

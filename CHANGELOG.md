@@ -124,6 +124,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the data island (so the comment length is enforced while typing), submits a
   comment only after an IME composition ends, keeps its active block highlighted
   after a re-render, and shows the server's own reason when a save is rejected.
+- `bytefly`: the startup header opens with a blank row again. Pi mounts its
+  built-in header inside spacers but keeps none for the `quietStartup: true`
+  header a custom component replaces, so the nameplate now draws its own
+  leading blank instead of sitting flush against the top edge.
 
 ## [0.12.0] - 2026-10-18
 

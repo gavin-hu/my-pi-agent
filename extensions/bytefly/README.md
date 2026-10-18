@@ -40,7 +40,8 @@ chrome identity (`enhanced by bytefly` and the package version), a signature
 rule whose `accent` lead sits under the mark, and a grouped help block. The help
 keys resolve live from Pi's keybindings, so a rebound key shows the user's
 chord; the identity and help text are `meta` / `faint` so the mark keeps the
-eye. It is installed only in interactive (`tui`) sessions when Pi's
+eye. It opens with a blank row, so the nameplate clears the top edge. It is
+installed only in interactive (`tui`) sessions when Pi's
 `quietStartup` is `true` — the Settings row **Bytefly startup TUI** — and
 `false`, `"header"`, and unset leave Pi's built-in header in place; on terminals
 that cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
