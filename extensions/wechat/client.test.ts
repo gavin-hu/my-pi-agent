@@ -81,6 +81,14 @@ describe("getUpdates", () => {
 		expect(response.msgs).toHaveLength(1);
 		expect(response.buf).toBe("c2");
 		expect(response.timeoutMs).toBe(700);
+		// The hold is not requested unless configured: the server's own is the default.
+		expect(body.longpolling_timeout_ms).toBeUndefined();
+	});
+
+	test("asks for a shorter hold only when one is configured", async () => {
+		const { calls, http } = recorder([jsonResponse({ ret: 0, msgs: [], get_updates_buf: "c2" })]);
+		await client(http).getUpdates(account, "c1", undefined, { holdMs: 3000 });
+		expect(JSON.parse(String(calls[0]?.body ?? "{}")).longpolling_timeout_ms).toBe(3000);
 	});
 });
 

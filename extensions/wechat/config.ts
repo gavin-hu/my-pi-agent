@@ -26,6 +26,12 @@ export interface WechatConfig {
 	typingIndicator: boolean;
 	/** Route interactive dialogs raised during a WeChat turn back to WeChat. */
 	remotePrompts: boolean;
+	/**
+	 * Ask the server for this long-poll hold, in milliseconds. Unset means "use the
+	 * server's own", which is what every release before this option did; the
+	 * field is a protocol experiment, so it is opt-in.
+	 */
+	pollHoldMs?: number;
 }
 
 export const DEFAULT_CONFIG: WechatConfig = {
@@ -78,6 +84,11 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	}
 	if (typeof raw.remotePrompts === "boolean") {
 		config.remotePrompts = raw.remotePrompts;
+	}
+	if (raw.pollHoldMs !== undefined) {
+		const hold = clampInteger(raw.pollHoldMs, 0, 0, 120_000);
+		// `0` clears an inherited value; anything below a second is not a poll.
+		config.pollHoldMs = hold >= 1000 ? hold : undefined;
 	}
 	return config;
 }

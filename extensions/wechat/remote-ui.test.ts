@@ -6,7 +6,7 @@ import {
 	type InteractionRequest,
 	isRemoteTurn,
 } from "../../lib/interaction.ts";
-import { installRemoteUI } from "./remote-ui.ts";
+import { createPeerUIContext, installRemoteUI } from "./remote-ui.ts";
 
 function fakeUI() {
 	const calls = { select: 0, confirm: 0, input: 0, editor: 0, custom: 0 };
@@ -142,5 +142,60 @@ describe("install and uninstall", () => {
 		expect(isRemoteTurn({ ui })).toBe(false);
 		expect(await ui.select("Pick", ["A"])).toBe("local-select");
 		expect(calls.select).toBe(1);
+	});
+});
+
+/**
+ * A peer session has no terminal, so its extensions get a UI bound to that
+ * peer's channel instead: dialogs go to the phone and nothing draws locally.
+ */
+describe("peer UI context", () => {
+	test("routes each dialog to the peer", async () => {
+		const { channel, requests } = fakeChannel();
+		const ui = createPeerUIContext(channel);
+		expect(await ui.select("Pick", ["A", "B"])).toBe("remote");
+		expect(await ui.input("Name", "hint")).toBe("remote");
+		expect(await ui.editor("Edit", "draft")).toBe("remote");
+		expect(requests.map((request) => request.kind)).toEqual(["select", "input", "editor"]);
+	});
+
+	test("maps a confirm answer to a boolean", async () => {
+		const { channel } = fakeChannel();
+		const ui = createPeerUIContext(channel);
+		expect(await ui.confirm("Sure?", "body")).toBe(false);
+	});
+
+	test("posts a notification to the peer and reports it locally", () => {
+		const { channel } = fakeChannel();
+		const posted: string[] = [];
+		channel.post = async (text) => {
+			posted.push(text);
+		};
+		const notices: string[] = [];
+		const ui = createPeerUIContext(channel, (message) => notices.push(message));
+		ui.notify("heads up", "warning");
+		return (async () => {
+			// `post` is fire-and-forget from notify's point of view.
+			await Promise.resolve();
+			expect(posted).toEqual(["heads up"]);
+			expect(notices).toEqual(["heads up"]);
+		})();
+	});
+
+	test("has no terminal: custom is unavailable and drawing is a no-op", async () => {
+		const { channel } = fakeChannel();
+		const ui = createPeerUIContext(channel);
+		const custom = ui.custom as (factory: unknown) => Promise<unknown>;
+		expect(await custom(async () => ({}))).toBeUndefined();
+		// These must exist and be harmless, because extensions call them blindly.
+		ui.setStatus("k", "v");
+		ui.setWidget("k", ["line"]);
+		ui.setTitle("t");
+		ui.setWorkingMessage("m");
+		ui.pasteToEditor("x");
+		expect(ui.getEditorText()).toBe("");
+		expect(ui.getTheme("x")).toBeUndefined();
+		// A theme object exists so a renderer that never runs cannot crash on load.
+		expect(ui.theme).toBeDefined();
 	});
 });

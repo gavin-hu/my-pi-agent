@@ -95,3 +95,65 @@ export function installRemoteUI(ui: ExtensionUIContext, channel: InteractionChan
 		originals.delete(target);
 	};
 }
+
+/**
+ * A UI context for one peer's own session.
+ *
+ * A peer session has no terminal, so its extensions get this instead of the
+ * host's UI: the four dialogs go to the peer over the bridge's channel,
+ * notifications are posted as one short line, and everything that would draw on
+ * a terminal is a no-op. `custom` is unavailable for the same reason it is on a
+ * remote turn — a full-screen component cannot be shown in a chat window.
+ */
+export function createPeerUIContext(
+	channel: InteractionChannel,
+	onNotice?: (message: string) => void,
+): ExtensionUIContext {
+	const noop = (): void => {};
+	const themeStub = new Proxy({} as Record<string, unknown>, {
+		get: (_target, key) => (key === "name" ? "peer" : (_color: string, text?: string) => text ?? ""),
+	});
+	const context = {
+		select: async (title: string, options: string[], opts?: { signal?: AbortSignal }) =>
+			valueOf(await channel.request({ kind: "select", title, options }, opts?.signal)),
+		confirm: async (title: string, message: string, opts?: { signal?: AbortSignal }) => {
+			const answer = await channel.request({ kind: "confirm", title, message }, opts?.signal);
+			return answer.kind === "confirmed" ? answer.confirmed : false;
+		},
+		input: async (title: string, placeholder?: string, opts?: { signal?: AbortSignal }) =>
+			valueOf(await channel.request({ kind: "input", title, placeholder }, opts?.signal)),
+		editor: async (title: string, prefill?: string) =>
+			valueOf(await channel.request({ kind: "editor", title, prefill })),
+		notify: (message: string) => {
+			onNotice?.(message);
+			void channel.post(message);
+		},
+		onTerminalInput: () => () => {},
+		setStatus: noop,
+		setWorkingMessage: noop,
+		setWorkingVisible: noop,
+		setWorkingIndicator: noop,
+		setHiddenThinkingLabel: noop,
+		setWidget: noop,
+		setFooter: noop,
+		setHeader: noop,
+		setTitle: noop,
+		// No terminal: a full-screen component has nothing to draw on.
+		custom: async () => undefined,
+		pasteToEditor: noop,
+		setEditorText: noop,
+		getEditorText: () => "",
+		addAutocompleteProvider: noop,
+		setEditorComponent: noop,
+		getEditorComponent: () => undefined,
+		get theme() {
+			return themeStub;
+		},
+		getAllThemes: () => [],
+		getTheme: () => undefined,
+		setTheme: () => ({ success: false, error: "No terminal for a theme" }),
+		getToolsExpanded: () => false,
+		setToolsExpanded: noop,
+	};
+	return context as unknown as ExtensionUIContext;
+}

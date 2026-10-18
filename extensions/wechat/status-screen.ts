@@ -37,12 +37,25 @@ export interface StatusView {
 	owner?: string;
 	peers: number;
 	queued: number;
+	/** Per-peer activity, so an operator can see who is waiting and for how long. */
+	peerRows: PeerRow[];
 	refused: number;
 	/** Labels of the refused senders, so an operator can allowlist one. */
 	refusedPeers: string[];
 	mediaDropped: number;
 	promptPending: boolean;
 }
+
+/** One peer's line in the control screen. */
+export interface PeerRow {
+	label: string;
+	status: "idle" | "queued" | "running";
+	queued: number;
+	runningMs?: number;
+}
+
+/** How many peer rows the screen lists before summarising the rest. */
+const MAX_PEER_ROWS = 5;
 
 /** The connection word for a bridge status, or `closed` when there is none. */
 export function connectionOf(status: BridgeStatus | undefined): StatusConnection {
@@ -58,6 +71,12 @@ export function statusView(account: BotCredentials | undefined, status: BridgeSt
 		owner: status?.owner ? peerLabel(status.owner) : undefined,
 		peers: status?.peerCount ?? 0,
 		queued: status?.queued ?? 0,
+		peerRows: (status?.peerStates ?? []).map((entry) => ({
+			label: peerLabel(entry.peer),
+			status: entry.state.status,
+			queued: entry.state.queued,
+			runningMs: entry.state.runningMs,
+		})),
 		refused: status?.refused ?? 0,
 		refusedPeers: status?.refusedPeers ?? [],
 		mediaDropped: status?.mediaDropped ?? 0,
@@ -73,6 +92,8 @@ export function statusLine(view: StatusView): string {
 		if (view.refused > 0) parts.push(`refused ${refusedValue(view)}`);
 		if (view.mediaDropped > 0) parts.push(`${view.mediaDropped} media dropped`);
 		if (view.owner) parts.push(`owner ${view.owner}`);
+		const active = view.peerRows.find((row) => row.status === "running");
+		if (active) parts.push(`running ${active.label}`);
 	}
 	const recovery = view.connection === "expired" ? " — run /wechat login to reconnect" : "";
 	return `wechat: ${parts.join(SEPARATORS.item)}${recovery}`;
@@ -133,6 +154,7 @@ export function statusBody(view: StatusView, theme: Theme, width: number): strin
 		if (view.refused > 0) lines.push(row(theme, target, "Refused", refusedValue(view), "meta"));
 		if (view.mediaDropped > 0) lines.push(row(theme, target, "Media", `${view.mediaDropped} dropped`, "meta"));
 		if (view.promptPending) lines.push(row(theme, target, "Prompt", "waiting for a reply", "accent"));
+		lines.push(...peerLines(view.peerRows, theme, target));
 	}
 	if (view.connection === "expired") {
 		lines.push("");
@@ -143,6 +165,32 @@ export function statusBody(view: StatusView, theme: Theme, width: number): strin
 	} else if (view.connection === "closed") {
 		lines.push("");
 		lines.push(clip(`  ${paint(theme, "meta", "Run /wechat login to connect an account.")}`, target));
+	}
+	return lines;
+}
+
+/** The peer value: what it is doing, and for how long. */
+function peerValue(row: PeerRow): string {
+	if (row.status === "running") {
+		const seconds = Math.max(0, Math.round((row.runningMs ?? 0) / 1000));
+		return `running ${seconds}s${row.queued > 0 ? `, ${row.queued} queued` : ""}`;
+	}
+	if (row.status === "queued") return `queued ${row.queued}`;
+	return "idle";
+}
+
+/** One indented line per peer, capped, so the screen stays compact. */
+function peerLines(rows: PeerRow[], theme: Theme, width: number): string[] {
+	if (rows.length === 0) return [];
+	const shown = rows.slice(0, MAX_PEER_ROWS);
+	const lines = [""];
+	for (const [index, entry] of shown.entries()) {
+		const value = peerValue(entry);
+		const role: TuiRole = entry.status === "running" ? "accent" : entry.status === "queued" ? "warn" : "meta";
+		lines.push(row(theme, width, index === 0 ? "Conversations" : "", value, role));
+	}
+	if (rows.length > shown.length) {
+		lines.push(clip(`  ${paint(theme, "meta", `+${rows.length - shown.length} more`)}`, width));
 	}
 	return lines;
 }

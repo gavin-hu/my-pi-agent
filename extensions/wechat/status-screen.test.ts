@@ -25,8 +25,10 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
 		open: false,
 		expired: false,
+		running: false,
 		peerCount: 0,
 		queued: 0,
+		peerStates: [],
 		refused: 0,
 		refusedPeers: [],
 		mediaDropped: 0,
@@ -41,6 +43,7 @@ function view(overrides: Partial<StatusView> = {}): StatusView {
 		connection: "closed",
 		peers: 0,
 		queued: 0,
+		peerRows: [],
 		refused: 0,
 		refusedPeers: [],
 		mediaDropped: 0,
@@ -101,6 +104,45 @@ describe("statusLine", () => {
 	test("points at the login recovery when expired", () => {
 		expect(statusLine(view({ bridge: true, account: "owner", connection: "expired" }))).toContain(
 			"run /wechat login to reconnect",
+		);
+	});
+});
+
+describe("per-peer rows", () => {
+	const rows = [
+		{ label: "alice", status: "running" as const, queued: 1, runningMs: 42_400 },
+		{ label: "bob", status: "queued" as const, queued: 2 },
+		{ label: "carol", status: "idle" as const, queued: 0 },
+	];
+
+	test("lists what each conversation is doing, with the elapsed time", () => {
+		const body = statusBody(view({ bridge: true, connection: "open", peerRows: rows }), fakeTheme, 60).join("\n");
+		expect(body).toContain("Conversations");
+		expect(body).toContain("running 42s, 1 queued");
+		expect(body).toContain("queued 2");
+		expect(body).toContain("idle");
+	});
+
+	test("caps the list and counts the rest", () => {
+		const many = Array.from({ length: 8 }, (_unused, index) => ({
+			label: `peer${index}`,
+			status: "idle" as const,
+			queued: 0,
+		}));
+		const body = statusBody(view({ bridge: true, connection: "open", peerRows: many }), fakeTheme, 60).join("\n");
+		expect(body).toContain("+3 more");
+	});
+
+	test("fits the width even for a long peer label", () => {
+		const long = [{ label: "a".repeat(40), status: "running" as const, queued: 0, runningMs: 1000 }];
+		for (const line of statusBody(view({ bridge: true, connection: "open", peerRows: long }), fakeTheme, 20)) {
+			expect(visibleWidth(line)).toBeLessThanOrEqual(20);
+		}
+	});
+
+	test("the one-line summary names the running peer", () => {
+		expect(statusLine(view({ bridge: true, account: "owner", connection: "open", peerRows: rows }))).toContain(
+			"running alice",
 		);
 	});
 });

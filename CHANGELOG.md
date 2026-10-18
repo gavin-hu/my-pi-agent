@@ -137,6 +137,42 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `send_wechat`, and a code upgrade that needs `/reload` or a restart before
   this runtime owns the poller.
 
+### Added
+
+- `wechat`: every admitted WeChat peer now gets their own Pi session instead of
+  sharing the terminal's: own history under `<agent-dir>/wechat/sessions/<peer>/`,
+  own model context, the package's tools, and this bridge excluded from its
+  resources so it cannot start a second poller. A message therefore starts a turn
+  immediately rather than waiting for the terminal to be idle, and the answer is
+  that session's own text, so the two conversations cannot contaminate each
+  other. Sessions resume on the next message and are disposed after 30 minutes
+  idle; turns run one at a time across peers so a forwarded dialog has one owner.
+- `wechat`: a reply streams to the chat instead of arriving as one lump. Parts go
+  out at a paragraph boundary, after two silent seconds, or at 400 characters,
+  and the remainder is sent when the turn ends — so a minute-long answer is
+  readable while it is being produced. A part longer than `maxReplyChars` is
+  still numbered, and the attachment line rides on the first part only.
+- `wechat`: a peer session now gets the package's whole tool surface. Two SDK
+  details made it silently thinner: a freshly built resource loader has discovered
+  nothing until `reload()` is called, and an SDK session only declares the
+  settings' default tools, so the tools extensions register were present but never
+  shown to the model. Both are handled in `openPeerSession`, so a peer session
+  matches the terminal's tools instead of `read`/`bash`/`edit`/`write`.
+- `wechat`: an opt-in `pollHoldMs` asks the server for a shorter `getupdates`
+  long-poll hold, which is the floor on how fast a message can be seen (~18 s on
+  the server's default). The request field is only sent when configured, since
+  the protocol does not document whether the server honours it;
+  `scripts/wechat-poll-probe.ts` measures the effect on a real account and
+  refuses to run while a bridge is polling.
+- `wechat`: the `/wechat` control screen lists each peer conversation with what it
+  is doing (`running 42s, 1 queued` / `queued 2` / `idle`), capped at five rows,
+  and the one-line summary names the peer whose turn is running.
+- `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
+  their conversation is doing, and how long), alongside `/new` and `/help`.
+- `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with
+  the peer's UI context), so `ask_user_question` and plan approval reach the
+  sender instead of a terminal nobody is watching.
+
 ### Fixed
 
 - `plan`: the browser review's Steps counter uses the same `Steps` section list
@@ -215,6 +251,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   subcommand completions carry the same line; the control screen's keys accept
   their uppercase form, and `logout` in a mode without a dialog reports that it
   needs one instead of doing nothing.
+- `wechat`: a WeChat turn that could not start no longer wedges the bridge. The
+  host rejects `sendUserMessage` asynchronously when the session went busy in
+  between, and that rejection was unobserved, so `active` stayed set and every
+  later message queued forever with no acknowledgement. The injection is awaited,
+  a 15-second start watchdog covers a run that never reports itself, and both
+  release the turn, say so in the terminal, and answer the peer with
+  `处理失败，请稍后重试。`.
+- `wechat`: a finished turn with no text now says `这条处理完了，但没有文字输出。`
+  instead of `已停止。`, which is reserved for a turn that was actually aborted
+  (`agent_settled` carries the flag).
+- `wechat`: a reply is never silently dropped. A non-zero `ret`/`errcode` from
+  `sendmessage` (other than the expiry code) is reported in the terminal with how
+  many parts went out, and a reply that formats down to nothing is reported
+  instead of counting as delivered.
+- `wechat`: waiting is no longer silent. A message queued behind a busy terminal
+  session gets one line at four seconds and one more at a minute
+  (`终端会话正忙…`), and a turn still running after 30 seconds says
+  `还在处理这条…` once. A second message sent after the acknowledgement is still
+  merged into the same turn, so the peer gets one answer rather than a second
+  “working on it”.
+- `wechat`: the poll loop is guarded. `getupdates` gets a watchdog derived from
+  the server's own `longpolling_timeout_ms` (fallback 90 s, floor 30 s, +15 s)
+  and retries a wedged request with the same cursor, and a body-level
+  `ret`/`errcode` rejection is reported once and backed off instead of being
+  treated as an empty poll (which spun the loop). The watchdog timer is cleared
+  after each request, so a settled poll no longer leaves a pending timer behind.
 
 ## [0.10.0] - 2026-10-17
 

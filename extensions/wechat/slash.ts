@@ -15,10 +15,21 @@ import { notice, type PeerLanguage } from "./format.ts";
 /** The two command kinds. */
 export type SlashKind = "snippet" | "action";
 
-/** The session controls an action may invoke. */
+/** What the sender's own conversation is doing, for `/status`. */
+export interface SlashPeerState {
+	status: "idle" | "queued" | "running";
+	queued: number;
+	runningMs?: number;
+}
+
+/** The session controls an action may invoke; every one acts on the sender. */
 export interface SlashSessionControls {
-	/** Start a fresh Pi session; wired to the `/wechat new` dispatch. */
+	/** Drop the conversation and start an empty one on the next message. */
 	newSession: () => void;
+	/** Stop the sender's running turn; false when nothing was running. */
+	stop: () => boolean;
+	/** What the sender's conversation is doing. */
+	status: () => SlashPeerState;
 }
 
 /** The environment an action handler runs in. */
@@ -93,7 +104,7 @@ function localized(lang: PeerLanguage, zh: string, en: string): string {
 }
 
 /**
- * The built-in commands. `/new` and `/help`.
+ * The built-in commands: `/new`, `/stop`, `/status`, and `/help`.
  */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	{
@@ -117,6 +128,45 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 				),
 			);
 			ctx.session.newSession();
+		},
+	},
+	{
+		name: "stop",
+		summary: "Stop the running answer",
+		summaryZh: "停止当前回答",
+		kind: "action",
+		run: async (ctx) => {
+			// When a turn was stopped its own `已停止。` follows, so this only speaks
+			// when there was nothing to stop.
+			if (ctx.session.stop()) return;
+			await ctx.reply(localized(ctx.language, "现在没有在处理的回答。", "Nothing is running right now."));
+		},
+	},
+	{
+		name: "status",
+		summary: "Show what this conversation is doing",
+		summaryZh: "查看当前处理状态",
+		kind: "action",
+		run: async (ctx) => {
+			const state = ctx.session.status();
+			if (state.status !== "running") {
+				await ctx.reply(
+					state.queued > 0
+						? localized(
+								ctx.language,
+								`排队中，还有 ${state.queued} 条。`,
+								`Queued — ${state.queued} message(s) waiting.`,
+							)
+						: localized(ctx.language, "空闲。", "Idle."),
+				);
+				return;
+			}
+			const seconds = Math.max(0, Math.round((state.runningMs ?? 0) / 1000));
+			const queued =
+				state.queued > 0 ? localized(ctx.language, `，后面还有 ${state.queued} 条`, `, ${state.queued} queued`) : "";
+			await ctx.reply(
+				localized(ctx.language, `正在处理，已用 ${seconds} 秒${queued}。`, `Working — ${seconds}s so far${queued}.`),
+			);
 		},
 	},
 	{

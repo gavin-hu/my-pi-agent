@@ -47,7 +47,7 @@ export interface WechatCommand {
  */
 export const WECHAT_COMMANDS = [
 	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge" },
-	{ verb: "new", description: "Start a fresh session" },
+	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)" },
 	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)" },
 	{ verb: "logout", description: "Clear the stored account and stop the bridge" },
 	{ verb: "help", description: "List these commands" },

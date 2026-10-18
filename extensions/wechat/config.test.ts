@@ -25,6 +25,14 @@ describe("normalizeConfig", () => {
 		expect(config.botAgent.length).toBe(256);
 	});
 
+	test("takes a poll hold only at a sane value", () => {
+		expect(normalizeConfig({ pollHoldMs: 4000 }, DEFAULT_CONFIG).pollHoldMs).toBe(4000);
+		// Below a second is not a long poll; `0` clears an inherited value.
+		expect(normalizeConfig({ pollHoldMs: 500 }, DEFAULT_CONFIG).pollHoldMs).toBeUndefined();
+		expect(normalizeConfig({ pollHoldMs: 0 }, { ...DEFAULT_CONFIG, pollHoldMs: 9000 }).pollHoldMs).toBeUndefined();
+		expect(normalizeConfig({ pollHoldMs: 999_999 }, DEFAULT_CONFIG).pollHoldMs).toBe(120_000);
+	});
+
 	test("accepts only a boolean remotePrompts", () => {
 		expect(normalizeConfig({ remotePrompts: false }, DEFAULT_CONFIG).remotePrompts).toBe(false);
 		expect(normalizeConfig({ remotePrompts: "yes" }, DEFAULT_CONFIG).remotePrompts).toBe(true);

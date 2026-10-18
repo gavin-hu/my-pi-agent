@@ -73,10 +73,13 @@ export type PeerLanguage = "zh" | "en";
  */
 export type NoticeKind =
 	| "ack"
+	| "busy"
+	| "stillWorking"
 	| "overflow"
 	| "media"
 	| "unsupported"
 	| "stopped"
+	| "noText"
 	| "promptWaiting"
 	| "timeout"
 	| "failed"
@@ -91,6 +94,14 @@ export function peerLanguage(text: string): PeerLanguage {
 
 const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	ack: { zh: "收到，正在处理…", en: "Got it — working on it." },
+	busy: {
+		zh: "前面还有一条正在处理，你的消息排在后面，轮到你就回你。",
+		en: "Your message is queued behind another conversation; I'll answer as soon as it's free.",
+	},
+	stillWorking: {
+		zh: "还在处理这条，稍等一下…",
+		en: "Still working on this one — a moment…",
+	},
 	overflow: { zh: "消息有点多，稍后再发。", en: "Too many messages queued — please wait a moment." },
 	media: {
 		zh: "有 {n} 个附件没能读取，可以重发或直接说明。",
@@ -101,6 +112,10 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 		en: "Voice without a transcript and video aren't supported — please send text or an image.",
 	},
 	stopped: { zh: "已停止。", en: "Stopped." },
+	noText: {
+		zh: "这条处理完了，但没有文字输出。",
+		en: "That turn finished without any text to send.",
+	},
 	promptWaiting: {
 		zh: "还在等你的回复，约 1 分钟后超时。",
 		en: "Still waiting for your reply — this expires in about a minute.",

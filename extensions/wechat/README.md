@@ -1,9 +1,10 @@
-# wechat — a thin WeChat bridge for the live Pi session
+# wechat — a WeChat bridge with one Pi conversation per peer
 
-Connect the Pi session you are running to WeChat over Tencent's Weixin iLink bot
-API. The live session **is** the agent: an inbound WeChat message becomes a user
-turn in that session, so Pi answers with its own context and tools, and the
-reply is sent back. There is no subprocess and no separate agent.
+Connect Pi to WeChat over Tencent's Weixin iLink bot API. Each admitted sender
+gets their own Pi session - own history, own model context, the package's tools -
+so a WeChat message starts a turn immediately and the terminal conversation is
+never mixed into it. The sessions live in-process through the Pi SDK; there is no
+subprocess per peer.
 
 ```
 pi --extension ./extensions/wechat   # load just this extension
@@ -19,31 +20,39 @@ How the `send_wechat` call and its result look in the transcript — the call li
 
 ## What it does
 
-- **Inbound** — a long-poll loop receives WeChat text, images, and files and
-  injects them as a real user turn (`pi.sendUserMessage`); the assistant's final
-  text is sent back to the sender.
+- **Inbound** — one long-poll loop receives WeChat text, images, and files and
+  hands them to the sender's own session; that turn's text is sent back to the
+  sender. Nothing is injected into the terminal session, so the two
+  conversations cannot contaminate each other.
+- **One conversation per peer** — a session per admitted peer, persisted under
+  `<agent-dir>/wechat/sessions/<peer>/`, resumed on the next message and disposed
+  after half an hour idle. Turns run one at a time across peers by default, so a
+  forwarded dialog always has a single owner.
 - **Inbound media** — images are downloaded, AES-128-ECB decrypted, and attached
   as model image content; files are saved under `<agent-dir>/wechat/media/` and
   referenced by path. Voice uses the transcript the server provides. An
   attachment the bridge could not read (too large, a failed download, no key) is
   reported to the peer and to the model instead of vanishing.
-- **Outbound** — replies are delivered automatically as plain chat text
-  (Markdown fences, headings, and emphasis markers are flattened), and an answer
-  longer than `maxReplyChars` arrives in numbered parts (`[1/3] …`). The
+- **Outbound** — replies stream to the chat as they are produced: a part goes out
+  at each paragraph boundary, after two silent seconds, or at 400 characters,
+  whichever comes first, so a long answer is not one long silence. Text is plain
+  chat text (Markdown fences, headings, and emphasis markers are flattened), and
+  a single part longer than `maxReplyChars` still arrives in numbered parts. The
   owner-only `send_wechat` tool lets the model message the owner proactively; it
   is refused while a turn with that peer is in flight, so the answer cannot
   arrive twice.
 - **Typing indicator** — the native typing status is set as soon as a message is
   queued and refreshed for as long as the turn runs (`typingIndicator`, on by
   default), so the phone can tell a long turn from a dead bridge.
-- **Peer feedback** — a burst of messages is answered as one turn, a wait longer
-  than a few seconds is acknowledged once, and a turn that ends without an
-  answer says so (`已停止。` / `Stopped.`) instead of going quiet. Notices and
-  `/help` follow the peer's language, and `/new` is declined while a run is in
-  flight rather than replacing the session under it.
-- **Remote prompts** — interactive confirmations raised during a WeChat turn
-  (`ask_user_question`, plan approval) are sent to WeChat and answered there;
-  turns started at the terminal keep the TUI (`remotePrompts`, on by default).
+- **Peer feedback** — a burst that arrives while a turn is still running is
+  answered once, a message waiting on another conversation is acknowledged once,
+  a slow turn says so, and a turn that ends without text says so instead of going
+  quiet. Notices and `/help` follow the peer's language. The peer can also stop
+  (`/stop`), restart (`/new`), and ask what is happening (`/status`).
+- **Remote prompts** — the peer session's own UI is bound to that peer, so
+  `ask_user_question`, plan approval, and any other dialog raised inside a
+  WeChat turn is sent to WeChat and answered there. Terminal turns keep the TUI
+  (`remotePrompts`, on by default).
 - **Status chip** — the status bar shows `✆ wechat` while the bridge runs and
   keeps an error-colored `✆ wechat expired` after a session expiry
   (`ctx.ui.setStatus`), so the outage stays visible until `/wechat login`
@@ -53,8 +62,8 @@ How the `send_wechat` call and its result look in the transcript — the call li
   form (`alice` or `alice@im.wechat`), and a refused sender is named in
   `/wechat status` so the id to allowlist can be copied from there.
 - **Session-bound** — the bridge runs while an account is stored and the Pi
-  session is alive; it starts on `session_start` and `/wechat logout` clears the
-  account and stops it.
+  process is alive; it starts on `session_start`, and `/wechat logout` clears the
+  account and stops it. The peer sessions outlive it on disk.
 
 ## Commands
 
@@ -62,7 +71,7 @@ How the `send_wechat` call and its result look in the transcript — the call li
 |---|---|
 | `/wechat` | TUI: the control screen. Elsewhere: a one-line summary. |
 | `/wechat login` | QR login; on scan, stores credentials, replaces a running poller, and starts the bridge. |
-| `/wechat new` | Start a fresh session (also dispatched by an inbound `/new`). |
+| `/wechat new` | Start a fresh *host* session. Peer conversations are independent and survive it; they use an inbound `/new`. |
 | `/wechat status` | The same control screen as a bare `/wechat`. |
 | `/wechat logout` | Confirm, then clear credentials, drop the bridge, and stop polling. |
 | `/wechat help` | List the subcommands with a line each. |
@@ -83,7 +92,8 @@ A session that expires while running keeps the `✆ wechat expired` chip:
 one-step recovery.
 
 In the TUI, `/wechat` opens a control screen with the account, connection
-state, owner, activity counters, and any pending remote prompt. Keys: `l` log in
+state, owner, per-peer conversation rows (what each peer is doing, how long, and
+what is queued behind it), activity counters, and any pending remote prompt. Keys: `l` log in
 or reconnect, `n` start a new session, `o` log out, `r` refresh, and Esc closes.
 The subcommands above are shortcuts for the same actions and the only route
 outside the TUI; an unknown subcommand reports the valid ones.
@@ -102,7 +112,9 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 
 | Command | Kind | Effect |
 |---|---|---|
-| `/new` | action | Start a fresh session; the bridge reconnects on the new session. |
+| `/new` | action | Start a fresh conversation for that peer (owner only); declined while their turn runs. |
+| `/stop` | action | Stop that peer's running turn; the turn itself answers `已停止。` / `Stopped.`. |
+| `/status` | action | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. |
 | `/help` | action | Reply with the available commands. |
 
 - **Snippets** expand a predefined body into the user turn (typing, queueing,
@@ -112,13 +124,15 @@ becomes a turn, so a command never reaches the model unless it is unknown.
   (or a path-like `/usr/...`) falls through to the model as ordinary text, and a
   message carrying media is never treated as a command.
 - `/new` is owner-only: an extra `allowedPeers` peer that sends it is refused
-  like any other unauthorized sender. `/help` is available to any admitted peer.
+  like any other unauthorized sender. `/stop`, `/status`, and `/help` are
+  available to any admitted peer, and each acts only on the sender's own
+  conversation.
 
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Everything, including the QR login screen and the `/wechat` control screen (`ctx.ui.custom`). While a WeChat turn owns the dialogs, `status` degrades to the one-line summary and `login`/`logout`/`new` report that they are unavailable. |
+| `tui` | Everything, including the QR login screen and the `/wechat` control screen (`ctx.ui.custom`). Peer conversations are independent of the terminal, so a WeChat turn never blocks or mixes into it. |
 | `rpc` | The bridge auto-starts and `status` prints the one-line summary; `login` needs the TUI (the QR screen is unavailable over RPC), while `logout`'s confirmation is forwarded through the RPC UI protocol like any other dialog. |
 | `json`, `print` | Ephemeral; the bridge does not auto-start and no UI is available, so `logout` reports that it needs a confirmation dialog instead of failing silently. |
 
@@ -129,22 +143,43 @@ needs. Per action:
 
 | Peer action | What they see |
 |---|---|
-| Sends a message | The native typing indicator starts immediately; the answer arrives as it is generated. |
+| Sends a message | The native typing indicator starts as soon as the message is picked up; the answer is sent when the run settles. |
 | Sends several messages quickly | At most one acknowledgement, then a single answer that covers the burst in order. |
-| Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在处理…` / “Got it — working on it.” |
+| Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在处理…` / “Got it — working on it.”; a turn still running at 30 seconds adds one `还在处理这条…` / “Still working on this one”. |
+| Sends while another peer's turn runs | One line after four seconds, then one more at a minute (`前面还有一条正在处理…` / “Your message is queued behind another conversation…”), and the answer when the slot frees. |
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
-| Reads a long answer | Delivered in numbered parts (`[1/3] …`) once it exceeds `maxReplyChars`. |
+| Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and numbered (`[1/3] …`) only when a single part exceeds `maxReplyChars`. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
 | Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at 90 seconds and cancelled at three minutes. |
-| Types `/help` or `/new` | The command list, or a restarted session; `/new` is declined while a run is in flight. |
+| Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state; `/new` is declined while their run is in flight. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
 | Gets an aborted turn | `已停止。` / “Stopped.” |
+| Gets a turn that produced no text | `这条处理完了，但没有文字输出。` / “That turn finished without any text to send.” |
+| Gets a turn that could not start | `处理失败，请稍后重试。` / “Something went wrong — please try again.”, and the terminal says why. |
 | Keeps messaging an expired or logged-out bridge | Nothing — the bot goes quiet, and only the terminal chip says why. |
 
 Notices are one line and in the peer's language (Chinese when their message
 contains Chinese). The bridge never sends greetings, read receipts, or progress
 chatter: WeChat notifies per message, so every bubble has to carry information.
+
+### The reply contract
+
+One acknowledgement per wait episode, one answer per turn. A message that
+arrives before the first turn starts is merged into that turn, so it is answered
+inside the answer it is already waiting for — not with a second “working on it”.
+
+| Situation | What the peer gets |
+|---|---|
+| 1st message, session idle | typing, then the answer (no acknowledgement: there is nothing to wait for) |
+| 1st message, session busy | typing, `收到，正在处理…` at 4 s, `终端会话正忙…` at 60 s, the answer when the session frees |
+| 2nd message after the acknowledgement, still queued | nothing new; it is merged into the same turn and the one answer covers both in order |
+| 2nd message while a turn runs | no new acknowledgement; it becomes its own turn and answer after the first |
+| 3rd…Nth in a burst | same as the queued case; past eight queued, one line asking to wait |
+
+Two consequences worth knowing: an answer can take up to one long-poll cycle
+(the server holds each `getupdates`; measured ~18 s) before the turn even
+starts, and a reply is delivered when the run settles, not token by token.
 
 ## Remote prompts
 
@@ -162,9 +197,11 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   is cancelled after three minutes with a one-line notice, so an ignored dialog
   cannot freeze the session.
 
-The reply is consumed as the answer and never starts a turn of its own; a turn
-started at the terminal keeps the normal TUI. Set `remotePrompts: false` to
-disable forwarding. See [Design notes](#design-notes) for the mechanism.
+Each peer session is created with its own UI context (`bindExtensions` with
+`mode: "rpc"`), so its dialogs go to that peer by construction rather than by
+wrapping the terminal's UI. A full-screen `custom` component has nothing to draw
+on, so it stays unavailable, exactly as over RPC. Set `remotePrompts: false` to
+create peer sessions without forwarding. See [Design notes](#design-notes).
 
 ## Outbound files
 
@@ -191,13 +228,35 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
   "cdnBaseUrl": "https://novac2c.cdn.weixin.qq.com/c2c", // CDN media base
   "maxMediaBytes": 20971520, // inbound media larger than this is skipped
   "typingIndicator": true,   // show typing while a turn is generated
-  "remotePrompts": true      // answer interactive dialogs on WeChat during a WeChat turn
+  "remotePrompts": true,     // answer interactive dialogs on WeChat during a WeChat turn
+  "pollHoldMs": 0            // experimental: ask the server for a shorter long-poll hold
 }
 ```
 
 State lives under `<agent-dir>/wechat/`: `credentials.json` (mode `0600`),
 `state.json` (cursor, owner, per-peer reply tokens), `media/` (downloaded inbound
-files), and `poller.lock` (stops two sessions polling one account).
+files), `sessions/<peer>/` (one conversation per peer), and `poller.lock` (stops
+two sessions polling one account).
+
+### The long-poll hold
+
+A WeChat message is only visible to Pi when a `getupdates` request returns, and
+the server decides how long it holds one. Measured here: **~18 s**, which is the
+floor on how fast the bot can react to anything.
+
+`pollHoldMs` asks the server for a shorter hold. The response mirrors
+`longpolling_timeout_ms`, but whether the server *honours* a request for a
+different value is not documented, so it is opt-in and unset by default. To find
+out on your account, quit `pi` and run this from a repository checkout:
+
+```bash
+bun scripts/wechat-poll-probe.ts 3000
+```
+
+It prints the requested hold, the measured one, and the value the server echoed,
+then says whether the request was honoured. It refuses to run while a bridge is
+polling (two clients on one account can steal each other's messages), and it
+never touches the stored cursor.
 
 ## Security
 
@@ -232,14 +291,42 @@ files), and `poller.lock` (stops two sessions polling one account).
   applies a code upgrade, and the next `session_start` builds the bridge in this
   runtime.
 
+- **The phone gets no reaction, or an answer never arrives.** In order: (1) check
+  `/wechat status` — a non-zero `queued` means the messages are waiting for the
+  local session, and a `closed` connection means the poller is not running (see
+  the lock entry above); (2) the phone waits up to one long-poll cycle (~20 s) for
+  the server to hand over a message, so an answer within a few seconds is not
+  promised; (3) the terminal now reports a poll that times out or is rejected,
+  a turn that could not start, and a send the server refused with `ret N`, so a
+  silent phone with a clean terminal means the message never reached this
+  process.
+- **A WeChat message is answered in the terminal but the phone never sees it.**
+  Not possible any more for a per-peer session — a WeChat turn runs in that
+  peer's session, never in the terminal's transcript. A `/wechat new`, `/reload`,
+  or process exit during a WeChat turn still drops that turn's reply, because the
+  shutdown aborts the send; the conversation itself survives on disk.
+
 ## Limitations
 
 - An expired bridge or a `/wechat logout` is silence on the phone: the token that
   would carry a notice is the one that expired, so only the terminal chip and
   `/wechat status` say what happened.
-- The bridge shares one conversation with your interactive session. It serializes
-  its own messages and only injects when the session is idle, but if you are
-  actively typing, a reply may attach to a mixed context.
+- Turns run one at a time across peers by default (`concurrency`), so a second
+  peer's message waits for the first peer's turn. That keeps a forwarded dialog
+  unambiguous; a peer who is waiting is acknowledged and told why.
+- Each peer conversation is a full Pi session: it carries its own context and
+  costs its own model tokens, and it loads the package's tools (minus this
+  bridge) in the same workspace. The idle sweep disposes a session after 30
+  minutes, so idle peers cost nothing.
+- Inbound delivery is bounded by the server's long-poll hold: the client sees a
+  message only when a `getupdates` request returns, measured at ~18 s per cycle
+  here. The bridge reports a wedged or rejected poll, but it cannot make the
+  first reaction faster than one cycle.
+- Parts are flushed at a paragraph boundary, after two silent seconds, or at 400
+  characters, so an answer that stalls mid-paragraph still arrives in pieces. A
+  part that is itself longer than `maxReplyChars` is numbered.
+- A `/wechat new`, `/reload`, fork, or process exit during a WeChat turn abandons
+  that turn's reply: the shutdown aborts the send, and the peer gets nothing.
 - Inbound **video** is not handled, and there is no group-chat support. Voice is
   handled only through the server-provided transcript. Both are answered with a
   one-line notice rather than being dropped silently, and a voice note the
@@ -247,20 +334,20 @@ files), and `poller.lock` (stops two sessions polling one account).
 - Outbound **files** are supported (used by the plan review); outbound images,
   video, and voice are not, and `send_wechat` sends text only.
 - Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`).
-  A third-party extension that renders a full-screen `ctx.ui.custom` component
-  cannot be answered over WeChat; a WeChat turn sends it no UI and it should fall
-  back to dialogs (see the shared `askHuman` helper).
+  A full-screen `ctx.ui.custom` component cannot be answered over WeChat: a peer
+  session's UI context refuses it, exactly like RPC mode.
 - A peer can only be replied to after they have messaged first (the protocol
   supplies a `context_token` only then).
 - Slash commands are fixed built-ins; there is no user-defined snippet or action
-  list yet, and only `/new` and `/help` are registered.
+  list yet, and `/new`, `/stop`, `/status`, and `/help` are registered.
 - There is no pause. The bridge runs whenever an account is stored, and
   `/wechat logout` is the only way to stop it (and it discards the credentials).
 
 ## Non-goals
 
-Outbound image/video/voice media, video, model-callable sends to arbitrary recipients, per-peer
-session isolation, group chats, a local quote cache, and a long-lived RPC child.
+Outbound image/video/voice media, video, model-callable sends to arbitrary
+recipients, group chats, a local quote cache, and a long-lived RPC child (peer
+sessions are in-process).
 
 ## Pi integration
 
@@ -268,36 +355,39 @@ session isolation, group chats, a local quote cache, and a long-lived RPC child.
 |---|---|
 | Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
-| Events | `session_start` (record the live context, re-point the UI adapter, auto-start the bridge when an account exists); `agent_start` / `agent_settled` (busy guard); `message_end` (capture assistant text); `session_shutdown` (idempotent stop, uninstall adapter). |
-| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. `/new` is an owner-only action wired through `pi.sendUserMessage("/wechat new", { expandPromptTemplates: true })`; `/help` replies with the command list for any admitted peer. |
-| Injection | `pi.sendUserMessage(content)` — a string, or text/image blocks for inbound media; always triggers a turn, and the bridge only injects when idle. |
-| UI | `installRemoteUI(ctx.ui, channel)` wraps the shared `ctx.ui` dialogs and installs the channel under a string key; `askHuman` in `lib/interaction.ts` routes rich components vs dialogs and delivers a file/text preface. |
+| Events | `session_start` (record the live context, re-point the terminal UI adapter, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop, uninstall adapter). No host run events: peer turns are not the host session's runs. |
+| Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller. |
+| Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
+| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state). |
+| Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer. `installRemoteUI(ctx.ui, channel)` still wraps the terminal's shared `ctx.ui` so a WeChat turn that somehow runs there keeps its prompts. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`; the bridge is not authoritative UI, so nothing is stored in the transcript. |
 | Lifecycle | The factory only registers. The poll loop starts on `session_start` when an account is stored (and after `/wechat login`); `session_shutdown` closes it. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a WeChat turn owns the dialogs. |
 
 ## Design notes
 
-The live session is the agent — an explicit choice over spawning a headless `pi`
-per peer. That keeps the agent's real context and tools, at the cost of sharing
-the conversation. Because injected messages carry **no correlation id**, the
-bridge serializes its turns: it records the peer when it injects, captures the
-final assistant text of that run, and flushes the reply on `agent_settled`
-before draining the queue. Only the owner may drive it because in-process input
-reaches the session's tools.
+The first version made the live terminal session the agent. That choice forced a
+long list of workarounds: a WeChat message could only start when the terminal was
+idle, the reply had to be guessed from whatever run finished, and two audiences
+shared one context. It also produced the worst bug so far — a prompt rejected
+because the terminal went busy left the bridge deaf, with no acknowledgement and
+no answer.
+
+The peer session replaces all of it. Each admitted sender gets an ordinary Pi
+session, so a message starts immediately, the answer is that session's own
+`getLastAssistantText()`, and the terminal transcript never sees the exchange.
+The bridge keeps only what is genuinely shared: one poll loop per account, the
+media pipeline, admission, the typing indicator, and the notices.
 
 Media and typing stay at the boundary: downloads go to a fixed CDN with a size
 cap, filenames are sanitized before use, and typing is best-effort. The send tool
 is owner-only so untrusted generated text cannot be aimed at another account.
 
-Remote prompts reuse Pi's only in-process UI seam: there is no extension-facing
-way to replace `ctx.ui`, so `remote-ui.ts` wraps the **shared** `ctx.ui` object
-(`runner.uiContext`) and delegates to the saved originals when no WeChat turn is
-in flight. The contract lives in `lib/interaction.ts`; `ask_user_question` and
-plan mode call `askHuman`, which prefers a rich component only for a local TUI
-turn. This depends on an unstated host detail, so it fails closed (prompts simply
-stay local) rather than corrupting state; a future Pi UI-delegate API replaces
-`remote-ui.ts` alone.
+Peer dialogs need no host seam: `AgentSession.bindExtensions` takes the UI
+context, so `createPeerUIContext` hands the peer session a UI whose dialogs are
+that peer's channel. `installRemoteUI` remains only for the terminal's shared
+`ctx.ui`, kept because the plan tool and `ask_user_question` call `askHuman` from
+`lib/interaction.ts` and a turn can still run in the host session.
 
 Outbound files use the CDN upload flow (`getuploadurl`, AES-128-ECB ciphertext,
 `x-encrypted-param`) and reuse the same AES-128-ECB and key decoders as inbound
@@ -306,19 +396,17 @@ than blocking the dialog.
 
 The lifecycle is derived from the stored account rather than an explicit
 start/stop command: `session_start` opens the bridge while credentials exist and
-`session_shutdown` closes it. That is also what lets an inbound `/new` reconnect:
-starting a new session tears down and reloads extensions, so the new session's
-`session_start` reopens the bridge. `/new` reaches `newSession` through a
-registered extension command (`/wechat new`) dispatched with
-`expandPromptTemplates`, the only host-sanctioned way for a poll callback to get
-a command context.
+`session_shutdown` closes it. The bridge handle is one variable that the tool and
+the commands read, because a built-but-unstored bridge still polls: it would
+answer peers, never publish a chip, and never stop. Keeping the same variable
+also makes the already-open guard real: every `session_start` reuses a running
+bridge instead of building a second poller, which is what the RPC double bind
+would otherwise do.
 
-The handle matters as much as the loop. The bridge is assigned to one variable
-that the host-event handlers, the tool, and the commands all read, because a
-built-but-unstored bridge still polls: it would inject turns, never capture or
-settle them, and never answer. Keeping the same variable also makes the
-already-open guard real: every `session_start` reuses a running bridge instead of
-building a second poller, which is what the RPC double bind would otherwise do.
+A worker belongs to one open connection: `/wechat login` after an expiry, or a
+reconnect, creates a fresh worker, so a stale queue or a half-open session cannot
+leak into the new connection. Peer sessions are disposed with the worker but
+their history stays on disk.
 
 The operator surface is one verb table: a bare `/wechat` (or `/wechat status`)
 opens the control screen, whose keys return the same verbs the subcommands
@@ -334,8 +422,11 @@ status, which is what the old start/stop guidance used to do.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge. |
-| `bridge.ts` | The loop: poll, queue, inject, capture, reply, media, typing, connection state, abort. |
+| `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge, open peer sessions from the host context. |
+| `bridge.ts` | The shared loop: poll, admission, media, typing, notices, reply transport, connection state, abort; hands each message to the peer worker. |
+| `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, and this bridge excluded from its resources. |
+| `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep. |
+| `reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `commands.ts` | `/wechat login|new|status|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login, and logout; every verb declines while a WeChat turn owns the dialogs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
@@ -352,13 +443,14 @@ status, which is what the old start/stop guidance used to do.
 | `format.ts` | Sanitize, chunk, and label helpers. |
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
 | `prompt.ts` | Pure prompt formatting and reply parsing. |
-| `remote-ui.ts` | The host-UI adapter: wraps the shared `ctx.ui` dialogs and installs the remote-turn marker. |
-| `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/help`) and the pure parse/lookup/expand helpers. |
+| `remote-ui.ts` | The terminal-UI adapter: wraps the shared `ctx.ui` dialogs and installs the remote-turn marker. Also `createPeerUIContext`, the UI a peer session gets. |
+| `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
 | `types.ts` | Wire and domain types. |
 
 ## Testing
 
 `bun test extensions/wechat`. Modules take injected seams (HTTP runner, clock,
-sleep, `pi`/context fakes); no test touches the network or a real session.
+sleep, `pi`/context fakes, and an `openSession` seam for the peer sessions); no
+test touches the network, a real session, or a model.
 Inbound media is exercised with a locally encrypted fixture, so decryption is
 tested without a CDN.
