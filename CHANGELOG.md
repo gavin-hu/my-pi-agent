@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: the published-version check now caches its answer in
+  `<agentDir>/bytefly/update.json` with the time it was read, so a session that
+  starts inside the 24-hour window reuses it instead of repeating the request,
+  and the new `/bytefly update` re-runs the check on demand — reporting the
+  newest version, an available release, a `PI_OFFLINE` skip, or an unreadable
+  registry. The notice and that report print the GitHub release URL as text, and
+  opening the control center still makes no request.
+
 - `web-access` / `bytefly`: `run_doctor` now reports what `web_search` actually
   resolved to instead of only whether `unpdf` is installed — the provider id and
   why it won (an explicit choice, the `auto` rule, or the keyless default), the
