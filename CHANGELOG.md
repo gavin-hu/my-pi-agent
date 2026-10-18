@@ -17,6 +17,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: `write_plan` refuses a plan whose `Steps` section has more than the 50
+  top-level steps approval tracks, and `exit_plan_mode` refuses to present one,
+  each naming the count, the cap, and the fix. Previously the plan was written
+  and a note mentioned the overflow, so approval silently dropped every step past
+  50 after the user had reviewed them. A step longer than 200 characters is still
+  shortened in the todo list only.
+
 - `plan`: the review baseline is now a `plan-baseline` session entry holding one
   digest per heading section, rather than the previous plan text kept in runtime
   memory. A resumed session or a `/tree` restore therefore keeps the

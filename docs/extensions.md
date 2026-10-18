@@ -19,7 +19,9 @@ follows a documented outline (`# <Title>`, `## Goal`, `## Context`,
 `## Approach`, `## Steps`, `## Risks`, `## Verification`); steps are `- [ ]`
 checkboxes in the `Steps` section that approval merges into `todo` — existing
 items keep their place and status — and `set_plan_steps` keeps the file current
-afterward. `exit_plan_mode` presents the plan for approval, keeps
+afterward. A plan with more than the 50 steps approval tracks is refused at
+write time, so approval never drops steps it cannot track. `exit_plan_mode`
+presents the plan for approval, keeps
 planning, or takes a refinement; the review screen jumps between headings with
 `n`/`p` and, after a refinement, names the sections that changed since the last
 review. Press `w` (or run `/plan review [path]`) to open the plan in a loopback

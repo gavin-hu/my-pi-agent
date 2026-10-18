@@ -35,7 +35,6 @@ import {
 	extractPlanSteps,
 	planStepSummary,
 	type PlanStep,
-	type PlanStepSummary,
 	type StepUpdate,
 } from "./steps.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, type TodoMerge } from "./todos.ts";
@@ -116,20 +115,21 @@ function preview(plan: string): { body: string; more: number } {
 }
 
 /**
- * One sentence for `write_plan` when the step list is larger than approval can
- * track, so the model can shorten it instead of discovering the cap later.
+ * One sentence when a step is longer than the display cap. The text stays in the
+ * plan file either way; only the todo list and the approval listing shorten it.
  */
-function stepCapNote({ total, elided }: PlanStepSummary): string {
-	const notes: string[] = [];
-	if (total > MAX_STEPS) {
-		notes.push(`the plan has ${total} steps and only the first ${MAX_STEPS} can be seeded or ticked`);
-	}
-	if (elided > 0) {
-		notes.push(
-			`${elided} step${elided === 1 ? " is" : "s are"} longer than ${MAX_STEP_LENGTH} characters and will be shortened in the todo list`,
-		);
-	}
-	return notes.length > 0 ? ` Note: ${notes.join("; ")}.` : "";
+function stepElisionNote(elided: number): string {
+	if (elided === 0) return "";
+	const plural = elided === 1 ? " is" : "s are";
+	return ` Note: ${elided} step${plural} longer than ${MAX_STEP_LENGTH} characters and will be shortened in the todo list.`;
+}
+
+/**
+ * The diagnosis both cap refusals share: a step list longer than approval can
+ * track. Each caller appends the fix that is available from where it stands.
+ */
+function overCap(total: number): string {
+	return `The plan has ${total} top-level steps but approval tracks at most ${MAX_STEPS}.`;
 }
 
 /** "Step 2" or "Steps 1, 2" for a set of step numbers. */
@@ -287,7 +287,8 @@ export function registerTools(
 			"Save the plan you designed as a markdown file under .pi/plans (project root, or the agent directory outside a " +
 			"repository). Write the complete plan, not a summary, in this outline so it is consistent and scannable:\n\n" +
 			`${PLAN_OUTLINE}\n\n` +
-			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining.",
+			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining. " +
+			`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it cannot track.`,
 		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
 		promptGuidelines: [
 			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
@@ -308,6 +309,21 @@ export function registerTools(
 				};
 			}
 			const args = params as WritePlanArgs;
+			const summary = planStepSummary(args.content);
+			if (summary.total > MAX_STEPS) {
+				// Refuse before writing: a note after the fact arrives once the file exists and
+				// the review has listed every step, so the overflow is already lost.
+				return {
+					content: [
+						{
+							type: "text",
+							text: `${overCap(summary.total)} Nothing was written; group the steps (one outcome each, sub-bullets for detail) and call write_plan again.`,
+						},
+					],
+					details: undefined,
+					isError: true,
+				};
+			}
 			try {
 				const file = await runtime.plans.write(ctx.cwd, {
 					title: args.title,
@@ -319,7 +335,7 @@ export function registerTools(
 					content: [
 						{
 							type: "text",
-							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepCapNote(planStepSummary(args.content))}`,
+							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
 						},
 					],
 					details: { path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
@@ -390,6 +406,27 @@ export function registerTools(
 						},
 					],
 					details: { approved: false, plan: "", planPath } satisfies ExitPlanModeDetails,
+					isError: true,
+				};
+			}
+
+			const total = planStepSummary(file.content).total;
+			if (total > MAX_STEPS) {
+				// A hand-edited or older plan file can still be over the cap; refuse it here
+				// too, so approval never seeds a list it cannot hold in full.
+				return {
+					content: [
+						{
+							type: "text",
+							text: `${overCap(total)} It was not presented for approval; call write_plan with plan_path to group the steps, then exit_plan_mode again.`,
+						},
+					],
+					details: {
+						approved: false,
+						plan: file.content,
+						planPath: file.path,
+						relativePath: file.relativePath,
+					} satisfies ExitPlanModeDetails,
 					isError: true,
 				};
 			}
