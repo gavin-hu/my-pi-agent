@@ -251,6 +251,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `worktree`: a redirect to `/dev/null` is no longer refused as an escape. The
+  guard checks every redirection target against the worktree, and the null device
+  is outside it, so the ordinary `2>/dev/null` idiom was blocked — including in
+  the `bash` calls the guard is meant to leave alone. A target that discards its
+  stream escapes nothing, and every other device path is still refused.
+
 - `plan`: a restored review baseline is looked up by a canonical plan path, so
   the changed-section markers survive on Windows and for a branch that recorded
   the same plan under a different spelling. The stored entry was read back

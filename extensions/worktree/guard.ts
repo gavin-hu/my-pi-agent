@@ -365,12 +365,22 @@ function redirectionEscapes(root: string, command: string, config: WorktreeConfi
 	for (const segment of splitSegments(command)) {
 		for (const redirect of redirectionTargets(segment)) {
 			if (redirect.write ? !checkWrites : !checkReads) continue;
+			if (isNullDevice(redirect.target)) continue;
 			if (pathEscapes(root, redirect.target)) {
 				return `${redirect.write ? "Output" : "Input"} redirection to \"${redirect.target}\" leaves the active worktree.`;
 			}
 		}
 	}
 	return undefined;
+}
+
+/**
+ * The null device discards the stream instead of writing a file, so a redirect
+ * there escapes nothing — and `2>/dev/null` is too common to refuse. Quotes are
+ * stripped because the target keeps them as written.
+ */
+function isNullDevice(raw: string): boolean {
+	return raw.replace(/^(['"])(.*)\1$/, "$2") === "/dev/null";
 }
 
 /** Commands that wrap another command, so a following assignment is still a prefix. */

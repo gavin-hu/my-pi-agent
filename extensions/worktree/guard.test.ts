@@ -163,6 +163,15 @@ describe("analyzeBashCommand", () => {
 		expect(analyzeBashCommand("cat <<EOF", ROOT, config())).toBeUndefined();
 	});
 
+	test("allows the null device, which discards instead of writing", () => {
+		expect(analyzeBashCommand("cmd 2>/dev/null", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cmd > /dev/null 2>&1", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand('cmd 2>"/dev/null"', ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cat < /dev/null", ROOT, config({ blockReadEscapes: true }))).toBeUndefined();
+		// Any other device still counts as an escape, so the exemption stays narrow.
+		expect(analyzeBashCommand("cmd > /dev/zero", ROOT, config())?.block).toBe(true);
+	});
+
 	test("gates input redirections behind blockReadEscapes", () => {
 		expect(analyzeBashCommand("cat < /main/f", ROOT, config())).toBeUndefined();
 		expect(analyzeBashCommand("cat < /main/f", ROOT, config({ blockReadEscapes: true }))?.block).toBe(true);
