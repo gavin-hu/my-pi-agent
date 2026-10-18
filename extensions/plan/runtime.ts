@@ -111,8 +111,10 @@ function readBranchState(ctx: ExtensionContext): BranchState {
 		const data = entry.data as { path?: unknown; sections?: unknown } | null | undefined;
 		if (typeof data?.path !== "string") continue;
 		const sections = readSections(data.sections);
-		// Last entry per path wins, the same rule the mode entry follows.
-		if (sections) baselines.set(data.path, sections);
+		// Last entry per path wins, the same rule the mode entry follows. The key is
+		// canonical, so a path recorded on another platform or relative to another cwd
+		// still answers a lookup for the plan it names.
+		if (sections) baselines.set(resolve(data.path), sections);
 	}
 	return { mode, baselines };
 }

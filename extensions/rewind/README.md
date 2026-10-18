@@ -126,7 +126,7 @@ commit. These refs are not branches and are not touched by `git push --all`.
 |---|---|
 | Model-facing tools | None. `/rewind` is user-driven; automatic snapshots cover the start of every task. |
 | Commands | `/rewind` (`pi.registerCommand`). |
-| Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (capture the prompt and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
+| Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (record the prompt — absent on a run a custom message starts — and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
 | State storage | Git refs `refs/pi/rewind/<id>` with metadata in the commit body. No tool-result `details` and no `pi.appendEntry`. |
 | Lifecycle | Index paths are created lazily and released in `session_shutdown`; status chip is set on start/tree/snapshot and cleared on shutdown. |
 
@@ -136,7 +136,9 @@ commit. These refs are not branches and are not touched by `git push --all`.
   `before_agent_start` records the prompt summary and resolves the run's root,
   policy, and config, so the first mutating `tool_call` takes the snapshot with a
   fully synchronous guard. No `await` sits between that guard's check and its
-  claim, so parallel sibling calls cannot double-snapshot.
+  claim, so parallel sibling calls cannot double-snapshot. A run a custom message
+  starts (a wake) has no prompt to record; the snapshot it takes is otherwise the
+  same.
 - **The timeline comes from the session tree, not from git.** `/rewind` lists
   every user message on the active branch and pairs each with the snapshot whose
   recorded `entryId` matches, so read-only prompts appear too and the list

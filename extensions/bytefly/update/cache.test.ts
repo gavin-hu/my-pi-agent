@@ -29,7 +29,7 @@ const entry: UpdateCacheEntry = { latest: "0.13.0", checkedAt: 1_767_225_600_000
 
 describe("updateCachePath", () => {
 	test("sits under the agent directory's bytefly folder", () => {
-		expect(updateCachePath("/agent")).toBe("/agent/bytefly/update.json");
+		expect(updateCachePath("/agent")).toBe(join("/agent", "bytefly", UPDATE_CACHE_FILE));
 	});
 });
 
