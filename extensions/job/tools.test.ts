@@ -128,7 +128,8 @@ describe("job tool", () => {
 	});
 
 	test("forwards wake, detached, and timeoutMs on start", async () => {
-		const { call } = setup();
+		// Detaching exists on POSIX only, and Windows refuses it, so pin the host.
+		const { call } = setup({ isWindows: () => false });
 		const result = await call({ action: "start", command: "sleep 1", wake: true, detached: true, timeoutMs: 5000 });
 		expect(result.details.job.wake).toBe(true);
 		expect(result.details.job.detached).toBe(true);
