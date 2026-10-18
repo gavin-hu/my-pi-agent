@@ -12,6 +12,12 @@
  * against the package version too: a pin is only useful while it names a version
  * that exists.
  *
+ * The changelog's own shape is part of the same contract: one
+ * `Added`/`Changed`/`Fixed` set per release window, in Keep a Changelog's names
+ * and order, each with at least one bullet. A second `### Added` in one window
+ * used to land from two sessions merging into `[Unreleased]` in the same release
+ * cycle, which reads as two releases sharing a heading.
+ *
  * The tag half needs tags in the clone; CI checks out with `fetch-depth: 0` so
  * they are present. A shallow clone without tags skips only that half.
  */
@@ -274,5 +280,97 @@ describe("the release guide", () => {
 
 	test("says the agent publishes through the workflow", () => {
 		expect(agents).toContain("publish.yml");
+	});
+});
+
+/**
+ * One `## [version]` window and the `###` subsections under it.
+ *
+ * A window runs to the next `## [` heading, so `[Unreleased]` is a window like
+ * any release: it is the one every change is written into first.
+ */
+interface ChangelogWindow {
+	/** The bracket text: a version, or `Unreleased`. */
+	version: string;
+	/** 1-based line of the `##` heading, for the failure message. */
+	line: number;
+	subsections: Array<{ name: string; line: number; bullets: number }>;
+}
+
+/** Keep a Changelog's subsection names, in the order they are written. */
+const CHANGELOG_SECTIONS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"] as const;
+
+/** Split the changelog into release windows with their subsections. */
+function changelogWindows(markdown: string): ChangelogWindow[] {
+	const windows: ChangelogWindow[] = [];
+	let current: ChangelogWindow | undefined;
+	for (const [index, line] of markdown.split("\n").entries()) {
+		const lineNumber = index + 1;
+		const heading = /^## \[([^\]]+)\]/.exec(line);
+		if (heading) {
+			current = { version: heading[1] as string, line: lineNumber, subsections: [] };
+			windows.push(current);
+			continue;
+		}
+		const subsection = /^### (.+?)\s*$/.exec(line);
+		if (subsection && current) {
+			current.subsections.push({ name: subsection[1] as string, line: lineNumber, bullets: 0 });
+			continue;
+		}
+		if (current && current.subsections.length > 0 && line.startsWith("- ")) {
+			const last = current.subsections[current.subsections.length - 1];
+			if (last) last.bullets += 1;
+		}
+	}
+	return windows;
+}
+
+describe("changelog shape", () => {
+	const windows = changelogWindows(readFileSync(join(repo, "CHANGELOG.md"), "utf-8"));
+
+	test("finds every window", () => {
+		// A parser that stopped matching would make the checks below vacuous.
+		expect(windows.length).toBeGreaterThan(10);
+		expect(windows[0]?.version).toBe("Unreleased");
+	});
+
+	test("holds one subsection set per release window", () => {
+		const duplicates: string[] = [];
+		for (const window of windows) {
+			const seen = new Map<string, number>();
+			for (const section of window.subsections) {
+				const first = seen.get(section.name);
+				if (first === undefined) seen.set(section.name, section.line);
+				else duplicates.push(`${window.version}: ### ${section.name} at lines ${first} and ${section.line}`);
+			}
+		}
+		expect(duplicates, "merge the second block into the first of its name").toEqual([]);
+	});
+
+	test("uses Keep a Changelog's subsection names, in its order", () => {
+		const problems: string[] = [];
+		for (const window of windows) {
+			let lastRank = -1;
+			for (const section of window.subsections) {
+				const rank = CHANGELOG_SECTIONS.indexOf(section.name as (typeof CHANGELOG_SECTIONS)[number]);
+				if (rank === -1) {
+					problems.push(`${window.version}: ### ${section.name} is not a Keep a Changelog section`);
+					continue;
+				}
+				if (rank < lastRank) problems.push(`${window.version}: ### ${section.name} is out of order`);
+				lastRank = rank;
+			}
+		}
+		expect(problems).toEqual([]);
+	});
+
+	test("gives every subsection at least one bullet", () => {
+		const empty: string[] = [];
+		for (const window of windows) {
+			for (const section of window.subsections) {
+				if (section.bullets === 0) empty.push(`${window.version}: ### ${section.name} (line ${section.line})`);
+			}
+		}
+		expect(empty).toEqual([]);
 	});
 });

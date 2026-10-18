@@ -197,6 +197,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- dev: the changelog holds one subsection set per release window. A second
+  `### Added` had landed in `0.11.1` (two sessions merging into `[Unreleased]` in
+  the same cycle) and `0.5.1` listed `Fixed` before `Changed`; both are merged and
+  reordered, and `test/release.test.ts` now fails on a repeated or out-of-order
+  subsection, on a name outside Keep a Changelog's set, or on a subsection with no
+  bullet under it.
+
 - themes: `test/theme.test.ts` now measures WCAG AA at the layer the package
   paints with — every semantic role from `lib/tui/tokens.ts` against the canvas,
   and the selected-row pair against `selectedBg` — instead of only per Pi token,
@@ -613,6 +620,54 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   metadata survive, and a malformed document is refused instead of overwritten.
 - `bytefly`: a click on a row in the control center focuses it; the wheel still
   scrolls, and every action keeps its keyboard path.
+- `wechat`: every admitted WeChat peer now gets their own Pi session instead of
+  sharing the terminal's: own history under `<agent-dir>/wechat/sessions/<peer>/`,
+  own model context, the package's tools, and this bridge excluded from its
+  resources so it cannot start a second poller. A message therefore starts a turn
+  immediately rather than waiting for the terminal to be idle, and the answer is
+  that session's own text, so the two conversations cannot contaminate each
+  other. Sessions resume on the next message and are disposed after 30 minutes
+  idle; turns run one at a time across peers so a forwarded dialog has one owner.
+- `wechat`: a reply streams to the chat instead of arriving as one lump. Parts go
+  out at a paragraph boundary, after two silent seconds, or at 400 characters,
+  and the remainder is sent when the turn ends — so a minute-long answer is
+  readable while it is being produced. A part longer than `maxReplyChars` is
+  still numbered, and the attachment line rides on the first part only.
+- `wechat`: reopening the bridge after a token expiry now stops the old worker
+  and aborts its parked poll loop first, so the previous peer sessions are
+  disposed and two pollers can never share one cursor. A media burst is admitted
+  in arrival order and reserves its queue slot before the download, so a batch of
+  photos can no longer slip past the queue cap or be answered out of order. Free
+  text from an "Other" answer is keyed to the peer who typed it, and a session
+  that finishes opening after a close is disposed instead of leaked.
+- `wechat`: a turn waiting on an unanswered dialog no longer also gets the
+  30-second `还在处理这条…` line; the prompt's own reminder covers that wait.
+- `wechat`: a rejected reply now reports the server's own `errmsg` (for example
+  `ret -2: context token invalid`) and does so **once per outage** instead of once
+  per streamed part; the rest of a streamed answer is not sent after the first
+  failure, the rejected peer's stored reply token is forgotten so the next inbound
+  message replaces it, and `send_wechat` reports a body-level rejection instead of
+  claiming delivery.
+- `wechat`: a peer session now gets the package's whole tool surface. Two SDK
+  details made it silently thinner: a freshly built resource loader has discovered
+  nothing until `reload()` is called, and an SDK session only declares the
+  settings' default tools, so the tools extensions register were present but never
+  shown to the model. Both are handled in `openPeerSession`, so a peer session
+  matches the terminal's tools instead of `read`/`bash`/`edit`/`write`.
+- `wechat`: an opt-in `pollHoldMs` asks the server for a shorter `getupdates`
+  long-poll hold, which is the floor on how fast a message can be seen (~18 s on
+  the server's default). The request field is only sent when configured, since
+  the protocol does not document whether the server honours it;
+  `scripts/wechat-poll-probe.ts` measures the effect on a real account and
+  refuses to run while a bridge is polling.
+- `wechat`: the `/wechat` control screen lists each peer conversation with what it
+  is doing (`running 42s, 1 queued` / `queued 2` / `idle`), capped at five rows,
+  and the one-line summary names the peer whose turn is running.
+- `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
+  their conversation is doing, and how long), alongside `/new` and `/help`.
+- `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with
+  the peer's UI context), so `ask_user_question` and plan approval reach the
+  sender instead of a terminal nobody is watching.
 
 ### Changed
 
@@ -725,57 +780,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one-runtime-per-account lock, a chip that disagrees with `/wechat status` or
   `send_wechat`, and a code upgrade that needs `/reload` or a restart before
   this runtime owns the poller.
-
-### Added
-
-- `wechat`: every admitted WeChat peer now gets their own Pi session instead of
-  sharing the terminal's: own history under `<agent-dir>/wechat/sessions/<peer>/`,
-  own model context, the package's tools, and this bridge excluded from its
-  resources so it cannot start a second poller. A message therefore starts a turn
-  immediately rather than waiting for the terminal to be idle, and the answer is
-  that session's own text, so the two conversations cannot contaminate each
-  other. Sessions resume on the next message and are disposed after 30 minutes
-  idle; turns run one at a time across peers so a forwarded dialog has one owner.
-- `wechat`: a reply streams to the chat instead of arriving as one lump. Parts go
-  out at a paragraph boundary, after two silent seconds, or at 400 characters,
-  and the remainder is sent when the turn ends — so a minute-long answer is
-  readable while it is being produced. A part longer than `maxReplyChars` is
-  still numbered, and the attachment line rides on the first part only.
-- `wechat`: reopening the bridge after a token expiry now stops the old worker
-  and aborts its parked poll loop first, so the previous peer sessions are
-  disposed and two pollers can never share one cursor. A media burst is admitted
-  in arrival order and reserves its queue slot before the download, so a batch of
-  photos can no longer slip past the queue cap or be answered out of order. Free
-  text from an "Other" answer is keyed to the peer who typed it, and a session
-  that finishes opening after a close is disposed instead of leaked.
-- `wechat`: a turn waiting on an unanswered dialog no longer also gets the
-  30-second `还在处理这条…` line; the prompt's own reminder covers that wait.
-- `wechat`: a rejected reply now reports the server's own `errmsg` (for example
-  `ret -2: context token invalid`) and does so **once per outage** instead of once
-  per streamed part; the rest of a streamed answer is not sent after the first
-  failure, the rejected peer's stored reply token is forgotten so the next inbound
-  message replaces it, and `send_wechat` reports a body-level rejection instead of
-  claiming delivery.
-- `wechat`: a peer session now gets the package's whole tool surface. Two SDK
-  details made it silently thinner: a freshly built resource loader has discovered
-  nothing until `reload()` is called, and an SDK session only declares the
-  settings' default tools, so the tools extensions register were present but never
-  shown to the model. Both are handled in `openPeerSession`, so a peer session
-  matches the terminal's tools instead of `read`/`bash`/`edit`/`write`.
-- `wechat`: an opt-in `pollHoldMs` asks the server for a shorter `getupdates`
-  long-poll hold, which is the floor on how fast a message can be seen (~18 s on
-  the server's default). The request field is only sent when configured, since
-  the protocol does not document whether the server honours it;
-  `scripts/wechat-poll-probe.ts` measures the effect on a real account and
-  refuses to run while a bridge is polling.
-- `wechat`: the `/wechat` control screen lists each peer conversation with what it
-  is doing (`running 42s, 1 queued` / `queued 2` / `idle`), capped at five rows,
-  and the one-line summary names the peer whose turn is running.
-- `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
-  their conversation is doing, and how long), alongside `/new` and `/help`.
-- `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with
-  the peer's UI context), so `ask_user_question` and plan approval reach the
-  sender instead of a terminal nobody is watching.
 
 ### Fixed
 
@@ -1791,14 +1795,6 @@ rendering, so model-authored control characters cannot reach the terminal.
   `maxIndexEntries`, and is cached per server; results highlight the matched
   characters and the palette is keyboard- and screen-reader-accessible.
 
-### Fixed
-
-- `job`: the transcript no longer renders the model-facing `logs` header as
-  output; the rail shows the sanitized tail, and a job with no output yet shows
-  `No output yet.`
-- `job`: a `kill` result confirms the signal sent (`· SIGTERM sent`) instead of
-  redisplaying the job's pre-kill running row.
-
 ### Changed
 
 - `job`: `start` results badge `detached` and `wake`, so the job's lifetime and
@@ -1808,6 +1804,14 @@ rendering, so model-authored control characters cannot reach the terminal.
   pending). A step-progress gauge row shows `n/m steps done`, the scroll row is
   a gauge with the position and line range, and the footer colors the
   approve/refine actions.
+
+### Fixed
+
+- `job`: the transcript no longer renders the model-facing `logs` header as
+  output; the rail shows the sanitized tail, and a job with no output yet shows
+  `No output yet.`
+- `job`: a `kill` result confirms the signal sent (`· SIGTERM sent`) instead of
+  redisplaying the job's pre-kill running row.
 
 ## [0.5.0] - 2026-10-13
 
