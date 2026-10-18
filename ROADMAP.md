@@ -108,8 +108,9 @@ this file, as the record of what shipped.
 - A subagent's tokens and cost are published for bytefly's `↳` footer roll-up but
   deliberately never added to the parent session's total, and the roll-up starts
   from zero after `/resume` (`subagent` README).
-- `watch` cannot use bytefly's OS notification channel by design (`watch`
-  README).
+- `watch` notifies the desktop only for a `wake` match found while the agent is
+  idle; a match during a running turn is reported at the next turn without a
+  notification (`watch` README).
 
 **Now**
 
@@ -233,14 +234,15 @@ Nothing here is queued: the search provider's configuration is now reported by
 
 ## 4. Chrome and upkeep
 
-**README promise:** the `/bytefly` control center, fourteen curated settings, priced
+**README promise:** the `/bytefly` control center, the curated settings, priced
 runs, an update check, and two themes.
 
 **Today**
 
 - Bytefly owns the header, footer, turn rule, notices, tool frame, live working
   row, control center, doctor, notify, price, and update check.
-- Settings exposes fourteen rows across six groups, with inline text editing.
+- Settings exposes every scalar preference across six groups, with inline text
+  editing.
 - DeepSeek is priced from its published CNY and USD tables, with peak and
   off-peak windows.
 

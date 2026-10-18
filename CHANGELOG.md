@@ -37,7 +37,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   next read. **Rail glyph** is now a text row: any single-column glyph is
   accepted, validated by the same predicate `chrome.ts` normalizes with, and a
   two-column or control-character glyph is refused with a reason instead of being
-  replaced later. Fourteen rows across six groups.
+  replaced later.
 
 - docs: `test/structure.test.ts` holds every Markdown doc to the links it offers —
   each `./`, `../`, and `#` target from the root docs, `docs/`, `lib/`, `test/`,
@@ -68,8 +68,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   words leaves two hyphens and the reference's section anchors resolve.
 
 - docs: `getting-started.md` explains how to start a custom theme from the shipped
-  JSON, and the entry READMEs and catalog no longer state counts that drift
-  (sixteen extensions, two themes, fourteen preferences in six groups).
+  JSON, and the entry READMEs and catalog no longer state counts that drift.
 
 - ci: npm publishing moved into the repository, as
   `.github/workflows/publish.yml`. A manual dispatch names the release version
