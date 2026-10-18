@@ -93,6 +93,7 @@ function harness(
 			},
 			saveAccount: (value) => saved.push(value),
 			primaryAccount: () => undefined,
+			readHistory: async () => "",
 			logout: () => {
 				logouts += 1;
 			},
@@ -234,6 +235,24 @@ describe("the /wechat command", () => {
 		for (const command of WECHAT_COMMANDS) {
 			expect(help).toContain(`/wechat ${command.verb} — ${command.description}`);
 		}
+	});
+
+	test("prints a peer's recent history", async () => {
+		const h = harness();
+		h.deps.readHistory = async (peer, count) => `${peer} ${count}\nYou: hi`;
+		const { ctx, notices } = fakeCtx();
+		await handler(h.deps)("history alice", ctx);
+		const text = notices.at(-1)?.message ?? "";
+		expect(text).toContain("alice 10");
+		expect(text).toContain("You: hi");
+	});
+
+	test("asks for a peer when history has no target", async () => {
+		const { deps } = harness();
+		const { ctx, notices } = fakeCtx();
+		await handler(deps)("history", ctx);
+		expect(notices.at(-1)?.kind).toBe("warning");
+		expect(notices.at(-1)?.message).toContain("Usage: /wechat history");
 	});
 
 	test("prints a health report on doctor", async () => {

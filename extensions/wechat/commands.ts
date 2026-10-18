@@ -32,6 +32,8 @@ export interface CommandDeps {
 	createLoginClient: (cwd: string) => WechatClient;
 	saveAccount: (account: BotCredentials) => void;
 	primaryAccount: () => BotCredentials | undefined;
+	/** Read a peer's recent messages for `/wechat history`; read-only. */
+	readHistory: (peer: string, count: number) => Promise<string>;
 	logout: () => void;
 	now: () => number;
 }
@@ -54,6 +56,7 @@ export const WECHAT_COMMANDS = [
 	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures" },
 	{ verb: "stop", description: "Stop one peer's running turn: /wechat stop <peer>" },
 	{ verb: "reset", description: "Start a fresh conversation for one peer: /wechat reset <peer>" },
+	{ verb: "history", description: "Print one peer's recent messages: /wechat history <peer> [n]" },
 	{ verb: "logout", description: "Clear the stored account and stop the bridge" },
 	{ verb: "help", description: "List these commands" },
 ] as const satisfies readonly WechatCommand[];
@@ -110,6 +113,25 @@ async function runDoctor(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 			now: deps.now(),
 		}),
 	);
+}
+
+/** Print one peer's recent messages; read-only, and works without a live session. */
+async function runHistory(ctx: ExtensionCommandContext, deps: CommandDeps, args: string): Promise<void> {
+	const [peer = "", countArg] = args.trim().split(/\s+/).filter(Boolean);
+	const bridge = deps.getBridge();
+	if (!peer) {
+		const known = bridge?.status().peerStates.map((entry) => peerLabel(entry.peer)) ?? [];
+		ctx.ui.notify(`Usage: /wechat history <peer> [n]. Known: ${known.join(", ") || "none yet"}.`, "warning");
+		return;
+	}
+	const requested = Number.parseInt(countArg ?? "", 10);
+	const count = Math.min(20, Math.max(1, Number.isFinite(requested) ? requested : 10));
+	try {
+		const text = await deps.readHistory(peer, count);
+		ctx.ui.notify(text || `No history yet for ${peerLabel(peer)}.`);
+	} catch (error) {
+		ctx.ui.notify(`WeChat history failed: ${messageOf(error)}`, "warning");
+	}
 }
 
 /**
@@ -228,9 +250,27 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 				theme,
 				view,
 				onClose: done,
+				actions: {
+					stop: (peer) => {
+						const bridge = deps.getBridge();
+						if (!bridge) return "WeChat bridge is not running.";
+						return bridge.stop(peer) ? `Stopping ${peerLabel(peer)}.` : `${peerLabel(peer)} has no running turn.`;
+					},
+					reset: (peer) => {
+						const bridge = deps.getBridge();
+						if (!bridge) return "WeChat bridge is not running.";
+						return bridge.reset(peer)
+							? `Started a fresh conversation for ${peerLabel(peer)}.`
+							: `${peerLabel(peer)} is running; stop it before starting fresh.`;
+					},
+				},
 				requestRender: () => tui.requestRender(),
 			}),
 	);
+	if (typeof action === "object" && action?.kind === "history") {
+		await runHistory(ctx, deps, action.peer);
+		return;
+	}
 	switch (action) {
 		case "login":
 		case "new":
@@ -312,6 +352,8 @@ async function dispatch(
 			return runPanel(ctx, deps);
 		case "doctor":
 			return runDoctor(ctx, deps);
+		case "history":
+			return runHistory(ctx, deps, peerArg);
 		case "stop":
 			return runPeerAction(ctx, deps, "stop", peerArg);
 		case "reset":
@@ -327,7 +369,7 @@ async function dispatch(
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
 		description:
-			"WeChat bridge. /wechat opens the control screen (login | new | status | doctor | stop | reset | logout | help)",
+			"WeChat bridge. /wechat opens the control screen (login | new | status | doctor | stop | reset | history | logout | help)",
 		getArgumentCompletions: completeSubcommand,
 		handler: async (args, ctx) => {
 			const [sub = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);

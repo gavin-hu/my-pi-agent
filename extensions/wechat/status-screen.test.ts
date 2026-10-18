@@ -4,6 +4,8 @@ import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 import type { BridgeStatus } from "./bridge.ts";
 import {
 	connectionOf,
+	type StatusAction,
+	type StatusActions,
 	StatusScreenComponent,
 	statusBody,
 	statusLine,
@@ -203,19 +205,84 @@ describe("statusBody", () => {
 	});
 });
 
-function component(current: StatusView) {
-	const actions: string[] = [];
+function component(current: StatusView, peerActions?: StatusActions) {
+	const actions: StatusAction[] = [];
 	let renders = 0;
 	const screen = new StatusScreenComponent({
 		theme: fakeTheme,
 		view: () => current,
 		onClose: (action) => actions.push(action),
+		actions: peerActions,
 		requestRender: () => {
 			renders += 1;
 		},
 	});
 	return { screen, actions, renders: () => renders };
 }
+
+const peers = [
+	{ id: "alice@im.wechat", label: "alice", status: "running" as const, queued: 0, runningMs: 1000 },
+	{ id: "bob@im.wechat", label: "bob", status: "idle" as const, queued: 0 },
+];
+
+function withActions() {
+	const stops: string[] = [];
+	const resets: string[] = [];
+	const built = component(view({ bridge: true, connection: "open", peerRows: peers }), {
+		stop: (peer) => {
+			stops.push(peer);
+			return `Stopping ${peer}.`;
+		},
+		reset: (peer) => {
+			resets.push(peer);
+			return `Reset ${peer}.`;
+		},
+	});
+	return { ...built, stops, resets };
+}
+
+describe("peer actions", () => {
+	test("stops the focused peer in place and flashes the result", () => {
+		const { screen, actions, stops } = withActions();
+		screen.handleInput("s");
+		expect(stops).toEqual(["alice@im.wechat"]);
+		expect(actions).toEqual([]);
+		expect(screen.render(60).join("\n")).toContain("Stopping alice@im.wechat.");
+	});
+
+	test("moves the focus with j and acts on the new row", () => {
+		const { screen, stops } = withActions();
+		screen.handleInput("j");
+		screen.handleInput("s");
+		expect(stops).toEqual(["bob@im.wechat"]);
+	});
+
+	test("resets the focused peer", () => {
+		const { screen, resets } = withActions();
+		screen.handleInput("d");
+		expect(resets).toEqual(["alice@im.wechat"]);
+		expect(screen.render(60).join("\n")).toContain("Reset alice@im.wechat.");
+	});
+
+	test("opens the focused peer's history", () => {
+		const { screen, actions } = withActions();
+		screen.handleInput("h");
+		expect(actions).toEqual([{ kind: "history", peer: "alice@im.wechat" }]);
+	});
+
+	test("explains when there is no peer to act on", () => {
+		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
+		screen.handleInput("s");
+		expect(actions).toEqual([]);
+		expect(screen.render(60).join("\n")).toContain("No peer conversation yet.");
+	});
+
+	test("marks the focused row", () => {
+		const { screen } = withActions();
+		screen.handleInput("j");
+		expect(screen.render(60).join("\n")).toContain("❯");
+	});
+});
 
 describe("StatusScreenComponent", () => {
 	test("closes on escape", () => {
@@ -257,7 +324,7 @@ describe("StatusScreenComponent", () => {
 		expect(refresh.renders()).toBe(1);
 	});
 
-	test("ignores other keys now that there is no start/stop control", () => {
+	test("does not close on a peer action key", () => {
 		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
 		screen.handleInput("s");
 		expect(actions).toEqual([]);

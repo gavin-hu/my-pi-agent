@@ -181,6 +181,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		},
 		saveAccount,
 		primaryAccount,
+		readHistory: (peer, count) =>
+			readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count),
 		logout: () => {
 			clearCredentials();
 			// The account is the on/off switch: without one there is nothing to report,

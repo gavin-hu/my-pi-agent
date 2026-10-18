@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: the `/wechat` control screen now focuses peer rows with `j`/`k`
+  (or the arrows) and stops (`s`), resets (`d`), or opens the focused peer's
+  recent messages (`h`) without leaving the console; `/wechat history <peer> [n]`
+  prints the same read-only history from the command line.
 - `wechat`: `/wechat doctor` prints a read-only health report — connection and
   token age, the last poll and hold, the poller lock, per-peer session/queue
   age, and the last send/poll failure — from the same status facts the control

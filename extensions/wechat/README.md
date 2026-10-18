@@ -77,6 +77,7 @@ How the `send_wechat` call and its result look in the transcript — the call li
 | `/wechat doctor` | Print a read-only health report: connection and token age, last poll and hold, lock holder, per-peer session/queue, recent failures. |
 | `/wechat stop <peer>` | Stop that peer's running turn; reports when nothing was running. |
 | `/wechat reset <peer>` | Start a fresh conversation for that peer; refused while its turn runs. |
+| `/wechat history <peer> [n]` | Print that peer's recent messages (default 10, max 20); read-only, and works without a live session. |
 | `/wechat logout` | Confirm, then clear credentials, drop the bridge, and stop polling. |
 | `/wechat help` | List the subcommands with a line each. |
 
@@ -99,10 +100,13 @@ one-step recovery.
 
 In the TUI, `/wechat` opens a control screen with the account, connection
 state, owner, per-peer conversation rows (what each peer is doing, how long, and
-what is queued behind it), activity counters, and any pending remote prompt. Keys: `l` log in
-or reconnect, `n` start a new session, `o` log out, `r` refresh, and Esc closes.
-The subcommands above are shortcuts for the same actions and the only route
-outside the TUI; an unknown subcommand reports the valid ones.
+what is queued behind it), activity counters, and any pending remote prompt.
+`j`/`k` (or the arrows) move the focus over peer rows; `s` stops the focused
+peer's turn and `d` starts a fresh conversation for it, both in place; `h` closes
+the screen and prints that peer's history. `l` logs in or reconnects, `n` starts
+a new session, `o` logs out, `r` refreshes, and Esc closes. The subcommands above
+are shortcuts for the same actions and the only route outside the TUI; an
+unknown subcommand reports the valid ones.
 
 A peer turn runs in its own session, but it still owns the bridge, so a `/wechat`
 command typed at the terminal declines while one is running: `status` prints the
@@ -386,7 +390,7 @@ sessions are in-process).
 
 | Integration point | Detail |
 |---|---|
-| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `doctor`, `stop <peer>`, `reset <peer>`, `logout`, `help`; bare `/wechat` opens the control screen. |
+| Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `doctor`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `logout`, `help`; bare `/wechat` opens the control screen. |
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
@@ -487,7 +491,7 @@ status, which is what the old start/stop guidance used to do.
 | `login.ts` | QR login state machine. |
 | `qrcode.ts` | QR matrix → Unicode half-block terminal lines. |
 | `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
-| `status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`) and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `paint`). |
+| `status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list with stop/reset/history keys, and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
 | `state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids). |
