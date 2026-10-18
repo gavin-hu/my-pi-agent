@@ -5,12 +5,14 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir } from "../../test/helpers/env.ts";
 import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
 import {
+	ACCOUNT,
 	fakePeerSession,
 	fakeWechatClient,
 	inboundText,
 	updates,
 	writeAccount,
 } from "../../test/helpers/fixtures/wechat.ts";
+import { saveAccount } from "./credentials.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import wechat, { wechatChip } from "./index.ts";
 import type { PeerSession } from "./peer-session.ts";
@@ -124,6 +126,20 @@ describe("wechat lifecycle", () => {
 			expect(client.sent[0]).toMatchObject({ to: "owner@im.wechat", text: "hi from pi" });
 			expect(fake.sentMessages).toEqual([]);
 
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
+	test("opens the account the most recent login confirmed", async () => {
+		await withAgentDir(async (dir) => {
+			const first = { ...ACCOUNT, ilinkBotId: "bot-a", ilinkUserId: "alice@im.wechat", baseUrl: "https://a" };
+			const second = { ...ACCOUNT, ilinkBotId: "bot-b", ilinkUserId: "bob@im.wechat", baseUrl: "https://b" };
+			writeAccount(dir, first);
+			// A later login as another account switches the bridge, even though the
+			// first account is still stored.
+			saveAccount(second);
+			const { fake, client, ctx } = await start(dir);
+			expect(client.baseUrls()).toEqual(["https://b"]);
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});
 	});

@@ -83,9 +83,11 @@ the credentials.
 
 A confirmed `/wechat login` is authoritative: a poller that is already running
 is stopped and reopened with the new credentials, so a rotated token takes
-effect at once. Stored state (`state.json`) belongs to the account, so logging in
-as a different account starts from an empty cursor and owner instead of carrying
-the previous one's over.
+effect at once. The account that was just scanned is the one the bridge runs,
+recorded as the active entry in `credentials.json`; any other stored accounts
+stay there but are not polled. Stored state (`state.json`) belongs to the
+account, so logging in as a different account starts from an empty cursor and
+owner instead of carrying the previous one's over.
 
 A session that expires while running keeps the `✆ wechat expired` chip:
 `/wechat status` reports it and points at the fix, and `/wechat login` is the
@@ -238,10 +240,10 @@ overridden by the project `<cwd>/.pi/bytefly.json` (project wins):
 }
 ```
 
-State lives under `<agent-dir>/wechat/`: `credentials.json` (mode `0600`),
-`state.json` (cursor, owner, per-peer reply tokens), `media/` (downloaded inbound
-files), `sessions/<peer>/` (one conversation per peer), and `poller.lock` (stops
-two sessions polling one account).
+State lives under `<agent-dir>/wechat/`: `credentials.json` (mode `0600`, every
+stored account plus the active one), `state.json` (cursor, owner, per-peer reply
+tokens), `media/` (downloaded inbound files), `sessions/<peer>/` (one conversation
+per peer), and `poller.lock` (stops two sessions polling one account).
 
 ### The long-poll hold
 
@@ -444,7 +446,7 @@ status, which is what the old start/stop guidance used to do.
 | `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
 | `status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`) and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `paint`). |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
-| `credentials.ts` | `credentials.json` (`0600`, multi-account). |
+| `credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
 | `state.ts` | `state.json` (cursor, owner, per-peer tokens). |
 | `lock.ts` | Poller lockfile. |
 | `format.ts` | Sanitize, chunk, and label helpers. |

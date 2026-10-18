@@ -527,6 +527,22 @@ describe("bridge", () => {
 		void bridge.close();
 	});
 
+	test("keeps the stored state when the account id form changes", () => {
+		// The same person reported with and without the suffix must not be treated as
+		// a different account, or a re-login would drop the cursor and tokens.
+		const stored = { cursor: "c", ownerId: "owner", peers: { owner: { lastSeen: 1 } } };
+		const { client } = makeClient([]);
+		const { deps, saved } = makeDeps(client, {
+			loadAccount: () => ({ ...account, ilinkUserId: "owner@im.wechat" }),
+			loadState: () => structuredClone(stored),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(saved).toEqual([]);
+		expect(bridge.status().peerCount).toBe(1);
+		void bridge.close();
+	});
+
 	test("keeps the stored state for the same account", () => {
 		const stored = { cursor: "c", ownerId: owner, peers: { [owner]: { lastSeen: 1 } } };
 		const { client } = makeClient([]);
@@ -695,6 +711,43 @@ describe("bridge sendToOwner", () => {
 		bridge.open();
 		expect(await bridge.sendToOwner("hello")).toEqual({ ok: true });
 		expect(sent[0]).toEqual({ to: owner, text: "hello", contextToken: "ctx" });
+		await bridge.close();
+	});
+
+	test("finds the reply token when the owner and the stored peer differ in id form", async () => {
+		const { client, sent } = makeClient([]);
+		const { deps } = makeDeps(client, {
+			// The owner id comes from the login response; the token was recorded from
+			// a `from_user_id` that carries the suffix.
+			loadAccount: () => ({ ...account, ilinkUserId: "boss" }),
+			loadState: () => ({ cursor: "", peers: { "boss@im.wechat": { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(await bridge.sendToOwner("hello")).toEqual({ ok: true });
+		expect(sent[0]).toMatchObject({ to: "boss", contextToken: "ctx" });
+		await bridge.close();
+	});
+
+	test("falls back to the stored token for an inbound message without one", async () => {
+		// The sender form differs from the stored key on purpose: the fallback must
+		// find the token recorded under the other form.
+		const message = { ...inbound("ping", "owner"), context_token: undefined };
+		const { client, sent } = makeClient([updates([message])]);
+		const { deps, peers } = makeDeps(
+			client,
+			{
+				loadAccount: () => ({ ...account, ilinkUserId: "owner" }),
+				loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "old", lastSeen: 0 } } }),
+			},
+			{ hold: true },
+		);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => peers.length === 1 && peers[0].prompts.length === 1);
+		peers[0]?.release("pong");
+		await waitFor(() => sent.length === 1);
+		expect(sent[0]).toMatchObject({ to: "owner", text: "pong", contextToken: "old" });
 		await bridge.close();
 	});
 
@@ -1230,7 +1283,14 @@ describe("bridge resilience", () => {
 		} as unknown as WechatClient;
 		const { deps, saved } = makeDeps(
 			client,
-			{ config: { ...DEFAULT_CONFIG, maxReplyChars: 4 }, notify: (message) => notifications.push(message) },
+			{
+				config: { ...DEFAULT_CONFIG, maxReplyChars: 4 },
+				notify: (message) => notifications.push(message),
+				// The token is stored under the un-suffixed form while the message comes
+				// from the suffixed one, so forgetting it exercises the id normalization.
+				loadAccount: () => ({ ...account, ilinkUserId: "owner" }),
+				loadState: () => ({ cursor: "", peers: { owner: { lastContextToken: "old", lastSeen: 0 } } }),
+			},
 			{ answers: ["abcdefgh"] },
 		);
 		const bridge = createBridge(deps);
@@ -1243,8 +1303,10 @@ describe("bridge resilience", () => {
 		expect(notifications[0]).toContain("after 0 of 2 parts");
 		// The first part failed, so the second was never attempted.
 		expect(sends).toBe(1);
-		// A rejected token is forgotten; the next inbound message replaces it.
-		expect(saved.at(-1)?.peers[owner]?.lastContextToken).toBeUndefined();
+		// A rejected token is forgotten; the next inbound message replaces it, and the
+		// two id forms still share one entry.
+		expect(saved.at(-1)?.peers.owner?.lastContextToken).toBeUndefined();
+		expect(Object.keys(saved.at(-1)?.peers ?? {})).toEqual(["owner"]);
 		await bridge.close();
 	});
 

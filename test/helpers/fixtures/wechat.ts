@@ -55,6 +55,8 @@ export interface FakeWechatClient {
 	sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
 	/** How many clients the extension built; one open bridge means one. */
 	clients: () => number;
+	/** The base URL of each client the extension built, in order. */
+	baseUrls: () => string[];
 	/** Every `sendMessage`, in order. */
 	sent: SentMessage[];
 	/** How many polls actually reached the transport. */
@@ -74,6 +76,7 @@ export function fakeWechatClient(script: UpdatesResponse[] = []): FakeWechatClie
 	const queue = [...script];
 	const sent: SentMessage[] = [];
 	let clients = 0;
+	const baseUrls: string[] = [];
 	let polls = 0;
 	let aborts = 0;
 
@@ -112,6 +115,7 @@ export function fakeWechatClient(script: UpdatesResponse[] = []): FakeWechatClie
 	return {
 		createClient: (_options: WechatClientOptions) => {
 			clients += 1;
+			baseUrls.push(_options.baseUrl ?? "");
 			return client as WechatClient;
 		},
 		sleep: async (_ms: number, signal?: AbortSignal) => {
@@ -120,13 +124,14 @@ export function fakeWechatClient(script: UpdatesResponse[] = []): FakeWechatClie
 			throw new Error("aborted");
 		},
 		clients: () => clients,
+		baseUrls: () => baseUrls,
 		sent,
 		polls: () => polls,
 		aborts: () => aborts,
 	};
 }
 
-/** Write a stored account, as a previous `/wechat login` would. */
+/** Write a stored account as an older `/wechat login` would: no active pointer. */
 export function writeAccount(dir: string, account: BotCredentials = ACCOUNT): BotCredentials {
 	const wechat = join(dir, "wechat");
 	mkdirSync(wechat, { recursive: true });

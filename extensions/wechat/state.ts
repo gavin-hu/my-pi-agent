@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { PeerState, WechatState } from "./types.ts";
 import { wechatDir } from "./credentials.ts";
+import { peerKey } from "./format.ts";
 
 /** The default state file path. */
 export function statePath(): string {
@@ -61,10 +62,41 @@ export function writeState(path: string, state: WechatState): void {
 	writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`, "utf-8");
 }
 
+/**
+ * The key `peer` is stored under, accepting either id form.
+ *
+ * WeChat supplies the same person with and without the `@im.wechat` suffix
+ * depending on the field: the stored owner id and `from_user_id` need not agree.
+ * The first form seen wins, so a reply token recorded under one form is still
+ * found by the other.
+ */
+function storedKey(state: WechatState, peer: string): string {
+	const key = peerKey(peer);
+	let best = peer;
+	let bestSeen = Number.NEGATIVE_INFINITY;
+	for (const [stored, entry] of Object.entries(state.peers)) {
+		if (peerKey(stored) !== key) continue;
+		// The freshest entry wins, so a duplicate left by an older version cannot
+		// shadow the token that actually arrived last; the observed form is only a
+		// tie-breaker, so a match is not moved for no reason.
+		if (entry.lastSeen > bestSeen || (entry.lastSeen === bestSeen && stored === peer)) {
+			best = stored;
+			bestSeen = entry.lastSeen;
+		}
+	}
+	return best;
+}
+
+/** The peer's entry, accepting either id form. */
+export function findPeer(state: WechatState, peer: string): PeerState | undefined {
+	return state.peers[storedKey(state, peer)];
+}
+
 /** Record an inbound message: store the reply token and the seen time. */
 export function recordInbound(state: WechatState, peer: string, contextToken: string | undefined, now: number): void {
-	const existing = state.peers[peer];
-	state.peers[peer] = {
+	const id = storedKey(state, peer);
+	const existing = state.peers[id];
+	state.peers[id] = {
 		lastContextToken: contextToken ?? existing?.lastContextToken,
 		lastSeen: now,
 	};

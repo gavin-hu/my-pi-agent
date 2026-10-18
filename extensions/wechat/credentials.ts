@@ -51,7 +51,12 @@ export function readCredentials(path: string): CredentialsFile {
 			const account = normalizeAccount(value);
 			if (account) accounts[id] = account;
 		}
-		return { accounts };
+		// A pointer to an entry this read dropped (corrupt, or edited by hand) is
+		// ignored, so the caller falls back to the first account instead of failing.
+		const rawActive = (parsed as Record<string, unknown>).activeAccount;
+		const activeAccount =
+			typeof rawActive === "string" && rawActive !== "" && Object.hasOwn(accounts, rawActive) ? rawActive : undefined;
+		return activeAccount === undefined ? { accounts } : { accounts, activeAccount };
 	} catch {
 		return { accounts: {} };
 	}
@@ -68,11 +73,15 @@ export function writeCredentials(path: string, file: CredentialsFile): void {
 	}
 }
 
-/** Store or replace one account. */
+/** Store or replace one account and make it the active one. */
 export function saveAccount(account: BotCredentials, path = credentialsPath()): void {
 	const file = readCredentials(path);
 	const key = account.ilinkBotId || account.ilinkUserId;
 	file.accounts[key] = account;
+	// The login that just confirmed this account is authoritative, even when other
+	// accounts are still stored: without the pointer, the next open would keep
+	// polling the first account in the file.
+	file.activeAccount = key;
 	writeCredentials(path, file);
 }
 
@@ -81,9 +90,12 @@ export function clearCredentials(path = credentialsPath()): void {
 	writeCredentials(path, { accounts: {} });
 }
 
-/** The first stored account, if any. */
+/**
+ * The account the bridge should run: the last confirmed login, else the first
+ * stored one (a file written before `activeAccount` existed).
+ */
 export function primaryAccount(path = credentialsPath()): BotCredentials | undefined {
 	const file = readCredentials(path);
-	const [first] = Object.values(file.accounts);
-	return first;
+	const active = file.activeAccount === undefined ? undefined : file.accounts[file.activeAccount];
+	return active ?? Object.values(file.accounts)[0];
 }

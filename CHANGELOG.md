@@ -198,6 +198,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a second `/wechat login` now switches the bridge to the account that
+  was just scanned. The credentials file keeps every stored account but records
+  the last confirmed one as active, so logging in as B no longer leaves the
+  poller on A while announcing B; a file written before that pointer existed
+  still runs its first account.
+- `wechat`: the owner's reply token and every per-peer token are found under
+  either id form (`alice` / `alice@im.wechat`), and inbound messages for the two
+  forms share one entry. A proactive `send_wechat`, or a reply after an inbound
+  message without a fresh token, therefore keeps its `context_token` when the
+  login response and `from_user_id` disagree on the suffix.
 - `plan`: the browser review's Steps counter uses the same `Steps` section list
   as approval and `set_plan_steps`, instead of counting every checkbox in the
   document. A checklist outside `Steps` (for example in `Verification`) no longer

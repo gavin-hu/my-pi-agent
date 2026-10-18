@@ -37,7 +37,7 @@ import { sendLocalFile } from "./outbound.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { createPeerWorker, type PeerItem, type PeerState, type PeerWorker } from "./peer-worker.ts";
 import type { PeerSession } from "./peer-session.ts";
-import { emptyState, recordInbound } from "./state.ts";
+import { emptyState, findPeer, recordInbound } from "./state.ts";
 import {
 	expandSnippet,
 	findSlashCommand,
@@ -321,7 +321,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 	/** Drop a peer's cached reply token, so the next inbound message replaces it. */
 	function forgetToken(peer: string): void {
-		const entry = state.peers[peer];
+		const entry = findPeer(state, peer);
 		if (!entry?.lastContextToken) return;
 		delete entry.lastContextToken;
 		deps.saveState(state);
@@ -689,7 +689,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		deps.saveState(state);
 		const item: InboundItem = {
 			peer,
-			contextToken: message.context_token ?? state.peers[peer]?.lastContextToken,
+			contextToken: message.context_token ?? findPeer(state, peer)?.lastContextToken,
 			text,
 			media,
 			language,
@@ -858,7 +858,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// and reply tokens, which belong to it.
 				state.ownerId = loaded.ilinkUserId;
 				deps.saveState(state);
-			} else if (state.ownerId !== loaded.ilinkUserId) {
+			} else if (peerKey(state.ownerId) !== peerKey(loaded.ilinkUserId)) {
 				// `state.json` outlives `credentials.json`: after a logout and a login as
 				// another account, the stored owner, cursor, and tokens belong to the
 				// previous one, and keeping the owner would refuse the new account.
@@ -993,7 +993,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			}
 			const trimmed = sanitizeInbound(text);
 			if (!trimmed) return { ok: false, error: "Nothing to send." };
-			const contextToken = state.peers[owner]?.lastContextToken;
+			// Either id form may be stored: the owner id comes from the login response
+			// and the token from an inbound `from_user_id`, and they need not agree.
+			const contextToken = findPeer(state, owner)?.lastContextToken;
 			for (const chunk of chunkText(trimmed, deps.config.maxReplyChars)) {
 				try {
 					const response = await client.sendMessage(account, { to: owner, text: chunk, contextToken }, abort?.signal);

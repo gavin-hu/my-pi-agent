@@ -87,6 +87,13 @@ export interface BotCredentials {
 /** Persisted `<agentDir>/wechat/credentials.json`. */
 export interface CredentialsFile {
 	accounts: Record<string, BotCredentials>;
+	/**
+	 * Key of the account the most recent `/wechat login` confirmed, so a second
+	 * login switches to the account that was just scanned instead of keeping the
+	 * first one stored. Absent in a file written before this field existed, where
+	 * the first account is still used.
+	 */
+	activeAccount?: string;
 }
 
 /** Per-peer state: the reply token and the last inbound time. */
