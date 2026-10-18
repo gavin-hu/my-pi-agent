@@ -22,6 +22,7 @@ import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
 import { askHuman } from "../../lib/interaction.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { lastTodos } from "../../lib/todo-state.ts";
 import { FULL_SCREEN_OVERLAY, reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -39,7 +40,7 @@ import {
 	type PlanStepSummary,
 	type StepUpdate,
 } from "./steps.ts";
-import { DEFAULT_TODO_MAX, lastTodos, mergeTodos, type TodoMerge } from "./todos.ts";
+import { DEFAULT_TODO_MAX, mergeTodos, type TodoMerge } from "./todos.ts";
 import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
 import { createPlanWebReview, type PlanReviewResult, type PlanReviewSession, type PlanWebReview } from "./web.ts";

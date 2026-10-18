@@ -3,24 +3,14 @@
  *
  * `todo` is whole-list replacement, so seeding an approved plan straight over
  * the list would discard whatever the user was already tracking. This module
- * reads the last `todo` result from the session branch — the published state
- * channel, replayed the way the todo extension itself reconstructs it, with no
- * import from that extension — and merges the plan's steps into it: existing
- * items keep their place and status, a step whose text is already present is
- * skipped, and the tool's item cap is respected without dropping anything the
- * user had.
+ * merges the plan's steps into the list `lib/todo-state.ts` replays from the
+ * session branch: existing items keep their place and status, a step whose text
+ * is already present is skipped, and the tool's item cap is respected without
+ * dropping anything the user had.
  */
 
-import { TODO_TOOL } from "../../lib/tool-names.ts";
+import type { ExistingTodo } from "../../lib/todo-state.ts";
 import type { PlanStep } from "./steps.ts";
-
-/** One item in the existing todo list, as the todo tool stores it. */
-export interface ExistingTodo {
-	content: string;
-	status: "pending" | "in_progress" | "completed";
-	/** Present-continuous label the todo tool requires for an in-progress item. */
-	activeForm?: string;
-}
 
 /** The merged list plus the counts the approval message reports. */
 export interface TodoMerge {
@@ -35,51 +25,8 @@ export interface TodoMerge {
 	deferred: number;
 }
 
-/** Minimal shape of a session entry, used for runtime narrowing. */
-interface BranchEntryLike {
-	type?: string;
-	message?: {
-		role?: string;
-		toolName?: string;
-		details?: unknown;
-	};
-}
-
 /** Fallback list cap when the registered todo tool does not advertise one. */
 export const DEFAULT_TODO_MAX = 50;
-
-function isStatus(value: unknown): value is ExistingTodo["status"] {
-	return value === "pending" || value === "in_progress" || value === "completed";
-}
-
-/**
- * The last valid todo list written on the branch, or an empty list. A rejected
- * call carries the unchanged list and is not a state write, so it is skipped;
- * an entry that does not re-validate is ignored rather than wiping a good list.
- */
-export function lastTodos(entries: Iterable<unknown>): ExistingTodo[] {
-	let todos: ExistingTodo[] = [];
-	for (const raw of entries) {
-		const entry = raw as BranchEntryLike;
-		if (entry?.type !== "message") continue;
-		const message = entry.message;
-		if (message?.role !== "toolResult" || message.toolName !== TODO_TOOL) continue;
-		const details = message.details as { todos?: unknown; error?: unknown } | undefined;
-		if (!details || details.error) continue;
-		if (!Array.isArray(details.todos)) continue;
-		todos = details.todos.flatMap((item): ExistingTodo[] => {
-			if (typeof item !== "object" || item === null) return [];
-			const value = item as { content?: unknown; status?: unknown; activeForm?: unknown };
-			if (typeof value.content !== "string" || !isStatus(value.status)) return [];
-			const content = value.content.trim();
-			if (!content) return [];
-			const activeForm =
-				typeof value.activeForm === "string" && value.activeForm.trim() ? value.activeForm.trim() : undefined;
-			return [activeForm ? { content, status: value.status, activeForm } : { content, status: value.status }];
-		});
-	}
-	return todos;
-}
 
 /** Case- and whitespace-insensitive key for recognizing a repeated item. */
 function contentKey(content: string): string {

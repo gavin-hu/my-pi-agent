@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `goal`: marking a goal achieved while the todo list still has open items now
+  says so in the tool result (`3 todo items are still open; close or clear the
+  list if that work is done.`), so the model closes the how before it calls the
+  what done. The list is replayed from the branch through a shared
+  `lib/todo-state.ts` that plan's approval-time merge now uses too; the goal's
+  `details`, `structuredContent`, and transcript rendering are unchanged.
 - `bytefly`: the footer no longer sums a fallback record's dollars into the
   configured currency. A model with no matching rate shows Pi's recorded amount
   as its own `$` figure beside the rated total (`¥2.50 + $0.31`), so a session
@@ -26,6 +32,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell commands no longer count as work that needed a plan. A list the model
   wrote or cleared in the same turn is left alone, and a single call still never
   triggers a reminder.
+
+### Fixed
+
+- `goal`: the README now says that `/goal set <prompt>` and
+  `/goal edit <prompt>` replace an active goal without the confirmation
+  `/goal <prompt>` asks for.
 
 ## [0.12.0] - 2026-10-18
 

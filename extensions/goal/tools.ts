@@ -11,6 +11,7 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
+import { lastTodos } from "../../lib/todo-state.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -18,7 +19,7 @@ import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { formatCallText, formatGoalText } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { GoalParams, GoalResult, normalizeGoal, type GoalArgs } from "./schema.ts";
-import { GoalResult as GoalResultView } from "./tui.ts";
+import { GoalHeader } from "./tui.ts";
 import type { GoalAction, GoalDetails } from "./types.ts";
 
 export const TOOL_NAME = GOAL_TOOL;
@@ -46,12 +47,29 @@ function toStructuredContent(details: GoalDetails): Record<string, JsonValue> {
 }
 
 /**
+ * How many items the branch's todo list still has open.
+ *
+ * `todo` is the *how* to the goal's *what*, so completing one while the other
+ * still holds work is worth saying out loud. The list is read from the branch
+ * (`lib/todo-state.ts`), so no todo module is imported.
+ */
+function openTodoCount(entries: Iterable<unknown>): number {
+	return lastTodos(entries).filter((todo) => todo.status !== "completed").length;
+}
+
+/**
  * Build the tool result for one call. A rejected call (`error` set) carries the
  * unchanged goal so the model can retry, and is marked `isError`.
  */
-function goalResult(details: GoalDetails, error?: string) {
+function goalResult(details: GoalDetails, options: { error?: string; openTodos?: number } = {}) {
+	const { error, openTodos = 0 } = options;
 	return {
-		content: [{ type: "text" as const, text: error === undefined ? formatGoalText(details.goal) : `Error: ${error}` }],
+		content: [
+			{
+				type: "text" as const,
+				text: error === undefined ? formatGoalText(details.goal, openTodos) : `Error: ${error}`,
+			},
+		],
 		details,
 		structuredContent: toStructuredContent(details),
 		...(error === undefined ? {} : { isError: true as const }),
@@ -82,10 +100,14 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				const goal = normalizeGoal(args);
 				const action = goal === null ? "clear" : goal.status === "achieved" ? "achieve" : "set";
 				runtime.setGoal(goal, ctx);
-				return goalResult({ goal, action });
+				const openTodos = action === "achieve" ? openTodoCount(ctx.sessionManager.getBranch()) : 0;
+				return goalResult({ goal, action }, { openTodos });
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				return goalResult({ goal: runtime.getGoal(), action: attemptedAction(args), error: message }, message);
+				return goalResult(
+					{ goal: runtime.getGoal(), action: attemptedAction(args), error: message },
+					{ error: message },
+				);
 			}
 		},
 
@@ -115,9 +137,7 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				return text;
 			}
 			const view =
-				context.lastComponent instanceof GoalResultView
-					? context.lastComponent
-					: new GoalResultView(details.goal, theme);
+				context.lastComponent instanceof GoalHeader ? context.lastComponent : new GoalHeader(details.goal, theme);
 			view.update(details.goal, theme);
 			return view;
 		},

@@ -55,6 +55,17 @@ describe("model-facing text", () => {
 		expect(formatGoalText(achieved)).toBe("Goal achieved: Ship the parser");
 	});
 
+	test("achieved text names the todo items still open", () => {
+		expect(formatGoalText(achieved, 1)).toBe(
+			"Goal achieved: Ship the parser\n1 todo item is still open; close or clear the list if that work is done.",
+		);
+		expect(formatGoalText(achieved, 3)).toContain("3 todo items are still open");
+		// A completed list, a clear, and an active goal never mention the list.
+		expect(formatGoalText(achieved, 0)).toBe("Goal achieved: Ship the parser");
+		expect(formatGoalText(null, 3)).toBe("Goal cleared.");
+		expect(formatGoalText(active, 3)).not.toContain("todo");
+	});
+
 	test("a cleared goal says so", () => {
 		expect(formatGoalText(null)).toBe("Goal cleared.");
 	});

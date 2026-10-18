@@ -44,7 +44,7 @@ export class GoalWidget implements Component {
 }
 
 /** Transcript result block: the status header, separated from the call line. */
-export class GoalResult implements Component {
+export class GoalHeader implements Component {
 	private goal: Goal;
 	private theme: Theme;
 

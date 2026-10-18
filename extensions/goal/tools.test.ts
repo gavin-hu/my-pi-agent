@@ -16,6 +16,11 @@ function setup() {
 
 const call = (tool: any, params: unknown, ctx: any) => tool.execute("call-1", params, undefined, undefined, ctx);
 
+/** A session entry carrying one todo tool result. */
+function todoResult(todos: unknown): unknown {
+	return { type: "message", message: { role: "toolResult", toolName: "todo", details: { todos, action: "write" } } };
+}
+
 /** A theme double whose styled text stays assertable. */
 const theme = fakeTheme;
 
@@ -89,6 +94,36 @@ describe("goal tool", () => {
 		expect(result.details.action).toBe("achieve");
 		expect(result.details.goal.status).toBe("achieved");
 		expect(runtime.getGoal()).toEqual({ objective: "Ship the parser", status: "achieved" });
+	});
+
+	test("names the todo items still open when the goal is achieved", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx({
+			branch: [
+				todoResult([
+					{ content: "Close the docs", status: "completed" },
+					{ content: "Ship the parser", status: "in_progress" },
+				]),
+			],
+		});
+		await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+
+		expect(result.content[0].text).toContain("1 todo item is still open");
+		// The structured payload stays the goal alone.
+		expect(result.structuredContent).toEqual({
+			goal: { objective: "Ship the parser", status: "achieved" },
+			action: "achieve",
+		});
+	});
+
+	test("says nothing about the list when it is empty or the goal is only set", async () => {
+		const { tool } = setup();
+		const { ctx } = fakeCtx({ branch: [todoResult([{ content: "Done", status: "completed" }])] });
+		await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+
+		expect(result.content[0].text).toBe("Goal achieved: Ship the parser");
 	});
 
 	test("updates the widget on a TUI session", async () => {
