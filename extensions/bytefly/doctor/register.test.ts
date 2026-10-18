@@ -12,11 +12,11 @@ describe("doctor wiring", () => {
 		const tool = fake.tools.get("run_doctor");
 		expect(tool).toBeDefined();
 		expect(tool.annotations.readOnlyHint).toBe(true);
-		expect(tool.annotations.destructiveHint).toBe(false);
+		// A read-only tool has nothing to be destructive about, so the hint is omitted.
+		expect(tool.annotations.destructiveHint).toBeUndefined();
 		expect(tool.outputSchema).toBeDefined();
 		expect(fake.commands.has("doctor")).toBe(false);
 	});
-
 	test("renders the call line with the tool name in bold", () => {
 		const { fake } = bootDoctor();
 		const tool = fake.tools.get("run_doctor");
@@ -124,6 +124,25 @@ describe("run_doctor", () => {
 			(entry: { extension: string }) => entry.extension === "rewind",
 		);
 		expect(rewind.findings.some((finding: { hint?: string }) => finding.hint?.includes("install git"))).toBe(true);
+	});
+
+	test("returns exactly the fields its output schema declares", async () => {
+		const { fake, ctx } = bootDoctor({ exec: failingExec });
+		const tool = fake.tools.get("run_doctor");
+		const result = await tool.execute("call-1", {}, undefined, undefined, ctx);
+
+		// The schema and the structured result are one contract: a field added to one
+		// without the other would leave a caller reading a shape nobody promised.
+		const declared = Object.keys(tool.outputSchema.properties as Record<string, unknown>).sort();
+		expect(Object.keys(result.structuredContent).sort()).toEqual(declared);
+
+		const severities = tool.outputSchema.properties.extensions.items.properties.findings.items.properties.severity
+			.enum as string[];
+		const allowed = new Set(severities);
+		expect([...allowed].sort()).toEqual(["degraded", "info", "missing", "ok"]);
+		for (const report of result.structuredContent.extensions) {
+			for (const finding of report.findings) expect(allowed.has(finding.severity)).toBe(true);
+		}
 	});
 
 	test("renders a host-rejected call from its message", () => {

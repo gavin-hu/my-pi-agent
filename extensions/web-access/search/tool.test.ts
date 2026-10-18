@@ -52,10 +52,11 @@ describe("web_search tool", () => {
 		registerSearchTool(pi);
 		const tool = tools.get(TOOL_NAME);
 		expect(tool).toBeDefined();
-		expect(tool.exposure).toBe("direct");
-		expect(tool.defaultActive).toBe(true);
+		// The host resolves both defaults; the definition states only what differs.
+		expect(tool.exposure).toBeUndefined();
+		expect(tool.defaultActive).toBeUndefined();
 		expect(tool.executionMode).toBe("sequential");
-		expect(tool.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true, destructiveHint: false });
+		expect(tool.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true });
 		expect(tool.outputSchema).toBeDefined();
 		expect(typeof tool.renderCall).toBe("function");
 		expect(typeof tool.renderResult).toBe("function");

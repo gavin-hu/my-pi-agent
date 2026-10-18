@@ -16,6 +16,9 @@ export const ENV_ROOT = "PI_WORKTREE_ROOT";
  */
 export const ENV_DISABLED_EXTENSIONS = "PI_DISABLED_EXTENSIONS";
 
+/** Env var that turns off Pi's automatic network activity, including our own. */
+export const ENV_OFFLINE = "PI_OFFLINE";
+
 /** False when `name` appears in `PI_DISABLED_EXTENSIONS`, true otherwise. */
 export function isExtensionEnabled(name: string): boolean {
 	const raw = process.env[ENV_DISABLED_EXTENSIONS];
@@ -27,6 +30,15 @@ export function isExtensionEnabled(name: string): boolean {
 			.filter(Boolean),
 	);
 	return !disabled.has(name.toLowerCase());
+}
+
+/**
+ * Whether `PI_OFFLINE` is on, read the way Pi reads it: `1`, `true`, or `yes`
+ * (case-insensitive). Any other value, including empty, is off.
+ */
+export function isOffline(): boolean {
+	const raw = process.env[ENV_OFFLINE]?.trim().toLowerCase();
+	return raw === "1" || raw === "true" || raw === "yes";
 }
 
 /** The active worktree root from the environment, when set and still on disk. */

@@ -1,5 +1,5 @@
 /**
- * bytefly — the package's terminal chrome and diagnostics, composed from ten
+ * bytefly — the package's terminal chrome and diagnostics, composed from eleven
  * feature folders: `header/` (the themed startup mark and version), `footer/`
  * (the two-line, width-adaptive status bar with its price calculation),
  * `message/` (the user-message nameplate), `notice/` (the shared transcript
@@ -7,7 +7,8 @@
  * transcript turn rule), `working/` (the live elapsed counter on Pi's working
  * row), `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
- * probe runtime), and `notify/` (OS notifications for unattended runs).
+ * probe runtime), `notify/` (OS notifications for unattended runs), and
+ * `update/` (the published-version check behind the header's update marker).
  *
  * The header, footer, turn rule, and working timer are installed only in
  * interactive (`tui`) sessions, and are always on; the user-message marker,
@@ -34,6 +35,8 @@ import { type NotifyDeps, registerNotify } from "./notify/register.ts";
 import { createPadStore } from "./pad.ts";
 import { type PanelCommandDeps, registerPanel } from "./panel/commands.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
+import { registerUpdate, type UpdateDeps } from "./update/register.ts";
+import { createUpdateState } from "./update/state.ts";
 import { registerWorkingTimer } from "./working/register.ts";
 
 /** Host seams, injected by tests. */
@@ -44,13 +47,18 @@ export interface ByteflyDeps {
 	doctor?: DoctorDeps;
 	/** Seams for the notify capability. */
 	notify?: NotifyDeps;
+	/** Seams for the published-version check. */
+	update?: UpdateDeps;
 }
 
 /** Register every bytefly surface; the factory only registers. */
 export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void {
 	if (!isExtensionEnabled("bytefly")) return;
 
-	registerHeader(pi);
+	// One store per load: the update check writes the newest published version and
+	// the header reads it, so the marker and every re-install agree.
+	const updates = createUpdateState();
+	const header = registerHeader(pi, updates);
 	registerFooter(pi);
 	registerUserMessage(pi);
 	// One store per load: the tool frame and the notice record Pi's output pad and
@@ -66,4 +74,6 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	const doctor = registerDoctor(pi, deps.doctor);
 	registerPanel(pi, { doctor, discover: deps.extensions?.discover });
 	registerNotify(pi, deps.notify);
+	// Last, so a version that arrives after startup can re-install the header.
+	registerUpdate(pi, updates, { ...deps.update, onUpdate: () => header.refresh() });
 }

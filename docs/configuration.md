@@ -2,8 +2,10 @@
 
 Most extensions need no configuration. Every setting that is configurable lives
 in one shared document, `bytefly.json`, under a top-level section named for the
-extension — bytefly itself owns `price`, `notify`, and `doctor`. The keys are
-documented in each extension's own `README.md`.
+extension — bytefly itself owns `price`, `notify`, `doctor`, and `chrome`. Every
+key is listed in the
+[configuration reference](./configuration-reference.md); each extension's own
+`README.md` covers the behaviour around the keys.
 
 ## How config resolves
 
@@ -16,13 +18,12 @@ The same document is read from two locations and merged:
 
 Project values override global ones. Missing documents and malformed JSON are
 ignored, so a broken config never blocks a session; `/bytefly doctor` reports a document
-that fails to parse. The `chrome` and `notify` sections have a first row each in
-`/bytefly settings`, which writes one key into the selected scope; the file
-remains the source of truth and a hand edit is still valid.
+that fails to parse. The `chrome`, `notify`, `doctor`, and `price` sections each
+have rows in `/bytefly settings`, which writes one leaf into the selected scope —
+the file remains the source of truth and a hand edit is still valid.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json",
   "version": 1,
   "price": { "currency": { "symbol": "¥", "decimals": 2 } },
   "notify": { "enabled": true },
@@ -32,8 +33,9 @@ remains the source of truth and a hand edit is still valid.
 }
 ```
 
-`$schema` and `version` are metadata; the loaders ignore them. `version` is not
-required and defaults to `1`.
+`$schema` and `version` are metadata. The loaders ignore `$schema` (it is any
+pointer a user adds) and read `version` only to warn about a newer document;
+`version` is not required and defaults to `1`.
 
 ## Section index
 
@@ -57,15 +59,11 @@ repository root rather than the active working directory.
 
 `plan`, `question`, `subagent`, and `file-open` read no configuration.
 
-## JSON Schema
+## Full reference
 
-[`assets/bytefly.schema.json`](../assets/bytefly.schema.json) describes the
-document and every section. Point `$schema` at it for editor completion and
-validation:
-
-```json
-{ "$schema": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/bytefly.schema.json" }
-```
+The [configuration reference](./configuration-reference.md) lists every section
+and key with its type, default, and bounds — the authoritative list for a hand
+edit.
 
 ## Migrating from the old per-extension files
 
@@ -78,9 +76,9 @@ bun run config:migrate --project <repo-root>   # add --dry-run to preview, --kee
 ```
 
 It moves each legacy file into its section, moves bytefly's former top-level
-`currency`/`rates`/`peak` under `price`, stamps `version` and `$schema`, and
-deletes the legacy files. It skips an existing section and refuses to touch a
-malformed document, so it is safe to re-run.
+`currency`/`rates`/`peak` under `price`, stamps `version`, and deletes the legacy
+files. It skips an existing section and refuses to touch a malformed document,
+so it is safe to re-run.
 
 ## State
 
@@ -100,6 +98,7 @@ state, not user configuration.
 | `PI_WORKTREE_BRANCH` | `worktree` | The worktree's branch name. |
 | `PI_WORKTREE_MAIN` | `worktree` | The main checkout path, used by exit and prune. |
 | `PI_CODING_AGENT_DIR` | Pi | The agent directory the global config file resolves against. |
+| `PI_OFFLINE` | Pi | Turns off Pi's automatic network activity; `bytefly`'s update check reads it too, so an offline session makes no version request. |
 
 `PI_WORKTREE_*` are set by the `worktree` extension for the session and its
 child processes; you normally never set them by hand.

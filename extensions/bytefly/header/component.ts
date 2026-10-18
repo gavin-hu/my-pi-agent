@@ -17,6 +17,7 @@ import { keyHintText } from "../../../lib/tui/glyphs.ts";
 import { BODY_INDENT } from "../../../lib/tui/indent.ts";
 import { RULE_GLYPH } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
+import { updateMarker } from "../update/format.ts";
 import { HEADER_CONFIG, type HelpEntry } from "./config.ts";
 
 /** The header's shape, resolved once per apply so `render` stays cheap. */
@@ -27,6 +28,8 @@ export interface HeaderView {
 	halfBlocks: boolean;
 	/** Columns of left margin: Pi's output pad, so the nameplate sits on the transcript margin. */
 	pad: number;
+	/** A newer published version of this package, when one is known. */
+	latest?: string;
 }
 
 /** The mark block is four columns on both rows, so the identity column aligns. */
@@ -78,7 +81,7 @@ export class ByteflyHeader implements Component {
 		const w = Math.max(1, width);
 		const theme = this.getTheme();
 		const view = this.view();
-		const viewKey = `${view.showVersion}:${view.halfBlocks}:${view.pad}`;
+		const viewKey = `${view.showVersion}:${view.halfBlocks}:${view.pad}:${view.latest ?? ""}`;
 		const keys = this.keySignature();
 		if (
 			this.cachedWidth === w &&
@@ -106,7 +109,8 @@ export class ByteflyHeader implements Component {
 	}
 
 	private build(w: number, theme: Theme, view: HeaderView): string[] {
-		const { nameRole, chromeRole, detailRole, chromeTagline, chromeName, chromeVersion, help } = HEADER_CONFIG;
+		const { nameRole, chromeRole, detailRole, updateRole, chromeTagline, chromeName, chromeVersion, help } =
+			HEADER_CONFIG;
 		const padWidth = Math.max(0, Math.min(Math.floor(view.pad), Math.max(0, w - 1)));
 		const pad = " ".repeat(padWidth);
 		const [markTop, markBottom] = markLines(theme, view.halfBlocks);
@@ -120,11 +124,18 @@ export class ByteflyHeader implements Component {
 				: theme.bold(paint(theme, nameRole, HEADER_CONFIG.appName))
 			: version;
 		const chrome = `${paint(theme, detailRole, chromeTagline)} ${paint(theme, chromeRole, chromeName)}`;
-		const chromeVersioned = chromeVersion ? `${chrome} ${paint(theme, detailRole, `v${chromeVersion}`)}` : chrome;
+		const chromeWithVersion = chromeVersion ? `${chrome} ${paint(theme, detailRole, `v${chromeVersion}`)}` : chrome;
+		// The published version follows the loaded one: `v0.11.4 ↑0.12.0`.
+		const chromeWithMarker =
+			chromeVersion && view.latest
+				? `${chromeWithVersion} ${paint(theme, updateRole, updateMarker(view.latest))}`
+				: chromeWithVersion;
 
-		// The identity rows shed as one block: chrome version, chrome line, agent.
+		// The identity rows shed as one block: the update marker first, then the
+		// chrome version, the chrome line, and finally the agent.
 		const states: Array<readonly [string, string]> = [
-			[agent, chromeVersioned],
+			[agent, chromeWithMarker],
+			[agent, chromeWithVersion],
 			[agent, chrome],
 			[agent, ""],
 			["", ""],

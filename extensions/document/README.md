@@ -44,7 +44,7 @@ them along. Then ask the model to read a document, or call the tool directly:
 
 ## Tool
 
-`read_doc` — `exposure: "direct"`, active by default, read-only, closed-world
+`read_doc` — direct exposure, active by default, read-only, closed-world
 (no network).
 
 | Parameter | Type | Meaning |
@@ -226,7 +226,7 @@ config defaults, and error listing all derive from it.
 | Aspect | Contract |
 |---|---|
 | Registration | `document(pi)` in `index.ts` calls `registerDocTool(pi)`, which registers `read_doc`. The factory only registers; no parser loads until a read needs it. |
-| Tool | `read_doc`, `exposure: "direct"`, `defaultActive: true`, default (`parallel`) execution, `annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult` (reuse `context.lastComponent`; read `context.cwd` and `context.isError`). |
+| Tool | `read_doc`, direct exposure and active on registration (the defaults), default (`parallel`) execution, `annotations: { readOnlyHint: true, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult` (reuse `context.lastComponent`; read `context.cwd` and `context.isError`). |
 | State | None persisted. Per-result state lives in the tool-result `details` / `structuredContent`; the renderer reads only that. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks: each read imports a parser, runs it, and holds no long-lived resources. |
 | Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigSection` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/tui/glyphs.ts`). |

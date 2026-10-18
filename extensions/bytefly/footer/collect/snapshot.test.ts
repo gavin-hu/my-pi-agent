@@ -66,7 +66,7 @@ describe("createSnapshotReader", () => {
 		expect(snapshot.model).toEqual({ id: "opus-4.5", provider: "anthropic", reasoning: true });
 		expect(snapshot.thinkingLevel).toBe("high");
 		expect(snapshot.context).toEqual({ tokens: 124000, contextWindow: 200000, percent: 62 });
-		expect(snapshot.usage.cost).toBeCloseTo(0.01);
+		expect(snapshot.usage.recordedCost).toBeCloseTo(0.01);
 		expect(snapshot.currency).toEqual({ symbol: "¥", decimals: 2 });
 		expect(snapshot.cacheHitRate).toBeCloseTo(50);
 		expect(snapshot.providerCount).toBe(2);
@@ -90,7 +90,7 @@ describe("createSnapshotReader", () => {
 	test("keeps Pi's recorded cost when no rate matches", () => {
 		const read = createSnapshotReader(DEFAULT_BYTEFLY_CONFIG);
 
-		expect(read(makeCtx(), footerData).usage.cost).toBeCloseTo(0.01);
+		expect(read(makeCtx(), footerData).usage.recordedCost).toBeCloseTo(0.01);
 	});
 
 	test("prices from a configured rate and carries its currency", () => {

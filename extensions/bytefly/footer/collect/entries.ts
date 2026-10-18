@@ -45,7 +45,7 @@ interface UsageSource {
 
 /** Zeroed totals; the starting point for every accumulation. */
 export function emptyUsage(): UsageTotals {
-	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, recordedCost: 0 };
 }
 
 /**

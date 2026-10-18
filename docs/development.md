@@ -115,7 +115,9 @@ machine whose default registry is a read-only mirror (for example
    non-zero when that version has no changelog section, so a mistyped version
    fails before `gh` runs.
 
-7. Publish the npm package from the same commit:
+7. Publish the npm package from the same commit, only after the user approves
+   that specific run — a publish is irreversible and public, and approval for an
+   earlier release does not carry over:
 
    ```bash
    npm publish --registry https://registry.npmjs.org/

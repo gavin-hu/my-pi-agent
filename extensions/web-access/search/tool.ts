@@ -46,9 +46,7 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 		],
 		parameters: WebSearchParams,
 		outputSchema: WebSearchOutput,
-		exposure: "direct",
-		defaultActive: true,
-		annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+		annotations: { readOnlyHint: true, openWorldHint: true },
 		executionMode: "sequential",
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../../test/helpers/context.ts";
-import { emit, makeFakePi } from "../../../test/helpers/fakes.ts";
+import { emit, fakeTheme, makeFakePi } from "../../../test/helpers/fakes.ts";
 import { registerHeader } from "./register.ts";
+import { createUpdateState } from "../update/state.ts";
 
 /** Boot the header surface and record every `setHeader` call. */
 function boot(settings: Record<string, unknown>, mode = "tui") {
@@ -11,8 +12,16 @@ function boot(settings: Record<string, unknown>, mode = "tui") {
 	ctx.ui.setHeader = (factory: unknown) => {
 		headers.push(factory);
 	};
-	registerHeader(pi);
-	return { pi, ctx, headers };
+	const updates = createUpdateState();
+	const handle = registerHeader(pi, updates);
+	return { pi, ctx, headers, updates, handle };
+}
+
+/** Render the last installed header at 80 columns. */
+function renderLast(headers: unknown[]): string[] {
+	const factory = headers.at(-1) as ((tui: unknown, theme: unknown) => { render(width: number): string[] }) | undefined;
+	if (typeof factory !== "function") return [];
+	return factory({}, fakeTheme).render(80);
 }
 
 describe("header lifecycle", () => {
@@ -63,5 +72,45 @@ describe("header lifecycle", () => {
 		await emit(pi, "session_shutdown", {}, ctx);
 
 		expect(headers.at(-1)).toBeUndefined();
+	});
+});
+
+describe("header update marker", () => {
+	test("renders no marker until a newer version is known", async () => {
+		const { pi, ctx, headers } = boot({ quietStartup: true });
+		await emit(pi, "session_start", {}, ctx);
+
+		expect(renderLast(headers)[1]).not.toContain("↑");
+	});
+
+	test("re-installs the header with the marker once the store holds a version", async () => {
+		const { pi, ctx, headers, updates, handle } = boot({ quietStartup: true });
+		await emit(pi, "session_start", {}, ctx);
+
+		updates.set("0.12.0");
+		handle.refresh();
+
+		expect(headers).toHaveLength(2);
+		expect(renderLast(headers)[1]).toContain("↑0.12.0");
+	});
+
+	test("does nothing on refresh before a session started", () => {
+		const { headers, handle } = boot({ quietStartup: true });
+
+		handle.refresh();
+
+		expect(headers).toEqual([]);
+	});
+
+	test("does nothing on refresh after shutdown", async () => {
+		const { pi, ctx, headers, updates, handle } = boot({ quietStartup: true });
+		await emit(pi, "session_start", {}, ctx);
+		await emit(pi, "session_shutdown", {}, ctx);
+		const installed = headers.length;
+
+		updates.set("0.12.0");
+		handle.refresh();
+
+		expect(headers).toHaveLength(installed);
 	});
 });

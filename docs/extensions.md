@@ -260,12 +260,15 @@ keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` settings
 checkbox and one verdict (`off` when switched off, `env disabled` when
 `PI_DISABLED_EXTENSIONS` excludes it, otherwise its worst-severity health), and
-Settings, five curated preferences — bytefly startup TUI, desktop notifications,
-the rail glyph, output padding, and the hardware cursor — with each row's value
-and its source file. `Space` toggles the focused extension and `Enter` expands
+Settings, nine curated preferences in six groups — bytefly startup TUI, desktop
+notifications and their delivery method, the proactive health check, the cost
+precision and recorded-cost fallback, the rail glyph, output padding, and the
+hardware cursor — with each row's value and its source file. `Space` toggles the
+focused extension and `Enter` expands
 its findings (per row, into the free height); in Settings `Space`/`Enter` change
 the focused row. `Tab` switches Global/Project scope, `←`/`→` switch sections,
-and `r` re-probes. The screen mounts on the session's cached findings and probes
+`x` clears a project override in Project scope, and `r` re-probes. The screen
+mounts on the session's cached findings and probes
 on the first Extensions view, so opening it or `/bytefly settings` is instant.
 App rows are Global-only; `bytefly.json` rows write the selected scope one key
 at a time. `/bytefly settings` opens the Settings section,
@@ -277,7 +280,10 @@ the shared notice renderer, shown only when the bytefly startup TUI is on
 (Pi's `quietStartup: true`). An opt-in notify capability raises an
 OS notification when a run or a background job finishes or the agent asks for
 input, configured through the `notify` section of `bytefly.json`, for
-unattended runs.
+unattended runs. Once per interactive session it also compares the loaded
+version with the published `@gavin-hu/my-pi-agent` on npm: a newer one adds
+`↑0.12.0` to the header's chrome version and posts one notice naming
+`pi update --extensions` (skipped with `PI_OFFLINE`, silent on failure).
 
 Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` and `settings`
 subcommands).

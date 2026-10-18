@@ -191,9 +191,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		],
 		parameters: WebFetchParams,
 		outputSchema: WebFetchOutput,
-		exposure: "direct",
-		defaultActive: true,
-		annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+		annotations: { readOnlyHint: true, openWorldHint: true },
 		// The page cache is shared in-memory state created per registration, so
 		// sibling calls must not run concurrently (matches web_search's throttle).
 		executionMode: "sequential",

@@ -22,6 +22,14 @@ const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolv
 
 const packageItem = (name: string, enabled = true): ResourceItem => packageExtension(name, enabled) as ResourceItem;
 
+/** A copy of `source` with the leaf at `path` set; the writer's shape, in memory. */
+function withLeaf(source: Record<string, unknown>, path: readonly string[], value: unknown): Record<string, unknown> {
+	const [head, ...rest] = path;
+	if (head === undefined) return source;
+	if (rest.length === 0) return { ...source, [head]: value };
+	return { ...source, [head]: withLeaf((source[head] as Record<string, unknown> | undefined) ?? {}, rest, value) };
+}
+
 /** A settings surface over an in-memory snapshot, for rendering and interaction. */
 function makeSettings(
 	options: { app?: Settings; global?: Record<string, unknown>; project?: Record<string, unknown> } = {},
@@ -48,7 +56,7 @@ function makeSettings(
 			} else if (config) {
 				const document = scope === "global" ? snapshot.global : snapshot.project;
 				const section = (document[config.section] ?? {}) as Record<string, unknown>;
-				document[config.section] = { ...section, [config.key]: storedValue(view, next.value) };
+				document[config.section] = withLeaf(section, config.path, storedValue(view, next.value));
 			}
 			dirty = true;
 			changes.push(`${scope}:${id}`);
@@ -77,12 +85,19 @@ function build(options: {
 	settings?: SettingsSurface;
 }) {
 	const store = options.store ?? makeStore();
-	const { discovery } = makeDiscovery({
+	const { discovery, projectStore } = makeDiscovery({
 		global: options.items,
 		globalStore: store,
 		trusted: options.trusted ?? true,
 	});
-	const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+	// Mirrors the command: a runtime refusal or write failure lands in the frame.
+	const holder: { component?: PanelComponent } = {};
+	const runtime = createExtensionsPickerRuntime({
+		discovery,
+		cwd: "/proj",
+		agentDir: "/agent",
+		onError: (message) => holder.component?.notify(message),
+	});
 	let closed = 0;
 	const reports = options.reports ?? [];
 	const settings =
@@ -106,7 +121,8 @@ function build(options: {
 			closed += 1;
 		},
 	});
-	return { component, runtime, store, settings, closedCount: () => closed };
+	holder.component = component;
+	return { component, runtime, store, projectStore, settings, closedCount: () => closed };
 }
 
 describe("PanelComponent rendering", () => {
@@ -376,6 +392,55 @@ describe("PanelComponent input", () => {
 		expect(runtime.scope()).toBe("project");
 	});
 
+	test("x clears the project override the toggle wrote", async () => {
+		const item = makeItem({ path: "/agent/extensions/auto.ts" });
+		const { component, projectStore } = build({ items: [item], reports: [] });
+
+		component.handleInput("\t");
+		component.handleInput(" ");
+		await settle();
+		await settle();
+		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([
+			"/agent/extensions/auto.ts",
+			"-/agent/extensions/auto.ts",
+		]);
+
+		component.handleInput("x");
+		await settle();
+		await settle();
+
+		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([]);
+		const row = component.render(80).find((line) => line.includes("auto.ts"));
+		expect(row).toContain(GLYPHS.boxOn);
+		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
+	});
+
+	test("x explains a row with no project override and writes nothing", async () => {
+		const { component, projectStore } = build({ items: [packageItem("plan")], reports: [] });
+
+		component.handleInput("\t");
+		component.handleInput("x");
+		await settle();
+		await settle();
+
+		expect(projectStore.calls.setProjectExtensionPaths).toEqual([]);
+		const text = component.render(80).join("\n");
+		expect(text).toContain("No project override for plan/index.ts.");
+		expect(text).not.toContain("Esc close");
+	});
+
+	test("offers x in Project scope only", () => {
+		const global = build({ items: [packageItem("plan")], reports: [] });
+		expect(global.component.render(120).join("\n")).not.toContain("x inherit");
+
+		global.component.handleInput("x");
+		expect(global.store.calls.setExtensionPaths).toEqual([]);
+
+		const project = build({ items: [packageItem("plan")], reports: [] });
+		project.component.handleInput("\t");
+		expect(project.component.render(120).join("\n")).toContain("x inherit");
+	});
+
 	test("Escape closes the screen", () => {
 		const { component, closedCount } = build({ items: [packageItem("plan")], reports: [] });
 
@@ -427,6 +492,7 @@ describe("PanelComponent input", () => {
 			projectAvailable: () => true,
 			isDirty: () => false,
 			toggle: async () => {},
+			clearOverride: async () => {},
 			onChange: () => () => {},
 		};
 		const component = new PanelComponent({
@@ -474,9 +540,10 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("5 settings");
+		expect(text).toContain("9 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
+		expect(text).toContain("Delivery method");
 		expect(text).toContain("Rail glyph");
 		expect(text).not.toContain("No settings yet.");
 		expect(text).not.toContain("plan/index.ts");
@@ -491,7 +558,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 5 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 9 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -503,7 +570,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 2 settings");
+		expect(text).toContain("Project · 6 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -519,7 +586,7 @@ describe("PanelComponent sections", () => {
 		// Project drops the app rows; the cursor lands on the nearest remaining row,
 		// not back at the top of the list.
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 2 settings");
+		expect(component.render(80).join("\n")).toContain("Project · 6 settings");
 		expect(selected()).toContain("Rail glyph");
 	});
 
@@ -530,7 +597,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 5 settings");
+		expect(refused).toContain("Global · 9 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 

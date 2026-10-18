@@ -61,8 +61,8 @@ describe("subagent registration", () => {
 	test("registers a direct, active tool", () => {
 		const tool = register(async (options) => success(options.agentName, "ok"));
 		expect(tool).toBeDefined();
-		expect(tool.exposure).toBe("direct");
-		expect(tool.defaultActive).toBe(true);
+		expect(tool.exposure).toBeUndefined();
+		expect(tool.defaultActive).toBeUndefined();
 		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
 	});
 });

@@ -106,7 +106,7 @@ describe("bytefly writes", () => {
 	test("writes one key to the global document and preserves siblings and metadata", async () => {
 		const { runtime, globalPath } = boot({
 			globalDoc: {
-				$schema: "https://example.test/bytefly.schema.json",
+				$schema: "https://example.test/meta.json",
 				version: 1,
 				notify: { title: "Pi" },
 				memory: { inject: true },
@@ -116,7 +116,7 @@ describe("bytefly writes", () => {
 		await runtime.change("global", "notify.enabled");
 
 		expect(readJson(globalPath)).toEqual({
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			notify: { title: "Pi", enabled: true },
 			memory: { inject: true },
@@ -143,6 +143,52 @@ describe("bytefly writes", () => {
 		await runtime.change("global", "chrome.rail");
 
 		expect(readJson(globalPath)).toEqual({ chrome: { rail: "╎" } });
+	});
+
+	test("writes a nested leaf and keeps the section's siblings and metadata", async () => {
+		const { runtime, globalPath } = boot({
+			globalDoc: {
+				$schema: "https://example.test/meta.json",
+				version: 1,
+				price: { currency: { symbol: "$", decimals: 2 }, fallbackToRecordedCost: true },
+				notify: { enabled: true },
+			},
+		});
+
+		await runtime.change("global", "price.currency.decimals");
+
+		expect(readJson(globalPath)).toEqual({
+			$schema: "https://example.test/meta.json",
+			version: 1,
+			price: { currency: { symbol: "$", decimals: 3 }, fallbackToRecordedCost: true },
+			notify: { enabled: true },
+		});
+		expect(valueOf(runtime, "global", "price.currency.decimals")).toBe("3");
+	});
+
+	test("writes a nested project override without touching the global document", async () => {
+		const { runtime, globalPath, projectPath } = boot({ globalDoc: { price: { currency: { decimals: 4 } } } });
+
+		expect(valueOf(runtime, "project", "price.currency.decimals")).toBe("4");
+
+		await runtime.change("project", "price.currency.decimals");
+
+		expect(readJson(globalPath)).toEqual({ price: { currency: { decimals: 4 } } });
+		expect(readJson(projectPath)).toEqual({ price: { currency: { decimals: 0 } } });
+		expect(valueOf(runtime, "project", "price.currency.decimals")).toBe("0");
+	});
+
+	test("writes the delivery method as a string and the fallback as a boolean", async () => {
+		const { runtime, globalPath } = boot();
+
+		await runtime.change("global", "notify.method");
+		await runtime.change("global", "price.fallbackToRecordedCost");
+
+		expect(readJson(globalPath)).toEqual({
+			notify: { method: "osc777" },
+			price: { fallbackToRecordedCost: false },
+		});
+		expect(valueOf(runtime, "global", "notify.method")).toBe("osc777");
 	});
 
 	test("refuses a project write when the project is untrusted", async () => {

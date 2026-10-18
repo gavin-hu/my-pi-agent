@@ -81,3 +81,67 @@ describe("runtime scope", () => {
 		expect(runtime.projectAvailable()).toBe(false);
 	});
 });
+
+describe("runtime clearing a project override", () => {
+	const inherited = topLevel("/agent/extensions/a.ts");
+
+	test("removes the project override and restores the inherited state", async () => {
+		const globalStore = makeStore({ global: { extensions: [] } });
+		const projectStore = makeStore({ project: { extensions: [] } });
+		const { discovery } = makeDiscovery({ global: [inherited], globalStore, projectStore, trusted: true });
+		const runtime = createExtensionsPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+
+		runtime.setScope("project");
+		const item = runtime.items()[0];
+		await runtime.toggle(item);
+		expect(item.enabled).toBe(false);
+		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([
+			"/agent/extensions/a.ts",
+			"-/agent/extensions/a.ts",
+		]);
+
+		await runtime.clearOverride(item);
+
+		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([]);
+		expect(item.enabled).toBe(true);
+		expect(runtime.isDirty()).toBe(true);
+		expect(projectStore.flushCount()).toBe(2);
+	});
+
+	test("reports a row with no override and writes nothing", async () => {
+		const errors: string[] = [];
+		const projectStore = makeStore({ project: { extensions: [] } });
+		const { discovery } = makeDiscovery({ global: [inherited], projectStore, trusted: true });
+		const runtime = createExtensionsPickerRuntime({
+			discovery,
+			cwd: "/proj",
+			agentDir: "/agent",
+			onError: (message) => errors.push(message),
+		});
+
+		runtime.setScope("project");
+		await runtime.clearOverride(runtime.items()[0]);
+
+		expect(errors).toEqual(["No project override for a.ts."]);
+		expect(projectStore.calls.setProjectExtensionPaths).toEqual([]);
+		expect(runtime.isDirty()).toBe(false);
+	});
+
+	test("refuses in Global scope, which has no layer to fall back to", async () => {
+		const errors: string[] = [];
+		const store = makeStore({ global: { extensions: ["-extensions/a.ts"] } });
+		const { discovery } = makeDiscovery({ global: [topLevel("/agent/extensions/a.ts")], globalStore: store });
+		const runtime = createExtensionsPickerRuntime({
+			discovery,
+			cwd: "/proj",
+			agentDir: "/agent",
+			onError: (message) => errors.push(message),
+		});
+
+		await runtime.clearOverride(runtime.items()[0]);
+
+		expect(errors).toEqual(["Overrides are cleared in Project scope; switch with Tab."]);
+		expect(store.calls.setExtensionPaths).toEqual([]);
+		expect(runtime.isDirty()).toBe(false);
+	});
+});

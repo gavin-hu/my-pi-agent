@@ -60,11 +60,13 @@ pi -e .                                                    # try it for one run
 Then, from inside Pi:
 
 - `/bytefly [extension] [refresh]` opens the control center on Extensions, lists
-  every loaded extension with its runtime health, and enables or disables one.
+  every loaded extension with its runtime health, enables or disables one, and
+  clears a project override with `x`.
 - `/bytefly settings` opens the control center's Settings section: bytefly
-  startup TUI, desktop notifications, the transcript rail glyph, output padding,
-  and the hardware cursor, with `Space`/`Enter` to change a value and `Tab` for
-  Global/Project scope.
+  startup TUI, desktop notifications and their delivery method, the proactive
+  health check, the cost precision and recorded-cost fallback, the transcript
+  rail glyph, output padding, and the hardware cursor, with `Space`/`Enter` to
+  change a value and `Tab` for Global/Project scope.
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —
   `run_doctor`'s text — and checks that each enabled extension has what it needs
   at runtime.
@@ -110,7 +112,7 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` and `settings` subcommands), `run_doctor` | A themed header and width-adaptive footer, a two-row `You` nameplate on each user message, a rule between completed turns, a shared transcript notice, a tool block that leads with its call line and rails its result body two columns under it (the rail glyph is the `chrome.rail` setting), a live elapsed counter on Pi's working row, the `/bytefly` control center — an Extensions section that lists every extension with its health and enables or disables one, plus a Settings section with five curated preferences (`/bytefly settings`) — `/bytefly doctor` prints the doctor report, and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` and `settings` subcommands), `run_doctor` | A themed header and width-adaptive footer, a two-row `You` nameplate on each user message, a rule between completed turns, a shared transcript notice, a tool block that leads with its call line and rails its result body two columns under it (the rail glyph is the `chrome.rail` setting), a live elapsed counter on Pi's working row, the `/bytefly` control center — an Extensions section that lists every extension with its health and enables or disables one, plus a Settings section with nine curated preferences across six groups (`/bytefly settings`) — `/bytefly doctor` prints the doctor report, and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input, and one startup check of the published npm version, marked `↑0.12.0` in the header and announced in a transcript notice. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
 | [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | A GitHub-inspired dark palette and its light companion, with optional automatic light/dark switching. |
 
 ### Screens
@@ -144,9 +146,10 @@ one image per tool under [`assets/tools/`](./assets/tools).
 Most extensions need no configuration. Every setting lives in one shared
 document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and merged with
 `<cwd>/.pi/bytefly.json` (project wins), under a top-level section named for the
-extension. Each extension's `README.md` lists its keys,
-[`docs/configuration.md`](./docs/configuration.md) indexes them, and
-[`assets/bytefly.schema.json`](./assets/bytefly.schema.json) validates the file.
+extension. Each extension's `README.md` covers the behaviour around its keys,
+[`docs/configuration.md`](./docs/configuration.md) indexes the sections, and
+[`docs/configuration-reference.md`](./docs/configuration-reference.md) lists
+every key with its type, default, and bounds.
 
 Every extension is on by default. To load the pack without some of them, set
 `PI_DISABLED_EXTENSIONS` to a comma- or whitespace-separated list of extension
@@ -167,6 +170,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | [Getting started](./docs/getting-started.md) | Requirements, install options, verifying the load, themes. |
 | [Extensions](./docs/extensions.md) | The full catalog of every extension and theme. |
 | [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
+| [Configuration reference](./docs/configuration-reference.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
 | [Architecture](./docs/architecture.md) | How the package, its extensions, and `lib/` fit together. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |

@@ -54,6 +54,15 @@ export const DEFAULT_PEAK: PeakSchedule = {
 /** Rendered-currency default: yuan, the currency `DEFAULT_RATES` is stated in. */
 export const DEFAULT_CURRENCY: Currency = { symbol: "¥", decimals: 2 };
 
+/**
+ * The currency Pi's recorded cost is in.
+ *
+ * Pi prices every call in dollars, so a record no rate matched is shown as its
+ * own `$` amount instead of being added to the configured one. The three
+ * decimals are Pi's own, so a fraction of a cent is not rounded away.
+ */
+export const RECORDED_CURRENCY: Currency = { symbol: "$", decimals: 3 };
+
 export const DEFAULT_BYTEFLY_CONFIG: ByteflyConfig = {
 	currency: DEFAULT_CURRENCY,
 	fallbackToRecordedCost: true,

@@ -74,8 +74,6 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		promptSnippet: "Delegate a task to a specialized subagent with an isolated context window.",
 		promptGuidelines: GUIDELINES,
 		parameters: SubagentParams,
-		exposure: "direct",
-		defaultActive: true,
 		// Deliberately no `executionMode`: sibling subagent calls are independent
 		// (each spawns its own child process), so they stay parallel by default.
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },

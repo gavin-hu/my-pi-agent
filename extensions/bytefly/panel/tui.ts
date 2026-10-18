@@ -3,107 +3,44 @@
  *
  * Extensions lists every resolved extension with its enable checkbox and its
  * health; Settings lists the curated preferences with their values. The
- * component is derived: it rebuilds the model from the picker runtime, the
- * reports, or the settings surface on every render, keeps the focused row's key
- * across rebuilds, and requests a repaint only after an input changes state.
- * The screen is drawn from the design system — a label-first `titleRule`, one
- * `listRow` grammar, one `checkbox` — and its scroll math from
- * `lib/tui/cursor.ts`. A row without a report renders no glyph and no summary,
- * never a false `ok`.
+ * component owns the state — the cursors, the focused row key per section, the
+ * expanded set, the pending write chain, and the active section — and the two
+ * section modules own how their rows and detail panes are drawn. It is derived:
+ * it rebuilds the model from the picker runtime, the reports, or the settings
+ * surface on every render, keeps the focused row's key across rebuilds, and
+ * requests a repaint only after an input changes state. The screen is drawn from
+ * the design system — a label-first `titleRule`, one `listRow` grammar, one
+ * `checkbox` — and its scroll math from `lib/tui/cursor.ts`.
  */
 
-import { join } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-	Key,
-	matchesKey,
-	type Component,
-	type TuiMouseEvent,
-	type TuiMouseEventResult,
-	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../../lib/format.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
-import { clip, fitCells, splitRow } from "../../../lib/tui/columns.ts";
+import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import type { ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { dockListFrame } from "../../../lib/tui/chrome.ts";
 import { fitRows, formatRange, isCloseKey, ListCursor, navIntent, wheelDelta } from "../../../lib/tui/cursor.ts";
-import { BODY_INDENT } from "../../../lib/tui/indent.ts";
-import { checkbox, emptyState, listRow } from "../../../lib/tui/rows.ts";
+import { emptyState } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
-import { paint } from "../../../lib/tui/tokens.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
-import { detailLines as reportDetailLines } from "../doctor/format.ts";
 import type { ExtensionsPickerRuntime } from "../picker/runtime.ts";
-import { rowBadge, sectionSegments, settingsSummarySegments, summarySegments, type SummarySegment } from "./format.ts";
 import { buildPanelModel } from "./join.ts";
-import { groupViews, type SettingView } from "./settings.ts";
-import { configPath, type SettingsSurface } from "./settings-runtime.ts";
-import type { PanelModel, PanelRow, PanelSection } from "./types.ts";
-
-/** Body rows when the terminal height is unknown. */
-const SCREEN_DEFAULT_ROWS = 16;
-/** Fixed rows around the body: header, summary, blank, blank, hint, blank. */
-const FRAME_ROWS = 6;
-/** Detail rows reserved for the focused row. */
-const DETAIL_ROWS = 4;
-/** Body rows that must survive before the detail pane collapses to its title. */
-const MIN_BODY_ROWS = 3;
-/** Detail rows when the terminal height is unknown and the focused row is expanded. */
-const EXPANDED_DETAIL_FALLBACK = 8;
-/** Pi's personal settings file, named in the detail pane. */
-const PI_SETTINGS_FILE = "settings.json";
-/** Fixed body offset in the frame: header, summary, blank line. */
-const BODY_START = 3;
-
-/** The body indent, shared by the note and the detail pane. */
-const INDENT = " ".repeat(BODY_INDENT);
-
-/** A flat display entry: a group header or a selectable row. */
-type PanelEntry =
-	| { kind: "group"; key: string; label: string; count: number }
-	| { kind: "row"; row: PanelRow }
-	| { kind: "setting"; setting: SettingView };
-
-/** A selectable entry's stable key, or `undefined` for a group header. */
-function entryKey(entry: PanelEntry | undefined): string | undefined {
-	if (entry?.kind === "row") return entry.row.key;
-	if (entry?.kind === "setting") return entry.setting.id;
-	return undefined;
-}
-
-/** Whether an entry can take the focus. */
-function isSelectable(entry: PanelEntry | undefined): boolean {
-	return entryKey(entry) !== undefined;
-}
-
-/** The next selectable entry from `from` in `direction`, or `undefined`. */
-function nextRow(entries: PanelEntry[], from: number, direction: -1 | 1): number | undefined {
-	for (let index = from + direction; index >= 0 && index < entries.length; index += direction) {
-		if (isSelectable(entries[index])) return index;
-	}
-	return undefined;
-}
-
-/** Interleave the extension model's groups and rows into one display list. */
-function entriesOf(model: PanelModel): PanelEntry[] {
-	const entries: PanelEntry[] = [];
-	for (const group of model.groups) {
-		entries.push({ kind: "group", key: group.key, label: group.label, count: group.count });
-		for (const row of model.rows) {
-			if (row.group === group.key) entries.push({ kind: "row", row });
-		}
-	}
-	return entries;
-}
-
-/** Interleave the settings views into the same group/row display list. */
-function settingEntries(views: readonly SettingView[]): PanelEntry[] {
-	const entries: PanelEntry[] = [];
-	for (const group of groupViews(views)) {
-		entries.push({ kind: "group", key: group.key, label: group.label, count: group.views.length });
-		for (const view of group.views) entries.push({ kind: "setting", setting: view });
-	}
-	return entries;
-}
+import type { SettingsSurface } from "./settings-runtime.ts";
+import type { PanelModel, PanelSection } from "./types.ts";
+import { entriesOf, entryKey, isSelectable, settingEntries, type PanelEntry } from "./tui/entries.ts";
+import { clampSelection, firstRow, lastRow, moveRows, retainFocus } from "./tui/nav.ts";
+import { extensionDetail, extensionHints, extensionRow, extensionSummary } from "./tui/extensions-view.ts";
+import {
+	BODY_START,
+	DETAIL_ROWS,
+	EXPANDED_DETAIL_FALLBACK,
+	FRAME_ROWS,
+	groupLine,
+	hintLine,
+	MIN_BODY_ROWS,
+	noticeLine,
+	SCREEN_DEFAULT_ROWS,
+	sectionBar,
+} from "./tui/frame.ts";
+import { projectNote, settingDetail, settingRow, settingsHints, settingsSummary } from "./tui/settings-view.ts";
 
 /** Terminal rows, or `undefined` when the height is unknown. */
 function totalRows(source: ViewportRowsSource | undefined): number | undefined {
@@ -176,6 +113,11 @@ export class PanelComponent implements Component {
 		return this.options.theme;
 	}
 
+	/** Whether anything has been written this session, either section. */
+	private get dirty(): boolean {
+		return this.options.runtime.isDirty() || this.options.settings.isDirty();
+	}
+
 	invalidate(): void {
 		// Everything is rebuilt from live state on each render.
 	}
@@ -199,52 +141,16 @@ export class PanelComponent implements Component {
 
 	/** Keep the focus on the same row key when the list shape changes. */
 	private retainFocus(entries: PanelEntry[]): void {
-		const key = entryKey(entries[this.cursor.selected]);
-		if (key !== undefined) {
-			this.focusedKeys[this.section] = key;
-			return;
-		}
-		const focusedKey = this.focusedKeys[this.section];
-		if (focusedKey === undefined) return;
-		const index = entries.findIndex((candidate) => entryKey(candidate) === focusedKey);
-		if (index >= 0) this.cursor.selected = index;
+		const before = entryKey(entries[this.cursor.selected]);
+		retainFocus(entries, this.cursor, this.focusedKeys[this.section]);
+		const after = entryKey(entries[this.cursor.selected]);
+		if (after !== undefined) this.focusedKeys[this.section] = after;
+		else if (before !== undefined) this.focusedKeys[this.section] = before;
 	}
 
 	/** Move onto the nearest selectable row when the focus is not already on one. */
 	private clampSelection(entries: PanelEntry[]): void {
-		if (entries.length === 0) return;
-		const index = Math.min(Math.max(0, this.cursor.selected), entries.length - 1);
-		if (isSelectable(entries[index])) {
-			this.cursor.selected = index;
-			return;
-		}
-		// Prefer the closest row above, then the closest below, so a scope switch
-		// that drops the focused row leaves the cursor nearby instead of at the top.
-		for (let back = index - 1; back >= 0; back -= 1) {
-			if (isSelectable(entries[back])) {
-				this.cursor.selected = back;
-				return;
-			}
-		}
-		for (let forward = index + 1; forward < entries.length; forward += 1) {
-			if (isSelectable(entries[forward])) {
-				this.cursor.selected = forward;
-				return;
-			}
-		}
-	}
-
-	private firstRow(): number | undefined {
-		const index = this.activeEntries().findIndex(isSelectable);
-		return index >= 0 ? index : undefined;
-	}
-
-	private lastRow(): number | undefined {
-		const entries = this.activeEntries();
-		for (let index = entries.length - 1; index >= 0; index -= 1) {
-			if (isSelectable(entries[index])) return index;
-		}
-		return undefined;
+		clampSelection(entries, this.cursor);
 	}
 
 	private select(index: number | undefined): void {
@@ -254,19 +160,7 @@ export class PanelComponent implements Component {
 
 	/** Move `delta` rows, skipping group headers. */
 	private move(delta: number): void {
-		if (delta === 0) return;
-		this.clampSelection(this.activeEntries());
-		const entries = this.activeEntries();
-		const direction = delta < 0 ? -1 : 1;
-		let index = this.cursor.selected;
-		let remaining = Math.abs(delta);
-		while (remaining > 0) {
-			const next = nextRow(entries, index, direction);
-			if (next === undefined) break;
-			index = next;
-			remaining -= 1;
-		}
-		this.select(index);
+		moveRows(this.activeEntries(), this.cursor, delta);
 	}
 
 	private switchScope(): void {
@@ -295,6 +189,21 @@ export class PanelComponent implements Component {
 		}
 		this.chain = this.chain
 			.then(() => this.options.runtime.toggle(item))
+			.catch(() => undefined)
+			.then(() => this.options.requestRender());
+	}
+
+	/** Drop the focused extension's project override, restoring the inherited row. */
+	private clearOverride(): void {
+		const entry = this.activeEntries()[this.cursor.selected];
+		if (entry?.kind !== "row") return;
+		const item = entry.row.item;
+		if (!item) {
+			this.notify(`${entry.row.label} is not resolved; there is no override to clear.`);
+			return;
+		}
+		this.chain = this.chain
+			.then(() => this.options.runtime.clearOverride(item))
 			.catch(() => undefined)
 			.then(() => this.options.requestRender());
 	}
@@ -358,11 +267,11 @@ export class PanelComponent implements Component {
 	/** Navigation shared by both sections. */
 	private navigate(data: string): void {
 		if (data === "g") {
-			this.select(this.firstRow());
+			this.select(firstRow(this.activeEntries()));
 			return;
 		}
 		if (data === "G") {
-			this.select(this.lastRow());
+			this.select(lastRow(this.activeEntries()));
 			return;
 		}
 		switch (navIntent(data)) {
@@ -379,10 +288,10 @@ export class PanelComponent implements Component {
 				this.move(Math.max(1, this.cursor.visible));
 				return;
 			case "home":
-				this.select(this.firstRow());
+				this.select(firstRow(this.activeEntries()));
 				return;
 			case "end":
-				this.select(this.lastRow());
+				this.select(lastRow(this.activeEntries()));
 				return;
 		}
 	}
@@ -441,6 +350,12 @@ export class PanelComponent implements Component {
 			void this.refresh(true);
 			return;
 		}
+		// Only Project scope can hold an override, so the key does not exist in
+		// Global scope and the hint row does not offer it there.
+		if (matchesKey(data, "x") && this.options.runtime.scope() === "project") {
+			this.clearOverride();
+			return;
+		}
 		this.navigate(data);
 	}
 
@@ -464,167 +379,22 @@ export class PanelComponent implements Component {
 		return { handled: true };
 	}
 
-	/** The themed section bar: both section names, the active one accented. */
-	private sectionBar(width: number, counts: string): string {
-		const separator = paint(this.theme, "faint", " · ");
-		const left = `  ${sectionSegments(this.section)
-			.map((segment) => paint(this.theme, segment.color, segment.text))
-			.join(separator)}`;
-		return clip(splitRow(left, counts, width), width);
-	}
-
-	/** One section's counts as whole segments, so a narrow screen drops a count. */
-	private counts(segments: readonly SummarySegment[], width: number): string {
-		const separator = paint(this.theme, "faint", " · ");
-		const styled = segments.map((segment) => paint(this.theme, segment.color, segment.text));
-		return fitCells(styled, Math.max(1, width - 2), separator);
-	}
-
-	/** The Extensions section's counts, next to the section bar. */
-	private extensionCounts(width: number, model: PanelModel): string {
-		return this.counts(
-			summarySegments(model, this.options.runtime.scope(), {
-				filter: this.options.filter,
-				compact: width < 72,
-			}),
-			width,
-		);
-	}
-
 	/** Key hints for the active section; whole hints drop as the width runs out. */
 	private hint(width: number, expanded = false): string {
-		const common = ["Esc close", "←/→"];
 		const hints =
 			this.section === "settings"
-				? [...common, "Space change", "Tab scope", "↑/↓ select"]
-				: [
-						...common,
-						"Space toggle",
-						expanded ? "Enter collapse" : "Enter detail",
-						"Tab scope",
-						this.refreshing ? "refreshing…" : "r refresh",
-						"↑/↓ select",
-					];
-		return screenHint(this.theme, width, hints);
-	}
-
-	/** The transient notice row, clipped and painted like the hint it replaces. */
-	private noticeLine(width: number): string {
-		return clip(`${INDENT}${paint(this.theme, "meta", sanitizeLine(this.notice ?? ""))}`, width);
+				? settingsHints()
+				: extensionHints({
+						expanded,
+						refreshing: this.refreshing,
+						projectScope: this.options.runtime.scope() === "project",
+					});
+		return hintLine(this.theme, width, hints);
 	}
 
 	/** The key-hint row, or the notice that temporarily replaces it. */
 	private hintRow(width: number, expanded = false): string {
-		return this.notice !== undefined ? this.noticeLine(width) : this.hint(width, expanded);
-	}
-
-	private groupLine(entry: Extract<PanelEntry, { kind: "group" }>, width: number): string {
-		const label = paint(this.theme, "meta", sanitizeLine(entry.label));
-		const count = paint(this.theme, "faint", `(${entry.count})`);
-		return clip(`  ${label} ${count}`, width);
-	}
-
-	private rowLine(row: PanelRow, selected: boolean, width: number): string {
-		const badge = rowBadge(row);
-		return listRow(this.theme, width, {
-			selected,
-			// A reported-only row has no enable pattern, but still reserves the box
-			// column so the list stays aligned.
-			leading: row.item ? checkbox(this.theme, row.item.enabled) : " ",
-			glyph: badge.glyph ?? " ",
-			glyphRole: badge.role,
-			label: sanitizeLine(row.label),
-			labelRole: selected ? "accent" : row.item && !row.item.enabled ? "faint" : "label",
-			trailing: badge.text,
-			// The glyph carries the status colour; the word stays quiet unless it is a
-			// problem, so a clean row does not shout.
-			trailingRole: badge.role === "bad" || badge.role === "warn" ? badge.role : "faint",
-		});
-	}
-
-	/** One setting row: a checkbox for booleans, the value right-aligned. */
-	private settingLine(view: SettingView, selected: boolean, width: number): string {
-		return listRow(this.theme, width, {
-			selected,
-			leading: view.kind === "boolean" ? checkbox(this.theme, view.value === "true") : " ",
-			label: sanitizeLine(view.label),
-			labelRole: selected ? "accent" : "label",
-			trailing: sanitizeLine(view.valueLabel),
-			trailingRole: "meta",
-		});
-	}
-
-	/** The project note: app rows are absent because Pi has no project setter. */
-	private noteLine(width: number): string {
-		return clip(`${INDENT}${paint(this.theme, "faint", "App settings are Global only.")}`, width);
-	}
-
-	/** The saved-then-reload marker, shared by both sections. */
-	private dirtyLine(width: number): string[] {
-		if (!this.options.runtime.isDirty() && !this.options.settings.isDirty()) return [];
-		return [clip(`${INDENT}${paint(this.theme, "warn", "Saved · reload to apply")}`, width)];
-	}
-
-	/** The origin and target file for a setting, shown in its detail pane. */
-	private originLine(view: SettingView): string {
-		const scope = this.options.runtime.scope();
-		const path =
-			view.source === "app"
-				? join(this.options.agentDir, PI_SETTINGS_FILE)
-				: configPath(scope, this.options.cwd, this.options.agentDir);
-		const file = sanitizeLine(path);
-		switch (view.origin) {
-			case "inherited":
-				return `Inherited from Global · ${file}`;
-			case "project":
-				return `Project · ${file}`;
-			case "global":
-				return `Global · ${file}`;
-			default:
-				return `Default · ${file}`;
-		}
-	}
-
-	/** The focused setting's source, description, origin, and pending changes. */
-	private settingDetail(view: SettingView | undefined, width: number, budget: number): string[] {
-		if (!view) return this.dirtyLine(width);
-		const source = view.source === "app" ? "Pi setting" : "bytefly.json";
-		const head = `${paint(this.theme, "meta", sanitizeLine(view.label))} ${paint(this.theme, "faint", "—")} ${paint(this.theme, "faint", source)}`;
-		const headLine = clip(`${INDENT}${head}`, width);
-		// The pending-changes marker survives the collapsed body: on a short terminal
-		// the value still changed, and the screen has to say so.
-		if (budget === 0) return [headLine, ...this.dirtyLine(width)];
-
-		const lines = [headLine];
-		const dirty = this.dirtyLine(width);
-		const descriptionWidth = Math.max(1, width - BODY_INDENT * 2);
-		const description = wrapTextWithAnsi(sanitizeLine(view.description), descriptionWidth).slice(
-			0,
-			Math.max(0, Math.min(2, budget - 2 - dirty.length)),
-		);
-		for (const line of description) {
-			lines.push(clip(`${INDENT}${paint(this.theme, "meta", line)}`, width));
-		}
-		lines.push(clip(`${INDENT}${paint(this.theme, "faint", this.originLine(view))}`, width));
-		lines.push(...dirty);
-		return lines;
-	}
-
-	/** The focused extension's label, findings, and the pending-changes note. */
-	private detail(row: PanelRow | undefined, width: number, budget: number, expanded: boolean): string[] {
-		const lines: string[] = [];
-		const badge = row ? rowBadge(row) : undefined;
-		if (row && badge?.text !== undefined) {
-			const head = `${paint(this.theme, "meta", sanitizeLine(row.label))} ${paint(this.theme, "faint", "—")} ${paint(this.theme, badge.role, badge.text)}`;
-			lines.push(clip(`  ${head}`, width));
-		} else if (row?.item) {
-			lines.push(clip(`  ${paint(this.theme, "meta", sanitizeLine(row.item.path))}`, width));
-		}
-		if (row?.report && budget > 0) {
-			lines.push(...reportDetailLines(row.report, this.theme, width, budget, expanded));
-		}
-		lines.push(...this.dirtyLine(width));
-		return lines;
+		return this.notice !== undefined ? noticeLine(this.theme, width, this.notice) : this.hint(width, expanded);
 	}
 
 	/**
@@ -653,12 +423,14 @@ export class PanelComponent implements Component {
 	private renderSettings(width: number, header: string): string[] {
 		const scope = this.options.runtime.scope();
 		const views = this.options.settings.views(scope);
-		const summary = this.sectionBar(
+		const summary = sectionBar(
+			this.theme,
 			width,
-			this.counts(settingsSummarySegments(scope, this.options.settings.count(scope)), width),
+			this.section,
+			settingsSummary(this.theme, width, scope, this.options.settings.count(scope)),
 		);
 		const entries = settingEntries(views);
-		const note = scope === "project" ? this.noteLine(width) : undefined;
+		const note = scope === "project" ? projectNote(this.theme, width) : undefined;
 
 		if (entries.length === 0) {
 			return dockListFrame({
@@ -674,7 +446,14 @@ export class PanelComponent implements Component {
 
 		const focusedEntry = entries[this.cursor.selected];
 		const focused = focusedEntry?.kind === "setting" ? focusedEntry.setting : undefined;
-		const detail = this.settingDetail(focused, width, this.detailRows(false));
+		const detail = settingDetail({
+			theme: this.theme,
+			width,
+			view: focused,
+			budget: this.detailRows(false),
+			dirty: this.dirty,
+			paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
+		});
 
 		this.cursor.visible = fitRows(
 			this.options.viewportRows,
@@ -689,9 +468,10 @@ export class PanelComponent implements Component {
 		if (note) body.push(note);
 		for (let index = start; index < end; index += 1) {
 			const entry = entries[index];
-			if (entry.kind === "group") body.push(this.groupLine(entry, width));
-			else if (entry.kind === "setting")
-				body.push(this.settingLine(entry.setting, index === this.cursor.selected, width));
+			if (entry.kind === "group") body.push(groupLine(this.theme, width, entry));
+			else if (entry.kind === "setting") {
+				body.push(settingRow(this.theme, width, entry.setting, index === this.cursor.selected));
+			}
 		}
 
 		return dockListFrame({
@@ -713,7 +493,12 @@ export class PanelComponent implements Component {
 
 		const model = this.model();
 		const entries = entriesOf(model);
-		const summary = this.sectionBar(w, this.extensionCounts(w, model));
+		const summary = sectionBar(
+			this.theme,
+			w,
+			this.section,
+			extensionSummary(this.theme, w, model, this.options.runtime.scope(), this.options.filter),
+		);
 
 		if (entries.length === 0) {
 			return dockListFrame({
@@ -730,7 +515,7 @@ export class PanelComponent implements Component {
 		const focusedEntry = entries[this.cursor.selected];
 		const focused = focusedEntry?.kind === "row" ? focusedEntry.row : undefined;
 		const expanded = focused !== undefined && this.expanded.has(focused.key);
-		const detail = this.detail(focused, w, this.detailRows(expanded), expanded);
+		const detail = extensionDetail(this.theme, w, focused, this.detailRows(expanded), expanded, this.dirty);
 
 		this.cursor.visible = fitRows(
 			this.options.viewportRows,
@@ -744,8 +529,8 @@ export class PanelComponent implements Component {
 		const body: string[] = [];
 		for (let index = start; index < end; index += 1) {
 			const entry = entries[index];
-			if (entry.kind === "group") body.push(this.groupLine(entry, w));
-			else if (entry.kind === "row") body.push(this.rowLine(entry.row, index === this.cursor.selected, w));
+			if (entry.kind === "group") body.push(groupLine(this.theme, w, entry));
+			else if (entry.kind === "row") body.push(extensionRow(this.theme, w, entry.row, index === this.cursor.selected));
 		}
 
 		return dockListFrame({

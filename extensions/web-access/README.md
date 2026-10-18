@@ -96,7 +96,7 @@ and unknown keys are ignored.
 {
   "search": {
     "provider": "auto",                                    // "auto" | "duckduckgo" | "searxng" | "brave"
-    "endpoint": "http://localhost:8080",                   // SearXNG base URL; "" means SearXNG is unavailable
+    "endpoint": "",                                        // SearXNG base URL, e.g. "http://localhost:8080"; "" means SearXNG is unavailable
     "language": "auto",                                     // SearXNG: "auto" (zh-CN for Han, else en) | language code
     "safeSearch": 0,                                        // SearXNG: 0 off, 1 moderate, 2 strict
     "categories": "general",                                // SearXNG categories
@@ -264,9 +264,9 @@ the content type and size.
 
 | Integration point | Value |
 |---|---|
-| Tools | `web_search`, `web_fetch`; `exposure: "direct"`, both `defaultActive: true` |
+| Tools | `web_search`, `web_fetch`; direct exposure, active on registration (the defaults, so not declared) |
 | Execution mode | `web_search`: `sequential`; `web_fetch`: default |
-| Annotations | both `readOnlyHint: true`, `openWorldHint: true`, `destructiveHint: false` |
+| Annotations | both `readOnlyHint: true`, `openWorldHint: true`; a read-only tool declares no `destructiveHint` |
 | Output | `outputSchema` (`WebSearchOutput` / `WebFetchOutput`) plus matching `structuredContent` |
 | State | none in the session branch; one fetch page cache per registration (`web_search` keeps a per-instance throttle) |
 | Lifecycle | the factory only registers (`index.ts`); `registerFetchTool` owns the page cache and clears it on `session_start` and idempotent `session_shutdown` |

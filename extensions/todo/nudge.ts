@@ -18,12 +18,15 @@ import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
 
+/** Tools that run a command, where reading and writing look the same by name. */
+const SHELL_TOOL_NAMES: ReadonlySet<string> = new Set(["bash", "powershell"]);
+
 /**
  * Tools whose calls mean the working tree may have changed: the built-in
- * writers and shells. Kept explicit so a reader or an MCP tool that does not
+ * writers and the shells. Kept explicit so a reader or an MCP tool that does not
  * declare a hint cannot force a continuation.
  */
-export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit", "bash", "powershell"]);
+export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit", ...SHELL_TOOL_NAMES]);
 
 /**
  * Whether a finished tool call counts as work for lag detection. The `todo`
@@ -37,22 +40,68 @@ export function isMutatingTool(toolName: string, annotations?: ToolAnnotations):
 }
 
 /**
- * Whether a reminder is due: work happened since the last update, no reminder
- * was sent for it yet, and the list still has an unfinished item.
+ * Whether a finished tool call can have changed files, as opposed to a shell
+ * command that may only have read them. The reminder for a run that never
+ * started a list needs this: three `rg` calls are investigation, not unplanned
+ * work, and a shell call cannot be told apart from one that wrote. So it is a
+ * mutating call that is not a shell.
  */
-export function shouldNudge(dirty: boolean, nudged: boolean, todos: Todo[]): boolean {
-	return dirty && !nudged && hasOpenTodos(todos);
+export function isFileWrite(toolName: string, annotations?: ToolAnnotations): boolean {
+	if (toolName === TODO_TOOL || SHELL_TOOL_NAMES.has(toolName)) return false;
+	return isMutatingTool(toolName, annotations);
+}
+
+/**
+ * Successful mutating calls needed before a run with no list at all is worth a
+ * reminder. A plan that was never started has no item to fall behind, and a
+ * false positive costs a whole extra model request, so one edit is not enough
+ * evidence that the work needed a list.
+ */
+export const EMPTY_LIST_MUTATIONS = 3;
+
+/** What the current turn knows about its work and the list. */
+export interface NudgeState {
+	/** Successful mutating calls since the turn began or the list was last written. */
+	mutations: number;
+	/** How many of those can change files, as opposed to a shell command that may have read. */
+	writes: number;
+	/** Whether the model wrote or cleared the list since the turn began. */
+	touched: boolean;
+	/** Whether a reminder was already sent this turn. */
+	nudged: boolean;
+	/** The current list. */
+	todos: Todo[];
+}
+
+/**
+ * Whether a reminder is due. With an unfinished item, one mutation is enough.
+ * With no list at all, the turn must also have written something: repeated
+ * inspection with no file change is not unplanned work. A list the model wrote
+ * or cleared this turn is its own answer, so an explicit clear is never
+ * second-guessed.
+ */
+export function shouldNudge({ mutations, writes, touched, nudged, todos }: NudgeState): boolean {
+	if (nudged || mutations <= 0) return false;
+	if (hasOpenTodos(todos)) return true;
+	return todos.length === 0 && !touched && writes > 0 && mutations >= EMPTY_LIST_MUTATIONS;
 }
 
 /** Marker on the injected reminder, so it is recognizable and filterable. */
 export const TODO_NUDGE_MARKER = "[TODO SYNC]";
 
 /**
- * Model-facing reminder injected before settlement. Points at the item the list
- * currently considers active, so the model can correct it without rereading the
- * whole list.
+ * Model-facing reminder injected before settlement. For a list with unfinished
+ * work it points at the item the list currently considers active, so the model
+ * can correct it without rereading the whole list; for no list at all it asks
+ * for one.
  */
 export function formatNudge(todos: Todo[]): string {
+	if (todos.length === 0) {
+		return (
+			`${TODO_NUDGE_MARKER} Work happened but no todo list was recorded. ` +
+			"Call the todo tool with the steps of this work, then continue."
+		);
+	}
 	const current = currentTodo(todos);
 	const item = current ? (current.activeForm ?? current.content) : undefined;
 	const pointer = item ? ` The list still points at "${item}".` : "";

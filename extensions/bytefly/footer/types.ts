@@ -32,7 +32,10 @@ export interface UsageTotals {
 	output: number;
 	cacheRead: number;
 	cacheWrite: number;
+	/** Cost priced from the configured rates, in the configured currency. */
 	cost: number;
+	/** Cost taken from Pi's recorded amount for a record no rate matched, in USD. */
+	recordedCost: number;
 }
 
 /** Context-window usage for the active model. */

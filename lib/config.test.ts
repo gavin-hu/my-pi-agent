@@ -10,6 +10,7 @@ import {
 	clampNumber,
 	cleanString,
 	configSection,
+	configValueAt,
 	loadConfigFile,
 	loadConfigSection,
 	readJson,
@@ -19,6 +20,7 @@ import {
 	writeConfigFile,
 	writeConfigSection,
 	writeConfigValue,
+	writeConfigValueAt,
 } from "./config.ts";
 
 const temps = makeTempTracker();
@@ -233,7 +235,7 @@ describe("writeConfigValue", () => {
 		const dir = temps.track(tempDir("pi-config-value-"));
 		const path = join(dir, SHARED_CONFIG_FILE);
 		writeConfigFile(path, {
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			notify: { enabled: false, title: "Pi" },
 			memory: { inject: true },
@@ -242,7 +244,7 @@ describe("writeConfigValue", () => {
 		writeConfigValue(path, "notify", "enabled", true);
 
 		expect(readJson(path)).toEqual({
-			$schema: "https://example.test/bytefly.schema.json",
+			$schema: "https://example.test/meta.json",
 			version: 1,
 			notify: { enabled: true, title: "Pi" },
 			memory: { inject: true },
@@ -257,6 +259,75 @@ describe("writeConfigValue", () => {
 
 		expect(() => writeConfigValue(path, "notify", "enabled", true)).toThrow(/Cannot update/);
 		expect(readFileSync(path, "utf-8")).toBe(before);
+	});
+});
+
+describe("writeConfigValueAt", () => {
+	test("creates the intermediate objects it needs", () => {
+		const dir = temps.track(tempDir("pi-config-path-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+
+		writeConfigValueAt(path, "price", ["currency", "decimals"], 3);
+
+		expect(readJson(path)).toEqual({ price: { currency: { decimals: 3 } } });
+	});
+
+	test("sets one leaf while preserving siblings, metadata, and unknown sections", () => {
+		const dir = temps.track(tempDir("pi-config-path-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, {
+			$schema: "https://example.test/meta.json",
+			version: 1,
+			price: { currency: { symbol: "¥", decimals: 2 }, fallbackToRecordedCost: true },
+			notify: { enabled: true },
+		});
+
+		writeConfigValueAt(path, "price", ["currency", "decimals"], 3);
+
+		expect(readJson(path)).toEqual({
+			$schema: "https://example.test/meta.json",
+			version: 1,
+			price: { currency: { symbol: "¥", decimals: 3 }, fallbackToRecordedCost: true },
+			notify: { enabled: true },
+		});
+	});
+
+	test("replaces a non-object in the way instead of refusing", () => {
+		const dir = temps.track(tempDir("pi-config-path-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, { price: { currency: "yuan" } });
+
+		writeConfigValueAt(path, "price", ["currency", "decimals"], 3);
+
+		expect(readJson(path)).toEqual({ price: { currency: { decimals: 3 } } });
+	});
+
+	test("refuses an empty path, and a malformed document unread", () => {
+		const dir = temps.track(tempDir("pi-config-path-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		const before = "{ not json";
+		writeFileSync(path, before);
+
+		expect(() => writeConfigValueAt(path, "price", [], 3)).toThrow(/empty key path/);
+		expect(() => writeConfigValueAt(path, "price", ["currency"], 3)).toThrow(/Cannot update/);
+		expect(readFileSync(path, "utf-8")).toBe(before);
+	});
+});
+
+describe("configValueAt", () => {
+	test("reads a top-level key and a nested path", () => {
+		const document = { price: { currency: { decimals: 3 } }, chrome: { rail: "│" } };
+
+		expect(configValueAt(document, ["chrome", "rail"])).toBe("│");
+		expect(configValueAt(document, ["price", "currency", "decimals"])).toBe(3);
+	});
+
+	test("is undefined when a step is absent or not an object", () => {
+		const document = { price: { currency: "yuan" } };
+
+		expect(configValueAt(document, ["price", "currency", "decimals"])).toBeUndefined();
+		expect(configValueAt(document, ["notify", "enabled"])).toBeUndefined();
+		expect(configValueAt(undefined, ["price"])).toBeUndefined();
 	});
 });
 

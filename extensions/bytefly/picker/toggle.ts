@@ -143,3 +143,59 @@ export function nextProjectPackages(
 	}
 	return updated;
 }
+
+/**
+ * Remove the project top-level override a toggle wrote for `item`.
+ *
+ * Drops the `+`/`-` entry for the item's target patterns, and the bare path
+ * entry {@link nextProjectTopLevelList} adds beside it for an inherited personal
+ * resource. Returns `current` unchanged — the same array — when no override is
+ * present, so a caller can tell "nothing to clear" without comparing contents.
+ */
+export function clearProjectTopLevelList(
+	current: string[],
+	item: ResourceItem,
+	cwd: string,
+	agentDir: string,
+): string[] {
+	const inherited = getItemScope(item) === "user";
+	const pattern = inherited ? item.path : getResourcePatternForScope(item, "project", cwd, agentDir);
+	const patterns = getTopLevelOverridePatterns(item, "project", cwd, agentDir);
+	const isOverride = (entry: string): boolean =>
+		(entry.startsWith("!") || entry.startsWith("+") || entry.startsWith("-")) &&
+		patterns.has(getPatternEntryTarget(entry));
+	if (!current.some(isOverride)) return current;
+	return current.filter((entry) => !isOverride(entry) && !(inherited && entry === pattern));
+}
+
+/**
+ * Remove the project package filter a toggle wrote for `item`.
+ *
+ * An entry the toggle created with `autoload: false` is dropped once it holds no
+ * filters, and one that predates the toggle collapses back to its plain source,
+ * mirroring {@link nextProjectPackages}. Returns `packages` unchanged — the same
+ * array — when the item has no project filter.
+ */
+export function clearProjectPackages(
+	packages: PackageSource[],
+	item: ResourceItem,
+	cwd: string,
+	agentDir: string,
+): PackageSource[] {
+	const index = packages.findIndex((entry) =>
+		packageSourceMatches(item, typeof entry === "string" ? entry : entry.source, "project", cwd, agentDir),
+	);
+	const entry = index === -1 ? undefined : packages[index];
+	if (entry === undefined || typeof entry === "string") return packages;
+
+	const pattern = getPackageResourcePattern(item);
+	const filters = entry.extensions ?? [];
+	if (!filters.some((filter) => getPatternEntryTarget(filter) === pattern)) return packages;
+
+	const updated = [...packages];
+	const remaining = filters.filter((filter) => getPatternEntryTarget(filter) !== pattern);
+	if (remaining.length > 0) updated[index] = { ...entry, extensions: remaining };
+	else if (entry.autoload === false) updated.splice(index, 1);
+	else updated[index] = entry.source;
+	return updated;
+}

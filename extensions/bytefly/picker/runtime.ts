@@ -7,8 +7,15 @@
  * reads `items()` on every render, so it stays a derived view of this state.
  */
 
-import { getPackageResourcePattern, getResourcePattern } from "./resources.ts";
-import { nextGlobalPackages, nextProjectPackages, nextProjectTopLevelList, nextTopLevelList } from "./toggle.ts";
+import { getDisplayName, getPackageResourcePattern, getResourcePattern } from "./resources.ts";
+import {
+	clearProjectPackages,
+	clearProjectTopLevelList,
+	nextGlobalPackages,
+	nextProjectPackages,
+	nextProjectTopLevelList,
+	nextTopLevelList,
+} from "./toggle.ts";
 import type { Discovery, ResourceItem, SettingsStore, WriteScope } from "./types.ts";
 
 export interface RuntimeDeps {
@@ -26,12 +33,19 @@ export interface ExtensionsPickerRuntime {
 	projectAvailable(): boolean;
 	isDirty(): boolean;
 	toggle(item: ResourceItem): Promise<void>;
+	/** Drop `item`'s project override in Project scope; a no-op when it has none. */
+	clearOverride(item: ResourceItem): Promise<void>;
 	onChange(listener: () => void): () => void;
 }
 
 /** The store a scope writes through. */
 function storeFor(discovery: Discovery, scope: WriteScope): SettingsStore {
 	return scope === "global" ? discovery.stores.global : discovery.stores.project;
+}
+
+/** Whether two rows name the same resource, for an inherited-state lookup. */
+function sameResource(left: ResourceItem, right: ResourceItem): boolean {
+	return left.metadata.source === right.metadata.source && left.path === right.path;
 }
 
 export function createExtensionsPickerRuntime(deps: RuntimeDeps): ExtensionsPickerRuntime {
@@ -72,6 +86,27 @@ export function createExtensionsPickerRuntime(deps: RuntimeDeps): ExtensionsPick
 		store.setProjectPackages(nextProjectPackages(store.packages(), item, enabled, cwd, agentDir));
 	};
 
+	/**
+	 * Drop `item`'s project override, reporting whether anything was written. An
+	 * absent override returns `false` without touching the store, so a stray key
+	 * press cannot dirty the file.
+	 */
+	const clearFromStore = (item: ResourceItem): boolean => {
+		const store = storeFor(discovery, "project");
+		if (item.metadata.origin === "top-level") {
+			const paths = store.projectSettings().extensions ?? [];
+			const next = clearProjectTopLevelList(paths, item, cwd, agentDir);
+			if (next === paths) return false;
+			store.setProjectExtensionPaths(next);
+			return true;
+		}
+		const packages = store.packages();
+		const next = clearProjectPackages(packages, item, cwd, agentDir);
+		if (next === packages) return false;
+		store.setProjectPackages(next);
+		return true;
+	};
+
 	return {
 		scope: () => scope,
 		setScope: (next) => {
@@ -97,6 +132,30 @@ export function createExtensionsPickerRuntime(deps: RuntimeDeps): ExtensionsPick
 				return;
 			}
 			item.enabled = enabled;
+			dirty = true;
+			emit();
+		},
+		clearOverride: async (item) => {
+			if (scope !== "project") {
+				deps.onError?.("Overrides are cleared in Project scope; switch with Tab.");
+				return;
+			}
+			const store = storeFor(discovery, "project");
+			try {
+				if (!clearFromStore(item)) {
+					deps.onError?.(`No project override for ${getDisplayName(item)}.`);
+					return;
+				}
+				await store.flush();
+				for (const error of store.drainErrors()) deps.onError?.(error.error.message);
+			} catch (error) {
+				deps.onError?.(error instanceof Error ? error.message : String(error));
+				return;
+			}
+			// With the override gone the row shows the inherited state again; a
+			// project-only resource has no global twin and keeps its value.
+			const inherited = views.global.find((entry) => sameResource(entry, item));
+			if (inherited) item.enabled = inherited.enabled;
 			dirty = true;
 			emit();
 		},

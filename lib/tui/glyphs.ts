@@ -48,6 +48,7 @@ export const GLYPHS = {
 	boxOff: "◻",
 	prev: "‹",
 	next: "›",
+	update: "↑",
 	prompt: "❯",
 } as const;
 

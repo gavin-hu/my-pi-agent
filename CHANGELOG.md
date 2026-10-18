@@ -6,6 +6,59 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `bytefly`: `doctor` reports an explicit `notify.method` this host cannot
+  deliver — a platform notifier on another platform, or an OSC method with no
+  terminal — as a `degraded` finding on `bytefly`, with the fix in its hint. A
+  method that suits the host, `auto`, and a disabled capability all stay `ok`.
+
+### Changed
+
+- `bytefly`: the footer no longer sums a fallback record's dollars into the
+  configured currency. A model with no matching rate shows Pi's recorded amount
+  as its own `$` figure beside the rated total (`¥2.50 + $0.31`), so a session
+  that mixes a priced provider with an unpriced one cannot print a total in the
+  wrong unit.
+- `todo`: the lag reminder also covers work that never got a list. A run that
+  settles after three successful mutating calls with an empty list is asked to
+  record one, provided at least one of them can change files, so three read-only
+  shell commands no longer count as work that needed a plan. A list the model
+  wrote or cleared in the same turn is left alone, and a single call still never
+  triggers a reminder.
+
+## [0.12.0] - 2026-10-18
+
+### Added
+
+- `bytefly`: `/bytefly settings` grows from five rows to nine. The new rows
+  cover the notification delivery method, the proactive health check, and the
+  cost precision and recorded-cost fallback under new Diagnostics and Pricing
+  groups, and a `bytefly.json` row can now edit a nested leaf such as
+  `price.currency.decimals` without disturbing its siblings.
+- `bytefly`: once per interactive session, the loaded version is compared in the
+  background with the published `@gavin-hu/my-pi-agent` on npm. A newer one adds
+  `↑0.12.0` to the header's chrome version and posts one transcript notice
+  naming `pi update --extensions`; `PI_OFFLINE` skips the check and a failed
+  request is silent.
+- `bytefly`: `x` clears the focused extension's project override in the control
+  center's Project scope, dropping the `+`/`-` entry a toggle wrote (and the
+  path or package entry beside it) so the row returns to its inherited state
+  without a `pi config` round-trip.
+- `bytefly`: `bytefly.json` is documented in
+  [`docs/configuration-reference.md`](./docs/configuration-reference.md), one
+  table per section with each key's type, default, and bounds. It replaces
+  `assets/bytefly.schema.json`, so editor completion for the file goes with it —
+  delete a `$schema` line that points at that URL — and `config:migrate` no
+  longer stamps `$schema`.
+
+### Fixed
+
+- `web-access`: the README's sample document shows the real default for
+  `search.endpoint` (`""`, not a localhost URL).
+- `wechat`: the README's sample document no longer shows `pollHoldMs: 0` as a
+  default; the setting is unset by default and anything below `1000` clears it.
+
 ## [0.11.4] - 2026-10-18
 
 ### Added
@@ -1702,7 +1755,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.11.4...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.12.0
 [0.11.4]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.4
 [0.11.3]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.3
 [0.11.2]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.2

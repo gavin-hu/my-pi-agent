@@ -35,6 +35,8 @@ export interface HeaderConfig {
 	readonly chromeRole: TuiRole;
 	/** Role for the versions, the tagline, and the help descriptions. */
 	readonly detailRole: TuiRole;
+	/** Role for the update marker: an action, so the accent rather than a warning colour. */
+	readonly updateRole: TuiRole;
 	/** Role for the rule's accent lead under the mark. */
 	readonly ruleAccentRole: TuiRole;
 	/** Role for the rest of the rule. */
@@ -57,6 +59,7 @@ export const HEADER_CONFIG: HeaderConfig = {
 	nameRole: "label",
 	chromeRole: "meta",
 	detailRole: "faint",
+	updateRole: "accent",
 	ruleAccentRole: "accent",
 	ruleRole: "rule",
 	chromeTagline: "enhanced by",

@@ -22,8 +22,8 @@ describe("web-access extension", () => {
 
 		expect(tools.has(SEARCH_TOOL)).toBe(true);
 		expect(tools.has(FETCH_TOOL)).toBe(true);
-		expect(tools.get(SEARCH_TOOL)?.exposure).toBe("direct");
-		expect(tools.get(FETCH_TOOL)?.exposure).toBe("direct");
+		expect(tools.get(SEARCH_TOOL)?.exposure).toBeUndefined();
+		expect(tools.get(FETCH_TOOL)?.exposure).toBeUndefined();
 	});
 
 	test("registers the fetch cache lifecycle on start and shutdown", () => {

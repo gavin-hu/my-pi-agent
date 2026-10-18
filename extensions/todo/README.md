@@ -41,9 +41,13 @@ How the `todo` call and its result look in the transcript — the call line as a
   mutating tool call (`write`/`edit`/`bash`/`powershell`, or a tool declaring
   `readOnlyHint: false`) without a todo update, it injects one hidden reminder
   and forces a single continuation. A failed or blocked call changed nothing, so
-  it never triggers one. It only fires while the list has unfinished items, at
-  most once per user turn, and is dropped on the next user turn, so a reader can
-  never trigger it.
+  it never triggers one. It fires while the list has unfinished items, and —
+  when no list exists at all — only after three such calls in one turn, at least
+  one of them a file write (`write`/`edit`, or a tool declaring
+  `readOnlyHint: false`), so repeated `bash` inspection is not mistaken for
+  unplanned work. A list the model wrote or cleared during the turn is left
+  alone. At most one reminder per user turn, and it is dropped on the next user
+  turn, so a reader can never trigger it.
 - Declares an `outputSchema` and returns matching `structuredContent`
   (`{ todos, action, error? }`), so codemode/scripts can read the list as data.
 
@@ -157,7 +161,7 @@ depends on config.
 
 | Integration point | Value |
 |---|---|
-| Tool | `todo`; `exposure: "direct"` (default), `executionMode: "sequential"` |
+| Tool | `todo`; direct exposure (the default), `executionMode: "sequential"` |
 | Annotations | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
 | Output | `outputSchema` `TodoResult` — `{ todos, action, error? }` — also returned as `structuredContent` |
 | Command | `/todos` |
@@ -196,12 +200,16 @@ depends on config.
   [`lib/rails.ts`](../../lib/rails.ts) and [`goal`](../goal/).
 - **The reminder is a bounded nudge, not a nag.** A prompt guideline cannot
   guarantee a timely update, so the extension backs it with one forced
-  continuation. `tool_execution_end` marks a lag only for a successful call by
-  an explicit mutator list plus `readOnlyHint: false` — a failed or blocked call
-  is ignored, and a false positive costs a whole extra model request, so an
-  unrecognized reader is treated as harmless. `nudged` caps it at one per user
-  turn, `setTodos` clears the work flag, and `context` drops the hidden message
-  on the next user turn so it never accumulates.
+  continuation. `tool_execution_end` counts a successful call by an explicit
+  mutator list plus `readOnlyHint: false` — a failed or blocked call is ignored,
+  and a false positive costs a whole extra model request, so an unrecognized
+  reader is treated as harmless. An open item makes one call enough; a run with
+  no list at all must reach `EMPTY_LIST_MUTATIONS` (three) first and include a
+  file write, because a shell call cannot be told apart from `rg` and counts as
+  work but not as a write; a list the model wrote or cleared this turn is its own
+  answer and never reopens that path. `nudged` caps it at one per user turn,
+  `setTodos` clears the counters, and `context` drops the hidden message on the
+  next user turn so it never accumulates.
 - **Content is sanitized at the boundary.** `normalizeTodos` replaces control
   characters and collapses whitespace before the length and duplicate checks,
   keeping `format.ts` free of terminal concerns and every surface to one row
@@ -228,7 +236,7 @@ depends on config.
 | `types.ts` | `Todo`, `TodoStatus`, `TodoDetails`. |
 | `schema.ts` | TypeBox parameters and pure validation/normalization. |
 | `state.ts` | Branch reconstruction and status queries (pure). |
-| `nudge.ts` | Lag detection: mutating-tool classification, due check, reminder text (pure). |
+| `nudge.ts` | Lag detection: mutating and file-write classification, due check, reminder text (pure). |
 | `format.ts` | Model-facing and transcript text (pure). |
 | `tui.ts` | Widget and scrollable `/todos` components, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `config.ts` | Widget config load/validation (the `todo` section of `bytefly.json`). |
