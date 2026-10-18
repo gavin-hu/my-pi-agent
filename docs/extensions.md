@@ -17,8 +17,9 @@ commands, `powershell` is blocked, and mutating tools wait), `subagent` is force
 read-only, and the policy is default-deny through `lib/policy.ts`. The plan
 follows a documented outline (`# <Title>`, `## Goal`, `## Context`,
 `## Approach`, `## Steps`, `## Risks`, `## Verification`); steps are `- [ ]`
-checkboxes in the `Steps` section that approval seeds into `todo`, and
-`set_plan_steps` keeps the file current afterward. `exit_plan_mode` presents the plan for approval, keeps
+checkboxes in the `Steps` section that approval merges into `todo` — existing
+items keep their place and status — and `set_plan_steps` keeps the file current
+afterward. `exit_plan_mode` presents the plan for approval, keeps
 planning, or takes a refinement; the review screen jumps between headings with
 `n`/`p`. Press `w` (or run `/plan review [path]`) to open the plan in a loopback
 browser — a measured document with a comment rail, section and step progress,

@@ -125,6 +125,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: approval merges the plan's steps into the todo list instead of
+  replacing it. Existing items keep their place and status, a step whose text is
+  already there is skipped, and the item cap defers the rest, so approving a plan
+  no longer discards the work the user was already tracking. The approval
+  message says how many steps were added, skipped, kept, and deferred.
 - `plan`: a bare `/plan review` works in a session that did not write the plan.
   When no plan path is remembered it opens the newest file in the plans
   directory (newest modification time) instead of reporting that there is

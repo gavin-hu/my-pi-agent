@@ -69,9 +69,12 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 - **Steps become todos.** On approval, the top-level numbered/bulleted items of
   the plan's `Steps` section are recorded with the `todo` tool (via
   `ctx.executeTool`); steps marked `- [x]` (or `[DONE:n]`) seed as completed, and
-  nested sub-bullets are treated as notes. A plan without a `Steps` heading
-  keeps the older rule — the shallowest list in the document — so prose bullets
-  in a plan that follows the outline never become todos.
+  nested sub-bullets are treated as notes. The list is a merge, not a
+  replacement: existing items keep their place and status, a step whose text is
+  already there is skipped, and the tool's item cap defers the rest instead of
+  dropping anything. A plan without a `Steps` heading keeps the older rule — the
+  shallowest list in the document — so prose bullets in a plan that follows the
+  outline never become todos.
 - **Branch-aware.** The enabled flag is a custom session entry, so `/resume` and
   `/tree` restore the right mode.
 
@@ -408,8 +411,11 @@ file and returns them to the model.
   runs its validation and widget sync and needs no change to `todo`. Only the
   top-level list items of the `Steps` section become steps (the whole document
   is the fallback when that heading is absent), so the outline's prose lists
-  never seed the list. A rejected seed reports the nested tool's own reason in
-  the approval message instead of failing silently.
+  never seed the list. The list is whole-list replacement, so the current items
+  are read back from the branch's last `todo` result (the published state
+  channel; no import from that extension) and the steps are merged into them.
+  A rejected seed reports the nested tool's own reason in the approval message
+  instead of failing silently.
 - **The outline guides, it does not enforce.** `write_plan` documents the
   canonical shape in its description and stores whatever markdown it is given;
   no section is required and nothing is rewritten. That keeps the model free to
