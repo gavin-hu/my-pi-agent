@@ -24,6 +24,7 @@
  */
 
 import type { ImageContent } from "@earendil-works/pi-ai";
+import { messageOf } from "./errors.ts";
 import type { PeerSession } from "./peer-session.ts";
 import { createReplyPipeline } from "./reply-pipeline.ts";
 
@@ -50,8 +51,6 @@ export interface PeerWorkerDeps {
 	openSession: (peer: string, options: { fresh: boolean }) => Promise<PeerSession>;
 	/** Deliver one turn's text to the peer; false stops the rest of a stream. */
 	send: (item: PeerItem, text: string) => Promise<boolean>;
-	/** Read the peer's own recent messages, for `/history`; read-only. */
-	readHistory?: (peer: string, count: number) => Promise<string>;
 	/** The fallback line for a turn that produced no text. */
 	fallback: (item: PeerItem, reason: TurnFallback) => string;
 	/** A turn started / finished for this item, for typing and notices. */
@@ -96,8 +95,6 @@ export interface PeerWorker {
 	/** The turn running right now, if any (one with the default concurrency). */
 	current(): PeerItem | undefined;
 	state(peer: string): PeerState;
-	/** The peer's own recent messages, for `/history`. */
-	history(peer: string, count: number): Promise<string>;
 	snapshot(): PeerSnapshot[];
 	/** Drop every session; queued messages are dropped with them. */
 	close(): Promise<void>;
@@ -284,10 +281,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			const wasAborted = aborted.delete(item.peer);
 			reason = wasAborted ? "stopped" : "failed";
 			if (!wasAborted) {
-				deps.notify?.(
-					`WeChat turn failed for ${item.peer}: ${error instanceof Error ? error.message : String(error)}`,
-					"warning",
-				);
+				deps.notify?.(`WeChat turn failed for ${item.peer}: ${messageOf(error)}`, "warning");
 			}
 		} finally {
 			unsubscribe();
@@ -323,10 +317,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					const opened = await sessionFor(peer, target);
 					await runTurn(item, opened);
 				} catch (error) {
-					deps.notify?.(
-						`WeChat session failed for ${item.peer}: ${error instanceof Error ? error.message : String(error)}`,
-						"error",
-					);
+					deps.notify?.(`WeChat session failed for ${item.peer}: ${messageOf(error)}`, "error");
 					await deps.send(item, deps.fallback(item, "failed"));
 				} finally {
 					target.running = undefined;
@@ -385,10 +376,6 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 
 		state(peer: string): PeerState {
 			return stateOf(peer);
-		},
-
-		history(peer: string, count: number): Promise<string> {
-			return deps.readHistory?.(peer, count) ?? Promise.resolve("");
 		},
 
 		snapshot(): PeerSnapshot[] {

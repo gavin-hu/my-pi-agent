@@ -182,7 +182,7 @@ inside the answer it is already waiting for — not with a second “working on 
 | Situation | What the peer gets |
 |---|---|
 | 1st message, session idle | typing, then the answer (no acknowledgement: there is nothing to wait for) |
-| 1st message, session busy | typing, `收到，正在处理…` at 4 s, `终端会话正忙…` at 60 s, the answer when the session frees |
+| 1st message, peer busy | typing, `收到，正在处理…` at 4 s, `前面还有一条正在处理…` at 60 s, the answer when the slot frees |
 | 2nd message after the acknowledgement, still queued | nothing new; it is merged into the same turn and the one answer covers both in order |
 | 2nd message while a turn runs | no new acknowledgement; it becomes its own turn and answer after the first |
 | 3rd…Nth in a burst | same as the queued case; past eight queued, one line asking to wait |
@@ -470,7 +470,7 @@ status, which is what the old start/stop guidance used to do.
 | `channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
 | `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep. |
 | `reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
-| `commands.ts` | `/wechat login|new|status|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login, and logout; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
+| `commands.ts` | `/wechat login|new|status|stop|reset|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login/logout, and the per-peer stop/reset; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
 | `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
 | `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
@@ -483,7 +483,10 @@ status, which is what the old start/stop guidance used to do.
 | `credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
 | `state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids). |
 | `lock.ts` | Poller lockfile. |
-| `format.ts` | Sanitize, chunk, and label helpers. |
+| `format.ts` | Sanitize, chunk, and label helpers (text only). |
+| `notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
+| `errors.ts` | `messageOf`, the one error-to-line helper every notice and tool error uses. |
+| `timer.ts` | The timer seam: the cancellable one-shot `ArmTimer`, `defaultTimer`, and the abortable `defaultSleep`. |
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
 | `prompt.ts` | Pure prompt formatting and reply parsing. |
 | `remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |

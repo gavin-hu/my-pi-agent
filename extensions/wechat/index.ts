@@ -20,6 +20,7 @@ import { paint } from "../../lib/tui/tokens.ts";
 import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
 import { createFetchRunner, WechatClient, type WechatClientOptions } from "./client.ts";
 import { registerCommands, type CommandDeps } from "./commands.ts";
+import { messageOf } from "./errors.ts";
 import { loadWechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
 import { acquireLock, lockPath, refreshLock, releaseLock } from "./lock.ts";
@@ -157,7 +158,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			bridge = bridge ?? build(ctx);
 			bridge.open();
 		} catch (error) {
-			ctx.ui.notify(`WeChat did not connect: ${error instanceof Error ? error.message : String(error)}`, "warning");
+			ctx.ui.notify(`WeChat did not connect: ${messageOf(error)}`, "warning");
 		}
 	};
 

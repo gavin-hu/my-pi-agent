@@ -446,15 +446,10 @@ describe("bridge", () => {
 
 	test("stops and reports when the session expires", async () => {
 		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
-		let expired = 0;
-		const { deps } = makeDeps(client, {
-			onExpired: () => {
-				expired += 1;
-			},
-		});
+		const { deps } = makeDeps(client);
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => expired === 1);
+		await waitFor(() => bridge.status().expired);
 		expect(bridge.status().open).toBe(false);
 		await bridge.close();
 	});

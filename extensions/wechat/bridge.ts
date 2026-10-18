@@ -22,7 +22,6 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
 import {
 	chunkText,
-	notice,
 	parseInbound,
 	peerKey,
 	peerLabel,
@@ -31,8 +30,9 @@ import {
 	toWechatText,
 	type PeerLanguage,
 } from "./format.ts";
+import { notice } from "./notices.ts";
 import { createWechatInteractionChannel, type WechatInteractionChannel } from "./interaction.ts";
-import { defaultSleep } from "./login.ts";
+import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
 import { sendLocalFile } from "./outbound.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { createPeerWorker, type PeerItem, type PeerState, type PeerWorker } from "./peer-worker.ts";
@@ -48,7 +48,6 @@ import {
 } from "./slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
-import { defaultTimer, type ArmTimer } from "./timer.ts";
 
 const BACKOFF_MS = 2000;
 /** How long a fetched typing ticket is reused. */
@@ -95,7 +94,7 @@ export function isAllowedPeer(peer: string, owner: string | undefined, allowedPe
 }
 
 /** True when a message is inbound from a human (not the bot's own echo). */
-export function isInboundMessage(message: WeixinMessage): boolean {
+export function isInboundMessage(message: WeixinMessage): message is WeixinMessage & { from_user_id: string } {
 	return message.message_type !== 2 && typeof message.from_user_id === "string" && message.from_user_id !== "";
 }
 
@@ -132,8 +131,6 @@ export interface BridgeDeps {
 	 */
 	pollTimeout?: (serverHintMs: number | undefined) => number;
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
-	/** Called when the server reports an expired token. */
-	onExpired?: () => void;
 	/** Called whenever the bridge's connection state changes, for a status chip. */
 	onStateChange?: (state: BridgeState) => void;
 }
@@ -179,10 +176,7 @@ export interface Bridge {
 	sendToOwner(text: string): Promise<SendResult>;
 }
 
-function messageOf(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
+import { messageOf } from "./errors.ts";
 /** Create the bridge over an injected environment. */
 export function createBridge(deps: BridgeDeps): Bridge {
 	const sleep = deps.sleep ?? defaultSleep;
@@ -243,7 +237,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		// `getUpdates`; abort it so it cannot wake up beside a later `open()`.
 		abort?.abort();
 		publishState();
-		deps.onExpired?.();
 		notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
 	}
 
@@ -348,7 +341,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				},
 				stop: () => worker?.abort(item.peer) ?? false,
 				status: () => worker?.state(item.peer) ?? { status: "idle", queued: 0 },
-				history: (count) => worker?.history(item.peer, count) ?? Promise.resolve(""),
+				history: (count) => deps.readHistory(item.peer, count),
 			},
 		};
 		try {
@@ -718,7 +711,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 	function handleMessage(message: WeixinMessage): void {
 		if (!isInboundMessage(message)) return;
-		const peer = message.from_user_id as string;
+		const peer = message.from_user_id;
 		const { text: rawText, media, unsupported } = parseInbound(message.item_list);
 		const owner = state.ownerId ?? account?.ilinkUserId;
 		// Admission comes first: a refused sender never reaches the state file, a
@@ -957,7 +950,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// attachment line on the first one. A false result stops the stream.
 				send: (item, text) => reply(item, text),
 				fallback: (item, reason) => notice(reason, item.language),
-				readHistory: deps.readHistory,
 				onStart: (item) => {
 					cancelAck(item.peer);
 					stopBusyNotice(item.peer);

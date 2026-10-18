@@ -17,7 +17,8 @@ import type { Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
 import { peerLabel, peerKey } from "./format.ts";
-import { defaultSleep, waitForLogin, type LoginOutcome } from "./login.ts";
+import { waitForLogin, type LoginOutcome } from "./login.ts";
+import { defaultSleep } from "./timer.ts";
 import { LoginScreenComponent, type LoginViewState } from "./login-screen.ts";
 import { qrLines } from "./qrcode.ts";
 import { statusLine, statusView, StatusScreenComponent, type StatusAction, type StatusView } from "./status-screen.ts";
@@ -74,10 +75,7 @@ export function isWechatVerb(value: string): value is WechatVerb {
 	return (WECHAT_VERBS as readonly string[]).includes(value);
 }
 
-function messageOf(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
+import { messageOf } from "./errors.ts";
 /**
  * Whether a peer turn is running anywhere on the bridge.
  *

@@ -19,7 +19,8 @@ import {
 	type InteractionChannel,
 	type InteractionRequest,
 } from "../../lib/interaction.ts";
-import { notice, type PeerLanguage } from "./format.ts";
+import { type PeerLanguage } from "./format.ts";
+import { notice } from "./notices.ts";
 import { formatPrompt, parsePromptAnswer } from "./prompt.ts";
 import { defaultTimer, type ArmTimer } from "./timer.ts";
 

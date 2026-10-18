@@ -7,6 +7,7 @@
  */
 
 import { DEFAULT_BASE_URL, type WechatClient } from "./client.ts";
+import { messageOf } from "./errors.ts";
 import type { BotCredentials, QrResponse, QrStatus } from "./types.ts";
 
 /** Categorical meaning of a `get_qrcode_status` value. */
@@ -62,25 +63,6 @@ export interface LoginOptions {
 	requestVerifyCode?: () => Promise<string | undefined>;
 }
 
-/** Default sleep, aborted by `signal`. */
-export function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
-	return new Promise((resolve, reject) => {
-		if (signal?.aborted) {
-			reject(new Error("aborted"));
-			return;
-		}
-		const timer = setTimeout(() => {
-			signal?.removeEventListener("abort", onAbort);
-			resolve();
-		}, ms);
-		const onAbort = () => {
-			clearTimeout(timer);
-			reject(new Error("aborted"));
-		};
-		signal?.addEventListener("abort", onAbort, { once: true });
-	});
-}
-
 /** Poll a started login until it settles. */
 export async function waitForLogin(client: WechatClient, qr: QrResponse, options: LoginOptions): Promise<LoginOutcome> {
 	const interval = options.intervalMs ?? 2000;
@@ -91,7 +73,7 @@ export async function waitForLogin(client: WechatClient, qr: QrResponse, options
 			status = await client.pollQrStatus(qr.qrcode, verifyCode, options.signal);
 		} catch (error) {
 			if (options.signal?.aborted) return { kind: "cancelled" };
-			return { kind: "error", message: error instanceof Error ? error.message : String(error) };
+			return { kind: "error", message: messageOf(error) };
 		}
 		options.onStatus?.(status.status);
 
