@@ -147,7 +147,8 @@ Readability beats cleverness — an obvious loop beats a dense one-liner.
 Performance is part of the same bar. Do work once per render rather than per
 frame, take the cheap path before allocating, and keep nothing that grows with
 the transcript or the session unbounded. A change that makes a long session feel
-slow is a bug even when every test passes.
+slow is a bug even when every test passes; `bun run bench:render` is how a
+renderer change is measured, and its determinism gate runs in the suite.
 
 ## TUI design conventions
 

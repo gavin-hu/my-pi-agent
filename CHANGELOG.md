@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- dev: `bun run bench:render` measures a long session — 500 and 2000 tool blocks
+  at 80 and 120 columns through the real renderers — and reports lines, median and
+  p95 frame time, heap per frame, and how many blocks came back from their render
+  memo. The deterministic half runs in the suite (`scripts/render-bench.test.ts`):
+  a repeat frame must be the same lines and every line must fit the width. The
+  timings stay a pre-release reading with a budget in `docs/development.md`, not a
+  CI threshold.
+
 - ci/docs: a `compat` job proves the package against the newest published Pi. It
   installs `@earendil-works/pi-*` and `typebox` at `latest` (the peer ranges stay
   `"*"`), runs typecheck and the serial suite, and records the resolved versions

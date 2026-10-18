@@ -62,17 +62,17 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S6 |
 | Remember across sessions | Works; the store reports its own health | S1 |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W10 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F8 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C10, F1–F7 |
 
 ## If only three things ship
 
-1. **F2 — Long-session benchmark.** A long session should stay inside a measured
-   render budget, not only pass its tests on a warm laptop.
-2. **F1 — Docs parity.** The two entry READMEs stay in sync, with a parity test
+1. **F1 — Docs parity.** The two entry READMEs stay in sync, with a parity test
    on their headings, tables, and links, so the Chinese front door does not
    drift from the English one.
-3. **W1 — Extraction deadline.** A pathological PDF should hit a deadline and be
+2. **W1 — Extraction deadline.** A pathological PDF should hit a deadline and be
    abandoned cleanly, not pin the process on a file nobody can interrupt.
+3. **W2 — `.doc` fixture.** The legacy `.doc` path is only tested for its error
+   message; a fixture makes the success path real.
 
 ## Horizons
 
@@ -347,30 +347,26 @@ These are not a README pillar, but every promise depends on them.
 - **F1 — Docs parity.** Keep the Chinese README in line and add a parity test
   for section headings, table rows, and links. Policy: the two entry READMEs
   stay in sync; deep docs remain English until a translation owner exists.
-- **F2 — Long-session benchmark.** A script reports render time and allocations
-  for 500 and 2000 tool blocks at 80 and 120 columns. Keep the hard gate
-  deterministic (same input, same line array) and treat wall-clock as a
-  pre-release check, not a flaky CI test.
 
 **Next**
 
-- **F3 — Release provenance.** Publish npm with `--provenance` from a protected
+- **F2 — Release provenance.** Publish npm with `--provenance` from a protected
   workflow that still requires the per-release approval `AGENTS.md` mandates;
   update the release guide to match.
 
 **Later**
 
-- **F4 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
+- **F3 — CI debt.** Track the Bun macOS parallel-spawn bugs that force the
   serial suite and remove the workaround when fixed, so all three operating
   systems run one command.
-- **F5 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
+- **F4 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
   window; add a check if duplicate subsection headings recur.
-- **F6 — Test expansion.** Browser-page and plan-review coverage through the
+- **F5 — Test expansion.** Browser-page and plan-review coverage through the
   pure router and rendered HTML, without a real browser in CI.
-- **F7 — Dependency budget.** A check that a new runtime dependency is
+- **F6 — Dependency budget.** A check that a new runtime dependency is
   lazy-loaded unless it is needed at registration, matching the `document` and
   `web-access` pattern.
-- **F8 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
+- **F7 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
 
 ## Deliberately left thin
@@ -407,10 +403,11 @@ above.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
   mode, worktree binding, and the rewind timeline — `P2`.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
-  suites, and the compat job names the newest Pi it passed against — `F4`.
-- A long-session benchmark stays within its budget — `F2`.
+  suites, and the compat job names the newest Pi it passed against — `F3`.
+- A long-session benchmark stays within its budget — measured with
+  `bun run bench:render` at each release.
 - A release is one reviewed command path with provenance, and the tag, changelog,
-  and npm version cannot drift — `F3`, `F5`.
+  and npm version cannot drift — `F2`, `F4`.
 - Docs truth tests cover tools, commands, and config keys, and this roadmap's own
   item numbers and links resolve — `test/naming.test.ts`,
   `test/docs-truth.test.ts`, `test/config-docs.test.ts`, and

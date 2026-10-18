@@ -26,6 +26,7 @@ repositories.
 | `bun run format:check` | `biome format .`, check only. |
 | `bun run check:serial` | `bun run check` with the serial suite. |
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
+| `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots` | Regenerate the screenshots and hero under `assets/` (macOS only). |
 | `bun run screenshot:plan <plan.md>` | Render one plan through the browser review page and capture it as a full-page PNG with headless Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot; set `PI_CHROME` for a non-default Chrome. |
@@ -63,6 +64,38 @@ PI_SLOW_TESTS=1 bun run test
 CI runs the macOS job through `bun run check:serial` because a `--parallel`
 worker on macOS can drop the subprocess exit notification for its first spawn
 and hang a git-using test.
+
+## Performance
+
+A frame re-renders every block in the transcript, so the cost that makes a long
+session feel slow is per block, per frame. `bun run bench:render` measures that:
+it builds 500 and 2000 tool blocks from the gallery fixtures through the real
+renderers — the same code a session draws — and prints, per width, the lines, the
+median and p95 frame time, heap per frame, and how many blocks came back from
+their render memo instead of being rebuilt.
+
+```bash
+bun run bench:render
+```
+
+Two different things come out of it:
+
+- **The gate, which is deterministic:** the same input must produce the same line
+  array, and every line must fit the width. `scripts/render-bench.test.ts` asserts
+  both at 500 blocks on every platform, so a renderer that reads a clock or grows
+  state between frames fails CI.
+- **The numbers, which are a pre-release reading:** wall-clock and heap depend on
+  the machine, so no CI job gates on them. On the author's laptop a 2000-block
+  frame takes about 2 ms at 80 and 120 columns; treat **10 ms for 2000 blocks**
+  as the point worth investigating, and the memo staying above ~85% of components
+  as the healthy baseline (the fixture mix is ~89% today). The fixtures average
+  about two lines per block, so compare shapes of the same session size rather
+  than raw line counts.
+
+When a change makes a renderer allocate per frame, the memo column is where it
+shows: Pi's own `Container` builds a fresh array on every call, so the built-in
+`bash` result legitimately misses, but a block bytefly frames should not start
+to.
 
 ## Cross-platform
 
