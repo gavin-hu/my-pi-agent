@@ -209,8 +209,10 @@ config defaults, and error listing all derive from it.
 
 - Parsing is best-effort and format-specific: output fidelity varies by library,
   and a malformed file fails with that library's message.
-- Legacy `.doc` relies on `word-extractor`; there is no fixture for the OLE
-  format in the test suite, so that path is covered only for its error case.
+- Legacy `.doc` relies on `word-extractor`, which now has a committed OLE fixture
+  (`test/helpers/fixtures/files/legacy.doc`, two paragraphs generated once by a
+  real word processor). Real Word 6/95 documents vary far more than one fixture
+  can show, so the format stays best-effort.
 - No OCR: scanned or image-only PDFs return little or no text.
 - Formatting, tables, and images are not preserved (XLSX keeps the row/column
   shape but drops cell styling and formulas; DOCX/ODT keep table cells as tabs).
@@ -293,8 +295,8 @@ bun test extensions/document
 ```
 
 Extractor tests run against real minimal files (`test/helpers/fixtures/documents.ts`
-builds a genuine PDF, DOCX, and ODT; XLSX is written with `exceljs`), so the
-libraries are exercised, not stubbed. `tool.test.ts` injects fake extractors for
-behavioural cases and reads one real PDF end to end;
-`test/helpers/fixtures/document.ts` provides the scratch root and an escape
-symlink.
+builds a genuine PDF, DOCX, and ODT; XLSX is written with `exceljs`; legacy `.doc`
+reads the committed `files/legacy.doc`), so the libraries are exercised, not
+stubbed. `tool.test.ts` injects fake extractors for behavioural cases and reads a
+real PDF and a real `.doc` end to end; `test/helpers/fixtures/document.ts`
+provides the scratch root and an escape symlink.

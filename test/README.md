@@ -200,6 +200,7 @@ test/
     fakes.ts  context.ts  process.ts  env.ts  entries.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts
     fixtures/<name>.ts     # extension-specific fixtures
+    fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, and boundary guards
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links

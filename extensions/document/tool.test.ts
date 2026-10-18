@@ -6,7 +6,7 @@ import type { DocExtractor } from "./extract/file.ts";
 import type { FormatId } from "./formats.ts";
 import { ansiTheme, fakeTheme, createFakePi } from "../../test/helpers/fakes.ts";
 import { makeDocumentFixture } from "../../test/helpers/fixtures/document.ts";
-import { buildPdf } from "../../test/helpers/fixtures/documents.ts";
+import { buildPdf, legacyDocBytes } from "../../test/helpers/fixtures/documents.ts";
 import { tempDir, useEnv } from "../../test/helpers/env.ts";
 import { settle } from "../../test/helpers/process.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
@@ -90,6 +90,19 @@ describe("read_doc tool", () => {
 		const result = await tool.execute("call-1", { path: "real.pdf" }, undefined, undefined, ctxFor(fixture.root));
 		expect(result.details.format).toBe("pdf");
 		expect(result.details.text).toContain("Hello PDF");
+	});
+
+	test("extracts a real legacy .doc end to end through the format table", async () => {
+		const bytes = legacyDocBytes();
+		fixture.write("legacy.doc", bytes);
+		const tool = installTool();
+
+		const result = await tool.execute("call-1", { path: "legacy.doc" }, undefined, undefined, ctxFor(fixture.root));
+
+		expect(result.details.format).toBe("doc");
+		expect(result.details.bytes).toBe(bytes.byteLength);
+		expect(result.details.text).toContain("Legacy Word fixture.");
+		expect(result.details.text).toContain("Second paragraph.");
 	});
 
 	test("extracts an XLSX and returns matching structuredContent", async () => {
