@@ -3,7 +3,15 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { withEnv } from "../test/helpers/env.ts";
-import { ENV_DISABLED_EXTENSIONS, ENV_ROOT, isExtensionEnabled, resolveEffectiveCwd, worktreeRoot } from "./env.ts";
+import {
+	ENV_DISABLED_EXTENSIONS,
+	ENV_OFFLINE,
+	ENV_ROOT,
+	isExtensionEnabled,
+	isOffline,
+	resolveEffectiveCwd,
+	worktreeRoot,
+} from "./env.ts";
 
 const tempDirs: string[] = [];
 
@@ -63,6 +71,25 @@ describe("isExtensionEnabled", () => {
 
 	test("compares names case-insensitively", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "TODO" }, () => expect(isExtensionEnabled("todo")).toBe(false));
+	});
+});
+
+describe("isOffline", () => {
+	test("is off when the variable is unset or empty", async () => {
+		await withEnv({ [ENV_OFFLINE]: undefined }, () => expect(isOffline()).toBe(false));
+		await withEnv({ [ENV_OFFLINE]: "" }, () => expect(isOffline()).toBe(false));
+	});
+
+	test("accepts the three on values in any case", async () => {
+		for (const value of ["1", "true", "TRUE", "yes", "Yes"]) {
+			await withEnv({ [ENV_OFFLINE]: value }, () => expect(isOffline(), value).toBe(true));
+		}
+	});
+
+	test("reads any other value as off, like Pi's own parser", async () => {
+		for (const value of ["0", "false", "no", "on"]) {
+			await withEnv({ [ENV_OFFLINE]: value }, () => expect(isOffline(), value).toBe(false));
+		}
 	});
 });
 

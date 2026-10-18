@@ -8,7 +8,8 @@ marks each completed turn in the transcript, one keyboard-driven screen with two
 sections — Extensions, every resolved Pi extension with its enable checkbox and
 its health, and Settings, the common app and `bytefly.json` preferences — and
 an opt-in notify capability that raises an OS notification when a run finishes,
-a job finishes, or the agent asks for input.
+a job finishes, or the agent asks for input, and a published-version check that
+marks the header and posts one notice when a newer bytefly is on npm.
 DeepSeek is priced from the provider's published yuan rates and peak tariff by
 default, and any other model can be priced from your own rates when Pi's catalog
 does not match what a provider actually charges.
@@ -27,10 +28,10 @@ How the `run_doctor` call and its result look in the transcript — the call lin
 
 ## What it does
 
-The extension owns nine surfaces: the startup header, the footer, the
+The extension owns ten surfaces: the startup header, the footer, the
 user-message marker, the rule between completed turns, the notice block for
 shared transcript notices, the tool-block frame, the live working counter, the
-two-section control center, and notifications.
+two-section control center, notifications, and the published-version check.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
 `accent` / `warn` roles, the agent identity (`Pi`, bold, and its version), the
@@ -52,9 +53,9 @@ that cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
    / commands · ! bash · !! bash (no context) · /bytefly extensions
 ```
 
-As the terminal narrows, the identity sheds the chrome version, then the chrome
-line, then the agent name, and the help rows drop whole keys, so nothing wraps or
-clips mid-word. The nameplate sits on the transcript margin, which follows Pi's
+As the terminal narrows, the identity sheds the update marker, then the chrome
+version, then the chrome line, then the agent name, and the help rows drop whole
+keys, so nothing wraps or clips mid-word. The nameplate sits on the transcript margin, which follows Pi's
 `outputPad` (the value the tool frame and the notice use too), and the help hangs
 one body indent inside it. The mark, tokens, identity, and grouped help are tuned
 in [`header/config.ts`](./header/config.ts).
@@ -267,6 +268,13 @@ background job finishes, and when the agent opens a prompt asking for input. The
 method follows the terminal (OSC 777, OSC 99, a Windows toast) or falls back to
 the platform notifier (`osascript`, `notify-send`); see
 [Notifications](#notifications).
+
+**Update check.** Once per interactive session, in the background, the loaded
+version is compared with the published `@gavin-hu/my-pi-agent` on npm. A newer
+one puts `↑0.12.0` after the header's chrome version and posts one transcript
+notice naming `pi update --extensions`. The check is skipped when `PI_OFFLINE`
+is set, makes no request outside `tui`, and a failed request is silent; see
+[Update check](#update-check).
 
 ## Commands
 
@@ -789,6 +797,46 @@ adds its id, status, exit code, and label. Every piece that can carry model- or
 user-authored text — a prompt title, a job label — is sanitized to one
 control-free line before it reaches an escape sequence or a shell argument.
 
+## Update check
+
+A session can be days behind npm without anyone noticing, and Pi's own startup
+check only covers package sources it manages — a `pi -e ./`, a linked checkout,
+or a git install gets nothing. So bytefly reads its own published version and
+reports it once, in the two places it already owns:
+
+```
+ █▀█  Pi v1.3.0
+ █▀ █ enhanced by bytefly v0.11.4 ↑0.12.0
+```
+
+```
+ bytefly · 0.12.0 is available
+ ╎ ◌ current · v0.11.4
+ ╎ ◌ update · pi update --extensions
+```
+
+The marker is the shared `↑` glyph and the newest version — the arrow is one cell
+wide, so the header's column math is unchanged — painted with the header's
+`accent` role: an action rather than a warning, so the muted version beside it
+stays quiet and the transcript is not turned yellow for a normal state. It is
+part of the chrome cell, so the two identity cells still line up, and it is the
+first thing the identity sheds when the terminal narrows.
+
+The notice is the shared transcript block: the `bytefly · title` headline at the
+margin, then the loaded version and the fixing command behind the rail, all at
+`info` severity because nothing is broken. It stays in scrollback and the model
+reads the same sentence in plain text.
+
+The request is `GET https://registry.npmjs.org/@gavin-hu%2Fmy-pi-agent/latest`,
+fired without awaiting at `session_start` (Pi awaits handlers, and a five-second
+registry call must not hold the first prompt) with a five-second abort. Only a
+strictly newer, parseable semver announces anything: a non-ok status, a body
+that is not JSON, a missing version, a network error, or an older or equal
+version is silent. Nothing is cached to disk and nothing is retried, so a
+session that starts offline simply sees no marker. `PI_OFFLINE` (Pi's own
+switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
+`pi.dev` request.
+
 ## Limitations
 
 - **Bytefly startup TUI is the startup surface only.** It installs or removes
@@ -818,6 +866,21 @@ control-free line before it reaches an escape sequence or a shell argument.
   their authoritative names are not exposed to extensions. Use `pi config`.
 - **Packages are not installed, removed, or updated here**; use `pi install`,
   `pi remove`, and `pi update`.
+- **The update check reads npm's `latest` only.** A private registry, a version
+  published under another tag, or a checkout ahead of npm reports nothing, and
+  there is no channel or prerelease preference: `0.11.4` is behind `0.12.0`
+  whether or not a `0.12.0-beta.1` exists.
+- **One check per session, with no refresh.** It runs at `session_start` in
+  `tui` mode; `/bytefly` and `doctor` do not report it, nothing is cached to
+  disk, and a failed or slow request is simply not retried that session.
+- **The marker needs the bytefly startup TUI.** It lives on the custom header,
+  so with `quietStartup` off the notice is the whole signal.
+- **Pi may report the same update.** An npm-installed copy can also show Pi's
+  own `Package Updates Available` block; the two checks are independent and
+  `pi update --extensions` satisfies both.
+- **No auto-update and no release notes.** The notice names a command instead
+  of running one, and the notice renderer has no link support, so there is no
+  changelog URL.
 - **Project toggles are two-state** (`enable`/`disable`). Resetting an override
   back to "inherit" is done in `pi config`.
 - **One built-in provider.** DeepSeek is the only provider with a built-in
@@ -897,7 +960,7 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. The chrome version gains `↑<latest>` from the `UpdateSource`, and `registerHeader` returns a `refresh()` handle that re-installs the last context's header when that value arrives. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
@@ -912,10 +975,11 @@ rather than showing a wrong value.
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`), `exposure: "direct"`, active by default, with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. |
+| Update check | `session_start` in `tui` mode, when `PI_OFFLINE` is off, fires `fetchLatestVersion()` without awaiting, so the handler never holds the prompt. The registry read is a fixed `GET` of npm's `latest` document over an injected `fetch`, bounded by an abort timeout; a strictly newer, parseable semver is recorded in the per-load `UpdateSource`, `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice. A generation counter drops a reply that lands after `session_shutdown`, and a per-load flag keeps it to one announcement. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it is on whenever `PI_OFFLINE` is off. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. |
-| Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, and loads the notify config and subscribes to the job bus; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, and drops the notify bus subscription. |
+| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds one version in the per-load `UpdateSource` and writes nothing to the session or a file. |
+| Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, loads the notify config and subscribes to the job bus, and starts the published-version check; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, drops the notify bus subscription, and clears the recorded version. |
 
 ## Design notes
 
@@ -1131,6 +1195,21 @@ rather than showing a wrong value.
 - **The prerequisite table is data.** No I/O, no host access, no module state:
   every probe dependency arrives as a seam, so `probeExtension` is testable with
   no process and `lib/` stays value-only.
+- **The update check is a self-report, not an update mechanism.** It answers one
+  question — is the version in this checkout current? — and answers it in the two
+  surfaces bytefly already owns, the header identity and one notice. It never
+  installs, never edits settings, and never fails a session: an unreachable
+  registry and an up-to-date one are indistinguishable to the user, which is the
+  only failure mode a background check is allowed to have.
+- **The marker is an action, the notice is information.** The same fact is drawn
+  in the accent on the header, where it sits beside a control the user can act
+  on, and at `info` severity in the transcript, where a `warn` rail would say
+  something is broken. Neither surface needs per-frame polling: the value arrives
+  once, the memo key includes it, and one `setHeader` re-install repaints.
+- **The transport stays local.** `web-access`'s runner does redirects, SSRF
+  checks, HTML extraction, and caching — none of it applies to one fixed JSON
+  endpoint, and an extension may not import another's modules, so the ~20-line
+  read lives beside the check with the `fetch` and timeout as seams.
 
 ## Files
 
@@ -1140,7 +1219,8 @@ calculation), `message/` (the user-message marker), `notice/` (the shared notice
 elapsed counter on Pi's working row), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
-and its probe runtime), and `notify/`. The chrome and the screen are drawn from
+and its probe runtime), `notify/`, and `update/` (the published-version check
+behind the header marker). The chrome and the screen are drawn from
 the package's [`lib/tui/`](../../lib/tui/) design system (tokens, rules, rows,
 columns, gauge), so the look follows the active theme.
 
@@ -1209,6 +1289,11 @@ columns, gauge), so the look follows the active theme.
 | `notify/dispatch.ts` | Method selection and delivery: OSC 777/99, Windows toast, `osascript`, `notify-send`, over injected seams. |
 | `notify/format.ts` | Pure notification text: session label and the turn / input / job bodies. |
 | `notify/register.ts` | Registers the three triggers, loads the config at `session_start`, and owns the job-bus subscription. |
+| `update/check.ts` | The one registry read: the `latest` URL, the abort timeout, the `FetchLike` seam, and the failure-to-`undefined` mapping. |
+| `update/version.ts` | Pure semver parsing and `isNewerVersion`, including prerelease precedence. |
+| `update/state.ts` | `UpdateSource` and `createUpdateState`: the newest known version, one record per load. |
+| `update/format.ts` | `updateMarker` and `updateNotice`: the header's `↑0.12.0` and the two-row transcript notice. |
+| `update/register.ts` | The session-start check: the async read, the `PI_OFFLINE` and `tui` gates, the once-per-load announcement, and the shutdown generation guard. |
 
 ## Testing
 
@@ -1249,7 +1334,12 @@ registration, the proactive notice, the session cache, and `run_doctor`
 through the factory (`doctor/register`). The notify capability is covered by its section loader
 (`notify/config`), the pure text builders (`notify/format`), method selection and
 delivery over recording seams (`notify/dispatch`), and its three triggers,
-reload, and shutdown through `registerNotify` (`notify/register`).
+reload, and shutdown through `registerNotify` (`notify/register`). The update
+check is covered by the version-ordering table (`update/version`), the transport
+with an injected fetch (`update/check`), the per-load store (`update/state`), the
+marker and notice wording (`update/format`), and its lifecycle — once per load,
+silent on failure or an older version, skipped offline and outside `tui`, and
+immune to a reply that lands after shutdown (`update/register`).
 The user-message nameplate is covered by its pure transform
 (`message/format`, including a render through pi-tui's real `Markdown`) and its
 registration (`message/register`), plus the factory check in `extension`.

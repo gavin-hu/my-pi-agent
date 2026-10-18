@@ -277,7 +277,10 @@ the shared notice renderer, shown only when the bytefly startup TUI is on
 (Pi's `quietStartup: true`). An opt-in notify capability raises an
 OS notification when a run or a background job finishes or the agent asks for
 input, configured through the `notify` section of `bytefly.json`, for
-unattended runs.
+unattended runs. Once per interactive session it also compares the loaded
+version with the published `@gavin-hu/my-pi-agent` on npm: a newer one adds
+`↑0.12.0` to the header's chrome version and posts one notice naming
+`pi update --extensions` (skipped with `PI_OFFLINE`, silent on failure).
 
 Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` and `settings`
 subcommands).

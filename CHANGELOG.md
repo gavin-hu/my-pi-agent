@@ -13,6 +13,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cost precision and recorded-cost fallback under new Diagnostics and Pricing
   groups, and a `bytefly.json` row can now edit a nested leaf such as
   `price.currency.decimals` without disturbing its siblings.
+- `bytefly`: once per interactive session, the loaded version is compared in the
+  background with the published `@gavin-hu/my-pi-agent` on npm. A newer one adds
+  `↑0.12.0` to the header's chrome version and posts one transcript notice
+  naming `pi update --extensions`; `PI_OFFLINE` skips the check and a failed
+  request is silent.
 
 ## [0.11.4] - 2026-10-18
 

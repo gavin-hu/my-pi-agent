@@ -125,6 +125,32 @@ describe("ByteflyHeader", () => {
 		expect(line).not.toContain("ctrl+d");
 	});
 
+	test("adds the update marker after the chrome version", () => {
+		expect(header(view({ latest: "0.12.0" })).render(80)[1]).toBe(` █▀ █ ${chrome} ↑0.12.0`);
+	});
+
+	test("colors the marker with the accent, not a warning colour", () => {
+		const lines = new ByteflyHeader(
+			() => coloringTheme,
+			() => view({ latest: "0.12.0" }),
+			"1.2.0",
+		).render(80);
+
+		expect(lines[1]).toContain("[accent]↑0.12.0");
+		expect(lines[1]).toContain(`[dim]v${HEADER_CONFIG.chromeVersion}`);
+	});
+
+	test("sheds the marker before the version, then the chrome line, then the agent", () => {
+		const marked = view({ latest: "0.12.0" });
+
+		expect(header(marked).render(41)[1]).toBe(` █▀ █ ${chrome} ↑0.12.0`);
+		expect(header(marked).render(40)[1]).toBe(` █▀ █ ${chrome}`);
+		expect(header(marked).render(32)[1]).toBe(" █▀ █ enhanced by bytefly");
+		expect(header(marked).render(24)[0]).toBe(" █▀█  Pi v1.2.0");
+		expect(header(marked).render(24)[1]).toBe(" █▀ █");
+		expect(header(marked).render(14)[0]).toBe(" █▀█");
+	});
+
 	test("sheds the chrome version, then the chrome line, then the agent", () => {
 		expect(header().render(25)[1]).toBe(" █▀ █ enhanced by bytefly");
 		expect(header().render(20)[0]).toBe(" █▀█  Pi v1.2.0");
@@ -221,6 +247,21 @@ describe("ByteflyHeader", () => {
 		);
 		expect(component.render(81)).not.toBe(beforeRebind);
 		expect(component.render(81).join("\n")).toContain("ctrl+q");
+	});
+
+	test("rebuilds when the update marker appears", () => {
+		let headerView = view();
+		const component = new ByteflyHeader(
+			() => fakeTheme,
+			() => headerView,
+			"1.2.0",
+		);
+		const before = component.render(80);
+
+		headerView = view({ latest: "0.12.0" });
+
+		expect(component.render(80)).not.toBe(before);
+		expect(component.render(80)[1]).toContain("↑0.12.0");
 	});
 
 	test("rebuilds after invalidate even when nothing else changed", () => {
