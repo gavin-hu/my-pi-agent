@@ -1465,7 +1465,51 @@ describe("bridge resilience", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		const result = await bridge.sendToOwner("hello");
-		expect(result).toEqual({ ok: false, error: "Weixin rejected the message (ret -2)." });
+		expect(result).toEqual({ ok: false, error: "Weixin rejected the message (ret -2: context token invalid)." });
+		await bridge.close();
+	});
+
+	test("send_wechat reports the errcode when ret is zero", async () => {
+		const base = makeClient([]);
+		const client = {
+			...base.client,
+			sendMessage: async () => ({ ret: 0, errcode: -2, errmsg: "context token invalid" }),
+		} as unknown as WechatClient;
+		const { deps } = makeDeps(client, {
+			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		// Reporting `ret 0` would hide the actual reason.
+		expect(await bridge.sendToOwner("hello")).toEqual({
+			ok: false,
+			error: "Weixin rejected the message (ret -2: context token invalid).",
+		});
+		await bridge.close();
+	});
+
+	test("send_wechat flattens Markdown and numbers split parts", async () => {
+		const { client, sent } = makeClient([]);
+		const { deps } = makeDeps(client, {
+			config: { ...DEFAULT_CONFIG, maxReplyChars: 5 },
+			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(await bridge.sendToOwner("**abcdefgh**")).toEqual({ ok: true });
+		expect(sent.map((message) => message.text)).toEqual(["[1/2] abcde", "[2/2] fgh"]);
+		await bridge.close();
+	});
+
+	test("send_wechat reports a message that formats down to nothing", async () => {
+		const { client, sent } = makeClient([]);
+		const { deps } = makeDeps(client, {
+			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+		expect(await bridge.sendToOwner("**")).toEqual({ ok: false, error: "Nothing to send after formatting." });
+		expect(sent).toEqual([]);
 		await bridge.close();
 	});
 

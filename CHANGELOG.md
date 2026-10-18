@@ -231,6 +231,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: `send_wechat` now goes through the same delivery path as a reply, so
+  assistant Markdown is flattened and a split message is numbered. A rejection
+  that carries `ret: 0` plus a real `errcode` reports that code instead of
+  `ret 0`, and a partial failure names how many parts went out.
 - `wechat`: a fenced code block's body is no longer rewritten when a reply is
   flattened for chat. Heading markers, emphasis, and backticks inside a fence
   survive (the fence lines still go), and blank runs inside code are kept; text

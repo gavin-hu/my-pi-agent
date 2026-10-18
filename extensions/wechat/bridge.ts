@@ -159,6 +159,18 @@ export interface SendResult {
 	error?: string;
 }
 
+/** The outcome of one outbound text delivery attempt. */
+interface Delivery {
+	ok: boolean;
+	/** Parts the transport accepted before stopping. */
+	sent: number;
+	total: number;
+	/** The server reported an expired token; the bridge has already been marked. */
+	expired?: boolean;
+	/** Formatting left nothing to send. */
+	empty?: boolean;
+}
+
 export interface Bridge {
 	open(): void;
 	close(): Promise<void>;
@@ -241,24 +253,27 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/**
-	 * Send `text` to one peer in `maxReplyChars` chunks, stopping at the first
-	 * failed chunk. A session expiry is handled here; a thrown transport error is
-	 * handed to `onError` with how much of the reply went out, so each caller can
-	 * report it its own way without claiming delivery.
+	 * Send `text` in `maxReplyChars` chunks, stopping at the first failed chunk.
+	 *
+	 * This is the one outbound text path — a reply, a dialog preface, and
+	 * `send_wechat` all use it — so Markdown flattening, part numbering, expiry,
+	 * body-level rejection, and partial progress are decided in one place. A
+	 * session expiry is handled here; a transport or rejection error is handed to
+	 * `onFailure` with how much went out, so each caller reports it its own way.
 	 */
-	async function sendChunked(
+	async function deliverText(
 		to: string,
 		contextToken: string | undefined,
 		text: string,
 		signal: AbortSignal | undefined,
-		onError: (error: unknown, progress: { sent: number; total: number }) => void,
-	): Promise<boolean> {
-		if (!client || !account) return false;
+		onFailure: (error: unknown, progress: { sent: number; total: number }) => void,
+	): Promise<Delivery> {
+		if (!client || !account) return { ok: false, sent: 0, total: 0 };
 		const chunks = chunkText(toWechatText(text), deps.config.maxReplyChars).filter((chunk) => chunk !== "");
 		if (chunks.length === 0) {
 			// Nothing survived formatting: report it rather than claim a delivery.
 			notify("WeChat reply had nothing to send after formatting.", "warning");
-			return false;
+			return { ok: false, sent: 0, total: 0, empty: true };
 		}
 		for (const [index, chunk] of chunks.entries()) {
 			// A split answer says so, so the peer knows more is coming and can tell a
@@ -268,27 +283,29 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				const response = await client.sendMessage(account, { to, text: body, contextToken }, signal);
 				if (isSessionExpired(response)) {
 					handleExpired();
-					return false;
+					return { ok: false, sent: index, total: chunks.length, expired: true };
 				}
 				// A body-level rejection is not a delivery: report it with the part count
 				// instead of letting the answer vanish.
 				if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
-					const code = response.ret ?? response.errcode;
+					// Prefer the non-zero value: the body may carry `ret: 0` plus a real
+					// `errcode`, and reporting `ret 0` hides the actual reason.
+					const code = (response.ret ?? 0) !== 0 ? response.ret : (response.errcode ?? 0);
 					// The server's own description is the only way to tell a bad token
 					// from a rate limit, so it is part of the error.
 					const detail = response.errmsg ? `: ${response.errmsg}` : "";
-					onError(new WechatError(`Weixin rejected the message (ret ${code}${detail}).`), {
+					onFailure(new WechatError(`Weixin rejected the message (ret ${code}${detail}).`), {
 						sent: index,
 						total: chunks.length,
 					});
-					return false;
+					return { ok: false, sent: index, total: chunks.length };
 				}
 			} catch (error) {
-				onError(error, { sent: index, total: chunks.length });
-				return false;
+				onFailure(error, { sent: index, total: chunks.length });
+				return { ok: false, sent: index, total: chunks.length };
 			}
 		}
-		return true;
+		return { ok: true, sent: chunks.length, total: chunks.length };
 	}
 
 	/** Peers already reported as unable to receive, until a send gets through. */
@@ -303,7 +320,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	 */
 	async function reply(item: { peer: string; contextToken?: string }, text: string): Promise<boolean> {
 		let failed = false;
-		const delivered = await sendChunked(item.peer, item.contextToken, text, abort?.signal, (error, progress) => {
+		const delivery = await deliverText(item.peer, item.contextToken, text, abort?.signal, (error, progress) => {
 			failed = true;
 			if (abort?.signal.aborted) return;
 			forgetToken(item.peer);
@@ -312,8 +329,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
 			notify(`WeChat reply failed${partial}: ${messageOf(error)}`, "warning");
 		});
-		if (!failed && delivered) sendFailureNotified.delete(item.peer);
-		return failed ? false : delivered;
+		if (!failed && delivery.ok) sendFailureNotified.delete(item.peer);
+		return delivery.ok;
 	}
 
 	/** Drop a peer's cached reply token, so the next inbound message replaces it. */
@@ -365,7 +382,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		if (!current) return false;
 		const activeSignal = signal ?? abort?.signal;
 		let failed = false;
-		const delivered = await sendChunked(current.peer, current.contextToken, text, activeSignal, (error, progress) => {
+		const delivery = await deliverText(current.peer, current.contextToken, text, activeSignal, (error, progress) => {
 			failed = true;
 			if (activeSignal?.aborted) return;
 			forgetToken(current.peer);
@@ -374,8 +391,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
 			notify(`WeChat message delivery failed${partial}: ${messageOf(error)}`, "warning");
 		});
-		if (!failed && delivered) sendFailureNotified.delete(current.peer);
-		return failed ? false : delivered;
+		if (!failed && delivery.ok) sendFailureNotified.delete(current.peer);
+		return delivery.ok;
 	}
 
 	/** Upload and send a local file to the peer owning the in-flight turn. */
@@ -1064,22 +1081,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			// Either id form may be stored: the owner id comes from the login response
 			// and the token from an inbound `from_user_id`, and they need not agree.
 			const contextToken = findPeer(state, owner)?.lastContextToken;
-			for (const chunk of chunkText(trimmed, deps.config.maxReplyChars)) {
-				try {
-					const response = await client.sendMessage(account, { to: owner, text: chunk, contextToken }, abort?.signal);
-					if (isSessionExpired(response)) {
-						handleExpired();
-						return { ok: false, error: "WeChat session expired." };
-					}
-					if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
-						// A body-level rejection is not a delivery; the tool must say so.
-						const code = response.ret ?? response.errcode;
-						return { ok: false, error: `Weixin rejected the message (ret ${code}).` };
-					}
-				} catch (error) {
-					return { ok: false, error: messageOf(error) };
-				}
-			}
+			let failure: string | undefined;
+			const delivery = await deliverText(owner, contextToken, trimmed, abort?.signal, (error, progress) => {
+				forgetToken(owner);
+				const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
+				failure = `${messageOf(error)}${partial}`;
+			});
+			if (delivery.expired) return { ok: false, error: "WeChat session expired." };
+			if (delivery.empty) return { ok: false, error: "Nothing to send after formatting." };
+			if (!delivery.ok) return { ok: false, error: failure ?? "WeChat send failed." };
 			return { ok: true };
 		},
 	};
