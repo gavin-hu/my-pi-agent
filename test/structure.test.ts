@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { REQUIREMENTS } from "../lib/requirements.ts";
 import { SHARED_CONFIG_FILE } from "../lib/config.ts";
+import { walkFiles } from "./helpers/files.ts";
 
 /** Normalise separators so path comparisons work on Windows too. */
 const posix = (p: string): string => p.replaceAll("\\", "/");
@@ -30,17 +31,9 @@ function dirsOf(dir: string): string[] {
 		.sort();
 }
 
-function walkFiles(dir: string, out: string[] = []): string[] {
-	for (const name of readdirSync(dir)) {
-		const full = join(dir, name);
-		if (statSync(full).isDirectory()) walkFiles(full, out);
-		else out.push(posix(full));
-	}
-	return out;
-}
-
 const ROOT_TEST_FILES = new Set([
 	"config-docs.test.ts",
+	"docs-truth.test.ts",
 	"naming.test.ts",
 	"prompt-budget.test.ts",
 	"release.test.ts",

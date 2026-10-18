@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- docs: `test/docs-truth.test.ts` holds `docs/extensions.md` to the code: every
+  command and flag registered with `pi.registerCommand`/`registerFlag` must be
+  named in the catalog, every command or flag the catalog names must be
+  registered (with a reviewed allowlist for Pi's own commands and the WeChat
+  peers' chat commands), and each name must be a string literal so the scan can
+  see it. A renamed command or a stale catalog line now fails CI.
+
 - `worktree`: `/worktree status` and `list_worktrees` now name what isolation does
   not cover instead of leaving it to the README — the user's own `!` shell,
   Windows `powershell` with that tool active, and shell commands whose git
