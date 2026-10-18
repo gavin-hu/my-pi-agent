@@ -134,6 +134,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changed-section markers of the branch it lands on, instead of showing none; a
   review that shows the same content appends nothing.
 
+### Fixed
+
+- `file-browse`, `plan`: the sidebar scrolls again when its tree or outline is
+  taller than the window. The shell put the scroll on the `.bf-panel` inside the
+  `<details>`, but a browser lays a details' content out in a block wrapper with
+  no definite height that takes no part in its flex layout, so the panel kept its
+  content height and the sidebar only clipped it. The sidebar now scrolls on its
+  own box; the plan review's inert flex rule is gone with it.
+
 ## [0.12.0] - 2026-10-18
 
 ### Added
