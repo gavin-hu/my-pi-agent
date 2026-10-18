@@ -161,7 +161,7 @@ depends on config.
 
 | Integration point | Value |
 |---|---|
-| Tool | `todo`; `exposure: "direct"` (default), `executionMode: "sequential"` |
+| Tool | `todo`; direct exposure (the default), `executionMode: "sequential"` |
 | Annotations | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
 | Output | `outputSchema` `TodoResult` — `{ todos, action, error? }` — also returned as `structuredContent` |
 | Command | `/todos` |

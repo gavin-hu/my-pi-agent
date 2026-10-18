@@ -406,7 +406,7 @@ sessions are in-process).
 | Integration point | Detail |
 |---|---|
 | Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `pause`, `resume`, `doctor`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `allow [peer]`, `logout`, `help`; bare `/wechat` opens the control screen. |
-| Tools | `send_wechat` — owner-only proactive text; registered at factory time with `exposure: "direct"`, `executionMode: "sequential"`, `openWorldHint: true`. |
+| Tools | `send_wechat` — owner-only proactive text; registered at factory time with direct exposure (the default), `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
 | Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |

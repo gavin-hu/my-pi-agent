@@ -32,9 +32,10 @@ describe("web_fetch tool", () => {
 		registerFetchTool(pi);
 		const tool = tools.get(TOOL_NAME);
 		expect(tool).toBeDefined();
-		expect(tool.exposure).toBe("direct");
-		expect(tool.defaultActive).toBe(true);
-		expect(tool.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true, destructiveHint: false });
+		// The host resolves both defaults; the definition states only what differs.
+		expect(tool.exposure).toBeUndefined();
+		expect(tool.defaultActive).toBeUndefined();
+		expect(tool.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true });
 		expect(tool.outputSchema).toBeDefined();
 		expect(typeof tool.renderCall).toBe("function");
 		expect(typeof tool.renderResult).toBe("function");

@@ -264,9 +264,9 @@ the content type and size.
 
 | Integration point | Value |
 |---|---|
-| Tools | `web_search`, `web_fetch`; `exposure: "direct"`, both `defaultActive: true` |
+| Tools | `web_search`, `web_fetch`; direct exposure, active on registration (the defaults, so not declared) |
 | Execution mode | `web_search`: `sequential`; `web_fetch`: default |
-| Annotations | both `readOnlyHint: true`, `openWorldHint: true`, `destructiveHint: false` |
+| Annotations | both `readOnlyHint: true`, `openWorldHint: true`; a read-only tool declares no `destructiveHint` |
 | Output | `outputSchema` (`WebSearchOutput` / `WebFetchOutput`) plus matching `structuredContent` |
 | State | none in the session branch; one fetch page cache per registration (`web_search` keeps a per-instance throttle) |
 | Lifecycle | the factory only registers (`index.ts`); `registerFetchTool` owns the page cache and clears it on `session_start` and idempotent `session_shutdown` |

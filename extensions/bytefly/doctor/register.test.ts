@@ -12,7 +12,8 @@ describe("doctor wiring", () => {
 		const tool = fake.tools.get("run_doctor");
 		expect(tool).toBeDefined();
 		expect(tool.annotations.readOnlyHint).toBe(true);
-		expect(tool.annotations.destructiveHint).toBe(false);
+		// A read-only tool has nothing to be destructive about, so the hint is omitted.
+		expect(tool.annotations.destructiveHint).toBeUndefined();
 		expect(tool.outputSchema).toBeDefined();
 		expect(fake.commands.has("doctor")).toBe(false);
 	});
