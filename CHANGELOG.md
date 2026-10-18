@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- dev: the legacy `.doc` extractor is tested against a real Word 97 file —
+  `test/helpers/fixtures/files/legacy.doc`, two paragraphs generated once with
+  LibreOffice (`soffice --headless --convert-to doc`, or `textutil -convert doc`
+  on macOS) and committed — so the OLE path is covered for success, not only for
+  its error message. Both the extractor and `read_doc` end to end read it.
+
 - docs: `test/docs-parity.test.ts` holds the two entry READMEs together —
   `README.md` and `README.zh-CN.md` must agree on section structure, table rows,
   and the relative links and images a reader follows, while translated text,

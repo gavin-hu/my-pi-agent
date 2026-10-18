@@ -4,10 +4,18 @@
  * The document extractors are tested against genuine bytes rather than a stubbed
  * library, so these helpers emit the smallest valid file for each format:
  * a one-page PDF, a ZIP-backed DOCX, and a ZIP-backed ODT. RTF is text and XLSX
- * is built with `exceljs` in its own test. Legacy `.doc` (OLE) cannot be
- * synthesized here.
+ * is built with `exceljs` in its own test.
+ *
+ * Legacy `.doc` is the exception: a Word 97 file needs a compound-file container,
+ * a FIB, and a piece table, so hand-building one would test the builder as much
+ * as the parser. `files/legacy.doc` is a real 9 KiB document (two paragraphs:
+ * "Legacy Word fixture." and "Second paragraph.") generated once with
+ * `soffice --headless --convert-to doc` — or `textutil -convert doc` on macOS —
+ * and committed. CI only reads the bytes.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { strToU8, zipSync } from "fflate";
 
 /** A one-page PDF whose content stream draws `text` in Helvetica. */
@@ -31,6 +39,11 @@ export function buildPdf(text: string): Uint8Array {
 	for (const offset of offsets) pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
 	pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
 	return strToU8(pdf);
+}
+
+/** The committed legacy Word 97 `.doc` fixture (see the module header). */
+export function legacyDocBytes(): Uint8Array {
+	return new Uint8Array(readFileSync(join(import.meta.dir, "files", "legacy.doc")));
 }
 
 /** A DOCX whose body is the given paragraphs, one per `<w:p>`. */
