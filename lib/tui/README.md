@@ -89,4 +89,3 @@ and the first call throws at runtime.
 A module here gets a sibling `<module>.test.ts` covering fields, width bounds,
 ordering, and glyphs — never literal column padding. An extension's screen test
 is the `tui.test.ts` beside its `tui.ts`.
-

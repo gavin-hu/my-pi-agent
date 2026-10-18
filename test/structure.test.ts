@@ -274,18 +274,68 @@ describe("prerequisite declarations", () => {
 });
 
 describe("doc links", () => {
-	/** Docs whose relative links must resolve; a `lib/tui` rename breaks them silently. */
-	const LINKED_DOCS = ["AGENTS.md", "lib/tui/README.md"];
-	const RELATIVE_LINK = /\]\((\.\/[^)\s]+)\)/g;
+	/** Every Markdown doc a user or contributor reads, from the root and the doc trees. */
+	function docFiles(): string[] {
+		const trees = ["docs", "extensions", "lib", "test", ".github"].map((dir) => join(repo, dir));
+		const rootDocs = readdirSync(repo)
+			.filter((name) => name.endsWith(".md"))
+			.map((name) => join(repo, name));
+		return [...rootDocs, ...trees.flatMap((tree) => walkFiles(tree))].filter((file) => file.endsWith(".md")).sort();
+	}
 
-	test("the agent and TUI contracts link to files that exist", () => {
+	const MARKDOWN_LINK = /\]\(([^)\s]+)\)/g;
+	const HEADING = /^#{1,6}\s+(.+?)\s*$/;
+	const FENCE = /^\s*(?:```|~~~)/;
+
+	/** GitHub's heading anchor: link text kept, emphasis dropped, punctuation gone, spaces hyphenated. */
+	function anchorOf(heading: string): string {
+		return heading
+			.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+			.replace(/[`*]/g, "")
+			.toLowerCase()
+			.replace(/[^\p{L}\p{N} _-]/gu, "")
+			.trim()
+			.replace(/\s+/g, "-");
+	}
+
+	/** The anchors a rendered page offers, including GitHub's `-1`, `-2` suffixes for repeats. */
+	function anchorsOf(text: string): Set<string> {
+		const anchors = new Set<string>();
+		const seen = new Map<string, number>();
+		let fenced = false;
+		for (const line of text.split("\n")) {
+			if (FENCE.test(line)) {
+				fenced = !fenced;
+				continue;
+			}
+			const heading = fenced ? null : HEADING.exec(line)?.[1];
+			if (heading === undefined || heading === null) continue;
+			const base = anchorOf(heading);
+			const count = seen.get(base) ?? 0;
+			seen.set(base, count + 1);
+			anchors.add(count === 0 ? base : `${base}-${count}`);
+		}
+		return anchors;
+	}
+
+	test("every relative doc link resolves, anchor included", () => {
 		const offenders: string[] = [];
-		for (const doc of LINKED_DOCS) {
-			const file = posix(join(repo, doc));
+		for (const file of docFiles()) {
+			const relative = file.slice(repo.length + 1);
 			const dir = file.slice(0, file.lastIndexOf("/"));
-			for (const [, link] of readFileSync(file, "utf-8").matchAll(RELATIVE_LINK)) {
-				const target = link.replace(/#.*$/, "");
-				if (!existsSync(posix(join(dir, target)))) offenders.push(`${doc}: ${link}`);
+			for (const [, link] of readFileSync(file, "utf-8").matchAll(MARKDOWN_LINK)) {
+				if (!link.startsWith("./") && !link.startsWith("../") && !link.startsWith("#")) continue;
+				const hash = link.indexOf("#");
+				const target = hash === -1 ? link : link.slice(0, hash);
+				const anchor = hash === -1 ? "" : link.slice(hash + 1);
+				const path = target === "" ? file : posix(join(dir, target));
+				if (!existsSync(path)) {
+					offenders.push(`${relative}: ${link} (no such path)`);
+					continue;
+				}
+				if (anchor !== "" && (!statSync(path).isFile() || !anchorsOf(readFileSync(path, "utf-8")).has(anchor))) {
+					offenders.push(`${relative}: ${link} (no such anchor)`);
+				}
 			}
 		}
 		expect(offenders).toEqual([]);
