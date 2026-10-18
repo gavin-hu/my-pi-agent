@@ -68,10 +68,10 @@ async function reviewInBrowser(
 		return;
 	}
 
-	const previous = runtime.reviewed(file.path);
+	const baseline = runtime.reviewed(file.path);
 	const result = await runBrowserReview(web, ctx.cwd, file, {
 		canApprove: false,
-		previous,
+		baseline,
 		// Mark only once the page is actually open: a failed start must not consume
 		// the baseline for a plan nobody saw.
 		onOpened: (session) => {

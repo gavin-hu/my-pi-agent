@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } fr
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
@@ -614,8 +615,8 @@ describe("exit_plan_mode", () => {
 		const result = await call(exit, { plan_path: planPath }, second);
 
 		expect(result.details.approved).toBe(true);
-		expect(starts[0].previous).toContain("Old body");
-		expect(starts[0].previous).not.toContain("New body");
+		expect(starts[0].baseline).toEqual(sectionDigests("## Goal\nOld body\n## Steps\n- [ ] One"));
+		expect(starts[0].baseline).not.toEqual(sectionDigests("## Goal\nNew body\n## Steps\n- [ ] One"));
 	});
 
 	test("a browser approve leaves plan mode and seeds the todo list", async () => {

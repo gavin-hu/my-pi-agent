@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `plan`: the review baseline is now a `plan-baseline` session entry holding one
+  digest per heading section, rather than the previous plan text kept in runtime
+  memory. A resumed session or a `/tree` restore therefore keeps the
+  changed-section markers of the branch it lands on, instead of showing none; a
+  review that shows the same content appends nothing.
+
 ## [0.12.0] - 2026-10-18
 
 ### Added

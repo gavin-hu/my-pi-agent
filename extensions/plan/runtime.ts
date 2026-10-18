@@ -6,7 +6,9 @@
  * (present the plan for approval) and `write_plan` (save the plan artifact under
  * `.pi/plans`). Disabling restores exactly what it hid. The enabled flag is
  * persisted as a custom session entry so `/resume` and `/tree` follow the
- * branch, and it is also mirrored into the footer status.
+ * branch, and it is also mirrored into the footer status. The review baseline
+ * travels the same way, as one digest per heading section, so the changed-section
+ * markers survive a resume too.
  *
  * `write_plan` is the one sanctioned write while planning. The read-only guard
  * in `index.ts` permits a control tool only when the registered tool is this
@@ -23,7 +25,8 @@ import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
-import type { PlanModeEntry } from "./types.ts";
+import { sameSections, sectionDigests, type SectionDigest } from "./plan-text.ts";
+import type { PlanModeEntry, ReviewBaselineEntry } from "./types.ts";
 
 /** Tool the model calls to leave plan mode after approval. */
 export const EXIT_TOOL = "exit_plan_mode";
@@ -33,8 +36,10 @@ export const ENTER_TOOL = "enter_plan_mode";
 export const WRITE_PLAN_TOOL = "write_plan";
 /** Tool the model calls to keep an approved plan's steps current. */
 export const SET_PLAN_STEPS_TOOL = "set_plan_steps";
-/** Custom-entry type used for persistence. */
+/** Custom-entry type used for plan-mode state. */
 export const STATE_TYPE = "plan-mode";
+/** Custom-entry type used for a plan's review baseline. */
+export const BASELINE_TYPE = "plan-baseline";
 
 /** Longest plan-file basename shown in the footer chip. */
 const STATUS_NAME_LENGTH = 28;
@@ -58,27 +63,58 @@ export interface PlanRuntime {
 	lastPlanPath(): string | undefined;
 	/** Remember a written plan and repaint the footer. */
 	setLastPlan(ctx: ExtensionContext, path: string): void;
-	/** The content a review last presented for `path`, for the changed markers. */
-	reviewed(path: string): string | undefined;
-	/** Remember what a review just presented; memory only, keyed by resolved path. */
+	/** The sections the last review of `path` showed, restored with the branch. */
+	reviewed(path: string): SectionDigest[] | undefined;
+	/** Remember what a review just showed, as a session entry on this branch. */
 	markReviewed(path: string, content: string): void;
 }
 
-/** The last plan-mode entry on the branch, with the tools it hid. */
-function readPersistedState(ctx: ExtensionContext): PlanModeEntry | undefined {
-	let state: PlanModeEntry | undefined;
+/** What the branch carries: the last plan-mode state, and a baseline per plan. */
+interface BranchState {
+	mode: PlanModeEntry | undefined;
+	baselines: Map<string, SectionDigest[]>;
+}
+
+/** Well-formed `{ title, digest }` pairs from untrusted branch data, or undefined. */
+function readSections(value: unknown): SectionDigest[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const sections: SectionDigest[] = [];
+	for (const raw of value) {
+		const section = raw as { title?: unknown; digest?: unknown } | null | undefined;
+		if (typeof section?.title !== "string" || typeof section.digest !== "string") return undefined;
+		sections.push({ title: section.title, digest: section.digest });
+	}
+	return sections;
+}
+
+/**
+ * The last plan-mode state and the last review baseline per plan on the branch.
+ * One pass, because reading the branch walks the whole session.
+ */
+function readBranchState(ctx: ExtensionContext): BranchState {
+	let mode: PlanModeEntry | undefined;
+	const baselines = new Map<string, SectionDigest[]>();
 	for (const raw of ctx.sessionManager.getBranch()) {
 		const entry = raw as { type?: string; customType?: string; data?: unknown };
-		if (entry.type !== "custom" || entry.customType !== STATE_TYPE) continue;
-		const data = entry.data as { enabled?: unknown; removed?: unknown } | null | undefined;
-		if (typeof data?.enabled !== "boolean") continue;
-		// Branch data is untrusted; keep only string tool names.
-		const removed = Array.isArray(data.removed)
-			? data.removed.filter((name): name is string => typeof name === "string")
-			: undefined;
-		state = removed ? { enabled: data.enabled, removed } : { enabled: data.enabled };
+		if (entry.type !== "custom") continue;
+		if (entry.customType === STATE_TYPE) {
+			const data = entry.data as { enabled?: unknown; removed?: unknown } | null | undefined;
+			if (typeof data?.enabled !== "boolean") continue;
+			// Branch data is untrusted; keep only string tool names.
+			const removed = Array.isArray(data.removed)
+				? data.removed.filter((name): name is string => typeof name === "string")
+				: undefined;
+			mode = removed ? { enabled: data.enabled, removed } : { enabled: data.enabled };
+			continue;
+		}
+		if (entry.customType !== BASELINE_TYPE) continue;
+		const data = entry.data as { path?: unknown; sections?: unknown } | null | undefined;
+		if (typeof data?.path !== "string") continue;
+		const sections = readSections(data.sections);
+		// Last entry per path wins, the same rule the mode entry follows.
+		if (sections) baselines.set(data.path, sections);
 	}
-	return state;
+	return { mode, baselines };
 }
 
 /** Compare two paths, resolving symlinks when possible so `/tmp` and `/private/tmp` match. */
@@ -107,10 +143,10 @@ export function createPlanRuntime(
 ): PlanRuntime {
 	let enabled = false;
 	let lastPlanPath: string | undefined;
-	// The content each plan path last showed in a review, so the next review can
-	// mark what changed. Memory only: a resumed session has no baseline and shows
-	// no markers, which is better than claiming everything changed.
-	const reviewedPlans = new Map<string, string>();
+	// The section digests each plan path last showed in a review, so the next review
+	// can mark what changed. Persisted with the branch, so `/resume` and `/tree`
+	// compare against the review this branch actually showed.
+	const reviewedPlans = new Map<string, SectionDigest[]>();
 	// Tools plan mode deactivated, so disabling restores exactly those and does
 	// not re-activate a tool another extension intentionally hid.
 	let removedForPlan: string[] = [];
@@ -177,11 +213,12 @@ export function createPlanRuntime(
 		toggle: (ctx) => setEnabled(!enabled, ctx, true),
 		restore: (ctx) => {
 			lastPlanPath = undefined;
-			// The baseline belongs to the branch that was reviewed: a resumed or
-			// tree-restored session starts without one rather than marking every section
-			// changed against a review this branch never showed.
+			const branch = readBranchState(ctx);
+			// The baseline belongs to the branch that was reviewed: a plan this branch
+			// never showed has no digest here, so nothing looks changed until it does.
 			reviewedPlans.clear();
-			const persisted = readPersistedState(ctx);
+			for (const [path, sections] of branch.baselines) reviewedPlans.set(path, sections);
+			const persisted = branch.mode;
 			// `--plan` starts a fresh session in plan mode; an explicit persisted
 			// choice (including a later disable) wins over the launch flag.
 			const fromFlag = persisted === undefined && pi.getFlag("plan") === true;
@@ -206,7 +243,13 @@ export function createPlanRuntime(
 		},
 		reviewed: (path) => reviewedPlans.get(resolve(path)),
 		markReviewed: (path, content) => {
-			reviewedPlans.set(resolve(path), content);
+			const key = resolve(path);
+			const sections = sectionDigests(content);
+			const previous = reviewedPlans.get(key);
+			// A screen shown again over the same content must not grow the branch.
+			if (previous && sameSections(previous, sections)) return;
+			reviewedPlans.set(key, sections);
+			pi.appendEntry(BASELINE_TYPE, { path: key, sections } satisfies ReviewBaselineEntry);
 		},
 	};
 }
