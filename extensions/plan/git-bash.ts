@@ -83,7 +83,7 @@ const DANGEROUS_PREFIXES = [
 	"--output",
 ];
 
-const DANGEROUS_EXACT = new Set(["-c", "-O", "--bare", "--ext-diff", "--textconv"]);
+const DANGEROUS_EXACT = new Set(["-c", "-O", "--bare", "--ext-diff", "--textconv", "--filters"]);
 
 function isDangerousOption(token: string): boolean {
 	if (DANGEROUS_EXACT.has(token)) return true;
@@ -249,6 +249,15 @@ function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
 			const [first] = rest.map(unquote);
 			if (rest.length === 0 || first === "show") return { ok: true };
 			return { ok: false, reason: '"git reflog" may only be read; use "git reflog" or "git reflog show".' };
+		}
+		case "grep": {
+			// `-O` is its own token and is denied above; `git grep -O<pager>` and
+			// `-O=<pager>` would still run an arbitrary command, so deny the prefix.
+			const pager = rest.map(unquote).find((token) => token.startsWith("-O"));
+			if (pager) {
+				return { ok: false, reason: `"${pager}" opens a pager or runs a command; use the default output.` };
+			}
+			return { ok: true };
 		}
 		default:
 			return { ok: true };

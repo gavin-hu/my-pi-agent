@@ -1,11 +1,12 @@
 /**
  * Plan-file storage for plan mode.
  *
- * A plan is written to disk as markdown, one immutable file per submitted plan,
- * so the user can read the same artifact the model is working from and the plan
- * survives outside the conversation. Files live under `<repo-root>/.pi/plans`
- * (the worktree root inside a worktree), or under `<agent-dir>/plans` outside a
- * repository.
+ * A plan is written to disk as markdown: one file per plan, named from the
+ * title and stamp. A refinement rewrites that file atomically, so the user can
+ * read the same artifact the model is working from and the plan survives
+ * outside the conversation without a partial write ever being visible. Files
+ * live under `<repo-root>/.pi/plans` (the worktree root inside a worktree), or
+ * under `<agent-dir>/plans` outside a repository.
  *
  * The directory is self-ignoring: the first write drops a `.gitignore` with `*`
  * so plans never show up as untracked files or inside rewind snapshots,
@@ -14,7 +15,17 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import {
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	renameSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../../lib/git/index.ts";
@@ -120,12 +131,33 @@ function isContainedPlan(dir: string, path: string): boolean {
 /** Keep plan files out of git (and so out of rewind snapshots) without touching the project. */
 function ensureIgnored(dir: string): void {
 	const ignore = join(dir, ".gitignore");
-	if (existsSync(ignore)) return;
 	try {
-		writeFileSync(ignore, "*\n", "utf-8");
+		// `wx` is race-free: an existing ignore file (ours or a user's) is left alone.
+		writeFileSync(ignore, "*\n", { encoding: "utf-8", flag: "wx" });
 	} catch {
 		// A read-only plans directory will fail on the plan write anyway; the
 		// ignore file is best-effort.
+	}
+}
+
+/**
+ * Write a plan atomically: a hidden sibling temp file, then a rename. A crash
+ * or a full disk mid-write leaves the previous file intact instead of a
+ * truncated plan, and the temp name is a dotfile, so neither `latest()` nor a
+ * plan lookup ever mistakes it for a plan.
+ */
+function writeAtomic(path: string, content: string): void {
+	const temp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`);
+	try {
+		writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
+		renameSync(temp, path);
+	} catch (error) {
+		try {
+			unlinkSync(temp);
+		} catch {
+			// The temp file was never created, or the rename already moved it.
+		}
+		throw error;
 	}
 }
 
@@ -203,7 +235,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			throw new Error("The plan path is not writable inside the plans directory.");
 		}
 
-		writeFileSync(path, input.content, "utf-8");
+		writeAtomic(path, input.content);
 		return { path, relativePath: relativeTo(cwd, path), title, content: input.content, bytes };
 	};
 
@@ -251,7 +283,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 		const updated = setStepStatuses(plan.content, updates);
 		if (!updated) throw new Error("Could not update the plan steps; pass steps from the plan file.");
-		writeFileSync(plan.path, updated, "utf-8");
+		writeAtomic(plan.path, updated);
 		return {
 			path: plan.path,
 			relativePath: plan.relativePath,
@@ -269,7 +301,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		const plan = await read(cwd, planPath);
 		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
 		const content = formatFeedback(plan.content, annotations);
-		writeFileSync(plan.path, content, "utf-8");
+		writeAtomic(plan.path, content);
 		return {
 			path: plan.path,
 			relativePath: plan.relativePath,
