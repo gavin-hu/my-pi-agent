@@ -96,7 +96,7 @@ and unknown keys are ignored.
 {
   "search": {
     "provider": "auto",                                    // "auto" | "duckduckgo" | "searxng" | "brave"
-    "endpoint": "http://localhost:8080",                   // SearXNG base URL; "" means SearXNG is unavailable
+    "endpoint": "",                                        // SearXNG base URL, e.g. "http://localhost:8080"; "" means SearXNG is unavailable
     "language": "auto",                                     // SearXNG: "auto" (zh-CN for Han, else en) | language code
     "safeSearch": 0,                                        // SearXNG: 0 off, 1 moderate, 2 strict
     "categories": "general",                                // SearXNG categories
