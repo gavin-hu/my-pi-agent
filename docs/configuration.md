@@ -4,7 +4,7 @@ Most extensions need no configuration. Every setting that is configurable lives
 in one shared document, `bytefly.json`, under a top-level section named for the
 extension — bytefly itself owns `price`, `notify`, `doctor`, and `chrome`. Every
 key is listed in the
-[configuration reference](./references/configuration-reference.md); each
+[configuration reference](./references/bytefly-config.md); each
 extension's own `README.md` covers the behaviour around the keys.
 
 ## How config resolves
@@ -61,7 +61,7 @@ repository root rather than the active working directory.
 
 ## Full reference
 
-The [configuration reference](./references/configuration-reference.md) lists every
+The [configuration reference](./references/bytefly-config.md) lists every
 section and key with its type, default, and bounds — the authoritative list for
 a hand edit.
 

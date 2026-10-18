@@ -72,6 +72,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: the configuration reference is `docs/references/bytefly-config.md`.
+  The old path said "configuration...reference" twice, once in the directory and
+  once in the suffix, and read as a sibling of `docs/configuration.md`, which
+  covers resolution and environment variables instead of keys. Every guide,
+  README, and the `test/config-docs.test.ts` guard follow the new path, and so
+  do the two links in the released 0.12.0 section, which would otherwise dangle.
+
 - docs: the entry READMEs read as a front door again. The bytefly table cell
   dropped from 1,135 characters to two sentences, with the control-center
   sections, the settings list, the notify detail, and the pricing left to
@@ -160,7 +167,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path or package entry beside it) so the row returns to its inherited state
   without a `pi config` round-trip.
 - `bytefly`: `bytefly.json` is documented in
-  [`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md),
+  [`docs/references/bytefly-config.md`](./docs/references/bytefly-config.md),
   one table per section with each key's type, default, and bounds. It replaces
   `assets/bytefly.schema.json`, so editor completion for the file goes with it —
   delete a `$schema` line that points at that URL — and `config:migrate` no
@@ -172,10 +179,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   last tag. Items that had already shipped are gone, the step-budget gap is
   named, `Now` and `Next` hold at most ten items each, and a new *Deliberately
   left thin* table says why the remaining documented limitations have no item.
-- docs: the configuration reference moved to
-  [`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md),
-  so the exhaustive listings sit in their own directory; every guide and README
-  link points at the new path.
+- docs: the configuration reference moved into `docs/references/`, so the
+  exhaustive listings sit in their own directory; every guide and README link
+  points at the new path.
 - `bytefly`: the `Currency symbol` setting and its `currency.symbol` key are gone,
   and so is the `fallbackToRecordedCost` toggle. The symbol follows
   `currency.code` (`CNY` → `¥`, `USD` → `$`), so the two cannot disagree, and the

@@ -153,7 +153,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 `<agent-dir>/bytefly.json` 读取，并与 `<cwd>/.pi/bytefly.json` 合并（项目优先），
 位于一个以扩展名命名的顶层 section 下。每个扩展的 `README.md` 说明其键位的行为，
 [`docs/configuration.md`](./docs/configuration.md) 为其建立索引，
-[`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md) 逐个列出每个键的
+[`docs/references/bytefly-config.md`](./docs/references/bytefly-config.md) 逐个列出每个键的
 类型、默认值和取值范围。
 
 每个扩展默认都开启。若要在加载整包时排除其中一些，把 `PI_DISABLED_EXTENSIONS`
@@ -174,7 +174,7 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 | [快速开始](./docs/getting-started.md) | 环境要求、安装选项、验证加载、主题。 |
 | [扩展](./docs/extensions.md) | 所有扩展与主题的完整目录。 |
 | [配置](./docs/configuration.md) | 配置文件解析、按扩展索引、环境变量。 |
-| [配置参考](./docs/references/configuration-reference.md) | 列出 `bytefly.json` 的每个 section 与键，包括类型、默认值和取值范围。 |
+| [配置参考](./docs/references/bytefly-config.md) | 列出 `bytefly.json` 的每个 section 与键，包括类型、默认值和取值范围。 |
 | [架构](./docs/architecture.md) | 包、各扩展与 `lib/` 如何协同。 |
 | [开发](./docs/development.md) | 本地设置、检查、测试、跨平台注意事项与发布流程。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |

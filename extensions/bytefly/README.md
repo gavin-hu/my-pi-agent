@@ -328,7 +328,7 @@ separators, icons, status keys), and the turn separator in
 colors).
 
 Every key of every section is listed with its type, default, and bounds in the
-[configuration reference](../../docs/references/configuration-reference.md); this section
+[configuration reference](../../docs/references/bytefly-config.md); this section
 covers what that table cannot — when each section is read, and what the cost
 does when no rate matches.
 
