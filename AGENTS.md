@@ -32,6 +32,11 @@ bun run test    # bun test --parallel=4 --timeout 30000
   serial suite. Reproduce it locally as `docs/development.md` describes; do not
   commit the peer bump.
 - Run any test you add or change and iterate until it passes.
+- An ad-hoc render or screenshot script drives a picker against injected fixtures
+  (`test/helpers/fixtures/picker.ts`) inside `useAgentDir()` (`test/helpers/env.ts`),
+  never against a real `discoverExtensions` result: the rows persist to the live
+  agent `settings.json`, so a stray Space or Enter edits the user's own
+  configuration.
 
 ## Git workflow (`main` treated as protected)
 
