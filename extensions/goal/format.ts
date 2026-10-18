@@ -80,7 +80,7 @@ export const GOAL_HELP = [
 	"Set a goal with /goal <what you want to accomplish> and start working on it.",
 	"/goal raw <prompt> records your words verbatim, without confirming them first.",
 	"/goal set <prompt> records the goal without starting work; /goal edit [<prompt>] changes it.",
-	"/goal done  ·  /goal clear  ·  /goal help",
+	"/goal done (or achieved)  ·  /goal clear  ·  /goal help (or -h / --help)",
 ].join("\n");
 
 /** Truncate an objective to `max` display columns, appending `…` when cut. */

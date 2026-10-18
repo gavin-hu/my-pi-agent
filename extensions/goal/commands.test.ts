@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { type GoalCommand, parseGoalCommand } from "./commands.ts";
+import { GOAL_VERBS, type GoalCommand, completeGoalArg, parseGoalCommand } from "./commands.ts";
+import { GOAL_HELP } from "./format.ts";
 
 describe("parseGoalCommand", () => {
 	const cases: Array<[string, GoalCommand]> = [
@@ -36,4 +37,27 @@ describe("parseGoalCommand", () => {
 			expect(parseGoalCommand(input)).toEqual(expected);
 		});
 	}
+});
+
+describe("goal verbs", () => {
+	test("the table is the only list: every verb completes and is named in the help", () => {
+		for (const verb of GOAL_VERBS) {
+			const value = verb.argument === "none" ? verb.word : `${verb.word} `;
+			expect(completeGoalArg(verb.word)).toContainEqual({ value, label: verb.word });
+			expect(GOAL_HELP).toContain(verb.word);
+		}
+	});
+
+	test("a bare verb is never treated as a prompt", () => {
+		for (const verb of GOAL_VERBS) {
+			const kind = parseGoalCommand(verb.word).kind;
+			expect(kind).not.toBe("prompt");
+			expect(kind).not.toBe("show");
+		}
+	});
+
+	test("an argument verb takes the rest of the line, trimming only its edges", () => {
+		expect(parseGoalCommand("set  ship   the  parser ")).toEqual({ kind: "record", text: "ship   the  parser" });
+		expect(parseGoalCommand("raw   ship the parser")).toEqual({ kind: "raw", text: "ship the parser" });
+	});
 });

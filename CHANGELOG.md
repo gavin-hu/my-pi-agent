@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `goal`: `/goal help` names the `achieved` and `-h` / `--help` aliases. The
+  parser, the completions, and the help text now come from one `GOAL_VERBS`
+  table, so a reserved word cannot be added without being completed and
+  documented.
 - `goal`: marking a goal achieved while the todo list still has open items now
   says so in the tool result (`3 todo items are still open; close or clear the
   list if that work is done.`), so the model closes the how before it calls the
