@@ -467,6 +467,22 @@ describe("bridge", () => {
 		await bridge.close();
 	});
 
+	test("resets per-connection counters on reopen", async () => {
+		// The expiry path reopens without a close; that open must start a fresh
+		// window, since the status documents the counters as "since the bridge opened".
+		const { client } = makeClient([
+			updates([inbound("hi", "stranger@im.wechat")]),
+			{ ret: 0, errcode: -14, msgs: [], buf: "" },
+		]);
+		const { deps } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => bridge.status().refused === 1 && bridge.status().expired);
+		bridge.open();
+		expect(bridge.status().refused).toBe(0);
+		await bridge.close();
+	});
+
 	test("reports running state changes for a status chip", async () => {
 		const { client } = makeClient([]);
 		const states: BridgeState[] = [];

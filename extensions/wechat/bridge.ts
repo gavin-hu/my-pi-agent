@@ -1,41 +1,33 @@
 /**
- * The WeChat bridge: one poll loop per account, one session per peer.
+ * The WeChat bridge: one connection per account, one session per peer.
  *
- * The bridge owns what is genuinely shared — the poll loop, admission, the media
- * pipeline, the typing indicator, the peer-facing notices, and the reply
- * transport. Each admitted message is handed to the sender's own session through
- * the peer worker, so a WeChat turn never runs in the terminal's session: no idle
- * gate, no reply capture from a run that happens to finish, and no shared
- * context.
+ * This is the composition root. The poll loop, outbound delivery, the typing and
+ * wait notices, admission (dedupe/cap/budget), and inbound media each live in
+ * their own module; the bridge wires them to the live client, account, cursor,
+ * and state, and owns the connection lifecycle and the status snapshot. Each
+ * admitted message is handed to the sender's own session through the peer
+ * worker, so a WeChat turn never runs in the terminal's session.
  *
  * The peer only has the chat window, so the bridge carries the signals the phone
  * needs: typing starts as soon as a message is picked up, a message waiting on
  * another conversation is acknowledged once and told why, a slow turn says so,
  * and a burst that arrives before its turn starts is answered once, in order.
  *
- * Inbound images are downloaded, decrypted, and attached as model image content;
- * inbound files are saved under the media directory and referenced by path. The
- * model may message the owner proactively through {@link Bridge.sendToOwner}.
+ * The model may message the owner proactively through {@link Bridge.sendToOwner}.
  */
 
-import type { ImageContent } from "@earendil-works/pi-ai";
-import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
-import {
-	chunkText,
-	parseInbound,
-	peerKey,
-	peerLabel,
-	peerLanguage,
-	sanitizeInbound,
-	toWechatText,
-	type PeerLanguage,
-} from "./format.ts";
+import { WechatError, type WechatClient } from "./client.ts";
+import { createAdmissionQueue, createTurnBudget } from "./admission.ts";
+import { createDeliverer } from "./deliver.ts";
+import { createInboundAdmission } from "./inbound.ts";
+import { createPollLoop, defaultPollTimeout } from "./poll.ts";
+import { messageOf } from "./errors.ts";
+import { parseInbound, peerKey, peerLabel, peerLanguage, sanitizeInbound, type PeerLanguage } from "./format.ts";
 import { notice } from "./notices.ts";
+import { createPresence } from "./presence.ts";
 import { createWechatInteractionChannel, type WechatInteractionChannel } from "./interaction.ts";
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
-import { sendLocalFile } from "./outbound.ts";
-import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
-import { createPeerWorker, type PeerItem, type PeerState, type PeerWorker } from "./peer-worker.ts";
+import { createPeerWorker, type PeerState, type PeerWorker } from "./peer-worker.ts";
 import type { PeerSession } from "./peer-session.ts";
 import { emptyState, findPeer, recordInbound, rememberMessage, seenMessage } from "./state.ts";
 import {
@@ -49,38 +41,8 @@ import {
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
 
-const BACKOFF_MS = 2000;
-/** How long a fetched typing ticket is reused. */
-const TYPING_TTL_MS = 5 * 60 * 1000;
-/** How often the typing indicator is refreshed while a peer waits. */
-const TYPING_KEEPALIVE_MS = 10_000;
-/** Stop refreshing the indicator after this long; a wedged turn must not tick forever. */
-const TYPING_LIMIT_MS = 15 * 60 * 1000;
-/** Wait this long before telling a queued peer they are queued. */
-const ACK_DELAY_MS = 4000;
-/** Suppress a second acknowledgement inside this window. */
-const ACK_REPEAT_MS = 60_000;
-/** Say the running turn is still going after this long without a reply. */
-const TURN_NOTICE_MS = 30_000;
-/** Say `busy` when a message is still queued behind a running turn after this. */
-const BUSY_NOTICE_MS = 60_000;
-/** Poll watchdog when the server has not told us its long-poll hold yet. */
-const POLL_TIMEOUT_FALLBACK_MS = 90_000;
-/** Never trust a server hint below this, so a busy loop cannot be papered over. */
-const POLL_TIMEOUT_FLOOR_MS = 30_000;
-/** Slack above the server's hold before a poll counts as wedged. */
-const POLL_TIMEOUT_MARGIN_MS = 15_000;
 /** Inbound messages held while a turn runs; beyond this the peer is told to wait. */
 const MAX_QUEUE = 8;
-
-/**
- * How long one `getupdates` request may hang before it is treated as wedged: the
- * server's own hold time plus a margin, so a half-open connection cannot stop
- * inbound traffic without a word.
- */
-export function defaultPollTimeout(serverHintMs: number | undefined): number {
-	return Math.max(serverHintMs ?? POLL_TIMEOUT_FALLBACK_MS, POLL_TIMEOUT_FLOOR_MS) + POLL_TIMEOUT_MARGIN_MS;
-}
 
 /**
  * Whether `peer` may drive the agent: the owner, or an explicit extra. Either id
@@ -159,18 +121,6 @@ export interface SendResult {
 	error?: string;
 }
 
-/** The outcome of one outbound text delivery attempt. */
-interface Delivery {
-	ok: boolean;
-	/** Parts the transport accepted before stopping. */
-	sent: number;
-	total: number;
-	/** The server reported an expired token; the bridge has already been marked. */
-	expired?: boolean;
-	/** Formatting left nothing to send. */
-	empty?: boolean;
-}
-
 export interface Bridge {
 	open(): void;
 	close(): Promise<void>;
@@ -188,7 +138,6 @@ export interface Bridge {
 	sendToOwner(text: string): Promise<SendResult>;
 }
 
-import { messageOf } from "./errors.ts";
 /** Create the bridge over an injected environment. */
 export function createBridge(deps: BridgeDeps): Bridge {
 	const sleep = deps.sleep ?? defaultSleep;
@@ -203,30 +152,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	let refused = 0;
 	/** Labels of refused senders, so the operator can allowlist one by name. */
 	const refusedPeers = new Set<string>();
-	let mediaDropped = 0;
-	let mediaCounter = 0;
-	const typingCache = new Map<string, { ticket?: string; checkedAt: number }>();
-	/** Per-peer keep-alive cancellers for the typing indicator. */
-	const typing = new Map<string, () => void>();
-	/** Per-peer pending acknowledgement cancellers. */
-	const acks = new Map<string, () => void>();
-	/** When each peer was last acknowledged, so a chatty peer is not spammed. */
-	const ackedAt = new Map<string, number>();
-	/** Peers told that a turn is still running, until that turn ends. */
-	const busyNotified = new Set<string>();
-	/** Per-peer `busy` and `stillWorking` cancellers. */
-	const busyTimers = new Map<string, () => void>();
-	const slowTimers = new Map<string, () => void>();
 	/** The language each peer last wrote in, so a media-only message can answer. */
 	const languages = new Map<string, PeerLanguage>();
 	/** Peers already told that the queue is full, until it drains. */
 	const overflow = new Set<string>();
-	/** When each peer's recent turns started, for the hourly cap. */
-	const turnTimes = new Map<string, number[]>();
-	/** Messages being resolved (media download) before they reach the queue. */
-	const admitting = new Map<string, number>();
-	/** Per-peer admission chain, so two media messages keep their arrival order. */
-	const admitChains = new Map<string, Promise<void>>();
 	const slashCommands = deps.slashCommands ?? SLASH_COMMANDS;
 
 	/** One worker per open connection: it owns the queues and the peer sessions. */
@@ -252,87 +181,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
 	}
 
-	/**
-	 * Send `text` in `maxReplyChars` chunks, stopping at the first failed chunk.
-	 *
-	 * This is the one outbound text path — a reply, a dialog preface, and
-	 * `send_wechat` all use it — so Markdown flattening, part numbering, expiry,
-	 * body-level rejection, and partial progress are decided in one place. A
-	 * session expiry is handled here; a transport or rejection error is handed to
-	 * `onFailure` with how much went out, so each caller reports it its own way.
-	 */
-	async function deliverText(
-		to: string,
-		contextToken: string | undefined,
-		text: string,
-		signal: AbortSignal | undefined,
-		onFailure: (error: unknown, progress: { sent: number; total: number }) => void,
-	): Promise<Delivery> {
-		if (!client || !account) return { ok: false, sent: 0, total: 0 };
-		const chunks = chunkText(toWechatText(text), deps.config.maxReplyChars).filter((chunk) => chunk !== "");
-		if (chunks.length === 0) {
-			// Nothing survived formatting: report it rather than claim a delivery.
-			notify("WeChat reply had nothing to send after formatting.", "warning");
-			return { ok: false, sent: 0, total: 0, empty: true };
-		}
-		for (const [index, chunk] of chunks.entries()) {
-			// A split answer says so, so the peer knows more is coming and can tell a
-			// truncated reply from a complete one.
-			const body = chunks.length > 1 ? `[${index + 1}/${chunks.length}] ${chunk}` : chunk;
-			try {
-				const response = await client.sendMessage(account, { to, text: body, contextToken }, signal);
-				if (isSessionExpired(response)) {
-					handleExpired();
-					return { ok: false, sent: index, total: chunks.length, expired: true };
-				}
-				// A body-level rejection is not a delivery: report it with the part count
-				// instead of letting the answer vanish.
-				if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
-					// Prefer the non-zero value: the body may carry `ret: 0` plus a real
-					// `errcode`, and reporting `ret 0` hides the actual reason.
-					const code = (response.ret ?? 0) !== 0 ? response.ret : (response.errcode ?? 0);
-					// The server's own description is the only way to tell a bad token
-					// from a rate limit, so it is part of the error.
-					const detail = response.errmsg ? `: ${response.errmsg}` : "";
-					onFailure(new WechatError(`Weixin rejected the message (ret ${code}${detail}).`), {
-						sent: index,
-						total: chunks.length,
-					});
-					return { ok: false, sent: index, total: chunks.length };
-				}
-			} catch (error) {
-				onFailure(error, { sent: index, total: chunks.length });
-				return { ok: false, sent: index, total: chunks.length };
-			}
-		}
-		return { ok: true, sent: chunks.length, total: chunks.length };
-	}
-
-	/** Peers already reported as unable to receive, until a send gets through. */
-	const sendFailureNotified = new Set<string>();
-
-	/**
-	 * Send one bubble to a peer and report whether it was delivered.
-	 *
-	 * A rejection is reported once per outage rather than once per streamed part,
-	 * and the peer's stored reply token is forgotten: a token the server rejects is
-	 * the likely cause, and the next inbound message brings a fresh one.
-	 */
-	async function reply(item: { peer: string; contextToken?: string }, text: string): Promise<boolean> {
-		let failed = false;
-		const delivery = await deliverText(item.peer, item.contextToken, text, abort?.signal, (error, progress) => {
-			failed = true;
-			if (abort?.signal.aborted) return;
-			forgetToken(item.peer);
-			if (sendFailureNotified.has(item.peer)) return;
-			sendFailureNotified.add(item.peer);
-			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
-			notify(`WeChat reply failed${partial}: ${messageOf(error)}`, "warning");
-		});
-		if (!failed && delivery.ok) sendFailureNotified.delete(item.peer);
-		return delivery.ok;
-	}
-
 	/** Drop a peer's cached reply token, so the next inbound message replaces it. */
 	function forgetToken(peer: string): void {
 		const entry = findPeer(state, peer);
@@ -340,6 +188,23 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		delete entry.lastContextToken;
 		deps.saveState(state);
 	}
+
+	/** Send one bubble to a peer and report whether it was delivered. */
+	async function reply(item: { peer: string; contextToken?: string }, text: string): Promise<boolean> {
+		return deliverer.reply(item, text, abort?.signal);
+	}
+
+	/** The outbound surface, reading the live client and account at call time. */
+	const deliverer = createDeliverer({
+		client: () => client,
+		account: () => account,
+		maxReplyChars: () => deps.config.maxReplyChars,
+		cdnBaseUrl: deps.config.cdnBaseUrl,
+		maxMediaBytes: deps.config.maxMediaBytes,
+		notify,
+		onExpired: handleExpired,
+		forgetToken,
+	});
 
 	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
 	async function runSlashAction(command: SlashCommand, item: InboundItem, args: string): Promise<void> {
@@ -370,51 +235,23 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/**
-	 * Send a text message to the peer owning the in-flight turn, chunked.
+	 * Send a dialog preface (or plan digest) to the peer owning the in-flight turn.
 	 *
-	 * A failure is reported on the terminal once per peer, the same way a reply
-	 * failure is: this carries a dialog preface (and the plan digest), and a silent
+	 * A failure is reported on the terminal once per peer by the deliverer; a silent
 	 * failure would leave the peer with only the choices, as if nothing preceded
 	 * them.
 	 */
 	async function sendPrompt(text: string, signal?: AbortSignal): Promise<boolean> {
 		const current = worker?.current();
 		if (!current) return false;
-		const activeSignal = signal ?? abort?.signal;
-		let failed = false;
-		const delivery = await deliverText(current.peer, current.contextToken, text, activeSignal, (error, progress) => {
-			failed = true;
-			if (activeSignal?.aborted) return;
-			forgetToken(current.peer);
-			if (sendFailureNotified.has(current.peer)) return;
-			sendFailureNotified.add(current.peer);
-			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
-			notify(`WeChat message delivery failed${partial}: ${messageOf(error)}`, "warning");
-		});
-		if (!failed && delivery.ok) sendFailureNotified.delete(current.peer);
-		return delivery.ok;
+		return deliverer.prompt(current, text, signal ?? abort?.signal);
 	}
 
 	/** Upload and send a local file to the peer owning the in-flight turn. */
 	async function sendFileToPeer(filePath: string, fileName: string, signal?: AbortSignal): Promise<boolean> {
 		const current = worker?.current();
-		if (!client || !account || !current) return false;
-		const activeSignal = signal ?? abort?.signal;
-		const sent = await sendLocalFile({
-			client,
-			account,
-			cdnBaseUrl: deps.config.cdnBaseUrl,
-			maxBytes: deps.config.maxMediaBytes,
-			to: current.peer,
-			contextToken: current.contextToken,
-			filePath,
-			fileName,
-			signal: activeSignal,
-		});
-		// `sendLocalFile` reports only success, and the caller may fall back to text;
-		// without this line the operator would never know the attachment was dropped.
-		if (!sent && !activeSignal?.aborted) notify(`WeChat file delivery failed for ${fileName}.`, "warning");
-		return sent;
+		if (!current) return false;
+		return deliverer.file(current, filePath, fileName, signal ?? abort?.signal);
 	}
 
 	const interaction = createWechatInteractionChannel({
@@ -424,71 +261,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		language: () => languageOf(worker?.current()?.peer ?? ""),
 		armTimer: deps.armTimer,
 	});
-
-	/** The typing ticket for a peer, fetched on first use and cached. */
-	async function typingTicket(peer: string, contextToken: string | undefined): Promise<string | undefined> {
-		const cached = typingCache.get(peer);
-		const now = deps.now();
-		if (cached && now - cached.checkedAt < TYPING_TTL_MS) return cached.ticket;
-		if (!client || !account) return undefined;
-		try {
-			const response = await client.getConfig(account, { ilinkUserId: peer, contextToken }, abort?.signal);
-			typingCache.set(peer, { ticket: response?.typingTicket, checkedAt: now });
-			return response?.typingTicket;
-		} catch {
-			typingCache.set(peer, { ticket: undefined, checkedAt: now });
-			return undefined;
-		}
-	}
-
-	async function typingOn(peer: string, contextToken: string | undefined): Promise<void> {
-		if (!deps.config.typingIndicator || !client || !account) return;
-		const ticket = await typingTicket(peer, contextToken);
-		if (!ticket) return;
-		try {
-			await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: true }, abort?.signal);
-			// The peer's work may have finished while the ticket round-trip was in
-			// flight; cancel immediately so the indicator cannot get stuck on.
-			if (!hasWork(peer)) {
-				await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: false }, abort?.signal);
-			}
-		} catch {
-			// Typing is best-effort.
-		}
-	}
-
-	async function typingOff(peer: string): Promise<void> {
-		if (!deps.config.typingIndicator || !client || !account) return;
-		const ticket = typingCache.get(peer)?.ticket;
-		if (!ticket) return;
-		try {
-			await client.sendTyping(account, { ilinkUserId: peer, typingTicket: ticket, typing: false }, abort?.signal);
-		} catch {
-			// Typing is best-effort.
-		}
-	}
-
-	/** Whether a peer has a turn running or a message waiting. */
-	function hasWork(peer: string): boolean {
-		return (worker?.state(peer).status ?? "idle") !== "idle";
-	}
-
-	/** Reserve a turn in the peer's rolling hour; false when the cap is reached. */
-	function allowTurn(peer: string): boolean {
-		const limit = deps.config.maxTurnsPerHour;
-		if (limit <= 0) return true;
-		const key = peerKey(peer);
-		const now = deps.now();
-		const cutoff = now - 60 * 60 * 1000;
-		const times = (turnTimes.get(key) ?? []).filter((at) => at >= cutoff);
-		if (times.length >= limit) {
-			turnTimes.set(key, times);
-			return false;
-		}
-		times.push(now);
-		turnTimes.set(key, times);
-		return true;
-	}
 
 	/** The peer's language: from this text, else the last one they wrote. */
 	function languageOf(peer: string, text?: string): PeerLanguage {
@@ -500,231 +272,42 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		return languages.get(peer) ?? "en";
 	}
 
-	function stopTyping(peer: string): void {
-		const cancel = typing.get(peer);
-		if (!cancel) return;
-		typing.delete(peer);
-		cancel();
+	/** The peer's conversation state, for the wait decisions in presence. */
+	function peerStatus(peer: string): PeerState["status"] {
+		return worker?.state(peer).status ?? "idle";
 	}
 
-	function stopAllTyping(): void {
-		for (const cancel of typing.values()) cancel();
-		typing.clear();
-	}
+	/** Typing, acknowledgement, and the slow/busy lines; one timer registry each. */
+	const presence = createPresence({
+		typingIndicator: () => deps.config.typingIndicator,
+		now: deps.now,
+		armTimer,
+		client: () => client,
+		account: () => account,
+		signal: () => abort?.signal,
+		statusOf: peerStatus,
+		languageOf,
+		send: (peer, contextToken, text) => reply({ peer, contextToken }, text),
+		promptPending: () => interaction.hasPending(),
+	});
 
-	/**
-	 * Start the typing indicator for a peer and keep it alive while they wait.
-	 * The chat window is the peer's only channel, and WeChat drops the indicator
-	 * after a few seconds, so a long turn needs the refresh to look alive at all.
-	 */
-	function keepTyping(peer: string, contextToken: string | undefined): void {
-		if (!deps.config.typingIndicator) return;
-		stopTyping(peer);
-		void typingOn(peer, contextToken);
-		const started = deps.now();
-		const refresh = (): void => {
-			if (!hasWork(peer) || deps.now() - started >= TYPING_LIMIT_MS) {
-				typing.delete(peer);
-				return;
-			}
-			void typingOn(peer, contextToken);
-			typing.set(peer, armTimer(TYPING_KEEPALIVE_MS, refresh));
-		};
-		typing.set(peer, armTimer(TYPING_KEEPALIVE_MS, refresh));
-	}
-
-	/** Stop refreshing the indicator for peers with nothing left to answer. */
-	function pruneTyping(): void {
-		for (const peer of [...typing.keys()]) {
-			if (!hasWork(peer)) stopTyping(peer);
-		}
-	}
-
-	/**
-	 * Stop the `busy` line for a peer: the wait episode is over, so the next one
-	 * is allowed to speak again.
-	 */
-	function stopBusyNotice(peer: string): void {
-		const cancel = busyTimers.get(peer);
-		if (cancel) cancel();
-		busyTimers.delete(peer);
-		busyNotified.delete(peer);
-	}
-
-	/** Stop the turn-progress notice for `peer`. */
-	function stopSlowNotice(peer: string): void {
-		const cancel = slowTimers.get(peer);
-		if (cancel) cancel();
-		slowTimers.delete(peer);
-	}
-
-	/**
-	 * Say once that this turn is taking a while. The typing indicator carries the
-	 * same signal, but it is best-effort and invisible in some clients, so a slow
-	 * turn gets one plain line instead of silence.
-	 */
-	function armSlowNotice(peer: string, contextToken: string | undefined): void {
-		stopSlowNotice(peer);
-		slowTimers.set(
-			peer,
-			armTimer(TURN_NOTICE_MS, () => {
-				slowTimers.delete(peer);
-				if (worker?.state(peer).status !== "running") return;
-				// A turn waiting on an unanswered dialog is not "still working": the
-				// prompt itself nudges at 90 seconds, and saying both reads as noise.
-				if (interaction.hasPending()) return;
-				void reply({ peer, contextToken }, notice("stillWorking", languageOf(peer)));
-			}),
-		);
-	}
-
-	/**
-	 * Say once why a message is still waiting: this peer's turn is still running,
-	 * so theirs has not started. Bounded to one line per wait episode.
-	 */
-	function armBusyNotice(peer: string, contextToken: string | undefined): void {
-		if (busyNotified.has(peer) || busyTimers.has(peer)) return;
-		busyTimers.set(
-			peer,
-			armTimer(BUSY_NOTICE_MS, () => {
-				busyTimers.delete(peer);
-				if (!hasWork(peer) || busyNotified.has(peer)) return;
-				busyNotified.add(peer);
-				void reply({ peer, contextToken }, notice("busy", languageOf(peer)));
-			}),
-		);
-	}
-
-	function cancelAck(peer: string): void {
-		const cancel = acks.get(peer);
-		if (!cancel) return;
-		acks.delete(peer);
-		cancel();
-	}
-
-	function cancelAllAcks(): void {
-		for (const cancel of acks.values()) cancel();
-		acks.clear();
-	}
-
-	/**
-	 * Tell a queued peer, once, that their message is waiting. A turn that starts
-	 * within {@link ACK_DELAY_MS} cancels this, because the typing indicator says
-	 * the same thing without spending a bubble.
-	 */
-	function armAck(item: InboundItem): void {
-		// A turn for this peer is already running: its own progress notice covers
-		// this message, so a second acknowledgement would be noise.
-		if (worker?.state(item.peer).status === "running") return;
-		if (acks.has(item.peer)) return;
-		const last = ackedAt.get(item.peer);
-		if (last !== undefined && deps.now() - last < ACK_REPEAT_MS) return;
-		acks.set(
-			item.peer,
-			armTimer(ACK_DELAY_MS, () => {
-				acks.delete(item.peer);
-				if (!hasWork(item.peer) || worker?.state(item.peer).status === "running") return;
-				ackedAt.set(item.peer, deps.now());
-				void reply(item, notice("ack", languageOf(item.peer)));
-				// Still waiting after a minute behind another turn: say why.
-				armBusyNotice(item.peer, item.contextToken);
-			}),
-		);
-	}
-
-	/**
-	 * Download, decrypt, and split what the peer sent into a prompt text and image
-	 * blocks. A file is saved and referenced by path; an image becomes model image
-	 * content. Every failure is counted so the peer can be told.
-	 */
-	async function resolveMedia(item: InboundItem): Promise<{
-		images: ImageContent[];
-		files: string[];
-		dropped: number;
-	}> {
-		const images: ImageContent[] = [];
-		const files: string[] = [];
-		let dropped = 0;
-		for (const ref of item.media) {
-			if (!client) break;
-			try {
-				const cipher = await client.downloadCdn(ref.media, abort?.signal);
-				if (cipher.byteLength > deps.config.maxMediaBytes) {
-					mediaDropped += 1;
-					dropped += 1;
-					notify(`WeChat media dropped: over ${deps.config.maxMediaBytes} bytes.`, "warning");
-					continue;
-				}
-				if (ref.kind === "file") {
-					if (!ref.media.aes_key) throw new Error("missing AES key");
-					const plain = decryptEcb(cipher, decodeMediaKey(ref.media.aes_key));
-					mediaCounter += 1;
-					const path = saveMedia(deps.mediaDir(), `${deps.now()}-${mediaCounter}-${ref.fileName}`, plain);
-					files.push(`[WeChat file: ${ref.fileName} saved to ${path}]`);
-				} else {
-					// Without a key the bytes are not the image the peer sent; attaching them
-					// anyway would hand the model a corrupt JPEG.
-					const key = ref.aeskey ?? ref.media.aes_key;
-					if (!key) throw new Error("missing AES key");
-					const plain = decryptEcb(cipher, decodeMediaKey(key));
-					images.push({
-						type: "image",
-						data: Buffer.from(plain).toString("base64"),
-						mimeType: sniffImageMime(plain),
-					});
-				}
-			} catch (error) {
-				mediaDropped += 1;
-				dropped += 1;
-				notify(`WeChat media dropped: ${messageOf(error)}`, "warning");
-			}
-		}
-		return { images, files, dropped };
-	}
-
-	/**
-	 * Resolve media, then hand the message to the peer's own session.
-	 *
-	 * An attachment the bridge could not read is never silent: the model gets a
-	 * `[WeChat media skipped]` block and the peer's reply opens with one line, so a
-	 * failed download cannot look like the model ignoring a photo. A message with
-	 * nothing readable is answered here instead of starting an empty turn.
-	 */
-	async function admit(item: InboundItem): Promise<void> {
-		let text = item.text;
-		let images: ImageContent[] | undefined;
-		let prefix: string | undefined;
-		if (item.media.length > 0) {
-			const resolved = await resolveMedia(item);
-			if (!running) return;
-			if (!text && resolved.images.length === 0 && resolved.files.length === 0) {
-				if (resolved.dropped > 0) prefix = notice("media", item.language, resolved.dropped);
-				await reply(item, prefix ?? notice("unsupported", item.language));
-				pruneTyping();
-				return;
-			}
-			if (resolved.dropped > 0) {
-				prefix = notice("media", item.language, resolved.dropped);
-				text = [text, `[WeChat media skipped: ${resolved.dropped}]`].filter(Boolean).join("\n");
-			}
-			if (resolved.files.length > 0) text = [text, ...resolved.files].filter(Boolean).join("\n");
-			images = resolved.images.length > 0 ? resolved.images : undefined;
-		}
-		if (!text && !images) {
-			await reply(item, notice("unsupported", item.language));
-			pruneTyping();
-			return;
-		}
-		const queued: PeerItem = {
-			peer: item.peer,
-			text,
-			images,
-			prefix,
-			language: item.language,
-			contextToken: item.contextToken,
-		};
-		worker?.enqueue(queued);
-	}
+	/** Inbound media resolution and the hand-off to a peer session. */
+	const inbound = createInboundAdmission({
+		client: () => client,
+		account: () => account,
+		signal: () => abort?.signal,
+		maxMediaBytes: () => deps.config.maxMediaBytes,
+		mediaDir: deps.mediaDir,
+		now: deps.now,
+		notify,
+		reply: (target, text) => reply(target, text),
+		enqueue: (item) => worker?.enqueue(item),
+		pruneTyping: () => presence.pruneTyping(),
+		isRunning: () => running,
+	});
+	/** The hourly turn budget and the serial admission chain. */
+	const budget = createTurnBudget(deps.config.maxTurnsPerHour, deps.now);
+	const admission = createAdmissionQueue({ admit: inbound.admit, notify });
 
 	function handleMessage(message: WeixinMessage): void {
 		if (!isInboundMessage(message)) return;
@@ -799,11 +382,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 		// A slot is reserved here, before the download, so a burst of media cannot
 		// all pass the check and then enqueue together.
-		if (!allowTurn(peer)) {
+		if (!budget.allow(peer)) {
 			void reply(item, notice("budget", language));
 			return;
 		}
-		const busy = (worker?.state(peer).queued ?? 0) + (admitting.get(peer) ?? 0);
+		const busy = (worker?.state(peer).queued ?? 0) + admission.pending(peer);
 		if (busy >= MAX_QUEUE) {
 			// Refuse rather than grow without bound; one notice per episode, not per
 			// dropped message.
@@ -813,100 +396,48 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			}
 			return;
 		}
-		keepTyping(peer, item.contextToken);
-		armAck(item);
-		admitting.set(peer, (admitting.get(peer) ?? 0) + 1);
-		const previous = admitChains.get(peer) ?? Promise.resolve();
-		const next = previous
-			.then(async () => {
-				await admit(item);
-			})
-			.catch((error) => {
-				// One bad admission must not stall the peer's chain forever.
-				notify(`WeChat could not accept a message: ${messageOf(error)}`, "warning");
-			})
-			.finally(() => {
-				const left = (admitting.get(peer) ?? 1) - 1;
-				if (left > 0) admitting.set(peer, left);
-				else admitting.delete(peer);
-			});
-		admitChains.set(peer, next);
-		void next.finally(() => {
-			if (admitChains.get(peer) === next) admitChains.delete(peer);
-		});
+		presence.keepTyping(peer, item.contextToken);
+		presence.armAck(item);
+		admission.enqueue(item);
 	}
 
-	async function loop(signal: AbortSignal): Promise<void> {
-		// The server tells us how long it holds a poll; remember it so the watchdog
-		// can be tight instead of the generic fallback.
-		let serverHint: number | undefined;
-		/** One notice per failure episode, so a flapping link is reported once. */
-		let timeoutNotified = false;
-		let rejectedNotified = false;
-		while (running && !signal.aborted) {
-			if (!client || !account) break;
-			const watchdogMs = pollTimeout(serverHint ?? deps.config.pollHoldMs);
-			// A cancellable watchdog: `AbortSignal.timeout` cannot be cleared, and a
-			// pending timer per poll would keep the process awake long after the request
-			// settled. Unref'd, so a wedged poll never holds a shutdown open either.
-			const watchdog = new AbortController();
-			const watchdogTimer = setTimeout(() => watchdog.abort(), watchdogMs);
-			(watchdogTimer as { unref?: () => void }).unref?.();
-			let response;
-			try {
-				response = await client.getUpdates(account, state.cursor, AbortSignal.any([signal, watchdog.signal]), {
-					holdMs: deps.config.pollHoldMs,
-				});
-			} catch (error) {
-				if (signal.aborted || !running) break;
-				if (watchdog.signal.aborted) {
-					// A wedged request, not a server answer: retry at once with the same
-					// cursor, so nothing is skipped, and say so once.
-					if (!timeoutNotified) {
-						timeoutNotified = true;
-						notify(`WeChat poll timed out after ${Math.round(watchdogMs / 1000)}s; retrying.`, "warning");
-					}
-					continue;
-				}
-				notify(`WeChat poll failed: ${messageOf(error)}`, "warning");
-				try {
-					await sleep(BACKOFF_MS, signal);
-				} catch {
-					break;
-				}
-				continue;
-			} finally {
-				clearTimeout(watchdogTimer);
-			}
-			if (!response) break;
-			if (response.timeoutMs !== undefined && response.timeoutMs > 0) serverHint = response.timeoutMs;
-			if (isSessionExpired(response)) {
-				handleExpired();
-				return;
-			}
-			if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
-				// A body-level rejection (bad cursor, rate limit, revoked token) is not an
-				// empty poll: report it once and back off instead of hammering the API.
-				if (!rejectedNotified) {
-					rejectedNotified = true;
-					notify(`WeChat poll rejected (ret ${response.ret ?? response.errcode}); retrying.`, "warning");
-				}
-				try {
-					await sleep(BACKOFF_MS, signal);
-				} catch {
-					break;
-				}
-				continue;
-			}
-			timeoutNotified = false;
-			rejectedNotified = false;
-			if (response.buf && response.buf !== state.cursor) {
-				state.cursor = response.buf;
-				deps.saveState(state);
-			}
-			for (const message of response.msgs) handleMessage(message);
-			deps.refreshLock();
-		}
+	/** The long-poll loop; it reads the live client, cursor, and state. */
+	const poll = createPollLoop({
+		client: () => client,
+		account: () => account,
+		holdMs: () => deps.config.pollHoldMs,
+		cursor: () => state.cursor,
+		setCursor: (cursor) => {
+			state.cursor = cursor;
+		},
+		saveState: () => deps.saveState(state),
+		sleep,
+		notify,
+		onExpired: handleExpired,
+		onMessages: (messages) => {
+			for (const message of messages) handleMessage(message);
+		},
+		refreshLock: deps.refreshLock,
+		isRunning: () => running,
+		pollTimeout,
+	});
+
+	/**
+	 * Drop everything one connection accumulated. Called when a connection opens
+	 * and when it closes, so a counter from the previous connection can never leak
+	 * into the next one's status or hourly window.
+	 */
+	function resetEphemeral(): void {
+		languages.clear();
+		overflow.clear();
+		refused = 0;
+		refusedPeers.clear();
+		interaction.reset();
+		deliverer.reset();
+		presence.reset();
+		budget.reset();
+		admission.reset();
+		inbound.reset();
 	}
 
 	function releaseSafe(): void {
@@ -950,14 +481,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			}
 			running = true;
 			expired = false;
-			typingCache.clear();
-			languages.clear();
-			ackedAt.clear();
-			overflow.clear();
-			turnTimes.clear();
-			stopAllTyping();
-			cancelAllAcks();
-			interaction.reset();
+			resetEphemeral();
 			// One worker per connection: it owns the per-peer queues and sessions, so
 			// a login (or a reconnect after an expiry) starts from a clean slate while
 			// each peer's history stays on disk.
@@ -968,20 +492,20 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				send: (item, text) => reply(item, text),
 				fallback: (item, reason) => notice(reason, item.language),
 				onStart: (item) => {
-					cancelAck(item.peer);
-					stopBusyNotice(item.peer);
-					keepTyping(item.peer, item.contextToken);
-					armSlowNotice(item.peer, item.contextToken);
+					presence.cancelAck(item.peer);
+					presence.stopBusyNotice(item.peer);
+					presence.keepTyping(item.peer, item.contextToken);
+					presence.armSlowNotice(item.peer, item.contextToken);
 				},
 				onSettled: (item) => {
-					stopSlowNotice(item.peer);
-					stopBusyNotice(item.peer);
-					stopTyping(item.peer);
-					void typingOff(item.peer);
-					pruneTyping();
+					presence.stopSlowNotice(item.peer);
+					presence.stopBusyNotice(item.peer);
+					presence.stopTyping(item.peer);
+					void presence.typingOff(item.peer);
+					presence.pruneTyping();
 					languages.set(item.peer, item.language);
 					// The flood notice is per episode: clear it once the queue drains.
-					const left = (worker?.state(item.peer).queued ?? 0) + (admitting.get(item.peer) ?? 0);
+					const left = (worker?.state(item.peer).queued ?? 0) + admission.pending(item.peer);
 					if (left === 0) overflow.delete(item.peer);
 				},
 				notify,
@@ -990,7 +514,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			});
 			publishState();
 			abort = new AbortController();
-			loopPromise = loop(abort.signal).catch((error) => {
+			loopPromise = poll.run(abort.signal).catch((error) => {
 				notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
 			});
 		},
@@ -1014,16 +538,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			const closing = worker;
 			worker = undefined;
 			await closing?.close();
-			for (const cancel of busyTimers.values()) cancel();
-			busyTimers.clear();
-			busyNotified.clear();
-			for (const cancel of slowTimers.values()) cancel();
-			slowTimers.clear();
-			stopAllTyping();
-			cancelAllAcks();
-			overflow.clear();
-			turnTimes.clear();
-			interaction.reset();
+			resetEphemeral();
 			publishState();
 			releaseSafe();
 		},
@@ -1056,7 +571,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				running: states.some((entry) => entry.state.status === "running"),
 				refused,
 				refusedPeers: [...refusedPeers],
-				mediaDropped,
+				mediaDropped: inbound.dropped(),
 				promptPending: interaction.hasPending(),
 			};
 		},
@@ -1081,16 +596,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			// Either id form may be stored: the owner id comes from the login response
 			// and the token from an inbound `from_user_id`, and they need not agree.
 			const contextToken = findPeer(state, owner)?.lastContextToken;
-			let failure: string | undefined;
-			const delivery = await deliverText(owner, contextToken, trimmed, abort?.signal, (error, progress) => {
-				forgetToken(owner);
-				const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
-				failure = `${messageOf(error)}${partial}`;
-			});
-			if (delivery.expired) return { ok: false, error: "WeChat session expired." };
-			if (delivery.empty) return { ok: false, error: "Nothing to send after formatting." };
-			if (!delivery.ok) return { ok: false, error: failure ?? "WeChat send failed." };
-			return { ok: true };
+			return deliverer.toOwner(owner, contextToken, trimmed, abort?.signal);
 		},
 	};
 }

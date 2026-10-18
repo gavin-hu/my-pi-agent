@@ -465,7 +465,12 @@ status, which is what the old start/stop guidance used to do.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge, open peer sessions from the host context. |
-| `bridge.ts` | The shared loop: poll, admission, media, typing, notices, reply transport, connection state, abort; hands each message to the peer worker. |
+| `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle, slash dispatch, the status snapshot, and `sendToOwner`. |
+| `poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence, and the expiry stop. |
+| `deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
+| `presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
+| `admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain. |
+| `inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
 | `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
 | `channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
 | `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep. |
