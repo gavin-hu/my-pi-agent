@@ -26,7 +26,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { canonicalize, checkCheckout, repoRoot, unlockWorktree } from "./git.ts";
-import { analyzeBashCommand, guardFileTool, isUnverifiable } from "./guard.ts";
+import { analyzeBashCommand, guardFileTool, guardPowershellTool, isUnverifiable } from "./guard.ts";
 import {
 	enterWorktree,
 	findInactiveOverrides,
@@ -212,6 +212,9 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 			if (!block && isUnverifiable(command)) noteUnverifiableCommand();
 			return block;
 		}
+		// The Windows shell has no re-rooting and no guard, so it is refused rather
+		// than checked; the switch that allows it is reported as a gap.
+		if (event.toolName === "powershell") return guardPowershellTool(config);
 		return guardFileTool(event.toolName, event.input, state.path, config);
 	});
 

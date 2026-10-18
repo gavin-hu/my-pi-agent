@@ -20,6 +20,15 @@ export interface WorktreeGuardConfig {
 	blockSymlinkEscapes: boolean;
 	/** Block commands whose git behavior cannot be verified. Default: false */
 	blockUnparsableCommands: boolean;
+	/**
+	 * Refuse the `powershell` tool while isolated. Default: true
+	 *
+	 * Pi's `powershell` tool is neither re-rooted nor guarded — a second grammar
+	 * (backtick escapes, `Set-Location`, `$env:GIT_DIR`) would need a second parser —
+	 * so inside a worktree its relative paths resolve at the main checkout. Refusing
+	 * it is the only honest isolation; `false` allows it and is reported as a gap.
+	 */
+	blockPowershell: boolean;
 }
 
 export interface WorktreeConfig {
@@ -57,6 +66,7 @@ export const DEFAULT_CONFIG: WorktreeConfig = {
 		blockGitRedirects: true,
 		blockSymlinkEscapes: true,
 		blockUnparsableCommands: false,
+		blockPowershell: true,
 	},
 };
 
@@ -81,6 +91,7 @@ function normalizeGuard(raw: unknown, base: WorktreeGuardConfig): WorktreeGuardC
 		blockGitRedirects: booleanOr(value.blockGitRedirects, base.blockGitRedirects),
 		blockSymlinkEscapes: booleanOr(value.blockSymlinkEscapes, base.blockSymlinkEscapes),
 		blockUnparsableCommands: booleanOr(value.blockUnparsableCommands, base.blockUnparsableCommands),
+		blockPowershell: booleanOr(value.blockPowershell, base.blockPowershell),
 	};
 }
 

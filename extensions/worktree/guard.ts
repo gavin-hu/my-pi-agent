@@ -8,7 +8,8 @@
  *   1. file edits that resolve outside the active worktree (absolute paths);
  *   2. a shell command whose working directory leaves the worktree;
  *   3. git commands redirected at the main checkout;
- *   4. (optional) commands whose text cannot be statically verified.
+ *   4. (optional) commands whose text cannot be statically verified;
+ *   5. the un-re-rooted `powershell` tool, which has no guard of its own.
  */
 
 import { homedir } from "node:os";
@@ -534,6 +535,37 @@ function cdRedirect(root: string, words: ShellWord[]): string | undefined {
 	if (target === "-") return `${command} - goes to a previous directory, outside the worktree.`;
 	if (pathEscapes(root, target)) return `${command} ${target} leaves the active worktree.`;
 	return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// The powershell tool (check 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Refuse the `powershell` tool while isolated.
+ *
+ * Pi's `powershell` tool is neither re-rooted nor guarded: it is not in
+ * `ROOT_TOOL_NAMES`, and its language is a second grammar — backtick escapes,
+ * `Set-Location`, `$env:GIT_DIR`, `--%` — so `analyzeBashCommand` would be
+ * guessing. Inside a worktree its relative paths therefore resolve at the main
+ * checkout, the checkout isolation exists to protect.
+ *
+ * Re-rooting it without a parser would be worse than refusing it: it would look
+ * isolated while every one of those forms still walks out. So the isolated
+ * session refuses the tool, the same answer plan mode gives, and
+ * `guard.blockPowershell: false` is the documented opt-out — which `gaps.ts`
+ * reports and `doctor` shows as `degraded`.
+ */
+export function guardPowershellTool(config: WorktreeConfig): GuardBlock | undefined {
+	if (!config.guard.blockPowershell) return undefined;
+	return {
+		block: true,
+		reason:
+			"Refusing to run powershell inside an isolated worktree: it is not re-rooted or guarded, " +
+			"so relative paths and git would run against the main checkout. " +
+			"Use bash, which is re-rooted and guarded, or exit the worktree first. " +
+			"(worktree.guard.blockPowershell turns this refusal off.)",
+	};
 }
 
 /** Checks 2-4 for a bash command while isolated. */

@@ -64,13 +64,16 @@ worktrees:
 ```text
 Not isolated:
   ! shell       runs in the main checkout; Pi has no mutable session cwd
-  powershell    not re-rooted or guarded; only the model's own tools are
+  powershell    allowed by worktree.guard.blockPowershell: false; not re-rooted or guarded
   unverifiable  $(...), backticks, eval, and sh -c pass through (blockUnparsableCommands is off); 2 ran this session
 ```
 
-`powershell` appears only on Windows with that tool active, and `unverifiable`
-only while `guard.blockUnparsableCommands` is off; its trailing count is this
-session's, reset at session start. `doctor` notes the same gaps for `worktree`.
+`powershell` appears only on Windows, with that tool active, and only when
+`guard.blockPowershell` lets it through — by default the guard refuses the call
+instead, so there is no gap to report. `unverifiable` appears only while
+`guard.blockUnparsableCommands` is off; its trailing count is this session's,
+reset at session start. `doctor` reports the `powershell` switch as `degraded`
+when it is off and notes the two structural gaps, which no setting closes.
 
 The model surface mirrors this with four tools:
 
@@ -103,7 +106,8 @@ The `worktree` section of the shared `bytefly.json` (global document, then
     "blockReadEscapes": false,
     "blockGitRedirects": true,
     "blockSymlinkEscapes": true,
-    "blockUnparsableCommands": false
+    "blockUnparsableCommands": false,
+    "blockPowershell": true
   }
 }
 ```
@@ -141,6 +145,15 @@ when `blockUnparsableCommands` is enabled.
 This guard covers the built-in file tools and these common shell forms. It
 cannot contain a program that computes and writes an absolute path itself (for
 example a script or an inlined interpreter).
+
+Windows `powershell` is refused outright while the session is isolated rather
+than parsed. It is not one of the tools this extension re-roots, and its language
+is a second grammar — backtick escapes, `Set-Location`, `$env:GIT_DIR`, `--%` —
+so the bash checks would be guessing about a shell that starts in the main
+checkout. Refusing it is the same answer plan mode gives, and `bash` (re-rooted
+and guarded) stays available. `guard.blockPowershell: false` allows the tool
+again; that is a deliberate trade, so it is reported: `/worktree` lists the gap
+and `doctor` reports the switch as `degraded`.
 
 ## Gitignored files
 
@@ -212,6 +225,9 @@ use, falling back to directory mtime for a worktree with no record.
   and still runs in the main checkout; Pi has no mutable session cwd to change
   that. `/worktree` and `list_worktrees` report the active root, and list the
   shell under `Not isolated:` on every status read.
+- Windows `powershell` is refused while isolated, or — with
+  `guard.blockPowershell: false` — allowed and unguarded. There is no third
+  state: a parsed PowerShell command that keeps the tool.
 
 ## Non-goals
 
@@ -220,8 +236,8 @@ use, falling back to directory mtime for a worktree with no record.
   knows about. It does not rename, rebase, merge, or push branches.
 - **No user-shell re-rooting.** A shell the user runs directly (`!` /
   `user_bash`) is not isolated.
-- **No Windows `powershell` surface.** The overrides guard the POSIX `bash`
-  tool only.
+- **No PowerShell guard.** `powershell` is refused while isolated, not parsed;
+  teaching the guard a second grammar belongs with an OS sandbox, not here.
 
 ## Pi integration
 
@@ -229,10 +245,10 @@ use, falling back to directory mtime for a worktree with no record.
 |---|---|
 | Registration | The default export calls `registerWorktree`: root-tool overrides, the `--worktree` flag, lifecycle listeners, model tools, and the `/worktree` command. Nothing long-lived starts at load. |
 | Tools | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` via `registerTool`. All `executionMode: "sequential"`. Annotations: `enter_worktree` destructive + open-world; `exit_worktree`/`prune_worktrees` destructive; `list_worktrees` read-only. No `outputSchema`; structured state is returned in tool-result `details`. |
-| Built-in overrides | `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` are re-registered under the same names with `defaultActive: false`; each spreads the built-in definition and replaces only `execute`. `skipOverrides` is applied at load time. |
+| Built-in overrides | `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` are re-registered under the same names with `defaultActive: false`; each spreads the built-in definition and replaces only `execute`. `skipOverrides` is applied at load time. `powershell` is deliberately not overridden: it cannot be re-rooted without a guard, so the `tool_call` handler refuses it (see `guard.blockPowershell`). |
 | Commands | `/worktree` via `registerCommand`, with argument completions for the subcommands and exit flags. |
 | Flags | `--worktree` via `registerFlag`. |
-| Events | `session_start` (bind inherited env, restore or refuse recorded state, read the flag), `session_shutdown` (release the lock, clear status), `before_agent_start` (set the prompt cwd and worktree section), `tool_call` (guard, and count a command it lets through unverified). |
+| Events | `session_start` (bind inherited env, restore or refuse recorded state, read the flag), `session_shutdown` (release the lock, clear status), `before_agent_start` (set the prompt cwd and worktree section), `tool_call` (guard file tools and `bash`, refuse `powershell`, and count a command it lets through unverified). |
 | State | The binding is a custom session entry (`worktree`) written with `pi.appendEntry` and rebuilt from `ctx.sessionManager.getBranch()` on `session_start`. `.pi/worktrees/index.json` is a disposable managed-record cache, reconciled against `git worktree list`. Child processes inherit `PI_WORKTREE_*` env. |
 | UI/events | Status chip via `ctx.ui.setStatus`; `worktree:changed` published on `pi.events`. |
 
@@ -249,11 +265,12 @@ use, falling back to directory mtime for a worktree with no record.
   centrally from the `tool_call` handler, so nested tool calls are covered too.
 - **A gap the user cannot see is a gap they cannot weigh.** Re-rooting is not
   isolating: Pi has no mutable session cwd, so the user's own `!` shell stays in
-  the main checkout, `powershell` has no worktree surface, and an unverifiable
-  command passes by default. Those rules live in `gaps.ts` as data, the status
-  text renders them, `doctor` notes them, and the `tool_call` handler counts the
-  one gap the transcript cannot show: a command the guard let through without
-  verifying it. Enforcing them is separate work, not a reporting concern.
+  the main checkout, an unverifiable command passes by default, and `powershell`
+  would run unguarded if it were allowed. Those rules live in `gaps.ts` as data,
+  the status text renders them, and the `tool_call` handler counts the one gap the
+  transcript cannot show: a command the guard let through without verifying it.
+  The two gaps a setting can close are closed — `powershell` is refused, and an
+  opt-out is reported by the status and by `doctor`.
 - **Core model: Checkout / Managed record / Binding.** A *Checkout* is a real
   `git worktree` and git is authoritative about it. A *Managed record* is
   provenance and usage in a disposable index. A *Binding* is this session's
@@ -290,7 +307,7 @@ use, falling back to directory mtime for a worktree with no record.
 | `tools.ts` / `commands.ts` | Model tools / slash commands |
 | `root-tools.ts` | Load-time built-in overrides bound to the active root |
 | `git.ts` | Git plumbing (shared runner + read helpers) |
-| `guard.ts` | Path, shell, and git-redirect isolation checks |
+| `guard.ts` | Path, shell, and git-redirect isolation checks, plus the `powershell` refusal |
 | `gaps.ts` | The isolation gaps a session carries, and how they read (pure) |
 | `include.ts` | `.worktreeinclude` matcher and copy |
 | `config.ts` / `state.ts` / `status.ts` | Config, session entry shape, status text |

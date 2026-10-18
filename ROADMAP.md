@@ -59,20 +59,21 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | — |
 | Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1–P3 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S5 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S4 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C9, F1–F6 |
 
 ## If only three things ship
 
-1. **S1 — Guard parity on Windows.** Block `powershell` escapes in the worktree
-   guard the way plan mode already does, or report the gap as `degraded`.
-2. **F1 — Release provenance.** Publish npm with `--provenance` from a protected
+1. **F1 — Release provenance.** Publish npm with `--provenance` from a protected
    workflow that still requires the per-release approval, so a published release
    is verifiably built from this repository.
-3. **C1 — Settings completion.** Close the scalar-only gap in the control center,
+2. **C1 — Settings completion.** Close the scalar-only gap in the control center,
    starting with the notify trigger toggles and `doctor.timeoutMs`.
+3. **P1 — Job parity on Windows.** A detached job should either survive the
+   session or be refused with a clear message, and unknown exit codes should be
+   named in `doctor`.
 
 ## Horizons
 
@@ -146,8 +147,8 @@ contributes no `Now` item.
 
 - The user's own `!` shell is not re-rooted; it still runs in the main checkout
   (`worktree` README).
-- `skipOverrides` leaves the skipped tool unguarded for relative paths, and
-  Windows `powershell` has no worktree surface (`worktree` README).
+- `skipOverrides` leaves the skipped tool unguarded for relative paths
+  (`worktree` README).
 - Shell escape detection is best-effort; `eval`, `sh -c`, and command
   substitution are covered only behind `blockUnparsableCommands` (`worktree`
   README).
@@ -166,23 +167,22 @@ This section contributes no `Now` item.
 
 **Next**
 
-- **S1 — Guard parity on Windows.** Block `powershell` escapes in the worktree
-  guard the way plan mode already does, or report the gap as `degraded`. *Done
-  when* a Windows test covers an escape attempt.
+Nothing here is queued: the one gap that could be closed by refusing a tool is
+closed, and the rest are structural. This section contributes no `Next` item.
 
 **Later**
 
-- **S2 — Partial restore.** Per-file or per-directory rewind from a snapshot,
+- **S1 — Partial restore.** Per-file or per-directory rewind from a snapshot,
   with the same confirmation and dirty-tree rules that the whole-tree restore
   already has. This reverses the current all-or-nothing non-goal; design the UI
   before the tool.
-- **S3 — Worktree handoff.** A checked way to leave a worktree with a commit and
+- **S2 — Worktree handoff.** A checked way to leave a worktree with a commit and
   a merge or pull-request hint, without becoming a general branch manager. The
   branch flow in `AGENTS.md` is the contract to keep.
-- **S4 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S3 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics.
-- **S5 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S4 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -346,10 +346,10 @@ it.
 
 | Limitation | Why it has no item |
 |---|---|
-| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard. Revisit with `S4`. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S3`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
-| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S2`. |
-| `rewind`: a restore is all-or-nothing | A non-goal until `S2`; the confirmation already previews the change. |
+| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; revisit with `S1`. |
+| `rewind`: a restore is all-or-nothing | A non-goal until `S1`; the confirmation already previews the change. |
 | `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |

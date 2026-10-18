@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `worktree`: the Windows `powershell` tool is now refused while a session is
+  isolated. It was never re-rooted, so its relative paths resolved at the main
+  checkout — the one the worktree exists to protect — and its grammar (backtick
+  escapes, `Set-Location`, `$env:GIT_DIR`) is not what the bash guard reads, so
+  re-rooting it without a parser would have looked isolated and not been.
+  `worktree.guard.blockPowershell` (default `true`) turns the refusal off; that
+  trade is then reported: `/worktree` keeps listing the gap, and `doctor` reports
+  the switch as `degraded` through a new config-driven `safety` check.
+
 - `bytefly`: the published-version check now caches its answer in
   `<agentDir>/bytefly/update.json` with the time it was read, so a session that
   starts inside the 24-hour window reuses it instead of repeating the request,

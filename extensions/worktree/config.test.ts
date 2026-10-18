@@ -38,6 +38,19 @@ describe("loadConfig", () => {
 		expect(config.guard.blockFileEscapes).toBe(DEFAULT_CONFIG.guard.blockFileEscapes);
 	});
 
+	test("refuses powershell while isolated unless the switch turns it off", () => {
+		const repo = tempDir("worktree-repo-");
+		expect(loadConfig(repo, tempDir("worktree-global-")).guard.blockPowershell).toBe(true);
+
+		mkdirSync(join(repo, ".pi"), { recursive: true });
+		writeFileSync(
+			join(repo, ".pi", "bytefly.json"),
+			JSON.stringify({ worktree: { guard: { blockPowershell: false } } }),
+		);
+
+		expect(loadConfig(repo, tempDir("worktree-global-")).guard.blockPowershell).toBe(false);
+	});
+
 	test("replaces include and skipOverrides wholesale instead of appending", () => {
 		const globalDir = tempDir("worktree-global-");
 		const repo = tempDir("worktree-repo-");
