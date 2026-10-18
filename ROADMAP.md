@@ -66,23 +66,24 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C6, F1–F3 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C6, F1–F2 |
 
 ## If only three things ship
 
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
-2. **F1 — Test expansion.** Browser-page and plan-review coverage through the pure
-   router and rendered HTML, without a real browser in CI.
-3. **C2 — Control-center breadth.** *Decision first:* whether themes, skills, and
+2. **C2 — Control-center breadth.** *Decision first:* whether themes, skills, and
    prompts belong in the picker or stay with `pi config`; if they do, they need the
    same health and scope rules as extensions.
+3. **C3 — Price freshness.** Record when a built-in rate table was last verified and
+   surface its age in `doctor`, so a tariff change is visible instead of silently
+   wrong.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the numbers honest and the coverage real? | `C1` and `F1` ship: no hosted model under-reports its cost, and the browser page is covered through its router without a real browser. |
+| **Now** (highest priority) | Are the numbers honest and the coverage real? | `C1` ships: no hosted model under-reports its cost, and every page the package serves is covered through its router without a browser. |
 | **Next** (queued) | Does the daily loop feel finished? | `P1` ships: per-run delegation transcripts under a retention rule. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
@@ -300,11 +301,8 @@ These are not a README pillar, but every promise depends on them.
 **Now**
 
 Nothing here makes a false promise today: the docs are checked against the code,
-the catalog, and each other. What no doc guard can give is coverage of the
-surfaces those docs describe:
-
-- **F1 — Test expansion.** Browser-page and plan-review coverage through the
-  pure router and rendered HTML, without a real browser in CI.
+the catalog, and each other, and the pages they describe are covered through their
+routers rather than a browser. This section contributes no `Now` item.
 
 **Next**
 
@@ -313,10 +311,10 @@ provenance-attested path. This section contributes no `Next` item.
 
 **Later**
 
-- **F2 — Dependency budget.** A check that a new runtime dependency is
+- **F1 — Dependency budget.** A check that a new runtime dependency is
   lazy-loaded unless it is needed at registration, matching the `document` and
   `web-access` pattern.
-- **F3 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
+- **F2 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
 
 ## Deliberately left thin
@@ -398,5 +396,5 @@ These stay out unless a roadmap item says otherwise:
 - Renumbering an item means grepping the Promise ledger, the three-things list,
   and the section intros; `test/roadmap.test.ts` fails on a dangling ID or a
   bucket over the cap.
-- Small, self-contained first tasks: the dependency budget (`F2`), and the SBOM
-  (`F3`) once a consumer asks for one.
+- Small, self-contained first tasks: the dependency budget (`F1`), and the SBOM
+  (`F2`) once a consumer asks for one.

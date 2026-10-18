@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- dev: the browse and plan-review pages are covered through their pure routers and
+  rendered HTML, with no browser: a failing `git` diff provider now proves it
+  degrades to a page without change markers (and 404 for a single file) instead of
+  a 500, a malformed request target answers 400 on both routers, the too-large and
+  binary file pages are rendered, and a diff's context lines are asserted to take
+  part in the syntax-highlight pairing. `file-browse/html.ts` and
+  `plan/web-router.ts` are at 100% lines with those paths reached; the socket
+  handlers and the review session's abort cleanup stay out, since they need a real
+  connection rather than a router.
+
 - `bytefly`: `price.budget` puts a session budget under the footer's cost total, in
   the selected currency. The first turn that pushes the session's spend to it posts
   one `bytefly · Session budget reached` notice naming the figures and, when notify
