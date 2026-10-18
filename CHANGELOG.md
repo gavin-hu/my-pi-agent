@@ -14,9 +14,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ignores both. The switch is also a Currency row in `/bytefly settings`; it
   chooses a method, not an exchange rate, and `currency.symbol`/`decimals`
   still control how the total is printed.
-
-### Added
-
 - `bytefly`: text settings are editable on the `/bytefly settings` screen. A text
   row opens an inline editor with a caret (`←`/`→`, `Home`/`End`, `Backspace`,
   `Ctrl+U`), `Enter` saves, and `Esc` cancels without touching the file; a value
