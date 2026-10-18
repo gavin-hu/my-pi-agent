@@ -90,7 +90,6 @@ ${WEB_COMPONENTS_CSS}
 .review-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* Review panel: the plan's review facts, the section outline, then the keys. */
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
-.bf-app__sidebar .bf-panel{flex:1 1 auto;min-height:0;min-width:0}
 .review-panel{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) var(--space-4) var(--space-2)}
 .review-facts{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);border-bottom:1px solid var(--border)}
 .review-fact{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
