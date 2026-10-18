@@ -57,8 +57,8 @@ screenshots.
 
 | README promise | Today | Next move |
 |---|---|---|
-| Plan, then execute | Strong; review state and plan history have gaps | P1–P2, P4 |
-| Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P3, P5–P7 |
+| Plan, then execute | Strong; review state and plan history have gaps | P1, P3 |
+| Delegate and parallelize | Strong; a child run's cost is shown in its result but never folded into the parent total, which is a documented non-goal | P2, P4–P6 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S6 |
 | Remember across sessions | Works; the store reports its own health | S1 |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W8 |
@@ -66,13 +66,13 @@ screenshots.
 
 ## If only three things ship
 
-1. **P1 — Plan index.** Plans are files with no index; a reader who wants an old
-   plan has to know its path.
-2. **S1 — Note promotion.** A note learned in one repository should graduate to
+1. **S1 — Note promotion.** A note learned in one repository should graduate to
    global scope from the picker, without a manual file copy.
-3. **P2 — Objective handoff.** Starting plan mode with a goal, or approving a plan
+2. **P1 — Objective handoff.** Starting plan mode with a goal, or approving a plan
    with none, should carry the objective across the boundary without a second
    model call.
+3. **P2 — Delegation accounting.** A child run's cost should be visible as its own
+   roll-up, without folding it into the parent total.
 
 ## Horizons
 
@@ -102,8 +102,8 @@ this file, as the record of what shipped.
 
 - A step longer than 200 characters is shortened in the todo list and the
   approval listing (`plan` README); the plan file keeps the full text.
-- The plans directory is the only index; there is no way to discover or list
-  prior plans, and reopening one requires knowing its path (`plan` README).
+- Prior plans are only discoverable through `/plan list`, which walks the
+  directory on demand; there is no cross-repository history (`plan` README).
 - A subagent's tokens and cost are shown in its result but not attributed to the
   parent session (`subagent` README).
 - `watch` cannot use bytefly's OS notification channel by design (`watch`
@@ -117,35 +117,31 @@ contributes no `Now` item.
 
 **Next**
 
-- **P1 — Plan index.** Add `/plan list` over `.pi/plans` with title, modified
-  time, step progress, and a path to reopen. Walk the directory; add no registry
-  file. *Done when* 100 plans list from `readdir` and one bounded read per plan,
-  and worktrees are respected.
-- **P2 — Objective handoff.** When plan mode starts with an active goal, put the
+- **P1 — Objective handoff.** When plan mode starts with an active goal, put the
   goal in the planning context; when a plan is approved with no goal, offer to
   record one. *Done when* the handoff costs no extra model call and never
   overwrites an existing goal.
-- **P3 — Delegation accounting.** Publish a finished-subagent event, following
+- **P2 — Delegation accounting.** Publish a finished-subagent event, following
   the `job` pattern in `lib/events.ts`, so bytefly can show a separate child-run
   roll-up. The roll-up stays a separate total: folding child spend into the
   session's own total remains a non-goal, so the footer's parent figure is never
   restated. *Done when* the child roll-up is separate, the parent total is
   untouched, and the `subagent` README's cost bullet points at where the roll-up
   appears.
-- **P4 — Verification handoff.** Approval merges `## Steps` into the todo list;
+- **P3 — Verification handoff.** Approval merges `## Steps` into the todo list;
   also carry the plan's `## Verification` section as the final checklist item,
   so the definition of done cannot be lost between approval and execution.
 
 **Later**
 
-- **P5 — Job parity on Windows.** A detached job should either survive the
+- **P4 — Job parity on Windows.** A detached job should either survive the
   session or be refused with a clear message, and unknown exit codes should be
   named in `doctor`. *Decision first:* how much Windows process control is in
   scope.
-- **P6 — Alerts where the user is.** Route a `wake` match through bytefly's
+- **P5 — Alerts where the user is.** Route a `wake` match through bytefly's
   notify capability when notifications are enabled. *Decision first:* this
   reverses a documented `watch` non-goal.
-- **P7 — Delegation artifacts.** Optional per-run transcripts under
+- **P6 — Delegation artifacts.** Optional per-run transcripts under
   `.pi/subagents/` for audit and handoff. This reverses the current
   no-persistence non-goal; only with a retention rule.
 
@@ -382,7 +378,7 @@ it.
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C5` is the decision, not a fix. |
-| `watch`: cannot raise an OS notification | `P6` reverses it; the in-session alert is documented until then. |
+| `watch`: cannot raise an OS notification | `P5` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 
 ## 1.0 readiness
@@ -397,9 +393,9 @@ above.
   `test/config-docs.test.ts`.
 - No known path loses work: worktree cleanup, plan approval, job reattachment,
   and WeChat turn shutdown each either preserve the work or say what was lost —
-  `P5`, `S2`.
+  `P4`, `S2`.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan
-  mode, worktree binding, and the rewind timeline — `P2`.
+  mode, worktree binding, and the rewind timeline — `P1`.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
   suites, and the compat job names the newest Pi it passed against — `F2`.
 - A long-session benchmark stays within its budget — measured with

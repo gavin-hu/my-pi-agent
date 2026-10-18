@@ -42,6 +42,11 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` (or `<agent-dir>/plans`
   outside a repository). The plans directory is self-ignoring, so plan files
   never show up as untracked files or in `rewind` snapshots.
+- **A discoverable index.** `/plan list` walks the plans directory and shows
+  every plan with its title, modified time, and step progress, newest first — in
+  the TUI as a docked list where `Enter` opens the plan's review, elsewhere as a
+  notice with each plan's path. The directory stays the index: no registry file,
+  one bounded read per plan.
 - **A shape that reads.** `write_plan` documents a canonical outline — a
   `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
   `## Risks`, and `## Verification` — and the model is guided to follow it. This
@@ -109,6 +114,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `enter_plan_mode` tool | the model, before a non-trivial task | `ctx.ui.confirm` |
 | `/plan` | the user | immediate |
 | `/plan <prompt>` | the user, with the task | immediate |
+| `/plan list` | the user, browsing the plans directory | immediate |
 | `/plan review [path]` | the user, reviewing a plan in the browser | immediate |
 | `Ctrl+Alt+P` | the user | immediate |
 | `--plan` | the user, at launch | immediate |
@@ -390,8 +396,10 @@ file and returns them to the model.
   Git Bash (`bash`), which must be installed for any shell command to run.
 - The read-only guarantee is a guard rail against accidental writes, not a
   security boundary (see [Security](#security)).
-- The plans directory is the only index; there is no registry and no persisted
-  plan metadata.
+- The plans directory is the only index. `/plan list` walks it on every open and
+  keeps no registry, so it sees an external edit or a hand-copied plan
+  immediately; it lists a file over the 256 KiB plan limit without reading it,
+  and does not index the agent directory's plans while a worktree is active.
 - Approval tracks at most 50 steps: `write_plan` refuses a larger plan, and
   `exit_plan_mode` refuses to present one, so no reviewed step is silently
   dropped. A step longer than 200 characters is shortened in the todo list and
@@ -418,7 +426,7 @@ file and returns them to the model.
 | Integration point | How |
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
-| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
+| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
@@ -533,6 +541,7 @@ file and returns them to the model.
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, approve/refine/browser/keep). |
+| `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
 | `web.ts` | `createPlanWebReview`: the loopback server, the section outline (with changed-section flags) and code highlighting, and the save/approve/cancel/abort session. |

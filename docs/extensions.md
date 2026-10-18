@@ -31,12 +31,14 @@ back as `> [!REVIEW]` lines, or **Approve & run** straight from the page when th
 review was opened for approval. The browser outline dots the sections that
 changed since the last review.
 `/plan <prompt>` enters plan mode and sends the task in one step; `/plan` toggles
-and `Ctrl+Alt+P` is the shortcut. The enabled flag is a session entry, so
-`/resume` and `/tree` restore it.
+and `Ctrl+Alt+P` is the shortcut. `/plan list` indexes the plans directory —
+title, modified time, and step progress, newest first, with Enter opening a
+review in the TUI. The enabled flag is a session entry, so `/resume` and `/tree`
+restore it.
 
 Tools: `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`.
-Commands and flags: `/plan`, `/plan <prompt>`, `/plan review [path]`,
-`Ctrl+Alt+P`, `--plan`.
+Commands and flags: `/plan`, `/plan <prompt>`, `/plan list`,
+`/plan review [path]`, `Ctrl+Alt+P`, `--plan`.
 
 [Full README](../extensions/plan/README.md)
 
