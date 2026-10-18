@@ -362,6 +362,9 @@ file and returns them to the model.
   security boundary (see [Security](#security)).
 - The plans directory is the only index; there is no registry and no persisted
   plan metadata.
+- Approval tracks at most 50 steps, and a step longer than 200 characters is
+  shortened in the todo list and the approval listing. `write_plan` reports both
+  cases when they apply; the plan file itself always keeps the full text.
 - Browser review needs a local browser: the server is loopback-only, so a remote
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user

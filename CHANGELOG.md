@@ -125,6 +125,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: `write_plan` reports the step caps when a plan exceeds them — more than
+  50 steps, or a step longer than 200 characters — instead of leaving the model
+  to discover later that the tail cannot be seeded or ticked. The plan file keeps
+  the full text; the note names what approval will shorten.
 - `plan`: `set_plan_steps` accepts an optional `expected` text with each update.
   When the plan was reordered or rewritten between approval and ticking, the
   call is refused with the text now at that step number instead of silently

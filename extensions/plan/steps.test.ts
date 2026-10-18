@@ -7,6 +7,7 @@ import {
 	extractPlanSections,
 	extractPlanSteps,
 	matchesStepText,
+	planStepSummary,
 	setStepStatuses,
 } from "./steps.ts";
 
@@ -166,6 +167,23 @@ describe("extractPlanSteps — the Steps section", () => {
 		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
 			["## Context", "- prose", "## Steps", "- [x] One", "- [ ] Two"].join("\n"),
 		);
+	});
+});
+
+describe("planStepSummary", () => {
+	test("counts past the cap", () => {
+		const plan = Array.from({ length: MAX_STEPS + 3 }, (_, index) => `${index + 1}. step ${index}`).join("\n");
+		expect(planStepSummary(plan)).toEqual({ total: MAX_STEPS + 3, elided: 0 });
+	});
+
+	test("counts steps whose text will be shortened", () => {
+		const plan = `1. ${"x".repeat(MAX_STEP_LENGTH + 1)}\n2. Short`;
+		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 1 });
+	});
+
+	test("scopes the count to the Steps section", () => {
+		const plan = ["## Context", "- prose", "## Steps", "- One", "- Two"].join("\n");
+		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 0 });
 	});
 });
 

@@ -29,7 +29,16 @@ import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
-import { PLAN_OUTLINE, extractPlanSteps, type PlanStep, type StepUpdate } from "./steps.ts";
+import {
+	MAX_STEP_LENGTH,
+	MAX_STEPS,
+	PLAN_OUTLINE,
+	extractPlanSteps,
+	planStepSummary,
+	type PlanStep,
+	type PlanStepSummary,
+	type StepUpdate,
+} from "./steps.ts";
 import { DEFAULT_TODO_MAX, lastTodos, mergeTodos, type TodoMerge } from "./todos.ts";
 import { PlanViewComponent, sanitizePlanText, type PlanViewAction } from "./tui.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
@@ -104,6 +113,23 @@ function preview(plan: string): { body: string; more: number } {
 	const lines = plan.split("\n");
 	if (lines.length <= PREVIEW_LINES) return { body: plan, more: 0 };
 	return { body: lines.slice(0, PREVIEW_LINES).join("\n"), more: lines.length - PREVIEW_LINES };
+}
+
+/**
+ * One sentence for `write_plan` when the step list is larger than approval can
+ * track, so the model can shorten it instead of discovering the cap later.
+ */
+function stepCapNote({ total, elided }: PlanStepSummary): string {
+	const notes: string[] = [];
+	if (total > MAX_STEPS) {
+		notes.push(`the plan has ${total} steps and only the first ${MAX_STEPS} can be seeded or ticked`);
+	}
+	if (elided > 0) {
+		notes.push(
+			`${elided} step${elided === 1 ? " is" : "s are"} longer than ${MAX_STEP_LENGTH} characters and will be shortened in the todo list`,
+		);
+	}
+	return notes.length > 0 ? ` Note: ${notes.join("; ")}.` : "";
 }
 
 /** "Step 2" or "Steps 1, 2" for a set of step numbers. */
@@ -345,7 +371,7 @@ export function registerTools(
 					content: [
 						{
 							type: "text",
-							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}`,
+							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepCapNote(planStepSummary(args.content))}`,
 						},
 					],
 					details: { path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,

@@ -176,7 +176,7 @@ function stepsSection(plan: string): { start: number; end: number } | undefined 
  * Extraction, the review gauge, and checkbox edits all index into this, so they
  * agree on what counts as a step.
  */
-function topLevelItems(plan: string): PlanListItem[] {
+function topLevelItems(plan: string, cap: number = MAX_STEPS): PlanListItem[] {
 	const section = stepsSection(plan);
 	const items = scanListItems(plan).filter(
 		(item) => section === undefined || (item.line > section.start && item.line < section.end),
@@ -193,7 +193,7 @@ function topLevelItems(plan: string): PlanListItem[] {
 		if (seen.has(key)) continue;
 		seen.add(key);
 		top.push(item);
-		if (top.length >= MAX_STEPS) break;
+		if (top.length >= cap) break;
 	}
 	return top;
 }
@@ -205,6 +205,23 @@ function elide(content: string): string {
 /** Top-level steps from a plan, in order. */
 export function extractPlanSteps(plan: string): PlanStep[] {
 	return topLevelItems(plan).map((item) => ({ content: elide(item.step.content), status: item.step.status }));
+}
+
+/** The full cost of a plan's step list, for the warning `write_plan` reports. */
+export interface PlanStepSummary {
+	/** Top-level items in the step list, before the {@link MAX_STEPS} cap. */
+	total: number;
+	/** Items longer than {@link MAX_STEP_LENGTH}, whose text is elided in the todo list. */
+	elided: number;
+}
+
+/** Uncapped step count and elision count; `extractPlanSteps` is the capped view. */
+export function planStepSummary(plan: string): PlanStepSummary {
+	const items = topLevelItems(plan, Number.POSITIVE_INFINITY);
+	return {
+		total: items.length,
+		elided: items.filter((item) => item.step.content.length > MAX_STEP_LENGTH).length,
+	};
 }
 
 /** One checkbox change: a 1-based step number and the state to set. */

@@ -10,6 +10,7 @@ import type { PlanAnnotation } from "./feedback.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { MAX_STEPS } from "./steps.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 
@@ -202,6 +203,27 @@ describe("write_plan", () => {
 		expect(result.content[0].text).toContain(details.path);
 		expect(runtime.lastPlanPath()).toBe(details.path);
 		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan`);
+	});
+
+	test("warns when the plan has more steps than approval can track", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const steps = Array.from({ length: MAX_STEPS + 1 }, (_, index) => `- [ ] step ${index}`).join("\n");
+		const { ctx } = fakeCtx({ cwd: root });
+
+		const result = await call(write, { title: "Big", content: `## Steps\n${steps}` }, ctx);
+
+		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} steps and only the first ${MAX_STEPS}`);
+	});
+
+	test("does not warn for a plan within the step caps", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const { ctx } = fakeCtx({ cwd: root });
+
+		const result = await call(write, { title: "Fine", content: "## Steps\n- [ ] One" }, ctx);
+
+		expect(result.content[0].text).not.toContain("Note:");
 	});
 
 	test("reports a write failure as an error result", async () => {
