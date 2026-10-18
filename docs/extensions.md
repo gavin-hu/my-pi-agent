@@ -348,5 +348,8 @@ block as ANSI on any OS.
 | [`bytefly-dark`](../themes/bytefly-dark.json) | A GitHub-inspired dark palette: deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators. |
 | [`bytefly-light`](../themes/bytefly-light.json) | The light companion: white canvas with GitHub light accents, for `bytefly-light/bytefly-dark` auto-switching. |
 
-Select a theme through `/settings` → **Theme**, or set
+Both palettes are held to WCAG AA at the semantic-role layer — every role a
+screen paints as text, on the canvas and on a selected row — by
+`test/theme.test.ts`, so a palette edit that hurts readability fails the suite
+rather than shipping. Select a theme through `/settings` → **Theme**, or set
 `"theme": "bytefly-light/bytefly-dark"` in settings.

@@ -62,17 +62,18 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C8, F1–F4 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C7, F1–F4 |
 
 ## If only three things ship
 
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so the footer stops under-reporting non-DeepSeek models.
-2. **C2 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
-   pairs in both themes, so a palette edit cannot quietly make text unreadable.
-3. **P1 — Alerts where the user is.** Route a `watch` wake match through
+2. **P1 — Alerts where the user is.** Route a `watch` wake match through
    bytefly's notify capability, so an unattended alert reaches the desktop the
    way a finished job already does.
+3. **F1 — Changelog hygiene.** One `Added`/`Changed`/`Fixed` set per release
+   window, with a check if duplicate subsections recur, so a release's notes read
+   as one story.
 
 ## Horizons
 
@@ -259,7 +260,7 @@ runs, an update check, and two themes.
 **Now**
 
 Nothing here makes a false promise today. The gaps above are documented
-behavior, and the one that is not (`C3`, control-center breadth) needs a decision
+behavior, and the one that is not (`C2`, control-center breadth) needs a decision
 before it is work, so this section contributes no `Now` item.
 
 **Next**
@@ -274,23 +275,20 @@ contributes no `Next` item.
   "table may be stale" `doctor` warning. Keep Pi's recorded cost as the
   fallback. *Done when* no network is required and an unknown model still shows
   no invented price.
-- **C2 — Theme contrast test.** Assert WCAG AA contrast for the semantic role
-  pairs in both themes. *Done when* the test fails on a palette regression, not
-  on a theme swap.
-- **C3 — Control-center breadth.** *Decision first:* do themes, skills, and
+- **C2 — Control-center breadth.** *Decision first:* do themes, skills, and
   prompts belong in the picker or stay with `pi config`? If added, they need the
   same health and scope rules as extensions.
-- **C4 — Spend guardrail.** A session budget in `price` that warns once at a
+- **C3 — Spend guardrail.** A session budget in `price` that warns once at a
   threshold and can notify through the existing capability. No hard stop by
   default.
-- **C5 — Price freshness.** Record when a built-in table was last verified and
+- **C4 — Price freshness.** Record when a built-in table was last verified and
   surface its age in `doctor`, so a tariff change is visible instead of silently
   wrong.
-- **C6 — Update channels.** An opt-in prerelease or tagged-channel preference,
+- **C5 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
-- **C7 — Update action.** Offer `pi update --extensions` from the control
+- **C6 — Update action.** Offer `pi update --extensions` from the control
   center behind a confirmation, only if the host exposes a safe way to run it.
-- **C8 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C7 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 ## 5. Foundations
@@ -334,7 +332,7 @@ it.
 | `document`: no OCR | `W6` is a non-goal until a dependency-light engine exists. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
-| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C3` is the decision, not a fix. |
+| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names. `C2` is the decision, not a fix. |
 | `watch`: cannot raise an OS notification | `P1` reverses it; the in-session alert is documented until then. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 | CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`, filed 2026-10-16) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3, the latest release; revisit when both close, then delete `check:serial` from the matrix. |
