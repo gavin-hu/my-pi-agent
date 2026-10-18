@@ -5,7 +5,9 @@ import bytefly from "./index.ts";
 import { coloringTheme, emit, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { fakeFooterCtx, makeFakePi, renderFooter } from "../../test/helpers/fixtures/bytefly.ts";
 import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
@@ -124,6 +126,66 @@ describe("bytefly extension", () => {
 
 		expect(footers).toHaveLength(1);
 		expect(typeof footers[0]).toBe("function");
+	});
+
+	test("shows a finished child run in the footer's separate roll-up", async () => {
+		const { pi } = makeFakePi();
+		bytefly(pi);
+		const { ctx, footers, footerData } = fakeFooterCtx({
+			mode: "tui",
+			entries: [
+				{
+					type: "message",
+					message: {
+						role: "assistant",
+						usage: { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
+					},
+				},
+			],
+		});
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		pi.events.emit(SUBAGENT_FINISHED_CHANNEL, {
+			agent: "explorer",
+			provider: "anthropic",
+			model: "opus-4.5",
+			input: 1_000_000,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			recordedCost: 0,
+			at: null,
+			exitCode: 0,
+		});
+
+		const lines = renderFooter(footers[0], footerData).map(stripTerminalSequences);
+		// The roll-up is its own segment: the session's own figures are unaffected.
+		expect(lines).toHaveLength(2);
+		expect(lines[1]).toContain("↳ 1");
+	});
+
+	test("a new session starts the roll-up from zero", async () => {
+		const { pi } = makeFakePi();
+		bytefly(pi);
+		const { ctx, footers, footerData } = fakeFooterCtx({ mode: "tui" });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		pi.events.emit(SUBAGENT_FINISHED_CHANNEL, {
+			agent: "explorer",
+			provider: "anthropic",
+			model: "opus-4.5",
+			input: 10,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			recordedCost: 0,
+			at: null,
+			exitCode: 0,
+		});
+		expect(renderFooter(footers[0], footerData).join("\n")).toContain("↳ 1");
+
+		await emit(pi, "session_start", { reason: "new" }, ctx);
+
+		expect(renderFooter(footers.at(-1), footerData).join("\n")).not.toContain("↳");
 	});
 
 	test("does not install the footer outside interactive mode", async () => {

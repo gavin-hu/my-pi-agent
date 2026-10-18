@@ -37,6 +37,8 @@ export interface SingleResult {
 	messages: Message[];
 	stderr: string;
 	usage: UsageStats;
+	/** Provider and model the child reported; published for the accounting event. */
+	provider?: string;
 	model?: string;
 	stopReason?: string;
 	errorMessage?: string;

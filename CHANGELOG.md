@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `subagent` / `bytefly`: a finished child run now publishes
+  `my-pi-agent/subagent-finished` with its provider, model, token counts, Pi's
+  recorded cost, and finish time, and the footer shows the session's delegated
+  runs as their own `↳ 3 · ¥0.12` roll-up. The child spend is a second figure:
+  the session total is never restated, the roll-up is priced with the same rate
+  table (so a currency change moves both), it covers the last 500 runs of the
+  current process, and a run that produced no assistant message publishes
+  nothing.
+
 - `plan`: the objective now crosses the plan boundary in both directions. While
   planning, the injected context restates an active session goal as one bullet
   (sanitized and clipped, so the context stays inside its prompt budget); on

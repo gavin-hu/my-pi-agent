@@ -27,6 +27,8 @@ import {
 } from "./agents.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
+import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
+import { finishedEvent } from "./accounting.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
 import { SubagentParams, resolveMode, type SubagentArgs } from "./schema.ts";
 import type { DispatchDefaults, SingleResult, SubagentDetails } from "./types.ts";
@@ -65,7 +67,27 @@ function requestedAgentNames(args: SubagentArgs): string[] {
 
 export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): void {
 	if (!isExtensionEnabled("subagent")) return;
-	const run = deps.run ?? runSingleAgent;
+	const runner = deps.run ?? runSingleAgent;
+
+	/**
+	 * Account for each finished child, then hand the result on unchanged.
+	 *
+	 * Every mode (`single`, `parallel` per task, `chain` per step) calls this once
+	 * per child, so one wrapper reports each run exactly once. The emit is guarded:
+	 * a bus listener that throws must not fail a delegation that already ran.
+	 */
+	const run = async (options: RunOptions): Promise<SingleResult> => {
+		const result = await runner(options);
+		const event = finishedEvent(result);
+		if (event) {
+			try {
+				pi.events.emit(SUBAGENT_FINISHED_CHANNEL, event);
+			} catch {
+				// Accounting is best-effort; the run's own result is what matters.
+			}
+		}
+		return result;
+	};
 
 	pi.registerTool({
 		name: TOOL_NAME,

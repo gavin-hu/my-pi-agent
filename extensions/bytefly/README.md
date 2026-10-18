@@ -69,13 +69,19 @@ in [`header/config.ts`](./header/config.ts).
 - **Line 1 — identity:** `pwd` and the session name on the left; git state
   (`⎇ branch · ⑂ worktree`) and the `◉` browse chip on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
-  mode/alert slot (`⋮ plan`) trailing after a `╎` when present; the model and
-  thinking level on the right. The gauge is anchored at column 0, so `%` is
+  child-run roll-up (`↳ 3 · ¥0.12`, present only once a subagent has finished),
+  the mode/alert slot (`⋮ plan`) trailing after a `╎` when present, and the model
+  and thinking level on the right. The gauge is anchored at column 0, so `%` is
   always in the same place.
+  The roll-up is its own number, never folded into the session's cost: a subagent
+  runs in its own process, and the footer prices those runs with the same rate
+  table and currency as the session so a currency change moves both. It covers
+  the last 500 child runs of the current process, and starts from zero after
+  `/resume` (the events are not session entries).
 
 ```
-~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
+~/repo/my-pi-agent                                              ⎇ main · ⑂ smoke
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↳ 2 · ¥0.06 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
 ```
 
 (The examples show the default `¥` symbol. A model that neither `rates` nor the
@@ -1041,6 +1047,10 @@ rather than showing a wrong value.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".
+- **Child spend is a second figure.** The footer never adds a subagent's tokens to
+  the session's; it prices the `my-pi-agent/subagent-finished` events with the
+  same pricer and renders them as `↳`, so "this session" keeps meaning the
+  dispatching process and the delegated work stays visible beside it.
 - **The gauge is anchored at column 0.** A leading mode slot would shift the
   context percentage left and right as plan mode came and went; trailing it
   after a `╎` keeps the percentage in a fixed place while the mode stays
