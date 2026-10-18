@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-18
+
 ### Added
 
 - `bytefly`: the built-in DeepSeek rate tables now carry the day they were last
@@ -2103,7 +2105,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.13.1
 [0.13.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.13.0
 [0.12.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.12.0
 [0.11.4]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.4

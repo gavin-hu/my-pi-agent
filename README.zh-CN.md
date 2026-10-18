@@ -47,7 +47,7 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
 ```bash
 pi install npm:@gavin-hu/my-pi-agent                       # 从 npm 安装
 pi install git:github.com/gavin-hu/my-pi-agent             # 从 git 安装
-pi install git:github.com/gavin-hu/my-pi-agent@v0.13.0     # 固定到某个版本
+pi install git:github.com/gavin-hu/my-pi-agent@v0.13.1     # 固定到某个版本
 pi install ./ -l                                           # 仅项目本地（.pi/settings.json）
 pi -e .                                                    # 试运行一次
 ```

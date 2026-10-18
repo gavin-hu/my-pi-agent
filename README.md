@@ -51,7 +51,7 @@ Requires a working [Pi](https://pi.dev) installation.
 ```bash
 pi install npm:@gavin-hu/my-pi-agent                       # install from npm
 pi install git:github.com/gavin-hu/my-pi-agent             # install from git
-pi install git:github.com/gavin-hu/my-pi-agent@v0.13.0     # pin a release
+pi install git:github.com/gavin-hu/my-pi-agent@v0.13.1     # pin a release
 pi install ./ -l                                           # project-local (.pi/settings.json)
 pi -e .                                                    # try it for one run
 ```
