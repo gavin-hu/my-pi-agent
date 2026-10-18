@@ -11,34 +11,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - docs: [`ROADMAP.md`](./ROADMAP.md) records the next work, grouped by the
   README's promises, with the evidence behind each item; the README and docs
   index link to it.
-- `bytefly`: DeepSeek is priced in dollars as well as yuan. The `USD` algorithm
-  now reads a built-in table of DeepSeek's published dollar rates (cache-hit
-  `$0.006`/`$0.044`, cache-miss `$0.30`/`$1.32`, output `$1.20`/`$3.96` per
-  million at peak, half off-peak) and applies the same peak windows, instead of
-  only totalling Pi's recorded cost. `rates` follows `currency.code`, so a
-  document that sets `USD` and no table gets the dollar one, and a model with no
-  rate still falls back to Pi's recorded dollars.
-- `bytefly`: the footer price now has two algorithms selected by
-  `price.currency.code`. `CNY` (the default) prices matched models from the
-  yuan `rates` and `peak` schedule; `USD` totals Pi's recorded dollar cost and
-  ignores both. The switch is also a Currency row in `/bytefly settings`; it
-  chooses a method, not an exchange rate, and `currency.symbol`/`decimals`
-  still control how the total is printed.
+- `bytefly`: the footer prices in CNY or USD, chosen by `price.currency.code` and
+  by the **Currency** row in `/bytefly settings`. The code picks the rate table
+  too: CNY prices matched models from the yuan `rates`, USD from a built-in table
+  of DeepSeek's published dollars (cache-hit `$0.006`/`$0.044`, cache-miss
+  `$0.30`/`$1.32`, output `$1.20`/`$3.96` per million at peak, half off-peak),
+  and the peak schedule applies in both. A model with no matching rate shows no
+  cost in CNY mode and falls back to Pi's recorded dollars in USD mode, so the
+  footer always prints one figure in one currency. `currency.decimals` sets the
+  precision.
+- `bytefly`: the `/bytefly settings` catalogue grows from five rows to ten across
+  six groups, adding the notification delivery method and title, the proactive
+  health check, the currency switch, and cost precision; a `bytefly.json` row can
+  now edit a nested leaf such as `price.currency.decimals` without disturbing its
+  siblings.
 - `bytefly`: text settings are editable on the `/bytefly settings` screen. A text
   row opens an inline editor with a caret (`←`/`→`, `Home`/`End`, `Backspace`,
   `Ctrl+U`), `Enter` saves, and `Esc` cancels without touching the file; a value
-  that breaks the row's rule keeps the editor open and says why. The new
-  `notify.title` and `price.currency.symbol` rows use it, so both stop being
-  JSON-only.
+  that breaks the row's rule keeps the editor open and says why. The
+  `notify.title` row uses it, so it stops being JSON-only.
 - `bytefly`: `doctor` reports an explicit `notify.method` this host cannot
   deliver — a platform notifier on another platform, or an OSC method with no
   terminal — as a `degraded` finding on `bytefly`, with the fix in its hint. A
   method that suits the host, `auto`, and a disabled capability all stay `ok`.
-- `bytefly`: `/bytefly settings` grows from five rows to nine. The new rows
-  cover the notification delivery method, the proactive health check, and the
-  cost precision and recorded-cost fallback under new Diagnostics and Pricing
-  groups, and a `bytefly.json` row can now edit a nested leaf such as
-  `price.currency.decimals` without disturbing its siblings.
 - `bytefly`: once per interactive session, the loaded version is compared in the
   background with the published `@gavin-hu/my-pi-agent` on npm. A newer one adds
   `↑0.12.0` to the header's chrome version and posts one transcript notice
@@ -65,15 +60,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md),
   so the exhaustive listings sit in their own directory; every guide and README
   link points at the new path.
-
-- `bytefly`: the `Currency symbol` setting and the `currency.symbol` key are
-  gone. The symbol now follows `currency.code` (`CNY` → `¥`, `USD` → `$`), so
-  the two cannot disagree. `currency.decimals` still controls precision.
-
-- `bytefly`: a model with no matching CNY rate now shows no cost instead of
-  Pi's recorded dollars; the mixed `¥ + $` display and the
-  `fallbackToRecordedCost` setting are gone. USD mode still totals Pi's
-  recorded cost for every model.
+- `bytefly`: the `Currency symbol` setting and its `currency.symbol` key are gone,
+  and so is the `fallbackToRecordedCost` toggle. The symbol follows
+  `currency.code` (`CNY` → `¥`, `USD` → `$`), so the two cannot disagree, and the
+  fallback is now implied by the mode instead of configured. `currency.decimals`
+  still controls precision.
 - `goal`: `/goal <prompt>` no longer makes a second model call to rewrite the
   goal from the answers to its questions. The answers arrive in the confirm/edit
   dialog as `Also: <question> → <answer>` notes under the restatement, so the
