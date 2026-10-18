@@ -138,7 +138,7 @@ pi -e .                                                    # 试运行一次
 `<agent-dir>/bytefly.json` 读取，并与 `<cwd>/.pi/bytefly.json` 合并（项目优先），
 位于一个以扩展名命名的顶层 section 下。每个扩展的 `README.md` 说明其键位的行为，
 [`docs/configuration.md`](./docs/configuration.md) 为其建立索引，
-[`docs/configuration-reference.md`](./docs/configuration-reference.md) 逐个列出每个键的
+[`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md) 逐个列出每个键的
 类型、默认值和取值范围。
 
 每个扩展默认都开启。若要在加载整包时排除其中一些，把 `PI_DISABLED_EXTENSIONS`

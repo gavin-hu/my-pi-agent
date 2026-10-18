@@ -290,7 +290,8 @@ One doc per audience. Do not duplicate across them:
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants rather than restating them.
 - `docs/` — repo-level guides: `getting-started`, `extensions` (the full
-  catalog), `configuration`, `architecture`, `development`, `security`.
+  catalog), `configuration`, `architecture`, `development`, `security`, and
+  `references/` for exhaustive listings a hand edit is checked against.
 - `AGENTS.md` (this file) — the machine-facing contract and the repo
   invariants.
 - `extensions/<name>/README.md`, `lib/README.md`, `test/README.md` — the deep

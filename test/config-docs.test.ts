@@ -1,5 +1,5 @@
 /**
- * Contract guard for `docs/configuration-reference.md`.
+ * Contract guard for `docs/references/configuration-reference.md`.
  *
  * The page replaced `assets/bytefly.schema.json`, so it is now the list a hand
  * edit is checked against. This test pins every section to the defaults its
@@ -34,7 +34,7 @@ import { DEFAULT_SEARCH_CONFIG } from "../extensions/web-access/search/config.ts
 import { DEFAULT_CONFIG as DEFAULT_WORKTREE_CONFIG } from "../extensions/worktree/config.ts";
 
 const docs = join(import.meta.dir, "..", "docs");
-const reference = readFileSync(join(docs, "configuration-reference.md"), "utf-8");
+const reference = readFileSync(join(docs, "references", "configuration-reference.md"), "utf-8");
 const configuration = readFileSync(join(docs, "configuration.md"), "utf-8");
 
 /** A documented key whose loader has no default. */
