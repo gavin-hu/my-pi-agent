@@ -18,8 +18,8 @@ read-only, and the policy is default-deny through `lib/policy.ts`. The plan
 follows a documented outline (`# <Title>`, `## Goal`, `## Context`,
 `## Approach`, `## Steps`, `## Risks`, `## Verification`); steps are `- [ ]`
 checkboxes in the `Steps` section that approval merges into `todo` — existing
-items keep their place and status — and `set_plan_steps` keeps the file current
-afterward. A plan with more than the 50 steps approval tracks is refused at
+items keep their place and status, and the `Verification` section follows as the
+last item — and `set_plan_steps` keeps the file current afterward. A plan with more than the 50 steps approval tracks is refused at
 write time, so approval never drops steps it cannot track. `exit_plan_mode`
 presents the plan for approval, keeps
 planning, or takes a refinement; the review screen jumps between headings with

@@ -425,6 +425,63 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain(SET_PLAN_STEPS_TOOL);
 	});
 
+	test("carries the Verification section as the last todo item", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = [
+			"# Plan",
+			"## Steps",
+			"- [ ] Add the cache",
+			"- [ ] Wire it",
+			"## Verification",
+			"- `bun run check` passes",
+			"- approve and merge",
+		].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0]?.args).toEqual({
+			todos: [
+				{ content: "Add the cache", status: "pending" },
+				{ content: "Wire it", status: "pending" },
+				{ content: "Verify: bun run check passes; approve and merge", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).toContain("The plan's verification section is the last todo item");
+		// The verification item is not a plan step, so step numbers still line up.
+		expect(result.content[0].text).toContain("Merged 2 of 2 plan steps");
+	});
+
+	test("adds no verification item to a plan with no Steps heading", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		// Without a `Steps` heading the shallowest list is the plan (the older rule),
+		// so the verification bullets are already steps and a summary would duplicate
+		// them.
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Plan\n\n## Verification\n- run the suite");
+
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", cwd: root });
+		await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0]?.args).toEqual({ todos: [{ content: "run the suite", status: "pending" }] });
+	});
+
+	test("names a verification item the full list could not take", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = ["# Plan", "## Steps", "- [ ] Add the cache", "## Verification", "- run the suite"].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		// A branch whose todo list is already at its cap keeps the verification out.
+		const full = Array.from({ length: 50 }, (_, index) => ({ content: `existing ${index}`, status: "pending" }));
+		const { ctx } = fakeCtx({ select: "Approve and execute", branch: todoBranch(full), cwd: root });
+
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(result.content[0].text).toContain("did not fit in the full todo list");
+	});
+
 	test("seeds only the Steps section, not prose bullets", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);

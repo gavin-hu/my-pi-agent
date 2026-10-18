@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: approval now carries the plan's `## Verification` section into the todo
+  list as the final item (`Verify: …`, one line, elided like a long step), so the
+  definition of done travels with the work. It is not a plan step: it is ticked in
+  the todo list, never counts against the 50-step cap, and `set_plan_steps`
+  numbering is unchanged; a plan with no `Verification` section, or no `Steps`
+  heading (whose shallowest list is already the plan), is seeded exactly as before.
+
 - `subagent` / `bytefly`: a finished child run now publishes
   `my-pi-agent/subagent-finished` with its provider, model, token counts, Pi's
   recorded cost, and finish time, and the footer shows the session's delegated

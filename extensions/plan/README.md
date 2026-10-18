@@ -52,9 +52,10 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   `## Risks`, and `## Verification` — and the model is guided to follow it. This
   is guidance only: any markdown is accepted, stored, and rendered as written.
 - **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
-  section; approval seeds them into `todo`. A plan with more than 50 top-level
-  steps is refused rather than truncated, so approval never drops a step you
-  reviewed.
+  section; approval seeds them into `todo`, with the `## Verification` section as
+  the last item so the definition of done travels with the work. A plan with more
+  than 50 top-level steps is refused rather than truncated, so approval never
+  drops a step you reviewed.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
 - **What changed since the last review.** After a refinement, the review screen
@@ -91,9 +92,12 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   nested sub-bullets are treated as notes. The list is a merge, not a
   replacement: existing items keep their place and status, a step whose text is
   already there is skipped, and the tool's item cap defers the rest instead of
-  dropping anything. A plan without a `Steps` heading keeps the older rule — the
-  shallowest list in the document — so prose bullets in a plan that follows the
-  outline never become todos.
+  dropping anything. The plan's `## Verification` section follows as the **last**
+  todo item, summarized on one line (`Verify: …`) — it is not a plan step, so it is
+  ticked in the todo list rather than with `set_plan_steps`, and it never counts
+  against the 50-step cap. A plan without a `Steps` heading keeps the older rule —
+  the shallowest list in the document — so prose bullets in a plan that follows the
+  outline never become todos, and its verification bullets are already covered.
 - **Goal-aware.** While planning, the injected context restates an active
   session goal as one bullet, so the plan is designed against the objective
   instead of beside it. On approval, when the session has no goal at all, the user
