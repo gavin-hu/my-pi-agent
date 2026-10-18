@@ -43,6 +43,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   README. A tool rename or a new tool-only extension can no longer leave the
   catalog stale or silent.
 
+- docs: the catalog's gallery paragraph names the plan and worktree tools
+  instead of collapsing them into "the plan tools" and "the worktree tools", so
+  every registered tool is listed there, and `test/naming.test.ts` holds that
+  paragraph to the registry alongside the per-extension `Tool:` lines. The
+  catalog's groups and per-group order are now held to the root README's
+  extension tables by `test/docs-truth.test.ts`, and the intro no longer claims
+  a `pi` manifest order the catalog does not follow.
+
 - ci: npm publishing moved into the repository, as
   `.github/workflows/publish.yml`. A manual dispatch names the release version
   twice, the job then waits for the `npm` environment's required review, checks

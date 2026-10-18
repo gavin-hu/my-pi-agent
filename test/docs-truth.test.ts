@@ -25,6 +25,10 @@
  * `extension-load.test.ts` holds to the directories on disk, and requires each
  * entry to have a `### <name>` section ending in a `[Full README]` link.
  *
+ * Grouping is the catalog's promise to the root README: `README.md` heads each
+ * group with an `### <group>` table of extensions, and the catalog repeats the
+ * same groups and the same row order, so either page gives one map.
+ *
  * Tool names are the same contract in `naming.test.ts`, and the configuration
  * reference is the same contract in `config-docs.test.ts`.
  */
@@ -36,6 +40,7 @@ import { walkFiles } from "./helpers/files.ts";
 
 const root = join(import.meta.dir, "..");
 const catalog = readFileSync(join(root, "docs", "extensions.md"), "utf-8");
+const readme = readFileSync(join(root, "README.md"), "utf-8");
 
 /** The extension entry files the package manifest declares. */
 const manifest: string[] = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")).pi.extensions;
@@ -43,6 +48,58 @@ const manifest: string[] = JSON.parse(readFileSync(join(root, "package.json"), "
 /** A manifest entry's directory name, from `./extensions/<name>/index.ts`. */
 function extensionName(entry: string): string | undefined {
 	return /^\.\/extensions\/([^/]+)\/index\.ts$/.exec(entry)?.[1];
+}
+
+/** The extension directories the manifest declares, in manifest order. */
+const extensions = manifest.map(extensionName).filter((name): name is string => name !== undefined);
+
+/** One catalog or README group, with the extensions it lists in order. */
+interface DocGroup {
+	name: string;
+	extensions: string[];
+}
+
+/** The catalog's extension groups, with each section in the order it appears. */
+function catalogGroups(markdown: string, known: ReadonlySet<string>): DocGroup[] {
+	const groups: DocGroup[] = [];
+	for (const line of markdown.split("\n")) {
+		const heading = /^## (.+)$/.exec(line)?.[1];
+		if (heading !== undefined) {
+			groups.push({ name: heading, extensions: [] });
+			continue;
+		}
+		const section = /^### (.+)$/.exec(line)?.[1];
+		if (section !== undefined && known.has(section)) groups.at(-1)?.extensions.push(section);
+	}
+	return groups.filter((group) => group.extensions.length > 0);
+}
+
+/** The root README's extension tables, one group each, in order. */
+function readmeGroups(markdown: string): DocGroup[] {
+	const groups: DocGroup[] = [];
+	let heading: string | undefined;
+	let inTable = false;
+	for (const line of markdown.split("\n")) {
+		const current = /^### (.+)$/.exec(line)?.[1];
+		if (current !== undefined) {
+			heading = current;
+			inTable = false;
+			continue;
+		}
+		if (line.startsWith("| Extension |")) {
+			inTable = true;
+			if (heading !== undefined) groups.push({ name: heading, extensions: [] });
+			continue;
+		}
+		if (!inTable) continue;
+		if (!line.startsWith("|")) {
+			inTable = false;
+			continue;
+		}
+		const row = /^\| \[`([^`]+)`\]/.exec(line)?.[1];
+		if (row !== undefined) groups.at(-1)?.extensions.push(row);
+	}
+	return groups;
 }
 
 /** A name passed to `pi.registerCommand` / `pi.registerFlag`. */
@@ -152,10 +209,31 @@ describe("catalog coverage", () => {
 	});
 
 	test("gives every extension a section that links its README", () => {
-		const extensions = manifest.map(extensionName).filter((name): name is string => name !== undefined);
 		const missing = extensions.filter(
 			(name) => !catalog.includes(`\n### ${name}\n`) || !catalog.includes(`(../extensions/${name}/README.md)`),
 		);
 		expect(missing, "add a `### <name>` section with a [Full README] link to docs/extensions.md").toEqual([]);
+	});
+});
+
+describe("catalog grouping", () => {
+	const catalogMap = catalogGroups(catalog, new Set(extensions));
+	const readmeMap = readmeGroups(readme);
+
+	test("finds the group tables both documents are expected to have", () => {
+		// A parser that stopped matching would make the checks below vacuous.
+		expect(catalogMap.length, "docs/extensions.md").toBeGreaterThan(0);
+		expect(readmeMap.length, "README.md").toBeGreaterThan(0);
+	});
+
+	test("names the README's groups in the same order", () => {
+		expect(catalogMap.map((group) => group.name)).toEqual(readmeMap.map((group) => group.name));
+	});
+
+	test("lists each group's extensions in the README's order", () => {
+		for (const group of readmeMap) {
+			const catalogGroup = catalogMap.find((entry) => entry.name === group.name);
+			expect(catalogGroup?.extensions, group.name).toEqual(group.extensions);
+		}
 	});
 });

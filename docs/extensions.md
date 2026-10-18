@@ -2,8 +2,8 @@
 
 Every extension ships its own `README.md` under its directory with the full tool
 and command surface, the Pi integration contract, and design notes. This page is
-the catalog: what each one does and the names it registers. It is grouped the
-same way as the root README; within a group the order matches the `pi` manifest.
+the catalog: what each one does and the names it registers. It is grouped and
+ordered the same way as the root README.
 
 ## Plan and delegate
 
@@ -329,10 +329,11 @@ nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
 reverse video, syntax highlighting and previews intact), then every
 tool this package registers: `todo`, `goal`, `memory`, `job`, `watch`,
 `subagent`, `web_search`, `web_fetch`, `read_doc`, `open_path`, `run_doctor`,
-`send_wechat`, `ask_user_question`, the plan tools, and the worktree tools. The
-package section also carries the state variants: a denied `web_fetch`, a partial
-`read_doc`, a cancelled question, and a long memory note whose call clips at the
-margin.
+`send_wechat`, `ask_user_question`, `enter_plan_mode`, `write_plan`,
+`exit_plan_mode`, `set_plan_steps`, `enter_worktree`, `exit_worktree`,
+`prune_worktrees`, and `list_worktrees`. The package section also carries the
+state variants: a denied `web_fetch`, a partial `read_doc`, a cancelled
+question, and a long memory note whose call clips at the margin.
 
 <img src="../assets/tool-renderings.png" alt="A full-page reference of every tool block: the user nameplate, a notice and the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, send_wechat, ask_user_question, the plan tools, and the worktree tools" width="100%">
 
