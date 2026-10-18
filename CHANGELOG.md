@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: `x` clears the focused extension's project override in the control
+  center's Project scope, dropping the `+`/`-` entry a toggle wrote (and the
+  path or package entry beside it) so the row returns to its inherited state
+  without a `pi config` round-trip.
+
+### Added
+
 - `bytefly`: `/bytefly settings` grows from five rows to nine. The new rows
   cover the notification delivery method, the proactive health check, and the
   cost precision and recorded-cost fallback under new Diagnostics and Pricing

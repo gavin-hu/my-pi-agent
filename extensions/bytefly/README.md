@@ -606,6 +606,12 @@ installs or fetches a package.
   into `extensions` (and package filter objects) in the active scope. A row in
   the trailing `Not resolved` group has no pattern to write, so `Space` says so
   instead of doing nothing.
+- Clears the focused extension's project override with `x` in Project scope: the
+  `+`/`-` entry the toggle wrote is removed (with the plain path entry beside it
+  for an inherited personal resource, and a project package entry the toggle
+  created), and the row returns to its inherited state. A row with no override
+  says so instead of writing, and Global scope does not offer the key — the
+  personal file is the base layer.
 - Switches the write scope with `Tab`: **Global** (personal `settings.json`) or
   **Project** (`.pi/settings.json`, only when the project is trusted; an
   untrusted project refuses with a notice).
@@ -716,6 +722,7 @@ headline; a named extension prints its full findings instead.
 |---|---|
 | `←` / `→` | Show the Extensions or Settings section. |
 | `Space` | Toggle the focused extension (Extensions); change the focused setting (Settings). |
+| `x` | Clear the focused extension's project override (Extensions, Project scope). |
 | `Enter` | Expand or collapse the focused extension's findings (Extensions); change the focused setting (Settings). |
 | `Tab` | Switch between Global and Project scope, in either section. |
 | `r` | Re-probe the doctor (Extensions). |
@@ -881,8 +888,9 @@ switch) turns the check off; `PI_SKIP_VERSION_CHECK` only governs Pi's
 - **No auto-update and no release notes.** The notice names a command instead
   of running one, and the notice renderer has no link support, so there is no
   changelog URL.
-- **Project toggles are two-state** (`enable`/`disable`). Resetting an override
-  back to "inherit" is done in `pi config`.
+- **Project toggles are two-state per press** (`enable`/`disable`). `x` clears
+  the override, which is the third state; a resource with no project entry in
+  `pi config` is still managed there.
 - **One built-in provider.** DeepSeek is the only provider with a built-in
   table; another provider's currency and tariff have to be stated in
   `bytefly.json`.
