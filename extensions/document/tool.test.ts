@@ -8,6 +8,7 @@ import { ansiTheme, fakeTheme, createFakePi } from "../../test/helpers/fakes.ts"
 import { makeDocumentFixture } from "../../test/helpers/fixtures/document.ts";
 import { buildPdf } from "../../test/helpers/fixtures/documents.ts";
 import { tempDir, useEnv } from "../../test/helpers/env.ts";
+import { settle } from "../../test/helpers/process.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 
 type AnyFn = (...args: any[]) => any;
@@ -35,9 +36,12 @@ function fakeExtractor(text: string | Error): DocExtractor {
 	};
 }
 
-function installTool(extractors: Partial<Record<FormatId, DocExtractor>> = {}): Tool {
+function installTool(
+	extractors: Partial<Record<FormatId, DocExtractor>> = {},
+	options: { timeoutMs?: number } = {},
+): Tool {
 	const { pi, tools } = createFakePi();
-	registerDocTool(pi, { extractors });
+	registerDocTool(pi, { extractors, timeoutMs: options.timeoutMs });
 	return tools.get(TOOL_NAME) as Tool;
 }
 
@@ -312,6 +316,45 @@ describe("read_doc tool", () => {
 			renderContext({ lastComponent: result }),
 		);
 		expect(resultAgain).toBe(result);
+	});
+
+	test("fails with the limit named when extraction outlasts the deadline", async () => {
+		fixture.write("slow.pdf", "bytes");
+		const tool = installTool({ pdf: () => new Promise(() => {}) }, { timeoutMs: 20 });
+
+		const run = tool.execute("call-1", { path: "slow.pdf" }, undefined, undefined, ctxFor(fixture.root));
+
+		await expect(run).rejects.toThrow(/did not finish within 20 ms \(document\.extractTimeoutMs\)/);
+		await expect(run).rejects.toThrow(/PDF parser was abandoned/);
+	});
+
+	test("discards a result that arrives after the deadline", async () => {
+		fixture.write("late.pdf", "bytes");
+		let finish: ((value: string) => void) | undefined;
+		const tool = installTool(
+			{
+				pdf: () =>
+					new Promise<string>((resolve) => {
+						finish = resolve;
+					}),
+			},
+			{ timeoutMs: 20 },
+		);
+
+		await expect(
+			tool.execute("call-1", { path: "late.pdf" }, undefined, undefined, ctxFor(fixture.root)),
+		).rejects.toThrow(/extractTimeoutMs/);
+		finish?.("too late to matter");
+		await settle();
+	});
+
+	test("a fast read still succeeds under a tight deadline", async () => {
+		fixture.write("fast.pdf", "bytes");
+		const tool = installTool({ pdf: fakeExtractor("quick text") }, { timeoutMs: 5_000 });
+
+		const result = await tool.execute("call-1", { path: "fast.pdf" }, undefined, undefined, ctxFor(fixture.root));
+
+		expect(result.details.text).toContain("quick text");
 	});
 
 	test("renders a path with a newline on one line", () => {

@@ -124,11 +124,12 @@ merged over the defaults and clamped:
 |---|---|---|---|
 | `maxFileBytes` | `20971520` (20 MiB) | 1 KiB – 512 MiB | Reject larger files. |
 | `maxChars` | `40000` | 200 – 100000 | Default slice size. |
+| `extractTimeoutMs` | `30000` (30 s) | 1 s – 5 min | Per-call extraction deadline; a parser that outlasts it is abandoned. |
 | `formats` | `{ "pdf": true, "docx": true, "doc": true, "odt": true, "rtf": true, "xlsx": true }` | — | Per-format on/off, merged over each registry entry's default; unknown keys are ignored. |
 
 ```jsonc
 // bytefly.json → "document"
-{ "maxChars": 80000, "formats": { "docx": false } }
+{ "maxChars": 80000, "extractTimeoutMs": 60000, "formats": { "docx": false } }
 ```
 
 `doc.json` is not read, and neither is the old per-extension `document.json`;
@@ -142,8 +143,9 @@ run `bun run config:migrate` to move a `document.json` into the shared file.
   `resolveEffectiveCwd`; absolute paths are allowed only inside it. Containment
   is symlink-aware (`isInsideReal`), and the real, resolved path is what the
   parser receives.
-- **Size-capped.** Files larger than `maxFileBytes` are rejected before any
-  parser runs.
+- **Size-capped and time-bounded.** Files larger than `maxFileBytes` are rejected
+  before any parser runs, and a parser that outlasts `extractTimeoutMs` is
+  abandoned so the turn is not held open by one document.
 - **No subprocesses.** Extraction never spawns a process, so it grants no
   privileges beyond the current process.
 - **Untrusted text.** Extracted document text is treated as untrusted: it is
@@ -170,6 +172,10 @@ Each extractor builds a plain-text document from the format's bytes:
 
 The tool is pageable across the whole extracted text, so a word-processing
 document or workbook is read in the same `startIndex` / `maxChars` way as a PDF.
+
+Each call is bounded by `extractTimeoutMs` (30 s by default). A parser that
+outlasts the deadline is abandoned — the read fails with the limit named, and a
+late result is discarded — so a pathological document cannot park the turn.
 
 ## Supported formats
 
@@ -208,8 +214,10 @@ config defaults, and error listing all derive from it.
 - No OCR: scanned or image-only PDFs return little or no text.
 - Formatting, tables, and images are not preserved (XLSX keeps the row/column
   shape but drops cell styling and formulas; DOCX/ODT keep table cells as tabs).
-- No extraction timeout. `maxFileBytes` bounds the input, but a complex PDF can
-  be CPU-heavy; `maxChars` limits the returned slice, not peak extraction memory.
+- The deadline stops waiting and discards the result; it cannot preempt a parser
+  that never yields to the event loop, because JavaScript cannot interrupt a
+  synchronous parse. A worker thread could; the package does not use one.
+- `maxChars` limits the returned slice, not peak extraction memory.
 - Only one file per call; legacy `.xls` gets a conversion hint.
 
 ## Non-goals

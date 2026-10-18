@@ -6,9 +6,10 @@ import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
 
 describe("normalizeConfig", () => {
 	test("clamps numeric fields over the defaults", () => {
-		const config = normalizeConfig({ maxFileBytes: 10, maxChars: 5 });
+		const config = normalizeConfig({ maxFileBytes: 10, maxChars: 5, extractTimeoutMs: 1 });
 		expect(config.maxFileBytes).toBe(1_024);
 		expect(config.maxChars).toBe(200);
+		expect(config.extractTimeoutMs).toBe(1_000);
 	});
 
 	test("merges formats over registry defaults and ignores unknown or non-boolean keys", () => {

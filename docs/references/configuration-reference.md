@@ -93,6 +93,7 @@ The part of bytefly's look that a config file controls; `/bytefly settings` edit
 |---|---|---|---|---|
 | `maxFileBytes` | integer | `20971520` | `1024`–`536870912` | Reject files larger than this many bytes. |
 | `maxChars` | integer | `40000` | `200`–`100000` | Default character budget for the returned slice. |
+| `extractTimeoutMs` | integer | `30000` | `1000`–`300000` | Per-call extraction deadline; a parser that outlasts it is abandoned and the read fails with this limit named. |
 | `formats.pdf` | boolean | `true` | | Enable PDF extraction. |
 | `formats.docx` | boolean | `true` | | Enable DOCX extraction. |
 | `formats.doc` | boolean | `true` | | Enable DOC extraction. |

@@ -60,6 +60,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `document`: extraction now has a per-call deadline, `document.extractTimeoutMs`
+  (30 s by default, clamped 1 s – 5 min). A parser that outlasts it is abandoned
+  and the read fails with the limit named, instead of holding the turn open on a
+  pathological document; a late result is discarded and `maxFileBytes`/
+  `maxChars` are unchanged. A parser that never yields to the event loop still
+  cannot be preempted — that residue is documented rather than hidden.
+
 - `plan`: `write_plan` refuses a plan whose `Steps` section has more than the 50
   top-level steps approval tracks, and `exit_plan_mode` refuses to present one,
   each naming the count, the cap, and the fix. Previously the plan was written
