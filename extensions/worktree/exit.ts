@@ -7,12 +7,14 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { loadConfig } from "./config.ts";
 import { WorktreeCancelledError } from "./errors.ts";
 import {
+	commitsAheadOf,
 	currentBranch,
 	defaultBranch,
 	deleteBranch,
 	inspectWork,
 	isBranchMerged,
 	lockWorktree,
+	refExists,
 	unlockWorktree,
 	worktreeRemove,
 } from "./git.ts";
@@ -32,17 +34,35 @@ export interface ExitOptions {
  * A failed lookup degrades to the facts already in hand: an exit that succeeded
  * must not fail because the default branch could not be read.
  */
-async function describeHandoff(pi: ExtensionAPI, state: WorktreeState, ahead: number): Promise<Handoff> {
-	if (!state.branch) return { branch: null, base: null, ahead, merged: false };
+async function describeHandoff(pi: ExtensionAPI, state: WorktreeState, recorded: number): Promise<Handoff> {
+	if (!state.branch) return { branch: null, base: null, ahead: recorded, merged: false };
 	try {
 		// `origin/HEAD` names the merge target when the repository has a remote; a
 		// local-only repository has none, and the main checkout's own branch is the
 		// branch a merge would actually land on.
 		const base = (await defaultBranch(pi, state.repoRoot)) ?? (await currentBranch(pi, state.repoRoot)) ?? null;
-		const merged = base ? await isBranchMerged(pi, state.repoRoot, state.branch, base) : false;
-		return { branch: state.branch, base, ahead, merged };
+		if (!base) return { branch: state.branch, base: null, ahead: recorded, merged: false };
+		// Count against the resolved base branch, not the commit recorded at entry:
+		// a worktree branch rebased onto a newer local branch would otherwise report
+		// every commit the base gained since, as its own.
+		// Every lookup runs in the main checkout: the handoff is read after the exit,
+		// when the worktree directory may already be gone, while the branch refs it
+		// describes outlive it.
+		const root = state.repoRoot;
+		const ref = (await refExists(pi, root, base))
+			? base
+			: (await refExists(pi, root, `origin/${base}`))
+				? `origin/${base}`
+				: null;
+		if (!ref) return { branch: state.branch, base: null, ahead: recorded, merged: false };
+		return {
+			branch: state.branch,
+			base,
+			ahead: await commitsAheadOf(pi, root, state.branch, ref),
+			merged: await isBranchMerged(pi, root, state.branch, ref),
+		};
 	} catch {
-		return { branch: state.branch, base: null, ahead, merged: false };
+		return { branch: state.branch, base: null, ahead: recorded, merged: false };
 	}
 }
 

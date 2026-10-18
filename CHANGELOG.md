@@ -164,6 +164,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `worktree`: the `Handoff:` block an exit prints counted the branch's commits
+  against the base commit recorded when the worktree was entered, so a branch cut
+  from `origin/main` and then rebased onto a newer local `main` reported every
+  commit the base had gained as its own ("18 commits ahead"). It now counts against
+  the resolved base branch (local first, then `origin/<branch>`), and every lookup
+  runs in the main checkout so the count still works after the worktree is removed.
+
 - `worktree`: a redirect to `/dev/null` is no longer refused as an escape. A target
   that discards its stream escapes nothing; every other device path is still
   refused, and `2>/dev/null` inside `bash` works again.
