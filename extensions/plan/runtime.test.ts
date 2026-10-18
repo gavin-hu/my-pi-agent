@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { createPlanPolicy } from "./policy.ts";
 import { BASELINE_TYPE, createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "./runtime.ts";
 import { changedSections, sectionDigests } from "./plan-text.ts";
@@ -230,7 +231,7 @@ describe("plan runtime — review baseline", () => {
 		const { runtime, entries } = setup();
 		runtime.markReviewed(path, plan);
 		expect(entries).toEqual([
-			{ type: "custom", customType: BASELINE_TYPE, data: { path, sections: sectionDigests(plan) } },
+			{ type: "custom", customType: BASELINE_TYPE, data: { path: resolve(path), sections: sectionDigests(plan) } },
 		]);
 	});
 
@@ -249,6 +250,18 @@ describe("plan runtime — review baseline", () => {
 
 		expect(changedSections(runtime.reviewed(path), plan)).toEqual([false, false]);
 		expect(changedSections(runtime.reviewed(path), edited)).toEqual([false, true]);
+	});
+
+	test("finds a baseline recorded under a non-canonical path", () => {
+		// A branch can name the same plan with `..` in it, or relative to another cwd;
+		// the restored key is canonical so the lookup does not depend on the spelling.
+		const { runtime, ctx } = setup({
+			branch: [baselineEntry("/repo/.pi/plans/nested/../a.md", sectionDigests(plan))],
+		});
+
+		runtime.restore(ctx);
+
+		expect(runtime.reviewed(path)).toEqual(sectionDigests(plan));
 	});
 
 	test("a branch that never reviewed the plan has no baseline", () => {

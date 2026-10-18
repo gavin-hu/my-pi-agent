@@ -224,6 +224,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a restored review baseline is looked up by a canonical plan path, so
+  the changed-section markers survive on Windows and for a branch that recorded
+  the same plan under a different spelling. The stored entry was read back
+  verbatim while the lookup resolved the path, so the two never met.
+
+- `rewind`: `before_agent_start` narrows the host's event union instead of
+  reading `prompt` off it, so the package typechecks against Pi 1.3 — where a
+  custom message (a wake) is its own event with no prompt — while a user run
+  still records its prompt summary.
+
 - `web-access`: `web_fetch` decodes a page by its byte-order mark, the declared
   `Content-Type` charset, or the page's own `<meta charset>`, falling back to
   UTF-8. A GBK/GB18030 page used to arrive as replacement characters; an unknown
