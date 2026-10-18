@@ -45,12 +45,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - `wechat`: a peer session now carries a channel contract in its system prompt,
-  so the model knows the reader is on a phone chat rather than at this terminal.
-  It leads with the answer, prefers a short list over a wide table, keeps code
-  blocks to the lines that matter, quotes what the reader needs instead of
-  pointing at paths, and does not ask them to run a command. The text is a
-  static append (cacheable, out of the conversation history) and says nothing
-  about individual tools or answer length, which have their own budgets.
+  so the model knows the reader is on a phone rather than at this terminal. It
+  puts the conclusion first, prefers a short list over a wide table, keeps code
+  to the key lines, skips absolute paths and internal ids, gives options plus a
+  recommendation when a decision is needed, and does not ask the reader to run
+  a command. A plan or attachment must be summarized in the message itself,
+  since a file bubble may never be opened. The text is a static append
+  (cacheable, out of the conversation history) and says nothing about
+  individual tools or answer length, which have their own budgets.
 - `wechat`: a terminal turn keeps its own dialogs while a WeChat peer turn runs.
   The bridge no longer adapts the terminal's shared `ctx.ui`, which used to route
   a local prompt (and its answer) to whichever peer happened to be running; the

@@ -17,12 +17,13 @@
 /** The phone-chat contract appended to a peer session's system prompt. */
 export const WECHAT_CHANNEL_PROMPT = `## This conversation is on WeChat
 
-The reader is on a phone chat, not at the terminal.
-- Answer in the language of their message and lead with the answer.
-- Keep paragraphs short; prefer a short list over a wide table, and keep a
-  code block to the lines that matter.
-- They cannot see the terminal, tool output, or files: quote what matters,
-  and never ask them to run a command.
-- Ask one question at a time.
-- Project instructions about the work still apply; this section changes how
-  you present the answer, not how carefully you do it.`;
+The reader is on a phone, not at the terminal.
+- Answer in their language: conclusion first, then a few short points; prefer a
+  list over a wide table and keep code to the key lines.
+- They cannot see the terminal, tool output, files, or this machine: quote what
+  matters, skip absolute paths and ids, and never ask them to run a command.
+- When a decision is needed, give the options and your recommendation.
+- If you attach a file or plan, summarize it in the message; never rely on the
+  attachment being opened.
+- Ask one question at a time. Project instructions still apply: change the
+  presentation, not the rigor.`;

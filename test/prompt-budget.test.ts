@@ -44,11 +44,13 @@ describe("injected prompt budget", () => {
 	});
 
 	test("the wechat channel contract stays within its ceiling and names the medium", () => {
-		// Always on for every peer request: keep it small, and keep the two rules
-		// that a terminal-shaped answer gets wrong (the phone, and commands).
+		// Always on for every peer request: keep it small, and keep the rules a
+		// terminal-shaped answer gets wrong (the phone, and commands).
 		expect(WECHAT_CHANNEL_PROMPT.length).toBeLessThanOrEqual(700);
 		expect(WECHAT_CHANNEL_PROMPT.split("\n").length).toBeLessThanOrEqual(12);
-		expect(WECHAT_CHANNEL_PROMPT).toContain("phone chat");
+		expect(WECHAT_CHANNEL_PROMPT).toContain("on a phone");
 		expect(WECHAT_CHANNEL_PROMPT).toContain("run a command");
+		expect(WECHAT_CHANNEL_PROMPT).toContain("recommendation");
+		expect(WECHAT_CHANNEL_PROMPT).toContain("attachment");
 	});
 });

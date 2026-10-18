@@ -388,13 +388,14 @@ media pipeline, admission, the typing indicator, and the notices.
 
 A peer session carries one extra piece of context: a short channel contract
 (`channel.ts`) appended to its system prompt, telling the model the reader is on
-a phone chat and cannot see this terminal, the tool output, or the filesystem,
-and that a command it does not run is a command nobody runs. It is a static
-append rather than a per-turn injection so it stays out of the conversation
-history and stays cacheable, and it deliberately says nothing about individual
-tools (their own descriptions cover usage) or answer length (the reply pipeline
-handles splitting). Project instructions still apply; the contract changes how
-the answer is presented, not how carefully the work is done.
+a phone and cannot see this terminal, the tool output, or the filesystem; that a
+command it does not run is a command nobody runs; and that a plan or attachment
+has to be summarized in the message itself, because a file bubble may never be
+opened. It is a static append rather than a per-turn injection so it stays out of
+the conversation history and stays cacheable, and it deliberately says nothing
+about individual tools (their own descriptions cover usage) or answer length (the
+reply pipeline handles splitting). Project instructions still apply; the contract
+changes how the answer is presented, not how carefully the work is done.
 
 Media and typing stay at the boundary: downloads go to a fixed CDN with a size
 cap, filenames are sanitized before use, and typing is best-effort. The send tool
