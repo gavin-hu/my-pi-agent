@@ -42,10 +42,10 @@ want the agent to *think first and work safely*:
   documents from inside the session, and answer a WeChat chat through a bridge to
   the live session.
 
-Everything is optional and independently toggleable. Nothing is patched or
-forked: Pi discovers the resources through the `pi` manifest in
-[`package.json`](./package.json), so the package upgrades with Pi like any
-other.
+Everything is optional and independently toggleable. Nothing is forked, and no
+installed Pi file is modified: Pi discovers the resources through the `pi`
+manifest in [`package.json`](./package.json), so the package upgrades with Pi
+like any other.
 
 ## Quick start
 
@@ -69,20 +69,24 @@ Then, from inside Pi:
 - `/bytefly [extension] [refresh]` opens the control center on Extensions, lists
   every loaded extension with its runtime health, enables or disables one, and
   clears a project override with `x`.
-- `/bytefly settings` opens the control center's Settings section: bytefly
-  startup TUI, desktop notifications and their delivery method, the proactive
-  health check, the currency and cost precision, the transcript
-  rail glyph, output padding, and the hardware cursor, with `Space`/`Enter` to
-  change a value and `Tab` for Global/Project scope.
+- `/bytefly settings` opens the control center's Settings section: ten groups
+  covering startup, notifications, diagnostics, pricing, transcript, terminal,
+  worktree, snapshots, jobs, and memory, plus a **Theme** row, with
+  `Space`/`Enter` to change a value and `Tab` for Global/Project scope.
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —
   `run_doctor`'s text — and checks that each enabled extension has what it needs
   at runtime.
-- `/settings` or `/bytefly settings` → **Theme** selects a theme.
+- `/bytefly update` re-runs the package update check now and reports the
+  updateable packages, this package's version and release URL, or a skip.
+- `/settings` remains Pi's own settings screen; `/bytefly settings` also has a
+  **Theme** row.
 - `/plan <task>` starts a task in read-only planning mode.
 
-One thing the pack does on its own: once per interactive session, `bytefly` asks
-npm for the newest published version and marks the header when yours is older.
-Nothing about the session is sent, and `PI_OFFLINE` skips the request;
+One thing the pack does on its own: once per interactive session, `bytefly`
+asks Pi's package manager which configured packages are behind, suppresses Pi's
+own startup update block, and posts one themed notice naming
+`pi update --extensions`; this package's new version also marks the header.
+Nothing about the session is sent, and `PI_OFFLINE` skips the check;
 [`docs/security.md`](./docs/security.md) covers the trust boundaries.
 
 ## What you get
@@ -124,7 +128,7 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` and `settings` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you. `bytefly.json` is the config document every extension reads. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you. `bytefly.json` is the config document every extension reads. |
 
 ### Themes
 

@@ -37,9 +37,9 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
 - **连通网络与文件。** 在会话内搜索、抓取、浏览、打开和读取文档，还可通过桥接
   在微信里直接回答当前会话。
 
-一切都是可选的，且可独立开关。没有任何东西被补丁或分叉：Pi 通过
-[`package.json`](./package.json) 里的 `pi` manifest 发现这些资源，因此该包能像
-其他包一样随 Pi 一起升级。
+一切都是可选的，且可独立开关。没有任何东西被分叉，也没有修改已安装的 Pi 文件：
+Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资源，因此
+该包能像其他包一样随 Pi 一起升级。
 
 ## 快速开始
 
@@ -61,17 +61,20 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 - `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
   及其运行时健康状况，启用或禁用一个扩展，并用 `x` 清除项目级覆盖。
-- `/bytefly settings` 打开控制中心的 Settings 区：bytefly 启动 TUI、桌面通知及其
-  投递方式、主动健康检查、货币与费用精度、转录轨道字形、输出内边距和硬件光标；
-  用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project 作用域。
+- `/bytefly settings` 打开控制中心的 Settings 区：十个分组覆盖启动、通知、
+  诊断、计价、转录、终端、worktree、快照、任务与监听器、记忆，并新增 **Theme**
+  行；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project 作用域。
 - `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
   检查每个已启用扩展在运行时是否具备所需条件。
-- `/settings` → **Theme** 选择主题。
+- `/bytefly update` 立即重跑包更新检查，报告可更新的包、本包版本与 release URL，
+  或跳过原因。
+- `/settings` 仍是 Pi 自己的设置界面；`/bytefly settings` 也提供 **Theme** 行。
 - `/plan <任务>` 以只读规划模式开始一个任务。
 
-还有一件包会自行做的事：每次交互式会话启动时，`bytefly` 向 npm 询问最新发布
-版本，当你的版本较旧时在头部标出。不会发送任何会话内容，`PI_OFFLINE` 可跳过
-该请求；信任边界见 [`docs/security.md`](./docs/security.md)。
+还有一件包会自行做的事：每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器
+哪些已配置的包有更新，抑制 Pi 自己的启动更新块，并用一个主题化 notice 列出它们
+和 `pi update --extensions`；本包的新版本还会标在头部。不会发送任何会话内容，
+`PI_OFFLINE` 可跳过检查；信任边界见 [`docs/security.md`](./docs/security.md)。
 
 ## 包含内容
 
@@ -112,7 +115,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知。`bytefly.json` 是每个扩展都会读取的配置文档。 |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings`、`update` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知。`bytefly.json` 是每个扩展都会读取的配置文档。 |
 
 ### 主题
 
