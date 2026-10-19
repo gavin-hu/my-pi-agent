@@ -31,13 +31,16 @@ want the agent to *think first and work safely*:
 - **Plan, then execute.** A read-only planning mode turns a task into a reviewed
   plan file that the agent then follows step by step.
 - **Delegate and parallelize.** Run specialist subagents in their own Pi
-  processes to explore, review, test, or implement while you keep the thread.
-- **Never wreck the checkout.** Work happens in an isolated `git worktree`, and
-  every prompt is snapshotted so a bad turn is one `/rewind` away.
+  processes, push a long build into a background job, and let a watcher tail a
+  log until it matters — all while you keep the thread.
+- **Never wreck the checkout.** Isolation is one command: the task moves onto its
+  own branch in a `git worktree`, and every prompt is snapshotted so a bad turn
+  is one `/rewind` away.
 - **Remember across sessions.** Durable notes live in plain markdown that you
   can read, edit, and version.
 - **Reach the web and your files.** Search, fetch, browse, open, and read
-  documents — all from inside the session.
+  documents from inside the session, and answer a WeChat chat through a bridge to
+  the live session.
 
 Everything is optional and independently toggleable. Nothing is patched or
 forked: Pi discovers the resources through the `pi` manifest in

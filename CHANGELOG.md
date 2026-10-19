@@ -53,6 +53,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the README's "Why this pack" promises now match what ships. "Never
+  wreck the checkout" says isolation is one command rather than describing the
+  worktree as the default, "Delegate and parallelize" covers background `job`s
+  and `watch`ers, and "Reach the web and your files" names the WeChat bridge.
+  The Chinese README mirrors each bullet.
 - `bytefly`: the startup header now sheds by terminal height as well as width.
   Below 28 rows the middle help group is dropped, below 22 only the `/` commands
   row remains, and below 16 the help block and its leading blank row go, leaving
