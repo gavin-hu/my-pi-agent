@@ -39,6 +39,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `failed`, or `all`) under `.pi/subagents/`, written by the dispatching process
   and pruned by age (`retentionDays`) and count (`maxRuns`). The child never
   learns one exists, so the read-only tool set is unchanged.
+- `plan`: the terminal review screen has its own screenshot, `assets/plan.png`,
+  drawn by `PlanViewComponent` and regenerated with `bun run screenshots plan`.
+  The capture script can now give a screen its own window bounds and frame size,
+  so a document-sized surface is not shot through a 20-row viewport and the
+  render no longer races the window resize.
 
 ### Changed
 

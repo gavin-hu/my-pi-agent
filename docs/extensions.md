@@ -36,6 +36,8 @@ title, modified time, and step progress, newest first, with Enter opening a
 review in the TUI. The enabled flag is a session entry, so `/resume` and `/tree`
 restore it.
 
+<img src="../assets/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and task checkboxes, a scroll gauge naming the current section and the visible line range, and the review, scroll, and section-jump hints" width="100%">
+
 Tools: `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`.
 Commands and flags: `/plan`, `/plan <prompt>`, `/plan list`,
 `/plan review [path]`, `Ctrl+Alt+P`, `--plan`.

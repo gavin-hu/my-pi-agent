@@ -311,6 +311,18 @@ agent file that overrides it.
 - `readOnly` is also a normal `subagent` parameter; outside plan mode a caller
   may set it to run any agent read-only on purpose.
 
+## Review screen
+
+<img src="../../assets/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
+
+`exit_plan_mode` opens this screen on the plan file it just wrote. The body is
+Pi's Markdown renderer with the active theme, so headings, lists, code, and
+links read as they do in the transcript; the checkboxes in `Steps` use the
+shared `◼`/`◻` vocabulary. A plan taller than the terminal scrolls under a gauge
+that names the section at the top of the viewport and the line range it shows,
+and the footer lists only the keys that apply. `Esc` keeps planning, `a` approves
+and runs, `r` refines inline, and `w` opens the browser review below.
+
 ## Browser review
 
 <img src="../../assets/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail and an inline review thread" width="100%">
