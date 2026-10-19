@@ -53,10 +53,17 @@ a hint row would otherwise shoot whatever geometry the window reached.
 a frame leaves the terminal or outgrows its `rows`.
 
 Two kinds of asset come from headless Chrome instead of the terminal:
-`plan-review.png` from `screenshot:plan`, and the tool galleries from
-`screenshot:tools` and `screenshot:tool-pngs`. `file-browse.png` has no
-generator: it was captured by hand from the loopback browser, so a change to
-that page needs a manual refresh or a new harness beside `screenshot:plan`.
+`plan-review.png` and the tool galleries (`screenshot:tools`,
+`screenshot:tool-pngs`). The review capture renders a committed fixture, so a
+refresh reproduces the same document:
+
+```bash
+bun run screenshot:plan scripts/fixtures/plan-review.md -o assets/plan-review.png --width 1280 --scale 1 --theme dark
+```
+
+`file-browse.png` has no generator: it was captured by hand from the loopback
+browser, so a change to that page needs a manual refresh or a new harness beside
+`screenshot:plan`.
 
 The screenshot grid in the root `README.md` is a curated set rather than the
 full list; each screen is shown in its own extension README.
