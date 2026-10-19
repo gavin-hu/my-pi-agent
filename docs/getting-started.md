@@ -14,13 +14,17 @@ Nothing here changes your repository, and every step can be undone.
 
 ## Is this pack for you?
 
-A filter, not a pitch: four conditions on each side.
+A filter, not a pitch: five conditions for, four against.
 
 **It fits if you want the agent to...**
 
 - **plan before it writes.** Plan mode takes the writing tools away until you
   approve a plan; the model reads and drafts under `.pi/plans`, then waits.
   [plan](../extensions/plan/)
+- **delegate the work.** Specialist subagents run in their own Pi processes, and a
+  long build goes to a background job or a watcher instead of blocking the thread.
+  [subagent](../extensions/subagent/), [job](../extensions/job/),
+  [watch](../extensions/watch/)
 - **keep tasks isolated and turns undoable.** Each task runs on its own branch
   in a `git` worktree, and every prompt is snapshotted, so a bad turn is one
   `/rewind` away. [worktree](../extensions/worktree/),
