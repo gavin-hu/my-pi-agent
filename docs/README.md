@@ -8,7 +8,7 @@ deep technical contracts live outside this directory and are linked below.
 
 | Guide | What it covers |
 |---|---|
-| [Getting started](./getting-started.md) | Requirements, install options, verifying the load, themes, disabling extensions. |
+| [Getting started](./getting-started.md) | Whether the pack fits, a trial run, install options, verifying the load, first workflows, turning parts off, and removal. |
 | [Extensions](./extensions.md) | The full catalog of every extension and theme, with its tools and commands. |
 | [Configuration](./configuration.md) | Config-file resolution, the per-extension index, and environment variables. |
 | [Configuration reference](./references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |

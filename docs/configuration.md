@@ -106,4 +106,4 @@ child processes; you normally never set them by hand.
 
 ## Disabling extensions
 
-See [Getting started → Disabling extensions](./getting-started.md#disabling-extensions).
+See [Getting started → Turn parts off](./getting-started.md#turn-parts-off).

@@ -171,7 +171,7 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 
 | 指南 | 内容 |
 |---|---|
-| [快速开始](./docs/getting-started.md) | 环境要求、安装选项、验证加载、主题。 |
+| [快速开始](./docs/getting-started.md) | 是否适合你、试用、安装选项、验证加载、首个工作流、移除。 |
 | [扩展](./docs/extensions.md) | 所有扩展与主题的完整目录。 |
 | [配置](./docs/configuration.md) | 配置文件解析、按扩展索引、环境变量。 |
 | [配置参考](./docs/references/bytefly-config.md) | 列出 `bytefly.json` 的每个 section 与键，包括类型、默认值和取值范围。 |

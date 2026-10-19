@@ -53,6 +53,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   summaries, and skill blocks sit on the canvas instead of inside a filled
   purple band. The now-unused `customBg` variable is gone.
 
+- `docs`: [getting started](./docs/getting-started.md) is now a page that ends in
+  a decision. It opens with what the pack is for and four conditions on each
+  side of the fit question, then a trial with `pi -e .` that writes nothing,
+  install, verification, the first three workflows, how to turn parts off, and
+  how to remove it. It also states what install changes in the terminal — the
+  chrome is always on, the startup header is opt-in, twenty-one tools join the
+  model's surface, and one npm check runs per session. The install pins and the
+  catalog are unchanged.
+
 ## [0.13.1] - 2026-10-18
 
 ### Added
