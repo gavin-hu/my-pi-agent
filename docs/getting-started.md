@@ -95,7 +95,7 @@ pi install npm:@gavin-hu/my-pi-agent
 pi install git:github.com/gavin-hu/my-pi-agent
 
 # Pin a release (npm versions and git tags name the same version)
-pi install git:github.com/gavin-hu/my-pi-agent@v0.13.1
+pi install git:github.com/gavin-hu/my-pi-agent@v0.14.0
 
 # Project-local install (.pi/settings.json in the current project)
 pi install ./ -l
