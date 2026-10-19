@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `bytefly`: the Settings screen now has a **Theme** row that lists `system` and
+  every theme the host resolved, including `bytefly-dark` and `bytefly-light`.
+  It writes Pi's personal `theme` setting and applies after reload; automatic
+  light/dark pairs stay in Pi's `/settings`.
+
 ### Changed
 
 - `bytefly`: the update surface now uses Pi's package manager as its only
@@ -23,6 +30,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`,
   which PowerShell 5.1 rejects with `BadEnumeration`. Delivery remains
   best-effort and silent on failure.
+- `bytefly`: the Settings screen keeps the focused setting when `Tab` switches
+  scope, names a Project default as `Default` instead of `Inherited from Global`,
+  and points an inherited value at the personal file rather than the project one.
+- `bytefly`: `u` on an inherited Project value says it is inherited instead of
+  claiming it is already at its default.
+- `bytefly`: the panel's scroll range counts selectable rows, so a clipped
+  Settings list reads its row count, not the entry count including group
+  headings.
+- `bytefly`: the JSON pane keeps the `Saved · reload to apply` marker, reports the
+  correct hidden-line count, and no longer advertises `J hide` on a Pi setting.
+- `bytefly`: clicking below the last body row no longer selects an off-screen row,
+  and a short terminal drops the range, project note, or detail pane instead of
+  overflowing the viewport.
+- `bytefly`: editing a long value scrolls the value to keep the caret visible and
+  leaves the row label in place on a narrow terminal.
 
 ## [0.14.0] - 2026-10-19
 

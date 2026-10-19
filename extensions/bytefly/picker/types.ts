@@ -37,6 +37,8 @@ export interface SettingsStore {
 	setQuietStartup(quiet: QuietStartup): void;
 	setOutputPad(padding: 0 | 1): void;
 	setShowHardwareCursor(enabled: boolean): void;
+	/** Pi's theme setting is a personal-file preference. */
+	setTheme(theme: string): void;
 	isProjectTrusted(): boolean;
 	flush(): Promise<void>;
 	drainErrors(): Array<{ error: Error }>;

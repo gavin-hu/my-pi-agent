@@ -77,7 +77,7 @@ Then, from inside Pi:
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —
   `run_doctor`'s text — and checks that each enabled extension has what it needs
   at runtime.
-- `/settings` → **Theme** selects a theme.
+- `/settings` or `/bytefly settings` → **Theme** selects a theme.
 - `/plan <task>` starts a task in read-only planning mode.
 
 One thing the pack does on its own: once per interactive session, `bytefly` asks
@@ -131,7 +131,8 @@ extension's own `README.md` has the full tool and command surface.
 [`bytefly-dark`](./themes/bytefly-dark.json) is a GitHub-inspired dark palette
 and [`bytefly-light`](./themes/bytefly-light.json) its light companion, with
 optional automatic light/dark switching. Installing the pack does not change
-your theme: pick one through `/settings` → **Theme**, or set
+your theme: pick one through `/settings` → **Theme** (or `/bytefly settings` →
+**Theme**), or set
 `"theme": "bytefly-light/bytefly-dark"` for switching. The screenshots in this
 README use `bytefly-dark`.
 

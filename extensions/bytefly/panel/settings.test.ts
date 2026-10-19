@@ -17,7 +17,12 @@ import {
 } from "./settings.ts";
 
 function snapshot(overrides: Partial<SettingsSnapshot> = {}): SettingsSnapshot {
-	return { app: overrides.app ?? {}, global: overrides.global ?? {}, project: overrides.project ?? {} };
+	return {
+		app: overrides.app ?? {},
+		global: overrides.global ?? {},
+		project: overrides.project ?? {},
+		themes: overrides.themes ?? [],
+	};
 }
 
 function row(id: string): SettingDescriptor {
@@ -60,6 +65,7 @@ describe("catalogue", () => {
 			"chrome.rail",
 			"goal.achieved",
 			"outputPad",
+			"theme",
 			"showHardwareCursor",
 			"worktree.baseRef",
 			"worktree.branchPrefix",
@@ -93,6 +99,7 @@ describe("catalogue", () => {
 			"chrome.rail",
 			"goal.achieved",
 			"outputPad",
+			"theme",
 			"showHardwareCursor",
 			"worktree.baseRef",
 			"worktree.branchPrefix",
@@ -113,7 +120,7 @@ describe("catalogue", () => {
 				.filter((entry) => entry.source === "bytefly")
 				.map((entry) => entry.id),
 		);
-		expect(rowsForScope("global")).toHaveLength(28);
+		expect(rowsForScope("global")).toHaveLength(29);
 		expect(rowsForScope("project")).toHaveLength(25);
 	});
 
@@ -131,7 +138,7 @@ describe("catalogue", () => {
 			"memory",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 3, 3, 1, 4, 3, 3, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 3, 3, 2, 4, 3, 3, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
 		expect(project.map((group) => group.key)).toEqual([
@@ -168,6 +175,7 @@ describe("values", () => {
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
 			["goal.achieved", "hide", "Hide", "default"],
 			["outputPad", "1", "1", "default"],
+			["theme", "system", "system", "default"],
 			["showHardwareCursor", "false", "Off", "default"],
 			["worktree.baseRef", "fresh", "Fresh", "default"],
 			["worktree.branchPrefix", "worktree-", "worktree-", "default"],
@@ -183,7 +191,29 @@ describe("values", () => {
 		]);
 
 		const project = settingViews(snapshot(), "project");
-		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 25 }, () => "inherited"));
+		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 25 }, () => "default"));
+
+		const inherited = snapshot({ global: { notify: { enabled: true } } });
+		expect(view("notify.enabled", "project", inherited)).toMatchObject({ value: "true", origin: "inherited" });
+		expect(view("notify.needsInput", "project", inherited)).toMatchObject({ value: "true", origin: "default" });
+	});
+
+	test("lists the resolved themes and labels an automatic pair", () => {
+		const themes = ["system", "bytefly-dark", "dark", "light"];
+		const fixed = snapshot({ themes, app: { theme: "bytefly-dark" } as Settings });
+		expect(view("theme", "global", fixed)).toMatchObject({
+			value: "bytefly-dark",
+			valueLabel: "bytefly-dark",
+			origin: "global",
+		});
+		expect(view("theme", "global", fixed).options.map((option) => option.value)).toEqual(themes);
+
+		const automatic = snapshot({ themes, app: { theme: "light/dark" } as Settings });
+		expect(view("theme", "global", automatic)).toMatchObject({
+			value: "light/dark",
+			valueLabel: "light/dark (automatic)",
+			origin: "global",
+		});
 	});
 
 	test("reads configured app and bytefly values", () => {
@@ -276,6 +306,17 @@ describe("cycling", () => {
 		const decimals = row("price.currency.decimals");
 		expect(nextValue(decimals, "2").value).toBe("3");
 		expect(nextValue(decimals, "4").value).toBe("0");
+	});
+
+	test("cycles the theme through the names the host resolved", () => {
+		const snap = snapshot({
+			themes: ["system", "dark", "light", "bytefly-dark"],
+			app: { theme: "system" } as Settings,
+		});
+		const theme = view("theme", "global", snap);
+
+		expect(nextValue(theme, "system").value).toBe("dark");
+		expect(nextValue(theme, "bytefly-dark").value).toBe("system");
 	});
 
 	test("keeps the rail rule and the loader on one definition", () => {

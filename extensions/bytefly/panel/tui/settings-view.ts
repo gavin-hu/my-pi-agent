@@ -8,7 +8,7 @@
 
 import { join } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../../lib/format.ts";
 import { clip } from "../../../../lib/tui/columns.ts";
 import { BODY_INDENT } from "../../../../lib/tui/indent.ts";
@@ -23,6 +23,34 @@ import { countsLine, INDENT, savedLine } from "./frame.ts";
 /** Pi's personal settings file, named in the detail pane. */
 const PI_SETTINGS_FILE = "settings.json";
 
+/** Columns the marker and the leading cell take before the label. */
+const ROW_PREFIX_WIDTH = 4;
+/** Columns a value keeps when the row has to choose between the label and the value. */
+const MIN_VALUE_WIDTH = 8;
+
+/**
+ * The editing cell: the buffer around the caret, scrolled so the caret is always
+ * visible, with ellipses where text is off-screen. The cell fits `budget`
+ * columns, so a long buffer cannot push the label out of the row.
+ */
+function editingCell(buffer: string, caret: number, budget: number): string {
+	const width = Math.max(1, budget);
+	const before = buffer.slice(0, caret);
+	const beforeWidth = visibleWidth(before);
+	const caretRoom = width - 1;
+	if (beforeWidth > caretRoom) {
+		// Reserve one column for the leading ellipsis; the caret sits at the right edge.
+		const shownWidth = Math.max(0, caretRoom - 1);
+		const prefix = shownWidth > 0 ? "…" : "";
+		const shown = shownWidth > 0 ? sliceByColumn(before, beforeWidth - shownWidth, shownWidth, true) : "";
+		return `${prefix}${shown}▏`;
+	}
+	const used = beforeWidth + 1;
+	const afterRoom = Math.max(0, width - used);
+	const after = afterRoom > 0 ? truncateToWidth(buffer.slice(caret), afterRoom, "…") : "";
+	return `${before}▏${after}`;
+}
+
 /** The rows this section shows, and the scope they were read in. */
 export function settingsSummary(theme: Theme, width: number, scope: PanelScope, count: number): string {
 	return countsLine(theme, width, settingsSummarySegments(scope, count));
@@ -36,17 +64,19 @@ export function settingRow(
 	selected: boolean,
 	editing?: { buffer: string; caret: number },
 ): string {
-	// The editor shows the buffer with a caret block, in the accent so the row
-	// reads as active rather than as a value that happens to contain a bar.
-	const value = editing
-		? `${editing.buffer.slice(0, editing.caret)}▏${editing.buffer.slice(editing.caret)}`
-		: view.valueLabel;
+	const label = sanitizeLine(view.label);
+	// Keep the whole label when it fits, and never let a long value or an editing
+	// buffer erase it: the value gets what is left, with a floor of eight columns.
+	const available = Math.max(1, width - ROW_PREFIX_WIDTH - 1);
+	const labelReserve = Math.min(visibleWidth(label), Math.max(0, available - MIN_VALUE_WIDTH));
+	const valueBudget = Math.max(1, available - labelReserve);
+	const rawValue = editing ? editingCell(editing.buffer, editing.caret, valueBudget) : view.valueLabel;
 	return listRow(theme, width, {
 		selected,
 		leading: view.kind === "boolean" ? checkbox(theme, view.value === "true") : " ",
-		label: sanitizeLine(view.label),
+		label,
 		labelRole: selected ? "accent" : "label",
-		trailing: sanitizeLine(value),
+		trailing: clip(sanitizeLine(rawValue), valueBudget),
 		trailingRole: editing ? "accent" : "meta",
 	});
 }
@@ -58,8 +88,9 @@ export function projectNote(theme: Theme, width: number): string {
 
 /** Where the focused row's value is written, and which scope supplied it. */
 function originLine(view: SettingView, paths: { scope: WriteScope; cwd: string; agentDir: string }): string {
+	const scope = view.origin === "inherited" ? "global" : paths.scope;
 	const path =
-		view.source === "app" ? join(paths.agentDir, PI_SETTINGS_FILE) : configPath(paths.scope, paths.cwd, paths.agentDir);
+		view.source === "app" ? join(paths.agentDir, PI_SETTINGS_FILE) : configPath(scope, paths.cwd, paths.agentDir);
 	const file = sanitizeLine(path);
 	switch (view.origin) {
 		case "inherited":
@@ -90,7 +121,7 @@ export function settingDetail(options: {
 	// The pending-changes marker survives the collapsed body: on a short terminal
 	// the value still changed, and the screen has to say so.
 	const saved = savedLine(theme, width, dirty);
-	if (budget === 0) return [headLine, ...saved];
+	if (budget === 0) return saved;
 
 	const lines = [headLine];
 	const descriptionWidth = Math.max(1, width - BODY_INDENT * 2);
@@ -130,28 +161,36 @@ export function sectionJsonPane(options: {
 	theme: Theme;
 	width: number;
 	section: string;
-	view: SettingView;
 	document: unknown;
 	budget: number;
+	dirty: boolean;
 	paths: { scope: WriteScope; cwd: string; agentDir: string };
 }): string[] {
-	const { theme, width, section, view, document, budget, paths } = options;
-	const source = paint(theme, "faint", originLine(view, paths));
+	const { theme, width, section, document, budget, dirty, paths } = options;
+	const saved = savedLine(theme, width, dirty);
+	if (budget === 0) return saved;
+	const scope = paths.scope === "global" ? "Global" : "Project";
+	const file = sanitizeLine(configPath(paths.scope, paths.cwd, paths.agentDir));
+	const source = paint(theme, "faint", `${scope} · ${file}`);
 	const head = `${paint(theme, "meta", sanitizeLine(section))} ${paint(theme, "faint", "—")} ${source}`;
 	const lines = [clip(`${INDENT}${head}`, width)];
-	const room = Math.max(0, budget - lines.length);
+	const room = Math.max(0, budget - lines.length - saved.length);
 	const body = document === undefined ? [] : JSON.stringify(document, null, 2).split("\n");
 
 	if (body.length === 0) {
 		if (room > 0) lines.push(clip(`${INDENT}${paint(theme, "faint", "Not set in this scope.")}`, width));
+		lines.push(...saved);
 		return lines;
 	}
 
 	const shown = body.slice(0, room);
 	if (body.length > room && shown.length > 0) {
-		shown[shown.length - 1] = `… ${body.length - room} more lines`;
+		// The marker replaces one already-shown line, so the hidden count is one
+		// larger than the number of lines the slice left out.
+		shown[shown.length - 1] = `… ${body.length - room + 1} more lines`;
 	}
 	for (const line of shown) lines.push(clip(`${INDENT}${paint(theme, "faint", sanitizeLine(line))}`, width));
+	lines.push(...saved);
 	return lines;
 }
 

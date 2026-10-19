@@ -50,12 +50,18 @@ function withoutLeaf(source: Record<string, unknown>, path: readonly string[]): 
 
 /** A settings surface over an in-memory snapshot, for rendering and interaction. */
 function makeSettings(
-	options: { app?: Settings; global?: Record<string, unknown>; project?: Record<string, unknown> } = {},
+	options: {
+		app?: Settings;
+		global?: Record<string, unknown>;
+		project?: Record<string, unknown>;
+		themes?: readonly string[];
+	} = {},
 ) {
 	const snapshot: SettingsSnapshot = {
 		app: options.app ?? {},
 		global: options.global ?? {},
 		project: options.project ?? {},
+		themes: options.themes ?? [],
 	};
 	const changes: string[] = [];
 	let dirty = false;
@@ -124,6 +130,7 @@ function build(options: {
 	app?: Settings;
 	globalDoc?: Record<string, unknown>;
 	projectDoc?: Record<string, unknown>;
+	themes?: readonly string[];
 	settings?: SettingsSurface;
 }) {
 	const store = options.store ?? makeStore();
@@ -144,7 +151,12 @@ function build(options: {
 	const reports = options.reports ?? [];
 	const settings =
 		options.settings ??
-		makeSettings({ app: options.app, global: options.globalDoc, project: options.projectDoc }).surface;
+		makeSettings({
+			app: options.app,
+			global: options.globalDoc,
+			project: options.projectDoc,
+			themes: options.themes,
+		}).surface;
 	const component = new PanelComponent({
 		runtime,
 		reports: () => reports,
@@ -593,7 +605,7 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("28 settings");
+		expect(text).toContain("29 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Delivery method");
@@ -613,7 +625,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 28 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 29 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -639,7 +651,7 @@ describe("PanelComponent sections", () => {
 		// drops it, and the cursor must land nearby rather than back at the top.
 		component.handleInput("g");
 		for (let index = 0; index < 5; index += 1) component.handleInput("]");
-		expect(selected()).toContain("Hardware cursor");
+		expect(selected()).toContain("Theme");
 
 		component.handleInput("\t");
 		expect(component.render(80).join("\n")).toContain("Project · 25 settings");
@@ -653,7 +665,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 28 settings");
+		expect(refused).toContain("Global · 29 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 
@@ -665,7 +677,7 @@ describe("PanelComponent sections", () => {
 
 	test("shows a refused setting change in the frame", async () => {
 		const surface: SettingsSurface = {
-			views: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope),
+			views: (scope) => settingViews({ app: {}, global: {}, project: {}, themes: [] }, scope),
 			change: async () => {
 				throw new Error("disk full");
 			},
@@ -1012,7 +1024,7 @@ describe("PanelComponent settings actions", () => {
 
 	test("shows a failed reset in the frame instead of behind it", async () => {
 		const surface: SettingsSurface = {
-			views: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope),
+			views: (scope) => settingViews({ app: {}, global: {}, project: {}, themes: [] }, scope),
 			change: async () => {},
 			setValue: async () => false,
 			reset: async () => {
@@ -1080,5 +1092,190 @@ describe("PanelComponent settings actions", () => {
 		expect(selected()).toContain("Inject notes");
 		component.handleInput("]");
 		expect(selected()).toContain("Inject notes");
+	});
+});
+
+describe("PanelComponent settings review fixes", () => {
+	test("keeps the focused setting across a scope switch", () => {
+		const { component } = build({
+			items: [packageItem("plan")],
+			section: "settings",
+			globalDoc: { notify: { title: "Pi" } },
+		});
+		const selected = (): string => component.render(80).find((line) => line.startsWith("❯")) ?? "";
+
+		focus(component, "Notification title");
+		component.handleInput("\t");
+		expect(selected()).toContain("Notification title");
+		component.handleInput("\t");
+		expect(selected()).toContain("Notification title");
+	});
+
+	test("names the global file for an inherited row and calls a default a default", () => {
+		const { component } = build({
+			items: [packageItem("plan")],
+			section: "settings",
+			rows: 40,
+			globalDoc: { worktree: { baseRef: "head" } },
+		});
+
+		component.handleInput("\t");
+		focus(component, "Base ref");
+		let text = component.render(80).join("\n");
+		expect(text).toContain(`Inherited from Global · ${join("/agent", "bytefly.json")}`);
+
+		focus(component, "Fetch remote");
+		text = component.render(80).join("\n");
+		expect(text).toContain(`Default · ${join("/proj", ".pi", "bytefly.json")}`);
+		expect(text).not.toContain("Inherited from Global");
+	});
+
+	test("names the scope file in the JSON pane, not the value origin", () => {
+		const { component } = build({
+			items: [packageItem("plan")],
+			section: "settings",
+			globalDoc: { worktree: { baseRef: "head" } },
+		});
+
+		component.handleInput("\t");
+		focus(component, "Base ref");
+		component.handleInput("J");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain(`worktree — Project · ${join("/proj", ".pi", "bytefly.json")}`);
+		expect(text).toContain("Not set in this scope.");
+	});
+
+	test("counts settings, not group headings, in the range row", () => {
+		const { component } = build({ items: [packageItem("plan")], section: "settings", rows: 12 });
+
+		const global = component.render(80).join("\n");
+		expect(global).toContain("showing");
+		expect(global).toContain("of 29");
+		expect(global).not.toContain("of 39");
+
+		component.handleInput("\t");
+		expect(component.render(80).join("\n")).toContain("of 25");
+	});
+
+	test("ignores a click below the last body row", () => {
+		const { component } = build({ items: [packageItem("plan")], section: "settings", rows: 24 });
+		const selected = (): string => component.render(80).find((line) => line.startsWith("❯")) ?? "";
+
+		const lines = component.render(80);
+		const rangeY = lines.findIndex((line) => line.includes("showing"));
+		const hintY = lines.findIndex((line) => line.includes("Esc close"));
+		const before = selected();
+
+		for (const y of [rangeY, hintY]) {
+			expect(component.handleMouse({ type: "click", button: "left", x: 10, y } as never)).toBeUndefined();
+		}
+		expect(selected()).toBe(before);
+	});
+
+	test("keeps the saved marker while the JSON pane is open", () => {
+		const base = makeSettings({ global: { notify: { enabled: true } } });
+		const surface: SettingsSurface = { ...base.surface, isDirty: () => true };
+		const { component } = build({ items: [], section: "settings", settings: surface });
+
+		focus(component, "Desktop notifications");
+		component.handleInput("J");
+
+		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
+	});
+
+	test("counts the JSON lines it hides", () => {
+		const doctor = Object.fromEntries(Array.from({ length: 10 }, (_, index) => [`key${index}`, `value ${index}`]));
+		const { component } = build({ items: [], section: "settings", rows: 14, globalDoc: { doctor } });
+
+		focus(component, "Proactive health check");
+		component.handleInput("J");
+
+		// Twelve JSON lines in a four-line room: three are shown and the marker
+		// replaces the fourth, so nine are hidden.
+		expect(component.render(80).join("\n")).toContain("… 9 more lines");
+	});
+
+	test("does not claim a hidden JSON pane on an app row", () => {
+		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { enabled: true } } });
+
+		focus(component, "Desktop notifications");
+		component.handleInput("J");
+		component.handleInput("g");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Bytefly startup TUI — Pi setting");
+		expect(text).toContain("J JSON");
+		expect(text).not.toContain("J hide");
+	});
+
+	test("keeps the label and the caret while editing a long value on a narrow terminal", () => {
+		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });
+
+		focus(component, "Notification title");
+		component.handleInput(" ");
+		component.handleInput("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+
+		const line = component.render(30).find((candidate) => candidate.startsWith("❯")) ?? "";
+		expect(line).toContain("Notification");
+		expect(line).toContain("▏");
+		expect(line).toContain("…");
+	});
+
+	test("fits an eight-row terminal in both scopes and while dirty", () => {
+		for (const project of [false, true]) {
+			const { component } = build({ items: [], section: "settings", rows: 8 });
+			if (project) {
+				component.render(80);
+				component.handleInput("\t");
+			}
+			expect(component.render(80).length).toBeLessThanOrEqual(8);
+		}
+
+		const base = makeSettings({ global: { notify: { enabled: true } } });
+		const surface: SettingsSurface = { ...base.surface, isDirty: () => true };
+		const dirty = build({ items: [], section: "settings", rows: 8, settings: surface }).component;
+		const lines = dirty.render(80);
+		expect(lines.length).toBeLessThanOrEqual(8);
+		expect(lines.join("\n")).toContain("Saved · reload to apply");
+
+		focus(dirty, "Desktop notifications");
+		dirty.handleInput("J");
+		const withJson = dirty.render(80);
+		expect(withJson.length).toBeLessThanOrEqual(8);
+		expect(withJson.join("\n")).toContain("Saved · reload to apply");
+	});
+});
+
+describe("PanelComponent theme setting", () => {
+	test("renders Theme under Terminal and cycles the resolved names", async () => {
+		const { component } = build({
+			items: [],
+			section: "settings",
+			themes: ["system", "bytefly-dark", "bytefly-light"],
+			app: { theme: "system" } as Settings,
+		});
+
+		focus(component, "Theme");
+		const before = component.render(80).join("\n");
+		expect(before).toContain("Terminal (2)");
+		expect(before).toContain("Theme");
+
+		component.handleInput(" ");
+		await settle();
+		await settle();
+
+		const after = component.render(80).join("\n");
+		expect(after).toContain("bytefly-dark");
+		expect(after).toContain("Saved · reload to apply");
+	});
+
+	test("omits the Theme row in Project scope", () => {
+		const { component } = build({ items: [], section: "settings", themes: ["system", "bytefly-dark"] });
+
+		component.render(80);
+		component.handleInput("\t");
+
+		expect(component.render(80).join("\n")).not.toContain("Theme");
 	});
 });

@@ -173,16 +173,16 @@ describe("sections", () => {
 	});
 
 	test("lists settings in groups with their values", () => {
-		const views = settingViews({ app: {}, global: {}, project: {} }, "global");
+		const views = settingViews({ app: {}, global: {}, project: {}, themes: [] }, "global");
 		const text = formatSettingsListing(views);
 
-		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 28 settings");
+		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 29 settings");
 		expect(text).toContain("Startup (1)");
 		expect(text).toContain("Notifications (7)");
 		expect(text).toContain("Diagnostics (2)");
 		expect(text).toContain("Pricing (3)");
 		expect(text).toContain("Transcript (3)");
-		expect(text).toContain("Terminal (1)");
+		expect(text).toContain("Terminal (2)");
 		expect(text).toContain("Worktree (4)");
 		expect(text).toContain("Snapshots (3)");
 		expect(text).toContain("Jobs and watchers (3)");
@@ -198,5 +198,6 @@ describe("sections", () => {
 		expect(text).toContain("Probe timeout: 2000");
 		expect(text).toContain("Currency: CNY (¥)");
 		expect(text).toContain("Cost decimals: 2");
+		expect(text).toContain("Theme: system");
 	});
 });
