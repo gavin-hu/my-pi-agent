@@ -22,6 +22,16 @@ export const CONFIG = {
 	dashRole: "ruleStrong",
 	/** Role for the label. */
 	labelRole: "meta",
+	/** Role for a turn with a failed tool. */
+	failureRole: "bad",
+	/** Role for an aborted turn; escape is a warning, not an error. */
+	abortedRole: "warn",
+	/** Smallest run duration printed on the receipt; shorter turns keep the label quiet. */
+	minDurationMs: 1000,
+	/** Word appended when the run was aborted. */
+	abortedLabel: "aborted",
+	/** Glyph before a failed tool count. */
+	failureGlyph: GLYPHS.cross,
 } as const satisfies {
 	customType: string;
 	glyph: string;
@@ -29,4 +39,9 @@ export const CONFIG = {
 	pad: number;
 	dashRole: TuiRole;
 	labelRole: TuiRole;
+	failureRole: TuiRole;
+	abortedRole: TuiRole;
+	minDurationMs: number;
+	abortedLabel: string;
+	failureGlyph: string;
 };

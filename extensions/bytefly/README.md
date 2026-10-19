@@ -3,8 +3,8 @@
 `bytefly` owns the terminal chrome, configuration, and diagnostics surfaces
 this package adds: one themed startup header whose two-tone nameplate carries
 the agent and chrome identities, one compact, colorful, width-adaptive two-line
-footer, a two-row `You` nameplate that opens each user message, a labeled rule that
-marks each completed turn in the transcript, one keyboard-driven screen with two
+footer, a two-row `You` nameplate that opens each user message, a receipt rule that
+records each completed turn in the transcript, one keyboard-driven screen with two
 sections — Extensions, every resolved Pi extension with its enable checkbox and
 its health, and Settings, the common app and `bytefly.json` preferences — and
 an opt-in notify capability that raises an OS notification when a run finishes,
@@ -200,9 +200,9 @@ restart it, and a retry starts a new run. The words and the interval are tuned
 in [`working/config.ts`](./working/config.ts).
 
 **Turn separator.** After each completed turn the extension appends an inert
-entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
-[Turn separator](#turn-separator). No config file is needed and there is no
-command.
+entry and draws a centered receipt rule — `╌╌╌ turn N · duration · N tools ╌╌╌`
+— across the transcript; see [Turn separator](#turn-separator). No config file is
+needed and there is no command.
 
 **Notices.** Any extension in the package can post a transcript notice under the
 shared `my-pi-agent/notice` type; bytefly draws it at the transcript's margin —
@@ -363,7 +363,7 @@ identity tokens, tagline, grouped help), the footer in
 [`footer/config.ts`](./footer/config.ts) (thresholds, gauge glyphs and widths,
 separators, icons, status keys), and the turn separator in
 [`separator/config.ts`](./separator/config.ts) (glyph, label prefix, padding,
-colors).
+minimum duration, outcome wording, colors).
 
 Every key of every section is listed with its type, default, and bounds in the
 [configuration reference](../../docs/references/bytefly-config.md); this section
@@ -522,29 +522,41 @@ the model, which sits at the end of the line.
 `agent_settled` fires once after an agent run fully settles — exactly one user
 turn — which is why it is used instead of `turn_end` (that fires once per
 assistant message, so tool-calling rounds would each get a line). On each
-settled run the extension appends an inert custom entry and a renderer draws
-it:
+settled run the extension appends an inert custom entry and a renderer draws it
+as a receipt: the turn number, then the run's duration, top-level tool count,
+and outcome as the width allows.
 
 ```
-╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ turn 3 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+╌╌╌╌╌╌╌╌╌╌╌╌ turn 3 · 1m12s · 7 tools ╌╌╌╌╌╌╌╌╌╌╌╌
 ```
 
 - The turn number is `count(separators on the current branch) + 1`, so a
   resumed or forked session continues the parent's numbering and abandoned
   branches do not leak counts.
+- The receipt opens on the run's first `agent_start` and closes on
+  `agent_settled`, so a retry stays inside one duration. It counts only
+  top-level tool calls; a nested call (one carrying `parentToolCallId`) is an
+  implementation detail of its parent and does not inflate the number.
+- The outcome is part of the receipt: a failed tool adds `✕N`, and an aborted
+  run adds `aborted` instead of the failure count. A sub-second run prints no
+  duration, so quick turns stay quiet. Entries written before the receipt
+  existed have only a turn number and still render as `turn N`.
+- The label sheds fields rather than overflowing: the tool count first, then
+  the duration, then the outcome. When even the turn number does not fit, the
+  line becomes a plain dashed rule instead of clipping.
+- A clean turn paints the label `meta`, a turn with a failed tool paints it
+  `bad`, and an aborted turn paints it `warn`.
 - The entry is excluded from LLM context, so it costs no tokens, and it
   survives resume and fork. It is drawn under the `bytefly-separator` custom
   entry type.
-- The line is centered and width-adaptive: the label is filled out with the
-  glyph, and when it cannot fit the line becomes a plain dashed rule rather
-  than overflowing.
 - The rule is installed only in interactive (`tui`) sessions; RPC, JSON, and
   print sessions append nothing.
 - Separators recorded by the retired `turn-separator` extension are not
   rendered, and `PI_DISABLED_EXTENSIONS=turn-separator` no longer affects the
   rule; disable the whole extension with `bytefly` instead.
-- There is no runtime command; the glyph, label prefix, padding, and colors are
-  tuned in [`separator/config.ts`](./separator/config.ts).
+- There is no runtime command; the glyph, label prefix, padding, colors, and
+  minimum duration are tuned in
+  [`separator/config.ts`](./separator/config.ts).
 
 ## The control center
 
@@ -1035,7 +1047,7 @@ rather than showing a wrong value.
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
-| Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
+| Turn separator | `registerEntryRenderer("bytefly-separator")` draws each stored receipt; `agent_start` opens it, top-level `tool_execution_start`/`tool_execution_end` count tools and failures, and `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn, durationMs, tools, failures, aborted })` in `tui` mode only. The receipt fields are omitted when no `agent_start` was seen, so an older or partially observed entry stays `{ turn }`. |
 | Working line | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage` in `tui` mode; before a tool runs the message is `Working… Ns`, and each top-level `tool_execution_start` repaints it as `tool · N tools · Ns` (nested calls carrying `parentToolCallId` are skipped). `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no persisted state; the count lives in the register's closure. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
@@ -1333,11 +1345,11 @@ columns, gauge), so the look follows the active theme.
 | `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, `recolorCallHeadline`, and `ToolBlock`: the headline, the body's two-column indent (optionally rail-led), the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), the subject demotion (a path, URL, query, or pattern reads in `label` so the name is the line's only accent, including the tail a bare `edit <path>` headline wraps onto the body), and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer: the subject in the body colour, its options faint, and a capped result preview. |
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it, rails the result body by status, and rails the call body for `edit`/`write` (the two whose call body carries the result). |
-| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
-| `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
+| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, receipt minimum duration and outcome wording, and roles. |
+| `separator/register.ts` | Registers the entry renderer, tracks the run's tools and failures, and appends the receipt on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
-| `separator/format.ts` | Pure `separatorLine`: the centered turn rule, drawn by the kit's `centeredRule`. |
-| `separator/types.ts` | `TurnSeparatorData`. |
+| `separator/format.ts` | Pure `receiptLabel` (the width ladder), `receiptRole`, and `separatorLine`, drawn by the kit's `centeredRule`. |
+| `separator/types.ts` | `TurnSeparatorData`: the turn plus the optional receipt fields. |
 | `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the words, the tool singular/plural, and the tick interval. |
 | `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape: the plain count and the `tool · N tools · elapsed` run line. |
 | `working/register.ts` | Starts the tick on `turn_start`, tracks top-level tools on `tool_execution_start`, and cancels on `agent_end`/`session_shutdown`. |
@@ -1392,10 +1404,10 @@ folding across a width sweep from 6 to 120 plus wide characters
 (`footer/render/layout`), exact
 golden output at fixed widths (`footer/render/render`), and the install/skip/
 restore/toggle lifecycle plus a config-driven price (`extension`). The turn
-separator
-is covered by its pure formatting (`separator/format`) and its
-register/append/render/disable lifecycle (`separator/register`). The picker
-helpers are covered by the pure helpers (`picker/resources`), the toggle
+separator is covered by its pure formatting (`separator/format`, including the
+receipt's width ladder), its register/append/render/disable lifecycle
+(`separator/register`), and the run stats it records. The picker helpers are
+covered by the pure helpers (`picker/resources`), the toggle
 transforms (`picker/toggle`), discovery with an injected factory
 (`picker/discovery`), and the runtime state machine (`picker/runtime`). The
 unified screen is covered by its pure model merge (`panel/join`), its text

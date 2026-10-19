@@ -421,7 +421,7 @@ function renderChrome(width: number): string[] {
 
 	lines.push(...new NoticeComponent(CHROME_NOTICE, theme, pad).render(width));
 	lines.push("");
-	lines.push(...new SeparatorComponent(3, theme, pad).render(width));
+	lines.push(...new SeparatorComponent({ turn: 3, durationMs: 72_000, tools: 7 }, theme, pad).render(width));
 	lines.push("");
 
 	for (const line of buildLines(CHROME_SNAPSHOT, theme, "/Users/gavin")) {
