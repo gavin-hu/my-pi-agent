@@ -8,10 +8,12 @@ import {
 	readUpdateCache,
 	UPDATE_CACHE_FILE,
 	UPDATE_CACHE_TTL_MS,
+	updateCacheKey,
 	updateCachePath,
 	writeUpdateCache,
 	type UpdateCacheEntry,
 } from "./cache.ts";
+import type { PackageUpdate } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -25,11 +27,31 @@ function tempFile(contents?: string): string {
 	return path;
 }
 
-const entry: UpdateCacheEntry = { latest: "0.13.0", checkedAt: 1_767_225_600_000 };
+const UPDATES: PackageUpdate[] = [
+	{ source: "@gavin-hu/my-pi-agent", displayName: "@gavin-hu/my-pi-agent", type: "npm", scope: "user" },
+];
+const entry: UpdateCacheEntry = {
+	key: "cwd-and-packages",
+	checkedAt: 1_767_225_600_000,
+	updates: UPDATES,
+	latest: "0.13.0",
+};
 
 describe("updateCachePath", () => {
 	test("sits under the agent directory's bytefly folder", () => {
 		expect(updateCachePath("/agent")).toBe(join("/agent", "bytefly", UPDATE_CACHE_FILE));
+	});
+});
+
+describe("updateCacheKey", () => {
+	test("is stable for the same cwd and package list", () => {
+		expect(updateCacheKey("/repo", ["a", "b"])).toBe(updateCacheKey("/repo", ["a", "b"]));
+	});
+
+	test("changes with the cwd or the package list", () => {
+		const base = updateCacheKey("/repo", ["a", "b"]);
+		expect(updateCacheKey("/other", ["a", "b"])).not.toBe(base);
+		expect(updateCacheKey("/repo", ["a", "c"])).not.toBe(base);
 	});
 });
 
@@ -48,19 +70,30 @@ describe("readUpdateCache", () => {
 		expect(readUpdateCache(tempFile("{ not json"))).toBeUndefined();
 	});
 
-	test("rejects a version that does not parse", () => {
-		expect(readUpdateCache(tempFile(JSON.stringify({ latest: "newest", checkedAt: 1 })))).toBeUndefined();
+	test("rejects the old one-version schema", () => {
+		expect(readUpdateCache(tempFile(JSON.stringify({ latest: "0.13.0", checkedAt: 1 })))).toBeUndefined();
 	});
 
-	test("rejects a missing or non-numeric timestamp", () => {
-		for (const payload of [{ latest: "0.13.0" }, { latest: "0.13.0", checkedAt: "yesterday" }, []]) {
-			expect(readUpdateCache(tempFile(JSON.stringify(payload)))).toBeUndefined();
+	test("rejects a missing key or timestamp, and a malformed update row", () => {
+		for (const payload of [
+			{ updates: UPDATES, checkedAt: 1 },
+			{ key: "k", updates: UPDATES },
+			{ key: "k", updates: [{ displayName: "x" }], checkedAt: 1 },
+			{ key: "k", updates: UPDATES, checkedAt: "yesterday" },
+			[],
+		]) {
+			expect(readUpdateCache(tempFile(JSON.stringify(payload))), JSON.stringify(payload)).toBeUndefined();
 		}
 	});
 
-	test("accepts an entry whose version is older or equal", () => {
-		const path = tempFile(JSON.stringify({ latest: "0.0.1", checkedAt: 5 }));
-		expect(readUpdateCache(path)).toEqual({ latest: "0.0.1", checkedAt: 5 });
+	test("drops a version that does not parse but keeps the list", () => {
+		const path = tempFile(JSON.stringify({ key: "k", updates: UPDATES, checkedAt: 5, latest: "newest" }));
+		expect(readUpdateCache(path)).toEqual({ key: "k", updates: UPDATES, checkedAt: 5 });
+	});
+
+	test("accepts an empty list", () => {
+		const path = tempFile(JSON.stringify({ key: "k", updates: [], checkedAt: 5 }));
+		expect(readUpdateCache(path)).toEqual({ key: "k", updates: [], checkedAt: 5 });
 	});
 });
 

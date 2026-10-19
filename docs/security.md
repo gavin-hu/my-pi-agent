@@ -54,10 +54,11 @@ serves only from its root. Both reuse the containment predicates in
 private and internal address ranges before following it, so `web_fetch` cannot
 be pointed at loopback, link-local, or metadata endpoints.
 
-[`bytefly`](../extensions/bytefly/) makes one request of its own: once per
-interactive session it reads npm's `latest` document for this package to tell
-you a newer release exists. The request carries no session data — it is a fixed
-`GET` — and `PI_OFFLINE` turns it off.
+[`bytefly`](../extensions/bytefly/) asks Pi's package manager which configured
+packages are behind, so it runs the same npm/git checks Pi would run. When this
+package is one of them, it also makes one fixed `GET` of npm's `latest`
+document to name the version and release URL. Neither path carries session data,
+and `PI_OFFLINE` turns both off.
 
 ### Child processes and remote control
 

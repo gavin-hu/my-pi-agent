@@ -1,24 +1,26 @@
 /**
- * Wording for the update check: the header marker, the one transcript notice, and
- * the answer an explicit re-check prints.
+ * Wording for the update surface: the header marker, the one transcript notice,
+ * and the answer an explicit re-check prints.
  *
- * All three read the same two facts — the version this session loaded and the
- * version the registry publishes — and none adds a third. The marker is the
- * shortest honest form (`↑0.12.0`); the notice names the command and the release
- * URL as text, because the notice renderer has no link support; and the re-check
- * says what it just found, including the two cases it cannot answer (offline, and
- * a registry it could not read).
+ * Pi's package manager decides which configured packages are behind. The marker
+ * is still only this package's newest version (`↑0.12.0`); the notice names every
+ * package Pi reported and, for this package, the version arrow and release URL
+ * the notice renderer can print as text.
  */
 
 import pkg from "../../../package.json";
 import { noticeMessage, type NoticeMessage } from "../../../lib/notice.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { UpdateOutcome } from "./state.ts";
+import type { PackageUpdate } from "./types.ts";
 
-/** The header marker: an up arrow and the newest version, e.g. `↑0.12.0`. */
+/** The header marker: an up arrow and this package's newest version. */
 export function updateMarker(latest: string): string {
 	return `${GLYPHS.update}${latest}`;
 }
+
+/** The command that resolves every row in the notice. */
+export const UPDATE_COMMAND = "pi update --extensions";
 
 /**
  * The release page for a version, or `undefined` when this checkout does not name
@@ -32,35 +34,68 @@ export function releaseUrl(version: string): string | undefined {
 	return `${base}/releases/tag/v${version}`;
 }
 
-/** The single notice a session posts when a newer version is published. */
-export function updateNotice(current: string, latest: string): NoticeMessage {
-	const release = releaseUrl(latest);
-	const command = "pi update --extensions";
+/** Whether a row is this package, whose version the header and notice show. */
+function isOwnPackage(update: PackageUpdate): boolean {
+	return update.type === "npm" && update.displayName === pkg.name;
+}
+
+/** The scope word Pi's package update carries. */
+function scopeLabel(update: PackageUpdate): string {
+	return update.scope === "project" ? "project" : "global";
+}
+
+/** One package row: the version arrow for this package, the scope for the rest. */
+function packageRow(
+	update: PackageUpdate,
+	current: string,
+	ownLatest?: string,
+): {
+	label: string;
+	detail: string;
+	severity: "info";
+} {
+	const detail = isOwnPackage(update) && ownLatest ? `v${current} → v${ownLatest}` : scopeLabel(update);
+	return { label: update.displayName, detail, severity: "info" };
+}
+
+/** The headline shared by the notice and the re-check answer. */
+function headline(count: number): string {
+	return count === 1 ? "1 package update available" : `${count} package updates available`;
+}
+
+/** The release URL for this package's new version, when it is known. */
+function ownRelease(ownLatest?: string): string | undefined {
+	return ownLatest ? releaseUrl(ownLatest) : undefined;
+}
+
+/** The single notice a session posts when Pi reports package updates. */
+export function updateNotice(updates: readonly PackageUpdate[], current: string, ownLatest?: string): NoticeMessage {
+	const own = updates.find(isOwnPackage);
+	const release = own ? ownRelease(ownLatest) : undefined;
+	const names = updates.map((update) => update.displayName).join(", ");
+	const parts = [`${headline(updates.length)}: ${names}.`];
+	if (own && ownLatest) parts.push(`${pkg.name} v${current} → v${ownLatest}.`);
+	parts.push(`Run \`${UPDATE_COMMAND}\` to update.`);
+	if (release) parts.push(`Release notes: ${release}`);
 	return noticeMessage({
-		content:
-			`bytefly ${latest} is available (current ${current}). Run \`${command}\` to update.` +
-			(release ? ` Release notes: ${release}` : ""),
+		content: parts.join(" "),
 		details: {
 			source: "bytefly",
-			title: `${latest} is available`,
+			title: headline(updates.length),
 			severity: "info",
-			items: release
-				? [
-						{ label: "current", detail: `v${current}` },
-						{ label: "update", detail: command },
-						{ label: "release", detail: release },
-					]
-				: [
-						{ label: "current", detail: `v${current}` },
-						{ label: "update", detail: command },
-					],
+			items: [
+				...updates.map((update) => packageRow(update, current, ownLatest)),
+				{ label: "update", detail: UPDATE_COMMAND },
+				...(release ? [{ label: "release", detail: release }] : []),
+			],
 		},
 	});
 }
 
 /**
  * What `/bytefly update` prints. The background check is silent because nobody
- * asked; here someone did, so a skip and a failed read are answers too.
+ * asked; here someone did, so a skip, a failure, and an up-to-date answer are
+ * answers too.
  */
 export function updateOutcomeText(
 	outcome: UpdateOutcome,
@@ -71,17 +106,20 @@ export function updateOutcomeText(
 			return { text: "bytefly: the update check was skipped (PI_OFFLINE is set).", severity: "info" };
 		case "failed":
 			return {
-				text: "bytefly: could not read the published version — check the network and try again.",
+				text: "bytefly: could not check package updates — check the network and try again.",
 				severity: "warning",
 			};
 		case "current":
-			return { text: `bytefly: up to date — v${outcome.latest} is the newest published version.`, severity: "info" };
+			return { text: "bytefly: up to date — no configured package has an update.", severity: "info" };
 		case "available": {
-			const release = releaseUrl(outcome.latest);
-			return {
-				text: `bytefly: v${outcome.latest} is available (current ${current}).${release ? ` ${release}` : ""}`,
-				severity: "info",
-			};
+			const names = outcome.updates.map((update) => update.displayName).join(", ");
+			const own = outcome.updates.some(isOwnPackage);
+			const release = own ? ownRelease(outcome.ownLatest) : undefined;
+			const parts = [`bytefly: ${headline(outcome.updates.length)}: ${names}.`];
+			if (own && outcome.ownLatest) parts.push(`This package is v${current} → v${outcome.ownLatest}.`);
+			parts.push(`Run ${UPDATE_COMMAND}.`);
+			if (release) parts.push(`Release notes: ${release}`);
+			return { text: parts.join(" "), severity: "info" };
 		}
 	}
 }

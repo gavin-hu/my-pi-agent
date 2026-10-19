@@ -41,8 +41,10 @@ export function makeFakePi(options: { settings?: any } = {}): FakePi {
  */
 export const OFFLINE_UPDATE = {
 	fetchLatest: async () => undefined,
+	readUpdates: async () => [],
 	isOffline: () => true,
 	cache: { read: () => undefined, write: () => {} },
+	suppress: () => ({ check: async () => [], restore: () => {} }),
 };
 
 /** Boot bytefly over `deps`, with the update check inert. */

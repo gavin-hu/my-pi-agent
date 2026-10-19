@@ -1,47 +1,57 @@
 /**
- * The update check's lifecycle: reuse the cached answer or read the registry once
- * per interactive session, record a newer version, and announce it once per load.
+ * The update surface's lifecycle: ask Pi's package manager which configured
+ * packages are behind, cache the snapshot, and announce it once per load.
  *
- * The request is fired without awaiting. Pi awaits `session_start` handlers, so
- * a slow registry would otherwise hold the first prompt; Pi's own version check
- * is asynchronous for the same reason. Every result that is not a strictly newer
- * version is silent, and a generation counter keeps a request that resolves
- * after shutdown from writing into the next session's state.
+ * Pi would draw its own `Package Updates Available` block from the same method
+ * after `session_start`. bytefly suppresses that block, asks the captured
+ * original check itself, and draws the single notice. The request is fired
+ * without awaiting: Pi awaits `session_start` handlers, and a slow npm/git check
+ * must not hold the first prompt.
  *
- * A cached answer with a timestamp is what makes a long-lived session different
- * from a fresh one: a session that starts inside the window reuses the last read
- * instead of repeating it, and `recheck()` ignores the window so `/bytefly update`
- * can look again without a restart. `/bytefly` and `doctor` do not report the
- * version: an available update is not a prerequisite problem.
+ * The 24-hour cache is keyed by the working directory and the effective package
+ * sources, so a project switch or an install/removal invalidates it. A cache hit
+ * costs no package-manager call; `/bytefly update` ignores the window and re-runs
+ * the check on demand.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import pkg from "../../../package.json";
 import { isOffline } from "../../../lib/env.ts";
-import { isFresh, readUpdateCache, updateCachePath, writeUpdateCache, type UpdateCacheEntry } from "./cache.ts";
-import { fetchLatestVersion } from "./check.ts";
+import {
+	isFresh,
+	readUpdateCache,
+	updateCacheKey,
+	updateCachePath,
+	writeUpdateCache,
+	type UpdateCacheEntry,
+} from "./cache.ts";
+import { fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
 import { updateNotice } from "./format.ts";
 import type { UpdateOutcome, UpdateSource } from "./state.ts";
+import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
+import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
 import { isNewerVersion } from "./version.ts";
 
 /** The cache, as the lifecycle sees it: read on start, written after a read. */
 export interface UpdateCache {
-	/** The last recorded answer, or `undefined` for a miss. */
+	/** The last recorded snapshot, or `undefined` for a miss. */
 	read(): UpdateCacheEntry | undefined;
-	/** Record an answer; a throw is treated as a miss. */
+	/** Record a snapshot; a throw is treated as a miss. */
 	write(entry: UpdateCacheEntry): void;
 }
 
 /** What `registerUpdate` returns, so the panel can re-run the check on demand. */
 export interface UpdateHandle {
-	/** Read the registry now, ignoring the cache window. Never throws. */
+	/** Read the package list now, ignoring the cache window. Never throws. */
 	recheck(): Promise<UpdateOutcome>;
 }
 
-/** Test seams; production uses the registry read, `PI_OFFLINE`, and the agent dir. */
+/** Test seams; production uses Pi's package manager, its cache, and the agent dir. */
 export interface UpdateDeps {
-	/** Replace the registry read; a rejection counts as no answer. */
+	/** Replace the package-manager read. */
+	readUpdates?: (ctx: ExtensionContext, check: PackageUpdateCheck) => Promise<PackageUpdate[]>;
+	/** Replace the registry read that names this package's new version. */
 	fetchLatest?: () => Promise<string | undefined>;
 	/** Replace the `PI_OFFLINE` check. */
 	isOffline?: () => boolean;
@@ -49,7 +59,9 @@ export interface UpdateDeps {
 	cache?: UpdateCache;
 	/** Replace the clock the cache timestamp is read from. */
 	now?: () => number;
-	/** Called once a newer version is recorded, so a mounted surface repaints. */
+	/** Replace the host suppression; defaults to patching Pi's package manager. */
+	suppress?: () => UpdateSuppression;
+	/** Called once a snapshot is recorded, so a mounted surface repaints. */
 	onUpdate?: () => void;
 }
 
@@ -61,52 +73,113 @@ function diskCache(): UpdateCache {
 			try {
 				writeUpdateCache(updateCachePath(getAgentDir()), entry);
 			} catch {
-				// A read-only agent directory costs the next session one request, nothing more.
+				// A read-only agent directory costs the next session one check, nothing more.
 			}
 		},
 	};
 }
 
+/** Whether a package update is this package, whose version the header shows. */
+function isOwnPackage(update: PackageUpdate): boolean {
+	return update.type === "npm" && update.displayName === pkg.name;
+}
+
 /**
- * Register the check. `updates` is the same store the header reads, so recording
- * a version and calling `onUpdate` is what puts the marker on screen.
+ * Register the update lifecycle. `updates` is the store the header reads, so
+ * recording a snapshot is what puts this package's marker on screen.
  */
 export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: UpdateDeps = {}): UpdateHandle {
+	const readUpdates =
+		deps.readUpdates ??
+		((ctx, check) =>
+			fetchAvailableUpdates({
+				cwd: ctx.cwd,
+				agentDir: getAgentDir(),
+				projectTrusted: ctx.isProjectTrusted(),
+				checkForAvailableUpdates: check,
+			}));
 	const readLatest = deps.fetchLatest ?? (() => fetchLatestVersion());
 	const offline = deps.isOffline ?? isOffline;
 	const cache = deps.cache ?? diskCache();
 	const now = deps.now ?? Date.now;
+	const suppress = deps.suppress ?? suppressPiPackageUpdates;
 	// A session is announced at most once per load, even if `session_start` fires
 	// again after a resume or a session replacement.
 	let announced = false;
 	let generation = 0;
+	let suppression: UpdateSuppression | undefined;
+	let context: ExtensionContext | undefined;
+	const fallbackCheck: PackageUpdateCheck = (manager) => manager.checkForAvailableUpdates();
+	const activeCheck = (): PackageUpdateCheck => suppression?.check ?? fallbackCheck;
 
-	/** Record a newer version and repaint the marker. */
-	const paint = (latest: string): void => {
-		if (!isNewerVersion(latest, pkg.version)) return;
+	/** Identity of the settings a snapshot is read under. */
+	const keyFor = (ctx: ExtensionContext): string => updateCacheKey(ctx.cwd, pi.getSettings?.()?.packages);
+
+	/** A cache write never turns a read into a failed check. */
+	const writeCache = (entry: UpdateCacheEntry): void => {
+		try {
+			cache.write(entry);
+		} catch {
+			// The next session performs one more check; this one already has its answer.
+		}
+	};
+
+	/** This package's new version in a snapshot, when it is actually newer. */
+	const ownLatestOf = (entry: UpdateCacheEntry): string | undefined => {
+		if (!entry.latest || !isNewerVersion(entry.latest, pkg.version)) return undefined;
+		return entry.updates.some(isOwnPackage) ? entry.latest : undefined;
+	};
+
+	/** Paint the header marker, or clear it when this package is current. */
+	const paint = (latest?: string): void => {
+		if (updates.latest() === latest) return;
 		updates.set(latest);
 		deps.onUpdate?.();
 	};
 
-	/** The once-per-load transcript notice, posted only for a strictly newer version. */
-	const announce = (latest: string): void => {
-		if (announced || !isNewerVersion(latest, pkg.version)) return;
+	/** The once-per-load transcript notice, posted only for a non-empty list. */
+	const announce = (entry: UpdateCacheEntry): void => {
+		if (announced || entry.updates.length === 0) return;
 		announced = true;
-		pi.sendMessage(updateNotice(pkg.version, latest));
+		pi.sendMessage(updateNotice(entry.updates, pkg.version, ownLatestOf(entry)));
 	};
 
-	/** One answer, from the cache or the registry: paint the marker, announce it once. */
+	/** One snapshot: paint the marker and, when it has rows, announce it once. */
 	const record = (entry: UpdateCacheEntry): void => {
-		paint(entry.latest);
-		announce(entry.latest);
+		paint(ownLatestOf(entry));
+		announce(entry);
 	};
 
-	const check = async (token: number): Promise<void> => {
+	/** Offline: the cached marker is advisory, but no notice is posted. */
+	const recordMarkerOnly = (entry: UpdateCacheEntry): void => {
+		paint(ownLatestOf(entry));
+	};
+
+	/** Resolve this package's version label, dropping an equal or older answer. */
+	const resolveOwnLatest = async (own: PackageUpdate | undefined): Promise<string | undefined> => {
+		if (!own) return undefined;
+		let latest: string | undefined;
 		try {
-			const latest = await readLatest();
-			if (latest === undefined || token !== generation) return;
-			const entry = { latest, checkedAt: now() };
-			cache.write(entry);
+			latest = await readLatest();
+		} catch {
+			return undefined;
+		}
+		return latest && isNewerVersion(latest, pkg.version) ? latest : undefined;
+	};
+
+	const check = async (ctx: ExtensionContext, token: number): Promise<void> => {
+		try {
+			const list = await readUpdates(ctx, activeCheck());
+			if (token !== generation) return;
+			const latest = await resolveOwnLatest(list.find(isOwnPackage));
+			if (token !== generation) return;
+			const entry: UpdateCacheEntry = {
+				key: keyFor(ctx),
+				checkedAt: now(),
+				updates: list,
+				...(latest ? { latest } : {}),
+			};
+			writeCache(entry);
 			record(entry);
 		} catch {
 			// A background check never surfaces an error: the session does not know it ran.
@@ -114,45 +187,60 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 	};
 
 	pi.on("session_start", (_event, ctx) => {
-		// The marker lives in bytefly's header and the notice in a transcript, so a
-		// non-interactive run has nothing to draw and makes no request.
+		// `/bytefly update` can answer in any mode; only the TUI installs the host
+		// shim and posts a notice.
+		context = ctx;
 		if (ctx.mode !== "tui") return;
+		suppression ??= suppress();
+		const cached = cache.read();
+		const key = keyFor(ctx);
 		if (offline()) {
-			// No request, so the window does not matter: the cached answer is the best
-			// one available, and the marker is advisory.
-			const cached = cache.read();
-			if (cached) record(cached);
+			// No request, so the window does not matter: the cached marker is the best
+			// answer available, and no notice is posted from a stale list.
+			if (cached && cached.key === key) recordMarkerOnly(cached);
 			return;
 		}
-		const cached = cache.read();
-		if (cached && isFresh(cached, now())) {
+		if (cached && cached.key === key && isFresh(cached, now())) {
 			record(cached);
 			return;
 		}
 		if (announced) return;
-		void check(generation);
+		void check(ctx, generation);
 	});
 
 	pi.on("session_shutdown", () => {
-		// Invalidate any request still in flight and drop what this session found.
+		// Invalidate any request still in flight, drop what this session found, and
+		// give Pi's own check back to the host.
 		generation++;
 		updates.set();
+		suppression?.restore();
+		suppression = undefined;
+		context = undefined;
 	});
 
 	return {
 		async recheck() {
 			if (offline()) return { kind: "offline" };
-			let latest: string | undefined;
+			if (!context) return { kind: "failed" };
+			let list: PackageUpdate[];
 			try {
-				latest = await readLatest();
+				list = await readUpdates(context, activeCheck());
 			} catch {
 				return { kind: "failed" };
 			}
-			if (latest === undefined) return { kind: "failed" };
-			cache.write({ latest, checkedAt: now() });
+			const latest = await resolveOwnLatest(list.find(isOwnPackage));
+			const entry: UpdateCacheEntry = {
+				key: keyFor(context),
+				checkedAt: now(),
+				updates: list,
+				...(latest ? { latest } : {}),
+			};
+			writeCache(entry);
 			// The caller prints the answer, so this path never posts a notice.
 			paint(latest);
-			return isNewerVersion(latest, pkg.version) ? { kind: "available", latest } : { kind: "current", latest };
+			return list.length > 0
+				? { kind: "available", updates: list, ...(latest ? { ownLatest: latest } : {}) }
+				: { kind: "current" };
 		},
 	};
 }

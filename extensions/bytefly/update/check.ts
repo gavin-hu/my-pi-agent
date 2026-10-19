@@ -10,6 +10,8 @@
  * never sees an error from a check nobody asked for.
  */
 
+import { DefaultPackageManager, getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
+import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
 import { parseVersion } from "./version.ts";
 
 /** The published document holding the version npm's `latest` tag points at. */
@@ -35,6 +37,33 @@ export interface UpdateCheckDeps {
 	fetch?: FetchLike;
 	/** Override {@link UPDATE_TIMEOUT_MS}. */
 	timeoutMs?: number;
+}
+
+/** What the package-manager read needs. */
+export interface AvailableUpdatesDeps {
+	/** Session working directory. */
+	cwd: string;
+	/** Pi agent directory; defaults to `getAgentDir()`. */
+	agentDir?: string;
+	/** Whether project-local packages may be read. */
+	projectTrusted: boolean;
+	/** The real check captured before suppression; defaults to the manager method. */
+	checkForAvailableUpdates?: PackageUpdateCheck;
+}
+
+/** Every package Pi would update, or `[]` when the check cannot run. */
+export async function fetchAvailableUpdates(deps: AvailableUpdatesDeps): Promise<PackageUpdate[]> {
+	try {
+		const agentDir = deps.agentDir ?? getAgentDir();
+		const settingsManager = SettingsManager.create(deps.cwd, agentDir, {
+			projectTrusted: deps.projectTrusted,
+		});
+		const manager = new DefaultPackageManager({ cwd: deps.cwd, agentDir, settingsManager });
+		const check = deps.checkForAvailableUpdates ?? ((current) => current.checkForAvailableUpdates());
+		return await check(manager);
+	} catch {
+		return [];
+	}
 }
 
 /** The latest published version, or `undefined` when it cannot be read. */

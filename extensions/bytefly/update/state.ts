@@ -9,6 +9,8 @@
  * cleared on shutdown, so a reload starts from nothing.
  */
 
+import type { PackageUpdate } from "./types.ts";
+
 /** The store the header reads and the update lifecycle writes. */
 export interface UpdateSource {
 	/** The newer published version, or `undefined` when none is known. */
@@ -25,8 +27,8 @@ export interface UpdateSource {
 export type UpdateOutcome =
 	| { kind: "offline" }
 	| { kind: "failed" }
-	| { kind: "current"; latest: string }
-	| { kind: "available"; latest: string };
+	| { kind: "current" }
+	| { kind: "available"; updates: readonly PackageUpdate[]; ownLatest?: string };
 
 /** A store holding at most one version. */
 export function createUpdateState(): UpdateSource {

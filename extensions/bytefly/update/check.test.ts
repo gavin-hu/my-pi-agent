@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { type FetchLike, fetchLatestVersion, LATEST_VERSION_URL, UPDATE_TIMEOUT_MS } from "./check.ts";
+import {
+	type FetchLike,
+	fetchAvailableUpdates,
+	fetchLatestVersion,
+	LATEST_VERSION_URL,
+	UPDATE_TIMEOUT_MS,
+} from "./check.ts";
+import type { PackageUpdate } from "./types.ts";
 
 /** A fetch seam answering with a fixed status and body. */
 function answering(ok: boolean, body: unknown, calls: string[] = []): FetchLike {
@@ -9,6 +16,41 @@ function answering(ok: boolean, body: unknown, calls: string[] = []): FetchLike 
 		return { ok, json: async () => body };
 	};
 }
+
+const UPDATES: PackageUpdate[] = [
+	{ source: "@gavin-hu/my-pi-agent", displayName: "@gavin-hu/my-pi-agent", type: "npm", scope: "user" },
+];
+
+describe("fetchAvailableUpdates", () => {
+	test("returns Pi's package list through the injected check", async () => {
+		let seen: unknown;
+		const list = await fetchAvailableUpdates({
+			cwd: process.cwd(),
+			agentDir: process.cwd(),
+			projectTrusted: false,
+			checkForAvailableUpdates: async (manager) => {
+				seen = manager;
+				return UPDATES;
+			},
+		});
+
+		expect(list).toEqual(UPDATES);
+		expect(seen).toBeDefined();
+	});
+
+	test("returns an empty list when the check throws", async () => {
+		const list = await fetchAvailableUpdates({
+			cwd: process.cwd(),
+			agentDir: process.cwd(),
+			projectTrusted: false,
+			checkForAvailableUpdates: async () => {
+				throw new Error("npm unreachable");
+			},
+		});
+
+		expect(list).toEqual([]);
+	});
+});
 
 describe("fetchLatestVersion", () => {
 	test("reads the published version from the latest document", async () => {

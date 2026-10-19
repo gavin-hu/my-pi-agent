@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `bytefly`: the update surface now uses Pi's package manager as its only
+  detector. bytefly suppresses Pi's `Package Updates Available` block and posts
+  one themed notice listing every updateable configured package plus
+  `pi update --extensions`; the header marker still shows only this package's new
+  version, and the version arrow and release URL remain. The 24-hour cache now
+  stores a project-scoped snapshot keyed by cwd and package sources, and
+  `/bytefly update` re-runs the check on demand. Unmanaged installs such as
+  `pi -e .` no longer get an update prompt.
+
 ### Fixed
 
 - `bytefly`: Windows toast notifications select the text node through

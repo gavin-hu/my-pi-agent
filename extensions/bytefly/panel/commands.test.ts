@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import pkg from "../../../package.json";
 import { ENV_DISABLED_EXTENSIONS } from "../../../lib/env.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
@@ -37,7 +38,7 @@ function fakeDoctor(reports: ExtensionReport[], refreshes: boolean[] = []): Doct
 }
 
 /** An update handle double that answers a fixed outcome and records re-checks. */
-function fakeUpdate(outcome: UpdateOutcome = { kind: "current", latest: "0.12.0" }, checks: number[] = []) {
+function fakeUpdate(outcome: UpdateOutcome = { kind: "current" }, checks: number[] = []) {
 	return {
 		recheck: async () => {
 			checks.push(1);
@@ -348,25 +349,29 @@ describe("bytefly update command", () => {
 		return { checks, notifications };
 	}
 
-	test("reports an available version with its release URL, resolving nothing", async () => {
-		const { checks, notifications } = await run({ kind: "available", latest: "99.0.0" });
+	test("reports an available package list with its release URL, resolving nothing", async () => {
+		const { checks, notifications } = await run({
+			kind: "available",
+			updates: [{ source: "@gavin-hu/my-pi-agent", displayName: "@gavin-hu/my-pi-agent", type: "npm", scope: "user" }],
+			ownLatest: "99.0.0",
+		});
 
 		expect(checks).toEqual([1]);
-		expect(notifications.at(-1)).toContain("v99.0.0 is available");
+		expect(notifications.at(-1)).toContain("1 package update available");
+		expect(notifications.at(-1)).toContain(`v${pkg.version} → v99.0.0`);
 		expect(notifications.at(-1)).toContain("https://github.com/gavin-hu/my-pi-agent/releases/tag/v99.0.0");
 	});
 
-	test("reports the newest version when nothing is newer", async () => {
-		const { notifications } = await run({ kind: "current", latest: "0.12.0" });
+	test("reports an up-to-date session", async () => {
+		const { notifications } = await run({ kind: "current" });
 
 		expect(notifications.at(-1)).toContain("up to date");
-		expect(notifications.at(-1)).toContain("v0.12.0");
 	});
 
 	test("reports a failed read as a warning", async () => {
 		const { notifications } = await run({ kind: "failed" });
 
-		expect(notifications.at(-1)).toContain("could not read the published version");
+		expect(notifications.at(-1)).toContain("could not check package updates");
 	});
 
 	test("reports a skip when offline", async () => {
@@ -380,7 +385,7 @@ describe("bytefly update command", () => {
 		const { pi, commands } = makeFakePi();
 		registerPanel(pi, {
 			doctor: fakeDoctor([]),
-			update: fakeUpdate({ kind: "current", latest: "0.12.0" }, checks),
+			update: fakeUpdate({ kind: "current" }, checks),
 			discover: async () => discovery(),
 			settings: () => fakeSettings(),
 		});

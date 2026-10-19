@@ -99,7 +99,7 @@ state, not user configuration.
 | `PI_WORKTREE_BRANCH` | `worktree` | The worktree's branch name. |
 | `PI_WORKTREE_MAIN` | `worktree` | The main checkout path, used by exit and prune. |
 | `PI_CODING_AGENT_DIR` | Pi | The agent directory the global config file resolves against. |
-| `PI_OFFLINE` | Pi | Turns off Pi's automatic network activity; `bytefly`'s update check reads it too, so an offline session makes no version request. |
+| `PI_OFFLINE` | Pi | Turns off Pi's automatic network activity; `bytefly`'s update check reads it too, so an offline session makes no package-update or version request. |
 
 `PI_WORKTREE_*` are set by the `worktree` extension for the session and its
 child processes; you normally never set them by hand.

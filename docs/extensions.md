@@ -304,9 +304,9 @@ on the first Extensions view, so opening it or `/bytefly settings` is instant.
 App rows are Global-only; `bytefly.json` rows write the selected scope one key
 at a time. `/bytefly settings` opens the Settings section,
 `/bytefly doctor [extension] [refresh]` prints the doctor report (the same
-screen in `tui`), `/bytefly update` re-runs the published-version check and
-reports it, and every other mode prints the grouped listing or one extension's
-full findings. The read-only `run_doctor` tool returns the same
+screen in `tui`), `/bytefly update` re-runs Pi's package update check and reports
+it, and every other mode prints the grouped listing or one extension's full
+findings. The read-only `run_doctor` tool returns the same
 report — including the search provider `web-access` resolved, its API-key
 variable, and, only on an explicit `refresh`, whether its configured endpoint
 answers — and its proactive session-start notice enters the message flow through
@@ -315,13 +315,13 @@ the shared notice renderer, shown only when the bytefly startup TUI is on
 OS notification when a run or a background job finishes, when the agent asks for
 input, or when a `watch` wake match fires, configured through the `notify`
 section of `bytefly.json`, for
-unattended runs. In an interactive session it also compares the loaded version
-with the published `@gavin-hu/my-pi-agent` on npm: a newer one adds `↑0.12.0` to
-the header's chrome version and posts one notice naming
-`pi update --extensions` and its release URL. The answer is cached with a
-timestamp, so a session starting within 24 hours reuses it, and
-`/bytefly update` re-runs the check on demand (skipped with `PI_OFFLINE`, silent
-on a failed background read).
+unattended runs. In an interactive session it asks Pi's package manager which
+configured packages are behind, suppresses Pi's own startup block, and posts one
+notice listing them with `pi update --extensions`. This package's new version
+alone adds `↑0.12.0` to the header's chrome version and adds its release URL to
+the notice. The snapshot is cached with a timestamp and a cwd/package key, so a
+session starting within 24 hours reuses it, and `/bytefly update` re-runs the
+check on demand (skipped with `PI_OFFLINE`, silent on a failed background read).
 
 <img src="../assets/bytefly.png" alt="The /bytefly control center: the Extensions and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
 

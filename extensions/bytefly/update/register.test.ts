@@ -4,15 +4,28 @@ import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { makeFakePi } from "../../../test/helpers/fakes.ts";
 import { settle } from "../../../test/helpers/process.ts";
-import { UPDATE_CACHE_TTL_MS, type UpdateCacheEntry } from "./cache.ts";
+import { UPDATE_CACHE_TTL_MS, updateCacheKey, type UpdateCacheEntry } from "./cache.ts";
 import { registerUpdate, type UpdateCache } from "./register.ts";
 import { createUpdateState } from "./state.ts";
+import type { UpdateSuppression } from "./suppress.ts";
+import type { PackageUpdate } from "./types.ts";
 
 /** A version guaranteed to be newer than the one under test. */
 const NEWER = "99.0.0";
-
 /** A fixed clock, so a cache timestamp is asserted and never read from the wall. */
 const NOW = 1_767_225_600_000;
+const OWN: PackageUpdate = {
+	source: "@gavin-hu/my-pi-agent",
+	displayName: pkg.name,
+	type: "npm",
+	scope: "user",
+};
+const OTHER: PackageUpdate = {
+	source: "github.com/example/tool",
+	displayName: "example/tool",
+	type: "git",
+	scope: "project",
+};
 
 /** An in-memory cache that records what the lifecycle wrote. */
 function memoryCache(initial?: UpdateCacheEntry): UpdateCache & { writes: UpdateCacheEntry[] } {
@@ -28,27 +41,46 @@ function memoryCache(initial?: UpdateCacheEntry): UpdateCache & { writes: Update
 	};
 }
 
-/** Boot the update surface over a fixed registry answer. */
-function boot(
-	reply: string | undefined,
-	options: {
-		offline?: boolean;
-		mode?: string;
-		fail?: boolean;
-		cache?: UpdateCache;
-	} = {},
-) {
-	const { pi, customMessages } = makeFakePi();
+interface BootOptions {
+	updates?: PackageUpdate[];
+	latest?: string;
+	latestFails?: boolean;
+	subscriptionFails?: boolean;
+	offline?: boolean;
+	mode?: string;
+	cache?: ReturnType<typeof memoryCache>;
+	packages?: string[];
+}
+
+/** Boot the update surface over a fixed package list and version answer. */
+function boot(options: BootOptions = {}) {
+	const { pi, customMessages } = makeFakePi({ settings: { packages: options.packages ?? [] } });
 	const { ctx } = fakeCtx({ mode: options.mode ?? "tui" });
 	const state = createUpdateState();
-	const cache = (options.cache ?? memoryCache()) as ReturnType<typeof memoryCache>;
+	const cache = options.cache ?? memoryCache();
 	const reads: number[] = [];
+	const latestReads: number[] = [];
 	const updates: number[] = [];
+	const restores: number[] = [];
+	const suppression: UpdateSuppression = {
+		check: async () => options.updates ?? [],
+		restore: () => restores.push(1),
+	};
+	let suppressCalls = 0;
 	const handle = registerUpdate(pi, state, {
-		fetchLatest: async () => {
+		suppress: () => {
+			suppressCalls++;
+			return suppression;
+		},
+		readUpdates: async () => {
 			reads.push(1);
-			if (options.fail) throw new Error("registry unreachable");
-			return reply;
+			if (options.subscriptionFails) throw new Error("package manager unavailable");
+			return options.updates ?? [];
+		},
+		fetchLatest: async () => {
+			latestReads.push(1);
+			if (options.latestFails) throw new Error("registry unreachable");
+			return options.latest;
 		},
 		isOffline: () => options.offline ?? false,
 		cache,
@@ -63,7 +95,22 @@ function boot(
 		for (const handler of pi.handlers.get("session_shutdown") ?? []) await handler({}, ctx);
 		await settle();
 	};
-	return { pi, state, cache, customMessages, reads, updates, handle, start, shutdown };
+	return {
+		pi,
+		ctx,
+		state,
+		cache,
+		customMessages,
+		reads,
+		latestReads,
+		updates,
+		restores,
+		suppression,
+		suppressCalls: () => suppressCalls,
+		handle,
+		start,
+		shutdown,
+	};
 }
 
 /** The notice the surface posted, when there is exactly one. */
@@ -72,96 +119,120 @@ function noticeOf(customMessages: unknown[]): { customType: string; content: str
 	return (customMessages[0] as { message: any }).message;
 }
 
-describe("update check", () => {
-	test("marks the store and posts one notice when a newer version is published", async () => {
-		const { state, customMessages, updates, start } = boot(NEWER);
-		await start();
+/** The cache key the default test context produces. */
+function keyFor(ctx: { cwd: string }, packages: string[] = []): string {
+	return updateCacheKey(ctx.cwd, packages);
+}
 
-		expect(state.latest()).toBe(NEWER);
-		expect(updates).toHaveLength(1);
-		const message = noticeOf(customMessages);
+describe("update check", () => {
+	test("marks this package and posts one notice from Pi's list", async () => {
+		const booted = boot({ updates: [OWN, OTHER], latest: NEWER });
+		await booted.start();
+
+		expect(booted.state.latest()).toBe(NEWER);
+		expect(booted.latestReads).toHaveLength(1);
+		expect(booted.updates).toHaveLength(1);
+		const message = noticeOf(booted.customMessages);
 		expect(message.customType).toBe(NOTICE_TYPE);
 		expect(message.details.source).toBe("bytefly");
-		expect(message.details.title).toBe(`${NEWER} is available`);
-		expect(message.content).toContain(`current ${pkg.version}`);
+		expect(message.details.title).toBe("2 package updates available");
+		expect(message.content).toContain("example/tool");
+		expect(message.content).toContain(`v${pkg.version} → v99.0.0`);
+		expect(message.content).toContain("releases/tag/v99.0.0");
 	});
 
-	test("stays quiet when the loaded version is current", async () => {
-		const { state, customMessages, updates, start } = boot(pkg.version);
-		await start();
+	test("does not put another package's update on the header", async () => {
+		const booted = boot({ updates: [OTHER] });
+		await booted.start();
 
-		expect(state.latest()).toBeUndefined();
-		expect(updates).toEqual([]);
-		expect(customMessages).toEqual([]);
+		expect(booted.state.latest()).toBeUndefined();
+		expect(booted.latestReads).toEqual([]);
+		expect(noticeOf(booted.customMessages).details.title).toBe("1 package update available");
 	});
 
-	test("stays quiet when the registry is behind", async () => {
-		const { state, customMessages, start } = boot("0.0.1");
-		await start();
+	test("stays quiet when Pi reports no updates", async () => {
+		const booted = boot({ updates: [] });
+		await booted.start();
 
-		expect(state.latest()).toBeUndefined();
-		expect(customMessages).toEqual([]);
+		expect(booted.state.latest()).toBeUndefined();
+		expect(booted.updates).toEqual([]);
+		expect(booted.customMessages).toEqual([]);
 	});
 
-	test("stays quiet when the read fails or returns nothing", async () => {
-		for (const options of [{ fail: true }, {}]) {
-			const { state, customMessages, start } = boot(undefined, options);
-			await start();
-			expect(state.latest()).toBeUndefined();
-			expect(customMessages).toEqual([]);
-		}
+	test("keeps the list when the version read fails, without inventing a marker", async () => {
+		const booted = boot({ updates: [OWN], latestFails: true });
+		await booted.start();
+
+		expect(booted.state.latest()).toBeUndefined();
+		const message = noticeOf(booted.customMessages);
+		expect(message.details.items[0]).toEqual({ label: pkg.name, detail: "global", severity: "info" });
+		expect(message.content).not.toContain("releases/tag");
 	});
 
-	test("makes no request when offline", async () => {
-		const { reads, customMessages, start } = boot(NEWER, { offline: true });
-		await start();
+	test("does not paint an equal or older version", async () => {
+		const booted = boot({ updates: [OWN], latest: "0.0.1" });
+		await booted.start();
 
-		expect(reads).toEqual([]);
-		expect(customMessages).toEqual([]);
+		expect(booted.state.latest()).toBeUndefined();
+		expect(noticeOf(booted.customMessages).content).not.toContain("releases/tag");
 	});
 
-	test("makes no request outside the interactive mode", async () => {
-		const { reads, customMessages, start } = boot(NEWER, { mode: "print" });
-		await start();
+	test("stays quiet when the list read fails", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER, subscriptionFails: true });
+		await booted.start();
 
-		expect(reads).toEqual([]);
-		expect(customMessages).toEqual([]);
+		expect(booted.state.latest()).toBeUndefined();
+		expect(booted.cache.writes).toEqual([]);
+		expect(booted.customMessages).toEqual([]);
+	});
+
+	test("makes no request outside the interactive mode, but still answers recheck", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER, mode: "print" });
+		await booted.start();
+
+		expect(booted.reads).toEqual([]);
+		expect(booted.customMessages).toEqual([]);
+		expect(booted.suppressCalls()).toBe(0);
+
+		expect(await booted.handle.recheck()).toEqual({ kind: "available", updates: [OWN], ownLatest: NEWER });
 	});
 
 	test("announces once per load, even if the session starts again", async () => {
-		const { customMessages, reads, start } = boot(NEWER);
-		await start();
-		await start();
+		const booted = boot({ updates: [OWN], latest: NEWER });
+		await booted.start();
+		await booted.start();
 
-		expect(reads).toHaveLength(1);
-		expect(customMessages).toHaveLength(1);
+		expect(booted.reads).toHaveLength(1);
+		expect(booted.customMessages).toHaveLength(1);
 	});
 
-	test("drops the recorded version on shutdown", async () => {
-		const { state, start, shutdown } = boot(NEWER);
-		await start();
-		await shutdown();
+	test("clears the store and restores Pi's check on shutdown", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER });
+		await booted.start();
+		await booted.shutdown();
 
-		expect(state.latest()).toBeUndefined();
+		expect(booted.state.latest()).toBeUndefined();
+		expect(booted.restores).toEqual([1]);
 	});
 
 	test("ignores a reply that lands after shutdown", async () => {
-		const { pi, customMessages } = makeFakePi();
+		const { pi, customMessages } = makeFakePi({ settings: { packages: [] } });
 		const { ctx } = fakeCtx({ mode: "tui" });
 		const state = createUpdateState();
-		let answer: (value: string | undefined) => void = () => {};
+		let answer: (value: PackageUpdate[]) => void = () => {};
+		const suppression: UpdateSuppression = { check: async () => [], restore: () => {} };
 		registerUpdate(pi, state, {
-			fetchLatest: () =>
-				new Promise<string | undefined>((resolve) => {
+			suppress: () => suppression,
+			readUpdates: () =>
+				new Promise<PackageUpdate[]>((resolve) => {
 					answer = resolve;
 				}),
-			isOffline: () => false,
 			cache: memoryCache(),
 			now: () => NOW,
 		});
 		for (const handler of pi.handlers.get("session_start") ?? []) await handler({}, ctx);
 		for (const handler of pi.handlers.get("session_shutdown") ?? []) await handler({}, ctx);
-		answer(NEWER);
+		answer([OWN]);
 		await settle();
 
 		expect(state.latest()).toBeUndefined();
@@ -170,98 +241,122 @@ describe("update check", () => {
 });
 
 describe("update cache", () => {
-	test("records the answer it read, with the time it read it", async () => {
-		const { cache, start } = boot(NEWER);
-		await start();
+	test("records the snapshot it read, with the time and settings key it read it under", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER });
+		await booted.start();
 
-		expect(cache.writes).toEqual([{ latest: NEWER, checkedAt: NOW }]);
+		expect(booted.cache.writes).toEqual([{ key: keyFor(booted.ctx), checkedAt: NOW, updates: [OWN], latest: NEWER }]);
 	});
 
-	test("writes nothing when the read fails", async () => {
-		for (const options of [{ fail: true }, {}]) {
-			const { cache, start } = boot(undefined, options);
-			await start();
-			expect(cache.writes).toEqual([]);
-		}
+	test("writes nothing when the list read fails", async () => {
+		const booted = boot({ updates: [OWN], subscriptionFails: true });
+		await booted.start();
+		expect(booted.cache.writes).toEqual([]);
 	});
 
-	test("reuses a fresh entry instead of making a request", async () => {
-		const cache = memoryCache({ latest: NEWER, checkedAt: NOW - 1_000 });
-		const { state, customMessages, reads, start } = boot(NEWER, { cache });
-		await start();
+	test("reuses a fresh matching snapshot instead of making a request", async () => {
+		const cache = memoryCache();
+		const key = updateCacheKey(process.cwd(), []);
+		cache.write({ key, checkedAt: NOW - 1_000, updates: [OWN], latest: NEWER });
+		cache.writes.length = 0;
+		const booted = boot({ updates: [OWN], latest: NEWER, cache });
+		await booted.start();
 
-		expect(reads).toEqual([]);
-		expect(cache.writes).toEqual([]);
-		expect(state.latest()).toBe(NEWER);
-		expect(noticeOf(customMessages).details.title).toBe(`${NEWER} is available`);
+		expect(booted.reads).toEqual([]);
+		expect(booted.latestReads).toEqual([]);
+		expect(booted.cache.writes).toEqual([]);
+		expect(booted.state.latest()).toBe(NEWER);
+		expect(noticeOf(booted.customMessages).details.title).toBe("1 package update available");
 	});
 
-	test("re-reads once the entry is past the window", async () => {
-		const cache = memoryCache({ latest: "0.0.1", checkedAt: NOW - UPDATE_CACHE_TTL_MS - 1 });
-		const { state, reads, start } = boot(NEWER, { cache });
-		await start();
+	test("re-reads when the snapshot belongs to another cwd or package list", async () => {
+		const cache = memoryCache({ key: "another-project", checkedAt: NOW, updates: [OWN], latest: NEWER });
+		const booted = boot({ updates: [OWN], latest: NEWER, cache });
+		await booted.start();
 
-		expect(reads).toHaveLength(1);
-		expect(cache.writes).toEqual([{ latest: NEWER, checkedAt: NOW }]);
-		expect(state.latest()).toBe(NEWER);
+		expect(booted.reads).toHaveLength(1);
+		expect(booted.cache.writes[0]?.key).toBe(keyFor(booted.ctx));
 	});
 
-	test("applies a cached entry when offline, without a request or a write", async () => {
-		const cache = memoryCache({ latest: NEWER, checkedAt: NOW - UPDATE_CACHE_TTL_MS * 2 });
-		const { state, reads, start } = boot(NEWER, { cache, offline: true });
-		await start();
+	test("re-reads once the snapshot is past the window", async () => {
+		const cache = memoryCache({
+			key: updateCacheKey(process.cwd(), []),
+			checkedAt: NOW - UPDATE_CACHE_TTL_MS - 1,
+			updates: [OTHER],
+		});
+		const booted = boot({ updates: [OWN], latest: NEWER, cache });
+		await booted.start();
 
-		expect(reads).toEqual([]);
-		expect(cache.writes).toEqual([]);
-		expect(state.latest()).toBe(NEWER);
+		expect(booted.reads).toHaveLength(1);
+		expect(booted.cache.writes[0]?.updates).toEqual([OWN]);
+	});
+
+	test("applies a cached marker when offline, without a request, a notice, or a write", async () => {
+		const cache = memoryCache();
+		const key = updateCacheKey(process.cwd(), []);
+		cache.write({ key, checkedAt: NOW - UPDATE_CACHE_TTL_MS * 2, updates: [OWN], latest: NEWER });
+		cache.writes.length = 0;
+		const booted = boot({ offline: true, cache });
+		await booted.start();
+
+		expect(booted.reads).toEqual([]);
+		expect(booted.latestReads).toEqual([]);
+		expect(booted.cache.writes).toEqual([]);
+		expect(booted.state.latest()).toBe(NEWER);
+		expect(booted.customMessages).toEqual([]);
 	});
 });
 
 describe("recheck", () => {
-	test("reads the registry even when the cache is fresh", async () => {
-		const cache = memoryCache({ latest: "0.0.1", checkedAt: NOW });
-		const { handle, state, reads } = boot(NEWER, { cache });
+	test("reads the list even when the cache is fresh", async () => {
+		const cache = memoryCache({ key: "stale", checkedAt: NOW, updates: [] });
+		const booted = boot({ updates: [OWN], latest: NEWER, cache });
+		await booted.start();
 
-		expect(await handle.recheck()).toEqual({ kind: "available", latest: NEWER });
-		expect(reads).toHaveLength(1);
-		expect(cache.writes).toEqual([{ latest: NEWER, checkedAt: NOW }]);
-		expect(state.latest()).toBe(NEWER);
+		expect(await booted.handle.recheck()).toEqual({ kind: "available", updates: [OWN], ownLatest: NEWER });
+		expect(booted.reads).toHaveLength(2);
+		expect(booted.cache.writes).toHaveLength(2);
+		expect(booted.state.latest()).toBe(NEWER);
 	});
 
-	test("reports the newest version when nothing is newer", async () => {
-		const { handle } = boot(pkg.version);
+	test("reports other packages without inventing this package's version", async () => {
+		const booted = boot({ updates: [OTHER] });
+		await booted.start();
 
-		expect(await handle.recheck()).toEqual({ kind: "current", latest: pkg.version });
+		expect(await booted.handle.recheck()).toEqual({ kind: "available", updates: [OTHER] });
 	});
 
-	test("reports an unreadable registry", async () => {
-		for (const options of [{ fail: true }, {}]) {
-			const { handle, cache } = boot(undefined, options);
-			expect(await handle.recheck()).toEqual({ kind: "failed" });
-			expect(cache.writes).toEqual([]);
-		}
+	test("reports an up-to-date session and leaves the marker clear", async () => {
+		const booted = boot({ updates: [] });
+		await booted.start();
+
+		expect(await booted.handle.recheck()).toEqual({ kind: "current" });
+		expect(booted.state.latest()).toBeUndefined();
+	});
+
+	test("reports an unreadable package manager", async () => {
+		const booted = boot({ updates: [OWN], subscriptionFails: true });
+		await booted.start();
+
+		expect(await booted.handle.recheck()).toEqual({ kind: "failed" });
+		expect(booted.cache.writes).toEqual([]);
 	});
 
 	test("reports a skip when offline, without a request", async () => {
-		const { handle, reads } = boot(NEWER, { offline: true });
+		const booted = boot({ updates: [OWN], offline: true });
+		await booted.start();
 
-		expect(await handle.recheck()).toEqual({ kind: "offline" });
-		expect(reads).toEqual([]);
+		expect(await booted.handle.recheck()).toEqual({ kind: "offline" });
+		expect(booted.reads).toEqual([]);
 	});
 
 	test("never posts a notice; the caller reports", async () => {
-		const { handle, customMessages } = boot(NEWER);
+		const booted = boot({ updates: [OWN], latest: NEWER });
+		await booted.start();
+		const noticesAfterStart = booted.customMessages.length;
 
-		await handle.recheck();
+		await booted.handle.recheck();
 
-		expect(customMessages).toEqual([]);
-	});
-
-	test("paints the marker an explicit check finds", async () => {
-		const { handle, updates } = boot(NEWER);
-
-		await handle.recheck();
-
-		expect(updates).toHaveLength(1);
+		expect(booted.customMessages).toHaveLength(noticesAfterStart);
 	});
 });

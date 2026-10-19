@@ -8,7 +8,7 @@
  * `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
  * probe runtime), `notify/` (OS notifications for unattended runs), and
- * `update/` (the published-version check behind the header's update marker).
+ * `update/` (Pi's package list, the host suppression, and the header marker).
  *
  * The header, footer, turn rule, and working line are installed only in
  * interactive (`tui`) sessions, and are always on; the user-message marker,
@@ -47,7 +47,7 @@ export interface ByteflyDeps {
 	doctor?: DoctorDeps;
 	/** Seams for the notify capability. */
 	notify?: NotifyDeps;
-	/** Seams for the published-version check. */
+	/** Seams for the package-update surface. */
 	update?: UpdateDeps;
 }
 
@@ -55,7 +55,7 @@ export interface ByteflyDeps {
 export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void {
 	if (!isExtensionEnabled("bytefly")) return;
 
-	// One store per load: the update check writes the newest published version and
+	// One store per load: the update check writes this package's new version and
 	// the header reads it, so the marker and every re-install agree.
 	const updates = createUpdateState();
 	const header = registerHeader(pi, updates);

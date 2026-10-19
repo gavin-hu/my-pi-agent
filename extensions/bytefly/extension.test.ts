@@ -305,14 +305,25 @@ describe("bytefly extension", () => {
 
 	test("reaches the update check from /bytefly update", async () => {
 		const { pi, commands } = makeFakePi();
-		// The injected registry answer is what the command reports, so the wiring is
-		// proven without a request and without touching the agent directory.
-		bootBytefly(pi, { update: { ...OFFLINE_UPDATE, isOffline: () => false, fetchLatest: async () => "99.0.0" } });
+		// The injected list and version are what the command reports, so the wiring
+		// is proven without a package-manager call or an agent-directory write.
+		bootBytefly(pi, {
+			update: {
+				...OFFLINE_UPDATE,
+				isOffline: () => false,
+				readUpdates: async () => [
+					{ source: "@gavin-hu/my-pi-agent", displayName: "@gavin-hu/my-pi-agent", type: "npm", scope: "user" },
+				],
+				fetchLatest: async () => "99.0.0",
+			},
+		});
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+		await emit(pi, "session_start", {}, ctx);
 
 		await commands.get("bytefly").handler("update", ctx);
 
-		expect(notifications.at(-1)).toContain("v99.0.0 is available");
+		expect(notifications.at(-1)).toContain("1 package update available");
+		expect(notifications.at(-1)).toContain("v99.0.0");
 	});
 
 	test("keeps the chrome installed when the panel runs", async () => {
