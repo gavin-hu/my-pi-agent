@@ -32,7 +32,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
+import { CompactionSummaryMessageComponent, getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { ToolBlock } from "../extensions/bytefly/block/component.ts";
 import { DEFAULT_RAIL_GLYPH, railGlyph } from "../extensions/bytefly/chrome.ts";
@@ -271,6 +271,29 @@ interface Screen {
 }
 
 const SCREENS: Record<string, Screen> = {
+	compaction: {
+		asset: "compaction",
+		title: "π - my-pi-agent · /compact",
+		render: (width) => {
+			setThemeInstance(theme);
+			const message = {
+				role: "compactionSummary",
+				summary: [
+					"### Summary",
+					"",
+					"- Built the retry wrapper in `src/http.ts` with three attempts and exponential backoff.",
+					"- Moved the timeout into the wrapper; `src/cli.ts` still imports `run` from `./run.js`.",
+					"- `bun run check` fails on the missing `run` export, not on the wrapper.",
+					"- Next: add the export, then re-run the check.",
+				].join("\n"),
+				tokensBefore: 42_817,
+				timestamp: 0,
+			} as const;
+			const component = new CompactionSummaryMessageComponent(message as never, getMarkdownTheme(), 1);
+			component.setExpanded(true);
+			return component.render(width);
+		},
+	},
 	todo: {
 		asset: "todo",
 		title: "π - my-pi-agent · /todos",
