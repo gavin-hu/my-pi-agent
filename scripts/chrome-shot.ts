@@ -157,6 +157,52 @@ class Cdp {
 	}
 }
 
+/** Chrome's message when an evaluation lands in a context that is being replaced. */
+const NAVIGATION_RACE = /context was destroyed|Cannot find context|Inspected target navigated/i;
+
+/**
+ * Evaluate in the page, retrying while Chrome finishes a navigation. The target
+ * exists before its first document commits, so an immediate evaluate can land in
+ * a context that is about to be replaced.
+ */
+async function evaluate<T>(cdp: Cdp, expression: string, awaitPromise = false): Promise<T | undefined> {
+	for (let attempt = 0; attempt < 50; attempt++) {
+		try {
+			const result = await cdp.send<{
+				result?: { value?: T };
+				exceptionDetails?: { text?: string; exception?: { description?: string } };
+			}>("Runtime.evaluate", { expression, awaitPromise, returnByValue: true });
+			// A page expression that throws resolves with exceptionDetails instead of
+			// rejecting; surfacing it keeps a broken step from producing a wrong image.
+			const failure = result.exceptionDetails;
+			if (failure) throw new Error(failure.exception?.description ?? failure.text ?? "page expression failed");
+			return result.result?.value;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			if (!NAVIGATION_RACE.test(message)) throw error;
+			await sleep(100);
+		}
+	}
+	throw new Error("Chrome kept replacing the page context.");
+}
+
+/**
+ * Resolve once the requested document has loaded. Chrome lists the page target
+ * before its first document commits, so an immediate evaluate can land in the
+ * tab's `about:blank`, where a step silently does nothing; polling for the
+ * origin and `complete` waits for the real page.
+ */
+function loadExpression(origin: string): string {
+	return `new Promise(function (resolve) {
+	var done = function () {
+		return location.href.indexOf(${JSON.stringify(origin)}) === 0 && document.readyState === "complete";
+	};
+	if (done()) { resolve(true); return; }
+	var timer = setInterval(function () { if (done()) { clearInterval(timer); resolve(true); } }, 50);
+	setTimeout(function () { clearInterval(timer); resolve(false); }, 15000);
+})`;
+}
+
 /**
  * Capture `options.url` as one full-page PNG. The document is measured and the
  * whole column captured with `captureBeyondViewport`, at the requested scale.
@@ -171,23 +217,18 @@ export async function captureFullPage(options: ChromeShotOptions): Promise<void>
 		const target = await pageTarget(launched.port, options.origin, Date.now() + 15_000);
 		cdp = await Cdp.open(target.webSocketDebuggerUrl as string);
 		await cdp.send("Page.enable");
+		await evaluate(cdp, loadExpression(options.origin), true);
 		for (const step of options.before ?? []) {
-			await cdp.send("Runtime.evaluate", {
-				expression: step.expression,
-				awaitPromise: step.awaitPromise ?? false,
-				returnByValue: true,
-			});
+			await evaluate(cdp, step.expression, step.awaitPromise ?? false);
 		}
 		await sleep(100);
 		// The document may be taller than the window; measure its own height and
 		// capture that whole column, at the requested device scale. `cssContentSize`
 		// floors at the viewport, which would pad a short page with empty rows.
-		const measured = await cdp.send<{ result?: { value?: { width?: number; height?: number } } }>("Runtime.evaluate", {
-			expression:
-				"({ width: document.documentElement.scrollWidth, height: Math.ceil(document.body.getBoundingClientRect().height) })",
-			returnByValue: true,
-		});
-		const content = measured.result?.value;
+		const content = await evaluate<{ width?: number; height?: number }>(
+			cdp,
+			"({ width: document.documentElement.scrollWidth, height: Math.ceil(document.body.getBoundingClientRect().height) })",
+		);
 		const metrics = await cdp.send<{ cssContentSize?: { width: number; height: number } }>("Page.getLayoutMetrics");
 		const fallback = metrics.cssContentSize ?? { width: options.width, height: 900 };
 		const size = {

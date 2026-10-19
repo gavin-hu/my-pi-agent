@@ -62,6 +62,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   frame at three widths and fails when a fixture drifts out of the terminal or a
   fixed-size frame grows taller than its window.
 
+- `docs,test`: `assets/file-browse.png` is regenerable at last — `bun run
+  screenshot:file-browse` serves a generated fixture project through the shipped
+  server, so the capture names no real checkout, and `--root` points it at a
+  directory of your own. Both browser shots now set their theme through the
+  page's toggle, and the shared Chrome capture waits for the requested document
+  and fails on a page-expression error instead of silently shooting a page its
+  steps never touched.
+
 ### Changed
 
 - `docs`: the README's "Why this pack" promises now match what ships. "Never
