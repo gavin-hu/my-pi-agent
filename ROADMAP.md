@@ -24,12 +24,13 @@ across `/resume` and `/tree`, and honest where a platform cannot deliver.
   three-OS CI, a shared `lib/tui/` design system, budgeted prompt context, and
   package-level guards that hold the docs, the catalog, the release window, and
   this file to the tree.
-- Recent releases focused on the plan review browser, CNY/USD pricing, inline
-  text editing in `/bytefly settings`, and moving exhaustive docs into
-  `docs/references/`. `0.13.0` adds subset rewind, the `wake` desktop alert,
-  `/plan list`, the worktree handoff block, isolation gaps named in the session,
-  one reviewed publish path with provenance, a Pi-compat job, and a long-session
-  benchmark.
+- Recent releases through `0.14.0` cover the plan review browser, CNY/USD
+  pricing, inline text editing in `/bytefly settings`, the wider settings
+  catalogue, the config reference, and the re-checkable update cache. `0.13.0`
+  added subset rewind, the `wake` desktop alert, `/plan list`, the worktree
+  handoff block, isolation gaps named in the session, one reviewed publish path
+  with provenance, a Pi-compat job, and a long-session benchmark. An unreleased
+  Theme row adds Pi's resolved themes to Settings.
 
 ## How items are ordered
 
@@ -61,7 +62,7 @@ screenshots.
 
 | README promise | Today | Open items |
 |---|---|---|
-| Plan, then execute | Strong; review state and plan history have gaps | — |
+| Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | — |
 | Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
@@ -254,8 +255,8 @@ runs, an update check, and two themes.
 
 - Bytefly owns the header, footer, turn rule, notices, tool frame, live working
   row, control center, doctor, notify, price, and update check.
-- Settings exposes every scalar preference across six groups, with inline text
-  editing.
+- Settings exposes every scalar preference across ten groups, including the
+  Theme row, with inline text editing.
 - DeepSeek is priced from its published CNY and USD tables, with peak and
   off-peak windows.
 
@@ -348,6 +349,8 @@ it.
 | `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit with `C2`, which would widen the picker. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. `C2` decides the picker's scope, not this. |
 | `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C3`. |
+| `bytefly`: only packages configured in Pi's settings get an update prompt, so `pi -e .` and temporary checkouts are not checked | Pi's package manager owns the list; a second detector would restore the duplicate-block class the single-notice refactor removed. Revisit if unmanaged installs need a prompt. |
+| `bytefly`: the single update notice depends on patching `DefaultPackageManager.prototype.checkForAvailableUpdates` | Pi exposes no setting for its startup block. The shim is installed only in `tui`, restored on shutdown, and inert if the method shape changes. Revisit if Pi adds a supported switch. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
 | CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`, filed 2026-10-16) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3, the latest release; revisit when both close, then delete `check:serial` from the matrix. |
 
