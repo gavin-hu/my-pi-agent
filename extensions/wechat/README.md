@@ -116,6 +116,8 @@ polling. `l` logs in or reconnects, `n` starts a new session, `o` logs out,
 actions and the only route outside the TUI; an unknown subcommand reports the
 valid ones.
 
+<img src="../../assets/wechat.png" alt="The /wechat control screen: account and an open connection, peer, queued, refused, and waiting-prompt rows, three conversation rows showing running, queued, and idle states, and the key hints" width="100%">
+
 Pause is per runtime and keeps the account and peer sessions: a running turn
 may finish and reply, a waiting prompt is withdrawn with the timeout notice,
 and the poller lock is released so another runtime can take over. Resume

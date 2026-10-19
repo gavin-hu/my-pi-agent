@@ -569,6 +569,8 @@ and outcome as the width allows.
 
 ## The control center
 
+<img src="../../assets/bytefly.png" alt="The /bytefly control center: the Extensions and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
+
 `/bytefly [extension] [refresh]` opens the control center on **Extensions**: a
 keyboard-driven dock list of every extension Pi resolves for the session, so the
 list matches what actually loads. `←`/`→` switch to **Settings**, where the same

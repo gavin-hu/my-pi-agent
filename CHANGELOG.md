@@ -44,6 +44,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The capture script can now give a screen its own window bounds and frame size,
   so a document-sized surface is not shot through a 20-row viewport and the
   render no longer races the window resize.
+- `docs,test`: four more extension screens now have captures — `/watch`,
+  `/memory`, `/bytefly`, and `/wechat` — each drawn by its shipped component,
+  embedded in its extension README and the catalog, and regenerated with
+  `bun run screenshots <name>`. A new `scripts/screenshots.test.ts` renders every
+  frame at three widths and fails when a fixture drifts out of the terminal or a
+  fixed-size frame grows taller than its window.
 
 ### Changed
 
