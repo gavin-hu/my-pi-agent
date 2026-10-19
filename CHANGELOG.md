@@ -12,38 +12,49 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `worktree`, `rewind`, `job`, `watch`, `memory`, and `goal` — so twelve more
   preferences (base ref, branch prefix, prune age, snapshot retention, wake on
   finish, note injection, and so on) are editable without hand-editing
-  `bytefly.json`. The list is now twenty-eight rows in ten groups, `u` deletes a
+  `bytefly.json`. The list is now twenty-eight rows in ten groups: `u` deletes a
   row's key so its default applies again, `J` shows the focused row's whole
   section as stored — the only view of `rates`, `peak`, and the list-valued keys
-  — and `[` / `]` jump between groups. A new
-  `test/settings-coverage.test.ts` holds every row's default and bounds to its
-  loader in both directions.
+  — and `[` / `]` jump between groups.
+
 - `bytefly`: the working row now becomes a live run line — the latest top-level
   tool, how many tools the run has started, and the elapsed time
   (`edit · 3 tools · 12s`) — instead of only a clock. It falls back to
-  `Working… 12s` until the first tool starts; nested calls carrying
-  `parentToolCallId` neither count nor take over the line, so the number matches
-  the transcript's tool blocks, and a retry starts a fresh count.
+  `Working… 12s` until the first tool starts, nested calls neither count nor
+  take over the line (so the number matches the transcript's tool blocks), and a
+  retry starts a fresh count.
+
 - `bytefly`: the turn separator is now a receipt for the settled run — duration,
   top-level tool count, and `✕N`/`aborted` when a tool failed or the user
   stopped — with a width ladder that sheds the tool count, then the duration,
   then the outcome as the line narrows. A clean turn stays `meta`, a failed one
-  paints `bad`, and an aborted one `warn`; separators written before the receipt
-  existed keep rendering as `turn N`.
+  paints `bad`, and an aborted one `warn`; a run under a second prints no
+  duration, and separators written before the receipt existed keep rendering as
+  `turn N`.
+
 - `subagent`: a child run now has a wall-clock deadline
-  (`subagent.timeoutMs`, ten minutes by default, `0` disables). A run past it is
-  killed with the same SIGTERM-then-SIGKILL escalation as an abort, but reports
-  as a failed run — `Timed out after …` — so a chain stops at that step instead
-  of waiting forever.
+  (`subagent.timeoutMs`, ten minutes by default, `0` disables it). A run past it
+  is stopped the way an abort stops one, but reported as a failed run —
+  `Timed out after …` — so a chain stops at that step instead of waiting
+  forever.
+
 - `subagent`: opt-in per-run transcripts (`subagent.transcripts`: `off`,
-  `failed`, or `all`) under `.pi/subagents/`, written by the dispatching process
-  and pruned by age (`retentionDays`) and count (`maxRuns`). The child never
-  learns one exists, so the read-only tool set is unchanged.
+  `failed`, or `all`; off by default) under `.pi/subagents/`, written by the
+  dispatching process and pruned at session start by age (`retentionDays`, 14)
+  and count (`maxRuns`, 100). The child never learns one exists, so the read-only
+  tool set is unchanged.
+
+- `dev`: two new guards hold the documented numbers to the code — a settings
+  catalogue test checks every row's default and bounds against its loader in both
+  directions, and a getting-started test derives the pack's extension and tool
+  counts from what registers.
+
 - `plan`: the terminal review screen has its own screenshot, `assets/plan.png`,
   drawn by `PlanViewComponent` and regenerated with `bun run screenshots plan`.
   The capture script can now give a screen its own window bounds and frame size,
   so a document-sized surface is not shot through a 20-row viewport and the
   render no longer races the window resize.
+
 - `docs,test`: four more extension screens now have captures — `/watch`,
   `/memory`, `/bytefly`, and `/wechat` — each drawn by its shipped component,
   embedded in its extension README and the catalog, and regenerated with
@@ -58,6 +69,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   worktree as the default, "Delegate and parallelize" covers background `job`s
   and `watch`ers, and "Reach the web and your files" names the WeChat bridge.
   The Chinese README mirrors each bullet.
+
 - `bytefly`: the startup header now sheds by terminal height as well as width.
   Below 28 rows the middle help group is dropped, below 22 only the `/` commands
   row remains, and below 16 the help block and its leading blank row go, leaving
@@ -67,19 +79,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `themes`: `customMessageBg` now resolves to the terminal default and
   `customMessageLabel` to the accent, so Pi's `/compact` summary, branch
   summaries, and skill blocks sit on the canvas instead of inside a filled
-  purple band. The now-unused `customBg` variable is gone.
+  purple band.
 
-- `docs`: [getting started](./docs/getting-started.md) is now a page that ends in
-  a decision. It opens with what the pack is for and four conditions on each
-  side of the fit question, then a trial with `pi -e .` that writes nothing,
-  install, verification, the first three workflows, how to turn parts off, and
-  how to remove it. It also states what install changes in the terminal — the
-  chrome is always on, the startup header is opt-in, twenty-one tools join the
-  model's surface, and one npm check runs per session. The catalog is unchanged.
+- `docs`: [getting started](./docs/getting-started.md) is now a page that ends in a
+  decision. It opens with what the pack is for and the conditions on each side of
+  the fit question, then a trial with `pi -e .` that writes nothing, install,
+  verification, the first three workflows, how to turn parts off, and how to
+  remove it. It also states what install changes in the terminal — the chrome is
+  always on, the startup header is opt-in, twenty-one tools join the model's
+  surface, and at most one npm request per interactive session checks for a newer
+  release. The catalog is unchanged.
 
-- `docs`: the entry READMEs no longer repeat the install matrix. Each keeps the
-  npm command and points at [getting started](./docs/getting-started.md) for git,
-  a pinned release, a project-local install, and a trial that writes nothing, so
+- `docs`: the entry READMEs no longer repeat the install matrix. Each keeps the npm
+  command and points at [getting started](./docs/getting-started.md) for git, a
+  pinned release, a project-local install, and a trial that writes nothing, so
   the copy-paste options have one home; the `@vX.Y.Z` pin now lives on that page
   alone, and the release steps in [`docs/development.md`](./docs/development.md)
   say so.
