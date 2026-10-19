@@ -17,11 +17,16 @@
  * module cache, so sharing one here is the strictest case: `lib/` is value-only
  * by invariant, and a module-level value there would surface as a cross-extension
  * failure instead of a subtle reload bug.
+ *
+ * The same load answers the size claim the getting-started guide makes when a
+ * reader weighs the pack: the extension and tool counts are derived here and
+ * compared with what that page states.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
 import { withAgentDir, withEnv } from "./helpers/env.ts";
 import { createFakePi } from "./helpers/fakes.ts";
@@ -82,4 +87,39 @@ describe("every extension loads through the fake runtime", () => {
 			});
 		});
 	}
+});
+
+describe("the documented footprint", () => {
+	/** The page that states how big the pack is, where a reader decides on it. */
+	const guide = readFileSync(join(root, "docs", "getting-started.md"), "utf-8");
+	/** A size the guide states: `16 extensions`, `21 tools`. */
+	const CLAIM = /(\d+) (extensions|tools)\b/g;
+
+	test("every count in the guide is what actually loads", async () => {
+		const names = new Set<string>();
+		for (const entry of manifest) {
+			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
+			await withAgentDir(async () => {
+				await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
+					const fake = createFakePi();
+					module.default?.(fake.pi);
+					for (const name of fake.tools.keys()) names.add(name);
+				});
+			});
+		}
+
+		// Pi's path tools are re-registered by `worktree` so they follow the active
+		// root. They replace the model's existing tool of the same name rather than
+		// joining the list, so they are not part of what the pack adds.
+		const overridden = new Set<string>(ROOT_TOOL_NAMES);
+		const added = [...names].filter((name) => !overridden.has(name));
+
+		const actual: Record<string, number> = { extensions: manifest.length, tools: added.length };
+		const claims = [...guide.matchAll(CLAIM)];
+		// A regex that stopped matching would make the loop below vacuous.
+		expect(claims.length).toBeGreaterThan(0);
+		for (const [, count, noun] of claims) {
+			expect(Number(count), `${noun} stated in docs/getting-started.md`).toBe(actual[noun]);
+		}
+	});
 });
