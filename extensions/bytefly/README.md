@@ -33,7 +33,7 @@ How the `run_doctor` call and its result look in the transcript — the call lin
 
 The extension owns ten surfaces: the startup header, the footer, the
 user-message marker, the rule between completed turns, the notice block for
-shared transcript notices, the tool-block frame, the live working counter, the
+shared transcript notices, the tool-block frame, the live working line, the
 two-section control center, notifications, and the published-version check.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
@@ -173,21 +173,31 @@ as it would without it, and a soft wrap of one long line stays at the margin
 because the renderer wraps it, not bytefly. The label and the rule are tuned
 in [`message/config.ts`](./message/config.ts).
 
-**Working timer.** Pi's working row shows a static `Working`, so a long run
+**Working line.** Pi's working row shows a static `Working`, so a long run
 reads the same as a short one. While the row is up, bytefly advances its
-message once a second and hands it back to Pi when the row comes down:
+message once a second and hands it back to Pi when the row comes down. Before
+the first tool starts it is a count:
 
 ```
 Working… 12s
 ```
 
-The count is tied to the row's visibility: it starts on `turn_start`, the event
-the host shows the working indicator on, and stops on `agent_end`, where the
-host clears it, then again on `session_shutdown`. Turns inside one run do not
-restart it — the host keeps the same row up across turns — so the count covers
-the whole run, tool calls included. A retry is a new run, so the count restarts
-when its row reappears. The word and the interval are tuned in
-[`working/config.ts`](./working/config.ts).
+Once a top-level tool starts, the row becomes a live run line: the tool, how
+many top-level tools this run has started, and the elapsed time.
+
+```
+edit · 3 tools · 12s
+```
+
+A nested tool call (one carrying `parentToolCallId`, such as a codemode script's
+inner call) neither counts nor takes over the line, so the number matches the
+tool blocks in the transcript. The line keeps the last tool name while the
+model streams after it, and a tool event repaints the row immediately instead
+of waiting for the next tick. The line covers the whole run, tool calls
+included. It is tied to the row's visibility: it starts on `turn_start`, stops
+on `agent_end`, and is reset on `session_shutdown`; turns inside one run do not
+restart it, and a retry starts a new run. The words and the interval are tuned
+in [`working/config.ts`](./working/config.ts).
 
 **Turn separator.** After each completed turn the extension appends an inert
 entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
@@ -978,11 +988,11 @@ command.
   host lacks (or an OSC method off a TTY) and the notification is dropped; only
   `auto` inspects the environment. `doctor` now reports the mismatch as a
   `degraded` finding, which says what to change but does not fix it for you.
-- **The working counter is one global row.** `setWorkingMessage` drives the
+- **The working line is one global row.** `setWorkingMessage` drives the
   single working row, so bytefly and any other extension setting it race — last
   writer wins — and the message is reset to Pi's default at `agent_end`. If the
-  row is hidden (`ctx.ui.setWorkingVisible(false)`) the counter has no surface,
-  and a reload mid-run does not resume it until the next turn.
+  row is hidden (`ctx.ui.setWorkingVisible(false)`) the line has no surface,
+  and a reload mid-run does not resume the count until the next turn.
 
 ## Non-goals
 
@@ -1006,7 +1016,7 @@ command.
   match — are the whole surface.
 - No sound, action buttons, notification history, or de-duplication; a
   notification is a fire-and-forget message, not an inbox.
-- No frozen per-run working duration: the counter is live and is handed back to
+- No frozen per-run working duration: the line is live and is handed back to
   Pi when the working row comes down, because the extension API exposes no hook
   to keep a finished run's total.
 
@@ -1026,7 +1036,7 @@ rather than showing a wrong value.
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
-| Working timer | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage("Working… Ns")` in `tui` mode; `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no stored state. |
+| Working line | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage` in `tui` mode; before a tool runs the message is `Working… Ns`, and each top-level `tool_execution_start` repaints it as `tool · N tools · Ns` (nested calls carrying `parentToolCallId` are skipped). `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no persisted state; the count lives in the register's closure. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
@@ -1281,7 +1291,7 @@ rather than showing a wrong value.
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
 calculation), `message/` (the user-message marker), `notice/` (the shared notice),
 `block/` (the tool-block frame), `separator/`, `working/` (the live
-elapsed counter on Pi's working row), `panel/` (the
+run line on Pi's working row), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
 and its probe runtime), `notify/`, and `update/` (the published-version check
@@ -1328,9 +1338,9 @@ columns, gauge), so the look follows the active theme.
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
 | `separator/format.ts` | Pure `separatorLine`: the centered turn rule, drawn by the kit's `centeredRule`. |
 | `separator/types.ts` | `TurnSeparatorData`. |
-| `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the word, the ellipsis, and the tick interval. |
-| `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape. |
-| `working/register.ts` | Starts the tick on `turn_start` and cancels it on `agent_end`/`session_shutdown`. |
+| `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the words, the tool singular/plural, and the tick interval. |
+| `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape: the plain count and the `tool · N tools · elapsed` run line. |
+| `working/register.ts` | Starts the tick on `turn_start`, tracks top-level tools on `tool_execution_start`, and cancels on `agent_end`/`session_shutdown`. |
 | `panel/types.ts` | `PanelSection` (`extensions` | `settings`), `PanelRow`, and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
 | `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the Settings counts/headline, and the grouped Settings listing. |

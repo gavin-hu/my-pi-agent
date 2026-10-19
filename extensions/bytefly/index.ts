@@ -4,13 +4,13 @@
  * (the two-line, width-adaptive status bar with its price calculation),
  * `message/` (the user-message nameplate), `notice/` (the shared transcript
  * notice renderer), `block/` (the unified tool-block frame), `separator/` (the
- * transcript turn rule), `working/` (the live elapsed counter on Pi's working
- * row), `panel/` (the unified `/bytefly` screen and its
+ * transcript turn rule), `working/` (the live run line on Pi's working row),
+ * `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
  * probe runtime), `notify/` (OS notifications for unattended runs), and
  * `update/` (the published-version check behind the header's update marker).
  *
- * The header, footer, turn rule, and working timer are installed only in
+ * The header, footer, turn rule, and working line are installed only in
  * interactive (`tui`) sessions, and are always on; the user-message marker,
  * notice, and tool blocks register at load and take effect wherever a
  * transcript renders. `pi config` turns bytefly's chrome off. The panel and doctor work

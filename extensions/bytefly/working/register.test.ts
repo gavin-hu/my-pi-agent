@@ -69,6 +69,86 @@ describe("registerWorkingTimer", () => {
 		expect(messages.at(-1)).toBe("Working… 5s");
 	});
 
+	test("shows the first top-level tool and counts it", async () => {
+		const { pi } = makeFakePi();
+		registerWorkingTimer(pi, fakeClock());
+		const { ctx, messages } = fakeCtx();
+
+		await emit(pi, "turn_start", {}, ctx);
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+
+		expect(messages.at(-1)).toBe("read · 1 tool · 0s");
+	});
+
+	test("counts top-level tools and names the latest", async () => {
+		const { pi } = makeFakePi();
+		const clock = fakeClock();
+		registerWorkingTimer(pi, clock);
+		const { ctx, messages } = fakeCtx();
+
+		await emit(pi, "turn_start", {}, ctx);
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+		await emit(pi, "tool_execution_start", { toolCallId: "2", toolName: "edit" }, ctx);
+		await emit(pi, "tool_execution_start", { toolCallId: "3", toolName: "bash" }, ctx);
+		expect(messages.at(-1)).toBe("bash · 3 tools · 0s");
+
+		clock.advance(1000);
+		expect(messages.at(-1)).toBe("bash · 3 tools · 1s");
+	});
+
+	test("ignores a nested tool", async () => {
+		const { pi } = makeFakePi();
+		registerWorkingTimer(pi, fakeClock());
+		const { ctx, messages } = fakeCtx();
+
+		await emit(pi, "turn_start", {}, ctx);
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+		const before = messages.length;
+		await emit(pi, "tool_execution_start", { toolCallId: "2", toolName: "inner", parentToolCallId: "1" }, ctx);
+
+		expect(messages).toHaveLength(before);
+		expect(messages.at(-1)).toBe("read · 1 tool · 0s");
+	});
+
+	test("keeps the run line across later turns of one run", async () => {
+		const { pi } = makeFakePi();
+		const clock = fakeClock();
+		registerWorkingTimer(pi, clock);
+		const { ctx, messages } = fakeCtx();
+
+		await emit(pi, "turn_start", {}, ctx);
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+		clock.advance(5000);
+		await emit(pi, "turn_start", {}, ctx);
+
+		expect(messages.at(-1)).toBe("read · 1 tool · 5s");
+	});
+
+	test("ignores a tool that starts outside a run", async () => {
+		const { pi } = makeFakePi();
+		registerWorkingTimer(pi, fakeClock());
+		const { ctx, messages } = fakeCtx();
+
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+		expect(messages).toHaveLength(0);
+
+		await emit(pi, "turn_start", {}, ctx);
+		expect(messages.at(-1)).toBe("Working… 0s");
+	});
+
+	test("resets the run line on a new run", async () => {
+		const { pi } = makeFakePi();
+		registerWorkingTimer(pi, fakeClock());
+		const { ctx, messages } = fakeCtx();
+
+		await emit(pi, "turn_start", {}, ctx);
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+		await emit(pi, "agent_end", {}, ctx);
+		await emit(pi, "turn_start", {}, ctx);
+
+		expect(messages.at(-1)).toBe("Working… 0s");
+	});
+
 	test("cancels the tick and restores Pi's default when the run ends", async () => {
 		const { pi } = makeFakePi();
 		const clock = fakeClock();
