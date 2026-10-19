@@ -103,6 +103,8 @@ render the tail of the sanitized lines, with the hidden count noted above and
 
 ### Command: /watch
 
+<img src="../../assets/watch.png" alt="The /watch screen: a Watch title rule, a `2 watchers · 1 running · 3 matches` summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern with its line and match counts, and the key hints" width="100%">
+
 A bare `/watch` opens a dock screen listing watchers. `j`/`k` (and the wheel)
 move, `Enter`/`l` opens a watcher's matches, `x`/`K` stops a running watcher
 behind a `y/N` confirm, `d` clears stopped ones behind a `y/N` confirm, `Esc`

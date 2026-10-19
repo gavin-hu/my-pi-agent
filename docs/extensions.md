@@ -124,6 +124,8 @@ at the next turn, or wake a turn immediately when a watcher was added `wake: tru
 — which also lets bytefly's notify capability raise a desktop alert. Watchers are
 session-only and stopped on session shutdown.
 
+<img src="../assets/watch.png" alt="The /watch screen: a Watch title rule, a `2 watchers · 1 running · 3 matches` summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern, and the key hints" width="100%">
+
 Tool: `watch`. Command: `/watch`.
 
 [Full README](../extensions/watch/README.md)
@@ -169,6 +171,8 @@ edit, forget, merge, or move notes between scopes (and otherwise lists, edits, o
 clears them), and
 `/memory doctor` reports store health: counts, bytes, the notes the injection
 budget drops, and near-duplicate pairs.
+
+<img src="../assets/memory.png" alt="The /memory picker: a Memory title rule, an `All · 3 project, 2 global` summary, five notes tagged by scope with the focused one marked, and the key hints" width="100%">
 
 Tool: `memory`. Command: `/memory`.
 
@@ -245,6 +249,8 @@ running). Peers can also send `/new`,
 `/stop`, `/status`, and `/help`. The `send_wechat` tool messages the account owner
 only.
 
+<img src="../assets/wechat.png" alt="The /wechat control screen: account and an open connection, peer, queued, refused, and waiting-prompt rows, three conversation rows showing running, queued, and idle states, and the key hints" width="100%">
+
 Tool: `send_wechat`. Command: `/wechat`.
 
 [Full README](../extensions/wechat/README.md)
@@ -316,6 +322,8 @@ the header's chrome version and posts one notice naming
 timestamp, so a session starting within 24 hours reuses it, and
 `/bytefly update` re-runs the check on demand (skipped with `PI_OFFLINE`, silent
 on a failed background read).
+
+<img src="../assets/bytefly.png" alt="The /bytefly control center: the Extensions and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
 
 Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` and `settings`
 subcommands).

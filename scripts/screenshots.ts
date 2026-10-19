@@ -33,7 +33,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { CompactionSummaryMessageComponent, getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
-import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
+import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS, type TUI } from "@earendil-works/pi-tui";
 import { ToolBlock } from "../extensions/bytefly/block/component.ts";
 import { DEFAULT_RAIL_GLYPH, railGlyph } from "../extensions/bytefly/chrome.ts";
 import { renderLine } from "../extensions/bytefly/footer/render/layout.ts";
@@ -43,9 +43,15 @@ import { ByteflyHeader } from "../extensions/bytefly/header/component.ts";
 import { nameplate } from "../extensions/bytefly/message/format.ts";
 import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
 import { DEFAULT_HOST_PAD } from "../extensions/bytefly/pad.ts";
+import type { SettingsSurface } from "../extensions/bytefly/panel/settings-runtime.ts";
+import { PanelComponent } from "../extensions/bytefly/panel/tui.ts";
+import { createExtensionsPickerRuntime } from "../extensions/bytefly/picker/runtime.ts";
+import type { ResourceItem } from "../extensions/bytefly/picker/types.ts";
 import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { JobListComponent } from "../extensions/job/tui.ts";
 import type { JobRecord } from "../extensions/job/types.ts";
+import type { MemoryEntries } from "../extensions/memory/format.ts";
+import { MemoryPickerComponent, type MemoryPickerCallbacks } from "../extensions/memory/tui.ts";
 import { sectionDigests } from "../extensions/plan/plan-text.ts";
 import type { StoredPlan } from "../extensions/plan/plans.ts";
 import { PlanViewComponent } from "../extensions/plan/tui.ts";
@@ -55,8 +61,16 @@ import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
 import type { RewindPoint } from "../extensions/rewind/timeline.ts";
 import { TodoListComponent } from "../extensions/todo/tui.ts";
 import type { Todo } from "../extensions/todo/types.ts";
+import { WatchListComponent } from "../extensions/watch/tui.ts";
+import type { WatchRecord } from "../extensions/watch/types.ts";
+import type { BridgeStatus } from "../extensions/wechat/bridge.ts";
+import { StatusScreenComponent, statusView } from "../extensions/wechat/status-screen.ts";
+import type { BotCredentials } from "../extensions/wechat/types.ts";
 import type { NoticeDetails } from "../lib/notice.ts";
+import type { ExtensionReport } from "../lib/requirements.ts";
 import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
+import { makeFinding, makeReport } from "../test/helpers/fixtures/doctor.ts";
+import { makeDiscovery, makeStore, packageExtension } from "../test/helpers/fixtures/picker.ts";
 import { pollUntil, sleep } from "./poll.ts";
 import { repo, setThemeInstance, theme } from "./theme.ts";
 
@@ -319,25 +333,167 @@ const QUESTIONS: Question[] = [
 	},
 ];
 
+/** The `/watch` screen's watchers: one live file tail with matches, one finished command. */
+const WATCHES: WatchRecord[] = [
+	{
+		id: "w1",
+		label: "errors",
+		source: { kind: "file", path: "/home/u/repo/logs/server.log" },
+		pattern: "(error|fail)",
+		exclude: ["noise"],
+		caseSensitive: false,
+		wake: false,
+		fromStart: false,
+		status: "running",
+		startedAt: now - 12 * 60_000,
+		linesRead: 1834,
+		matchCount: 3,
+		lastMatchAt: now - 40_000,
+	},
+	{
+		id: "w2",
+		label: "build",
+		source: { kind: "command", command: "bun run build", cwd: "/home/u/repo" },
+		pattern: "error",
+		exclude: [],
+		caseSensitive: true,
+		wake: true,
+		fromStart: true,
+		status: "exited",
+		startedAt: now - 26 * 60_000,
+		endedAt: now - 24 * 60_000,
+		linesRead: 412,
+		matchCount: 0,
+		exitCode: 0,
+		signal: null,
+	},
+];
+
+/** Notes the `/memory` picker lists, project scope first. */
+const MEMORY_ENTRIES: MemoryEntries = {
+	project: [
+		"Run bun run check before every commit",
+		"Worktrees live in .pi/worktrees; one per task",
+		"Stage explicit paths; never git add -A",
+	],
+	global: ["Prefer rg over grep for searches", "Ask before publishing a release"],
+};
+
+/**
+ * The picker's store double: reads the fixture and refuses every write, so a
+ * capture can never add, move, or forget a note in the real store.
+ */
+const MEMORY_CALLBACKS: MemoryPickerCallbacks = {
+	entries: () => MEMORY_ENTRIES,
+	trusted: () => true,
+	refresh: () => false,
+	add: async () => ({ changed: false }),
+	update: async () => false,
+	forget: async () => false,
+	merge: async () => false,
+	move: async () => ({ moved: false }),
+};
+
+/**
+ * The dialogue screens take a TUI for their inline `Editor`. A capture sends no
+ * keys and the editor is never shown in list mode, so the two members an editor
+ * reads on construction are the whole guarantee this double makes.
+ */
+const SCREEN_TUI = { requestRender: noop, terminal: { rows: 40, columns: 120 } } as unknown as TUI;
+
+/** A stored account and an open bridge serving three peers, one of them mid-turn. */
+const WECHAT_ACCOUNT: BotCredentials = {
+	botToken: "token",
+	ilinkUserId: "owner@im.wechat",
+	ilinkBotId: "bot-id",
+	baseUrl: "https://ilink.example.invalid",
+	botAgent: "pi",
+	createdAt: now - 9 * 24 * 60 * 60_000,
+};
+const WECHAT_BRIDGE: BridgeStatus = {
+	open: true,
+	expired: false,
+	paused: false,
+	running: true,
+	owner: "owner@im.wechat",
+	peerCount: 3,
+	queued: 2,
+	peerStates: [
+		{ peer: "alice@im.wechat", state: { status: "running", queued: 0, runningMs: 48_000 } },
+		{ peer: "bob@im.wechat", state: { status: "queued", queued: 2 } },
+		{ peer: "carol@im.wechat", state: { status: "idle", queued: 0 } },
+	],
+	refused: 1,
+	refusedPeers: ["stranger@im.wechat"],
+	mediaDropped: 0,
+	promptPending: true,
+	prompt: {
+		peer: "alice@im.wechat",
+		kind: "select",
+		title: "Which migration should run first?",
+		startedAt: now - 90_000,
+	},
+	startedAt: now - 3 * 60 * 60_000,
+	lastPollAt: now - 2_000,
+};
+const WECHAT_VIEW = statusView(WECHAT_ACCOUNT, WECHAT_BRIDGE, now);
+
+/** The extension list the `/bytefly` panel shows: this package, half of it enabled. */
+const PANEL_CWD = "/home/u/repo";
+const PANEL_AGENT_DIR = "/home/u/.pi/agent";
+const PANEL_ITEMS: ResourceItem[] = [
+	packageExtension("bytefly", true),
+	packageExtension("plan", true),
+	packageExtension("subagent", true),
+	packageExtension("worktree", true),
+	packageExtension("todo", true),
+	packageExtension("job", true),
+	packageExtension("memory", true),
+	packageExtension("document", true),
+	packageExtension("web-access", false),
+	packageExtension("wechat", false),
+];
+/** Health for two rows: one degraded by a missing extractor, one clean. */
+const PANEL_REPORTS: ExtensionReport[] = [
+	makeReport("document", [
+		makeFinding("pdftotext", "missing", "PDF text extraction is unavailable", "brew install poppler"),
+	]),
+	makeReport("bytefly", [makeFinding("npm", "ok", "Latest published version 0.13.1")]),
+];
+/**
+ * The panel needs a settings surface even on its Extensions section. These rows
+ * are never rendered here, and every write is refused, so nothing reaches
+ * `bytefly.json` or `settings.json`.
+ */
+const PANEL_SETTINGS: SettingsSurface = {
+	views: () => [],
+	change: async () => {},
+	setValue: async () => false,
+	reset: async () => false,
+	sectionDocument: () => undefined,
+	isDirty: () => false,
+};
+
 /** One capturable screen: the asset stem, window title, and ANSI renderer. */
 interface Screen {
 	asset: string;
 	title: string;
 	/**
-	 * Terminal window bounds in logical points. A document-sized screen sets its
-	 * own, so the plan body is not captured through a two-line viewport.
+	 * Terminal window bounds in logical points. A screen sets its own when the
+	 * default window is too short for its body or one column too narrow.
 	 */
 	bounds?: typeof WINDOW_BOUNDS;
 	/**
-	 * Frame size to render instead of the window's live size. The window is
-	 * resized after the render starts, so a screen that depends on its own rows
-	 * (the plan review's scroll gauge) would otherwise race that resize.
+	 * Frame size to render instead of the window's live size. Terminal.app has a
+	 * minimum window width and snaps a resize to whole cells, so a screen that
+	 * budgets rows or wraps a hint row would otherwise capture at whatever size
+	 * the window happened to reach.
 	 */
 	size?: { width: number; rows: number };
 	render(width: number, rows: number): string[];
 }
 
-const SCREENS: Record<string, Screen> = {
+export const SCREENS: Record<string, Screen> = {
 	compaction: {
 		asset: "compaction",
 		title: "π - my-pi-agent · /compact",
@@ -420,6 +576,65 @@ const SCREENS: Record<string, Screen> = {
 				onClose: noop,
 				requestRender: noop,
 				viewportRows: () => rows,
+			}).render(width),
+	},
+	watch: {
+		asset: "watch",
+		title: "π - my-pi-agent · /watch",
+		bounds: { left: 80, top: 80, right: 920, bottom: 330 },
+		size: { width: 100, rows: 11 },
+		render: (width, rows) =>
+			new WatchListComponent(
+				() => WATCHES,
+				theme,
+				{ lines: () => undefined, stop: noop, clear: noop },
+				noop,
+				noop,
+				() => rows,
+			).render(width),
+	},
+	memory: {
+		asset: "memory",
+		title: "π - my-pi-agent · /memory",
+		bounds: { left: 80, top: 80, right: 920, bottom: 330 },
+		size: { width: 100, rows: 11 },
+		render: (width, rows) =>
+			new MemoryPickerComponent(SCREEN_TUI, theme, MEMORY_CALLBACKS, noop, noop, () => rows).render(width),
+	},
+	bytefly: {
+		asset: "bytefly",
+		title: "π - my-pi-agent · /bytefly",
+		bounds: { left: 80, top: 80, right: 1080, bottom: 460 },
+		size: { width: 120, rows: 19 },
+		render: (width, rows) => {
+			// A fresh runtime over a fake discovery per render: no probe, no write.
+			const { discovery } = makeDiscovery({ global: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
+			const runtime = createExtensionsPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
+			return new PanelComponent({
+				runtime,
+				reports: () => PANEL_REPORTS,
+				settings: PANEL_SETTINGS,
+				theme,
+				agentDir: PANEL_AGENT_DIR,
+				cwd: PANEL_CWD,
+				viewportRows: () => rows,
+				requestRender: noop,
+				refresh: noop,
+				onClose: noop,
+			}).render(width);
+		},
+	},
+	wechat: {
+		asset: "wechat",
+		title: "π - my-pi-agent · /wechat",
+		bounds: { left: 80, top: 80, right: 920, bottom: 400 },
+		size: { width: 100, rows: 16 },
+		render: (width) =>
+			new StatusScreenComponent({
+				theme,
+				view: () => WECHAT_VIEW,
+				onClose: noop,
+				requestRender: noop,
 			}).render(width),
 	},
 };
@@ -837,7 +1052,7 @@ function numberArg(args: string[], flag: string): number | undefined {
  * shot — a real `pi -e .` session — but this frame is what makes the design
  * reviewable on any OS and at any width.
  */
-const CHROME_SCREEN: Screen = {
+export const CHROME_SCREEN: Screen = {
 	asset: "chrome",
 	title: "π - my-pi-agent · chrome",
 	render: (width) => renderChrome(width),
