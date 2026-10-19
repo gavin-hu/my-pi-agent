@@ -46,6 +46,9 @@ import { DEFAULT_HOST_PAD } from "../extensions/bytefly/pad.ts";
 import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { JobListComponent } from "../extensions/job/tui.ts";
 import type { JobRecord } from "../extensions/job/types.ts";
+import { sectionDigests } from "../extensions/plan/plan-text.ts";
+import type { StoredPlan } from "../extensions/plan/plans.ts";
+import { PlanViewComponent } from "../extensions/plan/tui.ts";
 import { askViaTui } from "../extensions/question/tui.ts";
 import type { Question } from "../extensions/question/types.ts";
 import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
@@ -57,7 +60,7 @@ import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
 import { pollUntil, sleep } from "./poll.ts";
 import { repo, setThemeInstance, theme } from "./theme.ts";
 
-/** Terminal window size in logical points; the render adapts to its columns. */
+/** The default Terminal window size in logical points; a screen may ask for its own. */
 const WINDOW_BOUNDS = { left: 80, top: 80, right: 880, bottom: 400 };
 /** The hero is a real `pi -e .` run, so it gets its own size. */
 const CHROME_BOUNDS = { left: 80, top: 80, right: 886, bottom: 673 };
@@ -240,6 +243,59 @@ const REWIND_POINTS: RewindPoint[] = [
 	},
 ];
 
+/** The plan the review screen shows; its `Steps` section changed on this review. */
+const PLAN_PATH = "/home/u/repo/.pi/plans/2026-10-18-1430-plan-review-change-marks.md";
+const PLAN_CONTENT = [
+	"# Plan review: mark the sections that changed",
+	"",
+	"## Goal",
+	"",
+	"Show a returning reviewer what changed since the last review, without leaving the plan review screen.",
+	"",
+	"## Context",
+	"",
+	"The review screen renders the plan body with Pi's own Markdown component, so headings, lists, and code already match the rest of the application. Two things are still missing for a second review: the notice that a section was revised, and a position readout once the body is taller than the terminal.",
+	"",
+	"## Approach",
+	"",
+	"- Persist the per-section digests of the reviewed plan with the approval.",
+	"- Diff the new plan against them and mark every heading that changed.",
+	"- Draw the scroll gauge from the shared kit, with `n`/`p` section jumps.",
+	"",
+	"## Steps",
+	"",
+	"- [x] Store the review baseline alongside the approval",
+	"- [x] Diff sections on the next review",
+	"- [x] Draw the gauge from the shared kit",
+	"- [ ] Mark changed headings in the section label",
+	"- [ ] Cover a second review in `tui.test.ts`",
+	"",
+	"## Risks",
+	"",
+	"- A plan edited outside Pi has no baseline, so the marks only appear on a second review.",
+	"- The digests add state to the approval entry, which `/resume` must rebuild.",
+	"",
+	"## Verification",
+	"",
+	"`bun test extensions/plan` and the render checks in `screenshots.test.ts`.",
+].join("\n");
+const PLAN: StoredPlan = {
+	path: PLAN_PATH,
+	relativePath: ".pi/plans/2026-10-18-1430-plan-review-change-marks.md",
+	content: PLAN_CONTENT,
+	bytes: Buffer.byteLength(PLAN_CONTENT),
+};
+/**
+ * The digests the previous review saw: the same plan before its two newest
+ * steps, so exactly one section — `Steps` — reads as changed.
+ */
+const PLAN_BASELINE = sectionDigests(
+	PLAN_CONTENT.replace(
+		"- [ ] Mark changed headings in the section label\n- [ ] Cover a second review in `tui.test.ts`\n",
+		"",
+	),
+);
+
 const QUESTIONS: Question[] = [
 	{
 		id: "q1",
@@ -267,6 +323,17 @@ const QUESTIONS: Question[] = [
 interface Screen {
 	asset: string;
 	title: string;
+	/**
+	 * Terminal window bounds in logical points. A document-sized screen sets its
+	 * own, so the plan body is not captured through a two-line viewport.
+	 */
+	bounds?: typeof WINDOW_BOUNDS;
+	/**
+	 * Frame size to render instead of the window's live size. The window is
+	 * resized after the render starts, so a screen that depends on its own rows
+	 * (the plan review's scroll gauge) would otherwise race that resize.
+	 */
+	size?: { width: number; rows: number };
 	render(width: number, rows: number): string[];
 }
 
@@ -323,6 +390,25 @@ const SCREENS: Record<string, Screen> = {
 				noop,
 				() => rows,
 			).render(width),
+	},
+	plan: {
+		asset: "plan",
+		title: "π - my-pi-agent · exit_plan_mode",
+		// Wide enough for the whole hint row and tall enough to reach the Steps
+		// list; the frame size is fixed so the capture never depends on the resize.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 740 },
+		size: { width: 120, rows: 35 },
+		render: (width, rows) => {
+			setThemeInstance(theme);
+			return new PlanViewComponent({
+				plan: PLAN,
+				baseline: PLAN_BASELINE,
+				theme,
+				onClose: noop,
+				requestRender: noop,
+				viewportRows: () => rows,
+			}).render(width);
+		},
 	},
 	rewind: {
 		asset: "rewind",
@@ -483,14 +569,16 @@ function deleteProfile(): void {
 }
 
 /** Open one Terminal window running the render. */
-function openWindow(name: string, ready: string): void {
-	const command = `cd ${shellQuote(repo)} && ${shellQuote(process.execPath)} ${shellQuote(join(repo, "scripts", "screenshots.ts"))} render ${name} --hold --ready ${shellQuote(ready)}`;
+function openWindow(name: string, ready: string, screen: Screen): void {
+	const bounds = screen.bounds ?? WINDOW_BOUNDS;
+	const size = screen.size ? ` --width ${screen.size.width} --rows ${screen.size.rows}` : "";
+	const command = `cd ${shellQuote(repo)} && ${shellQuote(process.execPath)} ${shellQuote(join(repo, "scripts", "screenshots.ts"))} render ${name}${size} --hold --ready ${shellQuote(ready)}`;
 	const script = `tell application "Terminal"
 		activate
 		set w to do script ""
 		set current settings of w to settings set "${PROFILE}"
 		do script ${JSON.stringify(command)} in w
-		set bounds of front window to {${WINDOW_BOUNDS.left}, ${WINDOW_BOUNDS.top}, ${WINDOW_BOUNDS.right}, ${WINDOW_BOUNDS.bottom}}
+		set bounds of front window to {${bounds.left}, ${bounds.top}, ${bounds.right}, ${bounds.bottom}}
 	end tell`;
 	osascript(script);
 }
@@ -718,7 +806,7 @@ async function capture(name: string): Promise<void> {
 	}
 	const ready = join(tmpdir(), `pi-screenshot-${name}.ready`);
 	rmSync(ready, { force: true });
-	openWindow(name, ready);
+	openWindow(name, ready, screen);
 	let id: number | undefined;
 	try {
 		// Capture only once the frame has replaced the shell's command echo.
