@@ -285,14 +285,75 @@ describe("ByteflyHeader", () => {
 	});
 });
 
+describe("ByteflyHeader by terminal height", () => {
+	test("prints every help group at a tall terminal", () => {
+		expect(header(view({ rows: 40 })).render(80)).toHaveLength(7);
+	});
+
+	test("drops the middle help group when the terminal is short", () => {
+		const lines = header(view({ rows: 24 })).render(80);
+
+		expect(lines).toHaveLength(6);
+		expect(lines[4]).toContain("escape to interrupt");
+		expect(lines[5]).toContain("/ commands");
+		expect(lines.join("\n")).not.toContain("expand tools");
+	});
+
+	test("keeps only the commands row on a shorter terminal", () => {
+		const lines = header(view({ rows: 18 })).render(80);
+
+		expect(lines).toHaveLength(5);
+		expect(lines[4]).toContain("/ commands");
+	});
+
+	test("drops the help block and its leading blank below the floor", () => {
+		const lines = header(view({ rows: 10 })).render(80);
+
+		expect(lines).toHaveLength(3);
+		expect(lines[0]).toContain("Pi v1.2.0");
+		expect(lines[1]).toContain("enhanced by");
+		expect(lines[2]).toContain("─");
+	});
+
+	test("treats a missing or impossible height as tall", () => {
+		expect(header(view()).render(80)).toHaveLength(7);
+		expect(header(view({ rows: 0 })).render(80)).toHaveLength(7);
+	});
+
+	test("rebuilds when the terminal height changes", () => {
+		let headerView = view({ rows: 40 });
+		const component = new ByteflyHeader(
+			() => fakeTheme,
+			() => headerView,
+			"1.2.0",
+		);
+		const tall = component.render(80);
+
+		headerView = view({ rows: 10 });
+
+		expect(component.render(80)).not.toBe(tall);
+		expect(component.render(80)).toHaveLength(3);
+	});
+});
+
 describe("bytefly header factory", () => {
 	test("createHeader returns a factory that builds a component", () => {
 		const factory = createHeader(
 			() => fakeTheme,
-			() => view(),
+			(rows) => view({ rows }),
 		);
 
 		expect(typeof factory).toBe("function");
 		expect(factory({ requestRender: () => {} } as any, fakeTheme).render(80)).toHaveLength(7);
+	});
+
+	test("reads the terminal height from the host", () => {
+		const factory = createHeader(
+			() => fakeTheme,
+			(rows) => view({ rows }),
+		);
+		const host = { requestRender: () => {}, terminal: { rows: 18 } } as any;
+
+		expect(factory(host, fakeTheme).render(80)).toHaveLength(5);
 	});
 });

@@ -18,9 +18,9 @@ import { BODY_INDENT } from "../../../lib/tui/indent.ts";
 import { RULE_GLYPH } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { updateMarker } from "../update/format.ts";
-import { HEADER_CONFIG, type HelpEntry } from "./config.ts";
+import { HEADER_CONFIG, type HeaderHeight, type HelpEntry } from "./config.ts";
 
-/** The header's shape, resolved once per apply so `render` stays cheap. */
+/** The header's shape: everything but the live terminal height is resolved once per apply. */
 export interface HeaderView {
 	/** Print Pi's version on the agent line. */
 	showVersion: boolean;
@@ -28,12 +28,23 @@ export interface HeaderView {
 	halfBlocks: boolean;
 	/** Columns of left margin: Pi's output pad, so the nameplate sits on the transcript margin. */
 	pad: number;
+	/** Terminal rows, when the host reports them; short terminals shed help rows. */
+	rows?: number;
 	/** A newer published version of this package, when one is known. */
 	latest?: string;
 }
 
 /** The mark block is four columns on both rows, so the identity column aligns. */
 const MARK_WIDTH = 4;
+
+/**
+ * The tallest shape whose threshold the terminal meets. An unknown or impossible
+ * height keeps the full header, so a host without terminal rows still reads well.
+ */
+function heightShape(rows: number | undefined): HeaderHeight {
+	if (rows === undefined || !Number.isFinite(rows) || rows <= 0) return HEADER_CONFIG.heights[0];
+	return HEADER_CONFIG.heights.find((shape) => rows >= shape.minRows) ?? HEADER_CONFIG.heights[0];
+}
 
 /** Pad a themed mark line to the block width with plain spaces. */
 function markBlock(line: string): string {
@@ -81,7 +92,7 @@ export class ByteflyHeader implements Component {
 		const w = Math.max(1, width);
 		const theme = this.getTheme();
 		const view = this.view();
-		const viewKey = `${view.showVersion}:${view.halfBlocks}:${view.pad}:${view.latest ?? ""}`;
+		const viewKey = `${view.showVersion}:${view.halfBlocks}:${view.pad}:${view.latest ?? ""}:${view.rows ?? ""}`;
 		const keys = this.keySignature();
 		if (
 			this.cachedWidth === w &&
@@ -111,6 +122,7 @@ export class ByteflyHeader implements Component {
 	private build(w: number, theme: Theme, view: HeaderView): string[] {
 		const { nameRole, chromeRole, detailRole, updateRole, chromeTagline, chromeName, chromeVersion, help } =
 			HEADER_CONFIG;
+		const shape = heightShape(view.rows);
 		const padWidth = Math.max(0, Math.min(Math.floor(view.pad), Math.max(0, w - 1)));
 		const pad = " ".repeat(padWidth);
 		const [markTop, markBottom] = markLines(theme, view.halfBlocks);
@@ -145,13 +157,17 @@ export class ByteflyHeader implements Component {
 
 		// The header owns its leading blank: Pi mounts the built-in header inside
 		// `Spacer(1)`s, but the `quietStartup: true` branch that hands this header the
-		// screen adds none, and `setHeader` swaps only the header child.
+		// screen adds none, and `setHeader` swaps only the header child. A short
+		// terminal gives that row back, then sheds whole help groups.
 		return [
-			"",
+			...(shape.blank ? [""] : []),
 			this.identityLine(pad, markTop, agentCell, w),
 			this.identityLine(pad, markBottom, chromeCell, w),
 			this.rule(theme, w, pad),
-			...help.map((row) => this.helpLine(theme, w, row, padWidth)),
+			...shape.helpRows.flatMap((index) => {
+				const group = help[index];
+				return group ? [this.helpLine(theme, w, group, padWidth)] : [];
+			}),
 		];
 	}
 
@@ -193,6 +209,12 @@ export class ByteflyHeader implements Component {
 }
 
 /** Header factory passed to `ctx.ui.setHeader`. */
-export function createHeader(getTheme: () => Theme, view: () => HeaderView): (tui: TUI, theme: Theme) => Component {
-	return () => new ByteflyHeader(getTheme, view, VERSION);
+export function createHeader(
+	getTheme: () => Theme,
+	view: (rows: number | undefined) => HeaderView,
+): (tui: TUI, theme: Theme) => Component {
+	// Read the height on every render, so a terminal resize reflows the header
+	// instead of keeping the shape it was installed with. Tests may pass a bare
+	// object as the host, so the terminal is optional at the boundary.
+	return (tui) => new ByteflyHeader(getTheme, () => view(tui.terminal?.rows), VERSION);
 }
