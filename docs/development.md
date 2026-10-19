@@ -28,10 +28,38 @@ repositories.
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
-| `bun run screenshots` | Regenerate the screenshots and hero under `assets/` (macOS only). |
+| `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/` (macOS only); naming screens captures only those. |
 | `bun run screenshot:plan <plan.md>` | Render one plan through the browser review page and capture it as a full-page PNG with headless Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot; set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/tool-renderings.png`) with headless Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. `bun run scripts/tool-renderings.ts list` names them all, `render <name> --width n` prints one block as ANSI on any OS, and `html <out>` writes the page. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
+
+## Screenshots
+
+`bun run screenshots` captures the terminal surfaces and the `chrome.png` hero on
+macOS: each frame is drawn by the shipped component with the `bytefly-dark`
+theme inside a real Terminal.app window, then captured with `screencapture`, so
+the docs show the product rather than a mock. Naming screens captures only
+those; with no argument it captures every entry in the `SCREENS` map of
+`scripts/screenshots.ts` and then the hero. To check a layout without a
+capture, `bun run scripts/screenshots.ts render <name>` prints one frame as ANSI
+on any OS; `--width` and `--rows` override the terminal.
+
+A screen is an asset stem, a window title, and a `render(width, rows)` that
+builds its real component around fixtures. It may also set `bounds` and `size`,
+and a row-budgeted screen has to: Terminal.app snaps a resize to whole cells and
+enforces a minimum window width, so a capture that depends on its rows or wraps
+a hint row would otherwise shoot whatever geometry the window reached.
+`scripts/screenshots.test.ts` renders every entry at three widths and fails when
+a frame leaves the terminal or outgrows its `rows`.
+
+Two kinds of asset come from headless Chrome instead of the terminal:
+`plan-review.png` from `screenshot:plan`, and the tool galleries from
+`screenshot:tools` and `screenshot:tool-pngs`. `file-browse.png` has no
+generator: it was captured by hand from the loopback browser, so a change to
+that page needs a manual refresh or a new harness beside `screenshot:plan`.
+
+The screenshot grid in the root `README.md` is a curated set rather than the
+full list; each screen is shown in its own extension README.
 
 ## Tests
 
