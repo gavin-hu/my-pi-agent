@@ -42,6 +42,8 @@ export interface SettingsRuntimeDeps {
 	trusted: boolean;
 	/** Report a refused or failed write to the screen. */
 	onError?: (message: string) => void;
+	/** Theme names the host resolved for this session; empty outside the TUI. */
+	themes?: readonly string[];
 }
 
 /** What the panel needs from the runtime. */
@@ -74,6 +76,7 @@ function readSnapshot(deps: SettingsRuntimeDeps): SettingsSnapshot {
 		app: deps.stores.global.globalSettings(),
 		global: readJson(configPath("global", deps.cwd, deps.agentDir)) ?? {},
 		project: deps.trusted ? (readJson(configPath("project", deps.cwd, deps.agentDir)) ?? {}) : {},
+		themes: deps.themes ?? [],
 	};
 }
 
@@ -89,6 +92,9 @@ function applyAppSetting(store: SettingsStore, row: SettingDescriptor, raw: stri
 			return;
 		case "showHardwareCursor":
 			store.setShowHardwareCursor(value as boolean);
+			return;
+		case "theme":
+			store.setTheme(value as string);
 			return;
 		default:
 			throw new Error(`Unknown app setting ${row.id}`);
@@ -159,7 +165,9 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 			}
 			const current = settingViews(snapshot, scope).find((entry) => entry.id === id);
 			if (!current) return;
-			const next = nextValue(row, current.value);
+			// Use the view's options: the Theme row's list comes from the host, not
+			// from the static descriptor.
+			const next = nextValue(current, current.value);
 			try {
 				await write(scope, row, next.value);
 			} catch (error) {
@@ -212,7 +220,14 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 			if (!config) return false;
 			const document = scope === "global" ? snapshot.global : snapshot.project;
 			if (configValueAt(configSection(document, config.section), config.path) === undefined) {
-				deps.onError?.(`${row.label} is already at its default.`);
+				const inherited =
+					scope === "project" &&
+					configValueAt(configSection(snapshot.global, config.section), config.path) !== undefined;
+				deps.onError?.(
+					inherited
+						? `${row.label} is inherited from Global; there is nothing to reset in Project.`
+						: `${row.label} is already at its default.`,
+				);
 				return false;
 			}
 			try {

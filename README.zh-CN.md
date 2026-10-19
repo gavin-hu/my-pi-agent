@@ -118,7 +118,8 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 [`bytefly-dark`](./themes/bytefly-dark.json) 是 GitHub 风格的深色调色板，
 [`bytefly-light`](./themes/bytefly-light.json) 是其浅色搭档，并支持可选的自动
-浅色/深色切换。安装本包不会改变你的主题：通过 `/settings` → **Theme** 选择，
+浅色/深色切换。安装本包不会改变你的主题：通过 `/settings` → **Theme**（或
+`/bytefly settings` → **Theme**）选择，
 或设置 `"theme": "bytefly-light/bytefly-dark"` 以自动切换。本 README 的截图
 使用 `bytefly-dark`。
 

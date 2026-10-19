@@ -130,6 +130,18 @@ function notifyExtension(
 	);
 }
 
+/**
+ * Theme names the host resolved for this session. The list is empty outside the
+ * TUI (RPC, print, JSON), where the row still shows the stored value.
+ */
+function availableThemeNames(ctx: ExtensionCommandContext): string[] {
+	try {
+		return ctx.ui.getAllThemes().map((theme) => theme.name);
+	} catch {
+		return [];
+	}
+}
+
 /** Register the single `/bytefly` command. */
 export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 	const discover = deps.discover ?? discoverExtensions;
@@ -146,6 +158,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		const cwd = ctx.cwd ?? process.cwd();
 		const agentDir = getAgentDir();
 		const trusted = ctx.isProjectTrusted();
+		const themes = availableThemeNames(ctx);
 		// The mounted screen owns its feedback: a refusal or a failed write belongs in
 		// the frame, not appended to the transcript behind it. Before the screen
 		// exists (the non-TUI settings path, a pre-mount failure) the transcript is
@@ -171,7 +184,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// packages or probing the doctor.
 		if (section === "settings" && ctx.mode !== "tui") {
 			const stores = createSettingsStores(cwd, agentDir, trusted);
-			const settings = makeSettings({ stores, cwd, agentDir, trusted, onError: settingsNotice });
+			const settings = makeSettings({ stores, cwd, agentDir, trusted, themes, onError: settingsNotice });
 			ctx.ui.notify(formatSettingsListing(settings.views("global")), "info");
 			return;
 		}
@@ -189,6 +202,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			cwd,
 			agentDir,
 			trusted: discovery.trusted,
+			themes,
 			onError: settingsNotice,
 		});
 

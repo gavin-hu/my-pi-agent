@@ -27,6 +27,30 @@ export function isSelectable(entry: PanelEntry | undefined): boolean {
 	return entryKey(entry) !== undefined;
 }
 
+/**
+ * One display window as ordinals over the selectable rows it contains.
+ *
+ * The range row counts rows, not entries: a list of twenty-nine settings in ten
+ * groups spans thirty-nine entries, but `showing 3–5 of 29` is what the user can
+ * focus. `formatRange` prints `start + 1` through `end`, so the ordinals here are
+ * zero-based and `end` is exclusive.
+ */
+export function selectableRange(
+	entries: readonly PanelEntry[],
+	window: { start: number; end: number },
+): { start: number; end: number; total: number } {
+	let before = 0;
+	let shown = 0;
+	let total = 0;
+	for (let index = 0; index < entries.length; index += 1) {
+		if (!isSelectable(entries[index])) continue;
+		total += 1;
+		if (index < window.start) before += 1;
+		else if (index < window.end) shown += 1;
+	}
+	return { start: before, end: before + shown, total };
+}
+
 /** The next selectable entry from `from` in `direction`, or `undefined`. */
 export function nextRow(entries: PanelEntry[], from: number, direction: -1 | 1): number | undefined {
 	for (let index = from + direction; index >= 0 && index < entries.length; index += direction) {

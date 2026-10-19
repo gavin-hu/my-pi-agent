@@ -10,7 +10,7 @@ import type { DoctorRuntime } from "../doctor/runtime.ts";
 import type { UpdateOutcome } from "../update/state.ts";
 import { registerPanel } from "./commands.ts";
 import { type SettingsSnapshot, settingViews } from "./settings.ts";
-import type { SettingsRuntime } from "./settings-runtime.ts";
+import type { SettingsRuntime, SettingsRuntimeDeps } from "./settings-runtime.ts";
 
 /** Let a fire-and-forget toggle settle. */
 const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -48,7 +48,7 @@ function fakeUpdate(outcome: UpdateOutcome = { kind: "current", latest: "0.12.0"
 
 /** A Settings runtime double over an in-memory snapshot. */
 function fakeSettings(options: { dirty?: boolean; snapshot?: SettingsSnapshot } = {}): SettingsRuntime {
-	const snapshot = options.snapshot ?? { app: {}, global: {}, project: {} };
+	const snapshot = options.snapshot ?? { app: {}, global: {}, project: {}, themes: [] };
 	let dirty = options.dirty ?? false;
 	return {
 		views: (scope) => settingViews(snapshot, scope),
@@ -72,7 +72,7 @@ function fakeSettings(options: { dirty?: boolean; snapshot?: SettingsSnapshot } 
 function boot(options: {
 	discover?: () => Promise<ReturnType<typeof discovery>>;
 	reports?: ExtensionReport[];
-	settings?: () => SettingsRuntime;
+	settings?: (deps: SettingsRuntimeDeps) => SettingsRuntime;
 	update?: { recheck: () => Promise<UpdateOutcome> };
 }) {
 	const { pi, commands } = makeFakePi();
@@ -279,10 +279,30 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 28 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 29 settings");
 		expect(notifications.at(-1)).toContain("Bytefly startup TUI: Off");
 		expect(notifications.at(-1)).toContain("Delivery method: Auto");
 		expect(notifications.at(-1)).toContain("Cost decimals: 2");
+		expect(notifications.at(-1)).toContain("Theme: system");
+	});
+
+	test("passes the host's resolved themes to the settings runtime", async () => {
+		let themes: readonly string[] | undefined;
+		const { commands } = boot({
+			settings: (deps) => {
+				themes = deps.themes;
+				return fakeSettings();
+			},
+		});
+		const { ctx } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+		(ctx.ui as unknown as { getAllThemes: () => Array<{ name: string; path?: string }> }).getAllThemes = () => [
+			{ name: "system" },
+			{ name: "bytefly-dark", path: "/pkg/themes/bytefly-dark.json" },
+		];
+
+		await commands.get("bytefly").handler("settings", ctx);
+
+		expect(themes).toEqual(["system", "bytefly-dark"]);
 	});
 
 	test("mounts the dock screen on the Settings section in TUI mode", async () => {
@@ -297,7 +317,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("Global · 28 settings");
+		expect(rendered).toContain("Global · 29 settings");
 		expect(rendered).toContain("Bytefly startup TUI");
 	});
 

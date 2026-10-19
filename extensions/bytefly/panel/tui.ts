@@ -25,7 +25,7 @@ import type { ExtensionsPickerRuntime } from "../picker/runtime.ts";
 import { buildPanelModel } from "./join.ts";
 import type { SettingsSurface } from "./settings-runtime.ts";
 import type { PanelModel, PanelSection } from "./types.ts";
-import { entriesOf, entryKey, isSelectable, settingEntries, type PanelEntry } from "./tui/entries.ts";
+import { entriesOf, entryKey, isSelectable, selectableRange, settingEntries, type PanelEntry } from "./tui/entries.ts";
 import { clampSelection, firstRow, lastRow, moveRows, retainFocus } from "./tui/nav.ts";
 import { extensionDetail, extensionHints, extensionRow, extensionSummary } from "./tui/extensions-view.ts";
 import {
@@ -106,6 +106,8 @@ export class PanelComponent implements Component {
 	private editing: { id: string; buffer: string; caret: number } | undefined;
 	/** True while the Settings detail pane shows the focused row's section as JSON. */
 	private json = false;
+	/** Whether the last Settings render kept the project note; the click mapping needs it. */
+	private noteShown = false;
 	/** The visible section. */
 	private section: PanelSection;
 
@@ -187,7 +189,14 @@ export class PanelComponent implements Component {
 		}
 		// The JSON pane names a file, so a scope switch has to close it.
 		this.json = false;
+		const focused = entryKey(this.activeEntries()[this.cursor.selected]);
 		this.options.runtime.setScope(next);
+		// Keep the setting under the cursor across the layer switch; the two scopes
+		// do not share entry indices because Project drops the app rows.
+		if (focused !== undefined) {
+			const index = this.activeEntries().findIndex((entry) => entryKey(entry) === focused);
+			if (index >= 0) this.cursor.selected = index;
+		}
 		this.options.requestRender();
 	}
 
@@ -255,6 +264,9 @@ export class PanelComponent implements Component {
 		const entry = this.activeEntries()[this.cursor.selected];
 		if (entry?.kind !== "setting") return;
 		if (!entry.setting.config) {
+			// There is no section to show, so leave the mode off rather than keeping a
+			// hidden toggle that would reopen the pane on another row.
+			this.json = false;
 			this.notify(`${entry.setting.label} is a Pi setting; bytefly.json has no section for it.`);
 			return;
 		}
@@ -534,23 +546,24 @@ export class PanelComponent implements Component {
 		if (entries.length === 0) return undefined;
 		// The Settings section prints the "Global only" note first in Project scope,
 		// so the rows start one line lower there.
-		const note = this.section === "settings" && this.options.runtime.scope() === "project" ? 1 : 0;
+		const note = this.section === "settings" && this.noteShown ? 1 : 0;
 		const line = event.y - (BODY_START + note);
-		if (line < 0) return undefined;
-		const index = this.cursor.window(entries.length).start + line;
+		const window = this.cursor.window(entries.length);
+		if (line < 0 || line >= window.end - window.start) return undefined;
+		const index = window.start + line;
 		if (!isSelectable(entries[index])) return undefined;
 		this.select(index);
 		return { handled: true };
 	}
 
 	/** Key hints for the active section; whole hints drop as the width runs out. */
-	private hint(width: number, expanded = false): string {
+	private hint(width: number, options: { expanded?: boolean; jsonOpen?: boolean } = {}): string {
 		if (this.editing) return hintLine(this.theme, width, editHints());
 		const hints =
 			this.section === "settings"
-				? settingsHints(this.json)
+				? settingsHints(options.jsonOpen === true)
 				: extensionHints({
-						expanded,
+						expanded: options.expanded === true,
 						refreshing: this.refreshing,
 						projectScope: this.options.runtime.scope() === "project",
 					});
@@ -558,21 +571,47 @@ export class PanelComponent implements Component {
 	}
 
 	/** The key-hint row, or the notice that temporarily replaces it. */
-	private hintRow(width: number, expanded = false): string {
-		return this.notice !== undefined ? noticeLine(this.theme, width, this.notice) : this.hint(width, expanded);
+	private hintRow(width: number, options: { expanded?: boolean; jsonOpen?: boolean } = {}): string {
+		return this.notice !== undefined ? noticeLine(this.theme, width, this.notice) : this.hint(width, options);
 	}
 
 	/**
-	 * Detail rows the focused row gets: the fixed pane when collapsed, the free
-	 * height when expanded. Zero when the terminal cannot hold one body row next to
-	 * the pane, so the hint row is never pushed off the screen.
+	 * Detail rows the focused row gets: the fixed pane, or the free height when
+	 * expanded. Zero when there is no free row for a pane at all, so a short
+	 * terminal keeps its body; the caller then drops optional rows if needed.
 	 */
 	private detailRows(expanded: boolean): number {
 		const total = totalRows(this.options.viewportRows);
 		if (total === undefined) return expanded ? EXPANDED_DETAIL_FALLBACK : DETAIL_ROWS;
 		const available = total - FRAME_ROWS - MIN_BODY_ROWS;
-		if (available < DETAIL_ROWS + 1) return 0;
-		return expanded ? Math.max(DETAIL_ROWS, available) : DETAIL_ROWS;
+		if (available < 1) return 0;
+		return expanded ? available : Math.min(DETAIL_ROWS, available);
+	}
+
+	/**
+	 * Drop optional rows until the frame fits the viewport: the range row first,
+	 * then the project note, then the detail pane. The header, summary, one body
+	 * row, and the hint always survive; a terminal shorter than those is left to
+	 * the host.
+	 */
+	private fitOptionalLines(options: {
+		body: string[];
+		note: string | undefined;
+		range: string | undefined;
+		detail: string[];
+	}): { body: string[]; range: string | undefined; detail: string[]; noteShown: boolean } {
+		const total = totalRows(this.options.viewportRows);
+		let { body, range, detail } = options;
+		let noteShown = options.note !== undefined && body[0] === options.note;
+		if (total === undefined) return { body, range, detail, noteShown };
+		const fits = (): boolean => FRAME_ROWS + body.length + (range === undefined ? 0 : 1) + detail.length <= total;
+		if (!fits()) range = undefined;
+		if (!fits() && noteShown) {
+			body = body.slice(1);
+			noteShown = false;
+		}
+		if (!fits()) detail = [];
+		return { body, range, detail, noteShown };
 	}
 
 	/** Expand or collapse the focused row's findings. */
@@ -609,9 +648,9 @@ export class PanelComponent implements Component {
 						theme: this.theme,
 						width,
 						section: jsonConfig.section,
-						view: focused,
 						document: this.options.settings.sectionDocument(scope, jsonConfig.section),
 						budget: this.detailRows(true),
+						dirty: this.dirty,
 						paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
 					})
 				: settingDetail({
@@ -643,15 +682,18 @@ export class PanelComponent implements Component {
 			}
 		}
 
+		const range = this.cursor.clipped(entries.length)
+			? formatRange(this.theme, width, selectableRange(entries, { start, end }))
+			: undefined;
+		const fitted = this.fitOptionalLines({ body, note, range, detail });
+		this.noteShown = fitted.noteShown;
 		return dockListFrame({
 			header,
 			summary,
-			body,
-			range: this.cursor.clipped(entries.length)
-				? formatRange(this.theme, width, { start, end, total: entries.length })
-				: undefined,
-			detail: detail.length > 0 ? detail : undefined,
-			hint: this.hintRow(width),
+			body: fitted.body,
+			range: fitted.range,
+			detail: fitted.detail.length > 0 ? fitted.detail : undefined,
+			hint: this.hintRow(width, { jsonOpen: jsonConfig !== undefined }),
 		});
 	}
 
@@ -702,15 +744,17 @@ export class PanelComponent implements Component {
 			else if (entry.kind === "row") body.push(extensionRow(this.theme, w, entry.row, index === this.cursor.selected));
 		}
 
+		const range = this.cursor.clipped(entries.length)
+			? formatRange(this.theme, w, selectableRange(entries, { start, end }))
+			: undefined;
+		const fitted = this.fitOptionalLines({ body, note: undefined, range, detail });
 		return dockListFrame({
 			header,
 			summary,
-			body,
-			range: this.cursor.clipped(entries.length)
-				? formatRange(this.theme, w, { start, end, total: entries.length })
-				: undefined,
-			detail: detail.length > 0 ? detail : undefined,
-			hint: this.hintRow(w, expanded),
+			body: fitted.body,
+			range: fitted.range,
+			detail: fitted.detail.length > 0 ? fitted.detail : undefined,
+			hint: this.hintRow(w, { expanded }),
 		});
 	}
 }

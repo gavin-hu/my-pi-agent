@@ -68,6 +68,7 @@ export interface StoreCalls {
 	setQuietStartup: QuietStartup[];
 	setOutputPad: Array<0 | 1>;
 	setShowHardwareCursor: boolean[];
+	setTheme: string[];
 }
 
 export interface FakeStore {
@@ -103,6 +104,7 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 		setQuietStartup: [],
 		setOutputPad: [],
 		setShowHardwareCursor: [],
+		setTheme: [],
 	};
 
 	const fake: FakeStore = {
@@ -145,6 +147,10 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			setShowHardwareCursor: (enabled) => {
 				calls.setShowHardwareCursor.push(enabled);
 				globalSettings = { ...globalSettings, showHardwareCursor: enabled };
+			},
+			setTheme: (theme) => {
+				calls.setTheme.push(theme);
+				globalSettings = { ...globalSettings, theme };
 			},
 			isProjectTrusted: () => options.trusted ?? true,
 			flush: async () => {

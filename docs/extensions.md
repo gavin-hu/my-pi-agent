@@ -292,7 +292,7 @@ checkbox and one verdict (`off` when switched off, `env disabled` when
 Settings, the curated preferences — bytefly startup TUI,
 desktop notifications, the four triggers that narrow them, their delivery method
 and title, the proactive health check and its probe timeout, the currency and cost
-precision, the rail glyph, output padding, and the hardware cursor — with each
+precision, the rail glyph, output padding, the theme, and the hardware cursor — with each
 row's value and its source file. A boolean toggles, an enum cycles, and a text row opens an inline
 editor with its own caret, save, and cancel keys. `Space` toggles the
 focused extension and `Enter` expands

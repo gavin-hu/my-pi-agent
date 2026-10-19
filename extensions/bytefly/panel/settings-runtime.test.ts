@@ -17,6 +17,7 @@ interface BootOptions {
 	globalDoc?: Record<string, unknown>;
 	projectDoc?: Record<string, unknown>;
 	trusted?: boolean;
+	themes?: readonly string[];
 }
 
 function boot(options: BootOptions = {}) {
@@ -38,6 +39,7 @@ function boot(options: BootOptions = {}) {
 		cwd,
 		agentDir,
 		trusted,
+		themes: options.themes,
 		onError: (message) => notices.push(message),
 	});
 	return {
@@ -87,6 +89,17 @@ describe("app writes", () => {
 		expect(notices.at(-1)).toContain("Global setting");
 		expect(globalStore.calls.setQuietStartup).toEqual([]);
 		expect(runtime.isDirty()).toBe(false);
+	});
+
+	test("writes the theme through the personal setter and flushes", async () => {
+		const { runtime, globalStore } = boot({ themes: ["system", "dark", "light"] });
+
+		await runtime.change("global", "theme");
+
+		expect(globalStore.calls.setTheme).toEqual(["dark"]);
+		expect(valueOf(runtime, "global", "theme")).toBe("dark");
+		expect(globalStore.flushCount()).toBe(1);
+		expect(runtime.isDirty()).toBe(true);
 	});
 
 	test("reports a flush failure and leaves the shown value unchanged", async () => {
@@ -304,6 +317,18 @@ describe("reset", () => {
 
 		expect(notices.at(-1)).toBe("Snapshots kept is already at its default.");
 		expect(readJson(globalPath)).toEqual({ rewind: { autoSnapshots: false } });
+		expect(runtime.isDirty()).toBe(false);
+	});
+
+	test("says an inherited project value is not a default", async () => {
+		const { runtime, notices, globalPath } = boot({ globalDoc: { notify: { enabled: true } } });
+
+		expect(await runtime.reset("project", "notify.enabled")).toBe(false);
+
+		expect(notices.at(-1)).toBe(
+			"Desktop notifications is inherited from Global; there is nothing to reset in Project.",
+		);
+		expect(readJson(globalPath)).toEqual({ notify: { enabled: true } });
 		expect(runtime.isDirty()).toBe(false);
 	});
 

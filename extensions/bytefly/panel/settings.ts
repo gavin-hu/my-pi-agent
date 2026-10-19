@@ -135,6 +135,8 @@ export interface SettingsSnapshot {
 	app: Settings;
 	global: Record<string, unknown>;
 	project: Record<string, unknown>;
+	/** Theme names the host resolved for this session, for the Theme row. */
+	themes: readonly string[];
 }
 
 /** One rendered group: its heading and the rows under it. */
@@ -437,6 +439,17 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		],
 	},
 	{
+		id: "theme",
+		group: "terminal",
+		label: "Theme",
+		description: "Pi's color theme; `system` follows the terminal's colors. Takes effect after reload.",
+		source: "app",
+		kind: "enum",
+		fallback: "system",
+		// The host supplies the resolved names in the snapshot; the static list stays empty.
+		options: [],
+	},
+	{
 		id: "showHardwareCursor",
 		group: "terminal",
 		label: "Hardware cursor",
@@ -612,9 +625,18 @@ export function textError(row: SettingDescriptor, raw: string): string | undefin
 	return rule.validate?.(raw);
 }
 
+/** The Theme row's values: `system` first, then the names the host resolved. */
+function themeOptions(themes: readonly string[]): readonly SettingOption[] {
+	const names = ["system", ...new Set(themes.filter((name) => name !== "" && name !== "system"))];
+	return names.map((name) => ({ value: name, label: name }));
+}
+
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
 function labelFor(row: SettingDescriptor, raw: string): string {
-	return row.options.find((option) => option.value === raw)?.label ?? raw;
+	const option = row.options.find((entry) => entry.value === raw);
+	if (option) return option.label;
+	// A stored light/dark pair is Pi's automatic mode, not a missing theme.
+	return row.id === "theme" && raw.includes("/") ? `${raw} (automatic)` : raw;
 }
 
 /** Read an app preference and where it came from. */
@@ -634,6 +656,11 @@ function appValue(snapshot: SettingsSnapshot, row: SettingDescriptor): { value: 
 				value: snapshot.app.showHardwareCursor === true ? "true" : row.fallback,
 				origin: snapshot.app.showHardwareCursor === undefined ? "default" : "global",
 			};
+		case "theme": {
+			const theme = snapshot.app.theme;
+			const set = typeof theme === "string" && theme !== "";
+			return { value: set ? theme : row.fallback, origin: set ? "global" : "default" };
+		}
 		default:
 			throw new Error(`Unknown app setting ${row.id}`);
 	}
@@ -646,7 +673,11 @@ function statesConfig(config: SettingConfig, document: Record<string, unknown>):
 
 /** Where the effective value came from: the project file, the personal one, or nothing. */
 function originFor(config: SettingConfig, snapshot: SettingsSnapshot, scope: WriteScope): SettingOrigin {
-	if (scope === "project") return statesConfig(config, snapshot.project) ? "project" : "inherited";
+	if (scope === "project") {
+		if (statesConfig(config, snapshot.project)) return "project";
+		if (statesConfig(config, snapshot.global)) return "inherited";
+		return "default";
+	}
 	return statesConfig(config, snapshot.global) ? "global" : "default";
 }
 
@@ -711,8 +742,10 @@ function byteflyValue(
 /** Build the rows for `scope` from a snapshot. */
 export function settingViews(snapshot: SettingsSnapshot, scope: WriteScope): SettingView[] {
 	return rowsForScope(scope).map((row) => {
+		const options = row.id === "theme" ? themeOptions(snapshot.themes) : row.options;
 		const { value, origin } = row.source === "app" ? appValue(snapshot, row) : byteflyValue(snapshot, row, scope);
-		return { ...row, value, valueLabel: labelFor(row, value), origin };
+		const view = { ...row, options, value };
+		return { ...view, valueLabel: labelFor(view, value), origin };
 	});
 }
 
