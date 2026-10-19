@@ -4,6 +4,7 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { buildLines } from "./lines.ts";
 import { fakeTheme, makeRecordingTheme } from "../../../../test/helpers/fakes.ts";
 import { fullSnapshot } from "../../../../test/helpers/fixtures/bytefly.ts";
+import { CONFIG } from "../config.ts";
 
 const ids = (segments: Array<{ id: string }>) => segments.map((segment) => segment.id);
 
@@ -33,7 +34,7 @@ describe("buildLines", () => {
 		expect(line2.left[3].forms[0]).toBe("↑42k ↓8.0k");
 		expect(line2.left[4].forms[0]).toBe("R96k CH 87%");
 		expect(line2.left[5].forms[0]).toBe(`${GLYPHS.plan} plan`);
-		expect(line2.left[5].separator).toBe(` ${GLYPHS.divider} `);
+		expect(line2.left[5].separator).toBe(CONFIG.separators.group);
 		expect(line2.right[0].forms[0]).toBe("opus-4.5");
 		expect(line2.right[1].forms[0]).toBe("high");
 	});

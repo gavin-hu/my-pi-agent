@@ -5,6 +5,7 @@ import { buildLines } from "./lines.ts";
 import { fakeTheme } from "../../../../test/helpers/fakes.ts";
 import { fullSnapshot } from "../../../../test/helpers/fixtures/bytefly.ts";
 import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
+import { CONFIG } from "../config.ts";
 
 describe("renderLine", () => {
 	test("fills the width and right-aligns the right zone", () => {
@@ -55,12 +56,13 @@ describe("renderLine", () => {
 		// A dropped separator collapses to a single space, not to nothing, so a
 		// segment boundary must always keep at least one column of padding.
 		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const divider = CONFIG.separators.group.trim();
 		for (let width = 6; width <= 120; width++) {
 			for (const line of [line1, line2]) {
 				const rendered = renderLine(line, width, fakeTheme);
 				expect(visibleWidth(rendered)).toBeLessThanOrEqual(width);
-				expect(rendered).not.toMatch(/%[⋮⑂⎇⚠]/);
-				expect(rendered).not.toMatch(new RegExp(`\\S${GLYPHS.divider}|${GLYPHS.divider}\\S`));
+				expect(rendered).not.toMatch(/%[≡⑂⎇⚠]/);
+				expect(rendered).not.toMatch(new RegExp(`\\S${divider}|${divider}\\S`));
 			}
 		}
 	});
@@ -82,12 +84,12 @@ describe("renderLine", () => {
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(rendered.startsWith("▰")).toBe(true);
-		expect(rendered).toContain(` ${GLYPHS.divider} ${GLYPHS.plan} plan`);
+		expect(rendered).toContain(`${CONFIG.separators.group}${GLYPHS.plan} plan`);
 	});
 
 	test("has no separator when there is no mode slot", () => {
 		const [, line2] = buildLines(fullSnapshot({ statuses: new Map() }), fakeTheme, "/home/u");
-		expect(renderLine(line2, 100, fakeTheme)).not.toContain(GLYPHS.divider);
+		expect(renderLine(line2, 100, fakeTheme)).not.toContain(CONFIG.separators.group.trim());
 	});
 
 	test("counts wide characters correctly", () => {

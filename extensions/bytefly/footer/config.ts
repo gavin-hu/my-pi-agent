@@ -14,8 +14,12 @@ export const CONFIG = {
 	thresholds: { warn: 70, danger: 90 },
 	/** Gauge glyphs, and the block counts the gauge steps down through. */
 	gauge: { full: GLYPHS.gaugeFull, empty: GLYPHS.gaugeEmpty, widths: [10, 5, 3, 0] as const },
-	/** Separators printed before grouped and other segments. */
-	separators: { group: SEPARATORS.group, item: SEPARATORS.item },
+	/**
+	 * Separators printed before grouped and other segments. The group divider is
+	 * the footer's own solid `│`, not the shared `╎`: that glyph is the transcript
+	 * rail (and `chrome.rail`'s default), and a status line is not a rail.
+	 */
+	separators: { group: " │ ", item: SEPARATORS.item },
 	icons: {
 		branch: GLYPHS.branch,
 		detached: GLYPHS.detached,
