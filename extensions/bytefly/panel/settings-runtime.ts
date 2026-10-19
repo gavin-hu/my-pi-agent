@@ -14,7 +14,6 @@ import { CONFIG_DIR_NAME, type QuietStartup } from "@earendil-works/pi-coding-ag
 import { readJson, SHARED_CONFIG_FILE, writeConfigValueAt } from "../../../lib/config.ts";
 import type { SettingsStore, WriteScope } from "../picker/types.ts";
 import {
-	countSettings,
 	nextValue,
 	type SettingDescriptor,
 	type SettingsSnapshot,
@@ -23,7 +22,6 @@ import {
 	settingViews,
 	storedValue,
 	textError,
-	validValue,
 } from "./settings.ts";
 
 /** Host seams for the Settings runtime. */
@@ -40,7 +38,6 @@ export interface SettingsRuntimeDeps {
 /** What the panel needs from the runtime. */
 export interface SettingsSurface {
 	views(scope: WriteScope): SettingView[];
-	count(scope: WriteScope): number;
 	/** Cycle an enum or toggle a boolean. */
 	change(scope: WriteScope, id: string): Promise<void>;
 	/** Store a value the user typed; `false` when the row refused it. */
@@ -62,8 +59,8 @@ export function configPath(scope: WriteScope, cwd: string, agentDir: string): st
 function readSnapshot(deps: SettingsRuntimeDeps): SettingsSnapshot {
 	return {
 		app: deps.stores.global.globalSettings(),
-		global: readJson(join(deps.agentDir, SHARED_CONFIG_FILE)) ?? {},
-		project: deps.trusted ? (readJson(join(deps.cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE)) ?? {}) : {},
+		global: readJson(configPath("global", deps.cwd, deps.agentDir)) ?? {},
+		project: deps.trusted ? (readJson(configPath("project", deps.cwd, deps.agentDir)) ?? {}) : {},
 	};
 }
 
@@ -133,10 +130,15 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 
 	return {
 		views: (scope) => settingViews(snapshot, scope),
-		count: (scope) => countSettings(scope),
 		change: async (scope, id) => {
 			const row = SETTING_ROWS.find((entry) => entry.id === id);
 			if (!row) return;
+			// Only a boolean or an enum cycles; a text row is stored from its editor,
+			// so refusing here keeps `nextValue`'s cycle contract honest.
+			if (row.kind === "text") {
+				deps.onError?.(`${row.label} is edited as text, not cycled.`);
+				return;
+			}
 			const refused = refusal(row, scope, deps.trusted);
 			if (refused !== undefined) {
 				deps.onError?.(refused);
@@ -145,10 +147,6 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 			const current = settingViews(snapshot, scope).find((entry) => entry.id === id);
 			if (!current) return;
 			const next = nextValue(row, current.value);
-			if (!validValue(row, next.value)) {
-				deps.onError?.(`Cannot save ${row.label}: unknown value.`);
-				return;
-			}
 			try {
 				await write(scope, row, next.value);
 			} catch (error) {
@@ -159,8 +157,8 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 		},
 		async setValue(scope, id, raw) {
 			const row = SETTING_ROWS.find((entry) => entry.id === id);
-			if (!row || row.kind !== "text") {
-				deps.onError?.(`${row?.label ?? id} cannot be edited as text.`);
+			if (!row) {
+				deps.onError?.(`${id} is not a setting.`);
 				return false;
 			}
 			const refused = refusal(row, scope, deps.trusted);

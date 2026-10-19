@@ -6,7 +6,6 @@ import type { Settings, WriteScope } from "../picker/types.ts";
 import {
 	SETTING_GROUPS,
 	SETTING_ROWS,
-	countSettings,
 	groupViews,
 	nextValue,
 	rowsForScope,
@@ -15,7 +14,6 @@ import {
 	type SettingsSnapshot,
 	storedValue,
 	textError,
-	validValue,
 } from "./settings.ts";
 
 function snapshot(overrides: Partial<SettingsSnapshot> = {}): SettingsSnapshot {
@@ -91,8 +89,8 @@ describe("catalogue", () => {
 				.filter((entry) => entry.source === "bytefly")
 				.map((entry) => entry.id),
 		);
-		expect(countSettings("global")).toBe(16);
-		expect(countSettings("project")).toBe(13);
+		expect(rowsForScope("global")).toHaveLength(16);
+		expect(rowsForScope("project")).toHaveLength(13);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -305,12 +303,6 @@ describe("stored values", () => {
 				expect([entry.id, option.value, read.value]).toEqual([entry.id, option.value, option.value]);
 			}
 		}
-	});
-
-	test("accepts only curated options", () => {
-		expect(validValue(row("byteflyUi"), "true")).toBe(true);
-		expect(validValue(row("byteflyUi"), "maybe")).toBe(false);
-		expect(validValue(row("notify.enabled"), "1")).toBe(false);
 	});
 });
 

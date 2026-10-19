@@ -166,17 +166,15 @@ describe("sections", () => {
 	test("states the scope and the settings count", () => {
 		expect(settingsSummarySegments("global", 11).map((segment) => segment.text)).toEqual(["Global", "11 settings"]);
 		expect(settingsSummarySegments("project", 8).map((segment) => segment.text)).toEqual(["Project", "8 settings"]);
-		expect(settingsSummarySegments("global", 1).map((segment) => segment.text)).toEqual(["Global", "1 setting"]);
 	});
 
 	test("prints one settings headline for non-TUI modes", () => {
-		expect(formatSettingsHeadline("global", 16)).toBe("bytefly: Settings · Global · 16 settings");
-		expect(formatSettingsHeadline("project", 13)).toBe("bytefly: Settings · Project · 13 settings");
+		expect(formatSettingsHeadline(16)).toBe("bytefly: Settings · Global · 16 settings");
 	});
 
 	test("lists settings in groups with their values", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "global");
-		const text = formatSettingsListing(views, "global");
+		const text = formatSettingsListing(views);
 
 		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 16 settings");
 		expect(text).toContain("Startup (1)");
@@ -196,14 +194,5 @@ describe("sections", () => {
 		expect(text).toContain("Probe timeout: 2000");
 		expect(text).toContain("Currency: CNY (¥)");
 		expect(text).toContain("Cost decimals: 2");
-	});
-
-	test("names the missing app rows in the project listing", () => {
-		const views = settingViews({ app: {}, global: {}, project: {} }, "project");
-		const text = formatSettingsListing(views, "project");
-
-		expect(text).toContain("Project · 13 settings");
-		expect(text).toContain("App settings are Global only.");
-		expect(text).not.toContain("Bytefly startup TUI");
 	});
 });

@@ -14,6 +14,9 @@ import { clampInteger, loadConfigSection } from "../../../lib/config.ts";
 /** How long a single probe may take before it counts as unusable. */
 const DEFAULT_TIMEOUT_MS = 2_000;
 
+/** The probe deadline range, in milliseconds; the panel's editor offers the same bounds. */
+export const TIMEOUT_MS_RANGE = { min: 100, max: 30_000 } as const;
+
 export interface DoctorConfig {
 	/** Probe enabled extensions at session start and warn when one is broken. */
 	proactive: boolean;
@@ -34,7 +37,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	if (!raw) return base;
 	return {
 		proactive: typeof raw.proactive === "boolean" ? raw.proactive : base.proactive,
-		timeoutMs: clampInteger(raw.timeoutMs, base.timeoutMs, 100, 30_000),
+		timeoutMs: clampInteger(raw.timeoutMs, base.timeoutMs, TIMEOUT_MS_RANGE.min, TIMEOUT_MS_RANGE.max),
 		skip: Array.isArray(raw.skip)
 			? raw.skip.filter((name): name is string => typeof name === "string" && name.trim().length > 0)
 			: base.skip,

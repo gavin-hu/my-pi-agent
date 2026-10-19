@@ -57,7 +57,7 @@ export function projectNote(theme: Theme, width: number): string {
 }
 
 /** Where the focused row's value is written, and which scope supplied it. */
-export function originLine(view: SettingView, paths: { scope: WriteScope; cwd: string; agentDir: string }): string {
+function originLine(view: SettingView, paths: { scope: WriteScope; cwd: string; agentDir: string }): string {
 	const path =
 		view.source === "app" ? join(paths.agentDir, PI_SETTINGS_FILE) : configPath(paths.scope, paths.cwd, paths.agentDir);
 	const file = sanitizeLine(path);

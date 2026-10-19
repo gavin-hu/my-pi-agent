@@ -268,7 +268,7 @@ describe("text writes", () => {
 		const { runtime, notices } = boot();
 
 		expect(await runtime.setValue("global", "notify.enabled", "true")).toBe(false);
-		expect(notices.at(-1)).toContain("cannot be edited as text");
+		expect(notices.at(-1)).toContain("is not a text setting");
 	});
 });
 
