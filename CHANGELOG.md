@@ -29,6 +29,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the nameplate and rule. A short pane therefore spends its rows on the
   transcript instead of chrome, and an unknown height keeps the full header.
 
+- `themes`: `customMessageBg` now resolves to the terminal default and
+  `customMessageLabel` to the accent, so Pi's `/compact` summary, branch
+  summaries, and skill blocks sit on the canvas instead of inside a filled
+  purple band. The now-unused `customBg` variable is gone.
+
 ## [0.13.1] - 2026-10-18
 
 ### Added

@@ -234,6 +234,15 @@ are tuned in [`notice/config.ts`](./notice/config.ts). Every field is sanitized
 and clipped at the boundary, and a message without `details` keeps Pi's default
 custom-message box.
 
+**Compaction.** `/compact` is Pi's own surface: its summary block is a built-in
+message component, so bytefly cannot replace, hide, or shorten it. The shipped
+themes only remove its fill — `customMessageBg` is the terminal default — and
+paint the `[compaction]` label in the accent, so the block sits on the canvas
+like the rest of the transcript. Pi's branch summaries and skill invocations
+share the same tokens.
+
+<img src="../../assets/compaction.png" alt="The /compact summary block: a [compaction] label, the compacted token count, and the summary Markdown on the terminal canvas, with no background band" width="100%">
+
 **Tool blocks.** Every tool block leads with the tool's own call line as the
 headline — the tool name in the theme's tool-title colour — and its result body
 sits two columns in directly beneath it, led by the transcript rail, instead of
@@ -993,6 +1002,9 @@ command.
 - **Notifications are not focus-aware.** They fire whether or not the terminal
   has focus, and once per trigger rather than once per unseen event. There is
   no focus API to consult.
+- **`/compact` is Pi's block.** The summary component is built in, so bytefly
+  cannot render, hide, or shorten it; the themes only choose its fill and label
+  color. Branch summaries and skill invocations share the same theme tokens.
 - **A background job cannot ask for input.** The `needsInput` trigger is a
   prompt raised during a run, not a process waiting on stdin: jobs are
   fire-and-observe, so that state does not exist.
