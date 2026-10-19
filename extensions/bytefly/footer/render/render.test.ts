@@ -4,6 +4,7 @@ import { buildLines } from "./lines.ts";
 import { fakeTheme } from "../../../../test/helpers/fakes.ts";
 import { fullSnapshot } from "../../../../test/helpers/fixtures/bytefly.ts";
 import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
+import { CONFIG } from "../config.ts";
 
 /**
  * Rendering of the full bar across widths.
@@ -31,9 +32,9 @@ describe("status bar render", () => {
 		const [, line2] = render(100);
 		expect(line2).toContain("62%/200k");
 		expect(line2).toContain("$0.31");
-		expect(line2).toContain(`${GLYPHS.divider} ${GLYPHS.plan} plan`);
+		expect(line2).toContain(`${CONFIG.separators.group}${GLYPHS.plan} plan`);
 		expect(line2).toContain("opus-4.5 · high");
-		expect(line2.indexOf(GLYPHS.divider)).toBeLessThan(line2.indexOf(`${GLYPHS.plan} plan`));
+		expect(line2.indexOf(CONFIG.separators.group.trim())).toBeLessThan(line2.indexOf(`${GLYPHS.plan} plan`));
 	});
 
 	test("renders the cost in the configured currency", () => {

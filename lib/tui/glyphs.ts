@@ -25,7 +25,7 @@ export const GLYPHS = {
 	worktree: "⑂",
 	rewind: "↺",
 	snapshot: "⬥",
-	plan: "⋮",
+	plan: "≡",
 	jobsRunning: "▸",
 	jobsFailure: "✗",
 	stopped: "⊘",

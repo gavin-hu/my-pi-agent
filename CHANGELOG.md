@@ -24,7 +24,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/bytefly update` re-runs the check on demand. Unmanaged installs such as
   `pi -e .` no longer get an update prompt.
 
+- `bytefly`: the footer's group divider is a hardcoded `│` instead of the shared
+  `╎`, so the status line reads as a divider while the transcript rail and
+  `chrome.rail`'s default keep the dashed glyph.
+
 ### Fixed
+
+- `bytefly`, `plan`: the plan-mode chip uses `≡` instead of the vertical
+  ellipsis `⋮`, which read as a menu affordance rather than the open planning
+  artifact; the footer, the plan README, and the glyph vocabulary agree.
 
 - `bytefly`: Windows toast notifications select the text node through
   `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`,

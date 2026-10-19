@@ -76,7 +76,7 @@ identity, and grouped help are tuned in
   (`⎇ branch · ⑂ worktree`) and the `◉` browse chip on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
   child-run roll-up (`↳ 3 · ¥0.12`, present only once a subagent has finished),
-  the mode/alert slot (`⋮ plan`) trailing after a `╎` when present, and the model
+  the mode/alert slot (`≡ plan`) trailing after a `│` when present, and the model
   and thinking level on the right. The gauge is anchored at column 0, so `%` is
   always in the same place.
   The roll-up is its own number, never folded into the session's cost: a subagent
@@ -87,7 +87,7 @@ identity, and grouped help are tuned in
 
 ```
 ~/repo/my-pi-agent                                              ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↳ 2 · ¥0.06 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↳ 2 · ¥0.06 · ↑42k ↓8.0k · R96k CH 87% │ ≡ plan    opus-4.5 · high
 ```
 
 (The examples show the default `¥` symbol. A model that neither `rates` nor the
@@ -95,7 +95,7 @@ built-in table covers contributes nothing in `CNY` mode, so the bar shows no
 figure rather than a guessed one; `USD` mode adds Pi's recorded dollars for that
 record instead — see the currency note under [Configuration](#configuration).)
 
-With no plan mode there is no mode slot, so the `╎` is omitted:
+With no plan mode there is no mode slot, so the `│` is omitted:
 
 ```
 ~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
@@ -108,19 +108,19 @@ fits, rather than collapsing to a bare glyph:
 
 ```
 ~/repo/project                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31 ╎ ⋮ plan    opus-4.5 · high
+▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31 │ ≡ plan    opus-4.5 · high
 ```
 
 ```
 project   ⎇ main
-62% ⋮   opus-4.5
+62% ≡   opus-4.5
 ```
 
 With a named session, the name follows the path and truncates before it drops:
 
 ```
 ~/repo/project · feature-refac…   ⎇ main
-▰▰▰▰▰▰▱▱▱▱ 62% ╎ ⋮ plan         opus-4.5
+▰▰▰▰▰▰▱▱▱▱ 62% │ ≡ plan         opus-4.5
 ```
 
 Zero-value meters are omitted, so a fresh session shows only `?/window` instead
@@ -521,9 +521,9 @@ The worktree status is read from the `worktree` status key, so the
 from the `browse` status key published by [file-browse](../file-browse/) while
 its server runs, and shows the two-tone `◉ <port>` (green glyph, accent port).
 The trailing slot shows plan-style alerts when present and is omitted otherwise;
-a plan chip's trailing plan file name is dropped, so the slot reads `⋮ plan`
+a plan chip's trailing plan file name is dropped, so the slot reads `≡ plan`
 even though the built-in footer keeps the name. An alert (a failed job) sorts to
-the front of the slot. The slot trails the meters after a `╎`, so the context
+the front of the slot. The slot trails the meters after a `│`, so the context
 gauge always starts the line. It keeps each extension's own colour when it
 compacts, and it is droppable: a tight bar drops the slot rather than truncating
 the model, which sits at the end of the line.
@@ -1218,7 +1218,8 @@ rather than showing a wrong value.
   themselves by that pad: the tool frame and the notice take it from Pi, and the
   turn separator reads the last value a sibling observed (`pad.ts`). Pi's setting
   is the only knob — bytefly adds no padding of its own. The footer's group
-  separator still draws `╎` between chips — a divider, not a rail.
+  separator draws `│` between chips — a divider, not the rail (`╎`), which stays
+  a transcript-only glyph.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
@@ -1239,7 +1240,7 @@ rather than showing a wrong value.
   dispatching process and the delegated work stays visible beside it.
 - **The gauge is anchored at column 0.** A leading mode slot would shift the
   context percentage left and right as plan mode came and went; trailing it
-  after a `╎` keeps the percentage in a fixed place while the mode stays
+  after a `│` keeps the percentage in a fixed place while the mode stays
   visible as the meters drop.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line, so the bar sorts them by meaning instead:
@@ -1257,9 +1258,9 @@ rather than showing a wrong value.
   non-zero usage, so it reads full only at 100% and a small percentage never
   disappears; unknown usage draws no gauge at all. Only at extreme widths does
   `truncateToWidth` clip the remaining text.
-- **Separators shrink to a single space.** Padded separators (` · `, ` ╎ `)
+- **Separators shrink to a single space.** Padded separators (` · `, ` │ `)
   collapse to one space before `truncateToWidth` applies, so adjacent segments
-  never collide and the ellipsis never replaces a `╎` with nothing after it.
+  never collide and the ellipsis never replaces a `│` with nothing after it.
 - **Statuses compact with their colour.** A themed status's compact icon form
   reattaches its opening and closing SGR sequences around the visible text, so a
   red `✗1` stays red instead of losing its colour exactly when the bar tightens.
