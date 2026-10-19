@@ -58,8 +58,20 @@ describe("catalogue", () => {
 			"price.currency.decimals",
 			"price.budget",
 			"chrome.rail",
+			"goal.achieved",
 			"outputPad",
 			"showHardwareCursor",
+			"worktree.baseRef",
+			"worktree.branchPrefix",
+			"worktree.fetchRemote",
+			"worktree.pruneAfterDays",
+			"rewind.autoSnapshots",
+			"rewind.max",
+			"rewind.safetySnapshot",
+			"job.wakeOnFinish",
+			"job.detachedByDefault",
+			"watch.wakeOnMatch",
+			"memory.inject",
 		]);
 	});
 
@@ -79,8 +91,20 @@ describe("catalogue", () => {
 			"price.currency.decimals",
 			"price.budget",
 			"chrome.rail",
+			"goal.achieved",
 			"outputPad",
 			"showHardwareCursor",
+			"worktree.baseRef",
+			"worktree.branchPrefix",
+			"worktree.fetchRemote",
+			"worktree.pruneAfterDays",
+			"rewind.autoSnapshots",
+			"rewind.max",
+			"rewind.safetySnapshot",
+			"job.wakeOnFinish",
+			"job.detachedByDefault",
+			"watch.wakeOnMatch",
+			"memory.inject",
 		]);
 		// Every `bytefly.json` row is writable in Project scope; the three Pi rows
 		// have no project setter.
@@ -89,8 +113,8 @@ describe("catalogue", () => {
 				.filter((entry) => entry.source === "bytefly")
 				.map((entry) => entry.id),
 		);
-		expect(rowsForScope("global")).toHaveLength(16);
-		expect(rowsForScope("project")).toHaveLength(13);
+		expect(rowsForScope("global")).toHaveLength(28);
+		expect(rowsForScope("project")).toHaveLength(25);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -101,13 +125,26 @@ describe("catalogue", () => {
 			"pricing",
 			"transcript",
 			"terminal",
+			"worktree",
+			"snapshots",
+			"jobs",
+			"memory",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 3, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 3, 3, 1, 4, 3, 3, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
-		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([7, 2, 3, 1]);
+		expect(project.map((group) => group.key)).toEqual([
+			"notifications",
+			"diagnostics",
+			"pricing",
+			"transcript",
+			"worktree",
+			"snapshots",
+			"jobs",
+			"memory",
+		]);
+		expect(project.map((group) => group.views.length)).toEqual([7, 2, 3, 2, 4, 3, 3, 1]);
 	});
 });
 
@@ -129,12 +166,24 @@ describe("values", () => {
 			["price.currency.decimals", "2", "2", "default"],
 			["price.budget", "0", "0", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
+			["goal.achieved", "hide", "Hide", "default"],
 			["outputPad", "1", "1", "default"],
 			["showHardwareCursor", "false", "Off", "default"],
+			["worktree.baseRef", "fresh", "Fresh", "default"],
+			["worktree.branchPrefix", "worktree-", "worktree-", "default"],
+			["worktree.fetchRemote", "true", "On", "default"],
+			["worktree.pruneAfterDays", "7", "7", "default"],
+			["rewind.autoSnapshots", "true", "On", "default"],
+			["rewind.max", "20", "20", "default"],
+			["rewind.safetySnapshot", "true", "On", "default"],
+			["job.wakeOnFinish", "false", "Off", "default"],
+			["job.detachedByDefault", "false", "Off", "default"],
+			["watch.wakeOnMatch", "false", "Off", "default"],
+			["memory.inject", "true", "On", "default"],
 		]);
 
 		const project = settingViews(snapshot(), "project");
-		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 13 }, () => "inherited"));
+		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 25 }, () => "inherited"));
 	});
 
 	test("reads configured app and bytefly values", () => {
@@ -328,5 +377,37 @@ describe("text rows", () => {
 
 		expect(view("notify.title", "global", snap).value).toBe("Pinned");
 		expect(view("notify.title", "global", snap).origin).toBe("global");
+	});
+});
+
+describe("rows owned by other extensions", () => {
+	test("reads the leaf as the file states it and labels a curated value", () => {
+		const snap = snapshot({ global: { worktree: { baseRef: "head", pruneAfterDays: 30 } } });
+
+		expect(view("worktree.baseRef", "global", snap)).toMatchObject({
+			value: "head",
+			valueLabel: "Head",
+			origin: "global",
+		});
+		expect(view("worktree.pruneAfterDays", "global", snap)).toMatchObject({ value: "30", origin: "global" });
+	});
+
+	test("inherits the global leaf in Project scope until the project states it", () => {
+		const snap = snapshot({ global: { rewind: { max: 50 } }, project: { rewind: { max: 5 } } });
+
+		expect(view("rewind.max", "project", snapshot({ global: { rewind: { max: 50 } } }))).toMatchObject({
+			value: "50",
+			origin: "inherited",
+		});
+		expect(view("rewind.max", "project", snap)).toMatchObject({ value: "5", origin: "project" });
+	});
+
+	test("shows a hand-edited value the loader would clamp, which reset can clear", () => {
+		// The screen does not own these normalizers, so it reports the file rather
+		// than the clamped effective value; the row's own rule refuses writing one.
+		const snap = snapshot({ global: { rewind: { max: 5000 } } });
+
+		expect(view("rewind.max", "global", snap).value).toBe("5000");
+		expect(textError(row("rewind.max"), "5000")).toContain("Out of range");
 	});
 });

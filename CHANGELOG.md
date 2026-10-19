@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: `/bytefly settings` now covers the package's other extensions —
+  `worktree`, `rewind`, `job`, `watch`, `memory`, and `goal` — so twelve more
+  preferences (base ref, branch prefix, prune age, snapshot retention, wake on
+  finish, note injection, and so on) are editable without hand-editing
+  `bytefly.json`. The list is now twenty-eight rows in ten groups, `u` deletes a
+  row's key so its default applies again, `J` shows the focused row's whole
+  section as stored — the only view of `rates`, `peak`, and the list-valued keys
+  — and `[` / `]` jump between groups. A new
+  `test/settings-coverage.test.ts` holds every row's default and bounds to its
+  loader in both directions.
 - `bytefly`: the working row now becomes a live run line — the latest top-level
   tool, how many tools the run has started, and the elapsed time
   (`edit · 3 tools · 12s`) — instead of only a clock. It falls back to

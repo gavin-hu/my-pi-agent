@@ -169,20 +169,24 @@ describe("sections", () => {
 	});
 
 	test("prints one settings headline for non-TUI modes", () => {
-		expect(formatSettingsHeadline(16)).toBe("bytefly: Settings · Global · 16 settings");
+		expect(formatSettingsHeadline(28)).toBe("bytefly: Settings · Global · 28 settings");
 	});
 
 	test("lists settings in groups with their values", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "global");
 		const text = formatSettingsListing(views);
 
-		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 16 settings");
+		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 28 settings");
 		expect(text).toContain("Startup (1)");
 		expect(text).toContain("Notifications (7)");
 		expect(text).toContain("Diagnostics (2)");
 		expect(text).toContain("Pricing (3)");
-		expect(text).toContain("Transcript (2)");
+		expect(text).toContain("Transcript (3)");
 		expect(text).toContain("Terminal (1)");
+		expect(text).toContain("Worktree (4)");
+		expect(text).toContain("Snapshots (3)");
+		expect(text).toContain("Jobs and watchers (3)");
+		expect(text).toContain("Memory (1)");
 		expect(text).toContain("Bytefly startup TUI: Off");
 		expect(text).toContain("Desktop notifications: Off");
 		expect(text).toContain("Turn finished: On");

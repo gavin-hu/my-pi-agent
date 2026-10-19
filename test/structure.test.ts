@@ -48,6 +48,7 @@ const ROOT_TEST_FILES = new Set([
 	"prompt-budget.test.ts",
 	"release.test.ts",
 	"roadmap.test.ts",
+	"settings-coverage.test.ts",
 	"structure.test.ts",
 	"theme.test.ts",
 	"tool-render.test.ts",

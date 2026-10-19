@@ -283,3 +283,56 @@ describe("one guard for both write paths", () => {
 		expect(runtime.isDirty()).toBe(false);
 	});
 });
+
+describe("reset", () => {
+	test("deletes the row's leaf, keeps its siblings, and marks the screen dirty", async () => {
+		const { runtime, globalPath } = boot({
+			globalDoc: { rewind: { max: 50, autoSnapshots: false }, notify: { title: "Pi" } },
+		});
+
+		expect(await runtime.reset("global", "rewind.max")).toBe(true);
+
+		expect(readJson(globalPath)).toEqual({ rewind: { autoSnapshots: false }, notify: { title: "Pi" } });
+		expect(valueOf(runtime, "global", "rewind.max")).toBe("20");
+		expect(runtime.isDirty()).toBe(true);
+	});
+
+	test("reports a row that is already at its default without writing", async () => {
+		const { runtime, notices, globalPath } = boot({ globalDoc: { rewind: { autoSnapshots: false } } });
+
+		expect(await runtime.reset("global", "rewind.max")).toBe(false);
+
+		expect(notices.at(-1)).toBe("Snapshots kept is already at its default.");
+		expect(readJson(globalPath)).toEqual({ rewind: { autoSnapshots: false } });
+		expect(runtime.isDirty()).toBe(false);
+	});
+
+	test("refuses an app row, which Pi has no unset for", async () => {
+		const { runtime, notices } = boot();
+
+		expect(await runtime.reset("global", "byteflyUi")).toBe(false);
+
+		expect(notices.at(-1)).toContain("Pi has no unset");
+		expect(runtime.isDirty()).toBe(false);
+	});
+
+	test("refuses Project scope when the project is untrusted", async () => {
+		const { runtime, notices, globalPath } = boot({ trusted: false, globalDoc: { rewind: { max: 50 } } });
+
+		expect(await runtime.reset("project", "rewind.max")).toBe(false);
+
+		expect(notices.at(-1)).toBe("Project is not trusted; settings can only be changed in Global scope.");
+		expect(readJson(globalPath)).toEqual({ rewind: { max: 50 } });
+	});
+
+	test("reads the section from the scope the pane names", () => {
+		const { runtime } = boot({
+			globalDoc: { worktree: { baseRef: "head" } },
+			projectDoc: { worktree: { branchPrefix: "wt-" } },
+		});
+
+		expect(runtime.sectionDocument("global", "worktree")).toEqual({ baseRef: "head" });
+		expect(runtime.sectionDocument("project", "worktree")).toEqual({ branchPrefix: "wt-" });
+		expect(runtime.sectionDocument("global", "memory")).toBeUndefined();
+	});
+});
