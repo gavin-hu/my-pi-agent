@@ -30,6 +30,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   then the outcome as the line narrows. A clean turn stays `meta`, a failed one
   paints `bad`, and an aborted one `warn`; separators written before the receipt
   existed keep rendering as `turn N`.
+- `subagent`: a child run now has a wall-clock deadline
+  (`subagent.timeoutMs`, ten minutes by default, `0` disables). A run past it is
+  killed with the same SIGTERM-then-SIGKILL escalation as an abort, but reports
+  as a failed run — `Timed out after …` — so a chain stops at that step instead
+  of waiting forever.
+- `subagent`: opt-in per-run transcripts (`subagent.transcripts`: `off`,
+  `failed`, or `all`) under `.pi/subagents/`, written by the dispatching process
+  and pruned by age (`retentionDays`) and count (`maxRuns`). The child never
+  learns one exists, so the read-only tool set is unchanged.
 
 ### Changed
 

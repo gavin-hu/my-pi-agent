@@ -9,7 +9,7 @@ import type { SingleResult } from "./types.ts";
 import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
-import { useEnv, withEnv } from "../../test/helpers/env.ts";
+import { useEnv, tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 
@@ -65,6 +65,52 @@ describe("subagent registration", () => {
 		expect(tool.exposure).toBeUndefined();
 		expect(tool.defaultActive).toBeUndefined();
 		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
+	});
+});
+
+describe("subagent run settings", () => {
+	test("reads the deadline from the shared config and applies it to every task", async () => {
+		const repo = tempDir("subagent-repo-");
+		mkdirSync(join(repo, ".pi"), { recursive: true });
+		writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ subagent: { timeoutMs: 1234 } }));
+
+		const seen: Array<number | undefined> = [];
+		const tool = register(async (options) => {
+			seen.push(options.timeoutMs);
+			return success(options.agentName, "ok");
+		});
+
+		await call(
+			tool,
+			{
+				tasks: [
+					{ agent: "explorer", task: "auth" },
+					{ agent: "explorer", task: "billing" },
+				],
+			},
+			fakeToolCtx({ cwd: repo }),
+		);
+
+		expect(seen).toEqual([1234, 1234]);
+	});
+
+	test("resolves the transcript store only when the config asks for one", async () => {
+		await withAgentDir(async (agentDir) => {
+			const seen: RunOptions[] = [];
+			const tool = register(async (options) => {
+				seen.push(options);
+				return success(options.agentName, "ok");
+			});
+			const repo = tempDir("subagent-repo-");
+
+			await call(tool, { agent: "explorer", task: "find it" }, fakeToolCtx({ cwd: repo }));
+			expect(seen[0].transcripts).toBeUndefined();
+
+			mkdirSync(join(repo, ".pi"), { recursive: true });
+			writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ subagent: { transcripts: "failed" } }));
+			await call(tool, { agent: "explorer", task: "find it again" }, fakeToolCtx({ cwd: repo }));
+			expect(seen[1].transcripts).toEqual({ dir: join(agentDir, "subagents"), mode: "failed" });
+		}, "subagent-global-");
 	});
 });
 

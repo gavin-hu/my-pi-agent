@@ -26,6 +26,7 @@ import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG } from "../extensions/memory/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/config.ts";
+import { DEFAULT_SUBAGENT_CONFIG } from "../extensions/subagent/config.ts";
 import { DEFAULT_TODO_CONFIG } from "../extensions/todo/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WATCH_CONFIG } from "../extensions/watch/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WECHAT_CONFIG } from "../extensions/wechat/config.ts";
@@ -62,6 +63,7 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	watch: DEFAULT_WATCH_CONFIG,
 	memory: DEFAULT_MEMORY_CONFIG,
 	rewind: DEFAULT_REWIND_CONFIG,
+	subagent: DEFAULT_SUBAGENT_CONFIG,
 	todo: DEFAULT_TODO_CONFIG,
 	// Two loaders, one section: the document nests `search` and `fetch`.
 	"web-access": [
@@ -198,6 +200,6 @@ describe("configuration reference", () => {
 	});
 
 	test("leaves no section unchecked", () => {
-		expect(Object.keys(SECTIONS)).toHaveLength(15);
+		expect(Object.keys(SECTIONS)).toHaveLength(16);
 	});
 });

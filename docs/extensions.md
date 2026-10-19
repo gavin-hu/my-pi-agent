@@ -49,6 +49,8 @@ agents are `explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`,
 `debugger`, and `documenter`; optional user and project markdown agents add more.
 Calls run single, in parallel (max 8 queued, 4 at once), or chained through a
 `{previous}` placeholder. A `readOnly` mode passes only reader tools to the child.
+Each run has a wall-clock deadline, and finished runs can keep a transcript under
+`.pi/subagents/`.
 
 Tool: `subagent`.
 

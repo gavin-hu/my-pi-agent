@@ -15,7 +15,7 @@
  * Load with:  pi --extension ./extensions/subagent
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import {
 	type AgentConfig,
@@ -25,8 +25,10 @@ import {
 	formatAgentList,
 	formatAgentNames,
 } from "./agents.ts";
+import { loadSubagentConfig, type SubagentConfig } from "./config.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
+import { pruneTranscripts, transcriptsDirFor } from "./transcripts.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { finishedEvent } from "./accounting.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
@@ -68,6 +70,21 @@ function requestedAgentNames(args: SubagentArgs): string[] {
 export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): void {
 	if (!isExtensionEnabled("subagent")) return;
 	const runner = deps.run ?? runSingleAgent;
+	// Read once per session; a call that arrives before `session_start` reads the
+	// same files lazily, so the two paths cannot disagree.
+	let settings: SubagentConfig | undefined;
+
+	const startSession = async (ctx: ExtensionContext): Promise<void> => {
+		settings = loadSubagentConfig(ctx.cwd);
+		if (settings.transcripts === "off") return;
+		try {
+			pruneTranscripts(await transcriptsDirFor(pi, ctx.cwd), settings);
+		} catch {
+			// Retention is housekeeping: an unreadable store must not fail a session.
+		}
+	};
+
+	pi.on("session_start", (_event, ctx) => startSession(ctx));
 
 	/**
 	 * Account for each finished child, then hand the result on unchanged.
@@ -127,6 +144,13 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 			const discovery = discoverAgents(root, agentScope);
 			const agents = discovery.agents;
 			const requestedTotal = args.chain?.length ?? args.tasks?.length ?? 1;
+			const config = settings ?? loadSubagentConfig(ctx.cwd);
+			// Resolved against the session cwd, not the active root: a run's record outlives
+			// the worktree it ran in, the way the `job` registry does.
+			const transcripts =
+				config.transcripts === "off"
+					? undefined
+					: { dir: await transcriptsDirFor(pi, ctx.cwd), mode: config.transcripts };
 			const makeDetails = (results: SingleResult[]): SubagentDetails => ({
 				mode,
 				results,
@@ -180,6 +204,8 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 				onUpdate,
 				makeDetails,
 				agents,
+				timeoutMs: config.timeoutMs,
+				transcripts,
 			};
 
 			if (mode === "chain" && args.chain) return runChainMode(context);

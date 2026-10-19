@@ -17,6 +17,7 @@ the state and environment files live in [Configuration](../configuration.md).
 - [`watch` — file and command watchers](#watch--file-and-command-watchers)
 - [`memory` — durable notes](#memory--durable-notes)
 - [`rewind` — snapshots](#rewind--snapshots)
+- [`subagent` — delegated runs](#subagent--delegated-runs)
 - [`todo` — the todo widget](#todo--the-todo-widget)
 - [`web-access` — search and fetch](#web-access--search-and-fetch)
 - [`wechat` — the WeChat bridge](#wechat--the-wechat-bridge)
@@ -207,6 +208,19 @@ ignored, and an absent id keeps its registry default.
 | `watch` | string[] | `[]` | | Extra tool names treated as mutating, so a call triggers a snapshot. |
 | `ignore` | string[] | `[]` | | Tool names never to snapshot; the extension's own tools are always excluded. |
 | `refNamespace` | string | `"refs/pi/rewind"` | | Git ref namespace for stored snapshots; trailing slashes are stripped. |
+
+## `subagent` — delegated runs
+
+Read once per session. A transcript is written by the dispatching process, never
+by the child, so the read-only tool set and the project-agent trust gate are
+unaffected.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit for one child run; `0` disables it. A run past it is killed and fails with `Timed out after …`. |
+| `transcripts` | string | `"off"` | `"off"`, `"failed"`, `"all"` | Which finished runs keep a transcript under `.pi/subagents/`. |
+| `retentionDays` | integer | `14` | `1`–`3650` | Age after which a run directory is pruned at session start. |
+| `maxRuns` | integer | `100` | `1`–`1000` | Run directories kept; the oldest are pruned first. |
 
 ## `todo` — the todo widget
 
