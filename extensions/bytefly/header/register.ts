@@ -55,11 +55,12 @@ export function registerHeader(pi: ExtensionAPI, updates: UpdateSource = createU
 		// value the tool frame and the notice inset by. An older host without
 		// `getSettings` keeps the default margin.
 		const pad = pi.getSettings?.().outputPad ?? DEFAULT_HOST_PAD;
-		const view = (): HeaderView => ({
+		const view = (rows: number | undefined): HeaderView => ({
 			showVersion: HEADER_CONFIG.showVersion,
 			halfBlocks,
 			pad,
 			latest: updates.latest(),
+			rows,
 		});
 		ctx.ui.setHeader(createHeader(() => ctx.ui.theme, view));
 	};

@@ -252,7 +252,8 @@ Tool: `send_wechat`. Command: `/wechat`.
 The themed TUI chrome and the package's diagnostics surface. It draws the
 startup header (a two-tone nameplate with the agent and chrome identities and a
 signature rule, drawn from the active theme through the `lib/tui/` design
-system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
+system's semantic roles, shedding help groups as the terminal shortens), a
+compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
 mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
 between completed turns, a two-row `You` nameplate above each user message on the
 terminal background, and one frame that every non-prose block hangs from — the

@@ -59,10 +59,15 @@ that cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
 
 As the terminal narrows, the identity sheds the update marker, then the chrome
 version, then the chrome line, then the agent name, and the help rows drop whole
-keys, so nothing wraps or clips mid-word. The nameplate sits on the transcript margin, which follows Pi's
-`outputPad` (the value the tool frame and the notice use too), and the help hangs
-one body indent inside it. The mark, tokens, identity, and grouped help are tuned
-in [`header/config.ts`](./header/config.ts).
+keys, so nothing wraps or clips mid-word. Height sheds the same way: at 28 rows
+all three help groups print, below 28 the middle group (the expand and model
+chords) goes first, below 22 only the `/` commands row survives, and below 16 the
+help block and the leading blank row go, leaving the nameplate and its rule. An
+unknown height keeps the full header. The nameplate sits on the transcript
+margin, which follows Pi's `outputPad` (the value the tool frame and the notice
+use too), and the help hangs one body indent inside it. The mark, tokens,
+identity, and grouped help are tuned in
+[`header/config.ts`](./header/config.ts).
 
 **Footer.** Two lines, each with a left and right zone:
 
@@ -1014,7 +1019,7 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. The chrome version gains `↑<latest>` from the `UpdateSource`, and `registerHeader` returns a `refresh()` handle that re-installs the last context's header when that value arrives. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. The factory reads `tui.terminal.rows` on every render, so the height ladder in `header/config.ts` sheds help groups and then the leading blank row as the terminal shortens (unknown height keeps the full header). The chrome version gains `↑<latest>` from the `UpdateSource`, and `registerHeader` returns a `refresh()` handle that re-installs the last context's header when that value arrives. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
@@ -1118,8 +1123,10 @@ rather than showing a wrong value.
   and a grouped help block. It takes its margin from Pi's `outputPad`, like the
   tool frame and the notice, and hangs the help one body indent inside it, so the
   header follows a non-default pad instead of assuming a column. It adds no
-  session or model data — that is the footer's job — and it stays a fixed
-  four-plus rows so the startup transcript never reflows.
+  session or model data — that is the footer's job — and its shape follows the
+  terminal: the height ladder drops whole help groups, then the leading blank
+  row, before the nameplate gives up anything, so a short pane spends its rows
+  on the transcript instead of chrome.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".

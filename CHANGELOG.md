@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `bytefly`: the startup header now sheds by terminal height as well as width.
+  Below 28 rows the middle help group is dropped, below 22 only the `/` commands
+  row remains, and below 16 the help block and its leading blank row go, leaving
+  the nameplate and rule. A short pane therefore spends its rows on the
+  transcript instead of chrome, and an unknown height keeps the full header.
+
 ## [0.13.1] - 2026-10-18
 
 ### Added

@@ -19,6 +19,16 @@ export type HelpEntry =
 	| { readonly binding: AppKeybinding; readonly description: string }
 	| { readonly raw: string; readonly description: string };
 
+/** How much of the help block a terminal height can carry. */
+export interface HeaderHeight {
+	/** Smallest terminal height, in rows, this shape applies to. Taller tiers come first. */
+	readonly minRows: number;
+	/** Help groups to print, by index in `help`; a group is dropped whole. */
+	readonly helpRows: readonly number[];
+	/** Open with a blank row above the nameplate. */
+	readonly blank: boolean;
+}
+
 /** The header's shape and content. */
 export interface HeaderConfig {
 	/** The agent's name, shown before its version. */
@@ -49,6 +59,12 @@ export interface HeaderConfig {
 	readonly chromeVersion: string;
 	/** Grouped help rows, printed one line each under the rule. */
 	readonly help: readonly (readonly HelpEntry[])[];
+	/**
+	 * The height ladder, tallest first: the first tier the terminal meets decides
+	 * which help groups print and whether the leading blank row survives. The
+	 * floor is `minRows: 0`, so a short terminal keeps the nameplate and rule.
+	 */
+	readonly heights: readonly HeaderHeight[];
 }
 
 export const HEADER_CONFIG: HeaderConfig = {
@@ -88,5 +104,11 @@ export const HEADER_CONFIG: HeaderConfig = {
 			{ binding: "app.message.followUp", description: "to queue follow-up" },
 			{ binding: "app.clipboard.pasteImage", description: "paste files" },
 		],
+	],
+	heights: [
+		{ minRows: 28, helpRows: [0, 1, 2], blank: true },
+		{ minRows: 22, helpRows: [0, 2], blank: true },
+		{ minRows: 16, helpRows: [2], blank: true },
+		{ minRows: 0, helpRows: [], blank: false },
 	],
 };
