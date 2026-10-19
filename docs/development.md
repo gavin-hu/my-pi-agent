@@ -165,8 +165,8 @@ authenticates with npm trusted publishing (OIDC). See
    entries in [`../CHANGELOG.md`](../CHANGELOG.md) under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
    update the link refs at the bottom of that file. Bump the `@vX.Y.Z` install
-   pins in the two entry READMEs and [`getting-started.md`](./getting-started.md)
-   in the same commit; `test/release.test.ts` fails on a stale pin.
+   pin in [`getting-started.md`](./getting-started.md) in the same commit — it is
+   the one page that offers a pin; `test/release.test.ts` fails on a stale pin.
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:

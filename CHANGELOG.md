@@ -59,8 +59,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   install, verification, the first three workflows, how to turn parts off, and
   how to remove it. It also states what install changes in the terminal — the
   chrome is always on, the startup header is opt-in, twenty-one tools join the
-  model's surface, and one npm check runs per session. The install pins and the
-  catalog are unchanged.
+  model's surface, and one npm check runs per session. The catalog is unchanged.
+
+- `docs`: the entry READMEs no longer repeat the install matrix. Each keeps the
+  npm command and points at [getting started](./docs/getting-started.md) for git,
+  a pinned release, a project-local install, and a trial that writes nothing, so
+  the copy-paste options have one home; the `@vX.Y.Z` pin now lives on that page
+  alone, and the release steps in [`docs/development.md`](./docs/development.md)
+  say so.
 
 ## [0.13.1] - 2026-10-18
 
