@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `bytefly`: Windows toast notifications select the text node through
+  `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`,
+  which PowerShell 5.1 rejects with `BadEnumeration`. Delivery remains
+  best-effort and silent on failure.
+
 ## [0.14.0] - 2026-10-19
 
 ### Added
