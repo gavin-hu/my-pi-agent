@@ -44,7 +44,6 @@ function makeSettings(
 	let dirty = false;
 	const surface: SettingsSurface = {
 		views: (scope) => settingViews(snapshot, scope),
-		count: (scope) => settingViews(snapshot, scope).length,
 		setValue: async (scope, id, raw) => {
 			const view = settingViews(snapshot, scope).find((entry) => entry.id === id);
 			if (!view?.config) return false;
@@ -623,7 +622,6 @@ describe("PanelComponent sections", () => {
 	test("shows a refused setting change in the frame", async () => {
 		const surface: SettingsSurface = {
 			views: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope),
-			count: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope).length,
 			change: async () => {
 				throw new Error("disk full");
 			},

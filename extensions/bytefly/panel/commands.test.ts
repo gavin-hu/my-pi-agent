@@ -52,7 +52,6 @@ function fakeSettings(options: { dirty?: boolean; snapshot?: SettingsSnapshot } 
 	let dirty = options.dirty ?? false;
 	return {
 		views: (scope) => settingViews(snapshot, scope),
-		count: (scope) => settingViews(snapshot, scope).length,
 		change: async () => {
 			dirty = true;
 		},

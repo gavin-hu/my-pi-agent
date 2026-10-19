@@ -18,7 +18,7 @@ import { cleanString, loadConfigSection } from "../../../lib/config.ts";
 import { NOTIFY_METHODS, type NotifyConfig, type NotifyMethod } from "./types.ts";
 
 /** A notification title longer than this is clamped; it is a label, not a message. */
-const MAX_TITLE_LENGTH = 40;
+export const MAX_TITLE_LENGTH = 40;
 
 export const DEFAULT_NOTIFY_CONFIG: NotifyConfig = {
 	enabled: false,

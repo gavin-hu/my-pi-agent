@@ -14,36 +14,41 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { DEFAULT_CHROME_CONFIG, isRailGlyph, normalizeChromeConfig } from "../chrome.ts";
-import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
+import {
+	DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG,
+	normalizeConfig as normalizeDoctorConfig,
+	TIMEOUT_MS_RANGE,
+} from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
 	DEFAULT_BYTEFLY_CONFIG,
 	DEFAULT_CURRENCY,
+	MAX_BUDGET,
+	MAX_DECIMALS,
 	normalizeByteflyConfig,
 } from "../footer/price/config.ts";
 import type { CurrencyCode } from "../footer/price/types.ts";
-import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
+import { DEFAULT_NOTIFY_CONFIG, MAX_TITLE_LENGTH, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 
 /** Where a preference is stored. */
-export type SettingSource = "app" | "bytefly";
+type SettingSource = "app" | "bytefly";
 
 /** The row control a preference uses. */
-export type SettingKind = "boolean" | "enum" | "text";
+type SettingKind = "boolean" | "enum" | "text";
 
 /** Where the effective value came from. */
-export type SettingOrigin = "default" | "global" | "project" | "inherited";
+type SettingOrigin = "default" | "global" | "project" | "inherited";
 
 /** One curated value a row can take. */
-export interface SettingOption {
+interface SettingOption {
 	value: string;
 	label: string;
 }
 
 /** What a text row accepts, checked before a write so the file cannot hold less. */
-export interface TextRule {
+interface TextRule {
 	/** Longest accepted value, in the units the loader slices with. */
 	maxLength: number;
 	/** Why `raw` cannot be stored, or `undefined` when it can. */
@@ -51,22 +56,22 @@ export interface TextRule {
 }
 
 /** One heading in the Settings list. */
-export interface SettingGroup {
+interface SettingGroup {
 	key: string;
 	label: string;
 }
 
 /** The `bytefly.json` sections the Settings section can read and write. */
-export type ConfigSectionName = "notify" | "chrome" | "doctor" | "price";
+type ConfigSectionName = "notify" | "chrome" | "doctor" | "price";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
-export interface SettingConfig {
+interface SettingConfig {
 	section: ConfigSectionName;
 	path: readonly string[];
 }
 
 /** One `bytefly.json` leaf a row writes alongside its own. */
-export interface SettingLeaf {
+interface SettingLeaf {
 	section: ConfigSectionName;
 	path: readonly string[];
 	value: unknown;
@@ -116,7 +121,7 @@ export interface SettingsSnapshot {
 }
 
 /** One rendered group: its heading and the rows under it. */
-export interface GroupedSettings {
+interface GroupedSettings {
 	key: string;
 	label: string;
 	views: SettingView[];
@@ -147,8 +152,8 @@ const METHOD_OPTIONS: readonly SettingOption[] = [
 	{ value: "notify-send", label: "Linux" },
 ];
 
-/** Cost precision 0-4, the range the `price` section clamps `decimals` to. */
-const DECIMALS_OPTIONS: readonly SettingOption[] = [0, 1, 2, 3, 4].map((value) => ({
+/** Cost precision 0 through the loader's ceiling, the range `price` clamps `decimals` to. */
+const DECIMALS_OPTIONS: readonly SettingOption[] = Array.from({ length: MAX_DECIMALS + 1 }, (_, value) => ({
 	value: String(value),
 	label: String(value),
 }));
@@ -292,7 +297,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		fallback: "Pi",
 		options: [],
 		text: {
-			maxLength: 40,
+			maxLength: MAX_TITLE_LENGTH,
 			validate: (raw) => (raw.trim() === "" ? "A title is required." : undefined),
 		},
 		config: { section: "notify", path: ["title"] },
@@ -313,13 +318,13 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		id: "doctor.timeoutMs",
 		group: "diagnostics",
 		label: "Probe timeout",
-		description: "How long one doctor probe may take, in milliseconds; 100 to 30000.",
+		description: `How long one doctor probe may take, in milliseconds; ${TIMEOUT_MS_RANGE.min} to ${TIMEOUT_MS_RANGE.max}.`,
 		source: "bytefly",
 		kind: "text",
 		fallback: String(DEFAULT_DOCTOR_CONFIG.timeoutMs),
 		json: "number",
 		options: [],
-		text: integerRule(100, 30_000),
+		text: integerRule(TIMEOUT_MS_RANGE.min, TIMEOUT_MS_RANGE.max),
 		config: { section: "doctor", path: ["timeoutMs"] },
 	},
 	{
@@ -367,7 +372,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		fallback: "0",
 		json: "number",
 		options: [],
-		text: amountRule(0, 10_000_000),
+		text: amountRule(0, MAX_BUDGET),
 		config: { section: "price", path: ["budget"] },
 	},
 	{
@@ -377,7 +382,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		description: "The single-column glyph that leads a tool result or notice body, e.g. ╎ │ ┃ ▏.",
 		source: "bytefly",
 		kind: "text",
-		fallback: GLYPHS.divider,
+		fallback: DEFAULT_CHROME_CONFIG.rail,
 		options: [],
 		text: RAIL_RULE,
 		config: { section: "chrome", path: ["rail"] },
@@ -414,21 +419,13 @@ export function rowsForScope(scope: WriteScope): readonly SettingDescriptor[] {
 	return scope === "global" ? SETTING_ROWS : SETTING_ROWS.filter((row) => row.source === "bytefly");
 }
 
-/** The number of rows the section shows for `scope`. */
-export function countSettings(scope: WriteScope): number {
-	return rowsForScope(scope).length;
-}
-
-/** Whether `raw` is one of a row's curated options. */
-export function validValue(row: SettingDescriptor, raw: string): boolean {
-	return row.options.some((option) => option.value === raw);
-}
-
 /**
  * Why a text row cannot store `raw`, or `undefined` when it can.
  *
- * The limits mirror the loaders (`notify.title` is sliced to 40, the currency
- * symbol to 4) so the editor cannot save a value the next read shortens.
+ * The limits are the loaders' own (`notify.title` is sliced to `MAX_TITLE_LENGTH`,
+ * the rail to one column) so the editor cannot save a value the next read shortens.
+ * A row that is not text is refused here rather than in the caller, so a programmatic
+ * `setValue` gets the same reason the screen would show.
  */
 export function textError(row: SettingDescriptor, raw: string): string | undefined {
 	const rule = row.text;
@@ -449,16 +446,16 @@ function appValue(snapshot: SettingsSnapshot, row: SettingDescriptor): { value: 
 	switch (row.id) {
 		case "byteflyUi": {
 			const quiet = snapshot.app.quietStartup;
-			return { value: quiet === true ? "true" : "false", origin: quiet === undefined ? "default" : "global" };
+			return { value: quiet === true ? "true" : row.fallback, origin: quiet === undefined ? "default" : "global" };
 		}
 		case "outputPad":
 			return {
-				value: snapshot.app.outputPad === 0 ? "0" : "1",
+				value: snapshot.app.outputPad === 0 ? "0" : row.fallback,
 				origin: snapshot.app.outputPad === undefined ? "default" : "global",
 			};
 		case "showHardwareCursor":
 			return {
-				value: snapshot.app.showHardwareCursor === true ? "true" : "false",
+				value: snapshot.app.showHardwareCursor === true ? "true" : row.fallback,
 				origin: snapshot.app.showHardwareCursor === undefined ? "default" : "global",
 			};
 		default:
@@ -507,6 +504,9 @@ function byteflyValue(
 	const projectRaw = scope === "project" ? configSection(snapshot.project, config.section) : undefined;
 	const leaf = SECTION_READERS[config.section](globalRaw, projectRaw, config.path);
 	return {
+		// The four section normalizers are total: each states every leaf this
+		// catalogue names, so the fallback only covers a future row whose normalizer
+		// has no default yet.
 		value: leaf === undefined ? row.fallback : String(leaf),
 		origin: originFor(config, snapshot, scope),
 	};

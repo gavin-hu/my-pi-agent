@@ -527,19 +527,10 @@ export class PanelComponent implements Component {
 			this.theme,
 			width,
 			this.section,
-			settingsSummary(this.theme, width, scope, this.options.settings.count(scope)),
+			settingsSummary(this.theme, width, scope, views.length),
 		);
 		const entries = settingEntries(views);
 		const note = scope === "project" ? projectNote(this.theme, width) : undefined;
-
-		if (entries.length === 0) {
-			return dockListFrame({
-				header,
-				summary,
-				body: emptyState(this.theme, width, { label: "No settings found." }),
-				hint: this.hintRow(width),
-			});
-		}
 
 		this.retainFocus(entries);
 		this.clampSelection(entries);

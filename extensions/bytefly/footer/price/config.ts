@@ -101,9 +101,10 @@ export const DEFAULT_BYTEFLY_CONFIG: ByteflyConfig = {
 	budget: 0,
 };
 
-const MAX_DECIMALS = 4;
+/** The highest `currency.decimals` the screen and the loader both accept. */
+export const MAX_DECIMALS = 4;
 /** Upper bound for `budget`; large enough for any real session, small enough to clamp a typo. */
-const MAX_BUDGET = 10_000_000;
+export const MAX_BUDGET = 10_000_000;
 const MAX_RATE = 1_000_000;
 const MAX_RATE_KEYS = 200;
 const MAX_WINDOWS = 16;

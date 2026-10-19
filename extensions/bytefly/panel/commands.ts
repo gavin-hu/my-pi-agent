@@ -172,7 +172,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		if (section === "settings" && ctx.mode !== "tui") {
 			const stores = createSettingsStores(cwd, agentDir, trusted);
 			const settings = makeSettings({ stores, cwd, agentDir, trusted, onError: settingsNotice });
-			ctx.ui.notify(formatSettingsListing(settings.views("global"), "global"), "info");
+			ctx.ui.notify(formatSettingsListing(settings.views("global")), "info");
 			return;
 		}
 
