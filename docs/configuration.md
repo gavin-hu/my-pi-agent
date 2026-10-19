@@ -52,12 +52,13 @@ repository root rather than the active working directory.
 | [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
 | [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
 | [`rewind`](../extensions/rewind/) | `rewind` | Snapshot scope and retention. |
+| [`subagent`](../extensions/subagent/) | `subagent` | Run deadline, transcript retention. |
 | [`todo`](../extensions/todo/) | `todo` | Widget behaviour. |
 | [`web-access`](../extensions/web-access/) | `web-access` | Search provider and fetch limits (`search` and `fetch` groups). |
 | [`wechat`](../extensions/wechat/) | `wechat` | Bridge, media, and peer-feedback settings. |
 | [`worktree`](../extensions/worktree/) | `worktree` | Worktree directory name and behaviour. |
 
-`plan`, `question`, `subagent`, and `file-open` read no configuration.
+`plan`, `question`, and `file-open` read no configuration.
 
 ## Full reference
 

@@ -29,6 +29,10 @@ How the `subagent` call and its result look in the transcript — the call line 
 - **Streaming.** Tool calls and progress update live in the transcript while the
   subagent runs; the `app.tools.expand` key (`ctrl+o` by default) expands the
   full task, tool calls, Markdown output, and usage.
+- **Bounded runs.** A per-run deadline kills a child that hangs, and reports it
+  as a failed run instead of rejecting the whole call.
+- **Optional transcripts.** Opt-in per-run stream under `.pi/subagents/`,
+  written by the parent and pruned by age and count.
 - **Inherited model.** Subagents use the dispatching session's model and thinking
   level unless an agent overrides them (none do).
 
@@ -87,6 +91,42 @@ at most 8 steps (like the parallel task cap).
   ]
 }
 ```
+
+## Configuration
+
+Read from the shared `bytefly.json` section `subagent` (global then project),
+once per session. Keys and bounds live in the
+[configuration reference](../../docs/references/bytefly-config.md#subagent--delegated-runs);
+the behaviour is here.
+
+- **`timeoutMs`** (default ten minutes, `0` disables) bounds one child run. The
+  limit is per run, not per call, so a chain is bounded step by step and a
+  parallel batch bounds each task separately. On expiry the child gets the same
+  `SIGTERM`, then `SIGKILL` after 5 s, as a user abort — but the run fails
+  instead of throwing: a chain stops at that step, a parallel call counts a
+  failure, and the model sees `Timed out after 10m00s`.
+- **`transcripts`** (`off`, `failed`, or `all`; default `off`) keeps finished
+  runs on disk, all of them or only the failed ones.
+- **`retentionDays`** (default 14) and **`maxRuns`** (default 100) bound the
+  store. It is pruned at `session_start`, and only while transcripts are on.
+
+### Transcripts
+
+```
+.pi/subagents/20261015-143012-a1b2c3/
+  meta.json     agent, task, cwd, model, timings, exit, status, usage
+  events.jsonl  the child's raw stdout lines, verbatim
+  stderr.log    only when the child wrote any
+```
+
+The store is resolved against the **session** cwd, so inside a worktree it lands
+in the main checkout's `.pi/` and outlives that worktree — the anchoring the
+`job` registry uses. Outside a repository it falls back to
+`<agent-dir>/subagents`. The parent writes it and the child never learns it
+exists, so `readOnly`, the `--tools` allowlist, and the project-agent trust gate
+are unchanged. Writing is best-effort: an unwritable checkout records the failure
+in the result and never fails a run. The stream is buffered in the parent up to
+32 MiB, then truncated with a marker rather than silently dropped.
 
 ## Security
 
@@ -206,7 +246,10 @@ Markdown, and per-step/per-task usage with a total.
 
 A failed or aborted result always shows its `errorMessage`, falling back to the
 subprocess `stderr`, in both the collapsed and expanded views, in every mode. A
-failure with neither falls back to `Error: Subprocess exited with code N.` and an
+run that exceeded its deadline reports `Timed out after …` the same way, and the
+expanded view adds the transcript path, the truncation marker, or why the
+transcript could not be written. A failure with neither falls back to
+`Error: Subprocess exited with code N.` and an
 `[exit N]` bracket, so a non-zero exit is never silent. A child terminated by a
 signal (an OOM kill, a crash) has no exit code, so it is recorded as
 `Terminated by <signal>` and reported as a failure. Parallel and chain
@@ -232,8 +275,10 @@ step's `Output`.
   does not reimplement tool execution or model streaming.
 - **No pinned models.** Built-in agents set no `model`, so a subprocess inherits
   the dispatching session's provider/model and thinking level.
-- **No persistence.** Subagent transcripts live only in the tool result details;
-  they are not written to the parent session.
+- **No persistence by default.** A run's transcript lives in the tool result
+  details; keeping it on disk is opt-in, parent-written, and bounded by age and
+  count. It is an audit and handoff record, not a resume point: replaying a run
+  whose writes already landed is not attempted.
 - **No cost attribution to the parent session.** A subagent's tokens and cost are
   captured in the tool result and shown in the transcript, but they belong to a
   separate process and are not added to the dispatching session's totals. Instead,
@@ -253,8 +298,8 @@ step's `Output`.
 | Annotations | `readOnlyHint: false`, `openWorldHint: true` |
 | Output schema | none; the full result lives in tool-result `details` |
 | Execution | spawns `pi --mode json` subprocesses; external agents discovered from `<agent-dir>/agents` and `.pi/agents` |
-| State storage | tool-result `details` only (no session persistence) |
-| Lifecycle | none; the tool is stateless and spawns per call |
+| State storage | tool-result `details`; optional per-run transcripts under `.pi/subagents/`, never the session |
+| Lifecycle | `session_start` loads the config and prunes expired transcripts; the tool itself is stateless |
 
 ## Design notes
 
@@ -284,6 +329,14 @@ step's `Output`.
   results arrive as `message_end` (messages, usage, model, stop reason) and
   failures as `tool_execution_end`. A tool error does not by itself fail the run,
   because the agent may recover.
+- **A deadline reuses the abort kill path but not its outcome.** One kill
+  closure serves both triggers, so the SIGTERM → 5 s SIGKILL escalation is
+  identical; only the reporting differs, because a deadline must leave the
+  finished steps in `details` while a user abort rejects the call.
+- **The transcript is the parent's.** Teeing the child's stdout and stderr in
+  `spawnAndCollect` and flushing in `runSingleAgent`'s `finally` means the
+  artifact exists even on the abort path, and the child needs no tool, no prompt
+  line, and no writable store.
 - **Bounded parallel output.** Parallel mode runs at most 4 of up to 8 tasks at
   once and caps each model-facing section at 50 KiB, appending an omission notice
   pointing at the tool details. The full results stay in `details` for rendering.
@@ -318,6 +371,8 @@ step's `Output`.
 | `schema.ts` | TypeBox params, limits, and `resolveMode`. |
 | `invocation.ts` | `pi` subprocess invocation and argument construction. |
 | `stream.ts` | JSON-event parsing, usage accounting, output helpers (pure). |
+| `transcripts.ts` | Per-run transcript buffer, run ids, the store directory, and pruning. |
+| `config.ts` | The `subagent` section of `bytefly.json`: deadline, transcripts, retention. |
 | `run.ts` | Runs one subagent process and captures its result. |
 | `format.ts` | Token/usage/tool-call formatting (pure). |
 | `render.ts` | `renderCall` / `renderResult` transcript rendering. |

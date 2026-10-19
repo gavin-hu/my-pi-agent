@@ -2,8 +2,9 @@
  * Running one subagent subprocess.
  *
  * Spawns `pi --mode json`, folds the JSON event stream into a `SingleResult`,
- * streams partial updates, and cleans up the temporary system-prompt file. The
- * process factory is injectable so tests can drive a scripted child.
+ * enforces the run's deadline, optionally records the raw stream, streams partial
+ * updates, and cleans up the temporary system-prompt file. The process factory and
+ * the transcript store are injectable so tests can drive a scripted child.
  */
 
 import { spawn as nodeSpawn } from "node:child_process";
@@ -11,9 +12,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+import { formatDuration } from "../../lib/format.ts";
 import { BUILTIN_AGENTS, formatAgentList, type AgentConfig } from "./agents.ts";
+import type { TranscriptMode } from "./config.ts";
 import { buildAgentArgs, getPiInvocation, READ_ONLY_NOTE } from "./invocation.ts";
-import { applyEvent, createResult, parseJsonLine } from "./stream.ts";
+import { applyEvent, createResult, isFailedResult, parseJsonLine } from "./stream.ts";
+import { createTranscript, type Transcript } from "./transcripts.ts";
 import type { DispatchDefaults, OnUpdateCallback, SingleResult, SpawnFn, SubagentDetails } from "./types.ts";
 
 export interface RunOptions {
@@ -38,6 +42,10 @@ export interface RunOptions {
 	makeDetails: (results: SingleResult[]) => SubagentDetails;
 	/** Process factory; defaults to `node:child_process.spawn`. */
 	spawn?: SpawnFn;
+	/** Per-run wall-clock limit in ms; `0` or absent disables it. */
+	timeoutMs?: number;
+	/** Where and when a finished run writes a transcript. */
+	transcripts?: { dir: string; mode: Exclude<TranscriptMode, "off"> };
 }
 
 async function writePromptToTempFile(agentName: string, prompt: string): Promise<{ dir: string; filePath: string }> {
@@ -53,46 +61,79 @@ async function writePromptToTempFile(agentName: string, prompt: string): Promise
 interface SpawnOutcome {
 	exitCode: number;
 	aborted: boolean;
+	timedOut: boolean;
+}
+
+/** How long a killed child has to exit before it is killed again, hard. */
+const KILL_ESCALATION_MS = 5000;
+
+/** Why a child is being killed; a timeout fails the run, an abort rejects the call. */
+type KillReason = "abort" | "timeout";
+
+interface SpawnContext {
+	command: string;
+	args: string[];
+	cwd: string;
+	/** Per-run wall-clock limit in ms; `0` disables it. */
+	timeoutMs: number;
+	signal?: AbortSignal;
+	result: SingleResult;
+	onEvent: () => void;
+	transcript?: Transcript;
+	spawn: SpawnFn;
 }
 
 /** Spawn the child, parse stdout line-by-line, and resolve when it closes. */
-function spawnAndCollect(
-	command: string,
-	args: string[],
-	cwd: string,
-	signal: AbortSignal | undefined,
-	result: SingleResult,
-	onEvent: () => void,
-	spawn: SpawnFn,
-): Promise<SpawnOutcome> {
+function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
+	const { command, args, cwd, timeoutMs, signal, result, onEvent, transcript, spawn } = context;
 	return new Promise<SpawnOutcome>((resolve) => {
 		const proc = spawn(command, args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
 		let buffer = "";
 		let settled = false;
-		let aborted = false;
+		let abortRequested = false;
+		let timedOut = false;
 
-		let kill: (() => void) | undefined;
 		let killTimer: ReturnType<typeof setTimeout> | undefined;
+		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+
+		const kill = (reason: KillReason) => {
+			if (settled) return;
+			if (reason === "abort") abortRequested = true;
+			else {
+				timedOut = true;
+				result.timedOut = true;
+			}
+			proc.kill("SIGTERM");
+			killTimer = setTimeout(() => {
+				if (!proc.killed) proc.kill("SIGKILL");
+			}, KILL_ESCALATION_MS);
+			killTimer.unref();
+		};
+		const onAbort = () => kill("abort");
 
 		const finish = (exitCode: number) => {
 			if (settled) return;
 			settled = true;
-			if (kill && signal) signal.removeEventListener("abort", kill);
+			if (signal) signal.removeEventListener("abort", onAbort);
 			if (killTimer) clearTimeout(killTimer);
+			if (timeoutTimer) clearTimeout(timeoutTimer);
 			if (buffer.trim()) {
+				transcript?.line(buffer);
 				const event = parseJsonLine(buffer);
 				if (event && applyEvent(result, event)) onEvent();
 			}
-			resolve({ exitCode, aborted });
+			resolve({ exitCode, aborted: abortRequested, timedOut });
 		};
 
 		const processLine = (line: string) => {
+			transcript?.line(line);
 			const event = parseJsonLine(line);
 			if (event && applyEvent(result, event)) onEvent();
 		};
 
 		proc.stdout?.on("data", (chunk) => {
-			buffer += chunk.toString();
+			const text = chunk.toString();
+			buffer += text;
 			// Keep the final partial line in the buffer for the close handler.
 			let newline = buffer.indexOf("\n");
 			while (newline !== -1) {
@@ -103,7 +144,9 @@ function spawnAndCollect(
 		});
 
 		proc.stderr?.on("data", (chunk) => {
-			result.stderr += chunk.toString();
+			const text = chunk.toString();
+			result.stderr += text;
+			transcript?.stderr(text);
 		});
 
 		proc.on("close", (code, signal) => {
@@ -122,16 +165,12 @@ function spawnAndCollect(
 		});
 
 		if (signal) {
-			kill = () => {
-				aborted = true;
-				proc.kill("SIGTERM");
-				killTimer = setTimeout(() => {
-					if (!proc.killed) proc.kill("SIGKILL");
-				}, 5000);
-				killTimer.unref();
-			};
-			if (signal.aborted) kill();
-			else signal.addEventListener("abort", kill, { once: true });
+			if (signal.aborted) onAbort();
+			else signal.addEventListener("abort", onAbort, { once: true });
+		}
+		if (timeoutMs > 0) {
+			timeoutTimer = setTimeout(() => kill("timeout"), timeoutMs);
+			timeoutTimer.unref();
 		}
 	});
 }
@@ -163,6 +202,12 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 
 	const emit = () => options.onUpdate?.({ content: [], details: options.makeDetails([result]) });
 
+	const timeoutMs = options.timeoutMs ?? 0;
+	if (timeoutMs > 0) result.timeoutMs = timeoutMs;
+	const transcripts = options.transcripts;
+	const transcript = transcripts ? createTranscript() : undefined;
+	let runCwd = options.defaultCwd;
+
 	let tempDir: string | null = null;
 	let tempPath: string | null = null;
 
@@ -178,22 +223,40 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 
 		const args = buildAgentArgs(agent, options.task, options.defaults, tempPath, options.readOnly === true);
 		const invocation = getPiInvocation(args);
-		const runCwd = options.cwd ? path.resolve(options.defaultCwd, options.cwd) : options.defaultCwd;
-		const outcome = await spawnAndCollect(
-			invocation.command,
-			invocation.args,
-			runCwd,
-			options.signal,
+		runCwd = options.cwd ? path.resolve(options.defaultCwd, options.cwd) : options.defaultCwd;
+		const outcome = await spawnAndCollect({
+			command: invocation.command,
+			args: invocation.args,
+			cwd: runCwd,
+			timeoutMs,
+			signal: options.signal,
 			result,
-			emit,
+			onEvent: emit,
+			transcript,
 			spawn,
-		);
+		});
 
-		result.exitCode = outcome.exitCode;
+		result.exitCode = outcome.timedOut ? 1 : outcome.exitCode;
 		result.finishedAt = Date.now();
+		// A deadline fails the run rather than rejecting it: a chain then stops at
+		// this step and reports why, instead of discarding the steps already done.
+		if (outcome.timedOut) result.errorMessage = `Timed out after ${formatDuration(timeoutMs)}`;
 		if (outcome.aborted) throw new Error("Subagent was aborted");
 		return result;
 	} finally {
+		// Flushed here, not after the call: the abort path throws past every caller.
+		if (transcript && transcripts && (transcripts.mode === "all" || isFailedResult(result))) {
+			const written = transcript.write(transcripts.dir, result, {
+				cwd: runCwd,
+				readOnly: options.readOnly === true,
+			});
+			if (written.path) {
+				result.artifactPath = written.path;
+				result.artifactBytes = written.bytes;
+				if (written.truncated) result.artifactTruncated = true;
+			}
+			if (written.error) result.artifactError = written.error;
+		}
 		if (tempPath) {
 			try {
 				fs.unlinkSync(tempPath);

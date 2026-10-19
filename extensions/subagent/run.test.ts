@@ -1,13 +1,23 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { runSingleAgent, type RunOptions } from "./run.ts";
 import { getFinalOutput, getResultOutput, isFailedResult } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
 import { assistantMessage, makeFakeSpawn } from "../../test/helpers/fixtures/subagent.ts";
-import { waitFor } from "../../test/helpers/process.ts";
+import { tempDir } from "../../test/helpers/env.ts";
+import { settle, waitFor } from "../../test/helpers/process.ts";
 
 const makeDetails = (results: SingleResult[]): SubagentDetails => ({ mode: "single", results });
+
+/**
+ * An agent with no system prompt, so a run needs no temp prompt file.
+ *
+ * The deadline tests only care about kill semantics, and writing the prompt goes
+ * through the host's process-wide file queue, which a loaded machine can stall
+ * past a short timeout. Removing that dependency keeps them about one thing.
+ */
+const MUTE_AGENT = { name: "mute", description: "No prompt", systemPrompt: "", source: "user" as const };
 
 function options(overrides: Partial<RunOptions>): RunOptions {
 	return {
@@ -164,6 +174,131 @@ describe("runSingleAgent", () => {
 
 		await expect(promise).rejects.toThrow("aborted");
 		expect(children[0].killSignals).toContain("SIGTERM");
+	});
+
+	const store = () => tempDir("subagent-runs-");
+
+	test("fails a run that outlives its deadline without aborting the call", async () => {
+		const { spawn, children } = makeFakeSpawn(() => {
+			/* hold the child open until the deadline kills it */
+		});
+
+		const promise = runSingleAgent(options({ spawn, timeoutMs: 5, agentName: "mute", agents: [MUTE_AGENT] }));
+		await waitFor(() => children.length === 1 && children[0].killSignals.length > 0);
+		children[0].close(null, "SIGTERM");
+
+		const result = await promise;
+		expect(result.timedOut).toBe(true);
+		expect(result.timeoutMs).toBe(5);
+		expect(result.exitCode).toBe(1);
+		expect(isFailedResult(result)).toBe(true);
+		expect(getResultOutput(result)).toContain("Timed out after 5ms");
+	});
+
+	test("clears the deadline once the child exits first", async () => {
+		const { spawn, children } = makeFakeSpawn((child) => child.close(0));
+
+		const result = await runSingleAgent(options({ spawn, timeoutMs: 5 }));
+		expect(result.timedOut).toBeUndefined();
+		await settle(20);
+		expect(children[0].killSignals).toEqual([]);
+	});
+
+	test("a zero deadline disables the limit", async () => {
+		const { spawn, children } = makeFakeSpawn(() => {
+			/* hold the child open past any plausible limit */
+		});
+
+		const promise = runSingleAgent(options({ spawn, timeoutMs: 0, agentName: "mute", agents: [MUTE_AGENT] }));
+		await waitFor(() => children.length === 1);
+		await settle(20);
+		expect(children[0].killSignals).toEqual([]);
+
+		children[0].close(0);
+		await promise;
+	});
+
+	test("writes a transcript for a finished run", async () => {
+		const dir = store();
+		const { spawn } = makeFakeSpawn((child) => {
+			child.line({ type: "message_end", message: assistantMessage("done") });
+			child.emitStderr("a warning");
+			child.close(0);
+		});
+
+		const result = await runSingleAgent(options({ spawn, transcripts: { dir, mode: "all" } }));
+
+		expect(result.artifactError).toBeUndefined();
+		expect(existsSync(join(result.artifactPath!, "meta.json"))).toBe(true);
+		expect(readFileSync(join(result.artifactPath!, "events.jsonl"), "utf-8")).toContain("message_end");
+		expect(readFileSync(join(result.artifactPath!, "stderr.log"), "utf-8")).toBe("a warning");
+	});
+
+	test("failed mode keeps a failed run and skips a successful one", async () => {
+		const dir = store();
+		const { spawn } = makeFakeSpawn((child) => child.close(1));
+
+		const failed = await runSingleAgent(options({ spawn, transcripts: { dir, mode: "failed" } }));
+		expect(existsSync(join(failed.artifactPath!, "meta.json"))).toBe(true);
+
+		const { spawn: okSpawn } = makeFakeSpawn((child) => child.close(0));
+		const succeeded = await runSingleAgent(options({ spawn: okSpawn, transcripts: { dir, mode: "failed" } }));
+		expect(succeeded.artifactPath).toBeUndefined();
+		expect(readdirSync(dir)).toHaveLength(1);
+	});
+
+	test("writes the transcript of an aborted run before rejecting", async () => {
+		const dir = store();
+		const controller = new AbortController();
+		const { spawn, children } = makeFakeSpawn(() => {
+			/* hold the process open until the test aborts it */
+		});
+
+		const promise = runSingleAgent(
+			options({
+				signal: controller.signal,
+				spawn,
+				agentName: "mute",
+				agents: [MUTE_AGENT],
+				transcripts: { dir, mode: "all" },
+			}),
+		);
+		await waitFor(() => children.length === 1);
+		controller.abort();
+		children[0].close(null, "SIGTERM");
+
+		await expect(promise).rejects.toThrow("aborted");
+		const [run] = readdirSync(dir);
+		expect(JSON.parse(readFileSync(join(dir, run, "meta.json"), "utf-8")).exitCode).toBe(1);
+	});
+
+	test("records a timed-out run in failed mode", async () => {
+		const dir = store();
+		const { spawn, children } = makeFakeSpawn(() => {
+			/* hold the child open until the deadline kills it */
+		});
+
+		const promise = runSingleAgent(
+			options({ spawn, timeoutMs: 5, agentName: "mute", agents: [MUTE_AGENT], transcripts: { dir, mode: "failed" } }),
+		);
+		await waitFor(() => children.length === 1 && children[0].killSignals.length > 0);
+		children[0].close(null, "SIGTERM");
+
+		const result = await promise;
+		const meta = JSON.parse(readFileSync(join(result.artifactPath!, "meta.json"), "utf-8"));
+		expect(meta.timedOut).toBe(true);
+	});
+
+	test("reports an unwritable transcript without failing the run", async () => {
+		const blocker = join(store(), "file");
+		writeFileSync(blocker, "");
+		const { spawn } = makeFakeSpawn((child) => child.close(0));
+
+		const result = await runSingleAgent(options({ spawn, transcripts: { dir: blocker, mode: "all" } }));
+
+		expect(result.artifactPath).toBeUndefined();
+		expect(result.artifactError).toBeTruthy();
+		expect(isFailedResult(result)).toBe(false);
 	});
 
 	test("removes the temporary system-prompt file", async () => {

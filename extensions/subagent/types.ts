@@ -50,6 +50,18 @@ export interface SingleResult {
 	startedAt?: number;
 	/** Epoch ms when the subprocess finished. */
 	finishedAt?: number;
+	/** Whether the run hit its wall-clock limit, which fails the run without aborting it. */
+	timedOut?: boolean;
+	/** The limit that applied to this run in ms; absent when it had none. */
+	timeoutMs?: number;
+	/** Directory of the run's transcript, when one was written. */
+	artifactPath?: string;
+	/** Bytes buffered for the transcript. */
+	artifactBytes?: number;
+	/** Whether the transcript stopped at the size cap. */
+	artifactTruncated?: boolean;
+	/** Why the transcript could not be written, when it could not. */
+	artifactError?: string;
 }
 
 /** Structured result carried on the `subagent` tool result for rendering. */

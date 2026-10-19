@@ -62,7 +62,7 @@ screenshots.
 | README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; review state and plan history have gaps | — |
-| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1 |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
@@ -91,7 +91,7 @@ The first two sit in `Now`; this one is the smallest foundation gap left.
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the picker's scope decision is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
-| **Next** (queued) | Does the daily loop feel finished? | `P1` ships: per-run delegation transcripts under a retention rule. |
+| **Next** (queued) | Does the daily loop feel finished? | Empty: the last queued item, per-run delegation transcripts, shipped with this release. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -111,7 +111,8 @@ worktree handoff all shipped, so the handoff item is gone rather than ticked.
 
 - `plan`: four tools, `/plan`, `--plan`, `Ctrl+Alt+P`, a TUI review, and a
   loopback browser review with inline comments.
-- `subagent`: eight built-in agents, single/parallel/chain, read-only mode.
+- `subagent`: eight built-in agents, single/parallel/chain, read-only mode, a
+  per-run deadline, and opt-in per-run transcripts.
 - `todo`, `goal`, `question`, `job`, and `watch` keep the loop visible and
   interruptible.
 
@@ -136,9 +137,8 @@ contributes no `Now` item.
 
 **Next**
 
-- **P1 — Delegation artifacts.** Optional per-run transcripts under
-  `.pi/subagents/` for audit and handoff. This reverses the current
-  no-persistence non-goal; only with a retention rule.
+Nothing here is queued: the deadline that bounds a run and the transcripts that
+record it shipped together, so this section contributes no `Next` item.
 
 ## 2. Keep your work safe
 
@@ -336,7 +336,7 @@ it.
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file, so no reviewed step is lost. Revisit if an approval surface must show a full step. |
 | `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. Revisit if one view over several repositories is actually needed. |
-| `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns. Revisit with `P1`, which needs a per-run store anyway. |
+| `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns, and a transcript is an audit record rather than a cost ledger. |
 | `watch`: only a **wake** match found while the agent is idle raises a notification | A busy match is queued for the next turn, where the agent is already the listener. Revisit if a match during a long turn has to interrupt. |
 | `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S1`, which changes what "guarded" means. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
