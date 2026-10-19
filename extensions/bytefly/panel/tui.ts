@@ -43,6 +43,7 @@ import {
 import {
 	editHints,
 	projectNote,
+	sectionJsonPane,
 	settingDetail,
 	settingRow,
 	settingsHints,
@@ -103,6 +104,8 @@ export class PanelComponent implements Component {
 	private notice: string | undefined;
 	/** The text row being edited: its id, the buffer, and the caret offset. */
 	private editing: { id: string; buffer: string; caret: number } | undefined;
+	/** True while the Settings detail pane shows the focused row's section as JSON. */
+	private json = false;
 	/** The visible section. */
 	private section: PanelSection;
 
@@ -182,6 +185,8 @@ export class PanelComponent implements Component {
 			);
 			return;
 		}
+		// The JSON pane names a file, so a scope switch has to close it.
+		this.json = false;
 		this.options.runtime.setScope(next);
 		this.options.requestRender();
 	}
@@ -232,6 +237,29 @@ export class PanelComponent implements Component {
 			.then(() => this.options.settings.change(scope, view.id))
 			.catch((error: unknown) => this.notify(error instanceof Error ? error.message : String(error)))
 			.then(() => this.options.requestRender());
+	}
+
+	/** Delete the focused setting's leaf, so its default applies again. */
+	private resetSetting(): void {
+		const entry = this.activeEntries()[this.cursor.selected];
+		if (entry?.kind !== "setting") return;
+		const scope = this.options.runtime.scope();
+		this.chain = this.chain
+			.then(() => this.options.settings.reset(scope, entry.setting.id))
+			.catch((error: unknown) => this.notify(error instanceof Error ? error.message : String(error)))
+			.then(() => this.options.requestRender());
+	}
+
+	/** Toggle the detail pane between the row and its whole section as stored. */
+	private toggleJson(): void {
+		const entry = this.activeEntries()[this.cursor.selected];
+		if (entry?.kind !== "setting") return;
+		if (!entry.setting.config) {
+			this.notify(`${entry.setting.label} is a Pi setting; bytefly.json has no section for it.`);
+			return;
+		}
+		this.json = !this.json;
+		this.options.requestRender();
 	}
 
 	/** Store the editor's buffer; a refusal keeps it open with the reason shown. */
@@ -348,6 +376,7 @@ export class PanelComponent implements Component {
 	private switchSection(next: PanelSection): void {
 		if (next === this.section) return;
 		this.section = next;
+		this.json = false;
 		this.prime();
 		this.options.requestRender();
 	}
@@ -360,6 +389,14 @@ export class PanelComponent implements Component {
 		}
 		if (data === "G") {
 			this.select(lastRow(this.activeEntries()));
+			return;
+		}
+		if (data === "[") {
+			this.jumpGroup(-1);
+			return;
+		}
+		if (data === "]") {
+			this.jumpGroup(1);
 			return;
 		}
 		switch (navIntent(data)) {
@@ -384,6 +421,26 @@ export class PanelComponent implements Component {
 		}
 	}
 
+	/** Move to the first row of the next (or previous) group. */
+	private jumpGroup(direction: -1 | 1): void {
+		const entries = this.activeEntries();
+		const headers = entries.flatMap((entry, index) => (entry.kind === "group" ? [index] : []));
+		const selected = this.cursor.selected;
+		// Step past the focused row's own header: landing on it would not move.
+		const own = headers.filter((index) => index < selected).at(-1);
+		const target =
+			direction === 1
+				? headers.find((index) => index > selected)
+				: headers.filter((index) => index < (own ?? 0)).at(-1);
+		if (target === undefined) return;
+		for (let index = target + 1; index < entries.length; index += 1) {
+			if (isSelectable(entries[index])) {
+				this.select(index);
+				return;
+			}
+		}
+	}
+
 	/** Settings keys: change, scope, navigation. `←`/`→` stay on sections. */
 	private handleSettingsInput(data: string): void {
 		this.clampSelection(this.activeEntries());
@@ -393,6 +450,14 @@ export class PanelComponent implements Component {
 		}
 		if (matchesKey(data, Key.tab)) {
 			this.switchScope();
+			return;
+		}
+		if (data === "u") {
+			this.resetSetting();
+			return;
+		}
+		if (data === "J") {
+			this.toggleJson();
 			return;
 		}
 		this.navigate(data);
@@ -483,7 +548,7 @@ export class PanelComponent implements Component {
 		if (this.editing) return hintLine(this.theme, width, editHints());
 		const hints =
 			this.section === "settings"
-				? settingsHints()
+				? settingsHints(this.json)
 				: extensionHints({
 						expanded,
 						refreshing: this.refreshing,
@@ -537,14 +602,26 @@ export class PanelComponent implements Component {
 
 		const focusedEntry = entries[this.cursor.selected];
 		const focused = focusedEntry?.kind === "setting" ? focusedEntry.setting : undefined;
-		const detail = settingDetail({
-			theme: this.theme,
-			width,
-			view: focused,
-			budget: this.detailRows(false),
-			dirty: this.dirty,
-			paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
-		});
+		const jsonConfig = this.json ? focused?.config : undefined;
+		const detail =
+			jsonConfig && focused
+				? sectionJsonPane({
+						theme: this.theme,
+						width,
+						section: jsonConfig.section,
+						view: focused,
+						document: this.options.settings.sectionDocument(scope, jsonConfig.section),
+						budget: this.detailRows(true),
+						paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
+					})
+				: settingDetail({
+						theme: this.theme,
+						width,
+						view: focused,
+						budget: this.detailRows(false),
+						dirty: this.dirty,
+						paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
+					});
 
 		this.cursor.visible = fitRows(
 			this.options.viewportRows,

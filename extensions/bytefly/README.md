@@ -633,11 +633,11 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists sixteen preferences in six groups:
+switch, with its own cursor. It lists twenty-eight preferences in ten groups:
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 16 settings
+  Extensions · Settings                           Global · 28 settings
 
   Startup (1)
 ❯ ◻ Bytefly startup TUI                                            Off
@@ -656,16 +656,32 @@ bytefly ────────────────────────
     Currency                                                    CNY (¥)
     Cost decimals                                                    2
     Session budget                                                   0
-  Transcript (2)
+  Transcript (3)
     Rail glyph                                                       ╎
+    Achieved goal                                                  Hide
     Output padding                                                   1
   Terminal (1)
   ◻ Hardware cursor                                                Off
+  Worktree (4)
+    ◼ Fetch remote                                                 On
+    Base ref                                                    Fresh
+    Branch prefix                                          worktree-
+    Prune after (days)                                             7
+  Snapshots (3)
+    ◼ Automatic snapshots                                          On
+    Snapshots kept                                               20
+    ◼ Safety snapshot                                               On
+  Jobs and watchers (3)
+    ◻ Wake when a job finishes                                     Off
+    ◻ Keep jobs after exit                                         Off
+    ◻ Wake on a match                                              Off
+  Memory (1)
+    ◼ Inject notes                                                  On
   Bytefly startup TUI — Pi setting
   Use bytefly's startup header in place of Pi's startup TUI.
   Default · ~/.pi/agent/settings.json
 
-  Esc close · ←/→ · Space change · Tab scope · ↑/↓ select
+  Esc close · ←/→ · Space change · Tab scope · u reset · J JSON · [ ] group
 ```
 
 | Group | Row | Source | Values |
@@ -684,20 +700,42 @@ bytefly ────────────────────────
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
 | Pricing | Session budget | `price.budget` | Number, `0` = off |
 | Transcript | Rail glyph | `chrome.rail` | Text, exactly one column |
+| Transcript | Achieved goal | `goal.achieved` | Show, Hide |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |
+| Worktree | Base ref | `worktree.baseRef` | Fresh, Head |
+| Worktree | Branch prefix | `worktree.branchPrefix` | Text, trimmed, required |
+| Worktree | Fetch remote | `worktree.fetchRemote` | Off, On |
+| Worktree | Prune after (days) | `worktree.pruneAfterDays` | Number, 0–3650 |
+| Snapshots | Automatic snapshots | `rewind.autoSnapshots` | Off, On |
+| Snapshots | Snapshots kept | `rewind.max` | Number, 0–1000 |
+| Snapshots | Safety snapshot | `rewind.safetySnapshot` | Off, On |
+| Jobs and watchers | Wake when a job finishes | `job.wakeOnFinish` | Off, On |
+| Jobs and watchers | Keep jobs after exit | `job.detachedByDefault` | Off, On |
+| Jobs and watchers | Wake on a match | `watch.wakeOnMatch` | Off, On |
+| Memory | Inject notes | `memory.inject` | Off, On |
 
 Choosing **Currency** also writes that currency's default precision. Both rows
 stay editable afterwards, so the footer follows the explicit values.
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
 forward, and a text row opens an inline editor on its value — the notification
-title, the probe timeout, and the rail glyph. The detail pane names the source, describes the preference, and shows
+title, the probe timeout, the branch prefix, and the rail glyph. `u` deletes the
+focused row's key so its default applies again (`Already at its default.` when
+nothing is stored), `J` swaps the detail pane for the focused row's whole section
+as the active scope stores it — the only view of the keys this screen leaves to
+JSON — and `[` / `]` jump to the previous or next group. The detail pane names
+the source, describes the preference, and shows
 where the value is written — `Global · ~/.pi/agent/settings.json`, `Project ·
 .pi/bytefly.json`, or `Inherited from Global · .pi/bytefly.json`. A successful
 change marks the screen `Saved · reload to apply` — even when the terminal is too
 short for the detail body — and closing offers the same
 reload confirm as an extension toggle.
+
+Six of the ten groups belong to other extensions. The screen cannot import their
+normalizers, so it reports the leaf as the file states it and declares the
+loader's default; `test/settings-coverage.test.ts` holds the catalogue to every
+loader's defaults and bounds in both directions.
 
 **Bytefly startup TUI** is the one row whose label differs from the Pi key it
 writes: On writes `"quietStartup": true` (bytefly's header replaces Pi's startup
@@ -707,17 +745,18 @@ with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
-scope therefore lists the thirteen `bytefly.json` rows and a
+scope therefore lists the twenty-five `bytefly.json` rows and a
 `App settings are Global only.` note rather than promising a write that cannot
 happen. A `bytefly.json` row writes one leaf in the selected scope (a depth-1
 key, or a nested one such as `price.currency.decimals`) through a per-key
 writer, so every sibling key, section, `$schema`, and `version` is preserved. A
-malformed document is refused with a notice instead of overwritten.
+malformed document is refused with a notice instead of overwritten, and `u`
+removes that one leaf through the same writer's `unsetConfigValueAt`.
 
 The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
 
 ```
-bytefly: Settings · Global · 16 settings
+bytefly: Settings · Global · 28 settings
 
 Startup (1)
   Bytefly startup TUI: Off
@@ -1064,7 +1103,7 @@ rather than showing a wrong value.
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
-| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValueAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
+| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValueAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer, and `u` calls `unsetConfigValueAt` with the same path. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`, `openWorldHint: false`), direct exposure and active on registration (the defaults, so not declared), with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |

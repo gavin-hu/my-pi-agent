@@ -144,11 +144,15 @@ ignored, and an absent id keeps its registry default.
 
 ## `goal` — the goal widget
 
+`/bytefly settings` edits `achieved`.
+
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `achieved` | string | `"hide"` | `show`, `hide` | How an achieved goal renders: `show` keeps the dimmed rail line, `hide` removes it. |
 
 ## `job` — background jobs
+
+`/bytefly settings` edits `wakeOnFinish` and `detachedByDefault`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -166,6 +170,8 @@ ignored, and an absent id keeps its registry default.
 
 ## `watch` — file and command watchers
 
+`/bytefly settings` edits `wakeOnMatch`.
+
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `enabled` | boolean | `true` | | Allow `add`; `false` refuses to start a watcher. |
@@ -179,12 +185,16 @@ ignored, and an absent id keeps its registry default.
 
 ## `memory` — durable notes
 
+`/bytefly settings` edits `inject`.
+
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `inject` | boolean | `true` | | Inject stored notes before each run. |
 | `maxInjectBytes` | integer | `8192` | `512`–`32768` | Largest injected body, in UTF-8 bytes. |
 
 ## `rewind` — snapshots
+
+`/bytefly settings` edits `autoSnapshots`, `max`, and `safetySnapshot`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -260,7 +270,8 @@ empty list disables tools, and the list is capped at 200 entries.
 ## `worktree` — isolated worktrees
 
 `worktree` reads the project document from the repository root rather than the
-active working directory.
+active working directory. `/bytefly settings` edits `baseRef`, `branchPrefix`,
+`fetchRemote`, and `pruneAfterDays`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|

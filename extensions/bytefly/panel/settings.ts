@@ -6,11 +6,18 @@
  * views, cycling, validation, and grouping — so the screen and the runtime share
  * one definition and the tests need no host.
  *
- * The catalogue covers every scalar preference: booleans, enums, short strings,
- * and — with `doctor.timeoutMs` — a number. Each row states its own rule, so a
- * value the screen accepts is a value the loader keeps. Arrays (`doctor.skip`),
- * the `rates` table, and `price.peak` stay JSON edits: a list, a table, and a
- * nested object are not one row.
+ * The catalogue is curated rather than exhaustive: it holds the preferences a
+ * person changes, across every extension of the package, and each row states its
+ * own rule so a value the screen accepts is a value the loader keeps. The rest of
+ * the document stays JSON, reachable from the screen's JSON pane: a list
+ * (`doctor.skip`), a table (`price.rates`), and a schedule (`price.peak`) are not
+ * one row.
+ *
+ * Four sections have a normalizer here, so the screen shows what the footer, the
+ * notifier, and the doctor keep. The six owned by other extensions are read as the
+ * file states them, because importing their normalizer would be one extension
+ * importing another's module; each such row declares the loader's default, and
+ * `test/settings-coverage.test.ts` holds the pair together.
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
@@ -62,7 +69,17 @@ interface SettingGroup {
 }
 
 /** The `bytefly.json` sections the Settings section can read and write. */
-type ConfigSectionName = "notify" | "chrome" | "doctor" | "price";
+export type ConfigSectionName =
+	| "notify"
+	| "chrome"
+	| "doctor"
+	| "price"
+	| "worktree"
+	| "rewind"
+	| "job"
+	| "watch"
+	| "memory"
+	| "goal";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -135,6 +152,10 @@ export const SETTING_GROUPS: readonly SettingGroup[] = [
 	{ key: "pricing", label: "Pricing" },
 	{ key: "transcript", label: "Transcript" },
 	{ key: "terminal", label: "Terminal" },
+	{ key: "worktree", label: "Worktree" },
+	{ key: "snapshots", label: "Snapshots" },
+	{ key: "jobs", label: "Jobs and watchers" },
+	{ key: "memory", label: "Memory" },
 ];
 
 const ON_OFF: readonly SettingOption[] = [
@@ -388,6 +409,20 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "chrome", path: ["rail"] },
 	},
 	{
+		id: "goal.achieved",
+		group: "transcript",
+		label: "Achieved goal",
+		description: "How a completed goal renders: the dimmed rail line, or nothing.",
+		source: "bytefly",
+		kind: "enum",
+		fallback: "hide",
+		options: [
+			{ value: "show", label: "Show" },
+			{ value: "hide", label: "Hide" },
+		],
+		config: { section: "goal", path: ["achieved"] },
+	},
+	{
 		id: "outputPad",
 		group: "transcript",
 		label: "Output padding",
@@ -411,6 +446,147 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		fallback: "false",
 		json: "boolean",
 		options: ON_OFF,
+	},
+	{
+		id: "worktree.baseRef",
+		group: "worktree",
+		label: "Base ref",
+		description: "Where a new worktree branches from: the remote default branch, or the current local HEAD.",
+		source: "bytefly",
+		kind: "enum",
+		fallback: "fresh",
+		options: [
+			{ value: "fresh", label: "Fresh" },
+			{ value: "head", label: "Head" },
+		],
+		config: { section: "worktree", path: ["baseRef"] },
+	},
+	{
+		id: "worktree.branchPrefix",
+		group: "worktree",
+		label: "Branch prefix",
+		description: "Prepended to every branch a managed worktree creates.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "worktree-",
+		options: [],
+		text: {
+			// The loader trims and rejects an empty prefix but sets no ceiling; this
+			// only stops a runaway buffer.
+			maxLength: 80,
+			validate: (raw) => (raw.trim() === "" ? "A prefix is required." : undefined),
+		},
+		config: { section: "worktree", path: ["branchPrefix"] },
+	},
+	{
+		id: "worktree.fetchRemote",
+		group: "worktree",
+		label: "Fetch remote",
+		description: "Fetch the remote before branching, so a new worktree starts from its latest commit.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "worktree", path: ["fetchRemote"] },
+	},
+	{
+		id: "worktree.pruneAfterDays",
+		group: "worktree",
+		label: "Prune after (days)",
+		description: "Age at which `/worktree prune` removes a clean worktree nobody is using.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "7",
+		json: "number",
+		options: [],
+		text: integerRule(0, 3650),
+		config: { section: "worktree", path: ["pruneAfterDays"] },
+	},
+	{
+		id: "rewind.autoSnapshots",
+		group: "snapshots",
+		label: "Automatic snapshots",
+		description: "Take one rewind snapshot per prompt, before the first mutating tool call.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "rewind", path: ["autoSnapshots"] },
+	},
+	{
+		id: "rewind.max",
+		group: "snapshots",
+		label: "Snapshots kept",
+		description: "Snapshots kept per repository before the oldest are pruned; 0 keeps none.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "20",
+		json: "number",
+		options: [],
+		text: integerRule(0, 1000),
+		config: { section: "rewind", path: ["max"] },
+	},
+	{
+		id: "rewind.safetySnapshot",
+		group: "snapshots",
+		label: "Safety snapshot",
+		description: "Snapshot the current state before a restore, so a rewind can itself be undone.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "rewind", path: ["safetySnapshot"] },
+	},
+	{
+		id: "job.wakeOnFinish",
+		group: "jobs",
+		label: "Wake when a job finishes",
+		description: "Start one agent turn when any background job finishes.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "job", path: ["wakeOnFinish"] },
+	},
+	{
+		id: "job.detachedByDefault",
+		group: "jobs",
+		label: "Keep jobs after exit",
+		description: "Leave jobs running when the session ends, unless the job opts out.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "job", path: ["detachedByDefault"] },
+	},
+	{
+		id: "watch.wakeOnMatch",
+		group: "jobs",
+		label: "Wake on a match",
+		description: "Start one agent turn when a watcher matches while the agent is idle.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "watch", path: ["wakeOnMatch"] },
+	},
+	{
+		id: "memory.inject",
+		group: "memory",
+		label: "Inject notes",
+		description: "Put stored memory notes in context before each run.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "memory", path: ["inject"] },
 	},
 ];
 
@@ -481,7 +657,11 @@ type SectionReader = (
 	path: readonly string[],
 ) => unknown;
 
-const SECTION_READERS: Record<ConfigSectionName, SectionReader> = {
+/**
+ * The four sections bytefly owns, each read through its own normalizer so the
+ * screen shows the value the loader keeps.
+ */
+const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
 	notify: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeNotifyConfig(projectRaw, normalizeNotifyConfig(globalRaw, DEFAULT_NOTIFY_CONFIG)), path),
 	chrome: (globalRaw, projectRaw, path) =>
@@ -492,7 +672,22 @@ const SECTION_READERS: Record<ConfigSectionName, SectionReader> = {
 		configValueAt(normalizeByteflyConfig(projectRaw, normalizeByteflyConfig(globalRaw, DEFAULT_BYTEFLY_CONFIG)), path),
 };
 
-/** Read a `bytefly.json` preference, normalized over the global section. */
+/**
+ * Read a leaf whose owning extension owns the normalizer.
+ *
+ * A section without a reader here belongs to another extension, and importing its
+ * normalizer would be one extension importing another's module. So the row states
+ * the loader's default in `fallback`, `test/settings-coverage.test.ts` holds the
+ * two together, and the visible cost is that a hand-edited value outside the
+ * loader's clamp shows as written until it is reset.
+ */
+function rawLeaf(snapshot: SettingsSnapshot, config: SettingConfig, scope: WriteScope): unknown {
+	const projectLeaf =
+		scope === "project" ? configValueAt(configSection(snapshot.project, config.section), config.path) : undefined;
+	return projectLeaf ?? configValueAt(configSection(snapshot.global, config.section), config.path);
+}
+
+/** Read a `bytefly.json` preference: normalized where bytefly owns the section. */
 function byteflyValue(
 	snapshot: SettingsSnapshot,
 	row: SettingDescriptor,
@@ -502,11 +697,12 @@ function byteflyValue(
 	if (!config) throw new Error(`Setting ${row.id} has no config section`);
 	const globalRaw = configSection(snapshot.global, config.section);
 	const projectRaw = scope === "project" ? configSection(snapshot.project, config.section) : undefined;
-	const leaf = SECTION_READERS[config.section](globalRaw, projectRaw, config.path);
+	const reader = SECTION_READERS[config.section];
+	const leaf = reader ? reader(globalRaw, projectRaw, config.path) : rawLeaf(snapshot, config, scope);
 	return {
-		// The four section normalizers are total: each states every leaf this
-		// catalogue names, so the fallback only covers a future row whose normalizer
-		// has no default yet.
+		// A normalizer is total, so its fallback only covers a future row whose
+		// normalizer has no default yet; a raw read needs it when neither document
+		// states the key.
 		value: leaf === undefined ? row.fallback : String(leaf),
 		origin: originFor(config, snapshot, scope),
 	};
