@@ -13,8 +13,17 @@
  *
  * Built-in overrides (`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`) are
  * deliberately excluded: they reuse the built-in names.
+ *
+ * The entry READMEs advertise the tool surface as a table and `docs/extensions.md`
+ * as a one-line `Tool:` / `Tools:` sentence plus a gallery paragraph, so the
+ * second half of this file holds all three lists to the same set: a renamed
+ * tool must not linger in any of them, and a shipped tool must not be missing
+ * from one. The catalog's commands and flags are guarded separately, in
+ * `docs-truth.test.ts`.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { TODO_TOOL as todo } from "../lib/tool-names.ts";
 import { TOOL_NAME as askUserQuestion } from "../extensions/question/tools.ts";
@@ -83,6 +92,77 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 ];
 
 const names = REGISTERED.map((entry) => entry.name);
+const nameSet = new Set(names);
+
+/** A backticked token shaped like a tool name rather than a `/command` or `--flag`. */
+const TOOL_SHAPED = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * Words in the tool column that this package does not register as tools, with
+ * the reason each is allowed. Reviewed vocabulary: a new entry is a decision
+ * about what the front door may say there.
+ */
+const NOT_TOOLS: ReadonlyMap<string, string> = new Map([
+	["doctor", "the `/bytefly doctor` subcommand, named in the `/bytefly` row"],
+	["settings", "the `/bytefly settings` subcommand, named in the `/bytefly` row"],
+]);
+
+/** The tool-shaped tokens in the second column of each markdown table in `markdown`. */
+export function toolColumn(markdown: string): string[] {
+	const tokens: string[] = [];
+	for (const line of markdown.split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) continue;
+		const cells = trimmed.split("|");
+		// cells[0] is the empty run before the leading pipe, so the tool column is 2.
+		const column = cells[2] ?? "";
+		for (const span of column.matchAll(/`([^`\n]+)`/g)) {
+			if (TOOL_SHAPED.test(span[1])) tokens.push(span[1]);
+		}
+	}
+	return tokens;
+}
+
+/**
+ * The tool-shaped tokens in the catalog's per-extension `Tool:` / `Tools:` lines.
+ *
+ * The sentence is cut at its first period, so a `Command:` clause on the same
+ * line contributes no names. Tool names never contain a period.
+ */
+function catalogToolLines(markdown: string): string[] {
+	const tokens: string[] = [];
+	for (const line of markdown.split("\n")) {
+		const sentence = /^Tools?:\s+([^.]+)\./.exec(line)?.[1];
+		if (sentence === undefined) continue;
+		for (const span of sentence.matchAll(/`([^`\n]+)`/g)) {
+			if (TOOL_SHAPED.test(span[1])) tokens.push(span[1]);
+		}
+	}
+	return tokens;
+}
+
+/**
+ * The tool-shaped tokens in the gallery paragraph that names every tool this
+ * package registers, under `### Tool renderings`.
+ *
+ * The paragraph wraps, so the match runs to the first period instead of one
+ * line.
+ */
+function catalogGalleryTools(markdown: string): string[] {
+	const sentence = /this package registers: ([^.]+)\./.exec(markdown)?.[1];
+	if (sentence === undefined) return [];
+	return [...sentence.matchAll(/`([^`\n]+)`/g)].map((span) => span[1]).filter((name) => TOOL_SHAPED.test(name));
+}
+
+const englishTools = toolColumn(readFileSync(join(import.meta.dir, "..", "README.md"), "utf-8"));
+const chineseTools = toolColumn(readFileSync(join(import.meta.dir, "..", "README.zh-CN.md"), "utf-8"));
+const catalog = readFileSync(join(import.meta.dir, "..", "docs", "extensions.md"), "utf-8");
+
+/** The two places the catalog enumerates the tool surface, each held to the registry. */
+const catalogLists = [
+	{ place: "per-extension Tool lines", tools: catalogToolLines(catalog) },
+	{ place: "tool-renderings gallery", tools: catalogGalleryTools(catalog) },
+];
 
 describe("extension tool naming", () => {
 	test("every name is lowercase snake_case", () => {
@@ -127,5 +207,58 @@ describe("extension tool naming", () => {
 			"web_search",
 			"write_plan",
 		]);
+	});
+});
+
+describe("entry README tool names", () => {
+	test("finds the tool column the README is expected to have", () => {
+		// A parser that stopped matching would make the checks below vacuous.
+		expect(englishTools.length).toBeGreaterThan(0);
+	});
+
+	test("names only registered tools in the front door", () => {
+		const unknown = [...new Set(englishTools)].filter((name) => !nameSet.has(name) && !NOT_TOOLS.has(name)).sort();
+		expect(unknown, "README.md names a tool this package does not register").toEqual([]);
+	});
+
+	test("advertises every registered tool in the front door", () => {
+		const advertised = new Set(englishTools);
+		const missing = names.filter((name) => !advertised.has(name)).sort();
+		expect(missing, "README.md does not name a registered tool").toEqual([]);
+	});
+
+	test("names the same tools in both entry READMEs", () => {
+		// Tool names are not translated, so a difference is a row that drifted.
+		expect([...new Set(chineseTools)].sort()).toEqual([...new Set(englishTools)].sort());
+	});
+
+	test("keeps the non-tool allowlist to words the README really uses", () => {
+		const used = new Set(englishTools);
+		const stale = [...NOT_TOOLS.keys()].filter((name) => !used.has(name)).sort();
+		expect(stale).toEqual([]);
+	});
+});
+
+describe("catalog tool names", () => {
+	test("finds each list the catalog is expected to have", () => {
+		// A parser that stopped matching would make the checks below vacuous.
+		for (const { place, tools } of catalogLists) {
+			expect(tools.length, place).toBeGreaterThan(0);
+		}
+	});
+
+	test("names only registered tools in the catalog", () => {
+		for (const { place, tools } of catalogLists) {
+			const unknown = [...new Set(tools)].filter((name) => !nameSet.has(name)).sort();
+			expect(unknown, `docs/extensions.md names a tool this package does not register (${place})`).toEqual([]);
+		}
+	});
+
+	test("advertises every registered tool in the catalog", () => {
+		for (const { place, tools } of catalogLists) {
+			const advertised = new Set(tools);
+			const missing = names.filter((name) => !advertised.has(name)).sort();
+			expect(missing, `docs/extensions.md does not name a registered tool (${place})`).toEqual([]);
+		}
 	});
 });

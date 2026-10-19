@@ -57,7 +57,7 @@ export function projectNote(theme: Theme, width: number): string {
 }
 
 /** Where the focused row's value is written, and which scope supplied it. */
-export function originLine(view: SettingView, paths: { scope: WriteScope; cwd: string; agentDir: string }): string {
+function originLine(view: SettingView, paths: { scope: WriteScope; cwd: string; agentDir: string }): string {
 	const path =
 		view.source === "app" ? join(paths.agentDir, PI_SETTINGS_FILE) : configPath(paths.scope, paths.cwd, paths.agentDir);
 	const file = sanitizeLine(path);
@@ -105,8 +105,54 @@ export function settingDetail(options: {
 }
 
 /** The section's key hints, in the order they drop as the width runs out. */
-export function settingsHints(): string[] {
-	return ["Esc close", "←/→", "Space change", "Tab scope", "↑/↓ select"];
+export function settingsHints(json = false): string[] {
+	return [
+		"Esc close",
+		"←/→",
+		"Space change",
+		"Tab scope",
+		"u reset",
+		json ? "J hide" : "J JSON",
+		"[ ] group",
+		"↑/↓ select",
+	];
+}
+
+/**
+ * The focused row's section as the active scope stores it.
+ *
+ * This is the only view of the keys the catalogue leaves to JSON, so it names the
+ * section and its file rather than pretending to be complete: the pane is clipped
+ * to the detail budget and says how many lines it left out. `section` is the row's
+ * `bytefly.json` section, which the caller has already established.
+ */
+export function sectionJsonPane(options: {
+	theme: Theme;
+	width: number;
+	section: string;
+	view: SettingView;
+	document: unknown;
+	budget: number;
+	paths: { scope: WriteScope; cwd: string; agentDir: string };
+}): string[] {
+	const { theme, width, section, view, document, budget, paths } = options;
+	const source = paint(theme, "faint", originLine(view, paths));
+	const head = `${paint(theme, "meta", sanitizeLine(section))} ${paint(theme, "faint", "—")} ${source}`;
+	const lines = [clip(`${INDENT}${head}`, width)];
+	const room = Math.max(0, budget - lines.length);
+	const body = document === undefined ? [] : JSON.stringify(document, null, 2).split("\n");
+
+	if (body.length === 0) {
+		if (room > 0) lines.push(clip(`${INDENT}${paint(theme, "faint", "Not set in this scope.")}`, width));
+		return lines;
+	}
+
+	const shown = body.slice(0, room);
+	if (body.length > room && shown.length > 0) {
+		shown[shown.length - 1] = `… ${body.length - room} more lines`;
+	}
+	for (const line of shown) lines.push(clip(`${INDENT}${paint(theme, "faint", sanitizeLine(line))}`, width));
+	return lines;
 }
 
 /** The editor's key hints: `Esc` cancels the edit, it does not close the screen. */

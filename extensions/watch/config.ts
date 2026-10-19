@@ -9,7 +9,7 @@
 import { clampInteger, loadConfigSection } from "../../lib/config.ts";
 
 export interface WatchConfig {
-	/** Track watchers at all. Default: true. */
+	/** Allow starting watchers; false refuses `add`. Default: true. */
 	enabled: boolean;
 	/** Show the status chips while watchers run or a match is unreported. */
 	showStatus: boolean;

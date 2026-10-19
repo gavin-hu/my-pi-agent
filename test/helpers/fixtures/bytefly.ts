@@ -1,6 +1,7 @@
 import type { MarkdownTransformer, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import type { StatusSnapshot } from "../../../extensions/bytefly/footer/types.ts";
+import bytefly from "../../../extensions/bytefly/index.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../fakes.ts";
 
 export { emit, fakeTheme } from "../fakes.ts";
@@ -32,6 +33,21 @@ export function makeFakePi(options: { settings?: any } = {}): FakePi {
 		markdownTransformers: fake.markdownTransformers,
 		appended: fake.appended,
 	};
+}
+
+/**
+ * Update-check deps that make the check inert: offline, with an empty cache, so a
+ * test that boots bytefly never reads npm and never writes the agent directory.
+ */
+export const OFFLINE_UPDATE = {
+	fetchLatest: async () => undefined,
+	isOffline: () => true,
+	cache: { read: () => undefined, write: () => {} },
+};
+
+/** Boot bytefly over `deps`, with the update check inert. */
+export function bootBytefly(pi: any, deps: Record<string, unknown> = {}): void {
+	bytefly(pi, { update: OFFLINE_UPDATE, ...deps } as any);
 }
 
 export interface FakeCtxOptions {
@@ -134,6 +150,7 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 		currency: { code: "USD", decimals: 2 },
 		cacheHitRate: 87,
 		providerCount: 1,
+		delegation: { runs: 0, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } },
 		...overrides,
 	};
 }

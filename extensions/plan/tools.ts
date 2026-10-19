@@ -19,7 +19,8 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
-import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { lastGoal } from "../../lib/goal-state.ts";
+import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { lastTodos } from "../../lib/todo-state.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
@@ -34,13 +35,15 @@ import {
 	PLAN_OUTLINE,
 	extractPlanSteps,
 	planStepSummary,
+	verificationItem,
 	type PlanStep,
-	type PlanStepSummary,
 	type StepUpdate,
 } from "./steps.ts";
+import { basename } from "node:path";
+import { planTitle, type StoredPlan } from "./plans.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, type TodoMerge } from "./todos.ts";
 import { reviewPlan } from "./review.ts";
-import { sanitizePlanText } from "./tui.ts";
+import { sanitizePlanText } from "./plan-text.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
 import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 
@@ -116,20 +119,21 @@ function preview(plan: string): { body: string; more: number } {
 }
 
 /**
- * One sentence for `write_plan` when the step list is larger than approval can
- * track, so the model can shorten it instead of discovering the cap later.
+ * One sentence when a step is longer than the display cap. The text stays in the
+ * plan file either way; only the todo list and the approval listing shorten it.
  */
-function stepCapNote({ total, elided }: PlanStepSummary): string {
-	const notes: string[] = [];
-	if (total > MAX_STEPS) {
-		notes.push(`the plan has ${total} steps and only the first ${MAX_STEPS} can be seeded or ticked`);
-	}
-	if (elided > 0) {
-		notes.push(
-			`${elided} step${elided === 1 ? " is" : "s are"} longer than ${MAX_STEP_LENGTH} characters and will be shortened in the todo list`,
-		);
-	}
-	return notes.length > 0 ? ` Note: ${notes.join("; ")}.` : "";
+function stepElisionNote(elided: number): string {
+	if (elided === 0) return "";
+	const plural = elided === 1 ? " is" : "s are";
+	return ` Note: ${elided} step${plural} longer than ${MAX_STEP_LENGTH} characters and will be shortened in the todo list.`;
+}
+
+/**
+ * The diagnosis both cap refusals share: a step list longer than approval can
+ * track. Each caller appends the fix that is available from where it stands.
+ */
+function overCap(total: number): string {
+	return `The plan has ${total} top-level steps but approval tracks at most ${MAX_STEPS}.`;
 }
 
 /** "Step 2" or "Steps 1, 2" for a set of step numbers. */
@@ -171,11 +175,12 @@ async function seedTodos(
 	plan: string,
 ): Promise<{ steps: PlanStep[]; merged?: TodoMerge; error?: string }> {
 	const steps = extractPlanSteps(plan);
-	if (steps.length === 0) return { steps };
-	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi));
-	// Nothing new to write: every step is already in the list (or the list is
-	// full), so a whole-list rewrite would only churn the todo widget.
-	if (merged.added === 0) return { steps, merged };
+	const verification = verificationItem(plan);
+	if (steps.length === 0 && !verification) return { steps };
+	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi), verification);
+	// Nothing new to write: every step (and the verification item) is already in
+	// the list, or the list is full, so a rewrite would only churn the widget.
+	if (merged.added === 0 && merged.trailing !== "added") return { steps, merged };
 	const outcome = await ctx.executeTool(TODO_TOOL, { todos: merged.todos });
 	if (!outcome.isError) return { steps, merged };
 	// The nested call fails both when the tool is unavailable and when it rejects
@@ -183,6 +188,56 @@ async function seedTodos(
 	const part = outcome.result?.content?.find((entry) => entry.type === "text");
 	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
 	return { steps, merged, error: firstLine ? sanitizeLine(firstLine) : undefined };
+}
+
+/** What the goal offer did: `recorded` undefined when there was nothing to offer. */
+interface GoalOffer {
+	objective: string;
+	recorded?: boolean;
+	error?: string;
+}
+
+/**
+ * Offer to record the approved plan as the session goal — only when the session
+ * has no goal at all (an active or achieved one is the user's, never replaced) and
+ * the session can ask. The objective is the plan's own `# title`, or the file-name
+ * slug; recording runs through the goal tool, so validation and the widget stay
+ * goal's, and no model turn is spent.
+ */
+async function offerSessionGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOffer> {
+	const objective = planObjective(plan);
+	if (!ctx.hasUI) return { objective };
+	// The branch already carries a goal: leave it alone, and say nothing.
+	if (lastGoal(ctx.sessionManager.getBranch()) !== null) return { objective };
+	const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);
+	if (!approved) return { objective };
+	const outcome = await ctx.executeTool(GOAL_TOOL, { objective });
+	if (!outcome.isError) return { objective, recorded: true };
+	const part = outcome.result?.content?.find((entry) => entry.type === "text");
+	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
+	return { objective, recorded: false, error: firstLine ? sanitizeLine(firstLine) : undefined };
+}
+
+/** The plan's own title: its first `# heading`, else the file-name slug. */
+function planObjective(plan: StoredPlan): string {
+	const heading = /^ {0,3}#\s+(.+)$/m.exec(plan.content)?.[1];
+	const title = heading === undefined ? "" : sanitizeLine(heading).trim();
+	return title || planTitle(basename(plan.path));
+}
+
+/**
+ * One sentence about the plan's verification item, or "" when the plan has none
+ * (or it was already in the list). The item is a todo, not a plan step, so it is
+ * ticked in the list rather than in the file.
+ */
+function verificationNote(merged: TodoMerge | undefined): string {
+	if (merged?.trailing === "added") {
+		return "\nThe plan's verification section is the last todo item; tick it in the todo list, not in the file.";
+	}
+	if (merged?.trailing === "deferred") {
+		return "\nThe plan's verification section did not fit in the full todo list; keep it in mind.";
+	}
+	return "";
 }
 
 /** What the merge did, for the approval message; `steps` is the plan's step count. */
@@ -287,7 +342,8 @@ export function registerTools(
 			"Save the plan you designed as a markdown file under .pi/plans (project root, or the agent directory outside a " +
 			"repository). Write the complete plan, not a summary, in this outline so it is consistent and scannable:\n\n" +
 			`${PLAN_OUTLINE}\n\n` +
-			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining.",
+			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining. " +
+			`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it cannot track.`,
 		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
 		promptGuidelines: [
 			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
@@ -308,6 +364,21 @@ export function registerTools(
 				};
 			}
 			const args = params as WritePlanArgs;
+			const summary = planStepSummary(args.content);
+			if (summary.total > MAX_STEPS) {
+				// Refuse before writing: a note after the fact arrives once the file exists and
+				// the review has listed every step, so the overflow is already lost.
+				return {
+					content: [
+						{
+							type: "text",
+							text: `${overCap(summary.total)} Nothing was written; group the steps (one outcome each, sub-bullets for detail) and call write_plan again.`,
+						},
+					],
+					details: undefined,
+					isError: true,
+				};
+			}
 			try {
 				const file = await runtime.plans.write(ctx.cwd, {
 					title: args.title,
@@ -319,7 +390,7 @@ export function registerTools(
 					content: [
 						{
 							type: "text",
-							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepCapNote(planStepSummary(args.content))}`,
+							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
 						},
 					],
 					details: { path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
@@ -394,6 +465,27 @@ export function registerTools(
 				};
 			}
 
+			const total = planStepSummary(file.content).total;
+			if (total > MAX_STEPS) {
+				// A hand-edited or older plan file can still be over the cap; refuse it here
+				// too, so approval never seeds a list it cannot hold in full.
+				return {
+					content: [
+						{
+							type: "text",
+							text: `${overCap(total)} It was not presented for approval; call write_plan with plan_path to group the steps, then exit_plan_mode again.`,
+						},
+					],
+					details: {
+						approved: false,
+						plan: file.content,
+						planPath: file.path,
+						relativePath: file.relativePath,
+					} satisfies ExitPlanModeDetails,
+					isError: true,
+				};
+			}
+
 			if (!ctx.hasUI) {
 				return {
 					content: [
@@ -464,6 +556,7 @@ export function registerTools(
 
 			runtime.disable(ctx);
 			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
+			const goal = await offerSessionGoal(ctx, decision.plan);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps
@@ -478,6 +571,13 @@ export function registerTools(
 						: merged
 							? mergeSummary(merged, steps)
 							: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${SET_PLAN_STEPS_TOOL}.`;
+			const verification = verificationNote(merged);
+			const goalNote =
+				goal.recorded === undefined
+					? ""
+					: goal.recorded
+						? ` Recorded the session goal: ${goal.objective}.`
+						: ` Could not record the session goal: ${goal.error ?? "unknown error"}. Use the goal tool to set it.`;
 			const browserNote = decision.comments.length
 				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(decision.comments)}`
 				: "";
@@ -485,7 +585,7 @@ export function registerTools(
 				content: [
 					{
 						type: "text",
-						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${listing}`,
+						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${verification}${goalNote}${listing}`,
 					},
 				],
 				details: {

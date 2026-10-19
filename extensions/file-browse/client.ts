@@ -11,7 +11,7 @@
  * and `bun build --no-bundle` needs no separate asset.
  */
 
-import { THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { SIDEBAR_COLLAPSE_MAX, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
 
 export const CLIENT_JS = `(function () {
 	"use strict";
@@ -183,7 +183,7 @@ export const CLIENT_JS = `(function () {
 
 	var panel = document.querySelector("details.bf-app__sidebar");
 	if (panel && window.matchMedia) {
-		var mq = window.matchMedia("(max-width: 860px)");
+		var mq = window.matchMedia("(max-width: ${SIDEBAR_COLLAPSE_MAX}px)");
 		var syncSide = function () { panel.open = !mq.matches; };
 		syncSide();
 		if (mq.addEventListener) mq.addEventListener("change", syncSide);
@@ -289,11 +289,11 @@ export const CLIENT_JS = `(function () {
 		});
 	}
 
-	function flash(button, label) {
+	function flash(button, label, message) {
 		var original = button.textContent;
 		button.textContent = label;
 		var status = document.getElementById("copy-status");
-		if (status) status.textContent = label === "copied" ? "Copied to clipboard" : "Copy failed";
+		if (status) status.textContent = message;
 		window.setTimeout(function () { button.textContent = original; }, 1200);
 	}
 
@@ -310,8 +310,8 @@ export const CLIENT_JS = `(function () {
 			}
 			source
 				.then(function (text) { return copyText(text); })
-				.then(function () { flash(button, "copied"); })
-				.catch(function () { flash(button, "failed"); });
+				.then(function () { flash(button, "copied", "Copied to clipboard"); })
+				.catch(function () { flash(button, "failed", "Copy failed"); });
 		});
 	});
 
@@ -483,7 +483,6 @@ export const CLIENT_JS = `(function () {
 			option.id = "palette-option-" + index;
 			option.setAttribute("role", "option");
 			option.setAttribute("data-index", String(index));
-			option.setAttribute("aria-selected", index === 0 ? "true" : "false");
 			appendHighlighted(option, result.path, result.positions);
 			paletteList.appendChild(option);
 		});

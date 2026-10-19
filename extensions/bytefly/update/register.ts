@@ -1,108 +1,158 @@
 /**
- * The update surface's lifecycle: hand the package list to Pi's own manager,
- * record it once per interactive session, and announce it once per load.
+ * The update check's lifecycle: reuse the cached answer or read the registry once
+ * per interactive session, record a newer version, and announce it once per load.
  *
- * Pi would draw its own `Package Updates Available` block from the same list
- * after `session_start`. bytefly suppresses that block, asks the captured
- * original check itself, and draws the single notice. The request is fired
- * without awaiting: Pi awaits `session_start` handlers, and a slow `npm view`
- * must not hold the first prompt.
+ * The request is fired without awaiting. Pi awaits `session_start` handlers, so
+ * a slow registry would otherwise hold the first prompt; Pi's own version check
+ * is asynchronous for the same reason. Every result that is not a strictly newer
+ * version is silent, and a generation counter keeps a request that resolves
+ * after shutdown from writing into the next session's state.
  *
- * Every result that is not a non-empty list is silent, and a generation counter
- * keeps a request that resolves after shutdown from writing into the next
- * session's state.
+ * A cached answer with a timestamp is what makes a long-lived session different
+ * from a fresh one: a session that starts inside the window reuses the last read
+ * instead of repeating it, and `recheck()` ignores the window so `/bytefly update`
+ * can look again without a restart. `/bytefly` and `doctor` do not report the
+ * version: an available update is not a prerequisite problem.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import pkg from "../../../package.json";
-import { fetchAvailableUpdates, fetchOwnLatestVersion } from "./check.ts";
+import { isOffline } from "../../../lib/env.ts";
+import { isFresh, readUpdateCache, updateCachePath, writeUpdateCache, type UpdateCacheEntry } from "./cache.ts";
+import { fetchLatestVersion } from "./check.ts";
 import { updateNotice } from "./format.ts";
-import type { UpdateSource } from "./state.ts";
-import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
-import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
+import type { UpdateOutcome, UpdateSource } from "./state.ts";
+import { isNewerVersion } from "./version.ts";
 
-/** Test seams; production uses Pi's package manager and its configured npm. */
+/** The cache, as the lifecycle sees it: read on start, written after a read. */
+export interface UpdateCache {
+	/** The last recorded answer, or `undefined` for a miss. */
+	read(): UpdateCacheEntry | undefined;
+	/** Record an answer; a throw is treated as a miss. */
+	write(entry: UpdateCacheEntry): void;
+}
+
+/** What `registerUpdate` returns, so the panel can re-run the check on demand. */
+export interface UpdateHandle {
+	/** Read the registry now, ignoring the cache window. Never throws. */
+	recheck(): Promise<UpdateOutcome>;
+}
+
+/** Test seams; production uses the registry read, `PI_OFFLINE`, and the agent dir. */
 export interface UpdateDeps {
-	/** Replace the package-manager read. */
-	readUpdates?: (ctx: ExtensionContext, check: PackageUpdateCheck) => Promise<PackageUpdate[]>;
-	/** Replace the header version lookup. */
-	readLatest?: (ctx: ExtensionContext, packageName: string) => Promise<string | undefined>;
-	/** Replace the host suppression; defaults to patching Pi's package manager. */
-	suppress?: () => UpdateSuppression;
-	/** Called once a snapshot is recorded, so a mounted header repaints. */
+	/** Replace the registry read; a rejection counts as no answer. */
+	fetchLatest?: () => Promise<string | undefined>;
+	/** Replace the `PI_OFFLINE` check. */
+	isOffline?: () => boolean;
+	/** Replace the disk cache. */
+	cache?: UpdateCache;
+	/** Replace the clock the cache timestamp is read from. */
+	now?: () => number;
+	/** Called once a newer version is recorded, so a mounted surface repaints. */
 	onUpdate?: () => void;
 }
 
-/** Whether a package update is this package, whose version the header shows. */
-function isOwnPackage(update: PackageUpdate): boolean {
-	return update.type === "npm" && update.displayName === pkg.name;
+/** The on-disk cache under the agent directory, built lazily so it is per call. */
+function diskCache(): UpdateCache {
+	return {
+		read: () => readUpdateCache(updateCachePath(getAgentDir())),
+		write: (entry) => {
+			try {
+				writeUpdateCache(updateCachePath(getAgentDir()), entry);
+			} catch {
+				// A read-only agent directory costs the next session one request, nothing more.
+			}
+		},
+	};
 }
 
-/** Register the update lifecycle. `updates` is the store the header reads. */
-export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: UpdateDeps = {}): void {
-	const suppress = deps.suppress ?? suppressPiPackageUpdates;
-	const readUpdates =
-		deps.readUpdates ??
-		((ctx, check) =>
-			fetchAvailableUpdates({
-				cwd: ctx.cwd,
-				agentDir: getAgentDir(),
-				projectTrusted: ctx.isProjectTrusted(),
-				npmCommand: pi.getSettings?.().npmCommand,
-				checkForAvailableUpdates: check,
-			}));
-	const readLatest =
-		deps.readLatest ??
-		((ctx, packageName) =>
-			fetchOwnLatestVersion(
-				{
-					cwd: ctx.cwd,
-					agentDir: getAgentDir(),
-					projectTrusted: ctx.isProjectTrusted(),
-					npmCommand: pi.getSettings?.().npmCommand,
-					exec: (command, args, options) => pi.exec(command, args, options),
-				},
-				packageName,
-			));
+/**
+ * Register the check. `updates` is the same store the header reads, so recording
+ * a version and calling `onUpdate` is what puts the marker on screen.
+ */
+export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: UpdateDeps = {}): UpdateHandle {
+	const readLatest = deps.fetchLatest ?? (() => fetchLatestVersion());
+	const offline = deps.isOffline ?? isOffline;
+	const cache = deps.cache ?? diskCache();
+	const now = deps.now ?? Date.now;
 	// A session is announced at most once per load, even if `session_start` fires
 	// again after a resume or a session replacement.
 	let announced = false;
 	let generation = 0;
-	let suppression: UpdateSuppression | undefined;
 
-	const check = async (ctx: ExtensionContext, token: number): Promise<void> => {
+	/** Record a newer version and repaint the marker. */
+	const paint = (latest: string): void => {
+		if (!isNewerVersion(latest, pkg.version)) return;
+		updates.set(latest);
+		deps.onUpdate?.();
+	};
+
+	/** The once-per-load transcript notice, posted only for a strictly newer version. */
+	const announce = (latest: string): void => {
+		if (announced || !isNewerVersion(latest, pkg.version)) return;
+		announced = true;
+		pi.sendMessage(updateNotice(pkg.version, latest));
+	};
+
+	/** One answer, from the cache or the registry: paint the marker, announce it once. */
+	const record = (entry: UpdateCacheEntry): void => {
+		paint(entry.latest);
+		announce(entry.latest);
+	};
+
+	const check = async (token: number): Promise<void> => {
 		try {
-			const list = await readUpdates(ctx, suppression?.check ?? (async () => []));
-			if (token !== generation) return;
-			if (announced || list.length === 0) return;
-			announced = true;
-			const own = list.find(isOwnPackage);
-			const ownLatest = own ? await readLatest(ctx, pkg.name) : undefined;
-			if (token !== generation) return;
-			updates.set(list, ownLatest);
-			deps.onUpdate?.();
-			pi.sendMessage(updateNotice(list));
+			const latest = await readLatest();
+			if (latest === undefined || token !== generation) return;
+			const entry = { latest, checkedAt: now() };
+			cache.write(entry);
+			record(entry);
 		} catch {
 			// A background check never surfaces an error: the session does not know it ran.
 		}
 	};
 
 	pi.on("session_start", (_event, ctx) => {
-		// The header and notice are transcript surfaces, so a non-interactive run
-		// neither suppresses Pi's block nor makes a request.
+		// The marker lives in bytefly's header and the notice in a transcript, so a
+		// non-interactive run has nothing to draw and makes no request.
 		if (ctx.mode !== "tui") return;
-		suppression ??= suppress();
+		if (offline()) {
+			// No request, so the window does not matter: the cached answer is the best
+			// one available, and the marker is advisory.
+			const cached = cache.read();
+			if (cached) record(cached);
+			return;
+		}
+		const cached = cache.read();
+		if (cached && isFresh(cached, now())) {
+			record(cached);
+			return;
+		}
 		if (announced) return;
-		void check(ctx, generation);
+		void check(generation);
 	});
 
 	pi.on("session_shutdown", () => {
-		// Invalidate any request still in flight, drop what this session found, and
-		// give Pi's own check back to the host.
+		// Invalidate any request still in flight and drop what this session found.
 		generation++;
 		updates.set();
-		suppression?.restore();
-		suppression = undefined;
 	});
+
+	return {
+		async recheck() {
+			if (offline()) return { kind: "offline" };
+			let latest: string | undefined;
+			try {
+				latest = await readLatest();
+			} catch {
+				return { kind: "failed" };
+			}
+			if (latest === undefined) return { kind: "failed" };
+			cache.write({ latest, checkedAt: now() });
+			// The caller prints the answer, so this path never posts a notice.
+			paint(latest);
+			return isNewerVersion(latest, pkg.version) ? { kind: "available", latest } : { kind: "current", latest };
+		},
+	};
 }

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalize } from "./git.ts";
@@ -70,6 +70,40 @@ describe.skipIf(!runSlowSuites)("enterWorktree", () => {
 		const reentered = await harness.run(WORKTREE_TOOLS.enter, { name: "reuse" });
 		expect(reentered.content[0].text).toContain("Entered worktree");
 		await harness.run(WORKTREE_TOOLS.exit, { remove: true, keepBranch: true });
+	});
+});
+
+describe.skipIf(!runSlowSuites)("gitignore offer", () => {
+	test("appends the managed directory when no rule covers it", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-ignore-"));
+		const harness = await bootWorktree(repo, { hasUI: true });
+
+		await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+
+		expect(harness.ctx.confirms.map((entry: { title: string }) => entry.title)).toEqual([
+			"Add the worktree directory to .gitignore?",
+		]);
+		expect(readFileSync(join(repo, ".gitignore"), "utf-8")).toBe(".pi/worktrees/\n");
+	});
+
+	test("stays silent when a wider rule already ignores the directory", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-ignore-"));
+		writeFileSync(join(repo, ".gitignore"), ".pi/\n");
+		const harness = await bootWorktree(repo, { hasUI: true });
+
+		await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+
+		expect(harness.ctx.confirms).toEqual([]);
+		expect(readFileSync(join(repo, ".gitignore"), "utf-8")).toBe(".pi/\n");
+	});
+
+	test("leaves .gitignore alone when the offer is declined", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-ignore-"));
+		const harness = await bootWorktree(repo, { hasUI: true, confirm: false });
+
+		await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+
+		expect(existsSync(join(repo, ".gitignore"))).toBe(false);
 	});
 });
 

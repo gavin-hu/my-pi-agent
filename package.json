@@ -1,6 +1,6 @@
 {
   "name": "@gavin-hu/my-pi-agent",
-  "version": "0.12.0",
+  "version": "0.14.0",
   "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, question, todo, goal, plan, subagent, job, watch, web-access, file-browse, file-open, document, memory, wechat, and bytefly.",
   "keywords": [
     "pi-package",
@@ -59,14 +59,14 @@
     "url": "https://github.com/gavin-hu/my-pi-agent.git"
   },
   "files": [
-    "assets/**",
     "extensions/**",
     "lib/**",
     "themes/**",
     "!**/*.test.ts"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "pi": {
     "extensions": [
@@ -103,6 +103,9 @@
     "check:serial": "bun run format:check && bun run typecheck && bun run test:serial",
     "release:notes": "bun run scripts/release-notes.ts",
     "config:migrate": "bun run scripts/migrate-config.ts",
+    "compat:versions": "bun run scripts/peer-versions.ts",
+    "bench:render": "bun run scripts/render-bench.ts",
+    "screenshot:file-browse": "bun run scripts/file-browse-shot.ts",
     "screenshot:plan": "bun run scripts/plan-review-shot.ts",
     "screenshot:tools": "bun run scripts/tool-renderings.ts gallery assets/tool-renderings.png",
     "screenshot:tool-pngs": "bun run scripts/tool-renderings.ts tools assets/tools",

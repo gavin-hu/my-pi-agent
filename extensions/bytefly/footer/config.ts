@@ -16,7 +16,13 @@ export const CONFIG = {
 	gauge: { full: GLYPHS.gaugeFull, empty: GLYPHS.gaugeEmpty, widths: [10, 5, 3, 0] as const },
 	/** Separators printed before grouped and other segments. */
 	separators: { group: SEPARATORS.group, item: SEPARATORS.item },
-	icons: { branch: GLYPHS.branch, detached: GLYPHS.detached, worktree: GLYPHS.worktree, browse: GLYPHS.browse },
+	icons: {
+		branch: GLYPHS.branch,
+		detached: GLYPHS.detached,
+		worktree: GLYPHS.worktree,
+		browse: GLYPHS.browse,
+		delegation: GLYPHS.delegation,
+	},
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
 	worktreeStatusKey: STATUS_KEYS.worktree,
 	/** Status key the file-browse extension uses; routed to line 1's right zone. */

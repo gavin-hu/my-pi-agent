@@ -75,7 +75,8 @@ export function registerTools(pi: ExtensionAPI): void {
 		label: "Exit worktree",
 		description:
 			"Leave the current git worktree and return to the main checkout. The worktree is removed when clean; with " +
-			"uncommitted changes or new commits the user chooses whether to keep it.",
+			"uncommitted changes or new commits the user chooses whether to keep it. The result names the branch's " +
+			"commits and the merge or pull-request command that finishes it.",
 		promptSnippet: "Leave the current git worktree and return to the main checkout.",
 		promptGuidelines: [
 			"Use exit_worktree after work started with enter_worktree; it is the only way back to the main checkout.",
@@ -93,7 +94,7 @@ export function registerTools(pi: ExtensionAPI): void {
 				ctx.ui.notify(`Exited worktree ${worktreeLabel(result.state)}`, "info");
 				return {
 					content: [{ type: "text", text: result.output }],
-					details: { state: result.state, removed: result.removed },
+					details: { state: result.state, removed: result.removed, handoff: result.handoff },
 				};
 			} catch (error) {
 				if (isWorktreeCancelled(error)) {

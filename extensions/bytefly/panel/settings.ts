@@ -6,43 +6,56 @@
  * views, cycling, validation, and grouping — so the screen and the runtime share
  * one definition and the tests need no host.
  *
- * The catalogue is deliberately curated: one proven row family at a time. It
- * covers scalars (a boolean checkbox, an enum cycle, a short string with its own
- * rule), both scopes, both write paths, and — with `price.currency.decimals` —
- * one nested key. Arrays, nested tariffs, and credentials are still JSON edits.
+ * The catalogue is curated rather than exhaustive: it holds the preferences a
+ * person changes, across every extension of the package, and each row states its
+ * own rule so a value the screen accepts is a value the loader keeps. The rest of
+ * the document stays JSON, reachable from the screen's JSON pane: a list
+ * (`doctor.skip`), a table (`price.rates`), and a schedule (`price.peak`) are not
+ * one row.
+ *
+ * Four sections have a normalizer here, so the screen shows what the footer, the
+ * notifier, and the doctor keep. The six owned by other extensions are read as the
+ * file states them, because importing their normalizer would be one extension
+ * importing another's module; each such row declares the loader's default, and
+ * `test/settings-coverage.test.ts` holds the pair together.
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../chrome.ts";
-import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
+import { DEFAULT_CHROME_CONFIG, isRailGlyph, normalizeChromeConfig } from "../chrome.ts";
+import {
+	DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG,
+	normalizeConfig as normalizeDoctorConfig,
+	TIMEOUT_MS_RANGE,
+} from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
 	DEFAULT_BYTEFLY_CONFIG,
 	DEFAULT_CURRENCY,
+	MAX_BUDGET,
+	MAX_DECIMALS,
 	normalizeByteflyConfig,
 } from "../footer/price/config.ts";
 import type { CurrencyCode } from "../footer/price/types.ts";
-import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
+import { DEFAULT_NOTIFY_CONFIG, MAX_TITLE_LENGTH, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 
 /** Where a preference is stored. */
-export type SettingSource = "app" | "bytefly";
+type SettingSource = "app" | "bytefly";
 
 /** The row control a preference uses. */
-export type SettingKind = "boolean" | "enum" | "text";
+type SettingKind = "boolean" | "enum" | "text";
 
 /** Where the effective value came from. */
-export type SettingOrigin = "default" | "global" | "project" | "inherited";
+type SettingOrigin = "default" | "global" | "project" | "inherited";
 
 /** One curated value a row can take. */
-export interface SettingOption {
+interface SettingOption {
 	value: string;
 	label: string;
 }
 
 /** What a text row accepts, checked before a write so the file cannot hold less. */
-export interface TextRule {
+interface TextRule {
 	/** Longest accepted value, in the units the loader slices with. */
 	maxLength: number;
 	/** Why `raw` cannot be stored, or `undefined` when it can. */
@@ -50,22 +63,32 @@ export interface TextRule {
 }
 
 /** One heading in the Settings list. */
-export interface SettingGroup {
+interface SettingGroup {
 	key: string;
 	label: string;
 }
 
 /** The `bytefly.json` sections the Settings section can read and write. */
-export type ConfigSectionName = "notify" | "chrome" | "doctor" | "price";
+export type ConfigSectionName =
+	| "notify"
+	| "chrome"
+	| "doctor"
+	| "price"
+	| "worktree"
+	| "rewind"
+	| "job"
+	| "watch"
+	| "memory"
+	| "goal";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
-export interface SettingConfig {
+interface SettingConfig {
 	section: ConfigSectionName;
 	path: readonly string[];
 }
 
 /** One `bytefly.json` leaf a row writes alongside its own. */
-export interface SettingLeaf {
+interface SettingLeaf {
 	section: ConfigSectionName;
 	path: readonly string[];
 	value: unknown;
@@ -115,7 +138,7 @@ export interface SettingsSnapshot {
 }
 
 /** One rendered group: its heading and the rows under it. */
-export interface GroupedSettings {
+interface GroupedSettings {
 	key: string;
 	label: string;
 	views: SettingView[];
@@ -129,19 +152,15 @@ export const SETTING_GROUPS: readonly SettingGroup[] = [
 	{ key: "pricing", label: "Pricing" },
 	{ key: "transcript", label: "Transcript" },
 	{ key: "terminal", label: "Terminal" },
+	{ key: "worktree", label: "Worktree" },
+	{ key: "snapshots", label: "Snapshots" },
+	{ key: "jobs", label: "Jobs and watchers" },
+	{ key: "memory", label: "Memory" },
 ];
 
 const ON_OFF: readonly SettingOption[] = [
 	{ value: "false", label: "Off" },
 	{ value: "true", label: "On" },
-];
-
-/** Rail glyphs offered in the curated picker; every one is one column. */
-const RAIL_OPTIONS: readonly SettingOption[] = [
-	{ value: GLYPHS.divider, label: GLYPHS.divider },
-	{ value: "│", label: "│" },
-	{ value: "┃", label: "┃" },
-	{ value: "▏", label: "▏" },
 ];
 
 /** The notify section's delivery methods, labeled by the surface each reaches. */
@@ -154,11 +173,56 @@ const METHOD_OPTIONS: readonly SettingOption[] = [
 	{ value: "notify-send", label: "Linux" },
 ];
 
-/** Cost precision 0-4, the range the `price` section clamps `decimals` to. */
-const DECIMALS_OPTIONS: readonly SettingOption[] = [0, 1, 2, 3, 4].map((value) => ({
+/** Cost precision 0 through the loader's ceiling, the range `price` clamps `decimals` to. */
+const DECIMALS_OPTIONS: readonly SettingOption[] = Array.from({ length: MAX_DECIMALS + 1 }, (_, value) => ({
 	value: String(value),
 	label: String(value),
 }));
+
+/**
+ * A text rule for a whole number inside an inclusive range.
+ *
+ * The bounds are the loader's own (`doctor.timeoutMs` is clamped to 100-30000),
+ * so an accepted value is never silently clamped on the next read. `maxLength`
+ * only stops a runaway buffer; `validate` is the rule.
+ */
+function integerRule(min: number, max: number): TextRule {
+	return {
+		maxLength: String(max).length + 2,
+		validate(raw) {
+			const text = raw.trim();
+			if (!/^\d+$/.test(text)) return `Use a whole number, ${min} to ${max}.`;
+			const value = Number(text);
+			if (value < min || value > max) return `Out of range: ${min} to ${max}.`;
+			return undefined;
+		},
+	};
+}
+
+/**
+ * A text rule for a money amount inside an inclusive range: a whole number or a
+ * decimal with up to four places, matching the loader's clamp for `price.budget`.
+ * `0` is a legitimate value (the guardrail is off), so it is not rejected.
+ */
+function amountRule(min: number, max: number): TextRule {
+	return {
+		maxLength: 16,
+		validate(raw) {
+			const text = raw.trim();
+			if (!/^\d+(?:\.\d{1,4})?$/.test(text)) return `Use an amount like 5 or 2.50, ${min} to ${max}.`;
+			const value = Number(text);
+			if (!Number.isFinite(value) || value < min || value > max) return `Out of range: ${min} to ${max}.`;
+			return undefined;
+		},
+	};
+}
+
+/** The rail's rule: the loader drops anything that is not one column. */
+const RAIL_RULE: TextRule = {
+	maxLength: 4,
+	validate: (raw) =>
+		isRailGlyph(raw) ? undefined : "Use exactly one column: a single glyph, with no spaces or control characters.",
+};
 
 /** The v1 catalogue, in screen order. */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
@@ -186,6 +250,54 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "notify", path: ["enabled"] },
 	},
 	{
+		id: "notify.turnFinished",
+		group: "notifications",
+		label: "Turn finished",
+		description: "Announce it when a full agent run settles.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["turnFinished"] },
+	},
+	{
+		id: "notify.needsInput",
+		group: "notifications",
+		label: "Needs input",
+		description: "Announce it when the agent opens a prompt and waits for an answer.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["needsInput"] },
+	},
+	{
+		id: "notify.jobFinished",
+		group: "notifications",
+		label: "Job finished",
+		description: "Announce it when a background job or watcher settles.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["jobFinished"] },
+	},
+	{
+		id: "notify.matchFound",
+		group: "notifications",
+		label: "Watcher matched",
+		description: "Announce it when a `watch` whose `wake` is on matches while the agent is idle.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "notify", path: ["matchFound"] },
+	},
+	{
 		id: "notify.method",
 		group: "notifications",
 		label: "Delivery method",
@@ -206,7 +318,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		fallback: "Pi",
 		options: [],
 		text: {
-			maxLength: 40,
+			maxLength: MAX_TITLE_LENGTH,
 			validate: (raw) => (raw.trim() === "" ? "A title is required." : undefined),
 		},
 		config: { section: "notify", path: ["title"] },
@@ -222,6 +334,19 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		json: "boolean",
 		options: ON_OFF,
 		config: { section: "doctor", path: ["proactive"] },
+	},
+	{
+		id: "doctor.timeoutMs",
+		group: "diagnostics",
+		label: "Probe timeout",
+		description: `How long one doctor probe may take, in milliseconds; ${TIMEOUT_MS_RANGE.min} to ${TIMEOUT_MS_RANGE.max}.`,
+		source: "bytefly",
+		kind: "text",
+		fallback: String(DEFAULT_DOCTOR_CONFIG.timeoutMs),
+		json: "number",
+		options: [],
+		text: integerRule(TIMEOUT_MS_RANGE.min, TIMEOUT_MS_RANGE.max),
+		config: { section: "doctor", path: ["timeoutMs"] },
 	},
 	{
 		id: "price.currency.code",
@@ -259,15 +384,43 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "price", path: ["currency", "decimals"] },
 	},
 	{
+		id: "price.budget",
+		group: "pricing",
+		label: "Session budget",
+		description: "Warn once when the session's cost reaches this amount; 0 is off. It never stops a turn.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "0",
+		json: "number",
+		options: [],
+		text: amountRule(0, MAX_BUDGET),
+		config: { section: "price", path: ["budget"] },
+	},
+	{
 		id: "chrome.rail",
 		group: "transcript",
 		label: "Rail glyph",
-		description: "The single-column glyph that leads a tool result or notice body.",
+		description: "The single-column glyph that leads a tool result or notice body, e.g. ╎ │ ┃ ▏.",
+		source: "bytefly",
+		kind: "text",
+		fallback: DEFAULT_CHROME_CONFIG.rail,
+		options: [],
+		text: RAIL_RULE,
+		config: { section: "chrome", path: ["rail"] },
+	},
+	{
+		id: "goal.achieved",
+		group: "transcript",
+		label: "Achieved goal",
+		description: "How a completed goal renders: the dimmed rail line, or nothing.",
 		source: "bytefly",
 		kind: "enum",
-		fallback: GLYPHS.divider,
-		options: RAIL_OPTIONS,
-		config: { section: "chrome", path: ["rail"] },
+		fallback: "hide",
+		options: [
+			{ value: "show", label: "Show" },
+			{ value: "hide", label: "Hide" },
+		],
+		config: { section: "goal", path: ["achieved"] },
 	},
 	{
 		id: "outputPad",
@@ -294,6 +447,147 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		json: "boolean",
 		options: ON_OFF,
 	},
+	{
+		id: "worktree.baseRef",
+		group: "worktree",
+		label: "Base ref",
+		description: "Where a new worktree branches from: the remote default branch, or the current local HEAD.",
+		source: "bytefly",
+		kind: "enum",
+		fallback: "fresh",
+		options: [
+			{ value: "fresh", label: "Fresh" },
+			{ value: "head", label: "Head" },
+		],
+		config: { section: "worktree", path: ["baseRef"] },
+	},
+	{
+		id: "worktree.branchPrefix",
+		group: "worktree",
+		label: "Branch prefix",
+		description: "Prepended to every branch a managed worktree creates.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "worktree-",
+		options: [],
+		text: {
+			// The loader trims and rejects an empty prefix but sets no ceiling; this
+			// only stops a runaway buffer.
+			maxLength: 80,
+			validate: (raw) => (raw.trim() === "" ? "A prefix is required." : undefined),
+		},
+		config: { section: "worktree", path: ["branchPrefix"] },
+	},
+	{
+		id: "worktree.fetchRemote",
+		group: "worktree",
+		label: "Fetch remote",
+		description: "Fetch the remote before branching, so a new worktree starts from its latest commit.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "worktree", path: ["fetchRemote"] },
+	},
+	{
+		id: "worktree.pruneAfterDays",
+		group: "worktree",
+		label: "Prune after (days)",
+		description: "Age at which `/worktree prune` removes a clean worktree nobody is using.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "7",
+		json: "number",
+		options: [],
+		text: integerRule(0, 3650),
+		config: { section: "worktree", path: ["pruneAfterDays"] },
+	},
+	{
+		id: "rewind.autoSnapshots",
+		group: "snapshots",
+		label: "Automatic snapshots",
+		description: "Take one rewind snapshot per prompt, before the first mutating tool call.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "rewind", path: ["autoSnapshots"] },
+	},
+	{
+		id: "rewind.max",
+		group: "snapshots",
+		label: "Snapshots kept",
+		description: "Snapshots kept per repository before the oldest are pruned; 0 keeps none.",
+		source: "bytefly",
+		kind: "text",
+		fallback: "20",
+		json: "number",
+		options: [],
+		text: integerRule(0, 1000),
+		config: { section: "rewind", path: ["max"] },
+	},
+	{
+		id: "rewind.safetySnapshot",
+		group: "snapshots",
+		label: "Safety snapshot",
+		description: "Snapshot the current state before a restore, so a rewind can itself be undone.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "rewind", path: ["safetySnapshot"] },
+	},
+	{
+		id: "job.wakeOnFinish",
+		group: "jobs",
+		label: "Wake when a job finishes",
+		description: "Start one agent turn when any background job finishes.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "job", path: ["wakeOnFinish"] },
+	},
+	{
+		id: "job.detachedByDefault",
+		group: "jobs",
+		label: "Keep jobs after exit",
+		description: "Leave jobs running when the session ends, unless the job opts out.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "job", path: ["detachedByDefault"] },
+	},
+	{
+		id: "watch.wakeOnMatch",
+		group: "jobs",
+		label: "Wake on a match",
+		description: "Start one agent turn when a watcher matches while the agent is idle.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "watch", path: ["wakeOnMatch"] },
+	},
+	{
+		id: "memory.inject",
+		group: "memory",
+		label: "Inject notes",
+		description: "Put stored memory notes in context before each run.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "memory", path: ["inject"] },
+	},
 ];
 
 /** The rows a scope can write: app rows are personal-file only. */
@@ -301,21 +595,13 @@ export function rowsForScope(scope: WriteScope): readonly SettingDescriptor[] {
 	return scope === "global" ? SETTING_ROWS : SETTING_ROWS.filter((row) => row.source === "bytefly");
 }
 
-/** The number of rows the section shows for `scope`. */
-export function countSettings(scope: WriteScope): number {
-	return rowsForScope(scope).length;
-}
-
-/** Whether `raw` is one of a row's curated options. */
-export function validValue(row: SettingDescriptor, raw: string): boolean {
-	return row.options.some((option) => option.value === raw);
-}
-
 /**
  * Why a text row cannot store `raw`, or `undefined` when it can.
  *
- * The limits mirror the loaders (`notify.title` is sliced to 40, the currency
- * symbol to 4) so the editor cannot save a value the next read shortens.
+ * The limits are the loaders' own (`notify.title` is sliced to `MAX_TITLE_LENGTH`,
+ * the rail to one column) so the editor cannot save a value the next read shortens.
+ * A row that is not text is refused here rather than in the caller, so a programmatic
+ * `setValue` gets the same reason the screen would show.
  */
 export function textError(row: SettingDescriptor, raw: string): string | undefined {
 	const rule = row.text;
@@ -336,16 +622,16 @@ function appValue(snapshot: SettingsSnapshot, row: SettingDescriptor): { value: 
 	switch (row.id) {
 		case "byteflyUi": {
 			const quiet = snapshot.app.quietStartup;
-			return { value: quiet === true ? "true" : "false", origin: quiet === undefined ? "default" : "global" };
+			return { value: quiet === true ? "true" : row.fallback, origin: quiet === undefined ? "default" : "global" };
 		}
 		case "outputPad":
 			return {
-				value: snapshot.app.outputPad === 0 ? "0" : "1",
+				value: snapshot.app.outputPad === 0 ? "0" : row.fallback,
 				origin: snapshot.app.outputPad === undefined ? "default" : "global",
 			};
 		case "showHardwareCursor":
 			return {
-				value: snapshot.app.showHardwareCursor === true ? "true" : "false",
+				value: snapshot.app.showHardwareCursor === true ? "true" : row.fallback,
 				origin: snapshot.app.showHardwareCursor === undefined ? "default" : "global",
 			};
 		default:
@@ -371,7 +657,11 @@ type SectionReader = (
 	path: readonly string[],
 ) => unknown;
 
-const SECTION_READERS: Record<ConfigSectionName, SectionReader> = {
+/**
+ * The four sections bytefly owns, each read through its own normalizer so the
+ * screen shows the value the loader keeps.
+ */
+const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
 	notify: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeNotifyConfig(projectRaw, normalizeNotifyConfig(globalRaw, DEFAULT_NOTIFY_CONFIG)), path),
 	chrome: (globalRaw, projectRaw, path) =>
@@ -382,7 +672,22 @@ const SECTION_READERS: Record<ConfigSectionName, SectionReader> = {
 		configValueAt(normalizeByteflyConfig(projectRaw, normalizeByteflyConfig(globalRaw, DEFAULT_BYTEFLY_CONFIG)), path),
 };
 
-/** Read a `bytefly.json` preference, normalized over the global section. */
+/**
+ * Read a leaf whose owning extension owns the normalizer.
+ *
+ * A section without a reader here belongs to another extension, and importing its
+ * normalizer would be one extension importing another's module. So the row states
+ * the loader's default in `fallback`, `test/settings-coverage.test.ts` holds the
+ * two together, and the visible cost is that a hand-edited value outside the
+ * loader's clamp shows as written until it is reset.
+ */
+function rawLeaf(snapshot: SettingsSnapshot, config: SettingConfig, scope: WriteScope): unknown {
+	const projectLeaf =
+		scope === "project" ? configValueAt(configSection(snapshot.project, config.section), config.path) : undefined;
+	return projectLeaf ?? configValueAt(configSection(snapshot.global, config.section), config.path);
+}
+
+/** Read a `bytefly.json` preference: normalized where bytefly owns the section. */
 function byteflyValue(
 	snapshot: SettingsSnapshot,
 	row: SettingDescriptor,
@@ -392,8 +697,12 @@ function byteflyValue(
 	if (!config) throw new Error(`Setting ${row.id} has no config section`);
 	const globalRaw = configSection(snapshot.global, config.section);
 	const projectRaw = scope === "project" ? configSection(snapshot.project, config.section) : undefined;
-	const leaf = SECTION_READERS[config.section](globalRaw, projectRaw, config.path);
+	const reader = SECTION_READERS[config.section];
+	const leaf = reader ? reader(globalRaw, projectRaw, config.path) : rawLeaf(snapshot, config, scope);
 	return {
+		// A normalizer is total, so its fallback only covers a future row whose
+		// normalizer has no default yet; a raw read needs it when neither document
+		// states the key.
 		value: leaf === undefined ? row.fallback : String(leaf),
 		origin: originFor(config, snapshot, scope),
 	};

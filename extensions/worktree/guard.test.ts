@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { analyzeBashCommand, guardFileTool, resolveUnder } from "./guard.ts";
+import { analyzeBashCommand, guardFileTool, guardPowershellTool, isUnverifiable, resolveUnder } from "./guard.ts";
 import { isInsideReal } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -113,6 +113,17 @@ describe("analyzeBashCommand", () => {
 		).toBe(true);
 	});
 
+	test("isUnverifiable names exactly what the opt-in check refuses", () => {
+		for (const command of ["echo $(pwd)", "echo `pwd`", "eval 'git status'", "sh -c 'git status'", "echo ${!x}"]) {
+			expect(isUnverifiable(command)).toBe(true);
+		}
+		// Quote-blind by design, like the check it names: it errs toward "cannot
+		// verify" rather than parsing a command shape it already gave up on.
+		for (const command of ["git status", "git commit -m 'a message'", "ls -la"]) {
+			expect(isUnverifiable(command)).toBe(false);
+		}
+	});
+
 	test("blocks redirects that only escape after shell expansion", () => {
 		expect(analyzeBashCommand("git -C ~/other status", ROOT, config())?.block).toBe(true);
 		expect(analyzeBashCommand("git -C $HOME/other status", ROOT, config())?.block).toBe(true);
@@ -150,6 +161,15 @@ describe("analyzeBashCommand", () => {
 		expect(analyzeBashCommand("echo x 2>&1", ROOT, config())).toBeUndefined();
 		expect(analyzeBashCommand("cmd >&2", ROOT, config())).toBeUndefined();
 		expect(analyzeBashCommand("cat <<EOF", ROOT, config())).toBeUndefined();
+	});
+
+	test("allows the null device, which discards instead of writing", () => {
+		expect(analyzeBashCommand("cmd 2>/dev/null", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cmd > /dev/null 2>&1", ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand('cmd 2>"/dev/null"', ROOT, config())).toBeUndefined();
+		expect(analyzeBashCommand("cat < /dev/null", ROOT, config({ blockReadEscapes: true }))).toBeUndefined();
+		// Any other device still counts as an escape, so the exemption stays narrow.
+		expect(analyzeBashCommand("cmd > /dev/zero", ROOT, config())?.block).toBe(true);
 	});
 
 	test("gates input redirections behind blockReadEscapes", () => {
@@ -192,6 +212,29 @@ describe("analyzeBashCommand", () => {
 		expect(analyzeBashCommand("echo GIT_DIR=/etc/hosts", ROOT, config())).toBeUndefined();
 		expect(analyzeBashCommand("env GIT_DIR=/main/.git git status", ROOT, config())?.block).toBe(true);
 		expect(analyzeBashCommand("env -i GIT_DIR=/main/.git git status", ROOT, config())?.block).toBe(true);
+	});
+});
+
+describe("guardPowershellTool", () => {
+	test("refuses the tool while isolated, naming the way out", () => {
+		const block = guardPowershellTool(config());
+
+		expect(block?.block).toBe(true);
+		expect(block?.reason).toContain("not re-rooted or guarded");
+		expect(block?.reason).toContain("Use bash");
+		expect(block?.reason).toContain("exit the worktree");
+		expect(block?.reason).toContain("worktree.guard.blockPowershell");
+	});
+
+	test("refuses a Windows escape attempt instead of trying to parse it", () => {
+		// The shape that motivated the guard: a relative-path tool that would edit
+		// the main checkout, spelled in a grammar the bash checks cannot read.
+		expect(guardPowershellTool(config())?.block).toBe(true);
+		expect(guardPowershellTool(config())?.reason).toContain("main checkout");
+	});
+
+	test("lets the tool through when the switch is off", () => {
+		expect(guardPowershellTool(config({ blockPowershell: false }))).toBeUndefined();
 	});
 });
 

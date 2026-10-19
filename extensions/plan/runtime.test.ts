@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { createPlanPolicy } from "./policy.ts";
-import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "./runtime.ts";
-import { fakeCtx, makeFakePi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
+import { BASELINE_TYPE, createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "./runtime.ts";
+import { changedSections, sectionDigests } from "./plan-text.ts";
+import { baselineEntry, fakeCtx, makeFakePi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {
@@ -203,31 +205,96 @@ describe("plan runtime — persistence and status", () => {
 	});
 });
 
-describe("plan runtime — review snapshots", () => {
-	test("remembers the content a review showed, per plan path", () => {
+describe("plan runtime — review baseline", () => {
+	const path = "/repo/.pi/plans/a.md";
+	const plan = ["# Plan", "## Goal", "Ship it."].join("\n");
+	const edited = ["# Plan", "## Goal", "Ship it well."].join("\n");
+
+	test("remembers the sections a review showed, per plan path", () => {
 		const { runtime } = setup();
-		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBeUndefined();
+		expect(runtime.reviewed(path)).toBeUndefined();
 
-		runtime.markReviewed("/repo/.pi/plans/a.md", "# A");
+		runtime.markReviewed(path, plan);
 
-		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBe("# A");
+		expect(runtime.reviewed(path)).toEqual(sectionDigests(plan));
 		expect(runtime.reviewed("/repo/.pi/plans/b.md")).toBeUndefined();
 	});
 
-	test("a new mark replaces the previous content", () => {
+	test("a new mark replaces the previous baseline", () => {
 		const { runtime } = setup();
-		runtime.markReviewed("/repo/.pi/plans/a.md", "# A");
-		runtime.markReviewed("/repo/.pi/plans/a.md", "# A v2");
-		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBe("# A v2");
+		runtime.markReviewed(path, plan);
+		runtime.markReviewed(path, edited);
+		expect(runtime.reviewed(path)).toEqual(sectionDigests(edited));
 	});
 
-	test("a branch restore drops the baseline, so a resumed session has none", () => {
+	test("persists the baseline as a session entry", () => {
+		const { runtime, entries } = setup();
+		runtime.markReviewed(path, plan);
+		expect(entries).toEqual([
+			{ type: "custom", customType: BASELINE_TYPE, data: { path: resolve(path), sections: sectionDigests(plan) } },
+		]);
+	});
+
+	test("does not append an entry for a review that shows the same content", () => {
+		const { runtime, entries } = setup();
+		runtime.markReviewed(path, plan);
+		// The same screen reopened, and a review comment the browser stored in the file.
+		runtime.markReviewed(path, plan);
+		runtime.markReviewed(path, `${plan}\n> [!REVIEW] make it concrete`);
+		expect(entries).toHaveLength(1);
+	});
+
+	test("a resumed session keeps the markers", () => {
+		const { runtime, ctx } = setup({ branch: [baselineEntry(path, sectionDigests(plan))] });
+		runtime.restore(ctx);
+
+		expect(changedSections(runtime.reviewed(path), plan)).toEqual([false, false]);
+		expect(changedSections(runtime.reviewed(path), edited)).toEqual([false, true]);
+	});
+
+	test("finds a baseline recorded under a non-canonical path", () => {
+		// A branch can name the same plan with `..` in it, or relative to another cwd;
+		// the restored key is canonical so the lookup does not depend on the spelling.
+		const { runtime, ctx } = setup({
+			branch: [baselineEntry("/repo/.pi/plans/nested/../a.md", sectionDigests(plan))],
+		});
+
+		runtime.restore(ctx);
+
+		expect(runtime.reviewed(path)).toEqual(sectionDigests(plan));
+	});
+
+	test("a branch that never reviewed the plan has no baseline", () => {
 		const { runtime } = setup();
-		runtime.markReviewed("/repo/.pi/plans/a.md", "# A");
+		runtime.markReviewed(path, plan);
 
 		runtime.restore(fakeCtx({ branch: [stateEntry(true)] }).ctx);
 
-		expect(runtime.reviewed("/repo/.pi/plans/a.md")).toBeUndefined();
+		expect(runtime.reviewed(path)).toBeUndefined();
+	});
+
+	test("keeps the last baseline of each plan on the branch", () => {
+		const other = "/repo/.pi/plans/b.md";
+		const { runtime, ctx } = setup({
+			branch: [
+				baselineEntry(path, sectionDigests(plan)),
+				baselineEntry(other, sectionDigests(edited)),
+				baselineEntry(path, sectionDigests(edited)),
+			],
+		});
+		runtime.restore(ctx);
+
+		expect(runtime.reviewed(path)).toEqual(sectionDigests(edited));
+		expect(runtime.reviewed(other)).toEqual(sectionDigests(edited));
+	});
+
+	test("ignores a malformed baseline entry", () => {
+		const { runtime, ctx } = setup({
+			branch: [{ type: "custom", customType: BASELINE_TYPE, data: { path, sections: [{ title: 1 }] } }],
+		});
+		runtime.restore(ctx);
+
+		expect(runtime.reviewed(path)).toBeUndefined();
 	});
 });
 

@@ -21,7 +21,10 @@ import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
 import { hasPathInput } from "./path-guard.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { sanitizeLine } from "../../lib/format.ts";
+import { lastGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import { ASK_USER_QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
+import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
 import { checkReadOnlyGit } from "./git-bash.ts";
@@ -39,15 +42,34 @@ import { createPlanWebReview } from "./web.ts";
 /** Marker embedded in the injected prompt and used to filter stale context. */
 export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
 
-/** Injected each turn while planning: the facts and the next action, not the tool contracts. */
-export const PLAN_MODE_CONTEXT = `${PLAN_MODE_MARKER}
-You are in plan mode: read-only exploration for safe code analysis.
+/**
+ * Longest goal text restated here. `goal` injects the full objective every turn
+ * regardless of plan mode, so this line is a short pointer; the clip is what keeps
+ * the whole context inside the prompt-budget ceiling.
+ */
+const GOAL_CONTEXT_CHARS = 64;
 
-- Do not modify anything except the plan file: while planning, ${READ_ONLY_SUMMARY}.
-- bash is git-only: read-only commands (git status, git diff, git log) may be chained with && or ;, but pipes, substitution, and redirection are blocked and powershell is unavailable. The cwd is already the project root, so do not prefix commands with cd; use read, grep, find, and ls for files.
-- Investigate and design a concrete plan, then save it with write_plan and call exit_plan_mode with the returned plan_path for approval.
-- Delegate broad exploration with subagent; while planning it is forced read-only.
-- To choose between approaches, ask with ${ASK_USER_QUESTION_TOOL} before finalizing.`;
+/**
+ * Injected each turn while planning: the facts and the next action, not the tool
+ * contracts. An active session goal becomes one extra bullet, so a plan is
+ * designed against the objective instead of beside it.
+ */
+export function planModeContext(goal?: PublishedGoal | null): string {
+	const lines = [
+		PLAN_MODE_MARKER,
+		"You are in plan mode: read-only exploration for safe code analysis.",
+		"",
+		`- Do not modify anything except the plan file: while planning, ${READ_ONLY_SUMMARY}.`,
+		"- bash is git-only: read-only commands (git status, git diff, git log) may be chained with && or ;, but pipes, substitution, and redirection are blocked and powershell is unavailable. The cwd is already the project root, so do not prefix commands with cd; use read, grep, find, and ls for files.",
+		"- Investigate and design a concrete plan, then save it with write_plan and call exit_plan_mode with the returned plan_path for approval.",
+		"- Delegate broad exploration with subagent; while planning it is forced read-only.",
+		`- To choose between approaches, ask with ${ASK_USER_QUESTION_TOOL} before finalizing.`,
+	];
+	if (goal?.status === "active") {
+		lines.push(`- Current session goal: ${clip(sanitizeLine(goal.objective), GOAL_CONTEXT_CHARS)}`);
+	}
+	return lines.join("\n");
+}
 
 /** This extension entry file, as Pi records it for our tool registrations. */
 function extensionEntryPath(): string | undefined {
@@ -158,10 +180,12 @@ export default function planMode(pi: ExtensionAPI): void {
 		return reason ? { block: true, reason } : undefined;
 	});
 
-	// Tell the model it is planning.
-	pi.on("before_agent_start", () => {
+	// Tell the model it is planning, and restate an active goal so the plan is
+	// designed against it. Reads the branch, so no extra model call is involved.
+	pi.on("before_agent_start", (_event, ctx) => {
 		if (!runtime.isEnabled()) return undefined;
-		return { message: { customType: "plan-mode-context", content: PLAN_MODE_CONTEXT, display: false } };
+		const goal = lastGoal(ctx.sessionManager.getBranch());
+		return { message: { customType: "plan-mode-context", content: planModeContext(goal), display: false } };
 	});
 
 	// Keep stale plan-mode context out of later, non-plan turns (for example after /resume).

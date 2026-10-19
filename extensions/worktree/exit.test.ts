@@ -83,6 +83,76 @@ describe.skipIf(!runSlowSuites)("exitWorktree", () => {
 		expect(branches.stdout).toContain("worktree-commits");
 	});
 
+	test("hands the branch back with the command that finishes it", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
+		const harness = await bootWorktree(repo);
+		await harness.run(WORKTREE_TOOLS.enter, { name: "hand" });
+		const dir = worktreePath(repo, "hand");
+		writeFileSync(join(dir, "new.txt"), "x");
+		await execP("git", ["add", "."], { cwd: dir });
+		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
+
+		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const text = result.content[0].text;
+
+		expect(text).toContain("Handoff: worktree-hand is 1 commit ahead of main.");
+		expect(text).toContain("git switch main && git merge --no-ff worktree-hand");
+		expect(text).toContain("gh pr create --head worktree-hand");
+		expect(result.details.handoff).toMatchObject({ branch: "worktree-hand", base: "main", ahead: 1, merged: false });
+	});
+
+	test("counts against the base branch, not the commit recorded at entry", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
+		const harness = await bootWorktree(repo);
+		await harness.run(WORKTREE_TOOLS.enter, { name: "rebased" });
+		const dir = worktreePath(repo, "rebased");
+
+		// The base branch moves on after the worktree was cut, which is what a rebase
+		// or a peer merge does; only the worktree's own commit is its lead.
+		writeFileSync(join(repo, "elsewhere.txt"), "x");
+		await execP("git", ["add", "."], { cwd: repo });
+		await execP("git", ["commit", "-qm", "base moved"], { cwd: repo });
+
+		writeFileSync(join(dir, "mine.txt"), "x");
+		await execP("git", ["add", "."], { cwd: dir });
+		await execP("git", ["commit", "-qm", "mine"], { cwd: dir });
+
+		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+
+		expect(result.content[0].text).toContain("Handoff: worktree-rebased is 1 commit ahead of main.");
+		expect(result.details.handoff).toMatchObject({ base: "main", ahead: 1, merged: false });
+	});
+
+	test("says there is nothing to merge once the branch was deleted", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
+		const harness = await bootWorktree(repo);
+		await harness.run(WORKTREE_TOOLS.enter, { name: "empty" });
+
+		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const text = result.content[0].text;
+
+		expect(text).toContain("Deleted branch worktree-empty");
+		// The branch is gone, so the handoff names the deletion rather than a merge.
+		expect(text).toContain("nothing to merge");
+		expect(text).not.toContain("git merge --no-ff");
+	});
+
+	test("names the branch it kept for a dirty worktree", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
+		const harness = await bootWorktree(repo);
+		await harness.run(WORKTREE_TOOLS.enter, { name: "dirty" });
+		const dir = worktreePath(repo, "dirty");
+		writeFileSync(join(dir, "work.txt"), "x");
+
+		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: false });
+		const text = result.content[0].text;
+
+		expect(text).toContain("Kept worktree");
+		// The branch is a fresh pointer at the same commit, so it is already merged.
+		expect(text).toContain("Handoff: worktree-dirty is merged into main — nothing to merge.");
+		expect(result.details.handoff).toMatchObject({ branch: "worktree-dirty", ahead: 0, merged: true });
+	});
+
 	test("keeps a dirty worktree's branch when the user chooses remove", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo, { hasUI: true, select: "Remove it and its branch" });

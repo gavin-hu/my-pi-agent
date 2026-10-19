@@ -53,7 +53,8 @@ gate is stated in the test.
    clock for relative timestamps.
 4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
-   `test/tool-render.test.ts`, `test/roadmap.test.ts`) — cross-cutting
+   `test/tool-render.test.ts`, `test/roadmap.test.ts`, `test/docs-truth.test.ts`,
+   `test/docs-parity.test.ts`, `test/extension-load.test.ts`) — cross-cutting
    contracts. No extension test may
    duplicate these. `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
@@ -69,7 +70,14 @@ gate is stated in the test.
    contiguous item ids, resolving links and id references, and the per-horizon
    item cap. It cannot tell that an item has already shipped — that stays a
    judgement made against `git log <last-tag>..main` when the roadmap is
-   reviewed.
+   reviewed. `docs-truth.test.ts` holds the catalog to the manifest and to the
+   `registerCommand`/`registerFlag` calls in extension source, in both
+   directions: every manifest extension needs a `### <name>` section linking its
+   README, and every catalog command and flag needs a registration, while each
+   name must be a string literal so the scan sees it. Its groups and per-group
+   order are held to the root README's extension tables. The catalog's tool
+   names are the same contract in `naming.test.ts`, and the configuration
+   reference is the same contract in `config-docs.test.ts`.
 
 Rule of thumb: if a test needs `mock.module`, a global stub, or a real timer,
 the code under test is missing a seam. Add the seam instead of the mock.
@@ -152,14 +160,28 @@ and fails on:
 
 Keep the scan total: a new extension is covered automatically. The check has
 one exemption list in `test/structure.test.ts`. A single line may also opt out
-of one ban with an `allow:<name>` comment when the match is genuine content
-(for example a whitespace-normalisation assertion) and not layout padding. Add
-to either only with a stated reason; do not silently widen a regex.
+of one ban with an `allow:<name>` comment on that line or in the comment block
+directly above it, when the match is genuine content (for example a
+whitespace-normalisation assertion) and not layout padding. Add to either only
+with a stated reason; do not silently widen a regex.
 
 ## Source conventions (enforced)
 
-The same file scans extension and `lib/` **source** (`.ts`, not `.test.ts`) and
-fails a tool renderer that:
+The same file scans extension and `lib/` **source** (`.ts`, not `.test.ts`), so
+the mechanical half of `AGENTS.md` "Code quality" is a failing test rather than
+a review note. It fails:
+
+- a `TODO` / `FIXME` / `HACK` / `XXX` marker — the work is finished, or it is a
+  `ROADMAP.md` item;
+- a suppression comment (`@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`,
+  `biome-ignore`, `eslint-disable`) — fix the type or the rule instead;
+- `as any` / `: any` / `<any>` / `any[]` — use `unknown` at the boundary, or
+  name the host type;
+- a commented-out statement, in the shapes it takes (`// const`, `// return`,
+  `// if (`, a bare `// }`, …). Prose is not code, so `// for the duration of a
+  call` stays.
+
+A tool renderer is also failed when it:
 
 - defines `renderCall(` / `renderResult(` without referencing
   `context.lastComponent`;
@@ -167,6 +189,12 @@ fails a tool renderer that:
   `keyText(EXPAND_KEYBINDING)`;
 - repeats the raw `"app.tools.expand"` id instead of importing
   `EXPAND_KEYBINDING` from `lib/tui/glyphs.ts`.
+
+A source line takes its opt-out the same way, with the reason in the comment.
+Two stand today: `allow:todo` in `extensions/todo/nudge.ts`, whose marker is
+text the model reads rather than a to-do for a human, and `allow:any` in
+`lib/tui/tool.ts`, whose parameter is a partial result Pi types separately for
+every tool.
 
 ## Extension boundaries (enforced)
 
@@ -178,6 +206,16 @@ a different `extensions/<other>/`, in every form: `from`, a side-effect import,
 `export ... from`, or a dynamic `import()`. Share the contract instead: tool and
 parameter names in `lib/tool-names.ts`, glyphs and status keys in `lib/tui/glyphs.ts`,
 everything else under `lib/`.
+
+## lib/ is value-only (enforced)
+
+State is the other half of the same boundary: Pi gives each extension its own
+module cache, so a module variable in `lib/` is one copy per extension rather
+than one shared value. `test/structure.test.ts` fails an unindented `let` or
+`var`, and a module-scope `Map`, `WeakMap`, or empty array, anywhere under `lib/`.
+A `new Set` is allowed because a keyword table is data; the state that has to
+live somewhere is carried in the caller's closure, as `rails.ts` does. A `let`
+inside a function is the closure and stays.
 
 ## Layout
 
@@ -194,12 +232,16 @@ test/
   README.md
   helpers/                 # ALL shared doubles and fixtures
     fakes.ts  context.ts  process.ts  env.ts  entries.ts
-    git.ts    platform.ts  preload.ts  clock.ts
+    git.ts    platform.ts  preload.ts  clock.ts  files.ts
     fixtures/<name>.ts     # extension-specific fixtures
+    fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
-  structure.test.ts        # layout, banned-pattern, and boundary guards
+  structure.test.ts        # layout, banned-pattern, boundary, and doc-link (path + anchor) guards
+  docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
+  docs-truth.test.ts       # catalog sections, groups, commands, and flags vs the code
+  extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   prompt-budget.test.ts    # injected-context size ceilings
-  theme.test.ts            # themes/*.json contract
+  theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
 ```
 
 Rules:
@@ -207,9 +249,16 @@ Rules:
 - Every directory under `extensions/` contains at least one co-located test.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
-  `structure.test.ts`, `prompt-budget.test.ts`, and `theme.test.ts`.
+  `structure.test.ts`, `docs-truth.test.ts`, `docs-parity.test.ts`,
+  `extension-load.test.ts`, `prompt-budget.test.ts`, `theme.test.ts`, and the
+  other package-level contracts listed above.
 - A co-located test's file stem matches the source module it covers. The only
   exceptions are the documented aggregates in `structure.test.ts`.
+- A test that asserts platform behaviour pins it through the injectable seam
+  (`isWindows: () => false`) rather than the ambient `process.platform`: the
+  suite runs on all three OSes and the seam is how the other two are simulated.
+  `process.platform` stays for what genuinely needs the real host — symlink
+  creation, a detached child's own output, a shell `EXIT` trap.
 
 ## Imports
 

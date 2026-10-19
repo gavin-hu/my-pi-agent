@@ -47,6 +47,7 @@ export function applyEvent(result: SingleResult, event: unknown): boolean {
 
 		if (message.role === "assistant") {
 			const assistant = message as Message & {
+				provider?: string;
 				model?: string;
 				stopReason?: string;
 				errorMessage?: string;
@@ -69,6 +70,7 @@ export function applyEvent(result: SingleResult, event: unknown): boolean {
 				result.usage.cost += usage.cost?.total ?? 0;
 				result.usage.contextTokens = usage.totalTokens ?? result.usage.contextTokens;
 			}
+			if (!result.provider && assistant.provider) result.provider = assistant.provider;
 			if (!result.model && assistant.model) result.model = assistant.model;
 			if (assistant.stopReason) result.stopReason = assistant.stopReason;
 			if (assistant.errorMessage) result.errorMessage = assistant.errorMessage;

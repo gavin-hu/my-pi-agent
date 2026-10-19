@@ -26,7 +26,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { canonicalize, checkCheckout, repoRoot, unlockWorktree } from "./git.ts";
-import { analyzeBashCommand, guardFileTool } from "./guard.ts";
+import { analyzeBashCommand, guardFileTool, guardPowershellTool, isUnverifiable } from "./guard.ts";
 import {
 	enterWorktree,
 	findInactiveOverrides,
@@ -50,7 +50,10 @@ import {
 	getInactiveOverrides,
 	getRoot,
 	getSkipOverrides,
+	noteUnverifiableCommand,
 	publishWorktree,
+	resetDiagnostics,
+	resetGitignoreOffer,
 	setActive,
 	setBaseCwd,
 	setInactiveOverrides,
@@ -88,6 +91,8 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 		setBaseCwd(ctx.cwd);
 		setActive(null);
 		clearConfigCache();
+		resetDiagnostics();
+		resetGitignoreOffer();
 
 		// A child `pi` process (subagent) inherits an active worktree. Bind to
 		// it without creating, locking, or persisting anything; the parent owns
@@ -203,8 +208,15 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 		const config = configFor(state.repoRoot);
 		if (event.toolName === "bash") {
 			const command = (event.input as { command?: string }).command ?? "";
-			return analyzeBashCommand(command, state.path, config);
+			const block = analyzeBashCommand(command, state.path, config);
+			// A command the guard lets through unverified is the one gap the transcript
+			// cannot show, so count it for `/worktree` instead of losing it.
+			if (!block && isUnverifiable(command)) noteUnverifiableCommand();
+			return block;
 		}
+		// The Windows shell has no re-rooting and no guard, so it is refused rather
+		// than checked; the switch that allows it is reported as a gap.
+		if (event.toolName === "powershell") return guardPowershellTool(config);
 		return guardFileTool(event.toolName, event.input, state.path, config);
 	});
 

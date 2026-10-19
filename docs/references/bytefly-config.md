@@ -3,6 +3,26 @@
 Every key `bytefly.json` accepts, section by section. Resolution, migration, and
 the state and environment files live in [Configuration](../configuration.md).
 
+## Contents
+
+- [Document metadata](#document-metadata)
+- [`price` — cost calculation](#price--cost-calculation)
+- [`notify` — OS notifications](#notify--os-notifications)
+- [`doctor` — diagnostics](#doctor--diagnostics)
+- [`chrome` — transcript chrome](#chrome--transcript-chrome)
+- [`document` — document extraction](#document--document-extraction)
+- [`file-browse` — the local file server](#file-browse--the-local-file-server)
+- [`goal` — the goal widget](#goal--the-goal-widget)
+- [`job` — background jobs](#job--background-jobs)
+- [`watch` — file and command watchers](#watch--file-and-command-watchers)
+- [`memory` — durable notes](#memory--durable-notes)
+- [`rewind` — snapshots](#rewind--snapshots)
+- [`subagent` — delegated runs](#subagent--delegated-runs)
+- [`todo` — the todo widget](#todo--the-todo-widget)
+- [`web-access` — search and fetch](#web-access--search-and-fetch)
+- [`wechat` — the WeChat bridge](#wechat--the-wechat-bridge)
+- [`worktree` — isolated worktrees](#worktree--isolated-worktrees)
+
 Two conventions:
 
 - The key column is the dotted path inside the section, so `currency.decimals`
@@ -25,12 +45,13 @@ the keys.
 ## `price` — cost calculation
 
 The footer's cost total. Read once per footer install, so a change needs a
-reload. `/bytefly settings` edits `currency.code` and `currency.decimals`.
+reload. `/bytefly settings` edits `currency.code`, `currency.decimals`, and `budget`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `currency.code` | string | `"CNY"` | `CNY`, `USD` | Pricing algorithm, and which built-in table `rates` starts from. Both apply `peak`; only `USD` falls back to Pi's recorded dollars for an unmatched model. |
 | `currency.decimals` | integer | `2` | `0`–`4` | Digits after the decimal point. |
+| `budget` | number | `0` | `0`–`10000000` | Session spend that triggers one warning, in the selected currency; `0` turns the guardrail off. It warns; it never stops a turn. |
 | `rates` | object | DeepSeek's published rates in the selected currency | One entry per `provider/model` | Per-million-token prices; merged key by key across the global and project documents. |
 | `peak.timezone` | string | `"Asia/Shanghai"` | An IANA zone | Zone the peak windows are stated in; an unknown zone drops the whole schedule. |
 | `peak.windows` | array | DeepSeek's weekday windows | Up to 16 entries | The peak windows. |
@@ -60,6 +81,7 @@ Read at `session_start`; `/bytefly settings` edits `enabled`, `method`, and
 | `turnFinished` | boolean | `true` | | Announce a run that settled. |
 | `needsInput` | boolean | `true` | | Announce a prompt raised during a run. |
 | `jobFinished` | boolean | `true` | | Announce a finished background job. |
+| `matchFound` | boolean | `true` | | Announce a `watch` wake match: a watcher with `wake` on matched while the agent was idle. |
 | `method` | string | `"auto"` | `auto`, `osc777`, `osc99`, `toast`, `osascript`, `notify-send` | Delivery route; `auto` picks from the terminal, then the platform. |
 | `title` | string | `"Pi"` | Up to 40 characters | Notification title. |
 
@@ -93,6 +115,7 @@ The part of bytefly's look that a config file controls; `/bytefly settings` edit
 |---|---|---|---|---|
 | `maxFileBytes` | integer | `20971520` | `1024`–`536870912` | Reject files larger than this many bytes. |
 | `maxChars` | integer | `40000` | `200`–`100000` | Default character budget for the returned slice. |
+| `extractTimeoutMs` | integer | `30000` | `1000`–`300000` | Per-call extraction deadline; a parser that outlasts it is abandoned and the read fails with this limit named. |
 | `formats.pdf` | boolean | `true` | | Enable PDF extraction. |
 | `formats.docx` | boolean | `true` | | Enable DOCX extraction. |
 | `formats.doc` | boolean | `true` | | Enable DOC extraction. |
@@ -122,18 +145,22 @@ ignored, and an absent id keeps its registry default.
 
 ## `goal` — the goal widget
 
+`/bytefly settings` edits `achieved`.
+
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `achieved` | string | `"hide"` | `show`, `hide` | How an achieved goal renders: `show` keeps the dimmed rail line, `hide` removes it. |
 
 ## `job` — background jobs
 
+`/bytefly settings` edits `wakeOnFinish` and `detachedByDefault`.
+
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `enabled` | boolean | `true` | | Track jobs at all. |
 | `showStatus` | boolean | `true` | | Show the `▸ N` / `✗ N` chips while jobs run or a failure is unreported. |
 | `wakeOnFinish` | boolean | `false` | | Default `wake` for a new job: trigger one agent turn when it finishes. |
-| `detachedByDefault` | boolean | `false` | | Leave jobs running when the session ends unless a job opts out. |
+| `detachedByDefault` | boolean | `false` | | Leave jobs running when the session ends unless a job opts out; inert on Windows, which refuses to detach. |
 | `maxJobs` | integer | `20` | `1`–`500` | Finished jobs kept in the registry before the oldest are pruned. |
 | `maxLogLines` | integer | `100` | `1`–`5000` | Log lines returned to the model by `logs`. |
 | `maxLogBytes` | integer | `8388608` | `0`–`1073741824` | Bytes a log segment may reach before it rotates to `<id>.log.1`; `0` keeps logs unbounded. |
@@ -144,9 +171,11 @@ ignored, and an absent id keeps its registry default.
 
 ## `watch` — file and command watchers
 
+`/bytefly settings` edits `wakeOnMatch`.
+
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `enabled` | boolean | `true` | | Track watchers at all. |
+| `enabled` | boolean | `true` | | Allow `add`; `false` refuses to start a watcher. |
 | `showStatus` | boolean | `true` | | Show the chips while watchers run or a match is unreported. |
 | `wakeOnMatch` | boolean | `false` | | Default `wake` for a new watcher: trigger one agent turn on a match. |
 | `maxWatchers` | integer | `20` | `1`–`200` | Live watchers kept before `add` is refused. |
@@ -157,12 +186,16 @@ ignored, and an absent id keeps its registry default.
 
 ## `memory` — durable notes
 
+`/bytefly settings` edits `inject`.
+
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `inject` | boolean | `true` | | Inject stored notes before each run. |
 | `maxInjectBytes` | integer | `8192` | `512`–`32768` | Largest injected body, in UTF-8 bytes. |
 
 ## `rewind` — snapshots
+
+`/bytefly settings` edits `autoSnapshots`, `max`, and `safetySnapshot`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -175,6 +208,19 @@ ignored, and an absent id keeps its registry default.
 | `watch` | string[] | `[]` | | Extra tool names treated as mutating, so a call triggers a snapshot. |
 | `ignore` | string[] | `[]` | | Tool names never to snapshot; the extension's own tools are always excluded. |
 | `refNamespace` | string | `"refs/pi/rewind"` | | Git ref namespace for stored snapshots; trailing slashes are stripped. |
+
+## `subagent` — delegated runs
+
+Read once per session. A transcript is written by the dispatching process, never
+by the child, so the read-only tool set and the project-agent trust gate are
+unaffected.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit for one child run; `0` disables it. A run past it is killed and fails with `Timed out after …`. |
+| `transcripts` | string | `"off"` | `"off"`, `"failed"`, `"all"` | Which finished runs keep a transcript under `.pi/subagents/`. |
+| `retentionDays` | integer | `14` | `1`–`3650` | Age after which a run directory is pruned at session start. |
+| `maxRuns` | integer | `100` | `1`–`1000` | Run directories kept; the oldest are pruned first. |
 
 ## `todo` — the todo widget
 
@@ -238,7 +284,8 @@ empty list disables tools, and the list is capped at 200 entries.
 ## `worktree` — isolated worktrees
 
 `worktree` reads the project document from the repository root rather than the
-active working directory.
+active working directory. `/bytefly settings` edits `baseRef`, `branchPrefix`,
+`fetchRemote`, and `pruneAfterDays`.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -256,3 +303,4 @@ active working directory.
 | `guard.blockGitRedirects` | boolean | `true` | | Block git commands aimed at the main checkout. |
 | `guard.blockSymlinkEscapes` | boolean | `true` | | Block writes whose real path leaves the worktree through a symlink. |
 | `guard.blockUnparsableCommands` | boolean | `false` | | Block shell commands whose git behaviour cannot be verified. |
+| `guard.blockPowershell` | boolean | `true` | | Refuse the `powershell` tool while isolated; it is not re-rooted or guarded, so its relative paths would resolve at the main checkout. `false` allows it and is reported as a gap by `/worktree` and as `degraded` by `doctor`. |

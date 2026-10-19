@@ -19,11 +19,21 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+	statSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
-import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
+import { CompactionSummaryMessageComponent, getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
+import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS, type TUI } from "@earendil-works/pi-tui";
 import { ToolBlock } from "../extensions/bytefly/block/component.ts";
 import { DEFAULT_RAIL_GLYPH, railGlyph } from "../extensions/bytefly/chrome.ts";
 import { renderLine } from "../extensions/bytefly/footer/render/layout.ts";
@@ -33,21 +43,38 @@ import { ByteflyHeader } from "../extensions/bytefly/header/component.ts";
 import { nameplate } from "../extensions/bytefly/message/format.ts";
 import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
 import { DEFAULT_HOST_PAD } from "../extensions/bytefly/pad.ts";
+import type { SettingsSurface } from "../extensions/bytefly/panel/settings-runtime.ts";
+import { PanelComponent } from "../extensions/bytefly/panel/tui.ts";
+import { createExtensionsPickerRuntime } from "../extensions/bytefly/picker/runtime.ts";
+import type { ResourceItem } from "../extensions/bytefly/picker/types.ts";
 import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { JobListComponent } from "../extensions/job/tui.ts";
 import type { JobRecord } from "../extensions/job/types.ts";
+import type { MemoryEntries } from "../extensions/memory/format.ts";
+import { MemoryPickerComponent, type MemoryPickerCallbacks } from "../extensions/memory/tui.ts";
+import { sectionDigests } from "../extensions/plan/plan-text.ts";
+import type { StoredPlan } from "../extensions/plan/plans.ts";
+import { PlanViewComponent } from "../extensions/plan/tui.ts";
 import { askViaTui } from "../extensions/question/tui.ts";
 import type { Question } from "../extensions/question/types.ts";
 import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
 import type { RewindPoint } from "../extensions/rewind/timeline.ts";
 import { TodoListComponent } from "../extensions/todo/tui.ts";
 import type { Todo } from "../extensions/todo/types.ts";
+import { WatchListComponent } from "../extensions/watch/tui.ts";
+import type { WatchRecord } from "../extensions/watch/types.ts";
+import type { BridgeStatus } from "../extensions/wechat/bridge.ts";
+import { StatusScreenComponent, statusView } from "../extensions/wechat/status-screen.ts";
+import type { BotCredentials } from "../extensions/wechat/types.ts";
 import type { NoticeDetails } from "../lib/notice.ts";
+import type { ExtensionReport } from "../lib/requirements.ts";
 import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
+import { makeFinding, makeReport } from "../test/helpers/fixtures/doctor.ts";
+import { makeDiscovery, makeStore, packageExtension } from "../test/helpers/fixtures/picker.ts";
 import { pollUntil, sleep } from "./poll.ts";
 import { repo, setThemeInstance, theme } from "./theme.ts";
 
-/** Terminal window size in logical points; the render adapts to its columns. */
+/** The default Terminal window size in logical points; a screen may ask for its own. */
 const WINDOW_BOUNDS = { left: 80, top: 80, right: 880, bottom: 400 };
 /** The hero is a real `pi -e .` run, so it gets its own size. */
 const CHROME_BOUNDS = { left: 80, top: 80, right: 886, bottom: 673 };
@@ -230,6 +257,59 @@ const REWIND_POINTS: RewindPoint[] = [
 	},
 ];
 
+/** The plan the review screen shows; its `Steps` section changed on this review. */
+const PLAN_PATH = "/home/u/repo/.pi/plans/2026-10-18-1430-plan-review-change-marks.md";
+const PLAN_CONTENT = [
+	"# Plan review: mark the sections that changed",
+	"",
+	"## Goal",
+	"",
+	"Show a returning reviewer what changed since the last review, without leaving the plan review screen.",
+	"",
+	"## Context",
+	"",
+	"The review screen renders the plan body with Pi's own Markdown component, so headings, lists, and code already match the rest of the application. Two things are still missing for a second review: the notice that a section was revised, and a position readout once the body is taller than the terminal.",
+	"",
+	"## Approach",
+	"",
+	"- Persist the per-section digests of the reviewed plan with the approval.",
+	"- Diff the new plan against them and mark every heading that changed.",
+	"- Draw the scroll gauge from the shared kit, with `n`/`p` section jumps.",
+	"",
+	"## Steps",
+	"",
+	"- [x] Store the review baseline alongside the approval",
+	"- [x] Diff sections on the next review",
+	"- [x] Draw the gauge from the shared kit",
+	"- [ ] Mark changed headings in the section label",
+	"- [ ] Cover a second review in `tui.test.ts`",
+	"",
+	"## Risks",
+	"",
+	"- A plan edited outside Pi has no baseline, so the marks only appear on a second review.",
+	"- The digests add state to the approval entry, which `/resume` must rebuild.",
+	"",
+	"## Verification",
+	"",
+	"`bun test extensions/plan` and the render checks in `screenshots.test.ts`.",
+].join("\n");
+const PLAN: StoredPlan = {
+	path: PLAN_PATH,
+	relativePath: ".pi/plans/2026-10-18-1430-plan-review-change-marks.md",
+	content: PLAN_CONTENT,
+	bytes: Buffer.byteLength(PLAN_CONTENT),
+};
+/**
+ * The digests the previous review saw: the same plan before its two newest
+ * steps, so exactly one section — `Steps` — reads as changed.
+ */
+const PLAN_BASELINE = sectionDigests(
+	PLAN_CONTENT.replace(
+		"- [ ] Mark changed headings in the section label\n- [ ] Cover a second review in `tui.test.ts`\n",
+		"",
+	),
+);
+
 const QUESTIONS: Question[] = [
 	{
 		id: "q1",
@@ -253,14 +333,190 @@ const QUESTIONS: Question[] = [
 	},
 ];
 
+/** The `/watch` screen's watchers: one live file tail with matches, one finished command. */
+const WATCHES: WatchRecord[] = [
+	{
+		id: "w1",
+		label: "errors",
+		source: { kind: "file", path: "/home/u/repo/logs/server.log" },
+		pattern: "(error|fail)",
+		exclude: ["noise"],
+		caseSensitive: false,
+		wake: false,
+		fromStart: false,
+		status: "running",
+		startedAt: now - 12 * 60_000,
+		linesRead: 1834,
+		matchCount: 3,
+		lastMatchAt: now - 40_000,
+	},
+	{
+		id: "w2",
+		label: "build",
+		source: { kind: "command", command: "bun run build", cwd: "/home/u/repo" },
+		pattern: "error",
+		exclude: [],
+		caseSensitive: true,
+		wake: true,
+		fromStart: true,
+		status: "exited",
+		startedAt: now - 26 * 60_000,
+		endedAt: now - 24 * 60_000,
+		linesRead: 412,
+		matchCount: 0,
+		exitCode: 0,
+		signal: null,
+	},
+];
+
+/** Notes the `/memory` picker lists, project scope first. */
+const MEMORY_ENTRIES: MemoryEntries = {
+	project: [
+		"Run bun run check before every commit",
+		"Worktrees live in .pi/worktrees; one per task",
+		"Stage explicit paths; never git add -A",
+	],
+	global: ["Prefer rg over grep for searches", "Ask before publishing a release"],
+};
+
+/**
+ * The picker's store double: reads the fixture and refuses every write, so a
+ * capture can never add, move, or forget a note in the real store.
+ */
+const MEMORY_CALLBACKS: MemoryPickerCallbacks = {
+	entries: () => MEMORY_ENTRIES,
+	trusted: () => true,
+	refresh: () => false,
+	add: async () => ({ changed: false }),
+	update: async () => false,
+	forget: async () => false,
+	merge: async () => false,
+	move: async () => ({ moved: false }),
+};
+
+/**
+ * The dialogue screens take a TUI for their inline `Editor`. A capture sends no
+ * keys and the editor is never shown in list mode, so the two members an editor
+ * reads on construction are the whole guarantee this double makes.
+ */
+const SCREEN_TUI = { requestRender: noop, terminal: { rows: 40, columns: 120 } } as unknown as TUI;
+
+/** A stored account and an open bridge serving three peers, one of them mid-turn. */
+const WECHAT_ACCOUNT: BotCredentials = {
+	botToken: "token",
+	ilinkUserId: "owner@im.wechat",
+	ilinkBotId: "bot-id",
+	baseUrl: "https://ilink.example.invalid",
+	botAgent: "pi",
+	createdAt: now - 9 * 24 * 60 * 60_000,
+};
+const WECHAT_BRIDGE: BridgeStatus = {
+	open: true,
+	expired: false,
+	paused: false,
+	running: true,
+	owner: "owner@im.wechat",
+	peerCount: 3,
+	queued: 2,
+	peerStates: [
+		{ peer: "alice@im.wechat", state: { status: "running", queued: 0, runningMs: 48_000 } },
+		{ peer: "bob@im.wechat", state: { status: "queued", queued: 2 } },
+		{ peer: "carol@im.wechat", state: { status: "idle", queued: 0 } },
+	],
+	refused: 1,
+	refusedPeers: ["stranger@im.wechat"],
+	mediaDropped: 0,
+	promptPending: true,
+	prompt: {
+		peer: "alice@im.wechat",
+		kind: "select",
+		title: "Which migration should run first?",
+		startedAt: now - 90_000,
+	},
+	startedAt: now - 3 * 60 * 60_000,
+	lastPollAt: now - 2_000,
+};
+const WECHAT_VIEW = statusView(WECHAT_ACCOUNT, WECHAT_BRIDGE, now);
+
+/** The extension list the `/bytefly` panel shows: this package, half of it enabled. */
+const PANEL_CWD = "/home/u/repo";
+const PANEL_AGENT_DIR = "/home/u/.pi/agent";
+const PANEL_ITEMS: ResourceItem[] = [
+	packageExtension("bytefly", true),
+	packageExtension("plan", true),
+	packageExtension("subagent", true),
+	packageExtension("worktree", true),
+	packageExtension("todo", true),
+	packageExtension("job", true),
+	packageExtension("memory", true),
+	packageExtension("document", true),
+	packageExtension("web-access", false),
+	packageExtension("wechat", false),
+];
+/** Health for two rows: one degraded by a missing extractor, one clean. */
+const PANEL_REPORTS: ExtensionReport[] = [
+	makeReport("document", [
+		makeFinding("pdftotext", "missing", "PDF text extraction is unavailable", "brew install poppler"),
+	]),
+	makeReport("bytefly", [makeFinding("npm", "ok", "Latest published version 0.13.1")]),
+];
+/**
+ * The panel needs a settings surface even on its Extensions section. These rows
+ * are never rendered here, and every write is refused, so nothing reaches
+ * `bytefly.json` or `settings.json`.
+ */
+const PANEL_SETTINGS: SettingsSurface = {
+	views: () => [],
+	change: async () => {},
+	setValue: async () => false,
+	reset: async () => false,
+	sectionDocument: () => undefined,
+	isDirty: () => false,
+};
+
 /** One capturable screen: the asset stem, window title, and ANSI renderer. */
 interface Screen {
 	asset: string;
 	title: string;
+	/**
+	 * Terminal window bounds in logical points. A screen sets its own when the
+	 * default window is too short for its body or one column too narrow.
+	 */
+	bounds?: typeof WINDOW_BOUNDS;
+	/**
+	 * Frame size to render instead of the window's live size. Terminal.app has a
+	 * minimum window width and snaps a resize to whole cells, so a screen that
+	 * budgets rows or wraps a hint row would otherwise capture at whatever size
+	 * the window happened to reach.
+	 */
+	size?: { width: number; rows: number };
 	render(width: number, rows: number): string[];
 }
 
-const SCREENS: Record<string, Screen> = {
+export const SCREENS: Record<string, Screen> = {
+	compaction: {
+		asset: "compaction",
+		title: "π - my-pi-agent · /compact",
+		render: (width) => {
+			setThemeInstance(theme);
+			const message = {
+				role: "compactionSummary",
+				summary: [
+					"### Summary",
+					"",
+					"- Built the retry wrapper in `src/http.ts` with three attempts and exponential backoff.",
+					"- Moved the timeout into the wrapper; `src/cli.ts` still imports `run` from `./run.js`.",
+					"- `bun run check` fails on the missing `run` export, not on the wrapper.",
+					"- Next: add the export, then re-run the check.",
+				].join("\n"),
+				tokensBefore: 42_817,
+				timestamp: 0,
+			} as const;
+			const component = new CompactionSummaryMessageComponent(message as never, getMarkdownTheme(), 1);
+			component.setExpanded(true);
+			return component.render(width);
+		},
+	},
 	todo: {
 		asset: "todo",
 		title: "π - my-pi-agent · /todos",
@@ -291,6 +547,25 @@ const SCREENS: Record<string, Screen> = {
 				() => rows,
 			).render(width),
 	},
+	plan: {
+		asset: "plan",
+		title: "π - my-pi-agent · exit_plan_mode",
+		// Wide enough for the whole hint row and tall enough to reach the Steps
+		// list; the frame size is fixed so the capture never depends on the resize.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 740 },
+		size: { width: 120, rows: 35 },
+		render: (width, rows) => {
+			setThemeInstance(theme);
+			return new PlanViewComponent({
+				plan: PLAN,
+				baseline: PLAN_BASELINE,
+				theme,
+				onClose: noop,
+				requestRender: noop,
+				viewportRows: () => rows,
+			}).render(width);
+		},
+	},
 	rewind: {
 		asset: "rewind",
 		title: "π - my-pi-agent · /rewind",
@@ -301,6 +576,65 @@ const SCREENS: Record<string, Screen> = {
 				onClose: noop,
 				requestRender: noop,
 				viewportRows: () => rows,
+			}).render(width),
+	},
+	watch: {
+		asset: "watch",
+		title: "π - my-pi-agent · /watch",
+		bounds: { left: 80, top: 80, right: 920, bottom: 330 },
+		size: { width: 100, rows: 11 },
+		render: (width, rows) =>
+			new WatchListComponent(
+				() => WATCHES,
+				theme,
+				{ lines: () => undefined, stop: noop, clear: noop },
+				noop,
+				noop,
+				() => rows,
+			).render(width),
+	},
+	memory: {
+		asset: "memory",
+		title: "π - my-pi-agent · /memory",
+		bounds: { left: 80, top: 80, right: 920, bottom: 330 },
+		size: { width: 100, rows: 11 },
+		render: (width, rows) =>
+			new MemoryPickerComponent(SCREEN_TUI, theme, MEMORY_CALLBACKS, noop, noop, () => rows).render(width),
+	},
+	bytefly: {
+		asset: "bytefly",
+		title: "π - my-pi-agent · /bytefly",
+		bounds: { left: 80, top: 80, right: 1080, bottom: 460 },
+		size: { width: 120, rows: 19 },
+		render: (width, rows) => {
+			// A fresh runtime over a fake discovery per render: no probe, no write.
+			const { discovery } = makeDiscovery({ global: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
+			const runtime = createExtensionsPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
+			return new PanelComponent({
+				runtime,
+				reports: () => PANEL_REPORTS,
+				settings: PANEL_SETTINGS,
+				theme,
+				agentDir: PANEL_AGENT_DIR,
+				cwd: PANEL_CWD,
+				viewportRows: () => rows,
+				requestRender: noop,
+				refresh: noop,
+				onClose: noop,
+			}).render(width);
+		},
+	},
+	wechat: {
+		asset: "wechat",
+		title: "π - my-pi-agent · /wechat",
+		bounds: { left: 80, top: 80, right: 920, bottom: 400 },
+		size: { width: 100, rows: 16 },
+		render: (width) =>
+			new StatusScreenComponent({
+				theme,
+				view: () => WECHAT_VIEW,
+				onClose: noop,
+				requestRender: noop,
 			}).render(width),
 	},
 };
@@ -355,6 +689,11 @@ const CHROME_SNAPSHOT: StatusSnapshot = {
 	currency: { code: "USD", decimals: 2 },
 	cacheHitRate: 87,
 	providerCount: 1,
+	// Two delegated runs, priced separately: the parent `usage` above is unchanged.
+	delegation: {
+		runs: 2,
+		usage: { input: 18000, output: 2400, cacheRead: 0, cacheWrite: 0, cost: 0.06 },
+	},
 };
 
 /** The notice the preview shows: the shape `job`/`watch` post to the transcript. */
@@ -406,7 +745,7 @@ function renderChrome(width: number): string[] {
 
 	lines.push(...new NoticeComponent(CHROME_NOTICE, theme, pad).render(width));
 	lines.push("");
-	lines.push(...new SeparatorComponent(3, theme, pad).render(width));
+	lines.push(...new SeparatorComponent({ turn: 3, durationMs: 72_000, tools: 7 }, theme, pad).render(width));
 	lines.push("");
 
 	for (const line of buildLines(CHROME_SNAPSHOT, theme, "/Users/gavin")) {
@@ -445,14 +784,16 @@ function deleteProfile(): void {
 }
 
 /** Open one Terminal window running the render. */
-function openWindow(name: string, ready: string): void {
-	const command = `cd ${shellQuote(repo)} && ${shellQuote(process.execPath)} ${shellQuote(join(repo, "scripts", "screenshots.ts"))} render ${name} --hold --ready ${shellQuote(ready)}`;
+function openWindow(name: string, ready: string, screen: Screen): void {
+	const bounds = screen.bounds ?? WINDOW_BOUNDS;
+	const size = screen.size ? ` --width ${screen.size.width} --rows ${screen.size.rows}` : "";
+	const command = `cd ${shellQuote(repo)} && ${shellQuote(process.execPath)} ${shellQuote(join(repo, "scripts", "screenshots.ts"))} render ${name}${size} --hold --ready ${shellQuote(ready)}`;
 	const script = `tell application "Terminal"
 		activate
 		set w to do script ""
 		set current settings of w to settings set "${PROFILE}"
 		do script ${JSON.stringify(command)} in w
-		set bounds of front window to {${WINDOW_BOUNDS.left}, ${WINDOW_BOUNDS.top}, ${WINDOW_BOUNDS.right}, ${WINDOW_BOUNDS.bottom}}
+		set bounds of front window to {${bounds.left}, ${bounds.top}, ${bounds.right}, ${bounds.bottom}}
 	end tell`;
 	osascript(script);
 }
@@ -582,8 +923,9 @@ async function waitForTurn(session: string, timeoutMs: number): Promise<void> {
  * chrome is the shipped code rather than a mock. `-ne` isolates the package from
  * anything else installed, `--offline` drops the startup update check (so an
  * outdated local `pi` cannot put an "Update Available" box in the hero),
- * `--no-themes` avoids a collision with an installed copy, and the worktree env
- * is cleared so no banner line is printed.
+ * `--no-themes` avoids a collision with an installed copy, the worktree env is
+ * cleared so no banner line is printed, and the hero runs on its own agent dir so
+ * no line about the capturing machine's live state can reach the frame.
  */
 async function captureChrome(): Promise<void> {
 	const session = join(tmpdir(), "pi-screenshot-chrome.jsonl");
@@ -595,6 +937,24 @@ async function captureChrome(): Promise<void> {
 	// is left alone and a fresh temp one is used instead.
 	const named = join(homedir(), "retry-policy");
 	const demo = existsSync(named) ? mkdtempSync(join(homedir(), "pi-hero-")) : named;
+	// The hero's own agent dir, seeded with the live one's top-level JSON: auth,
+	// model definitions, and bytefly's config, so the turn still runs and the
+	// chrome is the configured one. No directory is copied — a live WeChat bridge
+	// would otherwise put "another session is already polling" in the frame, and
+	// no session history belongs in a screenshot.
+	const agentDir = mkdtempSync(join(tmpdir(), "pi-hero-agent-"));
+	const liveAgentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	for (const entry of readdirSync(liveAgentDir)) {
+		const from = join(liveAgentDir, entry);
+		if (entry.endsWith(".json") && statSync(from).isFile()) copyFileSync(from, join(agentDir, entry));
+	}
+	// Pi keeps the helper binaries it downloads (`fd`, `rg`) in `<agentDir>/bin` and
+	// warns when they are missing, so the hero gets that directory by reference.
+	// It is a link, not a copy: unlinking it in the cleanup below leaves the live
+	// one alone.
+	const liveBin = join(liveAgentDir, "bin");
+	const agentBin = join(agentDir, "bin");
+	if (existsSync(liveBin)) symlinkSync(liveBin, agentBin, "dir");
 	execFileSync("git", ["init", "-q", "-b", "feature/retry-policy", demo]);
 	writeFileSync(join(demo, "retry.ts"), "export const retries = 3;\n");
 	execFileSync("git", ["-C", demo, "add", "-A"]);
@@ -610,7 +970,8 @@ async function captureChrome(): Promise<void> {
 		"Add the retry budget",
 	]);
 	const command =
-		`cd ${shellQuote(demo)} && unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; ` +
+		`cd ${shellQuote(demo)} && export PI_CODING_AGENT_DIR=${shellQuote(agentDir)} && ` +
+		"unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; " +
 		`for n in \${(k)parameters}; do case \${n:u} in *KEY*|*TOKEN*|*SECRET*|*PASSWORD*) unset $n ;; esac; done; ` +
 		`${shellQuote(pi)} -ne --offline -e ${shellQuote(repo)} --no-themes ` +
 		`--theme ${shellQuote(join(repo, "themes", "bytefly-dark.json"))} --use-theme bytefly-dark ` +
@@ -647,6 +1008,8 @@ async function captureChrome(): Promise<void> {
 		closeWindow(id);
 		rmSync(session, { force: true });
 		rmSync(demo, { recursive: true, force: true });
+		rmSync(agentBin, { force: true });
+		rmSync(agentDir, { recursive: true, force: true });
 	}
 }
 
@@ -658,7 +1021,7 @@ async function capture(name: string): Promise<void> {
 	}
 	const ready = join(tmpdir(), `pi-screenshot-${name}.ready`);
 	rmSync(ready, { force: true });
-	openWindow(name, ready);
+	openWindow(name, ready, screen);
 	let id: number | undefined;
 	try {
 		// Capture only once the frame has replaced the shell's command echo.
@@ -689,7 +1052,7 @@ function numberArg(args: string[], flag: string): number | undefined {
  * shot — a real `pi -e .` session — but this frame is what makes the design
  * reviewable on any OS and at any width.
  */
-const CHROME_SCREEN: Screen = {
+export const CHROME_SCREEN: Screen = {
 	asset: "chrome",
 	title: "π - my-pi-agent · chrome",
 	render: (width) => renderChrome(width),

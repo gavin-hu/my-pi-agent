@@ -8,10 +8,10 @@ deep technical contracts live outside this directory and are linked below.
 
 | Guide | What it covers |
 |---|---|
-| [Getting started](./getting-started.md) | Requirements, install options, verifying the load, themes, disabling extensions. |
+| [Getting started](./getting-started.md) | Whether the pack fits, a trial run, install options, verifying the load, first workflows, turning parts off, and removal. |
 | [Extensions](./extensions.md) | The full catalog of every extension and theme, with its tools and commands. |
 | [Configuration](./configuration.md) | Config-file resolution, the per-extension index, and environment variables. |
-| [Configuration reference](./references/configuration-reference.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
+| [Configuration reference](./references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
 | [Architecture](./architecture.md) | How the package, its extensions, and `lib/` fit together. |
 | [Development](./development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./security.md) | Trust boundaries for the loopback and remote surfaces. |
@@ -31,5 +31,6 @@ These are the authoritative references the guides summarize:
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | The contributor entry point. |
 | [`../extensions/<name>/README.md`](../extensions/) | One doc per extension: full tool surface, Pi integration, and design notes. |
 | [`../lib/README.md`](../lib/README.md) | Shared helpers and the host seams. |
+| [`../lib/tui/README.md`](../lib/tui/README.md) | The terminal design system: host-before-custom, block grammar, primitives, width, focus, and the render rules. |
 | [`../test/README.md`](../test/README.md) | Test principles, tiers, and helper conventions. |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | Release notes. |

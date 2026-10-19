@@ -1,23 +1,28 @@
 /**
- * The `/bytefly` surface: one command, `/bytefly [doctor] [settings] [extension] [refresh]`.
+ * The `/bytefly` surface: one command, `/bytefly [doctor] [settings] [update] [extension] [refresh]`.
  *
  * Without `doctor` it opens the extension screen: the dock in `tui`, the
  * grouped listing elsewhere. `settings` opens the Settings section, or prints
- * its grouped listing outside `tui` without resolving packages. With `doctor`
- * it produces the doctor report — the same text `run_doctor` returns — for the
- * whole set or one named extension; in `tui` the report is the dock screen.
- * Discovery, the doctor probe, and the dirty-to-reload confirm all live here.
- * The doctor runtime is injected by the composition root, so `run_doctor` and
- * the screen keep reading one cache.
+ * its grouped listing outside `tui` without resolving packages. `update`
+ * re-runs the published-version check and reports what it found, which is the
+ * one place a request is made on demand. With `doctor` it produces the doctor
+ * report — the same text `run_doctor` returns — for the whole set or one named
+ * extension; in `tui` the report is the dock screen. Discovery, the doctor
+ * probe, and the dirty-to-reload confirm all live here. The doctor runtime and
+ * the update handle are injected by the composition root, so `run_doctor` and
+ * the screen keep reading one cache, and the command paints the marker it finds.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import pkg from "../../../package.json";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { withRailsSuppressed } from "../../../lib/rails.ts";
 import { REQUIREMENTS, type ExtensionReport } from "../../../lib/requirements.ts";
 import { formatExtension, formatReport, hasProblems } from "../doctor/format.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
+import { updateOutcomeText } from "../update/format.ts";
+import type { UpdateHandle } from "../update/register.ts";
 import { createSettingsStores, discoverExtensions, type DiscoveryDeps } from "../picker/discovery.ts";
 import { createExtensionsPickerRuntime, type ExtensionsPickerRuntime } from "../picker/runtime.ts";
 import type { Discovery } from "../picker/types.ts";
@@ -31,6 +36,8 @@ import type { PanelSection } from "./types.ts";
 export interface PanelCommandDeps {
 	/** The doctor runtime created by `registerDoctor`; shared with `run_doctor`. */
 	doctor: DoctorRuntime;
+	/** The update handle `registerUpdate` returns, for `/bytefly update`. */
+	update: UpdateHandle;
 	/** The picker's discovery seam. */
 	discover?: (deps: DiscoveryDeps) => Promise<Discovery>;
 	/** The Settings runtime seam. */
@@ -49,13 +56,14 @@ function selectableNames(discovery: Discovery): Set<string> {
 }
 
 /** The values a bare `/bytefly <tab>` offers, in screen order. */
-const FIRST_TOKENS = ["doctor", "settings", ...Object.keys(REQUIREMENTS), "refresh"] as const;
+const FIRST_TOKENS = ["doctor", "settings", "update", ...Object.keys(REQUIREMENTS), "refresh"] as const;
 
 /**
  * Argument completions. The host replaces the whole argument text with the
  * returned `value`, so a second token returns the full `doctor <name>` or
- * `<name> refresh` argument rather than just the word. `/bytefly settings` takes
- * no name, and `refresh` is never followed by another token.
+ * `<name> refresh` argument rather than just the word. `/bytefly settings` and
+ * `/bytefly update` take no name, and `refresh` is never followed by another
+ * token.
  */
 function completions(prefix: string): Array<{ value: string; label: string }> | null {
 	const [first = "", second, ...rest] = prefix.trimStart().split(/\s+/);
@@ -64,7 +72,7 @@ function completions(prefix: string): Array<{ value: string; label: string }> | 
 		const options = FIRST_TOKENS.filter((option) => option.startsWith(first));
 		return options.length > 0 ? options.map((option) => ({ value: `${option} `, label: option })) : null;
 	}
-	if (first === "settings" || first === "refresh") return null;
+	if (first === "settings" || first === "refresh" || first === "update") return null;
 	const options = (first === "doctor" ? [...Object.keys(REQUIREMENTS), "refresh"] : ["refresh"]).filter((option) =>
 		option.startsWith(second),
 	);
@@ -72,7 +80,7 @@ function completions(prefix: string): Array<{ value: string; label: string }> | 
 }
 
 /** Which bytefly surface the arguments select. */
-type PanelMode = "screen" | "doctor";
+type PanelMode = "screen" | "doctor" | "update";
 
 /** `/bytefly [doctor] [settings] [extension] [refresh]`, parsed. */
 interface PanelArgs {
@@ -85,12 +93,15 @@ interface PanelArgs {
 	refresh: boolean;
 }
 
-/** Parse `/bytefly [doctor] [settings] [extension] [refresh]`; extra tokens are ignored. */
+/** Parse `/bytefly [doctor] [settings] [update] [extension] [refresh]`; extra tokens are ignored. */
 function parseArgs(args: string): PanelArgs {
 	const parts = args.trim().split(/\s+/).filter(Boolean);
 	const refresh = parts.includes("refresh");
 	const rest = parts.filter((part) => part !== "refresh");
 	if (rest[0] === "doctor") return { mode: "doctor", section: "extensions", name: rest[1], refresh };
+	// `update` is already a refresh of the published version, so a stray `refresh`
+	// beside it is accepted and ignored rather than refused.
+	if (rest[0] === "update") return { mode: "update", section: "extensions", refresh };
 	if (rest[0] === "settings") return { mode: "screen", section: "settings", name: rest[1], refresh };
 	return { mode: "screen", section: "extensions", name: rest[0], refresh };
 }
@@ -146,12 +157,22 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		};
 		const settingsNotice = (message: string): void => surfaceNotice(message, "warning");
 
+		// `/bytefly update` answers one question and resolves nothing: no package
+		// discovery, no doctor probe, no screen. It is the one path a version check
+		// takes on demand, so the request happens here and nowhere else.
+		if (mode === "update") {
+			const outcome = await deps.update.recheck();
+			const { text, severity } = updateOutcomeText(outcome, pkg.version);
+			ctx.ui.notify(text, severity);
+			return;
+		}
+
 		// Settings outside `tui` prints its grouped listing without resolving
 		// packages or probing the doctor.
 		if (section === "settings" && ctx.mode !== "tui") {
 			const stores = createSettingsStores(cwd, agentDir, trusted);
 			const settings = makeSettings({ stores, cwd, agentDir, trusted, onError: settingsNotice });
-			ctx.ui.notify(formatSettingsListing(settings.views("global"), "global"), "info");
+			ctx.ui.notify(formatSettingsListing(settings.views("global")), "info");
 			return;
 		}
 

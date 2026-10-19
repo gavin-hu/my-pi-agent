@@ -39,7 +39,12 @@ export interface Harness {
 
 /** Build a runtime wired to fake process primitives and a temp registry. */
 export function makeHarness(
-	options: { script?: (child: JobChild) => void; config?: Partial<JobsConfig>; startToken?: StartTokenFn } = {},
+	options: {
+		script?: (child: JobChild) => void;
+		config?: Partial<JobsConfig>;
+		startToken?: StartTokenFn;
+		isWindows?: () => boolean;
+	} = {},
 ): Harness {
 	const clock = makeClock(1000);
 	const dir = mkdtempSync(join(tmpdir(), "pi-jobs-"));
@@ -65,6 +70,7 @@ export function makeHarness(
 		now: () => clock.advance(10),
 		config,
 		startToken: options.startToken ?? (() => undefined),
+		isWindows: options.isWindows,
 	});
 
 	return {

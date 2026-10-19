@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeMarkdownTheme, fakeTheme, roleSgrTheme } from "../../test/helpers/fakes.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { sectionDigests } from "./plan-text.ts";
 import type { StoredPlan } from "./plans.ts";
 import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 
@@ -28,7 +29,7 @@ interface SetupOptions {
 	markdownTheme?: any;
 	path?: string;
 	/** Content the previous review showed, for the changed markers. */
-	previous?: string;
+	baseline?: string;
 }
 
 function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", options: SetupOptions = {}) {
@@ -38,7 +39,7 @@ function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", optio
 	const theme = options.theme ?? fakeTheme;
 	const component = new PlanViewComponent({
 		plan: plan(content, options.path),
-		previous: options.previous,
+		baseline: options.baseline === undefined ? undefined : sectionDigests(options.baseline),
 		theme,
 		markdownTheme: options.markdownTheme ?? fakeMarkdownTheme(theme),
 		onClose: (action, refinement) => {
@@ -459,13 +460,13 @@ describe("PlanViewComponent — changed since the last review", () => {
 	const scrollLine = (component: PlanViewComponent): string => render(component, 80).at(-3) ?? "";
 
 	test("summarizes the sections that changed", () => {
-		const { component } = setup(after, { previous: before });
+		const { component } = setup(after, { baseline: before });
 		expect(render(component, 100).join("\n")).toContain("2 sections changed since your last review");
 	});
 
 	test("says nothing on a first review or an unchanged plan", () => {
 		expect(render(setup(after).component, 100).join("\n")).not.toContain("changed since your last review");
-		expect(render(setup(after, { previous: after }).component, 100).join("\n")).not.toContain(
+		expect(render(setup(after, { baseline: after }).component, 100).join("\n")).not.toContain(
 			"changed since your last review",
 		);
 	});
@@ -474,13 +475,13 @@ describe("PlanViewComponent — changed since the last review", () => {
 		const long = Array.from({ length: 60 }, (_, index) => `line ${index}`).join("\n");
 		const { component } = setup(`# Plan\n${long}\nchanged line`, {
 			rows: 20,
-			previous: `# Plan\n${long}`,
+			baseline: `# Plan\n${long}`,
 		});
 		expect(scrollLine(component)).toContain("Plan · changed");
 	});
 
 	test("stays within the width with the summary", () => {
-		const { component } = setup(after, { previous: before });
+		const { component } = setup(after, { baseline: before });
 		for (const width of [80, 40, 20, 12, 6]) {
 			for (const line of render(component, width)) {
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
@@ -491,15 +492,15 @@ describe("PlanViewComponent — changed since the last review", () => {
 	test("counts one section for a duplicate heading that changed once", () => {
 		const previous = ["# Plan", "## Notes", "a", "## Notes", "b"].join("\n");
 		const current = ["# Plan", "## Notes", "a", "## Notes", "B"].join("\n");
-		const { component } = setup(current, { previous });
+		const { component } = setup(current, { baseline: previous });
 		expect(render(component, 100).join("\n")).toContain("1 section changed since your last review");
 	});
 
 	test("a plan with a tab is unchanged after being shown once", () => {
-		// The baseline is stored raw while the body is sanitized, so comparing them
-		// without normalizing reports the same tab as a change on every review.
+		// The digest is computed over the same normalization the body is rendered
+		// with, so a tab the reader saw is not reported as a change.
 		const tabbed = ["# Plan", "## Goal", "\tTabbed body", "## Steps", "- [ ] One"].join("\n");
-		const { component } = setup(tabbed, { previous: tabbed });
+		const { component } = setup(tabbed, { baseline: tabbed });
 		expect(render(component, 100).join("\n")).not.toContain("changed since your last review");
 	});
 });

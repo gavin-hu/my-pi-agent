@@ -80,3 +80,33 @@ describe("mergeTodos", () => {
 		expect(merged).toMatchObject({ added: 2, skipped: 0, kept: 0, deferred: 0 });
 	});
 });
+
+describe("mergeTodos — the trailing verification item", () => {
+	const steps = [{ content: "Add the cache", status: "pending" as const }];
+	const verification = { content: "Verify: bun run check passes", status: "pending" as const };
+
+	test("appends it after the steps without counting it as one", () => {
+		const merged = mergeTodos([], steps, 50, verification);
+
+		expect(merged.todos.map((todo) => todo.content)).toEqual(["Add the cache", "Verify: bun run check passes"]);
+		expect(merged.added).toBe(1);
+		expect(merged.trailing).toBe("added");
+	});
+
+	test("skips it when the list already holds it", () => {
+		const merged = mergeTodos([verification], steps, 50, verification);
+		expect(merged.trailing).toBe("skipped");
+		expect(merged.todos.filter((todo) => todo.content === verification.content)).toHaveLength(1);
+	});
+
+	test("defers it when the list is full, after the steps fit", () => {
+		const merged = mergeTodos([{ content: "existing", status: "pending" }], steps, 2, verification);
+		expect(merged.todos.map((todo) => todo.content)).toEqual(["existing", "Add the cache"]);
+		expect(merged.trailing).toBe("deferred");
+		expect(merged.deferred).toBe(0);
+	});
+
+	test("reports nothing when the plan has no verification item", () => {
+		expect(mergeTodos([], steps, 50).trailing).toBeUndefined();
+	});
+});

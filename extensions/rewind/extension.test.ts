@@ -203,6 +203,27 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		expect(meta.entryId).toBe("entry-9");
 	});
 
+	test("snapshots a run started by a custom message, which has no prompt", async () => {
+		const repo = await makeRepo("pi-rw-ext-wake-");
+		cleanups.push(repo);
+		const fake = setup();
+		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser("entry-9"), sessionId: "session-9" });
+		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		await emit(
+			fake.pi,
+			"before_agent_start",
+			{ type: "before_agent_start", messageType: "custom", message: { role: "user", content: "wake" } },
+			ctx,
+		);
+
+		writeFileSync(join(repo, "w.txt"), "x\n");
+		await emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx);
+
+		const [meta] = await metadata(repo);
+		expect(meta.prompt).toBeUndefined();
+		expect(meta.sessionId).toBe("session-9");
+	});
+
 	test("autoSnapshots false disables automatic snapshots", async () => {
 		const repo = await makeRepo("pi-rw-ext-off-");
 		cleanups.push(repo);

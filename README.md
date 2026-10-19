@@ -3,13 +3,13 @@
 **English** · [简体中文](./README.zh-CN.md)
 
 [![CI](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/gavin-hu/my-pi-agent/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/%40gavin-hu%2Fmy-pi-agent)](https://www.npmjs.com/package/@gavin-hu/my-pi-agent)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
 
-Plan before you act, delegate the work, keep the main checkout clean, and carry
-context across sessions. `my-pi-agent` is a single [Pi](https://pi.dev) package
-that adds sixteen extensions and two themes — install the pack, turn off what
-you do not want, and keep using Pi unchanged.
+`my-pi-agent` is a single [Pi](https://pi.dev) package that adds a curated set
+of extensions and themes to the agent you already use — install the pack, turn
+off what you do not want, and keep using Pi unchanged.
 
 ![A terminal window running the Pi TUI with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar](assets/chrome.png)
 
@@ -20,7 +20,6 @@ you do not want, and keep using Pi unchanged.
 - [What you get](#what-you-get)
 - [Configuration](#configuration)
 - [Documentation](#documentation)
-- [Requirements](#requirements)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -32,13 +31,16 @@ want the agent to *think first and work safely*:
 - **Plan, then execute.** A read-only planning mode turns a task into a reviewed
   plan file that the agent then follows step by step.
 - **Delegate and parallelize.** Run specialist subagents in their own Pi
-  processes to explore, review, test, or implement while you keep the thread.
-- **Never wreck the checkout.** Work happens in an isolated `git worktree`, and
-  every prompt is snapshotted so a bad turn is one `/rewind` away.
+  processes, push a long build into a background job, and let a watcher tail a
+  log until it matters — all while you keep the thread.
+- **Never wreck the checkout.** Isolation is one command: the task moves onto its
+  own branch in a `git worktree`, and every prompt is snapshotted so a bad turn
+  is one `/rewind` away.
 - **Remember across sessions.** Durable notes live in plain markdown that you
   can read, edit, and version.
 - **Reach the web and your files.** Search, fetch, browse, open, and read
-  documents — all from inside the session.
+  documents from inside the session, and answer a WeChat chat through a bridge to
+  the live session.
 
 Everything is optional and independently toggleable. Nothing is patched or
 forked: Pi discovers the resources through the `pi` manifest in
@@ -50,12 +52,17 @@ other.
 Requires a working [Pi](https://pi.dev) installation.
 
 ```bash
-pi install npm:@gavin-hu/my-pi-agent                       # install from npm
-pi install git:github.com/gavin-hu/my-pi-agent             # install from git
-pi install git:github.com/gavin-hu/my-pi-agent@v0.8.0      # pin a release
-pi install ./ -l                                           # project-local (.pi/settings.json)
-pi -e .                                                    # try it for one run
+pi install npm:@gavin-hu/my-pi-agent
 ```
+
+[Getting started](./docs/getting-started.md) has the other sources — git, a
+pinned release, a project-local install, and a trial that writes nothing — plus
+the fit decision, the first workflows, and how to remove the pack.
+
+`git` on `PATH` is needed by [`worktree`](./extensions/worktree/) and
+[`rewind`](./extensions/rewind/); everything else degrades or disables cleanly,
+and `/bytefly doctor` names what is missing, including optional runtime pieces.
+Windows, macOS, and Linux all work, and the full check suite runs on each in CI.
 
 Then, from inside Pi:
 
@@ -73,9 +80,14 @@ Then, from inside Pi:
 - `/settings` → **Theme** selects a theme.
 - `/plan <task>` starts a task in read-only planning mode.
 
+One thing the pack does on its own: once per interactive session, `bytefly` asks
+npm for the newest published version and marks the header when yours is older.
+Nothing about the session is sent, and `PI_OFFLINE` skips the request;
+[`docs/security.md`](./docs/security.md) covers the trust boundaries.
+
 ## What you get
 
-Sixteen extensions and two themes, grouped by what you are trying to do. Each
+Sixteen extensions, grouped by what you are trying to do, plus two themes. Each
 extension's own `README.md` has the full tool and command surface.
 
 ### Plan and delegate
@@ -112,8 +124,16 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` and `settings` subcommands), `run_doctor` | A themed header and width-adaptive footer, a two-row `You` nameplate on each user message, a rule between completed turns, a shared transcript notice, a tool block that leads with its call line and rails its result body two columns under it (the rail glyph is the `chrome.rail` setting), a live elapsed counter on Pi's working row, the `/bytefly` control center — an Extensions section that lists every extension with its health and enables or disables one, plus a Settings section with ten curated preferences across six groups, including inline text editing for the notification title (`/bytefly settings`) — `/bytefly doctor` prints the doctor report, and an opt-in `notify` capability that raises OS notifications when a run or a background job finishes or the agent asks for input, and one startup check of the published npm version, marked `↑0.12.0` in the header and announced in a transcript notice. DeepSeek is priced out of the box, and `bytefly.json` is the shared config document every extension reads. |
-| [`bytefly-dark`](./themes/bytefly-dark.json) / [`bytefly-light`](./themes/bytefly-light.json) | `/settings` → **Theme** | A GitHub-inspired dark palette and its light companion, with optional automatic light/dark switching. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor` and `settings` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you. `bytefly.json` is the config document every extension reads. |
+
+### Themes
+
+[`bytefly-dark`](./themes/bytefly-dark.json) is a GitHub-inspired dark palette
+and [`bytefly-light`](./themes/bytefly-light.json) its light companion, with
+optional automatic light/dark switching. Installing the pack does not change
+your theme: pick one through `/settings` → **Theme**, or set
+`"theme": "bytefly-light/bytefly-dark"` for switching. The screenshots in this
+README use `bytefly-dark`.
 
 ### Screens
 
@@ -148,7 +168,7 @@ document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and merged with
 `<cwd>/.pi/bytefly.json` (project wins), under a top-level section named for the
 extension. Each extension's `README.md` covers the behaviour around its keys,
 [`docs/configuration.md`](./docs/configuration.md) indexes the sections, and
-[`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md) lists
+[`docs/references/bytefly-config.md`](./docs/references/bytefly-config.md) lists
 every key with its type, default, and bounds.
 
 Every extension is on by default. To load the pack without some of them, set
@@ -167,24 +187,14 @@ stops the factories from registering; to drop the whole package, use Pi's
 
 | Guide | What it covers |
 |---|---|
-| [Getting started](./docs/getting-started.md) | Requirements, install options, verifying the load, themes. |
+| [Getting started](./docs/getting-started.md) | Whether the pack fits, a trial run, install options, verifying the load, first workflows, and removal. |
 | [Extensions](./docs/extensions.md) | The full catalog of every extension and theme. |
 | [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
-| [Configuration reference](./docs/references/configuration-reference.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
+| [Configuration reference](./docs/references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
 | [Architecture](./docs/architecture.md) | How the package, its extensions, and `lib/` fit together. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |
-
-## Requirements
-
-- **Pi** — a working installation; `my-pi-agent` is a package, not a fork.
-- **OS** — Windows, macOS, and Linux; the full check suite runs on all three in
-  CI.
-- **git** on `PATH` for the `worktree` and `rewind` extensions; everything else
-  degrades or disables cleanly, and `/bytefly doctor` tells you what is missing.
-- Optional runtime pieces (for example a browser for HTML exports) are reported
-  per extension by `/bytefly doctor`.
 
 ## Contributing
 

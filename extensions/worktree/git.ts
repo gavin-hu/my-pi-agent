@@ -191,6 +191,25 @@ export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boo
 }
 
 /** Whether a local branch exists. */
+/**
+ * Count of commits on `branch` that `base` does not contain.
+ *
+ * Takes the branch by name rather than reading `HEAD`, because a handoff is read
+ * after the worktree may already be gone while its branch refs outlive it.
+ */
+export async function commitsAheadOf(pi: ExtensionAPI, dir: string, branch: string, base: string): Promise<number> {
+	const result = await git(pi, ["rev-list", "--count", `${base}..${branch}`], dir);
+	if (result.code !== 0) return 0;
+	const count = Number.parseInt(result.stdout.trim(), 10);
+	return Number.isFinite(count) ? count : 0;
+}
+
+/** Whether `ref` resolves here: a branch, a remote-tracking ref, or a tag. */
+export async function refExists(pi: ExtensionAPI, dir: string, ref: string): Promise<boolean> {
+	const result = await git(pi, ["rev-parse", "--verify", "--quiet", ref], dir);
+	return result.code === 0 && result.stdout.trim() !== "";
+}
+
 export async function branchExists(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<boolean> {
 	const result = await git(pi, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], repoRoot);
 	return result.code === 0;
@@ -238,6 +257,15 @@ export async function deleteBranch(
 	const outcome = await gitOutcome(pi, ["branch", force ? "-D" : "-d", branch], repoRoot);
 	if (outcome.ok) return { ok: true };
 	return { ok: false, error: outcome.error || `Could not delete branch ${branch}` };
+}
+
+/**
+ * Whether git ignores `path` in `dir`. Asks git rather than matching ignore
+ * text, so a directory covered by a wider rule also counts as ignored.
+ */
+export async function isIgnored(pi: ExtensionAPI, dir: string, path: string): Promise<boolean> {
+	const result = await git(pi, ["check-ignore", "-q", "--", path], dir);
+	return result.code === 0;
 }
 
 /** Porcelain status lines for a working tree; empty when clean. */

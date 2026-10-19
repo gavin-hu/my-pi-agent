@@ -16,6 +16,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { WEB_SEARCH_PROVIDER_CHANNEL } from "../../../lib/events.ts";
 import { missingFindings } from "../../../lib/requirements.ts";
 import { loadConfig } from "./config.ts";
 import { warningNotice } from "./format.ts";
@@ -38,6 +39,11 @@ export function registerDoctor(pi: ExtensionAPI, deps: DoctorDeps = {}): DoctorR
 	const runtime = deps.runtime ?? createDoctorRuntime(pi);
 
 	registerTools(pi, runtime);
+
+	// `web-access` publishes what it resolved at session start; the doctor reports
+	// the provider, its key variable, and (on a refresh) its endpoint from that,
+	// without importing the extension.
+	pi.events.on(WEB_SEARCH_PROVIDER_CHANNEL, (facts) => runtime.noteSearchFacts(facts));
 
 	pi.on("session_start", async (_event, ctx) => {
 		const config = loadConfig(ctx.cwd);

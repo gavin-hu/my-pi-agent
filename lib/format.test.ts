@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
 	formatCount,
 	formatDuration,
+	formatToolCount,
 	formatTokens,
 	sanitize,
 	sanitizeLine,
@@ -102,5 +103,18 @@ describe("formatCount", () => {
 		expect(formatCount(42478)).toBe("42,478");
 		expect(formatCount(-42478)).toBe("-42,478");
 		expect(formatCount(Number.NaN)).toBe("0");
+	});
+});
+
+describe("formatToolCount", () => {
+	test("uses the singular for one and the plural otherwise", () => {
+		expect(formatToolCount(0)).toBe("0 tools");
+		expect(formatToolCount(1)).toBe("1 tool");
+		expect(formatToolCount(3)).toBe("3 tools");
+	});
+
+	test("treats an invalid or negative count as zero", () => {
+		expect(formatToolCount(Number.NaN)).toBe("0 tools");
+		expect(formatToolCount(-2)).toBe("0 tools");
 	});
 });

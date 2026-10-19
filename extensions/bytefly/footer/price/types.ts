@@ -56,4 +56,9 @@ export interface ByteflyConfig {
 	/** Rates keyed by `provider/model`, matched through wildcards. */
 	rates: Readonly<Record<string, ModelRates>>;
 	peak: PeakSchedule;
+	/**
+	 * Session spend that triggers one warning, in `currency`; `0` turns the
+	 * guardrail off. It warns, it does not stop anything.
+	 */
+	budget: number;
 }

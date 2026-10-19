@@ -83,6 +83,46 @@ describe("buildLines", () => {
 		expect(browse.separator).toBe(" · ");
 	});
 
+	test("places the child-run roll-up right after the session cost", () => {
+		const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+		const [, line2] = buildLines(
+			fullSnapshot({
+				usage: { input: 1000, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0.25 },
+				currency: { code: "CNY", decimals: 2 },
+				delegation: { runs: 3, usage: { ...zero, input: 4000, cost: 0.12 } },
+			}),
+			fakeTheme,
+			"/home/u",
+		);
+
+		expect(ids(line2.left)).toEqual(["context", "window", "cost", "delegation", "tokens", "statuses"]);
+		const parent = line2.left.find((segment) => segment.id === "cost")!;
+		const delegation = line2.left.find((segment) => segment.id === "delegation")!;
+		// Two numbers, two meanings: the parent total is unchanged by the child spend.
+		expect(parent.forms[0]).toBe("¥0.25");
+		expect(delegation.forms[0]).toBe("↳ 3 · ¥0.12");
+	});
+
+	test("drops the roll-up entirely when nothing was delegated", () => {
+		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		expect(ids(line2.left)).not.toContain("delegation");
+	});
+
+	test("keeps the run count when the child spend has no price", () => {
+		const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+		const [, line2] = buildLines(
+			fullSnapshot({ delegation: { runs: 2, usage: zero }, currency: { code: "CNY", decimals: 2 } }),
+			fakeTheme,
+			"/home/u",
+		);
+		const delegation = line2.left.find((segment) => segment.id === "delegation")!;
+
+		expect(delegation.forms[0]).toBe("↳ 2 · ¥0.00");
+		expect(delegation.forms[1]).toBe("↳ ¥0.00");
+		expect(delegation.forms[2]).toBe("↳ 2");
+		expect(delegation.forms[3]).toBe("↳");
+	});
+
 	test("shows the priced amount in the configured currency", () => {
 		const [, line2] = buildLines(
 			fullSnapshot({

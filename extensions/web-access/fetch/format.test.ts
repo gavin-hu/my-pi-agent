@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { formatPage } from "./format.ts";
+import { formatMatches, formatPage } from "./format.ts";
+import type { Passage } from "./find.ts";
 
 function input(overrides: Partial<Parameters<typeof formatPage>[0]> = {}) {
 	return {
@@ -13,6 +14,63 @@ function input(overrides: Partial<Parameters<typeof formatPage>[0]> = {}) {
 		...overrides,
 	};
 }
+
+function matchInput(overrides: Partial<Parameters<typeof formatMatches>[0]> = {}) {
+	const passage = (offset: number): Passage => ({
+		query: "hit",
+		offset,
+		passage: `${"x".repeat(190)}hit${offset}${"y".repeat(190)}`,
+	});
+	return {
+		finalUrl: "https://example.com/",
+		title: "Example",
+		status: 200,
+		contentType: "text/html",
+		matches: [0, 1, 2].map((index) => passage(index * 100)),
+		find: ["hit"],
+		maxChars: 20_000,
+		cappedByMaxMatches: false,
+		...overrides,
+	};
+}
+
+describe("formatMatches", () => {
+	test("renders every passage when they fit", () => {
+		const result = formatMatches(matchInput());
+		expect(result.included).toHaveLength(3);
+		expect(result.truncated).toBe(false);
+		expect(result.text).toContain("1. [offset 0]");
+		expect(result.body.split("\n\n")).toHaveLength(3);
+	});
+
+	test("stops at the character budget and names it", () => {
+		const result = formatMatches(matchInput({ maxChars: 1200 }));
+		expect(result.included.length).toBeLessThan(3);
+		expect(result.truncated).toBe(true);
+		expect(Array.from(result.text).length).toBeLessThanOrEqual(1200);
+		expect(result.text).toContain(`showing ${result.included.length} of 3 matches within 1200 characters`);
+		expect(result.text).toContain("lower contextChars");
+	});
+
+	test("names the match cap when the budget is not what limited it", () => {
+		const result = formatMatches(matchInput({ matches: matchInput().matches.slice(0, 2), cappedByMaxMatches: true }));
+		expect(result.truncated).toBe(true);
+		expect(result.text).toContain("raise maxMatches");
+	});
+
+	test("still returns a passage when a single one is larger than the budget", () => {
+		const result = formatMatches(matchInput({ maxChars: 400 }));
+		expect(result.included).toHaveLength(1);
+		expect(Array.from(result.text).length).toBeLessThanOrEqual(400);
+		expect(result.text).toContain("[offset 0]");
+	});
+
+	test("reports no matches", () => {
+		const result = formatMatches(matchInput({ matches: [] }));
+		expect(result.text).toContain("No matches.");
+		expect(result.truncated).toBe(false);
+	});
+});
 
 describe("formatPage", () => {
 	test("renders a header and the body", () => {

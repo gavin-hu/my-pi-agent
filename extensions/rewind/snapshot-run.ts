@@ -15,8 +15,11 @@ import { createSnapshotPolicy, type SnapshotPolicy } from "./policy.ts";
 import type { RewindRuntime } from "./runtime.ts";
 
 export interface SnapshotRun {
-	/** Start a run for `prompt`: reset run state and resolve the snapshot decision. */
-	beginRun(prompt: string, ctx: ExtensionContext): Promise<void>;
+	/**
+	 * Start a run for `prompt` — `undefined` when a custom message started it: reset
+	 * run state and resolve the snapshot decision.
+	 */
+	beginRun(prompt: string | undefined, ctx: ExtensionContext): Promise<void>;
 	/** Take the run's single snapshot before the first mutating call, at most once. */
 	onToolCall(toolName: string, ctx: ExtensionContext): Promise<void>;
 	/** Drop run-scoped state (on session shutdown). */

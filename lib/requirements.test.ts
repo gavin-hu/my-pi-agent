@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
+	ageInDays,
 	canDeliver,
 	hardRequirementExtensions,
 	missingFindings,
@@ -10,6 +11,7 @@ import {
 	REQUIREMENTS,
 	type ProbeSeams,
 } from "./requirements.ts";
+import type { WebSearchProviderEvent } from "./events.ts";
 
 /** The directories the seams resolve against, and the paths they produce. */
 const AGENT_DIR = "/agent";
@@ -206,6 +208,16 @@ describe("report shape", () => {
 		expect(note?.detail).toContain("TUI only");
 	});
 
+	test("names the Windows job facts, matching the runtime's refusal", async () => {
+		const report = await probeExtension("job", seams());
+		const notes = report.findings.filter((finding) => finding.check === "platform");
+		const detail = notes.map((finding) => finding.detail).join("\n");
+		// The note and the `start` error have to agree about what is and is not possible.
+		expect(detail).toContain("detached: true` is refused");
+		expect(detail).toContain("detachedByDefault` is inert");
+		expect(detail).toContain("unknown");
+	});
+
 	test("probes every declared extension in order", async () => {
 		const reports = await probeAll(seams());
 		expect(reports.map((report) => report.extension)).toEqual(Object.keys(REQUIREMENTS));
@@ -301,5 +313,272 @@ describe("the notify check", () => {
 	test("reports ok when the capability is absent, so the check never invents a problem", async () => {
 		const report = await probeExtension("bytefly", seams());
 		expect(find(report, "notify.method")?.severity).toBe("ok");
+	});
+});
+
+describe("provider check", () => {
+	/** The facts `web-access` publishes for one session. */
+	function facts(over: Partial<WebSearchProviderEvent> = {}): WebSearchProviderEvent {
+		return {
+			provider: "duckduckgo",
+			reason: "default",
+			configured: true,
+			endpoint: null,
+			apiKeyEnv: null,
+			keyConfigured: false,
+			...over,
+		};
+	}
+
+	test("names the resolved provider", async () => {
+		const report = await probeExtension("web-access", seams({ searchProvider: () => facts() }));
+		expect(find(report, "web-access.search.provider")).toEqual({
+			extension: "web-access",
+			check: "web-access.search.provider",
+			severity: "ok",
+			detail: "resolved to duckduckgo (default)",
+		});
+	});
+
+	test("warns when an explicit provider is not configured", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({ searchProvider: () => facts({ provider: "searxng", reason: "explicit", configured: false }) }),
+		);
+		const finding = find(report, "web-access.search.provider");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toContain("resolved to searxng (explicit), which is not configured");
+		expect(finding?.hint).toContain("web-access.search.provider");
+	});
+
+	test("names the key variable that is missing, without a key value", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY" }),
+				env: () => undefined,
+			}),
+		);
+		const finding = find(report, "BRAVE_SEARCH_API_KEY");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toBe("the API key for brave is missing — BRAVE_SEARCH_API_KEY is not set");
+		expect(finding?.hint).toContain("export BRAVE_SEARCH_API_KEY");
+	});
+
+	test("reports the variable as set when it is", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY" }),
+				env: () => "k",
+			}),
+		);
+		expect(find(report, "BRAVE_SEARCH_API_KEY")?.severity).toBe("ok");
+	});
+
+	test("a literal key needs no variable", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY", keyConfigured: true }),
+				env: () => undefined,
+			}),
+		);
+		expect(report.findings.some((finding) => finding.check === "BRAVE_SEARCH_API_KEY")).toBe(false);
+	});
+
+	test("probes the endpoint only on an explicit refresh", async () => {
+		let probed = 0;
+		const reach = async () => {
+			probed += 1;
+			return { ok: true };
+		};
+		const withEndpoint = () => facts({ provider: "searxng", endpoint: "http://searx.local:8080" });
+
+		const cheap = await probeExtension("web-access", seams({ searchProvider: withEndpoint, reach }));
+		expect(probed).toBe(0);
+		expect(cheap.findings.some((finding) => finding.check === "http://searx.local:8080")).toBe(false);
+
+		const refreshed = await probeExtension("web-access", seams({ searchProvider: withEndpoint, reach, refresh: true }));
+		expect(probed).toBe(1);
+		expect(find(refreshed, "http://searx.local:8080")?.severity).toBe("ok");
+	});
+
+	test("reports an endpoint that does not answer", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "searxng", endpoint: "http://searx.local:8080" }),
+				reach: async () => ({ ok: false, error: "connect ECONNREFUSED" }),
+				refresh: true,
+			}),
+		);
+		const finding = find(report, "http://searx.local:8080");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toBe("http://searx.local:8080 did not answer (connect ECONNREFUSED)");
+		expect(finding?.hint).toContain("web-access.search.endpoint");
+	});
+
+	test("stays informational when no provider was published", async () => {
+		const report = await probeExtension("web-access", seams());
+		const finding = find(report, "web-access.search.provider");
+		expect(finding?.severity).toBe("info");
+		expect(finding?.detail).toContain("has not reported");
+	});
+
+	test("never puts a key value in a detail", async () => {
+		const report = await probeExtension(
+			"web-access",
+			seams({
+				searchProvider: () => facts({ provider: "brave", apiKeyEnv: "BRAVE_SEARCH_API_KEY", keyConfigured: true }),
+				env: () => "super-secret",
+			}),
+		);
+		expect(JSON.stringify(report.findings)).not.toContain("super-secret");
+	});
+});
+
+describe("safety checks", () => {
+	/** Seams whose config read answers per path, with everything else satisfied. */
+	function configSeams(documents: Record<string, unknown>): ProbeSeams {
+		return seams({
+			readJson: (path: string) => {
+				const document = documents[path];
+				return document === undefined
+					? { state: "absent" as const }
+					: { state: "ok" as const, value: document as Record<string, unknown> };
+			},
+		});
+	}
+
+	/** A `bytefly.json` document with the worktree powershell switch set. */
+	const withSwitch = (value: unknown): Record<string, unknown> => ({
+		worktree: { guard: { blockPowershell: value } },
+	});
+
+	test("passes when nothing configures the switch", async () => {
+		const report = await probeExtension("worktree", configSeams({}));
+		const finding = find(report, "worktree.guard.blockPowershell");
+		expect(finding?.severity).toBe("ok");
+		expect(finding?.detail).toBe("`powershell` is refused while the session is isolated");
+		expect(finding?.hint).toBeUndefined();
+	});
+
+	test("passes when the switch is on, in either scope", async () => {
+		for (const documents of [
+			{ [agentPath("bytefly.json")]: withSwitch(true) },
+			{ [projectPath("bytefly.json")]: withSwitch(true) },
+		]) {
+			const report = await probeExtension("worktree", configSeams(documents));
+			expect(find(report, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+		}
+	});
+
+	test("warns when a document turns the refusal off", async () => {
+		const report = await probeExtension("worktree", configSeams({ [agentPath("bytefly.json")]: withSwitch(false) }));
+		const finding = find(report, "worktree.guard.blockPowershell");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toBe(
+			`is false in ${agentPath("bytefly.json")} — ` +
+				"`powershell` runs unguarded, with its relative paths against the main checkout",
+		);
+		expect(finding?.hint).toContain("worktree.guard.blockPowershell");
+	});
+
+	test("lets the project scope win over the global one, in both directions", async () => {
+		const offGlobally = await probeExtension(
+			"worktree",
+			configSeams({ [agentPath("bytefly.json")]: withSwitch(false), [projectPath("bytefly.json")]: withSwitch(true) }),
+		);
+		expect(find(offGlobally, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+
+		const offInProject = await probeExtension(
+			"worktree",
+			configSeams({ [agentPath("bytefly.json")]: withSwitch(true), [projectPath("bytefly.json")]: withSwitch(false) }),
+		);
+		expect(find(offInProject, "worktree.guard.blockPowershell")?.severity).toBe("degraded");
+	});
+
+	test("a document without the section says nothing either way", async () => {
+		const report = await probeExtension("worktree", configSeams({ [projectPath("bytefly.json")]: { price: {} } }));
+		expect(find(report, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+	});
+
+	test("does not guess when a document is unreadable", async () => {
+		// The safe verdict: a broken file is not evidence that the switch is off, and
+		// `bytefly doctor` reports the file itself (it is the extension that declares
+		// `bytefly.json` as a config file, so the malformed-JSON finding is its own).
+		const report = await probeExtension(
+			"worktree",
+			seams({
+				readJson: (path: string) =>
+					path === agentPath("bytefly.json") ? { state: "error", error: "Unexpected token" } : { state: "absent" },
+			}),
+		);
+		expect(find(report, "worktree.guard.blockPowershell")?.severity).toBe("ok");
+		expect(report.findings.filter((finding) => finding.severity === "degraded")).toEqual([]);
+	});
+});
+
+describe("ageInDays", () => {
+	const now = Date.parse("2026-10-19T12:00:00Z");
+
+	test("counts whole days since a date", () => {
+		expect(ageInDays("2026-10-19", now)).toBe(0);
+		expect(ageInDays("2026-10-18", now)).toBe(1);
+		expect(ageInDays("2026-07-21", now)).toBe(90);
+	});
+
+	test("rejects anything that is not a real calendar date", () => {
+		for (const bad of ["", "19/10/2026", "2026-1-9", "2026-02-31", "2026-13-01", "not a date"]) {
+			expect(ageInDays(bad, now), bad).toBeUndefined();
+		}
+	});
+
+	test("reads a day of clock skew as fresh, and anything further ahead as a typo", () => {
+		// A record made in a timezone ahead of UTC is not a mistake.
+		expect(ageInDays("2026-10-20", now)).toBe(0);
+		expect(ageInDays("2026-10-21", now)).toBeUndefined();
+	});
+});
+
+describe("age checks", () => {
+	/** 2026-10-19 is the recorded date; the clock below is set relative to it. */
+	const VERIFIED = "2026-10-19";
+	const at = (iso: string): number => Date.parse(iso + "T00:00:00Z");
+
+	/** The age finding bytefly's declaration produces at that clock. */
+	async function ageFinding(date: string | undefined, clock: string) {
+		const report = await probeExtension(
+			"bytefly",
+			seams({ priceVerifiedAt: () => date, now: () => at(clock), readJson: () => ({ state: "absent" }) }),
+		);
+		return find(report, "the built-in DeepSeek rate tables");
+	}
+
+	test("passes a recent record and names its age", async () => {
+		const finding = await ageFinding(VERIFIED, "2026-10-22");
+		expect(finding?.severity).toBe("ok");
+		expect(finding?.detail).toBe("the built-in DeepSeek rate tables last checked 3 days ago");
+	});
+
+	test("still passes at the window's edge", async () => {
+		// 90 days on from 2026-10-19.
+		expect((await ageFinding(VERIFIED, "2027-01-17"))?.severity).toBe("ok");
+	});
+
+	test("warns once the record is stale, with the re-check hint", async () => {
+		const finding = await ageFinding(VERIFIED, "2027-01-18");
+		expect(finding?.severity).toBe("degraded");
+		expect(finding?.detail).toContain("beyond the 90-day window");
+		expect(finding?.hint).toContain("api-docs.deepseek.com");
+	});
+
+	test("says so when no date is recorded or it does not parse", async () => {
+		for (const date of [undefined, "someday"]) {
+			const finding = await ageFinding(date, "2026-10-22");
+			expect(finding?.severity).toBe("info");
+			expect(finding?.detail).toContain("no verification date");
+		}
 	});
 });

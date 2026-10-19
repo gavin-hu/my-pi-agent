@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { WORKTREE_TOOLS } from "./tools.ts";
@@ -175,5 +175,89 @@ describe("worktree env sync", () => {
 			await emitEvent(pi, "session_shutdown", {}, ctx);
 			expect(process.env[ENV_ROOT]).toBeUndefined();
 		});
+	});
+});
+
+describe.skipIf(!runSlowSuites)("worktree isolation gaps", () => {
+	/** The status text `list_worktrees` returns, which `/worktree status` also prints. */
+	async function statusText(harness: Awaited<ReturnType<typeof bootWorktree>>): Promise<string> {
+		const result = await harness.run(WORKTREE_TOOLS.list);
+		return result.content[0].text;
+	}
+
+	test("names the shell it cannot isolate while the session is isolated", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "gaps" } });
+
+		const text = await statusText(harness);
+
+		expect(text).toContain("Not isolated:");
+		expect(text).toContain("! shell");
+		expect(text).toContain("unverifiable");
+		expect(text).not.toContain("ran this session");
+	});
+
+	test("counts a command the guard let through unverified", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "gaps" } });
+
+		await emitEvent(harness.pi, "tool_call", { toolName: "bash", input: { command: "echo $(pwd)" } }, harness.ctx);
+
+		expect(await statusText(harness)).toContain("1 ran this session");
+	});
+
+	test("does not count a command it could verify", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo, { flagDefaults: { worktree: "gaps" } });
+
+		await emitEvent(harness.pi, "tool_call", { toolName: "bash", input: { command: "git status" } }, harness.ctx);
+
+		expect(await statusText(harness)).not.toContain("ran this session");
+	});
+
+	test("refuses powershell while isolated, and reports the gap when it is allowed", async () => {
+		const guardedRepo = temps.track(await makeRepo("pi-wt-pwsh-"));
+		const guarded = await bootWorktree(guardedRepo, { flagDefaults: { worktree: "guarded" } });
+
+		// The escape attempt: relative paths in a grammar the bash checks cannot read.
+		const refused = await emitEvent(
+			guarded.pi,
+			"tool_call",
+			{ toolName: "powershell", input: { command: "Set-Location ..; git commit -am x" } },
+			guarded.ctx,
+		);
+		expect(refused?.block).toBe(true);
+		expect(refused?.reason).toContain("main checkout");
+		expect(await statusText(guarded)).not.toContain("powershell");
+
+		// The opt-out runs the tool and becomes a gap the status reports.
+		const allowedRepo = temps.track(await makeRepo("pi-wt-pwsh-"));
+		mkdirSync(join(allowedRepo, ".pi"), { recursive: true });
+		writeFileSync(
+			join(allowedRepo, ".pi", "bytefly.json"),
+			JSON.stringify({ worktree: { guard: { blockPowershell: false } } }),
+		);
+		const allowed = await bootWorktree(allowedRepo, { flagDefaults: { worktree: "allowed" } });
+
+		// The tool runs; the row the status adds for it is Windows-only, so it is
+		// pinned in `gaps.test.ts` rather than fought for on this platform.
+		expect(
+			await emitEvent(
+				allowed.pi,
+				"tool_call",
+				{ toolName: "powershell", input: { command: "Get-Location" } },
+				allowed.ctx,
+			),
+		).toBeUndefined();
+	});
+
+	test("says nothing about gaps outside a worktree", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-gaps-"));
+		const harness = await bootWorktree(repo);
+
+		const text = await statusText(harness);
+
+		expect(text).toContain("Not in a worktree.");
+		expect(text).not.toContain("Not isolated:");
 	});
 });

@@ -54,6 +54,11 @@ serves only from its root. Both reuse the containment predicates in
 private and internal address ranges before following it, so `web_fetch` cannot
 be pointed at loopback, link-local, or metadata endpoints.
 
+[`bytefly`](../extensions/bytefly/) makes one request of its own: once per
+interactive session it reads npm's `latest` document for this package to tell
+you a newer release exists. The request carries no session data — it is a fixed
+`GET` — and `PI_OFFLINE` turns it off.
+
 ### Child processes and remote control
 
 - [`subagent`](../extensions/subagent/) launches a child `pi` process; its

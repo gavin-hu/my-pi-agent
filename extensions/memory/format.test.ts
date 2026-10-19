@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { buildInjection, formatCallText, formatNotice, formatResultText, MEMORY_CONTEXT_MARKER } from "./format.ts";
+import {
+	buildInjection,
+	formatCallText,
+	formatNotice,
+	formatResultText,
+	injectionPlan,
+	MEMORY_CONTEXT_MARKER,
+} from "./format.ts";
 import type { MemoryDetails } from "./types.ts";
 
 function details(over: Partial<MemoryDetails> = {}): MemoryDetails {
@@ -32,6 +39,29 @@ describe("buildInjection", () => {
 		expect(body).toBeDefined();
 		expect(Buffer.byteLength(body ?? "", "utf-8")).toBeLessThanOrEqual(512);
 		expect(body).toMatch(/\(\+\d+ more; use the memory tool\)/);
+	});
+});
+
+describe("injectionPlan", () => {
+	test("returns undefined when nothing is stored, so the caller can skip the message", () => {
+		expect(injectionPlan({ project: [], global: [] }, 8192)).toBeUndefined();
+	});
+
+	test("reports no omitted notes when everything fits", () => {
+		const plan = injectionPlan({ project: ["p1"], global: ["g1"] }, 8192);
+		expect(plan?.omitted).toEqual({ project: 0, global: 0 });
+		expect(plan?.lines.join("\n")).toBe(buildInjection({ project: ["p1"], global: ["g1"] }, 8192));
+	});
+
+	test("names which scope overflowed the cap", () => {
+		const entries = Array.from({ length: 200 }, (_, index) => `note ${index} ${"x".repeat(40)}`);
+		const plan = injectionPlan({ project: entries.slice(0, 100), global: entries.slice(100) }, 512);
+		expect(plan?.omitted.project).toBeGreaterThan(0);
+		expect(plan?.omitted.global).toBeGreaterThan(0);
+		// The injected body is unchanged: one tail with the total.
+		expect(plan?.lines.join("\n")).toBe(
+			buildInjection({ project: entries.slice(0, 100), global: entries.slice(100) }, 512),
+		);
 	});
 });
 

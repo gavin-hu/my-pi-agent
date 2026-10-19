@@ -3,6 +3,7 @@
  */
 
 import type { PlanAnnotation } from "./feedback.ts";
+import type { SectionDigest } from "./plan-text.ts";
 import type { StepUpdate } from "./steps.ts";
 
 /** Persisted (custom entry) plan-mode state. */
@@ -13,6 +14,14 @@ export interface PlanModeEntry {
 	 * Persisted with the branch so a `/tree` restore adopts the right list.
 	 */
 	removed?: string[];
+}
+
+/** Persisted (custom entry) review baseline for one plan. */
+export interface ReviewBaselineEntry {
+	/** Resolved path of the plan file the review showed. */
+	path: string;
+	/** One digest per heading section, in document order. */
+	sections: SectionDigest[];
 }
 
 /** Structured result carried in `enter_plan_mode`'s `details`. */

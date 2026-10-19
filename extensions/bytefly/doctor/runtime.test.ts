@@ -13,7 +13,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { SHARED_CONFIG_FILE } from "../../../lib/config.ts";
 import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
-import { notifySeam } from "./runtime.ts";
+import { createDoctorRuntime, notifySeam } from "./runtime.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -52,5 +52,65 @@ describe("notifySeam", () => {
 
 			expect(notifySeam(cwd)()).toEqual({ enabled: false, method: "auto" });
 		});
+	});
+});
+
+describe("createDoctorRuntime — the published search provider", () => {
+	/** A runtime whose probes record the seam values they saw. */
+	function runtimeWith(overrides: Record<string, unknown> = {}) {
+		const seen: Array<{ refresh: boolean | undefined; facts: unknown }> = [];
+		const reached: string[] = [];
+		const runtime = createDoctorRuntime({ exec: async () => ({ code: 0 }) } as never, {
+			seams: {
+				...overrides,
+				reach: async (url: string) => {
+					reached.push(url);
+					return { ok: true };
+				},
+			},
+		});
+		return { runtime, seen, reached };
+	}
+
+	test("hands the published facts to the probe, and only on a refresh does it reach", async () => {
+		const { runtime, reached } = runtimeWith();
+		runtime.configure({ cwd: projectWith({}), config: { proactive: false, timeoutMs: 2_000, skip: [] } });
+
+		runtime.noteSearchFacts({
+			provider: "searxng",
+			reason: "explicit",
+			configured: true,
+			endpoint: "http://searx.local:8080",
+			apiKeyEnv: null,
+			keyConfigured: false,
+		});
+
+		const cheap = await runtime.probeAll();
+		const webAccess = cheap.find((report) => report.extension === "web-access");
+		expect(webAccess?.findings.some((finding) => finding.detail.includes("resolved to searxng"))).toBe(true);
+		expect(reached).toEqual([]);
+
+		const refreshed = await runtime.probeAll({ refresh: true });
+		const after = refreshed.find((report) => report.extension === "web-access");
+		expect(after?.findings.some((finding) => finding.check === "http://searx.local:8080")).toBe(true);
+		expect(reached).toEqual(["http://searx.local:8080"]);
+	});
+
+	test("a reset forgets the published facts", async () => {
+		const { runtime } = runtimeWith();
+		runtime.configure({ cwd: projectWith({}), config: { proactive: false, timeoutMs: 2_000, skip: [] } });
+		runtime.noteSearchFacts({
+			provider: "brave",
+			reason: "explicit",
+			configured: false,
+			endpoint: null,
+			apiKeyEnv: "BRAVE_SEARCH_API_KEY",
+			keyConfigured: false,
+		});
+		runtime.reset();
+
+		const reports = await runtime.probeAll();
+		const webAccess = reports.find((report) => report.extension === "web-access");
+		expect(webAccess?.findings.some((finding) => finding.detail.includes("has not reported"))).toBe(true);
 	});
 });

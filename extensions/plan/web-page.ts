@@ -16,6 +16,7 @@
 import {
 	brandLockup,
 	docHead,
+	SIDEBAR_COLLAPSE_MAX,
 	themeToggle,
 	WEB_BASE_CSS,
 	WEB_COMPONENTS_CSS,
@@ -90,7 +91,6 @@ ${WEB_COMPONENTS_CSS}
 .review-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* Review panel: the plan's review facts, the section outline, then the keys. */
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
-.bf-app__sidebar .bf-panel{flex:1 1 auto;min-height:0;min-width:0}
 .review-panel{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) var(--space-4) var(--space-2)}
 .review-facts{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);border-bottom:1px solid var(--border)}
 .review-fact{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
@@ -172,7 +172,7 @@ ${WEB_COMPONENTS_CSS}
 .review-nav .lvl-2 a,.review-nav .lvl-3 a,.review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:8px}
 .review-hints{display:none}
 }
-@media (max-width:860px){
+@media (max-width:${SIDEBAR_COLLAPSE_MAX}px){
 .bf-review{padding:var(--space-4) 18px 80px}
 .review-nav__title{display:none}
 }

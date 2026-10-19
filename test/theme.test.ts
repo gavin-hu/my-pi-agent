@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { TUI_TOKENS, type TuiRole } from "../lib/tui/tokens.ts";
 
 // Pi's complete theme token set (theme-schema.json). Required tokens must be
 // present; optional tokens may be omitted but these themes define them all so
@@ -119,6 +120,22 @@ const CONTRAST_RULES: ReadonlyArray<readonly [token: string, surfaces: readonly 
 	["borderMuted", [CANVAS], 3],
 	["scrollbarThumb", ["scrollbarTrack"], 2],
 ];
+
+/**
+ * The semantic roles a component paints with, split by what the WCAG floor means
+ * for each. A text role is read, so it needs AA's 4.5; a rule is a one-column
+ * non-text mark, so it needs the 3.0 that WCAG sets for graphics.
+ */
+const TEXT_ROLES: readonly TuiRole[] = ["accent", "title", "label", "meta", "faint", "ok", "warn", "bad", "info"];
+const LINE_ROLES: readonly TuiRole[] = ["rule", "ruleStrong"];
+const TEXT_MINIMUM = 4.5;
+const LINE_MINIMUM = 3;
+
+/**
+ * The roles a selected list row paints on `selectedBg`: `rows.ts` draws the label
+ * in `accent` and the trailing text in `meta` once a row is focused.
+ */
+const SELECTED_ROW_ROLES: readonly TuiRole[] = ["accent", "meta"];
 
 const THEMES = [
 	{ file: "bytefly-dark.json", name: "bytefly-dark", appearance: "dark" },
@@ -244,6 +261,40 @@ for (const expected of THEMES) {
 			expect(Object.keys(theme.vars).filter((name) => !referenced.has(name))).toEqual([]);
 		});
 
+		test("every semantic role has a token this theme defines", () => {
+			for (const role of Object.keys(TUI_TOKENS) as TuiRole[]) {
+				expect(theme.colors[TUI_TOKENS[role]], `role ${role}`).toBeDefined();
+			}
+		});
+
+		test("keeps every semantic role above its WCAG floor on the canvas", () => {
+			const canvas = hexOf(theme, theme.vars[CANVAS]) as string;
+			for (const role of TEXT_ROLES) {
+				expect(
+					contrastRatio(hexOf(theme, theme.colors[TUI_TOKENS[role]]) as string, canvas),
+					`role ${role} (${TUI_TOKENS[role]}) on canvas`,
+				).toBeGreaterThanOrEqual(TEXT_MINIMUM);
+			}
+			for (const role of LINE_ROLES) {
+				expect(
+					contrastRatio(hexOf(theme, theme.colors[TUI_TOKENS[role]]) as string, canvas),
+					`role ${role} (${TUI_TOKENS[role]}) on canvas`,
+				).toBeGreaterThanOrEqual(LINE_MINIMUM);
+			}
+		});
+
+		test("keeps the selected row readable", () => {
+			const selected = surfaceOf(theme, "selectedBg");
+			// A theme that leaves the selection to the terminal has nothing to measure.
+			if (selected === undefined) return;
+			for (const role of SELECTED_ROW_ROLES) {
+				expect(
+					contrastRatio(hexOf(theme, theme.colors[TUI_TOKENS[role]]) as string, selected),
+					`role ${role} on selectedBg`,
+				).toBeGreaterThanOrEqual(TEXT_MINIMUM);
+			}
+		});
+
 		test("keeps every role readable on the surfaces it is painted on", () => {
 			for (const [token, surfaces, minimum] of CONTRAST_RULES) {
 				const foreground = hexOf(theme, theme.colors[token]);
@@ -261,6 +312,23 @@ for (const expected of THEMES) {
 		});
 	});
 }
+
+/**
+ * The metric itself, against the two ratios anyone can look up: black on white is
+ * the maximum, and `#767676` on white is the usual "just over AA" boundary. A
+ * broken luminance formula would otherwise pass every theme quietly.
+ */
+describe("contrast metric", () => {
+	test("spans 1 to 21 and lands on the AA boundary", () => {
+		expect(contrastRatio("#ffffff", "#ffffff")).toBeCloseTo(1, 5);
+		expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 1);
+		expect(contrastRatio("#767676", "#ffffff")).toBeCloseTo(4.54, 2);
+	});
+
+	test("is symmetric, so the argument order never matters", () => {
+		expect(contrastRatio("#0d1117", "#c9d1d9")).toBeCloseTo(contrastRatio("#c9d1d9", "#0d1117"), 5);
+	});
+});
 
 /** One role mapping, two palettes: the pair must not drift apart. */
 describe("theme pair", () => {

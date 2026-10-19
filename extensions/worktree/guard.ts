@@ -8,7 +8,8 @@
  *   1. file edits that resolve outside the active worktree (absolute paths);
  *   2. a shell command whose working directory leaves the worktree;
  *   3. git commands redirected at the main checkout;
- *   4. (optional) commands whose text cannot be statically verified.
+ *   4. (optional) commands whose text cannot be statically verified;
+ *   5. the un-re-rooted `powershell` tool, which has no guard of its own.
  */
 
 import { homedir } from "node:os";
@@ -224,8 +225,12 @@ function pathEscapes(root: string, raw: string): boolean {
 	return !isInside(root, resolve(root, expanded.path));
 }
 
-/** Check 4: constructs whose text does not spell out the git command that runs. */
-function looksUnparsable(command: string): boolean {
+/**
+ * Constructs whose text does not spell out the git command that runs. Exported
+ * so the `tool_call` handler counts exactly the commands this check would have
+ * refused, instead of guessing at a second list.
+ */
+export function isUnverifiable(command: string): boolean {
 	return /\$\(|`|\$\{!|\beval\b|\b(?:sh|bash|zsh|dash|ksh)\s+-c\b/.test(command);
 }
 
@@ -360,12 +365,22 @@ function redirectionEscapes(root: string, command: string, config: WorktreeConfi
 	for (const segment of splitSegments(command)) {
 		for (const redirect of redirectionTargets(segment)) {
 			if (redirect.write ? !checkWrites : !checkReads) continue;
+			if (isNullDevice(redirect.target)) continue;
 			if (pathEscapes(root, redirect.target)) {
 				return `${redirect.write ? "Output" : "Input"} redirection to \"${redirect.target}\" leaves the active worktree.`;
 			}
 		}
 	}
 	return undefined;
+}
+
+/**
+ * The null device discards the stream instead of writing a file, so a redirect
+ * there escapes nothing — and `2>/dev/null` is too common to refuse. Quotes are
+ * stripped because the target keeps them as written.
+ */
+function isNullDevice(raw: string): boolean {
+	return raw.replace(/^(['"])(.*)\1$/, "$2") === "/dev/null";
 }
 
 /** Commands that wrap another command, so a following assignment is still a prefix. */
@@ -532,6 +547,37 @@ function cdRedirect(root: string, words: ShellWord[]): string | undefined {
 	return undefined;
 }
 
+// ---------------------------------------------------------------------------
+// The powershell tool (check 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Refuse the `powershell` tool while isolated.
+ *
+ * Pi's `powershell` tool is neither re-rooted nor guarded: it is not in
+ * `ROOT_TOOL_NAMES`, and its language is a second grammar — backtick escapes,
+ * `Set-Location`, `$env:GIT_DIR`, `--%` — so `analyzeBashCommand` would be
+ * guessing. Inside a worktree its relative paths therefore resolve at the main
+ * checkout, the checkout isolation exists to protect.
+ *
+ * Re-rooting it without a parser would be worse than refusing it: it would look
+ * isolated while every one of those forms still walks out. So the isolated
+ * session refuses the tool, the same answer plan mode gives, and
+ * `guard.blockPowershell: false` is the documented opt-out — which `gaps.ts`
+ * reports and `doctor` shows as `degraded`.
+ */
+export function guardPowershellTool(config: WorktreeConfig): GuardBlock | undefined {
+	if (!config.guard.blockPowershell) return undefined;
+	return {
+		block: true,
+		reason:
+			"Refusing to run powershell inside an isolated worktree: it is not re-rooted or guarded, " +
+			"so relative paths and git would run against the main checkout. " +
+			"Use bash, which is re-rooted and guarded, or exit the worktree first. " +
+			"(worktree.guard.blockPowershell turns this refusal off.)",
+	};
+}
+
 /** Checks 2-4 for a bash command while isolated. */
 export function analyzeBashCommand(command: string, root: string, config: WorktreeConfig): GuardBlock | undefined {
 	if (config.guard.blockGitRedirects) {
@@ -553,7 +599,7 @@ export function analyzeBashCommand(command: string, root: string, config: Worktr
 		return { block: true, reason: `${redirect} Exit the worktree to operate on the main checkout.` };
 	}
 
-	if (config.guard.blockUnparsableCommands && looksUnparsable(command)) {
+	if (config.guard.blockUnparsableCommands && isUnverifiable(command)) {
 		return {
 			block: true,
 			reason:

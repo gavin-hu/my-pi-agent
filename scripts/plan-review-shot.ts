@@ -19,6 +19,7 @@ import { basename, resolve } from "node:path";
 import { type PlanStore, type StoredPlan } from "../extensions/plan/plans.ts";
 import { createPlanWebReview } from "../extensions/plan/web.ts";
 import { captureFullPage } from "./chrome-shot.ts";
+import { EXPAND_SHELL_EXPRESSION, themeExpression } from "./web-shot.ts";
 
 /** CLI options after parsing. */
 export interface ShotOptions {
@@ -104,6 +105,7 @@ function screenshotStore(plan: StoredPlan): PlanStore {
 		saveFeedback: readOnly,
 		read: async () => plan,
 		latest: async () => plan,
+		index: async () => [],
 	};
 }
 
@@ -120,20 +122,6 @@ function readyExpression(waitMs: number): string {
 	setTimeout(function () { clearInterval(timer); resolve(false); }, ${waitMs});
 })`;
 }
-
-/**
- * The review page scrolls inside `.bf-app__main`, so the document is only a
- * viewport tall. Let the columns grow to their content for one full-page shot.
- */
-const EXPAND_EXPRESSION = `(function () {
-	var style = document.createElement("style");
-	style.textContent = ".bf-app{height:auto !important;min-height:0 !important;overflow:visible !important}" +
-		".bf-app__body{flex:none !important;height:auto !important}" +
-		".bf-app__main{overflow:visible !important;height:auto !important}" +
-		".bf-app__sidebar{overflow:visible !important;height:auto !important;max-height:none !important}";
-	document.head.appendChild(style);
-	return document.documentElement.scrollHeight;
-})()`;
 
 /** Render one plan and capture it. */
 async function capture(options: ShotOptions): Promise<void> {
@@ -155,11 +143,9 @@ async function capture(options: ShotOptions): Promise<void> {
 			width: options.width,
 			scale: options.scale,
 			before: [
-				...(options.theme
-					? [{ expression: `document.documentElement.setAttribute("data-theme", ${JSON.stringify(options.theme)})` }]
-					: []),
+				...(options.theme ? [{ expression: themeExpression(options.theme) }] : []),
 				{ expression: readyExpression(options.waitMs), awaitPromise: true },
-				{ expression: EXPAND_EXPRESSION },
+				{ expression: EXPAND_SHELL_EXPRESSION },
 			],
 		});
 	} finally {

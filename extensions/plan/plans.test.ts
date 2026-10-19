@@ -211,6 +211,121 @@ describe("createPlanStore — latest", () => {
 	});
 });
 
+describe("createPlanStore — index", () => {
+	/** Write a plan file directly, so the test controls the name and mtime. */
+	function seed(root: string, name: string, content: string, mtimeSeconds: number): string {
+		const dir = join(root, CONFIG_DIR_NAME, "plans");
+		mkdirSync(dir, { recursive: true });
+		const path = join(dir, name);
+		writeFileSync(path, content);
+		utimesSync(path, mtimeSeconds, mtimeSeconds);
+		return path;
+	}
+
+	test("lists plans newest first with their title, steps, and bytes", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const old = seed(root, "2026-10-01-0900-old.md", "# Old plan\n\n## Steps\n- [x] one\n- [ ] two", 1_700_000_000);
+		const fresh = seed(root, "2026-10-02-0900-fresh.md", "# Fresh plan\n\n## Steps\n- [x] only", 1_700_000_500);
+
+		const rows = await store.index(root);
+
+		expect(rows.map((row) => row.path)).toEqual([fresh, old]);
+		expect(rows[0]).toMatchObject({ title: "Fresh plan", steps: { done: 1, total: 1 } });
+		expect(rows[1]).toMatchObject({ title: "Old plan", steps: { done: 1, total: 2 } });
+		expect(rows[0]?.relativePath).toContain(join(CONFIG_DIR_NAME, "plans"));
+		expect(rows[0]?.bytes).toBeGreaterThan(0);
+		expect(rows[0]?.modified).toBeCloseTo(1_700_000_500_000, -3);
+	});
+
+	test("falls back to the file-name slug when a plan has no heading", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		seed(root, "2026-10-01-0900-slugged-title.md", "- one\n- two", 1_700_000_000);
+
+		const [row] = await store.index(root);
+
+		expect(row?.title).toBe("slugged-title");
+		expect(row?.steps).toEqual({ done: 0, total: 2 });
+	});
+
+	test("lists a hundred plans from one walk", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		for (let index = 0; index < 100; index++) {
+			seed(
+				root,
+				`2026-09-${String((index % 28) + 1).padStart(2, "0")}-0900-plan-${index}.md`,
+				`# Plan ${index}\n\n## Steps\n- [x] done\n- [ ] open`,
+				1_700_000_000 + index,
+			);
+		}
+
+		const rows = await store.index(root);
+
+		expect(rows).toHaveLength(100);
+		expect(rows[0]?.title).toBe("Plan 99");
+		expect(rows.at(-1)?.title).toBe("Plan 0");
+		for (const row of rows) expect(row.steps).toEqual({ done: 1, total: 2 });
+	});
+
+	test("lists an over-limit file without reading it", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const big = "# Huge\n" + "x".repeat(MAX_PLAN_BYTES);
+		seed(root, "2026-10-01-0900-huge.md", big, 1_700_000_000);
+
+		const [row] = await store.index(root);
+
+		expect(row).toMatchObject({ title: "huge", oversize: true, bytes: big.length });
+		expect(row?.steps).toBeUndefined();
+	});
+
+	test("skips the directory's own files, other extensions, and directories", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const kept = seed(root, "2026-10-01-0900-kept.md", "# Kept", 1_700_000_000);
+		const dir = join(root, CONFIG_DIR_NAME, "plans");
+		writeFileSync(join(dir, ".gitignore"), "*\n");
+		writeFileSync(join(dir, "notes.txt"), "not a plan");
+		mkdirSync(join(dir, "sub.md"));
+
+		expect((await store.index(root)).map((row) => row.path)).toEqual([kept]);
+	});
+
+	symlinkTest("skips a symlinked plan", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const kept = seed(root, "2026-10-01-0900-kept.md", "# Kept", 1_700_000_000);
+		const dir = join(root, CONFIG_DIR_NAME, "plans");
+		const outside = join(root, "outside.md");
+		writeFileSync(outside, "# Outside");
+		symlinkSync(outside, join(dir, "link.md"));
+
+		expect((await store.index(root)).map((row) => row.path)).toEqual([kept]);
+	});
+
+	test("indexes the worktree's own plans, not the main checkout's", async () => {
+		const main = tempDir();
+		const worktree = tempDir();
+		seed(main, "2026-10-01-0900-main.md", "# Main checkout plan", 1_700_000_000);
+		const own = seed(worktree, "2026-10-02-0900-worktree.md", "# Worktree plan", 1_700_000_500);
+		// Inside a worktree, `git rev-parse --show-toplevel` reports the worktree.
+		const store = createPlanStore(repoPi(worktree), { now: () => FIXED });
+
+		const rows = await store.index(worktree);
+
+		expect(rows.map((row) => row.path)).toEqual([own]);
+		expect(rows[0]?.title).toBe("Worktree plan");
+	});
+
+	test("lists nothing before any plan is written", async () => {
+		const root = tempDir();
+		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		expect(await store.index(root)).toEqual([]);
+	});
+});
+
 describe("createPlanStore — atomic writes", () => {
 	test("rewrites a plan in place without leaving a temp file", async () => {
 		const root = tempDir();

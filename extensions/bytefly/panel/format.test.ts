@@ -166,40 +166,37 @@ describe("sections", () => {
 	test("states the scope and the settings count", () => {
 		expect(settingsSummarySegments("global", 11).map((segment) => segment.text)).toEqual(["Global", "11 settings"]);
 		expect(settingsSummarySegments("project", 8).map((segment) => segment.text)).toEqual(["Project", "8 settings"]);
-		expect(settingsSummarySegments("global", 1).map((segment) => segment.text)).toEqual(["Global", "1 setting"]);
 	});
 
 	test("prints one settings headline for non-TUI modes", () => {
-		expect(formatSettingsHeadline("global", 10)).toBe("bytefly: Settings · Global · 10 settings");
-		expect(formatSettingsHeadline("project", 7)).toBe("bytefly: Settings · Project · 7 settings");
+		expect(formatSettingsHeadline(28)).toBe("bytefly: Settings · Global · 28 settings");
 	});
 
 	test("lists settings in groups with their values", () => {
 		const views = settingViews({ app: {}, global: {}, project: {} }, "global");
-		const text = formatSettingsListing(views, "global");
+		const text = formatSettingsListing(views);
 
-		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 10 settings");
+		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 28 settings");
 		expect(text).toContain("Startup (1)");
-		expect(text).toContain("Notifications (3)");
-		expect(text).toContain("Diagnostics (1)");
-		expect(text).toContain("Pricing (2)");
-		expect(text).toContain("Transcript (2)");
+		expect(text).toContain("Notifications (7)");
+		expect(text).toContain("Diagnostics (2)");
+		expect(text).toContain("Pricing (3)");
+		expect(text).toContain("Transcript (3)");
 		expect(text).toContain("Terminal (1)");
+		expect(text).toContain("Worktree (4)");
+		expect(text).toContain("Snapshots (3)");
+		expect(text).toContain("Jobs and watchers (3)");
+		expect(text).toContain("Memory (1)");
 		expect(text).toContain("Bytefly startup TUI: Off");
 		expect(text).toContain("Desktop notifications: Off");
+		expect(text).toContain("Turn finished: On");
+		expect(text).toContain("Needs input: On");
+		expect(text).toContain("Job finished: On");
 		expect(text).toContain("Delivery method: Auto");
 		expect(text).toContain("Notification title: Pi");
 		expect(text).toContain("Proactive health check: On");
+		expect(text).toContain("Probe timeout: 2000");
 		expect(text).toContain("Currency: CNY (¥)");
 		expect(text).toContain("Cost decimals: 2");
-	});
-
-	test("names the missing app rows in the project listing", () => {
-		const views = settingViews({ app: {}, global: {}, project: {} }, "project");
-		const text = formatSettingsListing(views, "project");
-
-		expect(text).toContain("Project · 7 settings");
-		expect(text).toContain("App settings are Global only.");
-		expect(text).not.toContain("Bytefly startup TUI");
 	});
 });

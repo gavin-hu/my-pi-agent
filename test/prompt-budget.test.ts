@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
-import { PLAN_MODE_CONTEXT, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
+import { planModeContext, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
 import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/channel.ts";
 import { formatWorktreeSection } from "../extensions/worktree/index.ts";
 import type { WorktreeState } from "../extensions/worktree/state.ts";
@@ -24,8 +24,23 @@ const WORKTREE: WorktreeState = {
 
 describe("injected prompt budget", () => {
 	test("plan mode context stays within its ceiling", () => {
-		expect(PLAN_MODE_CONTEXT.length).toBeLessThanOrEqual(1100);
-		expect(PLAN_MODE_CONTEXT).toContain(PLAN_MODE_MARKER);
+		const context = planModeContext();
+		expect(context.length).toBeLessThanOrEqual(1100);
+		expect(context).toContain(PLAN_MODE_MARKER);
+	});
+
+	test("an active goal adds one bullet and stays within the ceiling", () => {
+		const context = planModeContext({ objective: "x".repeat(2000), status: "active" });
+		expect(context).toContain("- Current session goal: ");
+		expect(context.split("\n").length).toBe(planModeContext().split("\n").length + 1);
+		// The objective is clipped, with an ellipsis, so a long goal cannot break the
+		// ceiling; `goal` still injects the full objective every turn.
+		expect(context).toContain("…");
+		expect(context.length).toBeLessThanOrEqual(1100);
+	});
+
+	test("an achieved goal is not restated", () => {
+		expect(planModeContext({ objective: "done", status: "achieved" })).toBe(planModeContext());
 	});
 
 	test("goal context is the marker plus the objective, with no fixed prose", () => {

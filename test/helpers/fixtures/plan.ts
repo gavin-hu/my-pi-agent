@@ -58,3 +58,8 @@ export function planModeMessage(): unknown {
 export function fixedPlanDate(): Date {
 	return new Date(2026, 9, 8, 15, 30); // 2026-10-08 15:30 local
 }
+
+/** A persisted plan-baseline custom entry. */
+export function baselineEntry(path: string, sections: Array<{ title: string; digest: string }>): unknown {
+	return { type: "custom", customType: "plan-baseline", data: { path, sections } };
+}

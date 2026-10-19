@@ -1,20 +1,28 @@
 /**
  * The stateful Settings section: one snapshot of the two config documents and
- * the personal settings, the dirty flag, and the two write paths.
+ * the personal settings, the dirty flag, and the writes it offers.
  *
  * App rows are written through Pi's `SettingsStore` (personal file only), and
- * `bytefly.json` rows through the per-key writer, so an edit cannot disturb a
- * sibling key or another extension's section. A failed write leaves the
- * snapshot untouched and reports through `onError`; the screen never shows a
- * value the file did not accept.
+ * `bytefly.json` rows through the per-key writers, so an edit cannot disturb a
+ * sibling key or another extension's section. A reset deletes one leaf through the
+ * same path, and the JSON pane reads the section the row belongs to. A failed
+ * write leaves the snapshot untouched and reports through `onError`; the screen
+ * never shows a value the file did not accept.
  */
 
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, type QuietStartup } from "@earendil-works/pi-coding-agent";
-import { readJson, SHARED_CONFIG_FILE, writeConfigValueAt } from "../../../lib/config.ts";
+import {
+	configSection,
+	configValueAt,
+	readJson,
+	SHARED_CONFIG_FILE,
+	unsetConfigValueAt,
+	writeConfigValueAt,
+} from "../../../lib/config.ts";
 import type { SettingsStore, WriteScope } from "../picker/types.ts";
 import {
-	countSettings,
+	type ConfigSectionName,
 	nextValue,
 	type SettingDescriptor,
 	type SettingsSnapshot,
@@ -23,7 +31,6 @@ import {
 	settingViews,
 	storedValue,
 	textError,
-	validValue,
 } from "./settings.ts";
 
 /** Host seams for the Settings runtime. */
@@ -40,11 +47,14 @@ export interface SettingsRuntimeDeps {
 /** What the panel needs from the runtime. */
 export interface SettingsSurface {
 	views(scope: WriteScope): SettingView[];
-	count(scope: WriteScope): number;
 	/** Cycle an enum or toggle a boolean. */
 	change(scope: WriteScope, id: string): Promise<void>;
 	/** Store a value the user typed; `false` when the row refused it. */
 	setValue(scope: WriteScope, id: string, raw: string): Promise<boolean>;
+	/** Delete the focused row's leaf so its default applies; `false` when nothing changed. */
+	reset(scope: WriteScope, id: string): Promise<boolean>;
+	/** The raw `bytefly.json` section for `scope`, for the JSON pane. */
+	sectionDocument(scope: WriteScope, section: ConfigSectionName): unknown;
 	isDirty(): boolean;
 }
 
@@ -62,8 +72,8 @@ export function configPath(scope: WriteScope, cwd: string, agentDir: string): st
 function readSnapshot(deps: SettingsRuntimeDeps): SettingsSnapshot {
 	return {
 		app: deps.stores.global.globalSettings(),
-		global: readJson(join(deps.agentDir, SHARED_CONFIG_FILE)) ?? {},
-		project: deps.trusted ? (readJson(join(deps.cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE)) ?? {}) : {},
+		global: readJson(configPath("global", deps.cwd, deps.agentDir)) ?? {},
+		project: deps.trusted ? (readJson(configPath("project", deps.cwd, deps.agentDir)) ?? {}) : {},
 	};
 }
 
@@ -133,10 +143,15 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 
 	return {
 		views: (scope) => settingViews(snapshot, scope),
-		count: (scope) => countSettings(scope),
 		change: async (scope, id) => {
 			const row = SETTING_ROWS.find((entry) => entry.id === id);
 			if (!row) return;
+			// Only a boolean or an enum cycles; a text row is stored from its editor,
+			// so refusing here keeps `nextValue`'s cycle contract honest.
+			if (row.kind === "text") {
+				deps.onError?.(`${row.label} is edited as text, not cycled.`);
+				return;
+			}
 			const refused = refusal(row, scope, deps.trusted);
 			if (refused !== undefined) {
 				deps.onError?.(refused);
@@ -145,10 +160,6 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 			const current = settingViews(snapshot, scope).find((entry) => entry.id === id);
 			if (!current) return;
 			const next = nextValue(row, current.value);
-			if (!validValue(row, next.value)) {
-				deps.onError?.(`Cannot save ${row.label}: unknown value.`);
-				return;
-			}
 			try {
 				await write(scope, row, next.value);
 			} catch (error) {
@@ -159,8 +170,8 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 		},
 		async setValue(scope, id, raw) {
 			const row = SETTING_ROWS.find((entry) => entry.id === id);
-			if (!row || row.kind !== "text") {
-				deps.onError?.(`${row?.label ?? id} cannot be edited as text.`);
+			if (!row) {
+				deps.onError?.(`${id} is not a setting.`);
 				return false;
 			}
 			const refused = refusal(row, scope, deps.trusted);
@@ -182,6 +193,39 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 			committed();
 			return true;
 		},
+		async reset(scope, id) {
+			const row = SETTING_ROWS.find((entry) => entry.id === id);
+			if (!row) {
+				deps.onError?.(`${id} is not a setting.`);
+				return false;
+			}
+			if (row.source === "app") {
+				deps.onError?.(`${row.label} is a Pi setting; Pi has no unset, so set the value instead.`);
+				return false;
+			}
+			const refused = refusal(row, scope, deps.trusted);
+			if (refused !== undefined) {
+				deps.onError?.(refused);
+				return false;
+			}
+			const config = row.config;
+			if (!config) return false;
+			const document = scope === "global" ? snapshot.global : snapshot.project;
+			if (configValueAt(configSection(document, config.section), config.path) === undefined) {
+				deps.onError?.(`${row.label} is already at its default.`);
+				return false;
+			}
+			try {
+				unsetConfigValueAt(configPath(scope, deps.cwd, deps.agentDir), config.section, config.path);
+			} catch (error) {
+				deps.onError?.(`Could not reset ${row.label}: ${error instanceof Error ? error.message : String(error)}`);
+				return false;
+			}
+			committed();
+			return true;
+		},
+		sectionDocument: (scope, section) =>
+			configSection(scope === "global" ? snapshot.global : snapshot.project, section),
 		isDirty: () => dirty,
 		onChange: (listener) => {
 			listeners.add(listener);

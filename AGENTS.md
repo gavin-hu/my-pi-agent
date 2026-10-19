@@ -11,14 +11,32 @@ links to, not here.
 ## Commands
 
 ```bash
+bun install     # once per worktree: it has no node_modules of its own
 bun run check   # format:check + typecheck + test
 bun run format  # biome format --write .
 bun run test    # bun test --parallel=4 --timeout 30000
 ```
 
-- Run `bun run check` after code changes and fix every failure.
+- Run `bun run check` after code changes and fix every failure. A fresh worktree
+  has no `node_modules`, so install once first; otherwise typecheck stops on
+  `scripts/theme.ts` and says nothing about your change.
+- That check skips the gated `rewind` and `worktree` suites unless `CI` or
+  `PI_SLOW_TESTS=1` is set. Run `PI_SLOW_TESTS=1 bun run test` when touching
+  either; CI runs them. On macOS, fall back to `bun run check:serial` when a
+  git-using test hangs.
+- A new package-level test file also goes into `ROOT_TEST_FILES` in
+  `test/structure.test.ts`: that set is compared exactly, and listing the file
+  there is the whole registration.
+- A peer change is proved against the newest Pi, not just the locked one: the
+  `compat` CI job installs the newest published peers and runs typecheck plus the
+  serial suite. Reproduce it locally as `docs/development.md` describes; do not
+  commit the peer bump.
 - Run any test you add or change and iterate until it passes.
-- Do not commit unless the user asks.
+- An ad-hoc render or screenshot script drives a picker against injected fixtures
+  (`test/helpers/fixtures/picker.ts`) inside `useAgentDir()` (`test/helpers/env.ts`),
+  never against a real `discoverExtensions` result: the rows persist to the live
+  agent `settings.json`, so a stray Space or Enter edits the user's own
+  configuration.
 
 ## Git workflow (`main` treated as protected)
 
@@ -30,77 +48,61 @@ local merge into `main` is allowed; a pull request is optional.
 
 - **Start every task in a worktree.** Under Pi with this package loaded, use
   `enter_worktree <name>`; otherwise
-  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. One worktree per
-  task; keep the `main` checkout clean.
+  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It branches from
+  `origin/main`, which lags the local `main` here, so rebase onto `main` right
+  after entering. One worktree per task; keep the `main` checkout clean.
 - **Ask before ending the task.** When the work is done, ask the user how to
   reconcile the branch (commit, merge, keep, or discard) and only call
   `exit_worktree` (or `git worktree remove`) after they decide. Never exit on
-  your own initiative, so uncommitted work is not discarded without a choice.
-- Before committing: run `bun run check`, check `git status`, and stage explicit
-  paths. Never `git add -A` / `git add .`.
+  your own initiative, so uncommitted work is not discarded without a choice. The
+  exit result ends with a `Handoff:` block naming the branch, its commits, and the
+  exact merge or pull-request command — use that command rather than retyping a
+  branch name.
+- **Never commit unless the user asks.** Work left on a worktree is easy to
+  inspect and easy to drop; a commit is neither, so leave it to the user.
+- Before committing: check `git status` and stage explicit paths. Never
+  `git add -A` / `git add .`.
+- Another session may merge into `main` while you work. Rebase before merging,
+  re-run `bun run check` on the merged tree, and remember that
+  `git push origin main` publishes whatever else is on `main`, not just your
+  branch.
 - Never `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, or
   `git commit --no-verify`.
-- Never force-push `main`. Parallel sessions and subagents inherit the worktree
-  through `PI_WORKTREE_ROOT`, so they cannot edit the `main` checkout.
-- Commit format: `type(scope): summary`, scope is the extension name, with a
-  short why-body for non-trivial changes.
+- Never force-push `main`. Subagents and any `pi` started from a tool inherit
+  the worktree through `PI_WORKTREE_ROOT`, so they cannot edit the `main`
+  checkout.
+- Commit format: `type(scope): summary`, where `scope` is the extension name,
+  the shared area (`lib`, `docs`, `test`, `ci`), or a comma list when one change
+  spans two (`fix(plan,rewind): …`). Add a short why-body for non-trivial
+  changes.
 
 ## Release
 
 Distribution is git and npm: `main` is installable as a git Pi package, and every
-release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`
-plus a matching GitHub release whose body is that version's `CHANGELOG.md`
-section, heading included, and an `npm publish` of the package. This section is
-the source of truth; the user-facing copy is `docs/development.md`, so keep the
-two in sync.
-Prepare it on a branch like any other change:
+release is published to npm. A release is an annotated `vX.Y.Z` tag on `main`, a
+matching GitHub release whose body is that version's `CHANGELOG.md` section with
+the heading included, and a dispatch of the `publish.yml` workflow for that tag.
 
-`npm publish` is irreversible and publishes publicly: get the user's approval
-for that specific run before executing it, and treat approval for an earlier
-release as expired. Stop and ask rather than publishing to keep the steps in
-sequence.
+The steps are normative in
+[`docs/development.md`](./docs/development.md#release) — read them there before
+starting, and prepare the release on a branch in a worktree like any other
+change. This section holds only what an agent must not get wrong:
 
-Curate `[Unreleased]` before the release commit: read it against
-`git log <last-tag>..main` so every user-visible change has exactly one scoped
-bullet, with no bullet describing a state that was reverted earlier in the same
-window.
-
-1. Bump `version` in `package.json`.
-2. In `CHANGELOG.md`, move the `## [Unreleased]` entries under
-   `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
-   update the link refs at the bottom: `[X.Y.Z]` points at the new release URL
-   and `[Unreleased]` compares from `vX.Y.Z`.
-3. Run `bun run check`.
-4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
-5. Tag `main`'s HEAD (the merge commit, or the branch tip when the merge
-   fast-forwards) and push `main` with it:
-
-   ```bash
-   git tag -a vX.Y.Z -m "vX.Y.Z"
-   git push origin main && git push origin vX.Y.Z
-   ```
-
-6. Publish the release from that changelog section:
-
-   ```bash
-   bun run release:notes X.Y.Z > section.md
-   gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
-   rm section.md
-   ```
-
-7. Publish the npm package from the same commit (`publishConfig.access` is
-   `public`; the `pi-package` keyword and `pi` manifest make it a Pi package),
-   only after the user approves that specific run.
-   Name the registry explicitly: a machine whose default registry is a read-only
-   mirror serves reads but rejects the publish with `E401`.
-
-   ```bash
-   npm publish --registry https://registry.npmjs.org/
-   ```
-
-GitHub marks the release with the newest creation date as "Latest", so after
-creating a release for an older version, run `gh release edit vX.Y.Z --latest`
-on the newest tag. Publishing a draft does not change which release is latest.
+- Publishing is irreversible and public, and it happens only through
+  `publish.yml` — never `npm publish` locally, which `publishConfig.provenance`
+  refuses anyway. Get the user's approval for that specific dispatch, treat
+  approval for an earlier release as expired, and wait for the `npm` environment
+  review to complete. Stop and ask rather than skipping ahead to keep the steps
+  in sequence.
+- Push the tag with `main`, never after it: `git push origin vX.Y.Z main`. A
+  `main`-first push races CI's `fetch-depth: 0` checkout, and the first release
+  job to start before the tag arrives fails `test/release.test.ts` with "newest
+  git tag is the package version". Re-running that job clears it.
+- The `[Unreleased]` bullet lands in the same commit as the change it describes,
+  which makes the release commit mechanical. Read `[Unreleased]` against
+  `git log <last-tag>..main` before making it: every user-visible change needs
+  exactly one scoped bullet, and no bullet may describe a state that was
+  reverted earlier in the same window.
 
 ## Invariants
 
@@ -108,7 +110,8 @@ Easy to get wrong, and not caught by types or tests. The linked docs explain
 why.
 
 - `lib/` is shared by extensions that load with isolated module caches, so it
-  must stay value-only: no module-level state.
+  must stay value-only: no module-level state, which `test/structure.test.ts`
+  asserts.
 - No extension imports another extension's modules. Shared tool and parameter
   names live in `lib/tool-names.ts`; shared glyphs and status keys in
   `lib/tui/glyphs.ts`.
@@ -118,100 +121,75 @@ why.
   (or a custom entry) and is rebuilt from `ctx.sessionManager.getBranch()`;
   widgets are derived, never authoritative.
 - Sanitize model text at the boundary before it reaches a widget or the
-  terminal.
+  terminal; `lib/tui/README.md` names the helper for each case.
+- A path is data, not a string. Compare it as a resolved path, build it with the
+  platform joiner (`resolve`, `join`, or `path.posix` for repo-relative docs),
+  and canonicalize it before it becomes a state key. Never assert a literal
+  `a/b` against a value the code built with `join`: macOS stays green and only
+  Windows fails.
 - A rejected tool call returns an error carrying the previous state; never
   half-apply.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range, never `dependencies`.
 - Adding or renaming a tool also means updating `test/naming.test.ts` and the
   catalog in `docs/extensions.md` (and the group it belongs to in `README.md`).
+  Adding or renaming a command or flag means updating the catalog too, and
+  registering it with a string literal: `test/docs-truth.test.ts` compares the
+  two lists in both directions.
+- Adding an extension is more than the code: the `pi` manifest, the catalog,
+  `README.md` and its `README.zh-CN.md` mirror (compared row by row), and
+  `lib/tool-names.ts` if it shares a name. `CONTRIBUTING.md` lists the steps.
 - Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
   `promptGuidelines`, injected context) is budgeted. Keep each channel to its
   one job; `test/prompt-budget.test.ts` holds the injected-context ceilings.
 
 ## Code quality
 
-Extension code is read far more often than it is written. Leave every module
-tidy: one job per file, logic a second extension would need in `lib/` rather
-than copied, names that say what the thing does, no dead branches or
-commented-out code, and no comment that restates the line it sits on.
-Readability beats cleverness — an obvious loop beats a dense one-liner.
+Extension code is read far more often than it is written, so each of these is a
+rule rather than a preference.
 
-Performance is part of the same bar. Do work once per render rather than per
-frame, take the cheap path before allocating, and keep nothing that grows with
-the transcript or the session unbounded. A change that makes a long session feel
-slow is a bug even when every test passes.
+- One job per module, and a name that says it. Past roughly 600 lines, a module
+  either splits or states in its header the one responsibility holding it
+  together.
+- The second copy of a helper goes in `lib/`, not the third, and only when a
+  second extension really needs it. `lib/README.md` lists what is already there.
+- No dead branch, no commented-out code, no comment that restates its line. A
+  comment carries the why the code cannot: a host quirk, a trap, a limit.
+- `unknown` at a boundary, never `any`. A cast is a claim about a value you did
+  not build, so it names the guarantee it relies on.
+- An obvious loop beats a dense one-liner, and a name beats a comment.
+
+`test/structure.test.ts` fails a `TODO` marker, a suppression comment, an `any`,
+and a commented-out statement; the rest of this section is review.
+
+Performance is the same bar: do work once per render rather than per frame, take
+the cheap path before allocating, and keep nothing that grows with the
+transcript or the session unbounded. A change that makes a long session feel
+slow is a bug even when every test passes, so measure it with
+`bun run bench:render` against the budget in
+[`docs/development.md`](./docs/development.md#performance), and keep its
+determinism gate, which runs in the suite, green.
 
 ## TUI design conventions
 
 Follow Pi's built-in TUI design system; do not invent a private visual
 language. Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
 and [Themes](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/themes.md)
-docs are normative. In this package the shared implementation is the `lib/tui/`
-design system — [`tokens.ts`](./lib/tui/tokens.ts) (semantic roles),
-[`chrome.ts`](./lib/tui/chrome.ts) (screen frame and hints),
-[`rules.ts`](./lib/tui/rules.ts) (the rule grammar and glyph),
-[`indent.ts`](./lib/tui/indent.ts) (the transcript block indent, with an optional rail prefix),
-[`rows.ts`](./lib/tui/rows.ts) (list rows, checkboxes, chips, empty states),
-[`columns.ts`](./lib/tui/columns.ts) (width math),
-[`gauge.ts`](./lib/tui/gauge.ts) (the gauge),
-[`line-pane.ts`](./lib/tui/line-pane.ts) (a scrollable log/match pane),
-[`status-controller.ts`](./lib/tui/status-controller.ts) (footer chips),
-[`glyphs.ts`](./lib/tui/glyphs.ts) (glyphs and status keys),
-[`tool.ts`](./lib/tui/tool.ts) (the tool-transcript kit: call title, width-safe
-call line, sanitized error, elapsed timer),
-[`render-cache.ts`](./lib/tui/render-cache.ts) (the per-instance line memo a
-component that derives its lines renders through), and
-[`cursor.ts`](./lib/tui/cursor.ts)
-(`ListCursor` by index, `IdCursor` by id) —
-use it rather than re-deriving chrome, glyphs, or scroll math.
+docs are normative, and [`lib/tui/README.md`](./lib/tui/README.md) is this
+package's contract for them: host components before custom code, the block
+grammar, the shared primitives, color roles, width math, sanitizing at the
+boundary, keyboard bindings, and the render rules.
 
-- Prefer the host before custom code: `ctx.ui.select` / `confirm` / `input` /
-  `editor`, then `notify` / `setStatus` / `setWidget`, then the pi-tui
-  components. Reach for `ctx.ui.custom()` or a tool/entry renderer only when a
-  surface needs its own layout or input, and never build a second terminal
-  renderer.
-- Match the built-in block grammar: one leading blank line per transcript
-  block, nothing trailing (the host owns spacing); frame screens with a plain
-  `─` rule, not box corners.
-- Reach for a `lib/tui/` primitive before composing your own: `titleRule` /
-  `titleRule` for a heading, `listRow` / `checkbox` for a list, `gaugeBar` for
-  a meter, `emptyState` for an empty screen, and `splitRow` / `fitCells` for two
-  columns.
-- Speak the built-in visual language: resolve colors through a `lib/tui/tokens.ts`
-  role (`paint(theme, role, text)`), never a literal ANSI, hex, or a Pi token
-  named inline; use `screenHint` / Pi's `keyHint` for the hint row, and the
-  shared `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead
-  of retyped literals.
-- Width is terminal columns, not string length. Use `visibleWidth`,
-  `truncateToWidth`, and `wrapTextWithAnsi`; every returned line must fit the
-  width, and width arithmetic starts from `Math.max(1, width)`.
-- Compact by default, expand for detail: label-first one-line widgets, with
-  more revealed on demand or on a dedicated screen.
-- Sanitize at the boundary: run model- or file-authored text through
-  `sanitizeLine` before it reaches a widget or the terminal — it neutralizes
-  control characters and then collapses to one line. `stripControlChars` alone
-  is for multi-line text that must keep its newlines.
-- Keyboard first, and consistent. Use `matchesKey` / `Key`, give every mouse
-  interaction a keyboard path, and keep the shared bindings: Esc closes,
-  `j` / `k` and arrows scroll, `g` / `G` and Home/End jump.
+Three traps are worth repeating here because each one fails silently:
+
 - Reserve the name `focused` for a real focus `get` / `set` pair. Pi's
-  `setFocus` duck-types a focusable with `"focused" in component` and then
-  assigns a boolean there, so any other member of that name — a method, say — is
-  silently shadowed and the first call throws at runtime.
-- Components are derived and cheap. Implement `Component` with `invalidate()`,
-  update an instance in place, read live state on each render, and call
-  `requestRender()` only after state changes; never hold themed strings in
-  state unless `invalidate()` rebuilds them. A widget is derived from state,
-  never authoritative. Pi renders the whole tree every frame, so a component that
-  derives its lines from another one memoizes them with `RenderCache` (keyed on
-  width and the source lines' identity) and drops the memo in `invalidate()`;
-  re-deriving every line per frame is what makes a long transcript feel slow.
-- Size from the live viewport: `titleRule`, `viewportRows`, `fitRows`, and
-  `ListCursor`, fed by a `ViewportRowsSource` (number or getter) with a sensible
-  fallback, so a resize is picked up. List screens stay docked; only the plan
-  review uses `FULL_SCREEN_OVERLAY`.
-- A TUI module gets a sibling `tui.test.ts`; see [`test/README.md`](./test/README.md).
+  `setFocus` duck-types with `"focused" in component` and then assigns a boolean
+  there, so any other member of that name is shadowed and the first call throws.
+- A widget is derived from state, never authoritative: read live state on each
+  render and call `requestRender()` only after a change.
+- A component that derives its lines from another component's output memoizes
+  them with `RenderCache` and drops the memo in `invalidate()`. Re-deriving every
+  line per frame is what makes a long transcript feel slow.
 
 ## Prompt conventions
 
@@ -286,19 +264,29 @@ and keep user-facing content above the contributor sections.
 One doc per audience. Do not duplicate across them:
 
 - `README.md` — the end-user front door: what the package is, install, the
-  grouped catalog, configuration, and links onward.
+  grouped catalog, configuration, and links onward. `README.zh-CN.md` mirrors it
+  section for section: the two entry READMEs stay in sync, and
+  `test/docs-parity.test.ts` enforces the shared headings, table rows, and
+  relative links. Deep docs stay English until a translation owner exists.
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants rather than restating them.
 - `docs/` — repo-level guides: `getting-started`, `extensions` (the full
   catalog), `configuration`, `architecture`, `development`, `security`, and
   `references/` for exhaustive listings a hand edit is checked against.
+- `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
+  its ids, links, citations, and bucket caps, and shipping an item means
+  renumbering or removing it in the same commit.
 - `AGENTS.md` (this file) — the machine-facing contract and the repo
   invariants.
-- `extensions/<name>/README.md`, `lib/README.md`, `test/README.md` — the deep
-  per-area contracts.
+- `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
+  `test/README.md` — the deep per-area contracts.
 
 When behavior changes, update the catalog (`docs/extensions.md`), the relevant
 `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
+
+Renaming a heading or moving a file also means fixing the links to it:
+`test/structure.test.ts` resolves every relative link and `#anchor` in the root
+docs, `docs/`, `lib/`, `test/`, `.github/`, and `extensions/`.
 
 ## Read more
 
@@ -309,6 +297,8 @@ When behavior changes, update the catalog (`docs/extensions.md`), the relevant
 - [`test/README.md`](./test/README.md) — test principles, co-located layout,
   and helper conventions.
 - [`lib/README.md`](./lib/README.md) — shared helpers, host seams, module rules.
+- [`lib/tui/README.md`](./lib/tui/README.md) — the terminal design system every
+  interactive surface draws with.
 - [`extensions/<name>/README.md`](./extensions/) — each extension's full tool
   and command surface, Pi integration contract, design notes, and file map.
 - [`extensions/worktree/README.md`](./extensions/worktree/README.md) — the

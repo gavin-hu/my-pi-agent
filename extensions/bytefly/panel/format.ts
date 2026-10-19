@@ -31,7 +31,7 @@ export interface SummarySegment {
 }
 
 /** Row and problem counts over a model. */
-export interface PanelCounts {
+interface PanelCounts {
 	extensions: number;
 	/** Rows switched off in settings (the picker's checkbox), not the env flag. */
 	off: number;
@@ -113,28 +113,21 @@ export function sectionSegments(active: PanelSection): SummarySegment[] {
 export function settingsSummarySegments(scope: PanelScope, count: number): SummarySegment[] {
 	return [
 		{ text: scope === "global" ? "Global" : "Project", color: "accent" },
-		{ text: `${count} ${count === 1 ? "setting" : "settings"}`, color: "meta" },
+		{ text: `${count} settings`, color: "meta" },
 	];
 }
 
-/** The Settings headline for non-TUI modes, e.g. `bytefly: Settings · Global · 5 settings`. */
-export function formatSettingsHeadline(scope: PanelScope, count: number): string {
-	return `bytefly: Settings · ${settingsSummarySegments(scope, count)
-		.map((segment) => segment.text)
-		.join(" · ")}`;
+/**
+ * The Settings headline for non-TUI modes, e.g. `bytefly: Settings · Global · 16 settings`.
+ * The listing only ever reads the personal document, so the scope is not a parameter.
+ */
+export function formatSettingsHeadline(count: number): string {
+	return `bytefly: Settings · Global · ${count} settings`;
 }
 
-/**
- * The grouped Settings listing for non-TUI modes. The project form names the
- * missing app rows rather than leaving their absence unexplained.
- */
-export function formatSettingsListing(views: readonly SettingView[], scope: PanelScope): string {
-	const lines = [formatSettingsHeadline(scope, views.length)];
-	if (scope === "project") lines.push("", "  App settings are Global only.");
-	if (views.length === 0) {
-		lines.push("", "No settings found.");
-		return lines.join("\n");
-	}
+/** The grouped Settings listing for non-TUI modes. */
+export function formatSettingsListing(views: readonly SettingView[]): string {
+	const lines = [formatSettingsHeadline(views.length)];
 	for (const group of groupViews(views)) {
 		lines.push("", `${group.label} (${group.views.length})`);
 		for (const view of group.views) {
@@ -152,7 +145,7 @@ export function formatHeadline(model: PanelModel, scope: PanelScope, options: Pa
 }
 
 /** A row's glyph and verdict, drawn from its enablement and health axes. */
-export interface RowBadge {
+interface RowBadge {
 	/** The status glyph, or `undefined` when the row has nothing to say. */
 	glyph?: string;
 	/** The role the glyph is painted in. */

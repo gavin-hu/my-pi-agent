@@ -46,7 +46,6 @@ const TEXT_EXTS = new Set([
 	".ini",
 	".cfg",
 	".conf",
-	".env",
 	".xml",
 	".csv",
 	".tsv",
@@ -89,9 +88,6 @@ const TEXT_EXTS = new Set([
 	".vue",
 	".svelte",
 	".astro",
-	".gitignore",
-	".gitattributes",
-	".editorconfig",
 ]);
 const TEXT_NAMES = new Set([
 	"license",

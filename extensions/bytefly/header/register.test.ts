@@ -17,11 +17,11 @@ function boot(settings: Record<string, unknown>, mode = "tui") {
 	return { pi, ctx, headers, updates, handle };
 }
 
-/** Render the last installed header at 80 columns. */
-function renderLast(headers: unknown[]): string[] {
+/** Render the last installed header at 80 columns, at an optional terminal height. */
+function renderLast(headers: unknown[], rows?: number): string[] {
 	const factory = headers.at(-1) as ((tui: unknown, theme: unknown) => { render(width: number): string[] }) | undefined;
 	if (typeof factory !== "function") return [];
-	return factory({}, fakeTheme).render(80);
+	return factory(rows === undefined ? {} : { terminal: { rows } }, fakeTheme).render(80);
 }
 
 describe("header lifecycle", () => {
@@ -31,6 +31,15 @@ describe("header lifecycle", () => {
 		await emit(pi, "session_start", {}, ctx);
 
 		expect(typeof headers.at(-1)).toBe("function");
+	});
+
+	test("hands the installed header the terminal height", async () => {
+		const { pi, ctx, headers } = boot({ quietStartup: true });
+		await emit(pi, "session_start", {}, ctx);
+
+		expect(renderLast(headers, 40)).toHaveLength(7);
+		expect(renderLast(headers, 18)).toHaveLength(5);
+		expect(renderLast(headers, 10)).toHaveLength(3);
 	});
 
 	test("leaves Pi's built-in header for a normal startup", async () => {
@@ -87,7 +96,7 @@ describe("header update marker", () => {
 		const { pi, ctx, headers, updates, handle } = boot({ quietStartup: true });
 		await emit(pi, "session_start", {}, ctx);
 
-		updates.set([], "0.12.0");
+		updates.set("0.12.0");
 		handle.refresh();
 
 		expect(headers).toHaveLength(2);
@@ -108,7 +117,7 @@ describe("header update marker", () => {
 		await emit(pi, "session_shutdown", {}, ctx);
 		const installed = headers.length;
 
-		updates.set([], "0.12.0");
+		updates.set("0.12.0");
 		handle.refresh();
 
 		expect(headers).toHaveLength(installed);

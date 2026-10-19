@@ -10,10 +10,10 @@
  * is installed only in interactive (`tui`) sessions; every other mode leaves
  * Pi's built-in header in place, which does not exist there.
  *
- * The update check resolves after this install, so the header reads this
- * package's new version through `UpdateSource` and `refresh()` re-applies the
- * last context's header once it arrives. That is the only reason the header is
- * ever installed twice.
+ * The update check resolves after this install, so the header reads the newest
+ * known version through `UpdateSource` and `refresh()` re-applies the last
+ * context's header once one arrives. That is the only reason the header is ever
+ * installed twice.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -32,9 +32,8 @@ export interface HeaderHandle {
 /**
  * Register the install/restore lifecycle for the custom header.
  *
- * `updates` is the store the update check writes, so the marker appears when
- * this package's new version is known. A test that does not exercise the marker
- * may omit it.
+ * `updates` is the store the update check writes, so the marker appears when a
+ * newer version is known. A test that does not exercise the marker may omit it.
  */
 export function registerHeader(pi: ExtensionAPI, updates: UpdateSource = createUpdateState()): HeaderHandle {
 	// Half blocks misalign in Apple Terminal, so the mark falls back to a wordmark
@@ -56,11 +55,12 @@ export function registerHeader(pi: ExtensionAPI, updates: UpdateSource = createU
 		// value the tool frame and the notice inset by. An older host without
 		// `getSettings` keeps the default margin.
 		const pad = pi.getSettings?.().outputPad ?? DEFAULT_HOST_PAD;
-		const view = (): HeaderView => ({
+		const view = (rows: number | undefined): HeaderView => ({
 			showVersion: HEADER_CONFIG.showVersion,
 			halfBlocks,
 			pad,
-			latest: updates.ownLatest(),
+			latest: updates.latest(),
+			rows,
 		});
 		ctx.ui.setHeader(createHeader(() => ctx.ui.theme, view));
 	};

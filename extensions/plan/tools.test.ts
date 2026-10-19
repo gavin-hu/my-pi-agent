@@ -1,14 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { MAX_STEPS } from "./steps.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
@@ -205,18 +207,58 @@ describe("write_plan", () => {
 		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan`);
 	});
 
-	test("warns when the plan has more steps than approval can track", async () => {
+	/** A plan whose `Steps` section holds `count` top-level steps. */
+	function planWithSteps(count: number): string {
+		const steps = Array.from({ length: count }, (_, index) => `- [ ] step ${index}`).join("\n");
+		return `## Steps\n${steps}`;
+	}
+
+	test("refuses a plan with more steps than approval can track", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const steps = Array.from({ length: MAX_STEPS + 1 }, (_, index) => `- [ ] step ${index}`).join("\n");
 		const { ctx } = fakeCtx({ cwd: root });
 
-		const result = await call(write, { title: "Big", content: `## Steps\n${steps}` }, ctx);
+		const result = await call(write, { title: "Big", content: planWithSteps(MAX_STEPS + 1) }, ctx);
 
-		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} steps and only the first ${MAX_STEPS}`);
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} top-level steps`);
+		expect(result.content[0].text).toContain(`at most ${MAX_STEPS}`);
+		expect(result.content[0].text).toContain("Nothing was written");
+		expect(result.details).toBeUndefined();
+		expect(runtime.lastPlanPath()).toBeUndefined();
 	});
 
-	test("does not warn for a plan within the step caps", async () => {
+	test("writes an exactly-full plan, which still approves", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const full = planWithSteps(MAX_STEPS);
+
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, full);
+		expect(readFileSync(planPath, "utf-8")).toBe(full);
+
+		await approvePlan(exit, planPath, root);
+		expect(runtime.isEnabled()).toBe(false);
+	});
+
+	test("a refinement over the cap leaves the plan file unchanged", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const original = planWithSteps(2);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, original);
+		const { ctx } = fakeCtx({ cwd: root });
+
+		const result = await call(
+			write,
+			{ title: "Test plan", content: planWithSteps(MAX_STEPS + 1), plan_path: planPath },
+			ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain(`at most ${MAX_STEPS}`);
+		expect(readFileSync(planPath, "utf-8")).toBe(original);
+	});
+
+	test("does not add a note for a plan within the step caps", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const { ctx } = fakeCtx({ cwd: root });
@@ -317,6 +359,27 @@ describe("exit_plan_mode", () => {
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
+	test("refuses to present a plan file over the step cap", async () => {
+		const { enter, exit, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		// A hand-edited (or older-session) file can exceed the cap without write_plan.
+		const plansDir = join(root, ".pi", "plans");
+		mkdirSync(plansDir, { recursive: true });
+		const steps = Array.from({ length: MAX_STEPS + 1 }, (_, index) => `- [ ] step ${index}`).join("\n");
+		const planPath = join(plansDir, "big.md");
+		writeFileSync(planPath, `## Steps\n${steps}`);
+
+		const { ctx } = fakeCtx({ select: "Approve and execute", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.details.approved).toBe(false);
+		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} top-level steps`);
+		expect(result.content[0].text).toContain("write_plan");
+		// Nothing was approved: the session is still planning.
+		expect(runtime.isEnabled()).toBe(true);
+	});
+
 	test("keeps planning when the user chooses that or cancels", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
@@ -360,6 +423,63 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("source of truth");
 		expect(result.content[0].text).toContain("1. [ ] Read the parser");
 		expect(result.content[0].text).toContain(SET_PLAN_STEPS_TOOL);
+	});
+
+	test("carries the Verification section as the last todo item", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = [
+			"# Plan",
+			"## Steps",
+			"- [ ] Add the cache",
+			"- [ ] Wire it",
+			"## Verification",
+			"- `bun run check` passes",
+			"- approve and merge",
+		].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0]?.args).toEqual({
+			todos: [
+				{ content: "Add the cache", status: "pending" },
+				{ content: "Wire it", status: "pending" },
+				{ content: "Verify: bun run check passes; approve and merge", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).toContain("The plan's verification section is the last todo item");
+		// The verification item is not a plan step, so step numbers still line up.
+		expect(result.content[0].text).toContain("Merged 2 of 2 plan steps");
+	});
+
+	test("adds no verification item to a plan with no Steps heading", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		// Without a `Steps` heading the shallowest list is the plan (the older rule),
+		// so the verification bullets are already steps and a summary would duplicate
+		// them.
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Plan\n\n## Verification\n- run the suite");
+
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", cwd: root });
+		await call(exit, { plan_path: planPath }, ctx);
+
+		expect(toolCalls[0]?.args).toEqual({ todos: [{ content: "run the suite", status: "pending" }] });
+	});
+
+	test("names a verification item the full list could not take", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const plan = ["# Plan", "## Steps", "- [ ] Add the cache", "## Verification", "- run the suite"].join("\n");
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		// A branch whose todo list is already at its cap keeps the verification out.
+		const full = Array.from({ length: 50 }, (_, index) => ({ content: `existing ${index}`, status: "pending" }));
+		const { ctx } = fakeCtx({ select: "Approve and execute", branch: todoBranch(full), cwd: root });
+
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(result.content[0].text).toContain("did not fit in the full todo list");
 	});
 
 	test("seeds only the Steps section, not prose bullets", async () => {
@@ -593,6 +713,66 @@ describe("exit_plan_mode", () => {
 		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
 	});
 
+	describe("the session-goal offer", () => {
+		/** Approve `content` through the dialog path with the given fake ctx options. */
+		async function approve(
+			content: string,
+			options: { confirm?: boolean; branch?: unknown[]; executeError?: string } = {},
+		) {
+			const { enter, exit, write, runtime, root } = setup();
+			await enterPlan(enter, runtime, root);
+			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
+			const fake = fakeCtx({
+				select: "Approve and execute",
+				confirm: options.confirm ?? true,
+				branch: options.branch,
+				executeError: options.executeError,
+				cwd: root,
+			});
+			const result = await call(exit, { plan_path: planPath }, fake.ctx);
+			return { ...fake, result };
+		}
+
+		test("offers the plan's title and records it as the goal when accepted", async () => {
+			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One");
+
+			expect(confirms.map((call) => call.message)).toEqual(["Add rate limiting"]);
+			expect(
+				toolCalls.some(
+					(call) => call.name === "goal" && (call.args as { objective: string }).objective === "Add rate limiting",
+				),
+			).toBe(true);
+			expect(result.content[0].text).toContain("Recorded the session goal: Add rate limiting.");
+		});
+
+		test("records nothing when the offer is declined", async () => {
+			const { toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", { confirm: false });
+
+			expect(toolCalls.some((call) => call.name === "goal")).toBe(false);
+			expect(result.content[0].text).not.toContain("Recorded the session goal");
+		});
+
+		test("leaves an existing goal alone without asking", async () => {
+			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
+				branch: [resultEntry({ objective: "the user's own goal", status: "active" })],
+			});
+
+			expect(confirms).toEqual([]);
+			expect(toolCalls.some((call) => call.name === "goal")).toBe(false);
+			expect(result.content[0].text).not.toContain("session goal");
+		});
+
+		test("reports a goal the goal tool refused", async () => {
+			const { result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
+				executeError: "objective is longer than 2000 characters.",
+			});
+
+			expect(result.content[0].text).toContain(
+				"Could not record the session goal: objective is longer than 2000 characters.",
+			);
+		});
+	});
+
 	test("a second review compares against what the first one showed", async () => {
 		const { web, starts } = webThatApproves([]);
 		const { enter, exit, write, runtime, root } = setup(web);
@@ -614,8 +794,8 @@ describe("exit_plan_mode", () => {
 		const result = await call(exit, { plan_path: planPath }, second);
 
 		expect(result.details.approved).toBe(true);
-		expect(starts[0].previous).toContain("Old body");
-		expect(starts[0].previous).not.toContain("New body");
+		expect(starts[0].baseline).toEqual(sectionDigests("## Goal\nOld body\n## Steps\n- [ ] One"));
+		expect(starts[0].baseline).not.toEqual(sectionDigests("## Goal\nNew body\n## Steps\n- [ ] One"));
 	});
 
 	test("a browser approve leaves plan mode and seeds the todo list", async () => {

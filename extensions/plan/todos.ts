@@ -23,6 +23,11 @@ export interface TodoMerge {
 	kept: number;
 	/** Plan steps left out because the list reached its cap. */
 	deferred: number;
+	/**
+	 * What happened to the trailing checklist item (the plan's verification
+	 * summary): appended after the steps, already present, or left out by the cap.
+	 */
+	trailing?: "added" | "skipped" | "deferred";
 }
 
 /** Fallback list cap when the registered todo tool does not advertise one. */
@@ -38,8 +43,12 @@ function contentKey(content: string): string {
  * keep their status, a legacy in-progress item without an `activeForm` gets its
  * content as one so the todo tool accepts it, and the appended steps stop at
  * `max` items — the rest are counted as deferred, never dropped.
+ *
+ * `trailing` is the plan's verification summary: it is appended after every step
+ * (still subject to the same duplicate and cap rules) but is not counted as a
+ * step, because it is not one.
  */
-export function mergeTodos(existing: ExistingTodo[], steps: PlanStep[], max: number): TodoMerge {
+export function mergeTodos(existing: ExistingTodo[], steps: PlanStep[], max: number, trailing?: PlanStep): TodoMerge {
 	const limit = Number.isInteger(max) && max > 0 ? max : DEFAULT_TODO_MAX;
 	const todos: ExistingTodo[] = existing.map((todo) =>
 		todo.status === "in_progress" && !todo.activeForm ? { ...todo, activeForm: todo.content } : todo,
@@ -63,5 +72,18 @@ export function mergeTodos(existing: ExistingTodo[], steps: PlanStep[], max: num
 		todos.push({ content: step.content, status: step.status });
 		added += 1;
 	}
-	return { todos, added, skipped, kept: existing.length, deferred };
+
+	let trailingOutcome: TodoMerge["trailing"];
+	if (trailing) {
+		const key = contentKey(trailing.content);
+		if (!key) trailingOutcome = undefined;
+		else if (seen.has(key)) trailingOutcome = "skipped";
+		else if (todos.length >= limit) trailingOutcome = "deferred";
+		else {
+			todos.push({ content: trailing.content, status: trailing.status });
+			trailingOutcome = "added";
+		}
+	}
+
+	return { todos, added, skipped, kept: existing.length, deferred, trailing: trailingOutcome };
 }

@@ -2,22 +2,26 @@
  * Slash command for the plan-mode extension.
  *
  * `/plan` toggles plan mode, or enters it and sends an optional task;
- * `Ctrl+Alt+P` toggles too. `/plan review [path]` is the one reserved
- * subcommand: it opens the plan in the browser, and when the user saves their
- * comments sends them to the model as a refinement request.
+ * `Ctrl+Alt+P` toggles too. Two subcommands are reserved: `/plan review [path]`
+ * opens a plan in the browser (and sends saved comments to the model as a
+ * refinement), and `/plan list` shows the plans directory, newest first, with
+ * Enter opening a review.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../lib/interaction.ts";
 import { feedbackSummary } from "./feedback.ts";
+import { PlanIndexComponent, formatPlanIndex } from "./plan-index.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { runBrowserReview } from "./review.ts";
 import type { PlanRuntime } from "./runtime.ts";
+import type { PlanSummary } from "./plans.ts";
 import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 
 const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const REVIEW_PREFIX = "review";
+const LIST_PREFIX = "list";
 
 /** Notice text for the current mode; shared by `/plan` and the `Ctrl+Alt+P` shortcut. */
 export function planModeNotice(enabled: boolean): string {
@@ -28,6 +32,14 @@ export function planModeNotice(enabled: boolean): string {
 function reviewTarget(args: string): string | undefined {
 	const target = args.slice(REVIEW_PREFIX.length).trim();
 	return target === "" ? undefined : target;
+}
+
+/**
+ * Whether a command line is the reserved `list` subcommand. Exact match only, so
+ * `list the untracked files` stays a task instead of silently listing plans.
+ */
+function isListSubcommand(prompt: string): boolean {
+	return prompt.toLowerCase() === LIST_PREFIX;
 }
 
 /**
@@ -68,10 +80,10 @@ async function reviewInBrowser(
 		return;
 	}
 
-	const previous = runtime.reviewed(file.path);
+	const baseline = runtime.reviewed(file.path);
 	const result = await runBrowserReview(web, ctx.cwd, file, {
 		canApprove: false,
-		previous,
+		baseline,
 		// Mark only once the page is actually open: a failed start must not consume
 		// the baseline for a plan nobody saw.
 		onOpened: (session) => {
@@ -100,6 +112,47 @@ async function reviewInBrowser(
 	else await pi.sendUserMessage(message, { deliverAs: "followUp" });
 }
 
+/**
+ * `/plan list`: show the plans directory, newest first. The TUI gets a docked
+ * list whose Enter opens the focused plan's review; every other mode gets the
+ * same facts as a notice, with each plan's path.
+ */
+async function openPlanIndex(
+	pi: ExtensionAPI,
+	runtime: PlanRuntime,
+	web: PlanWebReview,
+	ctx: ExtensionContext,
+): Promise<void> {
+	const dir = await runtime.plans.dirFor(ctx.cwd);
+	const summarise = async (): Promise<Awaited<ReturnType<typeof runtime.plans.index>>> => runtime.plans.index(ctx.cwd);
+	const summaries = await summarise();
+
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify(formatPlanIndex(summaries, dir), "info");
+		return;
+	}
+
+	// The review runs after the screen closes, so the input focus is free again.
+	let selected: (PlanSummary | undefined) | undefined;
+	await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+		const component = new PlanIndexComponent({
+			summaries,
+			dir,
+			theme,
+			onSelect: (summary) => {
+				selected = summary;
+				done();
+			},
+			onClose: () => done(),
+			reload: summarise,
+			requestRender: () => tui.requestRender(),
+			viewportRows: () => tui.terminal?.rows,
+		});
+		return component;
+	});
+	if (selected) await reviewInBrowser(pi, runtime, web, selected.path, ctx);
+}
+
 export function registerCommands(
 	pi: ExtensionAPI,
 	runtime: PlanRuntime,
@@ -107,16 +160,22 @@ export function registerCommands(
 ): void {
 	pi.registerCommand("plan", {
 		description:
-			"Toggle plan mode (read-only exploration), enter it with an optional task, or review a plan in the browser",
+			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, or review one in the browser",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
-			return REVIEW_PREFIX.startsWith(text) ? [{ value: REVIEW_PREFIX, label: REVIEW_PREFIX }] : null;
+			const subcommands = [LIST_PREFIX, REVIEW_PREFIX].filter((name) => name.startsWith(text));
+			return subcommands.length > 0 ? subcommands.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args, ctx) => {
 			const prompt = args.trim();
 
-			// `/plan review [path]` is a reserved subcommand; everything else is a task.
+			// `/plan list` and `/plan review [path]` are reserved subcommands;
+			// everything else is a task.
+			if (isListSubcommand(prompt)) {
+				await openPlanIndex(pi, runtime, web, ctx);
+				return;
+			}
 			if (isReviewSubcommand(prompt)) {
 				await reviewInBrowser(pi, runtime, web, reviewTarget(prompt), ctx);
 				return;

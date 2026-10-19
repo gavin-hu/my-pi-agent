@@ -4,13 +4,13 @@
  * (the two-line, width-adaptive status bar with its price calculation),
  * `message/` (the user-message nameplate), `notice/` (the shared transcript
  * notice renderer), `block/` (the unified tool-block frame), `separator/` (the
- * transcript turn rule), `working/` (the live elapsed counter on Pi's working
- * row), `panel/` (the unified `/bytefly` screen and its
+ * transcript turn rule), `working/` (the live run line on Pi's working row),
+ * `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
  * probe runtime), `notify/` (OS notifications for unattended runs), and
- * `update/` (Pi's package list, the host suppression, and the header marker).
+ * `update/` (the published-version check behind the header's update marker).
  *
- * The header, footer, turn rule, and working timer are installed only in
+ * The header, footer, turn rule, and working line are installed only in
  * interactive (`tui`) sessions, and are always on; the user-message marker,
  * notice, and tool blocks register at load and take effect wherever a
  * transcript renders. `pi config` turns bytefly's chrome off. The panel and doctor work
@@ -47,7 +47,7 @@ export interface ByteflyDeps {
 	doctor?: DoctorDeps;
 	/** Seams for the notify capability. */
 	notify?: NotifyDeps;
-	/** Seams for the package-update surface. */
+	/** Seams for the published-version check. */
 	update?: UpdateDeps;
 }
 
@@ -59,7 +59,10 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	// the header reads it, so the marker and every re-install agree.
 	const updates = createUpdateState();
 	const header = registerHeader(pi, updates);
-	registerFooter(pi);
+	// Notify first, so the footer's budget guardrail can raise one OS notification
+	// through the same capability the triggers use instead of a second dispatch path.
+	const notifications = registerNotify(pi, deps.notify);
+	registerFooter(pi, { notify: notifications.notify });
 	registerUserMessage(pi);
 	// One store per load: the tool frame and the notice record Pi's output pad and
 	// the turn separator reads it, so bytefly's transcript blocks share one margin.
@@ -72,8 +75,8 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerTurnSeparator(pi, pad);
 	registerWorkingTimer(pi);
 	const doctor = registerDoctor(pi, deps.doctor);
-	registerPanel(pi, { doctor, discover: deps.extensions?.discover });
-	registerNotify(pi, deps.notify);
-	// Last, so a version that arrives after startup can re-install the header.
-	registerUpdate(pi, updates, { ...deps.update, onUpdate: () => header.refresh() });
+	// The returned handle is what `/bytefly update` re-runs, so the update surface is
+	// registered before the panel that offers the command.
+	const update = registerUpdate(pi, updates, { ...deps.update, onUpdate: () => header.refresh() });
+	registerPanel(pi, { doctor, update, discover: deps.extensions?.discover });
 }

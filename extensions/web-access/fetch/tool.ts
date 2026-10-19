@@ -27,7 +27,7 @@ import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
 import { createPageCache, type PageCache } from "./cache.ts";
 import type { WebFetchConfig } from "./config.ts";
-import { findPassages } from "./find.ts";
+import { findPassages, type Passage } from "./find.ts";
 import { formatMatches, formatPage } from "./format.ts";
 import { runFetch, type FetchDeps, type PageResult } from "./page.ts";
 import { resolveRequest, WebFetchOutput, WebFetchParams, type FetchResponse, type WebFetchArgs } from "./schema.ts";
@@ -85,29 +85,33 @@ async function loadPage(
 function pageResult(loaded: LoadedPage, request: FetchRequest): { response: FetchResponse; text: string } {
 	const { page, cached, fetchedAt } = loaded;
 	const finding = request.find.length > 0;
-	const matches = finding
-		? findPassages(page.text, request.find, {
-				mode: request.mode,
-				contextChars: request.contextChars,
-				maxMatches: request.maxMatches + 1,
-			})
-		: [];
-	// Request one extra so a full list proves more hits exist; only the cap is shown.
-	const matchesTruncated = finding && matches.length > request.maxMatches;
-	const visibleMatches = matchesTruncated ? matches.slice(0, request.maxMatches) : matches;
 
 	let formatted: { body: string; text: string; truncated: boolean };
 	let nextIndex: number;
+	let matches: Passage[] = [];
+	let matchesTruncated = false;
+
 	if (finding) {
-		formatted = formatMatches({
+		// Request one extra so a full list proves more hits exist; only the cap is shown.
+		const found = findPassages(page.text, request.find, {
+			mode: request.mode,
+			contextChars: request.contextChars,
+			maxMatches: request.maxMatches + 1,
+		});
+		const cappedByMaxMatches = found.length > request.maxMatches;
+		const rendered = formatMatches({
 			finalUrl: page.finalUrl,
 			title: page.title,
 			status: page.status,
 			contentType: page.contentType,
-			matches: visibleMatches,
+			matches: cappedByMaxMatches ? found.slice(0, request.maxMatches) : found,
 			find: request.find,
-			truncated: matchesTruncated,
+			maxChars: request.maxChars,
+			cappedByMaxMatches,
 		});
+		formatted = rendered;
+		matches = rendered.included;
+		matchesTruncated = rendered.truncated;
 		// Find results are not paged, so the caller keeps reading from the same offset.
 		nextIndex = request.startIndex;
 	} else {
@@ -136,7 +140,7 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 		nextIndex,
 		truncated: formatted.truncated,
 		cached,
-		matches: visibleMatches,
+		matches,
 		matchesTruncated,
 		fetchedAt,
 		error: "",
@@ -192,9 +196,6 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 		parameters: WebFetchParams,
 		outputSchema: WebFetchOutput,
 		annotations: { readOnlyHint: true, openWorldHint: true },
-		// The page cache is shared in-memory state created per registration, so
-		// sibling calls must not run concurrently (matches web_search's throttle).
-		executionMode: "sequential",
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const config = loadFetchConfig(ctx.cwd);

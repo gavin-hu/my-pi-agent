@@ -246,25 +246,49 @@ function setPath(source: Record<string, unknown>, path: readonly string[], value
 }
 
 /**
- * Delete one key from one top-level section, preserving its siblings and the
- * rest of the document. An emptied section is removed rather than left as `{}`.
- * A no-op when the file, section, or key is absent; refuses a malformed
- * document.
+ * Delete the leaf at `keyPath` from one top-level section, preserving every
+ * sibling key, every other section, and document metadata. An object left empty
+ * by the deletion goes with it, the section included, so a file does not fill
+ * with `{}` shells. A no-op when the file, section, or leaf is absent; refuses a
+ * malformed document and an empty path.
  */
-export function unsetConfigValue(path: string, section: string, key: string): void {
+export function unsetConfigValueAt(path: string, section: string, keyPath: readonly string[]): void {
+	if (keyPath.length === 0) throw new Error(`Cannot update ${path}: empty key path`);
 	const result = readJsonResult(path);
 	if (result.state === "absent") return;
 	if (result.state === "error") throw new Error(`Cannot update ${path}: ${result.error}`);
 
 	const document = result.value;
 	const current = configSection(document, section);
-	if (!current || !(key in current)) return;
+	if (!current) return;
 
-	const next = { ...current };
-	delete next[key];
-	if (Object.keys(next).length === 0) delete document[section];
+	const next = withoutPath(current, keyPath);
+	if (next === current) return;
+	if (next === undefined) delete document[section];
 	else document[section] = next;
 	writeConfigFile(path, document);
+}
+
+/**
+ * Copy `source` without the leaf at `path`, or `undefined` once nothing is left.
+ * Returns `source` itself when the leaf is absent or sits behind a non-object,
+ * so the caller can tell "nothing to delete" from "a deletion happened".
+ */
+function withoutPath(source: Record<string, unknown>, path: readonly string[]): Record<string, unknown> | undefined {
+	const [head, ...rest] = path;
+	if (head === undefined || !(head in source)) return source;
+	const next = { ...source };
+	if (rest.length === 0) {
+		delete next[head];
+	} else {
+		const child = asRecord(source[head]);
+		if (!child) return source;
+		const pruned = withoutPath(child, rest);
+		if (pruned === child) return source;
+		if (pruned === undefined) delete next[head];
+		else next[head] = pruned;
+	}
+	return Object.keys(next).length === 0 ? undefined : next;
 }
 
 /** Write a whole config document atomically (sibling temp file, then rename). */

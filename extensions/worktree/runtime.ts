@@ -29,6 +29,8 @@ let active: WorktreeState | null = null;
 let baseCwd = process.cwd();
 let inactiveOverrides: string[] = [];
 let gitignoreOffered = false;
+/** Commands this session let through although the guard could not verify them. */
+let unverifiableCommands = 0;
 const configCache = new Map<string, WorktreeConfig>();
 
 export function getActive(): WorktreeState | null {
@@ -66,6 +68,29 @@ export function isGitignoreOffered(): boolean {
 
 export function markGitignoreOffered(): void {
 	gitignoreOffered = true;
+}
+
+/** Re-arm the offer for the next session; `session_start` owns the reset. */
+export function resetGitignoreOffer(): void {
+	gitignoreOffered = false;
+}
+
+/**
+ * Count a bash command the guard let through without being able to verify it.
+ * Session-scoped on purpose: it is the one gap a user cannot see in the
+ * transcript, so `/worktree` reports how often it happened.
+ */
+export function noteUnverifiableCommand(): void {
+	unverifiableCommands += 1;
+}
+
+export function getUnverifiableCommands(): number {
+	return unverifiableCommands;
+}
+
+/** Forget the previous session's diagnostics; called from `session_start`. */
+export function resetDiagnostics(): void {
+	unverifiableCommands = 0;
 }
 
 /** Cached config for the hot `tool_call` path; cleared on enter and exit. */

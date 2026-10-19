@@ -5,7 +5,9 @@
  * guided to write, the top-level steps that seed `todo` and drive the review
  * gauge, the heading sections the review screen navigates, and the in-place
  * checkbox edit that keeps the file current after approval. All of it is pure so
- * the tools, the store, and the renderer agree on one parser.
+ * the tools, the store, and the renderer agree on one parser. The review's
+ * section comparison lives in `plan-text.ts`, which owns the text normalization
+ * the digest is computed over.
  *
  * Only top-level list items become steps: nested sub-bullets are notes, and the
  * shallowest list level is treated as the plan. When the plan has a `Steps`
@@ -224,6 +226,38 @@ function elide(content: string): string {
 	return content.length > MAX_STEP_LENGTH ? `${content.slice(0, MAX_STEP_LENGTH - 1).trimEnd()}…` : content;
 }
 
+/** A list marker with an optional checkbox, at any indent. */
+const LIST_PREFIX = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/;
+
+/**
+ * The plan's `Verification` section as one trailing checklist item, or
+ * `undefined` when the plan has none.
+ *
+ * The section is prose ("commands and checks"), and a todo item is one line, so
+ * the lines are stripped of list markers and inline emphasis and joined with
+ * `; `, prefixed with `Verify:` and elided like a long step. The item is
+ * deliberately *not* a plan step: it is not in the `Steps` section, so it must
+ * not count against the step cap or appear in `set_plan_steps` numbering.
+ *
+ * A plan with no `Steps` heading feeds its shallowest list as steps (the older
+ * rule), so that list already covers the verification bullets; appending a
+ * summary of them would duplicate them, and there is nothing to carry.
+ */
+export function verificationItem(plan: string): PlanStep | undefined {
+	if (stepsSection(plan) === undefined) return undefined;
+	const section = extractPlanSections(plan).find(
+		(candidate) => candidate.level > 0 && candidate.title.toLowerCase() === "verification",
+	);
+	if (!section) return undefined;
+	const items = section.text
+		.split("\n")
+		.slice(1)
+		.map((line) => plainText(line.replace(LIST_PREFIX, "")))
+		.filter(Boolean);
+	if (items.length === 0) return undefined;
+	return { content: elide(`Verify: ${items.join("; ")}`), status: "pending" };
+}
+
 /** Top-level steps from a plan, in order. */
 export function extractPlanSteps(plan: string): PlanStep[] {
 	return topLevelItems(plan).map((item) => ({ content: elide(item.step.content), status: item.step.status }));
@@ -292,30 +326,6 @@ export function setStepStatuses(plan: string, updates: StepUpdate[]): string | u
 		lines[target.line] = `${" ".repeat(target.indent)}${target.lead}${checkbox} ${text}`;
 	}
 	return lines.join("\n");
-}
-
-/**
- * Per-section change flags for a second review: `boolean[]` aligned with
- * `extractPlanSections(current)`, so duplicate headings are flagged by
- * occurrence rather than by title. Revision snapshots are the caller's to
- * provide; strip stored feedback first so a review comment does not look like
- * an edit.
- */
-export function changedSections(previous: string, current: string): boolean[] {
-	const before = new Map<string, string[]>();
-	for (const section of extractPlanSections(previous)) {
-		const texts = before.get(section.title);
-		if (texts) texts.push(section.text.trim());
-		else before.set(section.title, [section.text.trim()]);
-	}
-
-	const seen = new Map<string, number>();
-	return extractPlanSections(current).map((section) => {
-		const index = seen.get(section.title) ?? 0;
-		seen.set(section.title, index + 1);
-		const prior = before.get(section.title)?.[index];
-		return prior === undefined || prior !== section.text.trim();
-	});
 }
 
 /**

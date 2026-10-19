@@ -3,14 +3,13 @@
 `bytefly` owns the terminal chrome, configuration, and diagnostics surfaces
 this package adds: one themed startup header whose two-tone nameplate carries
 the agent and chrome identities, one compact, colorful, width-adaptive two-line
-footer, a two-row `You` nameplate that opens each user message, a labeled rule that
-marks each completed turn in the transcript, one keyboard-driven screen with two
+footer, a two-row `You` nameplate that opens each user message, a receipt rule that
+records each completed turn in the transcript, one keyboard-driven screen with two
 sections — Extensions, every resolved Pi extension with its enable checkbox and
 its health, and Settings, the common app and `bytefly.json` preferences — and
 an opt-in notify capability that raises an OS notification when a run finishes,
-a job finishes, or the agent asks for input, and a package-update check that
-replaces Pi's startup block with one notice and marks bytefly's own new version
-on the header.
+a job finishes, or the agent asks for input, and a published-version check that
+marks the header and posts one notice when a newer bytefly is on npm.
 DeepSeek is priced from the provider's published yuan rates and peak tariff by
 default; set `price.currency.code` to `USD` to price it from the provider's
 published dollar table instead, under the same peak windows, with Pi's recorded
@@ -34,8 +33,8 @@ How the `run_doctor` call and its result look in the transcript — the call lin
 
 The extension owns ten surfaces: the startup header, the footer, the
 user-message marker, the rule between completed turns, the notice block for
-shared transcript notices, the tool-block frame, the live working counter, the
-two-section control center, notifications, and the package-update check.
+shared transcript notices, the tool-block frame, the live working line, the
+two-section control center, notifications, and the published-version check.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
 `accent` / `warn` roles, the agent identity (`Pi`, bold, and its version), the
@@ -60,23 +59,34 @@ that cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
 
 As the terminal narrows, the identity sheds the update marker, then the chrome
 version, then the chrome line, then the agent name, and the help rows drop whole
-keys, so nothing wraps or clips mid-word. The nameplate sits on the transcript margin, which follows Pi's
-`outputPad` (the value the tool frame and the notice use too), and the help hangs
-one body indent inside it. The mark, tokens, identity, and grouped help are tuned
-in [`header/config.ts`](./header/config.ts).
+keys, so nothing wraps or clips mid-word. Height sheds the same way: at 28 rows
+all three help groups print, below 28 the middle group (the expand and model
+chords) goes first, below 22 only the `/` commands row survives, and below 16 the
+help block and the leading blank row go, leaving the nameplate and its rule. An
+unknown height keeps the full header. The nameplate sits on the transcript
+margin, which follows Pi's `outputPad` (the value the tool frame and the notice
+use too), and the help hangs one body indent inside it. The mark, tokens,
+identity, and grouped help are tuned in
+[`header/config.ts`](./header/config.ts).
 
 **Footer.** Two lines, each with a left and right zone:
 
 - **Line 1 — identity:** `pwd` and the session name on the left; git state
   (`⎇ branch · ⑂ worktree`) and the `◉` browse chip on the right.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
-  mode/alert slot (`⋮ plan`) trailing after a `╎` when present; the model and
-  thinking level on the right. The gauge is anchored at column 0, so `%` is
+  child-run roll-up (`↳ 3 · ¥0.12`, present only once a subagent has finished),
+  the mode/alert slot (`⋮ plan`) trailing after a `╎` when present, and the model
+  and thinking level on the right. The gauge is anchored at column 0, so `%` is
   always in the same place.
+  The roll-up is its own number, never folded into the session's cost: a subagent
+  runs in its own process, and the footer prices those runs with the same rate
+  table and currency as the session so a currency change moves both. It covers
+  the last 500 child runs of the current process, and starts from zero after
+  `/resume` (the events are not session entries).
 
 ```
-~/repo/my-pi-agent                                                    ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
+~/repo/my-pi-agent                                              ⎇ main · ⑂ smoke
+▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↳ 2 · ¥0.06 · ↑42k ↓8.0k · R96k CH 87% ╎ ⋮ plan    opus-4.5 · high
 ```
 
 (The examples show the default `¥` symbol. A model that neither `rates` nor the
@@ -121,13 +131,25 @@ shows as `¥<0.01` rather than `¥0.00`.
 
 DeepSeek needs no config file at all: the bar prices it from the published yuan
 rates and peak tariff built into [`footer/price/config.ts`](./footer/price/config.ts).
-A `bytefly.json` can switch to the published dollar table, add models of your own,
-or replace a built-in entry:
+Those tables record the day they were last checked against the published tariff,
+and `doctor` reports how old that is, so a re-pricing shows up as a warning instead
+of a quietly wrong total. A `bytefly.json` can switch to the published dollar table,
+add models of your own, or replace a built-in entry:
 
 ```
 ~/repo/project                                                          ⎇ main
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥2.50 · ↑42k ↓8.0k · R96k CH 87%             opus-4.5 · high
 ```
+
+**Session budget.** `price.budget` puts a threshold under that total, in the same
+currency: when the session's cost reaches it, one `bytefly · Session budget
+reached` notice names what was spent against the budget, and one OS notification
+follows when notify is enabled. It is an alert, not a limit — no turn is blocked or
+aborted — and it fires once per session, on the turn where the crossing becomes
+final (the run settling), because a warning per turn after that is noise. `0`, the
+default, turns it off. The check reads the total the footer already priced, and
+the footer exists only in `tui` sessions, so a print or JSON run has no budget
+alert; the footer's own numbers are visible in every interactive session.
 
 **User message.** Every user message opens with a two-row `You` nameplate —
 the label over a rule that spans the width — above the message:
@@ -151,26 +173,36 @@ as it would without it, and a soft wrap of one long line stays at the margin
 because the renderer wraps it, not bytefly. The label and the rule are tuned
 in [`message/config.ts`](./message/config.ts).
 
-**Working timer.** Pi's working row shows a static `Working`, so a long run
+**Working line.** Pi's working row shows a static `Working`, so a long run
 reads the same as a short one. While the row is up, bytefly advances its
-message once a second and hands it back to Pi when the row comes down:
+message once a second and hands it back to Pi when the row comes down. Before
+the first tool starts it is a count:
 
 ```
 Working… 12s
 ```
 
-The count is tied to the row's visibility: it starts on `turn_start`, the event
-the host shows the working indicator on, and stops on `agent_end`, where the
-host clears it, then again on `session_shutdown`. Turns inside one run do not
-restart it — the host keeps the same row up across turns — so the count covers
-the whole run, tool calls included. A retry is a new run, so the count restarts
-when its row reappears. The word and the interval are tuned in
-[`working/config.ts`](./working/config.ts).
+Once a top-level tool starts, the row becomes a live run line: the tool, how
+many top-level tools this run has started, and the elapsed time.
+
+```
+edit · 3 tools · 12s
+```
+
+A nested tool call (one carrying `parentToolCallId`, such as a codemode script's
+inner call) neither counts nor takes over the line, so the number matches the
+tool blocks in the transcript. The line keeps the last tool name while the
+model streams after it, and a tool event repaints the row immediately instead
+of waiting for the next tick. The line covers the whole run, tool calls
+included. It is tied to the row's visibility: it starts on `turn_start`, stops
+on `agent_end`, and is reset on `session_shutdown`; turns inside one run do not
+restart it, and a retry starts a new run. The words and the interval are tuned
+in [`working/config.ts`](./working/config.ts).
 
 **Turn separator.** After each completed turn the extension appends an inert
-entry and draws a centered `╌╌╌ turn N ╌╌╌` rule across the transcript; see
-[Turn separator](#turn-separator). No config file is needed and there is no
-command.
+entry and draws a centered receipt rule — `╌╌╌ turn N · duration · N tools ╌╌╌`
+— across the transcript; see [Turn separator](#turn-separator). No config file is
+needed and there is no command.
 
 **Notices.** Any extension in the package can post a transcript notice under the
 shared `my-pi-agent/notice` type; bytefly draws it at the transcript's margin —
@@ -201,6 +233,15 @@ The type and the `NoticeDetails` shape are the shared contract in
 are tuned in [`notice/config.ts`](./notice/config.ts). Every field is sanitized
 and clipped at the boundary, and a message without `details` keeps Pi's default
 custom-message box.
+
+**Compaction.** `/compact` is Pi's own surface: its summary block is a built-in
+message component, so bytefly cannot replace, hide, or shorten it. The shipped
+themes only remove its fill — `customMessageBg` is the terminal default — and
+paint the `[compaction]` label in the accent, so the block sits on the canvas
+like the rest of the transcript. Pi's branch summaries and skill invocations
+share the same tokens.
+
+<img src="../../assets/compaction.png" alt="The /compact summary block: a [compaction] label, the compacted token count, and the summary Markdown on the terminal canvas, with no background band" width="100%">
 
 **Tool blocks.** Every tool block leads with the tool's own call line as the
 headline — the tool name in the theme's tool-title colour — and its result body
@@ -267,23 +308,25 @@ underneath, and `run_doctor` returns the same report as text and typed data.
 Only a missing
 *hard* requirement posts a notice at session start; everything else waits in the
 report.
-See [The bytefly screen](#the-bytefly-screen).
+See [The control center](#the-control-center).
 
 **Notify.** Off by default, one `notify` section in `bytefly.json` turns on OS
 notifications for unattended runs: when a full agent run settles, when a
-background job finishes, and when the agent opens a prompt asking for input. The
+background job finishes, when the agent opens a prompt asking for input, and when
+a `watch` wake match fires while the agent is idle. The
 method follows the terminal (OSC 777, OSC 99, a Windows toast) or falls back to
 the platform notifier (`osascript`, `notify-send`); see
 [Notifications](#notifications).
 
-**Update check.** Once per interactive session, in the background, bytefly asks
-Pi's package manager which configured packages have updates. If there are any,
-bytefly replaces Pi's own `Package Updates Available` block with one transcript
-notice listing them and naming `pi update --extensions`; this package's new
-version, when it is one of them, also appears as `↑0.14.0` after the header's
-chrome version. Other packages never change the header. The check inherits Pi's
-rules: `PI_OFFLINE` skips it, only configured npm/git sources are checked, and a
-failed request is silent; see [Update check](#update-check).
+**Update check.** In the background at an interactive session's start, the loaded
+version is compared with the published `@gavin-hu/my-pi-agent` on npm. A newer
+one puts `↑0.12.0` after the header's chrome version and posts one transcript
+notice naming `pi update --extensions` and its release URL. The answer is cached
+in `<agentDir>/bytefly/update.json` with the time it was read, so a session
+starting inside the 24-hour window reuses it instead of repeating the request,
+and `/bytefly update` re-runs the check on demand. The check is skipped when
+`PI_OFFLINE` is set, makes no request outside `tui`, and a failed background
+request is silent; see [Update check](#update-check).
 
 ## Commands
 
@@ -292,9 +335,10 @@ failed request is silent; see [Update check](#update-check).
 | `/bytefly [extension] [refresh]` | Open the control center on Extensions. In `tui` it mounts a docked list; every other mode prints the grouped listing, or one extension's full findings when named. |
 | `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints the grouped settings listing with each row's value. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
+| `/bytefly update` | Re-run the published-version check now, ignoring the cache window, and report what it found — the newest version, an available release with its URL, `PI_OFFLINE`, or an unreadable registry. It resolves no packages and probes no extension. |
 
 Tab completes the subcommands, extension names after `doctor`, and `refresh`;
-`/bytefly settings` takes no name.
+`/bytefly settings` and `/bytefly update` take no name.
 
 ## Behaviour by mode
 
@@ -328,10 +372,10 @@ identity tokens, tagline, grouped help), the footer in
 [`footer/config.ts`](./footer/config.ts) (thresholds, gauge glyphs and widths,
 separators, icons, status keys), and the turn separator in
 [`separator/config.ts`](./separator/config.ts) (glyph, label prefix, padding,
-colors).
+minimum duration, outcome wording, colors).
 
 Every key of every section is listed with its type, default, and bounds in the
-[configuration reference](../../docs/references/configuration-reference.md); this section
+[configuration reference](../../docs/references/bytefly-config.md); this section
 covers what that table cannot — when each section is read, and what the cost
 does when no rate matches.
 
@@ -395,7 +439,7 @@ named by `doctor`; a wrong-typed value falls back to its default, and a
 wrong-typed timezone drops the peak schedule rather than the session.
 
 The notify capability is **off by default**: `enabled: true` is the whole setup
-needed for an unattended run, and the three trigger flags then narrow what is
+needed for an unattended run, and the four trigger flags then narrow what is
 announced (see [Notifications](#notifications)).
 
 The proactive doctor check is part of the bytefly startup TUI, so it posts only
@@ -487,31 +531,45 @@ the model, which sits at the end of the line.
 `agent_settled` fires once after an agent run fully settles — exactly one user
 turn — which is why it is used instead of `turn_end` (that fires once per
 assistant message, so tool-calling rounds would each get a line). On each
-settled run the extension appends an inert custom entry and a renderer draws
-it:
+settled run the extension appends an inert custom entry and a renderer draws it
+as a receipt: the turn number, then the run's duration, top-level tool count,
+and outcome as the width allows.
 
 ```
-╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ turn 3 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+╌╌╌╌╌╌╌╌╌╌╌╌ turn 3 · 1m12s · 7 tools ╌╌╌╌╌╌╌╌╌╌╌╌
 ```
 
 - The turn number is `count(separators on the current branch) + 1`, so a
   resumed or forked session continues the parent's numbering and abandoned
   branches do not leak counts.
+- The receipt opens on the run's first `agent_start` and closes on
+  `agent_settled`, so a retry stays inside one duration. It counts only
+  top-level tool calls; a nested call (one carrying `parentToolCallId`) is an
+  implementation detail of its parent and does not inflate the number.
+- The outcome is part of the receipt: a failed tool adds `✕N`, and an aborted
+  run adds `aborted` instead of the failure count. A sub-second run prints no
+  duration, so quick turns stay quiet. Entries written before the receipt
+  existed have only a turn number and still render as `turn N`.
+- The label sheds fields rather than overflowing: the tool count first, then
+  the duration, then the outcome. When even the turn number does not fit, the
+  line becomes a plain dashed rule instead of clipping.
+- A clean turn paints the label `meta`, a turn with a failed tool paints it
+  `bad`, and an aborted turn paints it `warn`.
 - The entry is excluded from LLM context, so it costs no tokens, and it
   survives resume and fork. It is drawn under the `bytefly-separator` custom
   entry type.
-- The line is centered and width-adaptive: the label is filled out with the
-  glyph, and when it cannot fit the line becomes a plain dashed rule rather
-  than overflowing.
 - The rule is installed only in interactive (`tui`) sessions; RPC, JSON, and
   print sessions append nothing.
 - Separators recorded by the retired `turn-separator` extension are not
   rendered, and `PI_DISABLED_EXTENSIONS=turn-separator` no longer affects the
   rule; disable the whole extension with `bytefly` instead.
-- There is no runtime command; the glyph, label prefix, padding, and colors are
-  tuned in [`separator/config.ts`](./separator/config.ts).
+- There is no runtime command; the glyph, label prefix, padding, colors, and
+  minimum duration are tuned in
+  [`separator/config.ts`](./separator/config.ts).
 
 ## The control center
+
+<img src="../../assets/bytefly.png" alt="The /bytefly control center: the Extensions and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
 
 `/bytefly [extension] [refresh]` opens the control center on **Extensions**: a
 keyboard-driven dock list of every extension Pi resolves for the session, so the
@@ -577,58 +635,109 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists ten preferences in six groups:
+switch, with its own cursor. It lists twenty-eight preferences in ten groups:
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 10 settings
+  Extensions · Settings                           Global · 28 settings
 
   Startup (1)
 ❯ ◻ Bytefly startup TUI                                            Off
-  Notifications (3)
+  Notifications (7)
   ◻ Desktop notifications                                          Off
+  ◼ Turn finished                                                   On
+  ◼ Needs input                                                     On
+  ◼ Job finished                                                    On
+  ◼ Watcher matched                                                 On
     Delivery method                                               Auto
     Notification title                                              Pi
-  Diagnostics (1)
+  Diagnostics (2)
   ◼ Proactive health check                                          On
-  Pricing (2)
+    Probe timeout                                                 2000
+  Pricing (3)
     Currency                                                    CNY (¥)
     Cost decimals                                                    2
-  Transcript (2)
+    Session budget                                                   0
+  Transcript (3)
     Rail glyph                                                       ╎
+    Achieved goal                                                  Hide
     Output padding                                                   1
   Terminal (1)
   ◻ Hardware cursor                                                Off
+  Worktree (4)
+    ◼ Fetch remote                                                 On
+    Base ref                                                    Fresh
+    Branch prefix                                          worktree-
+    Prune after (days)                                             7
+  Snapshots (3)
+    ◼ Automatic snapshots                                          On
+    Snapshots kept                                               20
+    ◼ Safety snapshot                                               On
+  Jobs and watchers (3)
+    ◻ Wake when a job finishes                                     Off
+    ◻ Keep jobs after exit                                         Off
+    ◻ Wake on a match                                              Off
+  Memory (1)
+    ◼ Inject notes                                                  On
   Bytefly startup TUI — Pi setting
   Use bytefly's startup header in place of Pi's startup TUI.
   Default · ~/.pi/agent/settings.json
 
-  Esc close · ←/→ · Space change · Tab scope · ↑/↓ select
+  Esc close · ←/→ · Space change · Tab scope · u reset · J JSON · [ ] group
 ```
 
 | Group | Row | Source | Values |
 |---|---|---|---|
 | Startup | Bytefly startup TUI | Pi `settings.json` (`quietStartup`) | Off, On |
 | Notifications | Desktop notifications | `notify.enabled` | Off, On |
+| Notifications | Turn finished | `notify.turnFinished` | Off, On |
+| Notifications | Needs input | `notify.needsInput` | Off, On |
+| Notifications | Job finished | `notify.jobFinished` | Off, On |
+| Notifications | Watcher matched | `notify.matchFound` | Off, On |
 | Notifications | Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
 | Notifications | Notification title | `notify.title` | Text, up to 40 characters |
 | Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
+| Diagnostics | Probe timeout | `doctor.timeoutMs` | Number, 100–30000 ms |
 | Pricing | Currency | `price.currency.code` | CNY, USD |
 | Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
-| Transcript | Rail glyph | `chrome.rail` | `╎`, `│`, `┃`, `▏` |
+| Pricing | Session budget | `price.budget` | Number, `0` = off |
+| Transcript | Rail glyph | `chrome.rail` | Text, exactly one column |
+| Transcript | Achieved goal | `goal.achieved` | Show, Hide |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |
+| Worktree | Base ref | `worktree.baseRef` | Fresh, Head |
+| Worktree | Branch prefix | `worktree.branchPrefix` | Text, trimmed, required |
+| Worktree | Fetch remote | `worktree.fetchRemote` | Off, On |
+| Worktree | Prune after (days) | `worktree.pruneAfterDays` | Number, 0–3650 |
+| Snapshots | Automatic snapshots | `rewind.autoSnapshots` | Off, On |
+| Snapshots | Snapshots kept | `rewind.max` | Number, 0–1000 |
+| Snapshots | Safety snapshot | `rewind.safetySnapshot` | Off, On |
+| Jobs and watchers | Wake when a job finishes | `job.wakeOnFinish` | Off, On |
+| Jobs and watchers | Keep jobs after exit | `job.detachedByDefault` | Off, On |
+| Jobs and watchers | Wake on a match | `watch.wakeOnMatch` | Off, On |
+| Memory | Inject notes | `memory.inject` | Off, On |
 
 Choosing **Currency** also writes that currency's default precision. Both rows
 stay editable afterwards, so the footer follows the explicit values.
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
-forward, and a text row opens an inline editor on its value. The detail pane names the source, describes the preference, and shows
+forward, and a text row opens an inline editor on its value — the notification
+title, the probe timeout, the branch prefix, and the rail glyph. `u` deletes the
+focused row's key so its default applies again (`Already at its default.` when
+nothing is stored), `J` swaps the detail pane for the focused row's whole section
+as the active scope stores it — the only view of the keys this screen leaves to
+JSON — and `[` / `]` jump to the previous or next group. The detail pane names
+the source, describes the preference, and shows
 where the value is written — `Global · ~/.pi/agent/settings.json`, `Project ·
 .pi/bytefly.json`, or `Inherited from Global · .pi/bytefly.json`. A successful
 change marks the screen `Saved · reload to apply` — even when the terminal is too
 short for the detail body — and closing offers the same
 reload confirm as an extension toggle.
+
+Six of the ten groups belong to other extensions. The screen cannot import their
+normalizers, so it reports the leaf as the file states it and declares the
+loader's default; `test/settings-coverage.test.ts` holds the catalogue to every
+loader's defaults and bounds in both directions.
 
 **Bytefly startup TUI** is the one row whose label differs from the Pi key it
 writes: On writes `"quietStartup": true` (bytefly's header replaces Pi's startup
@@ -638,24 +747,30 @@ with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
-scope therefore lists the six `bytefly.json` rows and a
+scope therefore lists the twenty-five `bytefly.json` rows and a
 `App settings are Global only.` note rather than promising a write that cannot
 happen. A `bytefly.json` row writes one leaf in the selected scope (a depth-1
 key, or a nested one such as `price.currency.decimals`) through a per-key
 writer, so every sibling key, section, `$schema`, and `version` is preserved. A
-malformed document is refused with a notice instead of overwritten.
+malformed document is refused with a notice instead of overwritten, and `u`
+removes that one leaf through the same writer's `unsetConfigValueAt`.
 
 The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
 
 ```
-bytefly: Settings · Global · 9 settings
+bytefly: Settings · Global · 28 settings
 
 Startup (1)
   Bytefly startup TUI: Off
 
-Notifications (2)
+Notifications (7)
   Desktop notifications: Off
+  Turn finished: On
+  Needs input: On
+  Job finished: On
+  Watcher matched: On
   Delivery method: Auto
+  Notification title: Pi
 ...
 ```
 
@@ -666,6 +781,20 @@ problems: `missing` means an enabled extension cannot do its job, `degraded`
 means reduced capability — an optional package that is absent, a config file
 that fails to parse, a login that has not happened. Doctor never changes
 anything and never installs anything.
+
+It also reports what has **aged**: the built-in DeepSeek rate tables carry the day
+they were last checked against the published tariff (`PRICE_VERIFIED_AT` in
+`footer/price/config.ts`), and the report says how old that is — `ok` inside the
+90-day window, `degraded` beyond it with the source URL to re-check. A tariff change
+therefore becomes a visible warning instead of a quietly wrong cost total.
+
+`web-access` publishes what it resolved at `session_start`, so the report names
+the search provider and why it won (an explicit choice, the `auto` rule, or the
+keyless default), and — when the provider takes a key and no literal `apiKey` is
+set — its API-key variable and whether that variable is set. The key value is
+never part of the report, only its variable name. Reachability is the one check
+that touches the network, so it runs only on an explicit `/bytefly refresh`:
+a session-start check stays offline.
 
 `/bytefly <extension>` narrows the same screen to that extension; `Enter`
 expands its findings, including the checks that passed, into the free height.
@@ -721,7 +850,7 @@ the same entry in `lib/requirements.ts`, so the two cannot drift.
 
 The notify capability exists for unattended runs: start a long turn, leave the
 terminal, and get a desktop notification when Pi needs you — or when it is done.
-It fires on three events, each independently switchable in the `notify` section
+It fires on four events, each independently switchable in the `notify` section
 of `bytefly.json` (see [Configuration](#configuration)):
 
 - **A run settled** (`agent_settled`). Pi finished the turn and waits for the
@@ -734,6 +863,12 @@ of `bytefly.json` (see [Configuration](#configuration)):
 - **A background job finished.** The [job](../job/) extension announces each
   terminal transition on the shared `pi.events` bus
   (`my-pi-agent/job-finished`); bytefly listens and never imports it.
+- **A watcher matched.** A [watch](../watch/) whose `wake` is on matched while the
+  agent was idle, and announced it on `my-pi-agent/watch-match` with the cycle's
+  count, the watcher, and its newest line. The body names that line, sanitized and
+  clipped to 80 characters, because the line is the alert: a watch usually tails a
+  build or an error log. A match the agent was busy for does not notify — it is
+  collected for the next turn instead.
 
 ### Delivery method
 
@@ -766,43 +901,61 @@ control-free line before it reaches an escape sequence or a shell argument.
 
 ## Update check
 
-Pi's package manager already knows which configured packages are behind, so
-bytefly does not keep a second list. Once per interactive session, in the
-background, it asks `DefaultPackageManager.checkForAvailableUpdates()` and
-draws one notice for every row Pi returns. Pi's own startup block is suppressed
-for the same lifecycle, so the transcript never shows both.
+A session can be days behind npm without anyone noticing, and Pi's own startup
+check only covers package sources it manages — a `pi -e ./`, a linked checkout,
+or a git install gets nothing. So bytefly reads its own published version and
+reports it once, in the two places it already owns:
 
 ```
  █▀█  Pi v1.3.0
- █▀ █ enhanced by bytefly v0.12.0 ↑0.14.0
+ █▀ █ enhanced by bytefly v0.11.4 ↑0.12.0
 ```
 
 ```
- bytefly · 2 package updates available
- ╎ ◌ @gavin-hu/my-pi-agent · global
- ╎ ◌ some-other-package · project
+ bytefly · 0.12.0 is available
+ ╎ ◌ current · v0.11.4
  ╎ ◌ update · pi update --extensions
+ ╎ ◌ release · https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.12.0
 ```
 
-The header marker is only this package's new version; other packages are listed
-in the notice but never change the identity line. The marker is the shared `↑`
-glyph painted with the header's `accent` role: an action rather than a warning,
-so the muted version beside it stays quiet and the transcript is not turned
-yellow for a normal state. It is part of the chrome cell, so the two identity
-cells still line up, and it is the first thing the identity sheds when the
-terminal narrows.
+The marker is the shared `↑` glyph and the newest version — the arrow is one cell
+wide, so the header's column math is unchanged — painted with the header's
+`accent` role: an action rather than a warning, so the muted version beside it
+stays quiet and the transcript is not turned yellow for a normal state. It is
+part of the chrome cell, so the two identity cells still line up, and it is the
+first thing the identity sheds when the terminal narrows.
 
-The notice is the shared transcript block: the `bytefly · N package updates
-available` headline at the margin, one rail row per package with its scope, then
-the fixing command, all at `info` severity because nothing is broken. It stays
-in scrollback and the model reads the same names and command in plain text.
+The notice is the shared transcript block: the `bytefly · title` headline at the
+margin, then the loaded version and the fixing command behind the rail, all at
+`info` severity because nothing is broken. It stays in scrollback and the model
+reads the same sentence in plain text.
 
-The version on the marker comes from the configured npm command
-(`npm view @gavin-hu/my-pi-agent version --json`), only when Pi's list contains
-this package. The list itself is Pi's decision: npm ranges, git refs, project
-scope, a missing install, and `PI_OFFLINE` all follow Pi's package manager.
-Nothing is cached to disk and nothing is retried, so a session that starts
-offline simply sees no marker.
+The request is `GET https://registry.npmjs.org/@gavin-hu%2Fmy-pi-agent/latest`,
+fired without awaiting at `session_start` (Pi awaits handlers, and a five-second
+registry call must not hold the first prompt) with a five-second abort. Only a
+strictly newer, parseable semver announces anything: a non-ok status, a body
+that is not JSON, a missing version, a network error, or an older or equal
+version is silent. `PI_OFFLINE` (Pi's own switch) turns the check off;
+`PI_SKIP_VERSION_CHECK` only governs Pi's `pi.dev` request.
+
+The answer is cached in `<agentDir>/bytefly/update.json` as `latest` plus the
+epoch milliseconds it was read at. A session that starts inside the 24-hour
+window reuses that entry — painting the marker and posting the notice from it —
+instead of repeating the request, so a working day of sessions costs one read.
+Past the window the check runs again and rewrites the entry; a failed read writes
+nothing, so the next session tries again. Offline, the cached entry is used with
+no request and no write, because a stale version is still the best answer
+available and the marker is advisory.
+
+`/bytefly update` is the on-demand half: it ignores the window, reads the registry
+now, records and paints the result, and prints one line — `up to date — v0.12.0
+is the newest published version`, `v0.13.0 is available (current 0.12.0) —
+https://…/releases/tag/v0.13.0`, `the update check was skipped (PI_OFFLINE is
+set)`, or `could not read the published version`. It resolves no packages, probes
+no extension, and posts no second notice, so a session open for days can see a
+release without a restart. Opening the control center never checks: the screen has
+no update surface, and the only request paths are `session_start` and this
+command.
 
 ## Limitations
 
@@ -817,36 +970,39 @@ offline simply sees no marker.
 - **Project overrides of app settings are not shown.** App rows read the
   personal file; a `.pi/settings.json` override still wins at runtime, and
   `pi config` is the place to manage it.
-- **The rail glyph picker is curated.** Four one-column glyphs are offered; a
-  custom glyph is still a `bytefly.json` edit.
-- **Settings cover scalars only.** A row is a boolean, a short enum, or a short
-  string. The per-trigger notify flags (`notify.turnFinished`, `needsInput`,
-  `jobFinished`), arrays (`doctor.skip`), a numeric range (`doctor.timeoutMs`),
-  the `rates` table, and `price.peak` are still `bytefly.json` edits.
-- **`doctor` is a reserved first argument.** `/bytefly doctor` always selects the
-  report, so an extension literally named `doctor` cannot be narrowed to by
-  name. `settings` is reserved the same way.
+- **Arrays and tables stay JSON.** A row is one boolean, enum, string, or number.
+  `doctor.skip` (an array), the `rates` table, and `price.peak` (a nested object)
+  are still `bytefly.json` edits; every scalar preference has a row.
+- **A custom rail glyph must be one column.** The editor refuses anything else,
+  because a two-column glyph would push every railed body one cell right; the
+  former four-glyph menu is now the description's example list.
+- **`doctor`, `settings`, and `update` are reserved first arguments.**
+  `/bytefly doctor` always selects the report, so an extension literally named
+  `doctor` cannot be narrowed to by name; `settings` and `update` are reserved
+  the same way.
 - **The picker manages only the `extensions` resource type.** Skills, prompts,
   and themes are handled by Pi's own `pi config`.
 - **Built-in extensions are not listed** (`builtin:mcp`, `builtin:codemode`, …):
   their authoritative names are not exposed to extensions. Use `pi config`.
 - **Packages are not installed, removed, or updated here**; use `pi install`,
   `pi remove`, and `pi update`.
-- **The update list is Pi's.** Only packages configured in `settings.json` are
-  checked; `pi -e .`, a temporary checkout, and other unmanaged loads get no
-  update prompt.
-- **One check per session, with no refresh.** It runs at `session_start` in
-  `tui` mode; `/bytefly` and `doctor` do not report it, nothing is cached to
-  disk, and a failed or slow request is simply not retried that session.
+- **The update check reads npm's `latest` only.** A private registry, a version
+  published under another tag, or a checkout ahead of npm reports nothing, and
+  there is no channel or prerelease preference: `0.11.4` is behind `0.12.0`
+  whether or not a `0.12.0-beta.1` exists.
+- **The cache window is fixed at 24 hours.** It runs at `session_start` in `tui`
+  mode and reuses an entry younger than that; there is no setting for it, and
+  `/bytefly` and `doctor` do not report the version. A failed or slow background
+  request is retried by the next session, or immediately by `/bytefly update`.
 - **The marker needs the bytefly startup TUI.** It lives on the custom header,
   so with `quietStartup` off the notice is the whole signal.
-- **Pi's block is suppressed by a host shim.** bytefly wraps
-  `DefaultPackageManager.prototype.checkForAvailableUpdates` at `session_start`
-  and restores it on shutdown. A future Pi that changes that method shape makes
-  the shim inert, and Pi's own block can come back.
-- **No auto-update and no release notes.** The notice names a command instead
-  of running one, and the notice renderer has no link support, so there is no
-  changelog URL.
+- **Pi may report the same update.** An npm-installed copy can also show Pi's
+  own `Package Updates Available` block; the two checks are independent and
+  `pi update --extensions` satisfies both.
+- **No auto-update, and the release URL is text only.** The notice names a
+  command instead of running one, and the notice renderer cannot open a link, so
+  the release row prints the URL and nothing more — no changelog body, no way to
+  click through from the transcript.
 - **Project toggles are two-state per press** (`enable`/`disable`). `x` clears
   the override, which is the third state; a resource with no project entry in
   `pi config` is still managed there.
@@ -887,6 +1043,9 @@ offline simply sees no marker.
 - **Notifications are not focus-aware.** They fire whether or not the terminal
   has focus, and once per trigger rather than once per unseen event. There is
   no focus API to consult.
+- **`/compact` is Pi's block.** The summary component is built in, so bytefly
+  cannot render, hide, or shorten it; the themes only choose its fill and label
+  color. Branch summaries and skill invocations share the same theme tokens.
 - **A background job cannot ask for input.** The `needsInput` trigger is a
   prompt raised during a run, not a process waiting on stdin: jobs are
   fire-and-observe, so that state does not exist.
@@ -894,11 +1053,11 @@ offline simply sees no marker.
   host lacks (or an OSC method off a TTY) and the notification is dropped; only
   `auto` inspects the environment. `doctor` now reports the mismatch as a
   `degraded` finding, which says what to change but does not fix it for you.
-- **The working counter is one global row.** `setWorkingMessage` drives the
+- **The working line is one global row.** `setWorkingMessage` drives the
   single working row, so bytefly and any other extension setting it race — last
   writer wins — and the message is reset to Pi's default at `agent_end`. If the
-  row is hidden (`ctx.ui.setWorkingVisible(false)`) the counter has no surface,
-  and a reload mid-run does not resume it until the next turn.
+  row is hidden (`ctx.ui.setWorkingVisible(false)`) the line has no surface,
+  and a reload mid-run does not resume the count until the next turn.
 
 ## Non-goals
 
@@ -918,11 +1077,11 @@ offline simply sees no marker.
 - No status chip for the doctor report: it is on demand plus one notice, not a
   permanent footer segment.
 - No notification for individual tool calls, message turns, or subagent steps:
-  the three triggers — a settled run, a prompt mid-run, a finished job — are the
-  whole surface.
+  the four triggers — a settled run, a prompt mid-run, a finished job, a watcher
+  match — are the whole surface.
 - No sound, action buttons, notification history, or de-duplication; a
   notification is a fire-and-forget message, not an inbox.
-- No frozen per-run working duration: the counter is live and is handed back to
+- No frozen per-run working duration: the line is live and is handed back to
   Pi when the working row comes down, because the extension API exposes no hook
   to keep a finished run's total.
 
@@ -935,26 +1094,26 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. The chrome version gains `↑<latest>` from the `UpdateSource`, and `registerHeader` returns a `refresh()` handle that re-installs the last context's header when that value arrives. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. The factory reads `tui.terminal.rows` on every render, so the height ladder in `header/config.ts` sheds help groups and then the leading blank row as the terminal shortens (unknown height keeps the full header). The chrome version gains `↑<latest>` from the `UpdateSource`, and `registerHeader` returns a `refresh()` handle that re-installs the last context's header when that value arrives. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
-| Turn separator | `registerEntryRenderer("bytefly-separator")` draws each rule; `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn })` in `tui` mode only. |
-| Working timer | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage("Working… Ns")` in `tui` mode; `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no stored state. |
+| Turn separator | `registerEntryRenderer("bytefly-separator")` draws each stored receipt; `agent_start` opens it, top-level `tool_execution_start`/`tool_execution_end` count tools and failures, and `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn, durationMs, tools, failures, aborted })` in `tui` mode only. The receipt fields are omitted when no `agent_start` was seen, so an older or partially observed entry stays `{ turn }`. |
+| Working line | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage` in `tui` mode; before a tool runs the message is `Working… Ns`, and each top-level `tool_execution_start` repaints it as `tool · N tools · Ns` (nested calls carrying `parentToolCallId` are skipped). `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no persisted state; the count lives in the register's closure. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
-| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValueAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
+| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValueAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer, and `u` calls `unsetConfigValueAt` with the same path. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`, `openWorldHint: false`), direct exposure and active on registration (the defaults, so not declared), with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
-| Update check | `session_start` in `tui` mode installs a suppression on `DefaultPackageManager.prototype.checkForAvailableUpdates`, then fires the captured original without awaiting. A non-empty list is stored in the per-load `UpdateSource`; when it contains this npm package, one `npm view ... version --json` lookup supplies the header marker. `onUpdate` re-installs the header and `pi.sendMessage(updateNotice(list))` posts the one notice. A generation counter drops a reply that lands after `session_shutdown`, a per-load flag keeps it to one announcement, and shutdown restores Pi's method. |
-| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it follows Pi's package manager and `PI_OFFLINE`. |
+| Update check | `session_start` in `tui` mode reads `<agentDir>/bytefly/update.json` and, when the entry is inside `UPDATE_CACHE_TTL_MS` (24 h), records it without a request; otherwise it fires `fetchLatestVersion()` without awaiting, so the handler never holds the prompt, and writes the answer back. The registry read is a fixed `GET` of npm's `latest` document over an injected `fetch`, bounded by an abort timeout; a strictly newer, parseable semver is recorded in the per-load `UpdateSource`, `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice with its release URL. `PI_OFFLINE` uses the cache with no request and no write. `/bytefly update` calls the returned `UpdateHandle.recheck()`, which bypasses the window, records, paints, and returns an `UpdateOutcome`; a generation counter drops a background reply that lands after `session_shutdown`, and a per-load flag keeps it to one announcement. |
+| Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it is on whenever `PI_OFFLINE` is off, and its 24 h window is not configurable. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds the package list and this package's marker version in the per-load `UpdateSource` and writes nothing to the session or a file. |
-| Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, loads the notify config and subscribes to the job bus, and starts the package-update check; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer and Pi's package-update method, disposes the branch subscription, drops doctor's cached findings, drops the notify bus subscription, and clears the recorded list and marker. |
+| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds one version in the per-load `UpdateSource` and writes no session entry; its one file is `<agentDir>/bytefly/update.json`, the cached `latest` plus `checkedAt`, written atomically and read back on the next session. |
+| Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, loads the notify config and subscribes to the job bus, and starts the published-version check; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header and footer, disposes the branch subscription, drops doctor's cached findings, drops the notify bus subscription, and clears the recorded version. |
 
 ## Design notes
 
@@ -1039,11 +1198,17 @@ rather than showing a wrong value.
   and a grouped help block. It takes its margin from Pi's `outputPad`, like the
   tool frame and the notice, and hangs the help one body indent inside it, so the
   header follows a non-default pad instead of assuming a column. It adds no
-  session or model data — that is the footer's job — and it stays a fixed
-  four-plus rows so the startup transcript never reflows.
+  session or model data — that is the footer's job — and its shape follows the
+  terminal: the height ladder drops whole help groups, then the leading blank
+  row, before the nameplate gives up anything, so a short pane spends its rows
+  on the transcript instead of chrome.
 - **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
   right); line 2 is resources (meters left, model + level right). This keeps
   "where am I / what state" separate from "how much am I burning".
+- **Child spend is a second figure.** The footer never adds a subagent's tokens to
+  the session's; it prices the `my-pi-agent/subagent-finished` events with the
+  same pricer and renders them as `↳`, so "this session" keeps meaning the
+  dispatching process and the delegated work stays visible beside it.
 - **The gauge is anchored at column 0.** A leading mode slot would shift the
   context percentage left and right as plan mode came and went; trailing it
   after a `╎` keeps the percentage in a fixed place while the mode stays
@@ -1140,16 +1305,18 @@ rather than showing a wrong value.
 - **The install hint has one home.** `document` and `web-access` format their
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
-- **Settings are a curated table, not a schema walker.** Eleven rows prove the
-  row types — a boolean, an enum, and a short string with its own rule — both
-  scopes, both write paths, and one nested leaf (`price.currency.decimals`). A row states its section and the path to its
-  leaf, and one reader per section resolves it project-over-global-over-defaults
-  through the same normalizer the extension loads with, so the screen and the
-  runtime cannot disagree about a value. A generic walker would expose keys the
-  screen cannot edit safely yet — arrays, nested tariffs, free text,
-  credentials — so the catalogue grows one proven family at a time. App rows are
-  Global-only because Pi's setters write the personal file; Project scope lists
-  only the `bytefly.json` rows it can actually write.
+- **Settings are a curated table, not a schema walker.** The rows cover every
+  scalar preference across four kinds — a boolean, an enum, a string with
+  its own rule, and a number — both scopes, both write paths, and one nested leaf
+  (`price.currency.decimals`). A row states its section and the path to its leaf,
+  and one reader per section resolves it project-over-global-over-defaults through
+  the same normalizer the extension loads with, so the screen and the runtime
+  cannot disagree about a value; a text row's rule calls the same predicate the
+  loader uses, so an accepted value is never replaced on the next read. A generic
+  walker would expose keys the screen cannot edit safely — arrays, nested
+  tariffs, credentials — so the catalogue grows one proven family at a time. App
+  rows are Global-only because Pi's setters write the personal file; Project
+  scope lists only the `bytefly.json` rows it can actually write.
 - **The doctor is quiet unless the bytefly startup TUI is on.** Only `missing`
   findings post a notice, only for enabled extensions, only with a UI, only once
   per session, and only when Pi's `quietStartup` is `true` — the same state that
@@ -1168,24 +1335,20 @@ rather than showing a wrong value.
 - **The prerequisite table is data.** No I/O, no host access, no module state:
   every probe dependency arrives as a seam, so `probeExtension` is testable with
   no process and `lib/` stays value-only.
-- **Pi owns the update list; bytefly owns the look.** There is one detector, not
-  two: `DefaultPackageManager` already resolves npm ranges, git refs, project
-  scope, and offline mode, and bytefly only carries its result to a themed
-  surface. The custom registry check and semver ordering are gone.
-- **The suppression is a host shim, not a second checker.** Pi has no setting or
-  extension event for its startup block, so bytefly replaces the public method
-  that feeds it while keeping the captured original for its own read. It is
-  installed only in `tui`, restored on shutdown, and made inert if the host
-  changes shape.
-- **The marker is an action, the notice is information.** This package's new
-  version is drawn in the accent on the header, where it sits beside a control
-  the user can act on, and every package is listed at `info` severity in the
-  transcript, where a `warn` rail would say something is broken. Neither surface
-  needs per-frame polling: the value arrives once, the memo key includes it, and
-  one `setHeader` re-install repaints.
-- **The version lookup stays local.** `PackageUpdate` carries no version, so only
-  this package's marker asks the configured npm command for one. The list
-  itself never depends on that command succeeding.
+- **The update check is a self-report, not an update mechanism.** It answers one
+  question — is the version in this checkout current? — and answers it in the two
+  surfaces bytefly already owns, the header identity and one notice. It never
+  installs, never edits settings, and never fails a session: an unreachable
+  registry and an up-to-date one are indistinguishable to the user, which is the
+  only failure mode a background check is allowed to have.
+- **The marker is an action, the notice is information.** The same fact is drawn
+  in the accent on the header, where it sits beside a control the user can act
+  on, and at `info` severity in the transcript, where a `warn` rail would say
+  something is broken. Neither surface needs per-frame polling: the value arrives
+  once, the memo key includes it, and one `setHeader` re-install repaints.
+- **The transport stays local.** `web-access`'s runner does redirects, SSRF
+  checks, HTML extraction, and caching — none of it applies to one fixed JSON
+  endpoint, and an extension may not import another's modules, so the ~20-line
   read lives beside the check with the `fetch` and timeout as seams.
 
 ## Files
@@ -1193,11 +1356,11 @@ rather than showing a wrong value.
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
 calculation), `message/` (the user-message marker), `notice/` (the shared notice),
 `block/` (the tool-block frame), `separator/`, `working/` (the live
-elapsed counter on Pi's working row), `panel/` (the
+run line on Pi's working row), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
-and its probe runtime), `notify/`, and `update/` (the package list from Pi's
-manager, the host suppression, and the header marker). The chrome and the screen are drawn from
+and its probe runtime), `notify/`, and `update/` (the published-version check
+behind the header marker, its disk cache, and the on-demand re-check). The chrome and the screen are drawn from
 the package's [`lib/tui/`](../../lib/tui/) design system (tokens, rules, rows,
 columns, gauge), so the look follows the active theme.
 
@@ -1235,14 +1398,14 @@ columns, gauge), so the look follows the active theme.
 | `block/component.ts` | Pure `toolBlockLines`, `headlineWithToolName`, `recolorShellCall`, `recolorCallHeadline`, and `ToolBlock`: the headline, the body's two-column indent (optionally rail-led), the reduced-width inner render, the leading-blank trim, the shell-prompt rewrite (the name keeps the accent, the command reopens in `label`), the subject demotion (a path, URL, query, or pattern reads in `label` so the name is the line's only accent, including the tail a bare `edit <path>` headline wraps onto the body), and the image-line passthrough. |
 | `block/fallback.ts` | Generic `callFallback` / `resultFallback` for a tool with no renderer: the subject in the body colour, its options faint, and a capped result preview. |
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it, rails the result body by status, and rails the call body for `edit`/`write` (the two whose call body carries the result). |
-| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, and roles. |
-| `separator/register.ts` | Registers the entry renderer and appends a separator on `agent_settled`. |
+| `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, receipt minimum duration and outcome wording, and roles. |
+| `separator/register.ts` | Registers the entry renderer, tracks the run's tools and failures, and appends the receipt on `agent_settled`. |
 | `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
-| `separator/format.ts` | Pure `separatorLine`: the centered turn rule, drawn by the kit's `centeredRule`. |
-| `separator/types.ts` | `TurnSeparatorData`. |
-| `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the word, the ellipsis, and the tick interval. |
-| `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape. |
-| `working/register.ts` | Starts the tick on `turn_start` and cancels it on `agent_end`/`session_shutdown`. |
+| `separator/format.ts` | Pure `receiptLabel` (the width ladder), `receiptRole`, and `separatorLine`, drawn by the kit's `centeredRule`. |
+| `separator/types.ts` | `TurnSeparatorData`: the turn plus the optional receipt fields. |
+| `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the words, the tool singular/plural, and the tick interval. |
+| `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape: the plain count and the `tool · N tools · elapsed` run line. |
+| `working/register.ts` | Starts the tick on `turn_start`, tracks top-level tools on `tool_execution_start`, and cancels on `agent_end`/`session_shutdown`. |
 | `panel/types.ts` | `PanelSection` (`extensions` | `settings`), `PanelRow`, and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
 | `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the Settings counts/headline, and the grouped Settings listing. |
@@ -1264,14 +1427,14 @@ columns, gauge), so the look follows the active theme.
 | `notify/types.ts` | `NotifyConfig`, `NotifyMethod`, and the method list. |
 | `notify/config.ts` | The `notify` section of `bytefly.json`: defaults, validation, loader. |
 | `notify/dispatch.ts` | Method selection and delivery: OSC 777/99, Windows toast, `osascript`, `notify-send`, over injected seams. |
-| `notify/format.ts` | Pure notification text: session label and the turn / input / job bodies. |
-| `notify/register.ts` | Registers the three triggers, loads the config at `session_start`, and owns the job-bus subscription. |
-| `update/types.ts` | `PackageUpdate`, derived from Pi's public manager method so the extension does not restate the host shape. |
-| `update/check.ts` | Pi's package list through `DefaultPackageManager`, plus the one npm-version lookup for this package's header marker. |
-| `update/suppress.ts` | The host shim: capture Pi's `checkForAvailableUpdates`, replace it with an empty result, and restore it on shutdown. |
-| `update/state.ts` | `UpdateSource` and `createUpdateState`: the package list and this package's marker version, one snapshot per load. |
-| `update/format.ts` | `updateMarker` and `updateNotice`: the header's `↑0.14.0` and the package rows plus command. |
-| `update/register.ts` | The session-start lifecycle: install suppression, async read, the `tui` gate, the once-per-load announcement, marker lookup, and the shutdown generation guard. |
+| `notify/format.ts` | Pure notification text: session label and the turn / input / job / watch bodies. |
+| `notify/register.ts` | Registers the four triggers, loads the config at `session_start`, and owns the job- and watch-bus subscriptions. |
+| `update/check.ts` | The one registry read: the `latest` URL, the abort timeout, the `FetchLike` seam, and the failure-to-`undefined` mapping. |
+| `update/version.ts` | Pure semver parsing and `isNewerVersion`, including prerelease precedence. |
+| `update/state.ts` | `UpdateSource` and `createUpdateState` (the newest known version, one record per load), plus `UpdateOutcome`, the four answers an explicit re-check can give. |
+| `update/cache.ts` | The disk cache: `<agentDir>/bytefly/update.json`, the 24 h window in `isFresh`, a validated read that degrades to a miss, and the atomic write. |
+| `update/format.ts` | `updateMarker`, `updateNotice`, `releaseUrl`, and `updateOutcomeText`: the header's `↑0.12.0`, the transcript notice with its release row, and the one line `/bytefly update` prints. |
+| `update/register.ts` | The lifecycle: the cache-first session-start read, the async registry call, the `PI_OFFLINE` and `tui` gates, the once-per-load announcement, the shutdown generation guard, and the `recheck()` handle `/bytefly update` calls. |
 
 ## Testing
 
@@ -1294,10 +1457,10 @@ folding across a width sweep from 6 to 120 plus wide characters
 (`footer/render/layout`), exact
 golden output at fixed widths (`footer/render/render`), and the install/skip/
 restore/toggle lifecycle plus a config-driven price (`extension`). The turn
-separator
-is covered by its pure formatting (`separator/format`) and its
-register/append/render/disable lifecycle (`separator/register`). The picker
-helpers are covered by the pure helpers (`picker/resources`), the toggle
+separator is covered by its pure formatting (`separator/format`, including the
+receipt's width ladder), its register/append/render/disable lifecycle
+(`separator/register`), and the run stats it records. The picker helpers are
+covered by the pure helpers (`picker/resources`), the toggle
 transforms (`picker/toggle`), discovery with an injected factory
 (`picker/discovery`), and the runtime state machine (`picker/runtime`). The
 unified screen is covered by its pure model merge (`panel/join`), its text
@@ -1311,14 +1474,16 @@ formatting (`doctor/format`), its config loader (`doctor/config`), and
 registration, the proactive notice, the session cache, and `run_doctor`
 through the factory (`doctor/register`). The notify capability is covered by its section loader
 (`notify/config`), the pure text builders (`notify/format`), method selection and
-delivery over recording seams (`notify/dispatch`), and its three triggers,
+delivery over recording seams (`notify/dispatch`), and its four triggers,
 reload, and shutdown through `registerNotify` (`notify/register`). The update
-surface is covered by the package-manager read and npm-version lookup over
-injected seams (`update/check`), the host shim and its idempotent restore
-(`update/suppress`), the per-load snapshot (`update/state`), the marker and
-notice wording (`update/format`), and its lifecycle — once per load, silent on
-an empty list or failure, skipped outside `tui`, and immune to a reply that
-lands after shutdown (`update/register`).
+check is covered by the version-ordering table (`update/version`), the transport
+with an injected fetch (`update/check`), the per-load store (`update/state`), the
+marker, notice, and release-URL wording (`update/format`), the cache read, write,
+and window (`update/cache`), and its lifecycle — a fresh entry reused without a
+request, a stale one re-read and rewritten, silent on failure or an older version,
+cache-only offline, skipped outside `tui`, an explicit `recheck()` that ignores
+the window, and immunity to a reply that lands after shutdown
+(`update/register`).
 The user-message nameplate is covered by its pure transform
 (`message/format`, including a render through pi-tui's real `Markdown`) and its
 registration (`message/register`), plus the factory check in `extension`.

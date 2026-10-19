@@ -13,6 +13,7 @@ import type { WebFetchConfig } from "./config.ts";
 import { extractReadable } from "./extract.ts";
 import { extractPdfText, type PdfExtractor } from "./pdf.ts";
 import { createFetchRunner, type HttpRunner, type HttpResponse } from "../http.ts";
+import { decodeHtml } from "../charset.ts";
 import { assertAllowedUrl } from "./ssrf.ts";
 import type { FetchRequest } from "./types.ts";
 
@@ -149,7 +150,10 @@ export async function runFetch(
 			text = `(binary content: ${response.contentType || "application/pdf"}, ${response.sizeBytes} bytes; PDF text extraction failed: ${reason})`;
 		}
 	} else if (isHtmlType(response.contentType)) {
-		const page = extractReadable(response.body, response.finalUrl);
+		// `bytes` carries the raw body, so a page that declares GBK in a `<meta>` tag
+		// but not in the header is still decoded correctly.
+		const html = response.bytes ? decodeHtml(response.bytes, response.contentType) : response.body;
+		const page = extractReadable(html, response.finalUrl);
 		title = page.title;
 		text = page.text;
 	} else if (isTextualType(response.contentType)) {

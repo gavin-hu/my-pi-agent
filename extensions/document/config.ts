@@ -15,6 +15,8 @@ export interface DocConfig {
 	maxFileBytes: number;
 	/** Default character budget for the returned slice. */
 	maxChars: number;
+	/** Per-call extraction deadline; a parser that outlasts it is abandoned. */
+	extractTimeoutMs: number;
 	/** Per-format on/off, merged over each registry entry's `defaultEnabled`. */
 	formats: Record<FormatId, boolean>;
 }
@@ -22,6 +24,7 @@ export interface DocConfig {
 export const DEFAULT_CONFIG: DocConfig = {
 	maxFileBytes: 20 * 1024 * 1024,
 	maxChars: 40_000,
+	extractTimeoutMs: 30_000,
 	formats: Object.fromEntries(FORMATS.map((format) => [format.id, format.defaultEnabled])) as Record<FormatId, boolean>,
 };
 
@@ -43,6 +46,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	return {
 		maxFileBytes: clampInteger(raw.maxFileBytes, base.maxFileBytes, 1_024, 512 * 1024 * 1024),
 		maxChars: clampInteger(raw.maxChars, base.maxChars, 200, 100_000),
+		extractTimeoutMs: clampInteger(raw.extractTimeoutMs, base.extractTimeoutMs, 1_000, 300_000),
 		formats: normalizeFormats(raw.formats, base.formats),
 	};
 }

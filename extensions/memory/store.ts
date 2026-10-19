@@ -180,6 +180,37 @@ export function applyUpdate(content: string, from: string, to: string): FileChan
 	return changed ? { content: lines.join("\n"), changed: true } : { content, changed: false };
 }
 
+/**
+ * Merge two notes into one: replace `first` in place with `merged` and drop
+ * `second`, so the pair becomes a single bullet where the first one stood. One
+ * transform, so the caller's write is atomic; a missing note or two identical
+ * names changes nothing.
+ */
+export function applyMerge(content: string, first: string, second: string, merged: string): FileChange {
+	if (first === second) return { content, changed: false };
+	const lines = content.split(/\r?\n/);
+	const notes = lines.map((line) => {
+		const match = BULLET_PARTS.exec(line);
+		return match ? sanitizeLine(match[2]) : undefined;
+	});
+	if (!notes.includes(first) || !notes.includes(second)) return { content, changed: false };
+
+	let changed = false;
+	const out: string[] = [];
+	for (const line of lines) {
+		const match = BULLET_PARTS.exec(line);
+		if (match && sanitizeLine(match[2]) === first) {
+			out.push(`${match[1]}${merged}${match[3]}`);
+			changed = true;
+			continue;
+		}
+		if (match && sanitizeLine(match[2]) === second) continue;
+		out.push(line);
+	}
+
+	return changed ? { content: endWithNewline(out.join("\n")), changed: true } : { content, changed: false };
+}
+
 /** Remove every note, keeping the header and any prose. */
 export function applyClear(content: string): FileChange {
 	let changed = false;

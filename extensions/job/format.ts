@@ -13,17 +13,14 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
 import { formatDuration } from "../../lib/format.ts";
+import { clip, LABEL_WIDTH, labelLine } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
 
 /** Longest sanitized log line kept for display; longer lines are clipped. */
 const MAX_LOG_LINE = 200;
-
-/** Longest label shown in the transcript or `/jobs` screen. */
-const MAX_DISPLAY_LABEL = 48;
 
 /** ESC-introduced sequences: OSC, CSI, and single-character escapes. */
 const OSC = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
@@ -111,7 +108,7 @@ function statusWord(job: JobRecord): string {
 
 /** A label clipped to one safe display line. */
 export function clipLabel(text: string): string {
-	return truncateToWidth(sanitizeLogLine(text), MAX_DISPLAY_LABEL, "…");
+	return labelLine(text, sanitizeLogLine);
 }
 
 /** A job's label (falling back to its command) clipped to one safe display line. */
@@ -180,7 +177,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 		case "start": {
 			const command = typeof args.command === "string" ? sanitizeLogLine(args.command.trim()) : "";
 			if (!command) return argsComplete ? "start" : "start …";
-			const preview = truncateToWidth(command, MAX_DISPLAY_LABEL, "…");
+			const preview = clip(command, LABEL_WIDTH);
 			return `start → ${preview}`;
 		}
 		case "kill":
@@ -188,7 +185,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 		case "send": {
 			if (!target) return "send";
 			const input = typeof args.input === "string" ? sanitizeLogLine(args.input) : "";
-			const preview = input ? truncateToWidth(input, MAX_DISPLAY_LABEL, "…") : "";
+			const preview = input ? clip(input, LABEL_WIDTH) : "";
 			const parts = [preview, args.eof === true ? "EOF" : ""].filter(Boolean).join(" + ");
 			return parts ? `send ${target} → ${parts}` : `send ${target}`;
 		}

@@ -9,7 +9,11 @@
  */
 
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { withRailsSuppressed } from "../../lib/rails.ts";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { formatChangeSummary, formatRestoreText, previewDiffText } from "./format.ts";
+import { PathPickerComponent } from "./path-picker.ts";
+import type { ChangedPath } from "./paths.ts";
 import type { RewindRuntime } from "./runtime.ts";
 import { rewindScopes, type RewindPoint, type RewindScope } from "./timeline.ts";
 
@@ -47,12 +51,59 @@ async function chooseScope(
 }
 
 /** Build the combined confirm body, including the diff preview when code moves. */
-function confirmBody(scope: RewindScope, changeSummary: string | undefined, diff: string | undefined): string {
+function confirmBody(
+	scope: RewindScope,
+	changeSummary: string | undefined,
+	diff: string | undefined,
+	subset?: { selected: number; total: number },
+): string {
 	const lines = [scopeDescription(scope)];
+	if (subset) lines.push(`Restoring ${subset.selected} of ${subset.total} changed files.`);
 	if (changeSummary) lines.push(`${changeSummary} since the snapshot. HEAD is untouched.`);
 	if (diff) lines.push("", previewDiffText(diff));
 	if (scope !== "code") lines.push("", "This prompt returns to the editor so you can edit and resubmit.");
 	return lines.join("\n");
+}
+
+/** What the path step decided: the whole tree, a chosen subset, or nothing. */
+export type PathChoice = { kind: "all" } | { kind: "some"; paths: string[] } | { kind: "cancel" };
+
+/** The two answers the path step offers before the checklist opens. */
+const ALL_LABEL = (count: number): string => `Everything (${count} file${count === 1 ? "" : "s"})`;
+const SOME_LABEL = "Choose paths…";
+
+/**
+ * Ask which paths to restore. The checklist needs a list only a TUI can mount, so
+ * every other mode keeps the whole-tree restore rather than inventing a typed
+ * syntax with its own parser and preview.
+ */
+export async function choosePaths(
+	pi: ExtensionAPI,
+	ctx: ExtensionCommandContext,
+	paths: readonly ChangedPath[],
+): Promise<PathChoice> {
+	if (ctx.mode !== "tui" || paths.length === 0) return { kind: "all" };
+
+	const choice = await ctx.ui.select("Restore what?", [ALL_LABEL(paths.length), SOME_LABEL]);
+	if (choice === undefined) return { kind: "cancel" };
+	if (choice !== SOME_LABEL) return { kind: "all" };
+
+	const selected = await withRailsSuppressed(pi, () =>
+		ctx.ui.custom<string[] | undefined>(
+			(tui, theme, _keybindings, done) =>
+				new PathPickerComponent({
+					paths,
+					theme,
+					onClose: (subset) => done(subset),
+					requestRender: () => tui.requestRender(),
+					viewportRows: () => tui.terminal?.rows,
+				}),
+		),
+	);
+	if (!selected) return { kind: "cancel" };
+	// An empty checklist is a choice, not a cancel: it restores no files and still
+	// moves the conversation, which is what the confirm describes.
+	return { kind: "some", paths: selected };
 }
 
 /**
@@ -60,6 +111,7 @@ function confirmBody(scope: RewindScope, changeSummary: string | undefined, diff
  * `ctx.hasUI`. Returns true when something was applied.
  */
 export async function rewindTo(
+	pi: ExtensionAPI,
 	runtime: RewindRuntime,
 	ctx: ExtensionCommandContext,
 	root: string | undefined,
@@ -81,6 +133,9 @@ export async function rewindTo(
 	}
 
 	let plan;
+	/** The subset to restore, when the path step narrowed the plan. */
+	let selection: string[] | undefined;
+	let total = 0;
 	if (snapshot && root) {
 		const result = await runtime.plan(root, snapshot);
 		if (!result.ok) {
@@ -88,12 +143,34 @@ export async function rewindTo(
 			return false;
 		}
 		plan = result.plan;
+		total = plan.paths.length;
+		if (plan.paths.length > 0) {
+			const choice = await choosePaths(pi, ctx, plan.paths);
+			if (choice.kind === "cancel") {
+				ctx.ui.notify("Rewind cancelled.", "info");
+				return false;
+			}
+			if (choice.kind === "some") {
+				selection = choice.paths;
+				const narrowed = await runtime.plan(root, snapshot, selection);
+				if (!narrowed.ok) {
+					ctx.ui.notify(narrowed.reason, "warning");
+					return false;
+				}
+				plan = narrowed.plan;
+			}
+		}
 	}
 
 	const label = point.summary || point.prompt || "this prompt";
 	const approved = await ctx.ui.confirm(
 		`Rewind to "${label}"?`,
-		confirmBody(scope, plan ? formatChangeSummary(plan.changed, plan.removed) : undefined, plan?.diff),
+		confirmBody(
+			scope,
+			plan ? formatChangeSummary(plan.changed, plan.removed) : undefined,
+			plan?.diff,
+			selection ? { selected: plan?.paths.length ?? 0, total } : undefined,
+		),
 	);
 	if (!approved) {
 		ctx.ui.notify("Rewind cancelled.", "info");
@@ -103,7 +180,7 @@ export async function rewindTo(
 	const notes: string[] = [];
 	if (snapshot && root) {
 		try {
-			const restored = await runtime.restore(ctx, root, snapshot, runtime.configFor(root));
+			const restored = await runtime.restore(ctx, root, snapshot, runtime.configFor(root), selection);
 			await runtime.setStatus(ctx);
 			notes.push(formatRestoreText(restored));
 		} catch (error) {

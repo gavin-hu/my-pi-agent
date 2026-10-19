@@ -1,5 +1,5 @@
 /**
- * Contract guard for `docs/references/configuration-reference.md`.
+ * Contract guard for `docs/references/bytefly-config.md`.
  *
  * The page replaced `assets/bytefly.schema.json`, so it is now the list a hand
  * edit is checked against. This test pins every section to the defaults its
@@ -26,6 +26,7 @@ import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG } from "../extensions/memory/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/config.ts";
+import { DEFAULT_SUBAGENT_CONFIG } from "../extensions/subagent/config.ts";
 import { DEFAULT_TODO_CONFIG } from "../extensions/todo/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WATCH_CONFIG } from "../extensions/watch/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WECHAT_CONFIG } from "../extensions/wechat/config.ts";
@@ -34,8 +35,14 @@ import { DEFAULT_SEARCH_CONFIG } from "../extensions/web-access/search/config.ts
 import { DEFAULT_CONFIG as DEFAULT_WORKTREE_CONFIG } from "../extensions/worktree/config.ts";
 
 const docs = join(import.meta.dir, "..", "docs");
-const reference = readFileSync(join(docs, "references", "configuration-reference.md"), "utf-8");
+const reference = readFileSync(join(docs, "references", "bytefly-config.md"), "utf-8");
 const configuration = readFileSync(join(docs, "configuration.md"), "utf-8");
+
+/** The reference's top-level headings, in order. */
+const headings = reference
+	.split("\n")
+	.filter((line) => line.startsWith("## "))
+	.map((line) => line.slice(3).trim());
 
 /** A documented key whose loader has no default. */
 const NO_DEFAULT = new Set(["pollHoldMs"]);
@@ -56,6 +63,7 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	watch: DEFAULT_WATCH_CONFIG,
 	memory: DEFAULT_MEMORY_CONFIG,
 	rewind: DEFAULT_REWIND_CONFIG,
+	subagent: DEFAULT_SUBAGENT_CONFIG,
 	todo: DEFAULT_TODO_CONFIG,
 	// Two loaders, one section: the document nests `search` and `fetch`.
 	"web-access": [
@@ -91,7 +99,7 @@ function keyPaths(value: unknown, prefix = ""): Array<[path: string, value: unkn
 function documentedRows(section: string): Map<string, unknown> {
 	const lines = reference.split("\n");
 	const start = lines.findIndex((line) => line.startsWith(`## \`${section}\``));
-	if (start === -1) throw new Error(`No \`## ${section}\` section in configuration-reference.md`);
+	if (start === -1) throw new Error(`No \`## ${section}\` section in bytefly-config.md`);
 	const rows = new Map<string, unknown>();
 	for (const line of lines.slice(start + 1)) {
 		if (line.startsWith("## ")) break;
@@ -149,6 +157,13 @@ function indexedSections(): string[] {
 }
 
 describe("configuration reference", () => {
+	test("lists every section in its contents", () => {
+		const sections = headings.filter((heading) => heading !== "Contents");
+		expect(sections.length, "the reference has no sections").toBeGreaterThan(0);
+		const missing = sections.filter((heading) => !reference.includes(`[${heading}](`));
+		expect(missing, "add a contents link for every section").toEqual([]);
+	});
+
 	test("documents every section the configuration index lists, and no others", () => {
 		const documented = reference
 			.split("\n")
@@ -185,6 +200,6 @@ describe("configuration reference", () => {
 	});
 
 	test("leaves no section unchecked", () => {
-		expect(Object.keys(SECTIONS)).toHaveLength(15);
+		expect(Object.keys(SECTIONS)).toHaveLength(16);
 	});
 });

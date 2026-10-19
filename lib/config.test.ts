@@ -16,7 +16,7 @@ import {
 	readJson,
 	readJsonResult,
 	SHARED_CONFIG_FILE,
-	unsetConfigValue,
+	unsetConfigValueAt,
 	writeConfigFile,
 	writeConfigSection,
 	writeConfigValue,
@@ -331,38 +331,49 @@ describe("configValueAt", () => {
 	});
 });
 
-describe("unsetConfigValue", () => {
+describe("unsetConfigValueAt", () => {
 	test("removes one key and preserves its siblings and other sections", () => {
 		const dir = temps.track(tempDir("pi-config-unset-"));
 		const path = join(dir, SHARED_CONFIG_FILE);
 		writeConfigFile(path, { notify: { enabled: true, title: "Pi" }, memory: { inject: true } });
 
-		unsetConfigValue(path, "notify", "enabled");
+		unsetConfigValueAt(path, "notify", ["enabled"]);
 
 		expect(readJson(path)).toEqual({ notify: { title: "Pi" }, memory: { inject: true } });
 	});
 
-	test("drops a section that becomes empty and keeps metadata", () => {
+	test("removes a nested leaf and keeps its parent object", () => {
 		const dir = temps.track(tempDir("pi-config-unset-"));
 		const path = join(dir, SHARED_CONFIG_FILE);
-		writeConfigFile(path, { version: 1, notify: { enabled: true }, memory: { inject: true } });
+		writeConfigFile(path, { price: { currency: { code: "USD", decimals: 3 }, budget: 5 } });
 
-		unsetConfigValue(path, "notify", "enabled");
+		unsetConfigValueAt(path, "price", ["currency", "decimals"]);
+
+		expect(readJson(path)).toEqual({ price: { currency: { code: "USD" }, budget: 5 } });
+	});
+
+	test("drops parents left empty, the section included, and keeps metadata", () => {
+		const dir = temps.track(tempDir("pi-config-unset-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, { version: 1, price: { currency: { decimals: 3 } }, memory: { inject: true } });
+
+		unsetConfigValueAt(path, "price", ["currency", "decimals"]);
 
 		expect(readJson(path)).toEqual({ version: 1, memory: { inject: true } });
 	});
 
-	test("is a no-op for an absent file, section, or key", () => {
+	test("is a no-op for an absent file, section, leaf, or non-object parent", () => {
 		const dir = temps.track(tempDir("pi-config-unset-"));
 		const absent = join(dir, "absent.json");
-		unsetConfigValue(absent, "notify", "enabled");
+		unsetConfigValueAt(absent, "notify", ["enabled"]);
 		expect(existsSync(absent)).toBe(false);
 
 		const path = join(dir, SHARED_CONFIG_FILE);
-		const before = JSON.stringify({ notify: { title: "Pi" } }, null, 2) + "\n";
+		const before = `${JSON.stringify({ notify: { title: "Pi" }, price: { currency: "yuan" } }, null, 2)}\n`;
 		writeFileSync(path, before);
-		unsetConfigValue(path, "notify", "enabled");
-		unsetConfigValue(path, "missing", "enabled");
+		unsetConfigValueAt(path, "notify", ["enabled"]);
+		unsetConfigValueAt(path, "missing", ["enabled"]);
+		unsetConfigValueAt(path, "price", ["currency", "decimals"]);
 		expect(readFileSync(path, "utf-8")).toBe(before);
 	});
 
@@ -372,7 +383,15 @@ describe("unsetConfigValue", () => {
 		const before = "{ not json";
 		writeFileSync(path, before);
 
-		expect(() => unsetConfigValue(path, "notify", "enabled")).toThrow(/Cannot update/);
+		expect(() => unsetConfigValueAt(path, "notify", ["enabled"])).toThrow(/Cannot update/);
 		expect(readFileSync(path, "utf-8")).toBe(before);
+	});
+
+	test("refuses an empty path", () => {
+		const dir = temps.track(tempDir("pi-config-unset-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, { notify: { enabled: true } });
+
+		expect(() => unsetConfigValueAt(path, "notify", [])).toThrow(/empty key path/);
 	});
 });

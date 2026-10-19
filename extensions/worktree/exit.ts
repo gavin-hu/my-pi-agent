@@ -6,7 +6,19 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config.ts";
 import { WorktreeCancelledError } from "./errors.ts";
-import { deleteBranch, inspectWork, lockWorktree, unlockWorktree, worktreeRemove } from "./git.ts";
+import {
+	commitsAheadOf,
+	currentBranch,
+	defaultBranch,
+	deleteBranch,
+	inspectWork,
+	isBranchMerged,
+	lockWorktree,
+	refExists,
+	unlockWorktree,
+	worktreeRemove,
+} from "./git.ts";
+import { handoffLines, type Handoff } from "./handoff.ts";
 import { removeRecord, touchRecord } from "./registry.ts";
 import { applyWorktreeEnv, clearConfigCache, getActive, publishWorktree, setActive, setStatus } from "./runtime.ts";
 import { persistState, type WorktreeState } from "./state.ts";
@@ -17,11 +29,48 @@ export interface ExitOptions {
 	keepBranch?: boolean;
 }
 
+/**
+ * What the branch holds and how to finish it, computed after the outcome is known.
+ * A failed lookup degrades to the facts already in hand: an exit that succeeded
+ * must not fail because the default branch could not be read.
+ */
+async function describeHandoff(pi: ExtensionAPI, state: WorktreeState, recorded: number): Promise<Handoff> {
+	if (!state.branch) return { branch: null, base: null, ahead: recorded, merged: false };
+	try {
+		// `origin/HEAD` names the merge target when the repository has a remote; a
+		// local-only repository has none, and the main checkout's own branch is the
+		// branch a merge would actually land on.
+		const base = (await defaultBranch(pi, state.repoRoot)) ?? (await currentBranch(pi, state.repoRoot)) ?? null;
+		if (!base) return { branch: state.branch, base: null, ahead: recorded, merged: false };
+		// Count against the resolved base branch, not the commit recorded at entry:
+		// a worktree branch rebased onto a newer local branch would otherwise report
+		// every commit the base gained since, as its own.
+		// Every lookup runs in the main checkout: the handoff is read after the exit,
+		// when the worktree directory may already be gone, while the branch refs it
+		// describes outlive it.
+		const root = state.repoRoot;
+		const ref = (await refExists(pi, root, base))
+			? base
+			: (await refExists(pi, root, `origin/${base}`))
+				? `origin/${base}`
+				: null;
+		if (!ref) return { branch: state.branch, base: null, ahead: recorded, merged: false };
+		return {
+			branch: state.branch,
+			base,
+			ahead: await commitsAheadOf(pi, root, state.branch, ref),
+			merged: await isBranchMerged(pi, root, state.branch, ref),
+		};
+	} catch {
+		return { branch: state.branch, base: null, ahead: recorded, merged: false };
+	}
+}
+
 export async function exitWorktree(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	options: ExitOptions,
-): Promise<{ state: WorktreeState; removed: boolean; output: string }> {
+): Promise<{ state: WorktreeState; removed: boolean; handoff: Handoff; output: string }> {
 	const state = getActive();
 	if (!state) throw new Error("Not currently in a worktree.");
 	if (state.borrowed) {
@@ -118,5 +167,8 @@ export async function exitWorktree(
 		touchRecord(state.repoRoot, config, state.path);
 	}
 
-	return { state, removed, output: lines.join("\n") };
+	const handoff = await describeHandoff(pi, state, ahead);
+	lines.push(...handoffLines(handoff));
+
+	return { state, removed, handoff, output: lines.join("\n") };
 }

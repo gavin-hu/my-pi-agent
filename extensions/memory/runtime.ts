@@ -15,6 +15,7 @@ import {
 	applyAdd,
 	applyClear,
 	applyForget,
+	applyMerge,
 	applyUpdate,
 	memoryFileStamp,
 	mutateMemoryFile,
@@ -40,6 +41,13 @@ interface AddResult {
 	existing?: string;
 }
 
+/** Outcome of a scope move: whether the source lost the note, and a target match. */
+export interface MoveResult {
+	moved: boolean;
+	/** The note the target store already had, when it matched as a near-duplicate. */
+	existing?: string;
+}
+
 export interface MemoryRuntime {
 	/** Resolve paths and load notes for a session; returns a warning message, if any. */
 	load(cwd: string, trusted: boolean): Promise<string | undefined>;
@@ -61,6 +69,16 @@ export interface MemoryRuntime {
 	update(scope: MemoryScope, from: string, to: string): Promise<boolean>;
 	forget(scope: MemoryScope, entry: string): Promise<boolean>;
 	clear(scope: MemoryScope): Promise<boolean>;
+	/** File size of each store in bytes; `undefined` when it was not read. */
+	sizes(): Record<MemoryScope, number | undefined>;
+	/** Merge two notes in `scope` into one, in a single write. */
+	merge(scope: MemoryScope, first: string, second: string, merged: string): Promise<boolean>;
+	/**
+	 * Move a note from one scope to the other: written to the target first, then
+	 * removed from the source, so a failure between the two leaves a duplicate
+	 * rather than losing the note.
+	 */
+	move(from: MemoryScope, to: MemoryScope, entry: string): Promise<MoveResult>;
 	/** Drop cached state on shutdown. */
 	reset(): void;
 }
@@ -150,6 +168,14 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		},
 		config: () => config,
 		paths: () => paths,
+		sizes: () => {
+			// A store we may not read reports no size, the same way `refresh` refuses
+			// to cache a stamp for it.
+			return {
+				project: trusted ? stampOf("project")?.size : undefined,
+				global: stampOf("global")?.size,
+			};
+		},
 		trusted: () => trusted,
 		entries: () => {
 			refresh();
@@ -187,6 +213,29 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 			const result = await mutateMemoryFile(pathFor(scope), applyClear);
 			commit(scope, result.entries);
 			return result.changed;
+		},
+		async merge(scope, first, second, merged) {
+			requireTrusted(scope);
+			const result = await mutateMemoryFile(pathFor(scope), (content) => applyMerge(content, first, second, merged));
+			commit(scope, result.entries);
+			return result.changed;
+		},
+		async move(from, to, entry) {
+			if (from === to) throw new Error(`The note is already in ${scopeLabel(from)} memory.`);
+			// Refuse before any write: an untrusted target, or a note that is not in the
+			// source, must leave both stores exactly as they were.
+			requireTrusted(to);
+			// `entries()` refreshes both stores from disk first, so the check is against
+			// what is on disk now, not the cache a previous call left behind.
+			if (!this.entries()[from].includes(entry)) {
+				throw new Error(`No ${scopeLabel(from)} memory note matches "${entry}".`);
+			}
+			// Target first: the one failure possible across two files then leaves the note
+			// in both scopes, where `/memory doctor` reports it and `m` merges it, instead
+			// of deleting the only copy.
+			const added = await this.add(to, entry);
+			const moved = await this.forget(from, entry);
+			return added.existing === undefined ? { moved } : { moved, existing: added.existing };
 		},
 		reset: () => {
 			paths = undefined;

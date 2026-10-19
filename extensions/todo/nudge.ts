@@ -86,7 +86,11 @@ export function shouldNudge({ mutations, writes, touched, nudged, todos }: Nudge
 	return todos.length === 0 && !touched && writes > 0 && mutations >= EMPTY_LIST_MUTATIONS;
 }
 
-/** Marker on the injected reminder, so it is recognizable and filterable. */
+/**
+ * Marker on the injected reminder, so it is recognizable and filterable.
+ *
+ * allow:todo the marker is text the model reads, not a to-do for a human.
+ */
 export const TODO_NUDGE_MARKER = "[TODO SYNC]";
 
 /**

@@ -33,8 +33,15 @@ export interface RewindRuntime {
 	/** Create and store a snapshot of the current working tree. */
 	snapshot(ctx: ExtensionContext, options: SnapshotOptions): Promise<Snapshot>;
 	list(root: string): Promise<Snapshot[]>;
-	plan(root: string, target: Snapshot): Promise<PlanResult>;
-	restore(ctx: ExtensionContext, root: string, target: Snapshot, config: RewindConfig): Promise<RestoreSummary>;
+	/** Preview a restore; `paths` narrows it to a subset of the changed paths. */
+	plan(root: string, target: Snapshot, paths?: readonly string[]): Promise<PlanResult>;
+	restore(
+		ctx: ExtensionContext,
+		root: string,
+		target: Snapshot,
+		config: RewindConfig,
+		paths?: readonly string[],
+	): Promise<RestoreSummary>;
 	/** Repaint the `↺ N` chip from the prompt count on the active branch (`/rewind` list size). */
 	setStatus(ctx: ExtensionContext): Promise<void>;
 	clearStatus(ctx: ExtensionContext): void;
@@ -110,10 +117,10 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 	const list = (root: string): Promise<Snapshot[]> =>
 		listSnapshots(runGit, root, configFor(root).refNamespace, { root });
 
-	const plan = (root: string, target: Snapshot): Promise<PlanResult> =>
+	const plan = (root: string, target: Snapshot, paths?: readonly string[]): Promise<PlanResult> =>
 		queue.enqueue(async () => {
 			if (!belongsToRoot(target, root)) return { ok: false, reason: foreignRootReason(target, root) };
-			return planRestore({ runGit }, { root, indexFile: await indexStore.pathFor(root), target });
+			return planRestore({ runGit }, { root, indexFile: await indexStore.pathFor(root), target, paths });
 		});
 
 	const restore = (
@@ -121,11 +128,12 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		root: string,
 		target: Snapshot,
 		config: RewindConfig,
+		paths?: readonly string[],
 	): Promise<RestoreSummary> =>
 		queue.enqueue(async () => {
 			if (!belongsToRoot(target, root)) throw new Error(foreignRootReason(target, root));
 			const indexFile = await indexStore.pathFor(root);
-			const input: RestoreInput = { root, indexFile, target };
+			const input: RestoreInput = { root, indexFile, target, paths };
 			let safety: string | undefined;
 			if (config.safetySnapshot) {
 				const before = await createSnapshot(

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { isRailGlyph } from "../chrome.ts";
+import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG } from "../doctor/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 import {
 	SETTING_GROUPS,
 	SETTING_ROWS,
-	countSettings,
 	groupViews,
 	nextValue,
 	rowsForScope,
@@ -14,7 +14,6 @@ import {
 	type SettingsSnapshot,
 	storedValue,
 	textError,
-	validValue,
 } from "./settings.ts";
 
 function snapshot(overrides: Partial<SettingsSnapshot> = {}): SettingsSnapshot {
@@ -47,14 +46,32 @@ describe("catalogue", () => {
 		expect(SETTING_ROWS.map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"notify.enabled",
+			"notify.turnFinished",
+			"notify.needsInput",
+			"notify.jobFinished",
+			"notify.matchFound",
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
+			"doctor.timeoutMs",
 			"price.currency.code",
 			"price.currency.decimals",
+			"price.budget",
 			"chrome.rail",
+			"goal.achieved",
 			"outputPad",
 			"showHardwareCursor",
+			"worktree.baseRef",
+			"worktree.branchPrefix",
+			"worktree.fetchRemote",
+			"worktree.pruneAfterDays",
+			"rewind.autoSnapshots",
+			"rewind.max",
+			"rewind.safetySnapshot",
+			"job.wakeOnFinish",
+			"job.detachedByDefault",
+			"watch.wakeOnMatch",
+			"memory.inject",
 		]);
 	});
 
@@ -62,26 +79,42 @@ describe("catalogue", () => {
 		expect(rowsForScope("global").map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"notify.enabled",
+			"notify.turnFinished",
+			"notify.needsInput",
+			"notify.jobFinished",
+			"notify.matchFound",
 			"notify.method",
 			"notify.title",
 			"doctor.proactive",
+			"doctor.timeoutMs",
 			"price.currency.code",
 			"price.currency.decimals",
+			"price.budget",
 			"chrome.rail",
+			"goal.achieved",
 			"outputPad",
 			"showHardwareCursor",
+			"worktree.baseRef",
+			"worktree.branchPrefix",
+			"worktree.fetchRemote",
+			"worktree.pruneAfterDays",
+			"rewind.autoSnapshots",
+			"rewind.max",
+			"rewind.safetySnapshot",
+			"job.wakeOnFinish",
+			"job.detachedByDefault",
+			"watch.wakeOnMatch",
+			"memory.inject",
 		]);
-		expect(rowsForScope("project").map((entry) => entry.id)).toEqual([
-			"notify.enabled",
-			"notify.method",
-			"notify.title",
-			"doctor.proactive",
-			"price.currency.code",
-			"price.currency.decimals",
-			"chrome.rail",
-		]);
-		expect(countSettings("global")).toBe(10);
-		expect(countSettings("project")).toBe(7);
+		// Every `bytefly.json` row is writable in Project scope; the three Pi rows
+		// have no project setter.
+		expect(rowsForScope("project").map((entry) => entry.id)).toEqual(
+			rowsForScope("global")
+				.filter((entry) => entry.source === "bytefly")
+				.map((entry) => entry.id),
+		);
+		expect(rowsForScope("global")).toHaveLength(28);
+		expect(rowsForScope("project")).toHaveLength(25);
 	});
 
 	test("orders the groups and drops an empty one", () => {
@@ -92,13 +125,26 @@ describe("catalogue", () => {
 			"pricing",
 			"transcript",
 			"terminal",
+			"worktree",
+			"snapshots",
+			"jobs",
+			"memory",
 		]);
 		const grouped = groupViews(settingViews(snapshot(), "global"));
-		expect(grouped.map((group) => group.views.length)).toEqual([1, 3, 1, 2, 2, 1]);
+		expect(grouped.map((group) => group.views.length)).toEqual([1, 7, 2, 3, 3, 1, 4, 3, 3, 1]);
 
 		const project = groupViews(settingViews(snapshot(), "project"));
-		expect(project.map((group) => group.key)).toEqual(["notifications", "diagnostics", "pricing", "transcript"]);
-		expect(project.map((group) => group.views.length)).toEqual([3, 1, 2, 1]);
+		expect(project.map((group) => group.key)).toEqual([
+			"notifications",
+			"diagnostics",
+			"pricing",
+			"transcript",
+			"worktree",
+			"snapshots",
+			"jobs",
+			"memory",
+		]);
+		expect(project.map((group) => group.views.length)).toEqual([7, 2, 3, 2, 4, 3, 3, 1]);
 	});
 });
 
@@ -108,26 +154,36 @@ describe("values", () => {
 		expect(global.map((entry) => [entry.id, entry.value, entry.valueLabel, entry.origin])).toEqual([
 			["byteflyUi", "false", "Off", "default"],
 			["notify.enabled", "false", "Off", "default"],
+			["notify.turnFinished", "true", "On", "default"],
+			["notify.needsInput", "true", "On", "default"],
+			["notify.jobFinished", "true", "On", "default"],
+			["notify.matchFound", "true", "On", "default"],
 			["notify.method", "auto", "Auto", "default"],
 			["notify.title", "Pi", "Pi", "default"],
 			["doctor.proactive", "true", "On", "default"],
+			["doctor.timeoutMs", "2000", "2000", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.currency.decimals", "2", "2", "default"],
+			["price.budget", "0", "0", "default"],
 			["chrome.rail", GLYPHS.divider, GLYPHS.divider, "default"],
+			["goal.achieved", "hide", "Hide", "default"],
 			["outputPad", "1", "1", "default"],
 			["showHardwareCursor", "false", "Off", "default"],
+			["worktree.baseRef", "fresh", "Fresh", "default"],
+			["worktree.branchPrefix", "worktree-", "worktree-", "default"],
+			["worktree.fetchRemote", "true", "On", "default"],
+			["worktree.pruneAfterDays", "7", "7", "default"],
+			["rewind.autoSnapshots", "true", "On", "default"],
+			["rewind.max", "20", "20", "default"],
+			["rewind.safetySnapshot", "true", "On", "default"],
+			["job.wakeOnFinish", "false", "Off", "default"],
+			["job.detachedByDefault", "false", "Off", "default"],
+			["watch.wakeOnMatch", "false", "Off", "default"],
+			["memory.inject", "true", "On", "default"],
 		]);
 
 		const project = settingViews(snapshot(), "project");
-		expect(project.map((entry) => entry.origin)).toEqual([
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-			"inherited",
-		]);
+		expect(project.map((entry) => entry.origin)).toEqual(Array.from({ length: 25 }, () => "inherited"));
 	});
 
 	test("reads configured app and bytefly values", () => {
@@ -205,9 +261,9 @@ describe("cycling", () => {
 		expect(nextValue(pad, "0").value).toBe("1");
 	});
 
-	test("starts a custom rail glyph at the first curated option", () => {
-		expect(nextValue(row("chrome.rail"), "╎").value).toBe("│");
-		expect(nextValue(row("chrome.rail"), "|").value).toBe(GLYPHS.divider);
+	test("leaves the rail glyph alone: it is typed, not cycled", () => {
+		expect(nextValue(row("chrome.rail"), "╎").value).toBe("╎");
+		expect(nextValue(row("chrome.rail"), "|").value).toBe("|");
 	});
 
 	test("cycles the delivery method through every surface and wraps", () => {
@@ -222,10 +278,49 @@ describe("cycling", () => {
 		expect(nextValue(decimals, "4").value).toBe("0");
 	});
 
-	test("keeps every rail option to one visible column", () => {
-		for (const option of row("chrome.rail").options) {
-			expect([...option.value]).toHaveLength(1);
-			expect(visibleWidth(option.value)).toBe(1);
+	test("keeps the rail rule and the loader on one definition", () => {
+		// The row's rule is `chrome.ts`'s, so what the editor accepts is what the
+		// next read keeps.
+		for (const glyph of [GLYPHS.divider, "│", "┃", "▏", "|", "#"]) {
+			expect(isRailGlyph(glyph), glyph).toBe(true);
+			expect(textError(row("chrome.rail"), glyph)).toBeUndefined();
+		}
+		// A space is one column and the loader accepts it, so the rule must too.
+		expect(textError(row("chrome.rail"), " ")).toBeUndefined();
+		for (const bad of ["", "ab", "\u001b", "あ", "😀"]) {
+			expect(isRailGlyph(bad), JSON.stringify(bad)).toBe(false);
+			expect(textError(row("chrome.rail"), bad), JSON.stringify(bad)).toContain("one column");
+		}
+	});
+
+	test("states the probe timeout's rule at the loader's own bounds", () => {
+		const timeout = row("doctor.timeoutMs");
+		expect(textError(timeout, "2000")).toBeUndefined();
+		expect(textError(timeout, "100")).toBeUndefined();
+		expect(textError(timeout, String(DEFAULT_DOCTOR_CONFIG.timeoutMs))).toBeUndefined();
+		// Exactly the range `normalizeConfig` clamps to: outside it the file would be
+		// silently clamped on the next read, which is the bug this row prevents.
+		expect(textError(timeout, "99")).toContain("Out of range");
+		expect(textError(timeout, "30001")).toContain("Out of range");
+		expect(textError(timeout, "2s")).toContain("whole number");
+		expect(textError(timeout, "")).toContain("whole number");
+		expect(textError(timeout, "-1")).toContain("whole number");
+	});
+
+	test("states the budget's rule with the loader's own bounds", () => {
+		const budget = row("price.budget");
+		for (const good of ["0", "5", "2.50", "0.0001", "9999999"]) {
+			expect(textError(budget, good), good).toBeUndefined();
+		}
+		for (const bad of ["", "-1", "5.", ".5", "5.00001", "10000001", "ten"]) {
+			expect(textError(budget, bad), bad).toBeDefined();
+		}
+	});
+
+	test("every row's fallback passes its own rule", () => {
+		for (const entry of SETTING_ROWS) {
+			if (entry.kind !== "text") continue;
+			expect(textError(entry, entry.fallback), entry.id).toBeUndefined();
 		}
 	});
 });
@@ -258,12 +353,6 @@ describe("stored values", () => {
 			}
 		}
 	});
-
-	test("accepts only curated options", () => {
-		expect(validValue(row("byteflyUi"), "true")).toBe(true);
-		expect(validValue(row("byteflyUi"), "maybe")).toBe(false);
-		expect(validValue(row("notify.enabled"), "1")).toBe(false);
-	});
 });
 
 describe("text rows", () => {
@@ -288,5 +377,37 @@ describe("text rows", () => {
 
 		expect(view("notify.title", "global", snap).value).toBe("Pinned");
 		expect(view("notify.title", "global", snap).origin).toBe("global");
+	});
+});
+
+describe("rows owned by other extensions", () => {
+	test("reads the leaf as the file states it and labels a curated value", () => {
+		const snap = snapshot({ global: { worktree: { baseRef: "head", pruneAfterDays: 30 } } });
+
+		expect(view("worktree.baseRef", "global", snap)).toMatchObject({
+			value: "head",
+			valueLabel: "Head",
+			origin: "global",
+		});
+		expect(view("worktree.pruneAfterDays", "global", snap)).toMatchObject({ value: "30", origin: "global" });
+	});
+
+	test("inherits the global leaf in Project scope until the project states it", () => {
+		const snap = snapshot({ global: { rewind: { max: 50 } }, project: { rewind: { max: 5 } } });
+
+		expect(view("rewind.max", "project", snapshot({ global: { rewind: { max: 50 } } }))).toMatchObject({
+			value: "50",
+			origin: "inherited",
+		});
+		expect(view("rewind.max", "project", snap)).toMatchObject({ value: "5", origin: "project" });
+	});
+
+	test("shows a hand-edited value the loader would clamp, which reset can clear", () => {
+		// The screen does not own these normalizers, so it reports the file rather
+		// than the clamped effective value; the row's own rule refuses writing one.
+		const snap = snapshot({ global: { rewind: { max: 5000 } } });
+
+		expect(view("rewind.max", "global", snap).value).toBe("5000");
+		expect(textError(row("rewind.max"), "5000")).toContain("Out of range");
 	});
 });

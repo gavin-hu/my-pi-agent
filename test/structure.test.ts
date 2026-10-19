@@ -8,13 +8,22 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix as posixPath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { REQUIREMENTS } from "../lib/requirements.ts";
 import { SHARED_CONFIG_FILE } from "../lib/config.ts";
+import { walkFiles } from "./helpers/files.ts";
 
 /** Normalise separators so path comparisons work on Windows too. */
 const posix = (p: string): string => p.replaceAll("\\", "/");
+
+/**
+ * A path in posix form, from parts that may arrive with either separator.
+ * The doc-link guard slices a path at `/` to find the linking doc's directory, so
+ * the host's `join` returning backslashes on Windows would make every root doc's
+ * links look broken.
+ */
+const docPath = (...parts: string[]): string => posix(posixPath.join(...parts));
 
 const repo = posix(join(import.meta.dir, ".."));
 const testDir = posix(join(import.meta.dir, "..", "test"));
@@ -30,21 +39,16 @@ function dirsOf(dir: string): string[] {
 		.sort();
 }
 
-function walkFiles(dir: string, out: string[] = []): string[] {
-	for (const name of readdirSync(dir)) {
-		const full = join(dir, name);
-		if (statSync(full).isDirectory()) walkFiles(full, out);
-		else out.push(posix(full));
-	}
-	return out;
-}
-
 const ROOT_TEST_FILES = new Set([
 	"config-docs.test.ts",
+	"docs-parity.test.ts",
+	"docs-truth.test.ts",
+	"extension-load.test.ts",
 	"naming.test.ts",
 	"prompt-budget.test.ts",
 	"release.test.ts",
 	"roadmap.test.ts",
+	"settings-coverage.test.ts",
 	"structure.test.ts",
 	"theme.test.ts",
 	"tool-render.test.ts",
@@ -103,24 +107,75 @@ const BANS: Ban[] = [
 ];
 
 /**
- * Lines in `file` that match a ban, as `path:line: alert (reason)`.
- * A line may opt out of one ban with an `allow:<name>` comment when the
- * matched text is genuine content (for example a whitespace-normalisation
- * assertion), not layout padding.
+ * The same bans, on extension and `lib/` **source** (not `.test.ts`): the half of
+ * `AGENTS.md` "Code quality" a line scan can hold. `scripts/` is dev tooling and
+ * outside this scan.
  */
-function scanBans(file: string): string[] {
-	if (EXEMPT_FILES.has(file)) return [];
+const SOURCE_BANS: Ban[] = [
+	{
+		name: "todo",
+		matches: (line) => /\b(?:TODO|FIXME|HACK|XXX)\b/.test(line),
+		reason: "do it, or file it in ROADMAP.md",
+	},
+	{
+		name: "suppression",
+		matches: (line) => /@ts-(?:ignore|expect-error|nocheck)|biome-ignore|eslint-disable/.test(line),
+		reason: "fix the type or the rule, or state the exception in a comment",
+	},
+	{
+		name: "any",
+		matches: (line) => /\bas\s+any\b|:\s*any\b|<any>|\bany\[\]/.test(line),
+		reason: "use unknown at the boundary, or name the host type",
+	},
+	{
+		// Prose comments are not code: these are the shapes a commented-out statement
+		// takes, and `// for the duration of a call` is the case they must not match.
+		name: "commented-code",
+		matches: (line) =>
+			/^\s*\/\/\s*(?:const|let|var|return|import|export|function|class|interface|enum|await)\b/.test(line) ||
+			/^\s*\/\/\s*(?:if|for|while|switch)\s*\(/.test(line) ||
+			/^\s*\/\/\s*\}/.test(line),
+		reason: "delete it; git has the version that worked",
+	},
+];
+
+/**
+ * Lines in `file` that match one of `bans`, as `path:line: alert (reason)`.
+ * A line may opt out of one ban with an `allow:<name>` comment on that line or
+ * in the comment block directly above it, when the matched text is genuine
+ * content (a whitespace-normalisation assertion, a host seam no shared type can
+ * name) and not a shortcut.
+ */
+function scanBans(file: string, bans: Ban[] = BANS, exempt: Set<string> = EXEMPT_FILES): string[] {
+	if (exempt.has(file)) return [];
 	const relative = file.slice(repo.length + 1);
 	const violations: string[] = [];
-	readFileSync(file, "utf-8")
-		.split("\n")
-		.forEach((line, index) => {
-			for (const ban of BANS) {
-				if (line.includes(`allow:${ban.name}`)) continue;
-				if (ban.matches(line)) violations.push(`${relative}:${index + 1}: ${ban.name} (${ban.reason})`);
-			}
-		});
+	const lines = readFileSync(file, "utf-8").split("\n");
+	lines.forEach((line, index) => {
+		for (const ban of bans) {
+			if (allowsAt(lines, index, `allow:${ban.name}`)) continue;
+			if (ban.matches(line)) violations.push(`${relative}:${index + 1}: ${ban.name} (${ban.reason})`);
+		}
+	});
 	return violations;
+}
+
+/** A comment line: `//`, or the `*`-prefixed body and fence of a block comment. */
+const COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/;
+
+/**
+ * Whether `marker` appears on that line or in the comment block directly above
+ * it, walking up until the block ends. An allowance reads best where the reason
+ * belongs: beside the line, or inside the doc comment that already explains it.
+ */
+function allowsAt(lines: string[], index: number, marker: string): boolean {
+	if (lines[index]?.includes(marker) === true) return true;
+	for (let above = index - 1; above >= 0; above--) {
+		const line = lines[above] ?? "";
+		if (!COMMENT_LINE.test(line)) return false;
+		if (line.includes(marker)) return true;
+	}
+	return false;
 }
 
 describe("test layout", () => {
@@ -185,6 +240,14 @@ const RAW_EXPAND_KEY = /"app\.tools\.expand"/;
 const LITERAL_EXPAND_KEY = /Ctrl\+O|ctrl\+o/;
 
 describe("source conventions", () => {
+	test("source avoids the banned patterns", () => {
+		const offenders: string[] = [];
+		for (const dir of SCANNED_DIRS) {
+			for (const file of sourceFiles(dir)) offenders.push(...scanBans(file, SOURCE_BANS));
+		}
+		expect(offenders).toEqual([]);
+	});
+
 	test("tool renderers reuse context.lastComponent", () => {
 		const offenders: string[] = [];
 		for (const dir of SCANNED_DIRS) {
@@ -248,6 +311,38 @@ describe("extension boundaries", () => {
 	});
 });
 
+describe("lib value-only", () => {
+	/**
+	 * A module-scope `let` / `var`: unindented, so a `let` inside a function stays
+	 * local to its closure, which is the only state `lib/` may hold.
+	 */
+	const MODULE_BINDING = /^(?:export\s+)?(?:let|var)\b/;
+	/**
+	 * The mutable containers state takes when it is not a `let`. `new Set(...)` is
+	 * not here on purpose: a keyword table is data, and the one shape this bans is
+	 * a container a module can add to while it lives.
+	 */
+	const MODULE_CONTAINER = /^(?:export\s+)?const\s+[A-Za-z_$][\w$]*[^=]*=\s*(?:new\s+(?:Map|WeakMap|Array)\b|\[\])/;
+
+	test("lib/ keeps no module-level state", () => {
+		// Pi loads each extension with its own module cache, so a module variable here
+		// is one copy per extension, not one shared value. lib/README.md states it.
+		const offenders: string[] = [];
+		for (const file of sourceFiles(libDir)) {
+			readFileSync(file, "utf-8")
+				.split("\n")
+				.forEach((line, index) => {
+					if (MODULE_BINDING.test(line) || MODULE_CONTAINER.test(line)) {
+						offenders.push(
+							`${file.slice(repo.length + 1)}:${index + 1}: module-level state; carry it in the caller's closure`,
+						);
+					}
+				});
+		}
+		expect(offenders).toEqual([]);
+	});
+});
+
 describe("prerequisite declarations", () => {
 	test("every extension declares its runtime prerequisites", () => {
 		const undeclared = dirsOf(extensionsDir).filter((name) => REQUIREMENTS[name] === undefined);
@@ -272,6 +367,84 @@ describe("prerequisite declarations", () => {
 					file === SHARED_CONFIG_FILE &&
 					sources.some((source) => readFileSync(source, "utf-8").includes("loadConfigSection("));
 				if (!literal && !shared) offenders.push(`${name}: no config.ts reads ${file}`);
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+});
+
+describe("doc links", () => {
+	/** Every Markdown doc a user or contributor reads, from the root and the doc trees. */
+	function docFiles(): string[] {
+		const trees = ["docs", "extensions", "lib", "test", ".github"].map((dir) => docPath(repo, dir));
+		const rootDocs = readdirSync(repo)
+			.filter((name) => name.endsWith(".md"))
+			.map((name) => docPath(repo, name));
+		return [...rootDocs, ...trees.flatMap((tree) => walkFiles(tree))].filter((file) => file.endsWith(".md")).sort();
+	}
+
+	const MARKDOWN_LINK = /\]\(([^)\s]+)\)/g;
+	const HEADING = /^#{1,6}\s+(.+?)\s*$/;
+	const FENCE = /^\s*(?:```|~~~)/;
+
+	/** GitHub's heading anchor: link text kept, emphasis dropped, punctuation gone, spaces hyphenated. */
+	function anchorOf(heading: string): string {
+		return heading
+			.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+			.replace(/[`*]/g, "")
+			.toLowerCase()
+			.replace(/[^\p{L}\p{N} _-]/gu, "")
+			.trim()
+			.replace(/ /g, "-");
+	}
+
+	/** The anchors a rendered page offers, including GitHub's `-1`, `-2` suffixes for repeats. */
+	function anchorsOf(text: string): Set<string> {
+		const anchors = new Set<string>();
+		const seen = new Map<string, number>();
+		let fenced = false;
+		for (const line of text.split("\n")) {
+			if (FENCE.test(line)) {
+				fenced = !fenced;
+				continue;
+			}
+			const heading = fenced ? null : HEADING.exec(line)?.[1];
+			if (heading === undefined || heading === null) continue;
+			const base = anchorOf(heading);
+			const count = seen.get(base) ?? 0;
+			seen.set(base, count + 1);
+			anchors.add(count === 0 ? base : `${base}-${count}`);
+		}
+		return anchors;
+	}
+
+	test("a doc path keeps one separator style whatever the host's join does", () => {
+		expect(docPath("D:\\a\\my-pi-agent", "docs", "..", "README.md")).toBe("D:/a/my-pi-agent/README.md");
+	});
+
+	test("hyphenates each space, so an em dash between words leaves two", () => {
+		// GitHub replaces every space, it does not collapse a run of them.
+		expect(anchorOf("`price` — cost calculation")).toBe("price--cost-calculation");
+	});
+
+	test("every relative doc link resolves, anchor included", () => {
+		const offenders: string[] = [];
+		for (const file of docFiles()) {
+			const relative = file.slice(repo.length + 1);
+			const dir = file.slice(0, file.lastIndexOf("/"));
+			for (const [, link] of readFileSync(file, "utf-8").matchAll(MARKDOWN_LINK)) {
+				if (!link.startsWith("./") && !link.startsWith("../") && !link.startsWith("#")) continue;
+				const hash = link.indexOf("#");
+				const target = hash === -1 ? link : link.slice(0, hash);
+				const anchor = hash === -1 ? "" : link.slice(hash + 1);
+				const path = target === "" ? file : docPath(dir, target);
+				if (!existsSync(path)) {
+					offenders.push(`${relative}: ${link} (no such path)`);
+					continue;
+				}
+				if (anchor !== "" && (!statSync(path).isFile() || !anchorsOf(readFileSync(path, "utf-8")).has(anchor))) {
+					offenders.push(`${relative}: ${link} (no such anchor)`);
+				}
 			}
 		}
 		expect(offenders).toEqual([]);

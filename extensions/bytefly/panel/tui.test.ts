@@ -31,6 +31,23 @@ function withLeaf(source: Record<string, unknown>, path: readonly string[], valu
 	return { ...source, [head]: withLeaf((source[head] as Record<string, unknown> | undefined) ?? {}, rest, value) };
 }
 
+/** A copy of `source` without the leaf at `path`; the unset writer's inverse, in memory. */
+function withoutLeaf(source: Record<string, unknown>, path: readonly string[]): Record<string, unknown> | undefined {
+	const [head, ...rest] = path;
+	if (head === undefined) return source;
+	const next = { ...source };
+	if (rest.length === 0) {
+		delete next[head];
+	} else {
+		const child = source[head] as Record<string, unknown> | undefined;
+		if (!child || typeof child !== "object") return source;
+		const pruned = withoutLeaf(child, rest);
+		if (pruned === undefined) delete next[head];
+		else next[head] = pruned;
+	}
+	return Object.keys(next).length === 0 ? undefined : next;
+}
+
 /** A settings surface over an in-memory snapshot, for rendering and interaction. */
 function makeSettings(
 	options: { app?: Settings; global?: Record<string, unknown>; project?: Record<string, unknown> } = {},
@@ -44,7 +61,6 @@ function makeSettings(
 	let dirty = false;
 	const surface: SettingsSurface = {
 		views: (scope) => settingViews(snapshot, scope),
-		count: (scope) => settingViews(snapshot, scope).length,
 		setValue: async (scope, id, raw) => {
 			const view = settingViews(snapshot, scope).find((entry) => entry.id === id);
 			if (!view?.config) return false;
@@ -72,6 +88,21 @@ function makeSettings(
 			dirty = true;
 			changes.push(`${scope}:${id}`);
 		},
+		reset: async (scope, id) => {
+			const view = settingViews(snapshot, scope).find((entry) => entry.id === id);
+			const config = view?.config;
+			if (!config) return false;
+			const document = scope === "global" ? snapshot.global : snapshot.project;
+			const section = document[config.section] as Record<string, unknown> | undefined;
+			if (!section || typeof section !== "object") return false;
+			const next = withoutLeaf(section, config.path);
+			if (next === undefined) delete document[config.section];
+			else document[config.section] = next;
+			dirty = true;
+			changes.push(`${scope}:${id}=reset`);
+			return true;
+		},
+		sectionDocument: (scope, section) => (scope === "global" ? snapshot.global : snapshot.project)[section],
 		isDirty: () => dirty,
 	};
 	return { surface, changes, snapshot, isDirty: () => dirty };
@@ -134,6 +165,17 @@ function build(options: {
 	});
 	holder.component = component;
 	return { component, runtime, store, projectStore, settings, closedCount: () => closed };
+}
+
+/** Move the focus to the row whose label contains `label`, rendering as it goes. */
+function focus(component: PanelComponent, label: string): void {
+	component.render(80);
+	for (let step = 0; step < 40; step += 1) {
+		const line = component.render(80).find((candidate) => candidate.startsWith("❯"));
+		if (line?.includes(label)) return;
+		component.handleInput("j");
+	}
+	throw new Error(`never reached ${label}`);
 }
 
 describe("PanelComponent rendering", () => {
@@ -551,11 +593,13 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("10 settings");
+		expect(text).toContain("28 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Delivery method");
-		expect(text).toContain("Currency");
+		// The pane scrolls, so the assertion names a row the first screen shows rather
+		// than one further down the catalogue.
+		expect(text).toContain("Watcher matched");
 		expect(text).not.toContain("No settings yet.");
 		expect(text).not.toContain("plan/index.ts");
 	});
@@ -569,7 +613,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 10 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 28 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -581,7 +625,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 7 settings");
+		expect(text).toContain("Project · 25 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -591,14 +635,15 @@ describe("PanelComponent sections", () => {
 		const selected = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
 
 		component.render(80);
-		component.handleInput("G");
+		// Five group jumps land on the Terminal row, which is an app row: Project
+		// drops it, and the cursor must land nearby rather than back at the top.
+		component.handleInput("g");
+		for (let index = 0; index < 5; index += 1) component.handleInput("]");
 		expect(selected()).toContain("Hardware cursor");
 
-		// Project drops the app rows; the cursor lands on the nearest remaining row,
-		// not back at the top of the list.
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 7 settings");
-		expect(selected()).toContain("Rail glyph");
+		expect(component.render(80).join("\n")).toContain("Project · 25 settings");
+		expect(selected()).toContain("Prune after (days)");
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
@@ -608,7 +653,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 10 settings");
+		expect(refused).toContain("Global · 28 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 
@@ -621,13 +666,16 @@ describe("PanelComponent sections", () => {
 	test("shows a refused setting change in the frame", async () => {
 		const surface: SettingsSurface = {
 			views: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope),
-			count: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope).length,
 			change: async () => {
 				throw new Error("disk full");
 			},
 			setValue: async () => {
 				throw new Error("disk full");
 			},
+			reset: async () => {
+				throw new Error("disk full");
+			},
+			sectionDocument: () => undefined,
 			isDirty: () => false,
 		};
 		const { component } = build({ items: [packageItem("plan")], section: "settings", settings: surface });
@@ -843,15 +891,22 @@ describe("PanelComponent probing", () => {
 
 describe("PanelComponent text editing", () => {
 	/** Walk the focus down to the row whose label matches. */
-	function focus(component: PanelComponent, label: string): void {
-		component.render(80);
-		for (let step = 0; step < 30; step += 1) {
-			const line = component.render(80).find((candidate) => candidate.startsWith("❯"));
-			if (line?.includes(label)) return;
-			component.handleInput("j");
-		}
-		throw new Error(`never reached ${label}`);
-	}
+	test("opens the editor on the rail glyph and the probe timeout", () => {
+		const rail = build({ items: [], section: "settings", globalDoc: { chrome: { rail: "┃" } } });
+		focus(rail.component, "Rail glyph");
+		rail.component.handleInput(" ");
+
+		// A text row never cycles: Space opens the editor on the current glyph.
+		const railText = rail.component.render(80).join("\n");
+		expect(railText).toContain("┃▏");
+		expect(railText).toContain("Esc cancel");
+
+		const timeout = build({ items: [], section: "settings", globalDoc: { doctor: { timeoutMs: 3000 } } });
+		focus(timeout.component, "Probe timeout");
+		timeout.component.handleInput("\r");
+
+		expect(timeout.component.render(80).join("\n")).toContain("3000▏");
+	});
 
 	test("Enter opens the editor on the stored value and shows the editor keys", () => {
 		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });
@@ -924,5 +979,106 @@ describe("PanelComponent text editing", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${"Poi"}${"x".repeat(37)}`);
 		expect(text).not.toContain("x".repeat(38));
+	});
+});
+
+describe("PanelComponent settings actions", () => {
+	test("names the reset, JSON, and group keys in the hint row", () => {
+		const { component } = build({ items: [], section: "settings" });
+
+		const text = component.render(120).join("\n");
+		expect(text).toContain("u reset");
+		expect(text).toContain("J JSON");
+		expect(text).toContain("[ ] group");
+	});
+
+	test("resets the focused row and marks the screen saved", async () => {
+		const { component } = build({
+			items: [],
+			section: "settings",
+			globalDoc: { rewind: { max: 50, autoSnapshots: false } },
+		});
+
+		focus(component, "Snapshots kept");
+		component.handleInput("u");
+		await settle();
+
+		const text = component.render(80).join("\n");
+		const row = text.split("\n").find((line) => line.includes("Snapshots kept"));
+		// The stored 50 is gone, so the row falls back to the loader's 20.
+		expect(row?.trimEnd().endsWith("20")).toBe(true);
+		expect(text).toContain("Saved");
+	});
+
+	test("shows a failed reset in the frame instead of behind it", async () => {
+		const surface: SettingsSurface = {
+			views: (scope) => settingViews({ app: {}, global: {}, project: {} }, scope),
+			change: async () => {},
+			setValue: async () => false,
+			reset: async () => {
+				throw new Error("read-only file");
+			},
+			sectionDocument: () => undefined,
+			isDirty: () => false,
+		};
+		const { component } = build({ items: [], section: "settings", settings: surface });
+
+		focus(component, "Bytefly startup TUI");
+		component.handleInput("u");
+		await settle();
+
+		expect(component.render(80).join("\n")).toContain("read-only file");
+	});
+
+	test("shows the focused row's section as stored, and closes it on Tab", () => {
+		const { component } = build({
+			items: [],
+			section: "settings",
+			globalDoc: { worktree: { baseRef: "head" } },
+		});
+
+		focus(component, "Base ref");
+		component.handleInput("J");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("worktree");
+		expect(text).toContain('"baseRef": "head"');
+		expect(text).toContain("J hide");
+
+		component.handleInput("\t");
+		const afterScope = component.render(80).join("\n");
+		expect(afterScope).not.toContain('"baseRef": "head"');
+	});
+
+	test("explains that a Pi setting has no section to show", () => {
+		const { component } = build({ items: [], section: "settings" });
+
+		focus(component, "Bytefly startup TUI");
+		component.handleInput("J");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("bytefly.json has no section");
+		expect(text).not.toContain("J hide");
+	});
+
+	test("jumps to the next and previous group and stops at the ends", () => {
+		const { component } = build({ items: [], section: "settings" });
+		const selected = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
+
+		component.render(80);
+		expect(selected()).toContain("Bytefly startup TUI");
+
+		component.handleInput("]");
+		expect(selected()).toContain("Desktop notifications");
+		component.handleInput("[");
+		expect(selected()).toContain("Bytefly startup TUI");
+		// The first group has no predecessor: the key stays put instead of wrapping.
+		component.handleInput("[");
+		expect(selected()).toContain("Bytefly startup TUI");
+
+		component.handleInput("G");
+		expect(selected()).toContain("Inject notes");
+		component.handleInput("]");
+		expect(selected()).toContain("Inject notes");
 	});
 });

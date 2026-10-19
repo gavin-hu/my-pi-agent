@@ -23,12 +23,14 @@ import {
 	readFileSync,
 	readdirSync,
 	renameSync,
+	statSync,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { repoRootFor } from "../../lib/git/index.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
 import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
 import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
@@ -53,6 +55,23 @@ export interface WrittenPlan extends StoredPlan {
 	title: string;
 }
 
+/** One row of the plan index: enough to choose a plan without opening it. */
+export interface PlanSummary {
+	/** Absolute path. */
+	path: string;
+	/** Path relative to the working directory, when it is inside it. */
+	relativePath: string;
+	/** The plan's `# title`, or a title derived from the file name. */
+	title: string;
+	/** File modification time, ms since the epoch. */
+	modified: number;
+	bytes: number;
+	/** Steps done and total, or undefined for a file the store would not have written. */
+	steps?: { done: number; total: number };
+	/** True when the file is over {@link MAX_PLAN_BYTES} and was listed without a read. */
+	oversize?: boolean;
+}
+
 export interface WritePlanInput {
 	/** Short title; drives the file-name slug. */
 	title: string;
@@ -70,6 +89,11 @@ export interface PlanStore {
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
 	/** The newest plan file in the plans directory, or undefined when there is none. */
 	latest(cwd: string): Promise<StoredPlan | undefined>;
+	/**
+	 * Every plan in the directory, newest first. The directory is the index, so
+	 * this is one `readdir`, one `stat` per file, and one bounded read per plan.
+	 */
+	index(cwd: string): Promise<PlanSummary[]>;
 	/** Set the given top-level steps' checkboxes in an existing plan. Throws when the file or any step is invalid. */
 	setSteps(cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan>;
 	/** Replace the plan's stored browser feedback. Throws when the file is missing or outside the plans directory. */
@@ -342,5 +366,70 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		return newest ? read(cwd, newest.path) : undefined;
 	};
 
-	return { dirFor, write, read, latest, setSteps, saveFeedback };
+	/**
+	 * Every plan in the directory, newest first: the directory is the index.
+	 *
+	 * One `readdir`, one `lstat`/`stat` per entry, and one `readFileSync` per plan
+	 * that fits {@link MAX_PLAN_BYTES}. A larger file is listed as `oversize`
+	 * without being read — the store would never have written it, and pulling it
+	 * into memory to print one row is not worth the risk. A symlinked entry, a
+	 * dotfile, or a file that vanishes mid-walk is simply not a plan.
+	 */
+	const index = async (cwd: string): Promise<PlanSummary[]> => {
+		const dir = await dirFor(cwd);
+		let names: string[];
+		try {
+			names = readdirSync(dir);
+		} catch {
+			return [];
+		}
+
+		const summaries: PlanSummary[] = [];
+		for (const name of names) {
+			const path = join(dir, name);
+			if (!isPlanFileName(path)) continue;
+			let info: ReturnType<typeof statSync>;
+			try {
+				// lstat, not stat: a symlink is never a plan.
+				info = lstatSync(path);
+			} catch {
+				continue;
+			}
+			if (!info.isFile()) continue;
+			if (!isContainedPlan(dir, path)) continue;
+
+			const summary: PlanSummary = {
+				path,
+				relativePath: relativeTo(cwd, path),
+				title: planTitle(name),
+				modified: info.mtimeMs,
+				bytes: info.size,
+			};
+			if (info.size > MAX_PLAN_BYTES) {
+				summaries.push({ ...summary, oversize: true });
+				continue;
+			}
+			try {
+				const content = readFileSync(path, "utf-8");
+				const heading = /^ {0,3}#\s+(.+)$/m.exec(content)?.[1];
+				const title = heading === undefined ? "" : sanitizeLine(heading).trim();
+				const steps = extractPlanSteps(content);
+				summaries.push({
+					...summary,
+					...(title ? { title } : {}),
+					steps: { done: steps.filter((step) => step.status === "completed").length, total: steps.length },
+				});
+			} catch {
+				// An unreadable plan is still a file the user may want to see; list the
+				// row from its name and leave the content-derived fields out.
+				summaries.push(summary);
+			}
+		}
+		// Newest first, with the name (which carries the stamp) as the tie break —
+		// the same order `latest` picks from.
+		summaries.sort((a, b) => b.modified - a.modified || (a.path < b.path ? 1 : a.path > b.path ? -1 : 0));
+		return summaries;
+	};
+
+	return { dirFor, write, read, latest, index, setSteps, saveFeedback };
 }

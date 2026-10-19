@@ -36,12 +36,10 @@ export function registerRewind(pi: ExtensionAPI): void {
 		await runtime.setStatus(ctx);
 	});
 
-	// A new prompt begins a task: the run resolves its snapshot decision up
-	// front, so the `tool_call` guard can stay synchronous. A run started by a
-	// custom message (a wake) has no user prompt — `event.prompt` is undefined
-	// there despite its type — so `beginRun` accepts a missing prompt.
+	// A run started by a custom message (a wake) has no user prompt: only a user
+	// run carries one, and a newer host spells that as a union on `messageType`.
 	pi.on("before_agent_start", async (event, ctx) => {
-		await run.beginRun(event.prompt, ctx);
+		await run.beginRun("prompt" in event ? event.prompt : undefined, ctx);
 	});
 
 	pi.on("session_shutdown", (_event, ctx) => {

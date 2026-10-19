@@ -10,14 +10,11 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
+import { clip, labelLine } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
-
-/** Longest label shown in the transcript or `/watch` screen. */
-const MAX_DISPLAY_LABEL = 48;
 
 /** Longest sanitized watched line kept for display; longer lines are clipped. */
 const MAX_WATCH_LINE = 200;
@@ -50,7 +47,7 @@ export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
 
 /** A label clipped to one safe display line. */
 export function clipLabel(text: string): string {
-	return truncateToWidth(sanitizeWatchLine(text), MAX_DISPLAY_LABEL, "…");
+	return labelLine(text, sanitizeWatchLine);
 }
 
 /** What a watcher reads: a path or a command, clipped for display. */
@@ -177,9 +174,9 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 			const command = typeof args.command === "string" ? args.command.trim() : "";
 			const source = path ? path : command ? `$ ${command}` : "";
 			if (!source) return argsComplete ? "add" : "add …";
-			const preview = truncateToWidth(sanitizeLine(source), MAX_DISPLAY_LABEL, "…");
+			const preview = labelLine(source);
 			const pattern = typeof args.pattern === "string" ? args.pattern.trim() : "";
-			return pattern ? `add ${preview} /${truncateToWidth(sanitizeLine(pattern), 24, "…")}/` : `add ${preview}`;
+			return pattern ? `add ${preview} /${clip(sanitizeLine(pattern), 24)}/` : `add ${preview}`;
 		}
 		case "status":
 		case "matches":

@@ -28,6 +28,12 @@ pi install ./                        # install the package
   **Conversation only**, or **Code only**.
   - *Code* rewrites the working tree to the snapshot and is itself undoable
     (a `pre-restore` safety snapshot is taken first).
+  - When code moves, a second step asks **Restore what?** — **Everything (N
+    files)** or **Choose paths…**. The checklist lists every changed path
+    grouped by directory (`M` modified, `D` deleted since the snapshot, `A`
+    created after it), with all of them selected, so `Enter` twice reproduces a
+    whole-tree restore. `Space` toggles a file or a directory, `a`/`n` select
+    all/none, and the confirm that follows previews only the chosen subset.
   - *Conversation* moves the session tree back to that prompt and puts the
     prompt text back in the editor; the abandoned branch stays in the session.
 - Shows a `↺ N` status chip counting the prompts on the active branch — the
@@ -45,18 +51,23 @@ the main checkout; `list`/matching filter to the current root by default.
 
 | Command | What it does |
 |---|---|
-| `/rewind` | Open the timeline; pick a prompt, then a restore scope. |
+| `/rewind` | Open the timeline; pick a prompt, then a restore scope, then (for code) the paths. |
+
+The path checklist is its own `ctx.ui.custom` screen: `Space` toggles the focused
+row, `a`/`n` select all or none, `Enter` returns the selection, and `Esc` cancels
+the rewind.
 
 The timeline is keyboard-driven: `↑`/`↓` or `j`/`k` move, `PgUp`/`PgDn`/`Home`/`End`
 jump, `Enter` chooses the focused prompt, the mouse wheel scrolls, `Esc` closes.
 The scope choice and the confirmation (with a diff preview) run after the screen
-closes.
+closes. The path checklist is the same grammar: `Space` toggles, `a`/`n` select
+all or none, `Enter` restores the selection, `Esc` cancels the rewind.
 
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| Interactive TUI | Full selectable timeline component; scope choice and confirmation follow after it closes. |
+| Interactive TUI | Full selectable timeline component, then the scope choice, the path checklist, and the confirmation. |
 | RPC (`hasUI`) | Timeline falls back to `ui.select`; scope choice and confirmation use forwarded dialogs. |
 | `print` / `json` | No picker: the prompt list is printed. |
 
@@ -110,9 +121,14 @@ A clean working tree still records a commit (so the metadata always travels with
 the snapshot); git reuses the identical tree object, so the only cost is a small
 commit. These refs are not branches and are not touched by `git push --all`.
 
+## Limitations
+
+- **The path checklist is TUI-only.** RPC, `print`, and `json` modes restore the
+  whole tree; there is no typed path syntax, because a list of exact paths is what
+  the checklist is for and a glob would need its own validation and preview.
+
 ## Non-goals
 
-- No per-file or partial code rewind; a restore is all-or-nothing.
 - No capture of `.gitignore`d files.
 - No moving HEAD, committing, stashing, or pushing.
 - No non-git projects for code snapshots (conversation-only rewind still works
@@ -126,7 +142,7 @@ commit. These refs are not branches and are not touched by `git push --all`.
 |---|---|
 | Model-facing tools | None. `/rewind` is user-driven; automatic snapshots cover the start of every task. |
 | Commands | `/rewind` (`pi.registerCommand`). |
-| Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (capture the prompt and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
+| Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (record the prompt — absent on a run a custom message starts — and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
 | State storage | Git refs `refs/pi/rewind/<id>` with metadata in the commit body. No tool-result `details` and no `pi.appendEntry`. |
 | Lifecycle | Index paths are created lazily and released in `session_shutdown`; status chip is set on start/tree/snapshot and cleared on shutdown. |
 
@@ -136,7 +152,9 @@ commit. These refs are not branches and are not touched by `git push --all`.
   `before_agent_start` records the prompt summary and resolves the run's root,
   policy, and config, so the first mutating `tool_call` takes the snapshot with a
   fully synchronous guard. No `await` sits between that guard's check and its
-  claim, so parallel sibling calls cannot double-snapshot.
+  claim, so parallel sibling calls cannot double-snapshot. A run a custom message
+  starts (a wake) has no prompt to record; the snapshot it takes is otherwise the
+  same.
 - **The timeline comes from the session tree, not from git.** `/rewind` lists
   every user message on the active branch and pairs each with the snapshot whose
   recorded `entryId` matches, so read-only prompts appear too and the list
@@ -190,7 +208,9 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes, and the production `RunGit`. |
 | `snapshot.ts` | Create a snapshot (tree from a temporary index → commit → ref). |
 | `snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
-| `restore.ts` | Plan and apply a working-tree rewind. |
+| `restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths. |
+| `paths.ts` | Pure: the changed-path list from `git diff --name-status`, its directory grouping, the change marks, and the restore counts. |
+| `path-picker.ts` | The checklist screen a partial restore opens: grouped paths, toggles, and the selection it returns. |
 | `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `policy.ts` | Which tool calls are worth a snapshot. |
 | `temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
@@ -198,7 +218,7 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `queue.ts` | The serialized git operation queue for staging calls (`GIT_INDEX_FILE`). |
 | `runtime.ts` | Root/config caches and the snapshot/list/plan/restore operations. |
 | `timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
-| `rewind.ts` | Scope choice, confirmation, and applying code + conversation rewind. |
+| `rewind.ts` | Scope choice, the path step, confirmation, and applying code + conversation rewind. |
 | `rewind-tui.ts` | The selectable, width-safe timeline component, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `commands.ts` | The `/rewind` command. |
 | `format.ts` | Model-facing and transcript text (pure). |

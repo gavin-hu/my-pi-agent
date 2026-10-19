@@ -6,21 +6,347 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
+## [0.14.0] - 2026-10-19
 
-- `bytefly`: Windows toast notifications select the text node through
-  `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`,
-  which PowerShell 5.1 rejects with `BadEnumeration`. Delivery remains
-  best-effort and silent on failure.
+### Added
+
+- `bytefly`: `/bytefly settings` now covers the package's other extensions —
+  `worktree`, `rewind`, `job`, `watch`, `memory`, and `goal` — so twelve more
+  preferences (base ref, branch prefix, prune age, snapshot retention, wake on
+  finish, note injection, and so on) are editable without hand-editing
+  `bytefly.json`. The list is now twenty-eight rows in ten groups: `u` deletes a
+  row's key so its default applies again, `J` shows the focused row's whole
+  section as stored — the only view of `rates`, `peak`, and the list-valued keys
+  — and `[` / `]` jump between groups.
+
+- `bytefly`: the working row now becomes a live run line — the latest top-level
+  tool, how many tools the run has started, and the elapsed time
+  (`edit · 3 tools · 12s`) — instead of only a clock. It falls back to
+  `Working… 12s` until the first tool starts, nested calls neither count nor
+  take over the line (so the number matches the transcript's tool blocks), and a
+  retry starts a fresh count.
+
+- `bytefly`: the turn separator is now a receipt for the settled run — duration,
+  top-level tool count, and `✕N`/`aborted` when a tool failed or the user
+  stopped — with a width ladder that sheds the tool count, then the duration,
+  then the outcome as the line narrows. A clean turn stays `meta`, a failed one
+  paints `bad`, and an aborted one `warn`; a run under a second prints no
+  duration, and separators written before the receipt existed keep rendering as
+  `turn N`.
+
+- `subagent`: a child run now has a wall-clock deadline
+  (`subagent.timeoutMs`, ten minutes by default, `0` disables it). A run past it
+  is stopped the way an abort stops one, but reported as a failed run —
+  `Timed out after …` — so a chain stops at that step instead of waiting
+  forever.
+
+- `subagent`: opt-in per-run transcripts (`subagent.transcripts`: `off`,
+  `failed`, or `all`; off by default) under `.pi/subagents/`, written by the
+  dispatching process and pruned at session start by age (`retentionDays`, 14)
+  and count (`maxRuns`, 100). The child never learns one exists, so the read-only
+  tool set is unchanged.
+
+- `dev`: two new guards hold the documented numbers to the code — a settings
+  catalogue test checks every row's default and bounds against its loader in both
+  directions, and a getting-started test derives the pack's extension and tool
+  counts from what registers.
+
+- `plan`: the terminal review screen has its own screenshot, `assets/plan.png`,
+  drawn by `PlanViewComponent` and regenerated with `bun run screenshots plan`.
+  The capture script can now give a screen its own window bounds and frame size,
+  so a document-sized surface is not shot through a 20-row viewport and the
+  render no longer races the window resize.
+
+- `docs,test`: four more extension screens now have captures — `/watch`,
+  `/memory`, `/bytefly`, and `/wechat` — each drawn by its shipped component,
+  embedded in its extension README and the catalog, and regenerated with
+  `bun run screenshots <name>`. A new `scripts/screenshots.test.ts` renders every
+  frame at three widths and fails when a fixture drifts out of the terminal or a
+  fixed-size frame grows taller than its window.
+
+- `docs,test`: `assets/file-browse.png` is regenerable at last — `bun run
+  screenshot:file-browse` serves a generated fixture project through the shipped
+  server, so the capture names no real checkout, and `--root` points it at a
+  directory of your own. Both browser shots now set their theme through the
+  page's toggle, and the shared Chrome capture waits for the requested document
+  and fails on a page-expression error instead of silently shooting a page its
+  steps never touched.
 
 ### Changed
 
-- `bytefly`: the package-update surface now uses Pi's package manager as its
-  only detector. bytefly suppresses Pi's `Package Updates Available` block and
-  posts one themed notice listing every updateable package plus
-  `pi update --extensions`; the header marker shows only this package's new
-  version. The custom npm-registry read and semver ordering are removed, so
-  unmanaged installs such as `pi -e .` no longer get an update prompt.
+- `docs`: the README's "Why this pack" promises now match what ships. "Never
+  wreck the checkout" says isolation is one command rather than describing the
+  worktree as the default, "Delegate and parallelize" covers background `job`s
+  and `watch`ers, and "Reach the web and your files" names the WeChat bridge.
+  The Chinese README mirrors each bullet.
+
+- `bytefly`: the startup header now sheds by terminal height as well as width.
+  Below 28 rows the middle help group is dropped, below 22 only the `/` commands
+  row remains, and below 16 the help block and its leading blank row go, leaving
+  the nameplate and rule. A short pane therefore spends its rows on the
+  transcript instead of chrome, and an unknown height keeps the full header.
+
+- `themes`: `customMessageBg` now resolves to the terminal default and
+  `customMessageLabel` to the accent, so Pi's `/compact` summary, branch
+  summaries, and skill blocks sit on the canvas instead of inside a filled
+  purple band.
+
+- `docs`: [getting started](./docs/getting-started.md) is now a page that ends in a
+  decision. It opens with what the pack is for and the conditions on each side of
+  the fit question, then a trial with `pi -e .` that writes nothing, install,
+  verification, the first three workflows, how to turn parts off, and how to
+  remove it. It also states what install changes in the terminal — the chrome is
+  always on, the startup header is opt-in, twenty-one tools join the model's
+  surface, and at most one npm request per interactive session checks for a newer
+  release. The catalog is unchanged.
+
+- `docs`: the entry READMEs no longer repeat the install matrix. Each keeps the npm
+  command and points at [getting started](./docs/getting-started.md) for git, a
+  pinned release, a project-local install, and a trial that writes nothing, so
+  the copy-paste options have one home; the `@vX.Y.Z` pin now lives on that page
+  alone, and the release steps in [`docs/development.md`](./docs/development.md)
+  say so.
+
+## [0.13.1] - 2026-10-18
+
+### Added
+
+- `bytefly`: the built-in DeepSeek rate tables now carry the day they were last
+  checked against the published tariff, and `run_doctor` reports how old that is —
+  `ok` inside a 90-day window, `degraded` beyond it with the source URL to re-check.
+  A re-pricing therefore becomes a visible warning instead of a quietly wrong cost
+  total. The date records 2026-10-18, when the tables were checked against
+  DeepSeek's published USD figures and peak schedule; the figures themselves are
+  unchanged.
+
+- docs: `ROADMAP.md` is re-derived from the tree: the three ranked items are now
+  the `Now` bucket instead of being split across `Now` and `Later`, `C1` is scoped
+  to a tariff a table can express so it cannot undercut Pi's recorded cost, the
+  `Now` exit condition no longer asks for router coverage that already landed, the
+  ledger column is *Open items* rather than a second meaning of `Next`, and every
+  limitation the "thin" sections name now has a row in *Deliberately left thin*
+  (plan display cap, plan index, subagent cost, `watch` notifications,
+  `skipOverrides`, rewind's TUI-only checklist, `memory` truncation, keyless search,
+  JSON-only settings, the update cache window) with the OCR row dropped because
+  `W6` covers it. The 1.0 gate no longer claims a truth test enforces that triage.
+
+- dev: the browse and plan-review pages are covered through their pure routers and
+  rendered HTML, with no browser: a failing `git` diff provider now proves it
+  degrades to a page without change markers (and 404 for a single file) instead of
+  a 500, a malformed request target answers 400 on both routers, the too-large and
+  binary file pages are rendered, and a diff's context lines are asserted to take
+  part in the syntax-highlight pairing. `file-browse/html.ts` and
+  `plan/web-router.ts` are at 100% lines with those paths reached; the socket
+  handlers and the review session's abort cleanup stay out, since they need a real
+  connection rather than a router.
+
+- `bytefly`: `price.budget` puts a session budget under the footer's cost total, in
+  the selected currency. The first turn that pushes the session's spend to it posts
+  one `bytefly · Session budget reached` notice naming the figures and, when notify
+  is enabled, one OS notification — through the same capability the run, job, and
+  watcher triggers use. It is an alert, not a limit: nothing is blocked or aborted,
+  it fires once per session, and `0` (the default) leaves it off. The check reads
+  the total the footer already priced, and **Session budget** joins the control
+  center's Pricing rows (sixteen preferences now).
+
+### Fixed
+
+- worktree: the `enter_worktree` offer to ignore the managed directory asks git
+  (`git check-ignore`) instead of string-matching `.gitignore`, so a repository
+  whose wider rule already covers it (`.pi/`) no longer gets a prompt claiming the
+  directory "is not ignored". The offer is also re-armed on `session_start`, so it
+  is once per session rather than once per process.
+
+- `watch`: `enabled: false` in the `watch` config section now refuses `add` with
+  "watch is disabled."; the key was documented but never read.
+
+- `watch`: `add` refuses a path that is not a regular file, and a file that
+  vanishes or changes type between a stat and a read is skipped for that tick
+  instead of throwing out of the poll timer and taking the session down.
+
+- `watch`: stopping a command watcher, or ending the session with one running,
+  now escalates SIGTERM to SIGKILL after a 2 s grace, so a command that ignores
+  SIGTERM no longer outlives the session.
+
+- `watch`: the `/watch` screen refreshes from live state without calling the
+  runtime's poll tick, so opening it no longer changes the configured `pollMs`
+  cadence.
+
+## [0.13.0] - 2026-10-18
+
+### Added
+
+- `worktree`: `exit_worktree` ends with a `Handoff:` block naming the branch, its
+  commits beyond the merge target, whether that target contains them, and the
+  command that finishes the task. It still never commits, merges, or pushes.
+
+- `watch` / `bytefly`: a `wake` watcher that matches while the agent is idle now
+  also raises a desktop notification through bytefly's notify capability, gated by
+  `notify.matchFound` (on by default). A busy match still waits for the next turn.
+
+- `rewind`: a code rewind can restore **some** paths instead of the whole tree —
+  `Everything (N files)` or a `Choose paths…` checklist marked `M`/`D`/`A`, all
+  selected, written through the same temporary index and safety snapshot.
+
+- `bytefly`: Settings covers every scalar in `bytefly.json`, including the three
+  announce toggles, **Probe timeout** (`doctor.timeoutMs`), and **Rail glyph**,
+  which now refuses a two-column or control-character glyph with a reason.
+
+- ci: `test/structure.test.ts`, `test/naming.test.ts`, `test/docs-truth.test.ts`,
+  and `test/docs-parity.test.ts` now hold every doc link and anchor, the catalog,
+  and both entry READMEs to the registered surface. The drift they found is fixed.
+
+- docs: `getting-started.md` explains how to start a custom theme from the shipped
+  JSON, and the entry READMEs and catalog no longer state counts that drift.
+
+- ci: npm publishing moved into the repository. A `publish.yml` dispatch names the
+  version twice, waits for the `npm` environment review, then publishes the tag
+  with `--provenance` — no stored token, and a signed attestation per tarball.
+
+- `worktree`: the Windows `powershell` tool is refused while isolated, because it
+  was never re-rooted and its grammar is not what the bash guard reads.
+  `worktree.guard.blockPowershell` turns the refusal off and reports the trade.
+
+- `bytefly`: the published-version check caches its answer for 24 hours, and the
+  new `/bytefly update` re-runs it on demand — reporting the newest version, an
+  available release, an offline skip, or an unreadable registry.
+
+- `web-access` / `bytefly`: `run_doctor` now reports what `web_search` resolved
+  to — the provider, why it won, and the key's variable name when one is needed,
+  never the key. A SearXNG endpoint is probed only on an explicit refresh.
+
+- `plan`: approval carries the plan's `## Verification` section into the todo list
+  as a final `Verify: …` item, so the definition of done travels with the work. It
+  never counts against the 50-step cap, and `set_plan_steps` numbering is unchanged.
+
+- `subagent` / `bytefly`: the footer shows delegated runs as their own
+  `↳ 3 · ¥0.12` roll-up, priced from the same rate table and covering the last 500
+  runs. The session total is never restated or folded in.
+
+- `plan`: an active session goal is restated in the injected planning context, and
+  approving a plan with no goal offers to record its title as one — never replacing
+  an existing goal, and with no extra model call.
+
+- `memory`: `p` in the `/memory` picker moves a note to the other scope, writing
+  the destination before removing the source, so a failed second write leaves a
+  duplicate (which `m` merges) rather than losing the note.
+
+- `plan`: `/plan list` walks `.pi/plans` and shows each plan's title, modified
+  time, and step progress, newest first — a docked list whose `Enter` opens the
+  review, and a notice with every path in other modes.
+
+- `document`: the legacy `.doc` path is covered end to end by a committed Word 97
+  fixture, so its OLE branch is tested for success and not only for its error.
+
+- dev: `bun run bench:render` measures 500 and 2000 tool blocks at 80 and 120
+  columns — lines, median and p95 frame time, heap per frame, and render-memo hits.
+  Its determinism half runs in the suite.
+
+- ci: a `compat` job installs the newest published Pi peers, runs typecheck and the
+  serial suite, and records the resolved versions; `test/extension-load.test.ts`
+  loads every manifest entry, so a host change that breaks loading fails on any OS.
+
+- `memory`: `/memory doctor` reports store health — note counts, bytes, how much of
+  `maxInjectBytes` the injection uses and which scope it omits, and the
+  near-duplicate pairs the comparison key treats as one fact. `m` merges a pair.
+
+- `worktree`: `/worktree status` and `list_worktrees` name what isolation does not
+  cover — your own `!` shell, Windows `powershell`, and shell commands the guard
+  cannot verify, counting how many passed through this session.
+
+### Changed
+
+- docs: the changelog holds one subsection set per release window; the duplicated
+  `0.11.1` and misordered `0.5.1` windows are merged and reordered, and
+  `test/release.test.ts` fails a repeated or empty subsection.
+
+- `themes`: `test/theme.test.ts` measures WCAG AA per semantic role at the layer
+  the package paints with, which found dark `dim` at 4.12; it moves from `#6e7681`
+  to `#7d8590`, and the galleries and the `chrome.png` hero are regenerated.
+
+- `job`: `detached: true` is refused on Windows instead of starting a job that
+  silently did not detach. `job.detachedByDefault` is inert there rather than
+  failing every start with a config set elsewhere; `doctor` names both.
+
+- docs: the configuration reference is `docs/references/bytefly-config.md`, since
+  the old path repeated "configuration...reference" and read as a sibling of
+  `docs/configuration.md`; it now opens with a contents list held to every section.
+
+- docs: the entry READMEs read as a front door again — a two-sentence bytefly
+  cell, themes in their own section, Requirements folded into Quick start, and the
+  once-per-session version request disclosed next to the install steps.
+
+- docs: the `@vX.Y.Z` install pins in the two entry READMEs and
+  `docs/getting-started.md` name the released version again, and
+  `test/release.test.ts` now checks every pin against `package.json`.
+
+- packaging: `files` no longer ships `assets/**`, so an install drops from 7.4 MB
+  to 2.3 MB unpacked. Nothing reads the screenshots at runtime, and the README's
+  image links still resolve on GitHub.
+
+- `document`: extraction has a per-call deadline, `document.extractTimeoutMs`
+  (30 s, clamped 1 s – 5 min). A parser that outlasts it is abandoned and the read
+  fails with the limit named; one that never yields still cannot be preempted.
+
+- `plan`: `write_plan` and `exit_plan_mode` refuse more than the 50 steps approval
+  tracks, naming the count, the cap, and the fix, instead of writing a plan and
+  silently dropping every step past 50 at approval.
+
+- `plan`: the review baseline is a `plan-baseline` session entry of per-section
+  digests rather than text in runtime memory, so a resumed session or a `/tree`
+  restore keeps its changed-section markers.
+
+- `web-access`: independent `web_fetch` calls run in parallel again — its page
+  cache only does synchronous map work, so serialising them only delayed the URLs
+  the model asked for in one turn. `web_search` keeps its sequential mode.
+
+- `web-access`: paging and `find` no longer expand a page into an array of
+  one-character strings; `charLength` walks in place and `sliceChars` cuts by
+  offset.
+
+- `web-access`: `web_fetch`'s `find` passages now count against the `maxChars`
+  budget, and the result says whether `maxMatches` or the budget hid the rest.
+
+### Fixed
+
+- `worktree`: the `Handoff:` block an exit prints counted the branch's commits
+  against the base commit recorded when the worktree was entered, so a branch cut
+  from `origin/main` and then rebased onto a newer local `main` reported every
+  commit the base had gained as its own ("18 commits ahead"). It now counts against
+  the resolved base branch (local first, then `origin/<branch>`), and every lookup
+  runs in the main checkout so the count still works after the worktree is removed.
+
+- `worktree`: a redirect to `/dev/null` is no longer refused as an escape. A target
+  that discards its stream escapes nothing; every other device path is still
+  refused, and `2>/dev/null` inside `bash` works again.
+
+- `plan`: a restored review baseline is looked up by a canonical plan path, so its
+  changed-section markers survive on Windows and on a branch that recorded the same
+  plan under another spelling.
+
+- `rewind`: `before_agent_start` narrows the host's event union instead of reading
+  `prompt` off it, so the package typechecks against Pi 1.3, where a wake is its
+  own event, while a user run still records its prompt summary.
+
+- `web-access`: `web_fetch` decodes by byte-order mark, declared charset, or the
+  page's own `<meta charset>`, falling back to UTF-8 — a GBK page used to arrive as
+  replacement characters.
+
+- `web-access`: `maxBytes` is enforced while the body streams in, so a chunked or
+  gzip-compressed response is no longer fully materialised before its size is
+  checked.
+
+- `plan`: the review sidebar scrolls again when its outline is taller than the
+  window; a details' content wrapper had no definite height, so the panel kept its
+  content height and the sidebar only clipped it.
+
+- `file-browse`: a long file tree scrolls in its own pane under the pinned
+  quick-open trigger and filter, sharing one breakpoint with the narrow-screen
+  disclosure so no width falls between them.
+
+- `file-browse`: a page render resolves its path once and takes the change totals
+  from the `--stat` pass, so navigating no longer repeats the `stat` or spawns an
+  extra git process.
 
 ## [0.12.0] - 2026-10-18
 
@@ -62,7 +388,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path or package entry beside it) so the row returns to its inherited state
   without a `pi config` round-trip.
 - `bytefly`: `bytefly.json` is documented in
-  [`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md),
+  [`docs/references/bytefly-config.md`](./docs/references/bytefly-config.md),
   one table per section with each key's type, default, and bounds. It replaces
   `assets/bytefly.schema.json`, so editor completion for the file goes with it —
   delete a `$schema` line that points at that URL — and `config:migrate` no
@@ -74,10 +400,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   last tag. Items that had already shipped are gone, the step-budget gap is
   named, `Now` and `Next` hold at most ten items each, and a new *Deliberately
   left thin* table says why the remaining documented limitations have no item.
-- docs: the configuration reference moved to
-  [`docs/references/configuration-reference.md`](./docs/references/configuration-reference.md),
-  so the exhaustive listings sit in their own directory; every guide and README
-  link points at the new path.
+- docs: the configuration reference moved into `docs/references/`, so the
+  exhaustive listings sit in their own directory; every guide and README link
+  points at the new path.
 - `bytefly`: the `Currency symbol` setting and its `currency.symbol` key are gone,
   and so is the `fallbackToRecordedCost` toggle. The symbol follows
   `currency.code` (`CNY` → `¥`, `USD` → `$`), so the two cannot disagree, and the
@@ -305,6 +630,54 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   metadata survive, and a malformed document is refused instead of overwritten.
 - `bytefly`: a click on a row in the control center focuses it; the wheel still
   scrolls, and every action keeps its keyboard path.
+- `wechat`: every admitted WeChat peer now gets their own Pi session instead of
+  sharing the terminal's: own history under `<agent-dir>/wechat/sessions/<peer>/`,
+  own model context, the package's tools, and this bridge excluded from its
+  resources so it cannot start a second poller. A message therefore starts a turn
+  immediately rather than waiting for the terminal to be idle, and the answer is
+  that session's own text, so the two conversations cannot contaminate each
+  other. Sessions resume on the next message and are disposed after 30 minutes
+  idle; turns run one at a time across peers so a forwarded dialog has one owner.
+- `wechat`: a reply streams to the chat instead of arriving as one lump. Parts go
+  out at a paragraph boundary, after two silent seconds, or at 400 characters,
+  and the remainder is sent when the turn ends — so a minute-long answer is
+  readable while it is being produced. A part longer than `maxReplyChars` is
+  still numbered, and the attachment line rides on the first part only.
+- `wechat`: reopening the bridge after a token expiry now stops the old worker
+  and aborts its parked poll loop first, so the previous peer sessions are
+  disposed and two pollers can never share one cursor. A media burst is admitted
+  in arrival order and reserves its queue slot before the download, so a batch of
+  photos can no longer slip past the queue cap or be answered out of order. Free
+  text from an "Other" answer is keyed to the peer who typed it, and a session
+  that finishes opening after a close is disposed instead of leaked.
+- `wechat`: a turn waiting on an unanswered dialog no longer also gets the
+  30-second `还在处理这条…` line; the prompt's own reminder covers that wait.
+- `wechat`: a rejected reply now reports the server's own `errmsg` (for example
+  `ret -2: context token invalid`) and does so **once per outage** instead of once
+  per streamed part; the rest of a streamed answer is not sent after the first
+  failure, the rejected peer's stored reply token is forgotten so the next inbound
+  message replaces it, and `send_wechat` reports a body-level rejection instead of
+  claiming delivery.
+- `wechat`: a peer session now gets the package's whole tool surface. Two SDK
+  details made it silently thinner: a freshly built resource loader has discovered
+  nothing until `reload()` is called, and an SDK session only declares the
+  settings' default tools, so the tools extensions register were present but never
+  shown to the model. Both are handled in `openPeerSession`, so a peer session
+  matches the terminal's tools instead of `read`/`bash`/`edit`/`write`.
+- `wechat`: an opt-in `pollHoldMs` asks the server for a shorter `getupdates`
+  long-poll hold, which is the floor on how fast a message can be seen (~18 s on
+  the server's default). The request field is only sent when configured, since
+  the protocol does not document whether the server honours it;
+  `scripts/wechat-poll-probe.ts` measures the effect on a real account and
+  refuses to run while a bridge is polling.
+- `wechat`: the `/wechat` control screen lists each peer conversation with what it
+  is doing (`running 42s, 1 queued` / `queued 2` / `idle`), capped at five rows,
+  and the one-line summary names the peer whose turn is running.
+- `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
+  their conversation is doing, and how long), alongside `/new` and `/help`.
+- `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with
+  the peer's UI context), so `ask_user_question` and plan approval reach the
+  sender instead of a terminal nobody is watching.
 
 ### Changed
 
@@ -417,57 +790,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one-runtime-per-account lock, a chip that disagrees with `/wechat status` or
   `send_wechat`, and a code upgrade that needs `/reload` or a restart before
   this runtime owns the poller.
-
-### Added
-
-- `wechat`: every admitted WeChat peer now gets their own Pi session instead of
-  sharing the terminal's: own history under `<agent-dir>/wechat/sessions/<peer>/`,
-  own model context, the package's tools, and this bridge excluded from its
-  resources so it cannot start a second poller. A message therefore starts a turn
-  immediately rather than waiting for the terminal to be idle, and the answer is
-  that session's own text, so the two conversations cannot contaminate each
-  other. Sessions resume on the next message and are disposed after 30 minutes
-  idle; turns run one at a time across peers so a forwarded dialog has one owner.
-- `wechat`: a reply streams to the chat instead of arriving as one lump. Parts go
-  out at a paragraph boundary, after two silent seconds, or at 400 characters,
-  and the remainder is sent when the turn ends — so a minute-long answer is
-  readable while it is being produced. A part longer than `maxReplyChars` is
-  still numbered, and the attachment line rides on the first part only.
-- `wechat`: reopening the bridge after a token expiry now stops the old worker
-  and aborts its parked poll loop first, so the previous peer sessions are
-  disposed and two pollers can never share one cursor. A media burst is admitted
-  in arrival order and reserves its queue slot before the download, so a batch of
-  photos can no longer slip past the queue cap or be answered out of order. Free
-  text from an "Other" answer is keyed to the peer who typed it, and a session
-  that finishes opening after a close is disposed instead of leaked.
-- `wechat`: a turn waiting on an unanswered dialog no longer also gets the
-  30-second `还在处理这条…` line; the prompt's own reminder covers that wait.
-- `wechat`: a rejected reply now reports the server's own `errmsg` (for example
-  `ret -2: context token invalid`) and does so **once per outage** instead of once
-  per streamed part; the rest of a streamed answer is not sent after the first
-  failure, the rejected peer's stored reply token is forgotten so the next inbound
-  message replaces it, and `send_wechat` reports a body-level rejection instead of
-  claiming delivery.
-- `wechat`: a peer session now gets the package's whole tool surface. Two SDK
-  details made it silently thinner: a freshly built resource loader has discovered
-  nothing until `reload()` is called, and an SDK session only declares the
-  settings' default tools, so the tools extensions register were present but never
-  shown to the model. Both are handled in `openPeerSession`, so a peer session
-  matches the terminal's tools instead of `read`/`bash`/`edit`/`write`.
-- `wechat`: an opt-in `pollHoldMs` asks the server for a shorter `getupdates`
-  long-poll hold, which is the floor on how fast a message can be seen (~18 s on
-  the server's default). The request field is only sent when configured, since
-  the protocol does not document whether the server honours it;
-  `scripts/wechat-poll-probe.ts` measures the effect on a real account and
-  refuses to run while a bridge is polling.
-- `wechat`: the `/wechat` control screen lists each peer conversation with what it
-  is doing (`running 42s, 1 queued` / `queued 2` / `idle`), capped at five rows,
-  and the one-line summary names the peer whose turn is running.
-- `wechat`: peers can send `/stop` (abort their running turn), `/status` (what
-  their conversation is doing, and how long), alongside `/new` and `/help`.
-- `wechat`: peer sessions are bound to that peer's dialogs (`bindExtensions` with
-  the peer's UI context), so `ask_user_question` and plan approval reach the
-  sender instead of a terminal nobody is watching.
 
 ### Fixed
 
@@ -1483,14 +1805,6 @@ rendering, so model-authored control characters cannot reach the terminal.
   `maxIndexEntries`, and is cached per server; results highlight the matched
   characters and the palette is keyboard- and screen-reader-accessible.
 
-### Fixed
-
-- `job`: the transcript no longer renders the model-facing `logs` header as
-  output; the rail shows the sanitized tail, and a job with no output yet shows
-  `No output yet.`
-- `job`: a `kill` result confirms the signal sent (`· SIGTERM sent`) instead of
-  redisplaying the job's pre-kill running row.
-
 ### Changed
 
 - `job`: `start` results badge `detached` and `wake`, so the job's lifetime and
@@ -1500,6 +1814,14 @@ rendering, so model-authored control characters cannot reach the terminal.
   pending). A step-progress gauge row shows `n/m steps done`, the scroll row is
   a gauge with the position and line range, and the footer colors the
   approve/refine actions.
+
+### Fixed
+
+- `job`: the transcript no longer renders the model-facing `logs` header as
+  output; the rail shows the sanitized tail, and a job with no output yet shows
+  `No output yet.`
+- `job`: a `kill` result confirms the signal sent (`· SIGTERM sent`) instead of
+  redisplaying the job's pre-kill running row.
 
 ## [0.5.0] - 2026-10-13
 
@@ -1884,7 +2206,10 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.14.0
+[0.13.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.13.1
+[0.13.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.13.0
 [0.12.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.12.0
 [0.11.4]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.4
 [0.11.3]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.11.3

@@ -49,6 +49,13 @@ function setup(overrides: Partial<ReviewContext> = {}) {
 const GET = (url: string) => handleReviewRequest(setup().ctx, "GET", url, HOST);
 
 describe("handleReviewRequest — routes", () => {
+	test("answers a malformed request target with 400", async () => {
+		const response = await GET("http://[");
+
+		expect(response.status).toBe(400);
+		expect(response.body).toContain("Malformed request URL.");
+	});
+
 	test("serves the client script without a token", async () => {
 		const response = await GET("/client.js");
 		expect(response.status).toBe(200);

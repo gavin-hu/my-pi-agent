@@ -296,6 +296,16 @@ function callText(args: StreamedSubagentArgs, theme: Theme, context?: { cwd?: st
 	return text;
 }
 
+/** The transcript this run kept, or why it could not be written. */
+function transcriptLine(result: SingleResult, theme: Theme): string | undefined {
+	if (result.artifactError) {
+		return paint(theme, "warn", `transcript failed: ${sanitizeLine(result.artifactError)}`);
+	}
+	if (!result.artifactPath) return undefined;
+	const cut = result.artifactTruncated ? paint(theme, "warn", " (truncated)") : "";
+	return paint(theme, "faint", `transcript: ${sanitizeLine(result.artifactPath)}${cut}`);
+}
+
 /** Append one result's expanded block: header, error, task, output, usage. */
 function addExpandedResult(
 	container: Container,
@@ -353,6 +363,8 @@ function addExpandedResult(
 		container.addChild(new Spacer(1));
 		container.addChild(new Text(paint(theme, "faint", usage), 0, 0));
 	}
+	const transcript = transcriptLine(result, theme);
+	if (transcript) container.addChild(new Text(transcript, 0, 0));
 }
 
 /** The collapsed single result: header, a word, body, expand hint, and usage. */

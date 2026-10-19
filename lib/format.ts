@@ -49,6 +49,12 @@ export function formatDuration(ms: number): string {
 	return `${hours}h${String(minutes % 60).padStart(2, "0")}m`;
 }
 
+/** `1 tool`, `3 tools`: a tool count with the right word. */
+export function formatToolCount(count: number): string {
+	const n = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+	return `${formatCount(n)} ${n === 1 ? "tool" : "tools"}`;
+}
+
 /**
  * Replace terminal control characters (including ESC and the C1 block) with
  * spaces, keeping `\n` and `\t` for callers that render multi-line text.

@@ -2,8 +2,8 @@
 
 Every extension ships its own `README.md` under its directory with the full tool
 and command surface, the Pi integration contract, and design notes. This page is
-the catalog: what each one does and the names it registers. It is grouped the
-same way as the root README; within a group the order matches the `pi` manifest.
+the catalog: what each one does and the names it registers. It is grouped and
+ordered the same way as the root README.
 
 ## Plan and delegate
 
@@ -18,8 +18,10 @@ read-only, and the policy is default-deny through `lib/policy.ts`. The plan
 follows a documented outline (`# <Title>`, `## Goal`, `## Context`,
 `## Approach`, `## Steps`, `## Risks`, `## Verification`); steps are `- [ ]`
 checkboxes in the `Steps` section that approval merges into `todo` — existing
-items keep their place and status — and `set_plan_steps` keeps the file current
-afterward. `exit_plan_mode` presents the plan for approval, keeps
+items keep their place and status, and the `Verification` section follows as the
+last item — and `set_plan_steps` keeps the file current afterward. A plan with more than the 50 steps approval tracks is refused at
+write time, so approval never drops steps it cannot track. `exit_plan_mode`
+presents the plan for approval, keeps
 planning, or takes a refinement; the review screen jumps between headings with
 `n`/`p` and, after a refinement, names the sections that changed since the last
 review. Press `w` (or run `/plan review [path]`) to open the plan in a loopback
@@ -29,12 +31,16 @@ back as `> [!REVIEW]` lines, or **Approve & run** straight from the page when th
 review was opened for approval. The browser outline dots the sections that
 changed since the last review.
 `/plan <prompt>` enters plan mode and sends the task in one step; `/plan` toggles
-and `Ctrl+Alt+P` is the shortcut. The enabled flag is a session entry, so
-`/resume` and `/tree` restore it.
+and `Ctrl+Alt+P` is the shortcut. `/plan list` indexes the plans directory —
+title, modified time, and step progress, newest first, with Enter opening a
+review in the TUI. The enabled flag is a session entry, so `/resume` and `/tree`
+restore it.
+
+<img src="../assets/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and task checkboxes, a scroll gauge naming the current section and the visible line range, and the review, scroll, and section-jump hints" width="100%">
 
 Tools: `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`.
-Commands and flags: `/plan`, `/plan <prompt>`, `/plan review [path]`,
-`Ctrl+Alt+P`, `--plan`.
+Commands and flags: `/plan`, `/plan <prompt>`, `/plan list`,
+`/plan review [path]`, `Ctrl+Alt+P`, `--plan`.
 
 [Full README](../extensions/plan/README.md)
 
@@ -45,6 +51,8 @@ agents are `explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`,
 `debugger`, and `documenter`; optional user and project markdown agents add more.
 Calls run single, in parallel (max 8 queued, 4 at once), or chained through a
 `{previous}` placeholder. A `readOnly` mode passes only reader tools to the child.
+Each run has a wall-clock deadline, and finished runs can keep a transcript under
+`.pi/subagents/`.
 
 Tool: `subagent`.
 
@@ -112,8 +120,11 @@ Tail a file or a command's merged output and match each new line against a
 regular expression, with an optional exclude list and case-insensitive matching
 by default. A `⊚ N` chip shows running watchers and `! N` shows unreported
 matches; matching lines are sanitized, alerted, and reported as a bytefly notice
-at the next turn, or wake a turn immediately when a watcher was added `wake: true`.
-Watchers are session-only and stopped on session shutdown.
+at the next turn, or wake a turn immediately when a watcher was added `wake: true`
+— which also lets bytefly's notify capability raise a desktop alert. Watchers are
+session-only and stopped on session shutdown.
+
+<img src="../assets/watch.png" alt="The /watch screen: a Watch title rule, a `2 watchers · 1 running · 3 matches` summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern, and the key hints" width="100%">
 
 Tool: `watch`. Command: `/watch`.
 
@@ -128,7 +139,8 @@ manage the worktrees it creates. The model keeps calling `read` / `write` /
 `edit` / `bash` with ordinary relative paths; only the effective root changes.
 `exit_worktree` returns to the main checkout — a clean worktree is removed, and
 one with uncommitted changes or new commits is never discarded silently. Cleanup
-refuses to throw work away, and path and shell escapes are guarded.
+refuses to throw work away, path and shell escapes are guarded, and the Windows
+`powershell` tool is refused while isolated because it cannot be re-rooted.
 
 Tools: `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`.
 Commands and flags: `/worktree*`, `--worktree <name>`.
@@ -138,8 +150,10 @@ Commands and flags: `/worktree*`, `--worktree <name>`.
 ### rewind
 
 Automatic per-prompt snapshots stored under `refs/pi/rewind`, plus `/rewind` to
-restore code, conversation, or both. A `↺ N` status chip shows the available
-snapshots. Parallel tool calls in one prompt share a single snapshot.
+restore code, conversation, or both — and, when code moves, a checklist that
+restores only the chosen paths instead of the whole tree. A `↺ N` status chip
+shows the available snapshots. Parallel tool calls in one prompt share a single
+snapshot.
 
 <img src="../assets/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%">
 
@@ -153,7 +167,12 @@ Durable cross-session notes as human-editable markdown: global notes under the
 agent directory, project notes under the repo root's `.pi/`. Add, update, or
 forget notes, and list what is stored; an active note set is injected as a
 hidden `[MEMORY]` context before each run. `/memory` opens a picker to add,
-edit, or forget a single note (and otherwise lists, edits, or clears them).
+edit, forget, merge, or move notes between scopes (and otherwise lists, edits, or
+clears them), and
+`/memory doctor` reports store health: counts, bytes, the notes the injection
+budget drops, and near-duplicate pairs.
+
+<img src="../assets/memory.png" alt="The /memory picker: a Memory title rule, an `All · 3 project, 2 global` summary, five notes tagged by scope with the focused one marked, and the key hints" width="100%">
 
 Tool: `memory`. Command: `/memory`.
 
@@ -166,8 +185,9 @@ Tool: `memory`. Command: `/memory`.
 Web access with two tools. `web_search` searches through a pluggable provider —
 keyless DuckDuckGo by default, with optional self-hosted SearXNG or a keyed
 Brave search. `web_fetch` GETs or POSTs a URL and returns readable text, with
-paging, `find`, per-hop SSRF checks against private/internal addresses, and
-optional PDF extraction. Configuration lives in the `web-access` section of
+charset-aware extraction, paging, `find` inside the same character budget,
+per-hop SSRF checks against private/internal addresses, and optional PDF
+extraction. Configuration lives in the `web-access` section of
 `bytefly.json`.
 
 Tools: `web_search`, `web_fetch`.
@@ -181,7 +201,8 @@ two-pane browser tree rooted at the working directory: listings, a rendered
 Markdown preview (heading anchors, an on-this-page outline, GitHub's centred
 content column, autolinked bare URLs, styled tables and images), sortable
 listings, copy and wrap, image
-thumbnails, per-language icons, a filter, a fuzzy quick-open palette, a
+thumbnails, per-language icons, a filter over a tree that scrolls in its own
+pane, a fuzzy quick-open palette, a
 keyboard sheet (`/`, `u`, `r`, `n`/`p`, `?`) over a reading-progress bar, and a
 read-only git diff view (`/diff` overview and per-file unified diffs with
 `head` / `staged` / `worktree` scopes, syntax-highlighted changed lines, pinned
@@ -195,8 +216,8 @@ Command: `/browse`.
 ### document
 
 `read_doc` extracts plain text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in
-process, paged with `startIndex` / `maxChars` and confined to the effective
-working directory.
+process, paged with `startIndex` / `maxChars`, bounded by a per-call
+`extractTimeoutMs` deadline, and confined to the effective working directory.
 
 Tool: `read_doc`.
 
@@ -228,6 +249,8 @@ running). Peers can also send `/new`,
 `/stop`, `/status`, and `/help`. The `send_wechat` tool messages the account owner
 only.
 
+<img src="../assets/wechat.png" alt="The /wechat control screen: account and an open connection, peer, queued, refused, and waiting-prompt rows, three conversation rows showing running, queued, and idle states, and the key hints" width="100%">
+
 Tool: `send_wechat`. Command: `/wechat`.
 
 [Full README](../extensions/wechat/README.md)
@@ -239,9 +262,11 @@ Tool: `send_wechat`. Command: `/wechat`.
 The themed TUI chrome and the package's diagnostics surface. It draws the
 startup header (a two-tone nameplate with the agent and chrome identities and a
 signature rule, drawn from the active theme through the `lib/tui/` design
-system's semantic roles), a compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
-mode/alert + model + thinking level), the labeled `╌╌╌ turn N ╌╌╌` rule
-between completed turns, a two-row `You` nameplate above each user message on the
+system's semantic roles, shedding help groups as the terminal shortens), a
+compact, width-adaptive two-line footer (pwd + session name + git branch/worktree + browse chip, then context gauge + usage +
+mode/alert + model + thinking level), the labeled
+`╌╌╌ turn N · duration · N tools ╌╌╌` receipt rule between completed turns, a
+two-row `You` nameplate above each user message on the
 terminal background, and one frame that every non-prose block hangs from — the
 shared notice and every tool block, built-ins included, share one left edge, with
 a tool's call line as the headline and its result body two columns in under it,
@@ -250,21 +275,25 @@ and it is painted by status (a running result takes the accent, a failure red, a
 finished one neutral; a notice takes its worst severity). A result is always
 railed; a call is railed only for the two file-mutating tools (`edit`, `write`),
 whose call body carries the result. There is no status band. While the working
-row is up it also advances a live elapsed counter (`Working… 12s`) on Pi's
-working message, handing it back to Pi when the row comes down. DeepSeek is
+row is up it also advances a live run line on Pi's working message —
+`Working… 12s` before the first tool, then `edit · 3 tools · 12s` — handing it
+back to Pi when the row comes down. DeepSeek is
 priced out of the
 box from its published yuan rates and peak tariff, or from its published
 dollar table when `price.currency.code` is `USD`; `bytefly.json` adds or overrides
-per-model rates with an optional peak/off-peak schedule. It also owns the `/bytefly` control center — a
+per-model rates with an optional peak/off-peak schedule; the built-in tables record
+when they were last verified, and `doctor` reports how old that is; and `price.budget`
+warns once — in the transcript and, with notify on, on the desktop — when a session's
+cost reaches it, without stopping anything. It also owns the `/bytefly` control center — a
 keyboard-driven docked screen with two sections: Extensions, a list of every
 resolved Pi extension with one row per extension carrying its `◼`/`◻` settings
 checkbox and one verdict (`off` when switched off, `env disabled` when
 `PI_DISABLED_EXTENSIONS` excludes it, otherwise its worst-severity health), and
-Settings, ten curated preferences in six groups — bytefly startup TUI,
-desktop notifications, their delivery method and title, the proactive health
-check, the currency and cost precision, the rail
-glyph, output padding, and the hardware cursor — with each row's value and its
-source file. A boolean toggles, an enum cycles, and a text row opens an inline
+Settings, the curated preferences — bytefly startup TUI,
+desktop notifications, the four triggers that narrow them, their delivery method
+and title, the proactive health check and its probe timeout, the currency and cost
+precision, the rail glyph, output padding, and the hardware cursor — with each
+row's value and its source file. A boolean toggles, an enum cycles, and a text row opens an inline
 editor with its own caret, save, and cancel keys. `Space` toggles the
 focused extension and `Enter` expands
 its findings (per row, into the free height); in Settings `Space`/`Enter` change
@@ -275,18 +304,26 @@ on the first Extensions view, so opening it or `/bytefly settings` is instant.
 App rows are Global-only; `bytefly.json` rows write the selected scope one key
 at a time. `/bytefly settings` opens the Settings section,
 `/bytefly doctor [extension] [refresh]` prints the doctor report (the same
-screen in `tui`), and every other mode prints the grouped listing or one
-extension's full findings. The read-only `run_doctor` tool returns the same
-report, and its proactive session-start notice enters the message flow through
+screen in `tui`), `/bytefly update` re-runs the published-version check and
+reports it, and every other mode prints the grouped listing or one extension's
+full findings. The read-only `run_doctor` tool returns the same
+report — including the search provider `web-access` resolved, its API-key
+variable, and, only on an explicit `refresh`, whether its configured endpoint
+answers — and its proactive session-start notice enters the message flow through
 the shared notice renderer, shown only when the bytefly startup TUI is on
 (Pi's `quietStartup: true`). An opt-in notify capability raises an
-OS notification when a run or a background job finishes or the agent asks for
-input, configured through the `notify` section of `bytefly.json`, for
-unattended runs. Once per interactive session it asks Pi's package manager for
-the configured packages with updates, suppresses Pi's own startup block, and
-posts one notice listing them and naming `pi update --extensions`. This
-package's new version alone adds `↑0.14.0` to the header's chrome version; the
-list follows Pi's npm/git and `PI_OFFLINE` rules and is silent on failure.
+OS notification when a run or a background job finishes, when the agent asks for
+input, or when a `watch` wake match fires, configured through the `notify`
+section of `bytefly.json`, for
+unattended runs. In an interactive session it also compares the loaded version
+with the published `@gavin-hu/my-pi-agent` on npm: a newer one adds `↑0.12.0` to
+the header's chrome version and posts one notice naming
+`pi update --extensions` and its release URL. The answer is cached with a
+timestamp, so a session starting within 24 hours reuses it, and
+`/bytefly update` re-runs the check on demand (skipped with `PI_OFFLINE`, silent
+on a failed background read).
+
+<img src="../assets/bytefly.png" alt="The /bytefly control center: the Extensions and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
 
 Tools: `run_doctor`. Command: `/bytefly` (with the `doctor` and `settings`
 subcommands).
@@ -312,10 +349,11 @@ nameplate, a shared notice, and the turn rule, then Pi's built-ins (`read`,
 reverse video, syntax highlighting and previews intact), then every
 tool this package registers: `todo`, `goal`, `memory`, `job`, `watch`,
 `subagent`, `web_search`, `web_fetch`, `read_doc`, `open_path`, `run_doctor`,
-`send_wechat`, `ask_user_question`, the plan tools, and the worktree tools. The
-package section also carries the state variants: a denied `web_fetch`, a partial
-`read_doc`, a cancelled question, and a long memory note whose call clips at the
-margin.
+`send_wechat`, `ask_user_question`, `enter_plan_mode`, `write_plan`,
+`exit_plan_mode`, `set_plan_steps`, `enter_worktree`, `exit_worktree`,
+`prune_worktrees`, and `list_worktrees`. The package section also carries the
+state variants: a denied `web_fetch`, a partial `read_doc`, a cancelled
+question, and a long memory note whose call clips at the margin.
 
 <img src="../assets/tool-renderings.png" alt="A full-page reference of every tool block: the user nameplate, a notice and the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, send_wechat, ask_user_question, the plan tools, and the worktree tools" width="100%">
 
@@ -331,5 +369,8 @@ block as ANSI on any OS.
 | [`bytefly-dark`](../themes/bytefly-dark.json) | A GitHub-inspired dark palette: deep blue-black canvas, cool gray text, blue accent, green/red/yellow status colors, purple/pink operators. |
 | [`bytefly-light`](../themes/bytefly-light.json) | The light companion: white canvas with GitHub light accents, for `bytefly-light/bytefly-dark` auto-switching. |
 
-Select a theme through `/settings` → **Theme**, or set
+Both palettes are held to WCAG AA at the semantic-role layer — every role a
+screen paints as text, on the canvas and on a selected row — by
+`test/theme.test.ts`, so a palette edit that hurts readability fails the suite
+rather than shipping. Select a theme through `/settings` → **Theme**, or set
 `"theme": "bytefly-light/bytefly-dark"` in settings.

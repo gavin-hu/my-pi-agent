@@ -42,19 +42,28 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` (or `<agent-dir>/plans`
   outside a repository). The plans directory is self-ignoring, so plan files
   never show up as untracked files or in `rewind` snapshots.
+- **A discoverable index.** `/plan list` walks the plans directory and shows
+  every plan with its title, modified time, and step progress, newest first — in
+  the TUI as a docked list where `Enter` opens the plan's review, elsewhere as a
+  notice with each plan's path. The directory stays the index: no registry file,
+  one bounded read per plan.
 - **A shape that reads.** `write_plan` documents a canonical outline — a
   `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
   `## Risks`, and `## Verification` — and the model is guided to follow it. This
   is guidance only: any markdown is accepted, stored, and rendered as written.
 - **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
-  section; approval seeds them into `todo`.
+  section; approval seeds them into `todo`, with the `## Verification` section as
+  the last item so the definition of done travels with the work. A plan with more
+  than 50 top-level steps is refused rather than truncated, so approval never
+  drops a step you reviewed.
 - **A navigable review.** The review screen splits the body at its headings,
   names the section you are in, and jumps between sections with `n`/`p`.
 - **What changed since the last review.** After a refinement, the review screen
   names how many sections changed, marks the current one in the scroll row, and
   the browser outline dots each changed section, so a re-review does not mean
-  re-reading the whole plan. The baseline is what the previous review in this
-  session showed; a resumed session starts without markers.
+  re-reading the whole plan. The baseline is one digest per heading section of
+  what the previous review showed, kept as a session entry, so a resumed session
+  or a `/tree` restore marks only what changed on its own branch.
 - **Kept current.** After approval, `set_plan_steps` flips the checkboxes of
   the steps you name in the file, so the plan mirrors what has actually been
   done. Pass the step's text as `expected` and an update whose step number moved
@@ -83,19 +92,28 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   nested sub-bullets are treated as notes. The list is a merge, not a
   replacement: existing items keep their place and status, a step whose text is
   already there is skipped, and the tool's item cap defers the rest instead of
-  dropping anything. A plan without a `Steps` heading keeps the older rule — the
-  shallowest list in the document — so prose bullets in a plan that follows the
-  outline never become todos.
-- **Branch-aware.** The enabled flag is a custom session entry, so `/resume` and
-  `/tree` restore the right mode.
+  dropping anything. The plan's `## Verification` section follows as the **last**
+  todo item, summarized on one line (`Verify: …`) — it is not a plan step, so it is
+  ticked in the todo list rather than with `set_plan_steps`, and it never counts
+  against the 50-step cap. A plan without a `Steps` heading keeps the older rule —
+  the shallowest list in the document — so prose bullets in a plan that follows the
+  outline never become todos, and its verification bullets are already covered.
+- **Goal-aware.** While planning, the injected context restates an active
+  session goal as one bullet, so the plan is designed against the objective
+  instead of beside it. On approval, when the session has no goal at all, the user
+  is offered one confirm to record the plan's title as the goal — never replacing
+  an existing goal, and with no extra model call.
+- **Branch-aware.** The enabled flag and the review baseline are custom session
+  entries, so `/resume` and `/tree` restore the right mode and keep the
+  changed-section markers.
 
 ## Tools
 
 | Tool | Active | Purpose |
 |---|---|---|
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
-| `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
-| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. |
+| `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. A plan with more than 50 top-level steps in its `Steps` section is refused, with the cap and the fix named, and nothing is written. |
+| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Refuses a file whose step list is over the cap, before the review screen. |
 | `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and optionally `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
 
 ### Commands and flags
@@ -105,6 +123,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `enter_plan_mode` tool | the model, before a non-trivial task | `ctx.ui.confirm` |
 | `/plan` | the user | immediate |
 | `/plan <prompt>` | the user, with the task | immediate |
+| `/plan list` | the user, browsing the plans directory | immediate |
 | `/plan review [path]` | the user, reviewing a plan in the browser | immediate |
 | `Ctrl+Alt+P` | the user | immediate |
 | `--plan` | the user, at launch | immediate |
@@ -143,7 +162,7 @@ actions (`a approve & run` in `success`, `r refine` in `accent`).
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
 model the plan was not approved. When the plan changed since the previous review
-in this session, a summary line under the title names how many sections changed
+on this branch, a summary line under the title names how many sections changed
 and the scroll row appends `· changed` to the current section. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
 `PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. Press `n`/`p` to jump to
 the next or previous heading; the scroll row names the current section when the
@@ -292,6 +311,18 @@ agent file that overrides it.
 - `readOnly` is also a normal `subagent` parameter; outside plan mode a caller
   may set it to run any agent read-only on purpose.
 
+## Review screen
+
+<img src="../../assets/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
+
+`exit_plan_mode` opens this screen on the plan file it just wrote. The body is
+Pi's Markdown renderer with the active theme, so headings, lists, code, and
+links read as they do in the transcript; the checkboxes in `Steps` use the
+shared `◼`/`◻` vocabulary. A plan taller than the terminal scrolls under a gauge
+that names the section at the top of the viewport and the line range it shows,
+and the footer lists only the keys that apply. `Esc` keeps planning, `a` approves
+and runs, `r` refines inline, and `w` opens the browser review below.
+
 ## Browser review
 
 <img src="../../assets/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail and an inline review thread" width="100%">
@@ -321,7 +352,7 @@ file and returns them to the model.
   links, an active-section highlight, and a per-section comment count; the panel
   above it reports the `Steps` section's progress (`n/m`, the same list approval
   seeds) and total comments. A
-  section that changed since the previous review in this session carries a dot
+  section that changed since the previous review on this branch carries a dot
   (its `title` and accessible label say so); an unchanged plan shows none.
 - **Inline threads.** A comment renders directly under the block it anchors to,
   labelled and indented as a thread, so it reads in place and the plan keeps one
@@ -386,14 +417,15 @@ file and returns them to the model.
   Git Bash (`bash`), which must be installed for any shell command to run.
 - The read-only guarantee is a guard rail against accidental writes, not a
   security boundary (see [Security](#security)).
-- The plans directory is the only index; there is no registry and no persisted
-  plan metadata.
-- Changed markers need a prior review of the same plan in the same session. A
-  resumed or new session has no baseline, so it shows no markers rather than
-  marking the whole plan as changed.
-- Approval tracks at most 50 steps, and a step longer than 200 characters is
-  shortened in the todo list and the approval listing. `write_plan` reports both
-  cases when they apply; the plan file itself always keeps the full text.
+- The plans directory is the only index. `/plan list` walks it on every open and
+  keeps no registry, so it sees an external edit or a hand-copied plan
+  immediately; it lists a file over the 256 KiB plan limit without reading it,
+  and does not index the agent directory's plans while a worktree is active.
+- Approval tracks at most 50 steps: `write_plan` refuses a larger plan, and
+  `exit_plan_mode` refuses to present one, so no reviewed step is silently
+  dropped. A step longer than 200 characters is shortened in the todo list and
+  the approval listing — a display rule only, because the plan file always keeps
+  the full text.
 - Browser review needs a local browser: the server is loopback-only, so a remote
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user
@@ -415,9 +447,9 @@ file and returns them to the model.
 | Integration point | How |
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
-| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
-| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })` and rebuilt from `ctx.sessionManager.getBranch()`; the last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. The content each review showed is kept in runtime memory (keyed by resolved path) for the changed markers. |
-| Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
+| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan never writes a goal itself: an approval offer records one through `ctx.executeTool("goal", { objective })`. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
+| Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with an active session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
 
 ## Design notes
@@ -456,12 +488,21 @@ file and returns them to the model.
   channel; no import from that extension) and the steps are merged into them.
   A rejected seed reports the nested tool's own reason in the approval message
   instead of failing silently.
+- **A cap is enforced where it can still be fixed.** Both refusal points —
+  `write_plan` and `exit_plan_mode` — sit before the write and before the review,
+  because those are the moments the model can still regroup the steps. A note on
+  a successful write would arrive after the file existed and the review had
+  already listed every step, which is exactly when the overflow becomes lost
+  work.
 - **Changed markers compare what was shown, not revisions on disk.** A review
-  result is only meaningful next to the text the reviewer already read, so the
-  runtime keeps the content each review presented (keyed by resolved path) and
-  `changedSections` diffs section title and text against it. Stored feedback is
+  result is only meaningful next to the text the reviewer already read, so every
+  review marks the sections it presented (keyed by resolved path) and
+  `plan-text.ts` compares the next plan against those digests. Stored feedback is
   stripped from both sides, so a review comment never reads as an edit, and the
-  same helper feeds the terminal summary and the browser outline.
+  same helper feeds the terminal summary and the browser outline. The digests are
+  a session entry rather than the previous text, so the markers survive a resume
+  without copying the plan file into the branch, and the reader and the writer
+  share one normalization so a tab cannot read as a change.
 - **The outline guides, it does not enforce.** `write_plan` documents the
   canonical shape in its description and stores whatever markdown it is given;
   no section is required and nothing is rewritten. That keeps the model free to
@@ -514,12 +555,14 @@ file and returns them to the model.
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
-| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the section diff, and the checkbox edit. |
-| `runtime.ts` | Enabled state, tool gating, persistence, control-tool identity, footer status, the review baseline. |
+| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, and the checkbox edit. |
+| `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`. |
+| `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), control-tool identity, footer status. |
 | `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`: schemas, results, transcripts, and the approval-time todo seed. |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, approve/refine/browser/keep). |
+| `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
 | `web.ts` | `createPlanWebReview`: the loopback server, the section outline (with changed-section flags) and code highlighting, and the save/approve/cancel/abort session. |

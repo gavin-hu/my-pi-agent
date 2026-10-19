@@ -29,7 +29,15 @@ describe("web layout", () => {
 		);
 	});
 
+	test("scrolls the sidebar on its own box", () => {
+		// A `<details>` gives its content a block wrapper with no definite height,
+		// so a `.bf-panel` inside cannot shrink to the sidebar and scroll itself;
+		// the sidebar has to be the scroll container.
+		expect(WEB_LAYOUT_CSS).toContain("overflow-x:hidden;overflow-y:auto;background:var(--surface)");
+	});
+
 	test("returns to normal page scroll on narrow screens", () => {
 		expect(WEB_LAYOUT_CSS).toContain(".bf-app{height:auto;min-height:100vh;overflow:visible}");
+		expect(WEB_LAYOUT_CSS).toContain("max-height:none;overflow:visible;border-right:0");
 	});
 });

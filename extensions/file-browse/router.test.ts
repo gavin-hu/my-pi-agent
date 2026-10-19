@@ -129,6 +129,13 @@ describe("routing", () => {
 		expect(payload.entries[0].iconHref).toMatch(/^#i-/);
 	});
 
+	test("returns JSON for an API error instead of rendering a page", async () => {
+		const response = await handleRequest(context(), "GET", "/api/tree?path=missing", {});
+		expect(response.status).toBe(404);
+		expect(response.headers["Content-Type"]).toContain("application/json");
+		expect(JSON.parse(text(response))).toEqual({ error: "That folder could not be read." });
+	});
+
 	test("streams raw files with disposition and the hardened CSP", async () => {
 		const textFile = await handleRequest(context(), "GET", "/raw/a.txt", {});
 		expect(textFile.filePath).toBeDefined();
@@ -265,5 +272,43 @@ describe("diff routes", () => {
 		const response = await handleRequest({ ...context(), diff: provider() }, "GET", "/view/a.txt", {});
 		expect(response.status).toBe(200);
 		expect(text(response)).toContain('href="/diff/a.txt"');
+	});
+
+	test("degrades to a page without markers when the change list fails", async () => {
+		const failing = provider({
+			list: async () => {
+				throw new Error("git is unhappy");
+			},
+		});
+
+		const root = await handleRequest({ ...context(), diff: failing }, "GET", "/", {});
+		expect(root.status).toBe(200);
+		// The stylesheet names the class too, so the marker is what is asserted.
+		expect(text(root)).not.toContain('class="browse-change"');
+
+		// The overview still renders; it simply has no list to show.
+		const overview = await handleRequest({ ...context(), diff: failing }, "GET", "/diff", {});
+		expect(overview.status).toBe(200);
+		expect(text(overview)).toContain("No changes");
+	});
+
+	test("reports a file whose diff cannot be read as missing, not as a failure", async () => {
+		const failing = provider({
+			file: async () => {
+				throw new Error("git is unhappy");
+			},
+		});
+
+		const response = await handleRequest({ ...context(), diff: failing }, "GET", "/diff/a.txt", {});
+
+		expect(response.status).toBe(404);
+		expect(text(response)).toContain("No diff is available for that file.");
+	});
+
+	test("answers a malformed request target with 400", async () => {
+		const response = await handleRequest(context(), "GET", "http://[", {});
+
+		expect(response.status).toBe(400);
+		expect(text(response)).toContain("Malformed request URL.");
 	});
 });
