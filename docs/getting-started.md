@@ -1,7 +1,7 @@
 # Getting started
 
-`my-pi-agent` is a single [Pi](https://pi.dev) package: sixteen extensions and
-two themes that layer planning, isolation, memory, and web access onto the agent
+`my-pi-agent` is a single [Pi](https://pi.dev) package: 16 extensions and two
+themes that layer planning, isolation, memory, and web access onto the agent
 you already run. This page is meant to end in a decision. By the time you reach
 the bottom you will know whether the pack belongs in your setup, and if it does,
 it will be installed, verified, and running one real workflow.
@@ -36,7 +36,7 @@ A filter, not a pitch: four conditions on each side.
 
 - **do not run Pi.** Nothing here is standalone.
 - **want Pi's stock terminal and tool list.** Installing redraws the transcript
-  and adds twenty-one tools to the model's surface.
+  and adds 21 tools to the model's surface.
 - **need isolation without `git`.** `worktree` and `rewind` require it; `plan`
   still works, saving plans into Pi's agent directory instead.
 - **run the agent unattended.** The value is interactive: approvals, questions,
@@ -76,7 +76,7 @@ pi -e .
 the next one does not. Two commands produce the evidence:
 
 - `/bytefly` lists every resolved extension with its enable checkbox and runtime
-  health; the pack's sixteen extensions appear as rows, with a missing
+  health; the pack's 16 extensions appear as rows, with a missing
   prerequisite spelled out.
 - `/plan <a small real task>` runs the flagship workflow: the model plans
   read-only, you review, it writes.
@@ -127,7 +127,7 @@ completed turn, and the frame around each tool block.
 
 <img src="../assets/chrome.png" alt="A Pi session with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar" width="100%">
 
-- Twenty-one tools join the model's tool list, each with a one-line description.
+- 21 tools join the model's tool list, each with a one-line description.
 - At most one npm request per interactive session checks for a newer release;
   `PI_OFFLINE` skips it, and nothing about the session is sent.
 - Two surfaces serve `127.0.0.1`-only HTTP: `file-browse`'s browser and `plan`'s
