@@ -34,4 +34,24 @@ describe("workingCounter", () => {
 	test("shapes the working message", () => {
 		expect(workingCounter(4000)).toBe("Working… 4s");
 	});
+
+	test("keeps the plain count before the first tool starts", () => {
+		expect(workingCounter(4000, { tool: null, tools: 0 })).toBe("Working… 4s");
+	});
+
+	test("names the tool and its count once one has started", () => {
+		expect(workingCounter(4000, { tool: "edit", tools: 1 })).toBe("edit · 1 tool · 4s");
+	});
+
+	test("pluralizes the tool count", () => {
+		expect(workingCounter(4000, { tool: "edit", tools: 3 })).toBe("edit · 3 tools · 4s");
+	});
+
+	test("omits an empty tool name but keeps the count", () => {
+		expect(workingCounter(4000, { tool: "", tools: 2 })).toBe("2 tools · 4s");
+	});
+
+	test("sanitizes a tool name to one line", () => {
+		expect(workingCounter(4000, { tool: "a\nb", tools: 1 })).toBe("a b · 1 tool · 4s");
+	});
 });

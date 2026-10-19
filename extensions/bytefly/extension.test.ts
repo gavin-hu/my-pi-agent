@@ -79,13 +79,16 @@ describe("bytefly extension", () => {
 		expect(markdownTransformers).toHaveLength(1);
 	});
 
-	test("drives the working timer while the working row is up", async () => {
+	test("drives the working line while the working row is up", async () => {
 		const { pi } = makeFakePi();
 		bootBytefly(pi);
 		const { ctx, workingMessages } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "turn_start", {}, ctx);
 		expect(workingMessages.at(-1)).toMatch(/^Working… \d+s$/);
+
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+		expect(workingMessages.at(-1)).toMatch(/^read · 1 tool · \d+s$/);
 
 		await emit(pi, "agent_end", {}, ctx);
 		expect(workingMessages.at(-1)).toBeUndefined();

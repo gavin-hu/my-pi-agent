@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `bytefly`: the working row now becomes a live run line — the latest top-level
+  tool, how many tools the run has started, and the elapsed time
+  (`edit · 3 tools · 12s`) — instead of only a clock. It falls back to
+  `Working… 12s` until the first tool starts; nested calls carrying
+  `parentToolCallId` neither count nor take over the line, so the number matches
+  the transcript's tool blocks, and a retry starts a fresh count.
+
 ### Changed
 
 - `bytefly`: the startup header now sheds by terminal height as well as width.

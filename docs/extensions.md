@@ -264,8 +264,9 @@ and it is painted by status (a running result takes the accent, a failure red, a
 finished one neutral; a notice takes its worst severity). A result is always
 railed; a call is railed only for the two file-mutating tools (`edit`, `write`),
 whose call body carries the result. There is no status band. While the working
-row is up it also advances a live elapsed counter (`Working… 12s`) on Pi's
-working message, handing it back to Pi when the row comes down. DeepSeek is
+row is up it also advances a live run line on Pi's working message —
+`Working… 12s` before the first tool, then `edit · 3 tools · 12s` — handing it
+back to Pi when the row comes down. DeepSeek is
 priced out of the
 box from its published yuan rates and peak tariff, or from its published
 dollar table when `price.currency.code` is `USD`; `bytefly.json` adds or overrides

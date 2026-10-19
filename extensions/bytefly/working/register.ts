@@ -1,9 +1,11 @@
 /**
- * bytefly's live working timer.
+ * bytefly's live working line.
  *
  * Pi's working row shows a static `Working`, so a long run reads the same as a
  * short one. This surface advances the message once a second while the row is
- * up, and hands it back to Pi when the row comes down.
+ * up, and hands it back to Pi when the row comes down. Once a top-level tool
+ * starts, the message also names that tool and how many this run has started,
+ * turning the row into a live run line (`edit · 3 tools · 12s`).
  *
  * The timer is tied to the row's visibility. The host shows the working
  * indicator in its own `turn_start` handler and clears it at `agent_end`
@@ -11,6 +13,11 @@
  * `agent_end` — the two moments the row appears and disappears. Turns inside
  * one run do not restart it: the host leaves the same indicator up across
  * turns, and `start` is a no-op while it is counting.
+ *
+ * A nested tool call (one carrying `parentToolCallId`, such as a codemode
+ * script's inner call) is not counted and does not take over the line, so the
+ * number matches the tool blocks the transcript shows. The tool events repaint
+ * the row immediately; the one-second tick is still the only timer.
  *
  * Compaction and auto-retry also replace the row, but both run outside this
  * window (`auto_retry_start` follows `agent_end`; the before-settle compaction
@@ -49,6 +56,17 @@ export function registerWorkingTimer(pi: ExtensionAPI, deps: WorkingDeps = {}): 
 	let startedAt = 0;
 	// A boolean, not `startedAt === 0`: an injected clock is allowed to start at 0.
 	let active = false;
+	// The last top-level tool and how many this run has started. Reset with the run.
+	let tool: string | null = null;
+	let tools = 0;
+
+	/** The current row text, from the run state and the elapsed time. */
+	const message = (): string => workingCounter(now() - startedAt, { tool, tools });
+
+	/** Repaint an active row now, so a tool start does not wait for the next tick. */
+	const refresh = (ctx: ExtensionContext): void => {
+		if (active) ctx.ui.setWorkingMessage(message());
+	};
 
 	/** Stop the tick and hand the working message back to Pi. Idempotent. */
 	const stop = (ctx: ExtensionContext): void => {
@@ -56,6 +74,8 @@ export function registerWorkingTimer(pi: ExtensionAPI, deps: WorkingDeps = {}): 
 		cancel = undefined;
 		if (!active) return;
 		active = false;
+		tool = null;
+		tools = 0;
 		ctx.ui.setWorkingMessage(undefined);
 	};
 
@@ -64,8 +84,10 @@ export function registerWorkingTimer(pi: ExtensionAPI, deps: WorkingDeps = {}): 
 		if (active) return;
 		startedAt = now();
 		active = true;
+		tool = null;
+		tools = 0;
 		const tick = (): void => {
-			ctx.ui.setWorkingMessage(workingCounter(now() - startedAt));
+			ctx.ui.setWorkingMessage(message());
 		};
 		tick();
 		cancel = schedule(tick, WORKING_CONFIG.intervalMs);
@@ -76,6 +98,15 @@ export function registerWorkingTimer(pi: ExtensionAPI, deps: WorkingDeps = {}): 
 	pi.on("turn_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 		start(ctx);
+	});
+
+	// A nested tool is an implementation detail of its parent run, not a
+	// transcript block, so it neither counts nor takes over the line.
+	pi.on("tool_execution_start", (event, ctx) => {
+		if (ctx.mode !== "tui" || !active || event.parentToolCallId) return;
+		tool = event.toolName;
+		tools += 1;
+		refresh(ctx);
 	});
 
 	// The host clears the working indicator at `agent_end`.
