@@ -49,12 +49,12 @@ other.
 Requires a working [Pi](https://pi.dev) installation.
 
 ```bash
-pi install npm:@gavin-hu/my-pi-agent                       # install from npm
-pi install git:github.com/gavin-hu/my-pi-agent             # install from git
-pi install git:github.com/gavin-hu/my-pi-agent@v0.13.1     # pin a release
-pi install ./ -l                                           # project-local (.pi/settings.json)
-pi -e .                                                    # try it for one run
+pi install npm:@gavin-hu/my-pi-agent
 ```
+
+[Getting started](./docs/getting-started.md) has the other sources — git, a
+pinned release, a project-local install, and a trial that writes nothing — plus
+the fit decision, the first workflows, and how to remove the pack.
 
 `git` on `PATH` is needed by [`worktree`](./extensions/worktree/) and
 [`rewind`](./extensions/rewind/); everything else degrades or disables cleanly,

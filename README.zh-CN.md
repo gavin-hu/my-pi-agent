@@ -45,12 +45,11 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
 需要一个可用的 [Pi](https://pi.dev) 安装。
 
 ```bash
-pi install npm:@gavin-hu/my-pi-agent                       # 从 npm 安装
-pi install git:github.com/gavin-hu/my-pi-agent             # 从 git 安装
-pi install git:github.com/gavin-hu/my-pi-agent@v0.13.1     # 固定到某个版本
-pi install ./ -l                                           # 仅项目本地（.pi/settings.json）
-pi -e .                                                    # 试运行一次
+pi install npm:@gavin-hu/my-pi-agent
 ```
+
+[快速开始](./docs/getting-started.md) 介绍其余安装方式——git、固定版本、
+仅项目本地安装，以及不写入任何内容的试用——还有适用性判断、首个工作流和移除方式。
 
 `git` 需在 `PATH` 上，供 [`worktree`](./extensions/worktree/) 与
 [`rewind`](./extensions/rewind/) 使用；其余部分会优雅降级或禁用，
