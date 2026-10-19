@@ -103,6 +103,16 @@ describe("sendNotification", () => {
 		expect(r.ran[0]?.args.at(-1)).toContain("Job failed");
 	});
 
+	test("appends through the node list's Item(0), which PowerShell 5.1 accepts", () => {
+		const r = recorder({ platform: "win32" });
+		sendNotification(enabled({ method: "toast" }), "Pi", "Job failed", r.seams);
+		const script = r.ran[0]?.args.at(-1) ?? "";
+
+		expect(script).toContain("$nodes = $xml.GetElementsByTagName('text')");
+		expect(script).toContain("$nodes.Item(0).AppendChild");
+		expect(script).not.toContain("GetElementsByTagName('text')[0]");
+	});
+
 	test("doubles a quote in the toast literals", () => {
 		const r = recorder({ platform: "win32" });
 		sendNotification(enabled({ method: "toast" }), "Pi", "it's done", r.seams);

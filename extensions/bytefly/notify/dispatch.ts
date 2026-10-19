@@ -89,7 +89,10 @@ function windowsToastScript(title: string, body: string): string {
 	return [
 		`${mgr} > $null`,
 		`$xml = [${type}.ToastNotificationManager]::GetTemplateContent(${template})`,
-		`$xml.GetElementsByTagName('text')[0].AppendChild($xml.CreateTextNode('${powershellLiteral(body)}')) > $null`,
+		`$nodes = $xml.GetElementsByTagName('text')`,
+		// PowerShell 5.1 cannot index the live node list with `[0]`; `.Item(0)`
+		// reads the single node without enumerating a collection AppendChild mutates.
+		`$nodes.Item(0).AppendChild($xml.CreateTextNode('${powershellLiteral(body)}')) > $null`,
 		`[${type}.ToastNotificationManager]::CreateToastNotifier('${powershellLiteral(title)}').Show(${toast})`,
 	].join("; ");
 }
