@@ -7,7 +7,7 @@
  * advances once a second; negative and non-finite input reads as `0s`.
  */
 
-import { sanitizeLine } from "../../../lib/format.ts";
+import { sanitizeLine, formatToolCount } from "../../../lib/format.ts";
 import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { WORKING_CONFIG } from "./config.ts";
 
@@ -36,8 +36,7 @@ export function workingCounter(ms: number, run?: WorkingRun): string {
 	const tools = run?.tools ?? 0;
 	const tool = run?.tool ? sanitizeLine(run.tool) : "";
 	if (tools > 0) {
-		const word = tools === 1 ? WORKING_CONFIG.tool : WORKING_CONFIG.tools;
-		return [tool, `${tools} ${word}`, elapsed].filter((part) => part !== "").join(SEPARATORS.item);
+		return [tool, formatToolCount(tools), elapsed].filter((part) => part !== "").join(SEPARATORS.item);
 	}
 	return `${WORKING_CONFIG.working}${WORKING_CONFIG.ellipsis} ${elapsed}`;
 }

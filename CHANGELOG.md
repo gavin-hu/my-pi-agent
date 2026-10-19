@@ -14,6 +14,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Working… 12s` until the first tool starts; nested calls carrying
   `parentToolCallId` neither count nor take over the line, so the number matches
   the transcript's tool blocks, and a retry starts a fresh count.
+- `bytefly`: the turn separator is now a receipt for the settled run — duration,
+  top-level tool count, and `✕N`/`aborted` when a tool failed or the user
+  stopped — with a width ladder that sheds the tool count, then the duration,
+  then the outcome as the line narrows. A clean turn stays `meta`, a failed one
+  paints `bad`, and an aborted one `warn`; separators written before the receipt
+  existed keep rendering as `turn N`.
 
 ### Changed
 

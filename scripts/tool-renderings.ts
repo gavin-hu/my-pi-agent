@@ -247,7 +247,7 @@ function transcriptLines(name: string, width: number): string[] {
 		return lines;
 	}
 	if (name === "notice") return new NoticeComponent(NOTICE, theme).render(width);
-	if (name === "turn-rule") return new SeparatorComponent(4, theme).render(width);
+	if (name === "turn-rule") return new SeparatorComponent({ turn: 4, durationMs: 5000, tools: 2 }, theme).render(width);
 	return [];
 }
 

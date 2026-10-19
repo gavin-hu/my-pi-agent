@@ -10,16 +10,10 @@ export const WORKING_CONFIG = {
 	working: "Working",
 	/** Between the word and the count. */
 	ellipsis: "…",
-	/** One tool in the live run line. */
-	tool: "tool",
-	/** More than one tool in the live run line. */
-	tools: "tools",
 	/** How often the count advances, in milliseconds. */
 	intervalMs: 1000,
 } as const satisfies {
 	working: string;
 	ellipsis: string;
-	tool: string;
-	tools: string;
 	intervalMs: number;
 };
