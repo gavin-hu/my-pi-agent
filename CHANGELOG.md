@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `bytefly`: the package-update surface now uses Pi's package manager as its
+  only detector. bytefly suppresses Pi's `Package Updates Available` block and
+  posts one themed notice listing every updateable package plus
+  `pi update --extensions`; the header marker shows only this package's new
+  version. The custom npm-registry read and semver ordering are removed, so
+  unmanaged installs such as `pi -e .` no longer get an update prompt.
+
 ## [0.12.0] - 2026-10-18
 
 ### Added

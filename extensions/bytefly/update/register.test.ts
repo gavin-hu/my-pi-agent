@@ -1,29 +1,58 @@
 import { describe, expect, test } from "bun:test";
-import pkg from "../../../package.json";
 import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { makeFakePi } from "../../../test/helpers/fakes.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import { registerUpdate } from "./register.ts";
 import { createUpdateState } from "./state.ts";
+import type { UpdateSuppression } from "./suppress.ts";
+import type { PackageUpdate } from "./types.ts";
 
-/** A version guaranteed to be newer than the one under test. */
-const NEWER = "99.0.0";
+const OWN: PackageUpdate = {
+	source: "@gavin-hu/my-pi-agent",
+	displayName: "@gavin-hu/my-pi-agent",
+	type: "npm",
+	scope: "user",
+};
+const OTHER: PackageUpdate = {
+	source: "github.com/example/tool",
+	displayName: "example/tool",
+	type: "git",
+	scope: "project",
+};
 
-/** Boot the update surface over a fixed registry answer. */
-function boot(reply: string | undefined, options: { offline?: boolean; mode?: string; fail?: boolean } = {}) {
-	const { pi, customMessages } = makeFakePi();
+interface BootOptions {
+	list?: PackageUpdate[];
+	mode?: string;
+	fail?: boolean;
+	latest?: string | undefined;
+}
+
+/** Boot the update surface over a fixed package list. */
+function boot(options: BootOptions = {}) {
+	const { pi, customMessages } = makeFakePi({ settings: { npmCommand: ["npm"] } });
 	const { ctx } = fakeCtx({ mode: options.mode ?? "tui" });
 	const state = createUpdateState();
 	const reads: number[] = [];
 	const updates: number[] = [];
+	const restore: number[] = [];
+	const latestCalls: string[] = [];
+	const suppression: UpdateSuppression = {
+		check: async () => options.list ?? [],
+		restore: () => restore.push(1),
+	};
 	registerUpdate(pi, state, {
-		fetchLatest: async () => {
+		suppress: () => suppression,
+		readUpdates: async (_ctx, check) => {
 			reads.push(1);
-			if (options.fail) throw new Error("registry unreachable");
-			return reply;
+			if (options.fail) throw new Error("npm unreachable");
+			expect(check).toBe(suppression.check);
+			return options.list ?? [];
 		},
-		isOffline: () => options.offline ?? false,
+		readLatest: async (_ctx, name) => {
+			latestCalls.push(name);
+			return options.latest ?? "0.14.0";
+		},
 		onUpdate: () => updates.push(1),
 	});
 	const start = async (): Promise<void> => {
@@ -34,68 +63,64 @@ function boot(reply: string | undefined, options: { offline?: boolean; mode?: st
 		for (const handler of pi.handlers.get("session_shutdown") ?? []) await handler({}, ctx);
 		await settle();
 	};
-	return { state, customMessages, reads, updates, start, shutdown };
+	return { pi, state, customMessages, reads, updates, restore, latestCalls, start, shutdown };
 }
 
 describe("update check", () => {
-	test("marks the store and posts one notice when a newer version is published", async () => {
-		const { state, customMessages, updates, start } = boot(NEWER);
+	test("records the list, marks this package's new version, and posts one notice", async () => {
+		const { state, customMessages, updates, latestCalls, start } = boot({ list: [OWN, OTHER] });
 		await start();
 
-		expect(state.latest()).toBe(NEWER);
+		expect(state.updates()).toEqual([OWN, OTHER]);
+		expect(state.ownLatest()).toBe("0.14.0");
 		expect(updates).toHaveLength(1);
+		expect(latestCalls).toEqual(["@gavin-hu/my-pi-agent"]);
 		expect(customMessages).toHaveLength(1);
 		const { message } = customMessages[0] as { message: any };
 		expect(message.customType).toBe(NOTICE_TYPE);
 		expect(message.details.source).toBe("bytefly");
-		expect(message.details.title).toBe(`${NEWER} is available`);
-		expect(message.content).toContain(`current ${pkg.version}`);
+		expect(message.details.title).toBe("2 package updates available");
+		expect(message.content).toContain("example/tool");
 	});
 
-	test("stays quiet when the loaded version is current", async () => {
-		const { state, customMessages, updates, start } = boot(pkg.version);
+	test("does not put another package's update on the header", async () => {
+		const { state, customMessages, latestCalls, start } = boot({ list: [OTHER] });
 		await start();
 
-		expect(state.latest()).toBeUndefined();
+		expect(state.updates()).toEqual([OTHER]);
+		expect(state.ownLatest()).toBeUndefined();
+		expect(latestCalls).toEqual([]);
+		expect(customMessages).toHaveLength(1);
+	});
+
+	test("stays silent when Pi reports no updates", async () => {
+		const { state, customMessages, updates, start } = boot({ list: [] });
+		await start();
+
+		expect(state.updates()).toEqual([]);
 		expect(updates).toEqual([]);
 		expect(customMessages).toEqual([]);
 	});
 
-	test("stays quiet when the registry is behind", async () => {
-		const { state, customMessages, start } = boot("0.0.1");
+	test("stays silent when the read fails", async () => {
+		const { state, customMessages, start } = boot({ fail: true });
 		await start();
 
-		expect(state.latest()).toBeUndefined();
-		expect(customMessages).toEqual([]);
-	});
-
-	test("stays quiet when the read fails or returns nothing", async () => {
-		for (const options of [{ fail: true }, {}]) {
-			const { state, customMessages, start } = boot(undefined, options);
-			await start();
-			expect(state.latest()).toBeUndefined();
-			expect(customMessages).toEqual([]);
-		}
-	});
-
-	test("makes no request when offline", async () => {
-		const { reads, customMessages, start } = boot(NEWER, { offline: true });
-		await start();
-
-		expect(reads).toEqual([]);
+		expect(state.updates()).toEqual([]);
 		expect(customMessages).toEqual([]);
 	});
 
 	test("makes no request outside the interactive mode", async () => {
-		const { reads, customMessages, start } = boot(NEWER, { mode: "print" });
+		const { reads, customMessages, restore, start } = boot({ list: [OWN], mode: "print" });
 		await start();
 
 		expect(reads).toEqual([]);
 		expect(customMessages).toEqual([]);
+		expect(restore).toEqual([]);
 	});
 
 	test("announces once per load, even if the session starts again", async () => {
-		const { customMessages, reads, start } = boot(NEWER);
+		const { customMessages, reads, start } = boot({ list: [OWN] });
 		await start();
 		await start();
 
@@ -103,32 +128,35 @@ describe("update check", () => {
 		expect(customMessages).toHaveLength(1);
 	});
 
-	test("drops the recorded version on shutdown", async () => {
-		const { state, start, shutdown } = boot(NEWER);
+	test("clears the store and restores Pi's check on shutdown", async () => {
+		const { state, start, shutdown, restore } = boot({ list: [OWN] });
 		await start();
 		await shutdown();
 
-		expect(state.latest()).toBeUndefined();
+		expect(state.updates()).toEqual([]);
+		expect(state.ownLatest()).toBeUndefined();
+		expect(restore).toEqual([1]);
 	});
 
 	test("ignores a reply that lands after shutdown", async () => {
 		const { pi, customMessages } = makeFakePi();
 		const { ctx } = fakeCtx({ mode: "tui" });
 		const state = createUpdateState();
-		let answer: (value: string | undefined) => void = () => {};
+		let answer: (value: PackageUpdate[]) => void = () => {};
+		const suppression: UpdateSuppression = { check: async () => [], restore: () => {} };
 		registerUpdate(pi, state, {
-			fetchLatest: () =>
-				new Promise<string | undefined>((resolve) => {
+			suppress: () => suppression,
+			readUpdates: () =>
+				new Promise<PackageUpdate[]>((resolve) => {
 					answer = resolve;
 				}),
-			isOffline: () => false,
 		});
 		for (const handler of pi.handlers.get("session_start") ?? []) await handler({}, ctx);
 		for (const handler of pi.handlers.get("session_shutdown") ?? []) await handler({}, ctx);
-		answer(NEWER);
+		answer([OWN]);
 		await settle();
 
-		expect(state.latest()).toBeUndefined();
+		expect(state.updates()).toEqual([]);
 		expect(customMessages).toEqual([]);
 	});
 });

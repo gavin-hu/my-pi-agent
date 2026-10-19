@@ -1,72 +1,108 @@
 /**
- * The update check's lifecycle: read the published version once per interactive
- * session, record it when it is newer, and announce it once per load.
+ * The update surface's lifecycle: hand the package list to Pi's own manager,
+ * record it once per interactive session, and announce it once per load.
  *
- * The request is fired without awaiting. Pi awaits `session_start` handlers, so
- * a slow registry would otherwise hold the first prompt; Pi's own version check
- * is asynchronous for the same reason. Every result that is not a strictly newer
- * version is silent, and a generation counter keeps a request that resolves
- * after shutdown from writing into the next session's state.
+ * Pi would draw its own `Package Updates Available` block from the same list
+ * after `session_start`. bytefly suppresses that block, asks the captured
+ * original check itself, and draws the single notice. The request is fired
+ * without awaiting: Pi awaits `session_start` handlers, and a slow `npm view`
+ * must not hold the first prompt.
  *
- * `/bytefly` and `doctor` do not report this: an available update is not a
- * prerequisite problem, and the header plus one notice are the whole surface.
+ * Every result that is not a non-empty list is silent, and a generation counter
+ * keeps a request that resolves after shutdown from writing into the next
+ * session's state.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import pkg from "../../../package.json";
-import { isOffline } from "../../../lib/env.ts";
-import { fetchLatestVersion } from "./check.ts";
+import { fetchAvailableUpdates, fetchOwnLatestVersion } from "./check.ts";
 import { updateNotice } from "./format.ts";
 import type { UpdateSource } from "./state.ts";
-import { isNewerVersion } from "./version.ts";
+import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
+import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
 
-/** Test seams; production uses the registry read and `PI_OFFLINE`. */
+/** Test seams; production uses Pi's package manager and its configured npm. */
 export interface UpdateDeps {
-	/** Replace the registry read; a rejection counts as no answer. */
-	fetchLatest?: () => Promise<string | undefined>;
-	/** Replace the `PI_OFFLINE` check. */
-	isOffline?: () => boolean;
-	/** Called once a newer version is recorded, so a mounted surface repaints. */
+	/** Replace the package-manager read. */
+	readUpdates?: (ctx: ExtensionContext, check: PackageUpdateCheck) => Promise<PackageUpdate[]>;
+	/** Replace the header version lookup. */
+	readLatest?: (ctx: ExtensionContext, packageName: string) => Promise<string | undefined>;
+	/** Replace the host suppression; defaults to patching Pi's package manager. */
+	suppress?: () => UpdateSuppression;
+	/** Called once a snapshot is recorded, so a mounted header repaints. */
 	onUpdate?: () => void;
 }
 
-/**
- * Register the check. `updates` is the same store the header reads, so recording
- * a version and calling `onUpdate` is what puts the marker on screen.
- */
+/** Whether a package update is this package, whose version the header shows. */
+function isOwnPackage(update: PackageUpdate): boolean {
+	return update.type === "npm" && update.displayName === pkg.name;
+}
+
+/** Register the update lifecycle. `updates` is the store the header reads. */
 export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: UpdateDeps = {}): void {
-	const readLatest = deps.fetchLatest ?? (() => fetchLatestVersion());
-	const offline = deps.isOffline ?? isOffline;
+	const suppress = deps.suppress ?? suppressPiPackageUpdates;
+	const readUpdates =
+		deps.readUpdates ??
+		((ctx, check) =>
+			fetchAvailableUpdates({
+				cwd: ctx.cwd,
+				agentDir: getAgentDir(),
+				projectTrusted: ctx.isProjectTrusted(),
+				npmCommand: pi.getSettings?.().npmCommand,
+				checkForAvailableUpdates: check,
+			}));
+	const readLatest =
+		deps.readLatest ??
+		((ctx, packageName) =>
+			fetchOwnLatestVersion(
+				{
+					cwd: ctx.cwd,
+					agentDir: getAgentDir(),
+					projectTrusted: ctx.isProjectTrusted(),
+					npmCommand: pi.getSettings?.().npmCommand,
+					exec: (command, args, options) => pi.exec(command, args, options),
+				},
+				packageName,
+			));
 	// A session is announced at most once per load, even if `session_start` fires
 	// again after a resume or a session replacement.
 	let announced = false;
 	let generation = 0;
+	let suppression: UpdateSuppression | undefined;
 
-	const check = async (token: number): Promise<void> => {
+	const check = async (ctx: ExtensionContext, token: number): Promise<void> => {
 		try {
-			const latest = await readLatest();
-			if (latest === undefined || token !== generation) return;
-			if (announced || !isNewerVersion(latest, pkg.version)) return;
+			const list = await readUpdates(ctx, suppression?.check ?? (async () => []));
+			if (token !== generation) return;
+			if (announced || list.length === 0) return;
 			announced = true;
-			updates.set(latest);
+			const own = list.find(isOwnPackage);
+			const ownLatest = own ? await readLatest(ctx, pkg.name) : undefined;
+			if (token !== generation) return;
+			updates.set(list, ownLatest);
 			deps.onUpdate?.();
-			pi.sendMessage(updateNotice(pkg.version, latest));
+			pi.sendMessage(updateNotice(list));
 		} catch {
 			// A background check never surfaces an error: the session does not know it ran.
 		}
 	};
 
 	pi.on("session_start", (_event, ctx) => {
-		// The marker lives in bytefly's header and the notice in a transcript, so a
-		// non-interactive run has nothing to draw and makes no request.
+		// The header and notice are transcript surfaces, so a non-interactive run
+		// neither suppresses Pi's block nor makes a request.
 		if (ctx.mode !== "tui") return;
-		if (announced || offline()) return;
-		void check(generation);
+		suppression ??= suppress();
+		if (announced) return;
+		void check(ctx, generation);
 	});
 
 	pi.on("session_shutdown", () => {
-		// Invalidate any request still in flight and drop what this session found.
+		// Invalidate any request still in flight, drop what this session found, and
+		// give Pi's own check back to the host.
 		generation++;
 		updates.set();
+		suppression?.restore();
+		suppression = undefined;
 	});
 }

@@ -87,7 +87,7 @@ describe("header update marker", () => {
 		const { pi, ctx, headers, updates, handle } = boot({ quietStartup: true });
 		await emit(pi, "session_start", {}, ctx);
 
-		updates.set("0.12.0");
+		updates.set([], "0.12.0");
 		handle.refresh();
 
 		expect(headers).toHaveLength(2);
@@ -108,7 +108,7 @@ describe("header update marker", () => {
 		await emit(pi, "session_shutdown", {}, ctx);
 		const installed = headers.length;
 
-		updates.set("0.12.0");
+		updates.set([], "0.12.0");
 		handle.refresh();
 
 		expect(headers).toHaveLength(installed);
