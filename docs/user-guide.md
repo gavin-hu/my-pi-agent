@@ -12,9 +12,11 @@ and each of those says so where it comes up.
 
 ## Contents
 
-- [How to read this guide](#how-to-read-this-guide)
+- [Start here](#start-here)
+- [Words used in this guide](#words-used-in-this-guide)
 - [What you are using](#what-you-are-using)
 - [Getting it installed](#getting-it-installed)
+- [What it costs, and what leaves your machine](#what-it-costs-and-what-leaves-your-machine)
 - [The screen at a glance](#the-screen-at-a-glance)
 - [Asking for things in plain words](#asking-for-things-in-plain-words)
 - [Plan first, then write](#plan-first-then-write)
@@ -35,21 +37,83 @@ and each of those says so where it comes up.
 - [What this package writes to disk](#what-this-package-writes-to-disk)
 - [Where to read more](#where-to-read-more)
 
-## How to read this guide
+## Start here
 
-Every feature gets the same shape: a short **overview** of what it is for, then a
-numbered **walkthrough** you can follow in order. Anything you must type appears
-in a box like this:
+Every feature below gets the same shape: a short overview of what it is for,
+then a numbered walkthrough. Anything you type appears in a box, and anything
+you press is written as a key such as `a` or `Esc`.
 
-```text
-/plan add a contact form to the website
-```
+### Five minutes
 
-Anything you press is written as a key, such as `a` or `Esc`.
+1. **Install the pack**, then start Pi in a project folder
+   ([Getting it installed](#getting-it-installed)).
+2. **Check it loaded** — type `/bytefly` and look for one row per extension
+   ([Settings, health, and looks](#settings-health-and-looks)).
+3. **Plan a task before it writes** — `/plan <task>`, review the plan, press `a`
+   to approve ([Plan first, then write](#plan-first-then-write)).
+4. **Know you can undo a turn** — `/rewind` lists the prompts you can return to
+   ([Undoing a turn](#undoing-a-turn)).
+5. **Remember something for next time** — ask, or run `/memory`
+   ([Remembering between sessions](#remembering-between-sessions)).
 
-You can read the sections in order or jump to the one you need. Each feature can
-be switched off on its own (see [Turning features off](#turning-features-off-or-removing-the-pack)),
-so a feature you do not want never gets in the way.
+The rest of the guide is reference: read what you need, in any order, and switch
+off any feature you do not want
+([Turning features off](#turning-features-off-or-removing-the-pack)). If a word
+is unfamiliar, it is defined in [Words used in this guide](#words-used-in-this-guide).
+
+### Find a feature
+
+**Plan and delegate**
+
+| Feature | What it does | Walkthrough |
+|---|---|---|
+| `plan` | Plans read-only, then waits for your approval | [Plan first, then write](#plan-first-then-write) |
+| `subagent` | Hands work to a specialist helper in its own process | [Delegating to specialist helpers](#delegating-to-specialist-helpers) |
+| `todo` | A checklist the assistant keeps updated | [A to-do list and a goal](#a-to-do-list-and-a-goal) |
+| `goal` | One session objective, restated every turn | [A to-do list and a goal](#a-to-do-list-and-a-goal) |
+| `question` | A dialog that asks you to choose between options | [Answering the assistant's questions](#answering-the-assistants-questions) |
+| `job` | Runs a long command in the background | [Background jobs and watchers](#background-jobs-and-watchers) |
+| `watch` | Tails a file or command and alerts on a match | [Background jobs and watchers](#background-jobs-and-watchers) |
+
+**Keep your work safe**
+
+| Feature | What it does | Walkthrough |
+|---|---|---|
+| `worktree` | Works on a branch in a separate folder | [Working on a branch safely](#working-on-a-branch-safely) |
+| `rewind` | Snapshots each prompt and restores code or conversation | [Undoing a turn](#undoing-a-turn) |
+| `memory` | Notes that carry across sessions | [Remembering between sessions](#remembering-between-sessions) |
+
+**Reach the world**
+
+| Feature | What it does | Walkthrough |
+|---|---|---|
+| `web-access` | Web search and page reading | [Searching and reading the web](#searching-and-reading-the-web) |
+| `file-browse` | A read-only browser for the project | [Documents and files](#documents-and-files) |
+| `document` | Reads PDF, Word, and Excel files as text | [Documents and files](#documents-and-files) |
+| `file-open` | Opens a file in its normal application | [Documents and files](#documents-and-files) |
+| `wechat` | Answers WeChat messages from the live session | [Using it from WeChat](#using-it-from-wechat) |
+
+**Chrome and settings**
+
+| Feature | What it does | Walkthrough |
+|---|---|---|
+| `bytefly` | The settings screen, theme, and health checks | [Settings, health, and looks](#settings-health-and-looks) |
+
+## Words used in this guide
+
+| Word | What it means |
+|---|---|
+| Terminal | The text window Pi runs in. |
+| Pi | The assistant program this pack adds to. |
+| Extension | One add-on in the pack; there are sixteen, each switchable. |
+| Slash command | A message that starts with `/` and acts immediately instead of starting a turn. |
+| Tool | An action the assistant can take, such as reading a file or running a command. |
+| Session | One conversation, with its own history. |
+| Repository (repo) | A project folder whose history `git` tracks. |
+| Branch | A named line of work in a repository. |
+| Commit | A saved point in a branch's history. |
+| Snapshot | A saved copy of the project from before a prompt. |
+| Worktree | A second folder holding a branch, so work stays separate. |
 
 ## What you are using
 
@@ -99,10 +163,12 @@ features need it; plan mode still works).
 ## Getting it installed
 
 **What you need.** A current Pi on your `PATH` — `pi --version` should print a
-version — on Windows, macOS, or Linux. That is the only requirement. Some
-features add their own: `git` for worktrees and rewind, a PDF reader for PDF
-text, and a WeChat bot account for the phone bridge. Each one degrades or
-disables cleanly, and `/bytefly doctor` names what is missing.
+version — on Windows, macOS, or Linux. That is the only requirement. If Pi is
+not installed yet, start there: this pack is an add-on and does nothing on its
+own ([pi.dev](https://pi.dev)). Some features add their own: `git` for worktrees
+and rewind, a PDF reader for PDF text, and a WeChat bot account for the phone
+bridge. Each one degrades or disables cleanly, and `/bytefly doctor` names what
+is missing.
 
 1. Install the package, from whichever source suits you:
 
@@ -155,6 +221,25 @@ that request, and nothing about the session is sent. Your theme does not change,
 and the startup header stays off until you turn it on. Two pages are served on
 your own machine only (`127.0.0.1`): the file browser and the plan review;
 [Security](./security.md) covers the boundaries.
+
+## What it costs, and what leaves your machine
+
+**Cost.** The pack is free and open source. What costs money is the AI model you
+talk to: your provider bills for the tokens a session uses, exactly as it does
+without this pack. The footer shows a running estimate, **Pricing** in
+`/bytefly settings` sets the currency and an optional budget, and reaching the
+budget warns you once without stopping anything.
+
+**What leaves your machine.** The pack sends nothing about your session
+anywhere. Three things use the network, and only when they apply: a web search or
+page fetch you asked for (the query goes to your chosen search provider, the page
+to that site), the WeChat bridge once you log in (messages go through WeChat's own
+service), and one check per session for a newer release of the package
+(`PI_OFFLINE=1` skips it). Both web pages are served only on your own machine;
+[Security](./security.md) covers those boundaries. Everything else — plans,
+notes, snapshots, job logs — stays in the files listed under
+[What this package writes to disk](#what-this-package-writes-to-disk) or in the
+session itself.
 
 ## The screen at a glance
 
@@ -234,12 +319,20 @@ verification — and its steps become your to-do list on approval.
    If the plan changed since you last looked at it, a line under the title says
    how many sections changed.
 
+   <img src="../assets/plan.png" alt="The terminal plan review: a title rule, the plan body with task checkboxes, a scroll gauge, and the approve, refine, and keep hints" width="100%">
+
+   *The terminal review: the plan's sections and step checkboxes, with the approve, refine, and keep keys at the bottom.*
+
 3. Prefer the browser? Press `w` on the review screen, or run `/plan review` at
    any time. A page opens on your own machine with the plan laid out as a
    document, a live step-progress panel, and a comment rail. In the page, `j` /
    `k` move between blocks, `c` leaves a comment on the current block, `s` saves
    your comments back into the plan file as notes, and **Approve & run** does the
    same as pressing `a` in the terminal. **Back to Pi** returns you.
+
+   <img src="../assets/plan-review.png" alt="The browser plan review: a sticky header with Approve & run, a step-progress panel, the plan as one measured column, and a comment rail" width="100%">
+
+   *The same plan in the browser: step progress, a comment rail, and **Approve & run**.*
 
 4. After approval, watch the to-do list widget tick off the plan's steps. The
    assistant updates the plan file as it goes; the plan file stays the source of
@@ -288,6 +381,10 @@ summarises progress.
 2. Type `/todos` to see the full list at any time. In the terminal it opens a
    scrollable screen; elsewhere it shows the list as a notification.
 
+   <img src="../assets/todo.png" alt="The /todos screen: a completed summary, then each item with its status glyph" width="100%">
+
+   */todos: the summary, then each item's status at a glance.*
+
 3. When the assistant finishes the work, completed items are ticked and the
    widget hides once everything is done. To keep it visible even then, set
    `todo.hideWhenComplete` to `false` in `bytefly.json` (see
@@ -333,6 +430,10 @@ summarises progress.
 of two designs, whether to delete a file. Instead of guessing, it can open a
 structured question with labelled options, including a free-form **Other** answer,
 and wait for you.
+
+<img src="../assets/question.png" alt="The question dialog: tabs for each question, four labelled options, and the navigation hint" width="100%">
+
+*A question with labelled options; the tabs show how many questions are still open.*
 
 **Walkthrough.**
 
@@ -394,6 +495,10 @@ to act on it.
    Inside the log, scroll as usual; the view follows the newest line until you
    scroll up, and `Esc` returns to the list. The header says whether the view is
    `following` the end or `paused` because you scrolled back.
+
+   <img src="../assets/job.png" alt="The /jobs screen: a counts summary, job rows with status glyphs and elapsed times, and the focused job's last output line" width="100%">
+
+   */jobs: running jobs first, and the focused job's last output line.*
 
 3. If a job failed, the chip turns into `✗ 1` until you have read its result.
 
@@ -559,6 +664,10 @@ This feature needs `git`. Snapshots are stored as git references under
    A timeline opens, newest prompt first. A diamond marks prompts that have a
    code snapshot.
 
+   <img src="../assets/rewind.png" alt="The /rewind screen: prompts newest first, a diamond marking a code snapshot, and the focused prompt's detail" width="100%">
+
+   *The timeline, newest first; diamonds mark prompts you can restore code from.*
+
 3. Choose the prompt to return to: `↑` / `↓` or `j` / `k` move, `PgUp` / `PgDn`,
    `Home` / `End` jump, and Enter chooses. `Esc` closes without changing anything.
 
@@ -614,6 +723,10 @@ everything you do).
    | `s` or `Tab` | Filter by scope |
    | `r` | Re-read the notes from disk |
    | `Esc` | Cancel the current action, or close the picker |
+
+   <img src="../assets/memory.png" alt="The /memory picker: a scope summary, notes tagged by scope, and the key hints" width="100%">
+
+   *The picker: filter by scope, then add, merge, move, or delete.*
 
 3. Manage the stores directly with these commands:
 
@@ -804,6 +917,10 @@ cannot start the bridge.
    | `r` | Refresh |
    | `Esc` | Close the screen |
 
+   <img src="../assets/wechat.png" alt="The /wechat control screen: account and connection at the top, conversation rows below, and the key hints" width="100%">
+
+   *The control screen while a peer turn runs; the footer names each key.*
+
 4. The same actions are available as subcommands: `/wechat status`, `pause`,
    `resume`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `allow [peer]`,
    `doctor`, `logout`, and `help`.
@@ -842,6 +959,10 @@ to run and tells you how to update the pack.
    You land on **Extensions**: one row per installed extension, a tick box for
    whether it is on, and a health verdict. Under the focused row is that
    extension's report.
+
+   <img src="../assets/bytefly.png" alt="The /bytefly control centre: the Extensions and Settings sections, one row per extension with its checkbox and health verdict, and the focused extension's report" width="100%">
+
+   *The control centre: switch an extension off with `Space`, and read its health underneath.*
 
 2. Keys on this screen:
 

@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: the user guide opens with a five-minute tour and a per-feature index, and
+  gains a glossary, a section on cost and what leaves the machine, and
+  screenshots for the nine screens it asks the reader to operate.
+
 - docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
   contributor: five diagrams (the load path, an extension's anatomy, a turn, the
   process shapes, and where new code belongs), the state stores, the three ways
