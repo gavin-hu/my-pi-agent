@@ -117,6 +117,18 @@ describe("AgentsBoardComponent", () => {
 		expect(text(component)).toContain("No background subagents yet.");
 	});
 
+	test("shows a live preview and falls back before output arrives", () => {
+		let runs: BackgroundRun[] = [{ ...RUNS[0]! }];
+		const { component } = board({ runs: () => runs });
+		component.handleInput("\r");
+		expect(text(component)).toContain("Still running…");
+
+		runs = [{ ...runs[0]!, output: "Reading auth..." }];
+		const detail = text(component);
+		expect(detail).toContain("Reading auth...");
+		expect(detail).not.toContain("Still running…");
+	});
+
 	test("reflects a finish without rebuilding", () => {
 		let runs: BackgroundRun[] = [{ ...RUNS[0]! }];
 		const { component } = board({ runs: () => runs });

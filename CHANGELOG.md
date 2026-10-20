@@ -57,6 +57,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   records live on the session branch, so `/resume` shows finished runs and a
   start without a finish as interrupted; `backgroundMax` bounds concurrent
   children.
+- `subagent`: `/agents` follows a bounded live preview while a background run is
+  active, and a finished run no longer keeps the child's full result in memory;
+  collection still uses the bounded output.
 
 ### Changed
 

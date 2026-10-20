@@ -77,9 +77,11 @@ How the `subagent` call and its result look in the transcript — the call line 
 
 The tool returns immediately with a run id such as `a2`. `/agents` lists every
 run with its status, elapsed time, and usage; `Enter` opens the run, `c` collects
-a finished result into the conversation, and `x` cancels a running one. A
-background run is session-owned and is bounded by the same timeout and
-transcript settings as a foreground run.
+a finished result into the conversation, and `x` cancels a running one. While a
+run is active, its detail pane follows a bounded preview of the latest output;
+the finalized result replaces it when the run finishes. A background run is
+session-owned and is bounded by the same timeout and transcript settings as a
+foreground run.
 
 ### Parallel
 
@@ -330,7 +332,9 @@ step's `Output`.
   restart cannot resume it. A start entry without a finish is shown as
   `interrupted`.
 - The collected output is capped at 50 KiB; the optional transcript keeps the
-  full stream. A live result is available until the process ends.
+  full stream. The `/agents` detail keeps only a bounded live preview, and a
+  finished run keeps its bounded output in the session record rather than the
+  child's full result.
 - There is no OS notification when a background run finishes; open `/agents` to
   see it.
 
