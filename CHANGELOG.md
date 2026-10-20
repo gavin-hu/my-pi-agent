@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `check`: `run_check` draws its own transcript block — a status summary, up to
+  five failure rows with an expand hint, and the bounded tail when nothing
+  parses — instead of printing the model report, and shows a live elapsed line
+  while the command runs. A failed run stays a normal result.
+
 ## [0.16.0] - 2026-10-20
 
 ### Added

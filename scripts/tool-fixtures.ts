@@ -11,6 +11,9 @@
  * is drawn from bytefly's own nameplate/notice/separator components.
  */
 
+import { formatCheckReport } from "../extensions/check/format.ts";
+import type { CheckResult } from "../extensions/check/types.ts";
+
 /** The `AgentToolResult` a fixture renders. */
 export interface FixtureResult {
 	content: Array<{ type: "text"; text: string }>;
@@ -35,6 +38,64 @@ export interface ToolFixture {
 }
 
 const CWD = "/home/u/repo/project";
+
+/** A failing run whose output parsed into locations. */
+const CHECK_FAILED: CheckResult = {
+	target: "all",
+	status: "failed",
+	commands: ["bun run check"],
+	exitCode: 1,
+	durationMs: 12_400,
+	truncated: false,
+	failures: [
+		{
+			path: "extensions/check/detect.test.ts",
+			line: 88,
+			column: 5,
+			message: "expected cargo test",
+			command: "bun run check",
+		},
+		{
+			path: "extensions/check/failures.test.ts",
+			line: 41,
+			message: "expected 2 failures",
+			command: "bun run check",
+		},
+	],
+	tail: "src/check.test.ts:12: nope\nmore output",
+};
+
+/** A passing run, which draws as one line. */
+const CHECK_PASSED: CheckResult = {
+	target: "test",
+	status: "passed",
+	commands: ["bun run test"],
+	exitCode: 0,
+	durationMs: 12_400,
+	truncated: false,
+	failures: [],
+	tail: "",
+};
+
+/** A failing run whose output parsed no location, so the tail is the evidence. */
+const CHECK_UNPARSED: CheckResult = {
+	target: "all",
+	status: "failed",
+	commands: ["make verify"],
+	exitCode: 2,
+	durationMs: 3_100,
+	truncated: false,
+	failures: [{ message: "Command exited with status 2", command: "make verify" }],
+	tail: [
+		"linking src/http.ts",
+		"linking src/router.ts",
+		"warning: unused export 'routeTable'",
+		"warning: unused export 'traceId'",
+		"linking src/server.ts",
+		"linking src/index.ts",
+		"make: *** [verify] Error 2",
+	].join("\n"),
+};
 
 export const FIXTURES: ToolFixture[] = [
 	// ─── Transcript surfaces ────────────────────────────────────────────────
@@ -626,44 +687,25 @@ export const FIXTURES: ToolFixture[] = [
 	{
 		name: "run_check",
 		group: "package",
-		label: "no custom renderer (generic fallback)",
+		label: "a failed run with parsed failures",
 		args: { target: "all" },
-		result: {
-			content: [
-				{
-					type: "text",
-					text: [
-						"Check failed: 2 failures · bun run check · 12.4s",
-						"- extensions/check/detect.test.ts:88:5 — expected cargo test · bun run check",
-						"- extensions/check/failures.test.ts:41 — expected 2 failures · bun run check",
-					].join("\n"),
-				},
-			],
-			details: {
-				target: "all",
-				status: "failed",
-				commands: ["bun run check"],
-				exitCode: 1,
-				durationMs: 12_400,
-				truncated: false,
-				failures: [
-					{
-						path: "extensions/check/detect.test.ts",
-						line: 88,
-						column: 5,
-						message: "expected cargo test",
-						command: "bun run check",
-					},
-					{
-						path: "extensions/check/failures.test.ts",
-						line: 41,
-						message: "expected 2 failures",
-						command: "bun run check",
-					},
-				],
-				tail: "src/check.test.ts:12: nope\nmore output",
-			},
-		},
+		result: { content: [{ type: "text", text: formatCheckReport(CHECK_FAILED) }], details: CHECK_FAILED },
+	},
+	{
+		name: "run_check-passed",
+		tool: "run_check",
+		group: "package",
+		label: "a passing run in one line",
+		args: { target: "test" },
+		result: { content: [{ type: "text", text: formatCheckReport(CHECK_PASSED) }], details: CHECK_PASSED },
+	},
+	{
+		name: "run_check-unparsed",
+		tool: "run_check",
+		group: "package",
+		label: "a failed run whose output parsed no location",
+		args: { target: "all" },
+		result: { content: [{ type: "text", text: formatCheckReport(CHECK_UNPARSED) }], details: CHECK_UNPARSED },
 	},
 	{
 		name: "send_wechat",

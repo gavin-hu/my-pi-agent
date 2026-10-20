@@ -23,9 +23,19 @@ pi install ./                       # install the package
 
 ## Tool rendering
 
-How the `run_check` call and its result look in the transcript — the call line as a headline and the body indented under it:
+The call line is `run_check <target>`. While the command runs, the result is one
+line — `Running bun run check… · 12s` — and it repaints once a second, so a
+silent compiler still shows progress. The settled block keeps the transcript to
+a capped view of the run: a status summary, at most five failure rows, and the
+bounded tail when nothing parsed. `ctrl+o` expands it to the model's 20-failure
+cap; `/check` remains the full navigable list.
 
-<img src="../../assets/tools/run_check.png" alt="The run_check tool's result: a summary line and the first structured failures" width="100%">
+<img src="../../assets/tools/run_check.png" alt="The run_check transcript block: a status summary and two failure rows under a rail" width="100%">
+
+A failed command whose output parsed no location names the exit status in the
+summary, prints `no parsed failure; last output:`, and shows the last five tail
+lines instead of an exit-status row. The transcript never prints the model
+report; the full failure list and the tail stay in `details`.
 
 ## What it does
 
@@ -55,10 +65,10 @@ How the `run_check` call and its result look in the transcript — the call line
 | `outputSchema` | `{ target, status, commands, exitCode, durationMs, truncated, failures[] }`, mirrored by `structuredContent`. |
 
 `content` is a short summary plus up to 20 failures. `details` carries the full
-bounded failure list and the tail. A failing check is a normal result
-(`isError: false`) so the model can fix it; a check that cannot run — no
-detected command, a spawn failure, or another run already active — is an error
-with the corrective action.
+bounded failure list and the tail, which the transcript block reads. A failing
+check is a normal result (`isError: false`) so the model can fix it; a check
+that cannot run — no detected command, a spawn failure, or another run already
+active — is an error with the corrective action.
 
 ## Command
 
@@ -81,7 +91,7 @@ generated files), so the plan must be approved first.
 | Interactive TUI | A live run screen with a scrolling tail and `Esc cancel`; then a failure list with `Enter` detail, `r` rerun, and `Esc` close. A pass posts one notice. |
 | RPC (`hasUI`) | Runs headless and posts the summary plus the failure list; no custom screen. |
 | `print` / `json` | Runs headless and posts the same report. |
-| `run_check` | No UI. Returns the summary in `content` and the structured result. |
+| `run_check` | No UI of its own. Returns the summary in `content`, the structured result, and a capped transcript block drawn from `details`. |
 
 ## Configuration
 
@@ -204,6 +214,9 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
   surfaces worse, so the runner is local and smaller.
 - **A bounded tail is the honest fallback.** A parser miss must not invent a
   location; the exit status and the tail are useful on their own.
+- **The transcript is a capped view.** `render.ts` draws from the same `details`
+  the model report reads but caps the rows and never prints the report; `/check`
+  is still the full navigable list.
 - **One run at a time.** The runtime refuses a second start instead of
   interleaving outputs or processes.
 
@@ -212,7 +225,7 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
 | File | Responsibility |
 |---|---|
 | `index.ts` | Registrar: guard, runtime, tool, command, shutdown. |
-| `types.ts` | `CheckTarget`, `CommandSpec`, `Failure`, `CheckResult`, `ActiveCheck`. |
+| `types.ts` | `CheckTarget`, `CommandSpec`, `Failure`, `CheckResult`, `RunCheckDetails`, `ActiveCheck`. |
 | `config.ts` | `check` config defaults, clamps, and loader. |
 | `detect.ts` | The detector registry and `check.command` planning. |
 | `runner.ts` | One-shot streaming process, bounded log, timeout, cancel, tree kill. |
@@ -221,14 +234,15 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
 | `runtime.ts` | Planning, sequencing, aggregation, live lines, cancel/shutdown. |
 | `format.ts` | Summary, failure rows, source-excerpt/detail text, model report. |
 | `tui.ts` | `CheckRunComponent` and `CheckResultComponent`. |
-| `tools.ts` | `run_check` schema and registration. |
+| `tools.ts` | `run_check` schema, registration, the running partial result, and the call/result renderers. |
+| `render.ts` | The transcript result block: status summary, capped failure rows, tail fallback. |
 | `commands.ts` | `/check`, target parsing, completions, TUI/headless flow. |
 
 ## Testing
 
 Co-located tests cover config clamps, every detector family, the runner's
 streaming/timeout/cancel/log cap, the parsers, command planning, aggregation,
-the tool's output contract, the command's guards and headless path, and both
-screens' keys and width bounds. `extensions/check/check.test.ts` runs a real
-Node script through the extension, so the process path is exercised without
-depending on Bun or a test framework.
+the tool's output contract and transcript block, the command's guards and
+headless path, and both screens' keys and width bounds.
+`extensions/check/check.test.ts` runs a real Node script through the extension,
+so the process path is exercised without depending on Bun or a test framework.

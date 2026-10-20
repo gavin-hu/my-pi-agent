@@ -56,6 +56,9 @@ describe("failure formatting", () => {
 	test("keeps the result summary short", () => {
 		expect(formatResultSummary(result())).toBe("1 failure · bun run test · 1.2s");
 		expect(formatResultSummary(result({ status: "timeout" }))).toBe("timed out · bun run test · 1.2s");
+		expect(
+			formatResultSummary(result({ failures: [{ message: "Command exited with status 2", command: "make verify" }] })),
+		).toBe("failed · bun run test · 1.2s");
 	});
 
 	test("renders a source excerpt with aligned numbers and a target marker", () => {
