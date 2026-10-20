@@ -66,8 +66,9 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   or a `/tree` restore marks only what changed on its own branch.
 - **Kept current.** After approval, `set_plan_steps` flips the checkboxes of
   the steps you name in the file, so the plan mirrors what has actually been
-  done. Pass the step's text as `expected` and an update whose step number moved
-  is refused instead of ticking the wrong line.
+  done, and ticks the todo item approval seeded from that step with it, so the
+  widget and the plan do not drift apart. Pass the step's text as `expected` and
+  an update whose step number moved is refused instead of ticking the wrong line.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
   it for approval. The user approves, keeps planning, or asks for a refinement.
   On a remote turn (WeChat) the plan file is sent first, then a digest of its
@@ -98,6 +99,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   against the 50-step cap. A plan without a `Steps` heading keeps the older rule —
   the shallowest list in the document — so prose bullets in a plan that follows the
   outline never become todos, and its verification bullets are already covered.
+  Each seeded item is matched back to its step by text, so ticking a step with
+  `set_plan_steps` completes the item too.
 - **Goal-aware.** While planning, the injected context restates an active
   session goal as one bullet, so the plan is designed against the objective
   instead of beside it. On approval, when the session has no goal at all, the user
@@ -114,7 +117,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. A plan with more than 50 top-level steps in its `Steps` section is refused, with the cap and the fix named, and nothing is written. |
 | `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Refuses a file whose step list is over the cap, before the review screen. |
-| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
+| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. The todo item approval seeded from a step is ticked with it: the file is written first and is authoritative, a renamed item is left alone, and a failed todo write is reported in the result. |
 
 ### Commands and flags
 
@@ -426,6 +429,9 @@ file and returns them to the model.
   dropped. A step longer than 200 characters is shortened in the todo list and
   the approval listing — a display rule only, because the plan file always keeps
   the full text.
+- The todo item for a step is matched by its text. An item renamed after
+  approval no longer matches, so `set_plan_steps` leaves it alone and says so in
+  its result; the plan file is still updated.
 - Browser review needs a local browser: the server is loopback-only, so a remote
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user
@@ -488,6 +494,13 @@ file and returns them to the model.
   channel; no import from that extension) and the steps are merged into them.
   A rejected seed reports the nested tool's own reason in the approval message
   instead of failing silently.
+- **Ticking a step ticks its item, through the same channel.** The seed's text is
+  the step's text (`PlanStep.content`, already elided for a long step), so the
+  mirror matches on that text and changes only `status`: an item the user
+  renamed is left alone and reported as unmatched rather than overwritten, and a
+  repeated call writes nothing. The file is written first and stays
+  authoritative, so a failed nested write is reported in the result text — once
+  one artifact has changed there is no previous state to hand back.
 - **A cap is enforced where it can still be fixed.** Both refusal points —
   `write_plan` and `exit_plan_mode` — sit before the write and before the review,
   because those are the moments the model can still regroup the steps. A note on

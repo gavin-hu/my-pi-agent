@@ -32,6 +32,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: ticking a step with `set_plan_steps` also ticks the todo item approval
+  seeded from it. Before, only the plan file changed, so the todo widget and the
+  goal's open-item check kept reporting work the plan said was done. The match is
+  on the step's text, so a renamed item is left alone and reported, and the file
+  stays authoritative when the nested write fails.
+
 - `plan`: `set_plan_steps` requires each update's `expected` step text. The
   stale-step guard was opt-in, so an update that omitted it could tick the step
   that moved into that number after an edit; a missing `expected` is now refused

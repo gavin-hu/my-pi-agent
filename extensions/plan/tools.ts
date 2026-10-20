@@ -7,9 +7,10 @@
  * approval (a scrollable review screen in the TUI, a select dialog elsewhere),
  * and on approval seeds the `todo` tool with the plan's steps (through
  * `ctx.executeTool`, so the todo widget and validation run normally).
- * `set_plan_steps` then keeps the file current: after approval the model ticks
- * each step off in place as it finishes it. The file is the source of truth:
- * the model executes from it.
+ * `set_plan_steps` then keeps the plan current: after approval the model ticks
+ * each step off in place as it finishes it, and the todo item approval seeded
+ * from that step is ticked with it. The file is the source of truth: the model
+ * executes from it.
  *
  * Without an interactive UI the approval tools fail with an actionable message
  * instead of deciding for the user.
@@ -41,7 +42,7 @@ import {
 } from "./steps.ts";
 import { basename } from "node:path";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { DEFAULT_TODO_MAX, mergeTodos, type TodoMerge } from "./todos.ts";
+import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses, type TodoMerge } from "./todos.ts";
 import { reviewPlan } from "./review.ts";
 import { sanitizePlanText } from "./plan-text.ts";
 import type { EnterPlanModeDetails, ExitPlanModeDetails, SetPlanStepsDetails, WritePlanDetails } from "./types.ts";
@@ -186,6 +187,31 @@ async function seedTodos(
 	const part = outcome.result?.content?.find((entry) => entry.type === "text");
 	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
 	return { steps, merged, error: firstLine ? sanitizeLine(firstLine) : undefined };
+}
+
+/**
+ * Bring the todo items seeded at approval in line with the batch, and describe
+ * what happened for the result text.
+ *
+ * The plan file is authoritative and has already been written, so a nested
+ * failure is reported in the result instead of becoming an error result: once
+ * one of the two artifacts changed there is no previous state to hand back.
+ * Nothing is written when no item changed, so a repeated call does not churn the
+ * widget.
+ */
+async function mirrorTodos(ctx: ExtensionToolContext, updates: readonly StepUpdate[]): Promise<string> {
+	const mirror = mirrorStepStatuses(lastTodos(ctx.sessionManager.getBranch()), updates);
+	if (mirror.updated === 0) {
+		if (mirror.unmatched === 0) return "";
+		const steps = mirror.unmatched === 1 ? "1 step has" : `${mirror.unmatched} steps have`;
+		return `; ${steps} no matching todo item`;
+	}
+	const items = mirror.updated === 1 ? "1 todo item" : `${mirror.updated} todo items`;
+	const outcome = await ctx.executeTool(TODO_TOOL, { todos: mirror.todos });
+	if (!outcome.isError) return `; ${items} updated`;
+	const part = outcome.result?.content?.find((entry) => entry.type === "text");
+	const firstLine = part?.type === "text" ? part.text.split("\n", 1)[0] : undefined;
+	return `; could not update ${items} in the todo list${firstLine ? `: ${sanitizeLine(firstLine)}` : ""}`;
 }
 
 /** What the goal offer did: `recorded` undefined when there was nothing to offer. */
@@ -664,11 +690,12 @@ export function registerTools(
 				const plan = await runtime.plans.setSteps(ctx.cwd, args.plan_path, args.updates);
 				const steps = extractPlanSteps(plan.content);
 				const done = steps.filter((step) => step.status === "completed").length;
+				const todoNote = await mirrorTodos(ctx, args.updates);
 				return {
 					content: [
 						{
 							type: "text",
-							text: `${describeUpdates(args.updates)} (${done}/${steps.length} done) in ${plan.relativePath}.`,
+							text: `${describeUpdates(args.updates)} (${done}/${steps.length} done) in ${plan.relativePath}${todoNote}.`,
 						},
 					],
 					details: {

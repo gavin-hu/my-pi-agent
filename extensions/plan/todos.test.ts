@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ExistingTodo } from "../../lib/todo-state.ts";
-import { DEFAULT_TODO_MAX, mergeTodos } from "./todos.ts";
+import { MAX_STEP_LENGTH } from "./steps.ts";
+import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses } from "./todos.ts";
 
 const step = (content: string, status: "pending" | "completed" = "pending") => ({ content, status });
 
@@ -108,5 +109,80 @@ describe("mergeTodos — the trailing verification item", () => {
 
 	test("reports nothing when the plan has no verification item", () => {
 		expect(mergeTodos([], steps, 50).trailing).toBeUndefined();
+	});
+});
+
+describe("mirrorStepStatuses", () => {
+	const list: ExistingTodo[] = [
+		{ content: "One", status: "pending" },
+		{ content: "Two", status: "in_progress", activeForm: "Doing two" },
+	];
+
+	test("ticks the matching item and leaves the rest untouched", () => {
+		const mirror = mirrorStepStatuses(list, [{ step: 1, status: "completed", expected: "One" }]);
+
+		expect(mirror.todos).toEqual([
+			{ content: "One", status: "completed" },
+			{ content: "Two", status: "in_progress", activeForm: "Doing two" },
+		]);
+		expect(mirror).toMatchObject({ updated: 1, unmatched: 0 });
+	});
+
+	test("reopens a completed item, matching regardless of case and spacing", () => {
+		const mirror = mirrorStepStatuses(
+			[{ content: "One", status: "completed" }],
+			[{ step: 1, status: "pending", expected: "  one " }],
+		);
+
+		expect(mirror.todos).toEqual([{ content: "One", status: "pending" }]);
+		expect(mirror.updated).toBe(1);
+	});
+
+	test("counts an unmatched step instead of inventing an item", () => {
+		const mirror = mirrorStepStatuses(list, [{ step: 2, status: "completed", expected: "Renamed" }]);
+
+		expect(mirror.todos).toEqual(list);
+		expect(mirror).toMatchObject({ updated: 0, unmatched: 1 });
+	});
+
+	test("does not count an item that is already in the requested state", () => {
+		const mirror = mirrorStepStatuses(
+			[{ content: "One", status: "completed" }],
+			[{ step: 1, status: "completed", expected: "One" }],
+		);
+
+		expect(mirror).toMatchObject({ updated: 0, unmatched: 0 });
+	});
+
+	test("the last update for a step number wins", () => {
+		const mirror = mirrorStepStatuses(
+			[{ content: "One", status: "pending" }],
+			[
+				{ step: 1, status: "completed", expected: "One" },
+				{ step: 1, status: "pending", expected: "One" },
+			],
+		);
+
+		expect(mirror.updated).toBe(0);
+		expect(mirror.todos[0]?.status).toBe("pending");
+	});
+
+	test("matches an elided step to the elided text approval seeded", () => {
+		const elided = `${"x".repeat(MAX_STEP_LENGTH - 1)}…`;
+		const mirror = mirrorStepStatuses(
+			[{ content: elided, status: "pending" }],
+			[{ step: 1, status: "completed", expected: elided }],
+		);
+
+		expect(mirror.todos).toEqual([{ content: elided, status: "completed" }]);
+		expect(mirror.updated).toBe(1);
+	});
+
+	test("does not alias the list it was given", () => {
+		const input: ExistingTodo[] = [{ content: "One", status: "pending" }];
+		const mirror = mirrorStepStatuses(input, [{ step: 1, status: "completed", expected: "One" }]);
+
+		expect(input[0]?.status).toBe("pending");
+		expect(mirror.todos[0]?.status).toBe("completed");
 	});
 });
