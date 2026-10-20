@@ -50,7 +50,7 @@ export interface UpdateHandle {
 /** Test seams; production uses Pi's package manager, its cache, and the agent dir. */
 export interface UpdateDeps {
 	/** Replace the package-manager read. */
-	readUpdates?: (ctx: ExtensionContext, check: PackageUpdateCheck) => Promise<PackageUpdate[]>;
+	readUpdates?: (ctx: ExtensionContext, check: PackageUpdateCheck) => Promise<PackageUpdate[] | undefined>;
 	/** Replace the registry read that names this package's new version. */
 	fetchLatest?: () => Promise<string | undefined>;
 	/** Replace the `PI_OFFLINE` check. */
@@ -166,6 +166,10 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 		try {
 			const list = await readUpdates(ctx, activeCheck());
 			if (token !== generation) return;
+			// A check that could not run is not an empty answer: caching it would tell
+			// the next session "up to date" for a day and clear a marker that may still
+			// be right, so leave both alone and try again next time.
+			if (list === undefined) return;
 			const latest = await resolveOwnLatest(list.find(isOwnPackage));
 			if (token !== generation) return;
 			const entry: UpdateCacheEntry = {
@@ -219,7 +223,9 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 			if (!context) return { kind: "failed" };
 			let list: PackageUpdate[];
 			try {
-				list = await readUpdates(context, activeCheck());
+				const found = await readUpdates(context, activeCheck());
+				if (found === undefined) return { kind: "failed" };
+				list = found;
 			} catch {
 				return { kind: "failed" };
 			}

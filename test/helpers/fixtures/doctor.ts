@@ -18,6 +18,7 @@ import {
 import type { ExtensionReport, Finding, FindingSeverity } from "../../../lib/requirements.ts";
 import { fakeCtx } from "../context.ts";
 import { createFakePi, emit, type FakePi, type FakePiOptions } from "../fakes.ts";
+import { settle } from "../process.ts";
 
 export interface DoctorHarness {
 	fake: FakePi;
@@ -64,7 +65,12 @@ export function bootDoctor(options: DoctorBootOptions = {}): DoctorHarness {
 		notices: session.notices,
 		notifications: session.notifications,
 		runtime,
-		start: () => emit(fake.pi, "session_start", { reason: "startup" }, session.ctx),
+		start: async () => {
+			await emit(fake.pi, "session_start", { reason: "startup" }, session.ctx);
+			// The handler fires the probe without awaiting it, so let that chain finish
+			// before a caller asserts on what it posted.
+			await settle();
+		},
 		stop: () => emit(fake.pi, "session_shutdown", { reason: "quit" }, session.ctx),
 	};
 }

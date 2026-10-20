@@ -45,7 +45,11 @@ export function registerDoctor(pi: ExtensionAPI, deps: DoctorDeps = {}): DoctorR
 	// without importing the extension.
 	pi.events.on(WEB_SEARCH_PROVIDER_CHANNEL, (facts) => runtime.noteSearchFacts(facts));
 
-	pi.on("session_start", async (_event, ctx) => {
+	// Bumped when a session starts or ends, so a probe that outlives its session
+	// cannot post its notice into the next one (a reload re-registers the surface).
+	let probeToken = 0;
+
+	pi.on("session_start", (_event, ctx) => {
 		const config = loadConfig(ctx.cwd);
 		runtime.configure({ cwd: ctx.cwd, config });
 		if (!config.proactive || !ctx.hasUI) return;
@@ -55,12 +59,27 @@ export function registerDoctor(pi: ExtensionAPI, deps: DoctorDeps = {}): DoctorR
 		if (pi.getSettings?.().quietStartup !== true) return;
 
 		// Only hard requirements can break an enabled extension, so the startup
-		// probe is limited to the extensions that declare one, in parallel.
-		const missing = missingFindings(await runtime.probeRequired());
-		if (missing.length > 0) pi.sendMessage(warningNotice(missing));
+		// probe is limited to the extensions that declare one, in parallel. Fired
+		// without awaiting: Pi awaits every `session_start` handler, and these
+		// probes spawn processes, so holding the first prompt on them is the cost
+		// this avoids. The notice lands a moment later, in the flow, as before.
+		const token = ++probeToken;
+		void runtime
+			.probeRequired()
+			.then((reports) => {
+				if (token !== probeToken) return;
+				const missing = missingFindings(reports);
+				if (missing.length > 0) pi.sendMessage(warningNotice(missing));
+			})
+			.catch(() => {
+				// A background check never surfaces an error, and the report is advice.
+			});
 	});
 
-	pi.on("session_shutdown", () => runtime.reset());
+	pi.on("session_shutdown", () => {
+		probeToken += 1;
+		runtime.reset();
+	});
 
 	return runtime;
 }

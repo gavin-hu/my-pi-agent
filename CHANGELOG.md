@@ -20,6 +20,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a row after moving to a Global-only row (Theme, startup TUI, output pad,
   hardware cursor); closing it takes a `J`, as the key's own hint says.
 
+- `bytefly`: the proactive doctor check no longer holds the first prompt. Its
+  hard-requirement probes are fired after `session_start` returns, and
+  `run_doctor` and the panel's refresh probe a few extensions at a time instead
+  of one after another, so both answer in the slowest probe's time rather than
+  their sum.
+
+- dev: `bun run bench:render` also measures one re-price of a branch's usage
+  records — 500, 3,000, and 10,000 records, plus 3,000 against a 100-key rate
+  table — with a determinism gate in the suite.
+
 ### Fixed
 
 - `bytefly`: a value pasted into a Settings text row is stored as typed. The
@@ -34,6 +44,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `bytefly`: changing the footer currency writes the code and its default
   precision in one document pass, so a write that cannot finish leaves neither
   value behind instead of half-applying the row.
+
+- `bytefly`: a background update check that cannot run is no longer cached as
+  "everything is current" for 24 hours. It leaves the previous snapshot and the
+  header marker alone, and `/bytefly update` reports `could not check package
+  updates` instead of `up to date`.
 
 ## [0.15.0] - 2026-10-20
 

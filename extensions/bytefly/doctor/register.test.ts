@@ -5,6 +5,7 @@ import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { withAgentDir } from "../../../test/helpers/env.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { bootDoctor, failingExec } from "../../../test/helpers/fixtures/doctor.ts";
+import { settle } from "../../../test/helpers/process.ts";
 
 describe("doctor wiring", () => {
 	test("registers a read-only tool", () => {
@@ -52,6 +53,50 @@ describe("proactive probe", () => {
 		expect(message.details.items).toContainEqual(
 			expect.objectContaining({ label: "worktree (git)", detail: expect.stringContaining("install git") }),
 		);
+	});
+
+	test("returns from session_start before the probes finish", async () => {
+		let open: (() => void) | undefined;
+		const gate = new Promise<void>((resolve) => {
+			open = resolve;
+		});
+		const { fake, start } = bootDoctor({
+			exec: async () => {
+				await gate;
+				return { stdout: "", stderr: "", code: 127 };
+			},
+			settings: { quietStartup: true },
+		});
+
+		// The host awaits this handler, so it must not wait on a spawning probe.
+		await start();
+		expect(fake.customMessages).toEqual([]);
+
+		open?.();
+		await settle();
+		expect(fake.customMessages).toHaveLength(1);
+	});
+
+	test("drops a probe that outlives its session", async () => {
+		let open: (() => void) | undefined;
+		const gate = new Promise<void>((resolve) => {
+			open = resolve;
+		});
+		const { fake, start, stop } = bootDoctor({
+			exec: async () => {
+				await gate;
+				return { stdout: "", stderr: "", code: 127 };
+			},
+			settings: { quietStartup: true },
+		});
+
+		await start();
+		await stop();
+		open?.();
+		await settle();
+
+		// The next session's probe would report on this one; nothing may land.
+		expect(fake.customMessages).toEqual([]);
 	});
 
 	test("stays quiet when every hard requirement is met", async () => {

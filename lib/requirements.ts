@@ -769,20 +769,34 @@ export async function probeExtension(extension: string, seams: ProbeSeams): Prom
 	return { extension, enabled, findings };
 }
 
+/** Probes in flight at once: enough to hide spawn latency, not a burst. */
+export const PROBE_CONCURRENCY = 4;
+
 /**
- * Probe every declared extension, or just `names`, in declaration order.
+ * Probe every declared extension, or just `names`, keeping declaration order.
  *
- * Sequential: the caller is a user-facing report or the panel's refresh, and a
- * burst of probes would trade a few milliseconds for a burst of child
- * processes. The session-start check does not come through here; it probes only
- * the hard requirements, concurrently (see `probeRequired`).
+ * The caller is a user-facing report (`run_doctor`) or the panel's refresh, so
+ * the probes run a few at a time: a serial pass pays the sum of every spawn and
+ * read, while one `Promise.all` over the whole table starts a burst of child
+ * processes. The startup check does not come through here; it probes only the
+ * hard requirements, all at once (see `probeRequired`).
  */
 export async function probeAll(
 	seams: ProbeSeams,
 	names: readonly string[] = Object.keys(REQUIREMENTS),
 ): Promise<ExtensionReport[]> {
-	const reports: ExtensionReport[] = [];
-	for (const name of names) reports.push(await probeExtension(name, seams));
+	const reports = new Array<ExtensionReport>(names.length);
+	let cursor = 0;
+	/** Take the next name until the queue is empty; each worker keeps its slot. */
+	const drain = async (): Promise<void> => {
+		while (cursor < names.length) {
+			const index = cursor;
+			cursor += 1;
+			reports[index] = await probeExtension(names[index], seams);
+		}
+	};
+	const workers = Array.from({ length: Math.min(PROBE_CONCURRENCY, names.length) }, () => drain());
+	await Promise.all(workers);
 	return reports;
 }
 
