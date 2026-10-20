@@ -921,9 +921,8 @@ describe("viewing surface", () => {
 		});
 		// The scroll box is the card, not the measure: `margin-inline:auto` on a flex
 		// item is shrink-to-fit, so a short document used to collapse to its widest
-		// line. The measure sits on the blocks instead, in rem so every block resolves
-		// the same length whatever its font.
-		expect(html).toContain(".browse-measure{--browse-measure:min(1012px,46rem)}");
+		// line. The measure sits on the blocks instead.
+		expect(html).toContain(".browse-measure{--browse-measure:1012px}");
 		expect(html).toContain(".browse-measure .bf-md{--browse-gutter:");
 		expect(html).toContain(";max-width:none;margin-inline:0;padding-inline:var(--space-5);");
 		expect(html).toContain(".browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}");

@@ -155,9 +155,8 @@ body.palette-open{overflow:hidden}
 /* The Markdown body fills the card, so the scroll box is the card's width: its
    scrollbar sits at the card edge. The measure lives on the blocks themselves:
    on .bf-md it would be a flex item with auto inline margins, which is
-   shrink-to-fit, so a short document collapsed to its widest line. It is a rem
-   length so every block resolves the same measure whatever its font. */
-.browse-measure{--browse-measure:min(1012px,46rem)}
+   shrink-to-fit, so a short document collapsed to its widest line. */
+.browse-measure{--browse-measure:1012px}
 .browse-measure .bf-md{--browse-gutter:max(0px,calc((100% - var(--browse-measure)) / 2));max-width:none;margin-inline:0;padding-inline:var(--space-5);padding-block:var(--space-4) var(--space-6)}
 .browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}
 /* Tables start at the prose column and take only the gutter to its right, so a

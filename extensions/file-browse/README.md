@@ -42,7 +42,7 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   tables, code, inline and reference links, bare-URL autolinks, and images, with
   a one-click **raw** view (`?raw=1`). The page fills the card, so the scroll
   bar sits at the card edge; headings, prose, and images keep a centred reading
-  measure of at most 46rem (about 740px, near 110 characters). Code blocks stay
+  measure of at most 1012px. Code blocks stay
   inside that column; tables start at it and take the free gutter to its right,
   and a table wider than the pane scrolls, its right edge fading until the last
   column is reached. A task list's checkbox is drawn by the page, so a done
