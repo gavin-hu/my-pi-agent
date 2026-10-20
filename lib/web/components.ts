@@ -114,8 +114,13 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-md pre code{background:none;border:0;padding:0}
 .bf-md blockquote{margin-left:0;padding:0 1em;border-left:3px solid var(--border);color:var(--muted)}
 .bf-md li.task{list-style:none;margin-left:-1.4em}
-.bf-md .md-check{color:var(--success)}
+/* The boxes are drawn rather than left native: a disabled native checkbox is UA
+   gray in both themes, so the done state could not carry the success colour. */
+.bf-md .md-check{appearance:none;-webkit-appearance:none;width:13px;height:13px;margin:0 5px 0 0;border:1px solid var(--border-strong);border-radius:3px;background:var(--canvas);vertical-align:-2px}
+.bf-md .md-check:checked{border-color:var(--success);background:var(--success) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/11px 11px no-repeat}
+.bf-md .md-check:disabled{opacity:1}
 .bf-md table{margin:0;border-collapse:collapse;table-layout:auto;width:auto;font-size:var(--fs-sm)}
+.bf-md .md-table-frame{position:relative}
 .bf-md .md-table-wrap{overflow-x:auto;margin:0 0 1em}
 .bf-md th,.bf-md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top;overflow-wrap:break-word}
 .bf-md th{white-space:nowrap}

@@ -27,10 +27,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - `file-browse`: a rendered Markdown page fills the card instead of being the
-  1012px scroll box itself, so the scroll bar sits at the card edge and a short
-  document no longer collapses to its widest line. Headings and prose keep the
-  reading measure, while code blocks and tables use the free width of a wide
-  window rather than scrolling inside it.
+  1012px scroll box itself, so the scroll bar sits at the card edge. Headings,
+  prose, and code keep a centred measure of at most 46rem (about 740px). Tables
+  start at that column and take the free gutter to its right instead of
+  scrolling inside the measure, and a table wider than the pane fades its right
+  edge until scrolled to the end.
 
 - docs: the root README names the user guide as the manual — a positioning line
   in the intro and a hand-off after the extension catalog, mirrored in
@@ -115,6 +116,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stable anchor ids, so in-document `#anchor` links still work.
 
 ### Fixed
+
+- `file-browse`: a done task-list item draws the theme's success check instead
+  of the UA's disabled gray, and an open one a bordered empty box, so both
+  states read the same in light and dark.
 
 - `plan`: ticking a step with `set_plan_steps` also ticks the todo item approval
   seeded from it. Before, only the plan file changed, so the todo widget and the

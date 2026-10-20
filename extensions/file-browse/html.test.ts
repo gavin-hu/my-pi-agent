@@ -921,15 +921,18 @@ describe("viewing surface", () => {
 		});
 		// The scroll box is the card, not the measure: `margin-inline:auto` on a flex
 		// item is shrink-to-fit, so a short document used to collapse to its widest
-		// line. The measure sits on the blocks instead.
+		// line. The measure sits on the blocks instead, in rem so every block resolves
+		// the same length whatever its font.
+		expect(html).toContain(".browse-measure{--browse-measure:min(1012px,46rem)}");
 		expect(html).toContain(".browse-measure .bf-md{--browse-gutter:");
 		expect(html).toContain(";max-width:none;margin-inline:0;padding-inline:var(--space-5);");
 		expect(html).toContain(".browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}");
-		// Code and tables take the gutter instead of scrolling inside the measure,
-		// and start where the prose starts.
-		expect(html).toContain(".browse-measure .bf-md>pre,.browse-measure .bf-md>.md-table-wrap{max-width:none}");
-		expect(html).toContain(".browse-measure .bf-md>pre{padding-left:calc(var(--space-4) + var(--browse-gutter))}");
-		expect(html).toContain(".browse-measure .bf-md>.md-table-wrap{padding-left:var(--browse-gutter)}");
+		// Code stays inside the measure like the prose; tables start at the prose
+		// column and grow only into the right gutter, fading a clipped edge.
+		expect(html).toContain(".browse-measure .bf-md>.md-table-frame{max-width:none;padding-left:var(--browse-gutter)}");
+		expect(html).not.toContain(".browse-measure .bf-md>pre{max-width:none");
+		expect(html).toContain(".md-table-frame.browse-table-more::after{");
+		expect(html).toContain("linear-gradient(to left,var(--surface) 12%,transparent)");
 	});
 
 	test("anchors hunk headers and summarises a file diff", () => {

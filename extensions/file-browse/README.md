@@ -42,16 +42,17 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   tables, code, inline and reference links, bare-URL autolinks, and images, with
   a one-click **raw** view (`?raw=1`). The page fills the card, so the scroll
   bar sits at the card edge; headings, prose, and images keep a centred reading
-  measure of at most 1012px, while code blocks and tables take the free width of
-  a wide window instead of scrolling inside it, and a table wider than the pane
-  still scrolls. Tables size their columns to the content, and named and numeric
-  character references are decoded. A README's
-  raw HTML is re-emitted through an allowlist (`<details>`, `<summary>`,
-  tables, `<kbd>`, images), so it renders without becoming an injection path.
-  Fenced code
-  blocks are syntax-highlighted when the fence names a supported language.
-  Headings get stable anchor ids, so in-document `#anchor` links work. Raw HTML
-  in the source is escaped, never executed, and
+  measure of at most 46rem (about 740px, near 110 characters). Code blocks stay
+  inside that column; tables start at it and take the free gutter to its right,
+  and a table wider than the pane scrolls, its right edge fading until the last
+  column is reached. A task list's checkbox is drawn by the page, so a done
+  item carries the success colour in both themes. Tables size their columns to
+  the content, and named and numeric character references are decoded. A
+  README's raw HTML is re-emitted through an allowlist (`<details>`,
+  `<summary>`, tables, `<kbd>`, images), so it renders without becoming an
+  injection path. Fenced code blocks are syntax-highlighted when the fence
+  names a supported language. Headings get stable anchor ids, so in-document
+  `#anchor` links work. Raw HTML in the source is escaped, never executed, and
   external images are shown as links rather than fetched.
 - **Sortable listings.** The Name / Size / Modified headers sort the current
   directory, directories first, and the choice is remembered per browser.

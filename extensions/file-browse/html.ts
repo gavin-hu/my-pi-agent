@@ -153,18 +153,22 @@ body.palette-open{overflow:hidden}
 .browse-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* File and diff pages: a measured reading column inside the card. */
 /* The Markdown body fills the card, so the scroll box is the card's width: its
-   scrollbar sits at the card edge, and wide code or tables use the whole pane
-   instead of scrolling inside the measure. The measure lives on the blocks
-   themselves: on .bf-md it would be a flex item with auto inline margins,
-   which is shrink-to-fit, so a short document collapsed to its widest line. */
-.browse-measure{--browse-measure:1012px}
+   scrollbar sits at the card edge. The measure lives on the blocks themselves:
+   on .bf-md it would be a flex item with auto inline margins, which is
+   shrink-to-fit, so a short document collapsed to its widest line. It is a rem
+   length so every block resolves the same measure whatever its font. */
+.browse-measure{--browse-measure:min(1012px,46rem)}
 .browse-measure .bf-md{--browse-gutter:max(0px,calc((100% - var(--browse-measure)) / 2));max-width:none;margin-inline:0;padding-inline:var(--space-5);padding-block:var(--space-4) var(--space-6)}
 .browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}
-/* Code and tables take the gutter on the right instead of scrolling inside the
-   measure; their content starts where the prose starts. */
-.browse-measure .bf-md>pre,.browse-measure .bf-md>.md-table-wrap{max-width:none}
-.browse-measure .bf-md>pre{padding-left:calc(var(--space-4) + var(--browse-gutter))}
-.browse-measure .bf-md>.md-table-wrap{padding-left:var(--browse-gutter)}
+/* Tables start at the prose column and take only the gutter to its right, so a
+   wide window widens them without a dead band on their left. Code stays inside
+   the measure with the rest of the prose. */
+.browse-measure .bf-md>.md-table-frame{max-width:none;padding-left:var(--browse-gutter)}
+/* A table wider than the pane scrolls, but an overlay scrollbar is invisible
+   until it moves; a gradient on the frame marks the columns still out of view.
+   It has to be the frame: the scroller clips its own content, so a pseudo-element
+   inside it would scroll away with the table. */
+.browse-measure .bf-md>.md-table-frame.browse-table-more::after{content:"";position:absolute;top:0;right:0;bottom:0;width:40px;pointer-events:none;background:linear-gradient(to left,var(--surface) 12%,transparent)}
 .bf-card__meta{font-variant-numeric:tabular-nums}
 .browse-diff-summary{font-family:var(--font-mono);white-space:nowrap}
 .browse-diff-summary .browse-diff-add{color:var(--success)}

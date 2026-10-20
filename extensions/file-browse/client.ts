@@ -645,6 +645,19 @@ export const CLIENT_JS = `(function () {
 		progressFill.style.width = percent + "%";
 	}
 
+	// A table wider than the pane scrolls sideways, but an overlay scrollbar is
+	// invisible until it moves; the class fades the frame's right edge while
+	// columns are still out of view, and drops at the end so the last stays crisp.
+	function markTableOverflow() {
+		var frames = document.querySelectorAll(".md-table-frame");
+		Array.prototype.forEach.call(frames, function (frame) {
+			var wrap = frame.querySelector(".md-table-wrap");
+			if (!wrap) return;
+			var hidden = wrap.scrollWidth - wrap.clientWidth;
+			frame.classList.toggle("browse-table-more", hidden > 1 && wrap.scrollLeft < hidden - 1);
+		});
+	}
+
 	if (keysButton) keysButton.addEventListener("click", function () { toggleKeys(); });
 	if (keysDialog) {
 		keysDialog.addEventListener("click", function (event) {
@@ -657,6 +670,10 @@ export const CLIENT_JS = `(function () {
 	window.addEventListener("scroll", updateProgress, true);
 	window.addEventListener("resize", updateProgress);
 	updateProgress();
+	window.addEventListener("resize", markTableOverflow);
+	window.addEventListener("load", markTableOverflow);
+	document.addEventListener("scroll", markTableOverflow, true);
+	markTableOverflow();
 
 	document.addEventListener("keydown", function (event) {
 		if (event.key === "Escape" && keysDialog && !keysDialog.hidden) {
