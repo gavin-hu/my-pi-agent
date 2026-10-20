@@ -517,6 +517,16 @@ export const SCREENS: Record<string, Screen> = {
 			return component.render(width);
 		},
 	},
+	transcript: {
+		asset: "transcript",
+		title: "π - my-pi-agent · transcript",
+		// A wide, short window: the footer's right column is long enough that the
+		// default width could clip it, and the body is short enough that a tall
+		// window would leave empty rows under the footer.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 483 },
+		size: { width: 100, rows: 24 },
+		render: (width, rows) => renderTranscript(width, rows),
+	},
 	todo: {
 		asset: "todo",
 		title: "π - my-pi-agent · /todos",
@@ -707,21 +717,16 @@ const CHROME_NOTICE: NoticeDetails = {
 };
 
 /**
- * Draw the whole chrome as one frame: the header, a short transcript (the user
- * nameplate, a tool block, a notice, and the turn rule), and the two-line
- * footer. Every piece is the shipped component with the shipped theme, so the
- * preview and a real session show the same code.
+ * Draw the transcript body as one frame: the user nameplate, a tool block, a
+ * notice, the turn rule, and the two-line footer. No header, so the frame carries
+ * no version string; `renderChrome` puts the header above it.
  */
-function renderChrome(width: number): string[] {
+function renderTranscript(width: number, rows?: number): string[] {
 	setThemeInstance(theme);
 	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
 	// Draw at Pi's default output pad, so the frame has a real session's margins.
 	const pad = DEFAULT_HOST_PAD;
-	const lines = new ByteflyHeader(
-		() => theme,
-		() => ({ showVersion: true, halfBlocks: true, pad }),
-		VERSION,
-	).render(width);
+	const lines: string[] = [];
 
 	// The transformer sees the Markdown's content width, not the padded frame.
 	const plate = nameplate(width - pad * 2);
@@ -748,9 +753,25 @@ function renderChrome(width: number): string[] {
 	lines.push(...new SeparatorComponent({ turn: 3, durationMs: 72_000, tools: 7 }, theme, pad).render(width));
 	lines.push("");
 
-	for (const line of buildLines(CHROME_SNAPSHOT, theme, "/Users/gavin")) {
-		lines.push(renderLine(line, width, theme));
+	const footer = buildLines(CHROME_SNAPSHOT, theme, "/Users/gavin").map((line) => renderLine(line, width, theme));
+	// A real session keeps the footer at the bottom of the window, with the
+	// transcript growing above it; pad to that shape when the frame has a height.
+	if (rows !== undefined) {
+		for (let i = 0; i < rows - lines.length - footer.length; i++) lines.push("");
 	}
+	lines.push(...footer);
+	return lines;
+}
+
+/** Draw the whole chrome as one frame: the header above the transcript body. */
+function renderChrome(width: number): string[] {
+	setThemeInstance(theme);
+	const lines = new ByteflyHeader(
+		() => theme,
+		() => ({ showVersion: true, halfBlocks: true, pad: DEFAULT_HOST_PAD }),
+		VERSION,
+	).render(width);
+	lines.push(...renderTranscript(width));
 	return lines;
 }
 

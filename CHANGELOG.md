@@ -20,8 +20,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - docs: the user guide opens with a five-minute tour and a per-feature index, and
-  gains a glossary, a section on cost and what leaves the machine, and
-  screenshots for the nine screens it asks the reader to operate.
+  its contents are grouped into five lines. It gains a glossary (including prompt,
+  turn, and model), a section on cost and what leaves the machine, and screenshots
+  through the guide — the transcript frame included. Two surprises are named
+  where they bite: a deleted memory note has no undo, and a busy browser port is
+  reported rather than re-picked.
+
+- dev: `bun run screenshots` gains a `transcript` screen and `assets/transcript.png`,
+  drawn from `renderTranscript()` so the frame carries no version string.
 
 - docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
   contributor: five diagrams (the load path, an extension's anatomy, a turn, the
