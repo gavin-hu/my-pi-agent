@@ -13,7 +13,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
-import type { WechatClient } from "./client.ts";
+import { rejectionOf, type WechatClient } from "./client.ts";
 import { aesEcbPaddedSize, encryptEcb, sanitizeFileName, uploadUrlOf } from "./media.ts";
 import type { BotCredentials, CDNMedia } from "./types.ts";
 
@@ -93,9 +93,7 @@ export async function sendLocalFile(args: SendLocalFileArgs): Promise<boolean> {
 			args.signal,
 		);
 
-		const retBad = response.ret !== undefined && response.ret !== 0;
-		const codeBad = response.errcode !== undefined && response.errcode !== 0;
-		return !retBad && !codeBad;
+		return rejectionOf(response) === undefined;
 	} catch {
 		return false;
 	}

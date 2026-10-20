@@ -112,6 +112,8 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 			if (item.media.length > 0) {
 				const resolved = await resolveMedia(item);
 				if (!deps.isRunning()) return;
+				// The bridge has already refused a message with no text and no media, so
+				// this is the other case: media arrived but nothing in it could be read.
 				if (!text && resolved.images.length === 0 && resolved.files.length === 0) {
 					if (resolved.dropped > 0) prefix = notice("media", item.language, resolved.dropped);
 					await deps.reply(item, prefix ?? notice("unsupported", item.language));
@@ -124,11 +126,6 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 				}
 				if (resolved.files.length > 0) text = [text, ...resolved.files].filter(Boolean).join("\n");
 				images = resolved.images.length > 0 ? resolved.images : undefined;
-			}
-			if (!text && !images) {
-				await deps.reply(item, notice("unsupported", item.language));
-				deps.pruneTyping();
-				return;
 			}
 			const queued: PeerItem = {
 				peer: item.peer,

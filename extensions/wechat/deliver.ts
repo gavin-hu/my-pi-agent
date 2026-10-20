@@ -9,7 +9,7 @@
  */
 
 import type { BotCredentials } from "./types.ts";
-import { isSessionExpired, WechatError, type WechatClient } from "./client.ts";
+import { isSessionExpired, rejectionOf, WechatError, type WechatClient } from "./client.ts";
 import { messageOf } from "./errors.ts";
 import { chunkText, toWechatText } from "./format.ts";
 import { sendLocalFile } from "./outbound.ts";
@@ -105,14 +105,10 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 				}
 				// A body-level rejection is not a delivery: report it with the part count
 				// instead of letting the answer vanish.
-				if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
-					// Prefer the non-zero value: the body may carry `ret: 0` plus a real
-					// `errcode`, and reporting `ret 0` hides the actual reason.
-					const code = (response.ret ?? 0) !== 0 ? response.ret : (response.errcode ?? 0);
-					// The server's own description is the only way to tell a bad token
-					// from a rate limit, so it is part of the error.
-					const detail = response.errmsg ? `: ${response.errmsg}` : "";
-					onFailure(new WechatError(`Weixin rejected the message (ret ${code}${detail}).`), {
+				const rejection = rejectionOf(response);
+				if (rejection) {
+					const detail = rejection.detail ? `: ${rejection.detail}` : "";
+					onFailure(new WechatError(`Weixin rejected the message (ret ${rejection.code}${detail}).`), {
 						sent: index,
 						total: chunks.length,
 					});

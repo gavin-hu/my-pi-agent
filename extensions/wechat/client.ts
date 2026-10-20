@@ -421,6 +421,29 @@ export class WechatClient {
 	}
 }
 
+/** A response body's rejection: the code it reported and the server's own description. */
+export interface Rejection {
+	/** The non-zero `ret`, or the `errcode` when `ret` is zero or absent. */
+	code: number;
+	/** The server's `errmsg`, when it sent one. */
+	detail?: string;
+}
+
+/**
+ * The body-level rejection a response carries, or `undefined` when it was
+ * accepted.
+ *
+ * A body may carry `ret: 0` plus a real `errcode`, so the non-zero value wins:
+ * reporting `ret 0` would hide the actual reason. The server's `errmsg` is the
+ * only way to tell a bad token from a rate limit, so it travels with the code.
+ */
+export function rejectionOf(response: { ret?: number; errcode?: number; errmsg?: string }): Rejection | undefined {
+	const ret = response.ret ?? 0;
+	const errcode = response.errcode ?? 0;
+	if (ret === 0 && errcode === 0) return undefined;
+	return { code: ret !== 0 ? ret : errcode, detail: response.errmsg };
+}
+
 /** True when a response reports an expired bot token. */
 export function isSessionExpired(response: { ret?: number; errcode?: number }): boolean {
 	return response.ret === SESSION_EXPIRED || response.errcode === SESSION_EXPIRED;

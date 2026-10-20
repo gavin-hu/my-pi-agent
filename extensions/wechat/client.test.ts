@@ -6,6 +6,7 @@ import {
 	type HttpResponse,
 	type HttpRunner,
 	isSessionExpired,
+	rejectionOf,
 	WechatClient,
 	WechatError,
 } from "./client.ts";
@@ -253,5 +254,33 @@ describe("transport errors", () => {
 		expect(isSessionExpired({ ret: -14 })).toBe(true);
 		expect(isSessionExpired({ errcode: -14 })).toBe(true);
 		expect(isSessionExpired({ ret: 0 })).toBe(false);
+	});
+});
+
+describe("rejectionOf", () => {
+	test("accepts a response with no code, or a zero one", () => {
+		expect(rejectionOf({})).toBeUndefined();
+		expect(rejectionOf({ ret: 0 })).toBeUndefined();
+		expect(rejectionOf({ ret: 0, errcode: 0 })).toBeUndefined();
+	});
+
+	test("reports a non-zero ret with its description", () => {
+		expect(rejectionOf({ ret: -2, errmsg: "context token invalid" })).toEqual({
+			code: -2,
+			detail: "context token invalid",
+		});
+		// A code with no description still reports the code.
+		expect(rejectionOf({ ret: -2 })).toEqual({ code: -2, detail: undefined });
+	});
+
+	test("reports errcode when ret is absent or zero", () => {
+		expect(rejectionOf({ errcode: 45009 })).toEqual({ code: 45009, detail: undefined });
+		// The body can carry `ret: 0` beside a real errcode; reporting ret 0 would hide
+		// the reason.
+		expect(rejectionOf({ ret: 0, errcode: -2, errmsg: "bad token" })).toEqual({ code: -2, detail: "bad token" });
+	});
+
+	test("prefers ret when both are set", () => {
+		expect(rejectionOf({ ret: -1, errcode: -2 })?.code).toBe(-1);
 	});
 });
