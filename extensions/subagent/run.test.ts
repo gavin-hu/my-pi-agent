@@ -176,6 +176,23 @@ describe("runSingleAgent", () => {
 		expect(children[0].killSignals).toContain("SIGTERM");
 	});
 
+	test("returns an aborted result when the caller asks for one", async () => {
+		const controller = new AbortController();
+		const { spawn, children } = makeFakeSpawn(() => {
+			/* hold the process open until the test closes it */
+		});
+
+		const promise = runSingleAgent(options({ signal: controller.signal, abortAsResult: true, spawn }));
+		await waitFor(() => children.length === 1);
+		controller.abort();
+		children[0].close(0);
+
+		const result = await promise;
+		expect(result.stopReason).toBe("aborted");
+		expect(result.errorMessage).toBe("Aborted");
+		expect(result.exitCode).toBe(1);
+	});
+
 	const store = () => tempDir("subagent-runs-");
 
 	test("fails a run that outlives its deadline without aborting the call", async () => {

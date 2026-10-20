@@ -154,6 +154,25 @@ describe("renderSubagentCall", () => {
 });
 
 describe("renderSubagentResult", () => {
+	test("names a background start and points at /agents", () => {
+		const result = toolResult({
+			mode: "single",
+			results: [],
+			background: {
+				runId: "a1",
+				agent: "explorer",
+				task: "find auth",
+				cwd: "/repo",
+				startedAt: NOW,
+			},
+		});
+		const component = renderSubagentResult(result, { expanded: false }, theme);
+
+		const screen = component.render(80).join("\n");
+		expect(screen).toContain("Started explorer as a1");
+		expect(screen).toContain("/agents");
+	});
+
 	test("falls back to the message for a host-rejected call", () => {
 		const text = render(
 			renderSubagentResult(

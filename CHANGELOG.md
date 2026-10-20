@@ -50,6 +50,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pre-restore safety snapshot, so the rest of the file stays as it is. Added,
   deleted, renamed, and binary files still revert whole, and a file edited after
   its diff was read fails atomically instead of applying stale context.
+- `subagent`: a single run can start in the background and keep working after
+  the tool returns. `/agents` lists running and finished runs with status,
+  elapsed time, and usage; `Enter` opens a run, `c` collects a finished result
+  into the conversation, and `x` cancels a running one. Start and finish
+  records live on the session branch, so `/resume` shows finished runs and a
+  start without a finish as interrupted; `backgroundMax` bounds concurrent
+  children.
 
 ### Changed
 

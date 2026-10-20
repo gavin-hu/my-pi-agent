@@ -59,6 +59,8 @@ import { askViaTui } from "../extensions/question/tui.ts";
 import type { Question } from "../extensions/question/types.ts";
 import type { CheckResult } from "../extensions/check/types.ts";
 import { CheckResultComponent } from "../extensions/check/tui.ts";
+import { AgentsBoardComponent } from "../extensions/subagent/background-tui.ts";
+import type { BackgroundRun } from "../extensions/subagent/background.ts";
 import { ReviewListComponent } from "../extensions/rewind/review-tui.ts";
 import type { ReviewEntry } from "../extensions/rewind/paths.ts";
 import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
@@ -258,6 +260,40 @@ const REWIND_POINTS: RewindPoint[] = [
 			sessionId: "s1",
 			entryId: "e1",
 		},
+	},
+];
+
+/** The background runs the `/agents` board shows. */
+const AGENT_RUNS: BackgroundRun[] = [
+	{
+		id: "a2",
+		agent: "explorer",
+		task: "Map the auth module",
+		cwd: repo,
+		startedAt: now - 12_000,
+		status: "running",
+	},
+	{
+		id: "a1",
+		agent: "reviewer",
+		task: "Review the last diff",
+		cwd: repo,
+		startedAt: now - 62_000,
+		finishedAt: now,
+		status: "finished",
+		usage: { input: 6200, output: 1800, cacheRead: 0, cacheWrite: 0, cost: 0.04, contextTokens: 8000, turns: 1 },
+		output: "The diff is coherent; the only issue is the missing test.",
+	},
+	{
+		id: "a0",
+		agent: "worker",
+		task: "Fix the parser",
+		cwd: repo,
+		startedAt: now - 120_000,
+		finishedAt: now - 60_000,
+		status: "failed",
+		exitCode: 1,
+		errorMessage: "exit 1",
 	},
 ];
 
@@ -622,6 +658,21 @@ export const SCREENS: Record<string, Screen> = {
 			new RewindListComponent({
 				points: REWIND_POINTS,
 				theme,
+				onClose: noop,
+				requestRender: noop,
+				viewportRows: () => rows,
+			}).render(width),
+	},
+	agents: {
+		asset: "agents",
+		title: "π - my-pi-agent · /agents",
+		render: (width, rows) =>
+			new AgentsBoardComponent({
+				runs: () => AGENT_RUNS,
+				theme,
+				now: () => now,
+				onCollect: noop,
+				onCancel: noop,
 				onClose: noop,
 				requestRender: noop,
 				viewportRows: () => rows,

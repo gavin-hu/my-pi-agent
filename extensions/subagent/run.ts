@@ -44,6 +44,8 @@ export interface RunOptions {
 	spawn?: SpawnFn;
 	/** Per-run wall-clock limit in ms; `0` or absent disables it. */
 	timeoutMs?: number;
+	/** Return an aborted result instead of throwing (used by background runs). */
+	abortAsResult?: boolean;
 	/** Where and when a finished run writes a transcript. */
 	transcripts?: { dir: string; mode: Exclude<TranscriptMode, "off"> };
 }
@@ -236,12 +238,19 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 			spawn,
 		});
 
-		result.exitCode = outcome.timedOut ? 1 : outcome.exitCode;
+		result.exitCode = outcome.timedOut || outcome.aborted ? 1 : outcome.exitCode;
 		result.finishedAt = Date.now();
 		// A deadline fails the run rather than rejecting it: a chain then stops at
 		// this step and reports why, instead of discarding the steps already done.
 		if (outcome.timedOut) result.errorMessage = `Timed out after ${formatDuration(timeoutMs)}`;
-		if (outcome.aborted) throw new Error("Subagent was aborted");
+		if (outcome.aborted) {
+			if (options.abortAsResult) {
+				result.stopReason = "aborted";
+				result.errorMessage = "Aborted";
+				return result;
+			}
+			throw new Error("Subagent was aborted");
+		}
 		return result;
 	} finally {
 		// Flushed here, not after the call: the abort path throws past every caller.

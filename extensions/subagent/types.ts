@@ -64,6 +64,15 @@ export interface SingleResult {
 	artifactError?: string;
 }
 
+/** A background run the tool just started. */
+export interface BackgroundStart {
+	runId: string;
+	agent: string;
+	task: string;
+	cwd: string;
+	startedAt: number;
+}
+
 /** Structured result carried on the `subagent` tool result for rendering. */
 export interface SubagentDetails {
 	mode: SubagentMode;
@@ -74,6 +83,8 @@ export interface SubagentDetails {
 	projectAgentsDir?: string | null;
 	/** Whether the run forced a read-only tool set (plan mode). */
 	readOnly?: boolean;
+	/** Present when the tool started a background run instead of waiting. */
+	background?: BackgroundStart;
 	/**
 	 * Total steps/tasks requested, which can exceed `results.length` when a chain
 	 * stops early. Defaults to `results.length` when absent.

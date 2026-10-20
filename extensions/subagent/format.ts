@@ -4,7 +4,8 @@
 
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatTokens, sanitizeLine, shortenPath } from "../../lib/format.ts";
+import { formatDuration, formatTokens, sanitizeLine, shortenPath } from "../../lib/format.ts";
+import type { BackgroundRun } from "./background.ts";
 import type { UsageStats } from "./types.ts";
 
 /** Dollar cost, keeping four decimals for the sub-cent amounts these runs produce. */
@@ -123,4 +124,26 @@ export function formatToolCall(
 			return fg("accent", sanitizeLine(toolName)) + fg("dim", ` ${text}`);
 		}
 	}
+}
+
+/** The elapsed (or finished) duration of one background run. */
+export function formatBackgroundDuration(run: BackgroundRun, now = Date.now()): string {
+	const end = run.finishedAt ?? now;
+	return formatDuration(Math.max(0, end - run.startedAt));
+}
+
+/** The headless `/agents` listing: a count, then one line per run. */
+export function formatAgentsList(runs: readonly BackgroundRun[], now = Date.now()): string {
+	if (runs.length === 0) return "No background subagents yet.";
+	const running = runs.filter((run) => run.status === "running").length;
+	const lines = [
+		`${runs.length} background run${runs.length === 1 ? "" : "s"}${running ? ` · ${running} running` : ""}:`,
+	];
+	for (const run of runs) {
+		const usage = run.usage ? formatUsageStats(run.usage) : "";
+		lines.push(
+			`  ${run.id} ${sanitizeLine(run.agent)} · ${sanitizeLine(run.task)} · ${run.status} · ${formatBackgroundDuration(run, now)}${usage ? ` · ${usage}` : ""}`,
+		);
+	}
+	return lines.join("\n");
 }

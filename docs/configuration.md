@@ -397,6 +397,7 @@ unaffected.
 | `transcripts` | string | `"off"` | `"off"`, `"failed"`, `"all"` | Which finished runs keep a transcript under `.pi/subagents/`. |
 | `retentionDays` | integer | `14` | `1`–`3650` | Age after which a run directory is pruned at session start. |
 | `maxRuns` | integer | `100` | `1`–`1000` | Run directories kept; the oldest are pruned first. |
+| `backgroundMax` | integer | `4` | `1`–`8` | Background children allowed to run at once. |
 
 ## `check` — verification runs
 

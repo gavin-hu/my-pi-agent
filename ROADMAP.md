@@ -63,7 +63,7 @@ screenshots.
 | README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | — |
-| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1 |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, background runs are live, and folding a child total into the parent stays a documented non-goal | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
@@ -87,16 +87,12 @@ closed by work parked in any horizon.
 
 The first two sit in `Now`; this one is the smallest foundation gap left.
 
-The `Next` tier adds the one remaining highest user-value capability — P1 —
-without displacing these: it shortens the daily loop, while the three above
-keep its numbers honest and its foundation small.
-
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the picker's scope decision is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
-| **Next** (queued) | Does the daily loop feel finished? | `P1` lands: a delegated run can continue after the call returns. |
+| **Next** (queued) | Does the daily loop feel finished? | Empty: background delegation shipped; the next tier is not yet chosen. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -144,16 +140,8 @@ contributes no `Now` item.
 
 **Next**
 
-The daily loop has one gap left: it cannot keep working while a delegated run
-finishes.
-
-- **P1 — Background delegation.** Let `subagent` start one run without blocking
-  the turn, and add `/agents` to list, inspect, collect, and stop background
-  runs. Publish the existing finished-run event so bytefly's cost roll-up keeps
-  working, and keep finished-run metadata in a session entry so `/resume` shows
-  it. *Done when* a background run outlives the turn that started it, a
-  collected result enters the conversation with its usage, cancellation is
-  explicit, and `/resume` never reports a dead run as still running.
+Nothing here is queued: background delegation shipped with this release. This
+section contributes no `Next` item.
 
 ## 2. Keep your work safe
 

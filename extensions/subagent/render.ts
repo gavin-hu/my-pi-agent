@@ -488,6 +488,19 @@ export function renderSubagentResult(
 ): Component {
 	const now = options.now ?? Date.now();
 	const details = toolDetails<SubagentDetails>(result.details);
+	if (details?.background) {
+		syncElapsedTimer(false, context);
+		const text = reuseText(context?.lastComponent);
+		const background = details.background;
+		text.setText(
+			paint(
+				theme,
+				"meta",
+				`Started ${sanitizeLine(background.agent)} as ${sanitizeLine(background.runId)} in the background. Use /agents to collect or cancel it.`,
+			),
+		);
+		return text;
+	}
 	if (!details || details.results.length === 0) {
 		syncElapsedTimer(false, context);
 		const text = reuseText(context?.lastComponent);

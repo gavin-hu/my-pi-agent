@@ -30,6 +30,12 @@ describe("normalizeSubagentConfig", () => {
 		);
 	});
 
+	test("clamps the background capacity", () => {
+		expect(normalizeSubagentConfig({ backgroundMax: 2 }, DEFAULT_SUBAGENT_CONFIG).backgroundMax).toBe(2);
+		expect(normalizeSubagentConfig({ backgroundMax: 0 }, DEFAULT_SUBAGENT_CONFIG).backgroundMax).toBe(1);
+		expect(normalizeSubagentConfig({ backgroundMax: 99 }, DEFAULT_SUBAGENT_CONFIG).backgroundMax).toBe(8);
+	});
+
 	test("keeps retention usable", () => {
 		expect(normalizeSubagentConfig({ retentionDays: 3 }, DEFAULT_SUBAGENT_CONFIG).retentionDays).toBe(3);
 		expect(normalizeSubagentConfig({ retentionDays: 0 }, DEFAULT_SUBAGENT_CONFIG).retentionDays).toBe(1);

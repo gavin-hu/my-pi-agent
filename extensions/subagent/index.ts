@@ -25,6 +25,8 @@ import {
 	formatAgentList,
 	formatAgentNames,
 } from "./agents.ts";
+import { createBackgroundRuntime } from "./background.ts";
+import { registerAgentsCommand } from "./commands.ts";
 import { loadSubagentConfig, type SubagentConfig } from "./config.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
@@ -48,6 +50,7 @@ const DESCRIPTION = [
 	"Delegate tasks to specialized subagents with isolated context windows.",
 	"Modes: single (`agent` + `task`), parallel (`tasks`), chain (sequential, `{previous}` placeholder).",
 	"Each runs in its own process, inheriting the current model and thinking level.",
+	"A single run can start in the background (`background: true`) and is managed with `/agents`.",
 	`Built-in agents: ${AGENT_NAMES}.`,
 ].join(" ");
 
@@ -55,6 +58,7 @@ const GUIDELINES = [
 	"Use `subagent` for broad codebase exploration, parallel research, or isolated implementation work that would bloat the main context.",
 	"Prefer `explorer` first when another agent would otherwise re-read many files, then pass its output to `planner` or `worker`.",
 	"Run independent tasks with `tasks` (max 8, up to 4 at once); use `chain` only when each step needs the previous step's output.",
+	"Use `background: true` only for one long task you will collect from `/agents`.",
 	"Project-local agents are repository-controlled and load only when `agentScope` includes them; an untrusted project requires confirmation.",
 ];
 
@@ -84,8 +88,6 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		}
 	};
 
-	pi.on("session_start", (_event, ctx) => startSession(ctx));
-
 	/**
 	 * Account for each finished child, then hand the result on unchanged.
 	 *
@@ -105,6 +107,17 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		}
 		return result;
 	};
+
+	const background = createBackgroundRuntime({
+		appendEntry: (customType, data) => pi.appendEntry(customType, data),
+	});
+
+	pi.on("session_start", async (_event, ctx) => {
+		background.reset();
+		await startSession(ctx);
+	});
+	pi.on("session_shutdown", () => background.shutdown());
+	registerAgentsCommand(pi, background);
 
 	pi.registerTool({
 		name: TOOL_NAME,
@@ -193,6 +206,68 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 						};
 					}
 				}
+			}
+
+			if (args.background) {
+				if (mode !== "single") {
+					return {
+						content: [{ type: "text" as const, text: "`background` supports single mode only." }],
+						details: makeDetails([]),
+					};
+				}
+				if (!agents.some((candidate) => candidate.name === args.agent)) {
+					return {
+						content: [
+							{
+								type: "text" as const,
+								text: `Unknown agent: "${args.agent ?? ""}". Available agents: ${formatAgentList(agents)}`,
+							},
+						],
+						details: makeDetails([]),
+					};
+				}
+				const started = background.start(
+					{
+						agent: args.agent ?? "",
+						task: args.task ?? "",
+						cwd: args.cwd,
+						readOnly: args.readOnly,
+					},
+					ctx.sessionManager.getBranch(),
+					{
+						run,
+						agents,
+						defaults,
+						defaultCwd: root,
+						timeoutMs: config.timeoutMs,
+						transcripts,
+						backgroundMax: config.backgroundMax,
+					},
+				);
+				if (!started.ok) {
+					return {
+						content: [{ type: "text" as const, text: started.error }],
+						details: makeDetails([]),
+					};
+				}
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Started ${started.run.agent} as ${started.run.id} in the background. Use /agents to inspect, collect, or cancel it.`,
+						},
+					],
+					details: {
+						...makeDetails([]),
+						background: {
+							runId: started.run.id,
+							agent: started.run.agent,
+							task: started.run.task,
+							cwd: started.run.cwd,
+							startedAt: started.run.startedAt,
+						},
+					} satisfies SubagentDetails,
+				};
 			}
 
 			const context: ModeContext = {

@@ -636,6 +636,27 @@ The built-in helpers are:
 4. If you want a helper that cannot change anything, say "read-only": it gets only
    the reading tools.
 
+**Background helpers.** A single helper can keep working while you continue:
+
+1. Ask for it in the background:
+
+   ```text
+   start an explorer on the auth module in the background
+   ```
+
+   Pi replies with a run id such as `a2` and returns to the prompt.
+
+2. Type `/agents` to see the board. `j` / `k` choose a run, `Enter` opens its
+   detail, `c` collects a finished result into the conversation, and `x` cancels
+   a running one. `Esc` goes back or closes.
+
+   <img src="../assets/agents.png" alt="The /agents screen: running and finished background helpers with status, task, elapsed time, and usage" width="100%">
+
+   */agents: background helpers, newest first; c collects, x cancels.*
+
+3. A finished run can also be collected later from the same board. A run that
+   is still going when Pi exits is shown as interrupted next time.
+
 **Good to know.**
 
 - Every helper has a fixed set of tools, so a reviewer cannot edit your files and
@@ -1200,6 +1221,7 @@ lists them so you can delete what you no longer want.
 | `/goal done` | Mark the goal achieved |
 | `/goal clear` | Clear the goal |
 | `/check [test|lint|typecheck|all]` | Run the project's checks and show failures |
+| `/agents` | Inspect, collect, or cancel background helpers |
 | `/jobs` | Open the job list |
 | `/watch` | Open the watcher list |
 | `/watch list`, `matches <id>`, `logs <id>`, `stop <id>`, `clear [all]` | Watcher subcommands |
