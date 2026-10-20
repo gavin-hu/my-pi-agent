@@ -215,7 +215,10 @@ authenticates with npm trusted publishing (OIDC). See
    update the link refs at the bottom of that file. Bump the `@vX.Y.Z` install
    pin in the [getting-started chapter](./user-guide/getting-started.md#install)
    in the same commit — that is the one place that offers a pin;
-   `test/release.test.ts` fails on a stale pin.
+   `test/release.test.ts` fails on a stale pin. Bump the pack version in the
+   edition line on the [user guide home](./user-guide/README.md) in the same
+   commit, and the Pi version there if the guide was rechecked against a newer
+   one, so the stamp does not lag the package.
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:

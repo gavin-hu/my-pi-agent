@@ -119,8 +119,9 @@ describe precisely.
   declare themselves read-only. `/check` and `/review` refuse until the plan is
   approved, because both can write caches or the working tree. `todo` and `goal`
   stay available, and a subagent is forced read-only.
-- The review screen needs the terminal interface. In text-only modes the plan is
-  printed instead of opening a screen.
+- The review screen needs the terminal interface. A dialog-capable mode such as
+  RPC offers the same choices as a select menu; a run with no UI at all fails
+  with an actionable message instead of approving for you.
 
 ## Checking your work
 
