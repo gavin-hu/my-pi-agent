@@ -254,9 +254,10 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		expect(ctx.notices.some((notice: { kind?: string }) => notice.kind === "warning")).toBe(true);
 	});
 
-	test("registers the /rewind command and no others", () => {
+	test("registers /rewind and /review", () => {
 		const fake = setup();
 		expect(fake.commands.has("rewind")).toBe(true);
+		expect(fake.commands.has("review")).toBe(true);
 		expect(fake.commands.has("checkpoint")).toBe(false);
 	});
 

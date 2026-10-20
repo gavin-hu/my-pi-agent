@@ -10,6 +10,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { formatRewindListText, formatRewindRow } from "./format.ts";
+import { openReview } from "./review.ts";
 import { rewindTo } from "./rewind.ts";
 import type { RewindRuntime } from "./runtime.ts";
 import { RewindListComponent } from "./rewind-tui.ts";
@@ -69,6 +70,13 @@ export function registerCommands(pi: ExtensionAPI, runtime: RewindRuntime): void
 		description: "Rewind the working tree and/or conversation to an earlier prompt",
 		handler: async (_args, ctx) => {
 			await openRewind(pi, runtime, ctx);
+		},
+	});
+
+	pi.registerCommand("review", {
+		description: "Review the latest turn's changes and revert a file or the whole turn",
+		handler: async (_args, ctx) => {
+			await openReview(pi, runtime, ctx);
 		},
 	});
 }

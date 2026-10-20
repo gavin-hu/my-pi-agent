@@ -113,7 +113,7 @@ extension's own `README.md` has the full tool and command surface.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree status|enter|exit|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
-| [`rewind`](./extensions/rewind/) | `/rewind`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind` and restore code, conversation, or both. |
+| [`rewind`](./extensions/rewind/) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
 | [`memory`](./extensions/memory/) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 
 ### Reach the world

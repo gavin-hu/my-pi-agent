@@ -38,6 +38,7 @@ describe.skipIf(!runSlowSuites)("rewind", () => {
 		expect(plan.plan.removed).toBe(1);
 		expect(plan.plan.diff).toContain("README.md");
 		expect(plan.plan.diff).not.toContain("ignored.txt");
+		expect(plan.plan.currentTree).toMatch(/^[0-9a-f]{40,64}$/);
 
 		const summary = await applyRestore({ runGit }, { root: repo, indexFile: indexFileFor(repo), target: snapshot });
 		expect(summary.changed).toBe(2);

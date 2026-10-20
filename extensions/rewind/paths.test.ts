@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, expandGroup, groupPaths, parseNameStatus, SELECTION_MARKS, summarize } from "./paths.ts";
+import {
+	baseName,
+	expandGroup,
+	groupPaths,
+	parseNameStatus,
+	parseNumStat,
+	SELECTION_MARKS,
+	summarize,
+	toReviewEntries,
+} from "./paths.ts";
 
 describe("parseNameStatus", () => {
 	test("reads each status letter into its change kind", () => {
@@ -84,5 +93,39 @@ describe("SELECTION_MARKS", () => {
 		for (const change of ["modified", "deleted", "added"] as const) {
 			expect(SELECTION_MARKS[change]).toHaveLength(1);
 		}
+	});
+});
+
+describe("parseNumStat", () => {
+	test("reads text counts and binary dashes", () => {
+		const stats = parseNumStat("12\t3\tsrc/a.ts\n-\t-\tassets/logo.png\n0\t0\tempty.txt");
+
+		expect(stats.get("src/a.ts")).toEqual({ added: 12, removed: 3 });
+		expect(stats.get("assets/logo.png")).toEqual({ added: null, removed: null });
+		expect(stats.get("empty.txt")).toEqual({ added: 0, removed: 0 });
+	});
+
+	test("keeps a path that contains a tab", () => {
+		expect(parseNumStat("1\t2\tdir/weird\tname.txt").get("dir/weird\tname.txt")).toEqual({ added: 1, removed: 2 });
+	});
+
+	test("skips blank and malformed lines", () => {
+		expect(parseNumStat("\nnot-a-stat\n1\t2\n10\tnot-a-number\tx.txt\n")).toEqual(new Map());
+	});
+});
+
+describe("toReviewEntries", () => {
+	test("sorts by path and attaches counts, defaulting a missing stat to null", () => {
+		const entries = toReviewEntries(
+			parseNameStatus("M\tsrc/b.ts\nA\tsrc/a.ts\nD\tz.ts"),
+			parseNumStat("4\t1\tsrc/b.ts"),
+		);
+
+		expect(entries.map((entry) => entry.path)).toEqual(["src/a.ts", "src/b.ts", "z.ts"]);
+		expect(entries.map((entry) => [entry.added, entry.removed])).toEqual([
+			[null, null],
+			[4, 1],
+			[null, null],
+		]);
 	});
 });

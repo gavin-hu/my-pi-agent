@@ -7,8 +7,9 @@
  */
 
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../lib/format.ts";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { sanitizeLine, stripControlChars } from "../../lib/format.ts";
+import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { SELECTION_MARKS, type ReviewEntry } from "./paths.ts";
 import type { RestoreSummary } from "./types.ts";
 
 /** Longest prompt summary shown before truncation. */
@@ -140,4 +141,131 @@ export function formatRestoreText(summary: RestoreSummary): string {
 	const line = `${parts.join(", ")}.`;
 	const safety = summary.safety ? ` A safety snapshot #${summary.safety} captures the pre-restore state.` : "";
 	return `${line}${safety}`;
+}
+
+/** The trailing `+n −n`, `bin`, or `0` for one review row. */
+export function formatReviewEntryCounts(entry: Pick<ReviewEntry, "added" | "removed">): string {
+	if (entry.added === null && entry.removed === null) return "bin";
+	const parts: string[] = [];
+	if (entry.added !== null && entry.added > 0) parts.push(`+${entry.added}`);
+	if (entry.removed !== null && entry.removed > 0) parts.push(`−${entry.removed}`);
+	return parts.length > 0 ? parts.join(" ") : "0";
+}
+
+/** The review list's summary: `4 files · +128 −19`, plus `bin` when needed. */
+export function formatReviewSummary(entries: readonly ReviewEntry[]): string {
+	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
+	let added = 0;
+	let removed = 0;
+	let binary = false;
+	for (const entry of entries) {
+		if (entry.added === null && entry.removed === null) binary = true;
+		else {
+			added += entry.added ?? 0;
+			removed += entry.removed ?? 0;
+		}
+	}
+	const parts = [files];
+	if (added > 0 || removed > 0) parts.push(`+${added} −${removed}`);
+	if (binary) parts.push("bin");
+	return parts.join(SEPARATORS.item);
+}
+
+/** What the focused review row will do, in words. */
+export function formatReviewDetail(entry: ReviewEntry): string {
+	const text =
+		entry.change === "added"
+			? "created after the snapshot; reverting deletes it"
+			: entry.change === "deleted"
+				? "deleted since the snapshot; reverting brings it back"
+				: "modified since the snapshot; reverting rewrites it";
+	return `${SELECTION_MARKS[entry.change]} — ${text}${SEPARATORS.item}${formatReviewEntryCounts(entry)}. Enter opens the diff; r reverts it.`;
+}
+
+/** Headless `/review` text for modes without a custom screen. */
+export function formatReviewListText(entries: readonly ReviewEntry[], prompt: string | undefined): string {
+	const label = summarizePrompt(prompt) ?? "the last prompt";
+	const rows = entries.map((entry) => {
+		const counts = formatReviewEntryCounts(entry);
+		return `  ${SELECTION_MARKS[entry.change]} ${sanitizeLine(entry.path)}${counts ? `  ${counts}` : ""}`;
+	});
+	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
+	return [`Reviewing after "${label}" (${files}):`, ...rows].join("\n");
+}
+
+/** What one review revert did, and what is left to review. */
+export function formatReviewRevertText(summary: RestoreSummary, remaining: number): string {
+	const count = summary.changed + summary.removed;
+	const files = `${count} file${count === 1 ? "" : "s"}`;
+	const safety = summary.safety ? ` Safety snapshot #${summary.safety}.` : "";
+	const left =
+		remaining === 0 ? " No changes remain." : ` ${remaining} file${remaining === 1 ? "" : "s"} still changed.`;
+	return `Reverted ${files}.${safety}${left}`;
+}
+
+/** How a review change kind reads in a confirmation. */
+function changeDescription(change: ReviewEntry["change"]): string {
+	if (change === "added") return "created after the snapshot; reverting deletes it";
+	if (change === "deleted") return "deleted since the snapshot; reverting brings it back";
+	return "modified since the snapshot; reverting rewrites it";
+}
+
+/** The confirmation body for reverting one file. */
+export function formatRevertOneBody(entry: ReviewEntry, prompt: string, safety: boolean): string {
+	const label = summarizePrompt(prompt) ?? "this prompt";
+	const counts =
+		entry.added === null && entry.removed === null
+			? "Git reports a binary change; the whole file is restored."
+			: `Diff: ${formatReviewEntryCounts(entry)}.`;
+	return [
+		`${SELECTION_MARKS[entry.change]} — ${changeDescription(entry.change)}.`,
+		counts,
+		"",
+		`Returns ${sanitizeLine(entry.path)} to the snapshot taken before "${label}".`,
+		safety
+			? "A safety snapshot first makes the revert undoable with /rewind."
+			: "Safety snapshots are off; this cannot be undone.",
+	].join("\n");
+}
+
+/** The confirmation body for reverting every changed path in the review. */
+export function formatRevertAllBody(entries: readonly ReviewEntry[], prompt: string, safety: boolean): string {
+	const label = summarizePrompt(prompt) ?? "this prompt";
+	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
+	return [
+		`Restores ${files} to the snapshot taken before "${label}".`,
+		formatReviewSummary(entries),
+		"HEAD and the index are untouched.",
+		safety
+			? "A safety snapshot first makes the revert undoable with /rewind."
+			: "Safety snapshots are off; this cannot be undone.",
+	].join("\n");
+}
+
+/** Lines of one review diff shown at most. */
+export const REVIEW_DIFF_MAX_LINES = 2_000;
+
+/** Characters of one review diff kept before the line cap applies. */
+export const REVIEW_DIFF_MAX_CHARS = 400_000;
+
+/**
+ * A review patch as display lines: sanitized, tab-expanded, and bounded.
+ *
+ * The cap is applied before the pane ever holds the buffer, so a generated or
+ * minified file cannot make the screen allocate its whole diff. A truncated
+ * buffer ends with a note, and an empty patch (a binary change git would not
+ * render) gets a one-line placeholder instead of an empty screen.
+ */
+export function boundDiff(text: string, maxLines = REVIEW_DIFF_MAX_LINES, maxChars = REVIEW_DIFF_MAX_CHARS): string[] {
+	if (text.trim() === "") return ["No textual diff."];
+	const truncatedByChars = text.length > maxChars;
+	const raw = (truncatedByChars ? text.slice(0, maxChars) : text).split(/\r?\n/);
+	if (raw.at(-1) === "") raw.pop();
+	// A diff keeps its indentation, so this uses the multi-line boundary and
+	// expands tabs itself; `sanitizeLine` would collapse both.
+	const lines = raw.map((line) => stripControlChars(line).replaceAll("\t", "    "));
+	if (!truncatedByChars && lines.length <= maxLines) return lines;
+	const kept = lines.slice(0, maxLines);
+	kept.push(truncatedByChars ? "… diff truncated" : `… diff truncated at ${maxLines} lines`);
+	return kept;
 }

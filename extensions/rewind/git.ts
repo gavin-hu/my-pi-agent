@@ -22,7 +22,7 @@ import {
 	runGitOrThrow as run,
 	type RunGit,
 } from "../../lib/git/index.ts";
-import { parseNameStatus, type ChangedPath } from "./paths.ts";
+import { parseNameStatus, parseNumStat, type ChangedPath, type PathStat } from "./paths.ts";
 
 // Re-export exactly the shared helpers this extension consumes, so rewind code
 // has one git import surface instead of reaching into `lib/git` directly.
@@ -171,6 +171,34 @@ export async function diffStat(
 	if (paths) args.push(...paths.map(literalPathspec));
 	const result = await runGit(args, { cwd });
 	return result.code === 0 ? result.stdout.trim() : "";
+}
+
+/** A unified patch between two trees, optionally limited to `paths`. */
+export async function diffPatch(
+	runGit: RunGit,
+	cwd: string,
+	from: string,
+	to: string,
+	paths?: readonly string[],
+): Promise<string> {
+	const args = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=3", from, to, "--"];
+	if (paths) args.push(...paths.map(literalPathspec));
+	const result = await runGit(args, { cwd });
+	return result.code === 0 ? result.stdout : "";
+}
+
+/** Per-path added/removed line counts between two trees, with binary as nulls. */
+export async function diffNumStat(
+	runGit: RunGit,
+	cwd: string,
+	from: string,
+	to: string,
+	paths?: readonly string[],
+): Promise<Map<string, PathStat>> {
+	const args = ["diff", "--no-color", "--numstat", "--no-renames", from, to, "--"];
+	if (paths) args.push(...paths.map(literalPathspec));
+	const result = await runGit(args, { cwd });
+	return result.code === 0 ? parseNumStat(result.stdout) : new Map();
 }
 
 /**

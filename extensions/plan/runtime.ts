@@ -21,6 +21,7 @@ import { realpathSync } from "node:fs";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
+import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -37,7 +38,7 @@ export const WRITE_PLAN_TOOL = "write_plan";
 /** Tool the model calls to keep an approved plan's steps current. */
 export const SET_PLAN_STEPS_TOOL = "set_plan_steps";
 /** Custom-entry type used for plan-mode state. */
-export const STATE_TYPE = "plan-mode";
+export const STATE_TYPE = PLAN_MODE_ENTRY_TYPE;
 /** Custom-entry type used for a plan's review baseline. */
 export const BASELINE_TYPE = "plan-baseline";
 

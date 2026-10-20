@@ -64,7 +64,7 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | P1 |
 | Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P2 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C5, F1–F2 |
@@ -87,8 +87,8 @@ closed by work parked in any horizon.
 
 The first two sit in `Now`; this one is the smallest foundation gap left.
 
-The `Next` tier adds the three highest user-value capabilities — P1, P2, and
-S3 — without displacing these: they shorten the daily loop, while the three
+The `Next` tier adds the two remaining highest user-value capabilities — P1
+and P2 — without displacing these: they shorten the daily loop, while the three
 above keep its numbers honest and its foundation small.
 
 ## Horizons
@@ -96,7 +96,7 @@ above keep its numbers honest and its foundation small.
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the picker's scope decision is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
-| **Next** (queued) | Does the daily loop feel finished? | `P1`, `P2`, and `S3` land: a turn can be verified and reviewed, and a delegated run can continue after the call returns. |
+| **Next** (queued) | Does the daily loop feel finished? | `P1` and `P2` land: a turn can be verified, and a delegated run can continue after the call returns. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -190,8 +190,6 @@ working while a delegated run finishes.
   README).
 - Rewind captures no ignored file, and the path checklist needs a TUI (see
   [Deliberately left thin](#deliberately-left-thin)).
-- A snapshot can be restored by path, but there is no review surface that shows
-  one turn's diff and lets the user revert a file without leaving Pi.
 - Memory injection truncates a large store with a tail note, and `forget` is
   exact; `/memory doctor` names the notes the cap drops and the near-duplicate
   pairs the conservative key considers equal, and `m` in the picker merges them
@@ -205,16 +203,8 @@ This section contributes no `Now` item.
 
 **Next**
 
-A rewind can restore a subset of a snapshot, but it cannot yet be used as a
-review surface for the turn that just ran.
-
-- **S3 — Turn review.** Add `/review` to `rewind`: show the latest prompt's
-  snapshot diff as a file list with `M/A/D`, `+n/−n`, and a per-file diff, then
-  revert one file or all of them through the existing safety snapshot. *Done
-  when* a turn's changes can be reviewed and a file reverted without leaving Pi,
-  whole-file revert is the only destructive action, and the confirmation names
-  the prompt the snapshot precedes. No new storage: the snapshot, diff, and
-  restore primitives already exist.
+Nothing here is queued: turn review shipped with this release, and the rest is
+either structural or later work. This section contributes no `Next` item.
 
 **Later**
 
