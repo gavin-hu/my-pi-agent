@@ -12,30 +12,11 @@ and each of those says so where it comes up.
 
 ## Contents
 
-- [Start here](#start-here)
-- [Words used in this guide](#words-used-in-this-guide)
-- [What you are using](#what-you-are-using)
-- [Getting it installed](#getting-it-installed)
-- [What it costs, and what leaves your machine](#what-it-costs-and-what-leaves-your-machine)
-- [The screen at a glance](#the-screen-at-a-glance)
-- [Asking for things in plain words](#asking-for-things-in-plain-words)
-- [Plan first, then write](#plan-first-then-write)
-- [A to-do list and a goal](#a-to-do-list-and-a-goal)
-- [Answering the assistant's questions](#answering-the-assistants-questions)
-- [Background jobs and watchers](#background-jobs-and-watchers)
-- [Delegating to specialist helpers](#delegating-to-specialist-helpers)
-- [Working on a branch safely](#working-on-a-branch-safely)
-- [Undoing a turn](#undoing-a-turn)
-- [Remembering between sessions](#remembering-between-sessions)
-- [Searching and reading the web](#searching-and-reading-the-web)
-- [Documents and files](#documents-and-files)
-- [Using it from WeChat](#using-it-from-wechat)
-- [Settings, health, and looks](#settings-health-and-looks)
-- [Turning features off, or removing the pack](#turning-features-off-or-removing-the-pack)
-- [When something looks wrong](#when-something-looks-wrong)
-- [Quick reference](#quick-reference)
-- [What this package writes to disk](#what-this-package-writes-to-disk)
-- [Where to read more](#where-to-read-more)
+- **Start here** — [the tour](#start-here), [words](#words-used-in-this-guide), [what this adds](#what-you-are-using), [install](#getting-it-installed), [cost and privacy](#what-it-costs-and-what-leaves-your-machine), [the screen](#the-screen-at-a-glance), [plain words](#asking-for-things-in-plain-words)
+- **Plan and delegate** — [planning](#plan-first-then-write), [to-do and goal](#a-to-do-list-and-a-goal), [questions](#answering-the-assistants-questions), [background work](#background-jobs-and-watchers), [specialist helpers](#delegating-to-specialist-helpers)
+- **Keep your work safe** — [worktrees](#working-on-a-branch-safely), [rewind](#undoing-a-turn), [memory](#remembering-between-sessions)
+- **Reach the world** — [web](#searching-and-reading-the-web), [documents and files](#documents-and-files), [WeChat](#using-it-from-wechat)
+- **Reference** — [settings](#settings-health-and-looks), [turning off](#turning-features-off-or-removing-the-pack), [troubleshooting](#when-something-looks-wrong), [quick reference](#quick-reference), [files](#what-this-package-writes-to-disk), [where to read more](#where-to-read-more)
 
 ## Start here
 
@@ -47,8 +28,8 @@ you press is written as a key such as `a` or `Esc`.
 
 1. **Install the pack**, then start Pi in a project folder
    ([Getting it installed](#getting-it-installed)).
-2. **Check it loaded** — type `/bytefly` and look for one row per extension
-   ([Settings, health, and looks](#settings-health-and-looks)).
+2. **Check it loaded** — type `/bytefly` and look for the pack's own rows,
+   sixteen of them ([Settings, health, and looks](#settings-health-and-looks)).
 3. **Plan a task before it writes** — `/plan <task>`, review the plan, press `a`
    to approve ([Plan first, then write](#plan-first-then-write)).
 4. **Know you can undo a turn** — `/rewind` lists the prompts you can return to
@@ -107,8 +88,11 @@ is unfamiliar, it is defined in [Words used in this guide](#words-used-in-this-g
 | Pi | The assistant program this pack adds to. |
 | Extension | One add-on in the pack; there are sixteen, each switchable. |
 | Slash command | A message that starts with `/` and acts immediately instead of starting a turn. |
+| Prompt | What you type to the assistant, before it answers. |
+| Turn | One prompt and the assistant's work in answer to it. |
 | Tool | An action the assistant can take, such as reading a file or running a command. |
 | Session | One conversation, with its own history. |
+| Model | The AI your provider runs; the pack only adds tools and screens around it. |
 | Repository (repo) | A project folder whose history `git` tracks. |
 | Branch | A named line of work in a repository. |
 | Commit | A saved point in a branch's history. |
@@ -225,10 +209,10 @@ your own machine only (`127.0.0.1`): the file browser and the plan review;
 ## What it costs, and what leaves your machine
 
 **Cost.** The pack is free and open source. What costs money is the AI model you
-talk to: your provider bills for the tokens a session uses, exactly as it does
-without this pack. The footer shows a running estimate, **Pricing** in
-`/bytefly settings` sets the currency and an optional budget, and reaching the
-budget warns you once without stopping anything.
+talk to: your provider bills for the tokens (the units it bills by) a session
+uses, exactly as it does without this pack. The footer shows a running estimate,
+**Pricing** in `/bytefly settings` sets the currency and an optional budget, and
+reaching the budget warns you once without stopping anything.
 
 **What leaves your machine.** The pack sends nothing about your session
 anywhere. Three things use the network, and only when they apply: a web search or
@@ -245,6 +229,11 @@ session itself.
 
 Most of the pack is visible in the transcript itself, so it helps to know the
 parts of the screen before using a feature.
+
+<img src="../assets/transcript.png" alt="A Pi transcript: the You nameplate, a tool call with its result behind the rail, a notice, the turn rule, and the footer with its status chips" width="100%">
+
+*One turn: your nameplate, a tool call with its result behind the rail, a notice,
+the turn rule, and the footer.*
 
 | Part | What it is |
 |---|---|
@@ -719,7 +708,7 @@ everything you do).
    | `a` | Add a note to the current scope |
    | `m` | Mark a note to merge; `m` on a second note joins the two in an editor |
    | `p` | Move a note to the other scope |
-   | `d` | Delete the focused note, after a yes/no confirmation |
+   | `d` | Delete the focused note, after a yes/no confirmation. A deleted note is gone; there is no undo |
    | `s` or `Tab` | Filter by scope |
    | `r` | Re-read the notes from disk |
    | `Esc` | Cancel the current action, or close the picker |
@@ -853,7 +842,8 @@ outside it is refused.
 - It listens only on your own machine (`127.0.0.1`), never on your network.
   [Security](./security.md) explains the boundary in full.
 - The port is chosen once per session. Set `"port"` in the `file-browse` section
-  of `bytefly.json` to pin a specific one.
+  of `bytefly.json` to pin a specific one. A pinned port that is already in use is
+  reported, not silently replaced.
 
 ### Opening a file in its usual application
 
