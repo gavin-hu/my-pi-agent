@@ -8,11 +8,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: one loopback HTTP layer (`lib/http`) replaces the copies `file-browse`
+  and `plan` each carried for the response shape, the page/script/JSON headers,
+  the `Host` and request-target helpers, the bind, the response writer, and the
+  idempotent close; and one shortcut sheet (`keysSheet`,
+  `keysDialogScript`) replaces the markup, CSS, and client wiring both pages
+  rendered. No route, command, or config key changed.
+
 - `lib`: `DockListScreen` gained four optional members — width-aware facts above
   the pane, a live pane that re-reads its source each frame, an optional poll
   source, and a verb that works inside the pane — plus per-rows and per-row hint
   hooks. `job` and `watch` are unchanged; `/check`'s failure list and the
   `/agents` board now subclass the base instead of re-assembling the frame.
+
+- `file-browse`: the served pages refuse to be framed (`frame-ancestors 'none'`
+  and `X-Frame-Options: DENY`, plus `base-uri 'self'` and `form-action 'none'`),
+  matching the review page, and the `?` shortcut sheet's header is now styled —
+  it emitted classes the browse stylesheet never defined.
 
 - `subagent`: the `/agents` detail header names the run as its title with its
   status and duration beneath, so it reads like the `/jobs` and `/watch` panes.

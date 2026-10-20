@@ -11,9 +11,10 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
+import { bindLoopback, createCloser, jsonHeaders, respond, type ServeResponse } from "../../lib/http/index.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
 import {
@@ -27,13 +28,7 @@ import {
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
 import { changedSections, type SectionDigest } from "./plan-text.ts";
 import { extractPlanSections, extractPlanSteps } from "./steps.ts";
-import {
-	handleReviewRequest,
-	JSON_HEADERS,
-	type ReviewContext,
-	type ServeResponse,
-	type SaveResult,
-} from "./web-router.ts";
+import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
 /** How a browser review ended. */
@@ -121,19 +116,6 @@ function readBody(request: IncomingMessage, limit: number): Promise<BodyResult> 
 		request.on("end", () => settle({ ok: true, body: Buffer.concat(chunks).toString("utf-8") }));
 		request.on("error", () => settle({ ok: false }));
 	});
-}
-
-async function listen(server: Server, port: number): Promise<number> {
-	await new Promise<void>((resolve, reject) => {
-		const onError = (error: Error) => reject(error);
-		server.once("error", onError);
-		server.listen(port, "127.0.0.1", () => {
-			server.off("error", onError);
-			resolve();
-		});
-	});
-	const address = server.address();
-	return typeof address === "object" && address ? address.port : port;
 }
 
 export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = {}): PlanWebReview {
@@ -284,7 +266,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				const read =
 					method.toUpperCase() === "POST" ? await readBody(request, maxBody) : { ok: true as const, body: "" };
 				if (!read.ok) {
-					response.writeHead(413, { ...JSON_HEADERS, Connection: "close" });
+					response.writeHead(413, { ...jsonHeaders(), Connection: "close" });
 					response.end(JSON.stringify({ error: "The request body is too large." }));
 					return;
 				}
@@ -295,7 +277,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				} catch {
 					result = {
 						status: 500,
-						headers: { ...JSON_HEADERS },
+						headers: jsonHeaders(),
 						body: JSON.stringify({ error: "Internal error" }),
 					};
 				}
@@ -314,11 +296,6 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					});
 					return;
 				}
-				response.writeHead(result.status, result.headers);
-				if (method.toUpperCase() === "HEAD") {
-					response.end();
-					return;
-				}
 				// A save or cancel only resolves the session after its response is on the
 				// wire; otherwise `close()` would force-close the socket mid-reply. The
 				// `close` path covers a client that walks away before the flush callback
@@ -329,25 +306,23 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					pendingResult = undefined;
 					finish(terminal);
 				};
-				response.end(result.body ?? "", settlePending);
+				respond(request, response, result, settlePending);
 				response.on("close", settlePending);
 			})();
 		});
 
-		// An accept-level error (EMFILE and friends) is emitted on the server, and an
-		// `error` event with no listener would take the host down mid-review. The
-		// review still ends through its own paths: cancel, abort, drop, or shutdown.
-		server.on("error", () => {});
-
+		// The accept-level `error` listener lives in `bindLoopback`, so a transient
+		// failure cannot take the host down; the review still ends through its own
+		// paths: cancel, abort, drop, or shutdown.
 		const preferred = deps.port ?? ports.get(plan.path) ?? 0;
 		let port: number | undefined;
 		try {
-			port = await listen(server, preferred);
+			port = await bindLoopback(server, preferred);
 		} catch {
 			// The remembered port may have been taken between turns; fall back once.
 			if (preferred !== 0) {
 				try {
-					port = await listen(server, 0);
+					port = await bindLoopback(server, 0);
 				} catch {
 					port = undefined;
 				}
@@ -358,6 +333,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			return undefined;
 		}
 		ports.set(plan.path, port);
+		const closeServer = createCloser(server);
 
 		const url = `http://127.0.0.1:${port}/?token=${token}`;
 		let closed = false;
@@ -370,10 +346,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			for (const client of clients) client.end();
 			clients.clear();
 			finish({ status: "cancelled" });
-			await new Promise<void>((resolve) => {
-				server.close(() => resolve());
-				(server as { closeAllConnections?: () => void }).closeAllConnections?.();
-			});
+			await closeServer();
 		};
 
 		const session: PlanReviewSession = { url, port, done, close };

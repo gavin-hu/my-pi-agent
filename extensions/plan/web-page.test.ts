@@ -100,14 +100,14 @@ describe("renderReviewPage", () => {
 		expect(html).toContain('class="bf-btn bf-btn--primary" id="approve">Approve &amp; run</button>');
 		expect(html).toContain('class="bf-btn" id="save">Save feedback</button>');
 		expect(html).toContain('class="bf-btn" id="cancel">Back to Pi</button>');
-		expect(html).toContain('<kbd class="review-kbd">a</kbd></dt><dd>Approve and run the plan</dd>');
+		expect(html).toContain('<kbd class="bf-kbd">a</kbd></dt><dd>Approve and run the plan</dd>');
 	});
 
 	test("keeps Save primary and omits approve on a comment-only review", () => {
 		const html = page({ canApprove: false });
 		expect(html).not.toContain('id="approve"');
 		expect(html).toContain('class="bf-btn bf-btn--primary" id="save"');
-		expect(html).not.toContain('<kbd class="review-kbd">a</kbd>');
+		expect(html).not.toContain('<kbd class="bf-kbd">a</kbd>');
 	});
 
 	test("pins a reading-progress bar to the header", () => {
@@ -119,8 +119,8 @@ describe("renderReviewPage", () => {
 	test("spells the sidebar hints and defers to the shortcut sheet", () => {
 		const html = page();
 		expect(html).toContain('<p class="review-hints">');
-		expect(html).toContain('<kbd class="review-kbd">a</kbd> to approve');
-		expect(html).toContain('<kbd class="review-kbd">?</kbd> for all shortcuts');
+		expect(html).toContain('<kbd class="bf-kbd">a</kbd> to approve');
+		expect(html).toContain('<kbd class="bf-kbd">?</kbd> for all shortcuts');
 	});
 
 	test("drops the approve hint from the sidebar on a comment-only review", () => {
@@ -137,7 +137,7 @@ describe("renderReviewPage", () => {
 		expect(html).toContain("bf-progress__fill");
 		expect(html).toContain('id="keys-dialog"');
 		expect(html).toContain('id="shortcuts"');
-		expect(html).toContain("review-kbd");
+		expect(html).toContain("bf-keys");
 	});
 
 	test("drops the outline column when the plan has no headings", () => {

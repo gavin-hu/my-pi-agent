@@ -97,3 +97,35 @@ export function button(options: ButtonOptions): string {
 	const rendered = attrs.map(([key, value]) => ` ${key}="${escapeHtml(value)}"`).join("");
 	return `<button type="button" class="${classes}"${rendered}>${escapeHtml(options.label)}</button>`;
 }
+
+/** One row of the keyboard sheet: the key or chord, and what it does. */
+export interface KeyHint {
+	/** The key or chord, one `<kbd>` per entry; a single string is one key, chord, or alias run. */
+	keys: string | readonly string[];
+	/** What the key does. */
+	label: string;
+}
+
+/**
+ * The `?` keyboard sheet: the dialog of key/label rows both pages share, hidden
+ * until the client opens it.
+ *
+ * The ids are the contract with `keysDialogScript` in `runtime.ts` — `#keys-dialog`
+ * for the sheet, `#keys-close` for its own close button — and the trigger button
+ * is the page's own concern, since the two pages name it differently.
+ */
+export function keysSheet(rows: readonly KeyHint[]): string {
+	const kbd = (key: string): string => `<kbd class="bf-kbd">${escapeHtml(key)}</kbd>`;
+	const body = rows
+		.map((row) => {
+			const keys = typeof row.keys === "string" ? kbd(row.keys) : row.keys.map(kbd).join(" ");
+			return `<div><dt>${keys}</dt><dd>${escapeHtml(row.label)}</dd></div>`;
+		})
+		.join("\n");
+	return `<div class="bf-dialog" id="keys-dialog" hidden>
+<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="keys-title">
+<div class="bf-dialog__head"><h2 id="keys-title">Keyboard shortcuts</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="keys-close">Close</button></div>
+<dl class="bf-keys">${body}</dl>
+</div>
+</div>`;
+}

@@ -165,7 +165,11 @@ document and the project document (project wins):
   existing ancestor) is `realpath`-checked for containment. This blocks `../`,
   encoded traversal, and symlink escapes. Symlinks are listed but only followed
   when their real path stays inside the root.
-- **CSP.** Pages allow only same-origin scripts and inline styles; `/raw` uses
+- **CSP.** Pages allow only same-origin scripts and inline styles, and refuse to
+  be framed (`frame-ancestors 'none'`, `X-Frame-Options: DENY`), so a local page
+  cannot clickjack the controls or re-point relative URLs through an injected
+  `<base>`; the policy comes from `lib/http/headers.ts`, shared with `plan`, so
+  the two surfaces cannot drift. `/raw` uses
   `default-src 'none'; script-src 'none'; sandbox` plus `nosniff`, so a served
   SVG/HTML file cannot execute.
 - **Markdown safety.** Rendered Markdown is escape-first, and raw HTML passes an
@@ -331,8 +335,9 @@ document and the project document (project wins):
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
 | `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
 | `html.ts` | Page renderers, sortable headers, and the page-only `browse-*` CSS (the `bf-*` kit comes from `lib/web`) |
-| `router.ts` | Pure request handler |
-| `server.ts` | `node:http` server |
+| `router.ts` | Pure request handler: routes, the `/raw` sandbox policy, and the error page |
+| `server.ts` | `node:http` server: this extension's handler over the shared bind, writer, and close |
+| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: page/script/JSON headers, `ServeResponse`, the request-envelope helpers, bind/respond/close |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |
 
 ## Testing

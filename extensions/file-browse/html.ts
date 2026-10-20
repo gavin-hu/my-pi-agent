@@ -12,6 +12,8 @@ import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import {
 	brandLockup,
 	docHead,
+	type KeyHint,
+	keysSheet,
 	SIDEBAR_COLLAPSE_MAX,
 	WEB_BASE_CSS,
 	WEB_COMPONENTS_CSS,
@@ -173,10 +175,6 @@ body.palette-open{overflow:hidden}
 .browse-diff-summary .browse-diff-add{color:var(--success)}
 .browse-diff-summary .browse-diff-del{color:var(--danger)}
 .browse-hunks{color:var(--muted)}
-.browse-keys{display:grid;grid-template-columns:auto 1fr;gap:8px var(--space-4);margin:0;padding:var(--space-4)}
-.browse-keys dt{white-space:nowrap}
-.browse-keys dd{margin:0;color:var(--muted);font-size:var(--fs-sm)}
-.browse-kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--fs-xs) var(--font-mono);text-align:center}
 /* Wide screens: pin quick open and the filter, and scroll the tree on its own
    box. The sidebar is a details element, whose content sits in an anonymous
    wrapper with no definite height, so the panel fills the sidebar by absolute
@@ -194,12 +192,6 @@ body.palette-open{overflow:hidden}
 .bf-toolbar .bf-theme-toggle{margin-left:auto}
 }`;
 
-/** One row of the keyboard sheet: the key or chord, and what it does. */
-export interface KeyHint {
-	keys: string;
-	label: string;
-}
-
 interface Layout {
 	title: string;
 	rootLabel: string;
@@ -215,22 +207,6 @@ interface Layout {
 	git?: GitStatus;
 	/** Changed-path index for the header chip and the tree markers; omitted when clean. */
 	summary?: ChangeSummary;
-}
-
-/** The `?` keyboard sheet, hidden until the client opens it. */
-function renderKeysSheet(keys: KeyHint[]): string {
-	const rows = keys
-		.map(
-			(key) =>
-				`<div><dt><kbd class="browse-kbd">${escapeHtml(key.keys)}</kbd></dt><dd>${escapeHtml(key.label)}</dd></div>`,
-		)
-		.join("");
-	return `<div class="bf-dialog" id="keys-dialog" hidden>
-<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="keys-title">
-<div class="bf-dialog__head"><h2 id="keys-title">Keyboard shortcuts</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="keys-close">Close</button></div>
-<dl class="browse-keys">${rows}</dl>
-</div>
-</div>`;
 }
 
 /** A full two-pane page. */
@@ -274,7 +250,7 @@ ${layout.main}
   </main>
 </div>
 <footer class="bf-app__footer">served from ${escapeHtml(layout.rootLabel)} · read-only · ${escapeHtml(layout.footerNote)}</footer>
-${layout.keys && layout.keys.length > 0 ? renderKeysSheet(layout.keys) : ""}
+${layout.keys && layout.keys.length > 0 ? keysSheet(layout.keys) : ""}
 <script src="/app.js" defer></script>
 </body>
 </html>

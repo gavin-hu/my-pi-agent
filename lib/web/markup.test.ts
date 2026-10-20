@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { brandLockup, button, chip, docHead, themeToggle } from "./markup.ts";
+import { brandLockup, button, chip, docHead, keysSheet, themeToggle } from "./markup.ts";
 
 describe("web markup", () => {
 	test("renders the shared document head", () => {
@@ -38,5 +38,18 @@ describe("web markup", () => {
 		expect(rendered).toContain("bf-btn--primary");
 		expect(rendered).toContain('aria-pressed="true"');
 		expect(rendered).toContain('data-x="1"');
+	});
+
+	test("renders the shortcut sheet with one kbd per key", () => {
+		const sheet = keysSheet([
+			{ keys: "/ \u2318K", label: "Quick open" },
+			{ keys: ["j", "k"], label: "Move <block> & comment" },
+		]);
+		expect(sheet).toContain('id="keys-dialog" hidden');
+		expect(sheet).toContain('id="keys-close"');
+		expect(sheet).toContain('<dl class="bf-keys">');
+		expect(sheet).toContain('<kbd class="bf-kbd">/ \u2318K</kbd>');
+		expect(sheet).toContain('<kbd class="bf-kbd">j</kbd> <kbd class="bf-kbd">k</kbd>');
+		expect(sheet).toContain("Move &lt;block&gt; &amp; comment");
 	});
 });

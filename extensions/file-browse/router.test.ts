@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { realpathSync } from "node:fs";
 import { DEFAULT_CONFIG, type ServeConfig } from "./config.ts";
-import { handleRequest, type ServeContext, type ServeResponse } from "./router.ts";
+import { handleRequest, type ServeContext } from "./router.ts";
+import type { ServeResponse } from "../../lib/http/index.ts";
 import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
 let fixture: Fixture | undefined;
@@ -157,6 +158,21 @@ describe("guards", () => {
 	test("allows 127.0.0.1 and localhost hosts", async () => {
 		expect((await handleRequest(context(), "GET", "/", { host: "127.0.0.1:8080" })).status).toBe(200);
 		expect((await handleRequest(context(), "GET", "/", { host: "localhost" })).status).toBe(200);
+	});
+
+	test("serves pages, scripts, and APIs under the shared page policy", async () => {
+		const page = await handleRequest(context(), "GET", "/", {});
+		expect(page.headers["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+		expect(page.headers["X-Frame-Options"]).toBe("DENY");
+
+		for (const route of ["/app.js", "/theme.js"]) {
+			const script = await handleRequest(context(), "GET", route, {});
+			expect(script.headers["Content-Security-Policy"], route).toContain("frame-ancestors 'none'");
+			expect(script.headers["X-Frame-Options"], route).toBe("DENY");
+		}
+
+		const api = await handleRequest(context(), "GET", "/api/files?q=", {});
+		expect(api.headers["X-Content-Type-Options"]).toBe("nosniff");
 	});
 
 	test("rejects non-GET/HEAD methods", async () => {

@@ -59,6 +59,12 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-dialog__option{padding:var(--space-1) var(--space-4);font:var(--fs-sm) var(--font-mono);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bf-dialog__option[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
 .bf-dialog mark{background:transparent;color:var(--warn);font-weight:var(--fw-semibold)}
+.bf-dialog__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border)}
+.bf-dialog__head h2{margin:0;font-size:var(--fs-lg)}
+.bf-keys{display:grid;grid-template-columns:auto 1fr;gap:8px var(--space-4);margin:0;padding:var(--space-4)}
+.bf-keys dt{white-space:nowrap}
+.bf-keys dd{margin:0;color:var(--muted);font-size:var(--fs-sm)}
+.bf-kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--fs-xs) var(--font-mono);text-align:center}
 .bf-tree{font-family:var(--font-mono);font-size:var(--fs-sm);overflow-x:auto}
 .bf-tree ul{list-style:none;margin:0;padding-left:14px}
 .bf-tree>ul{padding-left:0}

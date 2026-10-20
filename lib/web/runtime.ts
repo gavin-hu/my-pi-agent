@@ -66,3 +66,53 @@ export const THEME_TOGGLE_JS = String.raw`(function () {
     else if (query.addListener) query.addListener(sync);
   }
 })();`;
+
+/**
+ * The `?` keyboard sheet's wiring, shared by both clients.
+ *
+ * It owns the sheet's pointer behavior — the page's trigger button, the sheet's
+ * own close button, and a click on the backdrop — and nothing else: each page
+ * keeps its own keyboard policy in its keydown handler, because the two differ
+ * (the review peels `Esc` through a composer first), and calls in through
+ * `window.bfKeys`.
+ *
+ * `triggerId` is the page's own shortcut button, since browse opens the sheet
+ * from `#keys-open` and review from `#shortcuts`. The sheet's ids are the fixed
+ * contract in `keysSheet` (`lib/web/markup.ts`).
+ *
+ * Value-only: the open state is the dialog's own `hidden` attribute, so this
+ * module holds nothing.
+ */
+export function keysDialogScript(triggerId: string): string {
+	return `(function () {
+  "use strict";
+  var dialog = document.getElementById("keys-dialog");
+  if (!dialog) return;
+
+  function isOpen() {
+    return !dialog.hidden;
+  }
+  function toggle(force) {
+    var open = force === undefined ? dialog.hidden : force;
+    dialog.hidden = !open;
+    if (open) {
+      var close = document.getElementById("keys-close");
+      if (close && close.focus) close.focus();
+    }
+  }
+
+  var trigger = document.getElementById("${triggerId}");
+  if (trigger) trigger.addEventListener("click", function () { toggle(); });
+  var closer = document.getElementById("keys-close");
+  if (closer) closer.addEventListener("click", function () { toggle(false); });
+  dialog.addEventListener("click", function (event) {
+    if (event.target === dialog) toggle(false);
+  });
+
+  window.bfKeys = {
+    toggle: toggle,
+    close: function () { toggle(false); },
+    isOpen: isOpen
+  };
+})();`;
+}

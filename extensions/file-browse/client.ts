@@ -11,7 +11,7 @@
  * and `bun build --no-bundle` needs no separate asset.
  */
 
-import { SIDEBAR_COLLAPSE_MAX, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { keysDialogScript, SIDEBAR_COLLAPSE_MAX, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
 
 export const CLIENT_JS = `(function () {
 	"use strict";
@@ -574,22 +574,11 @@ export const CLIENT_JS = `(function () {
 		if (result) window.location.assign("/view/" + encodeSegments(result.path));
 	}
 
-	// Keyboard: a shortcut sheet, the per-page actions the server rendered, and
-	// hunk-to-hunk navigation through a diff.
-	var keysDialog = document.getElementById("keys-dialog");
-	var keysButton = document.getElementById("keys-open");
+	// Keyboard: the shared shortcut sheet, the per-page actions the server
+	// rendered, and hunk-to-hunk navigation through a diff.
+	${keysDialogScript("keys-open")}
 	var hunkAnchors = Array.prototype.slice.call(document.querySelectorAll("[data-hunk]"));
 	var progressFill = document.getElementById("progress-fill");
-
-	function toggleKeys(force) {
-		if (!keysDialog) return;
-		var open = force !== undefined ? force : keysDialog.hidden;
-		keysDialog.hidden = !open;
-		if (open) {
-			var close = document.getElementById("keys-close");
-			if (close) close.focus();
-		}
-	}
 
 	function toggleRaw() {
 		var next = document.querySelector(".bf-card__actions .bf-segmented a.bf-segmented__item:not([aria-current])");
@@ -658,15 +647,6 @@ export const CLIENT_JS = `(function () {
 		});
 	}
 
-	if (keysButton) keysButton.addEventListener("click", function () { toggleKeys(); });
-	if (keysDialog) {
-		keysDialog.addEventListener("click", function (event) {
-			if (event.target === keysDialog) toggleKeys(false);
-		});
-		var keysClose = document.getElementById("keys-close");
-		if (keysClose) keysClose.addEventListener("click", function () { toggleKeys(false); });
-	}
-
 	window.addEventListener("scroll", updateProgress, true);
 	window.addEventListener("resize", updateProgress);
 	updateProgress();
@@ -676,9 +656,9 @@ export const CLIENT_JS = `(function () {
 	markTableOverflow();
 
 	document.addEventListener("keydown", function (event) {
-		if (event.key === "Escape" && keysDialog && !keysDialog.hidden) {
+		if (event.key === "Escape" && window.bfKeys.isOpen()) {
 			event.preventDefault();
-			toggleKeys(false);
+			window.bfKeys.close();
 			return;
 		}
 		if (paletteOpen()) {
@@ -688,7 +668,7 @@ export const CLIENT_JS = `(function () {
 			}
 			return;
 		}
-		if (keysDialog && !keysDialog.hidden) return;
+		if (window.bfKeys.isOpen()) return;
 		var target = event.target;
 		var editable = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
 		if (editable) return;
@@ -703,7 +683,7 @@ export const CLIENT_JS = `(function () {
 			openPalette();
 		} else if (event.key === "?") {
 			event.preventDefault();
-			toggleKeys();
+			window.bfKeys.toggle();
 		} else if (event.key === "u" && wrapButton) {
 			event.preventDefault();
 			wrapButton.click();

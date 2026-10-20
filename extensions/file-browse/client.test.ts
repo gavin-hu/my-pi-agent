@@ -91,7 +91,7 @@ describe("CLIENT_JS", () => {
 
 	test("opens the keyboard sheet and drives the per-page keys", () => {
 		expect(CLIENT_JS).toContain("keys-dialog");
-		expect(CLIENT_JS).toContain("function toggleKeys");
+		expect(CLIENT_JS).toContain("window.bfKeys");
 		expect(CLIENT_JS).toContain("function toggleRaw");
 		expect(CLIENT_JS).toContain("data-hunk");
 		expect(CLIENT_JS).toContain("function moveHunk");

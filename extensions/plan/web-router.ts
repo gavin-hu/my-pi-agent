@@ -12,6 +12,16 @@
  * local page from driving the session.
  */
 
+import {
+	isLocalHostHeader,
+	jsonError,
+	jsonHeaders,
+	jsonResponse,
+	pageHeaders,
+	parseRequestUrl,
+	scriptHeaders,
+	type ServeResponse,
+} from "../../lib/http/index.ts";
 import { THEME_JS } from "../../lib/web/index.ts";
 import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
@@ -38,56 +48,16 @@ export interface ReviewContext {
 	onCancel: () => void;
 }
 
-export interface ServeResponse {
-	status: number;
-	headers: Record<string, string>;
-	body?: string;
-	/** When true, the node server keeps the connection open as an SSE stream. */
-	stream?: boolean;
-}
-
-const HOST_PATTERN = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
-
-const HTML_SECURITY: Record<string, string> = {
-	"Content-Type": "text/html; charset=utf-8",
-	// `frame-ancestors` keeps a local page from framing the review and clickjacking
-	// the one control with a side effect (Approve & run); the rest is the same
-	// no-script, no-network envelope the page already relied on.
-	"Content-Security-Policy":
-		"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; " +
-		"connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'",
-	"X-Frame-Options": "DENY",
-	"X-Content-Type-Options": "nosniff",
-	"Referrer-Policy": "no-referrer",
-	"Cache-Control": "no-store",
-};
-
-const SCRIPT_HEADERS: Record<string, string> = {
-	...HTML_SECURITY,
-	"Content-Type": "text/javascript; charset=utf-8",
-};
-
-export const JSON_HEADERS: Record<string, string> = {
-	"Content-Type": "application/json; charset=utf-8",
-	"X-Content-Type-Options": "nosniff",
-	"Referrer-Policy": "no-referrer",
-	"Cache-Control": "no-store",
-};
-
+/**
+ * The event stream's headers: the one response that is not the page policy, because
+ * it is a long-lived `text/event-stream` rather than a document.
+ */
 const EVENT_HEADERS: Record<string, string> = {
 	"Content-Type": "text/event-stream; charset=utf-8",
 	"Cache-Control": "no-store",
 	Connection: "keep-alive",
 	"X-Accel-Buffering": "no",
 };
-
-function jsonResponse(status: number, value: unknown): ServeResponse {
-	return { status, headers: { ...JSON_HEADERS }, body: JSON.stringify(value) };
-}
-
-function errorResponse(status: number, message: string): ServeResponse {
-	return jsonResponse(status, { error: message });
-}
 
 /**
  * Parse and validate an `{ annotations }` request body. Returns the annotations,
@@ -98,10 +68,10 @@ function parseAnnotations(body: string): PlanAnnotation[] | ServeResponse {
 	try {
 		parsed = JSON.parse(body);
 	} catch {
-		return errorResponse(400, "The request body must be JSON.");
+		return jsonError(400, "The request body must be JSON.");
 	}
 	const annotations = coerceAnnotations((parsed as { annotations?: unknown } | null)?.annotations);
-	if (!annotations) return errorResponse(400, "The annotations are malformed.");
+	if (!annotations) return jsonError(400, "The annotations are malformed.");
 	return annotations;
 }
 
@@ -118,15 +88,14 @@ function checkEnvelope(
 	const upper = method.toUpperCase();
 	if (upper !== "GET" && upper !== "HEAD" && upper !== "POST") {
 		return {
-			...errorResponse(405, "Only GET, HEAD, and POST are served."),
-			headers: { ...JSON_HEADERS, Allow: "GET, HEAD, POST" },
+			...jsonError(405, "Only GET, HEAD, and POST are served."),
+			headers: { ...jsonHeaders(), Allow: "GET, HEAD, POST" },
 		};
 	}
 	// Fail closed: a missing or non-string Host is rejected too, not just a
 	// foreign one, so the DNS-rebinding guard cannot be skipped.
-	const host = headers.host;
-	if (typeof host !== "string" || !HOST_PATTERN.test(host)) {
-		return errorResponse(403, "Unexpected Host header.");
+	if (!isLocalHostHeader(headers, { required: true })) {
+		return jsonError(403, "Unexpected Host header.");
 	}
 	return undefined;
 }
@@ -145,52 +114,46 @@ export async function handleReviewRequest(
 	const envelope = checkEnvelope(method, headers);
 	if (envelope) return envelope;
 
-	let pathname: string;
-	let search: URLSearchParams;
-	try {
-		const url = new URL(rawUrl, "http://127.0.0.1");
-		pathname = url.pathname;
-		search = url.searchParams;
-	} catch {
-		return errorResponse(400, "Malformed request URL.");
-	}
+	const parsed = parseRequestUrl(rawUrl);
+	if (!parsed) return jsonError(400, "Malformed request URL.");
+	const { pathname, search } = parsed;
 
 	if (pathname === "/favicon.ico") return { status: 204, headers: { "Cache-Control": "no-store" } };
-	if (pathname === "/theme.js") return { status: 200, headers: { ...SCRIPT_HEADERS }, body: THEME_JS };
-	if (pathname === "/client.js") return { status: 200, headers: { ...SCRIPT_HEADERS }, body: REVIEW_CLIENT_JS };
+	if (pathname === "/theme.js") return { status: 200, headers: scriptHeaders(), body: THEME_JS };
+	if (pathname === "/client.js") return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
 
-	if (search.get("token") !== ctx.token) return errorResponse(403, "Invalid or missing token.");
+	if (search.get("token") !== ctx.token) return jsonError(403, "Invalid or missing token.");
 
 	if (pathname === "/" || pathname === "/index.html") {
-		return { status: 200, headers: { ...HTML_SECURITY }, body: renderReviewPage(await ctx.page()) };
+		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page()) };
 	}
 	if (pathname === "/events") return { status: 200, headers: { ...EVENT_HEADERS }, stream: true };
 	if (pathname === "/api/cancel") {
-		if (method.toUpperCase() !== "POST") return errorResponse(405, "Use POST to cancel.");
+		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to cancel.");
 		ctx.onCancel();
 		return jsonResponse(200, { ok: true });
 	}
 	if (pathname === "/api/feedback") {
-		if (method.toUpperCase() !== "POST") return errorResponse(405, "Use POST to save feedback.");
+		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to save feedback.");
 		const annotations = parseAnnotations(body);
 		if (isResponse(annotations)) return annotations;
 		const result = await ctx.save(annotations);
-		if (!result.ok) return errorResponse(result.status, result.message);
+		if (!result.ok) return jsonError(result.status, result.message);
 		ctx.onSaved(annotations);
 		return jsonResponse(200, { ok: true });
 	}
 	if (pathname === "/api/approve") {
-		if (method.toUpperCase() !== "POST") return errorResponse(405, "Use POST to approve.");
+		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to approve.");
 		// Only the exit_plan_mode flow owns the approval side effects, so a comment-only
 		// review refuses this even if a client posts it directly.
-		if (!ctx.canApprove) return errorResponse(403, "This review cannot be approved from the browser.");
+		if (!ctx.canApprove) return jsonError(403, "This review cannot be approved from the browser.");
 		const annotations = parseAnnotations(body);
 		if (isResponse(annotations)) return annotations;
 		const result = await ctx.save(annotations);
-		if (!result.ok) return errorResponse(result.status, result.message);
+		if (!result.ok) return jsonError(result.status, result.message);
 		ctx.onApprove(annotations);
 		return jsonResponse(200, { ok: true });
 	}
 
-	return errorResponse(404, "That page does not exist.");
+	return jsonError(404, "That page does not exist.");
 }
