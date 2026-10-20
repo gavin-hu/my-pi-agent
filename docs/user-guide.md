@@ -769,16 +769,22 @@ prompt, so you can read the diff and keep or discard each file.
    `Enter` reads the focused file's diff. `j` / `k`, the arrows, `PgUp` / `PgDn`,
    and `g` / `G` move through it; `Esc` goes back to the list.
 
-3. Press `r` to revert the marked files, or the focused file when none are
-   marked. `R` reverts every changed file. Both ask first, and a marked batch
-   takes one safety snapshot, so `/rewind` can undo the revert.
+3. In a modified text file's diff, `h` opens the hunk checklist. `Space` ticks a
+   hunk, `a` / `n` select all or none, `Enter` reverts the ticked hunks, and
+   `Esc` cancels. Everything not ticked stays as it is.
 
-4. `Esc` closes the list without changing anything.
+4. Press `r` to revert the marked files, or the focused file when none are
+   marked; in the diff, `r` reverts that whole file. `R` reverts every changed
+   file. Both ask first, and a revert takes one safety snapshot, so `/rewind`
+   can undo it.
+
+5. `Esc` closes the list without changing anything.
 
 **Good to know.**
 
-- Reverting is whole-file. There is no hunk selection. A renamed file is one `R`
-  row; reverting it restores the old path and removes the new one.
+- Hunk selection covers modified text files: in their diff, `h` opens the hunk
+  checklist. Added, deleted, renamed, and binary files revert whole. A renamed
+  file is one `R` row; reverting it restores the old path and removes the new one.
 - If the working tree is clean against your last commit, the list says the
   changes are already committed. Reverting then rewrites the working tree but
   leaves the commit in place; the confirm repeats this.

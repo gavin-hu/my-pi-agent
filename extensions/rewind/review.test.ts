@@ -215,6 +215,41 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		expect(ctx.notices.at(-1)?.message).toContain("No changes remain.");
 	});
 
+	test("reverts only the chosen hunk of a modified file", async () => {
+		const repo = await makeRepo("pi-rw-review-hunks-");
+		cleanups.push(repo);
+		const lines = Array.from({ length: 20 }, (_, index) => `line ${index + 1}`);
+		writeFileSync(join(repo, "two.txt"), `${lines.join("\n")}\n`);
+		await runGit(["add", "."], { cwd: repo });
+		await runGit(["commit", "-qm", "base"], { cwd: repo });
+
+		const fake = setupRewind([WRITE_TOOL]);
+		const ctx = makeCtx(fake, {
+			cwd: repo,
+			hasUI: true,
+			mode: "tui",
+			branch: branchWithUser("e1"),
+			sessionId: "s1",
+		});
+		ctx.command = fake.commands.get("review");
+		await primeRewind(fake, ctx);
+		const changed = lines.map((line, index) => (index === 1 ? "changed one" : index === 15 ? "changed two" : line));
+		writeFileSync(join(repo, "two.txt"), `${changed.join("\n")}\n`);
+
+		const mounts = await review(ctx, [screen({ kind: "diff", path: "two.txt" }), "hunks", [0], screen()]);
+
+		expect(mounts).toBe(4);
+		const after = readFileSync(join(repo, "two.txt"), "utf-8").split("\n");
+		expect(after[1]).toBe("line 2");
+		expect(after[15]).toBe("changed two");
+		expect(existsSync(join(repo, "after.txt"))).toBe(true);
+		expect(ctx.confirms.at(-1)?.title).toBe("Revert 1 hunk in two.txt?");
+		expect(ctx.confirms.at(-1)?.message).toContain("1 of 2 hunks");
+		expect(ctx.notices.at(-1)?.message).toContain("Reverted 1 hunk in two.txt.");
+		// The automatic snapshot plus one pre-restore safety snapshot.
+		expect(await rewindRefs(repo)).toHaveLength(2);
+	});
+
 	test("a declined confirmation leaves the file and reopens the list", async () => {
 		const repo = await makeRepo("pi-rw-review-cancel-");
 		cleanups.push(repo);

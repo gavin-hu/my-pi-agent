@@ -356,7 +356,6 @@ it.
 | `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S1`, which changes what "guarded" means. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
 | `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |
-| `rewind`: `/review` reverts whole files, with no hunk selection | Whole-file revert is the review contract; hunk selection needs a hunk picker and a stale-diff guard. Revisit if a wanted and unwanted edit in one file becomes a routine case. |
 | `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. Revisit if a dropped note becomes invisible. |
 | `web-access`: the keyless search returns answers and related topics rather than a result list | That is the provider's shape, not a parsing gap; SearXNG and Brave return a list. Revisit if the keyless default changes. |
 | `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |

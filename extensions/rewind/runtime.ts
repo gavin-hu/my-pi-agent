@@ -11,7 +11,15 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { loadConfig, type RewindConfig } from "./config.ts";
-import { createRewindRunner, diffNumStat, diffPatch, repoRoot, revParse, type RunGit } from "./git.ts";
+import {
+	applyPatchReverse,
+	createRewindRunner,
+	diffNumStat,
+	diffPatch,
+	repoRoot,
+	revParse,
+	type RunGit,
+} from "./git.ts";
 import { createOperationQueue } from "./queue.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
 import type { PathStat } from "./paths.ts";
@@ -25,6 +33,12 @@ import type { Snapshot, SnapshotReason, RestoreSummary } from "./types.ts";
 export interface SnapshotOptions {
 	reason: SnapshotReason;
 	prompt?: string;
+}
+
+/** What a hunk revert did beyond the file it touched. */
+export interface HunkRevertResult {
+	/** Id of the pre-restore safety snapshot, when one was taken. */
+	safety?: string;
 }
 
 export interface RewindRuntime {
@@ -49,6 +63,14 @@ export interface RewindRuntime {
 		config: RewindConfig,
 		paths?: readonly string[],
 	): Promise<RestoreSummary>;
+	/** Reverse-apply a prepared hunk patch, after the same safety snapshot as a restore. */
+	revertHunks(
+		ctx: ExtensionContext,
+		root: string,
+		target: Snapshot,
+		config: RewindConfig,
+		patch: string,
+	): Promise<HunkRevertResult>;
 	/** Repaint the `↺ N` chip from the prompt count on the active branch (`/rewind` list size). */
 	setStatus(ctx: ExtensionContext): Promise<void>;
 	clearStatus(ctx: ExtensionContext): void;
@@ -148,6 +170,28 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		}
 	};
 
+	/** Snapshot the current state before a restore, returning its id. */
+	const safetySnapshot = async (
+		ctx: ExtensionContext,
+		root: string,
+		config: RewindConfig,
+		indexFile: string,
+	): Promise<string> => {
+		const before = await createSnapshot(
+			{ runGit },
+			{
+				root,
+				indexFile,
+				namespace: config.refNamespace,
+				reason: "pre-restore",
+				includeUntracked: config.includeUntracked,
+				sessionId: ctx.sessionManager.getSessionId(),
+				entryId: lastUserEntryId(ctx.sessionManager.getBranch()),
+			},
+		);
+		return before.id;
+	};
+
 	const restore = (
 		ctx: ExtensionContext,
 		root: string,
@@ -159,24 +203,24 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 			if (!belongsToRoot(target, root)) throw new Error(foreignRootReason(target, root));
 			const indexFile = await indexStore.pathFor(root);
 			const input: RestoreInput = { root, indexFile, target, paths };
-			let safety: string | undefined;
-			if (config.safetySnapshot) {
-				const before = await createSnapshot(
-					{ runGit },
-					{
-						root,
-						indexFile,
-						namespace: config.refNamespace,
-						reason: "pre-restore",
-						includeUntracked: config.includeUntracked,
-						sessionId: ctx.sessionManager.getSessionId(),
-						entryId: lastUserEntryId(ctx.sessionManager.getBranch()),
-					},
-				);
-				safety = before.id;
-			}
+			const safety = config.safetySnapshot ? await safetySnapshot(ctx, root, config, indexFile) : undefined;
 			const summary = await applyRestore({ runGit }, input);
 			return { ...summary, safety };
+		});
+
+	const revertHunks = (
+		ctx: ExtensionContext,
+		root: string,
+		target: Snapshot,
+		config: RewindConfig,
+		patch: string,
+	): Promise<HunkRevertResult> =>
+		queue.enqueue(async () => {
+			if (!belongsToRoot(target, root)) throw new Error(foreignRootReason(target, root));
+			const indexFile = await indexStore.pathFor(root);
+			const safety = config.safetySnapshot ? await safetySnapshot(ctx, root, config, indexFile) : undefined;
+			await applyPatchReverse(runGit, root, patch);
+			return { safety };
 		});
 
 	const sweepStaleIndexes = async (ctx: ExtensionContext): Promise<void> => {
@@ -198,6 +242,7 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		numStat,
 		headTree,
 		restore,
+		revertHunks,
 		setStatus: status.set,
 		clearStatus: status.clear,
 		releaseIndexes: indexStore.release,

@@ -59,7 +59,7 @@ export interface ReviewListResult {
 }
 
 /** What the diff returns to `review.ts`. */
-export type ReviewDiffAction = "back" | "revert";
+export type ReviewDiffAction = "back" | "revert" | "hunks";
 
 /** The role for a change mark. */
 function markRole(change: PathChange): TuiRole {
@@ -264,6 +264,8 @@ export interface ReviewDiffOptions {
 	prompt?: string;
 	/** Sanitized, tab-expanded patch lines from `boundDiff`. */
 	lines: readonly string[];
+	/** Whether this file has textual hunks that can be reverted selectively. */
+	canRevertHunks?: boolean;
 	/** Whether the working tree is clean against HEAD, so the diff is all committed. */
 	committed?: boolean;
 	theme: Theme;
@@ -290,6 +292,10 @@ export class ReviewDiffComponent implements Component {
 		}
 		if (data === "r") {
 			this.options.onClose("revert");
+			return;
+		}
+		if (data === "h" && this.options.canRevertHunks) {
+			this.options.onClose("hunks");
 			return;
 		}
 		if (this.pane.handleKey(data)) this.options.requestRender();
@@ -363,6 +369,7 @@ export class ReviewDiffComponent implements Component {
 	private hint(width: number): string {
 		return screenHint(this.theme, width, [
 			"Esc back",
+			...(this.options.canRevertHunks ? [{ text: "h hunks", color: "accent" as const }] : []),
 			{ text: "r revert file", color: "warning" },
 			"j/k scroll",
 			"g/G top/end",

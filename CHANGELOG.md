@@ -45,6 +45,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and not binary or oversized; stack frames from Jest/Vitest, Java, and Python
   now attach their `path:line` to the failure.
 
+- `rewind`: `/review` can revert chosen hunks of a modified text file. `h` in the
+  file's diff opens a hunk checklist; the selection is one reverse patch and one
+  pre-restore safety snapshot, so the rest of the file stays as it is. Added,
+  deleted, renamed, and binary files still revert whole, and a file edited after
+  its diff was read fails atomically instead of applying stale context.
+
 ### Changed
 
 - `file-browse`: a rendered Markdown page fills the card instead of being the
