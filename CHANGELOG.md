@@ -28,7 +28,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `file-browse`: a rendered Markdown page fills the card instead of being the
   1012px scroll box itself, so the scroll bar sits at the card edge. Headings,
-  prose, and code keep a centred measure of at most 46rem (about 740px). Tables
+  prose, and code keep a centred measure of at most 1012px. Tables
   start at that column and take the free gutter to its right instead of
   scrolling inside the measure, and a table wider than the pane fades its right
   edge until scrolled to the end.
