@@ -90,6 +90,24 @@ describe("every extension loads through the fake runtime", () => {
 	}
 });
 
+/** Load every manifest extension and collect the tools and commands it registers. */
+async function registeredSurface(): Promise<{ tools: Set<string>; commands: Set<string> }> {
+	const tools = new Set<string>();
+	const commands = new Set<string>();
+	for (const entry of manifest) {
+		const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
+		await withAgentDir(async () => {
+			await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
+				const fake = createFakePi();
+				module.default?.(fake.pi);
+				for (const name of fake.tools.keys()) tools.add(name);
+				for (const name of fake.commands.keys()) commands.add(name);
+			});
+		});
+	}
+	return { tools, commands };
+}
+
 describe("the documented footprint", () => {
 	/** The manual that states how big the pack is, where a reader decides on it. */
 	const guide = walkFiles(join(root, "docs", "user-guide"))
@@ -100,17 +118,7 @@ describe("the documented footprint", () => {
 	const CLAIM = /(\d+) (extensions|tools)\b/g;
 
 	test("every count in the guide is what actually loads", async () => {
-		const names = new Set<string>();
-		for (const entry of manifest) {
-			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
-			await withAgentDir(async () => {
-				await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
-					const fake = createFakePi();
-					module.default?.(fake.pi);
-					for (const name of fake.tools.keys()) names.add(name);
-				});
-			});
-		}
+		const { tools: names } = await registeredSurface();
 
 		// Pi's path tools are re-registered by `worktree` so they follow the active
 		// root. They replace the model's existing tool of the same name rather than
@@ -125,5 +133,18 @@ describe("the documented footprint", () => {
 		for (const [, count, noun] of claims) {
 			expect(Number(count), `${noun} stated in docs/user-guide/`).toBe(actual[noun]);
 		}
+	});
+});
+
+describe("documented command surface", () => {
+	const reference = readFileSync(join(root, "docs", "user-guide", "reference.md"), "utf-8");
+
+	test("names every registered command in the reference", async () => {
+		const { commands } = await registeredSurface();
+		// A loader that registered nothing would make the check below vacuous.
+		expect(commands.size).toBeGreaterThan(0);
+		const documented = (name: string) => reference.includes(`/${name}\``) || reference.includes(`/${name} `);
+		const missing = [...commands].filter((name) => !documented(name)).sort();
+		expect(missing, "docs/user-guide/reference.md does not name a registered command").toEqual([]);
 	});
 });
