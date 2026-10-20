@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import goal, { GOAL_CONTEXT_MARKER } from "./index.ts";
+import { NOTES_FENCE } from "./clarify.ts";
 import { GOAL_HELP } from "./format.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
@@ -441,7 +442,7 @@ describe("/goal command", () => {
 
 		expect(calls).toHaveLength(1);
 		expect(selects).toEqual([["The new one", "The old one"]]);
-		expect(editorCalls[0].prefill).toBe("Add parser tests\n\nAlso: Which parser? → The new one");
+		expect(editorCalls[0].prefill).toBe(`Add parser tests\n\n${NOTES_FENCE}\nAlso: Which parser? → The new one`);
 		expect(entries.at(-1)?.data).toEqual({
 			goal: { objective: "Add parser tests for the new parser, in CI", status: "active" },
 		});

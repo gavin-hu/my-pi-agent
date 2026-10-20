@@ -49,8 +49,9 @@ How the `goal` call and its result look in the transcript — the call line as a
   model to restate the goal as it understands it and, when it cannot yet, to ask
   up to three questions — which the command asks directly through host dialogs
   (`select` / `input`). The answers are carried into the editor under the
-  restatement as `Also: <question> → <answer>` notes, and the user confirms,
-  folds them in, or corrects the goal there. `/goal set
+  restatement, below a `--- notes (not saved) ---` line, so accepting the
+  restatement as-is records the goal alone; folding an answer into the sentence
+  above the line keeps it. `/goal set
   <prompt>` reuses the loop but records without starting a turn, `/goal edit`
   changes the current goal in place, and `/goal raw <prompt>` records the typed
   words verbatim. The loop is best-effort and needs a dialog UI plus a model; the
@@ -106,7 +107,7 @@ entry; `reconstructGoal` replays both entry kinds in branch order.
 | Command | What it does |
 |---|---|
 | `/goal` | Show the current goal, or the command usage when none is set. |
-| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, which carries the answers as notes — and start the run. Replacing a live goal is confirmed first. |
+| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, whose answer notes are dropped on save — and start the run. Replacing a live goal is confirmed first. |
 | `/goal raw <prompt>` | Skip the loop: record the typed words verbatim and start the run. |
 | `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. An explicit `set`/`edit <text>` replaces an active goal without asking, since the command already says so. |
 | `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
@@ -198,8 +199,9 @@ depends on config.
   returns `{ understood, goal, questions }`. An understood goal opens a prefilled
   `ctx.ui.editor`, then `pi.sendUserMessage` sets and runs it. A not-understood
   goal has its questions asked through host dialogs, and its answers ride into
-  the editor as `Also:` notes under the restatement: no second model call
-  rewrites the goal, so the user is the one who folds them into the sentence.
+  the editor as `Also:` notes below a sentinel line that is cut away on save:
+  no second model call rewrites the goal, so the user is the one who folds an
+  answer into the sentence, above the line, when they want it kept.
   `/goal set`
   reuses the loop but skips the send; a bare `/goal set` or `/goal edit` opens
   the editor prefilled with the current goal; and `/goal raw` skips the loop
