@@ -30,7 +30,7 @@ across `/resume` and `/tree`, and honest where a platform cannot deliver.
   added subset rewind, the `wake` desktop alert, `/plan list`, the worktree
   handoff block, isolation gaps named in the session, one reviewed publish path
   with provenance, a Pi-compat job, and a long-session benchmark. An unreleased
-  Theme row adds Pi's resolved themes to Settings.
+  Theme row adds `system` and the two shipped palettes to Settings.
 
 ## How items are ordered
 

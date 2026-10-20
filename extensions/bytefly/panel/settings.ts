@@ -135,7 +135,7 @@ export interface SettingsSnapshot {
 	app: Settings;
 	global: Record<string, unknown>;
 	project: Record<string, unknown>;
-	/** Theme names the host resolved for this session, for the Theme row. */
+	/** Theme names the Theme row offers, narrowed to this package's palettes by the caller. */
 	themes: readonly string[];
 }
 
@@ -442,11 +442,12 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		id: "theme",
 		group: "terminal",
 		label: "Theme",
-		description: "Pi's color theme; `system` follows the terminal's colors. Takes effect after reload.",
+		description:
+			"Pi's color theme, chosen from the palettes this package ships; `system` follows the terminal's colors. Takes effect after reload.",
 		source: "app",
 		kind: "enum",
 		fallback: "system",
-		// The host supplies the resolved names in the snapshot; the static list stays empty.
+		// The host supplies this package's theme names in the snapshot; the static list stays empty.
 		options: [],
 	},
 	{
@@ -625,7 +626,7 @@ export function textError(row: SettingDescriptor, raw: string): string | undefin
 	return rule.validate?.(raw);
 }
 
-/** The Theme row's values: `system` first, then the names the host resolved. */
+/** The Theme row's values: `system` first, then the names the caller offers. */
 function themeOptions(themes: readonly string[]): readonly SettingOption[] {
 	const names = ["system", ...new Set(themes.filter((name) => name !== "" && name !== "system"))];
 	return names.map((name) => ({ value: name, label: name }));

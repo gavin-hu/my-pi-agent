@@ -29,6 +29,7 @@ import type { Discovery } from "../picker/types.ts";
 import { formatListing, formatSettingsListing } from "./format.ts";
 import { buildPanelModel, extensionName } from "./join.ts";
 import { createSettingsRuntime, type SettingsRuntime, type SettingsRuntimeDeps } from "./settings-runtime.ts";
+import { shippedThemeNames } from "./themes.ts";
 import { PanelComponent } from "./tui.ts";
 import type { PanelSection } from "./types.ts";
 
@@ -131,12 +132,13 @@ function notifyExtension(
 }
 
 /**
- * Theme names the host resolved for this session. The list is empty outside the
- * TUI (RPC, print, JSON), where the row still shows the stored value.
+ * Theme names the row offers: the host's resolved list, narrowed to this
+ * package's own palettes. The list is empty outside the TUI (RPC, print, JSON),
+ * where the row still shows the stored value.
  */
-function availableThemeNames(ctx: ExtensionCommandContext): string[] {
+function settingsThemeNames(ctx: ExtensionCommandContext): string[] {
 	try {
-		return ctx.ui.getAllThemes().map((theme) => theme.name);
+		return shippedThemeNames(ctx.ui.getAllThemes());
 	} catch {
 		return [];
 	}
@@ -158,7 +160,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		const cwd = ctx.cwd ?? process.cwd();
 		const agentDir = getAgentDir();
 		const trusted = ctx.isProjectTrusted();
-		const themes = availableThemeNames(ctx);
+		const themes = settingsThemeNames(ctx);
 		// The mounted screen owns its feedback: a refusal or a failed write belongs in
 		// the frame, not appended to the transcript behind it. Before the screen
 		// exists (the non-TUI settings path, a pre-mount failure) the transcript is

@@ -707,7 +707,7 @@ bytefly ────────────────────────
 | Transcript | Rail glyph | `chrome.rail` | Text, exactly one column |
 | Transcript | Achieved goal | `goal.achieved` | Show, Hide |
 | Transcript | Output padding | Pi `settings.json` | 0, 1 |
-| Terminal | Theme | Pi `settings.json` (`theme`) | `system`, then every available theme |
+| Terminal | Theme | Pi `settings.json` (`theme`) | `system`, `bytefly-dark`, `bytefly-light` |
 | Terminal | Hardware cursor | Pi `settings.json` | Off, On |
 | Worktree | Base ref | `worktree.baseRef` | Fresh, Head |
 | Worktree | Branch prefix | `worktree.branchPrefix` | Text, trimmed, required |
@@ -724,12 +724,14 @@ bytefly ────────────────────────
 Choosing **Currency** also writes that currency's default precision. Both rows
 stay editable afterwards, so the footer follows the explicit values.
 
-The **Theme** row lists `system` first, then every theme the host resolved this
-session: Pi's built-ins, this package's `bytefly-dark` and `bytefly-light`, and
-any user or project theme. It writes the personal `theme` setting and takes
-effect after reload. An automatic pair such as `bytefly-light/bytefly-dark` is
-shown as `… (automatic)`; choosing a single theme replaces it, so edit pairs in
-Pi's `/settings` → **Theme**.
+The **Theme** row lists `system` first, then the palettes this package ships,
+`bytefly-dark` and `bytefly-light`; it cycles no further, so a bytefly screen
+never proposes a palette it cannot vouch for. It writes the personal `theme`
+setting and takes effect after reload. A value chosen elsewhere — Pi's built-in
+`dark`, another package's theme, or an automatic pair such as
+`bytefly-light/bytefly-dark` — is shown as stored (the pair with `… (automatic)`)
+and is replaced by the next choice here, so manage those in Pi's `/settings` →
+**Theme**.
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
 forward, and a text row opens an inline editor on its value — the notification
@@ -988,10 +990,12 @@ command.
   `showHardwareCursor`, and `theme` write the personal `settings.json`; the
   screen hides those rows in Project scope rather than writing a file Pi cannot
   manage.
-- **Theme pairs are edited in Pi's `/settings`.** The **Theme** row selects one
-  theme; an automatic pair such as `bytefly-light/bytefly-dark` shows as stored
-  but is replaced by the next single choice, and the change applies after a
-  reload like the other app rows.
+- **The Theme row offers only this package's palettes.** `system`,
+  `bytefly-dark`, and `bytefly-light` are the whole cycle; Pi's built-ins and any
+  user, project, or other package's theme stay in Pi's `/settings` → **Theme**,
+  and a value set there shows as stored here. An automatic pair such as
+  `bytefly-light/bytefly-dark` shows as stored but is replaced by the next single
+  choice, and the change applies after a reload like the other app rows.
 - **Project overrides of app settings are not shown.** App rows read the
   personal file; a `.pi/settings.json` override still wins at runtime, and
   `pi config` is the place to manage it.
@@ -1446,6 +1450,7 @@ columns, gauge), so the look follows the active theme.
 | `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the Settings counts/headline, and the grouped Settings listing. |
 | `panel/settings.ts` | The curated Settings catalogue: descriptors, snapshot views and origins, value cycling, stored-value mapping, validation, and grouping, plus the per-section readers that resolve a row's leaf over the global and project documents. |
 | `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-leaf `bytefly.json` writes, dirty state, and change listeners. |
+| `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
 | `panel/tui.ts` | `PanelComponent`, the two-section dock screen (Extensions list and Settings list), drawn from the `lib/tui/` kit. |
 | `panel/commands.ts` | `/bytefly`: one command for the screen sections, the `doctor` report, the settings listing, and their text modes. |
 | `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`), the app-settings setters, and row types. |

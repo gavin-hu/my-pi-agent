@@ -42,7 +42,7 @@ export interface SettingsRuntimeDeps {
 	trusted: boolean;
 	/** Report a refused or failed write to the screen. */
 	onError?: (message: string) => void;
-	/** Theme names the host resolved for this session; empty outside the TUI. */
+	/** Theme names for the Theme row, already narrowed to this package's palettes; empty outside the TUI. */
 	themes?: readonly string[];
 }
 
