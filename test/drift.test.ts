@@ -14,15 +14,25 @@
  */
 
 import { readFileSync } from "node:fs";
-import { join, posix as posixPath } from "node:path";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { walkFiles } from "./helpers/files.ts";
 
-const repo = posixPath.join(import.meta.dir, "..").replaceAll("\\", "/");
+// `join` resolves the `..` on every platform, including Windows, where the
+// backslashed absolute path is one long name to `posix.join`.
+const repo = join(import.meta.dir, "..").replaceAll("\\", "/");
 const libDir = join(repo, "lib");
 
-/** A path relative to the repo, in posix form, so a failure names the same file on every OS. */
-const relative = (file: string): string => file.slice(repo.length + 1).replaceAll("\\", "/");
+/**
+ * A path relative to `root`, in posix form, so a failure names the same file on
+ * every OS. Slicing a native Windows path and normalising it is the whole
+ * platform story, so it is a named function the test below can hold to it.
+ */
+function relativeTo(root: string, file: string): string {
+	return file.slice(root.length + 1).replaceAll("\\", "/");
+}
+
+const relative = (file: string): string => relativeTo(repo, file);
 
 /** Every non-test TypeScript module under `lib/`. */
 function libModules(): string[] {
@@ -33,6 +43,18 @@ function libModules(): string[] {
 			.filter((file) => !relative(file).endsWith("/index.ts"))
 	);
 }
+
+test("the repo root it measures from is resolved and posix", () => {
+	// A `..` left in place shifts every slice by one segment, which passes on macOS
+	// and Linux and fails on Windows; the backslash check is the same trap.
+	expect(repo).not.toContain("..");
+	expect(repo).not.toContain("\\");
+});
+
+test("a native Windows path slices to the same posix module name", () => {
+	expect(relativeTo("D:/a/my-pi-agent", "D:\\a\\my-pi-agent\\lib\\format.ts")).toBe("lib/format.ts");
+	expect(relativeTo("/Users/gavin/my-pi-agent", "/Users/gavin/my-pi-agent/lib/format.ts")).toBe("lib/format.ts");
+});
 
 describe("the shared surface index", () => {
 	test("every lib module has a row in lib/README.md", () => {
