@@ -9,6 +9,21 @@ one, and memory carries a fact across sessions.
 about to let the assistant edit several files, or when you keep repeating the
 same project fact in every new session.
 
+## Choosing the right recovery
+
+| Situation | Use | What it restores or keeps | Watch out |
+|---|---|---|---|
+| A turn changed code you do not want | [Rewind](#undoing-a-turn) | The code, the conversation, or both, as they were before that prompt | Gitignored files are never captured |
+| Keep most of the last turn, discard a file or hunk | [Review](#reviewing-the-last-turn) | Only the files or hunks you select | It does not remove a commit you already made |
+| Uncommitted work must leave your checkout | [A worktree](#working-on-a-branch-safely) | The worktree and any branch holding work, plus the handoff commands | `exit --remove` discards uncommitted changes |
+| A fact must survive the session | [Memory](#remembering-between-sessions) | Notes for later sessions | It is not an undo |
+
+A commit that already exists is git history, not a snapshot: rewind and review
+rewrite the working tree and leave the commit. Plan mode refuses `/review`, and
+the path and hunk choices need the terminal interface. [Actions that discard
+something](./reference.md#actions-that-discard-something) lists the exact losses
+for every destructive command.
+
 ## Working on a branch safely
 
 ### What it is

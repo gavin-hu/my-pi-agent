@@ -17,15 +17,26 @@ all three.
 
 The pack itself needs nothing else to load. Individual features add their own
 requirements, and each one degrades or disables cleanly rather than breaking the
-session:
+session.
 
-| Feature | Needs | Without it |
-|---|---|---|
-| `worktree`, `rewind` | `git` on `PATH` and a project git tracks | The feature reports what is missing; the rest of the pack works |
-| `subagent` | A runnable `pi` on `PATH` | Delegation reports that no child process could start |
-| `web-access` PDF fetch | The optional `unpdf` package | PDF URLs are refused with an explanation; HTML still works |
-| `wechat` | A WeChat bot account and an interactive terminal for the QR login | The bridge stays quiet |
-| `question` and the full-screen panels | Pi's interactive terminal interface | The same command prints a text report where one exists |
+### What each feature needs
+
+| Feature | Needs | Without it | Beyond plain text |
+|---|---|---|---|
+| `plan` | A terminal or a dialog-capable mode for approval | The plan tools fail with an actionable message; nothing is approved for you | The review screen; RPC offers the same choices as a menu |
+| `check` | A detectable project check command, or `check.command` | The run reports that no command was found | The failure detail |
+| `todo`, `goal` | Nothing | Nothing; the tools still work | The widgets and the `/todos` screen |
+| `question` | An interactive terminal | The tool is inactive; the model asks in prose | The whole dialog |
+| `job`, `watch` | Nothing | Nothing | The `/jobs` and `/watch` screens; their subcommands print |
+| `subagent` | A runnable `pi` on `PATH` | Delegation reports that no child process could start | The `/agents` board; the tool itself works everywhere |
+| `worktree`, `rewind` | `git` on `PATH` and a project git tracks | Both report what is missing; the rest of the pack works | The path and hunk checklists, and the rewind timeline |
+| `memory` | A trusted project for project-scope notes | Global notes still work; the project store is refused | The picker; text mode lists the notes |
+| `web-access` | Network access; the optional `unpdf` package for PDF URLs | HTML works; a PDF URL is refused with an explanation | None |
+| `document` | Nothing | Nothing; extraction is local | None |
+| `file-browse` | A browser | The page cannot be opened | A page in your browser |
+| `file-open` | A desktop handler for the file type | A launch failure is reported | The command itself |
+| `wechat` | A WeChat bot account, network access, and a terminal for the QR login | The bridge stays quiet | The QR login and the control screen |
+| `bytefly` | Nothing | Nothing | The Extensions and Settings screens; `doctor` prints |
 
 `/bytefly doctor` checks the enabled extensions and names anything missing. See
 [Settings and customization](./settings-and-customization.md#health-checks).
@@ -153,7 +164,9 @@ pi remove npm:@gavin-hu/my-pi-agent -l     # project-local install
 The tools and screens disappear on the next start. Your plans, notes, snapshots,
 conversations, and settings are left on disk; the
 [files reference](./reference.md#files-on-disk) lists them so you can delete what
-you no longer want. To disable one feature rather than remove the whole pack, see
+you no longer want. Nothing is deleted by removal; [Actions that discard
+something](./reference.md#actions-that-discard-something) lists the commands that
+do lose work. To disable one feature rather than remove the whole pack, see
 [Turning features off or removing the pack](./settings-and-customization.md#turning-features-off-or-removing-the-pack).
 
 ## What an install changes

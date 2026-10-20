@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   parses — instead of printing the model report, and shows a live elapsed line
   while the command runs. A failed run stays a normal result.
 
+- docs: the user guide gains a per-feature readiness matrix, a recovery choice
+  table, a central list of actions that discard work, an alphabetical command
+  index, and platform and terminal notes. The guide home now states the pack and
+  Pi versions it was checked against, and the release checklist bumps that
+  edition with the install pin.
+
 ### Fixed
 
 - `job`: output is split on newlines before it is decoded, so a multi-byte
