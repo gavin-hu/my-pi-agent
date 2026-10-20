@@ -4,6 +4,8 @@ import {
 	PROMPT_WIDTH,
 	boundDiff,
 	formatChangeSummary,
+	formatHunkRevertBody,
+	formatHunkRevertText,
 	formatRelativeTime,
 	formatRestoreText,
 	formatReviewDetail,
@@ -257,6 +259,28 @@ describe("rename formatting", () => {
 		const body = formatRevertOneBody(renamed, "fix the list", true);
 		expect(body).toContain("R — renamed from before/name.ts");
 		expect(body).toContain('Moves after/name.ts back to before/name.ts as it was before "fix the list"');
+	});
+});
+
+describe("hunk revert formatting", () => {
+	const entry: ReviewEntry = { path: "src/a.ts", change: "modified", added: 5, removed: 4 };
+
+	test("names the selected subset, the rest of the file, and the safety snapshot", () => {
+		const body = formatHunkRevertBody(entry, 2, 5, "fix the list", true);
+
+		expect(body).toContain('Reverts 2 of 5 hunks in src/a.ts to the snapshot taken before "fix the list"');
+		expect(body).toContain("3 hunks in the file stay as they are.");
+		expect(body).toContain("undoable with /rewind");
+		expect(formatHunkRevertBody(entry, 5, 5, "fix", false)).toContain("Every hunk in the file is reverted.");
+		expect(formatHunkRevertBody(entry, 1, 2, "fix", false)).toContain("1 hunk in the file stays as it is.");
+		expect(formatHunkRevertBody(entry, 1, 2, "fix", false)).toContain("cannot be undone");
+	});
+
+	test("reports the count, file, safety snapshot, and what is left", () => {
+		expect(formatHunkRevertText("src/a.ts", 2, "safe", 3)).toBe(
+			"Reverted 2 hunks in src/a.ts. Safety snapshot #safe. 3 files still changed.",
+		);
+		expect(formatHunkRevertText("src/a.ts", 1, undefined, 0)).toBe("Reverted 1 hunk in src/a.ts. No changes remain.");
 	});
 });
 

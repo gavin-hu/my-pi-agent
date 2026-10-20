@@ -9,8 +9,9 @@
  * (`GIT_INDEX_FILE`) so the user's real index and HEAD are never modified.
  */
 
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	createExecRunner,
@@ -239,6 +240,26 @@ export async function restorePaths(
 		cwd,
 		env: { GIT_INDEX_FILE: indexFile },
 	});
+}
+
+/**
+ * Reverse-apply a prepared patch to the working tree.
+ *
+ * `pi.exec` has no stdin, so the patch goes through a private temporary
+ * directory and a path argument. Without `--index` or `--cached`, `git apply`
+ * writes only the working tree, and it verifies every hunk before writing, so a
+ * file edited after its diff was read fails atomically instead of applying stale
+ * context. The caller builds the patch from already-fetched diff output.
+ */
+export async function applyPatchReverse(runGit: RunGit, cwd: string, patch: string): Promise<void> {
+	const dir = mkdtempSync(join(tmpdir(), "pi-rewind-patch-"));
+	try {
+		const file = join(dir, "patch.diff");
+		writeFileSync(file, patch);
+		await run(runGit, ["apply", "--reverse", "--whitespace=nowarn", file], { cwd });
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 }
 
 /** Label of an in-progress git operation that a rewind must not clobber, if any. */

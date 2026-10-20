@@ -325,6 +325,18 @@ describe("ReviewDiffComponent", () => {
 		expect(second.closed).toEqual(["revert"]);
 	});
 
+	test("offers h for hunks only when the file has textual hunks", () => {
+		const selectable = diff({ canRevertHunks: true });
+		expect(text(selectable.component)).toContain("h hunks");
+		selectable.component.handleInput("h");
+		expect(selectable.closed).toEqual(["hunks"]);
+
+		const whole = diff();
+		expect(text(whole.component)).not.toContain("h hunks");
+		whole.component.handleInput("h");
+		expect(whole.closed).toEqual([]);
+	});
+
 	test("scrolls from the top and reports the line range", () => {
 		const lines = Array.from({ length: 100 }, (_, index) => `+line ${index}`);
 		const { component } = diff({ lines, viewportRows: () => 12 });

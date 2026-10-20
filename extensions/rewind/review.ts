@@ -15,12 +15,16 @@ import { isPlanModeEnabled } from "../../lib/plan-state.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import {
 	boundDiff,
+	formatHunkRevertBody,
+	formatHunkRevertText,
 	formatRevertAllBody,
 	formatRevertOneBody,
 	formatRevertSelectedBody,
 	formatReviewListText,
 	formatReviewRevertText,
 } from "./format.ts";
+import { HunkPickerComponent } from "./hunk-picker.ts";
+import { buildHunkPatch, parseFilePatch } from "./patch.ts";
 import { entryPaths, toReviewEntries, type ReviewEntry } from "./paths.ts";
 import {
 	ReviewDiffComponent,
@@ -177,6 +181,22 @@ async function confirmRevertSelected(
 	return ctx.ui.confirm(`Revert ${files}?`, formatRevertSelectedBody(entries, review.point.prompt, safety, committed));
 }
 
+/** Ask before reverting chosen hunks of one file. */
+async function confirmHunks(
+	ctx: ExtensionCommandContext,
+	review: LoadedReview,
+	entry: ReviewEntry,
+	selected: number,
+	total: number,
+	safety: boolean,
+	committed: boolean,
+): Promise<boolean> {
+	return ctx.ui.confirm(
+		`Revert ${selected} hunk${selected === 1 ? "" : "s"} in ${sanitizeLine(entry.path)}?`,
+		formatHunkRevertBody(entry, selected, total, review.point.prompt, safety, committed),
+	);
+}
+
 /** Ask before reverting every changed path in the review. */
 async function confirmRevertAll(
 	ctx: ExtensionCommandContext,
@@ -277,12 +297,15 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 			ctx.ui.notify(`Could not read the diff: ${errorText(error)}`, "error");
 			continue;
 		}
+		const filePatch = parseFilePatch(patch);
+		const canRevertHunks = filePatch !== undefined && filePatch.hunks.length > 0;
 		const decision = await ctx.ui.custom<ReviewDiffAction | undefined>(
 			(tui, theme, _keybindings, done) =>
 				new ReviewDiffComponent({
 					entry,
 					prompt: label,
 					lines: boundDiff(patch),
+					canRevertHunks,
 					committed,
 					theme,
 					onClose: (chosen) => done(chosen),
@@ -290,6 +313,69 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 					viewportRows: () => tui.terminal?.rows,
 				}),
 		);
+		if (decision === "hunks") {
+			if (!filePatch) continue;
+			const chosen = await ctx.ui.custom<number[] | undefined>(
+				(tui, theme, _keybindings, done) =>
+					new HunkPickerComponent({
+						path: entry.path,
+						hunks: filePatch.hunks,
+						theme,
+						onClose: (selection) => done(selection),
+						requestRender: () => tui.requestRender(),
+						viewportRows: () => tui.terminal?.rows,
+					}),
+			);
+			if (chosen === undefined) continue;
+			if (chosen.length === 0) {
+				ctx.ui.notify("No hunks selected.", "info");
+				continue;
+			}
+			if (!(await confirmHunks(ctx, review, entry, chosen.length, filePatch.hunks.length, safety, committed))) {
+				continue;
+			}
+			let safetyId: string | undefined;
+			try {
+				const reverted = await runtime.revertHunks(
+					ctx,
+					review.root,
+					review.snapshot,
+					runtime.configFor(review.root),
+					buildHunkPatch(filePatch, chosen),
+				);
+				safetyId = reverted.safety;
+			} catch (error) {
+				ctx.ui.notify(`Revert failed: ${errorText(error)}`, "error");
+				continue;
+			}
+			try {
+				await runtime.setStatus(ctx);
+			} catch {
+				// The status chip is best-effort; a failed repaint must not report the
+				// revert itself as failed.
+			}
+
+			let refreshed: RefreshResult;
+			try {
+				refreshed = await refreshView(runtime, review.root, review.snapshot);
+			} catch (error) {
+				ctx.ui.notify(`Reverted, but could not refresh the review: ${errorText(error)}`, "error");
+				return;
+			}
+			if (refreshed.kind === "error") {
+				ctx.ui.notify(refreshed.message, "error");
+				return;
+			}
+			if (refreshed.kind === "empty") {
+				ctx.ui.notify(formatHunkRevertText(entry.path, chosen.length, safetyId, 0), "info");
+				return;
+			}
+			ctx.ui.notify(formatHunkRevertText(entry.path, chosen.length, safetyId, refreshed.view.entries.length), "info");
+			view = refreshed.view;
+			selected = [];
+			index = Math.min(index, view.entries.length - 1);
+			continue;
+		}
 		if (decision !== "revert") continue;
 		if (!(await confirmRevertOne(ctx, review, entry, safety, committed))) continue;
 		const result = await revertPaths(runtime, ctx, review, [entry.path]);

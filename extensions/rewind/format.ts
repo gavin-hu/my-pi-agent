@@ -290,6 +290,43 @@ export function formatRevertSelectedBody(
 	].join("\n");
 }
 
+/** The confirmation body for reverting chosen hunks of one file. */
+export function formatHunkRevertBody(
+	entry: ReviewEntry,
+	selected: number,
+	total: number,
+	prompt: string,
+	safety: boolean,
+	committed = false,
+): string {
+	const label = summarizePrompt(prompt) ?? "this prompt";
+	const rest = total - selected;
+	return [
+		`Reverts ${selected} of ${total} hunk${total === 1 ? "" : "s"} in ${sanitizeLine(entry.path)} to the snapshot taken before "${label}".`,
+		rest > 0
+			? `${rest} hunk${rest === 1 ? "" : "s"} in the file stay${rest === 1 ? "s" : ""} as ${rest === 1 ? "it is" : "they are"}.`
+			: "Every hunk in the file is reverted.",
+		headNote(committed),
+		safety
+			? "A safety snapshot first makes the revert undoable with /rewind."
+			: "Safety snapshots are off; this cannot be undone.",
+	].join("\n");
+}
+
+/** What a hunk revert did, and what is left to review. */
+export function formatHunkRevertText(
+	path: string,
+	hunks: number,
+	safety: string | undefined,
+	remaining: number,
+): string {
+	const files = `${hunks} hunk${hunks === 1 ? "" : "s"} in ${sanitizeLine(path)}`;
+	const safetyText = safety ? ` Safety snapshot #${safety}.` : "";
+	const left =
+		remaining === 0 ? " No changes remain." : ` ${remaining} file${remaining === 1 ? "" : "s"} still changed.`;
+	return `Reverted ${files}.${safetyText}${left}`;
+}
+
 /** Lines of one review diff shown at most. */
 export const REVIEW_DIFF_MAX_LINES = 2_000;
 

@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	applyPatchReverse,
 	busyGitState,
 	currentBranch,
 	diffNumStat,
@@ -16,6 +17,7 @@ import {
 	revParse,
 	treeFromWorkingTree,
 } from "./git.ts";
+import { buildHunkPatch, parseFilePatch } from "./patch.ts";
 import { cleanup, makeRepo } from "../../test/helpers/git.ts";
 import { indexFileFor, runGit } from "../../test/helpers/fixtures/rewind.ts";
 
@@ -141,6 +143,36 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 		expect(readFileSync(join(repo, "other.txt"), "utf-8")).toBe("changed too\n");
 		// The real index never sees the checkout.
 		expect((await runGit(["diff", "--cached", "--name-only"], { cwd: repo })).stdout.trim()).toBe("");
+
+		await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
+		await runGit(["clean", "-fdq"], { cwd: repo });
+	});
+
+	test("applyPatchReverse reverts one hunk, leaves the index alone, and refuses a stale patch", async () => {
+		const lines = Array.from({ length: 20 }, (_, index) => `line ${index + 1}`);
+		writeFileSync(join(repo, "hunks.txt"), `${lines.join("\n")}\n`);
+		await runGit(["add", "."], { cwd: repo });
+		await runGit(["commit", "-qm", "hunk base"], { cwd: repo });
+		const before = (await revParse(runGit, repo, "HEAD^{tree}")) as string;
+
+		const changed = lines.map((line, index) => (index === 1 ? "changed one" : index === 15 ? "changed two" : line));
+		writeFileSync(join(repo, "hunks.txt"), `${changed.join("\n")}\n`);
+		const current = await treeFromWorkingTree(runGit, repo, indexFileFor(repo, "hunk"), true);
+		const raw = await diffPatch(runGit, repo, before, current, ["hunks.txt"]);
+		const patch = parseFilePatch(raw);
+		expect(patch?.hunks).toHaveLength(2);
+		if (!patch) return;
+
+		await applyPatchReverse(runGit, repo, buildHunkPatch(patch, [0]));
+
+		const after = readFileSync(join(repo, "hunks.txt"), "utf-8").split("\n");
+		expect(after[1]).toBe("line 2");
+		expect(after[15]).toBe("changed two");
+		// The real index never sees the reverse apply.
+		expect((await runGit(["diff", "--cached", "--name-only"], { cwd: repo })).stdout.trim()).toBe("");
+		// The same hunk no longer matches, so a second apply fails instead of
+		// applying stale context to a moved file.
+		await expect(applyPatchReverse(runGit, repo, buildHunkPatch(patch, [0]))).rejects.toThrow();
 
 		await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
 		await runGit(["clean", "-fdq"], { cwd: repo });

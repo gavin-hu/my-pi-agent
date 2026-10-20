@@ -30,11 +30,13 @@ pi install ./                        # install the package
   prompt on the active branch. The file list carries `M`/`A`/`D`/`R` and line
   counts; `Enter` opens a scrollable patch, `Space` selects files, `r` reverts
   the selection (or the focused file when nothing is selected), and `R` reverts
-  every changed path. A rename is one `R` row, so reverting it restores the old
-  path and removes the new one together. A selected batch is one restore and one
-  pre-restore safety snapshot, not one per file. When the working tree matches
-  HEAD, the screen says the changes are already committed and a revert leaves
-  the commits in place.
+  every changed path. A modified text file's diff offers `h`, which opens a hunk
+  checklist; the chosen hunks revert as one reverse patch with its own
+  pre-restore safety snapshot. A rename is one `R` row, so reverting it restores
+  the old path and removes the new one together. A selected batch is one restore
+  and one pre-restore safety snapshot, not one per file. When the working tree
+  matches HEAD, the screen says the changes are already committed and a revert
+  leaves the commits in place.
 - `/rewind` lists **every user prompt on the active branch** (newest first), each
   marked `⬥` when a code snapshot was captured for it.
 - Picking a point asks what to restore: **Code and conversation**,
@@ -66,7 +68,7 @@ the main checkout; `list`/matching filter to the current root by default.
 | Command | What it does |
 |---|---|
 | `/rewind` | Open the timeline; pick a prompt, then a restore scope, then (for code) the paths. |
-| `/review` | Review the latest prompt's changes; open a diff, select files with `Space`, revert the selection, or revert all of them. |
+| `/review` | Review the latest prompt's changes; open a diff, select files with `Space`, revert the selection or all files, or revert chosen hunks with `h`. |
 
 The path checklist is its own `ctx.ui.custom` screen: `Space` toggles the focused
 row, `a`/`n` select all or none, `Enter` returns the selection, and `Esc` cancels
@@ -83,13 +85,15 @@ The review list is keyboard-driven too: `↑`/`↓` or `j`/`k` move, `PgUp`/`PgD
 `Enter` opens the focused file's diff, `r` reverts the selection (or the focused
 file when nothing is selected), `R` reverts every changed path, and `Esc` closes.
 In the diff, `j`/`k`, the arrows, `PgUp`/`PgDn`, and `g`/`G` scroll, `r` reverts
-the file, and `Esc` goes back.
+the file, and `Esc` goes back. A modified text file's diff offers `h` for the
+hunk checklist: `Space` toggles, `a`/`n` select all or none, `Enter` reverts the
+chosen hunks, and `Esc` cancels back to the diff.
 
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| Interactive TUI | Full selectable timeline, then the scope choice, the path checklist, and the confirmation. `/review` mounts the changed-file list and the per-file diff. |
+| Interactive TUI | Full selectable timeline, then the scope choice, the path checklist, and the confirmation. `/review` mounts the changed-file list, the per-file diff, and the hunk checklist. |
 | RPC (`hasUI`) | Timeline falls back to `ui.select`; scope choice and confirmation use forwarded dialogs. `/review` prints the changed-path list. |
 | `print` / `json` | No picker: the prompt list is printed. `/review` prints the changed-path list. |
 
@@ -148,7 +152,9 @@ commit. These refs are not branches and are not touched by `git push --all`.
 - **The path checklist is TUI-only.** RPC, `print`, and `json` modes restore the
   whole tree; there is no typed path syntax, because a list of exact paths is what
   the checklist is for and a glob would need its own validation and preview.
-- **`/review` is whole-file only.** There is no hunk selection.
+- **Hunk selection covers modified text files.** Added, deleted, renamed, and
+  binary files, and a change with no textual hunks (a mode-only change), revert
+  whole; the diff offers `h` only when it has hunks to show.
 - **`/review` follows the latest prompt with a snapshot.** A read-only prompt
   after it does not change the target, and a turn whose snapshot failed has no
   review of its own. Actions are TUI-only; other modes print the changed list.
@@ -244,6 +250,14 @@ commit. These refs are not branches and are not touched by `git push --all`.
   operations a revert performs. A rename whose two names resolve to one file (a
   case-only rename on a case-insensitive filesystem) skips the destination
   delete, because the checkout has already renamed that file.
+- **A hunk revert is a reverse patch, not a checkout.** `patch.ts` splits one
+  file's diff into its header and hunks; `buildHunkPatch` rebuilds only the chosen
+  ones, and `git apply --reverse` writes them to the working tree without
+  `--index`/`--cached`, so the real index and HEAD stay untouched. The patch goes
+  through a private temp directory because `pi.exec` has no stdin, and git checks
+  every hunk before writing, so a file edited after its diff was read fails
+  atomically. The revert takes the same pre-restore safety snapshot as a file
+  revert.
 - **Identity is fixed for internal commits.** `commit-tree` runs with
   `-c user.name=pi -c user.email=pi@localhost`, so snapshots work without committer
   identity configured and never depend on the user's git config.
@@ -255,22 +269,24 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `index.ts` | Registrar: wire the runtime, the commands, and the run-state module to Pi's events (`registerRewind`). |
 | `types.ts` | `Snapshot`, `SnapshotReason`, `RestoreSummary`. |
 | `config.ts` | Config defaults and merge/normalize over `lib/config.ts`. |
-| `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes (name status, stat, patch, and `--numstat`), and the production `RunGit`. |
+| `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes (name status, stat, patch, and `--numstat`), the reverse apply a hunk revert uses, and the production `RunGit`. |
 | `snapshot.ts` | Create a snapshot (tree from a temporary index → commit → ref). |
 | `snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
 | `restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths, recreating a rename's source and removing its destination. |
 | `paths.ts` | Pure: the changed-path list from `git diff --name-status` (a rename is one paired entry), its directory grouping, the change marks, the `--numstat` counts, and the restore counts. |
 | `path-picker.ts` | The checklist screen a partial restore opens: grouped paths, toggles, and the selection it returns. |
+| `patch.ts` | Pure: split a single-file unified diff into its header and hunks, and rebuild a patch from chosen hunks. |
+| `hunk-picker.ts` | The hunk checklist a modified file's diff opens: toggles, selection, and the indices it returns. |
 | `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `policy.ts` | Which tool calls are worth a snapshot. |
 | `temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
 | `status.ts` | The `↺ N` status chip. |
 | `queue.ts` | The serialized git operation queue for staging calls (`GIT_INDEX_FILE`). |
-| `runtime.ts` | Root/config caches and the snapshot/list/plan/patch/numstat/restore operations. |
+| `runtime.ts` | Root/config caches and the snapshot/list/plan/patch/numstat/restore/hunk-revert operations. |
 | `timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
 | `rewind.ts` | Scope choice, the path step, confirmation, and applying code + conversation rewind. |
-| `review.ts` | The `/review` orchestration: the latest snapshot, the list/diff loop, confirmations, and the revert. |
-| `review-tui.ts` | The changed-file list and the scrollable per-file diff. |
+| `review.ts` | The `/review` orchestration: the latest snapshot, the list/diff loop, the hunk step, confirmations, and the reverts. |
+| `review-tui.ts` | The changed-file list and the scrollable per-file diff, which offers the hunk checklist. |
 | `rewind-tui.ts` | The selectable, width-safe timeline component, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `commands.ts` | The `/rewind` and `/review` commands. |
-| `format.ts` | Pure rewind and review text, including diff bounding. |
+| `format.ts` | Pure rewind and review text, including diff bounding and the hunk prompt. |
