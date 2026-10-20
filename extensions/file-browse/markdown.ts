@@ -16,8 +16,7 @@
  * and non-http(s) schemes such as `javascript:` are dropped.
  *
  * Headings get a stable anchor id and are demoted one level so the embedding
- * page keeps the only `h1`; `renderMarkdownDocument` returns them for an
- * outline.
+ * page keeps the only `h1`.
  *
  * Kept free of the page renderer: it imports only `lib/escape.ts`,
  * `lib/highlight.ts`, `urls.ts`, and `raw-html.ts`, so `html.ts` can compose it
@@ -66,24 +65,13 @@ interface LinkDefinition {
 	title?: string;
 }
 
-/** A heading the renderer emitted, in document order. */
-export interface MarkdownHeading {
-	/** The rendered tag level, already demoted and capped at `h6`. */
-	level: number;
-	/** The anchor id, unique within the document. */
-	id: string;
-	/** The heading's raw inline Markdown. */
-	text: string;
-}
-
 /**
  * Per-document render state: the resolution base, the reference definitions,
- * the headings emitted so far, and the raw-HTML balancing state.
+ * and the raw-HTML balancing state.
  */
 interface Context {
 	baseDir: string;
 	defs: Map<string, LinkDefinition>;
-	headings: MarkdownHeading[];
 	/** Emit sanitized raw HTML; `false` escapes it as text. */
 	html: boolean;
 	sink: HtmlSink;
@@ -97,25 +85,16 @@ export interface MarkdownOptions {
 }
 
 /**
- * Render a Markdown source string to a safe HTML fragment, plus the headings it
- * emitted so a caller can build an outline. Headings carry an anchor id and are
- * demoted one level, so the embedding page keeps the only `h1`.
+ * Render a Markdown source string to a safe HTML fragment. Headings carry an
+ * anchor id and are demoted one level, so the embedding page keeps the only
+ * `h1`.
  */
-export function renderMarkdownDocument(
-	source: string,
-	baseDir = "",
-	options: MarkdownOptions = {},
-): { html: string; headings: MarkdownHeading[] } {
+export function renderMarkdown(source: string, baseDir = "", options: MarkdownOptions = {}): string {
 	const html = options.html ?? true;
 	const { defs, body } = collectDefinitions(source.split(/\r\n|\r|\n/), html);
 	const context = createContext(baseDir, defs, html);
 	const rendered = renderBlocks(body, context);
-	return { html: html ? rendered + closeHtmlSink(context.sink) : rendered, headings: context.headings };
-}
-
-/** Render a Markdown source string to a safe HTML fragment. */
-export function renderMarkdown(source: string, baseDir = "", options: MarkdownOptions = {}): string {
-	return renderMarkdownDocument(source, baseDir, options).html;
+	return html ? rendered + closeHtmlSink(context.sink) : rendered;
 }
 
 /** Turn heading text into a stable anchor id, dropping Markdown punctuation. */
@@ -136,7 +115,6 @@ function createContext(baseDir: string, defs: Map<string, LinkDefinition>, html:
 	return {
 		baseDir,
 		defs,
-		headings: [],
 		html,
 		sink: createHtmlSink(),
 		slug(text: string): string {
@@ -258,7 +236,6 @@ function renderBlocks(lines: string[], ctx: Context): string {
 		if (heading) {
 			const level = Math.min(heading.level + 1, 6);
 			const id = ctx.slug(heading.text);
-			ctx.headings.push({ level, id, text: heading.text });
 			out.push(`<h${level} id="${id}">${renderInline(heading.text, ctx)}</h${level}>`);
 			i++;
 			continue;

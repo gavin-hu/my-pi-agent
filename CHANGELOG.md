@@ -109,6 +109,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   records — 500, 3,000, and 10,000 records, plus 3,000 against a 100-key rate
   table — with a determinism gate in the suite.
 
+### Removed
+
+- `file-browse`: the **On this page** outline is gone. Headings keep their
+  stable anchor ids, so in-document `#anchor` links still work.
+
 ### Fixed
 
 - `plan`: ticking a step with `set_plan_steps` also ticks the todo item approval
