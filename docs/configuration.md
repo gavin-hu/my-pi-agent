@@ -16,6 +16,7 @@ section and every key with its type, default, and bounds.
 - [Look up a key](#look-up-a-key)
 - [Section index](#section-index)
 - [Document metadata](#document-metadata)
+- [`check` — verification runs](#check--verification-runs)
 - [`price` — cost calculation](#price--cost-calculation)
 - [`notify` — OS notifications](#notify--os-notifications)
 - [`doctor` — diagnostics](#doctor--diagnostics)
@@ -175,7 +176,7 @@ The sections, by what they are for:
 
 | Group | Sections |
 |---|---|
-| Plan and delegate | [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
+| Plan and delegate | [`check`](#check--verification-runs), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
 | Keep your work safe | [`worktree`](#worktree--isolated-worktrees), [`rewind`](#rewind--snapshots), [`memory`](#memory--durable-notes) |
 | Reach the world | [`web-access`](#web-access--search-and-fetch), [`file-browse`](#file-browse--the-local-file-server), [`document`](#document--document-extraction), [`wechat`](#wechat--the-wechat-bridge) |
 | Chrome and upkeep | [`price`](#price--cost-calculation), [`notify`](#notify--os-notifications), [`doctor`](#doctor--diagnostics), [`chrome`](#chrome--transcript-chrome) |
@@ -193,6 +194,7 @@ repository root rather than the active working directory.
 | Extension | Section | Covers |
 |---|---|---|
 | [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
+| [`check`](../extensions/check/) | `check` | Detection override, run timeout, and log tail. |
 | [`document`](../extensions/document/) | `document` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
@@ -395,6 +397,16 @@ unaffected.
 | `transcripts` | string | `"off"` | `"off"`, `"failed"`, `"all"` | Which finished runs keep a transcript under `.pi/subagents/`. |
 | `retentionDays` | integer | `14` | `1`–`3650` | Age after which a run directory is pruned at session start. |
 | `maxRuns` | integer | `100` | `1`–`1000` | Run directories kept; the oldest are pruned first. |
+
+## `check` — verification runs
+
+`/bytefly settings` has no rows for these; they are `bytefly.json` edits.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `command` | string | `""` | | Shell command that overrides detection for every target. Empty means detect. |
+| `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit per command; `0` disables it. |
+| `maxLogBytes` | integer | `1048576` | `65536`–`16777216` | Bytes of output retained per command. |
 
 ## `todo` — the todo widget
 

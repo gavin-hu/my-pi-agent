@@ -57,6 +57,8 @@ import type { StoredPlan } from "../extensions/plan/plans.ts";
 import { PlanViewComponent } from "../extensions/plan/tui.ts";
 import { askViaTui } from "../extensions/question/tui.ts";
 import type { Question } from "../extensions/question/types.ts";
+import type { CheckResult } from "../extensions/check/types.ts";
+import { CheckResultComponent } from "../extensions/check/tui.ts";
 import { ReviewListComponent } from "../extensions/rewind/review-tui.ts";
 import type { ReviewEntry } from "../extensions/rewind/paths.ts";
 import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
@@ -258,6 +260,33 @@ const REWIND_POINTS: RewindPoint[] = [
 		},
 	},
 ];
+
+/** The failed check the `/check` screen shows. */
+const CHECK_RESULT: CheckResult = {
+	target: "all",
+	status: "failed",
+	commands: ["bun run check"],
+	exitCode: 1,
+	durationMs: 12_400,
+	truncated: false,
+	failures: [
+		{
+			path: "extensions/check/detect.test.ts",
+			line: 88,
+			column: 5,
+			message: 'expected "cargo test" to be "cargo test --all"',
+			command: "bun run check",
+		},
+		{
+			path: "extensions/check/failures.test.ts",
+			line: 41,
+			message: "expected 2 failures, got 0",
+			command: "bun run check",
+		},
+		{ test: "TestDetect", message: "Test failed", command: "go test ./..." },
+	],
+	tail: "src/check.test.ts:12: nope\nmore output",
+};
 
 /** The changed files the review screen shows after a documentation turn. */
 const REVIEW_ENTRIES: ReviewEntry[] = [
@@ -593,6 +622,19 @@ export const SCREENS: Record<string, Screen> = {
 			new RewindListComponent({
 				points: REWIND_POINTS,
 				theme,
+				onClose: noop,
+				requestRender: noop,
+				viewportRows: () => rows,
+			}).render(width),
+	},
+	check: {
+		asset: "check",
+		title: "π - my-pi-agent · /check",
+		render: (width, rows) =>
+			new CheckResultComponent({
+				result: CHECK_RESULT,
+				theme,
+				onRerun: noop,
 				onClose: noop,
 				requestRender: noop,
 				viewportRows: () => rows,

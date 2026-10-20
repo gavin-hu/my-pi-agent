@@ -1,7 +1,7 @@
 # User guide
 
 `my-pi-agent` is an add-on for [Pi](https://pi.dev), the assistant you talk to in
-a terminal window. It adds sixteen optional features and two colour themes to the
+a terminal window. It adds seventeen optional features and two colour themes to the
 Pi you already have. This guide is written for people who *use* Pi rather than
 work on its code: every feature is explained in plain language and then walked
 through step by step.
@@ -13,7 +13,7 @@ and each of those says so where it comes up.
 ## Contents
 
 - **Start here** — [the tour](#start-here), [words](#words-used-in-this-guide), [what this adds](#what-you-are-using), [install](#getting-it-installed), [cost and privacy](#what-it-costs-and-what-leaves-your-machine), [the screen](#the-screen-at-a-glance), [plain words](#asking-for-things-in-plain-words)
-- **Plan and delegate** — [planning](#plan-first-then-write), [to-do and goal](#a-to-do-list-and-a-goal), [questions](#answering-the-assistants-questions), [background work](#background-jobs-and-watchers), [specialist helpers](#delegating-to-specialist-helpers)
+- **Plan and delegate** — [planning](#plan-first-then-write), [checking](#checking-your-work), [to-do and goal](#a-to-do-list-and-a-goal), [questions](#answering-the-assistants-questions), [background work](#background-jobs-and-watchers), [specialist helpers](#delegating-to-specialist-helpers)
 - **Keep your work safe** — [worktrees](#working-on-a-branch-safely), [rewind](#undoing-a-turn), [memory](#remembering-between-sessions)
 - **Reach the world** — [web](#searching-and-reading-the-web), [documents and files](#documents-and-files), [WeChat](#using-it-from-wechat)
 - **Reference** — [settings](#settings-health-and-looks), [turning off](#turning-features-off-or-removing-the-pack), [troubleshooting](#when-something-looks-wrong), [quick reference](#quick-reference), [files](#what-this-package-writes-to-disk), [where to read more](#where-to-read-more)
@@ -51,6 +51,7 @@ is unfamiliar, it is defined in [Words used in this guide](#words-used-in-this-g
 | Feature | What it does | Walkthrough |
 |---|---|---|
 | `plan` | Plans read-only, then waits for your approval | [Plan first, then write](#plan-first-then-write) |
+| `check` | Runs the project's tests, lint, or typecheck and lists failures | [Checking your work](#checking-your-work) |
 | `subagent` | Hands work to a specialist helper in its own process | [Delegating to specialist helpers](#delegating-to-specialist-helpers) |
 | `todo` | A checklist the assistant keeps updated | [A to-do list and a goal](#a-to-do-list-and-a-goal) |
 | `goal` | One session objective, restated every turn | [A to-do list and a goal](#a-to-do-list-and-a-goal) |
@@ -88,7 +89,7 @@ is unfamiliar, it is defined in [Words used in this guide](#words-used-in-this-g
 |---|---|
 | Terminal | The text window Pi runs in. |
 | Pi | The assistant program this pack adds to. |
-| Extension | One add-on in the pack; there are sixteen, each switchable. |
+| Extension | One add-on in the pack; there are seventeen, each switchable. |
 | Slash command | A message that starts with `/` and acts immediately instead of starting a turn. |
 | Prompt | What you type to the assistant, before it answers. |
 | Turn | One prompt and the assistant's work in answer to it. |
@@ -110,7 +111,7 @@ its actions appear in the same transcript, one turn at a time.
 
 This package adds tools and screens on top of that, without replacing Pi:
 
-- **16 extensions and 21 tools.** Some add abilities (planning, background jobs,
+- **17 extensions and 22 tools.** Some add abilities (planning, verification, background jobs,
   memory, web search, and so on) and some add convenience (the settings screen, a
   file browser, the themed transcript chrome). Every one can be switched off.
 - **Two themes.** A dark and a light colour palette that match the package's
@@ -362,6 +363,55 @@ verification — and its steps become your to-do list on approval.
   not track them all.
 - Scroll and review keys need the terminal interface; in text-only modes the plan
   is printed instead.
+
+## Checking your work
+
+**What it is.** **check** runs the project's test, lint, or typecheck command
+from inside Pi and turns the output into a list of failures you can open. It
+uses the command the project already declares, so it works the same in a Node,
+Rust, Go, Python, Make, or Just project.
+
+**Walkthrough.**
+
+1. After a change, type:
+
+   ```text
+   /check
+   ```
+
+   It runs every command it detected. Add `test`, `lint`, or `typecheck` to run
+   just one:
+
+   ```text
+   /check test
+   ```
+
+   The output streams live. `Esc` cancels the run and stops the process.
+
+   <img src="../assets/check.png" alt="The /check screen: a failed run with failure rows and the focused failure's message" width="100%">
+
+   *A failed check; Enter opens the focused failure.*
+
+2. On a failure, the list shows `file:line` locations. `Enter` opens the
+   focused failure's detail, `j` / `k` and the arrows scroll, and `Esc` goes
+   back. `r` reruns; `Esc` from the list closes it.
+
+3. A passing run is one line in the transcript, such as
+   `Check passed: bun run check · 12.4s`.
+
+**Good to know.**
+
+- Detection looks for `package.json` scripts, `Cargo.toml`, `go.mod`, pytest
+  configuration, a `justfile`, and a `Makefile`. For anything else, set
+  `check.command` to the command the project uses; it overrides detection.
+- The assistant can run the same check with the `run_check` tool and gets the
+  failures as structured data. This is usually better than asking it to run a
+  test command directly.
+- In text-only modes `/check` runs and prints the report; there is no live
+  screen.
+- Plan mode refuses `/check`; approve the plan first.
+- A run has a timeout (ten minutes by default) and keeps only the tail of a
+  very large log. Both are configurable on the configuration page.
 
 ## A to-do list and a goal
 
@@ -1141,6 +1191,7 @@ lists them so you can delete what you no longer want.
 | `/goal set <text>` / `/goal edit <text>` | Change the goal without starting a run |
 | `/goal done` | Mark the goal achieved |
 | `/goal clear` | Clear the goal |
+| `/check [test|lint|typecheck|all]` | Run the project's checks and show failures |
 | `/jobs` | Open the job list |
 | `/watch` | Open the watcher list |
 | `/watch list`, `matches <id>`, `logs <id>`, `stop <id>`, `clear [all]` | Watcher subcommands |

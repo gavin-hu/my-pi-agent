@@ -93,7 +93,7 @@ Nothing about the session is sent, and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-Sixteen extensions, grouped by what you are trying to do, plus two themes. Each
+Seventeen extensions, grouped by what you are trying to do, plus two themes. Each
 extension's own `README.md` has the full tool and command surface.
 
 ### Plan and delegate
@@ -101,6 +101,7 @@ extension's own `README.md` has the full tool and command surface.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `.pi/plans`, and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments. |
+| [`check`](./extensions/check/) | `run_check`, `/check` | Detect the project's test, lint, or typecheck command (or take `check.command`), run it in a supervised process, and turn failures into a navigable `file:line` list. |
 | [`subagent`](./extensions/subagent/) | `subagent` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, or chained. |
 | [`todo`](./extensions/todo/) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
 | [`goal`](./extensions/goal/) | `goal`, `/goal` | A persistent session objective, kept in a widget and restated before each turn. |
@@ -163,7 +164,7 @@ each tool's own renderer (or bytefly's generic fallback): the user nameplate and
 a notice, Pi's built-ins, and every tool this package registers. The rail glyph
 is the `chrome.rail` setting.
 
-![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, send_wechat, ask_user_question, the plan tools, and the worktree tools](assets/tool-renderings.png)
+![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, the plan tools, and the worktree tools](assets/tool-renderings.png)
 
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).

@@ -597,6 +597,48 @@ export const FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "run_check",
+		group: "package",
+		label: "no custom renderer (generic fallback)",
+		args: { target: "all" },
+		result: {
+			content: [
+				{
+					type: "text",
+					text: [
+						"Check failed: 2 failures · bun run check · 12.4s",
+						"- extensions/check/detect.test.ts:88:5 — expected cargo test · bun run check",
+						"- extensions/check/failures.test.ts:41 — expected 2 failures · bun run check",
+					].join("\n"),
+				},
+			],
+			details: {
+				target: "all",
+				status: "failed",
+				commands: ["bun run check"],
+				exitCode: 1,
+				durationMs: 12_400,
+				truncated: false,
+				failures: [
+					{
+						path: "extensions/check/detect.test.ts",
+						line: 88,
+						column: 5,
+						message: "expected cargo test",
+						command: "bun run check",
+					},
+					{
+						path: "extensions/check/failures.test.ts",
+						line: 41,
+						message: "expected 2 failures",
+						command: "bun run check",
+					},
+				],
+				tail: "src/check.test.ts:12: nope\nmore output",
+			},
+		},
+	},
+	{
 		name: "send_wechat",
 		group: "package",
 		label: "a message to the owner",

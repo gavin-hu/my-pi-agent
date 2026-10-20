@@ -80,7 +80,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 ## 包含内容
 
-十六个扩展，按你想达成的目标分组，外加两个主题。每个扩展自己的 `README.md`
+十七个扩展，按你想达成的目标分组，外加两个主题。每个扩展自己的 `README.md`
 提供完整的工具与命令说明。
 
 ### 规划与委派
@@ -88,6 +88,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
 | [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | 只读规划：模型先调研，把计划保存到 `.pi/plans` 下，你在写入任何内容前先批准。可在 TUI 中审阅，或在浏览器中打开以留下行内评论。 |
+| [`check`](./extensions/check/) | `run_check`, `/check` | 检测项目的测试、lint 或类型检查命令（或使用 `check.command`），在受监管的进程中运行，并把失败整理成可导航的 `file:line` 列表。 |
 | [`subagent`](./extensions/subagent/) | `subagent` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`、`researcher`、`tester`、`debugger`、`documenter`），运行在它自己的 Pi 进程中 —— 单个、并行或链式。 |
 | [`todo`](./extensions/todo/) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |
 | [`goal`](./extensions/goal/) | `goal`, `/goal` | 持久会话目标，保存在 widget 中，并在每个回合前重述。 |

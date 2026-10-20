@@ -11,13 +11,13 @@ The README makes one promise: **plan before you act, delegate the work, keep the
 main checkout clean, and carry context across sessions** — without forking Pi.
 The roadmap is ordered by how directly an item makes that sentence true.
 
-The pack already has breadth: sixteen extensions and two themes. The next stage
+The pack already has breadth: seventeen extensions and two themes. The next stage
 is not more surface area. It is making the existing promises exact, continuous
 across `/resume` and `/tree`, and honest where a platform cannot deliver.
 
 ## Where we are
 
-- Sixteen extensions, two themes, one shared `bytefly.json`.
+- Seventeen extensions, two themes, one shared `bytefly.json`.
 - Four product groups in the README: plan and delegate, keep work safe, reach
   the world, chrome and upkeep.
 - Foundations that hold: no build step, no fork, every extension optional,
@@ -62,8 +62,8 @@ screenshots.
 
 | README promise | Today | Open items |
 |---|---|---|
-| Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | P1 |
-| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P2 |
+| Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | — |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P1 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
@@ -87,16 +87,16 @@ closed by work parked in any horizon.
 
 The first two sit in `Now`; this one is the smallest foundation gap left.
 
-The `Next` tier adds the two remaining highest user-value capabilities — P1
-and P2 — without displacing these: they shorten the daily loop, while the three
-above keep its numbers honest and its foundation small.
+The `Next` tier adds the one remaining highest user-value capability — P1 —
+without displacing these: it shortens the daily loop, while the three above
+keep its numbers honest and its foundation small.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the picker's scope decision is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
-| **Next** (queued) | Does the daily loop feel finished? | `P1` and `P2` land: a turn can be verified, and a delegated run can continue after the call returns. |
+| **Next** (queued) | Does the daily loop feel finished? | `P1` lands: a delegated run can continue after the call returns. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -135,9 +135,6 @@ worktree handoff all shipped, so the handoff item is gone rather than ticked.
   notification (`watch` README).
 - Delegation is synchronous: parallel mode overlaps children inside one call,
   but the turn waits for every child, so a long run stops the conversation.
-- There is no verification surface: checking the project's tests, linter, or
-  typecheck is an ad-hoc shell command whose output enters the transcript and
-  scrolls away.
 
 **Now**
 
@@ -147,18 +144,10 @@ contributes no `Now` item.
 
 **Next**
 
-The daily loop has two gaps left: it cannot verify a change, and it cannot keep
-working while a delegated run finishes.
+The daily loop has one gap left: it cannot keep working while a delegated run
+finishes.
 
-- **P1 — Verification panel.** Add a `check` extension with `/check
-  [test|lint|typecheck|all]` and a `run_check` tool. Detect the project command
-  from its manifest, or take `check.command`; run it as a supervised background
-  process; turn failures into navigable `file:line` entries over a bounded log.
-  A new directory is justified because `job` owns generic processes and should
-  not grow test semantics. *Done when* a failed run opens a failure list, the
-  tool returns structured failures to the model, a passing run is one line, and
-  an unrecognized runner falls back to a bounded tail instead of guessing.
-- **P2 — Background delegation.** Let `subagent` start one run without blocking
+- **P1 — Background delegation.** Let `subagent` start one run without blocking
   the turn, and add `/agents` to list, inspect, collect, and stop background
   runs. Publish the existing finished-run event so bytefly's cost roll-up keeps
   working, and keep finished-run metadata in a session entry so `/resume` shows
