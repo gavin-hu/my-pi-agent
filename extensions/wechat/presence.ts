@@ -14,7 +14,7 @@ import type { WechatClient } from "./client.ts";
 import type { PeerState } from "./peer-worker.ts";
 import type { PeerLanguage } from "./format.ts";
 import { notice } from "./notices.ts";
-import type { ArmTimer } from "./timer.ts";
+import { createTimerMap, type ArmTimer } from "./timer.ts";
 
 /** How long a fetched typing ticket is reused. */
 const TYPING_TTL_MS = 5 * 60 * 1000;
@@ -78,16 +78,16 @@ export interface Presence {
 export function createPresence(deps: PresenceDeps): Presence {
 	const typingCache = new Map<string, { ticket?: string; checkedAt: number }>();
 	/** Per-peer keep-alive cancellers for the typing indicator. */
-	const typing = new Map<string, () => void>();
-	/** Per-peer pending acknowledgement cancellers. */
-	const acks = new Map<string, () => void>();
+	const typing = createTimerMap(deps.armTimer);
+	/** Per-peer pending acknowledgement timers. */
+	const acks = createTimerMap(deps.armTimer);
 	/** When each peer was last acknowledged, so a chatty peer is not spammed. */
 	const ackedAt = new Map<string, number>();
 	/** Peers told that a turn is still running, until that turn ends. */
 	const busyNotified = new Set<string>();
-	/** Per-peer `busy` and `stillWorking` cancellers. */
-	const busyTimers = new Map<string, () => void>();
-	const slowTimers = new Map<string, () => void>();
+	/** Per-peer `busy` and `stillWorking` timers. */
+	const busyTimers = createTimerMap(deps.armTimer);
+	const slowTimers = createTimerMap(deps.armTimer);
 
 	const hasWork = (peer: string): boolean => deps.statusOf(peer) !== "idle";
 	const isRunning = (peer: string): boolean => deps.statusOf(peer) === "running";
@@ -142,10 +142,7 @@ export function createPresence(deps: PresenceDeps): Presence {
 	}
 
 	function stopTyping(peer: string): void {
-		const cancel = typing.get(peer);
-		if (!cancel) return;
-		typing.delete(peer);
-		cancel();
+		typing.stop(peer);
 	}
 
 	/**
@@ -160,61 +157,45 @@ export function createPresence(deps: PresenceDeps): Presence {
 		const started = deps.now();
 		const refresh = (): void => {
 			if (!hasWork(peer) || deps.now() - started >= TYPING_LIMIT_MS) {
-				typing.delete(peer);
+				typing.stop(peer);
 				return;
 			}
 			void typingOn(peer, contextToken);
-			typing.set(peer, deps.armTimer(TYPING_KEEPALIVE_MS, refresh));
+			typing.arm(peer, TYPING_KEEPALIVE_MS, refresh);
 		};
-		typing.set(peer, deps.armTimer(TYPING_KEEPALIVE_MS, refresh));
+		typing.arm(peer, TYPING_KEEPALIVE_MS, refresh);
 	}
 
 	function stopSlowNotice(peer: string): void {
-		const cancel = slowTimers.get(peer);
-		if (cancel) cancel();
-		slowTimers.delete(peer);
+		slowTimers.stop(peer);
 	}
 
 	function stopBusyNotice(peer: string): void {
-		const cancel = busyTimers.get(peer);
-		if (cancel) cancel();
-		busyTimers.delete(peer);
+		busyTimers.stop(peer);
 		busyNotified.delete(peer);
 	}
 
 	function armSlowNotice(peer: string, contextToken: string | undefined): void {
-		stopSlowNotice(peer);
-		slowTimers.set(
-			peer,
-			deps.armTimer(TURN_NOTICE_MS, () => {
-				slowTimers.delete(peer);
-				if (!isRunning(peer)) return;
-				// A turn waiting on an unanswered dialog is not "still working": the
-				// prompt itself nudges, and saying both reads as noise.
-				if (deps.promptPending()) return;
-				void deps.send(peer, contextToken, notice("stillWorking", deps.languageOf(peer)));
-			}),
-		);
+		slowTimers.arm(peer, TURN_NOTICE_MS, () => {
+			if (!isRunning(peer)) return;
+			// A turn waiting on an unanswered dialog is not "still working": the
+			// prompt itself nudges, and saying both reads as noise.
+			if (deps.promptPending()) return;
+			void deps.send(peer, contextToken, notice("stillWorking", deps.languageOf(peer)));
+		});
 	}
 
 	function armBusyNotice(peer: string, contextToken: string | undefined): void {
 		if (busyNotified.has(peer) || busyTimers.has(peer)) return;
-		busyTimers.set(
-			peer,
-			deps.armTimer(BUSY_NOTICE_MS, () => {
-				busyTimers.delete(peer);
-				if (!hasWork(peer) || busyNotified.has(peer)) return;
-				busyNotified.add(peer);
-				void deps.send(peer, contextToken, notice("busy", deps.languageOf(peer)));
-			}),
-		);
+		busyTimers.arm(peer, BUSY_NOTICE_MS, () => {
+			if (!hasWork(peer) || busyNotified.has(peer)) return;
+			busyNotified.add(peer);
+			void deps.send(peer, contextToken, notice("busy", deps.languageOf(peer)));
+		});
 	}
 
 	function cancelAck(peer: string): void {
-		const cancel = acks.get(peer);
-		if (!cancel) return;
-		acks.delete(peer);
-		cancel();
+		acks.stop(peer);
 	}
 
 	/**
@@ -229,25 +210,21 @@ export function createPresence(deps: PresenceDeps): Presence {
 		if (acks.has(target.peer)) return;
 		const last = ackedAt.get(target.peer);
 		if (last !== undefined && deps.now() - last < ACK_REPEAT_MS) return;
-		acks.set(
-			target.peer,
-			deps.armTimer(ACK_DELAY_MS, () => {
-				acks.delete(target.peer);
-				if (!hasWork(target.peer) || isRunning(target.peer)) return;
-				ackedAt.set(target.peer, deps.now());
-				void deps.send(target.peer, target.contextToken, notice("ack", deps.languageOf(target.peer)));
-				// Still waiting after a minute behind another turn: say why.
-				armBusyNotice(target.peer, target.contextToken);
-			}),
-		);
+		acks.arm(target.peer, ACK_DELAY_MS, () => {
+			if (!hasWork(target.peer) || isRunning(target.peer)) return;
+			ackedAt.set(target.peer, deps.now());
+			void deps.send(target.peer, target.contextToken, notice("ack", deps.languageOf(target.peer)));
+			// Still waiting after a minute behind another turn: say why.
+			armBusyNotice(target.peer, target.contextToken);
+		});
 	}
 
 	return {
 		keepTyping,
 		typingOff,
 		pruneTyping() {
-			for (const peer of [...typing.keys()]) {
-				if (!hasWork(peer)) stopTyping(peer);
+			for (const peer of typing.keys()) {
+				if (!hasWork(peer)) typing.stop(peer);
 			}
 		},
 		armAck,
@@ -258,13 +235,9 @@ export function createPresence(deps: PresenceDeps): Presence {
 		stopBusyNotice,
 		stopTyping,
 		reset() {
-			for (const cancel of typing.values()) cancel();
 			typing.clear();
-			for (const cancel of acks.values()) cancel();
 			acks.clear();
-			for (const cancel of busyTimers.values()) cancel();
 			busyTimers.clear();
-			for (const cancel of slowTimers.values()) cancel();
 			slowTimers.clear();
 			typingCache.clear();
 			ackedAt.clear();

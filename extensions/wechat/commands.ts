@@ -25,6 +25,7 @@ import { isAllowedPeer, type Bridge } from "./bridge.ts";
 import type { WechatClient } from "./client.ts";
 import type { WechatConfig } from "./config.ts";
 import { doctorReport } from "./doctor.ts";
+import { messageOf } from "./errors.ts";
 import { peerLabel, peerKey } from "./format.ts";
 import { waitForLogin, type LoginOutcome } from "./login.ts";
 import { defaultSleep } from "./timer.ts";
@@ -91,7 +92,6 @@ export function isWechatVerb(value: string): value is WechatVerb {
 	return (WECHAT_VERBS as readonly string[]).includes(value);
 }
 
-import { messageOf } from "./errors.ts";
 /**
  * Whether a peer turn is running anywhere on the bridge.
  *
@@ -126,6 +126,54 @@ async function runDoctor(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 	);
 }
 
+/** One user-facing outcome: what to say, and how a non-screen caller says it. */
+interface VerbOutcome {
+	message: string;
+	/** The notice kind the subcommand path posts; the control screen shows the text. */
+	kind: "info" | "warning";
+}
+
+/**
+ * The control verbs, in the one place both callers read them: the control
+ * screen's keys and the `/wechat <verb>` subcommands. A peer label carries text
+ * the peer chose, so it is sanitized here rather than at each call site.
+ */
+function stopMessage(bridge: Bridge, peer: string): VerbOutcome {
+	const label = sanitizeLine(peerLabel(peer));
+	return bridge.stop(peer)
+		? { message: `Stopping ${label}'s turn.`, kind: "info" }
+		: { message: `${label} has no running turn.`, kind: "info" };
+}
+
+function resetMessage(bridge: Bridge, peer: string): VerbOutcome {
+	const label = sanitizeLine(peerLabel(peer));
+	return bridge.reset(peer)
+		? { message: `Started a fresh conversation for ${label}.`, kind: "info" }
+		: { message: `${label} is running; stop it before starting a new conversation.`, kind: "info" };
+}
+
+function cancelPromptMessage(bridge: Bridge): VerbOutcome {
+	if (!bridge.status().promptPending) return { message: "No prompt is waiting.", kind: "info" };
+	bridge.channel().cancel();
+	return { message: "Cancelled the waiting prompt.", kind: "info" };
+}
+
+/** Resume polling, unless it is not paused or the bridge will not start it. */
+async function resumeMessage(bridge: Bridge): Promise<VerbOutcome> {
+	if (!bridge.status().paused) return { message: "WeChat is not paused.", kind: "info" };
+	return (await bridge.resume())
+		? { message: "WeChat polling resumed.", kind: "info" }
+		: { message: "WeChat could not resume; check the terminal notice.", kind: "warning" };
+}
+
+/** Pause polling, unless it is already paused or the bridge is not running. */
+async function pauseMessage(bridge: Bridge): Promise<VerbOutcome> {
+	if (bridge.status().paused) return { message: "WeChat is already paused.", kind: "warning" };
+	return (await bridge.pause())
+		? { message: "WeChat polling paused. Running turns may finish; no new messages will arrive.", kind: "info" }
+		: { message: "WeChat is not running.", kind: "warning" };
+}
+
 /** Pause or resume polling; the account and peer sessions stay in place. */
 async function runPauseToggle(ctx: ExtensionContext, deps: CommandDeps, resume: boolean): Promise<void> {
 	const bridge = deps.getBridge();
@@ -133,27 +181,8 @@ async function runPauseToggle(ctx: ExtensionContext, deps: CommandDeps, resume: 
 		ctx.ui.notify("WeChat is not running.", "warning");
 		return;
 	}
-	if (resume) {
-		if (!bridge.status().paused) {
-			ctx.ui.notify("WeChat is not paused.");
-			return;
-		}
-		const ok = await bridge.resume();
-		ctx.ui.notify(
-			ok ? "WeChat polling resumed." : "WeChat could not resume; check the terminal notice.",
-			ok ? "info" : "warning",
-		);
-		return;
-	}
-	const ok = await bridge.pause();
-	ctx.ui.notify(
-		ok
-			? "WeChat polling paused. Running turns may finish; no new messages will arrive."
-			: bridge.status().paused
-				? "WeChat is already paused."
-				: "WeChat is not running.",
-		ok ? "info" : "warning",
-	);
+	const outcome = await (resume ? resumeMessage(bridge) : pauseMessage(bridge));
+	ctx.ui.notify(outcome.message, outcome.kind);
 }
 
 /** Add a refused sender to the project config after the operator confirms. */
@@ -329,29 +358,20 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 				actions: {
 					stop: (peer) => {
 						const bridge = deps.getBridge();
-						if (!bridge) return "WeChat bridge is not running.";
-						return bridge.stop(peer) ? `Stopping ${peerLabel(peer)}.` : `${peerLabel(peer)} has no running turn.`;
+						return bridge ? stopMessage(bridge, peer).message : "WeChat bridge is not running.";
 					},
 					reset: (peer) => {
 						const bridge = deps.getBridge();
-						if (!bridge) return "WeChat bridge is not running.";
-						return bridge.reset(peer)
-							? `Started a fresh conversation for ${peerLabel(peer)}.`
-							: `${peerLabel(peer)} is running; stop it before starting fresh.`;
+						return bridge ? resetMessage(bridge, peer).message : "WeChat bridge is not running.";
 					},
 					cancelPrompt: () => {
 						const bridge = deps.getBridge();
-						if (!bridge?.status().promptPending) return "No prompt is waiting.";
-						bridge.channel().cancel();
-						return "Cancelled the waiting prompt.";
+						return bridge ? cancelPromptMessage(bridge).message : "No prompt is waiting.";
 					},
 					togglePause: async () => {
 						const bridge = deps.getBridge();
 						if (!bridge) return "WeChat bridge is not running.";
-						if (bridge.status().paused) {
-							return (await bridge.resume()) ? "Resumed polling." : "Could not resume; see the notice.";
-						}
-						return (await bridge.pause()) ? "Paused polling. Running turns may finish." : "WeChat is not running.";
+						return (await (bridge.status().paused ? resumeMessage(bridge) : pauseMessage(bridge))).message;
 					},
 				},
 				requestRender: () => tui.requestRender(),
@@ -418,16 +438,11 @@ async function runPeerAction(
 		);
 		return;
 	}
-	const label = peerLabel(entry.peer);
 	if (verb === "stop") {
-		ctx.ui.notify(bridge.stop(entry.peer) ? `Stopping ${label}'s turn.` : `${label} has no running turn.`);
+		ctx.ui.notify(stopMessage(bridge, entry.peer).message);
 		return;
 	}
-	ctx.ui.notify(
-		bridge.reset(entry.peer)
-			? `Started a fresh conversation for ${label}.`
-			: `${label} is running; stop it before starting a new conversation.`,
-	);
+	ctx.ui.notify(resetMessage(bridge, entry.peer).message);
 }
 
 /** Run one verb. The control screen reuses this so a key and a subcommand agree. */

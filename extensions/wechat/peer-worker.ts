@@ -27,6 +27,7 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { messageOf } from "./errors.ts";
 import type { PeerSession } from "./peer-session.ts";
 import { createReplyPipeline } from "./reply-pipeline.ts";
+import { defaultTimer, type ArmTimer } from "./timer.ts";
 
 /** One admitted, media-resolved inbound message. */
 export interface PeerItem {
@@ -66,7 +67,7 @@ export interface PeerWorkerDeps {
 	partChars?: number;
 	quietMs?: number;
 	now?: () => number;
-	armTimer?: (ms: number, fn: () => void) => () => void;
+	armTimer?: ArmTimer;
 }
 
 /** What a peer is doing right now, for the control screen. */
@@ -134,13 +135,7 @@ function mergeItems(first: PeerItem, next: PeerItem): PeerItem {
 
 export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	const now = deps.now ?? Date.now;
-	const armTimer =
-		deps.armTimer ??
-		((ms, fn) => {
-			const timer = setTimeout(fn, ms);
-			(timer as { unref?: () => void }).unref?.();
-			return () => clearTimeout(timer);
-		});
+	const armTimer = deps.armTimer ?? defaultTimer;
 	const idleTimeoutMs = deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
 	const concurrency = Math.max(1, deps.concurrency ?? 1);
 	const peers = new Map<string, PeerEntry>();

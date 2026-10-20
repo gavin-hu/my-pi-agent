@@ -9,8 +9,9 @@
  */
 
 import type { BotCredentials, WeixinMessage } from "./types.ts";
-import { isSessionExpired, type WechatClient } from "./client.ts";
+import { isSessionExpired, rejectionOf, type WechatClient } from "./client.ts";
 import { messageOf } from "./errors.ts";
+import { defaultTimer } from "./timer.ts";
 
 const BACKOFF_MS = 2000;
 /** Poll watchdog when the server has not told us its long-poll hold yet. */
@@ -73,10 +74,10 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 				const watchdogMs = deps.pollTimeout(serverHint ?? deps.holdMs());
 				// A cancellable watchdog: `AbortSignal.timeout` cannot be cleared, and a
 				// pending timer per poll would keep the process awake long after the request
-				// settled. Unref'd, so a wedged poll never holds a shutdown open either.
+				// settled. The shared seam unrefs it, so a wedged poll never holds a
+				// shutdown open either.
 				const watchdog = new AbortController();
-				const watchdogTimer = setTimeout(() => watchdog.abort(), watchdogMs);
-				(watchdogTimer as { unref?: () => void }).unref?.();
+				const cancelWatchdog = defaultTimer(watchdogMs, () => watchdog.abort());
 				let response;
 				try {
 					response = await client.getUpdates(account, deps.cursor(), AbortSignal.any([signal, watchdog.signal]), {
@@ -106,7 +107,7 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 					}
 					continue;
 				} finally {
-					clearTimeout(watchdogTimer);
+					cancelWatchdog();
 				}
 				if (!response) break;
 				if (response.timeoutMs !== undefined && response.timeoutMs > 0) serverHint = response.timeoutMs;
@@ -114,14 +115,14 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 					deps.onExpired();
 					return;
 				}
-				if ((response.ret ?? 0) !== 0 || (response.errcode ?? 0) !== 0) {
+				const rejection = rejectionOf(response);
+				if (rejection) {
 					// A body-level rejection (bad cursor, rate limit, revoked token) is not an
 					// empty poll: report it once and back off instead of hammering the API.
 					if (!rejectedNotified) {
 						rejectedNotified = true;
-						const code = (response.ret ?? 0) !== 0 ? response.ret : (response.errcode ?? 0);
-						deps.onPoll?.({ at: deps.now(), error: `rejected ret ${code}` });
-						deps.notify(`WeChat poll rejected (ret ${code}); retrying.`, "warning");
+						deps.onPoll?.({ at: deps.now(), error: `rejected ret ${rejection.code}` });
+						deps.notify(`WeChat poll rejected (ret ${rejection.code}); retrying.`, "warning");
 					}
 					try {
 						await deps.sleep(BACKOFF_MS, signal);

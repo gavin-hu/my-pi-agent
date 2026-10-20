@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: each control verb has one implementation and one message, so the
+  control screen's keys and the `/wechat stop|reset|pause|resume` subcommands
+  can no longer disagree — they already had, in the reset refusal and the pause
+  confirmation. The wechat bridge's rejected-response rule and its per-peer
+  timers are likewise one helper each, and a guard the bridge had already made
+  unreachable is gone. No command, parameter, or config key changed.
+
 - `lib`: one loopback HTTP layer (`lib/http`) replaces the copies `file-browse`
   and `plan` each carried for the response shape, the page/script/JSON headers,
   the `Host` and request-target helpers, the bind, the response writer, and the

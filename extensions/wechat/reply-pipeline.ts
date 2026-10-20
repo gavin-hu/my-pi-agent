@@ -11,11 +11,13 @@
  * drive it.
  */
 
+import type { ArmTimer } from "./timer.ts";
+
 export interface ReplyPipelineDeps {
 	/** Send one part to the peer. Parts arrive strictly in order. */
 	sendPart: (text: string) => Promise<void>;
 	/** Arm a one-shot timer; the returned function cancels it. */
-	armTimer: (ms: number, fn: () => void) => () => void;
+	armTimer: ArmTimer;
 	/** Flush a part that reaches this many characters. Default 400. */
 	partChars?: number;
 	/** Flush a part that has been quiet this long. Default 2000 ms. */
