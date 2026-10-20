@@ -8,13 +8,15 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import {
 	createExecRunner,
 	currentBranch as sharedCurrentBranch,
+	gitCommonDir,
 	hasCommits as sharedHasCommits,
 	repoRootFor,
+	revParse,
 } from "../../lib/git/index.ts";
+import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import { isPidAlive } from "../../lib/spawn.ts";
 import type { WorktreeConfig } from "./config.ts";
 
@@ -85,8 +87,7 @@ export async function resolveBaseRef(
 			await withGitNoPrompt(() => git(pi, ["fetch", "--no-tags", "origin", branch], repoRoot, config.fetchTimeoutMs));
 		}
 		const remoteRef = `origin/${branch}`;
-		const exists = await git(pi, ["rev-parse", "--verify", "--quiet", remoteRef], repoRoot);
-		if (exists.code === 0 && exists.stdout.trim()) return { ref: remoteRef, mode: "fresh" };
+		if (await refExists(pi, repoRoot, remoteRef)) return { ref: remoteRef, mode: "fresh" };
 	}
 	return { ref: "HEAD", mode: "head" };
 }
@@ -102,9 +103,9 @@ const FETCH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /** Whether the repository has not been fetched in the last 24 hours. */
 export async function fetchStale(pi: ExtensionAPI, repoRoot: string, maxAgeMs = FETCH_MAX_AGE_MS): Promise<boolean> {
-	const common = await git(pi, ["rev-parse", "--path-format=absolute", "--git-common-dir"], repoRoot);
-	if (common.code !== 0) return true;
-	const fetchHead = resolve(common.stdout.trim(), "FETCH_HEAD");
+	const common = await gitCommonDir(createExecRunner(pi), repoRoot);
+	if (common === undefined) return true;
+	const fetchHead = resolve(common, "FETCH_HEAD");
 	try {
 		return Date.now() - statSync(fetchHead).mtimeMs > maxAgeMs;
 	} catch {
@@ -187,8 +188,7 @@ export async function commitsAheadOf(pi: ExtensionAPI, dir: string, branch: stri
 
 /** Whether `ref` resolves here: a branch, a remote-tracking ref, or a tag. */
 export async function refExists(pi: ExtensionAPI, dir: string, ref: string): Promise<boolean> {
-	const result = await git(pi, ["rev-parse", "--verify", "--quiet", ref], dir);
-	return result.code === 0 && result.stdout.trim() !== "";
+	return (await revParse(createExecRunner(pi), dir, ref)) !== undefined;
 }
 
 export async function branchExists(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<boolean> {
@@ -305,8 +305,8 @@ export async function checkCheckout(pi: ExtensionAPI, dir: string, mainRoot: str
 			detail: `${dir} resolves its working tree to the main checkout ${mainRoot}.`,
 		};
 	}
-	const commonDir = await git(pi, ["rev-parse", "--path-format=absolute", "--git-common-dir"], dir);
-	if (commonDir.code !== 0) {
+	const commonDir = await gitCommonDir(createExecRunner(pi), dir);
+	if (commonDir === undefined) {
 		return { ok: false, reason: "unverified", detail: `Could not read git metadata for ${dir}.` };
 	}
 	return { ok: true };
