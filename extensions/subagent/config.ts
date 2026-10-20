@@ -23,6 +23,8 @@ export interface SubagentConfig {
 	retentionDays: number;
 	/** Most run directories kept, oldest pruned first. */
 	maxRuns: number;
+	/** Background children allowed to run at once. */
+	backgroundMax: number;
 }
 
 export const DEFAULT_SUBAGENT_CONFIG: SubagentConfig = {
@@ -30,6 +32,7 @@ export const DEFAULT_SUBAGENT_CONFIG: SubagentConfig = {
 	transcripts: "off",
 	retentionDays: 14,
 	maxRuns: 100,
+	backgroundMax: 4,
 };
 
 /** An unknown value read as one of {@link TRANSCRIPT_MODES}, or `fallback`. */
@@ -49,6 +52,7 @@ export function normalizeSubagentConfig(
 		transcripts: asTranscriptMode(raw.transcripts, base.transcripts),
 		retentionDays: clampInteger(raw.retentionDays, base.retentionDays, 1, 3650),
 		maxRuns: clampInteger(raw.maxRuns, base.maxRuns, 1, 1000),
+		backgroundMax: clampInteger(raw.backgroundMax, base.backgroundMax, 1, 8),
 	};
 }
 

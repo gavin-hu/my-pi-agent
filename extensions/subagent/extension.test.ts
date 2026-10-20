@@ -9,6 +9,7 @@ import type { SingleResult } from "./types.ts";
 import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
+import { settle } from "../../test/helpers/process.ts";
 import { useEnv, tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -59,6 +60,36 @@ describe("subagent registration", () => {
 			expect(tools.size).toBe(0);
 		});
 	});
+	test("starts a background run and records its lifecycle", async () => {
+		let release: ((result: SingleResult) => void) | undefined;
+		let signal: AbortSignal | undefined;
+		const tool = register(
+			(options) =>
+				new Promise<SingleResult>((resolve) => {
+					signal = options.signal;
+					release = resolve;
+				}),
+		);
+		const ctx = {
+			...fakeToolCtx(),
+			hasUI: false,
+			isProjectTrusted: () => true,
+			sessionManager: { getBranch: () => tool.pi.entries },
+		};
+
+		const outcome = await call(tool, { agent: "explorer", task: "explore", background: true }, ctx);
+		expect(outcome.content[0]?.text).toContain("Started explorer as a1");
+		expect(outcome.details.background).toMatchObject({ runId: "a1", agent: "explorer", task: "explore" });
+		expect(tool.pi.entries).toHaveLength(1);
+
+		await settle();
+		expect(signal?.aborted).toBe(false);
+		release?.(success("explorer", "done"));
+		await settle();
+		expect(tool.pi.entries).toHaveLength(2);
+		expect(tool.pi.entries[1]?.data).toMatchObject({ phase: "finish", runId: "a1", status: "finished" });
+	});
+
 	test("registers a direct, active tool", () => {
 		const tool = register(async (options) => success(options.agentName, "ok"));
 		expect(tool).toBeDefined();

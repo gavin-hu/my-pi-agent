@@ -475,6 +475,33 @@ export const FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "subagent-background",
+		group: "package",
+		label: "a background run started",
+		args: { agent: "explorer", task: "Map the auth module", background: true },
+		result: {
+			content: [
+				{
+					type: "text",
+					text: "Started explorer as a2 in the background. Use /agents to inspect, collect, or cancel it.",
+				},
+			],
+			details: {
+				mode: "single",
+				results: [],
+				agentScope: "user",
+				readOnly: false,
+				background: {
+					runId: "a2",
+					agent: "explorer",
+					task: "Map the auth module",
+					cwd: `${CWD}`,
+					startedAt: 1_700_000_000_000,
+				},
+			},
+		},
+	},
+	{
 		name: "web_fetch",
 		group: "package",
 		label: "a fetched page",

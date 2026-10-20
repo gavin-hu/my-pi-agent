@@ -2,7 +2,9 @@
 
 A `subagent` tool that hands a task to a specialized agent running in its own
 `pi --mode json` process. The subagent gets a fresh context window, so broad
-exploration or parallel work does not fill the main conversation.
+exploration or parallel work does not fill the main conversation. A single run
+can also start in the background and be inspected, collected, or cancelled with
+`/agents`.
 
 ```bash
 pi --extension ./extensions/subagent    # load just this extension
@@ -16,6 +18,10 @@ How the `subagent` call and its result look in the transcript — the call line 
 
 <img src="../../assets/tools/subagent.png" alt="The subagent tool's call and result: the call line and an indented body with the two tasks, each agent's section rule, its summary, and the usage total" width="100%">
 
+## Screens
+
+<img src="../../assets/agents.png" alt="The /agents screen: running and finished background helpers with status, task, elapsed time, and usage" width="100%">
+
 ## What it does
 
 - **Isolated context.** Each subagent is a separate `pi` process with its own
@@ -25,7 +31,9 @@ How the `subagent` call and its result look in the transcript — the call line 
 - **External agents.** Optionally load markdown agents from `~/.pi/agents`
   (user) and the nearest `.pi/agents` (project). They are opt-in per scope and
   never replace the built-ins silently.
-- **Three modes.** One agent, a parallel batch, or a sequential chain.
+- **Three modes, plus background.** One agent, a parallel batch, or a sequential
+  chain; a single run can also continue after the tool returns and be collected
+  from `/agents`.
 - **Streaming.** Tool calls and progress update live in the transcript while the
   subagent runs; the `app.tools.expand` key (`ctrl+o` by default) expands the
   full task, tool calls, Markdown output, and usage.
@@ -44,6 +52,7 @@ How the `subagent` call and its result look in the transcript — the call line 
 | Field | Value |
 |---|---|
 | `agent` + `task` | Single mode: one built-in/external agent and its task. |
+| `background` | Single mode only: start the run and return immediately; manage it with `/agents`. |
 | `tasks[]` | Parallel mode: independent `{agent, task, cwd?}` entries, max 8. |
 | `chain[]` | Chain mode: ordered `{agent, task, cwd?}` steps, max 8; `{previous}` is replaced by the prior step's final output. |
 | `cwd` | Optional working directory for the spawned process (single mode; per-step for the others). A relative path resolves against the active root. |
@@ -59,6 +68,18 @@ How the `subagent` call and its result look in the transcript — the call line 
 ```json
 { "agent": "explorer", "task": "Find every place the HTTP client is retried", "cwd": "." }
 ```
+
+### Background
+
+```json
+{ "agent": "explorer", "task": "Map the auth module", "background": true }
+```
+
+The tool returns immediately with a run id such as `a2`. `/agents` lists every
+run with its status, elapsed time, and usage; `Enter` opens the run, `c` collects
+a finished result into the conversation, and `x` cancels a running one. A
+background run is session-owned and is bounded by the same timeout and
+transcript settings as a foreground run.
 
 ### Parallel
 
@@ -92,6 +113,15 @@ at most 8 steps (like the parallel task cap).
 }
 ```
 
+## Command
+
+| Command | What it does |
+|---|---|
+| `/agents` | Open the background-run board: inspect, collect, or cancel. |
+
+The board is TUI-only for actions; RPC, print, and JSON print the run list.
+Collecting sends the result as a user message, which starts the next turn.
+
 ## Configuration
 
 Read from the shared `bytefly.json` section `subagent` (global then project),
@@ -109,6 +139,10 @@ the behaviour is here.
   runs on disk, all of them or only the failed ones.
 - **`retentionDays`** (default 14) and **`maxRuns`** (default 100) bound the
   store. It is pruned at `session_start`, and only while transcripts are on.
+- **`backgroundMax`** (default 4, `1`–`8`) bounds concurrently running
+  background children. Finished runs do not consume a slot. A run that is still
+  running when the session ends is interrupted; the next `/agents` shows the
+  start entry without a finish.
 
 ### Transcripts
 
@@ -289,6 +323,17 @@ step's `Output`.
   starts from zero, and a run that never produced an assistant message publishes
   nothing.
 
+## Limitations
+
+- Background runs are single-mode only. Parallel and chain calls wait as before.
+- A background run is session-owned: `/tree` does not move it, and a process
+  restart cannot resume it. A start entry without a finish is shown as
+  `interrupted`.
+- The collected output is capped at 50 KiB; the optional transcript keeps the
+  full stream. A live result is available until the process ends.
+- There is no OS notification when a background run finishes; open `/agents` to
+  see it.
+
 ## Pi integration
 
 | Aspect | Detail |
@@ -298,8 +343,8 @@ step's `Output`.
 | Annotations | `readOnlyHint: false`, `openWorldHint: true` |
 | Output schema | none; the full result lives in tool-result `details` |
 | Execution | spawns `pi --mode json` subprocesses; external agents discovered from `<agent-dir>/agents` and `.pi/agents` |
-| State storage | tool-result `details`; optional per-run transcripts under `.pi/subagents/`, never the session |
-| Lifecycle | `session_start` loads the config and prunes expired transcripts; the tool itself is stateless |
+| State storage | tool-result `details`; optional per-run transcripts under `.pi/subagents/`; background start/finish entries (`subagent-background`) on the session branch |
+| Lifecycle | `session_start` loads the config and prunes expired transcripts; `session_shutdown` aborts every live background child |
 
 ## Design notes
 
@@ -373,7 +418,10 @@ step's `Output`.
 | `stream.ts` | JSON-event parsing, usage accounting, output helpers (pure). |
 | `transcripts.ts` | Per-run transcript buffer, run ids, the store directory, and pruning. |
 | `config.ts` | The `subagent` section of `bytefly.json`: deadline, transcripts, retention. |
-| `run.ts` | Runs one subagent process and captures its result. |
+| `run.ts` | Runs one subagent process and captures its result (including the background abort-as-result path). |
+| `background.ts` | Background run entries, replay, capacity, cancel, collect, and shutdown. |
+| `background-tui.ts` | The `/agents` list/detail board. |
+| `commands.ts` | The `/agents` command. |
 | `format.ts` | Token/usage/tool-call formatting (pure). |
 | `render.ts` | `renderCall` / `renderResult` transcript rendering. |
 | `types.ts` | Shared result and process types. |

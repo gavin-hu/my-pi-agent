@@ -45,6 +45,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and not binary or oversized; stack frames from Jest/Vitest, Java, and Python
   now attach their `path:line` to the failure.
 
+- `subagent`: a single run can start in the background and keep working after
+  the tool returns. `/agents` lists running and finished runs with status,
+  elapsed time, and usage; `Enter` opens a run, `c` collects a finished result
+  into the conversation, and `x` cancels a running one. Start and finish
+  records live on the session branch, so `/resume` shows finished runs and a
+  start without a finish as interrupted; `backgroundMax` bounds concurrent
+  children.
+
 ### Changed
 
 - `file-browse`: a rendered Markdown page fills the card instead of being the

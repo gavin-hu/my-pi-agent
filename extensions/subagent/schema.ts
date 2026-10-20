@@ -66,6 +66,11 @@ export const SubagentParams = Type.Object({
 			description: "Force a read-only tool set (readers only). Plan mode sets this.",
 		}),
 	),
+	background: Type.Optional(
+		Type.Boolean({
+			description: "Start a single run and return immediately; inspect and collect it with /agents.",
+		}),
+	),
 });
 
 export type SubagentArgs = Static<typeof SubagentParams>;
@@ -84,6 +89,13 @@ export function resolveMode(params: SubagentArgs): ModeResolution {
 	const hasChain = chainCount > 0;
 	const hasTasks = taskCount > 0;
 	const hasSingle = Boolean(params.agent && params.task);
+
+	if (params.background === true && (hasChain || hasTasks)) {
+		return { error: "`background` supports single mode only; provide `agent` and `task`." };
+	}
+	if (params.background === true && !hasSingle) {
+		return { error: "`background` requires `agent` and `task`." };
+	}
 
 	if (hasChain && hasTasks) return { error: "Provide either `chain` or `tasks`, not both." };
 	if (hasChain && hasSingle) return { error: "Provide either `chain` or `agent`+`task`, not both." };

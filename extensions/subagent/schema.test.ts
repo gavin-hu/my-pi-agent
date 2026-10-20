@@ -44,6 +44,13 @@ describe("resolveMode", () => {
 		expect("error" in result).toBe(true);
 	});
 
+	test("accepts background only with a single agent and task", () => {
+		expect(resolveMode({ agent: "explorer", task: "find it", background: true })).toEqual({ mode: "single" });
+		expect("error" in resolveMode({ tasks: [task("explorer")], background: true })).toBe(true);
+		expect("error" in resolveMode({ chain: [task("explorer")], background: true })).toBe(true);
+		expect("error" in resolveMode({ agent: "explorer", background: true })).toBe(true);
+	});
+
 	test("enforces the parallel task cap even when schema validation is bypassed", () => {
 		const tooMany = new Array(MAX_PARALLEL_TASKS + 1).fill(null).map(() => task("explorer"));
 		const rejected = resolveMode({ tasks: tooMany });
