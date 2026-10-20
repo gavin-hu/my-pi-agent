@@ -62,9 +62,9 @@ screenshots.
 
 | README promise | Today | Open items |
 |---|---|---|
-| Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | — |
-| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | — |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
+| Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | P1 |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, and folding it into the parent total stays a documented non-goal | P2 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
 | Optional and upgradeable | Strong; docs and releases can be tighter | C1–C5, F1–F2 |
@@ -87,12 +87,16 @@ closed by work parked in any horizon.
 
 The first two sit in `Now`; this one is the smallest foundation gap left.
 
+The `Next` tier adds the three highest user-value capabilities — P1, P2, and
+S3 — without displacing these: they shorten the daily loop, while the three
+above keep its numbers honest and its foundation small.
+
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the picker's scope decision is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
-| **Next** (queued) | Does the daily loop feel finished? | Empty: the last queued item, per-run delegation transcripts, shipped with this release. |
+| **Next** (queued) | Does the daily loop feel finished? | `P1`, `P2`, and `S3` land: a turn can be verified and reviewed, and a delegated run can continue after the call returns. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -129,6 +133,11 @@ worktree handoff all shipped, so the handoff item is gone rather than ticked.
 - `watch` notifies the desktop only for a `wake` match found while the agent is
   idle; a match during a running turn is reported at the next turn without a
   notification (`watch` README).
+- Delegation is synchronous: parallel mode overlaps children inside one call,
+  but the turn waits for every child, so a long run stops the conversation.
+- There is no verification surface: checking the project's tests, linter, or
+  typecheck is an ad-hoc shell command whose output enters the transcript and
+  scrolls away.
 
 **Now**
 
@@ -138,8 +147,24 @@ contributes no `Now` item.
 
 **Next**
 
-Nothing here is queued: the deadline that bounds a run and the transcripts that
-record it shipped together, so this section contributes no `Next` item.
+The daily loop has two gaps left: it cannot verify a change, and it cannot keep
+working while a delegated run finishes.
+
+- **P1 — Verification panel.** Add a `check` extension with `/check
+  [test|lint|typecheck|all]` and a `run_check` tool. Detect the project command
+  from its manifest, or take `check.command`; run it as a supervised background
+  process; turn failures into navigable `file:line` entries over a bounded log.
+  A new directory is justified because `job` owns generic processes and should
+  not grow test semantics. *Done when* a failed run opens a failure list, the
+  tool returns structured failures to the model, a passing run is one line, and
+  an unrecognized runner falls back to a bounded tail instead of guessing.
+- **P2 — Background delegation.** Let `subagent` start one run without blocking
+  the turn, and add `/agents` to list, inspect, collect, and stop background
+  runs. Publish the existing finished-run event so bytefly's cost roll-up keeps
+  working, and keep finished-run metadata in a session entry so `/resume` shows
+  it. *Done when* a background run outlives the turn that started it, a
+  collected result enters the conversation with its usage, cancellation is
+  explicit, and `/resume` never reports a dead run as still running.
 
 ## 2. Keep your work safe
 
@@ -165,6 +190,8 @@ record it shipped together, so this section contributes no `Next` item.
   README).
 - Rewind captures no ignored file, and the path checklist needs a TUI (see
   [Deliberately left thin](#deliberately-left-thin)).
+- A snapshot can be restored by path, but there is no review surface that shows
+  one turn's diff and lets the user revert a file without leaving Pi.
 - Memory injection truncates a large store with a tail note, and `forget` is
   exact; `/memory doctor` names the notes the cap drops and the near-duplicate
   pairs the conservative key considers equal, and `m` in the picker merges them
@@ -178,8 +205,16 @@ This section contributes no `Now` item.
 
 **Next**
 
-Nothing here is queued: a rewind can restore a subset of the snapshot now, and the
-rest is either structural or later work. This section contributes no `Next` item.
+A rewind can restore a subset of a snapshot, but it cannot yet be used as a
+review surface for the turn that just ran.
+
+- **S3 — Turn review.** Add `/review` to `rewind`: show the latest prompt's
+  snapshot diff as a file list with `M/A/D`, `+n/−n`, and a per-file diff, then
+  revert one file or all of them through the existing safety snapshot. *Done
+  when* a turn's changes can be reviewed and a file reverted without leaving Pi,
+  whole-file revert is the only destructive action, and the confirmation names
+  the prompt the snapshot precedes. No new storage: the snapshot, diff, and
+  restore primitives already exist.
 
 **Later**
 
