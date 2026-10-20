@@ -26,6 +26,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `file-browse`: a rendered Markdown page fills the card instead of being the
+  1012px scroll box itself, so the scroll bar sits at the card edge and a short
+  document no longer collapses to its widest line. Headings and prose keep the
+  reading measure, while code blocks and tables use the free width of a wide
+  window rather than scrolling inside it.
+
 - docs: the root README names the user guide as the manual — a positioning line
   in the intro and a hand-off after the extension catalog, mirrored in
   `README.zh-CN.md` — so a first-time reader reaches the walkthroughs without

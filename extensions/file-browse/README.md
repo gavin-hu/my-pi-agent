@@ -40,11 +40,12 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   types stay plain.
 - **Rendered Markdown.** `.md`/`.markdown` files render as headings, lists,
   tables, code, inline and reference links, bare-URL autolinks, and images, with
-  a one-click **raw** view (`?raw=1`). The body follows GitHub's Markdown content
-  column: one centred measure of at most 1012px carrying headings, prose,
-  tables, code, and images, with wide tables scrolling inside it. Tables size
-  their columns to the content and scroll
-  when wide, and named and numeric character references are decoded. A README's
+  a one-click **raw** view (`?raw=1`). The page fills the card, so the scroll
+  bar sits at the card edge; headings, prose, and images keep a centred reading
+  measure of at most 1012px, while code blocks and tables take the free width of
+  a wide window instead of scrolling inside it, and a table wider than the pane
+  still scrolls. Tables size their columns to the content, and named and numeric
+  character references are decoded. A README's
   raw HTML is re-emitted through an allowlist (`<details>`, `<summary>`,
   tables, `<kbd>`, images), so it renders without becoming an injection path.
   Fenced code

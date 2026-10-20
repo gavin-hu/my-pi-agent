@@ -929,6 +929,40 @@ describe("viewing surface", () => {
 		expect(html).toContain("/ ⌘K");
 	});
 
+	test("fills the card with the Markdown scroll box and keeps the prose measured", () => {
+		fixture = makeFixture();
+		const html = renderFilePage({
+			rootLabel: fixture.root,
+			rel: "sub/b.md",
+			tree,
+			maxFileBytes: 1_000_000,
+			file: {
+				kind: "markdown",
+				lines: ["# hi"],
+				truncated: false,
+				totalLines: 1,
+				size: 5,
+				mtimeMs: MTIME_MS,
+				mime: "application/octet-stream",
+			},
+		});
+		// The scroll box is the card, not the measure: `margin-inline:auto` on a flex
+		// item is shrink-to-fit, so a short document used to collapse to its widest
+		// line. The measure sits on the blocks instead.
+		expect(html).toContain(".browse-measure .bf-md{--browse-gutter:");
+		expect(html).toContain(";max-width:none;margin-inline:0;padding-inline:var(--space-5);");
+		expect(html).toContain(".browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}");
+		// Code and tables take the gutter instead of scrolling inside the measure,
+		// and start where the prose starts.
+		expect(html).toContain(".browse-measure .bf-md>pre,.browse-measure .bf-md>.md-table-wrap{max-width:none}");
+		expect(html).toContain(".browse-measure .bf-md>pre{padding-left:calc(var(--space-4) + var(--browse-gutter))}");
+		expect(html).toContain(".browse-measure .bf-md>.md-table-wrap{padding-left:var(--browse-gutter)}");
+		// The outline is a flex child too, so its measure needs a definite width.
+		expect(html).toContain(
+			".browse-measure .browse-md-outline{width:100%;max-width:var(--browse-measure);margin:0 auto var(--space-3)}",
+		);
+	});
+
 	test("anchors hunk headers and summarises a file diff", () => {
 		fixture = makeFixture();
 		const lines = renderDiffLines([
