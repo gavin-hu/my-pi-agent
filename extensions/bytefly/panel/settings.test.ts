@@ -198,7 +198,7 @@ describe("values", () => {
 		expect(view("notify.needsInput", "project", inherited)).toMatchObject({ value: "true", origin: "default" });
 	});
 
-	test("lists the resolved themes and labels an automatic pair", () => {
+	test("lists the theme names it is given and labels an automatic pair", () => {
 		const themes = ["system", "bytefly-dark", "dark", "light"];
 		const fixed = snapshot({ themes, app: { theme: "bytefly-dark" } as Settings });
 		expect(view("theme", "global", fixed)).toMatchObject({
@@ -308,7 +308,7 @@ describe("cycling", () => {
 		expect(nextValue(decimals, "4").value).toBe("0");
 	});
 
-	test("cycles the theme through the names the host resolved", () => {
+	test("cycles the theme through the names it is given", () => {
 		const snap = snapshot({
 			themes: ["system", "dark", "light", "bytefly-dark"],
 			app: { theme: "system" } as Settings,

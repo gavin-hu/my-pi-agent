@@ -8,10 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `bytefly`: the Settings screen now has a **Theme** row that lists `system` and
-  every theme the host resolved, including `bytefly-dark` and `bytefly-light`.
-  It writes Pi's personal `theme` setting and applies after reload; automatic
-  light/dark pairs stay in Pi's `/settings`.
+- `bytefly`: the Settings screen now has a **Theme** row that lists `system`
+  first, then the two palettes this package ships, `bytefly-dark` and
+  `bytefly-light`. It writes Pi's personal `theme` setting and applies after
+  reload; Pi's built-ins, other packages' themes, and automatic light/dark pairs
+  stay in Pi's `/settings`.
 
 ### Changed
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import pkg from "../../../package.json";
 import { ENV_DISABLED_EXTENSIONS } from "../../../lib/env.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
@@ -12,6 +13,7 @@ import type { UpdateOutcome } from "../update/state.ts";
 import { registerPanel } from "./commands.ts";
 import { type SettingsSnapshot, settingViews } from "./settings.ts";
 import type { SettingsRuntime, SettingsRuntimeDeps } from "./settings-runtime.ts";
+import { SHIPPED_THEMES_DIR } from "./themes.ts";
 
 /** Let a fire-and-forget toggle settle. */
 const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -287,7 +289,7 @@ describe("bytefly panel modes", () => {
 		expect(notifications.at(-1)).toContain("Theme: system");
 	});
 
-	test("passes the host's resolved themes to the settings runtime", async () => {
+	test("offers only this package's themes to the settings runtime", async () => {
 		let themes: readonly string[] | undefined;
 		const { commands } = boot({
 			settings: (deps) => {
@@ -298,12 +300,15 @@ describe("bytefly panel modes", () => {
 		const { ctx } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 		(ctx.ui as unknown as { getAllThemes: () => Array<{ name: string; path?: string }> }).getAllThemes = () => [
 			{ name: "system" },
-			{ name: "bytefly-dark", path: "/pkg/themes/bytefly-dark.json" },
+			{ name: "dark", path: "/pi/themes/dark.json" },
+			{ name: "bytefly-dark", path: join(SHIPPED_THEMES_DIR, "bytefly-dark.json") },
+			{ name: "mine", path: "/agent/themes/mine.json" },
+			{ name: "bytefly-light", path: join(SHIPPED_THEMES_DIR, "bytefly-light.json") },
 		];
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(themes).toEqual(["system", "bytefly-dark"]);
+		expect(themes).toEqual(["bytefly-dark", "bytefly-light"]);
 	});
 
 	test("mounts the dock screen on the Settings section in TUI mode", async () => {
