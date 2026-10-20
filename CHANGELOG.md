@@ -67,6 +67,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- dev: `bun run screenshots` crops Terminal's title bar off every capture. Its
+  last segment is the foreground process's argv, which no profile title switch
+  covers, so each image repeated the capture command's worktree path (and the
+  hero its proxy environment) and cut off mid-word. The `check-detail` screen is
+  new, and the job fixture prints `/home/u/repo` instead of the checkout that
+  happened to capture it.
+
 - `file-browse`: a rendered Markdown page fills the card instead of being the
   1012px scroll box itself, so the scroll bar sits at the card edge. Headings,
   prose, and code keep a centred measure of at most 1012px. Tables

@@ -3,8 +3,9 @@
  *
  * macOS only. Each screen is drawn by its real component with the
  * `bytefly-dark` theme inside a real Terminal.app window, and the `chrome` hero
- * is a real `pi -e .` session; both are captured with `screencapture`, so the
- * docs show the actual surface instead of a mock, window title and all.
+ * is a real `pi -e .` session; both are captured with `screencapture` and cropped
+ * to the terminal content, so the docs show the actual surface instead of a mock
+ * without repeating this machine's capture command in the title bar.
  *
  *   bun run scripts/screenshots.ts            # every screen plus the hero
  *   bun run scripts/screenshots.ts todo job   # only the named screens
@@ -86,6 +87,12 @@ const WINDOW_BOUNDS = { left: 80, top: 80, right: 880, bottom: 400 };
 const CHROME_BOUNDS = { left: 80, top: 80, right: 886, bottom: 673 };
 /** A temporary Terminal profile that matches the theme's canvas, deleted after. */
 const PROFILE = "PiScreenshot";
+/**
+ * Terminal's window title bar, in points. The capture drops it: its last
+ * segment is the foreground process's argv, which no profile title switch
+ * covers and which carries this machine's paths and environment.
+ */
+const TITLE_BAR_POINTS = 28;
 
 const noop = (): void => {};
 const now = Date.now();
@@ -104,12 +111,15 @@ const TODOS: Todo[] = [
 	{ content: "Refresh the README screenshots", status: "pending" },
 ];
 
+/** A stand-in project path, so no capture prints this machine's own paths. */
+const DEMO_CWD = "/home/u/repo";
+
 const JOBS: JobRecord[] = [
 	{
 		id: "j1",
 		label: "bun test --watch",
 		command: "bun test --watch",
-		cwd: repo,
+		cwd: DEMO_CWD,
 		pid: 48213,
 		status: "running",
 		exitCode: null,
@@ -130,7 +140,7 @@ const JOBS: JobRecord[] = [
 		id: "j2",
 		label: "bun run dev",
 		command: "bun run dev",
-		cwd: repo,
+		cwd: DEMO_CWD,
 		pid: 48240,
 		status: "running",
 		exitCode: null,
@@ -151,7 +161,7 @@ const JOBS: JobRecord[] = [
 		id: "j3",
 		label: "bun run typecheck",
 		command: "bun run typecheck",
-		cwd: repo,
+		cwd: DEMO_CWD,
 		pid: null,
 		status: "exited",
 		exitCode: 0,
@@ -172,7 +182,7 @@ const JOBS: JobRecord[] = [
 		id: "j4",
 		label: "bun run check",
 		command: "bun run check",
-		cwd: repo,
+		cwd: DEMO_CWD,
 		pid: null,
 		status: "failed",
 		exitCode: 1,
@@ -308,8 +318,8 @@ const CHECK_RESULT: CheckResult = {
 	failures: [
 		{
 			path: "extensions/check/detect.test.ts",
-			line: 88,
-			column: 5,
+			line: 56,
+			column: 21,
 			message: 'expected "cargo test" to be "cargo test --all"',
 			command: "bun run check",
 		},
@@ -692,6 +702,26 @@ export const SCREENS: Record<string, Screen> = {
 				viewportRows: () => rows,
 			}).render(width),
 	},
+	"check-detail": {
+		asset: "check-detail",
+		title: "π - my-pi-agent · /check · failure",
+		// Tall enough for the whole excerpt: the target line sits in the middle.
+		bounds: { left: 80, top: 80, right: 900, bottom: 500 },
+		render: (width, rows) => {
+			const component = new CheckResultComponent({
+				result: CHECK_RESULT,
+				cwd: repo,
+				theme,
+				onRerun: noop,
+				onClose: noop,
+				requestRender: noop,
+				viewportRows: () => rows,
+			});
+			// Enter on the focused failure opens its source excerpt.
+			component.handleInput("\r");
+			return component.render(width);
+		},
+	},
 	review: {
 		asset: "review",
 		title: "π - my-pi-agent · /review",
@@ -1012,22 +1042,72 @@ async function waitForFile(path: string, timeoutMs: number): Promise<void> {
 	if (reached === undefined) throw new Error(`Timed out waiting for ${path}`);
 }
 
+/** A window's screen rectangle, in points. */
+interface WindowBounds {
+	left: number;
+	top: number;
+	right: number;
+	bottom: number;
+}
+
+/** Read a window's bounds from Terminal, or throw rather than capture a guess. */
+function windowBounds(id: number): WindowBounds {
+	const raw = osascript(`tell application "Terminal" to get bounds of window id ${id}`);
+	const parts = raw.split(",").map((value) => Number.parseInt(value.trim(), 10));
+	const [left, top, right, bottom] = parts;
+	if (parts.length !== 4 || left === undefined || top === undefined || right === undefined || bottom === undefined) {
+		throw new Error(`Could not read the bounds of Terminal window ${id}: ${raw}`);
+	}
+	return { left, top, right, bottom };
+}
+
 /**
- * Capture a window by id, retrying while Terminal finishes putting it on
- * screen: `screencapture -l` fails on a window the compositor has not mapped.
+ * Capture a window by id, then drop its title bar.
+ *
+ * `screencapture -l` is the reliable capture — it reads the window's own
+ * surface, so a window behind another one still comes out right — but it
+ * includes the title bar, whose last segment is the foreground process's argv.
+ * No Terminal profile switch suppresses that segment, and it repeats the capture
+ * command's path in every image, so the strip is cut off afterwards.
  */
 async function captureWindow(id: number, out: string): Promise<void> {
+	const bounds = windowBounds(id);
+	const width = bounds.right - bounds.left;
+	if (width <= 0) throw new Error(`Terminal window ${id} has no width`);
+	const full = join(tmpdir(), `pi-screenshot-window-${id}.png`);
 	let lastError: unknown;
-	for (let attempt = 0; attempt < 6; attempt++) {
-		try {
-			execFileSync("screencapture", ["-l", String(id), "-o", "-x", out], { stdio: ["ignore", "ignore", "pipe"] });
-			return;
-		} catch (error) {
-			lastError = error;
-			await sleep(300);
+	try {
+		for (let attempt = 0; attempt < 6; attempt++) {
+			try {
+				execFileSync("screencapture", ["-l", String(id), "-o", "-x", full], { stdio: ["ignore", "ignore", "pipe"] });
+				cropTitleBar(full, out, width);
+				return;
+			} catch (error) {
+				lastError = error;
+				await sleep(300);
+			}
 		}
+	} finally {
+		rmSync(full, { force: true });
 	}
 	throw lastError;
+}
+
+/** Cut Terminal's title bar off a window capture into `out`. */
+function cropTitleBar(source: string, out: string, windowWidth: number): void {
+	execFileSync(
+		"osascript",
+		[
+			"-l",
+			"JavaScript",
+			join(repo, "scripts", "crop-title-bar.js"),
+			source,
+			out,
+			String(windowWidth),
+			String(TITLE_BAR_POINTS),
+		],
+		{ stdio: ["ignore", "ignore", "pipe"] },
+	);
 }
 
 /** Whether a session file has an assistant message that ended the turn. */
