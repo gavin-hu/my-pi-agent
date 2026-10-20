@@ -21,7 +21,7 @@ import {
 	formatReviewListText,
 	formatReviewRevertText,
 } from "./format.ts";
-import { toReviewEntries, type ReviewEntry } from "./paths.ts";
+import { entryPaths, toReviewEntries, type ReviewEntry } from "./paths.ts";
 import {
 	ReviewDiffComponent,
 	ReviewListComponent,
@@ -272,7 +272,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 		if (!entry) continue;
 		let patch: string;
 		try {
-			patch = await runtime.patch(review.root, review.snapshot, view.plan.currentTree, [entry.path]);
+			patch = await runtime.patch(review.root, review.snapshot, view.plan.currentTree, entryPaths(entry));
 		} catch (error) {
 			ctx.ui.notify(`Could not read the diff: ${errorText(error)}`, "error");
 			continue;

@@ -144,7 +144,9 @@ function literalPathspec(path: string): string {
  * The changed paths between two trees, with how each changed.
  *
  * One call replaces the separate added-path and changed-count queries, so the
- * preview, the checklist, and the apply step all read the same list.
+ * preview, the checklist, and the apply step all read the same list. Rename
+ * detection is explicit (`-M`) rather than inherited from `diff.renames`, so a
+ * user's git config cannot change what a selection covers.
  */
 export async function nameStatus(
 	runGit: RunGit,
@@ -153,13 +155,18 @@ export async function nameStatus(
 	to: string,
 	paths?: readonly string[],
 ): Promise<ChangedPath[]> {
-	const args = ["diff", "--no-color", "--name-status", from, to, "--"];
+	const args = ["diff", "--no-color", "-M", "--name-status", from, to, "--"];
 	if (paths) args.push(...paths.map(literalPathspec));
 	const result = await runGit(args, { cwd });
 	return result.code === 0 ? parseNameStatus(result.stdout) : [];
 }
 
-/** `git diff --stat` between two trees, optionally limited to `paths`. */
+/**
+ * `git diff --stat` between two trees, optionally limited to `paths`.
+ *
+ * Rename detection matches `nameStatus`, so the confirm preview names the move
+ * even though the per-file patch below stays a delete plus a create.
+ */
 export async function diffStat(
 	runGit: RunGit,
 	cwd: string,
@@ -167,13 +174,19 @@ export async function diffStat(
 	to: string,
 	paths?: readonly string[],
 ): Promise<string> {
-	const args = ["diff", "--no-color", "--stat", from, to, "--"];
+	const args = ["diff", "--no-color", "-M", "--stat", from, to, "--"];
 	if (paths) args.push(...paths.map(literalPathspec));
 	const result = await runGit(args, { cwd });
 	return result.code === 0 ? result.stdout.trim() : "";
 }
 
-/** A unified patch between two trees, optionally limited to `paths`. */
+/**
+ * A unified patch between two trees, optionally limited to `paths`.
+ *
+ * `--no-renames` is deliberate: `nameStatus` pairs a rename into one row, while
+ * its patch stays a delete plus a create, which describes exactly the two working
+ * tree operations a revert of that row performs.
+ */
 export async function diffPatch(
 	runGit: RunGit,
 	cwd: string,
@@ -187,7 +200,12 @@ export async function diffPatch(
 	return result.code === 0 ? result.stdout : "";
 }
 
-/** Per-path added/removed line counts between two trees, with binary as nulls. */
+/**
+ * Per-path added/removed line counts between two trees, with binary as nulls.
+ *
+ * `--no-renames` keeps a rename's removed lines on its source and its added lines
+ * on its destination; `toReviewEntries` joins the two onto the paired entry.
+ */
 export async function diffNumStat(
 	runGit: RunGit,
 	cwd: string,

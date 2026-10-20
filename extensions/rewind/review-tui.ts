@@ -311,9 +311,16 @@ export class ReviewDiffComponent implements Component {
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const header = titleRule(this.theme, w, "Review");
+		const entry = this.options.entry;
 		const total = this.pane.count;
 		const committedRows = this.options.committed ? 1 : 0;
-		this.pane.visible = fitRows(this.options.viewportRows, total, DIFF_CHROME_ROWS + committedRows, DIFF_DEFAULT_ITEMS);
+		const renamedRows = entry.change === "renamed" ? 1 : 0;
+		this.pane.visible = fitRows(
+			this.options.viewportRows,
+			total,
+			DIFF_CHROME_ROWS + committedRows + renamedRows,
+			DIFF_DEFAULT_ITEMS,
+		);
 		this.pane.fit(this.pane.visible);
 		const { start, end } = this.pane.window();
 		const body = this.options.lines
@@ -321,13 +328,15 @@ export class ReviewDiffComponent implements Component {
 			.map((line) => clip(paint(this.theme, diffLineRole(line), line), w));
 		if (body.length === 0) body.push(...emptyState(this.theme, w, { label: "No textual diff." }));
 
-		const entry = this.options.entry;
 		const summary = clip(
 			`  ${paint(this.theme, "meta", `${sanitizeLine(entry.path)}${SEPARATORS.item}${SELECTION_MARKS[entry.change]}${SEPARATORS.item}${formatReviewEntryCounts(entry)}`)}`,
 			w,
 		);
 		const label = sanitizeLine(this.options.prompt || "the last prompt");
 		const detail = [clip(`  ${paint(this.theme, "meta", `after "${label}"`)}`, w)];
+		if (entry.change === "renamed") {
+			detail.push(clip(`  ${paint(this.theme, "meta", `renamed from ${sanitizeLine(entry.from)}`)}`, w));
+		}
 		if (this.options.committed) {
 			detail.push(
 				clip(

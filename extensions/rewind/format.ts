@@ -172,15 +172,24 @@ export function formatReviewSummary(entries: readonly ReviewEntry[], selected = 
 	return parts.join(SEPARATORS.item);
 }
 
+/** The sanitized snapshot-side name of a rename, or undefined for any other row. */
+function renameFrom(entry: ReviewEntry): string | undefined {
+	return entry.change === "renamed" ? sanitizeLine(entry.from) : undefined;
+}
+
+/** How a review change kind reads in a detail line or a confirmation. */
+function changeDescription(entry: ReviewEntry): string {
+	if (entry.change === "added") return "created after the snapshot; reverting deletes it";
+	if (entry.change === "deleted") return "deleted since the snapshot; reverting brings it back";
+	const from = renameFrom(entry);
+	return from === undefined
+		? "modified since the snapshot; reverting rewrites it"
+		: `renamed from ${from}; reverting moves it back`;
+}
+
 /** What the focused review row will do, in words. */
 export function formatReviewDetail(entry: ReviewEntry): string {
-	const text =
-		entry.change === "added"
-			? "created after the snapshot; reverting deletes it"
-			: entry.change === "deleted"
-				? "deleted since the snapshot; reverting brings it back"
-				: "modified since the snapshot; reverting rewrites it";
-	return `${SELECTION_MARKS[entry.change]} — ${text}${SEPARATORS.item}${formatReviewEntryCounts(entry)}. Enter opens the diff; r reverts it.`;
+	return `${SELECTION_MARKS[entry.change]} — ${changeDescription(entry)}${SEPARATORS.item}${formatReviewEntryCounts(entry)}. Enter opens the diff; r reverts it.`;
 }
 
 /** Headless `/review` text for modes without a custom screen. */
@@ -192,7 +201,9 @@ export function formatReviewListText(
 	const label = summarizePrompt(prompt) ?? "the last prompt";
 	const rows = entries.map((entry) => {
 		const counts = formatReviewEntryCounts(entry);
-		return `  ${SELECTION_MARKS[entry.change]} ${sanitizeLine(entry.path)}${counts ? `  ${counts}` : ""}`;
+		const from = renameFrom(entry);
+		const name = from === undefined ? sanitizeLine(entry.path) : `${sanitizeLine(entry.path)} (from ${from})`;
+		return `  ${SELECTION_MARKS[entry.change]} ${name}${counts ? `  ${counts}` : ""}`;
 	});
 	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
 	const note = committed ? ["These changes are already committed; reverting rewrites the working tree only."] : [];
@@ -209,13 +220,6 @@ export function formatReviewRevertText(summary: RestoreSummary, remaining: numbe
 	return `Reverted ${files}.${safety}${left}`;
 }
 
-/** How a review change kind reads in a confirmation. */
-function changeDescription(change: ReviewEntry["change"]): string {
-	if (change === "added") return "created after the snapshot; reverting deletes it";
-	if (change === "deleted") return "deleted since the snapshot; reverting brings it back";
-	return "modified since the snapshot; reverting rewrites it";
-}
-
 /** What a revert does to HEAD and the index, with the committed case named. */
 function headNote(committed: boolean): string {
 	return committed
@@ -230,11 +234,16 @@ export function formatRevertOneBody(entry: ReviewEntry, prompt: string, safety: 
 		entry.added === null && entry.removed === null
 			? "Git reports a binary change; the whole file is restored."
 			: `Diff: ${formatReviewEntryCounts(entry)}.`;
+	const from = renameFrom(entry);
+	const target =
+		from === undefined
+			? `Returns ${sanitizeLine(entry.path)} to the snapshot taken before "${label}".`
+			: `Moves ${sanitizeLine(entry.path)} back to ${from} as it was before "${label}".`;
 	return [
-		`${SELECTION_MARKS[entry.change]} — ${changeDescription(entry.change)}.`,
+		`${SELECTION_MARKS[entry.change]} — ${changeDescription(entry)}.`,
 		counts,
 		"",
-		`Returns ${sanitizeLine(entry.path)} to the snapshot taken before "${label}".`,
+		target,
 		headNote(committed),
 		safety
 			? "A safety snapshot first makes the revert undoable with /rewind."

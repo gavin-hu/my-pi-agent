@@ -135,8 +135,13 @@ describe("formatChangeSummary and formatRestoreText", () => {
 	});
 });
 
-/** One review entry with text counts. */
-function entry(path: string, change: ReviewEntry["change"], added: number | null, removed: number | null): ReviewEntry {
+/** One review entry with text counts; a rename is built as a literal below. */
+function entry(
+	path: string,
+	change: Exclude<ReviewEntry["change"], "renamed">,
+	added: number | null,
+	removed: number | null,
+): ReviewEntry {
 	return { path, change, added, removed };
 }
 
@@ -232,6 +237,26 @@ describe("review formatting", () => {
 		expect(body).toContain("2 files · +16 −3");
 		expect(body).toContain("HEAD and the index are untouched");
 		expect(formatRevertSelectedBody(entries.slice(0, 2), "fix the list", true, true)).toContain("already committed");
+	});
+});
+
+describe("rename formatting", () => {
+	const renamed: ReviewEntry = {
+		path: "after/name.ts",
+		change: "renamed",
+		from: "before/name.ts",
+		added: 9,
+		removed: 9,
+	};
+
+	test("names the source in the detail, the headless list, and the confirm", () => {
+		expect(formatReviewDetail(renamed)).toContain("renamed from before/name.ts");
+		expect(formatReviewDetail(renamed)).toContain("reverting moves it back");
+		expect(formatReviewListText([renamed], "fix the list")).toContain("R after/name.ts (from before/name.ts)");
+
+		const body = formatRevertOneBody(renamed, "fix the list", true);
+		expect(body).toContain("R — renamed from before/name.ts");
+		expect(body).toContain('Moves after/name.ts back to before/name.ts as it was before "fix the list"');
 	});
 });
 

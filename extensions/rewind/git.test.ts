@@ -106,6 +106,29 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 		await runGit(["clean", "-fdq"], { cwd: repo });
 	});
 
+	test("nameStatus pairs a rename even when the user disabled diff.renames", async () => {
+		const before = (await revParse(runGit, repo, "HEAD^{tree}")) as string;
+		await runGit(["config", "diff.renames", "false"], { cwd: repo });
+		await runGit(["mv", "README.md", "renamed.md"], { cwd: repo });
+		const current = await treeFromWorkingTree(runGit, repo, indexFileFor(repo, "rename"), true);
+
+		try {
+			// `-M` is explicit, so a config that turns rename detection off cannot
+			// change rewind's one-row pairing.
+			expect(await nameStatus(runGit, repo, before, current)).toEqual([
+				{ path: "renamed.md", change: "renamed", from: "README.md" },
+			]);
+			// The patch keeps git's delete+create shape for the paired row.
+			const patch = await diffPatch(runGit, repo, before, current, ["README.md", "renamed.md"]);
+			expect(patch).toContain("deleted file mode");
+			expect(patch).toContain("new file mode");
+		} finally {
+			await runGit(["config", "--unset", "diff.renames"], { cwd: repo });
+			await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
+			await runGit(["clean", "-fdq"], { cwd: repo });
+		}
+	});
+
 	test("restorePaths rewrites only the named paths, leaving the real index alone", async () => {
 		const commit = (await revParse(runGit, repo, "HEAD")) as string;
 		writeFileSync(join(repo, "README.md"), "changed\n");

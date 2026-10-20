@@ -756,8 +756,8 @@ prompt, so you can read the diff and keep or discard each file.
    /review
    ```
 
-   A file list opens; each file is marked `M` (modified), `A` (added), or `D`
-   (deleted), with added and removed line counts.
+   A file list opens; each file is marked `M` (modified), `A` (added), `D`
+   (deleted), or `R` (renamed), with added and removed line counts.
 
    <img src="../assets/review.png" alt="The /review screen: changed files with M, A, and D marks, line counts, and the focused file's detail" width="100%">
 
@@ -775,8 +775,8 @@ prompt, so you can read the diff and keep or discard each file.
 
 **Good to know.**
 
-- Reverting is whole-file. There is no hunk selection; a renamed file appears as
-  a deletion and an addition, so revert both to undo the rename.
+- Reverting is whole-file. There is no hunk selection. A renamed file is one `R`
+  row; reverting it restores the old path and removes the new one.
 - If the working tree is clean against your last commit, the list says the
   changes are already committed. Reverting then rewrites the working tree but
   leaves the commit in place; the confirm repeats this.

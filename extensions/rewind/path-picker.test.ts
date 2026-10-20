@@ -125,10 +125,25 @@ describe("PathPickerComponent", () => {
 		expect(text(component)).toContain("restoring brings it back");
 	});
 
+	test("shows a rename as one R row and explains the move", () => {
+		const renamed: ChangedPath[] = [{ path: "after/name.ts", change: "renamed", from: "before/name.ts" }];
+		const { component, closed } = build(renamed);
+
+		down(component, 1);
+		const screen = text(component);
+		expect(screen).toContain("1 of 1 selected");
+		expect(screen).toContain("R");
+		expect(screen).toContain("renamed from before/name.ts");
+
+		component.handleInput("\r");
+		expect(closed).toEqual([["after/name.ts"]]);
+	});
+
 	test("every line fits the width it is given", () => {
 		const { component } = build([
 			...CHANGED,
 			{ path: `src/${"nested/".repeat(10)}deep-file-with-a-very-long-name.ts`, change: "modified" },
+			{ path: "after.ts", change: "renamed", from: `src/${"deep/".repeat(8)}before.ts` },
 		]);
 
 		for (const width of [40, 80, 120]) {

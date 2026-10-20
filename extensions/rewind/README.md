@@ -27,13 +27,14 @@ pi install ./                        # install the package
 - Takes **one automatic snapshot per user prompt**, before the prompt's first
   mutating tool call. A read-only prompt snapshots nothing.
 - `/review` compares the working tree with the snapshot taken before the latest
-  prompt on the active branch. The file list carries `M`/`A`/`D` and line
+  prompt on the active branch. The file list carries `M`/`A`/`D`/`R` and line
   counts; `Enter` opens a scrollable patch, `Space` selects files, `r` reverts
   the selection (or the focused file when nothing is selected), and `R` reverts
-  every changed path. A selected batch is one restore and one pre-restore
-  safety snapshot, not one per file. When the working tree matches HEAD, the
-  screen says the changes are already committed and a revert leaves the commits
-  in place.
+  every changed path. A rename is one `R` row, so reverting it restores the old
+  path and removes the new one together. A selected batch is one restore and one
+  pre-restore safety snapshot, not one per file. When the working tree matches
+  HEAD, the screen says the changes are already committed and a revert leaves
+  the commits in place.
 - `/rewind` lists **every user prompt on the active branch** (newest first), each
   marked `⬥` when a code snapshot was captured for it.
 - Picking a point asks what to restore: **Code and conversation**,
@@ -43,9 +44,10 @@ pi install ./                        # install the package
   - When code moves, a second step asks **Restore what?** — **Everything (N
     files)** or **Choose paths…**. The checklist lists every changed path
     grouped by directory (`M` modified, `D` deleted since the snapshot, `A`
-    created after it), with all of them selected, so `Enter` twice reproduces a
-    whole-tree restore. `Space` toggles a file or a directory, `a`/`n` select
-    all/none, and the confirm that follows previews only the chosen subset.
+    created after it, `R` renamed), with all of them selected, so `Enter` twice
+    reproduces a whole-tree restore. `Space` toggles a file or a directory,
+    `a`/`n` select all/none, and the confirm that follows previews only the
+    chosen subset.
   - *Conversation* moves the session tree back to that prompt and puts the
     prompt text back in the editor; the abandoned branch stays in the session.
 - Shows a `↺ N` status chip counting the prompts on the active branch — the
@@ -146,9 +148,7 @@ commit. These refs are not branches and are not touched by `git push --all`.
 - **The path checklist is TUI-only.** RPC, `print`, and `json` modes restore the
   whole tree; there is no typed path syntax, because a list of exact paths is what
   the checklist is for and a glob would need its own validation and preview.
-- **`/review` is whole-file only.** There is no hunk selection. A rename is two
-  rows (`D` old, `A` new), so reverting both undoes it and reverting one leaves
-  the pair half-applied.
+- **`/review` is whole-file only.** There is no hunk selection.
 - **`/review` follows the latest prompt with a snapshot.** A read-only prompt
   after it does not change the target, and a turn whose snapshot failed has no
   review of its own. Actions are TUI-only; other modes print the changed list.
@@ -234,6 +234,16 @@ commit. These refs are not branches and are not touched by `git push --all`.
   already guarantees. A selected batch is one subset restore, which is why it
   takes one safety snapshot; the list carries the selection across a diff/back
   round without persisting it.
+- **A rename is one entry, not two.** `parseNameStatus` keeps git's `R` line as
+  `{ path: destination, from: source }`, and `entryPaths` is the one helper that
+  names both sides. The restore filters the full diff in memory rather than
+  narrowing it with a pathspec, because git detects a rename only when both
+  paths are in scope; a pathspec would turn the row into an addition and lose
+  the side that has to be recreated. The row's patch and line counts stay a
+  delete plus a create, so the pane and the counts describe the same two
+  operations a revert performs. A rename whose two names resolve to one file (a
+  case-only rename on a case-insensitive filesystem) skips the destination
+  delete, because the checkout has already renamed that file.
 - **Identity is fixed for internal commits.** `commit-tree` runs with
   `-c user.name=pi -c user.email=pi@localhost`, so snapshots work without committer
   identity configured and never depend on the user's git config.
@@ -248,8 +258,8 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes (name status, stat, patch, and `--numstat`), and the production `RunGit`. |
 | `snapshot.ts` | Create a snapshot (tree from a temporary index → commit → ref). |
 | `snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
-| `restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths. |
-| `paths.ts` | Pure: the changed-path list from `git diff --name-status`, its directory grouping, the change marks, the `--numstat` counts, and the restore counts. |
+| `restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths, recreating a rename's source and removing its destination. |
+| `paths.ts` | Pure: the changed-path list from `git diff --name-status` (a rename is one paired entry), its directory grouping, the change marks, the `--numstat` counts, and the restore counts. |
 | `path-picker.ts` | The checklist screen a partial restore opens: grouped paths, toggles, and the selection it returns. |
 | `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `policy.ts` | Which tool calls are worth a snapshot. |
