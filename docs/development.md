@@ -45,6 +45,12 @@ those; with no argument it captures every entry in the `SCREENS` map of
 capture, `bun run scripts/screenshots.ts render <name>` prints one frame as ANSI
 on any OS; `--width` and `--rows` override the terminal.
 
+The hero is the one asset tied to the version: `ByteflyHeader` draws
+`HEADER_CONFIG.chromeVersion`, read from `package.json`, so `assets/chrome.png`
+shows the release it was captured in and goes stale with every bump. That makes
+the capture part of the release step rather than a documentation chore, and it is
+why CI cannot help — the capture needs a real Terminal.app window.
+
 A screen is an asset stem, a window title, and a `render(width, rows)` that
 builds its real component around fixtures. It may also set `bounds` and `size`,
 and a row-budgeted screen has to: Terminal.app snaps a resize to whole cells and
@@ -83,7 +89,7 @@ The suite is organized by tier; the full contract is in
    literal column padding.
 4. **Package-level tests** — cross-cutting contracts (`naming`,
    `extension-load`, `config-docs`, `prompt-budget`, `release`, `structure`,
-   `theme`).
+   `drift`, `theme`).
 
 Tests are deterministic by construction: inject `now`, `spawn`, `kill`,
 `liveness`, and a clock rather than stubbing globals. Real git is allowed only
@@ -188,6 +194,124 @@ bun run typecheck && bun run test:serial
 git checkout package.json bun.lock && bun install --frozen-lockfile
 ```
 
+## Drift rules
+
+Rules 1 to 3 of `AGENTS.md` are gates; rule 4 is review, since no test can tell a
+cross-cutting change from a feature. The gates and the lists behind them are the
+backlog rather than a blessing, and each list is pinned to its size:
+
+- **Rule 1**, one body in one owner, is `test/drift.test.ts`'s **accepted copies**
+  list: a duplicate this change did not extract, with the reason. An entry is
+  deleted when the helper lands in `lib/`, together with a lower
+  `ACCEPTED_COUNT`; a new copy fails the suite instead.
+- **Rule 2**, no module grows, is `LONG_MODULES` in `test/structure.test.ts`: every
+  module past 600 lines carries the one responsibility that keeps it whole and its
+  own height. One added line fails. A height is lowered with the file, deleted once
+  the module fits the bar, and the total (`LONG_MODULE_TOTAL`) may only fall —
+  raising either number is the refactor this gate exists to prevent.
+- **Rule 3**, one owner per concept, is the `lib/README.md` row check: a module
+  with no row fails, so the next session reads the index instead of writing a
+  fourth copy.
+- **The word budget** keeps `AGENTS.md` an entry point: a new paragraph replaces
+  one or moves here.
+
+A module holding two jobs is a refactor waiting for a release: the split costs a
+few lines at the limit and a rewrite a thousand lines later.
+
+## Extension conventions
+
+`AGENTS.md` states the rules and names their gates; this section is the detail
+behind the ones a contributor hits most often, and the place a new rule lands
+when it outgrows a line.
+
+### One doc per extension
+
+Each extension has one doc, `extensions/<name>/README.md`; there is no separate
+`DESIGN.md`. Follow this section order, omitting empty optional sections:
+
+1. `# <name> — <tagline>`, then a 1–3 sentence intro.
+2. Quickstart: `pi --extension ./extensions/<name>`, `pi -e .`, `pi install ./`.
+3. `## What it does` — capability bullets.
+4. Surface — `## Tool` / `## Tools` / `## Commands` / `## Commands and flags` /
+   `## Routes`.
+5. `## Behaviour by mode` (optional) — `tui`, RPC, JSON, print.
+6. `## Configuration` (optional).
+7. `## Security` (optional) — only with a real trust boundary.
+8. Extension-specific deep dives (optional).
+9. `## Limitations` (optional).
+10. `## Non-goals` (optional).
+11. `## Pi integration` — the contract, derived from source: integration
+    points, tool `exposure`/`executionMode`/`annotations`/`outputSchema`, state
+    storage, and lifecycle hooks (`session_start`/`session_shutdown`).
+12. `## Design notes` — a short why, not a design doc.
+13. `## Files` — module responsibility table.
+14. `## Testing` (optional).
+
+Use Pi's vocabulary from Pi's own `docs/extensions.md`, account for every mode,
+and keep user-facing content above the contributor sections.
+
+### One doc per audience
+
+Do not duplicate across these:
+
+- `README.md` — the end-user front door: what the package is, install, the
+  grouped catalog, configuration, and links onward. `README.zh-CN.md` mirrors it
+  section for section: the two entry READMEs stay in sync, and
+  `test/docs-parity.test.ts` enforces the shared headings, table rows, and
+  relative links. Deep docs stay English until a translation owner exists.
+- `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
+  for the invariants and here for the conventions rather than restating them.
+- `docs/` — repo-level guides: `user-guide/` (the chaptered end-user manual),
+  `configuration` (resolution, the settings screen, and every key with its
+  default), `architecture`, `development`, and `security`. The catalog lives in
+  `README.md`.
+- `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
+  its ids, links, citations, and bucket caps, and shipping an item means
+  renumbering or removing it in the same commit.
+- `AGENTS.md` — the machine-facing entry point: the four rules, the gates that
+  hold them, and the traps with no other home.
+- `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
+  `test/README.md` — the deep per-area contracts.
+
+## Tool and prompt surface
+
+Everything an extension puts in front of the model — `description`,
+`promptSnippet`, `promptGuidelines`, parameter docs, injected context — is
+always-on context. Give each channel one job, and never restate the same
+instruction in two of them.
+
+- `description` says what the tool is and what it guarantees: contract, limits,
+  side effects, prerequisites. Not "use it when…".
+- `promptSnippet` is required on every registered tool: the one line in the
+  system prompt's Available tools list, not a copy of the description.
+- `promptGuidelines` say when, when not, and in what order: one idea per bullet,
+  imperative, never restating the description.
+- Parameter descriptions give meaning, default, and bounds only.
+- Injected context states the current facts and the single next action, stays
+  short, and is matched by `customType`, never by marker text.
+- Tool errors name the problem and the corrective action; a rejected call
+  returns the unchanged state.
+
+The non-prompt fields of a tool definition are a contract a permission extension
+and the plan-mode policy read, so keep them uniform across extensions:
+
+- `annotations`: declare `readOnlyHint` and `openWorldHint` on every tool. A
+  mutating tool (`readOnlyHint: false`) also declares `destructiveHint`;
+  `idempotentHint` is omitted on a read-only tool because it only describes
+  repeating a mutation. Missing hints default to the restrictive MCP values, so
+  leaving one out is never a safe shortcut.
+- `executionMode`: set `"sequential"` on a tool that mutates session, UI, or
+  in-memory runtime state, or whose calls are order-dependent. Omit it (the host
+  default, parallel) when calls are independent, such as reads or processes each
+  call spawns itself.
+- `exposure` / `defaultActive`: set them only when they differ from the default
+  (`direct`, active on registration) — `model-only`, `codemode`, and a tool
+  activated later from `session_start` say so explicitly.
+- `outputSchema`: declare it exactly when the result carries a
+  `structuredContent` mirror; the two are one contract.
+- A command that takes subcommands or flags implements
+  `getArgumentCompletions` for them.
+
 ## Release
 
 Distribution is git and npm: `main` is installable as a git Pi package, and every
@@ -215,7 +339,10 @@ authenticates with npm trusted publishing (OIDC). See
    update the link refs at the bottom of that file. Bump the `@vX.Y.Z` install
    pin in the [getting-started chapter](./user-guide/getting-started.md#install)
    in the same commit — that is the one place that offers a pin;
-   `test/release.test.ts` fails on a stale pin.
+   `test/release.test.ts` fails on a stale pin. Recapture the hero in the same
+   step: `bun run screenshots chrome` re-renders `assets/chrome.png` from the new
+   `package.json`, and nothing else can, because the capture needs macOS and
+   Terminal.app — see [Screenshots](#screenshots).
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:

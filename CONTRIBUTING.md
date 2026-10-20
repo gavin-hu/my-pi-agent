@@ -1,14 +1,17 @@
 # Contributing
 
 Thanks for wanting to improve `my-pi-agent`. This page is the contributor entry
-point; the repo's detailed conventions live in [`AGENTS.md`](./AGENTS.md) and the
-guides under [`docs/`](./docs/).
+point; the repo's rules live in [`AGENTS.md`](./AGENTS.md), their detail in
+[`docs/development.md`](./docs/development.md), and the guides under
+[`docs/`](./docs/).
 
 ## Before you start
 
 - Install [Bun](https://bun.sh) and make sure `git` is on `PATH`.
-- Read [`docs/architecture.md`](./docs/architecture.md) for the package model
-  and [`AGENTS.md`](./AGENTS.md) for the invariants.
+- Read [`docs/architecture.md`](./docs/architecture.md) for the package model,
+  [`AGENTS.md`](./AGENTS.md) for the rules and their gates, and
+  [`docs/development.md`](./docs/development.md#extension-conventions) for the
+  conventions.
 - For a large change, open an issue first so the approach can be agreed before
   code is written.
 
@@ -68,7 +71,8 @@ for non-trivial changes, and use no emojis.
 
 ## Conventions
 
-These are enforced or reviewed; the full list is in [`AGENTS.md`](./AGENTS.md):
+These are enforced or reviewed; the full list is in [`AGENTS.md`](./AGENTS.md)
+and [`docs/development.md`](./docs/development.md#extension-conventions):
 
 - **Extension boundary.** An extension factory only registers. Long-lived
   resources start in `session_start` and are released in an idempotent
@@ -99,7 +103,7 @@ These are enforced or reviewed; the full list is in [`AGENTS.md`](./AGENTS.md):
 2. Add the co-located tests the suite requires (see
    [`test/README.md`](./test/README.md)).
 3. Write `extensions/<name>/README.md` in the section order documented in
-   [`AGENTS.md`](./AGENTS.md).
+   [`docs/development.md`](./docs/development.md#one-doc-per-extension).
 4. Add the extension to the catalog table in both entry READMEs — `README.zh-CN.md`
    mirrors `README.md` row by row and `test/docs-parity.test.ts` compares them —
    then update [`test/naming.test.ts`](./test/naming.test.ts) and the
