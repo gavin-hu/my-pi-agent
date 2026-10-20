@@ -20,9 +20,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `style=`, or `class=`), open elements are balanced so a stray tag cannot
   swallow the page, and `markdownHtml: false` restores escape-only rendering.
 
-- docs: [`docs/user-guide.md`](./docs/user-guide.md) is a single end-user guide —
-  every extension, plus settings, WeChat, and the terminal chrome, each with a
-  plain-language overview and a numbered walkthrough of keys and commands.
+- docs: [`docs/user-guide/`](./docs/user-guide/) is an eight-chapter end-user
+  manual with a guide home, getting started, plan and delegate, keep work safe,
+  web and files, WeChat, settings, troubleshooting, and reference. Each chapter
+  carries task-focused walkthroughs, key tables, limits, and cross-links; the
+  single-page `docs/user-guide.md` is removed and every reference is repointed.
 
 - `rewind`: `/review` opens the latest prompt's snapshot diff as a changed-file
   list with `M`/`A`/`D` marks and line counts, shows a scrollable per-file patch,
@@ -117,7 +119,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - docs: `docs/getting-started.md` is folded into the user guide and removed. The
   install routes (including the `@vX.Y.Z` pin), the fit decision, the
   prerequisites, what an install changes, and removal now live in
-  [`docs/user-guide.md`](./docs/user-guide.md), which the entry READMEs and the
+  [`docs/user-guide/`](./docs/user-guide/), which the entry READMEs and the
   docs index link to; the footprint guard and the install-pin guard read the
   guide instead.
 

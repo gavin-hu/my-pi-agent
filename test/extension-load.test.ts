@@ -13,7 +13,7 @@
  * manifest does not name is invisible to a user, and an entry pointing at a
  * missing file fails the load for everyone.
  *
- * All sixteen load in one process on purpose. Pi gives each extension its own
+ * Every extension loads in one process on purpose. Pi gives each extension its own
  * module cache, so sharing one here is the strictest case: `lib/` is value-only
  * by invariant, and a module-level value there would surface as a cross-extension
  * failure instead of a subtle reload bug.
@@ -28,6 +28,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
+import { walkFiles } from "./helpers/files.ts";
 import { withAgentDir, withEnv } from "./helpers/env.ts";
 import { createFakePi } from "./helpers/fakes.ts";
 
@@ -90,8 +91,11 @@ describe("every extension loads through the fake runtime", () => {
 });
 
 describe("the documented footprint", () => {
-	/** The page that states how big the pack is, where a reader decides on it. */
-	const guide = readFileSync(join(root, "docs", "user-guide.md"), "utf-8");
+	/** The manual that states how big the pack is, where a reader decides on it. */
+	const guide = walkFiles(join(root, "docs", "user-guide"))
+		.filter((file) => file.endsWith(".md"))
+		.map((file) => readFileSync(file, "utf-8"))
+		.join("\n");
 	/** A size the guide states: `16 extensions`, `21 tools`. */
 	const CLAIM = /(\d+) (extensions|tools)\b/g;
 
@@ -119,7 +123,7 @@ describe("the documented footprint", () => {
 		// A regex that stopped matching would make the loop below vacuous.
 		expect(claims.length).toBeGreaterThan(0);
 		for (const [, count, noun] of claims) {
-			expect(Number(count), `${noun} stated in docs/user-guide.md`).toBe(actual[noun]);
+			expect(Number(count), `${noun} stated in docs/user-guide/`).toBe(actual[noun]);
 		}
 	});
 });
