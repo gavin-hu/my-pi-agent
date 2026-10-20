@@ -17,6 +17,7 @@ import {
 	boundDiff,
 	formatRevertAllBody,
 	formatRevertOneBody,
+	formatRevertSelectedBody,
 	formatReviewListText,
 	formatReviewRevertText,
 } from "./format.ts";
@@ -25,7 +26,7 @@ import {
 	ReviewDiffComponent,
 	ReviewListComponent,
 	type ReviewDiffAction,
-	type ReviewListAction,
+	type ReviewListResult,
 } from "./review-tui.ts";
 import type { RestorePlan } from "./restore.ts";
 import type { RewindRuntime } from "./runtime.ts";
@@ -36,6 +37,13 @@ import type { Snapshot, RestoreSummary } from "./types.ts";
 interface ReviewView {
 	plan: RestorePlan;
 	entries: ReviewEntry[];
+	/** Tree id of HEAD when the view was read, or undefined without a commit. */
+	headTree?: string;
+}
+
+/** Whether the working tree is clean against HEAD, so the diff is all committed. */
+function isCommitted(view: ReviewView): boolean {
+	return view.headTree !== undefined && view.plan.currentTree === view.headTree;
 }
 
 /** A loaded review: where it is, which prompt it follows, and what changed. */
@@ -90,13 +98,14 @@ async function loadReview(runtime: RewindRuntime, ctx: ExtensionCommandContext):
 	}
 
 	const stats = await runtime.numStat(root, point.snapshot, planned.plan.currentTree);
+	const headTree = await runtime.headTree(root);
 	return {
 		ok: true,
 		review: {
 			root,
 			point,
 			snapshot: point.snapshot,
-			view: { plan: planned.plan, entries: toReviewEntries(planned.plan.paths, stats) },
+			view: { plan: planned.plan, entries: toReviewEntries(planned.plan.paths, stats), headTree },
 		},
 	};
 }
@@ -107,7 +116,8 @@ async function refreshView(runtime: RewindRuntime, root: string, snapshot: Snaps
 	if (!planned.ok) return { kind: "error", message: planned.reason };
 	if (planned.plan.paths.length === 0) return { kind: "empty" };
 	const stats = await runtime.numStat(root, snapshot, planned.plan.currentTree);
-	return { kind: "ok", view: { plan: planned.plan, entries: toReviewEntries(planned.plan.paths, stats) } };
+	const headTree = await runtime.headTree(root);
+	return { kind: "ok", view: { plan: planned.plan, entries: toReviewEntries(planned.plan.paths, stats), headTree } };
 }
 
 /** Restore one or more paths, then re-read the review. */
@@ -147,8 +157,24 @@ async function confirmRevertOne(
 	review: LoadedReview,
 	entry: ReviewEntry,
 	safety: boolean,
+	committed: boolean,
 ): Promise<boolean> {
-	return ctx.ui.confirm(`Revert ${sanitizeLine(entry.path)}?`, formatRevertOneBody(entry, review.point.prompt, safety));
+	return ctx.ui.confirm(
+		`Revert ${sanitizeLine(entry.path)}?`,
+		formatRevertOneBody(entry, review.point.prompt, safety, committed),
+	);
+}
+
+/** Ask before reverting one or more selected files. */
+async function confirmRevertSelected(
+	ctx: ExtensionCommandContext,
+	review: LoadedReview,
+	entries: readonly ReviewEntry[],
+	safety: boolean,
+	committed: boolean,
+): Promise<boolean> {
+	const files = `${entries.length} selected file${entries.length === 1 ? "" : "s"}`;
+	return ctx.ui.confirm(`Revert ${files}?`, formatRevertSelectedBody(entries, review.point.prompt, safety, committed));
 }
 
 /** Ask before reverting every changed path in the review. */
@@ -157,9 +183,10 @@ async function confirmRevertAll(
 	review: LoadedReview,
 	entries: readonly ReviewEntry[],
 	safety: boolean,
+	committed: boolean,
 ): Promise<boolean> {
 	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
-	return ctx.ui.confirm(`Revert all ${files}?`, formatRevertAllBody(entries, review.point.prompt, safety));
+	return ctx.ui.confirm(`Revert all ${files}?`, formatRevertAllBody(entries, review.point.prompt, safety, committed));
 }
 
 /** The interactive loop: list, diff, confirm, restore, refresh. */
@@ -168,24 +195,31 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 	const safety = runtime.configFor(review.root).safetySnapshot;
 	let view = review.view;
 	let index = 0;
+	let selected: string[] = [];
 
 	while (true) {
-		const action = await ctx.ui.custom<ReviewListAction | undefined>(
+		const committed = isCommitted(view);
+		const screen = await ctx.ui.custom<ReviewListResult | undefined>(
 			(tui, theme, _keybindings, done) =>
 				new ReviewListComponent({
 					entries: view.entries,
 					prompt: label,
 					theme,
 					initialIndex: index,
-					onClose: (chosen) => done(chosen),
+					initialSelected: selected,
+					committed,
+					onClose: (result) => done(result),
 					requestRender: () => tui.requestRender(),
 					viewportRows: () => tui.terminal?.rows,
 				}),
 		);
+		if (!screen) return;
+		selected = screen.selected;
+		const action = screen.action;
 		if (!action) return;
 
 		if (action.kind === "revertAll") {
-			if (!(await confirmRevertAll(ctx, review, view.entries, safety))) continue;
+			if (!(await confirmRevertAll(ctx, review, view.entries, safety, committed))) continue;
 			const result = await revertPaths(
 				runtime,
 				ctx,
@@ -202,15 +236,23 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 			}
 			ctx.ui.notify(formatReviewRevertText(result.summary, result.next.entries.length), "info");
 			view = result.next;
+			selected = [];
 			index = Math.min(index, view.entries.length - 1);
 			continue;
 		}
 
 		if (action.kind === "revert") {
-			const entry = view.entries.find((candidate) => candidate.path === action.path);
-			if (!entry) continue;
-			if (!(await confirmRevertOne(ctx, review, entry, safety))) continue;
-			const result = await revertPaths(runtime, ctx, review, [entry.path]);
+			const entries = action.paths
+				.map((path) => view.entries.find((candidate) => candidate.path === path))
+				.filter((entry): entry is ReviewEntry => entry !== undefined);
+			if (entries.length === 0) continue;
+			const paths = entries.map((entry) => entry.path);
+			const approved =
+				entries.length === 1
+					? await confirmRevertOne(ctx, review, entries[0], safety, committed)
+					: await confirmRevertSelected(ctx, review, entries, safety, committed);
+			if (!approved) continue;
+			const result = await revertPaths(runtime, ctx, review, paths);
 			if (result.kind === "error") {
 				ctx.ui.notify(result.message, "error");
 				return;
@@ -221,6 +263,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 			}
 			ctx.ui.notify(formatReviewRevertText(result.summary, result.next.entries.length), "info");
 			view = result.next;
+			selected = [];
 			index = Math.min(index, view.entries.length - 1);
 			continue;
 		}
@@ -240,6 +283,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 					entry,
 					prompt: label,
 					lines: boundDiff(patch),
+					committed,
 					theme,
 					onClose: (chosen) => done(chosen),
 					requestRender: () => tui.requestRender(),
@@ -247,7 +291,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 				}),
 		);
 		if (decision !== "revert") continue;
-		if (!(await confirmRevertOne(ctx, review, entry, safety))) continue;
+		if (!(await confirmRevertOne(ctx, review, entry, safety, committed))) continue;
 		const result = await revertPaths(runtime, ctx, review, [entry.path]);
 		if (result.kind === "error") {
 			ctx.ui.notify(result.message, "error");
@@ -259,6 +303,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 		}
 		ctx.ui.notify(formatReviewRevertText(result.summary, result.next.entries.length), "info");
 		view = result.next;
+		selected = [];
 		index = Math.min(index, view.entries.length - 1);
 	}
 }
@@ -287,7 +332,10 @@ export async function openReview(
 		return;
 	}
 	if (ctx.mode !== "tui") {
-		ctx.ui.notify(formatReviewListText(loaded.review.view.entries, loaded.review.point.prompt), "info");
+		ctx.ui.notify(
+			formatReviewListText(loaded.review.view.entries, loaded.review.point.prompt, isCommitted(loaded.review.view)),
+			"info",
+		);
 		return;
 	}
 	await withRailsSuppressed(pi, () => reviewLoop(runtime, ctx, loaded.review));

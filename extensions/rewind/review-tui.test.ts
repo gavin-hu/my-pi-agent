@@ -7,7 +7,7 @@ import {
 	ReviewListComponent,
 	diffLineRole,
 	type ReviewDiffAction,
-	type ReviewListAction,
+	type ReviewListResult,
 } from "./review-tui.ts";
 
 const ENTRIES: ReviewEntry[] = [
@@ -28,15 +28,15 @@ const LINES = [
 	" context line",
 ];
 
-/** Mount the list and record its close actions. */
+/** Mount the list and record its close results. */
 function list(overrides: Partial<ConstructorParameters<typeof ReviewListComponent>[0]> = {}) {
-	const closed: Array<ReviewListAction | undefined> = [];
+	const closed: ReviewListResult[] = [];
 	let renders = 0;
 	const component = new ReviewListComponent({
 		entries: ENTRIES,
 		prompt: "fix the list",
 		theme: fakeTheme,
-		onClose: (action) => closed.push(action),
+		onClose: (result) => closed.push(result),
 		requestRender: () => {
 			renders += 1;
 		},
@@ -68,7 +68,7 @@ function diff(overrides: Partial<ConstructorParameters<typeof ReviewDiffComponen
 }
 
 describe("ReviewListComponent", () => {
-	test("renders the prompt, rows, marks, counts, and summary", () => {
+	test("renders the prompt, rows, marks, counts, checkboxes, and summary", () => {
 		const { component } = list();
 		const screen = text(component);
 
@@ -81,33 +81,99 @@ describe("ReviewListComponent", () => {
 		expect(screen).toContain("D");
 		expect(screen).toContain("+12 −3");
 		expect(screen).toContain("bin");
+		expect(screen).toContain("◻");
 		expect(screen).toContain("modified since the snapshot");
+		expect(screen).not.toContain("selected");
 	});
 
-	test("Enter opens the focused file's diff", () => {
-		const { component, closed } = list();
+	test("Enter opens the focused file's diff and carries the selection", () => {
+		const { component, closed } = list({ initialSelected: ["src/new.ts"] });
 
 		component.handleInput("\r");
 
-		expect(closed).toEqual([{ kind: "diff", path: "README.md" }]);
+		expect(closed).toEqual([{ action: { kind: "diff", path: "README.md" }, selected: ["src/new.ts"] }]);
 	});
 
-	test("r reverts the focused file and R reverts all", () => {
+	test("Space selects rows and r reverts the selected set", () => {
 		const { component, closed } = list();
 
 		component.handleInput("j");
+		component.handleInput(" ");
+		component.handleInput("j");
+		component.handleInput(" ");
+		expect(text(component)).toContain("2 selected");
+		expect(text(component)).toContain("r reverts 2 selected files");
 		component.handleInput("r");
-		component.handleInput("R");
 
-		expect(closed).toEqual([{ kind: "revert", path: "src/new.ts" }, { kind: "revertAll" }]);
+		expect(closed.at(-1)).toEqual({
+			action: { kind: "revert", paths: ["src/new.ts", "src/old.ts"] },
+			selected: ["src/new.ts", "src/old.ts"],
+		});
 	});
 
-	test("Esc closes without an action", () => {
+	test("Space toggles a selected row off, and r falls back to the focused file", () => {
 		const { component, closed } = list();
+
+		component.handleInput(" ");
+		component.handleInput(" ");
+		component.handleInput("r");
+
+		expect(closed.at(-1)).toEqual({
+			action: { kind: "revert", paths: ["README.md"] },
+			selected: [],
+		});
+	});
+
+	test("a selects every row and n clears the set", () => {
+		const { component, closed } = list();
+
+		component.handleInput("a");
+		expect(text(component)).toContain("4 selected");
+		component.handleInput("n");
+		expect(text(component)).not.toContain("selected");
+		component.handleInput("r");
+
+		expect(closed.at(-1)).toEqual({
+			action: { kind: "revert", paths: ["README.md"] },
+			selected: [],
+		});
+	});
+
+	test("R reverts all without touching the selection", () => {
+		const { component, closed } = list({ initialSelected: ["src/new.ts"] });
+
+		component.handleInput("R");
+
+		expect(closed).toEqual([{ action: { kind: "revertAll" }, selected: ["src/new.ts"] }]);
+	});
+
+	test("Esc closes with no action and returns the selection", () => {
+		const { component, closed } = list({ initialSelected: ["src/new.ts"] });
 
 		component.handleInput("\u001b");
 
-		expect(closed).toEqual([undefined]);
+		expect(closed).toEqual([{ action: undefined, selected: ["src/new.ts"] }]);
+	});
+
+	test("restores an initial selection and ignores paths that are gone", () => {
+		const { component, closed } = list({ initialSelected: ["src/new.ts", "gone.ts"] });
+
+		expect(text(component)).toContain("1 selected");
+		component.handleInput("r");
+
+		expect(closed.at(-1)).toEqual({
+			action: { kind: "revert", paths: ["src/new.ts"] },
+			selected: ["src/new.ts"],
+		});
+	});
+
+	test("names committed changes in the summary and detail", () => {
+		const { component } = list({ committed: true });
+		const screen = text(component);
+
+		expect(screen).toContain("committed");
+		expect(screen).toContain("already committed");
+		expect(screen).toContain("working tree only");
 	});
 
 	test("honours an initial index when returning from a diff", () => {
@@ -149,7 +215,7 @@ describe("ReviewListComponent", () => {
 				removed: 1,
 			},
 		];
-		const { component } = list({ entries: long });
+		const { component } = list({ entries: long, initialSelected: ["README.md"], committed: true });
 
 		for (const width of [24, 40, 80, 120]) {
 			for (const line of component.render(width)) {
@@ -158,17 +224,18 @@ describe("ReviewListComponent", () => {
 		}
 	});
 
-	test("windows a long list and reports the range", () => {
+	test("windows a long list and reports the range with a selection", () => {
 		const many: ReviewEntry[] = Array.from({ length: 30 }, (_, index) => ({
 			path: `src/file-${String(index).padStart(2, "0")}.ts`,
 			change: "modified",
 			added: 1,
 			removed: 0,
 		}));
-		const { component } = list({ entries: many, viewportRows: () => 20 });
+		const { component } = list({ entries: many, viewportRows: () => 20, initialSelected: ["src/file-00.ts"] });
 
 		const screen = text(component);
 		expect(screen).toContain("of 30");
+		expect(screen).toContain("1 selected");
 		expect(screen).not.toContain("file-29");
 	});
 
@@ -196,6 +263,14 @@ describe("ReviewDiffComponent", () => {
 		expect(screen).toContain("@@ -1 +1 @@");
 		expect(screen).toContain("+new line");
 		expect(screen).toContain("Esc back");
+	});
+
+	test("names committed changes in the detail", () => {
+		const { component } = diff({ committed: true });
+		const screen = text(component);
+
+		expect(screen).toContain("already committed");
+		expect(screen).toContain("working tree only");
 	});
 
 	test("colors additions, deletions, and hunk markers by role", () => {
@@ -242,7 +317,7 @@ describe("ReviewDiffComponent", () => {
 	});
 
 	test("keeps every line within the width", () => {
-		const { component } = diff({ lines: [`+${"x".repeat(300)}`] });
+		const { component } = diff({ lines: [`+${"x".repeat(300)}`], committed: true });
 
 		for (const width of [24, 40, 80, 120]) {
 			for (const line of component.render(width)) {

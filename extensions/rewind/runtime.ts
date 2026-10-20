@@ -11,7 +11,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { loadConfig, type RewindConfig } from "./config.ts";
-import { createRewindRunner, diffNumStat, diffPatch, repoRoot, type RunGit } from "./git.ts";
+import { createRewindRunner, diffNumStat, diffPatch, repoRoot, revParse, type RunGit } from "./git.ts";
 import { createOperationQueue } from "./queue.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
 import type { PathStat } from "./paths.ts";
@@ -40,6 +40,8 @@ export interface RewindRuntime {
 	patch(root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<string>;
 	/** Per-path line counts for the same comparison. Read-only. */
 	numStat(root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<Map<string, PathStat>>;
+	/** Tree id of HEAD, or undefined when the repository has no commit. Read-only. */
+	headTree(root: string): Promise<string | undefined>;
 	restore(
 		ctx: ExtensionContext,
 		root: string,
@@ -138,6 +140,14 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		paths?: readonly string[],
 	): Promise<Map<string, PathStat>> => diffNumStat(runGit, root, target.commit, tree, paths);
 
+	const headTree = async (root: string): Promise<string | undefined> => {
+		try {
+			return await revParse(runGit, root, "HEAD^{tree}");
+		} catch {
+			return undefined;
+		}
+	};
+
 	const restore = (
 		ctx: ExtensionContext,
 		root: string,
@@ -186,6 +196,7 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		plan,
 		patch,
 		numStat,
+		headTree,
 		restore,
 		setStatus: status.set,
 		clearStatus: status.clear,

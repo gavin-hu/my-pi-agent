@@ -713,12 +713,13 @@ prompt, so you can read the diff and keep or discard each file.
 
    *The changed files from the latest prompt.*
 
-2. Press Enter on a file to read its diff. `j` / `k`, the arrows, `PgUp` /
-   `PgDn`, and `g` / `G` move through it; `Esc` goes back to the list.
+2. Press `Space` to mark one or more files, or `a` / `n` to select all or none.
+   `Enter` reads the focused file's diff. `j` / `k`, the arrows, `PgUp` / `PgDn`,
+   and `g` / `G` move through it; `Esc` goes back to the list.
 
-3. Press `r` to revert the focused file, or `R` to revert every changed file.
-   Both ask first, and both take a safety snapshot, so `/rewind` can undo the
-   revert.
+3. Press `r` to revert the marked files, or the focused file when none are
+   marked. `R` reverts every changed file. Both ask first, and a marked batch
+   takes one safety snapshot, so `/rewind` can undo the revert.
 
 4. `Esc` closes the list without changing anything.
 
@@ -726,8 +727,11 @@ prompt, so you can read the diff and keep or discard each file.
 
 - Reverting is whole-file. There is no hunk selection; a renamed file appears as
   a deletion and an addition, so revert both to undo the rename.
+- If the working tree is clean against your last commit, the list says the
+  changes are already committed. Reverting then rewrites the working tree but
+  leaves the commit in place; the confirm repeats this.
 - Review actions exist only in the terminal interface. In text-only modes
-  `/review` prints the changed-path list.
+  `/review` prints the changed-path list and says when the changes are committed.
 - Plan mode refuses `/review`: approve the plan first.
 
 ## Remembering between sessions

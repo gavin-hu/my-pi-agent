@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
+import type { ReviewListResult } from "./review-tui.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import {
@@ -20,6 +21,11 @@ import {
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
+
+/** One recorded list close: an optional action and the selection it carried. */
+function screen(action?: ReviewListResult["action"], selected: string[] = []): ReviewListResult {
+	return { action, selected };
+}
 
 /** Script the custom screens and run the command, returning how many mounted. */
 async function review(ctx: any, actions: unknown[]): Promise<number> {
@@ -63,7 +69,7 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		await primeRewind(fake, ctx);
 		writeFileSync(join(repo, "README.md"), "changed\n");
 
-		const mounts = await review(ctx, [{ kind: "revert", path: "after.txt" }, undefined]);
+		const mounts = await review(ctx, [screen({ kind: "revert", paths: ["after.txt"] }), screen()]);
 
 		expect(mounts).toBe(2);
 		expect(existsSync(join(repo, "after.txt"))).toBe(false);
@@ -72,6 +78,67 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		expect(ctx.confirms.at(-1)?.title).toBe("Revert after.txt?");
 		expect(await rewindRefs(repo)).toHaveLength(2);
 		expect((await rewindMetadata(repo)).some((meta) => meta.reason === "pre-restore")).toBe(true);
+	});
+
+	test("reverts a selection in one restore with one safety snapshot", async () => {
+		const repo = await makeRepo("pi-rw-review-batch-");
+		cleanups.push(repo);
+		const fake = setupRewind([WRITE_TOOL]);
+		const ctx = makeCtx(fake, {
+			cwd: repo,
+			hasUI: true,
+			mode: "tui",
+			branch: branchWithUser("e1"),
+			sessionId: "s1",
+		});
+		ctx.command = fake.commands.get("review");
+		await primeRewind(fake, ctx);
+		writeFileSync(join(repo, "README.md"), "changed\n");
+		writeFileSync(join(repo, "third.txt"), "third\n");
+
+		const mounts = await review(ctx, [
+			screen({ kind: "revert", paths: ["README.md", "after.txt"] }, ["README.md", "after.txt"]),
+			screen(),
+		]);
+
+		expect(mounts).toBe(2);
+		expect(readFileSync(join(repo, "README.md"), "utf-8")).toBe("hello\n");
+		expect(existsSync(join(repo, "after.txt"))).toBe(false);
+		expect(existsSync(join(repo, "third.txt"))).toBe(true);
+		expect(ctx.confirms.at(-1)?.title).toBe("Revert 2 selected files?");
+		expect(ctx.confirms.at(-1)?.message).toContain("Other changed files stay as they are");
+		expect(ctx.notices.at(-1)?.message).toContain("Reverted 2 files.");
+		// One auto snapshot plus one pre-restore snapshot for the whole batch.
+		expect(await rewindRefs(repo)).toHaveLength(2);
+	});
+
+	test("names committed changes and leaves the commit in place", async () => {
+		const repo = await makeRepo("pi-rw-review-committed-");
+		cleanups.push(repo);
+		const fake = setupRewind([WRITE_TOOL]);
+		const ctx = makeCtx(fake, {
+			cwd: repo,
+			hasUI: true,
+			mode: "tui",
+			branch: branchWithUser("e1"),
+			sessionId: "s1",
+		});
+		ctx.command = fake.commands.get("review");
+		await primeRewind(fake, ctx);
+		rmSync(join(repo, "after.txt"));
+		writeFileSync(join(repo, "README.md"), "changed\n");
+		await runGit(["add", "-A"], { cwd: repo });
+		await runGit(["commit", "-qm", "turn"], { cwd: repo });
+
+		const mounts = await review(ctx, [screen({ kind: "revert", paths: ["README.md"] })]);
+
+		expect(mounts).toBe(1);
+		expect(ctx.confirms.at(-1)?.message).toContain("already committed");
+		expect(ctx.confirms.at(-1)?.message).toContain("leaves the commits in place");
+		expect(readFileSync(join(repo, "README.md"), "utf-8")).toBe("hello\n");
+		expect((await runGit(["log", "-1", "--format=%s"], { cwd: repo })).stdout.trim()).toBe("turn");
+		expect((await runGit(["status", "--short"], { cwd: repo })).stdout).toContain("README.md");
+		expect(await rewindRefs(repo)).toHaveLength(2);
 	});
 
 	test("reverts every changed path with R", async () => {
@@ -89,7 +156,7 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		await primeRewind(fake, ctx);
 		writeFileSync(join(repo, "README.md"), "changed\n");
 
-		await review(ctx, [{ kind: "revertAll" }]);
+		await review(ctx, [screen({ kind: "revertAll" })]);
 
 		expect(existsSync(join(repo, "after.txt"))).toBe(false);
 		expect(readFileSync(join(repo, "README.md"), "utf-8")).toBe("hello\n");
@@ -112,7 +179,7 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		ctx.command = fake.commands.get("review");
 		await primeRewind(fake, ctx);
 
-		await review(ctx, [{ kind: "revert", path: "after.txt" }, undefined]);
+		await review(ctx, [screen({ kind: "revert", paths: ["after.txt"] }), screen()]);
 
 		expect(existsSync(join(repo, "after.txt"))).toBe(true);
 		expect(ctx.notices.some((notice: { message: string }) => notice.message.includes("Reverted"))).toBe(false);
@@ -134,11 +201,11 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		writeFileSync(join(repo, "README.md"), "changed\n");
 
 		const mounts = await review(ctx, [
-			{ kind: "diff", path: "README.md" },
+			screen({ kind: "diff", path: "README.md" }),
 			"back",
-			{ kind: "diff", path: "README.md" },
+			screen({ kind: "diff", path: "README.md" }),
 			"revert",
-			undefined,
+			screen(),
 		]);
 
 		expect(mounts).toBe(5);
@@ -170,7 +237,7 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		});
 		ctx.command = fake.commands.get("review");
 
-		await review(ctx, [{ kind: "revert", path: "second.txt" }, undefined]);
+		await review(ctx, [screen({ kind: "revert", paths: ["second.txt"] }), screen()]);
 
 		expect(existsSync(join(repo, "second.txt"))).toBe(false);
 		expect(existsSync(join(repo, "first.txt"))).toBe(true);

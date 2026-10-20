@@ -13,6 +13,7 @@ import {
 	formatReviewSummary,
 	formatRevertAllBody,
 	formatRevertOneBody,
+	formatRevertSelectedBody,
 	formatRewindDetail,
 	formatRewindListText,
 	formatRewindRow,
@@ -160,6 +161,11 @@ describe("review formatting", () => {
 		expect(formatReviewSummary([entries[0]!])).toBe("1 file · +12 −3");
 	});
 
+	test("names the selected count after the totals", () => {
+		expect(formatReviewSummary(entries, 2)).toBe("4 files · +16 −12 · bin · 2 selected");
+		expect(formatReviewSummary([entries[0]!], 1)).toBe("1 file · +12 −3 · 1 selected");
+	});
+
 	test("explains each change kind and the row's actions", () => {
 		expect(formatReviewDetail(entries[0]!)).toContain("modified since the snapshot");
 		expect(formatReviewDetail(entries[1]!)).toContain("reverting deletes it");
@@ -177,6 +183,13 @@ describe("review formatting", () => {
 		expect(text).toContain("+12 −3");
 	});
 
+	test("names committed changes in the headless list", () => {
+		const text = formatReviewListText(entries, "fix the list", true);
+
+		expect(text).toContain("already committed");
+		expect(text).toContain("working tree only");
+	});
+
 	test("reports a revert, its safety snapshot, and what is left", () => {
 		const summary = { id: "s", commit: "c", root: "/r", changed: 1, removed: 0, safety: "safe" };
 
@@ -190,7 +203,16 @@ describe("review formatting", () => {
 		expect(body).toContain("M — modified since the snapshot");
 		expect(body).toContain('to the snapshot taken before "fix the list"');
 		expect(body).toContain("undoable with /rewind");
+		expect(body).toContain("HEAD and the index are untouched");
+		expect(body).not.toContain("already committed");
 		expect(formatRevertOneBody(entries[0]!, "fix the list", false)).toContain("cannot be undone");
+	});
+
+	test("names the committed case in a one-file confirm", () => {
+		const body = formatRevertOneBody(entries[0]!, "fix the list", true, true);
+
+		expect(body).toContain("already committed");
+		expect(body).toContain("leaves the commits in place");
 	});
 
 	test("summarizes the whole review in an all-files confirm", () => {
@@ -199,6 +221,17 @@ describe("review formatting", () => {
 		expect(body).toContain('Restores 4 files to the snapshot taken before "fix the list"');
 		expect(body).toContain("4 files · +16 −12 · bin");
 		expect(body).toContain("HEAD and the index are untouched");
+		expect(formatRevertAllBody(entries, "fix the list", true, true)).toContain("already committed");
+	});
+
+	test("names a selected subset and leaves the other files alone", () => {
+		const body = formatRevertSelectedBody(entries.slice(0, 2), "fix the list", true, false);
+
+		expect(body).toContain("Restores 2 selected files");
+		expect(body).toContain("Other changed files stay as they are");
+		expect(body).toContain("2 files · +16 −3");
+		expect(body).toContain("HEAD and the index are untouched");
+		expect(formatRevertSelectedBody(entries.slice(0, 2), "fix the list", true, true)).toContain("already committed");
 	});
 });
 
