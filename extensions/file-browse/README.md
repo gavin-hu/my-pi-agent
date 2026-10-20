@@ -44,7 +44,10 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   column: one centred measure of at most 1012px carrying headings, prose,
   tables, code, and images, with wide tables scrolling inside it. Tables size
   their columns to the content and scroll
-  when wide, and named and numeric character references are decoded. Fenced code
+  when wide, and named and numeric character references are decoded. A README's
+  raw HTML is re-emitted through an allowlist (`<details>`, `<summary>`,
+  tables, `<kbd>`, images), so it renders without becoming an injection path.
+  Fenced code
   blocks are syntax-highlighted when the fence names a supported language.
   Headings get stable anchor ids, so in-document `#anchor` links and a table of
   contents work, and a document with four or more headings gets an **On this
@@ -142,6 +145,7 @@ document and the project document (project wins):
   "maxDirEntries": 2000,     // listed entries before truncation
   "thumbnails": true,
   "markdown": true,          // render Markdown files as formatted HTML
+  "markdownHtml": true,      // re-emit sanitized raw HTML in rendered Markdown
   "maxIndexEntries": 20000,  // files collected for quick open before truncation
   "gitDiff": true,           // offer the read-only diff view
   "diffContext": 3,          // unified diff context lines
@@ -163,10 +167,16 @@ document and the project document (project wins):
 - **CSP.** Pages allow only same-origin scripts and inline styles; `/raw` uses
   `default-src 'none'; script-src 'none'; sandbox` plus `nosniff`, so a served
   SVG/HTML file cannot execute.
-- **Markdown safety.** Rendered Markdown is escape-first: raw HTML is shown as
-  text, link schemes are allowlisted (`javascript:`/`data:` dropped), and an
-  external image is rendered as a link, never loaded. The page CSP keeps the
-  rest inert.
+- **Markdown safety.** Rendered Markdown is escape-first, and raw HTML passes an
+  allowlist (`raw-html.ts`): only known elements and attributes are re-emitted,
+  rebuilt from the parsed names rather than copied, so `script`, `style`,
+  `iframe`, `svg`, event handlers, `style=` and `class=` never reach the page.
+  Link schemes are allowlisted (`javascript:`/`data:` dropped), an external
+  image renders as a link instead of loading, and open elements are balanced at
+  the end of the document so an unclosed `<div>` cannot swallow the page chrome.
+  A suppressed element (`script`, `style`, `svg`, …) is dropped with its body;
+  any other unknown tag is escaped and stays visible. `markdownHtml: false`
+  restores escape-only rendering. The page CSP keeps the rest inert.
 - **Highlighting safety.** The highlighter escapes every literal before it
   wraps it in a token span, so a code file's content cannot inject markup or
   attributes; only the fixed `tok-*` class names reach the page.
@@ -194,8 +204,9 @@ document and the project document (project wins):
 ## Non-goals
 
 - No editing or writing from the browser.
-- No third-party assets: the Markdown renderer and the syntax highlighter are
-  first-party, and raw HTML in a Markdown file is escaped, not executed.
+- No third-party assets: the Markdown renderer, its raw-HTML sanitizer, and the
+  syntax highlighter are first-party, so raw HTML in a Markdown file is
+  allowlisted and never executed.
 - No auth and no LAN exposure: loopback only.
 - Not a general static-file server: the root is confined to the effective cwd.
 
@@ -255,6 +266,17 @@ document and the project document (project wins):
   whose info string names a supported
   language is highlighted through `lib/highlight.ts` (either an extension or a
   long-form alias, `fenceLanguage`); an absent or unknown language stays plain.
+- **Raw HTML.** A line that starts with an allowed block tag (`<details>`,
+  `<table>`, `<div>`, `<pre>`, …), a comment, or a closing tag opens an HTML
+  block that runs to the next blank line; text inside it stays text, and a
+  suppressed tag (`<script>`, `<style>`, `<svg>`) drops its body through the
+  matching close tag. `raw-html.ts` re-emits only allowlisted elements and
+  attributes: `a`/`img` go through the same `/view`/`/raw` resolution as
+  Markdown, an external image becomes a link, and `class`/`style`/handlers are
+  dropped. Phrasing tags are also accepted inside a line, while a block tag
+  mid-paragraph stays escaped. Open elements are balanced across blocks, which
+  is how a `<details>` can wrap Markdown paragraphs, and `markdownHtml: false`
+  turns the whole path off.
 - **Syntax highlighting.** `lib/highlight.ts` is a first-party, escape-first
   tokenizer for the file types that dominate a repository: JavaScript and
   TypeScript, JSON, CSS (incl. SCSS/Sass/Less), HTML/XML and template
@@ -302,7 +324,9 @@ document and the project document (project wins):
 | `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
 | `diff.ts` | Pure unified-diff and porcelain-status parsing for the diff view |
 | `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
-| `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted) |
+| `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted; raw HTML through `raw-html.ts`) |
+| `raw-html.ts` | Allowlisted raw-HTML sanitizer: element/attribute policy, suppressed bodies, and cross-block balancing |
+| `urls.ts` | Shared link/image URL policy: scheme allowlist and `/view`/`/raw` rewriting |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
 | `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
@@ -318,7 +342,9 @@ absolute, symlink escape and in-root symlink), file classification/listings/
 reads/tree and the quick-open file index, the fuzzy matcher, the syntax
 highlighter (language detection, fence aliases, token classes, cross-line
 state, and escaping), the Markdown renderer (blocks, inline, fenced-code
-highlighting, safety, and path resolution),
+highlighting, safety, raw HTML, and path resolution), the raw-HTML sanitizer
+(allowlist, suppressed bodies, attribute policy, balancing, and a seeded
+invariant test over fragment soup),
 the icon mapping and sprite, HTML escaping/encoding/rendering, the client script
 and its serving, the platform browser commands with an injected spawn, the router
 (routes, `/api/tree`, `/api/files`, `?raw=1`, status codes, `Host`, `HEAD`, `/raw`

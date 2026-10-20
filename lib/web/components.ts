@@ -126,6 +126,14 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-md .md-right{text-align:right}
 .bf-md img{max-width:100%;height:auto;border-radius:var(--radius-sm)}
 .bf-md hr{border:0;border-top:1px solid var(--border);margin:1.4em 0}
+.bf-md details{margin:0 0 1em}
+.bf-md summary{cursor:pointer;font-weight:var(--fw-medium)}
+.bf-md figure{margin:0 0 1em}
+.bf-md figcaption{color:var(--muted);font-size:var(--fs-sm)}
+.bf-md kbd{font-family:var(--font-mono);font-size:.85em;background:var(--canvas);border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);padding:.1em .35em}
+.bf-md mark{background:var(--accent-soft);color:inherit;padding:0 .1em}
+.bf-md abbr[title]{text-decoration:underline dotted;cursor:help}
+.bf-md sub,.bf-md sup{font-size:.75em;line-height:0}
 .bf-comment{padding:var(--space-3) var(--space-4);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius-md)}
 .bf-comment__quote{margin-bottom:var(--space-1);color:var(--muted);font-size:var(--fs-xs);overflow-wrap:anywhere}
 .bf-comment__body{white-space:pre-wrap;overflow-wrap:anywhere}

@@ -26,6 +26,8 @@ export interface ServeConfig {
 	thumbnails: boolean;
 	/** Render Markdown files as formatted HTML instead of plain text. */
 	markdown: boolean;
+	/** Re-emit sanitized raw HTML inside rendered Markdown; false escapes it as text. */
+	markdownHtml: boolean;
 	/** Files collected for the quick-open index before it is truncated. */
 	maxIndexEntries: number;
 	/** Offer the read-only git diff view. */
@@ -45,6 +47,7 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	maxDirEntries: 2000,
 	thumbnails: true,
 	markdown: true,
+	markdownHtml: true,
 	maxIndexEntries: 20000,
 	gitDiff: true,
 	diffContext: 3,
@@ -81,6 +84,7 @@ export function normalizeConfig(
 		maxDirEntries: clampInteger(raw.maxDirEntries, base.maxDirEntries, 1, 1_000_000),
 		thumbnails: bool(raw.thumbnails, base.thumbnails),
 		markdown: bool(raw.markdown, base.markdown),
+		markdownHtml: bool(raw.markdownHtml, base.markdownHtml),
 		maxIndexEntries: clampInteger(raw.maxIndexEntries, base.maxIndexEntries, 1, 1_000_000),
 		gitDiff: bool(raw.gitDiff, base.gitDiff),
 		diffContext: clampInteger(raw.diffContext, base.diffContext, 0, 100),

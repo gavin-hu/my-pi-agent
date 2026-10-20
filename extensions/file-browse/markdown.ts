@@ -5,8 +5,9 @@
  * that show up in repository READMEs — headings, paragraphs, fenced code,
  * blockquotes, nested and task lists, tables, code spans, emphasis, inline and
  * reference links, and images. Named and numeric character references are
- * decoded as literal text. Everything is escaped and only a known set of tags
- * is emitted; raw HTML in the source is shown as text, never executed.
+ * decoded as literal text. Raw HTML is re-emitted through the allowlist in
+ * `raw-html.ts`; `html: false` restores escape-only rendering, where the source
+ * is shown as text and never executed.
  *
  * Relative links become `/view/<path>` and relative images become `/raw/<path>`
  * so they resolve from any page URL. The `/view` and `/raw` routes re-vet the
@@ -19,17 +20,27 @@
  * outline.
  *
  * Kept free of the page renderer: it imports only `lib/escape.ts`,
- * `lib/highlight.ts`, and `paths.ts`, so `html.ts` can compose it without a
- * module cycle.
+ * `lib/highlight.ts`, `urls.ts`, and `raw-html.ts`, so `html.ts` can compose it
+ * without a module cycle. The block scanner, the inline scanner, and their
+ * per-document state stay in one module because they are a single pass; URL
+ * policy and raw HTML do not.
  */
 
-import { posix } from "node:path";
 import { escapeHtml } from "../../lib/escape.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
-import { encodePath } from "./paths.ts";
+import {
+	closesSuppressed,
+	closeHtmlSink,
+	closeInlineTags,
+	createHtmlSink,
+	type HtmlBlockStart,
+	type HtmlSink,
+	htmlBlockStart,
+	sanitizeHtmlBlock,
+	sanitizeInlineTag,
+} from "./raw-html.ts";
+import { resolveImage, resolveLink } from "./urls.ts";
 
-const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
-const SAFE_LINK_SCHEME = /^(?:https?|mailto):/i;
 const HTTP_SCHEME = /^https?:/i;
 /** A GFM extended autolink: `http(s)://` or `www.` followed by a domain. */
 const AUTOLINK = /^(?:https?:\/\/|www\.)[^\s<>]*/i;
@@ -67,13 +78,22 @@ export interface MarkdownHeading {
 
 /**
  * Per-document render state: the resolution base, the reference definitions,
- * and the headings emitted so far.
+ * the headings emitted so far, and the raw-HTML balancing state.
  */
 interface Context {
 	baseDir: string;
 	defs: Map<string, LinkDefinition>;
 	headings: MarkdownHeading[];
+	/** Emit sanitized raw HTML; `false` escapes it as text. */
+	html: boolean;
+	sink: HtmlSink;
 	slug(text: string): string;
+}
+
+/** Render options; every field has the behaviour the browse page uses. */
+export interface MarkdownOptions {
+	/** Emit sanitized raw HTML (the default) or escape it (`false`). */
+	html?: boolean;
 }
 
 /**
@@ -81,15 +101,21 @@ interface Context {
  * emitted so a caller can build an outline. Headings carry an anchor id and are
  * demoted one level, so the embedding page keeps the only `h1`.
  */
-export function renderMarkdownDocument(source: string, baseDir = ""): { html: string; headings: MarkdownHeading[] } {
-	const { defs, body } = collectDefinitions(source.split(/\r\n|\r|\n/));
-	const context = createContext(baseDir, defs);
-	return { html: renderBlocks(body, context), headings: context.headings };
+export function renderMarkdownDocument(
+	source: string,
+	baseDir = "",
+	options: MarkdownOptions = {},
+): { html: string; headings: MarkdownHeading[] } {
+	const html = options.html ?? true;
+	const { defs, body } = collectDefinitions(source.split(/\r\n|\r|\n/), html);
+	const context = createContext(baseDir, defs, html);
+	const rendered = renderBlocks(body, context);
+	return { html: html ? rendered + closeHtmlSink(context.sink) : rendered, headings: context.headings };
 }
 
 /** Render a Markdown source string to a safe HTML fragment. */
-export function renderMarkdown(source: string, baseDir = ""): string {
-	return renderMarkdownDocument(source, baseDir).html;
+export function renderMarkdown(source: string, baseDir = "", options: MarkdownOptions = {}): string {
+	return renderMarkdownDocument(source, baseDir, options).html;
 }
 
 /** Turn heading text into a stable anchor id, dropping Markdown punctuation. */
@@ -105,12 +131,14 @@ function headingSlug(text: string): string {
 }
 
 /** Build the per-document render state, suffixing repeated heading slugs. */
-function createContext(baseDir: string, defs: Map<string, LinkDefinition>): Context {
+function createContext(baseDir: string, defs: Map<string, LinkDefinition>, html: boolean): Context {
 	const seen = new Map<string, number>();
 	return {
 		baseDir,
 		defs,
 		headings: [],
+		html,
+		sink: createHtmlSink(),
 		slug(text: string): string {
 			const base = headingSlug(text);
 			const count = seen.get(base) ?? 0;
@@ -132,10 +160,11 @@ function normalizeLabel(label: string): string {
  * definition-shaped line inside code stays literal. Definitions are
  * single-line; one inside a blockquote or list item is left in place as text.
  */
-function collectDefinitions(lines: string[]): { defs: Map<string, LinkDefinition>; body: string[] } {
+function collectDefinitions(lines: string[], html: boolean): { defs: Map<string, LinkDefinition>; body: string[] } {
 	const defs = new Map<string, LinkDefinition>();
 	const body: string[] = [];
 	let fence: Fence | undefined;
+	let inHtml: "block" | { suppressed: string } | undefined;
 	for (const line of lines) {
 		if (fence) {
 			const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line);
@@ -143,9 +172,28 @@ function collectDefinitions(lines: string[]): { defs: Map<string, LinkDefinition
 			body.push(line);
 			continue;
 		}
+		if (inHtml) {
+			if (inHtml === "block") {
+				if (isBlank(line)) inHtml = undefined;
+			} else if (closesSuppressed(line, inHtml.suppressed)) {
+				inHtml = undefined;
+			}
+			body.push(line);
+			continue;
+		}
 		const open = matchFence(line);
 		if (open) {
 			fence = open;
+			body.push(line);
+			continue;
+		}
+		const start = html ? htmlBlockStart(line) : undefined;
+		if (start) {
+			if (start.kind === "suppressed") {
+				inHtml = closesSuppressed(line, start.name) ? undefined : { suppressed: start.name };
+			} else {
+				inHtml = "block";
+			}
 			body.push(line);
 			continue;
 		}
@@ -245,6 +293,14 @@ function renderBlocks(lines: string[], ctx: Context): string {
 			continue;
 		}
 
+		const htmlBlock = ctx.html ? htmlBlockStart(line) : undefined;
+		if (htmlBlock) {
+			const [html, next] = renderHtmlBlock(lines, i, htmlBlock, ctx);
+			if (html !== "") out.push(html);
+			i = next;
+			continue;
+		}
+
 		const [html, next] = renderParagraph(lines, i, ctx);
 		out.push(html);
 		i = next;
@@ -253,7 +309,7 @@ function renderBlocks(lines: string[], ctx: Context): string {
 }
 
 /** True when `lines[i]` opens a block that may interrupt a paragraph. */
-function isBlockStart(lines: string[], i: number): boolean {
+function isBlockStart(lines: string[], i: number, html: boolean): boolean {
 	const line = lines[i];
 	return (
 		matchFence(line) !== undefined ||
@@ -261,6 +317,7 @@ function isBlockStart(lines: string[], i: number): boolean {
 		isThematicBreak(line) ||
 		isBlockquoteLine(line) ||
 		matchListItem(line) !== undefined ||
+		(html && htmlBlockStart(line) !== undefined) ||
 		(i + 1 < lines.length && isTableStart(line, lines[i + 1]))
 	);
 }
@@ -270,7 +327,7 @@ function renderParagraph(lines: string[], start: number, ctx: Context): [string,
 	let i = start;
 	for (; i < lines.length; i++) {
 		if (isBlank(lines[i])) break;
-		if (i > start && isBlockStart(lines, i)) break;
+		if (i > start && isBlockStart(lines, i, ctx.html)) break;
 		collected.push(lines[i]);
 	}
 	const html = collected
@@ -283,6 +340,28 @@ function renderParagraph(lines: string[], start: number, ctx: Context): [string,
 		})
 		.join("\n");
 	return [`<p>${html}</p>`, i];
+}
+
+/**
+ * Render an HTML block. An allowed block runs to the next blank line, matching
+ * what a reader expects from GitHub: everything up to the blank line is markup,
+ * and Markdown resumes after it. A suppressed element (`<script>`, `<svg>`, …)
+ * swallows its body through the matching close tag, crossing blank lines, and
+ * emits nothing.
+ */
+function renderHtmlBlock(lines: string[], start: number, block: HtmlBlockStart, ctx: Context): [string, number] {
+	if (block.kind === "suppressed") {
+		let i = start;
+		while (i < lines.length && !closesSuppressed(lines[i], block.name)) i++;
+		return ["", Math.min(i + 1, lines.length)];
+	}
+	const collected: string[] = [];
+	let i = start;
+	for (; i < lines.length; i++) {
+		if (isBlank(lines[i])) break;
+		collected.push(lines[i]);
+	}
+	return [sanitizeHtmlBlock(collected.join("\n"), ctx.baseDir, ctx.sink), i];
 }
 
 interface Fence {
@@ -580,56 +659,6 @@ function parseReferenceLink(text: string, start: number, ctx: Context): ParsedLi
 	return undefined;
 }
 
-interface ResolvedLink {
-	href: string;
-	external: boolean;
-}
-
-interface ResolvedImage {
-	href: string;
-	image: boolean;
-}
-
-function resolveLocalPath(href: string, baseDir: string): { rel: string; suffix: string } | undefined {
-	const match = /^([^?#]*)([?#].*)?$/.exec(href);
-	if (!match) return undefined;
-	const rawPath = match[1];
-	const suffix = match[2] ?? "";
-	let path: string;
-	try {
-		path = decodeURIComponent(rawPath);
-	} catch {
-		path = rawPath;
-	}
-	let rel: string;
-	if (path.startsWith("/")) rel = posix.normalize(path).replace(/^\/+/, "");
-	else rel = posix.normalize(posix.join(baseDir, path));
-	if (rel === ".") rel = "";
-	if (rel === ".." || rel.startsWith("../") || rel.startsWith("/")) return undefined;
-	return { rel, suffix };
-}
-
-function resolveLink(dest: string, baseDir: string): ResolvedLink | undefined {
-	const value = dest.trim();
-	if (value === "") return undefined;
-	if (value.startsWith("#")) return { href: value, external: false };
-	if (SAFE_LINK_SCHEME.test(value)) return { href: value, external: HTTP_SCHEME.test(value) };
-	if (HAS_SCHEME.test(value)) return undefined;
-	const local = resolveLocalPath(value, baseDir);
-	if (!local) return undefined;
-	return { href: `/view/${encodePath(local.rel)}${local.suffix}`, external: false };
-}
-
-function resolveImage(dest: string, baseDir: string): ResolvedImage | undefined {
-	const value = dest.trim();
-	if (value === "") return undefined;
-	if (HTTP_SCHEME.test(value)) return { href: value, image: false };
-	if (HAS_SCHEME.test(value)) return undefined;
-	const local = resolveLocalPath(value, baseDir);
-	if (!local) return undefined;
-	return { href: `/raw/${encodePath(local.rel)}${local.suffix}`, image: true };
-}
-
 function renderLink(parsed: ParsedLink, ctx: Context): string {
 	const label = renderInline(parsed.label, ctx);
 	const target = resolveLink(parsed.dest, ctx.baseDir);
@@ -757,6 +786,7 @@ function matchEntity(text: string, start: number): Entity | undefined {
 function renderInline(text: string, ctx: Context): string {
 	let out = "";
 	let i = 0;
+	const tags: string[] = [];
 	while (i < text.length) {
 		const char = text[i];
 
@@ -814,6 +844,14 @@ function renderInline(text: string, ctx: Context): string {
 				i += match[0].length;
 				continue;
 			}
+			if (ctx.html) {
+				const tag = sanitizeInlineTag(text, i, ctx.baseDir, tags);
+				if (tag) {
+					out += tag.html;
+					i = tag.end;
+					continue;
+				}
+			}
 		}
 
 		// GFM extended autolink: a bare `https://` or `www.` URL in running text.
@@ -863,5 +901,5 @@ function renderInline(text: string, ctx: Context): string {
 		out += escapeHtml(char);
 		i++;
 	}
-	return out;
+	return out + closeInlineTags(tags);
 }

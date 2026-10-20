@@ -386,6 +386,8 @@ export interface FilePage {
 	git?: GitStatus;
 	/** Show the Markdown source instead of the rendered HTML. */
 	markdownRaw?: boolean;
+	/** Re-emit sanitized raw HTML in rendered Markdown; `false` escapes it as text. */
+	markdownHtml?: boolean;
 	/** True when this file has uncommitted changes, for the changes action. */
 	changed?: boolean;
 	/** Changed-path index for the header chip and the tree markers. */
@@ -493,7 +495,9 @@ export function renderFilePage(page: FilePage): string {
 	let note = "";
 	if (page.file.kind === "text" || page.file.kind === "markdown") {
 		if (page.file.kind === "markdown" && !page.markdownRaw) {
-			const document = renderMarkdownDocument(page.file.lines.join("\n"), markdownBaseDir(page.rel));
+			const document = renderMarkdownDocument(page.file.lines.join("\n"), markdownBaseDir(page.rel), {
+				html: page.markdownHtml !== false,
+			});
 			content = `${renderOutline(document.headings)}<article class="bf-md">${document.html}</article>`;
 		} else {
 			content = `<pre class="bf-code bf-code--numbered"><code>${renderCodeLines(page.file.lines, language)}</code></pre>`;

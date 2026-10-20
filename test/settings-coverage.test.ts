@@ -125,6 +125,7 @@ const SECTIONS: readonly SectionCase[] = [
 			maxDirEntries: "a rendering limit, not a preference",
 			thumbnails: "a rendering limit, not a preference",
 			markdown: "a rendering limit, not a preference",
+			markdownHtml: "a rendering limit, not a preference",
 			maxIndexEntries: "a rendering limit, not a preference",
 			gitDiff: "a rendering limit, not a preference",
 			diffContext: "a rendering limit, not a preference",

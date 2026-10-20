@@ -311,6 +311,7 @@ ignored, and an absent id keeps its registry default.
 | `maxDirEntries` | integer | `2000` | `1`–`1000000` | Directory entries listed before the listing is truncated. |
 | `thumbnails` | boolean | `true` | | Render inline image thumbnails in listings. |
 | `markdown` | boolean | `true` | | Render Markdown files as formatted HTML instead of plain text. |
+| `markdownHtml` | boolean | `true` | | Re-emit sanitized raw HTML inside rendered Markdown; `false` escapes it as text. |
 | `maxIndexEntries` | integer | `20000` | `1`–`1000000` | Files collected for the quick-open index before it is truncated. |
 | `gitDiff` | boolean | `true` | | Offer the read-only git diff view. |
 | `diffContext` | integer | `3` | `0`–`100` | Unified diff context lines. |

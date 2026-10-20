@@ -29,6 +29,12 @@ describe("normalizeConfig markdown", () => {
 		expect(normalizeConfig({ markdown: false }).markdown).toBe(false);
 		expect(normalizeConfig({ markdown: "no" }).markdown).toBe(true);
 	});
+
+	test("defaults to sanitized raw HTML and accepts a boolean", () => {
+		expect(DEFAULT_CONFIG.markdownHtml).toBe(true);
+		expect(normalizeConfig({ markdownHtml: false }).markdownHtml).toBe(false);
+		expect(normalizeConfig({ markdownHtml: "no" }).markdownHtml).toBe(true);
+	});
 });
 
 describe("normalizeConfig maxIndexEntries", () => {

@@ -212,6 +212,7 @@ async function fileResponse(ctx: ServeContext, rel: string, raw: boolean): Promi
 			maxFileBytes: ctx.config.maxFileBytes,
 			git,
 			markdownRaw: raw,
+			markdownHtml: ctx.config.markdownHtml,
 			changed: changes?.files.has(rel),
 			summary: changes,
 		}),
