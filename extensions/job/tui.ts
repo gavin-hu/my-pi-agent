@@ -17,7 +17,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { formatDuration } from "../../lib/format.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip, fitCells } from "../../lib/tui/columns.ts";
 import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
 import { expandHint, SEPARATORS } from "../../lib/tui/glyphs.ts";
@@ -42,7 +42,7 @@ import type { JobRecord } from "./types.ts";
 const SCREEN_DEFAULT_ROWS = 14;
 
 /** Fixed rows around the list body: header, summary, blank, blank, hint, blank. */
-const LIST_CHROME_ROWS = 7;
+const LIST_CHROME_ROWS = 6;
 
 /** Fixed rows around the log body: header, subtitle, blank, blank, hint, blank. */
 const LOG_CHROME_ROWS = 6;
@@ -65,6 +65,7 @@ function jobRow(
 		glyph: statusGlyphChar(job.status),
 		glyphRole: statusRole(job.status),
 		label: `${job.id}  ${shortLabel(job)}`,
+		labelRole: options.selected ? "accent" : "label",
 		// The tag rides the right-aligned cell, which survives a narrow terminal.
 		trailing: options.foreign ? `${elapsed}${SEPARATORS.item}peer` : elapsed,
 	});
@@ -361,7 +362,7 @@ export class JobListComponent implements Component {
 		this.cursor.visible = fitRows(
 			this.viewportRowsSource,
 			jobs.length,
-			LIST_CHROME_ROWS + detail.length,
+			LIST_CHROME_ROWS + detailBlockRows(detail),
 			SCREEN_DEFAULT_ROWS,
 		);
 		this.cursor.clamp(jobs, jobId);
@@ -389,9 +390,9 @@ export class JobListComponent implements Component {
 				: screenHint(this.theme, w, [
 						"Esc close",
 						"↑/↓ or j/k select",
-						"Enter or l logs",
-						"d or K kill",
-						"x clear finished",
+						{ text: "Enter or l logs", color: "accent" },
+						{ text: "d or K kill", color: "warning" },
+						{ text: "x clear finished", color: "warning" },
 						"PgUp/PgDn",
 					]);
 
@@ -400,8 +401,7 @@ export class JobListComponent implements Component {
 			summary: this.summary(jobCounts(jobs), w, jobs.filter((job) => this.isForeign(job)).length),
 			body,
 			range,
-			// The detail pane is separated from the list by a blank line.
-			detail: ["", ...detail.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w))],
+			detail: detail.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w)),
 			hint,
 		});
 	}

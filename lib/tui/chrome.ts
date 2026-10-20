@@ -102,16 +102,37 @@ export interface DockListFrame {
 	body: string[];
 	/** A scroll-range row printed after the body. */
 	range?: string;
-	/** Focused-row footnotes printed after the range. */
+	/**
+	 * Focused-row footnotes printed after a blank line, so they do not read as one
+	 * more row. Empty means no block and no blank line.
+	 */
 	detail?: string[];
+	/**
+	 * Draw the blank line above the detail block. Defaults to true. A caller that
+	 * has already shed every optional row on a short terminal passes false so the
+	 * block itself survives without its separator.
+	 */
+	detailBlank?: boolean;
 	/** The key-hint row. */
 	hint: string;
 }
 
 /**
+ * The rows a detail block costs: its lines plus the blank line above it.
+ *
+ * Callers feed this to `fitRows` so the block cannot push the hint row off a
+ * short terminal. It is the companion to {@link dockListFrame}, which places the
+ * block; the two have to agree on when the block exists.
+ */
+export function detailBlockRows(detail: readonly string[] | undefined, blank = true): number {
+	if (detail === undefined || detail.length === 0) return 0;
+	return detail.length + (blank ? 1 : 0);
+}
+
+/**
  * Assemble a docked list screen: the caller's header rule, an optional summary
- * and its blank line, the body, an optional range row, optional detail rows, and
- * the blank-line-padded key-hint footer.
+ * and its blank line, the body, an optional range row, optional detail rows after
+ * their own blank line, and the blank-line-padded key-hint footer.
  *
  * This is the convention every docked list screen shares — the bytefly panel,
  * `/jobs`, `/watch`, `/todos`, `/memory`, and `/rewind`. The header line is built
@@ -122,7 +143,10 @@ export function dockListFrame(frame: DockListFrame): string[] {
 	if (frame.summary !== undefined) lines.push(frame.summary, "");
 	lines.push(...frame.body);
 	if (frame.range !== undefined) lines.push(frame.range);
-	if (frame.detail !== undefined) lines.push(...frame.detail);
+	if (frame.detail !== undefined && frame.detail.length > 0) {
+		if (frame.detailBlank !== false) lines.push("");
+		lines.push(...frame.detail);
+	}
 	lines.push("", frame.hint, "");
 	return lines;
 }

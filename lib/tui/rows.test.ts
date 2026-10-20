@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 import { GLYPHS } from "./glyphs.ts";
-import { checkbox, chip, emptyState, keyValueRow, listRow } from "./rows.ts";
+import { checkbox, chip, emptyState, keyValueRow, listRow, statusRow } from "./rows.ts";
 
 /** Column counts exercised by the width sweep. */
 const WIDTHS = Array.from({ length: 115 }, (_, index) => index + 6);
@@ -47,6 +47,14 @@ describe("listRow", () => {
 				visibleWidth(listRow(fakeTheme, width, { label: "a-very-long-label", trailing: "meta" })),
 			).toBeLessThanOrEqual(width);
 		}
+	});
+});
+
+describe("statusRow", () => {
+	test("passes the label role through, so a list can accent its focused row", () => {
+		const row = { glyph: "▸", glyphRole: "ok" as const, label: "x", trailing: "" };
+		expect(statusRow(coloringTheme, 30, { ...row, labelRole: "accent" })).toContain("[accent]x");
+		expect(stripTerminalSequences(statusRow(fakeTheme, 30, row))).toBe("  ▸ x");
 	});
 });
 

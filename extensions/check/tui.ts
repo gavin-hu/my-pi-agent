@@ -10,7 +10,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { formatDuration } from "../../lib/format.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import {
 	fitRows,
@@ -214,10 +214,12 @@ export class CheckResultComponent implements Component {
 		}
 
 		const cursor = this.cursor;
+		const focused = result.failures[cursor.selected];
+		const detail = focused ? [clip(`  ${paint(this.theme, "meta", sanitizeLine(focused.message))}`, w)] : undefined;
 		cursor.visible = fitRows(
 			this.options.viewportRows,
 			result.failures.length,
-			RESULT_CHROME_ROWS,
+			RESULT_CHROME_ROWS + detailBlockRows(detail),
 			RESULT_DEFAULT_ROWS,
 		);
 		const { start, end } = cursor.window(result.failures.length);
@@ -236,7 +238,6 @@ export class CheckResultComponent implements Component {
 				}),
 			);
 		}
-		const focused = result.failures[cursor.selected];
 		return dockListFrame({
 			header,
 			summary,
@@ -244,7 +245,7 @@ export class CheckResultComponent implements Component {
 			range: cursor.clipped(result.failures.length)
 				? formatRange(this.theme, w, { start, end, total: result.failures.length })
 				: undefined,
-			detail: focused ? [clip(`  ${paint(this.theme, "meta", sanitizeLine(focused.message))}`, w)] : undefined,
+			detail,
 			hint: screenHint(this.theme, w, [
 				"Esc close",
 				{ text: "Enter detail", color: "accent" },

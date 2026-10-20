@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { dockListFrame, screenHint, viewportRows } from "./chrome.ts";
+import { detailBlockRows, dockListFrame, screenHint, viewportRows } from "./chrome.ts";
 import { titleRule } from "./rules.ts";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 
@@ -101,7 +101,36 @@ describe("dockListFrame", () => {
 			hint: "  Esc",
 		});
 
-		expect(lines.slice(1)).toEqual(["  a", "  1/2", "  detail", "", "  Esc", ""]);
+		expect(lines.slice(1)).toEqual(["  a", "  1/2", "", "  detail", "", "  Esc", ""]);
+	});
+
+	test("adds no blank line for an empty detail block", () => {
+		const lines = dockListFrame({ header: "Jobs", body: ["  a"], detail: [], hint: "  Esc" });
+
+		expect(lines.slice(1)).toEqual(["  a", "", "  Esc", ""]);
+	});
+
+	test("drops the separator rather than the block when the caller asks", () => {
+		const lines = dockListFrame({
+			header: "Jobs",
+			body: ["  a"],
+			detail: ["  detail"],
+			detailBlank: false,
+			hint: "  Esc",
+		});
+
+		expect(lines.slice(1)).toEqual(["  a", "  detail", "", "  Esc", ""]);
+	});
+
+	test("counts a detail block exactly as it prints it", () => {
+		expect(detailBlockRows(undefined)).toBe(0);
+		expect(detailBlockRows([])).toBe(0);
+		expect(detailBlockRows(["  a"])).toBe(2);
+		expect(detailBlockRows(["  a"], false)).toBe(1);
+
+		const withBlock = dockListFrame({ header: "H", body: [], detail: ["  a", "  b"], hint: "  Esc" });
+		const without = dockListFrame({ header: "H", body: [], hint: "  Esc" });
+		expect(withBlock.length - without.length).toBe(detailBlockRows(["  a", "  b"]));
 	});
 
 	test("keeps the caller's header and the hint inside the width", () => {

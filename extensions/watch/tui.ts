@@ -13,7 +13,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip, fitCells } from "../../lib/tui/columns.ts";
 import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
 import { expandHint, SEPARATORS } from "../../lib/tui/glyphs.ts";
@@ -28,7 +28,7 @@ import type { WatchRecord } from "./types.ts";
 const SCREEN_DEFAULT_ROWS = 14;
 
 /** Fixed rows around the list body: header, summary, blank, blank, hint, blank. */
-const LIST_CHROME_ROWS = 7;
+const LIST_CHROME_ROWS = 6;
 
 /** Fixed rows around the matches body: header, subtitle, blank, blank, hint, blank. */
 const LINES_CHROME_ROWS = 6;
@@ -48,6 +48,7 @@ function watchRow(
 		glyph: statusGlyphChar(watch.status),
 		glyphRole: statusRole(watch.status),
 		label: `${watch.id}  ${shortLabel(watch)}`,
+		labelRole: options.selected ? "accent" : "label",
 		trailing: `${watch.matchCount}`,
 	});
 }
@@ -304,7 +305,7 @@ export class WatchListComponent implements Component {
 		this.cursor.visible = fitRows(
 			this.viewportRowsSource,
 			watches.length,
-			LIST_CHROME_ROWS + detail.length,
+			LIST_CHROME_ROWS + detailBlockRows(detail),
 			SCREEN_DEFAULT_ROWS,
 		);
 		this.cursor.clamp(watches, watchId);
@@ -329,9 +330,9 @@ export class WatchListComponent implements Component {
 				: screenHint(this.theme, w, [
 						"Esc close",
 						"↑/↓ or j/k select",
-						"Enter or l matches",
-						"x or K stop",
-						"d clear stopped",
+						{ text: "Enter or l matches", color: "accent" },
+						{ text: "x or K stop", color: "warning" },
+						{ text: "d clear stopped", color: "warning" },
 						"PgUp/PgDn",
 					]);
 
@@ -340,8 +341,7 @@ export class WatchListComponent implements Component {
 			summary: this.summary(watches, w),
 			body,
 			range,
-			// The detail pane is separated from the list by a blank line.
-			detail: ["", ...detail.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w))],
+			detail: detail.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w)),
 			hint,
 		});
 	}

@@ -16,7 +16,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import type { ViewportRowsSource } from "../../../lib/tui/chrome.ts";
-import { dockListFrame } from "../../../lib/tui/chrome.ts";
+import { detailBlockRows, dockListFrame } from "../../../lib/tui/chrome.ts";
 import { fitRows, formatRange, isCloseKey, ListCursor, navIntent, wheelDelta } from "../../../lib/tui/cursor.ts";
 import { emptyState } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
@@ -587,35 +587,40 @@ export class PanelComponent implements Component {
 	private detailRows(expanded: boolean): number {
 		const total = totalRows(this.options.viewportRows);
 		if (total === undefined) return expanded ? EXPANDED_DETAIL_FALLBACK : DETAIL_ROWS;
-		const available = total - FRAME_ROWS - MIN_BODY_ROWS;
+		// One row pays for the blank line the frame puts above the pane.
+		const available = total - FRAME_ROWS - MIN_BODY_ROWS - 1;
 		if (available < 1) return 0;
 		return expanded ? available : Math.min(DETAIL_ROWS, available);
 	}
 
 	/**
 	 * Drop optional rows until the frame fits the viewport: the range row first,
-	 * then the project note, then the detail pane. The header, summary, one body
-	 * row, and the hint always survive; a terminal shorter than those is left to
-	 * the host.
+	 * then the project note, then the blank above the detail pane, then the pane.
+	 * The header, summary, one body row, and the hint always survive; a terminal
+	 * shorter than those is left to the host.
 	 */
 	private fitOptionalLines(options: {
 		body: string[];
 		note: string | undefined;
 		range: string | undefined;
 		detail: string[];
-	}): { body: string[]; range: string | undefined; detail: string[]; noteShown: boolean } {
+	}): { body: string[]; range: string | undefined; detail: string[]; noteShown: boolean; detailBlank: boolean } {
 		const total = totalRows(this.options.viewportRows);
 		let { body, range, detail } = options;
 		let noteShown = options.note !== undefined && body[0] === options.note;
-		if (total === undefined) return { body, range, detail, noteShown };
-		const fits = (): boolean => FRAME_ROWS + body.length + (range === undefined ? 0 : 1) + detail.length <= total;
-		if (!fits()) range = undefined;
-		if (!fits() && noteShown) {
+		if (total === undefined) return { body, range, detail, noteShown, detailBlank: true };
+		const fits = (blank: boolean): boolean =>
+			FRAME_ROWS + body.length + (range === undefined ? 0 : 1) + detailBlockRows(detail, blank) <= total;
+		if (!fits(true)) range = undefined;
+		if (!fits(true) && noteShown) {
 			body = body.slice(1);
 			noteShown = false;
 		}
-		if (!fits()) detail = [];
-		return { body, range, detail, noteShown };
+		// The separator goes before the pane does: the focused row's findings are
+		// worth more than the blank above them.
+		const detailBlank = fits(true) || !fits(false);
+		if (!fits(false)) detail = [];
+		return { body, range, detail, noteShown, detailBlank };
 	}
 
 	/** Expand or collapse the focused row's findings. */
@@ -654,7 +659,7 @@ export class PanelComponent implements Component {
 		this.cursor.visible = fitRows(
 			this.options.viewportRows,
 			entries.length,
-			FRAME_ROWS + detail.length + (note ? 1 : 0),
+			FRAME_ROWS + detailBlockRows(detail) + (note ? 1 : 0),
 			SCREEN_DEFAULT_ROWS,
 		);
 		this.cursor.sync(entries.length);
@@ -678,6 +683,7 @@ export class PanelComponent implements Component {
 			body: fitted.body,
 			range: fitted.range,
 			detail: fitted.detail.length > 0 ? fitted.detail : undefined,
+			detailBlank: fitted.detailBlank,
 			hint: options.hint,
 		});
 	}

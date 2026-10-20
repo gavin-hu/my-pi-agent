@@ -177,7 +177,8 @@ describe("review formatting", () => {
 		expect(formatReviewDetail(entries[0]!)).toContain("modified since the snapshot");
 		expect(formatReviewDetail(entries[1]!)).toContain("reverting deletes it");
 		expect(formatReviewDetail(entries[2]!)).toContain("reverting brings it back");
-		expect(formatReviewDetail(entries[0]!)).toContain("Enter opens the diff");
+		// The hint row owns the keys, so the detail line stays short enough to fit.
+		expect(formatReviewDetail(entries[0]!)).not.toContain("Enter opens");
 	});
 
 	test("lists the changed paths for a headless review", () => {

@@ -163,6 +163,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `lib`: every docked list screen puts a blank line between the list and the
+  focused row's footnotes, so `/check`'s failure excerpt no longer reads as a
+  fourth failure and `/review`, `/rewind`, `/jobs`, `/watch` and the `/bytefly`
+  panel stop looking like they grew one more row. The frame owns that spacing
+  through `detailBlockRows`, so a screen cannot size its body without counting
+  it. List rows accent the focused label as well — `/jobs` and `/watch` marked
+  the selection with the `❯` alone.
+
+- `lib`: the hint row colors a key by what it does — accent for the screen's
+  primary action, warning for one that discards state. `/review`'s `R all`,
+  `/memory`'s `d forget`, `/jobs`'s kill and clear, `/watch`'s stop and clear,
+  and `/wechat`'s stop now warn, and the panel's `Space toggle`, the question
+  dialog's Enter, and the log and match panes' Enter carry the accent.
+
+- `rewind`: `/review`'s change note no longer ends in the key hints the hint row
+  already shows; at 80 and 120 columns it was clipped mid-word and the line
+  below began with the same `r reverts`. `/agents` drops the footnote that
+  repeated the focused run's id, status, and elapsed time.
+
 - `file-browse`: a done task-list item draws the theme's success check instead
   of the UA's disabled gray, and an open one a bordered empty box, so both
   states read the same in light and dark.

@@ -8,7 +8,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../../../lib/format.ts";
-import { screenHint } from "../../../../lib/tui/chrome.ts";
+import { screenHint, type ScreenHint } from "../../../../lib/tui/chrome.ts";
 import { clip, fitCells, splitRow } from "../../../../lib/tui/columns.ts";
 import { BODY_INDENT } from "../../../../lib/tui/indent.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
@@ -54,8 +54,8 @@ export function groupLine(theme: Theme, width: number, entry: { label: string; c
 	return clip(`  ${label} ${count}`, width);
 }
 
-/** The key-hint row. */
-export function hintLine(theme: Theme, width: number, hints: string[]): string {
+/** The key-hint row, or a section's notice that replaces it. */
+export function hintLine(theme: Theme, width: number, hints: ScreenHint[]): string {
 	return screenHint(theme, width, hints);
 }
 

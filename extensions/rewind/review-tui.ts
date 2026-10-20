@@ -14,7 +14,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { clip } from "../../lib/tui/columns.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import {
 	fitRows,
@@ -35,12 +35,12 @@ import { SELECTION_MARKS, type PathChange, type ReviewEntry } from "./paths.ts";
 
 /** Rows a list screen shows when the terminal height is unknown. */
 const LIST_DEFAULT_ITEMS = 12;
-/** Header, summary, blank, detail, hint, and blank rows around the list. */
+/** Header, summary, blank, blank, hint, and blank rows around the list. */
 const LIST_CHROME_ROWS = 6;
 
 /** Rows a diff screen shows when the terminal height is unknown. */
 const DIFF_DEFAULT_ITEMS = 20;
-/** Header, summary, prompt detail, hint, and blank rows around the diff. */
+/** Header, summary, blank, blank, hint, and blank rows around the diff. */
 const DIFF_CHROME_ROWS = 6;
 
 /** Lines one wheel notch moves in the diff pane. */
@@ -184,18 +184,30 @@ export class ReviewListComponent implements Component {
 		}
 
 		const cursor = this.cursor;
+		const focused = this.options.entries[cursor.selected];
+		const label = sanitizeLine(this.options.prompt || "the last prompt");
+		const summaryParts = [formatReviewSummary(this.options.entries, this.chosen.size)];
+		if (this.options.committed) summaryParts.push("committed");
+		const summary = clip(
+			`  ${paint(this.theme, "meta", `after "${label}"${SEPARATORS.item}${summaryParts.join(SEPARATORS.item)}`)}`,
+			w,
+		);
 		const selectionLine =
 			this.chosen.size > 0
-				? `  r reverts ${this.chosen.size} selected file${this.chosen.size === 1 ? "" : "s"}; R reverts all.`
+				? `r reverts ${this.chosen.size} selected file${this.chosen.size === 1 ? "" : "s"}; R reverts all.`
 				: undefined;
 		const committedLine = this.options.committed
-			? "  These changes are already committed; reverting rewrites the working tree only."
+			? "These changes are already committed; reverting rewrites the working tree only."
 			: undefined;
-		const extraDetailRows = (selectionLine ? 1 : 0) + (committedLine ? 1 : 0);
+		const detail: string[] = [];
+		if (focused) detail.push(clip(`  ${paint(this.theme, "meta", formatReviewDetail(focused))}`, w));
+		for (const line of [selectionLine, committedLine]) {
+			if (line) detail.push(clip(`  ${paint(this.theme, "meta", line)}`, w));
+		}
 		cursor.visible = fitRows(
 			this.options.viewportRows,
 			this.options.entries.length,
-			LIST_CHROME_ROWS + extraDetailRows,
+			LIST_CHROME_ROWS + detailBlockRows(detail),
 			LIST_DEFAULT_ITEMS,
 		);
 		const { start, end } = cursor.window(this.options.entries.length);
@@ -217,18 +229,6 @@ export class ReviewListComponent implements Component {
 			);
 		}
 
-		const focused = this.options.entries[cursor.selected];
-		const label = sanitizeLine(this.options.prompt || "the last prompt");
-		const summaryParts = [formatReviewSummary(this.options.entries, this.chosen.size)];
-		if (this.options.committed) summaryParts.push("committed");
-		const summary = clip(
-			`  ${paint(this.theme, "meta", `after "${label}"${SEPARATORS.item}${summaryParts.join(SEPARATORS.item)}`)}`,
-			w,
-		);
-		const detail: string[] = [];
-		if (focused) detail.push(clip(`  ${paint(this.theme, "meta", formatReviewDetail(focused))}`, w));
-		if (selectionLine) detail.push(clip(`  ${paint(this.theme, "meta", selectionLine.slice(2))}`, w));
-		if (committedLine) detail.push(clip(`  ${paint(this.theme, "meta", committedLine.slice(2))}`, w));
 		return dockListFrame({
 			header,
 			summary,
@@ -236,7 +236,7 @@ export class ReviewListComponent implements Component {
 			range: cursor.clipped(this.options.entries.length)
 				? formatRange(this.theme, w, { start, end, total: this.options.entries.length })
 				: undefined,
-			detail: detail.length > 0 ? detail : undefined,
+			detail,
 			hint: this.hint(w),
 		});
 	}
@@ -252,7 +252,7 @@ export class ReviewListComponent implements Component {
 			{ text: "Enter diff", color: "accent" },
 			"Space select",
 			{ text: "r revert", color: "warning" },
-			"R all",
+			{ text: "R all", color: "warning" },
 			"a/n all/none",
 		]);
 	}
@@ -319,21 +319,6 @@ export class ReviewDiffComponent implements Component {
 		const header = titleRule(this.theme, w, "Review");
 		const entry = this.options.entry;
 		const total = this.pane.count;
-		const committedRows = this.options.committed ? 1 : 0;
-		const renamedRows = entry.change === "renamed" ? 1 : 0;
-		this.pane.visible = fitRows(
-			this.options.viewportRows,
-			total,
-			DIFF_CHROME_ROWS + committedRows + renamedRows,
-			DIFF_DEFAULT_ITEMS,
-		);
-		this.pane.fit(this.pane.visible);
-		const { start, end } = this.pane.window();
-		const body = this.options.lines
-			.slice(start, end)
-			.map((line) => clip(paint(this.theme, diffLineRole(line), line), w));
-		if (body.length === 0) body.push(...emptyState(this.theme, w, { label: "No textual diff." }));
-
 		const summary = clip(
 			`  ${paint(this.theme, "meta", `${sanitizeLine(entry.path)}${SEPARATORS.item}${SELECTION_MARKS[entry.change]}${SEPARATORS.item}${formatReviewEntryCounts(entry)}`)}`,
 			w,
@@ -351,6 +336,19 @@ export class ReviewDiffComponent implements Component {
 				),
 			);
 		}
+		this.pane.visible = fitRows(
+			this.options.viewportRows,
+			total,
+			DIFF_CHROME_ROWS + detailBlockRows(detail),
+			DIFF_DEFAULT_ITEMS,
+		);
+		this.pane.fit(this.pane.visible);
+		const { start, end } = this.pane.window();
+		const body = this.options.lines
+			.slice(start, end)
+			.map((line) => clip(paint(this.theme, diffLineRole(line), line), w));
+		if (body.length === 0) body.push(...emptyState(this.theme, w, { label: "No textual diff." }));
+
 		return dockListFrame({
 			header,
 			summary,
