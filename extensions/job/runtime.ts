@@ -41,7 +41,8 @@ import {
 } from "../../lib/spawn.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
-import { clipLabel, compareJobs, formatLogs } from "./format.ts";
+import { clipLabel } from "../../lib/tui/columns.ts";
+import { compareJobs, formatLogs } from "./format.ts";
 import { readLogTail } from "./logs.ts";
 import { defaultStartToken, type LivenessFn, type StartTokenFn } from "./process.ts";
 import {

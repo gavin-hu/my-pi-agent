@@ -7,7 +7,7 @@
  */
 
 import { randomInt } from "node:crypto";
-import { clampInteger, loadConfigSection } from "../../lib/config.ts";
+import { asBoolean, clampInteger, loadConfigSection } from "../../lib/config.ts";
 
 export interface ServeConfig {
 	/** TCP port on 127.0.0.1; `0` picks one random port fixed for the session, a positive value pins it. */
@@ -65,10 +65,6 @@ export function randomPort(): number {
 	return PORT_BASE + randomInt(PORT_RANGE);
 }
 
-function bool(value: unknown, fallback: boolean): boolean {
-	return typeof value === "boolean" ? value : fallback;
-}
-
 /** Validate and clamp a raw config object over the defaults. */
 export function normalizeConfig(
 	raw: Record<string, unknown> | undefined,
@@ -77,16 +73,16 @@ export function normalizeConfig(
 	if (!raw) return base;
 	return {
 		port: clampInteger(raw.port, base.port, 0, 65535),
-		autoOpen: bool(raw.autoOpen, base.autoOpen),
+		autoOpen: asBoolean(raw.autoOpen, base.autoOpen),
 		maxFileBytes: clampInteger(raw.maxFileBytes, base.maxFileBytes, 0, 1024 * 1024 * 1024),
 		maxThumbBytes: clampInteger(raw.maxThumbBytes, base.maxThumbBytes, 0, 1024 * 1024 * 1024),
 		maxTextLines: clampInteger(raw.maxTextLines, base.maxTextLines, 1, 1_000_000),
 		maxDirEntries: clampInteger(raw.maxDirEntries, base.maxDirEntries, 1, 1_000_000),
-		thumbnails: bool(raw.thumbnails, base.thumbnails),
-		markdown: bool(raw.markdown, base.markdown),
-		markdownHtml: bool(raw.markdownHtml, base.markdownHtml),
+		thumbnails: asBoolean(raw.thumbnails, base.thumbnails),
+		markdown: asBoolean(raw.markdown, base.markdown),
+		markdownHtml: asBoolean(raw.markdownHtml, base.markdownHtml),
 		maxIndexEntries: clampInteger(raw.maxIndexEntries, base.maxIndexEntries, 1, 1_000_000),
-		gitDiff: bool(raw.gitDiff, base.gitDiff),
+		gitDiff: asBoolean(raw.gitDiff, base.gitDiff),
 		diffContext: clampInteger(raw.diffContext, base.diffContext, 0, 100),
 		maxDiffLines: clampInteger(raw.maxDiffLines, base.maxDiffLines, 1, 1_000_000),
 	};

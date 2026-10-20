@@ -27,7 +27,7 @@ import {
 import { paint } from "../../lib/tui/tokens.ts";
 import { formatCheckReport } from "./format.ts";
 import { CheckResultBlock } from "./render.ts";
-import { errorResult, type CheckRuntime } from "./runtime.ts";
+import { checkErrorResult, type CheckRuntime } from "./runtime.ts";
 import type { ActiveCheck, CheckResult, RunCheckDetails } from "./types.ts";
 
 /** The tool's registered name, shared with the naming guard. */
@@ -130,7 +130,7 @@ export function registerCheckTool(pi: ExtensionAPI, runtime: CheckRuntime): void
 				active = runtime.start(target, ctx);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				return resultPayload(errorResult(target, message));
+				return resultPayload(checkErrorResult(target, message));
 			}
 			onUpdate?.({ content: [], details: runningDetails(active) });
 			return resultPayload(await active.promise);

@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { clip, clipMiddle, fitCells, flowCells, LABEL_WIDTH, labelLine, padTo, splitRow } from "./columns.ts";
+import {
+	clip,
+	clipLabel,
+	clipMiddle,
+	fitCells,
+	flowCells,
+	LABEL_WIDTH,
+	labelLine,
+	padTo,
+	splitRow,
+} from "./columns.ts";
 
 /** A representative mix: ASCII, a CJK sample, and a themed string. */
 const SAMPLES = ["Extensions", "日本語のリスト", "\u001b[31mred\u001b[39m text", "a", ""];
@@ -77,6 +87,16 @@ describe("labelLine", () => {
 
 	test("uses the sanitizer it is given", () => {
 		expect(labelLine("a\u0007b", () => "kept")).toBe("kept");
+	});
+});
+
+describe("clipLabel", () => {
+	test("strips escapes and collapses control characters", () => {
+		expect(clipLabel("a\u001b[31mb\u0007c")).toBe("ab c");
+	});
+
+	test("clips to the label width", () => {
+		expect(visibleWidth(clipLabel("x".repeat(LABEL_WIDTH + 20)))).toBe(LABEL_WIDTH);
 	});
 });
 

@@ -10,6 +10,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
+import { errorResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import {
 	elapsedSuffix,
@@ -40,21 +41,6 @@ export const TOOL_NAME = "job";
 
 /** Collapsed transcript rows before the result is truncated. */
 const RESULT_ROWS = 8;
-
-function errorResult(
-	action: JobDetails["action"],
-	message: string,
-): {
-	content: Array<{ type: "text"; text: string }>;
-	details: JobDetails;
-	isError: true;
-} {
-	return {
-		content: [{ type: "text", text: `Error: ${message}` }],
-		details: { action, error: message },
-		isError: true,
-	};
-}
 
 const GUIDELINES = [
 	"Use `job start` for long-running or background commands (builds, test suites, servers, watchers) so the turn is not blocked.",

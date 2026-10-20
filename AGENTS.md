@@ -152,6 +152,9 @@ rule rather than a preference.
   together.
 - The second copy of a helper goes in `lib/`, not the third, and only when a
   second extension really needs it. `lib/README.md` lists what is already there.
+  `test/shared-helpers.test.ts` fails an extension that declares a helper named
+  like a `lib/` export, or copies a `lib/` or another extension's body; wrappers
+  go on its reasoned exception list.
 - No dead branch, no commented-out code, no comment that restates its line. A
   comment carries the why the code cannot: a host quirk, a trap, a limit.
 - `unknown` at a boundary, never `any`. A cast is a claim about a value you did

@@ -254,7 +254,7 @@ when consolidating, or merge the pair in the picker afterward.
 | `doctor.ts` | The health report (pure): counts, file bytes, the injection plan's omissions, and near-duplicate pairs. |
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
-| `errors.ts` | `messageOf`, the shared error-text extraction for the tool and command. |
+| `errors.ts` | Re-exports `messageOf`, the shared error-text extraction (defined in `lib/errors.ts`) for the tool and command. |
 | `tui.ts` | The `/memory` picker component (note list, inline editor, merge mark, scope move, scope filter), drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `tools.ts` | `registerTool("memory", …)`. |
 | `commands.ts` | `registerCommand("memory", …)`. |

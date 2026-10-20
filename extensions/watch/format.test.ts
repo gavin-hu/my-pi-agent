@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import {
-	clipLabel,
 	compileRegex,
 	formatCallText,
 	formatPendingMatch,
@@ -38,12 +37,8 @@ describe("compileRegex", () => {
 	});
 });
 
-describe("sanitization", () => {
-	test("clipLabel strips escapes and collapses control characters", () => {
-		expect(clipLabel("a\u001b[31mb\u0007c")).toBe("ab c");
-	});
-
-	test("sourceLabel names a file or a command", () => {
+describe("sourceLabel", () => {
+	test("names a file or a command", () => {
 		expect(sourceLabel(record())).toBe("/tmp/app.log");
 		expect(sourceLabel(record({ source: { kind: "command", command: "tail -f x" } }))).toBe("$ tail -f x");
 	});

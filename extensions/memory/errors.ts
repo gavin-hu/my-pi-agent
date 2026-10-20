@@ -1,9 +1,8 @@
 /**
- * Error-text extraction shared by the memory tool and the `/memory` command, so
- * both report an unknown thrown value the same way.
+ * Error-text extraction shared by the memory tool and the `/memory` command.
+ *
+ * The single definition lives in `lib/errors.ts`; this module keeps the
+ * extension-local import path used by the tool, command, and picker.
  */
 
-/** A human-readable message for an unknown thrown value. */
-export function messageOf(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
+export { messageOf } from "../../lib/errors.ts";

@@ -48,6 +48,7 @@ const ROOT_TEST_FILES = new Set([
 	"release.test.ts",
 	"roadmap.test.ts",
 	"settings-coverage.test.ts",
+	"shared-helpers.test.ts",
 	"structure.test.ts",
 	"theme.test.ts",
 	"tool-render.test.ts",
