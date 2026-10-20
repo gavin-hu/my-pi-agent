@@ -5,9 +5,10 @@
  * configuration (and abort/timeout handling) as the rest of Pi.
  */
 
-import { existsSync, realpathSync, statSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import {
 	createExecRunner,
 	currentBranch as sharedCurrentBranch,
@@ -46,31 +47,10 @@ export async function withGitNoPrompt<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
-/**
- * Canonicalize a path, resolving symlinks. Handles paths that do not exist yet
- * by canonicalizing the nearest existing ancestor, so `/tmp/x` and
- * `/private/tmp/x` compare equal on macOS.
- */
-export function canonicalize(path: string): string {
-	const absolute = resolve(path);
-	try {
-		// `.native` resolves Windows 8.3 short names (e.g. HSPCAD~1) to their
-		// long form, so a temp path from os.tmpdir() compares equal to git's
-		// expanded output. It is equivalent to realpathSync on other platforms.
-		return realpathSync.native(absolute);
-	} catch {
-		try {
-			return join(realpathSync.native(dirname(absolute)), basename(absolute));
-		} catch {
-			return absolute;
-		}
-	}
-}
-
 /** Absolute path of the repository root containing `cwd`, or undefined when not a git repo. */
 export async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
 	const root = await repoRootFor(pi, cwd);
-	return root ? canonicalize(root) : undefined;
+	return root ? realPathOfNearest(root) : undefined;
 }
 
 /** Whether the repository has at least one commit (a worktree needs a commit to branch from). */
@@ -179,16 +159,16 @@ export async function fetchPrRef(
 
 /** Path of a managed worktree directory from its name. */
 export function worktreePath(repoRoot: string, config: WorktreeConfig, name: string): string {
-	return canonicalize(resolve(repoRoot, config.dir, name));
+	return realPathOfNearest(resolve(repoRoot, config.dir, name));
 }
 
 export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boolean> {
-	const want = canonicalize(dir);
+	const want = realPathOfNearest(dir);
 	const result = await git(pi, ["worktree", "list", "--porcelain"], dir);
 	if (result.code !== 0) return false;
 	return result.stdout
 		.split("\n")
-		.some((line) => line.startsWith("worktree ") && canonicalize(line.slice("worktree ".length).trim()) === want);
+		.some((line) => line.startsWith("worktree ") && realPathOfNearest(line.slice("worktree ".length).trim()) === want);
 }
 
 /** Whether a local branch exists. */
@@ -318,7 +298,7 @@ export async function checkCheckout(pi: ExtensionAPI, dir: string, mainRoot: str
 	if (!top) {
 		return { ok: false, reason: "unsafe", detail: `${dir} is not a git worktree.` };
 	}
-	if (canonicalize(top) === canonicalize(mainRoot)) {
+	if (realPathOfNearest(top) === realPathOfNearest(mainRoot)) {
 		return {
 			ok: false,
 			reason: "unsafe",
@@ -391,13 +371,13 @@ export async function listManagedWorktrees(
 ): Promise<ManagedWorktree[]> {
 	const result = await git(pi, ["worktree", "list", "--porcelain"], repoRoot);
 	if (result.code !== 0) return [];
-	const managedRoot = canonicalize(resolve(repoRoot, config.dir));
+	const managedRoot = realPathOfNearest(resolve(repoRoot, config.dir));
 	const entries: ManagedWorktree[] = [];
 	let current: ManagedWorktree = { path: "" };
 	const flush = () => {
 		if (!current.path) return;
-		const path = canonicalize(current.path);
-		if (path === managedRoot || path.startsWith(`${managedRoot}/`) || path.startsWith(`${managedRoot}\\`)) {
+		const path = realPathOfNearest(current.path);
+		if (isInside(managedRoot, path)) {
 			entries.push({ ...current, path });
 		}
 		current = { path: "" };

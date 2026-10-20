@@ -30,7 +30,7 @@ import {
 	createReadToolDefinition,
 	createWriteToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { canonicalize } from "./git.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 
 export const ROOT_TOOL_NAMES = ["read", "write", "edit", "bash", "grep", "find", "ls"] as const;
 export type RootToolName = (typeof ROOT_TOOL_NAMES)[number];
@@ -155,7 +155,7 @@ export function findInactiveOverrides(pi: ExtensionAPI, self: string | undefined
 		const info = pi.getAllTools().find((entry) => entry.name === name);
 		if (!info) continue;
 		const path = info.sourceInfo?.path;
-		const isOurs = path && !path.startsWith("builtin:") && (!self || canonicalize(path) === self);
+		const isOurs = path && !path.startsWith("builtin:") && (!self || realPathOfNearest(path) === self);
 		if (!isOurs) inactive.push(name);
 	}
 	return inactive;

@@ -24,8 +24,9 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { canonicalize, checkCheckout, repoRoot, unlockWorktree } from "./git.ts";
+import { checkCheckout, repoRoot, unlockWorktree } from "./git.ts";
 import { analyzeBashCommand, guardFileTool, guardPowershellTool, isUnverifiable } from "./guard.ts";
 import {
 	enterWorktree,
@@ -100,9 +101,9 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 		// factory inside the parent, which must restore its own recorded state.
 		const envRoot = event.reason === "startup" ? process.env[ENV_ROOT] : undefined;
 		if (envRoot) {
-			const borrowedPath = canonicalize(envRoot);
+			const borrowedPath = realPathOfNearest(envRoot);
 			if (existsSync(borrowedPath) && (await repoRoot(pi, borrowedPath))) {
-				const borrowedMain = process.env[ENV_MAIN] ? canonicalize(process.env[ENV_MAIN]) : borrowedPath;
+				const borrowedMain = process.env[ENV_MAIN] ? realPathOfNearest(process.env[ENV_MAIN]) : borrowedPath;
 				const borrowed: WorktreeState = {
 					active: true,
 					borrowed: true,
@@ -229,5 +230,5 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 /** Pi extension entrypoint. */
 export default function worktreeExtension(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("worktree")) return;
-	registerWorktree(pi, { entryPath: canonicalize(fileURLToPath(import.meta.url)) });
+	registerWorktree(pi, { entryPath: realPathOfNearest(fileURLToPath(import.meta.url)) });
 }

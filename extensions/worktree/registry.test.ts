@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { canonicalize } from "./git.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 import {
 	loadRegistry,
 	reconcileRegistry,
@@ -16,9 +16,13 @@ import {
 } from "./registry.ts";
 import { cleanup, execP, makeRepoWithRemote } from "../../test/helpers/git.ts";
 import { makeFakePi, testConfig } from "../../test/helpers/fixtures/worktree.ts";
+import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 
 const temps: string[] = [];
 afterAll(() => cleanup(...temps));
+
+// Windows requires Developer Mode/admin to create symlinks; skip rather than fail.
+const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
 
 function temp(prefix = "pi-wt-reg-"): string {
 	const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -94,10 +98,27 @@ describe.skipIf(!runSlowSuites)("registry store", () => {
 
 		expect(changed).toBe(true);
 		const paths = registry.worktrees.map((item) => item.path).sort();
-		expect(paths).toEqual([canonicalize(keep), canonicalize(added)].sort());
-		const synthesized = registry.worktrees.find((item) => item.path === canonicalize(added));
+		expect(paths).toEqual([realPathOfNearest(keep), realPathOfNearest(added)].sort());
+		const synthesized = registry.worktrees.find((item) => item.path === realPathOfNearest(added));
 		expect(synthesized?.createdByUs).toBe(false);
 		expect(synthesized?.lastUsedAt).toBe(0);
+	});
+
+	// The registry is a cache keyed by path, so two spellings of one checkout
+	// would list it twice: a record written through a symlink and the path git
+	// reports must reconcile to one.
+	symlinkTest("keeps one record when a checkout is reached through a symlink", () => {
+		const repo = temp();
+		const real = join(repo, "real");
+		const managed = join(real, ".pi", "worktrees", "wt");
+		mkdirSync(managed, { recursive: true });
+		symlinkSync(real, join(repo, "link"));
+
+		upsertRecord(repo, testConfig(), record(join(repo, "link", ".pi", "worktrees", "wt")));
+
+		const { registry } = reconcileRegistry(repo, testConfig(), [{ path: managed, branch: "worktree-wt" }]);
+		expect(registry.worktrees).toHaveLength(1);
+		expect(registry.worktrees[0].path).toBe(join(realpathSync.native(real), ".pi", "worktrees", "wt"));
 	});
 });
 
@@ -105,7 +126,7 @@ describe.skipIf(!runSlowSuites)("statusOf", () => {
 	async function worktree(): Promise<{ repo: string; dir: string }> {
 		const { repo, remote } = await makeRepoWithRemote("pi-wt-status-");
 		temps.push(repo, remote);
-		const dir = canonicalize(join(repo, ".pi", "worktrees", "wt"));
+		const dir = realPathOfNearest(join(repo, ".pi", "worktrees", "wt"));
 		await execP("git", ["worktree", "add", "-b", "wt", dir], { cwd: repo });
 		return { repo, dir };
 	}
