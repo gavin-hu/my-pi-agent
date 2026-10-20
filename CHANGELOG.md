@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `skills`: a model-invoked `refactor` skill audits a project or path for
+  refactoring opportunities — duplication, oversized modules, coupling, drift,
+  and high-churn code with weak tests — and returns a ranked shortlist with
+  `path:line` evidence, risk, effort, and verification commands. Discovery is
+  read-only; after a choice it hands off to a contract, a baseline, small
+  verified steps, and the full check.
+
 - `plan`: `/init` enters plan mode and starts the packaged `init` skill, which
   creates or updates `AGENTS.md` from repository evidence. The skill reviews an
   existing file instead of replacing it, gates the draft through a quality

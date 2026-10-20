@@ -94,7 +94,7 @@ Nothing about the session is sent, and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-Seventeen extensions and one packaged skill, grouped by what you are trying to
+Seventeen extensions and two packaged skills, grouped by what you are trying to
 do, plus two themes. Each extension's own `README.md` has the full tool and
 command surface.
 
@@ -134,6 +134,17 @@ command surface.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you. `bytefly.json` is the config document every extension reads. |
+
+### Skills
+
+Packaged workflows loaded on demand: each skill's name and description are
+advertised to the model, and its instructions load only when the task matches
+(`/skill:<name>` forces one).
+
+| Skill | What it does |
+|---|---|
+| [`init`](./skills/init/SKILL.md) | Creates or updates a project's `AGENTS.md` through plan review, from repository evidence. |
+| [`refactor`](./skills/refactor/SKILL.md) | Audits a project or path for refactoring opportunities: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Returns a ranked shortlist with evidence and verification commands; discovery is read-only. |
 
 ### Themes
 
