@@ -65,6 +65,14 @@ describe("web components", () => {
 			".bf-md .md-right{",
 			".bf-md img{",
 			".bf-md hr{",
+			".bf-md details{",
+			".bf-md summary{",
+			".bf-md figure{",
+			".bf-md figcaption{",
+			".bf-md kbd{",
+			".bf-md mark{",
+			".bf-md abbr[title]{",
+			".bf-md sub,.bf-md sup{",
 		]) {
 			expect(WEB_COMPONENTS_CSS).toContain(selector);
 		}

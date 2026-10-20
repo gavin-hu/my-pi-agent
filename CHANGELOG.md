@@ -13,6 +13,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A path filter still shows every folder, so a folded branch cannot hide a
   match, and clearing the filter restores the tree exactly as it was.
 
+- `file-browse`: rendered Markdown accepts a sanitized subset of raw HTML, so a
+  README's `<details>`/`<summary>`, `<img>`, `<kbd>`, and hand-written tables
+  display instead of showing as source. Only allowlisted elements and
+  attributes are re-emitted (no `script`, `style`, `svg`, event handlers,
+  `style=`, or `class=`), open elements are balanced so a stray tag cannot
+  swallow the page, and `markdownHtml: false` restores escape-only rendering.
+
 - docs: [`docs/user-guide.md`](./docs/user-guide.md) is a single end-user guide —
   every extension, plus settings, WeChat, and the terminal chrome, each with a
   plain-language overview and a numbered walkthrough of keys and commands.

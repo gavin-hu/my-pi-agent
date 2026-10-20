@@ -232,15 +232,65 @@ describe("renderMarkdown character references", () => {
 	});
 });
 
-describe("renderMarkdown safety", () => {
-	test("escapes raw HTML instead of emitting it", () => {
-		const html = renderMarkdown("<script>alert(1)</script>");
-		expect(html).toBe("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
-		expect(html).not.toContain("<script>");
+describe("renderMarkdown raw HTML", () => {
+	test("renders an HTML block and balances it", () => {
+		expect(renderMarkdown("<details>\n<summary>Show</summary>\n\nInside **bold**.\n\n</details>")).toBe(
+			"<details>\n<summary>Show</summary>\n<p>Inside <strong>bold</strong>.</p>\n</details>",
+		);
+		expect(renderMarkdown("<div>\nunclosed")).toBe("<div>\nunclosed</div>");
 	});
 
-	test("escapes quotes and angle brackets in link labels", () => {
-		expect(renderMarkdown("[<img src=x onerror=alert(1)>](https://e)")).toContain("&lt;img src=x onerror=alert(1)&gt;");
+	test("does not parse Markdown inside an HTML block", () => {
+		expect(renderMarkdown("<div>\n**x**\n</div>")).toBe("<div>\n**x**\n</div>");
+	});
+
+	test("accepts phrasing HTML inside a paragraph", () => {
+		expect(renderMarkdown("press <kbd>Ctrl</kbd> + <kbd>C</kbd>")).toBe("<p>press <kbd>Ctrl</kbd> + <kbd>C</kbd></p>");
+		expect(renderMarkdown("x <b>bold</b> y")).toBe("<p>x <b>bold</b> y</p>");
+	});
+
+	test("escapes a block tag in the middle of a paragraph", () => {
+		expect(renderMarkdown("text <div>x</div>")).toBe("<p>text &lt;div&gt;x&lt;/div&gt;</p>");
+	});
+
+	test("closes an unclosed inline tag at the end of its line", () => {
+		expect(renderMarkdown("<b>bold")).toBe("<p><b>bold</b></p>");
+	});
+
+	test("keeps a raw HTML heading out of the outline", () => {
+		const doc = renderMarkdownDocument("<h2>Raw</h2>\n\n# Markdown");
+		expect(doc.headings).toEqual([{ level: 2, id: "markdown", text: "Markdown" }]);
+		expect(doc.html).toContain("<h2>Raw</h2>");
+	});
+
+	test("does not read a link definition out of an HTML block", () => {
+		const html = renderMarkdown("<pre>\n[p]: https://pi.dev\n</pre>\n\n[p]");
+		expect(html).toContain("[p]: https://pi.dev");
+		expect(html).not.toContain("<a href");
+	});
+
+	test("escapes all of it when raw HTML is disabled", () => {
+		expect(renderMarkdown("<details>\n<summary>x</summary>\n</details>", "", { html: false })).toBe(
+			"<p>&lt;details&gt;\n&lt;summary&gt;x&lt;/summary&gt;\n&lt;/details&gt;</p>",
+		);
+	});
+});
+
+describe("renderMarkdown safety", () => {
+	test("suppresses a script block and escapes it when html is off", () => {
+		expect(renderMarkdown("<script>alert(1)</script>")).toBe("");
+		const escaped = renderMarkdown("<script>alert(1)</script>", "", { html: false });
+		expect(escaped).toBe("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
+		expect(escaped).not.toContain("<script>");
+	});
+
+	test("sanitizes an image inside a link label", () => {
+		const html = renderMarkdown("[<img src=x onerror=alert(1)>](https://e)");
+		expect(html).toContain('<img class="md-img" src="/raw/x" alt="" loading="lazy" decoding="async">');
+		expect(html).not.toContain("onerror");
+		expect(renderMarkdown("[<img src=x onerror=alert(1)>](https://e)", "", { html: false })).toContain(
+			"&lt;img src=x onerror=alert(1)&gt;",
+		);
 	});
 
 	test("handles CRLF and empty input", () => {
