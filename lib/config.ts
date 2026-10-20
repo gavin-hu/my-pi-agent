@@ -54,6 +54,24 @@ export function cleanString(value: unknown, fallback: string): string {
 	return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+/** A trimmed non-empty string, or `undefined` when the value is unset or blank. */
+export function optionalString(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** A boolean, or the fallback when the value is anything else. */
+export function asBoolean(value: unknown, fallback: boolean): boolean {
+	return typeof value === "boolean" ? value : fallback;
+}
+
+/** Kept trimmed, non-empty strings from an untrusted array, or the fallback. */
+export function stringList(value: unknown, fallback: string[]): string[] {
+	if (!Array.isArray(value)) return fallback;
+	return value
+		.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+		.map((item) => item.trim());
+}
+
 /**
  * `value` when it is a plain object, otherwise `undefined`.
  *

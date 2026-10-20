@@ -8,6 +8,7 @@
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { optionalString } from "../../lib/config.ts";
 import { JOB_ACTIONS, KILL_SIGNALS, type JobAction, type KillSignal } from "./types.ts";
 
 /** Longest accepted command string. */
@@ -86,10 +87,6 @@ export type JobCall =
 	| { action: "kill"; id: string; signal?: KillSignal }
 	| { action: "wait"; id: string; timeoutMs?: number }
 	| { action: "clear"; id?: string; all?: boolean };
-
-function optionalString(value: unknown): string | undefined {
-	return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 
 /** Validate and normalize a raw `job` call. Throws before any side effect. */
 export function normalizeCall(raw: unknown): JobCall {

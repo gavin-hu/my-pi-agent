@@ -15,7 +15,7 @@ import type { Failure } from "./types.ts";
 const MAX_FAILURES = 200;
 
 /** One clean line, without control characters or a trailing CR. */
-function lineOf(text: string): string {
+function cleanLine(text: string): string {
 	return stripControlChars(text.replace(/\r/g, "")).trim();
 }
 
@@ -155,9 +155,9 @@ export function parseFailures(output: string, command: string, exitCode: number 
 		if (!failure) return;
 		const normalized: Failure = {
 			...failure,
-			message: lineOf(failure.message),
-			...(failure.test ? { test: lineOf(failure.test) } : {}),
-			...(failure.path ? { path: lineOf(failure.path) } : {}),
+			message: cleanLine(failure.message),
+			...(failure.test ? { test: cleanLine(failure.test) } : {}),
+			...(failure.path ? { path: cleanLine(failure.path) } : {}),
 		};
 		if (!normalized.message) return;
 		const key = keyOf(normalized);
@@ -167,7 +167,7 @@ export function parseFailures(output: string, command: string, exitCode: number 
 	};
 
 	for (const raw of output.split("\n")) {
-		const line = lineOf(raw);
+		const line = cleanLine(raw);
 		if (!line) continue;
 
 		const test = testName(line);

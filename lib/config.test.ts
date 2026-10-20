@@ -5,6 +5,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { tempDir, withAgentDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import {
+	asBoolean,
 	asRecord,
 	clampInteger,
 	clampNumber,
@@ -16,6 +17,7 @@ import {
 	readJson,
 	readJsonResult,
 	SHARED_CONFIG_FILE,
+	stringList,
 	unsetConfigValueAt,
 	writeConfigFile,
 	writeConfigSection,
@@ -89,6 +91,28 @@ describe("asRecord", () => {
 		expect(asRecord(null)).toBeUndefined();
 		expect(asRecord("x")).toBeUndefined();
 		expect(asRecord(undefined)).toBeUndefined();
+	});
+});
+
+describe("asBoolean", () => {
+	test("keeps a boolean and falls back for anything else", () => {
+		expect(asBoolean(true, false)).toBe(true);
+		expect(asBoolean(false, true)).toBe(false);
+		expect(asBoolean("true", true)).toBe(true);
+		expect(asBoolean(0, false)).toBe(false);
+		expect(asBoolean(undefined, true)).toBe(true);
+	});
+});
+
+describe("stringList", () => {
+	test("keeps trimmed non-empty strings and drops the rest", () => {
+		expect(stringList([" a ", "", "  ", 3, "b"], [])).toEqual(["a", "b"]);
+	});
+
+	test("returns the fallback when the value is not an array", () => {
+		const fallback = ["kept"];
+		expect(stringList(undefined, fallback)).toBe(fallback);
+		expect(stringList("x", fallback)).toBe(fallback);
 	});
 });
 

@@ -10,7 +10,7 @@
  */
 
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../format.ts";
+import { sanitizeLine, sanitizeUntrustedLine } from "../format.ts";
 
 /** The columns a label gets before it stops reading as a label. */
 export const LABEL_WIDTH = 48;
@@ -60,6 +60,11 @@ export function clipMiddle(text: string, width: number, ellipsis = "…"): strin
  */
 export function labelLine(text: string, sanitize: (text: string) => string = sanitizeLine): string {
 	return clip(sanitize(text), LABEL_WIDTH);
+}
+
+/** A label clipped to one safe display line. */
+export function clipLabel(text: string): string {
+	return labelLine(text, sanitizeUntrustedLine);
 }
 
 /** Pad `text` on the right to exactly `width` columns. Never truncates. */

@@ -14,7 +14,7 @@
  * flags then narrow what is announced.
  */
 
-import { cleanString, loadConfigSection } from "../../../lib/config.ts";
+import { asBoolean, cleanString, loadConfigSection } from "../../../lib/config.ts";
 import { NOTIFY_METHODS, type NotifyConfig, type NotifyMethod } from "./types.ts";
 
 /** A notification title longer than this is clamped; it is a label, not a message. */
@@ -30,11 +30,6 @@ export const DEFAULT_NOTIFY_CONFIG: NotifyConfig = {
 	title: "Pi",
 };
 
-/** A boolean, or the fallback. */
-function bool(value: unknown, fallback: boolean): boolean {
-	return typeof value === "boolean" ? value : fallback;
-}
-
 /** One of the known methods, or the fallback. */
 function method(value: unknown, fallback: NotifyMethod): NotifyMethod {
 	return typeof value === "string" && (NOTIFY_METHODS as readonly string[]).includes(value)
@@ -46,11 +41,11 @@ function method(value: unknown, fallback: NotifyMethod): NotifyMethod {
 export function normalizeNotifyConfig(raw: Record<string, unknown> | undefined, base: NotifyConfig): NotifyConfig {
 	if (!raw) return base;
 	return {
-		enabled: bool(raw.enabled, base.enabled),
-		turnFinished: bool(raw.turnFinished, base.turnFinished),
-		needsInput: bool(raw.needsInput, base.needsInput),
-		jobFinished: bool(raw.jobFinished, base.jobFinished),
-		matchFound: bool(raw.matchFound, base.matchFound),
+		enabled: asBoolean(raw.enabled, base.enabled),
+		turnFinished: asBoolean(raw.turnFinished, base.turnFinished),
+		needsInput: asBoolean(raw.needsInput, base.needsInput),
+		jobFinished: asBoolean(raw.jobFinished, base.jobFinished),
+		matchFound: asBoolean(raw.matchFound, base.matchFound),
 		method: method(raw.method, base.method),
 		title: cleanString(raw.title, base.title).slice(0, MAX_TITLE_LENGTH),
 	};

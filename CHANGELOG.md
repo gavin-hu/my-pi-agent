@@ -27,6 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Pi versions it was checked against, and the release checklist bumps that
   edition with the install pin.
 
+- test: `test/shared-helpers.test.ts` fails an extension that reimplements a
+  `lib/` export by name or copies a `lib/` or another extension's function body.
+  The exact copies it found are now shared: `asBoolean`, `optionalString`,
+  `stringList`, `lineOf`, and `clipLabel` in `lib/`, `messageOf` in `lib/errors.ts`,
+  and the rejected-call shape in `lib/tool-result.ts`. Legitimate same-name
+  wrappers are listed with reasons in the test.
+
 ### Fixed
 
 - `job`: output is split on newlines before it is decoded, so a multi-byte

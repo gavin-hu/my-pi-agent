@@ -6,6 +6,7 @@ import {
 	formatDuration,
 	formatToolCount,
 	formatTokens,
+	lineOf,
 	MAX_OUTPUT_LINE,
 	sanitize,
 	sanitizeLine,
@@ -51,6 +52,14 @@ describe("sanitizeLine", () => {
 
 	test("defuses an OSC title sequence from untrusted text", () => {
 		expect(sanitizeLine("\u001b]0;title\u0007keep\ttab   here\n")).toBe("]0;title keep tab here");
+	});
+});
+
+describe("lineOf", () => {
+	test("sanitizes a string and reads any other value as empty", () => {
+		expect(lineOf(" a\u001b[31mb\n")).toBe("a [31mb");
+		expect(lineOf(undefined)).toBe("");
+		expect(lineOf(7)).toBe("");
 	});
 });
 

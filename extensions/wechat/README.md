@@ -516,7 +516,7 @@ status, which is what the old start/stop guidance used to do.
 | `lock.ts` | Poller lockfile. |
 | `format.ts` | Sanitize, chunk, and label helpers (text only). |
 | `notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
-| `errors.ts` | `messageOf`, the one error-to-line helper every notice and tool error uses. |
+| `errors.ts` | Re-exports `messageOf` from `lib/errors.ts`, the one error-to-line helper every notice and tool error uses. |
 | `timer.ts` | The timer seam: the cancellable one-shot `ArmTimer`, `defaultTimer`, and the abortable `defaultSleep`. |
 | `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
 | `prompt.ts` | Pure prompt formatting and reply parsing. |

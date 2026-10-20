@@ -96,6 +96,11 @@ export function sanitizeLine(text: string): string {
 	return sanitize(stripControlChars(text));
 }
 
+/** A string read as one sanitized line; any other value reads empty. */
+export function lineOf(value: unknown): string {
+	return typeof value === "string" ? sanitizeLine(value) : "";
+}
+
 /** Longest untrusted line kept for display; longer lines are clipped. */
 export const MAX_OUTPUT_LINE = 200;
 

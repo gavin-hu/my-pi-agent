@@ -9,6 +9,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
+import { errorResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
@@ -31,17 +32,6 @@ export const TOOL_NAME = "watch";
 
 /** Collapsed transcript rows before the result is truncated. */
 const RESULT_ROWS = 8;
-
-function errorResult(
-	action: WatchDetails["action"],
-	message: string,
-): { content: Array<{ type: "text"; text: string }>; details: WatchDetails; isError: true } {
-	return {
-		content: [{ type: "text", text: `Error: ${message}` }],
-		details: { action, error: message },
-		isError: true,
-	};
-}
 
 const GUIDELINES = [
 	"Use `watch add` to tail a log file or a long-running command and surface lines matching a pattern.",

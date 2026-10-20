@@ -11,8 +11,8 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine, sanitizeUntrustedLine } from "../../lib/format.ts";
-import { clip, labelLine } from "../../lib/tui/columns.ts";
+import { sanitizeLine } from "../../lib/format.ts";
+import { clip, clipLabel, labelLine } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { byRunningFirst } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -21,11 +21,6 @@ import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
 /** Compile a pattern; case-insensitive unless `caseSensitive`. */
 export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
 	return new RegExp(pattern, caseSensitive ? "" : "i");
-}
-
-/** A label clipped to one safe display line. */
-export function clipLabel(text: string): string {
-	return labelLine(text, sanitizeUntrustedLine);
 }
 
 /** What a watcher reads: a path or a command, clipped for display. */

@@ -2,7 +2,7 @@
  * Answer normalization and model-facing formatting (pure).
  */
 
-import { sanitizeLine } from "../../lib/format.ts";
+import { lineOf, sanitizeLine } from "../../lib/format.ts";
 import type { Answer, AskResult, Question, Selection } from "./types.ts";
 
 export const CANCELLED_TEXT = "User cancelled the question.";
@@ -93,20 +93,15 @@ export interface CallQuestion {
 	options?: unknown;
 }
 
-/** A partial value read as a single line; anything but a string reads empty. */
-function asLine(value: unknown): string {
-	return typeof value === "string" ? sanitizeLine(value) : "";
-}
-
 /** Display headers with positional defaults (`Q1`, `Q2`, …). */
 export function questionHeaders(questions: CallQuestion[]): string[] {
-	return questions.map((question, i) => asLine(question?.header) || `Q${i + 1}`);
+	return questions.map((question, i) => lineOf(question?.header) || `Q${i + 1}`);
 }
 
 /** One `Header: a, b, Other` summary per question that offers options. */
 export function optionSummary(questions: CallQuestion[]): string[] {
 	return questions
-		.map((question, i) => ({ header: asLine(question?.header) || `Q${i + 1}`, options: question?.options }))
+		.map((question, i) => ({ header: lineOf(question?.header) || `Q${i + 1}`, options: question?.options }))
 		.filter(({ options }) => Array.isArray(options) && options.length > 0)
 		.map(({ header, options }) => {
 			// A partial option has no label yet; list the ones that have arrived.

@@ -14,7 +14,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { formatDuration, sanitizeUntrustedLine } from "../../lib/format.ts";
-import { clip, LABEL_WIDTH, labelLine } from "../../lib/tui/columns.ts";
+import { clip, clipLabel, LABEL_WIDTH } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { byRunningFirst } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -72,11 +72,6 @@ export function statusGlyph(status: JobStatus, theme: Theme): string {
 function statusWord(job: JobRecord): string {
 	if (job.status === "failed" && job.exitCode !== null) return `failed (exit ${job.exitCode})`;
 	return job.status;
-}
-
-/** A label clipped to one safe display line. */
-export function clipLabel(text: string): string {
-	return labelLine(text, sanitizeUntrustedLine);
 }
 
 /** A job's label (falling back to its command) clipped to one safe display line. */
