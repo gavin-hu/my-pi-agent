@@ -57,12 +57,11 @@ const GOAL_CONTEXT_CHARS = 64;
 export function planModeContext(goal?: PublishedGoal | null): string {
 	const lines = [
 		PLAN_MODE_MARKER,
-		"You are in plan mode: read-only exploration for safe code analysis.",
 		"",
 		`- Do not modify anything except the plan file: while planning, ${READ_ONLY_SUMMARY}.`,
-		"- bash is git-only: read-only commands (git status, git diff, git log) may be chained with && or ;, but pipes, substitution, and redirection are blocked and powershell is unavailable. The cwd is already the project root, so do not prefix commands with cd; use read, grep, find, and ls for files.",
+		"- bash is git-only: read-only git commands chain with && or ; — no pipes, redirection, or substitution, and no powershell. The cwd is already the project root, so skip cd, and read files with read, grep, find, and ls.",
 		"- Investigate and design a concrete plan, then save it with write_plan and call exit_plan_mode with the returned plan_path for approval.",
-		"- Delegate broad exploration with subagent; while planning it is forced read-only.",
+		"- Delegate broad exploration with subagent.",
 		`- To choose between approaches, ask with ${ASK_USER_QUESTION_TOOL} before finalizing.`,
 	];
 	if (goal?.status === "active") {

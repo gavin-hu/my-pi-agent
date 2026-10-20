@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the injected plan-mode context states each rule once — the shell rule no
+  longer repeats the read-only summary, and the delegation bullet leaves "forced
+  read-only" to the line that already carries it — so a planning turn's always-on
+  context is about 110 characters smaller and its budget ceiling drops from 1100
+  to 960.
+
 - `bytefly`: the footer prices a growing session in bounded time. The rate table
   is compiled once per config instead of being re-split for every record on every
   appended entry, the lookup remembers the model it just matched, the context
