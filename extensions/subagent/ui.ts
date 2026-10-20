@@ -6,10 +6,9 @@
  * the user initiated it.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
-import { createStatusController } from "../../lib/tui/status-controller.ts";
+import { createStatusController, type StatusController } from "../../lib/tui/status-controller.ts";
 import type { BackgroundRun } from "./background.ts";
 
 export interface SubagentUiOptions {
@@ -17,10 +16,7 @@ export interface SubagentUiOptions {
 	runs(): readonly BackgroundRun[];
 }
 
-export interface SubagentUiController {
-	attach(ctx: ExtensionContext): void;
-	detach(): void;
-	paint(): void;
+export interface SubagentUiController extends StatusController {
 	notifyFinished(run: BackgroundRun): void;
 }
 
@@ -30,7 +26,6 @@ function statusText(status: BackgroundRun["status"]): string {
 }
 
 export function createSubagentUi(options: SubagentUiOptions): SubagentUiController {
-	let ctx: ExtensionContext | undefined;
 	const controller = createStatusController({
 		keys: [STATUS_KEYS.agents],
 		enabled: () => true,
@@ -41,37 +36,15 @@ export function createSubagentUi(options: SubagentUiOptions): SubagentUiControll
 	});
 
 	const notifyFinished = (run: BackgroundRun): void => {
-		const target = ctx;
-		if (!target || run.status === "cancelled") return;
+		// A cancelled run stays silent because the user initiated it.
+		if (run.status === "cancelled") return;
 		const failed = run.status === "failed" || run.status === "timedout";
 		const action = run.status === "finished" ? "collect" : "inspect";
-		try {
-			target.ui.notify(
-				`Background subagent ${run.id} (${sanitizeLine(run.agent)}) ${statusText(run.status)}. Use /agents to ${action} it.`,
-				failed ? "error" : "info",
-			);
-		} catch {
-			// The UI may already be gone.
-		}
+		controller.notify(
+			`Background subagent ${run.id} (${sanitizeLine(run.agent)}) ${statusText(run.status)}. Use /agents to ${action} it.`,
+			failed ? "error" : "info",
+		);
 	};
 
-	return {
-		attach: (next) => {
-			ctx = next;
-			controller.attach(next);
-		},
-		detach: () => {
-			const target = ctx;
-			controller.detach();
-			ctx = undefined;
-			if (!target) return;
-			try {
-				target.ui.setStatus(STATUS_KEYS.agents, undefined);
-			} catch {
-				// The UI may already be gone.
-			}
-		},
-		paint: () => controller.paint(),
-		notifyFinished,
-	};
+	return { ...controller, notifyFinished };
 }

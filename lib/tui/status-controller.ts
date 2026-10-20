@@ -36,16 +36,32 @@ export interface StatusControllerOptions {
 	chips(): readonly StatusChip[];
 }
 
+/** How a transient notification reads. */
+export type NotifySeverity = "info" | "warning" | "error";
+
 /** An attach/paint/clear surface for one extension's footer chips. */
 export interface StatusController {
 	/** Remember the live context; later calls use it when none is passed. */
 	attach(ctx: ExtensionContext): void;
-	/** Forget the context, for example on shutdown or reload. */
+	/**
+	 * Clear the chips and forget the context, for example on shutdown or reload.
+	 *
+	 * A detached controller cannot paint, so leaving a stale chip behind would
+	 * misreport a feature that is gone.
+	 */
 	detach(): void;
 	/** Republish using the attached context. */
 	paint(): void;
 	/** Publish the chips (and attach `ctx` when given). */
 	setStatus(ctx?: ExtensionContext): void;
+	/**
+	 * Show a transient notification through the attached context.
+	 *
+	 * The chips and the alert belong to the same feature, so they share the one
+	 * remembered context: without this, each caller re-mirrors it in a wrapper.
+	 * A non-interactive mode has no UI, so this no-ops instead of throwing.
+	 */
+	notify(text: string, severity: NotifySeverity): void;
 }
 
 /** A context's theme, or `undefined` when the UI is unavailable. */
@@ -92,16 +108,34 @@ export function createStatusController(options: StatusControllerOptions): Status
 		}
 	};
 
+	const notify = (text: string, severity: NotifySeverity): void => {
+		const target = ctx;
+		if (!target) return;
+		try {
+			target.ui.notify(text, severity);
+		} catch {
+			// UI may be unavailable in non-interactive modes.
+		}
+	};
+
 	return {
 		attach: (next) => {
 			ctx = next;
 		},
 		detach: () => {
+			const target = ctx;
 			ctx = undefined;
+			if (!target) return;
+			try {
+				for (const key of options.keys) target.ui.setStatus(key, undefined);
+			} catch {
+				// UI is already gone during shutdown.
+			}
 		},
 		paint: () => {
 			setStatus();
 		},
 		setStatus,
+		notify,
 	};
 }

@@ -144,3 +144,21 @@ export function emptyState(theme: Theme, width: number, state: EmptyState): stri
 	if (state.hint) lines.push(clip(`${indent}${paint(theme, "faint", state.hint)}`, width));
 	return lines;
 }
+
+/** A row a live list can order: it has a start time. */
+export interface LiveRow {
+	startedAt: number;
+}
+
+/**
+ * Order a live list the way every screen in this package does: the active rows
+ * first, then the most recently started.
+ *
+ * The two accessors keep each caller's vocabulary local — a job is active when
+ * its status is `running`, a watcher likewise — while the ordering rule lives
+ * once, so the screen and the transcript cannot drift apart.
+ */
+export function byRunningFirst<T extends LiveRow>(isRunning: (row: T) => boolean): (a: T, b: T) => number {
+	const rank = (row: T): number => (isRunning(row) ? 0 : 1);
+	return (a, b) => rank(a) - rank(b) || b.startedAt - a.startedAt;
+}

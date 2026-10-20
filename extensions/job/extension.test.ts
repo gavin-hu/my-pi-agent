@@ -115,6 +115,26 @@ describe("jobs extension", () => {
 		expect(sent[0].message.content).toContain("j2");
 	});
 
+	test("wakes once when two wake jobs finish in the same tick", async () => {
+		const { h, pi, ctx } = setup();
+		const sent: Array<{ message: any; options: any }> = [];
+		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+
+		await emit(pi, "session_start", {}, ctx);
+		h.runtime.start({ command: "a", wake: true }, ctx);
+		h.runtime.start({ command: "b", wake: true }, ctx);
+		// Both close before the triggered turn has started, so the second one
+		// must queue rather than raise a second turn.
+		h.children[0].close(0);
+		h.children[1].close(0);
+
+		expect(sent).toHaveLength(1);
+		expect(sent[0].options.triggerTurn).toBe(true);
+		// The queued completion is still reported when the turn does start.
+		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
+		expect(result?.message?.content).toContain("j2");
+	});
+
 	test("a failed wake leaves the completion for the next turn", async () => {
 		const { h, pi, ctx } = setup();
 		pi.sendMessage = () => {

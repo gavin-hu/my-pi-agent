@@ -1,38 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { EventEmitter } from "node:events";
-import type { Readable } from "node:stream";
-import { settle } from "../../test/helpers/process.ts";
+import { JobChild as FakeChild, settle } from "../../test/helpers/process.ts";
 import { makeClock } from "../../test/helpers/clock.ts";
-import { BoundedLog, checkEnv, createRunner, type SpawnedProcess } from "./runner.ts";
-
-/** A scriptable child. */
-class FakeChild extends EventEmitter implements SpawnedProcess {
-	pid = 4242;
-	stdout = new EventEmitter() as unknown as Readable;
-	stderr = new EventEmitter() as unknown as Readable;
-	signals: string[] = [];
-
-	kill(signal: NodeJS.Signals = "SIGTERM"): boolean {
-		this.signals.push(signal);
-		return true;
-	}
-
-	write(text: string): void {
-		this.stdout.emit("data", Buffer.from(text));
-	}
-
-	writeError(text: string): void {
-		this.stderr.emit("data", Buffer.from(text));
-	}
-
-	close(code: number | null, signal: string | null = null): void {
-		this.emit("close", code, signal);
-	}
-
-	fail(message: string): void {
-		this.emit("error", new Error(message));
-	}
-}
+import { BoundedLog, checkEnv, createRunner } from "./runner.ts";
 
 /** A runner with one fake child and a clock. */
 function harness() {
@@ -42,6 +11,7 @@ function harness() {
 	const runner = createRunner({
 		spawn: () => {
 			const child = new FakeChild();
+			child.pid = CHECK_PID;
 			children.push(child);
 			return child;
 		},
@@ -51,6 +21,9 @@ function harness() {
 	});
 	return { runner, children, killed, clock };
 }
+
+/** The pid every fake check child reports. */
+const CHECK_PID = 4242;
 
 const base = { cwd: "/tmp", command: "npm run test", timeoutMs: 0, maxLogBytes: 1024 };
 
@@ -72,7 +45,7 @@ describe("createRunner", () => {
 		const promise = runner({ ...base, onOutput: (chunk) => chunks.push(chunk) });
 		const child = children[0]!;
 		child.write("out ");
-		child.writeError("err");
+		child.emitStderr("err");
 		clock.advance(12);
 		child.close(0);
 
@@ -105,9 +78,9 @@ describe("createRunner", () => {
 		const { runner, children, killed } = harness();
 		const promise = runner({ ...base, timeoutMs: 5 });
 		await settle(10);
-		expect(killed[0]).toEqual({ pid: 4242, signal: "SIGTERM", force: false });
+		expect(killed[0]).toEqual({ pid: CHECK_PID, signal: "SIGTERM", force: false });
 		await settle(10);
-		expect(killed.at(-1)).toEqual({ pid: 4242, signal: "SIGKILL", force: true });
+		expect(killed.at(-1)).toEqual({ pid: CHECK_PID, signal: "SIGKILL", force: true });
 		children[0]!.close(null, "SIGTERM");
 
 		const outcome = await promise;
@@ -121,7 +94,7 @@ describe("createRunner", () => {
 		const controller = new AbortController();
 		const promise = runner({ ...base, signal: controller.signal });
 		controller.abort();
-		expect(killed[0]).toEqual({ pid: 4242, signal: "SIGTERM", force: false });
+		expect(killed[0]).toEqual({ pid: CHECK_PID, signal: "SIGTERM", force: false });
 		children[0]!.close(null, "SIGTERM");
 
 		const outcome = await promise;

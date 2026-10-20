@@ -225,6 +225,10 @@ rewritten.
   still take one over by explicit id (`status`/`logs`/`kill`, where `kill`
   adopts it). Chips, completion notices, and pruning stay this session's own, so
   a peer's finished job waits for that session to clear it.
+- **A carriage return is not a line break.** Output is split on `\n` only; a
+  progress rewrite (`10%\r50%\r100%`) is one line whose sanitized form keeps the
+  text after the last `\r`. A program that only ever emits `\r` therefore
+  surfaces nothing until it emits a newline or the line reaches the 1 MiB cap.
 - **stdin is a pipe, not a TTY.** A job started with `stdin: true` can be fed
   with `send`, but the child sees a pipe: line-oriented programs (a REPL, a
   debugger prompt, `read`, `npm init`) work, while a full-screen program that
@@ -326,6 +330,15 @@ rewritten.
   handle, so its `close` event never fires; the repaint clock polls it and
   settles it (recovering an exit code from the status file, else `unknown`)
   when the pid disappears.
+- **Shared seams, job policy.** The spawn/tree-kill/liveness seam
+  (`lib/spawn.ts`), the byte-safe line splitter (`lib/lines.ts`), the
+  untrusted-line boundary (`lib/format.ts`), the pending-report coordinator
+  (`lib/report.ts`), the status chips (`lib/tui/status-controller.ts`), and the
+  `/jobs` screen frame (`lib/tui/dock-screen.ts`) are shared with `watch`; this
+  extension keeps only what is job-shaped — the durable registry, rotation,
+  stdin, and the job vocabulary. The report coordinator is also why a wake can
+  never stack two turns: it owns the guard for the window between the triggered
+  send and `agent_start`.
 - **Notify by default, wake opt-in.** A failed job raises one `ctx.ui.notify`
   (a clean exit is left to the list and chips). Finished jobs are also posted
   as a shared transcript notice — model-facing text plus the notice block — at the
@@ -358,11 +371,11 @@ rewritten.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Factory: registers the tool/command and wires events. |
+| `index.ts` | Factory: registers the tool/command and wires events, including the shared `lib/report.ts` completion reporter. |
 | `schema.ts` | Parameter schema and pure validation (a `JobCall` union). |
 | `config.ts` | The `job` section of `bytefly.json`: loading and clamping. |
-| `format.ts` | Pure formatting, sanitization, duration, and transcript outcome-line helpers. |
-| `process.ts` | Injectable spawn/liveness/kill-tree primitives. |
+| `format.ts` | Pure formatting, duration, and transcript outcome-line helpers; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
+| `process.ts` | The job-only process remainder: the `LivenessFn` seam and the `ps` start-time token. Spawn, tree-kill, and liveness itself come from `lib/spawn.ts`. |
 | `paths.ts` | Session/marker/registry/status file-name helpers. |
 | `registry.ts` | Per-session registry load/merge, legacy migration, and pure reconciliation. |
 | `reservations.ts` | Atomic `O_EXCL` job-id reservation and release. |
@@ -370,10 +383,10 @@ rewritten.
 | `session.ts` | Per-session heartbeat markers and owner-liveness rules. |
 | `store.ts` | Durable store: registry dir, this session's atomic merge-write, deletions. |
 | `logs.ts` | Bounded, sanitized log-tail reading. |
-| `ui.ts` | Footer status chips, over the shared `lib/tui/status-controller.ts`. |
+| `ui.ts` | Footer status chips and the failure alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `runtime.ts` | Composition: job table, handles, process events, repaint clock. |
-| `tui.ts` | The `/jobs` screen and the transcript `JobResult` rows, drawn from the `lib/tui/` kit (`titleRule`, `listRow`, `emptyState`, `IdCursor`, `LinePane`). |
+| `tui.ts` | The `/jobs` screen (a `DockListScreen` subclass: job rows, focus block, counts, verbs) and the transcript `JobResult` rows. |
 | `tools.ts` | The `job` tool and its transcript rendering. |
 | `commands.ts` | The `/jobs` command. |
 | `types.ts` | Shared types. |

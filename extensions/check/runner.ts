@@ -3,28 +3,11 @@
  *
  * A check is foreground and bounded: it streams stdout/stderr, keeps only a
  * tail, and dies with the command. This is deliberately smaller than `job`:
- * there is no registry, reattachment, stdin pipe, or detached lifetime, and the
- * runner never imports another extension's modules.
+ * there is no registry, reattachment, stdin pipe, or detached lifetime. The
+ * spawn and tree-kill seams are the shared ones in `lib/spawn.ts`.
  */
 
-import { spawn as nodeSpawn, spawnSync } from "node:child_process";
-import type { Readable } from "node:stream";
-
-/** The subset of a spawned child the runner uses. */
-export interface SpawnedProcess {
-	pid?: number;
-	stdout: Readable | null;
-	stderr: Readable | null;
-	on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
-	on(event: "error", listener: (error: Error) => void): unknown;
-	kill(signal?: NodeJS.Signals): boolean;
-}
-
-/** Injectable process factory. */
-export type SpawnFn = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv }) => SpawnedProcess;
-
-/** Injectable tree kill: POSIX process group, or a Windows taskkill. */
-export type KillTreeFn = (pid: number, signal: NodeJS.Signals, force?: boolean) => void;
+import { defaultKillTree, defaultSpawn, type KillTreeFn, type SpawnedProcess, type SpawnFn } from "../../lib/spawn.ts";
 
 export interface RunOptions {
 	cwd: string;
@@ -58,34 +41,6 @@ export interface RunnerOptions {
 	/** Time between SIGTERM and SIGKILL; tests shorten it. */
 	killGraceMs?: number;
 }
-
-/** The default spawn: a shell command in its own process group on POSIX. */
-export const defaultSpawn: SpawnFn = (command, options) =>
-	nodeSpawn(command, {
-		cwd: options.cwd,
-		shell: true,
-		detached: process.platform !== "win32",
-		stdio: ["ignore", "pipe", "pipe"],
-		env: options.env,
-	});
-
-/** Kill a process tree, escalating to taskkill `/F` on Windows. */
-export const defaultKillTree: KillTreeFn = (pid, signal, force = false) => {
-	if (process.platform === "win32") {
-		spawnSync("taskkill", ["/pid", String(pid), "/T", ...(force ? ["/F"] : [])], { stdio: "ignore" });
-		return;
-	}
-	try {
-		process.kill(-pid, signal);
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-		try {
-			process.kill(pid, signal);
-		} catch {
-			// Already gone.
-		}
-	}
-};
 
 /**
  * A string buffer that keeps the last `maxBytes` bytes.

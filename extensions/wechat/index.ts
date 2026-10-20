@@ -15,6 +15,7 @@
 import { getAgentDir, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { isPidAlive } from "../../lib/spawn.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
@@ -74,14 +75,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	const lockDeps = () => ({
 		now: () => Date.now(),
 		pid: process.pid,
-		isAlive: (pid: number) => {
-			try {
-				process.kill(pid, 0);
-				return true;
-			} catch {
-				return false;
-			}
-		},
+		isAlive: isPidAlive,
 	});
 
 	const build = (ctx: ExtensionContext): Bridge => {

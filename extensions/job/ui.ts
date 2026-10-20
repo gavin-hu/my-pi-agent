@@ -1,13 +1,12 @@
 /**
- * Presentation for the jobs extension: the footer status chips.
+ * Presentation for the jobs extension: the footer status chips and the failure
+ * alert.
  *
- * Kept separate from the runtime so the runtime owns lifecycle (the job table,
- * registry, clock) and this owns "how jobs are shown". The chips themselves come
- * from the shared `lib/tui/status-controller.ts`, so only the vocabulary — the
- * keys, glyphs, and counts — is job-specific.
+ * The chips and the context they paint through come from the shared
+ * `lib/tui/status-controller.ts`, so only the vocabulary — the keys, glyphs,
+ * counts, and message text — is job-specific.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createStatusController, type StatusChip, type StatusController } from "../../lib/tui/status-controller.ts";
 import type { JobsConfig } from "./config.ts";
@@ -26,8 +25,6 @@ export interface UiOptions {
 
 export function createUiController(options: UiOptions): UiController {
 	const { getJobs, getConfig } = options;
-	// The notification also needs the context, so it is mirrored here.
-	let ctx: ExtensionContext | undefined;
 
 	const controller = createStatusController({
 		keys: [STATUS_KEYS.jobs, STATUS_KEYS.jobsFailure],
@@ -43,32 +40,9 @@ export function createUiController(options: UiOptions): UiController {
 	});
 
 	const notifyFailure = (job: JobRecord): void => {
-		const target = ctx;
-		if (!target) return;
 		const exit = job.exitCode !== null ? ` (exit ${job.exitCode})` : "";
-		try {
-			target.ui.notify(`Job ${job.id} failed: ${shortLabel(job)}${exit}`, "error");
-		} catch {
-			// UI may be unavailable in non-interactive modes.
-		}
+		controller.notify(`Job ${job.id} failed: ${shortLabel(job)}${exit}`, "error");
 	};
 
-	return {
-		attach: (next) => {
-			ctx = next;
-			controller.attach(next);
-		},
-		detach: () => {
-			ctx = undefined;
-			controller.detach();
-		},
-		paint: () => {
-			controller.paint();
-		},
-		setStatus: (next) => {
-			if (next) ctx = next;
-			controller.setStatus(next);
-		},
-		notifyFailure,
-	};
+	return { ...controller, notifyFailure };
 }

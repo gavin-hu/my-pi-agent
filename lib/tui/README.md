@@ -30,9 +30,12 @@ build a second terminal renderer.
 ## Primitives
 
 Reach for a `lib/tui/` primitive before composing your own: `plainRule` /
-`titleRule` for a heading, `listRow` / `checkbox` for a list, `gaugeBar` for a
-meter, `emptyState` for an empty screen, `splitRow` / `fitCells` for two columns,
-`LinePane` for a scrollable log, and `ListCursor` / `IdCursor` for selection.
+`titleRule` for a heading, `listRow` / `statusRow` / `checkbox` for a list,
+`gaugeBar` for a meter, `emptyState` for an empty screen, `splitRow` /
+`fitCells` for two columns, `LinePane` for a scrollable log, `ListCursor` /
+`IdCursor` for selection, `byRunningFirst` for a live list's order,
+`DockListScreen` for a list that opens a pane, and `ConfirmState` before a
+destructive action.
 
 ## Docked list screens
 
@@ -43,6 +46,22 @@ it — including the blank line above the detail block, which keeps a footnote
 from reading as one more row. A screen that sizes its body through `fitRows`
 counts the block with `detailBlockRows`, or the hint row is pushed off the
 bottom of a short terminal.
+
+A list that **opens a pane over one row** — `/jobs`, `/watch`, the agent board —
+subclasses [`dock-screen.ts`](./dock-screen.ts) instead of re-assembling the
+frame. `DockListScreen` owns the two modes, the `IdCursor` and `LinePane`, the
+navigation and wheel keys, the y/N confirmation, the one-line feedback notice,
+and the range rows; the subclass supplies `rows`, `idOf`, `rowLine`,
+`detailBlock`, `summaryCells`, `listHints`, `detailHints`, `detailFor`,
+`detailById`, and `handleVerb`. Keep the ordering in `rows()` (the base re-reads
+it every render) and return it by stable id, so a live re-sort cannot move the
+cursor or swap the open pane out from under the reader.
+
+A destructive action asks through [`confirm.ts`](./confirm.ts):
+`ConfirmState.ask(prompt, accept)` holds the question, `resolve(data)` accepts on
+`y`/`Y`/Enter, dismisses on `n`/`N`/Esc/`q`, and returns `undefined` for any
+other key so a stray arrow cannot cancel the question. The prompt ends in
+`? y/N`.
 
 The block carries footnotes about the focused row: what the row does not already
 say. Never repeat its label, verdict, or duration — the row is one line above,
@@ -81,6 +100,12 @@ Run model- or file-authored text through `sanitizeLine` before it reaches a
 widget or the terminal: it neutralizes control characters and then collapses the
 text to one line. `stripControlChars` alone is for multi-line text that must keep
 its newlines.
+
+Program output — a log file, a child's stdout, a tailed file — goes through
+`sanitizeUntrustedLine` instead. It removes OSC, CSI, and single-character
+escapes whole (so the printable tail of an escape never reaches the terminal),
+then resolves `\r` the way a terminal would, squeezes whitespace, and clips.
+`sanitizeLine` would leave `[31m` behind, because it turns ESC into a space.
 
 ## Keyboard first
 

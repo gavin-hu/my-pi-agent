@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 import { GLYPHS } from "./glyphs.ts";
-import { checkbox, chip, emptyState, keyValueRow, listRow, statusRow } from "./rows.ts";
+import { byRunningFirst, checkbox, chip, emptyState, keyValueRow, listRow, statusRow } from "./rows.ts";
 
 /** Column counts exercised by the width sweep. */
 const WIDTHS = Array.from({ length: 115 }, (_, index) => index + 6);
@@ -123,5 +123,32 @@ describe("emptyState", () => {
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 			}
 		}
+	});
+});
+
+describe("byRunningFirst", () => {
+	interface Row {
+		id: string;
+		startedAt: number;
+		running: boolean;
+	}
+	const order = byRunningFirst<Row>((row) => row.running);
+
+	test("puts the running rows first, then orders each group by most recent start", () => {
+		const rows: Row[] = [
+			{ id: "done-old", startedAt: 100, running: false },
+			{ id: "run-old", startedAt: 200, running: true },
+			{ id: "done-new", startedAt: 300, running: false },
+			{ id: "run-new", startedAt: 400, running: true },
+		];
+		expect(rows.toSorted(order).map((row) => row.id)).toEqual(["run-new", "run-old", "done-new", "done-old"]);
+	});
+
+	test("is stable enough for a live re-sort: a finished row keeps its place in the finished group", () => {
+		const rows: Row[] = [
+			{ id: "a", startedAt: 10, running: false },
+			{ id: "b", startedAt: 20, running: false },
+		];
+		expect(rows.toSorted(order).map((row) => row.id)).toEqual(["b", "a"]);
 	});
 });

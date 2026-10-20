@@ -12,16 +12,16 @@ import { closeSync, openSync, readSync, statSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
+import { LineSplitter } from "../../lib/lines.ts";
+import { defaultKillTree, defaultSpawn, type KillTreeFn, type SpawnFn, type SpawnedProcess } from "../../lib/spawn.ts";
 import { DEFAULT_CONFIG, loadConfig, type WatchConfig } from "./config.ts";
-import { compileRegex, sanitizeWatchLine, sourceLabel } from "./format.ts";
-import { defaultKillTree, defaultSpawn, type KillTreeFn, type SpawnFn, type SpawnedProcess } from "./process.ts";
+import { sanitizeUntrustedLine } from "../../lib/format.ts";
+import { compileRegex, sourceLabel } from "./format.ts";
 import { createUiController, type UiController } from "./ui.ts";
 import type { PendingMatch, WatchMatch, WatchRecord, WatchSource } from "./types.ts";
 
 /** Largest slice read from a file per tick. */
 const MAX_CHUNK = 1024 * 1024;
-/** A line without a newline is flushed once it grows past this. */
-const MAX_LINE_BYTES = 1024 * 1024;
 /** Grace period before a stopped command is escalated to SIGKILL. */
 const KILL_GRACE_MS = 2000;
 
@@ -48,7 +48,7 @@ interface Internal {
 	regex: RegExp;
 	excludes: RegExp[];
 	offset: number;
-	pending: Buffer;
+	lines: LineSplitter;
 	rawLines: string[];
 	matches: WatchMatch[];
 	child?: SpawnedProcess;
@@ -208,7 +208,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		for (const exclude of w.excludes) if (exclude.test(line)) return false;
 		if (!w.regex.test(line)) return false;
 
-		const clean = sanitizeWatchLine(line);
+		const clean = sanitizeUntrustedLine(line);
 		w.matches.push({ seq: ++w.seq, line: clean, at: time, seen: false });
 		if (w.matches.length > config.maxMatches) {
 			w.matches.splice(0, w.matches.length - config.maxMatches);
@@ -224,29 +224,16 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	};
 
 	const consume = (w: Internal, chunk: Buffer, time: number): void => {
-		const combined = w.pending.length > 0 ? Buffer.concat([w.pending, chunk]) : chunk;
-		let start = 0;
 		let matched = false;
-		while (true) {
-			const newline = combined.indexOf(0x0a, start);
-			if (newline < 0) break;
-			if (emit(w, combined.subarray(start, newline).toString("utf-8"), time)) matched = true;
-			start = newline + 1;
+		for (const line of w.lines.push(chunk)) {
+			if (emit(w, line, time)) matched = true;
 		}
-		let rest = combined.subarray(start);
-		if (rest.length > MAX_LINE_BYTES) {
-			if (emit(w, rest.toString("utf-8"), time)) matched = true;
-			rest = Buffer.alloc(0);
-		}
-		w.pending = Buffer.from(rest);
 		if (matched && w.wake) fireOnMatch();
 	};
 
+	/** A source that ended mid-line still reports that line. */
 	const flushPending = (w: Internal, time: number): void => {
-		if (w.pending.length === 0) return;
-		const rest = w.pending.toString("utf-8");
-		w.pending = Buffer.alloc(0);
-		emit(w, rest, time);
+		for (const line of w.lines.flush()) emit(w, line, time);
 	};
 
 	const clearKillTimer = (w: Internal): void => {
@@ -317,7 +304,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		}
 		if (size < w.offset) {
 			w.offset = 0;
-			w.pending = Buffer.alloc(0);
+			w.lines.reset();
 		}
 		if (w.offset >= size) return;
 
@@ -443,7 +430,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 			regex,
 			excludes,
 			offset,
-			pending: Buffer.alloc(0),
+			lines: new LineSplitter(),
 			rawLines: [],
 			matches: [],
 			notified: false,
@@ -476,7 +463,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 
 	const matches = (id: string, lines?: number) => tail(id, lines, (w) => w.matches.map((m) => m.line));
 	const logs = (id: string, lines?: number) =>
-		tail(id, lines, (w) => w.rawLines.map((line) => sanitizeWatchLine(line)));
+		tail(id, lines, (w) => w.rawLines.map((line) => sanitizeUntrustedLine(line)));
 
 	const stop = (id: string): boolean => {
 		const w = watches.get(id);

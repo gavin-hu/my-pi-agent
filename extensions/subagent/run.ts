@@ -13,6 +13,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { formatDuration } from "../../lib/format.ts";
+import { LineSplitter } from "../../lib/lines.ts";
 import { BUILTIN_AGENTS, formatAgentList, type AgentConfig } from "./agents.ts";
 import type { TranscriptMode } from "./config.ts";
 import { buildAgentArgs, getPiInvocation, READ_ONLY_NOTE } from "./invocation.ts";
@@ -90,7 +91,7 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 	const { command, args, cwd, timeoutMs, signal, result, onEvent, transcript, spawn } = context;
 	return new Promise<SpawnOutcome>((resolve) => {
 		const proc = spawn(command, args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
-		let buffer = "";
+		const splitter = new LineSplitter();
 		let settled = false;
 		let abortRequested = false;
 		let timedOut = false;
@@ -119,10 +120,8 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 			if (signal) signal.removeEventListener("abort", onAbort);
 			if (killTimer) clearTimeout(killTimer);
 			if (timeoutTimer) clearTimeout(timeoutTimer);
-			if (buffer.trim()) {
-				transcript?.line(buffer);
-				const event = parseJsonLine(buffer);
-				if (event && applyEvent(result, event)) onEvent();
+			for (const line of splitter.flush()) {
+				if (line.trim()) processLine(line);
 			}
 			resolve({ exitCode, aborted: abortRequested, timedOut });
 		};
@@ -134,15 +133,8 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 		};
 
 		proc.stdout?.on("data", (chunk) => {
-			const text = chunk.toString();
-			buffer += text;
-			// Keep the final partial line in the buffer for the close handler.
-			let newline = buffer.indexOf("\n");
-			while (newline !== -1) {
-				processLine(buffer.slice(0, newline));
-				buffer = buffer.slice(newline + 1);
-				newline = buffer.indexOf("\n");
-			}
+			// The splitter holds the final partial line for the close handler.
+			for (const line of splitter.push(chunk)) processLine(line);
 		});
 
 		proc.stderr?.on("data", (chunk) => {

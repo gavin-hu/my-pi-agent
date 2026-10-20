@@ -29,21 +29,21 @@ import {
 } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { loadConfig, type JobsConfig } from "./config.ts";
-import { clipLabel, compareJobs, formatLogs, sanitizeLogLine } from "./format.ts";
-import { readLogTail } from "./logs.ts";
+import { LineSplitter } from "../../lib/lines.ts";
 import {
 	defaultKillTree,
-	defaultLiveness,
 	defaultSpawn,
-	defaultStartToken,
+	isPidAlive,
 	type KillTreeFn,
-	type LivenessFn,
-	type SpawnFn,
 	type SpawnedProcess,
-	type StartTokenFn,
+	type SpawnFn,
 	type StdinSink,
-} from "./process.ts";
+} from "../../lib/spawn.ts";
+import { loadConfig, type JobsConfig } from "./config.ts";
+import { sanitizeUntrustedLine } from "../../lib/format.ts";
+import { clipLabel, compareJobs, formatLogs } from "./format.ts";
+import { readLogTail } from "./logs.ts";
+import { defaultStartToken, type LivenessFn, type StartTokenFn } from "./process.ts";
 import {
 	loadRegistries,
 	mergeRecords,
@@ -68,8 +68,6 @@ import { createWaiters } from "./waiters.ts";
 
 /** Characters of sanitized log sent to the model. */
 const LOG_MODEL_CHARS = 16 * 1024;
-/** Cap on the buffered partial line used to track the latest output. */
-const MAX_PENDING = 16 * 1024;
 /** Bytes held while a rotation swaps the log stream before writes resume. */
 const MAX_ROTATION_QUEUE_BYTES = 2 * 1024 * 1024;
 /** Default `wait` timeout. */
@@ -135,7 +133,7 @@ export interface RuntimeOptions {
 
 interface Handle {
 	stream?: WriteStream;
-	pending: string;
+	lines: LineSplitter;
 	killTimer?: ReturnType<typeof setTimeout>;
 	timeoutTimer?: ReturnType<typeof setTimeout>;
 	/** The child's stdin pipe, present only for a job started with `stdin: true`. */
@@ -200,7 +198,7 @@ export interface JobsRuntime {
 
 export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const spawn = options.spawn ?? defaultSpawn;
-	const liveness = options.liveness ?? defaultLiveness;
+	const liveness = options.liveness ?? isPidAlive;
 	const killTree = options.killTree ?? defaultKillTree;
 	const startToken = options.startToken ?? defaultStartToken;
 	const now = options.now ?? (() => Date.now());
@@ -409,15 +407,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 	};
 
-	const consume = (handle: Handle, job: Job): void => {
-		const text = handle.pending;
-		const lastBreak = Math.max(text.lastIndexOf("\n"), text.lastIndexOf("\r"));
-		if (lastBreak === -1) return;
-		handle.pending = text.slice(lastBreak + 1);
-		for (const line of text.slice(0, lastBreak).split(/[\r\n]+/)) {
-			const clean = sanitizeLogLine(line);
-			if (clean) job.lastLine = clean;
-		}
+	/** Remember the newest non-empty output line, which `status`/`wait` report. */
+	const recordLine = (job: Job, line: string): void => {
+		const clean = sanitizeUntrustedLine(line);
+		if (clean) job.lastLine = clean;
 	};
 
 	/** Clear a handle's timers, optionally close its log stream, and drop it. */
@@ -456,9 +449,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const job = jobs.get(id);
 		if (!handle || !job) return;
 		writeChunk(handle, job, chunk);
-		handle.pending += chunk.toString("utf8");
-		if (handle.pending.length > MAX_PENDING) handle.pending = handle.pending.slice(-MAX_PENDING);
-		consume(handle, job);
+		for (const line of handle.lines.push(chunk)) recordLine(job, line);
 		const time = now();
 		if (time - lastPaint >= config.repaintMs) {
 			lastPaint = time;
@@ -563,9 +554,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const job = jobs.get(id);
 		if (!handle || !job || job.status !== "running") return;
 		// Commit any buffered output, including a final line without a newline.
-		consume(handle, job);
-		const tail = sanitizeLogLine(handle.pending);
-		if (tail) job.lastLine = tail;
+		for (const line of handle.lines.flush()) recordLine(job, line);
 		// A detached job keeps no parent stream; read its last line from the log.
 		if (!handle.stream) {
 			const last = readLogTail(store.safeLogPath(job), 1).lines.at(-1);
@@ -784,7 +773,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 		const job: Job = {
 			id,
-			label: sanitizeLogLine((startOptions.label ?? "").trim()) || clipLabel(startOptions.command),
+			label: sanitizeUntrustedLine((startOptions.label ?? "").trim()) || clipLabel(startOptions.command),
 			command: startOptions.command,
 			cwd,
 			pid,
@@ -807,7 +796,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 		const handle: Handle = {
 			stream,
-			pending: "",
+			lines: new LineSplitter(),
 			queue: [],
 			queuedBytes: 0,
 			rotating: false,

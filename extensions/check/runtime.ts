@@ -10,6 +10,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { stripControlChars } from "../../lib/format.ts";
+import { LineSplitter } from "../../lib/lines.ts";
 import { loadConfig, type CheckConfig } from "./config.ts";
 import { planCommands } from "./detect.ts";
 import { parseFailures } from "./failures.ts";
@@ -114,7 +115,7 @@ export function createCheckRuntime(options: CheckRuntimeOptions = {}): CheckRunt
 		const started = now();
 		const outcomes: RunOutcome[] = [];
 		const failures: Failure[] = [];
-		let pending = "";
+		const splitter = new LineSplitter();
 		let status: CheckStatus = "passed";
 		let error: string | undefined;
 
@@ -123,14 +124,10 @@ export function createCheckRuntime(options: CheckRuntimeOptions = {}): CheckRunt
 			if (lines.length > MAX_LINES) lines.splice(0, lines.length - MAX_LINES);
 		};
 		const flush = (): void => {
-			if (pending !== "") append(pending);
-			pending = "";
+			for (const line of splitter.flush()) append(line);
 		};
 		const onOutput = (chunk: string): void => {
-			const parts = (pending + chunk).split("\n");
-			pending = parts.pop() ?? "";
-			for (const line of parts) append(line);
-			if (pending.length > MAX_LINE_CHARS) flush();
+			for (const line of splitter.push(chunk)) append(line);
 			onUpdate?.();
 		};
 

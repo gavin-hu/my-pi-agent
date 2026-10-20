@@ -423,6 +423,19 @@ describe("job runtime — logs", () => {
 		expect(result?.lines.join("\n")).not.toContain("output:");
 	});
 
+	test("keeps a multi-byte character that a read boundary splits", async () => {
+		const h = makeHarness();
+		start(h);
+		const bytes = Buffer.from("héllo\n", "utf8");
+		// é is two bytes; cut between them, as a pipe read can.
+		const cut = bytes.indexOf(0xc3) + 1;
+		h.children[0].writeBytes(bytes.subarray(0, cut));
+		h.children[0].writeBytes(bytes.subarray(cut));
+		await waitFor(() => h.runtime.get("j1")?.lastLine === "héllo");
+		await waitFor(() => readLog(h.runtime.get("j1")!.logPath).includes("héllo"));
+		expect(h.runtime.logs("j1")?.lines).toContain("héllo");
+	});
+
 	test("defaults to the configured maxLogLines", async () => {
 		const h = makeHarness({ config: { maxLogLines: 2 } });
 		start(h);

@@ -6,39 +6,17 @@
  * status chip, the `/watch` screen, the transcript, and the model.
  *
  * File and command output is untrusted, so every line that reaches a widget or
- * the model goes through `sanitizeLine` at the boundary.
+ * the model goes through `sanitizeUntrustedLine` from `lib/format.ts` at the
+ * boundary; `sanitizeLine` covers the extension's own trusted text.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
+import { sanitizeLine, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { clip, labelLine } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { byRunningFirst } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
-
-/** Longest sanitized watched line kept for display; longer lines are clipped. */
-const MAX_WATCH_LINE = 200;
-
-/** ESC-introduced sequences: OSC, CSI, and single-character escapes. */
-const OSC = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
-const CSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
-const OTHER_ESC = /\u001b[@-Z\\-_]/g;
-const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g;
-
-/**
- * Make one line of untrusted file/command output safe to render.
- *
- * Resolves carriage returns the way a terminal would (keep the text after the
- * last `\r`, so progress rewrites collapse to their final state), strips ANSI
- * escapes and control characters, collapses whitespace, and clips the result.
- * `sanitizeLine` alone would leave the printable tail of an ANSI sequence.
- */
-export function sanitizeWatchLine(raw: string): string {
-	const withoutAnsi = raw.replace(OSC, "").replace(CSI, "").replace(OTHER_ESC, "");
-	const afterCr = withoutAnsi.slice(withoutAnsi.lastIndexOf("\r") + 1);
-	const cleaned = afterCr.replace(CONTROL, " ").replace(/\s+/g, " ").trim();
-	return cleaned.length > MAX_WATCH_LINE ? `${cleaned.slice(0, MAX_WATCH_LINE - 1)}…` : cleaned;
-}
 
 /** Compile a pattern; case-insensitive unless `caseSensitive`. */
 export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
@@ -47,7 +25,7 @@ export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
 
 /** A label clipped to one safe display line. */
 export function clipLabel(text: string): string {
-	return labelLine(text, sanitizeWatchLine);
+	return labelLine(text, sanitizeUntrustedLine);
 }
 
 /** What a watcher reads: a path or a command, clipped for display. */
@@ -104,10 +82,7 @@ export function statusWord(watch: WatchRecord): string {
 }
 
 /** Order watchers for display: running first, then by most recent start. */
-export function compareWatches(a: WatchRecord, b: WatchRecord): number {
-	const rank = (watch: WatchRecord): number => (watch.status === "running" ? 0 : 1);
-	return rank(a) - rank(b) || b.startedAt - a.startedAt;
-}
+export const compareWatches = byRunningFirst<WatchRecord>((watch) => watch.status === "running");
 
 /** One-line watcher summary shared by model output and the `/watch` screen. */
 function watchSummary(watch: WatchRecord, now: number): string {
