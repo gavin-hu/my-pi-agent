@@ -101,7 +101,8 @@ change. This section holds only what an agent must not get wrong:
 - The `[Unreleased]` bullet lands in the same commit as the change it describes,
   which makes the release commit mechanical. Read `[Unreleased]` against
   `git log <last-tag>..main` before making it: every user-visible change needs
-  exactly one scoped bullet, and no bullet may describe a state that was
+  exactly one scoped bullet (`lib` is the scope for a change with no
+  per-extension surface), and no bullet may describe a state that was
   reverted earlier in the same window.
 
 ## Invariants
@@ -115,6 +116,10 @@ why.
 - No extension imports another extension's modules. Shared tool and parameter
   names live in `lib/tool-names.ts`; shared glyphs and status keys in
   `lib/tui/glyphs.ts`.
+- A trust boundary two extensions answer — a loopback server, a served page — has
+  one policy module in `lib/`, never one copy each. Two copies are how a header,
+  a `Host` rule, or an allowlist drifts apart; `lib/http/` is that module for the
+  two local servers.
 - An extension factory only registers. Start long-lived resources from
   `session_start` and release them in an idempotent `session_shutdown`.
 - State that must survive `/resume` and `/tree` lives in tool-result `details`
@@ -135,6 +140,10 @@ why.
   catalog table in `README.md` (in the group it belongs to). Adding or renaming
   a command or flag means updating that table too, and registering it with a
   string literal.
+- Adding a `lib/` module is more than the code: the module, a co-located
+  `<module>.test.ts` (which `test/structure.test.ts` asserts), and a
+  `lib/README.md` table row. A new subdirectory gets one row naming each of its
+  modules, the way `git/`, `http/`, `tui/`, and `web/` each have one.
 - Adding an extension is more than the code: the `pi` manifest, the catalog table
   in `README.md` and its `README.zh-CN.md` mirror (compared row by row), and
   `lib/tool-names.ts` if it shares a name. `CONTRIBUTING.md` lists the steps.
@@ -147,9 +156,10 @@ why.
 Extension code is read far more often than it is written, so each of these is a
 rule rather than a preference.
 
-- One job per module, and a name that says it. Past roughly 600 lines, a module
-  either splits or states in its header the one responsibility holding it
-  together.
+- One job per module, and a name that says it. Past 600 lines a module either
+  splits or is named in `LONG_MODULES` in `test/structure.test.ts` with the one
+  responsibility holding it together, so a new oversized module fails instead of
+  joining a silent pile that only review would catch.
 - The second copy of a helper goes in `lib/`, not the third, and only when a
   second extension really needs it. `lib/README.md` lists what is already there.
 - No dead branch, no commented-out code, no comment that restates its line. A
@@ -159,7 +169,8 @@ rule rather than a preference.
 - An obvious loop beats a dense one-liner, and a name beats a comment.
 
 `test/structure.test.ts` fails a `TODO` marker, a suppression comment, an `any`,
-and a commented-out statement; the rest of this section is review.
+a commented-out statement, and a module over the line bar that `LONG_MODULES`
+does not name; the rest of this section is review.
 
 Performance is the same bar: do work once per render rather than per frame, take
 the cheap path before allocating, and keep nothing that grows with the
@@ -189,6 +200,13 @@ Three traps are worth repeating here because each one fails silently:
 - A component that derives its lines from another component's output memoizes
   them with `RenderCache` and drops the memo in `invalidate()`. Re-deriving every
   line per frame is what makes a long transcript feel slow.
+
+A screen that lists rows and opens a pane subclasses
+[`lib/tui/dock-screen.ts`](./lib/tui/dock-screen.ts) rather than re-assembling
+the frame; `/jobs`, `/watch`, `/agents`, and `/check` all do. Extend the base
+with an opt-in member whose default is the current behaviour, and prove the seam
+by leaving the existing subclasses and their tests untouched — that is the test
+of whether it belongs in the base at all.
 
 ## Prompt conventions
 
