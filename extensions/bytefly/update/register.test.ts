@@ -46,6 +46,8 @@ interface BootOptions {
 	latest?: string;
 	latestFails?: boolean;
 	subscriptionFails?: boolean;
+	/** The package-manager read answers "cannot run" (undefined), not "nothing to update". */
+	listUnavailable?: boolean;
 	offline?: boolean;
 	mode?: string;
 	cache?: ReturnType<typeof memoryCache>;
@@ -75,6 +77,7 @@ function boot(options: BootOptions = {}) {
 		readUpdates: async () => {
 			reads.push(1);
 			if (options.subscriptionFails) throw new Error("package manager unavailable");
+			if (options.listUnavailable) return undefined;
 			return options.updates ?? [];
 		},
 		fetchLatest: async () => {
@@ -183,6 +186,16 @@ describe("update check", () => {
 
 		expect(booted.state.latest()).toBeUndefined();
 		expect(booted.cache.writes).toEqual([]);
+		expect(booted.customMessages).toEqual([]);
+	});
+
+	test("leaves the marker and the cache alone when the check cannot run", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER, listUnavailable: true });
+		await booted.start();
+
+		expect(booted.reads).toHaveLength(1);
+		expect(booted.cache.writes).toEqual([]);
+		expect(booted.state.latest()).toBeUndefined();
 		expect(booted.customMessages).toEqual([]);
 	});
 
@@ -332,6 +345,14 @@ describe("recheck", () => {
 
 		expect(await booted.handle.recheck()).toEqual({ kind: "current" });
 		expect(booted.state.latest()).toBeUndefined();
+	});
+
+	test("reports a check that could not run as failed, not up to date", async () => {
+		const booted = boot({ updates: [OWN], listUnavailable: true });
+		await booted.start();
+
+		expect(await booted.handle.recheck()).toEqual({ kind: "failed" });
+		expect(booted.cache.writes).toEqual([]);
 	});
 
 	test("reports an unreadable package manager", async () => {

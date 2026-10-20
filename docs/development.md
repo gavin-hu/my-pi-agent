@@ -139,6 +139,16 @@ shows: Pi's own `Container` builds a fresh array on every call, so the built-in
 `bash` result legitimately misses, but a block bytefly frames should not start
 to.
 
+The same run prints a second table for session pricing: one re-price of a
+branch's usage records at 500, 3,000, and 10,000 records, plus 3,000 records
+against a 100-key rate table. The footer memoizes that total on the session leaf,
+so it is paid when an entry is appended, not every frame — which is why the block
+table cannot see it. The gate is the same kind: two re-prices of the same records
+must produce the same totals, and `scripts/render-bench.test.ts` asserts that on
+every platform. Treat **10 ms for one re-price** as the point worth investigating,
+and keep the per-record column near a microsecond; a rate table that is re-scanned
+per record shows up here as hundreds of microseconds per record.
+
 ## Cross-platform
 
 The package and its checks run on Windows, macOS, and Linux; CI runs the full

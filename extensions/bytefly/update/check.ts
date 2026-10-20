@@ -51,8 +51,14 @@ export interface AvailableUpdatesDeps {
 	checkForAvailableUpdates?: PackageUpdateCheck;
 }
 
-/** Every package Pi would update, or `[]` when the check cannot run. */
-export async function fetchAvailableUpdates(deps: AvailableUpdatesDeps): Promise<PackageUpdate[]> {
+/**
+ * Every package Pi would update, or `undefined` when the check cannot run.
+ *
+ * The distinction is load-bearing: an empty list is a real answer ("everything is
+ * current") that the caller caches for a day, while a failed read must leave the
+ * previous snapshot and the header marker alone.
+ */
+export async function fetchAvailableUpdates(deps: AvailableUpdatesDeps): Promise<PackageUpdate[] | undefined> {
 	try {
 		const agentDir = deps.agentDir ?? getAgentDir();
 		const settingsManager = SettingsManager.create(deps.cwd, agentDir, {
@@ -62,7 +68,7 @@ export async function fetchAvailableUpdates(deps: AvailableUpdatesDeps): Promise
 		const check = deps.checkForAvailableUpdates ?? ((current) => current.checkForAvailableUpdates());
 		return await check(manager);
 	} catch {
-		return [];
+		return undefined;
 	}
 }
 

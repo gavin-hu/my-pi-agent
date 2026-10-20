@@ -328,7 +328,8 @@ after the header's chrome version and adds its release URL to the notice. A
 session inside the 24-hour window reuses the cache without a package-manager
 call, and `/bytefly update` re-runs the check on demand. `PI_OFFLINE` uses the
 cached marker with no notice, only `tui` starts the background check, and a
-failed read is silent; see [Update check](#update-check).
+failed read is silent and not cached, so the next session tries again; see
+[Update check](#update-check).
 
 ## Commands
 

@@ -38,7 +38,7 @@ describe("fetchAvailableUpdates", () => {
 		expect(seen).toBeDefined();
 	});
 
-	test("returns an empty list when the check throws", async () => {
+	test("returns undefined when the check throws", async () => {
 		const list = await fetchAvailableUpdates({
 			cwd: process.cwd(),
 			agentDir: process.cwd(),
@@ -48,7 +48,8 @@ describe("fetchAvailableUpdates", () => {
 			},
 		});
 
-		expect(list).toEqual([]);
+		// Not `[]`: an empty list is a real "everything is current" answer.
+		expect(list).toBeUndefined();
 	});
 });
 

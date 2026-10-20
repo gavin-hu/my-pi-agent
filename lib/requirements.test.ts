@@ -6,6 +6,7 @@ import {
 	hardRequirementExtensions,
 	missingFindings,
 	pdfGuidance,
+	PROBE_CONCURRENCY,
 	probeAll,
 	probeExtension,
 	REQUIREMENTS,
@@ -221,6 +222,29 @@ describe("report shape", () => {
 	test("probes every declared extension in order", async () => {
 		const reports = await probeAll(seams());
 		expect(reports.map((report) => report.extension)).toEqual(Object.keys(REQUIREMENTS));
+	});
+
+	test("runs probes a few at a time, preserving declaration order", async () => {
+		let inFlight = 0;
+		let peak = 0;
+		const names = ["worktree", "rewind", "subagent", "plan", "job", "todo"];
+		const reports = await probeAll(
+			seams({
+				exec: async () => {
+					inFlight += 1;
+					peak = Math.max(peak, inFlight);
+					await Promise.resolve();
+					inFlight -= 1;
+					return { code: 0 };
+				},
+			}),
+			names,
+		);
+
+		expect(reports.map((report) => report.extension)).toEqual(names);
+		// Not serial (the sum of every probe), and never a burst of the whole table.
+		expect(peak).toBeGreaterThan(1);
+		expect(peak).toBeLessThanOrEqual(PROBE_CONCURRENCY);
 	});
 
 	test("missingFindings keeps only enabled extensions' hard failures", async () => {

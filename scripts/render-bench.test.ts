@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
-import { cacheHits, deterministic, fitsWidth, frame, session } from "./render-bench.ts";
+import { createPricer } from "../extensions/bytefly/footer/price/price.ts";
+import {
+	cacheHits,
+	deterministic,
+	fitsWidth,
+	frame,
+	priceConfig,
+	priceRecords,
+	priceStable,
+	session,
+} from "./render-bench.ts";
 
 /**
  * Blocks the gate renders. Enough to be a long transcript, small enough that
@@ -45,5 +55,18 @@ describe("long-session frames", () => {
 	test("the width gate rejects an overflowing line", () => {
 		expect(fitsWidth(["x".repeat(81)], 80)).toBe(false);
 		expect(fitsWidth(["x".repeat(80)], 80)).toBe(true);
+	});
+});
+
+describe("session pricing", () => {
+	test("a re-price of the same records is deterministic", () => {
+		expect(priceStable(priceRecords(200), priceConfig("default"))).toBe(true);
+	});
+
+	test("an unrelated wide table prices no cost but still totals tokens", () => {
+		const totals = createPricer(priceConfig("wide"))(priceRecords(10));
+		expect(totals.cost).toBe(0);
+		expect(totals.input).toBe(10_000);
+		expect(totals.cacheRead).toBe(200_000);
 	});
 });
