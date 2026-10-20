@@ -36,7 +36,8 @@ const RUN_CHROME_ROWS = 5;
 const RESULT_DEFAULT_ROWS = 12;
 const RESULT_CHROME_ROWS = 6;
 const DETAIL_DEFAULT_ROWS = 20;
-const DETAIL_CHROME_ROWS = 5;
+/** Header, summary, blank, blank, hint, and blank rows around the excerpt. */
+const DETAIL_CHROME_ROWS = 6;
 
 export interface CheckRunOptions {
 	command: string;
@@ -124,7 +125,6 @@ export class CheckResultComponent implements Component {
 	private readonly cursor: ListCursor;
 	private readonly pane = new LinePane();
 	private phase: "list" | "detail" = "list";
-	private detailFailure: Failure | undefined;
 
 	constructor(private readonly options: CheckResultOptions) {
 		this.cursor = new ListCursor(options.requestRender);
@@ -175,7 +175,6 @@ export class CheckResultComponent implements Component {
 			lines: formatFailureDetail(failure, this.options.result.tail, source),
 		});
 		this.pane.setScroll(0);
-		this.detailFailure = failure;
 		this.phase = "detail";
 		this.options.requestRender();
 	}
@@ -192,12 +191,11 @@ export class CheckResultComponent implements Component {
 			this.pane.fit(this.pane.visible);
 			const { start, end } = this.pane.window();
 			const body = this.pane.lines.slice(start, end).map((line) => clip(paint(this.theme, "label", line), w));
-			const detailSummary = this.detailFailure
-				? `${formatFailureLocation(this.detailFailure)}${SEPARATORS.item}${sanitizeLine(this.detailFailure.command)}`
-				: formatResultSummary(result);
+			// The pane's first line names the failure and its command, so the summary
+			// keeps the run's counts instead of printing the same line twice.
 			return dockListFrame({
 				header,
-				summary: clip(`  ${paint(this.theme, "meta", detailSummary)}`, w),
+				summary,
 				body,
 				range: start > 0 || end < total ? formatRange(this.theme, w, { start, end, total, label: "line" }) : undefined,
 				hint: screenHint(this.theme, w, ["Esc back", "j/k scroll", "g/G top/end"]),

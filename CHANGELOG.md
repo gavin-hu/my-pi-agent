@@ -163,6 +163,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `check`: the failure detail no longer prints the location line twice — the
+  pane's first line names the failure, so the header keeps the run's counts —
+  and its row budget was one short, which pushed the title rule off the top when
+  the excerpt was clipped.
+
 - `lib`: every docked list screen puts a blank line between the list and the
   focused row's footnotes, so `/check`'s failure excerpt no longer reads as a
   fourth failure and `/review`, `/rewind`, `/jobs`, `/watch` and the `/bytefly`
