@@ -154,6 +154,42 @@ when the `plan` extension is disabled. It also needs the packaged skill, which
 ships with the full package; loading only `extensions/plan` makes the command
 refuse rather than send a bare skill name.
 
+### Finding refactoring opportunities
+
+The packaged `refactor` skill audits a project or path for refactoring work before
+any code moves. It is model-invoked: a request such as "what should I refactor
+here?" can load it automatically, and `/skill:refactor` forces it. Discovery is
+read-only and returns a ranked shortlist instead of editing files.
+
+Give it a scope with a path, or let it use the current project:
+
+```text
+/skill:refactor @extensions
+/skill:refactor @extensions/plan
+/skill:refactor @extensions/plan/plans.ts
+```
+
+A directory is an audit scope, a file is the starting point, and several paths
+can be audited together. The skill reads the project's own instructions and CI
+thresholds first, then looks for duplication, oversized modules, coupling,
+structural drift, high-churn code with weak tests, test friction, and boundary
+erosion. It checks callers and tests before keeping a candidate, so intentional
+duplication and public API are not reported as opportunities.
+
+The report names the scope and method, then three to five candidates ranked as
+**Do next**, **Worth planning**, or **Leave it**. Each candidate includes
+`path:line` evidence, the proposed structural change, expected benefit, risk and
+blast radius, effort, and the commands that would verify it. Rejected signals are
+listed with their reasons. Nothing is edited during the audit.
+
+After you choose a candidate, the handoff keeps the refactor safe: state the
+behavior contract, run the project's check for a baseline, add characterization
+tests if the behavior is untested, enter plan mode when the change spans files or
+a public surface, make one structural change per step, and run the full check at
+the end. The skill is advisory rather than an enforcement layer; it can miss a
+request or be ignored, but `.pi/plans` review and the check command still gate
+the work once a refactor starts.
+
 ## Checking your work
 
 ### What it is
