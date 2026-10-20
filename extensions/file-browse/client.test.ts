@@ -104,6 +104,16 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("function updateProgress");
 	});
 
+	test("fades a table whose columns are out of view", () => {
+		// The right-edge fade is a class the client toggles from the real overflow,
+		// so a table that fits is never faded and neither is one scrolled to the end.
+		expect(CLIENT_JS).toContain("md-table-frame");
+		expect(CLIENT_JS).toContain("md-table-wrap");
+		expect(CLIENT_JS).toContain("browse-table-more");
+		expect(CLIENT_JS).toContain("scrollWidth - wrap.clientWidth");
+		expect(CLIENT_JS).toContain("wrap.scrollLeft");
+	});
+
 	test("steps hunks against the code viewport, not the window", () => {
 		// The pinned header sticks to the code pane's top, which is below the
 		// window top; scrolling the pane (not scrollIntoView) keeps p working.

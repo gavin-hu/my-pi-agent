@@ -74,7 +74,7 @@ describe("renderMarkdown blocks", () => {
 
 	test("renders tables with alignment, a scroll wrapper, and column scopes", () => {
 		const html = renderMarkdown("| a | b |\n| :--- | ---: |\n| 1 | 2 |");
-		expect(html).toContain('<div class="md-table-wrap"><table class="md-table">');
+		expect(html).toContain('<div class="md-table-frame"><div class="md-table-wrap"><table class="md-table">');
 		expect(html).toContain('<th scope="col" class="md-left">a</th>');
 		expect(html).toContain('<th scope="col" class="md-right">b</th>');
 		expect(html).toContain('<td class="md-left">1</td>');

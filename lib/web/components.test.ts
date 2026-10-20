@@ -57,6 +57,7 @@ describe("web components", () => {
 			".bf-md li.task{",
 			".bf-md .md-check{",
 			".bf-md table{",
+			".bf-md .md-table-frame{",
 			".bf-md .md-table-wrap{",
 			".bf-md th,.bf-md td{",
 			".bf-md thead th{",
@@ -81,7 +82,16 @@ describe("web components", () => {
 		expect(WEB_COMPONENTS_CSS).toContain(
 			".bf-md table{margin:0;border-collapse:collapse;table-layout:auto;width:auto;",
 		);
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-table-frame{position:relative}");
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-table-wrap{overflow-x:auto;");
+	});
+
+	test("draws the task checkbox so a done item can be green", () => {
+		// A disabled native checkbox is UA gray in both themes, so the success
+		// colour only reaches it once the box is drawn with appearance:none.
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-check{appearance:none;");
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-check:checked{border-color:var(--success);");
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-check:disabled{opacity:1}");
 	});
 
 	test("keeps Markdown table cells out of the prose word breaking", () => {

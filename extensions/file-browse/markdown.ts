@@ -463,7 +463,10 @@ function renderTable(lines: string[], start: number, ctx: Context): [string, num
 		rows.push(`<tr>${tds.join("")}</tr>`);
 	}
 	const table = `<table class="md-table"><thead><tr>${head}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
-	return [`<div class="md-table-wrap">${table}</div>`, i];
+	// The frame is the positioning context for the right-edge fade the client adds
+	// when the table scrolls; the scroller clips its own content, so the fade cannot
+	// live inside it.
+	return [`<div class="md-table-frame"><div class="md-table-wrap">${table}</div></div>`, i];
 }
 
 interface ListItem {
