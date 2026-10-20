@@ -53,6 +53,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the rejected-call shape in `lib/tool-result.ts`. Legitimate same-name
   wrappers are listed with reasons in the test.
 
+- docs: `AGENTS.md` is rebuilt from the current guides and code as a leaner
+  machine-facing contract: commands, the worktree and commit discipline, the
+  release constraints, the invariants, and the extension-README section order,
+  with the reasoning linked instead of restated.
+
 ### Removed
 
 - `plan`: the `/init` wrapper command is gone. Use `/skill:init` to start the
