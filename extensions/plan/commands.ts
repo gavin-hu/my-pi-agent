@@ -5,8 +5,7 @@
  * `Ctrl+Alt+P` toggles too. Two subcommands are reserved: `/plan review [path]`
  * opens a plan in the browser (and sends saved comments to the model as a
  * refinement), and `/plan list` shows the plans directory, newest first, with
- * Enter opening a review. `/init` enters plan mode and starts the packaged
- * `init` skill, whose goal is to create or update `AGENTS.md`.
+ * Enter opening a review.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -23,10 +22,6 @@ const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const REVIEW_PREFIX = "review";
 const LIST_PREFIX = "list";
-/** Explicit skill invocation; prompt expansion is enabled only for this command. */
-const INIT_INVOCATION = "/skill:init";
-/** The command name Pi lists for that skill, once the package's skills are loaded. */
-const INIT_SKILL_COMMAND = INIT_INVOCATION.slice(1);
 
 /** Notice text for the current mode; shared by `/plan` and the `Ctrl+Alt+P` shortcut. */
 export function planModeNotice(enabled: boolean): string {
@@ -204,28 +199,6 @@ export function registerCommands(
 			ensurePlanMode(runtime, ctx);
 			if (ctx.isIdle()) await pi.sendUserMessage(prompt);
 			else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
-		},
-	});
-
-	pi.registerCommand("init", {
-		description: "Initialize or update AGENTS.md through an interactive interview and a reviewed plan",
-		handler: async (_args, ctx) => {
-			// Loading only this extension leaves the packaged skill behind. Refuse before
-			// entering plan mode, so a failed invocation does not change the session.
-			const hasSkill = pi
-				.getCommands()
-				.some((command) => command.name === INIT_SKILL_COMMAND && command.source === "skill");
-			if (!hasSkill) {
-				ctx.ui.notify(
-					"/init needs its packaged skill. Load the whole package with `pi -e .` or install it, instead of loading only ./extensions/plan.",
-					"warning",
-				);
-				return;
-			}
-			ensurePlanMode(runtime, ctx);
-			const options = { expandPromptTemplates: true };
-			if (ctx.isIdle()) await pi.sendUserMessage(INIT_INVOCATION, options);
-			else await pi.sendUserMessage(INIT_INVOCATION, { ...options, deliverAs: "followUp" });
 		},
 	});
 }

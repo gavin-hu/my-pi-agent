@@ -15,8 +15,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   read-only; after a choice it hands off to a contract, a baseline, small
   verified steps, and the full check.
 
-- `plan`: `/init` enters plan mode and starts the redesigned packaged `init`
-  skill. It reconnoiters the repository, asks one built-in interview of at most
+- `plan`: the packaged `init` skill is invoked as `/skill:init`. It reconnoiters
+  the repository, asks one built-in interview of at most
   four questions (purpose, verification, rules, isolation, completion, sensitive
   paths, and dependency or network limits, plus state-specific prompts), and turns
   the answers and evidence into a draft or exact edits. Existing and empty
@@ -52,6 +52,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `stringList`, `lineOf`, and `clipLabel` in `lib/`, `messageOf` in `lib/errors.ts`,
   and the rejected-call shape in `lib/tool-result.ts`. Legitimate same-name
   wrappers are listed with reasons in the test.
+
+### Removed
+
+- `plan`: the `/init` wrapper command is gone. Use `/skill:init` to start the
+  packaged `init` skill; the skill enters plan mode itself.
 
 ### Fixed
 

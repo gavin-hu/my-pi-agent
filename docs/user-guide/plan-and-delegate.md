@@ -123,15 +123,15 @@ describe precisely.
   RPC offers the same choices as a select menu; a run with no UI at all fails
   with an actionable message instead of approving for you.
 
-### Initializing AGENTS.md with /init
+### Initializing AGENTS.md with /skill:init
 
-`/init` creates or updates the project's `AGENTS.md` through a short built-in
-interview and the same plan review. It enters plan mode, reconnoiters the
+`/skill:init` creates or updates the project's `AGENTS.md` through a short built-in
+interview and the same plan review. The skill enters plan mode, reconnoiters the
 repository, asks up to four questions, and prepares a proposal. Nothing is written
 until you approve the plan.
 
 ```text
-/init
+/skill:init
   └─> plan mode (read-only)
         └─> recon: manifests, docs, CI, tests, existing instructions
         └─> interview: built-in bank, one call of at most 4 questions
@@ -145,8 +145,8 @@ until you approve the plan.
                                                  └─ read back + quality checklist
 ```
 
-The command uses a packaged skill, so the whole workflow is explicit rather than
-an improvised prompt. The built-in bank covers purpose, verification commands,
+The skill uses a packaged question bank, so the whole workflow is explicit rather
+than an improvised prompt. The built-in bank covers purpose, verification commands,
 non-obvious rules, isolation, completion, sensitive paths, and dependency or
 network limits, with state-specific questions for an existing `AGENTS.md`, an
 empty repository, and related instruction files. The first call uses a
@@ -160,10 +160,9 @@ that defines it, keeps the file short and specific, and preserves correct
 instructions in an existing `AGENTS.md`. An accurate file can produce a no-op plan
 instead of rewriting it. Both an existing repository and an empty one are
 supported; an empty repository gets only known facts, with no invented commands.
-`/init` needs plan mode, so it is unavailable when the `plan` extension is
-disabled. It also needs the packaged skill, which ships with the full package;
-loading only `extensions/plan` makes the command refuse rather than send a bare
-skill name.
+`/skill:init` needs plan mode, so it is unavailable when the `plan` extension is
+disabled. It ships with the full package; loading only `extensions/plan` makes
+`/skill:init` unavailable rather than sending a bare skill name.
 
 ### Finding refactoring opportunities
 

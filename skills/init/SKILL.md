@@ -1,6 +1,6 @@
 ---
 name: init
-description: "Initialize or refresh AGENTS.md through a built-in interactive interview and a reviewed plan. Use when the user runs /init or asks to set up project agent instructions."
+description: "Initialize or refresh AGENTS.md through a built-in interactive interview and a reviewed plan. Use when the user runs /skill:init or asks to set up project agent instructions."
 disable-model-invocation: true
 ---
 
@@ -11,14 +11,14 @@ evidence with a short, built-in interview. The interview captures intent the cod
 cannot show; the repository supplies every command, path, and convention that can
 be verified. Plan mode is the review gate: no write happens before approval.
 
-`/init` enters plan mode and sends this skill. If plan mode is not active, call
+`/skill:init` loads this skill. If plan mode is not active, call
 `enter_plan_mode` and wait for confirmation. Keep the interview and the plan
 review in that order; do not write the file early to save a step.
 
 ## Workflow
 
 ```text
-/init
+/skill:init
   └─> plan mode (read-only)
         └─> recon: manifests, docs, CI, tests, existing instructions
         └─> interview: one built-in question call (at most 4)
