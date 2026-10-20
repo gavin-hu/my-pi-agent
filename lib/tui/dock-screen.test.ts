@@ -104,12 +104,100 @@ class StubScreen extends DockListScreen<Row> {
 	}
 }
 
+/**
+ * Exercises the optional members a screen with more than a fixed body needs:
+ * width-aware facts, a pane that re-reads its source, a verb inside the pane,
+ * and hints that see the rows and the open row.
+ */
+class FeatureScreen extends DockListScreen<Row> {
+	readonly verbs: string[] = [];
+	readonly hintRows: number[] = [];
+	readonly hintDetail: (string | undefined)[] = [];
+	lines: Record<string, string[]> = { r1: ["first read"], r2: ["other"] };
+	facts: string[] = [];
+
+	constructor(
+		private rows_: Row[],
+		viewportRowsSource?: number,
+	) {
+		super({
+			theme: fakeTheme,
+			title: "Feature",
+			detailTitle: "Feature Detail",
+			emptyList: "Nothing here.",
+			emptyDetail: "No lines yet.",
+			requestRender: () => {},
+			onClose: () => {},
+			viewportRowsSource,
+		});
+	}
+
+	setRows(rows: Row[]): void {
+		this.rows_ = rows;
+	}
+
+	protected rows(): readonly Row[] {
+		return this.rows_;
+	}
+
+	protected idOf(row: Row): string {
+		return row.id;
+	}
+
+	protected rowLine(row: Row, width: number): string {
+		return ` ${row.label}`.slice(0, Math.max(1, width));
+	}
+
+	protected detailBlock(): string[] {
+		return [];
+	}
+
+	protected summaryCells(rows: readonly Row[]): string[] {
+		return [`${rows.length} rows`];
+	}
+
+	protected listHints(rows: readonly Row[]): ScreenHint[] {
+		this.hintRows.push(rows.length);
+		return [`${rows.length} rows to pick`];
+	}
+
+	protected detailHints(row: Row | undefined): ScreenHint[] {
+		this.hintDetail.push(row?.id);
+		return ["Esc back"];
+	}
+
+	protected detailFor(row: Row): DetailContents {
+		return {
+			title: row.id,
+			lines: this.lines[row.id] ?? [],
+			facts: (width) => this.facts.map((fact) => fact.slice(0, width)),
+		};
+	}
+
+	/** The source is the row itself, so a removed row is gone here too. */
+	protected detailById(id: string): DetailSource | undefined {
+		const row = this.rows().find((entry) => entry.id === id);
+		return row ? { lines: this.lines[id] ?? [] } : undefined;
+	}
+
+	protected liveDetail(): boolean {
+		return true;
+	}
+
+	protected handleDetailVerb(key: string, row: Row): boolean {
+		this.verbs.push(`${key}:${row.id}`);
+		return key === "c";
+	}
+
+	protected handleVerb(): void {}
+}
+
 const rows = (): Row[] => [
 	{ id: "r1", label: "first", active: true },
 	{ id: "r2", label: "second", active: false },
 ];
 
-function frame(screen: StubScreen, width = 60): string[] {
+function frame(screen: { render(width: number): string[] }, width = 60): string[] {
 	return screen.render(width);
 }
 
@@ -246,5 +334,84 @@ describe("DockListScreen", () => {
 		for (const width of [12, 30, 80]) {
 			for (const line of frame(screen, width)) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 		}
+	});
+});
+
+describe("DockListScreen optional members", () => {
+	test("draws width-aware facts above the body and counts them against the height", () => {
+		const source = Array.from({ length: 40 }, (_, index) => `body ${index}`);
+		const open = (facts: string[]): FeatureScreen => {
+			const screen = new FeatureScreen(rows(), 14);
+			screen.lines = { r1: source };
+			screen.facts = facts;
+			screen.handleInput("\r");
+			return screen;
+		};
+
+		const plain = open([]);
+		const withFacts = open(["Task  the auth module", "Cwd   /repo", "Usage  2k"]);
+		const bodyLines = (screen: FeatureScreen): number => frame(screen).filter((line) => line.includes("body ")).length;
+
+		const lines = frame(withFacts);
+		for (const fact of ["Task", "Cwd", "Usage"]) {
+			expect(lines.some((line) => line.includes(fact))).toBe(true);
+		}
+		// The facts sit above the body, and their rows come out of the pane's budget.
+		const firstFact = lines.findIndex((line) => line.includes("Task"));
+		const firstBody = lines.findIndex((line) => line.includes("body "));
+		expect(firstFact).toBeGreaterThanOrEqual(0);
+		expect(firstBody).toBeGreaterThan(firstFact);
+		expect(bodyLines(withFacts)).toBeLessThan(bodyLines(plain));
+	});
+
+	test("re-reads a live pane on every frame", () => {
+		const screen = new FeatureScreen(rows());
+		screen.handleInput("\r");
+		expect(frame(screen).some((line) => line.includes("first read"))).toBe(true);
+
+		// No refresh call: a live screen's source is read while rendering.
+		screen.lines = { r1: ["second read"] };
+		const lines = frame(screen);
+		expect(lines.some((line) => line.includes("second read"))).toBe(true);
+		expect(lines.some((line) => line.includes("first read"))).toBe(false);
+	});
+
+	test("returns to the list when a live row disappears", () => {
+		const screen = new FeatureScreen(rows());
+		screen.handleInput("\r");
+		expect(frame(screen)[0]).toContain("Feature Detail");
+
+		screen.setRows([]);
+		const lines = frame(screen);
+		expect(lines[0]).toContain("Feature");
+		expect(lines[0]).not.toContain("Detail");
+		expect(lines.some((line) => line.includes("Nothing here."))).toBe(true);
+	});
+
+	test("offers a verb inside the pane and only consumes what it handles", () => {
+		const screen = new FeatureScreen(rows());
+		screen.handleInput("\r");
+		screen.handleInput("c");
+		screen.handleInput("j");
+
+		// The verb saw both keys; it claimed `c` and left `j` for the pane to scroll.
+		expect(screen.verbs).toEqual(["c:r1", "j:r1"]);
+	});
+
+	test("passes the rows to the list hints and the open row to the detail hints", () => {
+		const screen = new FeatureScreen(rows());
+		frame(screen);
+		expect(screen.hintRows.at(-1)).toBe(2);
+
+		screen.handleInput("\r");
+		frame(screen);
+		expect(screen.hintDetail.at(-1)).toBe("r1");
+	});
+
+	test("keeps a pane fixed between frames when it is not live", () => {
+		// StubScreen has a pollable source but no live pane: its lines wait for the host.
+		const screen = new StubScreen(rows());
+		screen.handleInput("\r");
+		expect(frame(screen)).toEqual(frame(screen));
 	});
 });
