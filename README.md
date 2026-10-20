@@ -193,7 +193,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | [User guide](./docs/user-guide.md) | Every feature in plain language, with step-by-step walkthroughs, keys, and commands. |
 | [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
 | [Configuration reference](./docs/references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
-| [Architecture](./docs/architecture.md) | How the package, its extensions, and `lib/` fit together. |
+| [Architecture](./docs/architecture.md) | The load path, runtime model, state, process shapes, and where new code belongs. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |

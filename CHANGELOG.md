@@ -19,6 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
+  contributor: five diagrams (the load path, an extension's anatomy, a turn, the
+  process shapes, and where new code belongs), the state stores, the three ways
+  extensions cooperate, and a reading tour. It explains the reasons and links the
+  normative docs instead of restating them.
+
 - docs: `docs/extensions.md` is removed. The grouped catalog in `README.md` is the
   one surface list, and each `extensions/<name>/README.md` still carries the full
   tool, command, and design detail. The two tests that read the catalog go with
