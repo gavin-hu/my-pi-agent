@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import type { NoticeDetails } from "../../../lib/notice.ts";
+import type { NoticeDetails, NoticeSeverity } from "../../../lib/notice.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { NoticeComponent, noticeLines } from "./component.ts";
 
@@ -32,6 +32,24 @@ describe("noticeLines", () => {
 		const lines = noticeLines(many, fakeTheme, 80);
 		expect(lines).toHaveLength(10);
 		expect(lines.at(-1)).toContain("4 more");
+	});
+
+	test("falls back for a severity the stored data does not know", () => {
+		// `details` crosses a session-JSON boundary, so a hand-edited or older
+		// message can carry a word the config has no role for; the rail must still
+		// be painted instead of asking the theme for an unknown token.
+		const unknown: NoticeDetails = {
+			source: "job",
+			title: "x",
+			severity: "loud" as NoticeSeverity,
+			items: [{ label: "row", severity: "shout" as NoticeSeverity }],
+		};
+		const text = noticeLines(unknown, coloringTheme, 80).join("\n");
+		// The rail and the row glyph are drawn from the fallback severity, never
+		// from an absent role (which `coloringTheme` would print as `[undefined]`).
+		expect(text).toContain("╎");
+		expect(text).toContain("◌");
+		expect(text).not.toContain("[undefined]");
 	});
 
 	test("sanitizes an untrusted label", () => {

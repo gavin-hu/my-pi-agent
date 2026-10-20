@@ -772,9 +772,10 @@ export async function probeExtension(extension: string, seams: ProbeSeams): Prom
 /**
  * Probe every declared extension, or just `names`, in declaration order.
  *
- * Sequential on purpose: the caller runs this on a session-start budget, and a
- * burst of parallel probes would trade a few milliseconds for a burst of child
- * processes.
+ * Sequential: the caller is a user-facing report or the panel's refresh, and a
+ * burst of probes would trade a few milliseconds for a burst of child
+ * processes. The session-start check does not come through here; it probes only
+ * the hard requirements, concurrently (see `probeRequired`).
  */
 export async function probeAll(
 	seams: ProbeSeams,

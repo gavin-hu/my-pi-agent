@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { readJson, SHARED_CONFIG_FILE } from "../../../lib/config.ts";
@@ -182,6 +182,20 @@ describe("bytefly writes", () => {
 
 		expect(readJson(globalPath)).toEqual({ price: { currency: { code: "USD", decimals: 3 } } });
 		expect(valueOf(runtime, "global", "price.currency.code")).toBe("USD");
+	});
+
+	test("applies the currency and its companion leaf as one write", async () => {
+		const { runtime, globalPath, notices } = boot();
+		// A document the writer refuses: nothing may be half-applied, so the code
+		// must not land while its precision does.
+		const before = "{ not json";
+		writeFileSync(globalPath, before);
+
+		await runtime.change("global", "price.currency.code");
+
+		expect(notices.at(-1)).toContain("Could not save Currency");
+		expect(readFileSync(globalPath, "utf-8")).toBe(before);
+		expect(valueOf(runtime, "global", "price.currency.code")).toBe("CNY");
 	});
 
 	test("writes a nested leaf and keeps the section's siblings and metadata", async () => {

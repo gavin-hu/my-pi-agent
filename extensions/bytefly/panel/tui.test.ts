@@ -992,6 +992,26 @@ describe("PanelComponent text editing", () => {
 		expect(text).toContain(`${"Poi"}${"x".repeat(37)}`);
 		expect(text).not.toContain("x".repeat(38));
 	});
+	test("strips bracketed-paste markers from a pasted value", async () => {
+		const settings = makeSettings({ global: { notify: { title: "Pi" } } });
+		const { component } = build({ items: [], section: "settings", settings: settings.surface });
+
+		focus(component, "Notification title");
+		component.handleInput("\r");
+		// A terminal wraps a paste in `\x1b[200~` … `\x1b[201~` before the component
+		// sees it; their ESC is dropped as a control character, so the marker text
+		// itself has to be stripped or it lands in the stored value.
+		component.handleInput("\x1b[200~Build finished\x1b[201~");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("PiBuild finished▏");
+		expect(text).not.toContain("[200~");
+
+		component.handleInput("\r");
+		await settle();
+		await settle();
+		expect(settings.changes).toContain("global:notify.title=PiBuild finished");
+	});
 });
 
 describe("PanelComponent settings actions", () => {
@@ -1060,6 +1080,24 @@ describe("PanelComponent settings actions", () => {
 		component.handleInput("\t");
 		const afterScope = component.render(80).join("\n");
 		expect(afterScope).not.toContain('"baseRef": "head"');
+	});
+
+	test("does not reopen the JSON pane after the focus visits a Global-only row", () => {
+		const { component } = build({
+			items: [],
+			section: "settings",
+			globalDoc: { worktree: { baseRef: "head" } },
+		});
+
+		focus(component, "Base ref");
+		component.handleInput("J");
+		expect(component.render(80).join("\n")).toContain('"baseRef": "head"');
+
+		// Land on an app row (no section), then walk back to the same config row.
+		component.handleInput("g");
+		expect(component.render(80).join("\n")).not.toContain('"baseRef": "head"');
+		focus(component, "Base ref");
+		expect(component.render(80).join("\n")).not.toContain('"baseRef": "head"');
 	});
 
 	test("explains that a Pi setting has no section to show", () => {

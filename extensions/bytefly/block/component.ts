@@ -28,7 +28,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { BODY_INDENT, bodyLines, indentBlockLines } from "../../../lib/tui/indent.ts";
+import { BODY_INDENT, bodyLines, indentBlockLines, isBlank } from "../../../lib/tui/indent.ts";
 import { RenderCache } from "../../../lib/tui/render-cache.ts";
 import { paintPrefix } from "../../../lib/tui/tokens.ts";
 
@@ -175,14 +175,6 @@ export function isRewritable(component: Component): component is Component & Rew
 }
 
 /**
- * Whether a line has no visible text. Tested after stripping terminal sequences,
- * so a line carrying only a background or the indent counts as blank.
- */
-function isBlankLine(line: string): boolean {
-	return stripTerminalSequences(line).trim().length === 0;
-}
-
-/**
  * Whether a call line degenerated to the tool name alone, so the rest of it —
  * the path, the command — moved onto the body lines under it.
  *
@@ -195,7 +187,7 @@ function isBlankLine(line: string): boolean {
  */
 function isBareHeadline(body: readonly string[], toolName: string | undefined): boolean {
 	if (!toolName) return false;
-	const headline = body.find((line) => !isBlankLine(line));
+	const headline = body.find((line) => !isBlank(line));
 	return headline !== undefined && stripTerminalSequences(headline).trim() === sanitizeLine(toolName);
 }
 
@@ -206,9 +198,9 @@ function isBareHeadline(body: readonly string[], toolName: string | undefined): 
  */
 function callContinuationCount(body: readonly string[], toolName: string | undefined): number {
 	if (!isBareHeadline(body, toolName)) return 0;
-	let index = body.findIndex((line) => !isBlankLine(line)) + 1;
+	let index = body.findIndex((line) => !isBlank(line)) + 1;
 	let count = 0;
-	while (index < body.length && !isBlankLine(body[index] ?? "")) {
+	while (index < body.length && !isBlank(body[index] ?? "")) {
 		count++;
 		index++;
 	}
@@ -228,7 +220,7 @@ function frameLines(
 	options: ToolBlockOptions = {},
 ): string[] {
 	const w = Math.max(1, width);
-	const indent = (outputPad ?? 0) + BODY_INDENT;
+	const indent = outputPad + BODY_INDENT;
 	const lines = indentBlockLines(body, w, {
 		indent,
 		rail: options.rail,
@@ -277,7 +269,7 @@ export function toolBlockLines(
 	options: ToolBlockOptions = {},
 ): string[] {
 	const w = Math.max(1, width);
-	const indent = (outputPad ?? 0) + BODY_INDENT;
+	const indent = outputPad + BODY_INDENT;
 	return frameLines(bodyLines(inner, w, indent), w, outputPad, options);
 }
 
@@ -307,7 +299,7 @@ export class ToolBlock implements Component {
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const indent = (this.outputPad ?? 0) + BODY_INDENT;
+		const indent = this.outputPad + BODY_INDENT;
 		const body = bodyLines(this.inner, w, indent);
 		return this.cache.lines(w, body, () => frameLines(body, w, this.outputPad, this.options));
 	}

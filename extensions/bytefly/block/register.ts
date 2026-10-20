@@ -55,7 +55,12 @@ import { isRewritable, recolorCallHeadline, recolorShellCall, ToolBlock } from "
 import { BLOCK_CONFIG, type BlockStatus } from "./config.ts";
 import { callFallback, resultFallback } from "./fallback.ts";
 
-/** Per-row memory of the base renderer's own components, kept off Pi's state. */
+/**
+ * Per-row memory of the base renderer's own components, stored in the `state`
+ * Pi creates for one tool row and hands to both its call and its result
+ * renderer. Keeping the base components there is what lets the row keep them
+ * while `lastComponent` points at this frame instead.
+ */
 interface BlockMemory {
 	byteflyBaseCall?: Component;
 	byteflyBaseResult?: Component;

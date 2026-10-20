@@ -56,7 +56,7 @@ export interface IndentOptions {
  * line that is only spaces carrying a background (a `Box`'s own padding) counts
  * as blank rather than as content.
  */
-function isBlank(line: string): boolean {
+export function isBlank(line: string): boolean {
 	return stripTerminalSequences(line).trim().length === 0;
 }
 

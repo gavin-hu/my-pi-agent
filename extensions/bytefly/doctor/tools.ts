@@ -57,7 +57,11 @@ export function registerTools(pi: ExtensionAPI, runtime: DoctorRuntime): void {
 		],
 		parameters: DoctorParams,
 		outputSchema: DoctorOutput,
+		// `refresh` reaches the configured search endpoint, but that URL comes from
+		// config, not from the model, so the tool stays closed-world for the policy.
+		// `probeAll` writes the session's report cache, so its calls are ordered.
 		annotations: { readOnlyHint: true, openWorldHint: false },
+		executionMode: "sequential",
 
 		async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
 			const args = params as DoctorArgs;

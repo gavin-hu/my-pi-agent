@@ -6,6 +6,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `bytefly`: the footer prices a growing session in bounded time. The rate table
+  is compiled once per config instead of being re-split for every record on every
+  appended entry, the lookup remembers the model it just matched, the context
+  estimate and session name join the pricing scan in the leaf-keyed memo, and a
+  turn separator reuses its line instead of rebuilding the full-width rule each
+  frame. A 3,000-record branch with a 100-key `rates` table cost about 200 ms per
+  new message before; it now costs fractions of a millisecond.
+
+- `bytefly`: the Settings JSON pane no longer reopens when the focus returns to
+  a row after moving to a Global-only row (Theme, startup TUI, output pad,
+  hardware cursor); closing it takes a `J`, as the key's own hint says.
+
+### Fixed
+
+- `bytefly`: a value pasted into a Settings text row is stored as typed. The
+  terminal's bracketed-paste markers are stripped first, so a pasted
+  notification title no longer lands in `bytefly.json` as `[200~…[201~`.
+
+- `bytefly`: a rate key may name a model id that contains a slash, so an
+  OpenRouter model can be priced exactly by
+  `openrouter/anthropic/claude-fable-5` instead of only through `openrouter/*`.
+  A key splits at its first slash; the model segment keeps the rest.
+
+- `bytefly`: changing the footer currency writes the code and its default
+  precision in one document pass, so a write that cannot finish leaves neither
+  value behind instead of half-applying the row.
+
 ## [0.15.0] - 2026-10-20
 
 ### Added

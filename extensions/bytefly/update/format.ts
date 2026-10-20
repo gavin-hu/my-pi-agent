@@ -35,7 +35,7 @@ export function releaseUrl(version: string): string | undefined {
 }
 
 /** Whether a row is this package, whose version the header and notice show. */
-function isOwnPackage(update: PackageUpdate): boolean {
+export function isOwnPackage(update: PackageUpdate): boolean {
 	return update.type === "npm" && update.displayName === pkg.name;
 }
 
@@ -63,6 +63,11 @@ function headline(count: number): string {
 	return count === 1 ? "1 package update available" : `${count} package updates available`;
 }
 
+/** The headline and the package names, the sentence both answers open with. */
+function namesLine(updates: readonly PackageUpdate[]): string {
+	return `${headline(updates.length)}: ${updates.map((update) => update.displayName).join(", ")}.`;
+}
+
 /** The release URL for this package's new version, when it is known. */
 function ownRelease(ownLatest?: string): string | undefined {
 	return ownLatest ? releaseUrl(ownLatest) : undefined;
@@ -72,8 +77,7 @@ function ownRelease(ownLatest?: string): string | undefined {
 export function updateNotice(updates: readonly PackageUpdate[], current: string, ownLatest?: string): NoticeMessage {
 	const own = updates.find(isOwnPackage);
 	const release = own ? ownRelease(ownLatest) : undefined;
-	const names = updates.map((update) => update.displayName).join(", ");
-	const parts = [`${headline(updates.length)}: ${names}.`];
+	const parts = [namesLine(updates)];
 	if (own && ownLatest) parts.push(`${pkg.name} v${current} → v${ownLatest}.`);
 	parts.push(`Run \`${UPDATE_COMMAND}\` to update.`);
 	if (release) parts.push(`Release notes: ${release}`);
@@ -112,10 +116,9 @@ export function updateOutcomeText(
 		case "current":
 			return { text: "bytefly: up to date — no configured package has an update.", severity: "info" };
 		case "available": {
-			const names = outcome.updates.map((update) => update.displayName).join(", ");
 			const own = outcome.updates.some(isOwnPackage);
 			const release = own ? ownRelease(outcome.ownLatest) : undefined;
-			const parts = [`bytefly: ${headline(outcome.updates.length)}: ${names}.`];
+			const parts = [`bytefly: ${namesLine(outcome.updates)}`];
 			if (own && outcome.ownLatest) parts.push(`This package is v${current} → v${outcome.ownLatest}.`);
 			parts.push(`Run ${UPDATE_COMMAND}.`);
 			if (release) parts.push(`Release notes: ${release}`);

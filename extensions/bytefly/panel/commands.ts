@@ -252,6 +252,9 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		await withRailsSuppressed(pi, () =>
 			ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 				const unsubscribe = runtime.onChange(() => tui.requestRender());
+				// The settings runtime re-reads its snapshot after a write; without a
+				// subscriber that repaint depends on every write chain's own callback.
+				const unsubscribeSettings = settings.onChange(() => tui.requestRender());
 				const component = new PanelComponent({
 					runtime,
 					reports: () => reports,
@@ -273,6 +276,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 						// A late error falls back to the transcript, never a disposed screen.
 						panel = undefined;
 						unsubscribe();
+						unsubscribeSettings();
 						done();
 					},
 				});

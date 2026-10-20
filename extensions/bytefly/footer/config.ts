@@ -1,8 +1,8 @@
 /**
  * Tuning for the two-line status bar.
  *
- * The bar's own content and layout: context thresholds, gauge glyphs and
- * widths, separators, icons, status keys, and label limits. Segment weights
+ * The bar's own content and layout: context thresholds, gauge widths,
+ * separators, icons, status keys, and label limits. Segment weights
  * live on the segments themselves (see `../render/segments.ts`); the price
  * configuration is `bytefly.json`, read by `../price/config.ts`.
  */
@@ -12,8 +12,8 @@ import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 export const CONFIG = {
 	/** Context percentage thresholds. */
 	thresholds: { warn: 70, danger: 90 },
-	/** Gauge glyphs, and the block counts the gauge steps down through. */
-	gauge: { full: GLYPHS.gaugeFull, empty: GLYPHS.gaugeEmpty, widths: [10, 5, 3, 0] as const },
+	/** The block counts the context gauge steps down through. */
+	gauge: { widths: [10, 5, 3, 0] as const },
 	/**
 	 * Separators printed before grouped and other segments. The group divider is
 	 * the footer's own solid `│`, not the shared `╎`: that glyph is the transcript

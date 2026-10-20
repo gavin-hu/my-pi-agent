@@ -2,12 +2,30 @@
  * Rate lookup for a usage record.
  *
  * A key is `provider/model`, and either segment may be a wildcard: `*` matches
- * anything, and a trailing star matches a prefix (`gpt-*`). The most specific
- * key wins and the model segment outranks the provider one, so the documented
- * order is `provider/model`, then `any/model`, then `provider/any`, then `*`.
+ * anything, and a trailing star matches a prefix (`gpt-*`). The key splits at
+ * its first slash, so the model segment may itself contain one — an OpenRouter
+ * id is `anthropic/claude-fable-5`, and its key is
+ * `openrouter/anthropic/claude-fable-5`. The most specific key wins and the
+ * model segment outranks the provider one, so the documented order is
+ * `provider/model`, then `any/model`, then `provider/any`, then `*`.
+ *
+ * `createRateLookup` prepares the table once for a config: the keys are split
+ * at build time, and the last match is remembered, because a session prices
+ * hundreds of records from one model in a row. Splitting every key per record
+ * would rebuild the whole table on the footer's hot path, once per record.
  */
 
 import type { ModelRates } from "./types.ts";
+
+/** A prepared rate table: call once per record, not once per key. */
+export type RateLookup = (provider: string | null, model: string | null) => ModelRates | undefined;
+
+/** One compiled key: both segments already split out of the config string. */
+interface CompiledRate {
+	provider: string;
+	model: string;
+	value: ModelRates;
+}
 
 /** One segment's score against a value: exact 2, prefix 1, wildcard 0, no match -1. */
 function segmentScore(pattern: string, value: string): number {
@@ -17,38 +35,57 @@ function segmentScore(pattern: string, value: string): number {
 }
 
 /**
- * How specifically `key` matches a record, or `-1` when it does not.
+ * How specifically a compiled key matches a record, or `-1` when it does not.
  *
  * The model segment dominates: the score is weighted so every model score
  * outranks any provider score.
  */
-function matchKey(key: string, provider: string, model: string): number {
-	const parts = key.split("/");
-	if (parts.length === 1) return key === "*" ? 0 : -1;
-	if (parts.length !== 2) return -1;
-	const providerScore = segmentScore(parts[0], provider);
-	const modelScore = segmentScore(parts[1], model);
+function matchRate(entry: CompiledRate, provider: string, model: string): number {
+	const providerScore = segmentScore(entry.provider, provider);
+	const modelScore = segmentScore(entry.model, model);
 	if (providerScore < 0 || modelScore < 0) return -1;
 	return modelScore * 3 + providerScore;
 }
 
-/** The most specific configured rate, or `undefined` when none matches. */
-export function findRates(
-	rates: Readonly<Record<string, ModelRates>>,
-	provider: string | null,
-	model: string | null,
-): ModelRates | undefined {
-	// A record that names no model can only be priced by the catch-all.
-	if (!provider || !model) return rates["*"];
-	let best: ModelRates | undefined;
-	let bestScore = -1;
+/** Prepare `rates` for one config; the returned lookup remembers its last match. */
+export function createRateLookup(rates: Readonly<Record<string, ModelRates>>): RateLookup {
+	const compiled: CompiledRate[] = [];
+	let catchAll: ModelRates | undefined;
 	for (const [key, value] of Object.entries(rates)) {
-		const score = matchKey(key, provider, model);
-		// `>` keeps the first key in config order when two are equally specific.
-		if (score > bestScore) {
-			best = value;
-			bestScore = score;
+		const slash = key.indexOf("/");
+		if (slash < 0) {
+			// A bare key is the catch-all only when it is `*`; anything else is
+			// malformed and never matches.
+			if (key === "*") {
+				catchAll = value;
+				compiled.push({ provider: "*", model: "*", value });
+			}
+			continue;
 		}
+		compiled.push({ provider: key.slice(0, slash), model: key.slice(slash + 1), value });
 	}
-	return best;
+
+	let lastProvider: string | null = null;
+	let lastModel: string | null = null;
+	let last: ModelRates | undefined;
+
+	return (provider, model) => {
+		// A record that names no model can only be priced by the catch-all.
+		if (!provider || !model) return catchAll;
+		if (provider === lastProvider && model === lastModel) return last;
+		let best: ModelRates | undefined;
+		let bestScore = -1;
+		for (const entry of compiled) {
+			const score = matchRate(entry, provider, model);
+			// `>` keeps the first key in config order when two are equally specific.
+			if (score > bestScore) {
+				best = entry.value;
+				bestScore = score;
+			}
+		}
+		lastProvider = provider;
+		lastModel = model;
+		last = best;
+		return best;
+	};
 }
