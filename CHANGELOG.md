@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the injected plan-mode context states each rule once — the shell rule no
+  longer repeats the read-only summary, and the delegation bullet leaves "forced
+  read-only" to the line that already carries it — so a planning turn's always-on
+  context is about 110 characters smaller and its budget ceiling drops from 1100
+  to 960.
+
 - `bytefly`: the footer prices a growing session in bounded time. The rate table
   is compiled once per config instead of being re-split for every record on every
   appended entry, the lookup remembers the model it just matched, the context
@@ -31,6 +37,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   table — with a determinism gate in the suite.
 
 ### Fixed
+
+- `plan`: ticking a step with `set_plan_steps` also ticks the todo item approval
+  seeded from it. Before, only the plan file changed, so the todo widget and the
+  goal's open-item check kept reporting work the plan said was done. The match is
+  on the step's text, so a renamed item is left alone and reported, and the file
+  stays authoritative when the nested write fails.
+
+- `plan`: `set_plan_steps` requires each update's `expected` step text. The
+  stale-step guard was opt-in, so an update that omitted it could tick the step
+  that moved into that number after an edit; a missing `expected` is now refused
+  by the tool's schema instead of silently skipping the check.
 
 - `goal`: `/goal done` names the todo items the list still has open, in the same
   words the tool's result uses, so completing the *what* from the command cannot

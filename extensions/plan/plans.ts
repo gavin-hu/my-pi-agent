@@ -292,10 +292,9 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			const range = total === 0 ? "it has no steps" : `valid steps are 1 to ${total}`;
 			throw new Error(`Step ${outOfRange.step} is out of range; ${range}.`);
 		}
-		// A caller-supplied text is the guard against a reordered plan: refuse the
-		// whole batch rather than tick the step that moved into that number.
+		// The expected text is the guard against a reordered plan: refuse the whole
+		// batch rather than tick the step that moved into that number.
 		const stale = updates.find((update) => {
-			if (update.expected === undefined) return false;
 			const step = steps[update.step - 1];
 			return step === undefined || !matchesStepText(step.content, update.expected);
 		});

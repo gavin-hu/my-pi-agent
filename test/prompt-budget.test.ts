@@ -25,7 +25,7 @@ const WORKTREE: WorktreeState = {
 describe("injected prompt budget", () => {
 	test("plan mode context stays within its ceiling", () => {
 		const context = planModeContext();
-		expect(context.length).toBeLessThanOrEqual(1100);
+		expect(context.length).toBeLessThanOrEqual(960);
 		expect(context).toContain(PLAN_MODE_MARKER);
 	});
 
@@ -36,7 +36,7 @@ describe("injected prompt budget", () => {
 		// The objective is clipped, with an ellipsis, so a long goal cannot break the
 		// ceiling; `goal` still injects the full objective every turn.
 		expect(context).toContain("…");
-		expect(context.length).toBeLessThanOrEqual(1100);
+		expect(context.length).toBeLessThanOrEqual(960);
 	});
 
 	test("an achieved goal is not restated", () => {

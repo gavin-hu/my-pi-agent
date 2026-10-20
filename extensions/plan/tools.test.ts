@@ -948,8 +948,8 @@ describe("set_plan_steps", () => {
 			{
 				plan_path: planPath,
 				updates: [
-					{ step: 1, status: "completed" },
-					{ step: 3, status: "completed" },
+					{ step: 1, status: "completed", expected: "One" },
+					{ step: 3, status: "completed", expected: "Three" },
 				],
 			},
 			ctx,
@@ -970,7 +970,11 @@ describe("set_plan_steps", () => {
 		await approvePlan(exit, planPath, root);
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setSteps, { plan_path: planPath, updates: [{ step: 1, status: "pending" }] }, ctx);
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "pending", expected: "First" }] },
+			ctx,
+		);
 		const details = result.details as { done: number };
 
 		expect(result.isError).toBeUndefined();
@@ -1013,6 +1017,98 @@ describe("set_plan_steps", () => {
 		expect(readFileSync(planPath, "utf-8")).toBe("1. [x] One\n2. Two");
 	});
 
+	test("ticks the todo item approval seeded from the same step", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx, toolCalls } = fakeCtx({
+			cwd: root,
+			branch: todoBranch([
+				{ content: "One", status: "pending" },
+				{ content: "Two", status: "pending" },
+			]),
+		});
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
+			ctx,
+		);
+
+		expect(result.isError).toBeUndefined();
+		expect(toolCalls).toHaveLength(1);
+		expect(toolCalls[0]?.name).toBe(TODO_TOOL);
+		expect(toolCalls[0]?.args).toEqual({
+			todos: [
+				{ content: "One", status: "completed" },
+				{ content: "Two", status: "pending" },
+			],
+		});
+		expect(result.content[0].text).toContain("; 1 todo item updated");
+		expect(readFileSync(planPath, "utf-8")).toBe("1. [x] One\n2. Two");
+	});
+
+	test("writes nothing when the matching item is already in that state", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx, toolCalls } = fakeCtx({ cwd: root, branch: todoBranch([{ content: "One", status: "completed" }]) });
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
+			ctx,
+		);
+
+		expect(result.isError).toBeUndefined();
+		expect(toolCalls).toHaveLength(0);
+		expect(result.content[0].text).toContain("(1/1 done) in .pi/plans/");
+		expect(result.content[0].text).not.toContain("todo item");
+	});
+
+	test("reports a step with no matching todo item instead of inventing one", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx, toolCalls } = fakeCtx({ cwd: root, branch: todoBranch([{ content: "Renamed", status: "pending" }]) });
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
+			ctx,
+		);
+
+		expect(toolCalls).toHaveLength(0);
+		expect(result.content[0].text).toContain("; 1 step has no matching todo item");
+		expect(readFileSync(planPath, "utf-8")).toBe("1. [x] One");
+	});
+
+	test("reports a failed todo write without turning the written plan into an error", async () => {
+		const { enter, exit, write, setSteps, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One");
+		await approvePlan(exit, planPath, root);
+
+		const { ctx } = fakeCtx({
+			cwd: root,
+			branch: todoBranch([{ content: "One", status: "pending" }]),
+			executeError: "at most 50 todos are allowed",
+		});
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
+			ctx,
+		);
+
+		expect(result.isError).toBeUndefined();
+		expect(result.content[0].text).toContain("could not update 1 todo item in the todo list");
+		expect(result.content[0].text).toContain("at most 50 todos are allowed");
+		expect(readFileSync(planPath, "utf-8")).toBe("1. [x] One");
+	});
+
 	test("refuses when any step is out of range and leaves the file unchanged", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
@@ -1025,8 +1121,8 @@ describe("set_plan_steps", () => {
 			{
 				plan_path: planPath,
 				updates: [
-					{ step: 1, status: "completed" },
-					{ step: 5, status: "completed" },
+					{ step: 1, status: "completed", expected: "One" },
+					{ step: 5, status: "completed", expected: "Five" },
 				],
 			},
 			ctx,
@@ -1046,7 +1142,7 @@ describe("set_plan_steps", () => {
 		const { ctx } = fakeCtx({ cwd: root });
 		const result = await call(
 			setSteps,
-			{ plan_path: join(root, "secret.md"), updates: [{ step: 1, status: "completed" }] },
+			{ plan_path: join(root, "secret.md"), updates: [{ step: 1, status: "completed", expected: "One" }] },
 			ctx,
 		);
 
@@ -1060,7 +1156,11 @@ describe("set_plan_steps", () => {
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setSteps, { plan_path: planPath, updates: [{ step: 1, status: "completed" }] }, ctx);
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
+			ctx,
+		);
 
 		expect(result.isError).toBe(true);
 		expect(runtime.isEnabled()).toBe(true);

@@ -281,15 +281,19 @@ export function planStepSummary(plan: string): PlanStepSummary {
 }
 
 /** One checkbox change: a 1-based step number and the state to set. */
-export interface StepUpdate {
+export interface StepEdit {
 	step: number;
 	status: PlanStep["status"];
-	/**
-	 * The step's text when the plan was approved. When given, the update is
-	 * refused if the step at that number no longer carries this text, so a
-	 * reordered or rewritten plan is caught instead of ticking the wrong step.
-	 */
-	expected?: string;
+}
+
+/**
+ * A guarded checkbox change: the edit plus the step's text as it was listed at
+ * approval. The store refuses the batch when the step at that number no longer
+ * carries the text, so a reordered or rewritten plan is caught instead of
+ * ticking the wrong step.
+ */
+export interface StepUpdate extends StepEdit {
+	expected: string;
 }
 
 /** Whether the step text now at a number still matches what the caller expected. */
@@ -308,7 +312,7 @@ export function matchesStepText(actual: string, expected: string): boolean {
  * otherwise left exactly as written. When a step appears twice, the last entry
  * wins.
  */
-export function setStepStatuses(plan: string, updates: StepUpdate[]): string | undefined {
+export function setStepStatuses(plan: string, updates: readonly StepEdit[]): string | undefined {
 	const items = topLevelItems(plan);
 	for (const update of updates) {
 		if (!Number.isInteger(update.step) || update.step < 1 || !items[update.step - 1]) return undefined;
