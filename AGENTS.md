@@ -269,7 +269,7 @@ One doc per audience. Do not duplicate across them:
   relative links. Deep docs stay English until a translation owner exists.
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants rather than restating them.
-- `docs/` — repo-level guides: `user-guide` (every feature for an end user),
+- `docs/` — repo-level guides: `user-guide/` (the chaptered end-user manual),
   `configuration` (resolution, the settings screen, and every key with its
   default), `architecture`, `development`, and `security`. The catalog lives in
   `README.md`.

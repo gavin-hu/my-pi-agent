@@ -1,14 +1,14 @@
 # Documentation
 
 Guides for using, configuring, and extending `@gavin-hu/my-pi-agent`. Start with
-the [User guide](./user-guide.md), then jump to the guide you need. The deep
+the [User guide](./user-guide/), then jump to the guide you need. The deep
 technical contracts live outside this directory and are linked below.
 
 ## Guides
 
 | Guide | What it covers |
 |---|---|
-| [User guide](./user-guide.md) | Every feature explained for people who use Pi rather than work on it: an overview of each, then a numbered walkthrough with the keys and commands. |
+| [User guide](./user-guide/) | An eight-chapter manual for people who use Pi rather than work on it: install, each feature, settings, troubleshooting, and reference. |
 | [Configuration](./configuration.md) | Resolution rules, the settings screen, every section and key, and the environment variables. |
 | [Architecture](./architecture.md) | The load path, runtime model, state, process shapes, and where new code belongs. |
 | [Development](./development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |

@@ -354,5 +354,5 @@ If you are new to the tree, this order teaches one idea per stop:
 | Config resolution and the section index | [`./configuration.md`](./configuration.md) |
 | Trust boundaries | [`./security.md`](./security.md) |
 | Local setup, checks, and the release process | [`./development.md`](./development.md) |
-| What every feature does, for a user | [`./user-guide.md`](./user-guide.md) |
+| What every feature does, for a user | [`./user-guide/`](./user-guide/) |
 | Adding an extension, tool, or document | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) |

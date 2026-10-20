@@ -13,7 +13,7 @@ off what you do not want, and keep using Pi unchanged.
 
 This page is the catalog and the setup instructions. For how to use a feature —
 the keys, the commands, and what you should see — start with the
-[user guide](./docs/user-guide.md).
+[user guide](./docs/user-guide/).
 
 ![A terminal window running the Pi TUI with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar](assets/chrome.png)
 
@@ -59,7 +59,7 @@ Requires a working [Pi](https://pi.dev) installation.
 pi install npm:@gavin-hu/my-pi-agent
 ```
 
-[User guide](./docs/user-guide.md) has the other sources — git, a
+[User guide](./docs/user-guide/) has the other sources — git, a
 pinned release, a project-local install, and a trial that writes nothing — plus
 the fit decision, the first workflows, and how to remove the pack.
 
@@ -169,7 +169,7 @@ is the `chrome.rail` setting.
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).
 
-Ready to use one? The [user guide](./docs/user-guide.md) has a walkthrough for
+Ready to use one? The [user guide](./docs/user-guide/) has a walkthrough for
 each: the first run, the keys that matter, and what to expect on screen.
 
 ## Configuration
@@ -198,7 +198,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 
 | Guide | What it covers |
 |---|---|
-| [User guide](./docs/user-guide.md) | Every feature in plain language, with step-by-step walkthroughs, keys, and commands. |
+| [User guide](./docs/user-guide/) | A chaptered manual: install, every feature, settings, troubleshooting, and a command reference. |
 | [Configuration](./docs/configuration.md) | Resolution, the settings screen, and every `bytefly.json` key with its default and bounds. |
 | [Architecture](./docs/architecture.md) | The load path, runtime model, state, process shapes, and where new code belongs. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |

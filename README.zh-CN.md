@@ -11,7 +11,7 @@
 扩展和主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
 
 本页是目录与安装说明。要了解某个功能怎么用 —— 按键、命令以及应有的效果 ——
-请先看[用户指南](./docs/user-guide.md)。
+请先看[用户指南](./docs/user-guide/)。
 
 ![一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏](assets/chrome.png)
 
@@ -52,7 +52,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 pi install npm:@gavin-hu/my-pi-agent
 ```
 
-[用户指南](./docs/user-guide.md) 介绍其余安装方式——git、固定版本、
+[用户指南](./docs/user-guide/) 介绍其余安装方式——git、固定版本、
 仅项目本地安装，以及不写入任何内容的试用——还有适用性判断、首个工作流和移除方式。
 
 `git` 需在 `PATH` 上，供 [`worktree`](./extensions/worktree/) 与
@@ -154,7 +154,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 `bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
 [`assets/tools/`](./assets/tools) 下为每个工具输出一张图。
 
-准备上手了？[用户指南](./docs/user-guide.md) 为每个扩展都准备了分步讲解：
+准备上手了？[用户指南](./docs/user-guide/) 为每个扩展都准备了分步讲解：
 第一次运行、关键按键，以及屏幕上会出现什么。
 
 ## 配置
@@ -180,7 +180,7 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 
 | 指南 | 内容 |
 |---|---|
-| [用户指南](./docs/user-guide.md) | 用通俗语言介绍每个功能，并给出分步骤操作、按键与命令。 |
+| [用户指南](./docs/user-guide/) | 分章手册：安装、每项功能、设置、故障排查与命令参考。 |
 | [配置](./docs/configuration.md) | 解析规则、设置界面，以及 `bytefly.json` 每个键的默认值与取值范围。 |
 | [架构](./docs/architecture.md) | 加载路径、运行时模型、状态、进程形态，以及新代码应放在哪里。 |
 | [开发](./docs/development.md) | 本地设置、检查、测试、跨平台注意事项与发布流程。 |
