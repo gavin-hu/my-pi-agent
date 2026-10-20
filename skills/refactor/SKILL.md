@@ -1,6 +1,6 @@
 ---
 name: refactor
-description: Find and rank refactoring opportunities in a project or path: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Use when asked what to refactor, where the code is tangled, or for a refactor audit; discovery is read-only and returns an evidence-based shortlist.
+description: "Find and rank refactoring opportunities in a project or path: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Use when asked what to refactor, where the code is tangled, or for a refactor audit; discovery is read-only and returns an evidence-based shortlist."
 ---
 
 # Find refactoring opportunities
