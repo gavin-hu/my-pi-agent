@@ -63,11 +63,6 @@ export function statusGlyphChar(status: JobStatus): string {
 	}
 }
 
-/** Width-1 themed glyph for a status. */
-export function statusGlyph(status: JobStatus, theme: Theme): string {
-	return paint(theme, statusRole(status), statusGlyphChar(status));
-}
-
 /** Short status word for text output. */
 function statusWord(job: JobRecord): string {
 	if (job.status === "failed" && job.exitCode !== null) return `failed (exit ${job.exitCode})`;
@@ -212,7 +207,7 @@ export function formatJobOutcomeLine(job: JobRecord, theme: Theme, now = Date.no
 	const outcome =
 		job.status === "failed" ? paint(theme, "bad", jobOutcome(job)) : paint(theme, "faint", jobOutcome(job));
 	return (
-		statusGlyph(job.status, theme) +
+		paint(theme, statusRole(job.status), statusGlyphChar(job.status)) +
 		" " +
 		paint(theme, "accent", job.id) +
 		" " +

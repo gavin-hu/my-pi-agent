@@ -64,19 +64,12 @@ const SAME_NAME_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 ]);
 
 /**
- * Legitimate identical bodies, each with the reason sharing would be worse.
- * Keyed by `<repo-relative path>:<symbol>`.
+ * Legitimate identical bodies, each with the reason sharing would be worse. Keyed
+ * by `<repo-relative path>:<symbol>`. Empty on purpose: the last two were a
+ * one-line `paint` wrapper in `job` and `watch`, so the call sites now use the
+ * shared primitive directly.
  */
-const SAME_BODY_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
-	[
-		"extensions/job/format.ts:statusGlyph",
-		"one-line paint of each extension's own statusRole and statusGlyphChar, which differ",
-	],
-	[
-		"extensions/watch/format.ts:statusGlyph",
-		"one-line paint of each extension's own statusRole and statusGlyphChar, which differ",
-	],
-]);
+const SAME_BODY_EXCEPTIONS: ReadonlyMap<string, string> = new Map([]);
 
 type Surface = "lib" | "extension";
 
@@ -309,7 +302,7 @@ describe("shared-helper guard", () => {
 	test("the exception lists have no room to grow", () => {
 		// Shrink these as helpers move into lib/; a new copy is extracted, not excepted.
 		expect(SAME_NAME_EXCEPTIONS.size).toBe(10);
-		expect(SAME_BODY_EXCEPTIONS.size).toBe(2);
+		expect(SAME_BODY_EXCEPTIONS.size).toBe(0);
 	});
 
 	test("the real tree has no shared-helper drift", () => {

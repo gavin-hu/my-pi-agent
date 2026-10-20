@@ -62,11 +62,6 @@ export function statusGlyphChar(status: WatchStatus): string {
 	}
 }
 
-/** Width-1 themed glyph for a watcher status. */
-export function statusGlyph(status: WatchStatus, theme: Theme): string {
-	return paint(theme, statusRole(status), statusGlyphChar(status));
-}
-
 /** Short status word, including an exit code or error when present. */
 export function statusWord(watch: WatchRecord): string {
 	if (watch.status === "error" && watch.error) return `error (${watch.error})`;
@@ -169,7 +164,7 @@ export function formatWatchOutcomeLine(watch: WatchRecord, theme: Theme, now = D
 			? paint(theme, "bad", statusWord(watch))
 			: paint(theme, "faint", `${watch.matchCount} match${watch.matchCount === 1 ? "" : "es"}`);
 	return (
-		statusGlyph(watch.status, theme) +
+		paint(theme, statusRole(watch.status), statusGlyphChar(watch.status)) +
 		" " +
 		paint(theme, "accent", watch.id) +
 		" " +

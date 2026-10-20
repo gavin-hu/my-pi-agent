@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
 import {
 	compileRegex,
 	formatCallText,
@@ -8,7 +7,7 @@ import {
 	formatWatchList,
 	formatWatchStatus,
 	sourceLabel,
-	statusGlyph,
+	statusGlyphChar,
 } from "./format.ts";
 import type { WatchRecord } from "./types.ts";
 
@@ -44,10 +43,10 @@ describe("sourceLabel", () => {
 	});
 });
 
-describe("statusGlyph", () => {
+describe("status glyphs", () => {
 	test("uses a distinct glyph per status", () => {
 		const statuses = ["running", "exited", "stopped", "error"] as const;
-		const glyphs = statuses.map((status) => statusGlyph(status, fakeTheme));
+		const glyphs = statuses.map((status) => statusGlyphChar(status));
 		expect(new Set(glyphs).size).toBe(statuses.length);
 	});
 });
