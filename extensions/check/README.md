@@ -19,6 +19,8 @@ pi install ./                       # install the package
 
 <img src="../../assets/check.png" alt="The /check screen: a failed run with failure rows and the focused failure's message" width="100%">
 
+<img src="../../assets/check-detail.png" alt="The /check failure detail: the location and message over a source excerpt with the failing line marked by >" width="100%">
+
 ## Tool rendering
 
 How the `run_check` call and its result look in the transcript — the call line as a headline and the body indented under it:

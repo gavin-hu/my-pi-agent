@@ -164,6 +164,10 @@ something works. It is the fastest way to turn "should be fine" into evidence.
    of the command output and says why. `j` / `k` and the arrows scroll; `Esc`
    goes back. `r` reruns. `Esc` from the list closes it.
 
+   <img src="../../assets/check-detail.png" alt="The /check failure detail: the location and message over a source excerpt with the failing line marked by >" width="100%">
+
+   *The failure detail: the excerpt marks the failing line, and the header keeps the run's counts.*
+
 3. A passing run is one line in the transcript:
 
    ```text

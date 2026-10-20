@@ -67,6 +67,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- dev: `bun run screenshots` crops Terminal's title bar off every capture. Its
+  last segment is the foreground process's argv, which no profile title switch
+  covers, so each image repeated the capture command's worktree path (and the
+  hero its proxy environment) and cut off mid-word. The `check-detail` screen is
+  new, and the job fixture prints `/home/u/repo` instead of the checkout that
+  happened to capture it.
+
 - `file-browse`: a rendered Markdown page fills the card instead of being the
   1012px scroll box itself, so the scroll bar sits at the card edge. Headings,
   prose, and code keep a centred measure of at most 1012px. Tables
@@ -162,6 +169,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stable anchor ids, so in-document `#anchor` links still work.
 
 ### Fixed
+
+- `check`: the failure detail no longer prints the location line twice — the
+  pane's first line names the failure, so the header keeps the run's counts —
+  and its row budget was one short, which pushed the title rule off the top when
+  the excerpt was clipped.
 
 - `lib`: every docked list screen puts a blank line between the list and the
   focused row's footnotes, so `/check`'s failure excerpt no longer reads as a
