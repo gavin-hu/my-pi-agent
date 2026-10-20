@@ -16,6 +16,8 @@
 import {
 	brandLockup,
 	docHead,
+	type KeyHint,
+	keysSheet,
 	SIDEBAR_COLLAPSE_MAX,
 	themeToggle,
 	WEB_BASE_CSS,
@@ -110,7 +112,7 @@ ${WEB_COMPONENTS_CSS}
 .review-nav .lvl-3 a{padding-left:30px}
 .review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:42px}
 .review-hints{margin:auto 0 0;padding-top:var(--space-3);color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-relaxed)}
-.review-hints .review-kbd{margin:0 1px}
+.review-hints .bf-kbd{margin:0 1px}
 /* The document: one measure, centred, with a comment rail in its left margin. */
 .bf-review>.bf-block{position:relative;width:100%;max-width:var(--review-measure);margin:0 auto;padding:3px 8px 3px var(--review-gutter);border-radius:var(--radius-md);overflow-wrap:break-word}
 .bf-block[id]{scroll-margin-top:88px}
@@ -155,13 +157,6 @@ ${WEB_COMPONENTS_CSS}
 .bf-comment__body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-snug)}
 .bf-composer{margin:0}
 .bf-block--composing .bf-block__add{opacity:0}
-/* The keyboard sheet, reusing the shared dialog shell. */
-.bf-dialog__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border)}
-.bf-dialog__head h2{margin:0;font-size:var(--fs-lg)}
-.review-keys{display:grid;grid-template-columns:auto 1fr;gap:8px var(--space-4);margin:0;padding:var(--space-4)}
-.review-keys dt{white-space:nowrap}
-.review-keys dd{margin:0;color:var(--muted);font-size:var(--fs-sm)}
-.review-kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--fs-xs) var(--font-mono);text-align:center}
 @media (max-width:1180px){
 .bf-app__body{grid-template-columns:1fr;align-content:start}
 .bf-app__sidebar{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--border)}
@@ -192,29 +187,23 @@ ${WEB_COMPONENTS_CSS}
  * not have to grow every time a binding is added.
  */
 function reviewHints(canApprove: boolean): string {
-	const approve = canApprove ? `, <kbd class="review-kbd">a</kbd> to approve` : "";
-	return `<p class="review-hints">Press <kbd class="review-kbd">j</kbd>/<kbd class="review-kbd">k</kbd> to move, <kbd class="review-kbd">c</kbd> to comment${approve}, <kbd class="review-kbd">s</kbd> to save, <kbd class="review-kbd">?</kbd> for all shortcuts.</p>`;
+	const approve = canApprove ? `, <kbd class="bf-kbd">a</kbd> to approve` : "";
+	return `<p class="review-hints">Press <kbd class="bf-kbd">j</kbd>/<kbd class="bf-kbd">k</kbd> to move, <kbd class="bf-kbd">c</kbd> to comment${approve}, <kbd class="bf-kbd">s</kbd> to save, <kbd class="bf-kbd">?</kbd> for all shortcuts.</p>`;
 }
 
-/** The keyboard sheet, hidden until the client opens it. */
-function keysDialog(canApprove: boolean): string {
-	const approveRow = canApprove
-		? `<div><dt><kbd class="review-kbd">a</kbd></dt><dd>Approve and run the plan</dd></div>
-`
-		: "";
-	return `<div class="bf-dialog" id="keys-dialog" hidden>
-<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="keys-title">
-<div class="bf-dialog__head"><h2 id="keys-title">Keyboard shortcuts</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="keys-close">Close</button></div>
-<dl class="review-keys">
-${approveRow}<div><dt><kbd class="review-kbd">j</kbd> <kbd class="review-kbd">k</kbd></dt><dd>Next and previous block</dd></div>
-<div><dt><kbd class="review-kbd">c</kbd></dt><dd>Comment on the current block</dd></div>
-<div><dt><kbd class="review-kbd">Enter</kbd></dt><dd>Add the comment you are writing</dd></div>
-<div><dt><kbd class="review-kbd">s</kbd></dt><dd>Save feedback and return to Pi</dd></div>
-<div><dt><kbd class="review-kbd">Esc</kbd></dt><dd>Close the composer, the sheet, or the review</dd></div>
-<div><dt><kbd class="review-kbd">?</kbd></dt><dd>Toggle this sheet</dd></div>
-</dl>
-</div>
-</div>`;
+/** The shortcut sheet's rows: the review's own keys, led by approve when offered. */
+function reviewKeys(canApprove: boolean): KeyHint[] {
+	const rows: KeyHint[] = [];
+	if (canApprove) rows.push({ keys: "a", label: "Approve and run the plan" });
+	rows.push(
+		{ keys: ["j", "k"], label: "Next and previous block" },
+		{ keys: "c", label: "Comment on the current block" },
+		{ keys: "Enter", label: "Add the comment you are writing" },
+		{ keys: "s", label: "Save feedback and return to Pi" },
+		{ keys: "Esc", label: "Close the composer, the sheet, or the review" },
+		{ keys: "?", label: "Toggle this sheet" },
+	);
+	return rows;
 }
 
 /**
@@ -268,7 +257,7 @@ ${saveButton}
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
-${keysDialog(data.canApprove)}
+${keysSheet(reviewKeys(data.canApprove))}
 <script type="application/json" id="review-data">${island}</script>
 <script src="/client.js" defer></script>
 </body>

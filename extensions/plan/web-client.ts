@@ -11,7 +11,7 @@
  * gone; the explicit buttons are the primary save/cancel path.
  */
 
-import { THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -47,7 +47,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
   var progressEl = document.getElementById("progress-fill");
-  var keysDialog = document.getElementById("keys-dialog");
 
   function el(tag, className) {
     var node = document.createElement(tag);
@@ -732,23 +731,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     pendingQuote = wrap && quote ? { wrap: wrap, quote: quote } : null;
   });
 
-  function toggleKeys(force) {
-    if (!keysDialog) return;
-    var open = force !== undefined ? force : keysDialog.hidden;
-    keysDialog.hidden = !open;
-    if (open) {
-      var close = document.getElementById("keys-close");
-      if (close) close.focus();
-    }
-  }
-
-  if (keysDialog) {
-    keysDialog.addEventListener("click", function (event) { if (event.target === keysDialog) toggleKeys(false); });
-    var keysButton = document.getElementById("shortcuts");
-    if (keysButton) keysButton.addEventListener("click", function () { toggleKeys(); });
-    var keysClose = document.getElementById("keys-close");
-    if (keysClose) keysClose.addEventListener("click", function () { toggleKeys(false); });
-  }
+  // The sheet's own wiring (trigger, close button, backdrop) is shared with browse.
+  ${keysDialogScript("shortcuts")}
 
   function typing(target) {
     var tag = target && target.tagName ? target.tagName : "";
@@ -759,15 +743,15 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (event.key === "Escape") {
       // Esc peels one layer at a time: the composer, then the sheet, then the review.
       if (planEl && planEl.querySelector(".bf-composer")) { closeComposer(); return; }
-      if (keysDialog && !keysDialog.hidden) { toggleKeys(false); return; }
+      if (window.bfKeys.isOpen()) { window.bfKeys.close(); return; }
       cancel();
       return;
     }
     if (typing(event.target)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === "?") { event.preventDefault(); toggleKeys(); return; }
+    if (event.key === "?") { event.preventDefault(); window.bfKeys.toggle(); return; }
     // While the shortcut sheet is open it owns the keyboard.
-    if (keysDialog && !keysDialog.hidden) return;
+    if (window.bfKeys.isOpen()) return;
     if (event.key === "j") { event.preventDefault(); moveActive(1); return; }
     if (event.key === "k") { event.preventDefault(); moveActive(-1); return; }
     if (event.key === "c") { event.preventDefault(); commentOnActive(); return; }

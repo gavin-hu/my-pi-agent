@@ -24,9 +24,12 @@ Two surfaces serve local HTTP:
   tokenized, and closes its server on save, cancel, tab close, or session
   shutdown.
 
-Neither ever binds a non-loopback interface. A remote turn (for example over
-WeChat) cannot reach them; `/plan review` refuses there instead of opening a
-server nobody can use.
+Neither ever binds a non-loopback interface, and both answer from one shared
+policy in `lib/http` — the same CSP (which refuses to be framed), the same
+`Host` allowlist shape, and the same bind/close rules — so the two surfaces
+cannot drift into different envelopes. A remote turn (for example over WeChat)
+cannot reach them; `/plan review` refuses there instead of opening a server
+nobody can use.
 
 ### Worktree and shell isolation
 

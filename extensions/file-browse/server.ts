@@ -5,14 +5,19 @@
  * binds `127.0.0.1`, streams `/raw` responses from disk, and exposes an
  * idempotent `close()`. The request handler is injectable so tests can avoid a
  * socket when they only need routing.
+ *
+ * The bind, the response writer, and the close come from `lib/http`, which `plan`
+ * shares; what stays here is this server's own request handler and the catch that
+ * turns a thrown handler into a plain-text 500.
  */
 
-import { createReadStream, realpathSync } from "node:fs";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { realpathSync } from "node:fs";
+import { createServer } from "node:http";
+import { bindLoopback, createCloser, respond, textResponse, type ServeResponse } from "../../lib/http/index.ts";
 import type { ServeConfig } from "./config.ts";
 import { createFileIndex } from "./files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "./git.ts";
-import { handleRequest, type ServeContext, type ServeResponse } from "./router.ts";
+import { handleRequest, type ServeContext } from "./router.ts";
 
 export interface FileServer {
 	/** Origin URL, e.g. `http://127.0.0.1:49152/`. */
@@ -36,33 +41,6 @@ export interface FileServerOptions {
 	handler?: typeof handleRequest;
 }
 
-async function respond(
-	request: IncomingMessage,
-	response: ServerResponse,
-	context: ServeContext,
-	handler: typeof handleRequest,
-): Promise<void> {
-	let result: ServeResponse;
-	try {
-		result = await handler(context, request.method ?? "GET", request.url ?? "/", request.headers);
-	} catch {
-		result = { status: 500, headers: { "Content-Type": "text/plain; charset=utf-8" }, body: "Internal error" };
-	}
-
-	response.writeHead(result.status, result.headers);
-	if ((request.method ?? "GET").toUpperCase() === "HEAD") {
-		response.end();
-		return;
-	}
-	if (result.filePath) {
-		const stream = createReadStream(result.filePath);
-		stream.on("error", () => response.destroy());
-		stream.pipe(response);
-		return;
-	}
-	response.end(result.body ?? "");
-}
-
 /** Start a read-only server rooted at `options.root` on 127.0.0.1. */
 export async function createFileServer(options: FileServerOptions): Promise<FileServer> {
 	const root = realpathSync.native(options.root);
@@ -76,32 +54,16 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 	const handler = options.handler ?? handleRequest;
 
 	const server = createServer((request, response) => {
-		void respond(request, response, context, handler);
-	});
-
-	await new Promise<void>((resolve, reject) => {
-		const onError = (error: Error) => reject(error);
-		server.once("error", onError);
-		server.listen(options.config.port, "127.0.0.1", () => {
-			server.off("error", onError);
-			resolve();
-		});
-	});
-
-	const address = server.address();
-	const port = typeof address === "object" && address ? address.port : options.config.port;
-
-	let closed = false;
-	const close = (): Promise<void> =>
-		new Promise<void>((resolve) => {
-			if (closed) {
-				resolve();
-				return;
+		const answer = async (): Promise<ServeResponse> => {
+			try {
+				return await handler(context, request.method ?? "GET", request.url ?? "/", request.headers);
+			} catch {
+				return textResponse(500, "Internal error");
 			}
-			closed = true;
-			server.close(() => resolve());
-			(server as { closeAllConnections?: () => void }).closeAllConnections?.();
-		});
+		};
+		void answer().then((result) => respond(request, response, result));
+	});
 
-	return { url: `http://127.0.0.1:${port}/`, port, root, close };
+	const port = await bindLoopback(server, options.config.port);
+	return { url: `http://127.0.0.1:${port}/`, port, root, close: createCloser(server) };
 }

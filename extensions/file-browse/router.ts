@@ -9,6 +9,16 @@
 
 import type { Stats } from "node:fs";
 import { stat } from "node:fs/promises";
+import {
+	htmlResponse,
+	isLocalHostHeader,
+	jsonError,
+	jsonResponse,
+	pageHeaders,
+	parseRequestUrl,
+	scriptHeaders,
+	type ServeResponse,
+} from "../../lib/http/index.ts";
 import { THEME_JS } from "../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
@@ -42,51 +52,20 @@ export interface ServeContext {
 	index?: FileIndexProvider;
 }
 
-export interface ServeResponse {
-	status: number;
-	headers: Record<string, string>;
-	body?: string | Buffer;
-	/** When set, the server streams this file instead of `body`. */
-	filePath?: string;
-}
-
-const HOST_PATTERN = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
-
 /** Most palette rows the client will render for one query. */
 const RESULT_LIMIT = 50;
 
-const HTML_SECURITY: Record<string, string> = {
-	"Content-Type": "text/html; charset=utf-8",
-	"Content-Security-Policy":
-		"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'",
-	"X-Content-Type-Options": "nosniff",
-	"Referrer-Policy": "no-referrer",
-	"Cache-Control": "no-store",
-};
-
+/**
+ * A downloaded or inlined file: no script, no network, and sandboxed, so a served
+ * SVG or HTML file cannot execute. Only `/raw` uses it, because it is the only
+ * route whose body is someone else's file rather than a page this extension built.
+ */
 const RAW_SECURITY: Record<string, string> = {
 	"Content-Security-Policy": "default-src 'none'; script-src 'none'; sandbox",
 	"X-Content-Type-Options": "nosniff",
 	"Referrer-Policy": "no-referrer",
 	"Cache-Control": "no-store",
 };
-
-function htmlResponse(status: number, body: string): ServeResponse {
-	return { status, headers: { ...HTML_SECURITY }, body };
-}
-
-function jsonResponse(status: number, value: unknown): ServeResponse {
-	return {
-		status,
-		headers: {
-			"Content-Type": "application/json; charset=utf-8",
-			"X-Content-Type-Options": "nosniff",
-			"Referrer-Policy": "no-referrer",
-			"Cache-Control": "no-store",
-		},
-		body: JSON.stringify(value),
-	};
-}
 
 async function treeFor(ctx: ServeContext, currentRel: string): Promise<TreeNode> {
 	return buildTree(ctx.root, currentRel, ctx.config.maxDirEntries);
@@ -129,7 +108,8 @@ async function changed(ctx: ServeContext): Promise<ChangeSummary | undefined> {
 	return list ? summaryOf(list) : undefined;
 }
 
-async function errorResponse(
+/** The error page: the browse shell with the status, the reason, and a usable tree. */
+async function errorPage(
 	ctx: ServeContext,
 	status: number,
 	message: string,
@@ -156,7 +136,7 @@ async function errorResponse(
 		tree,
 		git: await gitFor(ctx),
 	});
-	return { status, headers: { ...HTML_SECURITY, ...extra }, body };
+	return htmlResponse(status, body, extra);
 }
 
 /** Resolve a request path once and render the directory or file page it names. */
@@ -336,43 +316,24 @@ export async function handleRequest(
 ): Promise<ServeResponse> {
 	const upper = method.toUpperCase();
 	if (upper !== "GET" && upper !== "HEAD") {
-		return errorResponse(ctx, 405, "Only GET and HEAD are served.", { Allow: "GET, HEAD" });
+		return errorPage(ctx, 405, "Only GET and HEAD are served.", { Allow: "GET, HEAD" });
 	}
-	const host = headers.host;
-	if (typeof host === "string" && host && !HOST_PATTERN.test(host)) {
-		return errorResponse(ctx, 403, "Unexpected Host header.");
-	}
-
-	let pathname: string;
-	let search: URLSearchParams;
-	try {
-		const url = new URL(rawUrl, "http://127.0.0.1");
-		pathname = url.pathname;
-		search = url.searchParams;
-	} catch {
-		return errorResponse(ctx, 400, "Malformed request URL.");
+	if (!isLocalHostHeader(headers, { required: false })) {
+		return errorPage(ctx, 403, "Unexpected Host header.");
 	}
 
+	const parsed = parseRequestUrl(rawUrl);
+	if (!parsed) return errorPage(ctx, 400, "Malformed request URL.");
+	const { pathname, search } = parsed;
+
 	try {
-		if (pathname === "/app.js") {
-			return {
-				status: 200,
-				headers: { ...HTML_SECURITY, "Content-Type": "text/javascript; charset=utf-8" },
-				body: CLIENT_JS,
-			};
-		}
-		if (pathname === "/theme.js") {
-			return {
-				status: 200,
-				headers: { ...HTML_SECURITY, "Content-Type": "text/javascript; charset=utf-8" },
-				body: THEME_JS,
-			};
-		}
-		if (pathname === "/favicon.ico") return { status: 204, headers: { ...HTML_SECURITY }, body: "" };
+		if (pathname === "/app.js") return { status: 200, headers: scriptHeaders(), body: CLIENT_JS };
+		if (pathname === "/theme.js") return { status: 200, headers: scriptHeaders(), body: THEME_JS };
+		if (pathname === "/favicon.ico") return { status: 204, headers: pageHeaders(), body: "" };
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");
 		const rawMode = search.get("mode");
-		if (rawMode !== null && !isDiffMode(rawMode)) return errorResponse(ctx, 400, "Unknown diff mode.");
+		if (rawMode !== null && !isDiffMode(rawMode)) return errorPage(ctx, 400, "Unknown diff mode.");
 		const mode: DiffMode = isDiffMode(rawMode) ? rawMode : "head";
 		if (pathname === "/diff" || pathname === "/diff/") return await diffOverview(ctx, mode);
 		if (pathname.startsWith("/diff/")) return await diffFile(ctx, pathname.slice("/diff/".length), mode);
@@ -381,11 +342,11 @@ export async function handleRequest(
 		if (pathname.startsWith("/view/"))
 			return await view(ctx, pathname.slice("/view/".length), search.get("raw") === "1");
 		if (pathname.startsWith("/raw/")) return await raw(ctx, pathname.slice("/raw/".length));
-		return errorResponse(ctx, 404, "That page does not exist.");
+		return errorPage(ctx, 404, "That page does not exist.");
 	} catch (error) {
 		const status = error instanceof HttpError ? error.status : 500;
 		const message = error instanceof HttpError ? error.message : "Something went wrong reading that path.";
-		if (pathname.startsWith("/api/")) return jsonResponse(status, { error: message });
-		return errorResponse(ctx, status, message);
+		if (pathname.startsWith("/api/")) return jsonError(status, message);
+		return errorPage(ctx, status, message);
 	}
 }

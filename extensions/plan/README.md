@@ -578,14 +578,15 @@ file and returns them to the model.
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the loopback server, the section outline (with changed-section flags) and code highlighting, and the save/approve/cancel/abort session. |
-| `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes. |
+| `web.ts` | `createPlanWebReview`: the review session (SSE close detection, the body cap, settle-after-flush, abort) over the shared loopback bind, writer, and close. |
+| `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes, over the shared page and JSON header sets. |
 | `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet), its data island, and inline CSS. |
 | `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/approve/back). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
-| [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, and shared markup. |
+| [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, the shortcut sheet (`keysSheet`, `keysDialogScript`), and shared markup. |
+| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `file-browse`: the page policy and header sets, `ServeResponse`, the request-envelope helpers, bind/respond/close. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../../lib/tui/chrome.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |
