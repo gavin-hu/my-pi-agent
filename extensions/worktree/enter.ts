@@ -6,6 +6,7 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { createExecRunner, revParse } from "../../lib/git/index.ts";
 import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
@@ -94,12 +95,7 @@ export interface EnterOptions {
 }
 
 async function resolveCommit(pi: ExtensionAPI, dir: string, ref: string): Promise<string | undefined> {
-	try {
-		const result = await pi.exec("git", ["rev-parse", ref], { cwd: dir });
-		return result.code === 0 ? result.stdout.trim() : undefined;
-	} catch {
-		return undefined;
-	}
+	return revParse(createExecRunner(pi), dir, ref);
 }
 
 /** Create or enter a worktree and rebind the session's effective root. */
