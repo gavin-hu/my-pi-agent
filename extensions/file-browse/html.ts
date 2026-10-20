@@ -159,11 +159,20 @@ body.palette-open{overflow:hidden}
 .browse-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
 .browse-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* File and diff pages: a measured reading column inside the card. */
-/* GitHub's markdown body width: one content column that headings, prose,
-   tables, code, and images all live in, with wide tables scrolling inside it. */
+/* The Markdown body fills the card, so the scroll box is the card's width: its
+   scrollbar sits at the card edge, and wide code or tables use the whole pane
+   instead of scrolling inside the measure. The measure lives on the blocks
+   themselves: on .bf-md it would be a flex item with auto inline margins,
+   which is shrink-to-fit, so a short document collapsed to its widest line. */
 .browse-measure{--browse-measure:1012px}
-.browse-measure .bf-md{max-width:var(--browse-measure);margin-inline:auto;padding-inline:0;padding-block:var(--space-4) var(--space-6)}
-.browse-measure .browse-md-outline{max-width:var(--browse-measure);margin:0 auto var(--space-3)}
+.browse-measure .bf-md{--browse-gutter:max(0px,calc((100% - var(--browse-measure)) / 2));max-width:none;margin-inline:0;padding-inline:var(--space-5);padding-block:var(--space-4) var(--space-6)}
+.browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}
+/* Code and tables take the gutter on the right instead of scrolling inside the
+   measure; their content starts where the prose starts. */
+.browse-measure .bf-md>pre,.browse-measure .bf-md>.md-table-wrap{max-width:none}
+.browse-measure .bf-md>pre{padding-left:calc(var(--space-4) + var(--browse-gutter))}
+.browse-measure .bf-md>.md-table-wrap{padding-left:var(--browse-gutter)}
+.browse-measure .browse-md-outline{width:100%;max-width:var(--browse-measure);margin:0 auto var(--space-3)}
 .bf-card__meta{font-variant-numeric:tabular-nums}
 .browse-diff-summary{font-family:var(--font-mono);white-space:nowrap}
 .browse-diff-summary .browse-diff-add{color:var(--success)}

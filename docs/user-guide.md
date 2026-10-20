@@ -839,10 +839,12 @@ outside it is refused.
    | `?` | Show the shortcut sheet |
 
 3. Markdown files (plain text with light formatting) render as documents, with a
-   table of contents, working heading links, tables, and highlighted code. Raw
-   HTML such as `<details>`, `<summary>`, or `<kbd>` is sanitized and displayed;
-   scripts, styles, and event handlers are dropped. Images show as thumbnails;
-   other files show as text with syntax colouring or as a download card.
+   table of contents, working heading links, tables, and highlighted code. Prose
+   keeps a readable column and the rest of a wide window is left to code and
+   tables, so long lines stop scrolling early. Raw HTML such as `<details>`,
+   `<summary>`, or `<kbd>` is sanitized and displayed; scripts, styles, and event
+   handlers are dropped. Images show as thumbnails; other files show as text
+   with syntax colouring or as a download card.
 
 4. The header has a theme button that switches the page between light and dark
    and remembers your choice.
