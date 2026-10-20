@@ -380,10 +380,9 @@ above.
 - A release is one reviewed command path with provenance, and the tag, changelog,
   and npm version cannot drift — `test/release.test.ts` holds the version, the
   install pins, and the changelog's one-set-per-window shape.
-- Docs truth tests cover tools, commands, and config keys, and this roadmap's own
+- Docs truth tests cover tool names and config keys, and this roadmap's own
   item numbers, links, and bucket caps resolve — `test/naming.test.ts`,
-  `test/docs-truth.test.ts`, `test/config-docs.test.ts`, and
-  `test/roadmap.test.ts`.
+  `test/config-docs.test.ts`, and `test/roadmap.test.ts`.
 
 ## Explicit non-goals
 

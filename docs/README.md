@@ -9,7 +9,6 @@ technical contracts live outside this directory and are linked below.
 | Guide | What it covers |
 |---|---|
 | [User guide](./user-guide.md) | Every feature explained for people who use Pi rather than work on it: an overview of each, then a numbered walkthrough with the keys and commands. |
-| [Extensions](./extensions.md) | The full catalog of every extension and theme, with its tools and commands. |
 | [Configuration](./configuration.md) | Config-file resolution, the per-extension index, and environment variables. |
 | [Configuration reference](./references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
 | [Architecture](./architecture.md) | How the package, its extensions, and `lib/` fit together. |

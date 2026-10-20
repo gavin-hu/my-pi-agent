@@ -19,6 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: `docs/extensions.md` is removed. The grouped catalog in `README.md` is the
+  one surface list, and each `extensions/<name>/README.md` still carries the full
+  tool, command, and design detail. The two tests that read the catalog go with
+  it, so commands and flags are no longer checked against the docs; the tool
+  names stay pinned in `test/naming.test.ts`.
+
 - docs: `docs/getting-started.md` is folded into the user guide and removed. The
   install routes (including the `@vX.Y.Z` pin), the fit decision, the
   prerequisites, what an install changes, and removal now live in

@@ -7,7 +7,7 @@
 - [ ] `bun run check` passes.
 - [ ] I worked on a worktree branch, not directly on `main`.
 - [ ] New or renamed tools update `test/naming.test.ts`, the tool contract, and
-      `docs/extensions.md`.
+      the catalog table in both entry READMEs.
 - [ ] Documentation changed with the behaviour (extension `README.md`,
       `docs/`, or `CHANGELOG.md` under `## [Unreleased]`).
 

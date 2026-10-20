@@ -919,8 +919,8 @@ project or to everything.
 PI_DISABLED_EXTENSIONS=todo,job pi
 ```
 
-Names are the extension names used in the [catalog](./extensions.md) (the folder
-names under `extensions/`), compared case-insensitively. Unknown names are
+Names are the extension names from the [catalog](../README.md#what-you-get) (the
+folder names under `extensions/`), compared case-insensitively. Unknown names are
 ignored.
 
 **Removing everything.** Run `pi remove npm:@gavin-hu/my-pi-agent` (add `-l` if
@@ -1016,12 +1016,12 @@ no longer need it.
 
 ## Where to read more
 
-- [Extensions](./extensions.md) — the full catalog, with the exact tool and
-  command names.
+- [The catalog in the entry README](../README.md#what-you-get) — every extension
+  and theme, grouped, with the exact tool and command names.
+- Each extension's own README, linked from that catalog, has the exhaustive
+  detail: its full tool surface, how it integrates with Pi, and its design notes.
 - [Configuration](./configuration.md) — where settings live, and every section.
 - [Configuration reference](./references/bytefly-config.md) — every setting, with
   its type, default, and limits.
 - [Security](./security.md) — what the local web pages, the shell, and the WeChat
   bridge can and cannot reach.
-- Each extension's own README, linked from the catalog, has the exhaustive
-  detail.

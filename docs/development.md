@@ -81,7 +81,7 @@ The suite is organized by tier; the full contract is in
    through the shared `createFakePi` / `fakeCtx`.
 3. **Surface / TUI tests** — fields, width bounds, ordering, and glyphs, never
    literal column padding.
-4. **Package-level tests** — cross-cutting contracts (`naming`, `docs-truth`,
+4. **Package-level tests** — cross-cutting contracts (`naming`,
    `extension-load`, `config-docs`, `prompt-budget`, `release`, `structure`,
    `theme`).
 

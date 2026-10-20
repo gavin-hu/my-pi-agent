@@ -9,7 +9,9 @@ sense.
 Pi does not scan for extensions. It reads the `pi` manifest in
 [`../package.json`](../package.json), which lists every extension entrypoint,
 the theme glob, and the header image. Adding a resource means adding it to the
-manifest; [`extensions.md`](./extensions.md) lists what is there today.
+manifest; the grouped catalog in [`../README.md`](../README.md#what-you-get)
+lists what is there today, and each [`extensions/<name>/README.md`](../extensions/)
+covers one extension in full.
 
 Extensions are plain TypeScript. Pi loads each entrypoint through `jiti`, so
 there is no build step and no bundling.
