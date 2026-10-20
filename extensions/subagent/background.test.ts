@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { settle } from "../../test/helpers/process.ts";
 import { makeClock } from "../../test/helpers/clock.ts";
 import { BUILTIN_AGENTS } from "./agents.ts";
-import { BACKGROUND_ENTRY, canCollect, createBackgroundRuntime, backgroundDuration } from "./background.ts";
+import {
+	BACKGROUND_ENTRY,
+	canCollect,
+	createBackgroundRuntime,
+	backgroundDuration,
+	type BackgroundRun,
+} from "./background.ts";
 import type { RunOptions } from "./run.ts";
 import { applyEvent, createResult } from "./stream.ts";
 import type { SingleResult, UsageStats } from "./types.ts";
@@ -39,6 +45,7 @@ function result(text = "done", overrides: Partial<SingleResult> = {}): SingleRes
 function harness() {
 	const clock = makeClock(1000);
 	const records: unknown[] = [];
+	const finished: BackgroundRun[] = [];
 	let options: RunOptions | undefined;
 	let resolveRun: ((value: SingleResult) => void) | undefined;
 	const run = (next: RunOptions): Promise<SingleResult> => {
@@ -49,6 +56,7 @@ function harness() {
 	};
 	const runtime = createBackgroundRuntime({
 		appendEntry: (_type, data) => records.push(entry(data)),
+		onFinish: (run) => finished.push(run),
 		now: clock.now,
 	});
 	const start = (branch: readonly unknown[] = [], max = 2) =>
@@ -64,6 +72,7 @@ function harness() {
 		runtime,
 		records,
 		clock,
+		finished,
 		start,
 		run: () => options,
 		resolve: (value: SingleResult) => resolveRun?.(value),
@@ -97,6 +106,8 @@ describe("background runtime", () => {
 		const runs = h.runtime.list([]);
 		expect(runs[0]).toMatchObject({ status: "finished", exitCode: 0, output: "finished output" });
 		expect(h.records).toHaveLength(2);
+		expect(h.finished).toHaveLength(1);
+		expect(h.finished[0]).toMatchObject({ id: "a1", status: "finished", output: "finished output" });
 		const collected = h.runtime.collect("a1", []);
 		expect(collected).toMatchObject({ ok: true });
 		if (!collected.ok) return;

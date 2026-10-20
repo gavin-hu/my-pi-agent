@@ -72,6 +72,7 @@ export const STATUS_KEYS = {
 	watchMatches: "watch-matches",
 	browse: "browse",
 	rewind: "rewind",
+	agents: "agents",
 	wechat: "wechat",
 } as const;
 

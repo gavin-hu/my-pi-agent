@@ -8,7 +8,9 @@ import { emptyUsage } from "./stream.ts";
 import type { SingleResult } from "./types.ts";
 import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
-import { makeFakePi } from "../../test/helpers/fakes.ts";
+import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
+import { fakeCtx } from "../../test/helpers/context.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { settle } from "../../test/helpers/process.ts";
 import { useEnv, tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -60,6 +62,30 @@ describe("subagent registration", () => {
 			expect(tools.size).toBe(0);
 		});
 	});
+	test("paints a running chip and announces a finished background run", async () => {
+		let release: ((result: SingleResult) => void) | undefined;
+		const tool = register(
+			() =>
+				new Promise<SingleResult>((resolve) => {
+					release = resolve;
+				}),
+		);
+		const ctx = { ...fakeToolCtx(), ...fakeCtx({ hasUI: true, branch: [] }).ctx };
+		ctx.sessionManager.getBranch = () => tool.pi.entries;
+
+		await emit(tool.pi, "session_start", {}, ctx);
+		const outcome = await call(tool, { agent: "explorer", task: "explore", background: true }, ctx);
+		expect(outcome.content[0]?.text).toContain("Started explorer as a1");
+		expect(ctx.statuses.get(STATUS_KEYS.agents)).toBe("↳ 1");
+
+		await settle();
+		release?.(success("explorer", "done"));
+		await settle();
+		expect(ctx.statuses.has(STATUS_KEYS.agents)).toBe(false);
+		expect(ctx.notices.at(-1)).toMatchObject({ kind: "info" });
+		expect(ctx.notices.at(-1)?.message).toContain("Background subagent a1");
+	});
+
 	test("starts a background run and records its lifecycle", async () => {
 		let release: ((result: SingleResult) => void) | undefined;
 		let signal: AbortSignal | undefined;

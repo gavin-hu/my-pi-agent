@@ -27,6 +27,7 @@ import {
 } from "./agents.ts";
 import { createBackgroundRuntime } from "./background.ts";
 import { registerAgentsCommand } from "./commands.ts";
+import { createSubagentUi } from "./ui.ts";
 import { loadSubagentConfig, type SubagentConfig } from "./config.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
@@ -77,6 +78,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 	// Read once per session; a call that arrives before `session_start` reads the
 	// same files lazily, so the two paths cannot disagree.
 	let settings: SubagentConfig | undefined;
+	let activeCtx: ExtensionContext | undefined;
 
 	const startSession = async (ctx: ExtensionContext): Promise<void> => {
 		settings = loadSubagentConfig(ctx.cwd);
@@ -110,13 +112,25 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 
 	const background = createBackgroundRuntime({
 		appendEntry: (customType, data) => pi.appendEntry(customType, data),
+		onFinish: (run) => ui.notifyFinished(run),
+	});
+	const ui = createSubagentUi({
+		runs: () => background.list(activeCtx?.sessionManager.getBranch() ?? []),
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
 		background.reset();
+		activeCtx = ctx;
+		ui.attach(ctx);
+		background.subscribe(() => ui.paint());
+		ui.paint();
 		await startSession(ctx);
 	});
-	pi.on("session_shutdown", () => background.shutdown());
+	pi.on("session_shutdown", () => {
+		background.shutdown();
+		ui.detach();
+		activeCtx = undefined;
+	});
 	registerAgentsCommand(pi, background);
 
 	pi.registerTool({

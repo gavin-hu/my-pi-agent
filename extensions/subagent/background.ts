@@ -98,6 +98,8 @@ export interface BackgroundRuntime {
 
 export interface BackgroundDeps {
 	appendEntry(customType: string, data: unknown): void;
+	/** Called once when a run reaches a terminal state. */
+	onFinish?(run: BackgroundRun): void;
 	now?: () => number;
 }
 
@@ -296,6 +298,11 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 			// The live row still reflects the result; a failed append must not crash.
 		}
 		notify();
+		try {
+			deps.onFinish?.(entry.run);
+		} catch {
+			// A UI listener must not fail a finished run.
+		}
 	};
 
 	const failStart = (id: string, error: unknown): void => {
