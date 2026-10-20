@@ -20,10 +20,9 @@ problems.
    /bytefly doctor
    ```
 
-   `✓` means ready, `!` means the feature runs with less than it could, and `✕`
-   means a hard requirement is missing. The report names the missing piece and
-   usually the install command. Add `refresh` to ignore the session cache and
-   probe again.
+   `✕` marks a missing hard requirement and `!` a reduced feature; a row with
+   neither glyph is fine. The report names the missing piece and usually the
+   install command. Add `refresh` to ignore the session cache and probe again.
 
 2. **Check that the extension is on.** Open `/bytefly` and find its row. A
    project-level switch can differ from the global one; press `Tab` to see both.

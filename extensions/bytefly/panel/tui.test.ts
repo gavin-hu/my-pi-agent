@@ -1229,9 +1229,9 @@ describe("PanelComponent settings review fixes", () => {
 		focus(component, "Proactive health check");
 		component.handleInput("J");
 
-		// Twelve JSON lines in a four-line room: three are shown and the marker
-		// replaces the fourth, so nine are hidden.
-		expect(component.render(80).join("\n")).toContain("… 9 more lines");
+		// Twelve JSON lines in a three-line room: two are shown and the marker
+		// replaces the third, so ten are hidden.
+		expect(component.render(80).join("\n")).toContain("… 10 more lines");
 	});
 
 	test("does not claim a hidden JSON pane on an app row", () => {

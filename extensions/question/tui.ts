@@ -18,7 +18,7 @@ import {
 import { sanitizeLine } from "../../lib/format.ts";
 import { flowCells } from "../../lib/tui/columns.ts";
 import { clampScroll, formatRange, keepVisible, selectionMarker, wheelDelta } from "../../lib/tui/cursor.ts";
-import { editorTheme, screenHint } from "../../lib/tui/chrome.ts";
+import { editorTheme, screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { checkbox } from "../../lib/tui/rows.ts";
 import { plainRule, titleRule } from "../../lib/tui/rules.ts";
@@ -255,7 +255,7 @@ export async function askViaTui(
 				}
 				lines.push("");
 				if (state.message) addWithPrefix(" ", paint(theme, "warn", state.message));
-				lines.push(screenHint(theme, renderWidth, ["Enter to submit", "Esc to go back"]));
+				lines.push(screenHint(theme, renderWidth, [{ text: "Enter to submit", color: "accent" }, "Esc to go back"]));
 			} else if (submitTab) {
 				addWithPrefix(" ", paint(theme, "accent", theme.bold("Ready to submit")));
 				lines.push("");
@@ -285,12 +285,12 @@ export async function askViaTui(
 				// option list can be given exactly the rows that are left.
 				const tail: string[] = [""];
 				if (state.message) tail.push(...prefixWrapped(" ", paint(theme, "warn", state.message)));
-				const hints =
+				const hints: ScreenHint[] =
 					optionCount(question) === 0
-						? ["Enter to type an answer", "Esc cancel"]
+						? [{ text: "Enter to type an answer", color: "accent" }, "Esc cancel"]
 						: question.multiSelect
-							? ["↑/↓ move", "Space toggle", "Enter confirm", "Esc cancel"]
-							: ["↑/↓ choose", "Enter select", "Esc cancel"];
+							? ["↑/↓ move", "Space toggle", { text: "Enter confirm", color: "accent" }, "Esc cancel"]
+							: ["↑/↓ choose", { text: "Enter select", color: "accent" }, "Esc cancel"];
 				if (isMulti) hints.unshift(`Tab/${GLYPHS.prev}${GLYPHS.next} navigate`);
 				tail.push(screenHint(theme, renderWidth, hints));
 				if (question.multiSelect) {

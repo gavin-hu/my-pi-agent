@@ -242,16 +242,18 @@ export class AgentsBoardComponent implements Component {
 		for (let index = start; index < end; index++) {
 			const run = runs[index];
 			const view = statusView(run.status);
+			const selected = index === this.cursor.indexOf(runs, keyOf);
 			const usage = run.usage ? formatUsageStats(run.usage) : "";
 			const trailing = [view.label, formatBackgroundDuration(run, this.now), usage]
 				.filter(Boolean)
 				.join(SEPARATORS.item);
 			body.push(
 				statusRow(this.theme, w, {
-					selected: index === this.cursor.indexOf(runs, keyOf),
+					selected,
 					glyph: view.glyph,
 					glyphRole: view.role,
 					label: `${run.id} ${sanitizeLine(run.agent)}  ${taskLabel(run)}`,
+					labelRole: selected ? "accent" : "label",
 					trailing,
 				}),
 			);
@@ -259,9 +261,6 @@ export class AgentsBoardComponent implements Component {
 
 		const focused = runs[this.cursor.indexOf(runs, keyOf)];
 		const running = runs.filter((run) => run.status === "running").length;
-		const detail = focused
-			? `${focused.id} ${sanitizeLine(focused.agent)}${SEPARATORS.item}${statusView(focused.status).label}${SEPARATORS.item}${formatBackgroundDuration(focused, this.now)}`
-			: "";
 		const hints: ScreenHint[] = ["Esc close", { text: "Enter detail", color: "accent" }];
 		if (focused && canCollect(focused)) hints.push({ text: "c collect", color: "accent" });
 		if (focused?.status === "running") hints.push({ text: "x cancel", color: "warning" });
@@ -274,7 +273,6 @@ export class AgentsBoardComponent implements Component {
 			),
 			body,
 			range: clipped ? formatRange(this.theme, w, { start, end, total: runs.length }) : undefined,
-			detail: detail ? [clip(`  ${paint(this.theme, "meta", detail)}`, w)] : undefined,
 			hint: screenHint(this.theme, w, hints),
 		});
 	}

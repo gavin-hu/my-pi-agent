@@ -187,9 +187,14 @@ function changeDescription(entry: ReviewEntry): string {
 		: `renamed from ${from}; reverting moves it back`;
 }
 
-/** What the focused review row will do, in words. */
+/**
+ * What the focused review row will do, in words.
+ *
+ * The keys are the hint row's job: a detail line long enough to repeat them is
+ * clipped mid-sentence at the widths the screen runs at.
+ */
 export function formatReviewDetail(entry: ReviewEntry): string {
-	return `${SELECTION_MARKS[entry.change]} — ${changeDescription(entry)}${SEPARATORS.item}${formatReviewEntryCounts(entry)}. Enter opens the diff; r reverts it.`;
+	return `${SELECTION_MARKS[entry.change]} — ${changeDescription(entry)}${SEPARATORS.item}${formatReviewEntryCounts(entry)}.`;
 }
 
 /** Headless `/review` text for modes without a custom screen. */

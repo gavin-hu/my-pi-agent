@@ -75,6 +75,8 @@ export interface StatusRow {
 	glyph: string;
 	glyphRole: TuiRole;
 	label: string;
+	/** Role for the label. Default `label`; a list accents its focused row. */
+	labelRole?: TuiRole;
 	trailing: string;
 	/** Role for the trailing meta. Default `faint`. */
 	trailingRole?: TuiRole;
@@ -88,6 +90,7 @@ export function statusRow(theme: Theme, width: number, row: StatusRow): string {
 		glyph: row.glyph,
 		glyphRole: row.glyphRole,
 		label: row.label,
+		labelRole: row.labelRole,
 		trailing: row.trailing,
 		trailingRole: row.trailingRole ?? "faint",
 	});

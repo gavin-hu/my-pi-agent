@@ -11,7 +11,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { emptyState, listRow } from "../../lib/tui/rows.ts";
@@ -89,10 +89,11 @@ export class RewindListComponent implements Component {
 		const cursor = this.cursor;
 		const focused = this.points[cursor.selected];
 		const detail = focused ? formatRewindDetail(Boolean(focused.snapshot), focused.snapshot?.id) : "";
+		const detailLines = detail ? [clip(`  ${paint(this.theme, "meta", detail)}`, w)] : undefined;
 		cursor.visible = fitRows(
 			this.options.viewportRows,
 			this.points.length,
-			SCREEN_CHROME_ROWS + (detail ? 1 : 0),
+			SCREEN_CHROME_ROWS + detailBlockRows(detailLines),
 			SCREEN_DEFAULT_ITEMS,
 		);
 
@@ -127,7 +128,7 @@ export class RewindListComponent implements Component {
 			range: cursor.clipped(this.points.length)
 				? formatRange(this.theme, w, { start, end, total: this.points.length })
 				: undefined,
-			detail: detail ? [clip(`  ${paint(this.theme, "meta", detail)}`, w)] : undefined,
+			detail: detailLines,
 			hint: this.hint(w),
 		});
 	}

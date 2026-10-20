@@ -527,9 +527,9 @@ export class MemoryPickerComponent implements Component {
 					? screenHint(this.theme, w, ["m merge into the focused note", "Esc cancel merge", "↑/↓"])
 					: screenHint(this.theme, w, [
 							"Esc close",
-							"Enter/e edit",
-							"a add",
-							"d forget",
+							{ text: "Enter/e edit", color: "accent" },
+							{ text: "a add", color: "accent" },
+							{ text: "d forget", color: "warning" },
 							"m merge",
 							"p move",
 							"s/Tab scope",

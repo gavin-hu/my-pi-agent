@@ -34,6 +34,22 @@ Reach for a `lib/tui/` primitive before composing your own: `plainRule` /
 meter, `emptyState` for an empty screen, `splitRow` / `fitCells` for two columns,
 `LinePane` for a scrollable log, and `ListCursor` / `IdCursor` for selection.
 
+## Docked list screens
+
+Every list screen is `dockListFrame`: the header rule, an optional summary and
+its blank line, the body, an optional range row, an optional detail block, and
+the blank-padded hint. The frame owns that spacing, so a screen never hand-rolls
+it — including the blank line above the detail block, which keeps a footnote
+from reading as one more row. A screen that sizes its body through `fitRows`
+counts the block with `detailBlockRows`, or the hint row is pushed off the
+bottom of a short terminal.
+
+The block carries footnotes about the focused row: what the row does not already
+say. Never repeat its label, verdict, or duration — the row is one line above,
+and a second copy is noise the reader has to compare. Prose that the hint row
+already says with keys does not belong there either; a sentence that long is
+clipped mid-word at the widths the screen runs at.
+
 ## Color is a role
 
 Resolve colors through a [`tokens.ts`](./tokens.ts) role
@@ -41,6 +57,13 @@ Resolve colors through a [`tokens.ts`](./tokens.ts) role
 token named inline; a theme swap must re-skin every surface. Use the shared
 `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead of retyping
 their literals, and `screenHint` / Pi's `keyHint` for the hint row.
+
+A list accents the focused row's label (`labelRole: selected ? "accent" :
+"label"`); the `❯` marker alone is not enough to tell which row is live. The
+hint row colors by role, not by taste: `accent` for the screen's primary action,
+`warning` for one that discards state (a revert, a kill, a stop, a clear, a
+forget), and `error` for one that ends the session. Keys that navigate, scroll,
+or select stay dim, so a colored key is one worth a second thought.
 
 ## Width is columns
 
