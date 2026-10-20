@@ -377,8 +377,8 @@ separators, icons, status keys), and the turn separator in
 [`separator/config.ts`](./separator/config.ts) (glyph, label prefix, padding,
 minimum duration, outcome wording, colors).
 
-Every key of every section is listed with its type, default, and bounds in the
-[configuration reference](../../docs/references/bytefly-config.md); this section
+Every key of every section is listed with its type, default, and bounds in
+[`docs/configuration.md`](../../docs/configuration.md); this section
 covers what that table cannot — when each section is read, and what the cost
 does when no rate matches.
 
