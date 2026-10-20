@@ -13,7 +13,7 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/plan <task>` | Turn plan mode on and send the task |
 | `/plan list` | List saved plans, newest first |
 | `/plan review [path]` | Review a plan in the browser (comments only) |
-| `/init` | Create or update `AGENTS.md` through a reviewed plan |
+| `/init` | Create or update `AGENTS.md` through a built-in interview and reviewed plan |
 | `Ctrl+Alt+P` | Toggle plan mode where the terminal sends the chord |
 | `/check` | Run every detected check |
 | `/check test` | Run the detected test command |

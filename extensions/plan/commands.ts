@@ -208,7 +208,7 @@ export function registerCommands(
 	});
 
 	pi.registerCommand("init", {
-		description: "Create or update AGENTS.md through a plan you review first",
+		description: "Initialize or update AGENTS.md through an interactive interview and a reviewed plan",
 		handler: async (_args, ctx) => {
 			// Loading only this extension leaves the packaged skill behind. Refuse before
 			// entering plan mode, so a failed invocation does not change the session.

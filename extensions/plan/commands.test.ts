@@ -381,19 +381,30 @@ describe("/init", () => {
 		expect(notifications.some((message) => message.includes("packaged skill"))).toBe(true);
 	});
 
-	test("packages a plan-first, quality-gated skill", () => {
+	test("packages a built-in interview, plan-first, quality-gated skill", () => {
 		const skill = readFileSync(join(import.meta.dir, "../../skills/init/SKILL.md"), "utf-8");
+		const questions = readFileSync(
+			join(import.meta.dir, "../../skills/init/references/interview-questions.md"),
+			"utf-8",
+		);
 		const quality = readFileSync(join(import.meta.dir, "../../skills/init/references/agents-md-quality.md"), "utf-8");
 
 		expect(skill).toContain("name: init");
-		expect(skill).toContain("create or update `AGENTS.md`");
-		expect(skill).toContain("empty or near-empty repo");
-		expect(skill).toContain("review it, then draft exact edits");
-		expect(skill).toContain("write/edit AGENTS.md");
+		expect(skill).toContain("ask_user_question");
+		expect(skill).toContain("Existing project, no `AGENTS.md`");
+		expect(skill).toContain("Empty or near-empty repository");
+		expect(skill).toContain("record each unanswered gap under assumptions");
 		expect(skill).toContain("exit_plan_mode");
+		expect(skill).toContain("references/interview-questions.md");
 		expect(skill).toContain("references/agents-md-quality.md");
-		expect(quality).toContain("Existing files");
-		expect(quality).toContain("Empty repository");
-		expect(quality).toContain("Final read-back");
+		expect(questions).toContain("## Deterministic default sets");
+		expect(questions).toContain("| Isolation |");
+		expect(questions).toContain("| Existing file |");
+		expect(questions).toContain("| Stack |");
+		expect(quality).toContain("## Question-bank use");
+		expect(quality).toContain("## Interview quality");
+		expect(quality).toContain("## Existing files");
+		expect(quality).toContain("## Empty repository");
+		expect(quality).toContain("## Final read-back");
 	});
 });

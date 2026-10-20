@@ -1,9 +1,33 @@
 # AGENTS.md quality checklist
 
-Use this before saving the plan and again after writing the file. A draft fails
-when any applicable answer is no.
+Use this before drafting and again after writing the file. A draft fails when any
+applicable answer is no. The interview and the written file are checked together:
+an answered question that never reaches the file is as much a defect as an
+invented command.
 
-## Accuracy
+## Question-bank use
+
+- [ ] The first call used the deterministic default set for the repository state.
+- [ ] At most four questions were asked in the call.
+- [ ] Options were filled from evidence where the bank names commands, files, or
+      instruction documents.
+- [ ] No question duplicated a fact the recon already answered.
+- [ ] No question asked for a secret, credential, token, environment value, or
+      personal data.
+- [ ] A second call happened only for a material ambiguity, not to collect extra
+      preferences.
+
+## Interview quality
+
+- [ ] Every answer is reflected in the draft, or the plan states why it was not
+      adopted.
+- [ ] A cancelled or unavailable interview left explicit assumptions instead of
+      guessed facts.
+- [ ] A conflict between an answer and repository evidence is visible in the
+      plan, with the chosen resolution.
+- [ ] The plan names which questions were asked and what the user answered.
+
+## Evidence accuracy
 
 - [ ] Every command is copied from a manifest, script, Makefile, CI file, or docs
       page that defines it. No command is guessed.
@@ -11,12 +35,16 @@ when any applicable answer is no.
 - [ ] Every claimed convention is visible in the code or contributor docs.
 - [ ] Unknown facts are omitted or named as unknown. They are never filled with
       plausible-sounding placeholders.
+- [ ] An answer that contradicts the code is treated as intent, not as evidence
+      that the code is wrong.
 
 ## Specificity
 
 - [ ] The file tells an agent something it could not learn from a quick look.
 - [ ] It names the actual test, lint, typecheck, and single-test commands.
 - [ ] It names the real architecture boundaries and the traps that matter here.
+- [ ] Isolation, verification, and completion rules say what to do, not just what
+      to value.
 - [ ] Generic advice that would fit any repository is removed.
 
 ## Concision
@@ -32,6 +60,8 @@ when any applicable answer is no.
 - [ ] Commands include their working directory when it is not the root.
 - [ ] Invariants name the failure they prevent.
 - [ ] There is no advice that cannot be followed.
+- [ ] Dependency, network, and off-limits rules name the boundary an agent must
+      respect.
 
 ## Stability
 
@@ -50,20 +80,24 @@ when any applicable answer is no.
 
 - [ ] Correct existing instructions are preserved.
 - [ ] Stale instructions are changed only when the replacement is supported by
-      repository evidence.
+      repository evidence or an explicit answer.
 - [ ] The plan lists exact edits, not a wholesale rewrite.
+- [ ] A rewrite records what is being removed and why.
 - [ ] A genuinely accurate file produces a no-op plan instead of churn.
 
 ## Empty repository
 
 - [ ] No commands, architecture, or conventions are invented.
 - [ ] The file says the repository is newly initialized.
-- [ ] Only known facts are recorded.
+- [ ] Only known facts and interview answers are recorded.
 - [ ] Empty sections are omitted.
+- [ ] Missing commands are named as missing, not replaced with a framework
+      default.
 
 ## Final read-back
 
 - [ ] The written file matches the approved plan.
 - [ ] The file was read back from disk, not recalled from memory.
 - [ ] Only `AGENTS.md` changed.
-- [ ] The report names the path and any real follow-up.
+- [ ] The report names the path, whether the interview was answered or fell back
+      to assumptions, and any real follow-up.
