@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `file-browse`: the sidebar tree gains a `fold all` / `expand all` control and
+  a `-` shortcut, so a deep tree folds down to its top level in one keystroke.
+  A path filter still shows every folder, so a folded branch cannot hide a
+  match, and clearing the filter restores the tree exactly as it was.
+
 ### Changed
 
 - `plan`: the injected plan-mode context states each rule once — the shell rule no

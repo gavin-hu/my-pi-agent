@@ -101,6 +101,9 @@ ${WEB_COMPONENTS_CSS}
 .browse-quick-open{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;margin-bottom:var(--space-2);padding:6px var(--space-2);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
 .browse-quick-open:hover{border-color:var(--accent);color:var(--accent)}
 .browse-quick-open kbd{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--dim)}
+.browse-side__filters{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)}
+.browse-side__filters .bf-field{flex:1 1 auto;min-width:0}
+.browse-side__filters .bf-btn{flex:0 0 auto;white-space:nowrap}
 .browse-cat{width:16px;height:16px;flex:0 0 16px;color:var(--accent)}
 .browse-cat.doc{color:var(--muted)}.browse-cat.img{color:var(--success)}.browse-cat.cfg{color:var(--warn)}.browse-cat.arc{color:var(--warn)}
 .browse-heading{margin:0 0 var(--space-3);font-size:var(--fs-lg)}
@@ -237,7 +240,7 @@ ${docHead({ title: layout.title, css: STYLES })}
 <body class="bf-app">
 <a class="skip" href="#main">Skip to content</a>
 <p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
-<noscript><style>.bf-field{display:none}.bf-tree__tw--toggle{visibility:hidden}.bf-btn{display:none}.browse-quick-open{display:none}th .bf-sort{pointer-events:none;cursor:default}</style></noscript>
+<noscript><style>.bf-field{display:none}.browse-side__filters{display:none}.bf-tree__tw--toggle{visibility:hidden}.bf-btn{display:none}.browse-quick-open{display:none}th .bf-sort{pointer-events:none;cursor:default}</style></noscript>
 ${SPRITE}
 <header class="bf-app__header"><div class="bf-toolbar">
   ${brandLockup("browse")}
@@ -253,7 +256,10 @@ ${SPRITE}
     <summary class="bf-panel__summary">Files</summary>
     <aside class="bf-panel browse-side">
       <button type="button" class="browse-quick-open" id="quick-open" aria-haspopup="dialog"><span>quick open</span><kbd>/</kbd></button>
-      <label class="bf-field">⌕ <input class="bf-input" id="filter" type="search" placeholder="filter paths…" aria-label="Filter paths"></label>
+      <div class="browse-side__filters">
+        <label class="bf-field">⌕ <input class="bf-input" id="filter" type="search" placeholder="filter paths…" aria-label="Filter paths"></label>
+        <button type="button" class="bf-btn" id="fold-all" title="Fold or expand every folder">fold all</button>
+      </div>
       <nav class="bf-tree" aria-label="File tree">${renderTree(layout.tree, layout.currentRel, layout.summary)}</nav>
       <p class="bf-note" id="tree-empty" hidden>No matches.</p>
     </aside>
@@ -406,7 +412,12 @@ function lastSegment(path: string): string {
 
 /** The shortcuts every page shares, plus whatever the page adds. */
 function pageKeys(...extra: KeyHint[]): KeyHint[] {
-	return [{ keys: "/ ⌘K", label: "Quick open a file" }, ...extra, { keys: "?", label: "This sheet" }];
+	return [
+		{ keys: "/ ⌘K", label: "Quick open a file" },
+		{ keys: "-", label: "Fold or expand every folder" },
+		...extra,
+		{ keys: "?", label: "This sheet" },
+	];
 }
 
 /** An "on this page" outline from the headings the Markdown renderer emitted. */

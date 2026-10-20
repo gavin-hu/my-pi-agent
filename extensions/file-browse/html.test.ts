@@ -495,6 +495,24 @@ describe("renderDirectoryPage sort and styles", () => {
 		expect(html).toContain(".bf-toolbar .bf-theme-toggle{margin-left:auto}");
 	});
 
+	test("ships the tree fold control and its key", () => {
+		fixture = makeFixture();
+		const html = renderDirectoryPage({
+			rootLabel: fixture.root,
+			rel: "",
+			listing: { entries: [], total: 0, truncated: false },
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		});
+		expect(html).toContain('id="fold-all"');
+		expect(html).toContain('<div class="browse-side__filters">');
+		expect(html).toContain(".browse-side__filters .bf-field{flex:1 1 auto;min-width:0}");
+		expect(html).toContain(".browse-side__filters{display:none}");
+		expect(html).toContain('title="Fold or expand every folder"');
+		expect(html).toContain("<dd>Fold or expand every folder</dd>");
+	});
+
 	test("ships the quick-open trigger and palette styles", () => {
 		fixture = makeFixture();
 		const html = renderDirectoryPage({

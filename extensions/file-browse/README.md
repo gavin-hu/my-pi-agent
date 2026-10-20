@@ -22,11 +22,13 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   opens the browser (unless `autoOpen: false`).
 - **Two-pane UI.** A server-rendered tree, directory listings, and file pages,
   progressively enhanced by one first-party script (filter, lazy tree
-  expansion, thumbnail fallback). The tree scrolls in its own pane with quick
-  open and the filter pinned above it; below 860px it collapses into a `Files`
-  disclosure above the listing. A hairline progress bar tracks whichever
-  column is scrolling (the card body for a file or diff, the main column
-  otherwise), and the served folder names the root page.
+  expansion, thumbnail fallback). A folder folds from its twisty, and a
+  `fold all` / `expand all` button beside the filter folds the whole tree at
+  once. The tree scrolls in
+  its own pane with quick open and the filter pinned above it; below 860px it
+  collapses into a `Files` disclosure above the listing. A hairline progress bar
+  tracks whichever column is scrolling (the card body for a file or diff, the
+  main column otherwise), and the served folder names the root page.
 - **Rich previews.** Text, rendered Markdown, images (thumbnails), and
   binary/over-size download cards, with per-language icons.
 - **First-party syntax highlighting.** Code files render with keywords,
@@ -58,10 +60,11 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
 - **Quick open.** `/` (or `Ctrl/Cmd+K`, or the sidebar button) opens a fuzzy
   path finder over a capped index of the tree, with keyboard navigation and a
   highlighted match; Enter opens the file.
-- **Keyboard.** `/` or `Ctrl/Cmd+K` opens quick open, `u` toggles line wrapping,
-  `r` switches rendered and raw Markdown, `n`/`p` step between a diff's hunks,
-  and `?` opens a shortcut sheet. A diff's hunk headers pin to the top of the
-  code viewport while its body scrolls.
+- **Keyboard.** `/` or `Ctrl/Cmd+K` opens quick open, `-` folds or expands
+  every folder in the tree, `u` toggles line wrapping, `r` switches rendered and
+  raw Markdown, `n`/`p` step between a diff's hunks, and `?` opens a shortcut
+  sheet. A diff's hunk headers pin to the top of the code viewport while its
+  body scrolls.
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
 - **Git context.** A read-only header chip shows the checked-out branch (or
   detached head) and reflows on narrow screens. Uncommitted changes are stated
