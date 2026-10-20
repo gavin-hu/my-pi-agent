@@ -19,6 +19,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: the user guide teaches the keys that interrupt, clear, expand, and leave
+  (`Esc`, `Ctrl+C`, `Ctrl+O`, `Ctrl+D`), names the `/bytefly settings` rows instead
+  of raw config keys, states that only DeepSeek's rates are built in, and covers an
+  expired WeChat login and a busy browser port in troubleshooting.
+
+- docs: the root `SECURITY.md` is removed. Its supported-version rule, private
+  reporting route, and what a report includes now live in `docs/security.md`, which
+  already owned the trust boundaries.
+
 - docs: the user guide opens with a five-minute tour and a per-feature index, and
   its contents are grouped into five lines. It gains a glossary (including prompt,
   turn, and model), a section on cost and what leaves the machine, and screenshots

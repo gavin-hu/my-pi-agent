@@ -28,8 +28,8 @@ you press is written as a key such as `a` or `Esc`.
 
 1. **Install the pack**, then start Pi in a project folder
    ([Getting it installed](#getting-it-installed)).
-2. **Check it loaded** — type `/bytefly` and look for the pack's own rows,
-   sixteen of them ([Settings, health, and looks](#settings-health-and-looks)).
+2. **Check it loaded** — type `/bytefly` and look for the pack's rows in the
+   list ([Settings, health, and looks](#settings-health-and-looks)).
 3. **Plan a task before it writes** — `/plan <task>`, review the plan, press `a`
    to approve ([Plan first, then write](#plan-first-then-write)).
 4. **Know you can undo a turn** — `/rewind` lists the prompts you can return to
@@ -211,8 +211,10 @@ your own machine only (`127.0.0.1`): the file browser and the plan review;
 **Cost.** The pack is free and open source. What costs money is the AI model you
 talk to: your provider bills for the tokens (the units it bills by) a session
 uses, exactly as it does without this pack. The footer shows a running estimate,
-**Pricing** in `/bytefly settings` sets the currency and an optional budget, and
-reaching the budget warns you once without stopping anything.
+but only DeepSeek's rates are built in; another model needs its rates configured
+before the estimate means anything. **Pricing** in `/bytefly settings` sets the
+currency and an optional budget, and reaching the budget warns you once without
+stopping anything.
 
 **What leaves your machine.** The pack sends nothing about your session
 anywhere. Three things use the network, and only when they apply: a web search or
@@ -254,6 +256,17 @@ Three kinds of input are used throughout this guide:
 - **Single keys.** Full-screen panels and dialogs respond to single letters. `Esc`
   almost always closes the current screen or cancels, and footers list the keys
   that work there.
+
+### While it works
+
+Four keys worth knowing before the first long turn:
+
+| Key | What it does |
+|---|---|
+| `Esc` | Interrupt the answer in progress |
+| `Ctrl+C` | Clear what you have typed, without sending it |
+| `Ctrl+O` | Expand or collapse a long tool block |
+| `Ctrl+D` | Exit Pi, when the input box is empty |
 
 ## Asking for things in plain words
 
@@ -375,9 +388,8 @@ summarises progress.
    */todos: the summary, then each item's status at a glance.*
 
 3. When the assistant finishes the work, completed items are ticked and the
-   widget hides once everything is done. To keep it visible even then, set
-   `todo.hideWhenComplete` to `false` in `bytefly.json` (see
-   [Settings, health, and looks](#settings-health-and-looks)).
+   widget hides once everything is done. To keep it visible even then, the
+   [configuration reference](./references/bytefly-config.md) has the switch.
 
 **Walkthrough (goal).**
 
@@ -408,8 +420,8 @@ summarises progress.
 **Good to know.**
 
 - A goal survives `/resume` and `/tree`, so you can come back to it.
-- Achieved goals are hidden from the widget by default; `goal.achieved` in
-  `bytefly.json` keeps one visible.
+- Achieved goals are hidden from the widget by default; set **Achieved goal** to
+  Show in `/bytefly settings` to keep one visible.
 - The to-do list is a flat checklist on purpose: no priorities, due dates, or
   sub-items.
 
@@ -525,9 +537,10 @@ to act on it.
   sanitized, so stray terminal codes cannot garble your screen.
 - A watcher keeps the most recent 200 matches and lives only for the session.
 - Both can be set to **wake** the assistant when they finish or match: "and wake
-  me when it's done" asks for exactly that. The same switches exist as
-  `job.wakeOnFinish` and `watch.wakeOnMatch` in settings.
-- A job can be left running when the session closes (`job.detachedByDefault`).
+  me when it's done" asks for exactly that. The same switches are **Wake when a
+  job finishes** and **Wake on a match** in `/bytefly settings`.
+- A job can be left running when the session closes: **Keep jobs after exit** in
+  `/bytefly settings`.
 
 ## Delegating to specialist helpers
 
@@ -622,11 +635,11 @@ This feature needs `git` installed and a project folder that git tracks.
 - A name can be a pull-request reference; the worktree is then created from that
   branch, which makes reviewing someone else's change a one-liner.
 - A `.worktreeinclude` file in your project lists extra files (such as a local
-  `.env`) to copy into each new worktree. Without one, `worktree.include` in
-  settings does the same.
-- By default a worktree starts from the newest remote version of the main branch
-  (`worktree.baseRef: "fresh"`); `"head"` starts from your current local commit
-  instead.
+  `.env`) to copy into each new worktree. Without one, the configuration
+  reference can list the same files.
+- By default a worktree starts from the newest remote version of the main branch;
+  a setting in the configuration reference starts it from your current local
+  commit instead.
 - On Windows the PowerShell tool is refused while you are inside a worktree,
   because it cannot be pointed at the isolated folder.
 
@@ -672,8 +685,9 @@ This feature needs `git`. Snapshots are stored as git references under
 
 **Good to know.**
 
-- Twenty snapshots are kept by default (`rewind.max`); the oldest are pruned, and
-  a pruned ref is gone rather than hidden.
+- Twenty snapshots are kept by default; the oldest are pruned, and a pruned ref is
+  gone rather than hidden. **Snapshots kept** in `/bytefly settings` changes the
+  number.
 - The per-file checklist exists only in the terminal interface. In text-only
   modes `/rewind` restores the whole tree.
 - Rewind only tracks your project; files outside it are untouched.
@@ -732,8 +746,8 @@ everything you do).
 
 - A note is a single line of at most 500 characters, which keeps the reminder
   short.
-- Notes are only injected up to a size budget (`memory.maxInjectBytes`); the
-  doctor names any note that does not fit.
+- Notes are only injected up to a size budget; the doctor names any note that does
+  not fit.
 - Project notes are only used when the project folder is trusted by Pi. A move
   into an untrusted project is refused.
 - The files are plain markdown at `.pi/memory.md` in the project and `memory.md`
@@ -773,9 +787,8 @@ no key and no account, and can be pointed at a different provider if you prefer.
   something internal.
 - PDF reading is optional; if the PDF reader is not installed the reply says so
   instead of failing silently.
-- To use a self-hosted SearXNG instance or a Brave API key, set the `web-access`
-  section in `bytefly.json`; the
-  [configuration reference](./references/bytefly-config.md) lists the keys. The
+- To use a self-hosted search service or a Brave API key, the
+  [configuration reference](./references/bytefly-config.md) has the keys. The
   default stays keyless until a provider is both named and configured.
 
 ## Documents and files
@@ -841,9 +854,9 @@ outside it is refused.
 - The browser is read-only: it cannot edit, save, or delete anything.
 - It listens only on your own machine (`127.0.0.1`), never on your network.
   [Security](./security.md) explains the boundary in full.
-- The port is chosen once per session. Set `"port"` in the `file-browse` section
-  of `bytefly.json` to pin a specific one. A pinned port that is already in use is
-  reported, not silently replaced.
+- The port is chosen once per session; the configuration reference can pin a
+  specific one. A pinned port that is already in use is reported, not silently
+  replaced.
 
 ### Opening a file in its usual application
 
@@ -1053,6 +1066,11 @@ lists them so you can delete what you no longer want.
 - **A configuration file is broken.** A malformed `bytefly.json` is ignored rather
   than breaking the session, and the doctor reports the file that failed to
   parse.
+- **WeChat stopped answering.** The login can expire; run `/wechat login` to scan
+  again, and `/wechat doctor` to see the connection and any recent failures.
+- **The browser page will not open.** `/browse` serves the page on your own
+  machine at `http://127.0.0.1:<port>`, where the `◉` chip names the port. A
+  pinned port that is already taken is reported rather than moved.
 - **The update check is noisy, or blocked.** Set `PI_OFFLINE=1` to stop all
   automatic network activity for a session.
 - **A file the assistant wrote is gone.** It may have been written inside a

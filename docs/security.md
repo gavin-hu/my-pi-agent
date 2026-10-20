@@ -2,9 +2,12 @@
 
 ## Reporting a vulnerability
 
-Use GitHub's private security advisories (`Security` → `Report a
-vulnerability`) rather than a public issue. See [`../SECURITY.md`](../SECURITY.md)
-for supported versions and scope.
+Only the newest tagged release is supported, so reproduce a report against that
+tag first. Use GitHub's private security advisories (`Security` → `Report a
+vulnerability`) rather than a public issue, and include the affected extension or
+surface, the package version, your OS, reproduction steps, and the impact you
+believe it has. The boundaries below are what is in scope; a problem in Pi itself
+or in a third-party dependency belongs upstream.
 
 ## Trust boundaries
 
