@@ -50,9 +50,8 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   tables, `<kbd>`, images), so it renders without becoming an injection path.
   Fenced code
   blocks are syntax-highlighted when the fence names a supported language.
-  Headings get stable anchor ids, so in-document `#anchor` links and a table of
-  contents work, and a document with four or more headings gets an **On this
-  page** outline. Raw HTML in the source is escaped, never executed, and
+  Headings get stable anchor ids, so in-document `#anchor` links work. Raw HTML
+  in the source is escaped, never executed, and
   external images are shown as links rather than fetched.
 - **Sortable listings.** The Name / Size / Modified headers sort the current
   directory, directories first, and the choice is remembered per browser.
@@ -261,9 +260,8 @@ document and the project document (project wins):
   switch is a server-side `?raw=1`
   link, so it works without JavaScript. Headings are demoted one level so the
   card title stays the page's only `h1`, and each gets a slug `id` (unique in
-  the document); `renderMarkdownDocument` returns the heading list and `html.ts`
-  renders an **On this page** disclosure for four or more headings. Set
-  `markdown: false` to fall back to the plain-text view. A fenced code block
+  the document). Set `markdown: false` to fall back to the plain-text view. A
+  fenced code block
   whose info string names a supported
   language is highlighted through `lib/highlight.ts` (either an extension or a
   long-form alias, `fenceLanguage`); an absent or unknown language stays plain.

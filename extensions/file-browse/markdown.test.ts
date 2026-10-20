@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderMarkdown, renderMarkdownDocument } from "./markdown.ts";
+import { renderMarkdown } from "./markdown.ts";
 
 describe("renderMarkdown blocks", () => {
 	test("renders ATX headings and keeps trailing hashes that are part of the text", () => {
@@ -11,16 +11,6 @@ describe("renderMarkdown blocks", () => {
 	test("gives headings a slug id and suffixes repeats", () => {
 		expect(renderMarkdown("# Hello, World!")).toBe('<h2 id="hello-world">Hello, World!</h2>');
 		expect(renderMarkdown("# Setup\n\n## Setup")).toBe('<h2 id="setup">Setup</h2>\n<h3 id="setup-1">Setup</h3>');
-	});
-
-	test("returns headings with anchors from renderMarkdownDocument", () => {
-		const doc = renderMarkdownDocument("# Title\n\n## Part one\n\n### Deep");
-		expect(doc.headings).toEqual([
-			{ level: 2, id: "title", text: "Title" },
-			{ level: 3, id: "part-one", text: "Part one" },
-			{ level: 4, id: "deep", text: "Deep" },
-		]);
-		expect(doc.html).toContain('<h2 id="title">Title</h2>');
 	});
 
 	test("renders paragraphs and hard breaks", () => {
@@ -257,10 +247,10 @@ describe("renderMarkdown raw HTML", () => {
 		expect(renderMarkdown("<b>bold")).toBe("<p><b>bold</b></p>");
 	});
 
-	test("keeps a raw HTML heading out of the outline", () => {
-		const doc = renderMarkdownDocument("<h2>Raw</h2>\n\n# Markdown");
-		expect(doc.headings).toEqual([{ level: 2, id: "markdown", text: "Markdown" }]);
-		expect(doc.html).toContain("<h2>Raw</h2>");
+	test("leaves a raw HTML heading as written", () => {
+		const html = renderMarkdown("<h2>Raw</h2>\n\n# Markdown");
+		expect(html).toContain("<h2>Raw</h2>");
+		expect(html).toContain('<h2 id="markdown">Markdown</h2>');
 	});
 
 	test("does not read a link definition out of an HTML block", () => {
