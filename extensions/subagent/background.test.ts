@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { settle } from "../../test/helpers/process.ts";
 import { makeClock } from "../../test/helpers/clock.ts";
 import { BUILTIN_AGENTS } from "./agents.ts";
@@ -85,7 +86,8 @@ describe("background runtime", () => {
 		const started = h.start();
 		expect(started.ok).toBe(true);
 		if (!started.ok) return;
-		expect(started.run).toMatchObject({ id: "a1", agent: AGENT, status: "running", cwd: "/repo" });
+		// The runtime canonicalizes the working directory, so the assertion does too.
+		expect(started.run).toMatchObject({ id: "a1", agent: AGENT, status: "running", cwd: resolve("/repo") });
 		await settle();
 
 		const run = h.run();

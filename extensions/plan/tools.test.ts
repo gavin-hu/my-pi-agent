@@ -1064,7 +1064,7 @@ describe("set_plan_steps", () => {
 
 		expect(result.isError).toBeUndefined();
 		expect(toolCalls).toHaveLength(0);
-		expect(result.content[0].text).toContain("(1/1 done) in .pi/plans/");
+		expect(result.content[0].text).toContain(`(1/1 done) in ${join(".pi", "plans")}`);
 		expect(result.content[0].text).not.toContain("todo item");
 	});
 
