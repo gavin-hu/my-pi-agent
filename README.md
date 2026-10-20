@@ -11,6 +11,10 @@
 of extensions and themes to the agent you already use — install the pack, turn
 off what you do not want, and keep using Pi unchanged.
 
+This page is the catalog and the setup instructions. For how to use a feature —
+the keys, the commands, and what you should see — start with the
+[user guide](./docs/user-guide.md).
+
 ![A terminal window running the Pi TUI with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar](assets/chrome.png)
 
 ## Contents
@@ -163,6 +167,9 @@ is the `chrome.rail` setting.
 
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).
+
+Ready to use one? The [user guide](./docs/user-guide.md) has a walkthrough for
+each: the first run, the keys that matter, and what to expect on screen.
 
 ## Configuration
 
