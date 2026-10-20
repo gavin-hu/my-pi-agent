@@ -30,6 +30,12 @@ const LOADER_MESSAGE = "Understanding goal…";
 /** The confirm/edit dialog title, reading as a confirmation of understanding. */
 const EDITOR_TITLE = "Confirm the goal — Enter to save, Esc to cancel";
 
+/**
+ * Sentinel line above the answer notes in the confirm editor. Everything below
+ * it is dropped on save, so accepting the prefill records the goal alone.
+ */
+export const NOTES_FENCE = "--- notes (not saved) ---";
+
 /** What {@link prepareGoalPrompt} decided: use this text, or cancel. */
 export type GoalPromptOutcome = { action: "use"; text: string } | { action: "cancel" };
 
@@ -155,21 +161,38 @@ async function askQuestions(
 }
 
 /**
- * Carry the answers into the editor as notes under the restatement.
+ * Carry the answers into the editor as notes under the restatement, below
+ * {@link NOTES_FENCE}.
  *
  * No model call rewrites the goal from the answers, so they are shown verbatim
  * with the question that asked for them: the user folds them into the sentence
- * or deletes them, and whatever the editor holds is what gets recorded.
+ * above the fence, and the notes themselves are dropped on save.
  */
 function withAnswers(goal: string, answers: readonly ClarifyAnswer[]): string {
 	if (answers.length === 0) return goal;
-	return [goal, "", ...answers.map((answer) => `Also: ${answer.question} → ${answer.answer}`)].join("\n");
+	const notes = answers.map((answer) => `Also: ${answer.question} → ${answer.answer}`);
+	return [goal, "", NOTES_FENCE, ...notes].join("\n");
+}
+
+/**
+ * Drop the answer notes from the editor's text.
+ *
+ * They are scaffolding, so the default exit (Enter over the prefill) records the
+ * goal alone instead of the questions it was asked. Cutting at the fence rather
+ * than at each `Also:` line keeps a goal that itself starts a line with `Also:`
+ * intact, and deleting the fence keeps everything below it — the escape hatch
+ * for text the user meant to save.
+ */
+export function stripNotes(text: string): string {
+	const lines = text.split(/\r?\n/);
+	const fence = lines.findIndex((line) => line.trim() === NOTES_FENCE);
+	return fence === -1 ? text : lines.slice(0, fence).join("\n").trim();
 }
 
 /** Open the confirm/edit dialog, or cancel when it is dismissed. */
 async function editOrCancel(ctx: ClarifyContext, prefill: string): Promise<GoalPromptOutcome> {
 	const edited = await ctx.ui.editor(EDITOR_TITLE, prefill);
-	return edited === undefined ? { action: "cancel" } : { action: "use", text: edited };
+	return edited === undefined ? { action: "cancel" } : { action: "use", text: stripNotes(edited) };
 }
 
 /**

@@ -89,21 +89,3 @@ export function normalizeGoal(raw: unknown): Goal | null {
 	}
 	return { objective, status };
 }
-
-/**
- * Validate a goal read back from a session branch.
- *
- * Unlike `normalizeGoal`, this never throws and returns `null` for anything it
- * cannot render safely. The stored objective is re-sanitized and re-checked
- * against `MAX_OBJECTIVE`, so tampered or migrated session data cannot feed raw
- * escape sequences or unbounded text into the widget or transcript.
- */
-export function normalizeStoredGoal(value: unknown): Goal | null {
-	if (!value || typeof value !== "object") return null;
-	const goal = value as Partial<Goal>;
-	if (typeof goal.objective !== "string") return null;
-	if (goal.status !== "active" && goal.status !== "achieved") return null;
-	const objective = sanitizeLine(goal.objective);
-	if (!objective || objective.length > MAX_OBJECTIVE) return null;
-	return { objective, status: goal.status };
-}

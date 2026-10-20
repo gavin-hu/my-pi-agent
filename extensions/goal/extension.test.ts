@@ -1,8 +1,15 @@
+/**
+ * End-to-end wiring for the goal extension: the real factory registered against
+ * a fake host, covering the session hooks, the injected reminder, the widget,
+ * and the `/goal` command flow. The tool's internals, the clarify loop, and the
+ * renderers are tested by their own files.
+ */
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import goal, { GOAL_CONTEXT_MARKER } from "./index.ts";
+import { NOTES_FENCE } from "./clarify.ts";
 import { GOAL_HELP } from "./format.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
@@ -441,7 +448,7 @@ describe("/goal command", () => {
 
 		expect(calls).toHaveLength(1);
 		expect(selects).toEqual([["The new one", "The old one"]]);
-		expect(editorCalls[0].prefill).toBe("Add parser tests\n\nAlso: Which parser? → The new one");
+		expect(editorCalls[0].prefill).toBe(`Add parser tests\n\n${NOTES_FENCE}\nAlso: Which parser? → The new one`);
 		expect(entries.at(-1)?.data).toEqual({
 			goal: { objective: "Add parser tests for the new parser, in CI", status: "active" },
 		});
@@ -596,6 +603,30 @@ describe("/goal command", () => {
 			customType: "goal",
 			data: { goal: { objective: "ship it", status: "achieved" } },
 		});
+	});
+
+	test("names the todo items still open when /goal done completes the goal", async () => {
+		const { command, ctx, notifications } = await started([
+			resultEntry(active("ship it")),
+			{
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolName: "todo",
+					details: {
+						todos: [
+							{ content: "Close the docs", status: "completed" },
+							{ content: "Ship the parser", status: "in_progress" },
+						],
+						action: "write",
+					},
+				},
+			},
+		]);
+		await command.handler("done", ctx);
+		expect(notifications.at(-1)).toBe(
+			"Goal achieved: ship it\n1 todo item is still open; close or clear the list if that work is done.",
+		);
 	});
 
 	test("marking an already achieved goal done again is a no-op", async () => {

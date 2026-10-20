@@ -23,9 +23,9 @@ How the `goal` call and its result look in the transcript — the call line as a
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done. Achieving it while the branch's todo list still has open items names
   the count in the result (`1 todo item is still open…`), so the model closes the
-  *how* instead of declaring the *what* done over an unfinished list. The count
-  is read from the branch through `lib/todo-state.ts`; the structured result is
-  unchanged.
+  *how* instead of declaring the *what* done over an unfinished list; `/goal done`
+  appends the same sentence to its notice. The count is read from the branch
+  through `lib/todo-state.ts`; the structured result is unchanged.
 - Shows a persistent one-line rail above the editor whenever a goal exists,
   label-first to match the [`todo`](../todo/) widget, pinned at the top of the
   `Goal / Todos` stack when both are loaded:
@@ -49,8 +49,9 @@ How the `goal` call and its result look in the transcript — the call line as a
   model to restate the goal as it understands it and, when it cannot yet, to ask
   up to three questions — which the command asks directly through host dialogs
   (`select` / `input`). The answers are carried into the editor under the
-  restatement as `Also: <question> → <answer>` notes, and the user confirms,
-  folds them in, or corrects the goal there. `/goal set
+  restatement, below a `--- notes (not saved) ---` line, so accepting the
+  restatement as-is records the goal alone; folding an answer into the sentence
+  above the line keeps it. `/goal set
   <prompt>` reuses the loop but records without starting a turn, `/goal edit`
   changes the current goal in place, and `/goal raw <prompt>` records the typed
   words verbatim. The loop is best-effort and needs a dialog UI plus a model; the
@@ -86,10 +87,11 @@ to one logical line and stops model text from injecting terminal sequences.
 
 A successful `status: "achieved"` call also appends one line to the model-facing
 text when the branch's todo list still has open items — `3 todo items are still
-open; close or clear the list if that work is done.` The list is replayed from
-the branch, so the note appears whether the todos were written by the model, by
-`/todos`, or by an approved plan. It is text only: `details`,
-`structuredContent`, and the transcript header are unaffected.
+open; close or clear the list if that work is done.` `/goal done` shows the same
+text in its notice. The list is replayed from the branch, so the note appears
+whether the todos were written by the model, by `/todos`, or by an approved
+plan. It is text only: `details`, `structuredContent`, and the transcript header
+are unaffected.
 
 `goal` is allowlisted in `plan-mode` (alongside `todo`), so the model can record
 or update the objective during read-only exploration without leaving plan mode.
@@ -101,16 +103,17 @@ or achieved — is never replaced by that offer.
 ### `/goal` command
 
 The command has no tool result, so it persists each change as a `goal` custom
-entry; `reconstructGoal` replays both entry kinds in branch order.
+entry; `reconstructGoal` replays both entry kinds in branch order through
+`lib/goal-state.ts`, so its readers agree.
 
 | Command | What it does |
 |---|---|
 | `/goal` | Show the current goal, or the command usage when none is set. |
-| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, which carries the answers as notes — and start the run. Replacing a live goal is confirmed first. |
+| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, whose answer notes are dropped on save — and start the run. Replacing a live goal is confirmed first. |
 | `/goal raw <prompt>` | Skip the loop: record the typed words verbatim and start the run. |
 | `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. An explicit `set`/`edit <text>` replaces an active goal without asking, since the command already says so. |
 | `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
-| `/goal done` (or `/goal achieved`) | Mark the current goal achieved (idempotent). |
+| `/goal done` (or `/goal achieved`) | Mark the current goal achieved (idempotent), naming the todo items the list still has open. |
 | `/goal clear` | Clear the goal. |
 | `/goal help` (or `-h` / `--help`) | Show the command usage. |
 
@@ -198,8 +201,9 @@ depends on config.
   returns `{ understood, goal, questions }`. An understood goal opens a prefilled
   `ctx.ui.editor`, then `pi.sendUserMessage` sets and runs it. A not-understood
   goal has its questions asked through host dialogs, and its answers ride into
-  the editor as `Also:` notes under the restatement: no second model call
-  rewrites the goal, so the user is the one who folds them into the sentence.
+  the editor as `Also:` notes below a sentinel line that is cut away on save:
+  no second model call rewrites the goal, so the user is the one who folds an
+  answer into the sentence, above the line, when they want it kept.
   `/goal set`
   reuses the loop but skips the send; a bare `/goal set` or `/goal edit` opens
   the editor prefilled with the current goal; and `/goal raw` skips the loop
@@ -209,7 +213,8 @@ depends on config.
   state. The `goal` tool remains the model's silent setter.
 - **State in `details` and a custom entry.** A `goal` tool call stores the goal
   in its result's `details`; the `/goal` command appends a `goal` custom entry
-  (`pi.appendEntry`). `reconstructGoal` replays both in branch order, last
+  (`pi.appendEntry`). `reconstructGoal` reads the branch through
+  `lib/goal-state.ts`'s `lastGoal`, which replays both in branch order, last
   writer wins, so `/resume` and `/tree` reproduce the goal that was correct at
   that point and stale branches never leak. An appendEntry-only design was
   rejected because a durable side-channel would not branch with the
@@ -234,9 +239,11 @@ depends on config.
   restores the dimmed widget line; config only affects presentation.
 - **Completing the *what* checks the *how*.** Marking a goal achieved while the
   todo list still holds open items appends one line to the model-facing result
-  naming the count. The list is replayed from the branch by
-  `lib/todo-state.ts` (shared with plan's approval-time merge, which reads the
-  same channel), never by importing the `todo` extension. The same reasoning
+  naming the count, and `/goal done` puts the same sentence in its notice, so
+  neither path can close the *what* silently over an unfinished list. The list is
+  replayed from the branch by `lib/todo-state.ts` (shared with plan's
+  approval-time merge, which reads the same channel), never by importing the
+  `todo` extension. The same reasoning
   applies to the goal itself: `lib/goal-state.ts` owns the entry type and the
   objective limit, and plan reads the published goal through it. Only the text is
   affected: `details` and `structuredContent` stay the goal alone, and the
@@ -260,7 +267,7 @@ depends on config.
 | `clarify-prompt.ts` | The comprehension prompt and its message builder (pure). |
 | `clarify-parse.ts` | Parse the `{ understood, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
 | `clarify.ts` | The model call, its cancellable loader, the in-command questionnaire, and the confirm/edit dialog (host). |
-| `state.ts` | Branch reconstruction (pure). |
+| `state.ts` | Branch-derived facts (pure): the published replay from `lib/goal-state.ts`, the open-todo count, and `isActiveGoal`. |
 | `format.ts` | Model-facing and terminal text plus the header and rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (the `goal` section of `bytefly.json`). |
 | `tui.ts` | The persistent goal widget and the transcript status header. |

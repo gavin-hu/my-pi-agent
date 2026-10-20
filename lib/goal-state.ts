@@ -15,9 +15,10 @@
  * ignored rather than clearing a goal that is still valid.
  *
  * The entry type and the objective limit live here and are imported by `goal`, so
- * the publisher and the reader cannot drift. `goal` keeps its own reconstruction
- * (`extensions/goal/state.ts`) because it also drives the widget; this module is
- * the minimal contract other extensions may depend on.
+ * the publisher and the reader cannot drift. `goal` reads the branch through
+ * {@link lastGoal} as well — [`extensions/goal/state.ts`](../extensions/goal/state.ts)
+ * adds only the widget's active check and the open-todo count on top — so there
+ * is one replay, not two.
  */
 
 import { sanitizeLine } from "./format.ts";

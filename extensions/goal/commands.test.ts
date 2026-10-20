@@ -48,6 +48,12 @@ describe("goal verbs", () => {
 		}
 	});
 
+	test("completes a keyword in any case, as the parser accepts it", () => {
+		expect(completeGoalArg("S")).toContainEqual({ value: "set ", label: "set" });
+		expect(completeGoalArg("A")).toContainEqual({ value: "achieved", label: "achieved" });
+		expect(completeGoalArg("RAW")).toContainEqual({ value: "raw ", label: "raw" });
+	});
+
 	test("a bare verb is never treated as a prompt", () => {
 		for (const verb of GOAL_VERBS) {
 			const kind = parseGoalCommand(verb.word).kind;

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { clarifyRegistry, clarifyReply, SCOPE_QUESTION } from "../../test/helpers/fixtures/goal.ts";
 import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
-import { clarifyGoalPrompt, prepareGoalPrompt } from "./clarify.ts";
+import { clarifyGoalPrompt, NOTES_FENCE, prepareGoalPrompt, stripNotes } from "./clarify.ts";
 
 const model = { id: "test-model" };
 
@@ -93,6 +93,25 @@ describe("clarifyGoalPrompt", () => {
 	});
 });
 
+describe("stripNotes", () => {
+	test("drops the notes block and trims what the user kept above it", () => {
+		expect(stripNotes(`Add parser tests\n\n${NOTES_FENCE}\nAlso: Which parser? → The new one`)).toBe(
+			"Add parser tests",
+		);
+	});
+
+	test("leaves text with no fence untouched, including an Also: line the user wrote", () => {
+		const text = "Add parser tests\nAlso: keep the old parser working";
+		expect(stripNotes(text)).toBe(text);
+	});
+
+	test("keeps everything below a deleted fence", () => {
+		expect(stripNotes("Add parser tests\nAlso: Which parser? → The new one")).toBe(
+			"Add parser tests\nAlso: Which parser? → The new one",
+		);
+	});
+});
+
 describe("prepareGoalPrompt", () => {
 	test("prefills the editor with an understood restatement and uses the edited text", async () => {
 		const { registry } = registryReturning("Refactor the parser to stream input");
@@ -117,7 +136,9 @@ describe("prepareGoalPrompt", () => {
 		expect(outcome).toEqual({ action: "use", text: "Add parser tests for the new parser, in CI" });
 		expect(selects).toEqual([["The new one", "The old one"]]);
 		expect(calls).toHaveLength(1);
-		expect(editorCalls[0].prefill).toBe(`Add parser tests\n\nAlso: ${SCOPE_QUESTION.question} → The new one`);
+		expect(editorCalls[0].prefill).toBe(
+			`Add parser tests\n\n${NOTES_FENCE}\nAlso: ${SCOPE_QUESTION.question} → The new one`,
+		);
 		expect(notices).toHaveLength(0);
 	});
 
@@ -132,7 +153,7 @@ describe("prepareGoalPrompt", () => {
 
 		expect(outcome).toEqual({ action: "use", text: "Ship the parser" });
 		expect(selects).toHaveLength(0);
-		expect(editorCalls[0].prefill).toBe("Add parser tests\n\nAlso: Anything to add? → the new parser");
+		expect(editorCalls[0].prefill).toBe(`Add parser tests\n\n${NOTES_FENCE}\nAlso: Anything to add? → the new parser`);
 	});
 
 	test("sanitizes a free-form answer before it reaches the editor", async () => {
@@ -156,6 +177,15 @@ describe("prepareGoalPrompt", () => {
 
 		expect(selects).toHaveLength(0);
 		expect(editorCalls[0].prefill).toBe("Refactor the parser to stream input");
+	});
+
+	test("records the goal alone when the editor keeps the prefilled notes", async () => {
+		const { registry } = clarifyRegistry([clarifyReply()]);
+		// The default exit: the user presses Enter over the prefill unchanged.
+		const prefill = `Add parser tests\n\n${NOTES_FENCE}\nAlso: ${SCOPE_QUESTION.question} → The new one`;
+		const { ctx } = clarifyCtx(registry, { select: "The new one", editor: prefill });
+
+		expect(await prepareGoalPrompt(ctx, "add parser tests")).toEqual({ action: "use", text: "Add parser tests" });
 	});
 
 	test("cancels with a notice when a question dialog is dismissed", async () => {
